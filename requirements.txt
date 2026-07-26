@@ -1,0 +1,13 @@
+PySide6
+requests
+beautifulsoup4
+lxml
+pandas
+openpyxl
+Pillow
+reportlab
+tqdm
+tenacity
+pytest
+black
+ruff

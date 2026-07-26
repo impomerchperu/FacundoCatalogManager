@@ -12,3 +12,5 @@ logs/
 dist/
 build/
 *.spec
+.vscode/
+.env

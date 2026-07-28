@@ -9,7 +9,15 @@ class ProductRepository:
 
         query = """
         INSERT INTO products
-        (code, name, category, description, price, stock, image_path)
+        (
+            code,
+            name,
+            category,
+            description,
+            price,
+            stock,
+            image_path
+        )
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """
 
@@ -20,7 +28,7 @@ class ProductRepository:
             product.description,
             product.price,
             product.stock,
-            product.image_path,
+            product.image_path
         )
 
         self.db.execute_query(query, params)

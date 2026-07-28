@@ -1,15 +1,17 @@
 class Product:
+
     def __init__(
         self,
         code,
         name,
-        category="",
-        description="",
-        price=0,
-        stock=0,
+        category,
+        description,
+        price,
+        stock,
         image_path="",
-        product_id=None,
+        product_id=None
     ):
+
         self.id = product_id
         self.code = code
         self.name = name

@@ -3,19 +3,24 @@ from repositories.product_repository import ProductRepository
 
 
 class ProductService:
+
     def __init__(self):
+
         self.repository = ProductRepository()
 
+
     def create_product(self, product):
-        self.repository.create(product)
+
+        return self.repository.create(product)
+
 
     def update_product(self, product):
-        self.repository.update(product)
 
-    def delete_product(self, product_id):
-        self.repository.delete(product_id)
+        return self.repository.update(product)
+
 
     def get_products(self):
+
         return self.repository.get_all()
 
     def search_products(self, text):

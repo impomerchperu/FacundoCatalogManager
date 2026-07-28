@@ -1,22 +1,34 @@
+from database.db_manager import DBManager
 from models.product import Product
 from services.product_service import ProductService
 
-service = ProductService()
 
-producto = Product(
-    code="P002",
-    name="Segundo producto",
-    category="General",
-    description="Producto creado mediante servicio",
-    price=35.90,
-    stock=5,
-    image_path="",
-)
+def test_create_product():
 
-service.create_product(producto)
+    db = DBManager()
 
+    # limpiar datos anteriores
+    db.execute_query(
+        "DELETE FROM products"
+    )
 
-productos = service.get_products()
+    db.close()
 
-for p in productos:
-    print(p)
+    service = ProductService()
+
+    producto = Product(
+        code="TEST002",
+        name="Segundo producto",
+        category="General",
+        description="Producto creado mediante servicio",
+        price=35.90,
+        stock=5,
+        image_path="",
+    )
+
+    service.create_product(producto)
+
+    productos = service.get_products()
+
+    assert len(productos) == 1
+    assert productos[0][1] == "TEST002"

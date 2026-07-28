@@ -1,4 +1,4 @@
-from scraper.browser import Browser
+from scrapers.browser import Browser
 
 browser = Browser()
 

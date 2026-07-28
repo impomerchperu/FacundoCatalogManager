@@ -1,22 +1,25 @@
 from PySide6.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
-    QPushButton,
     QHBoxLayout,
+    QLineEdit,
+    QMainWindow,
     QMessageBox,
-    QLineEdit
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
 
-from gui.product_table import ProductTable
+from controllers.product_controller import ProductController
+from exporters.excel_exporter import ExcelExporter
+from exporters.pdf_exporter import PDFExporter
 from gui.product_dialog import ProductDialog
-from models.product import Product
+from gui.product_table import ProductTable
 
 
 class MainWindow(QMainWindow):
-
     def __init__(self):
         super().__init__()
+
+        self.controller = ProductController()
 
         self.setWindowTitle("Facundo Catalog Manager")
 
@@ -32,13 +35,9 @@ class MainWindow(QMainWindow):
 
         self.search_box = QLineEdit()
 
-        self.search_box.setPlaceholderText(
-            "Buscar producto..."
-        )
+        self.search_box.setPlaceholderText("Buscar producto...")
 
-        self.search_box.textChanged.connect(
-            self.search_products
-        )
+        self.search_box.textChanged.connect(self.search_products)
 
         layout.addWidget(self.search_box)
 
@@ -55,21 +54,26 @@ class MainWindow(QMainWindow):
         btn_delete = QPushButton("Eliminar")
         btn_delete.clicked.connect(self.delete_product)
 
+        btn_excel = QPushButton("Exportar Excel")
+        btn_excel.clicked.connect(self.export_excel)
+
+        btn_pdf = QPushButton("Exportar PDF")
+        btn_pdf.clicked.connect(self.export_pdf)
+
         botones.addWidget(btn_new)
         botones.addWidget(btn_edit)
         botones.addWidget(btn_delete)
+        botones.addWidget(btn_excel)
+        botones.addWidget(btn_pdf)
 
         layout.addLayout(botones)
-
 
     def new_product(self):
 
         dialog = ProductDialog(self)
 
         if dialog.exec():
-
             self.table.load_products()
-
 
     def edit_product(self):
 
@@ -78,42 +82,18 @@ class MainWindow(QMainWindow):
         if row < 0:
             return
 
-
         product_id = self.table.item(row, 1).data(32)
 
+        product = self.controller.get_product_by_id(product_id)
 
-        products = self.table.service.get_products()
+        if product is None:
+            QMessageBox.warning(self, "Error", "No se encontró el producto.")
+            return
 
-        selected = None
+        dialog = ProductDialog(self, product)
 
-        for p in products:
-
-            if p[0] == product_id:
-                selected = p
-                break
-
-
-        if selected:
-
-            product = Product(
-                code=selected[1],
-                name=selected[2],
-                category=selected[3],
-                description=selected[4],
-                price=selected[5],
-                stock=selected[6],
-                image_path=selected[7],
-                product_id=selected[0]
-            )
-
-
-            dialog = ProductDialog(self, product)
-
-
-            if dialog.exec():
-
-                self.table.load_products()
-
+        if dialog.exec():
+            self.table.load_products()
 
     def delete_product(self):
 
@@ -122,33 +102,64 @@ class MainWindow(QMainWindow):
         if row < 0:
             return
 
-
         product_id = self.table.item(row, 1).data(32)
-
 
         respuesta = QMessageBox.question(
             self,
             "Confirmar eliminación",
             "¿Desea eliminar este producto?",
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.Yes | QMessageBox.No,
         )
 
-
         if respuesta == QMessageBox.Yes:
-
-            self.table.service.delete_product(product_id)
+            self.controller.delete_product(product_id)
 
             self.table.load_products()
-
 
     def search_products(self, text):
 
         if text.strip() == "":
-
             self.table.load_products()
 
         else:
+            productos = self.controller.search_products(text)
 
-            productos = self.table.service.search_products(text)
+            self.table.load_products(productos)
 
-            self.table.load_products(productos)        
+    def export_excel(self):
+
+        from PySide6.QtWidgets import QFileDialog
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Guardar Excel", "catalogo.xlsx", "Excel (*.xlsx)"
+        )
+
+        if not filename:
+            return
+
+        productos = self.controller.get_products()
+
+        ExcelExporter.export(productos, filename)
+
+        QMessageBox.information(
+            self, "Correcto", "Archivo Excel exportado correctamente."
+        )
+
+    def export_pdf(self):
+
+        from PySide6.QtWidgets import QFileDialog
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Guardar PDF", "catalogo.pdf", "PDF (*.pdf)"
+        )
+
+        if not filename:
+            return
+
+        productos = self.controller.get_products()
+
+        PDFExporter.export(productos, filename)
+
+        QMessageBox.information(
+            self, "Correcto", "Catálogo PDF generado correctamente."
+        )

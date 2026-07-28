@@ -1,27 +1,25 @@
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QDialog,
-    QFormLayout,
-    QLineEdit,
     QDoubleSpinBox,
-    QSpinBox,
-    QPushButton,
-    QHBoxLayout,
-    QVBoxLayout,
-    QMessageBox,
     QFileDialog,
-    QLabel
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
 )
 
 from models.product import Product
 from services.product_service import ProductService
 from utils.image_manager import ImageManager
-from PySide6.QtWidgets import QLabel
-from PySide6.QtGui import QPixmap
-from PySide6.QtCore import Qt
 
 
 class ProductDialog(QDialog):
-
     def __init__(self, parent=None, product=None):
         super().__init__(parent)
 
@@ -63,7 +61,6 @@ class ProductDialog(QDialog):
         btn_image.clicked.connect(self.select_image)
 
         if self.product:
-
             self.code.setText(product.code)
             self.name.setText(product.name)
             self.category.setText(product.category)
@@ -88,19 +85,16 @@ class ProductDialog(QDialog):
         form.addRow("", btn_image)
         form.addRow("Vista previa:", self.image_preview)
 
-
         btn_save = QPushButton("Guardar")
         btn_cancel = QPushButton("Cancelar")
 
         btn_save.clicked.connect(self.save_product)
         btn_cancel.clicked.connect(self.reject)
 
-
         buttons = QHBoxLayout()
 
         buttons.addWidget(btn_save)
         buttons.addWidget(btn_cancel)
-
 
         layout = QVBoxLayout()
 
@@ -109,22 +103,16 @@ class ProductDialog(QDialog):
 
         self.setLayout(layout)
 
-
     def select_image(self):
 
         file, _ = QFileDialog.getOpenFileName(
-            self,
-            "Seleccionar imagen",
-            "",
-            "Imágenes (*.png *.jpg *.jpeg)"
+            self, "Seleccionar imagen", "", "Imágenes (*.png *.jpg *.jpeg)"
         )
 
         if file:
-
             self.image_path.setText(file)
 
             self.load_preview(file)
-
 
     def load_preview(self, path):
 
@@ -138,40 +126,25 @@ class ProductDialog(QDialog):
             self.image_preview.clear()
             return
 
-        pixmap = pixmap.scaled(
-            170,
-            170,
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation
-        )
+        pixmap = pixmap.scaled(170, 170, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         self.image_preview.setPixmap(pixmap)
-
 
     def save_product(self):
 
         if not self.code.text() or not self.name.text():
-
             QMessageBox.warning(
-                self,
-                "Datos incompletos",
-                "El código y el nombre son obligatorios"
+                self, "Datos incompletos", "El código y el nombre son obligatorios"
             )
 
             return
 
-
         image_path = self.image_path.text()
 
         if image_path:
-
-            image_path = ImageManager.save_image(
-                image_path,
-                self.code.text()
-            )
+            image_path = ImageManager.save_image(image_path, self.code.text())
 
         if self.product:
-
             product = Product(
                 code=self.code.text(),
                 name=self.name.text(),
@@ -180,13 +153,12 @@ class ProductDialog(QDialog):
                 price=self.price.value(),
                 stock=self.stock.value(),
                 image_path=image_path,
-                product_id=self.product.id
+                product_id=self.product.id,
             )
 
             self.service.update_product(product)
 
         else:
-
             product = Product(
                 code=self.code.text(),
                 name=self.name.text(),
@@ -199,17 +171,11 @@ class ProductDialog(QDialog):
 
             self.service.create_product(product)
 
-
         if self.product:
             mensaje = "Producto actualizado correctamente"
         else:
             mensaje = "Producto creado correctamente"
 
-
-        QMessageBox.information(
-            self,
-            "Correcto",
-            mensaje
-        )
+        QMessageBox.information(self, "Correcto", mensaje)
 
         self.accept()

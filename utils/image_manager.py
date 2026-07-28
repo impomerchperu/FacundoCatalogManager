@@ -3,45 +3,21 @@ import shutil
 
 
 class ImageManager:
-
-
-    IMAGE_FOLDER = "resources/images"
-
-
     @staticmethod
-    def save_image(source_path, product_code):
+    def save_image(source_path, code):
 
-        if not source_path:
-            return ""
+        folder = "resources/images"
 
-
-        os.makedirs(
-            ImageManager.IMAGE_FOLDER,
-            exist_ok=True
-        )
-
+        os.makedirs(folder, exist_ok=True)
 
         extension = os.path.splitext(source_path)[1]
 
+        filename = f"{code}{extension}"
 
-        filename = (
-            product_code.upper()
-            + extension.lower()
-        )
+        destination = os.path.join(folder, filename)
 
-
-        destination = os.path.join(
-            ImageManager.IMAGE_FOLDER,
-            filename
-        )
-
-        destination = destination.replace("\\", "/")
-
-
-        shutil.copy(
-            source_path,
-            destination
-        )
-
+        # Evitar copiar el mismo archivo
+        if os.path.abspath(source_path) != os.path.abspath(destination):
+            shutil.copy(source_path, destination)
 
         return destination

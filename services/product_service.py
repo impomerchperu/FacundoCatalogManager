@@ -1,101 +1,40 @@
-from database.db_manager import DBManager
+from models.product import Product
+from repositories.product_repository import ProductRepository
 
 
 class ProductService:
-
     def __init__(self):
-        self.db = DBManager()
-
+        self.repository = ProductRepository()
 
     def create_product(self, product):
-
-        query = """
-        INSERT INTO products
-        (code, name, category, description, price, stock, image_path)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """
-
-        params = (
-            product.code,
-            product.name,
-            product.category,
-            product.description,
-            product.price,
-            product.stock,
-            product.image_path,
-        )
-
-        self.db.execute_query(query, params)
-
-
-    def get_products(self):
-
-        query = """
-        SELECT *
-        FROM products
-        ORDER BY id DESC
-        """
-
-        return self.db.fetch_all(query)
-
-
-    def delete_product(self, product_id):
-
-        query = """
-        DELETE FROM products
-        WHERE id = ?
-        """
-
-        self.db.execute_query(query, (product_id,))
-
+        self.repository.create(product)
 
     def update_product(self, product):
+        self.repository.update(product)
 
-        query = """
-        UPDATE products
-        SET 
-            code = ?,
-            name = ?,
-            category = ?,
-            description = ?,
-            price = ?,
-            stock = ?,
-            image_path = ?
-        WHERE id = ?
-        """
+    def delete_product(self, product_id):
+        self.repository.delete(product_id)
 
-        params = (
-            product.code,
-            product.name,
-            product.category,
-            product.description,
-            product.price,
-            product.stock,
-            product.image_path,
-            product.id
-        )
-
-        self.db.execute_query(query, params)
-        
+    def get_products(self):
+        return self.repository.get_all()
 
     def search_products(self, text):
+        return self.repository.search(text)
 
-        query = """
-        SELECT *
-        FROM products
-        WHERE 
-            code LIKE ?
-            OR name LIKE ?
-            OR category LIKE ?
-        ORDER BY id DESC
-        """
+    def get_product_by_id(self, product_id):
 
-        value = f"%{text}%"
+        data = self.repository.get_by_id(product_id)
 
-        params = (
-            value,
-            value,
-            value
+        if not data:
+            return None
+
+        return Product(
+            code=data[1],
+            name=data[2],
+            category=data[3],
+            description=data[4],
+            price=data[5],
+            stock=data[6],
+            image_path=data[7],
+            product_id=data[0],
         )
-
-        return self.db.fetch_all(query, params)

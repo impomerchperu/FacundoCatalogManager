@@ -1,6 +1,5 @@
-from services.product_service import ProductService
 from models.product import Product
-
+from services.product_service import ProductService
 
 service = ProductService()
 
@@ -11,7 +10,7 @@ producto = Product(
     description="Producto creado mediante servicio",
     price=35.90,
     stock=5,
-    image_path=""
+    image_path="",
 )
 
 service.create_product(producto)

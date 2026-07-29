@@ -29,11 +29,9 @@ class ProductDialog(QDialog):
         self.product = product
         self.service = ProductService()
 
-        if product:
-            self.setWindowTitle("Editar Producto")
-        else:
-            self.setWindowTitle("Nuevo Producto")
-
+        self.setWindowTitle(
+            "Editar Producto" if product else "Nuevo Producto"
+        )
 
         # Campos
         self.code = QLineEdit()
@@ -51,7 +49,6 @@ class ProductDialog(QDialog):
         self.stock = QSpinBox()
         self.stock.setMaximum(999999)
 
-
         # Imagen
         self.image_path = QLineEdit()
         self.image_path.setReadOnly(True)
@@ -59,25 +56,23 @@ class ProductDialog(QDialog):
         self.image_preview = QLabel()
         self.image_preview.setFixedSize(180, 180)
         self.image_preview.setAlignment(Qt.AlignCenter)
-
         self.image_preview.setStyleSheet("""
             border: 1px solid gray;
             background: white;
         """)
 
-
         btn_image = QPushButton("Seleccionar imagen")
         btn_image.clicked.connect(self.select_image)
 
-
-        # Cargar datos si es edición
+        # Si es edición, cargar datos
         if self.product:
 
             self.code.setText(product.code)
+            self.code.setReadOnly(True)
+
             self.name.setText(product.name)
             self.category.setText(product.category)
-
-            self.description.setText(product.description)
+            self.description.setPlainText(product.description)
 
             self.price.setValue(product.price)
             self.stock.setValue(product.stock)
@@ -85,7 +80,6 @@ class ProductDialog(QDialog):
             self.image_path.setText(product.image_path)
 
             self.load_preview(product.image_path)
-
 
         # Formulario
         form = QFormLayout()
@@ -101,7 +95,6 @@ class ProductDialog(QDialog):
         form.addRow("", btn_image)
         form.addRow("Vista previa:", self.image_preview)
 
-
         # Botones
         btn_save = QPushButton("Guardar")
         btn_cancel = QPushButton("Cancelar")
@@ -109,21 +102,15 @@ class ProductDialog(QDialog):
         btn_save.clicked.connect(self.save_product)
         btn_cancel.clicked.connect(self.reject)
 
-
         buttons = QHBoxLayout()
-
         buttons.addWidget(btn_save)
         buttons.addWidget(btn_cancel)
 
-
         layout = QVBoxLayout()
-
         layout.addLayout(form)
         layout.addLayout(buttons)
 
         self.setLayout(layout)
-
-
 
     def select_image(self):
 
@@ -135,31 +122,20 @@ class ProductDialog(QDialog):
         )
 
         if file:
-
             self.image_path.setText(file)
-
             self.load_preview(file)
-
-
 
     def load_preview(self, path):
 
         if not path:
-
             self.image_preview.clear()
-
             return
-
 
         pixmap = QPixmap(path)
 
-
         if pixmap.isNull():
-
             self.image_preview.clear()
-
             return
-
 
         pixmap = pixmap.scaled(
             170,
@@ -170,66 +146,52 @@ class ProductDialog(QDialog):
 
         self.image_preview.setPixmap(pixmap)
 
-
-
     def save_product(self):
 
-        if not self.code.text().strip() or not self.name.text().strip():
+        code = self.code.text().strip()
+        name = self.name.text().strip()
+        category = self.category.text().strip()
+        description = self.description.toPlainText().strip()
+
+        if not code or not name:
 
             QMessageBox.warning(
                 self,
                 "Datos incompletos",
-                "El código y el nombre son obligatorios"
+                "El código y el nombre son obligatorios."
             )
 
             return
 
+        image_path = self.image_path.text().strip()
 
-
-        image_path = self.image_path.text()
-
-
-        if image_path:
+        # Copiar la imagen únicamente si proviene de una ubicación externa
+        if image_path and not image_path.replace("\\", "/").startswith("resources/"):
 
             image_path = ImageManager.save_image(
                 image_path,
-                self.code.text()
+                code
             )
 
-
-
         product = Product(
-
-            code=self.code.text().strip(),
-
-            name=self.name.text().strip(),
-
-            category=self.category.text().strip(),
-
-            description=self.description.toPlainText(),
-
+            code=code,
+            name=name,
+            category=category,
+            description=description,
             price=self.price.value(),
-
             stock=self.stock.value(),
-
             image_path=image_path,
-
-            product_id=self.product.id if self.product else None
+            product_id=self.product.id if self.product else None,
         )
-
-
 
         try:
 
             if self.product:
-
                 self.service.update_product(product)
-
+                mensaje = "Producto actualizado correctamente."
             else:
-
                 self.service.create_product(product)
-
-
+                mensaje = "Producto creado correctamente."
 
         except Exception as e:
 
@@ -241,13 +203,10 @@ class ProductDialog(QDialog):
 
             return
 
-
-
         QMessageBox.information(
             self,
             "Correcto",
-            "Producto guardado correctamente"
+            mensaje
         )
-
 
         self.accept()

@@ -1,16 +1,30 @@
-.venv/
+# Python
 __pycache__/
-*.pyc
-*.db
-*.sqlite
-*.xlsx
-*.pdf
-*.csv
-output/
-cache/
-logs/
-dist/
-build/
-*.spec
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+
+# Pytest
+.pytest_cache/
+
+# VSCode
 .vscode/
-.env
+
+# Logs
+logs/
+
+# Cache
+cache/
+
+# Output
+output/
+
+# SQLite
+*.sqlite
+*.db
+
+# Windows
+Thumbs.db

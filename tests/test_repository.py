@@ -1,19 +1,8 @@
-from database.db_manager import DBManager
 from models.product import Product
-from repositories.product_repository import ProductRepository
 
 
-def clean_database():
-    db = DBManager()
-    db.execute_query("DELETE FROM products")
-    db.close()
 
-
-def test_create_and_get_all():
-
-    clean_database()
-
-    repository = ProductRepository()
+def test_create_and_get_all(repository):
 
     product = Product(
         code="REP001",
@@ -25,19 +14,24 @@ def test_create_and_get_all():
         image_path="",
     )
 
-    repository.create(product)
+
+    created = repository.create(
+        product
+    )
+
 
     products = repository.get_all()
 
+
+    assert created.id is not None
+
     assert len(products) == 1
-    assert products[0][1] == "REP001"
+
+    assert products[0].code == "REP001"
 
 
-def test_search_product():
 
-    clean_database()
-
-    repository = ProductRepository()
+def test_search_product(repository):
 
     product = Product(
         code="REP002",
@@ -49,48 +43,54 @@ def test_search_product():
         image_path="",
     )
 
-    repository.create(product)
 
-    results = repository.search("Busqueda")
+    repository.create(
+        product
+    )
+
+
+    results = repository.search(
+        "Busqueda"
+    )
+
 
     assert len(results) == 1
-    assert results[0][1] == "REP002"
+
+    assert results[0].code == "REP002"
 
 
-def test_delete_product():
 
-    clean_database()
-
-    repository = ProductRepository()
+def test_delete_product(repository):
 
     product = Product(
         code="REP003",
         name="Producto Eliminar",
         category="Test",
         description="Prueba delete",
-        price=20.0,
+        price=20,
         stock=2,
         image_path="",
     )
 
-    repository.create(product)
+
+    repository.create(
+        product
+    )
+
+
+    repository.delete(
+        product.id
+    )
+
 
     products = repository.get_all()
 
-    product_id = products[0][0]
 
-    repository.delete(product_id)
-
-    products_after = repository.get_all()
-
-    assert len(products_after) == 0
+    assert len(products) == 0
 
 
-def test_update_product():
 
-    clean_database()
-
-    repository = ProductRepository()
+def test_update_product(repository):
 
     product = Product(
         code="REP004",
@@ -102,19 +102,29 @@ def test_update_product():
         image_path="",
     )
 
-    repository.create(product)
 
-    products = repository.get_all()
+    repository.create(
+        product
+    )
 
-    product_id = products[0][0]
 
-    product.id = product_id
     product.name = "Producto Actualizado"
+
     product.price = 99
 
-    repository.update(product)
 
-    updated = repository.get_by_id(product_id)
+    repository.update(
+        product
+    )
 
-    assert updated[2] == "Producto Actualizado"
-    assert updated[5] == 99
+
+    updated = repository.get_by_id(
+        product.id
+    )
+
+
+    assert updated is not None
+
+    assert updated.name == "Producto Actualizado"
+
+    assert updated.price == 99

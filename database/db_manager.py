@@ -6,26 +6,17 @@ class DBManager:
 
     def __init__(self, db_path=None):
 
+        base_dir = os.path.dirname(
+            os.path.dirname(
+                os.path.abspath(__file__)
+            )
+        )
+
         if db_path is None:
 
-            base_dir = os.path.dirname(
-                os.path.dirname(
-                    os.path.abspath(__file__)
-                )
-            )
-
-            database_dir = os.path.join(
-                base_dir,
-                "database"
-            )
-
-            os.makedirs(
-                database_dir,
-                exist_ok=True
-            )
-
             db_path = os.path.join(
-                database_dir,
+                base_dir,
+                "database",
                 "catalog.db"
             )
 
@@ -35,34 +26,35 @@ class DBManager:
 
         self.connection.row_factory = sqlite3.Row
 
+        self.initialize_database()
 
 
     def initialize_database(self):
 
-        base_dir = os.path.dirname(
-            os.path.abspath(__file__)
-        )
+        cursor = self.connection.cursor()
 
         schema_path = os.path.join(
-            base_dir,
+            os.path.dirname(
+                os.path.abspath(__file__)
+            ),
             "schema.sql"
         )
 
-        with open(
-            schema_path,
-            "r",
-            encoding="utf-8"
-        ) as file:
+        if os.path.exists(schema_path):
 
-            schema = file.read()
+            with open(
+                schema_path,
+                "r",
+                encoding="utf-8"
+            ) as file:
 
+                schema = file.read()
 
-        self.connection.executescript(
-            schema
-        )
+                cursor.executescript(
+                    schema
+                )
 
         self.connection.commit()
-
 
 
     def execute_query(
@@ -83,7 +75,6 @@ class DBManager:
         return cursor
 
 
-
     def fetch_all(
         self,
         query,
@@ -100,7 +91,6 @@ class DBManager:
         return cursor.fetchall()
 
 
-
     def fetch_one(
         self,
         query,
@@ -115,7 +105,6 @@ class DBManager:
         )
 
         return cursor.fetchone()
-
 
 
     def close(self):

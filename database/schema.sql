@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS products (
 
     id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-    code TEXT NOT NULL UNIQUE,
+    code TEXT UNIQUE NOT NULL,
 
     name TEXT NOT NULL,
 
@@ -15,5 +15,4 @@ CREATE TABLE IF NOT EXISTS products (
     stock INTEGER DEFAULT 0,
 
     image_path TEXT
-
 );

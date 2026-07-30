@@ -1,22 +1,36 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QLabel, QTableWidget, QTableWidgetItem
+from PySide6.QtWidgets import (
+    QLabel,
+    QTableWidget,
+    QTableWidgetItem,
+)
 
 from controllers.product_controller import ProductController
 
 
 class ProductTable(QTableWidget):
+
     def __init__(self):
         super().__init__()
 
         self.controller = ProductController()
 
         self.setColumnCount(6)
+
         self.setHorizontalHeaderLabels(
-            ["Imagen", "Código", "Nombre", "Categoría", "Precio", "Stock"]
+            [
+                "Imagen",
+                "Código",
+                "Nombre",
+                "Categoría",
+                "Precio",
+                "Stock",
+            ]
         )
 
         self.load_products()
+
 
     def load_products(self, productos=None):
 
@@ -25,35 +39,128 @@ class ProductTable(QTableWidget):
 
         self.setRowCount(len(productos))
 
+
         for fila, producto in enumerate(productos):
+
+            # -------------------
+            # Imagen
+            # -------------------
+
             image = QLabel()
-            image.setAlignment(Qt.AlignCenter)
 
-            if producto[7]:
-                pixmap = QPixmap(producto[7])
+            image.setAlignment(
+                Qt.AlignCenter
+            )
 
-                pixmap = pixmap.scaled(
-                    60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation
+
+            if producto.image_path:
+
+                pixmap = QPixmap(
+                    producto.image_path
                 )
 
-                image.setPixmap(pixmap)
 
-            self.setCellWidget(fila, 0, image)
+                if not pixmap.isNull():
 
-            item_code = QTableWidgetItem(producto[1])
-            item_code.setData(32, producto[0])
+                    pixmap = pixmap.scaled(
+                        60,
+                        60,
+                        Qt.KeepAspectRatio,
+                        Qt.SmoothTransformation
+                    )
 
-            self.setItem(fila, 1, item_code)
+                    image.setPixmap(
+                        pixmap
+                    )
 
-            self.setItem(fila, 2, QTableWidgetItem(producto[2]))
 
-            self.setItem(fila, 3, QTableWidgetItem(producto[3]))
+            self.setCellWidget(
+                fila,
+                0,
+                image
+            )
 
-            self.setItem(fila, 4, QTableWidgetItem(str(producto[5])))
 
-            self.setItem(fila, 5, QTableWidgetItem(str(producto[6])))
+            # -------------------
+            # Código
+            # -------------------
 
-        for fila in range(self.rowCount()):
-            self.setRowHeight(fila, 70)
+            item_code = QTableWidgetItem(
+                producto.code
+            )
+
+            item_code.setData(
+                Qt.UserRole,
+                producto.product_id
+            )
+
+            self.setItem(
+                fila,
+                1,
+                item_code
+            )
+
+
+            # -------------------
+            # Nombre
+            # -------------------
+
+            self.setItem(
+                fila,
+                2,
+                QTableWidgetItem(
+                    producto.name
+                )
+            )
+
+
+            # -------------------
+            # Categoría
+            # -------------------
+
+            self.setItem(
+                fila,
+                3,
+                QTableWidgetItem(
+                    producto.category
+                )
+            )
+
+
+            # -------------------
+            # Precio
+            # -------------------
+
+            self.setItem(
+                fila,
+                4,
+                QTableWidgetItem(
+                    str(producto.price)
+                )
+            )
+
+
+            # -------------------
+            # Stock
+            # -------------------
+
+            self.setItem(
+                fila,
+                5,
+                QTableWidgetItem(
+                    str(producto.stock)
+                )
+            )
+
+
+        for fila in range(
+            self.rowCount()
+        ):
+
+            self.setRowHeight(
+                fila,
+                70
+            )
+
 
         self.resizeColumnsToContents()

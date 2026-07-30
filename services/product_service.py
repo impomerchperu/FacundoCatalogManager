@@ -12,8 +12,6 @@ class ProductService:
 
     def create_product(self, product: Product):
 
-        product.normalize()
-
         errors = product.validate()
 
         if errors:

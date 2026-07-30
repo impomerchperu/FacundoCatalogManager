@@ -37,7 +37,10 @@ class ProductRepository:
             product.image_path,
         )
 
-        cursor = self.db.execute_query(query, params)
+        cursor = self.db.execute_query(
+            query,
+            params
+        )
 
         product.product_id = cursor.lastrowid
 

@@ -1,7 +1,13 @@
 from scrapers.browser import Browser
 
-browser = Browser()
 
-html = browser.get("https://www.google.com")
+def test_browser_fetch():
 
-print(html[:200])
+    browser = Browser()
+
+    html = browser.fetch(
+        "https://example.com"
+    )
+
+    assert html is not None
+    assert "<html" in html.lower()

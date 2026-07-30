@@ -2,16 +2,34 @@ import requests
 
 
 class Browser:
-    def __init__(self):
 
-        self.session = requests.Session()
+    def __init__(self, timeout=10):
 
-        self.session.headers.update({"User-Agent": "Mozilla/5.0"})
+        self.timeout = timeout
 
-    def get(self, url):
 
-        response = self.session.get(url, timeout=30)
+    def fetch(self, url):
 
-        response.raise_for_status()
+        try:
 
-        return response.text
+            response = requests.get(
+                url,
+                timeout=self.timeout,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 "
+                        "(Windows NT 10.0; Win64; x64)"
+                    )
+                }
+            )
+
+            response.raise_for_status()
+
+            return response.text
+
+
+        except requests.RequestException as error:
+
+            raise Exception(
+                f"Error al acceder a {url}: {error}"
+            )

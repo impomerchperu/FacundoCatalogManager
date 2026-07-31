@@ -1,5 +1,5 @@
 from models.scraping.image_record import ImageRecord
-from services.scraping.sync_repository import SyncRepository
+from repositories.scraping.sync_repository import SyncRepository
 
 
 def test_sync_repository_save_and_get():

@@ -1,6 +1,6 @@
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.product_diff_service import ProductDiffService
-from services.scraping.sync_repository import SyncRepository
+from repositories.scraping.sync_repository import SyncRepository
 
 
 class Product:

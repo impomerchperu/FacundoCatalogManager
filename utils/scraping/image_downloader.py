@@ -1,11 +1,14 @@
 from pathlib import Path
 
+from utils.scraping.image_validator import ImageValidator
+
 
 class ImageDownloader:
 
     def __init__(
         self,
-        output_folder="images"
+        output_folder="images",
+        validator=None
     ):
 
         self.output_folder = Path(
@@ -13,8 +16,12 @@ class ImageDownloader:
         )
 
         self.output_folder.mkdir(
-            parents=True,
             exist_ok=True
+        )
+
+        self.validator = (
+            validator
+            or ImageValidator()
         )
 
 
@@ -25,11 +32,6 @@ class ImageDownloader:
         downloader
     ):
 
-        if not image_url:
-
-            return None
-
-
         filename = (
             self.output_folder /
             f"{code}.jpg"
@@ -37,23 +39,23 @@ class ImageDownloader:
 
 
         if filename.exists():
-
             return str(filename)
 
 
-        try:
+        content = downloader.get(
+            image_url
+        )
 
-            content = downloader.get(
-                image_url
-            )
 
-            filename.write_bytes(
-                content
-            )
-
-        except Exception:
-
+        if not self.validator.is_valid_content(
+            content
+        ):
             return None
+
+
+        filename.write_bytes(
+            content
+        )
 
 
         return str(filename)

@@ -1,4 +1,4 @@
-from utils.scraping.image_downloader import ImageDownloader
+from concurrent.futures import ThreadPoolExecutor
 
 
 class ImageDownloadManager:
@@ -6,11 +6,13 @@ class ImageDownloadManager:
     def __init__(
         self,
         image_downloader,
-        image_validator
+        image_validator,
+        max_workers=4
     ):
 
         self.image_downloader = image_downloader
         self.image_validator = image_validator
+        self.max_workers = max_workers
 
 
     def download_all(
@@ -21,44 +23,73 @@ class ImageDownloadManager:
 
         results = []
 
-        for product in products:
+        with ThreadPoolExecutor(
+            max_workers=self.max_workers
+        ) as executor:
 
-            code = product.get(
-                "code"
-            )
-
-            image_url = product.get(
-                "image"
-            )
-
-
-            if not code or not image_url:
-                continue
-
-
-            try:
-
-                image_path = self.image_downloader.download(
-                    code,
-                    image_url,
+            futures = [
+                executor.submit(
+                    self._download_one,
+                    product,
                     downloader
                 )
+                for product in products
+            ]
 
 
-                if self.image_validator.is_valid(
-                    image_path
-                ):
+            for future in futures:
 
-                    product["image_path"] = image_path
+                result = future.result()
 
+                if result:
                     results.append(
-                        product
+                        result
                     )
 
 
-            except Exception:
-
-                continue
-
-
         return results
+
+
+    def _download_one(
+        self,
+        product,
+        downloader
+    ):
+
+        code = product.get(
+            "code"
+        )
+
+        image_url = product.get(
+            "image"
+        )
+
+
+        if not code or not image_url:
+            return None
+
+
+        try:
+
+            image_path = self.image_downloader.download(
+                code,
+                image_url,
+                downloader
+            )
+
+
+            if self.image_validator.is_valid(
+                image_path
+            ):
+
+                product["image_path"] = image_path
+
+                return product
+
+
+        except Exception:
+
+            return None
+
+
+        return None

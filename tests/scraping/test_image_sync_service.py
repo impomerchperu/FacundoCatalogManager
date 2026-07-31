@@ -77,3 +77,56 @@ def test_image_sync_skips_existing_image():
 
 
     assert result is False
+
+
+def test_image_sync_updates_changed_image():
+
+    class FakeBrowser:
+
+        def get(self, url):
+
+            return b"new-image-data"
+
+
+    repository = SyncRepository()
+
+
+    repository.save(
+        ImageRecord(
+            code="P001",
+            image_url="old-image.jpg",
+            image_path="P001.jpg",
+            checksum="old-checksum"
+        )
+    )
+
+
+    service = ImageSyncService(
+        repository,
+        None
+    )
+
+
+    product = {
+        "code": "P001",
+        "image": "new-image.jpg"
+    }
+
+
+    result = service.sync(
+        product,
+        FakeBrowser()
+    )
+
+
+    assert result is True
+
+
+    updated = repository.get(
+        "P001"
+    )
+
+
+    assert updated.image_url == "new-image.jpg"
+
+    assert updated.checksum != "old-checksum"

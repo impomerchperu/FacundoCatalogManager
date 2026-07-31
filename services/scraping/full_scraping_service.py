@@ -8,20 +8,19 @@ class FullScrapingService:
         product_service=None,
         category_service=None,
         image_manager=None,
-        downloader=None
+        downloader=None,
+        image_sync_service=None
     ):
 
         self.category_scraper = category_scraper
-        self.category_pagination_service = (
-            category_pagination_service
-        )
-
+        self.category_pagination_service = category_pagination_service
         self.product_scraper = product_scraper
         self.product_service = product_service
 
         self.category_service = category_service
         self.image_manager = image_manager
         self.downloader = downloader
+        self.image_sync_service = image_sync_service
 
 
     def scrape_category(
@@ -43,10 +42,6 @@ class FullScrapingService:
 
             for url in urls:
 
-                product = self.product_scraper.scrape(
-                    url
-                )
-
                 saved = self.product_service.scrape_and_save(
                     url
                 )
@@ -58,43 +53,11 @@ class FullScrapingService:
         return products
 
 
-    def scrape_all(
-        self
-    ):
-
-        categories = self.category_service.scrape_all()
-
-
-        products = self.product_scraper.scrape_products(
-            categories
-        )
-
-
-        if self.image_manager:
-
-            images = self.image_manager.download_all(
-                products,
-                self.downloader
-            )
-
-        else:
-
-            images = []
-
-
-        return {
-            "categories": categories,
-            "products": products,
-            "images": images
-        }
-
-
     def run(
         self
     ):
 
         categories = self.category_service.scrape_all()
-
 
         products = self.product_scraper.scrape_products(
             categories
@@ -103,6 +66,7 @@ class FullScrapingService:
 
         images = []
 
+
         if self.image_manager:
 
             images = self.image_manager.download_all(
@@ -111,8 +75,14 @@ class FullScrapingService:
             )
 
 
+        if self.image_sync_service:
+
+            products = self.image_sync_service.sync_products(
+                products
+            )
+
+
         return {
-            "categories": categories,
             "products": products,
             "images": images
         }

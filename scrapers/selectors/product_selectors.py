@@ -6,8 +6,8 @@ PRODUCT_IMAGE = "img.product-image"
 
 PRODUCT_DESCRIPTION = ".product-description"
 
-class ProductSelectors:
 
+class ProductSelectors:
     PRODUCT_LINK = "a"
 
     TITLE = "h1"

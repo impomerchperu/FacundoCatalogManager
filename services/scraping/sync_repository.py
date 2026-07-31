@@ -1,25 +1,12 @@
 class SyncRepository:
-
     def __init__(self):
 
         self.records = {}
 
+    def get(self, code):
 
-    def get(
-        self,
-        code
-    ):
+        return self.records.get(code)
 
-        return self.records.get(
-            code
-        )
+    def save(self, record):
 
-
-    def save(
-        self,
-        record
-    ):
-
-        self.records[
-            record.code
-        ] = record
+        self.records[record.code] = record

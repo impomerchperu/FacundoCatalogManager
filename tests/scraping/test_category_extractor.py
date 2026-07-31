@@ -23,28 +23,14 @@ def test_extract_categories():
     </ul>
     """
 
-
-    soup = BeautifulSoup(
-        html,
-        "lxml"
-    )
-
+    soup = BeautifulSoup(html, "lxml")
 
     extractor = CategoryExtractor()
 
-
-    categories = extractor.extract(
-        soup
-    )
-
+    categories = extractor.extract(soup)
 
     assert len(categories) == 2
 
-
     assert categories[0].name == "Jarros Mug"
 
-    assert (
-        categories[0].url
-        ==
-        "/categoria-producto/jarros-mug/"
-    )
+    assert categories[0].url == "/categoria-producto/jarros-mug/"

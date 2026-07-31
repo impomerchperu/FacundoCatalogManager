@@ -2,7 +2,6 @@ from openpyxl import Workbook
 
 
 class ExcelExporter:
-
     @staticmethod
     def export(products, filename):
 
@@ -11,7 +10,6 @@ class ExcelExporter:
         sheet = workbook.active
 
         sheet.title = "Productos"
-
 
         sheet.append(
             [
@@ -24,9 +22,7 @@ class ExcelExporter:
             ]
         )
 
-
         for product in products:
-
             sheet.append(
                 [
                     product.code,
@@ -37,6 +33,5 @@ class ExcelExporter:
                     product.stock,
                 ]
             )
-
 
         workbook.save(filename)

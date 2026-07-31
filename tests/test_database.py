@@ -7,11 +7,7 @@ def test_database_connection():
 
     db.initialize_database()
 
-
-    db.execute_query(
-        "DELETE FROM products"
-    )
-
+    db.execute_query("DELETE FROM products")
 
     db.execute_query(
         """
@@ -28,7 +24,6 @@ def test_database_connection():
 
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-
         (
             "TEST001",
             "Producto de prueba",
@@ -36,10 +31,9 @@ def test_database_connection():
             "Primer registro del catálogo",
             25.50,
             10,
-            ""
-        )
+            "",
+        ),
     )
-
 
     products = db.fetch_all(
         """
@@ -47,16 +41,11 @@ def test_database_connection():
         FROM products
         WHERE code=?
         """,
-
-        (
-            "TEST001",
-        )
+        ("TEST001",),
     )
-
 
     assert len(products) == 1
 
     assert products[0]["code"] == "TEST001"
-
 
     db.close()

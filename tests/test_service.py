@@ -7,12 +7,9 @@ def clean_database():
 
     db = DBManager()
 
-    db.execute_query(
-        "DELETE FROM products"
-    )
+    db.execute_query("DELETE FROM products")
 
     db.close()
-
 
 
 def test_create_product():
@@ -20,7 +17,6 @@ def test_create_product():
     clean_database()
 
     service = ProductService()
-
 
     product = Product(
         code="TEST002",
@@ -32,14 +28,9 @@ def test_create_product():
         image_path="",
     )
 
-
-    created = service.create_product(
-        product
-    )
-
+    created = service.create_product(product)
 
     products = service.get_products()
-
 
     assert len(products) == 1
 
@@ -48,13 +39,11 @@ def test_create_product():
     assert products[0].name == "Segundo producto"
 
 
-
 def test_create_invalid_product():
 
     clean_database()
 
     service = ProductService()
-
 
     product = Product(
         code="",
@@ -66,20 +55,13 @@ def test_create_invalid_product():
         image_path="",
     )
 
-
     try:
-
-        service.create_product(
-            product
-        )
+        service.create_product(product)
 
         assert False, "Debió rechazar producto inválido"
 
-
     except ValueError as error:
-
         assert len(error.args[0]) > 0
-
 
 
 def test_update_product():
@@ -87,7 +69,6 @@ def test_update_product():
     clean_database()
 
     service = ProductService()
-
 
     product = Product(
         code="UP001",
@@ -99,28 +80,18 @@ def test_update_product():
         image_path="",
     )
 
-
-    service.create_product(
-        product
-    )
-
+    service.create_product(product)
 
     product.name = "Producto actualizado"
     product.price = 99
 
-
-    service.update_product(
-        product
-    )
-
+    service.update_product(product)
 
     products = service.get_products()
-
 
     assert products[0].name == "Producto actualizado"
 
     assert products[0].price == 99
-
 
 
 def test_delete_product():
@@ -128,7 +99,6 @@ def test_delete_product():
     clean_database()
 
     service = ProductService()
-
 
     product = Product(
         code="DEL001",
@@ -140,18 +110,10 @@ def test_delete_product():
         image_path="",
     )
 
+    service.create_product(product)
 
-    service.create_product(
-        product
-    )
-
-
-    service.delete_product(
-        product.id
-    )
-
+    service.delete_product(product.id)
 
     products = service.get_products()
-
 
     assert len(products) == 0

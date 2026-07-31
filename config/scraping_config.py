@@ -1,8 +1,6 @@
 BASE_URL = "https://stock.importacionesfacundo.com"
 
-STORE_URL = (
-    f"{BASE_URL}/tienda/"
-)
+STORE_URL = f"{BASE_URL}/tienda/"
 
 
 DEFAULT_HEADERS = {

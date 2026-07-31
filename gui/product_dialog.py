@@ -1,6 +1,5 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-
 from PySide6.QtWidgets import (
     QDialog,
     QDoubleSpinBox,
@@ -22,16 +21,13 @@ from utils.image_manager import ImageManager
 
 
 class ProductDialog(QDialog):
-
     def __init__(self, parent=None, product=None):
         super().__init__(parent)
 
         self.product = product
         self.service = ProductService()
 
-        self.setWindowTitle(
-            "Editar Producto" if product else "Nuevo Producto"
-        )
+        self.setWindowTitle("Editar Producto" if product else "Nuevo Producto")
 
         # Campos
         self.code = QLineEdit()
@@ -66,7 +62,6 @@ class ProductDialog(QDialog):
 
         # Si es edición, cargar datos
         if self.product:
-
             self.code.setText(product.code)
             self.code.setReadOnly(True)
 
@@ -115,10 +110,7 @@ class ProductDialog(QDialog):
     def select_image(self):
 
         file, _ = QFileDialog.getOpenFileName(
-            self,
-            "Seleccionar imagen",
-            "",
-            "Imágenes (*.png *.jpg *.jpeg)"
+            self, "Seleccionar imagen", "", "Imágenes (*.png *.jpg *.jpeg)"
         )
 
         if file:
@@ -137,12 +129,7 @@ class ProductDialog(QDialog):
             self.image_preview.clear()
             return
 
-        pixmap = pixmap.scaled(
-            170,
-            170,
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation
-        )
+        pixmap = pixmap.scaled(170, 170, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         self.image_preview.setPixmap(pixmap)
 
@@ -154,11 +141,8 @@ class ProductDialog(QDialog):
         description = self.description.toPlainText().strip()
 
         if not code or not name:
-
             QMessageBox.warning(
-                self,
-                "Datos incompletos",
-                "El código y el nombre son obligatorios."
+                self, "Datos incompletos", "El código y el nombre son obligatorios."
             )
 
             return
@@ -167,11 +151,7 @@ class ProductDialog(QDialog):
 
         # Copiar la imagen únicamente si proviene de una ubicación externa
         if image_path and not image_path.replace("\\", "/").startswith("resources/"):
-
-            image_path = ImageManager.save_image(
-                image_path,
-                code
-            )
+            image_path = ImageManager.save_image(image_path, code)
 
         product = Product(
             code=code,
@@ -185,7 +165,6 @@ class ProductDialog(QDialog):
         )
 
         try:
-
             if self.product:
                 self.service.update_product(product)
                 mensaje = "Producto actualizado correctamente."
@@ -194,19 +173,10 @@ class ProductDialog(QDialog):
                 mensaje = "Producto creado correctamente."
 
         except Exception as e:
-
-            QMessageBox.critical(
-                self,
-                "Error",
-                str(e)
-            )
+            QMessageBox.critical(self, "Error", str(e))
 
             return
 
-        QMessageBox.information(
-            self,
-            "Correcto",
-            mensaje
-        )
+        QMessageBox.information(self, "Correcto", mensaje)
 
         self.accept()

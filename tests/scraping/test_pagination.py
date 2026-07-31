@@ -1,5 +1,5 @@
-from scrapers.parser import Parser
 from scrapers.pagination import PaginationExtractor
+from scrapers.parser import Parser
 
 
 def test_get_next_page():
@@ -15,8 +15,6 @@ def test_get_next_page():
 
     extractor = PaginationExtractor()
 
-    result = extractor.get_next_page(
-        soup
-    )
+    result = extractor.get_next_page(soup)
 
     assert result == "/categoria/page/2"

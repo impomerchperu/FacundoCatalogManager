@@ -4,7 +4,6 @@ from scrapers.product_link_extractor import ProductLinkExtractor
 
 
 class FakeBrowser:
-
     def get(self, url):
 
         return """
@@ -24,17 +23,9 @@ class FakeBrowser:
 
 def test_category_scraper_get_product_urls():
 
-    scraper = CategoryScraper(
-        FakeBrowser(),
-        Parser(),
-        ProductLinkExtractor()
-    )
+    scraper = CategoryScraper(FakeBrowser(), Parser(), ProductLinkExtractor())
 
-
-    urls = scraper.get_product_urls(
-        "https://example.com/categoria"
-    )
-
+    urls = scraper.get_product_urls("https://example.com/categoria")
 
     assert len(urls) == 2
 

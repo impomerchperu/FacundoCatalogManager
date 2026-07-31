@@ -3,61 +3,28 @@ from services.scraping.image_download_manager import ImageDownloadManager
 
 def test_image_download_manager_downloads_products():
 
-
     class FakeDownloader:
-
         def get(self, url):
             return b"image-data"
 
-
-
     class FakeImageDownloader:
-
-        def download(
-            self,
-            code,
-            url,
-            downloader
-        ):
+        def download(self, code, url, downloader):
 
             return f"{code}.jpg"
 
-
-
     class FakeValidator:
-
-        def is_valid(
-            self,
-            path
-        ):
+        def is_valid(self, path):
 
             return True
 
-
-
-    manager = ImageDownloadManager(
-        FakeImageDownloader(),
-        FakeValidator()
-    )
-
+    manager = ImageDownloadManager(FakeImageDownloader(), FakeValidator())
 
     products = [
-        {
-            "code": "P001",
-            "image": "image1.jpg"
-        },
-        {
-            "code": "P002",
-            "image": "image2.jpg"
-        }
+        {"code": "P001", "image": "image1.jpg"},
+        {"code": "P002", "image": "image2.jpg"},
     ]
 
-
-    result = manager.download_all(
-        products,
-        FakeDownloader()
-    )
-
+    result = manager.download_all(products, FakeDownloader())
 
     assert len(result) == 2
 

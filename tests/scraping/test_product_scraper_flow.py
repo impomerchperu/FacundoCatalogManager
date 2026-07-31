@@ -7,14 +7,9 @@ def test_product_scraper_returns_product():
     scraper = ProductScraper()
     mapper = ScrapedProductMapper()
 
-    soup = scraper.scrape(
-        "https://example.com"
-    )
+    soup = scraper.scrape("https://example.com")
 
-    product = mapper.map(
-        soup,
-        "https://example.com"
-    )
+    product = mapper.map(soup, "https://example.com")
 
     assert product.url == "https://example.com"
     assert product.name != ""

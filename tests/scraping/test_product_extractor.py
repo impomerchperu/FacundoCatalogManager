@@ -30,20 +30,11 @@ def test_product_extractor():
     </html>
     """
 
-
-    soup = BeautifulSoup(
-        html,
-        "lxml"
-    )
-
+    soup = BeautifulSoup(html, "lxml")
 
     extractor = ProductExtractor()
 
-
-    result = extractor.extract(
-        soup
-    )
-
+    result = extractor.extract(soup)
 
     assert result["name"] == "Producto Demo"
     assert result["price"] == 125.50

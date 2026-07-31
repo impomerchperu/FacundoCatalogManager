@@ -1,40 +1,39 @@
-from models.scraping.scraped_product import ScrapedProduct
-
-
 class ScrapedProductRepository:
-
     def __init__(self, db):
         self.db = db
 
-
-    def create(self, product: ScrapedProduct):
+    def create(self, product):
 
         query = """
-        INSERT INTO scraped_products
-        (
+        INSERT INTO scraped_products (
+            source,
             url,
             code,
             name,
             category,
-            description,
             price,
-            image_url
+            image_url,
+            description
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
 
         params = (
+            product.source,
             product.url,
             product.code,
             product.name,
             product.category,
-            product.description,
             product.price,
-            product.image_url
+            product.image_url,
+            product.description,
         )
 
         self.db.execute_query(query, params)
 
+    def save(self, product):
+
+        self.create(product)
 
     def get_by_url(self, url):
 
@@ -44,8 +43,12 @@ class ScrapedProductRepository:
         WHERE url = ?
         """
 
-        return self.db.fetch_one(query, (url,))
+        result = self.db.fetch_all(query, (url,))
 
+        if result:
+            return result[0]
+
+        return None
 
     def get_all(self):
 
@@ -55,13 +58,3 @@ class ScrapedProductRepository:
         """
 
         return self.db.fetch_all(query)
-
-
-    def delete(self, url):
-
-        query = """
-        DELETE FROM scraped_products
-        WHERE url = ?
-        """
-
-        self.db.execute_query(query, (url,))

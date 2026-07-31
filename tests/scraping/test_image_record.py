@@ -7,7 +7,7 @@ def test_image_record_creation():
         code="P001",
         image_url="image.jpg",
         image_path="images/P001.jpg",
-        checksum="abc123"
+        checksum="abc123",
     )
 
     assert record.code == "P001"

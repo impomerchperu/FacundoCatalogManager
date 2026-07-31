@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 @dataclass
 class ScrapedProduct:
-
     source: str
     url: str
 

@@ -1,15 +1,13 @@
 from database.db_manager import DBManager
-from repositories.scraping.scraped_product_repository import ScrapedProductRepository
 from models.scraping.scraped_product import ScrapedProduct
+from repositories.scraping.scraped_product_repository import ScrapedProductRepository
 
 
 def test_create_and_get_scraped_product():
 
     db = DBManager(":memory:")
 
-    repository = ScrapedProductRepository(
-        db
-    )
+    repository = ScrapedProductRepository(db)
 
     product = ScrapedProduct(
         source="test",
@@ -19,19 +17,12 @@ def test_create_and_get_scraped_product():
         category="Test",
         price=25.5,
         image_url="image.jpg",
-        description="Producto de prueba"
+        description="Producto de prueba",
     )
 
+    repository.create(product)
 
-    repository.create(
-        product
-    )
-
-
-    result = repository.get_by_url(
-        product.url
-    )
-
+    result = repository.get_by_url(product.url)
 
     assert result is not None
     assert result["name"] == "Producto Scrapeado"

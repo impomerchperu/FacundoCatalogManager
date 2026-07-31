@@ -9,19 +9,10 @@ def test_category_scraper_extracts_categories():
 
     class FakeParser:
         def extract_categories(self, html):
-            return [
-                "Herramientas",
-                "Electricidad"
-            ]
+            return ["Herramientas", "Electricidad"]
 
-    scraper = CategoryScraper(
-        FakeBrowser(),
-        FakeParser()
-    )
+    scraper = CategoryScraper(FakeBrowser(), FakeParser())
 
     result = scraper.scrape("https://example.com/categories")
 
-    assert result == [
-        "Herramientas",
-        "Electricidad"
-    ]
+    assert result == ["Herramientas", "Electricidad"]

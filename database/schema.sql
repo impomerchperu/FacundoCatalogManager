@@ -12,12 +12,18 @@ CREATE TABLE IF NOT EXISTS products (
 
 CREATE TABLE IF NOT EXISTS scraped_products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    url TEXT UNIQUE NOT NULL,
+    source TEXT,
+    url TEXT UNIQUE,
     code TEXT,
     name TEXT NOT NULL,
     category TEXT,
     description TEXT,
-    price REAL,
+    price REAL DEFAULT 0,
     image_url TEXT,
-    scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    stock INTEGER DEFAULT 0,
+    price_sample REAL DEFAULT 0,
+    price_hundred REAL DEFAULT 0,
+    price_thousand REAL DEFAULT 0,
+    image_path TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

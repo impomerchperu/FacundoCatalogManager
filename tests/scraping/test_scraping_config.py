@@ -1,21 +1,17 @@
 from config.scraping_config import (
     BASE_URL,
-    STORE_URL,
     DEFAULT_HEADERS,
+    MAX_RETRIES,
     REQUEST_TIMEOUT,
-    MAX_RETRIES
+    STORE_URL,
 )
 
 
 def test_scraping_configuration():
 
-    assert BASE_URL.startswith(
-        "https://"
-    )
+    assert BASE_URL.startswith("https://")
 
-    assert STORE_URL.endswith(
-        "/tienda/"
-    )
+    assert STORE_URL.endswith("/tienda/")
 
     assert "User-Agent" in DEFAULT_HEADERS
 

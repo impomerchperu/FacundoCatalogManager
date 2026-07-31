@@ -16,7 +16,6 @@ def database():
     db.close()
 
 
-
 @pytest.fixture
 def repository(database):
 

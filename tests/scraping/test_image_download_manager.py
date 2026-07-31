@@ -1,20 +1,17 @@
-from utils.scraping.image_download_manager import ImageDownloadManager
+from services.scraping.image_download_manager import ImageDownloadManager
 
 
-def test_image_download_manager_downloads_multiple_images():
+def test_image_download_manager_downloads_products():
+
 
     class FakeDownloader:
 
         def get(self, url):
-            return b"\xff\xd8fake-image"
+            return b"image-data"
+
 
 
     class FakeImageDownloader:
-
-        def __init__(self):
-
-            self.calls = []
-
 
         def download(
             self,
@@ -23,30 +20,35 @@ def test_image_download_manager_downloads_multiple_images():
             downloader
         ):
 
-            self.calls.append(
-                (code, url)
-            )
-
             return f"{code}.jpg"
 
 
-    image_downloader = FakeImageDownloader()
+
+    class FakeValidator:
+
+        def is_valid(
+            self,
+            path
+        ):
+
+            return True
+
 
 
     manager = ImageDownloadManager(
-        image_downloader,
-        max_workers=3
+        FakeImageDownloader(),
+        FakeValidator()
     )
 
 
     products = [
         {
             "code": "P001",
-            "image": "http://image1.jpg"
+            "image": "image1.jpg"
         },
         {
             "code": "P002",
-            "image": "http://image2.jpg"
+            "image": "image2.jpg"
         }
     ]
 
@@ -57,12 +59,8 @@ def test_image_download_manager_downloads_multiple_images():
     )
 
 
-    assert result == [
-        "P001.jpg",
-        "P002.jpg"
-    ]
+    assert len(result) == 2
 
+    assert result[0]["image_path"] == "P001.jpg"
 
-    assert len(
-        image_downloader.calls
-    ) == 2
+    assert result[1]["image_path"] == "P002.jpg"

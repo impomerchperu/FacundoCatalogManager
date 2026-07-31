@@ -1,3 +1,6 @@
+from scrapers.product_link_extractor import ProductLinkExtractor
+
+
 class CategoryScraper:
 
     def __init__(
@@ -9,6 +12,10 @@ class CategoryScraper:
 
         self.browser = browser
         self.parser = parser
+
+        if product_link_extractor is None:
+            product_link_extractor = ProductLinkExtractor()
+
         self.product_link_extractor = product_link_extractor
 
 

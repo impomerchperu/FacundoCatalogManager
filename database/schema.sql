@@ -27,3 +27,16 @@ CREATE TABLE IF NOT EXISTS scraped_products (
     image_path TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+CREATE TABLE IF NOT EXISTS sync_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT UNIQUE NOT NULL,
+    name TEXT,
+    category TEXT,
+    price REAL,
+    stock INTEGER,
+    image_path TEXT,
+    image_url TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

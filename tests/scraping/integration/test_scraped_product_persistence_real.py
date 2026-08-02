@@ -4,7 +4,7 @@ from repositories.scraping.scraped_product_repository import (
     ScrapedProductRepository,
 )
 from scrapers.collectors.category_scraper import CategoryScraper
-from scrapers.product_collection_scraper import (
+from scrapers.collectors.product_collection_scraper import (
     ProductCollectionScraper,
 )
 from services.scraping.scraped_product_persistence_service import (

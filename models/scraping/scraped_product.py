@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 
 @dataclass
@@ -24,7 +25,22 @@ class ScrapedProduct:
     image_url: str = ""
     image_path: str = ""
 
+    image_hash: str = ""
+    image_error: str = ""
+
     scraped_at: str = ""
+
+    updated_at: str = ""
+
+
+    def __post_init__(self):
+
+        if not self.scraped_at:
+
+            self.scraped_at = (
+                datetime.now()
+                .isoformat()
+            )
 
 
     def __getitem__(self, key):

@@ -1,10 +1,31 @@
+from urllib.parse import urljoin
+
 from models.scraping.scraped_product import ScrapedProduct
+
+from scrapers.extractors.price_extractor import PriceExtractor
 from scrapers.selectors import product_selectors
 
 
 class ProductExtractor:
+    """
+    Extrae información de productos desde:
+
+    - Tarjetas de categoría Bricks Builder
+    - Página individual WooCommerce
+
+    Fuente:
+    Importaciones Facundo
+    """
 
     SOURCE = "importacionesfacundo"
+
+    BASE_URL = "https://stock.importacionesfacundo.com"
+
+
+    def __init__(self):
+
+        self.price_extractor = PriceExtractor()
+
 
 
     def extract(
@@ -20,49 +41,117 @@ class ProductExtractor:
 
             url=url,
 
-            code=self._extract_text(
-                soup,
-                product_selectors.PRODUCT_SKU
+            code=self.extract_code(
+                soup
             ),
 
-            name=self._extract_name(soup),
+            name=self.extract_name(
+                soup
+            ),
 
             category=category,
 
-            description=self._extract_description(
+            description=self.extract_description(
                 soup
             ),
 
-            stock=self._extract_stock(
+            stock=self.extract_stock(
                 soup
             ),
 
-            price=self._extract_price(
+            price=self.extract_price(
                 soup
             ),
 
-            image_url=self._extract_image(
+            price_sample=self.price_extractor.extract_sample(
+                soup
+            ),
+
+            price_hundred=self.price_extractor.extract_hundred(
+                soup
+            ),
+
+            price_thousand=self.price_extractor.extract_thousand(
+                soup
+            ),
+
+            image_url=self.extract_image(
                 soup
             )
         )
 
 
-    def _extract_name(self, soup):
+
+    # =====================================================
+    # CÓDIGO
+    # =====================================================
+
+    def extract_code(
+        self,
+        soup
+    ):
 
         selectors = [
 
-            product_selectors.PRODUCT_NAME,
+            "p.brxe-heading",
 
-            ".product-name",
+            "span.sku",
 
-            "h1"
+            "[sku]",
 
         ]
 
 
         for selector in selectors:
 
-            element = soup.select_one(selector)
+            element = soup.select_one(
+                selector
+            )
+
+
+            if element:
+
+                text = element.get_text(
+                    " ",
+                    strip=True
+                )
+
+
+                if "FB-" in text:
+
+                    return text.split()[0]
+
+
+        return ""
+
+
+
+    # =====================================================
+    # NOMBRE
+    # =====================================================
+
+    def extract_name(
+        self,
+        soup
+    ):
+
+        selectors = [
+
+            "h2.brxe-heading",
+
+            "h1",
+
+            product_selectors.PRODUCT_NAME,
+
+        ]
+
+
+        for selector in selectors:
+
+            element = soup.select_one(
+                selector
+            )
+
 
             if element:
 
@@ -76,161 +165,311 @@ class ProductExtractor:
 
 
 
-    def _extract_text(
+    # =====================================================
+    # DESCRIPCIÓN
+    # =====================================================
+
+    def extract_description(
         self,
-        soup,
-        selector
+        soup
     ):
-
-        if not selector:
-            return ""
-
-
-        element = soup.select_one(selector)
-
-
-        if not element:
-            return ""
-
-
-        return element.get_text(
-            " ",
-            strip=True
-        )
-
-
-
-    def _extract_price(self, soup):
 
         selectors = [
 
-            ".price",
+            ".text-content",
 
-            ".product-price",
+            ".x-tabs_panel-content",
+
+            ".product-description",
+
+            product_selectors.PRODUCT_DESCRIPTION,
+
+            ".description"
 
         ]
 
 
         for selector in selectors:
 
-            element = soup.select_one(selector)
+            element = soup.select_one(
+                selector
+            )
+
+
+            if element:
+
+                return element.get_text(
+                    " ",
+                    strip=True
+                )
+
+
+        return ""
+
+
+
+    # =====================================================
+    # STOCK
+    # =====================================================
+
+    def extract_stock(
+        self,
+        soup
+    ):
+
+        text = soup.get_text(
+            " ",
+            strip=True
+        )
+
+
+        marker = "Stock Disponible"
+
+
+        if marker in text:
+
+            after = text.split(
+                marker,
+                1
+            )[1]
+
+
+            numbers = "".join(
+                x for x in after
+                if x.isdigit()
+            )
+
+
+            if numbers:
+
+                return int(numbers)
+
+
+        return 0
+
+
+
+    # =====================================================
+    # PRECIO
+    # =====================================================
+
+    def extract_price(
+        self,
+        soup
+    ):
+
+        selectors = [
+
+            ".product-price",
+
+            ".price",
+
+            "span.price",
+
+            ".woocommerce-Price-amount",
+
+            "[class*='price']",
+
+        ]
+
+
+        for selector in selectors:
+
+            element = soup.select_one(
+                selector
+            )
 
 
             if element:
 
                 text = element.get_text(
+                    " ",
                     strip=True
                 )
 
 
-                numbers = (
+                clean = (
+
                     text
-                    .replace(",","")
-                    .replace("$","")
+
+                    .replace(
+                        "S/",
+                        ""
+                    )
+
+                    .replace(
+                        "$",
+                        ""
+                    )
+
+                    .replace(
+                        ",",
+                        ""
+                    )
+
                     .strip()
+
                 )
 
 
                 try:
-                    return float(numbers)
+
+                    return float(
+                        clean
+                    )
+
 
                 except ValueError:
-                    pass
+
+                    continue
 
 
         return 0.0
 
 
 
-    def _extract_description(
+    # =====================================================
+    # IMAGEN
+    # =====================================================
+
+    def extract_image(
         self,
         soup
     ):
 
-        selectors = [
-
-            ".product-description",
-
-            ".description",
-
-            ".brxe-text"
-
-        ]
+        code = self.extract_code(
+            soup
+        )
 
 
-        for selector in selectors:
-
-            element = soup.select_one(selector)
+        candidates = []
 
 
-            if element:
+        for img in soup.find_all(
+            "img"
+        ):
 
-                return element.get_text(
-                    " ",
-                    strip=True
+
+            url = (
+
+                img.get(
+                    "data-src"
                 )
 
+                or
 
-        return ""
-
-
-
-    def _extract_stock(
-        self,
-        soup
-    ):
-
-        element = soup.select_one(
-            product_selectors.PRODUCT_STOCK
-        )
-
-
-        if not element:
-            return 0
-
-
-        text = element.get_text(
-            " ",
-            strip=True
-        )
-
-
-        numbers = "".join(
-            x for x in text
-            if x.isdigit()
-        )
-
-
-        return int(numbers) if numbers else 0
-
-
-
-    def _extract_image(
-        self,
-        soup
-    ):
-
-        selectors = [
-
-            product_selectors.PRODUCT_IMAGE,
-
-            ".product-image"
-
-        ]
-
-
-        for selector in selectors:
-
-            element = soup.select_one(selector)
-
-
-            if element:
-
-                return (
-                    element.get("src")
-                    or element.get("data-src")
-                    or ""
+                img.get(
+                    "data-lazy-src"
                 )
 
+                or
 
-        return ""
+                img.get(
+                    "src"
+                )
+
+                or
+
+                ""
+
+            )
+
+
+            if not url:
+
+                continue
+
+
+
+            if url.startswith(
+                "data:image"
+            ):
+
+                continue
+
+
+
+            if "Logo" in url:
+
+                continue
+
+
+
+            if "Proximo" in url:
+
+                continue
+
+
+
+            url = self._normalize_image_url(
+                url
+            )
+
+
+            candidates.append(
+                url
+            )
+
+
+
+        if not candidates:
+
+            return ""
+
+
+
+        if code:
+
+            for url in candidates:
+
+                if code.lower() in url.lower():
+
+                    return url
+
+
+
+        for url in candidates:
+
+            if "/uploads/" in url:
+
+                return url
+
+
+
+        return candidates[0]
+
+
+
+    # =====================================================
+    # NORMALIZAR URL IMAGEN
+    # =====================================================
+
+    def _normalize_image_url(
+        self,
+        url
+    ):
+
+        if not url:
+
+            return ""
+
+
+        if url.startswith(
+            "//"
+        ):
+
+            return "https:" + url
+
+
+
+        if url.startswith(
+            "/"
+        ):
+
+            return urljoin(
+                self.BASE_URL,
+                url
+            )
+
+
+        return url

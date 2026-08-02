@@ -1,59 +1,59 @@
 from bs4 import BeautifulSoup
 
-from scrapers.extractors.product_extractor import ProductExtractor
-from scrapers.extractors.product_link_extractor import ProductLinkExtractor
-from scrapers.product_scraper import ProductScraper
+from scrapers.extractors.product_card_extractor import ProductCardExtractor
+from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 
 
 class ProductCollectionScraper:
     """
-    Recorre una categoría completa:
-    páginas -> productos -> datos producto
+    Recorre una categoría completa.
+
+    Usa tarjetas de categoría generadas
+    por Bricks Builder + Jet Engine.
+
+    No depende de WooCommerce.
     """
 
     def __init__(
         self,
         category_scraper,
-        product_link_extractor=None,
-        product_scraper=None,
+        card_extractor=None,
         product_extractor=None,
     ):
 
         self.category_scraper = category_scraper
 
-        self.product_link_extractor = (
-            product_link_extractor
-            or ProductLinkExtractor()
-        )
-
-        self.product_scraper = (
-            product_scraper
-            or ProductScraper()
+        self.card_extractor = (
+            card_extractor
+            or ProductCardExtractor()
         )
 
         self.product_extractor = (
             product_extractor
-            or ProductExtractor()
+            or CategoryProductExtractor()
         )
 
 
-    def scrape_category(self, category):
+    def scrape_category(
+        self,
+        category
+    ):
 
         products = []
+
 
         pages = self.category_scraper.get_category_pages(
             category.url
         )
 
 
-        product_urls = []
-
-
         for page in pages:
+
 
             html = self.category_scraper.get_html(
                 page
             )
+
 
             if not html:
                 continue
@@ -65,35 +65,24 @@ class ProductCollectionScraper:
             )
 
 
-            urls = self.product_link_extractor.extract(
+            cards = self.card_extractor.extract(
                 soup
             )
 
 
-            product_urls.extend(urls)
+            for card in cards:
 
 
-
-        product_urls = list(
-            dict.fromkeys(product_urls)
-        )
-
-
-        for url in product_urls:
-
-            soup = self.product_scraper.scrape(
-                url
-            )
+                product = self.product_extractor.extract(
+                    card,
+                    url="",
+                    category=category.name
+                )
 
 
-            product = self.product_extractor.extract(
-                soup,
-                url=url,
-                category=category.name,
-            )
-
-
-            products.append(product)
+                products.append(
+                    product
+                )
 
 
         return products

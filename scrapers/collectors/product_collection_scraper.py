@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 
-from scrapers.product_extractor import ProductExtractor
-from scrapers.product_link_extractor import ProductLinkExtractor
+from scrapers.extractors.product_extractor import ProductExtractor
+from scrapers.extractors.product_link_extractor import ProductLinkExtractor
 from scrapers.product_scraper import ProductScraper
 
 

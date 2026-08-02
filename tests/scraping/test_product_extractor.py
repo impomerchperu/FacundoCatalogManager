@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 
-from scrapers.product_extractor import ProductExtractor
+from scrapers.extractors.product_extractor import ProductExtractor
 
 
 def test_product_extractor():

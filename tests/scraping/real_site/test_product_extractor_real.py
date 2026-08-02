@@ -1,4 +1,4 @@
-from scrapers.product_extractor import ProductExtractor
+from scrapers.extractors.product_extractor import ProductExtractor
 from scrapers.product_scraper import ProductScraper
 
 url = (

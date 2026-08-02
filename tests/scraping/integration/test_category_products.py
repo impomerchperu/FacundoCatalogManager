@@ -1,4 +1,4 @@
-from scrapers.category_scraper import CategoryScraper
+from scrapers.collectors.category_scraper import CategoryScraper
 
 
 BASE_URL = "https://stock.importacionesfacundo.com"

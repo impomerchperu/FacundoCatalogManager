@@ -1,6 +1,6 @@
 from models.scraping.category import Category
 from scrapers.collectors.category_scraper import CategoryScraper
-from scrapers.product_collection_scraper import ProductCollectionScraper
+from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 
 
 BASE_URL = "https://stock.importacionesfacundo.com"

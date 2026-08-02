@@ -1,5 +1,4 @@
 class ProductDiffService:
-
     def compare(self, old, new):
 
         fields = []
@@ -13,7 +12,6 @@ class ProductDiffService:
             "image_path",
             "image_url",
         ]:
-
             if old.get(field) != new.get(field):
                 fields.append(field)
 

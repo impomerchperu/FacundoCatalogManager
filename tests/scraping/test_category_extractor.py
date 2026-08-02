@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 
-from scrapers.category_extractor import CategoryExtractor
+from scrapers.extractors.category_extractor import CategoryExtractor
 
 
 def test_extract_categories():

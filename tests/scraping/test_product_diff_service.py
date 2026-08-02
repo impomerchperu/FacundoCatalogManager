@@ -5,19 +5,9 @@ def test_detect_product_changes():
 
     service = ProductDiffService()
 
-    old = {
-        "code": "P001",
-        "name": "Mug Azul",
-        "price": 20,
-        "stock": 5
-    }
+    old = {"code": "P001", "name": "Mug Azul", "price": 20, "stock": 5}
 
-    new = {
-        "code": "P001",
-        "name": "Mug Azul",
-        "price": 25,
-        "stock": 10
-    }
+    new = {"code": "P001", "name": "Mug Azul", "price": 25, "stock": 10}
 
     result = service.compare(old, new)
 
@@ -30,12 +20,7 @@ def test_detect_no_changes():
 
     service = ProductDiffService()
 
-    product = {
-        "code": "P001",
-        "name": "Mug Azul",
-        "price": 20,
-        "stock": 5
-    }
+    product = {"code": "P001", "name": "Mug Azul", "price": 20, "stock": 5}
 
     result = service.compare(product, product)
 

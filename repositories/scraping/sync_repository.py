@@ -1,15 +1,12 @@
 class SyncRepository:
-
     def __init__(self, db=None):
 
         self.db = db
         self.records = {}
 
-
     def save(self, product):
 
         if self.db:
-
             query = """
             INSERT INTO sync_records (
                 code,
@@ -47,15 +44,11 @@ class SyncRepository:
 
             return
 
-
         self.records[product.code] = product
-
-
 
     def get(self, code):
 
         if self.db:
-
             query = """
             SELECT
                 code,
@@ -69,15 +62,11 @@ class SyncRepository:
             WHERE code = ?
             """
 
-            result = self.db.fetch_one(
-                query,
-                (code,)
-            )
+            result = self.db.fetch_one(query, (code,))
 
             if result is None:
                 return None
 
             return dict(result)
-
 
         return self.records.get(code)

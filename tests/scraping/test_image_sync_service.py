@@ -1,6 +1,6 @@
 from models.scraping.image_record import ImageRecord
-from services.scraping.image_sync_service import ImageSyncService
 from repositories.scraping.sync_repository import SyncRepository
+from services.scraping.image_sync_service import ImageSyncService
 
 
 def test_image_sync_downloads_new_image():

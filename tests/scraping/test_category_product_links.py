@@ -1,4 +1,4 @@
-from scrapers.category_scraper import CategoryScraper
+from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.parser import Parser
 from scrapers.product_link_extractor import ProductLinkExtractor
 

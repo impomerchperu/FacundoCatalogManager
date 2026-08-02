@@ -1,4 +1,4 @@
-from scrapers.category_scraper import CategoryScraper
+from scrapers.collectors.category_scraper import CategoryScraper
 
 
 def test_category_scraper_extracts_categories():

@@ -1,25 +1,39 @@
-PRODUCT_NAME = "h1.product-name"
+PRODUCT_NAME = "h3.brxe-heading"
 
-PRODUCT_PRICE = ".product-price"
+PRODUCT_SKU = "span.sku"
 
-PRODUCT_IMAGE = "img.product-image"
 
-PRODUCT_DESCRIPTION = ".product-description"
+PRODUCT_PRICE = ".price, .woocommerce-Price-amount"
+
+
+PRODUCT_IMAGE = ".woocommerce-product-gallery img"
+
+
+PRODUCT_DESCRIPTION = ".x-tabs_panel-content .brxe-text"
+
+
+PRODUCT_CATEGORY = ".product_meta a[href*='/categoria-producto/']"
+
+
+PRODUCT_STOCK = ".stock"
+
+
+PRODUCT_LINK = "a[href*='/producto/']"
 
 
 class ProductSelectors:
-    PRODUCT_LINK = "a"
+    PRODUCT_LINK = "a[href*='/producto/']"
 
-    TITLE = "h1"
+    TITLE = "h3.brxe-heading"
 
-    CODE = ".sku"
+    CODE = "span.sku"
 
-    PRICE = ".price"
+    PRICE = ".price, .woocommerce-Price-amount"
 
-    DESCRIPTION = ".woocommerce-product-details__short-description"
+    DESCRIPTION = ".x-tabs_panel-content .brxe-text"
 
     IMAGE = ".woocommerce-product-gallery img"
 
-    CATEGORY = ".posted_in a"
+    CATEGORY = ".product_meta a[href*='/categoria-producto/']"
 
     STOCK = ".stock"

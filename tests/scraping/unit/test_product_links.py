@@ -1,6 +1,6 @@
 from scrapers.browser import Browser
-from scrapers.parser import Parser
 from scrapers.extractors.product_link_extractor import ProductLinkExtractor
+from scrapers.parser import Parser
 
 url = "https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/"
 

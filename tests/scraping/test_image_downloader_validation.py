@@ -22,7 +22,7 @@ def test_image_downloader_does_not_download_existing_file(tmp_path):
 
     class FakeDownloader:
         def get(self, url):
-            raise Exception("Should not download")
+            raise RuntimeError("Should not download")
 
     downloader = ImageDownloader(tmp_path)
 

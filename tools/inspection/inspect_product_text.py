@@ -1,6 +1,4 @@
 from scrapers.browser import Browser
-from scrapers.parser import Parser
-
 
 URL = (
     "https://stock.importacionesfacundo.com/"
@@ -28,7 +26,7 @@ keywords = [
     "mayorista",
     "venta",
     "unidad",
-    "FB-1800"
+    "FB-1800",
 ]
 
 
@@ -38,24 +36,13 @@ print("=" * 80)
 
 
 for word in keywords:
-
     print("\nWORD:", word)
 
-    count = html.lower().count(
-        word.lower()
-    )
+    count = html.lower().count(word.lower())
 
     print("COUNT:", count)
 
-
     if count:
-        pos = html.lower().find(
-            word.lower()
-        )
+        pos = html.lower().find(word.lower())
 
-        print(
-            html[
-                max(0,pos-200):
-                pos+500
-            ]
-        )
+        print(html[max(0, pos - 200) : pos + 500])

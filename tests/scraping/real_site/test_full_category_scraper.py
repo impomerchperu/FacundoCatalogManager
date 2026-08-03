@@ -1,22 +1,15 @@
 from collections import Counter
 
+from models.scraping.category import Category
 from scrapers.browser import Browser
-from scrapers.parser import Parser
 from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
-from models.scraping.category import Category
+from scrapers.parser import Parser
+
+CATEGORY_URL = "https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/"
 
 
-CATEGORY_URL = (
-    "https://stock.importacionesfacundo.com/"
-    "categoria-producto/jarros-mug/"
-)
-
-
-category = Category(
-    name="Jarros Mug",
-    url=CATEGORY_URL
-)
+category = Category(name="Jarros Mug", url=CATEGORY_URL)
 
 
 browser = Browser()
@@ -24,29 +17,20 @@ browser = Browser()
 parser = Parser()
 
 
-category_scraper = CategoryScraper(
-    browser=browser,
-    parser=parser
-)
+category_scraper = CategoryScraper(browser=browser, parser=parser)
 
 
-collection = ProductCollectionScraper(
-    category_scraper=category_scraper
-)
+collection = ProductCollectionScraper(category_scraper=category_scraper)
 
 
-products = collection.scrape_category(
-    category
-)
+products = collection.scrape_category(category)
 
 
 print("=" * 80)
 print("TOTAL PRODUCTOS")
 print("=" * 80)
 
-print(
-    len(products)
-)
+print(len(products))
 
 
 print()
@@ -55,23 +39,13 @@ print("DUPLICADOS POR CODIGO")
 print("=" * 80)
 
 
-codes = [
-    p.code
-    for p in products
-    if p.code
-]
+codes = [p.code for p in products if p.code]
 
 
-duplicates = [
-    code
-    for code, count in Counter(codes).items()
-    if count > 1
-]
+duplicates = [code for code, count in Counter(codes).items() if count > 1]
 
 
-print(
-    duplicates
-)
+print(duplicates)
 
 
 print()
@@ -83,19 +57,11 @@ print("=" * 80)
 without_prices = [
     p.code
     for p in products
-    if (
-        p.price_sample == 0
-        and
-        p.price_hundred == 0
-        and
-        p.price_thousand == 0
-    )
+    if (p.price_sample == 0 and p.price_hundred == 0 and p.price_thousand == 0)
 ]
 
 
-print(
-    without_prices
-)
+print(without_prices)
 
 
 print()
@@ -104,16 +70,10 @@ print("PRODUCTOS SIN IMAGEN")
 print("=" * 80)
 
 
-without_images = [
-    p.code
-    for p in products
-    if not p.image_url
-]
+without_images = [p.code for p in products if not p.image_url]
 
 
-print(
-    without_images
-)
+print(without_images)
 
 
 print()
@@ -123,7 +83,6 @@ print("=" * 80)
 
 
 for product in products[:5]:
-
     print(
         {
             "codigo": product.code,
@@ -132,6 +91,6 @@ for product in products[:5]:
             "precio_muestra": product.price_sample,
             "precio_ciento": product.price_hundred,
             "precio_millar": product.price_thousand,
-            "imagen": product.image_url
+            "imagen": product.image_url,
         }
     )

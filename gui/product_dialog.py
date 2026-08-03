@@ -1,3 +1,5 @@
+import sqlite3
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
@@ -172,8 +174,30 @@ class ProductDialog(QDialog):
                 self.service.create_product(product)
                 mensaje = "Producto creado correctamente."
 
-        except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+        except sqlite3.IntegrityError:
+            QMessageBox.critical(
+                self,
+                "Error",
+                "Ya existe un producto con ese código.",
+            )
+
+            return
+
+        except sqlite3.Error as e:
+            QMessageBox.critical(
+                self,
+                "Error de base de datos",
+                str(e),
+            )
+
+            return
+
+        except ValueError as e:
+            QMessageBox.critical(
+                self,
+                "Error de validación",
+                str(e),
+            )
 
             return
 

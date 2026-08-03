@@ -1,5 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 
+import requests
+
 
 class ImageDownloadManager:
     def __init__(self, image_downloader, image_validator, max_workers=4):
@@ -36,14 +38,22 @@ class ImageDownloadManager:
             return None
 
         try:
-            image_path = self.image_downloader.download(code, image_url, downloader)
+            image_path = self.image_downloader.download(
+                code,
+                image_url,
+                downloader,
+            )
 
             if self.image_validator.is_valid(image_path):
                 product["image_path"] = image_path
 
                 return product
 
-        except Exception:
+        except (
+            requests.exceptions.RequestException,
+            OSError,
+            ValueError,
+        ):
             return None
 
         return None

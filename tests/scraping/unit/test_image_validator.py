@@ -1,7 +1,4 @@
-from pathlib import Path
-
 from scrapers.images.image_validator import ImageValidator
-
 
 validator = ImageValidator()
 
@@ -11,35 +8,22 @@ print("IMAGE VALIDATOR")
 print("=" * 80)
 
 
-valid_image = (
-    "data/images/FB-1812.webp"
-)
+valid_image = "data/images/FB-1812.webp"
 
 
-result = validator.validate(
-    valid_image
-)
+result = validator.validate(valid_image)
 
 
-print(
-    "VALID:",
-    result
-)
+print("VALID:", result)
 
 
 assert result is True
 
 
-
-missing = validator.validate(
-    "data/images/no-existe.webp"
-)
+missing = validator.validate("data/images/no-existe.webp")
 
 
-print(
-    "MISSING:",
-    missing
-)
+print("MISSING:", missing)
 
 
 assert missing is False

@@ -19,7 +19,7 @@ JAR001
 Producto de prueba
 </div>
 
-<img class="woocommerce-product-gallery" 
+<img class="woocommerce-product-gallery"
 src="imagen.jpg">
 """
 

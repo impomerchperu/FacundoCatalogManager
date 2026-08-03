@@ -17,7 +17,7 @@ def test_product_extractor():
                 125.50
             </span>
 
-            <img 
+            <img
                 class="product-image"
                 src="producto.jpg"
             >

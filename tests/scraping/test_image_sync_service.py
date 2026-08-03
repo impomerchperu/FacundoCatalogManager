@@ -24,7 +24,7 @@ def test_image_sync_skips_existing_image():
     class FakeBrowser:
         def get(self, url):
 
-            raise Exception("No debe descargar")
+            raise RuntimeError("No debe descargar")
 
     repository = SyncRepository()
 

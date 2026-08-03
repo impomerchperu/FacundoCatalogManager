@@ -2,7 +2,6 @@ from pathlib import Path
 
 from scrapers.images.image_manager import ImageManager
 
-
 manager = ImageManager()
 
 
@@ -17,24 +16,16 @@ result = manager.process(
 )
 
 
-print(
-    "PATH:",
-    result["image_path"]
-)
+print("PATH:", result["image_path"])
 
 
-print(
-    "HASH:",
-    result["image_hash"]
-)
+print("HASH:", result["image_hash"])
 
 
 assert result["image_path"]
 
 
-assert Path(
-    result["image_path"]
-).exists()
+assert Path(result["image_path"]).exists()
 
 
 assert result["image_hash"]

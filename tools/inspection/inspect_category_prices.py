@@ -1,12 +1,9 @@
-import requests
-from bs4 import BeautifulSoup
 import re
 
+import requests
+from bs4 import BeautifulSoup
 
-URL = (
-    "https://stock.importacionesfacundo.com/"
-    "categoria-producto/jarros-mug/"
-)
+URL = "https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/"
 
 
 print("=" * 80)
@@ -14,10 +11,7 @@ print("DESCARGANDO CATEGORIA")
 print("=" * 80)
 
 
-response = requests.get(
-    URL,
-    timeout=30
-)
+response = requests.get(URL, timeout=30)
 
 print("STATUS:", response.status_code)
 
@@ -42,29 +36,17 @@ keywords = [
 
 
 for keyword in keywords:
-
     print("\nKEYWORD:")
     print(keyword)
 
-    matches = [
-        m.start()
-        for m in re.finditer(
-            keyword,
-            html,
-            re.IGNORECASE
-        )
-    ]
+    matches = [m.start() for m in re.finditer(keyword, html, re.IGNORECASE)]
 
     print("Encontrados:", len(matches))
 
     for pos in matches[:5]:
-
         print("-" * 60)
 
-        fragment = html[
-            max(0, pos - 250):
-            pos + 500
-        ]
+        fragment = html[max(0, pos - 250) : pos + 500]
 
         print(fragment)
 
@@ -74,30 +56,16 @@ print("ANALIZANDO DOM")
 print("=" * 80)
 
 
-soup = BeautifulSoup(
-    html,
-    "html.parser"
-)
+soup = BeautifulSoup(html, "html.parser")
 
 
-boxes = soup.select(
-    ".content-precio"
-)
+boxes = soup.select(".content-precio")
 
 
-print(
-    "Bloques content-precio:",
-    len(boxes)
-)
+print("Bloques content-precio:", len(boxes))
 
 
 for box in boxes[:10]:
-
     print("-" * 60)
 
-    print(
-        box.get_text(
-            " ",
-            strip=True
-        )
-    )
+    print(box.get_text(" ", strip=True))

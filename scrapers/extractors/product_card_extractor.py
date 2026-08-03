@@ -12,12 +12,6 @@ class ProductCardExtractor:
     la realiza CategoryProductExtractor.
     """
 
+    def extract(self, soup):
 
-    def extract(
-        self,
-        soup
-    ):
-
-        return soup.select(
-            product_card_selectors.PRODUCT_CARD
-        )
+        return soup.select(product_card_selectors.PRODUCT_CARD)

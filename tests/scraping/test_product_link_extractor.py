@@ -1,5 +1,5 @@
-from scrapers.parser import Parser
 from scrapers.extractors.product_link_extractor import ProductLinkExtractor
+from scrapers.parser import Parser
 
 
 def test_extract_product_links():

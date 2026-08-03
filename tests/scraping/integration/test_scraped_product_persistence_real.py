@@ -11,7 +11,6 @@ from services.scraping.scraped_product_persistence_service import (
     ScrapedProductPersistenceService,
 )
 
-
 BASE_URL = "https://stock.importacionesfacundo.com"
 
 
@@ -20,9 +19,7 @@ db = DBManager()
 repository = ScrapedProductRepository(db)
 
 
-category_scraper = CategoryScraper(
-    BASE_URL
-)
+category_scraper = CategoryScraper(BASE_URL)
 
 
 collection_scraper = ProductCollectionScraper(category_scraper)

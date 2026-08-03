@@ -1,10 +1,9 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
 class ScrapedProduct:
-
     source: str = ""
     url: str = ""
 
@@ -32,20 +31,9 @@ class ScrapedProduct:
 
     updated_at: str = ""
 
-
     def __post_init__(self):
-
         if not self.scraped_at:
-
-            self.scraped_at = (
-                datetime.now()
-                .isoformat()
-            )
-
+            self.scraped_at = datetime.now(timezone.utc).isoformat()
 
     def __getitem__(self, key):
-
-        return getattr(
-            self,
-            key
-        )
+        return getattr(self, key)

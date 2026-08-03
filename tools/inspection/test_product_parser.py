@@ -1,9 +1,7 @@
 import requests
-
 from bs4 import BeautifulSoup
 
 from scrapers.parser.product_parser import ProductParser
-
 
 URL = "https://stock.importacionesfacundo.com/categoria-producto/jarros-mug"
 
@@ -19,15 +17,10 @@ response = requests.get(URL)
 print("STATUS:", response.status_code)
 
 
-soup = BeautifulSoup(
-    response.text,
-    "html.parser"
-)
+soup = BeautifulSoup(response.text, "html.parser")
 
 
-products = soup.select(
-    ".jsfb-query--querymovil.jsfb-filterable"
-)
+products = soup.select(".jsfb-query--querymovil.jsfb-filterable")
 
 
 print("=" * 80)
@@ -49,9 +42,7 @@ html_producto = str(products[0])
 parser = ProductParser()
 
 
-product = parser.parse(
-    html_producto
-)
+product = parser.parse(html_producto)
 
 
 print("=" * 80)
@@ -59,22 +50,13 @@ print("RESULTADO")
 print("=" * 80)
 
 
-print(
-    "Código:",
-    product.code
-)
+print("Código:", product.code)
 
 
-print(
-    "Nombre:",
-    product.name
-)
+print("Nombre:", product.name)
 
 
-print(
-    "Imagen:",
-    product.image_url
-)
+print("Imagen:", product.image_url)
 
 
 print("=" * 80)
@@ -82,22 +64,13 @@ print("PRECIOS")
 print("=" * 80)
 
 
-print(
-    "Muestra:",
-    product.price_sample
-)
+print("Muestra:", product.price_sample)
 
 
-print(
-    "Ciento:",
-    product.price_hundred
-)
+print("Ciento:", product.price_hundred)
 
 
-print(
-    "Millar:",
-    product.price_thousand
-)
+print("Millar:", product.price_thousand)
 
 
 print("=" * 80)

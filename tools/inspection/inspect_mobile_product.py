@@ -1,7 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
 
-
 URL = "https://stock.importacionesfacundo.com/categoria-producto/jarros-mug"
 
 
@@ -29,9 +28,7 @@ print("BUSCANDO PRODUCTO MOVIL")
 print("=" * 80)
 
 
-products = soup.select(
-    ".jsfb-query--querymovil.jsfb-filterable"
-)
+products = soup.select(".jsfb-query--querymovil.jsfb-filterable")
 
 
 print("PRODUCTOS:", len(products))
@@ -71,11 +68,7 @@ print("=" * 80)
 
 
 for img in product.find_all("img"):
-
-    url = (
-        img.get("data-src")
-        or img.get("src")
-    )
+    url = img.get("data-src") or img.get("src")
 
     if url and not url.startswith("data:image"):
         print(url)
@@ -93,17 +86,11 @@ print("Bloques precio:", len(prices))
 
 
 for price in prices:
-
     title = price.find("h3")
     value = price.find("h4")
 
     if title and value:
-
-        print(
-            clean(title.text),
-            "=>",
-            clean(value.text)
-        )
+        print(clean(title.text), "=>", clean(value.text))
 
 
 print("=" * 80)
@@ -115,6 +102,5 @@ text = product.get_text("\n")
 
 
 for line in text.splitlines():
-
     if "Stock" in line:
         print(clean(line))

@@ -58,7 +58,7 @@ def test_create_invalid_product():
     try:
         service.create_product(product)
 
-        assert False, "Debió rechazar producto inválido"
+        raise AssertionError("Debió rechazar producto inválido")
 
     except ValueError as error:
         assert len(error.args[0]) > 0

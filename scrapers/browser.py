@@ -31,7 +31,9 @@ class Browser:
         for attempt in range(self.max_retries):
             try:
                 response = self.session.get(
-                    url, headers=self.headers, timeout=self.timeout
+                    url,
+                    headers=self.headers,
+                    timeout=self.timeout,
                 )
 
                 if hasattr(response, "raise_for_status"):
@@ -39,13 +41,14 @@ class Browser:
 
                 if hasattr(response, "text"):
                     return response.text
+                else:
+                    return response
 
-                return response
-
-            except Exception as error:
+            except requests.exceptions.RequestException as error:
                 last_error = error
 
                 if attempt < self.max_retries - 1:
                     time.sleep(attempt + 1)
 
-        raise last_error
+        if last_error:
+            raise last_error

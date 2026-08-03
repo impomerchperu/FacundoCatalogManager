@@ -1,8 +1,14 @@
 from pathlib import Path
+from typing import ClassVar
 
 
 class ImageValidator:
-    VALID_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+    VALID_EXTENSIONS: ClassVar[set[str]] = {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+    }
 
     def is_valid_extension(self, filename):
 
@@ -16,9 +22,9 @@ class ImageValidator:
             return False
 
         signatures = [
-            b"\xff\xd8",  # JPG
-            b"\x89PNG",  # PNG
-            b"RIFF",  # WEBP
+            b"\xff\xd8",
+            b"\x89PNG",
+            b"RIFF",
         ]
 
         return any(content.startswith(signature) for signature in signatures)

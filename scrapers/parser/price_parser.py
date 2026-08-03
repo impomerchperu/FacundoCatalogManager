@@ -24,23 +24,14 @@ class PriceParser:
         if not text:
             return 0
 
-        text = (
-            text
-            .replace("S/", "")
-            .replace(",", "")
-            .strip()
-        )
+        text = text.replace("S/", "").replace(",", "").strip()
 
-        match = re.search(
-            r"\d+\.?\d*",
-            text
-        )
+        match = re.search(r"\d+\.?\d*", text)
 
         if match:
             return float(match.group())
 
         return 0
-
 
     def extract_prices(self, product):
 
@@ -50,24 +41,16 @@ class PriceParser:
             "thousand": 0,
         }
 
-
         for block in product.select(".content-precio"):
-
             title = block.find("h3")
             value = block.find("h4")
-
 
             if not title or not value:
                 continue
 
-
-            number = self.clean_price(
-                value.text
-            )
-
+            number = self.clean_price(value.text)
 
             label = title.text.strip()
-
 
             if "Muestra" in label:
                 prices["sample"] = number
@@ -77,6 +60,5 @@ class PriceParser:
 
             elif "Millar" in label:
                 prices["thousand"] = number
-
 
         return prices

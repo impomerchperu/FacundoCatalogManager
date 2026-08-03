@@ -2,32 +2,22 @@ from models.scraping.category import Category
 from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 
-
 BASE_URL = "https://stock.importacionesfacundo.com"
 
 
-category_scraper = CategoryScraper(
-    BASE_URL
-)
+category_scraper = CategoryScraper(BASE_URL)
 
 
-collection = ProductCollectionScraper(
-    category_scraper
-)
+collection = ProductCollectionScraper(category_scraper)
 
 
 category = Category(
     name="Jarros Mug",
-    url=(
-        "https://stock.importacionesfacundo.com/"
-        "categoria-producto/jarros-mug/"
-    ),
+    url=("https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/"),
 )
 
 
-products = collection.scrape_category(
-    category
-)
+products = collection.scrape_category(category)
 
 
 print("=" * 80)

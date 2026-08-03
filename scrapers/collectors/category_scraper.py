@@ -1,6 +1,7 @@
+from urllib.parse import urljoin
+
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
 
 
 class CategoryScraper:
@@ -14,12 +15,7 @@ class CategoryScraper:
     - ProductCollectionScraper
     """
 
-    def __init__(
-        self,
-        browser,
-        parser=None,
-        extractor=None
-    ):
+    def __init__(self, browser, parser=None, extractor=None):
 
         self.parser = parser
         self.extractor = extractor
@@ -27,14 +23,11 @@ class CategoryScraper:
         self.base_url = None
 
         if isinstance(browser, str):
-
             self.base_url = browser.rstrip("/")
             self.browser = None
 
         else:
-
             self.browser = browser
-
 
     # --------------------------------------------------
     # DESCARGA HTML
@@ -43,23 +36,13 @@ class CategoryScraper:
     def get_html(self, url):
 
         if self.browser:
-
             return self.browser.get(url)
 
-
-        response = requests.get(
-            url,
-            timeout=20,
-            headers={
-                "User-Agent": "Mozilla/5.0"
-            }
-        )
+        response = requests.get(url, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
 
         response.raise_for_status()
 
         return response.text
-
-
 
     # --------------------------------------------------
     # ALIAS INTERNO
@@ -69,28 +52,16 @@ class CategoryScraper:
 
         return self.get_html(url)
 
-
-
     # --------------------------------------------------
     # PARSER
     # --------------------------------------------------
 
     def _parse(self, html):
 
-        if self.parser and hasattr(
-            self.parser,
-            "parse"
-        ):
-
+        if self.parser and hasattr(self.parser, "parse"):
             return self.parser.parse(html)
 
-
-        return BeautifulSoup(
-            html,
-            "html.parser"
-        )
-
-
+        return BeautifulSoup(html, "html.parser")
 
     # --------------------------------------------------
     # CATEGORÍAS
@@ -100,34 +71,18 @@ class CategoryScraper:
 
         html = self.get_html(url)
 
-
         if not html:
             return []
 
-
-        if self.parser and hasattr(
-            self.parser,
-            "extract_categories"
-        ):
-
-            return self.parser.extract_categories(
-                html
-            )
-
+        if self.parser and hasattr(self.parser, "extract_categories"):
+            return self.parser.extract_categories(html)
 
         soup = self._parse(html)
 
-
         if self.extractor:
-
-            return self.extractor.extract(
-                soup
-            )
-
+            return self.extractor.extract(soup)
 
         return []
-
-
 
     # --------------------------------------------------
     # PRODUCTOS DE UNA CATEGORÍA
@@ -137,75 +92,40 @@ class CategoryScraper:
 
         html = self.get_html(url)
 
-
         if not html:
             return []
 
-
         soup = self._parse(html)
 
-
         if self.extractor:
-
-            return self.extractor.extract(
-                soup
-            )
-
+            return self.extractor.extract(soup)
 
         return []
-
-
 
     # --------------------------------------------------
     # PAGINACIÓN
     # --------------------------------------------------
 
-    def get_category_pages(
-        self,
-        category_url
-    ):
+    def get_category_pages(self, category_url):
 
-        html = self.get_html(
-            category_url
-        )
-
+        html = self.get_html(category_url)
 
         if not html:
             return []
 
-
         soup = self._parse(html)
 
+        pages = [category_url]
 
-        pages = [
-            category_url
-        ]
-
-
-        for link in soup.select(
-            "a.page-numbers"
-        ):
-
-            href = link.get(
-                "href"
-            )
-
+        for link in soup.select("a.page-numbers"):
+            href = link.get("href")
 
             if not href:
                 continue
 
-
-            page_url = urljoin(
-                category_url,
-                href
-            )
-
+            page_url = urljoin(category_url, href)
 
             if page_url not in pages:
-
-                pages.append(
-                    page_url
-                )
-
+                pages.append(page_url)
 
         return pages

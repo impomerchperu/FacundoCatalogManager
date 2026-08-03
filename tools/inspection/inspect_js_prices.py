@@ -1,8 +1,5 @@
-import re
-
 import requests
 from bs4 import BeautifulSoup
-
 
 URL = (
     "https://stock.importacionesfacundo.com/"
@@ -43,11 +40,7 @@ def inspect_text(name, text):
 
     text_lower = text.lower()
 
-    found = [
-        keyword
-        for keyword in KEYWORDS
-        if keyword in text_lower
-    ]
+    found = [keyword for keyword in KEYWORDS if keyword in text_lower]
 
     if not found:
         return
@@ -64,10 +57,7 @@ def inspect_text(name, text):
         end = position + 250
 
         print("-" * 40)
-        print(
-            text[start:end]
-            .replace("\n", " ")
-        )
+        print(text[start:end].replace("\n", " "))
 
 
 def main():
@@ -90,7 +80,6 @@ def main():
         "html.parser",
     )
 
-
     print("=" * 80)
     print("ANALIZANDO HTML")
     print("=" * 80)
@@ -100,54 +89,39 @@ def main():
         html,
     )
 
-
     print("=" * 80)
     print("SCRIPTS INLINE")
     print("=" * 80)
 
-
-    for index, script in enumerate(
-        soup.find_all("script")
-    ):
-
+    for index, script in enumerate(soup.find_all("script")):
         if script.string:
-
             inspect_text(
                 f"SCRIPT INLINE #{index}",
                 script.string,
             )
 
-
     print("=" * 80)
     print("SCRIPTS EXTERNOS")
     print("=" * 80)
-
 
     for script in soup.find_all(
         "script",
         src=True,
     ):
-
-        src = normalize_url(
-            script["src"]
-        )
+        src = normalize_url(script["src"])
 
         try:
-
             js = requests.get(
                 src,
                 timeout=20,
             ).text
-
 
             inspect_text(
                 src,
                 js,
             )
 
-
         except Exception as e:
-
             print(
                 "ERROR:",
                 src,

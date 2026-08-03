@@ -2,31 +2,20 @@ from scrapers.images.image_manager import ImageManager
 
 
 class FakeDownloader:
-
-    def download(
-        self,
-        code,
-        url
-    ):
+    def download(self, code, url):
 
         return ""
 
 
-
-manager = ImageManager(
-    downloader=FakeDownloader()
-)
+manager = ImageManager(downloader=FakeDownloader())
 
 
-result = manager.process(
-    "FB-1812",
-    "http://test.com/image.webp"
-)
+result = manager.process("FB-1812", "http://test.com/image.webp")
 
 
-print("="*80)
+print("=" * 80)
 print("IMAGE ERROR HANDLING")
-print("="*80)
+print("=" * 80)
 
 print(result)
 

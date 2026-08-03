@@ -7,43 +7,29 @@ class SyncResult:
     Resultado completo de una sincronización.
     """
 
-    new: list = field(
-        default_factory=list
-    )
+    new: list = field(default_factory=list)
 
-    updated: list = field(
-        default_factory=list
-    )
+    updated: list = field(default_factory=list)
 
-    unchanged: list = field(
-        default_factory=list
-    )
-
+    unchanged: list = field(default_factory=list)
 
     images_processed: int = 0
 
     image_errors: int = 0
 
-
-    errors: list = field(
-        default_factory=list
-    )
-
+    errors: list = field(default_factory=list)
 
     @property
     def new_count(self):
         return len(self.new)
 
-
     @property
     def updated_count(self):
         return len(self.updated)
 
-
     @property
     def unchanged_count(self):
         return len(self.unchanged)
-
 
     def summary(self):
 

@@ -1,6 +1,6 @@
 from scrapers.collectors.category_scraper import CategoryScraper
-from scrapers.parser import Parser
 from scrapers.extractors.product_link_extractor import ProductLinkExtractor
+from scrapers.parser import Parser
 
 
 class FakeBrowser:

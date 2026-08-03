@@ -1,13 +1,9 @@
 from scrapers.collectors.category_scraper import CategoryScraper
 
-
 BASE_URL = "https://stock.importacionesfacundo.com"
 
 
-CATEGORY_URL = (
-    "https://stock.importacionesfacundo.com/"
-    "categoria-producto/jarros-mug/"
-)
+CATEGORY_URL = "https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/"
 
 
 scraper = CategoryScraper(BASE_URL)

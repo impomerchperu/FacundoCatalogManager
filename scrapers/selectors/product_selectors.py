@@ -18,11 +18,11 @@ PRODUCT_CATEGORY = ".product_meta a[href*='/categoria-producto/']"
 PRODUCT_STOCK = ".stock"
 
 
-PRODUCT_LINK = "a[href*='/producto/']"
+PRODUCT_LINK = "a[href*='/producto']"
 
 
 class ProductSelectors:
-    PRODUCT_LINK = "a[href*='/producto/']"
+    PRODUCT_LINK = "a[href*='/producto']"
 
     TITLE = "h3.brxe-heading"
 

@@ -138,3 +138,20 @@ class CategoryScraper:
                 pages.append(page_url)
 
         return pages
+
+    def get_product_blocks(self, url: str):
+
+        html = self.get_html(url)
+
+        if not html:
+            return []
+
+        soup = self._parse(html)
+
+        if self.extractor and hasattr(
+            self.extractor,
+            "extract_blocks",
+        ):
+            return self.extractor.extract_blocks(soup)
+
+        return []

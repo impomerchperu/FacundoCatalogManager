@@ -1,13 +1,18 @@
 from openpyxl import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 
 
 class ExcelExporter:
     @staticmethod
     def export(products, filename):
-
         workbook = Workbook()
 
-        sheet = workbook.active
+        active_sheet = workbook.active
+
+        if active_sheet is None:
+            raise RuntimeError("No se pudo crear la hoja Excel")
+
+        sheet: Worksheet = active_sheet
 
         sheet.title = "Productos"
 

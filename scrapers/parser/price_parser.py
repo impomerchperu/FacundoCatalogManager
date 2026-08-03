@@ -1,4 +1,5 @@
 import re
+from typing import Dict
 
 
 class PriceParser:
@@ -11,7 +12,7 @@ class PriceParser:
     - Precio millar
     """
 
-    def clean_price(self, text):
+    def clean_price(self, text: str) -> float:
         """
         Convierte:
         S/ 1,100.00
@@ -22,23 +23,26 @@ class PriceParser:
         """
 
         if not text:
-            return 0
+            return 0.0
 
         text = text.replace("S/", "").replace(",", "").strip()
 
-        match = re.search(r"\d+\.?\d*", text)
+        match = re.search(
+            r"\d+\.?\d*",
+            text,
+        )
 
         if match:
             return float(match.group())
 
-        return 0
+        return 0.0
 
-    def extract_prices(self, product):
+    def extract_prices(self, product) -> Dict[str, float]:
 
-        prices = {
-            "sample": 0,
-            "hundred": 0,
-            "thousand": 0,
+        prices: Dict[str, float] = {
+            "sample": 0.0,
+            "hundred": 0.0,
+            "thousand": 0.0,
         }
 
         for block in product.select(".content-precio"):

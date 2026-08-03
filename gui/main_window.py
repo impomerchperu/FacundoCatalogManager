@@ -19,17 +19,14 @@ from gui.product_table import ProductTable
 
 class MainWindow(QMainWindow):
     def __init__(self):
-
         super().__init__()
 
         self.controller = ProductController()
 
         self.setWindowTitle("Facundo Catalog Manager")
-
         self.resize(900, 600)
 
         central = QWidget()
-
         self.setCentralWidget(central)
 
         layout = QVBoxLayout(central)
@@ -37,46 +34,26 @@ class MainWindow(QMainWindow):
         self.table = ProductTable()
 
         self.search_box = QLineEdit()
-
         self.search_box.setPlaceholderText("Buscar producto...")
-
         self.search_box.textChanged.connect(self.search_products)
 
         layout.addWidget(self.search_box)
-
         layout.addWidget(self.table)
 
         botones = QHBoxLayout()
 
-        btn_new = QPushButton("Nuevo")
+        buttons = [
+            ("Nuevo", self.new_product),
+            ("Editar", self.edit_product),
+            ("Eliminar", self.delete_product),
+            ("Exportar Excel", self.export_excel),
+            ("Exportar PDF", self.export_pdf),
+        ]
 
-        btn_new.clicked.connect(self.new_product)
-
-        btn_edit = QPushButton("Editar")
-
-        btn_edit.clicked.connect(self.edit_product)
-
-        btn_delete = QPushButton("Eliminar")
-
-        btn_delete.clicked.connect(self.delete_product)
-
-        btn_excel = QPushButton("Exportar Excel")
-
-        btn_excel.clicked.connect(self.export_excel)
-
-        btn_pdf = QPushButton("Exportar PDF")
-
-        btn_pdf.clicked.connect(self.export_pdf)
-
-        botones.addWidget(btn_new)
-
-        botones.addWidget(btn_edit)
-
-        botones.addWidget(btn_delete)
-
-        botones.addWidget(btn_excel)
-
-        botones.addWidget(btn_pdf)
+        for text, callback in buttons:
+            button = QPushButton(text)
+            button.clicked.connect(callback)
+            botones.addWidget(button)
 
         layout.addLayout(botones)
 
@@ -92,8 +69,11 @@ class MainWindow(QMainWindow):
         row = self.table.currentRow()
 
         if row < 0:
-            QMessageBox.warning(self, "Editar", "Seleccione un producto.")
-
+            QMessageBox.warning(
+                self,
+                "Editar",
+                "Seleccione un producto.",
+            )
             return
 
         item = self.table.item(row, 1)
@@ -101,13 +81,16 @@ class MainWindow(QMainWindow):
         if item is None:
             return
 
-        product_id = item.data(Qt.UserRole)
+        product_id = item.data(Qt.ItemDataRole.UserRole)
 
         product = self.controller.get_product_by_id(product_id)
 
         if product is None:
-            QMessageBox.warning(self, "Error", "No se encontró el producto.")
-
+            QMessageBox.warning(
+                self,
+                "Error",
+                "No se encontró el producto.",
+            )
             return
 
         dialog = ProductDialog(self, product)
@@ -120,8 +103,11 @@ class MainWindow(QMainWindow):
         row = self.table.currentRow()
 
         if row < 0:
-            QMessageBox.warning(self, "Eliminar", "Seleccione un producto.")
-
+            QMessageBox.warning(
+                self,
+                "Eliminar",
+                "Seleccione un producto.",
+            )
             return
 
         item = self.table.item(row, 1)
@@ -129,34 +115,36 @@ class MainWindow(QMainWindow):
         if item is None:
             return
 
-        product_id = item.data(Qt.UserRole)
+        product_id = item.data(Qt.ItemDataRole.UserRole)
 
         respuesta = QMessageBox.question(
             self,
             "Confirmar eliminación",
             "¿Desea eliminar este producto?",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 
-        if respuesta == QMessageBox.Yes:
+        if respuesta == QMessageBox.StandardButton.Yes:
             self.controller.delete_product(product_id)
-
             self.table.load_products()
 
     def search_products(self, text):
 
-        if text.strip() == "":
+        if not text.strip():
             self.table.load_products()
+            return
 
-        else:
-            productos = self.controller.search_products(text)
+        productos = self.controller.search_products(text)
 
-            self.table.load_products(productos)
+        self.table.load_products(productos)
 
     def export_excel(self):
 
         filename, _ = QFileDialog.getSaveFileName(
-            self, "Guardar Excel", "catalogo.xlsx", "Excel (*.xlsx)"
+            self,
+            "Guardar Excel",
+            "catalogo.xlsx",
+            "Excel (*.xlsx)",
         )
 
         if not filename:
@@ -167,13 +155,18 @@ class MainWindow(QMainWindow):
         ExcelExporter.export(productos, filename)
 
         QMessageBox.information(
-            self, "Correcto", "Archivo Excel exportado correctamente."
+            self,
+            "Correcto",
+            "Archivo Excel exportado correctamente.",
         )
 
     def export_pdf(self):
 
         filename, _ = QFileDialog.getSaveFileName(
-            self, "Guardar PDF", "catalogo.pdf", "PDF (*.pdf)"
+            self,
+            "Guardar PDF",
+            "catalogo.pdf",
+            "PDF (*.pdf)",
         )
 
         if not filename:
@@ -184,5 +177,7 @@ class MainWindow(QMainWindow):
         PDFExporter.export(productos, filename)
 
         QMessageBox.information(
-            self, "Correcto", "Catálogo PDF generado correctamente."
+            self,
+            "Correcto",
+            "Catálogo PDF generado correctamente.",
         )

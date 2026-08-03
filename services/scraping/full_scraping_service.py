@@ -1,16 +1,18 @@
+from typing import Any
+
+
 class FullScrapingService:
     def __init__(
         self,
-        category_scraper=None,
-        category_pagination_service=None,
-        product_scraper=None,
-        product_service=None,
-        category_service=None,
-        image_manager=None,
-        downloader=None,
-        image_sync_service=None,
+        category_scraper: Any = None,
+        category_pagination_service: Any = None,
+        product_scraper: Any = None,
+        product_service: Any = None,
+        category_service: Any = None,
+        image_manager: Any = None,
+        downloader: Any = None,
+        image_sync_service: Any = None,
     ):
-
         self.category_scraper = category_scraper
         self.category_pagination_service = category_pagination_service
         self.product_scraper = product_scraper
@@ -22,6 +24,15 @@ class FullScrapingService:
         self.image_sync_service = image_sync_service
 
     def scrape_category(self, category_url):
+
+        if not self.category_pagination_service:
+            return []
+
+        if not self.category_scraper:
+            return []
+
+        if not self.product_service:
+            return []
 
         pages = self.category_pagination_service.get_pages(category_url)
 
@@ -39,6 +50,18 @@ class FullScrapingService:
 
     def run(self):
 
+        if not self.category_service:
+            return {
+                "products": [],
+                "images": [],
+            }
+
+        if not self.product_scraper:
+            return {
+                "products": [],
+                "images": [],
+            }
+
         categories = self.category_service.scrape_all()
 
         products = self.product_scraper.scrape_products(categories)
@@ -46,9 +69,15 @@ class FullScrapingService:
         images = []
 
         if self.image_manager:
-            images = self.image_manager.download_all(products, self.downloader)
+            images = self.image_manager.download_all(
+                products,
+                self.downloader,
+            )
 
         if self.image_sync_service:
             products = self.image_sync_service.sync_products(products)
 
-        return {"products": products, "images": images}
+        return {
+            "products": products,
+            "images": images,
+        }

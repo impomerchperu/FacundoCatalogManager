@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
@@ -16,10 +17,9 @@ from reportlab.platypus import (
 class PDFExporter:
     @staticmethod
     def export(products, filename):
-
         doc = SimpleDocTemplate(filename, pagesize=A4)
 
-        elements = []
+        elements: list[Any] = []
 
         styles = getSampleStyleSheet()
 
@@ -29,7 +29,7 @@ class PDFExporter:
 
         elements.append(Spacer(1, 20))
 
-        data = [
+        data: list[list[Any]] = [
             [
                 "Imagen",
                 "Código",
@@ -41,12 +41,14 @@ class PDFExporter:
         ]
 
         for product in products:
-            image = ""
+            image: Any = ""
 
             if product.image_path and os.path.exists(product.image_path):
-                img = Image(product.image_path, width=1.5 * cm, height=1.5 * cm)
-
-                image = img
+                image = Image(
+                    product.image_path,
+                    width=1.5 * cm,
+                    height=1.5 * cm,
+                )
 
             data.append(
                 [

@@ -75,7 +75,7 @@ class ProductRepository:
         return product
 
     def delete(self, product_id: int) -> None:
-        """Elimina un producto por su ID."""
+        """Elimina un producto."""
 
         query = """
         DELETE FROM products
@@ -98,7 +98,7 @@ class ProductRepository:
         return [self._row_to_product(row) for row in rows]
 
     def search(self, text: str) -> list[Product]:
-        """Busca productos por código, nombre o categoría."""
+        """Busca productos."""
 
         query = """
         SELECT *
@@ -120,7 +120,7 @@ class ProductRepository:
         return [self._row_to_product(row) for row in rows]
 
     def get_by_id(self, product_id: int) -> Product | None:
-        """Obtiene un producto por su ID."""
+        """Obtiene un producto por ID."""
 
         query = """
         SELECT *
@@ -140,12 +140,9 @@ class ProductRepository:
 
     def _row_to_product(
         self,
-        row: sqlite3.Row | None,
-    ) -> Product | None:
-        """Convierte un sqlite3.Row en un objeto Product."""
-
-        if row is None:
-            return None
+        row: sqlite3.Row,
+    ) -> Product:
+        """Convierte una fila SQLite en Product."""
 
         return Product(
             product_id=row["id"],

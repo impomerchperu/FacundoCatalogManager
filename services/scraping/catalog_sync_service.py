@@ -1,3 +1,5 @@
+import sqlite3
+
 from models.scraping.scraped_product import ScrapedProduct
 from services.scraping.scraped_product_mapper import ScrapedProductMapper
 from services.scraping.sync_result import SyncResult
@@ -72,7 +74,11 @@ class CatalogSyncService:
                 else:
                     result.unchanged += 1
 
-            except Exception as error:
+            except (
+                ValueError,
+                AttributeError,
+                sqlite3.Error,
+            ) as error:
 
                 result.errors += 1
 

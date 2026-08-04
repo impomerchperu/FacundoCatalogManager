@@ -9,7 +9,6 @@ from scrapers.collectors.product_collection_scraper import (
 from scrapers.parser import Parser
 from scrapers.storage.product_storage import ProductStorage
 
-
 pytestmark = pytest.mark.real_site
 
 

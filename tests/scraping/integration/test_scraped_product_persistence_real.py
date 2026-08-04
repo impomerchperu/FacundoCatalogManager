@@ -1,14 +1,12 @@
 import pytest
 
 from database.db_manager import DBManager
-from models.scraping.scraped_product import ScrapedProduct
 from repositories.scraping.scraped_product_repository import (
     ScrapedProductRepository,
 )
 from scrapers.collectors.product_collection_scraper import (
     ProductCollectionScraper,
 )
-
 
 pytestmark = pytest.mark.integration
 

@@ -11,7 +11,6 @@ from services.scraping.scraped_product_mapper import (
     ScrapedProductMapper,
 )
 
-
 CATEGORY_URL = (
     "https://stock.importacionesfacundo.com/"
     "categoria-producto/jarros-mug/"

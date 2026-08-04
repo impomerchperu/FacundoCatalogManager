@@ -1,0 +1,45 @@
+from models.scraping.scraped_product import ScrapedProduct
+
+
+class ScrapedProductFactory:
+    """
+    Factory responsable de construir instancias de ScrapedProduct.
+    """
+
+    @staticmethod
+    def create(
+        *,
+        source: str = "importacionesfacundo",
+        url: str = "",
+        code: str = "",
+        name: str = "",
+        category: str = "",
+        description: str = "",
+        stock: int = 0,
+        price: float = 0.0,
+        price_sample: float = 0.0,
+        price_hundred: float = 0.0,
+        price_thousand: float = 0.0,
+        image_url: str = "",
+        image_path: str = "",
+        image_hash: str = "",
+        image_error: str = "",
+    ) -> ScrapedProduct:
+
+        return ScrapedProduct(
+            source=source,
+            url=url,
+            code=code,
+            name=name,
+            category=category,
+            description=description,
+            stock=stock,
+            price=price,
+            price_sample=price_sample,
+            price_hundred=price_hundred,
+            price_thousand=price_thousand,
+            image_url=image_url,
+            image_path=image_path,
+            image_hash=image_hash,
+            image_error=image_error,
+        )

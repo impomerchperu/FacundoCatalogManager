@@ -1,45 +1,115 @@
+from models.scraping.scraped_product import ScrapedProduct
+from services.scraping.scraped_product_mapper import ScrapedProductMapper
 from services.scraping.sync_result import SyncResult
 
 
 class CatalogSyncService:
+    """
+    Sincroniza productos scrapeados
+    contra el catálogo local.
+    """
+
     def __init__(
         self,
         repository,
         diff_service,
+        mapper=None,
     ):
-
         self.repository = repository
         self.diff_service = diff_service
+        self.mapper = mapper or ScrapedProductMapper()
 
-    def synchronize(self, products):
+    def synchronize(
+        self,
+        products,
+    ):
+        """
+        Ejecuta sincronización incremental.
+        """
 
         result = SyncResult()
 
-        for product in products:
-            existing = self.repository.get(product.code)
+        for item in products:
+            result.increment_processed()
 
-            if existing is None:
-                self.repository.save(product)
+            try:
+                product = self._prepare_product(
+                    item,
+                )
 
-                result.created += 1
+                existing = self.repository.get(
+                    product.code,
+                )
 
-                continue
+                if existing is None:
+                    self.repository.save(
+                        product,
+                    )
 
-            diff = self.diff_service.compare(
-                existing.__dict__,
-                product.__dict__,
-            )
+                    result.created += 1
+                    continue
 
-            if diff["changed"]:
-                self.repository.save(product)
+                diff = self.diff_service.compare(
+                    existing,
+                    product,
+                )
 
-                result.updated += 1
+                if diff["changed"]:
 
-            else:
-                result.unchanged += 1
+                    self.repository.save(
+                        product,
+                    )
+
+                    result.updated += 1
+
+                    result.changes.append(
+                        {
+                            "code": product.code,
+                            "fields": diff["fields"],
+                        }
+                    )
+
+                else:
+                    result.unchanged += 1
+
+            except Exception as error:
+
+                result.errors += 1
+
+                result.failures.append(
+                    {
+                        "product": getattr(
+                            item,
+                            "code",
+                            "unknown",
+                        ),
+                        "error": str(error),
+                    }
+                )
+
+        result.finish()
 
         return result
 
-    def sync(self, products):
+    def sync(
+        self,
+        products,
+    ):
+        return self.synchronize(
+            products,
+        )
 
-        return self.synchronize(products)
+    def _prepare_product(
+        self,
+        product,
+    ):
+
+        if isinstance(
+            product,
+            ScrapedProduct,
+        ):
+            return self.mapper.to_product(
+                product,
+            )
+
+        return product

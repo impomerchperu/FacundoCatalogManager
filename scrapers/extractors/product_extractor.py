@@ -1,7 +1,9 @@
 from urllib.parse import urljoin
 
-from models.scraping.scraped_product import ScrapedProduct
 from scrapers.extractors.price_extractor import PriceExtractor
+from scrapers.factories.scraped_product_factory import (
+    ScrapedProductFactory,
+)
 from scrapers.selectors import product_selectors
 
 
@@ -24,9 +26,14 @@ class ProductExtractor:
 
         self.price_extractor = PriceExtractor()
 
-    def extract(self, soup, url="", category=""):
+    def extract(
+        self,
+        soup,
+        url="",
+        category="",
+    ):
 
-        return ScrapedProduct(
+        return ScrapedProductFactory.create(
             source=self.SOURCE,
             url=url,
             code=self.extract_code(soup),
@@ -144,7 +151,10 @@ class ProductExtractor:
             element = soup.select_one(selector)
 
             if element:
-                text = element.get_text(" ", strip=True)
+                text = element.get_text(
+                    " ",
+                    strip=True,
+                )
 
                 clean = text.replace("S/", "").replace("$", "").replace(",", "").strip()
 
@@ -214,6 +224,9 @@ class ProductExtractor:
             return "https:" + url
 
         if url.startswith("/"):
-            return urljoin(self.BASE_URL, url)
+            return urljoin(
+                self.BASE_URL,
+                url,
+            )
 
         return url

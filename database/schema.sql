@@ -18,9 +18,19 @@ CREATE TABLE IF NOT EXISTS products (
 
     price REAL DEFAULT 0,
 
+    price_sample REAL DEFAULT 0,
+
+    price_hundred REAL DEFAULT 0,
+
+    price_thousand REAL DEFAULT 0,
+
     stock INTEGER DEFAULT 0,
 
+    image_url TEXT,
+
     image_path TEXT,
+
+    content_hash TEXT DEFAULT '',
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 

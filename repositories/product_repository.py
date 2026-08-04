@@ -5,13 +5,19 @@ from models.product import Product
 
 
 class ProductRepository:
-    """Repositorio encargado del acceso a datos de los productos."""
+    """Repositorio encargado del acceso a datos de productos."""
 
-    def __init__(self, db: DBManager | None = None):
+    def __init__(
+        self,
+        db: DBManager | None = None,
+    ):
         self.db = db or DBManager()
 
-    def create(self, product: Product) -> Product:
-        """Inserta un nuevo producto."""
+    def create(
+        self,
+        product: Product,
+    ) -> Product:
+        """Inserta un producto."""
 
         query = """
         INSERT INTO products
@@ -21,10 +27,15 @@ class ProductRepository:
             category,
             description,
             price,
+            price_sample,
+            price_hundred,
+            price_thousand,
             stock,
-            image_path
+            image_url,
+            image_path,
+            content_hash
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
 
         params = (
@@ -33,18 +44,29 @@ class ProductRepository:
             product.category,
             product.description,
             product.price,
+            product.price_sample,
+            product.price_hundred,
+            product.price_thousand,
             product.stock,
+            product.image_url,
             product.image_path,
+            product.content_hash,
         )
 
-        cursor = self.db.execute_query(query, params)
+        cursor = self.db.execute_query(
+            query,
+            params,
+        )
 
         product.product_id = cursor.lastrowid
 
         return product
 
-    def update(self, product: Product) -> Product:
-        """Actualiza un producto existente."""
+    def update(
+        self,
+        product: Product,
+    ) -> Product:
+        """Actualiza un producto."""
 
         query = """
         UPDATE products
@@ -54,8 +76,13 @@ class ProductRepository:
             category = ?,
             description = ?,
             price = ?,
+            price_sample = ?,
+            price_hundred = ?,
+            price_thousand = ?,
             stock = ?,
-            image_path = ?
+            image_url = ?,
+            image_path = ?,
+            content_hash = ?
         WHERE id = ?
         """
 
@@ -65,16 +92,27 @@ class ProductRepository:
             product.category,
             product.description,
             product.price,
+            product.price_sample,
+            product.price_hundred,
+            product.price_thousand,
             product.stock,
+            product.image_url,
             product.image_path,
+            product.content_hash,
             product.id,
         )
 
-        self.db.execute_query(query, params)
+        self.db.execute_query(
+            query,
+            params,
+        )
 
         return product
 
-    def delete(self, product_id: int) -> None:
+    def delete(
+        self,
+        product_id: int,
+    ) -> None:
         """Elimina un producto."""
 
         query = """
@@ -82,7 +120,10 @@ class ProductRepository:
         WHERE id = ?
         """
 
-        self.db.execute_query(query, (product_id,))
+        self.db.execute_query(
+            query,
+            (product_id,),
+        )
 
     def get_all(self) -> list[Product]:
         """Obtiene todos los productos."""
@@ -95,9 +136,15 @@ class ProductRepository:
 
         rows: list[sqlite3.Row] = self.db.fetch_all(query)
 
-        return [self._row_to_product(row) for row in rows]
+        return [
+            self._row_to_product(row)
+            for row in rows
+        ]
 
-    def search(self, text: str) -> list[Product]:
+    def search(
+        self,
+        text: str,
+    ) -> list[Product]:
         """Busca productos."""
 
         query = """
@@ -112,15 +159,25 @@ class ProductRepository:
 
         value = f"%{text}%"
 
-        rows: list[sqlite3.Row] = self.db.fetch_all(
+        rows = self.db.fetch_all(
             query,
-            (value, value, value),
+            (
+                value,
+                value,
+                value,
+            ),
         )
 
-        return [self._row_to_product(row) for row in rows]
+        return [
+            self._row_to_product(row)
+            for row in rows
+        ]
 
-    def get_by_id(self, product_id: int) -> Product | None:
-        """Obtiene un producto por ID."""
+    def get_by_id(
+        self,
+        product_id: int,
+    ) -> Product | None:
+        """Busca producto por ID."""
 
         query = """
         SELECT *
@@ -128,7 +185,7 @@ class ProductRepository:
         WHERE id = ?
         """
 
-        rows: list[sqlite3.Row] = self.db.fetch_all(
+        rows = self.db.fetch_all(
             query,
             (product_id,),
         )
@@ -136,13 +193,39 @@ class ProductRepository:
         if not rows:
             return None
 
-        return self._row_to_product(rows[0])
+        return self._row_to_product(
+            rows[0],
+        )
+
+    def get_by_code(
+        self,
+        code: str,
+    ) -> Product | None:
+        """Busca producto por código."""
+
+        query = """
+        SELECT *
+        FROM products
+        WHERE code = ?
+        """
+
+        rows = self.db.fetch_all(
+            query,
+            (code,),
+        )
+
+        if not rows:
+            return None
+
+        return self._row_to_product(
+            rows[0],
+        )
 
     def _row_to_product(
         self,
         row: sqlite3.Row,
     ) -> Product:
-        """Convierte una fila SQLite en Product."""
+        """Convierte SQLite a Product."""
 
         return Product(
             product_id=row["id"],
@@ -151,6 +234,11 @@ class ProductRepository:
             category=row["category"],
             description=row["description"],
             price=row["price"],
+            price_sample=row["price_sample"],
+            price_hundred=row["price_hundred"],
+            price_thousand=row["price_thousand"],
             stock=row["stock"],
+            image_url=row["image_url"],
             image_path=row["image_path"],
+            content_hash=row["content_hash"],
         )

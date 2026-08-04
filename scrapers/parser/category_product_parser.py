@@ -1,6 +1,8 @@
 from typing import Dict
 
-from models.scraping.scraped_product import ScrapedProduct
+from scrapers.factories.scraped_product_factory import (
+    ScrapedProductFactory,
+)
 
 
 class CategoryProductParser:
@@ -13,7 +15,7 @@ class CategoryProductParser:
         product,
         url: str = "",
         category: str = "",
-    ) -> ScrapedProduct | None:
+    ):
 
         if product is None:
             return None
@@ -27,8 +29,7 @@ class CategoryProductParser:
 
         prices = self.extract_prices(product)
 
-        return ScrapedProduct(
-            source="importacionesfacundo",
+        return ScrapedProductFactory.create(
             url=url,
             code=code,
             name=name,
@@ -37,11 +38,11 @@ class CategoryProductParser:
                 product,
                 name,
             ),
-            image_url=self.extract_image(product),
+            stock=self.extract_stock(product),
             price_sample=prices["sample"],
             price_hundred=prices["hundred"],
             price_thousand=prices["thousand"],
-            stock=self.extract_stock(product),
+            image_url=self.extract_image(product),
         )
 
     # --------------------------------------------------

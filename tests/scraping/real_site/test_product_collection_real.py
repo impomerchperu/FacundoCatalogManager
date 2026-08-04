@@ -1,32 +1,46 @@
+import pytest
+
 from scrapers.browser import Browser
 from scrapers.collectors.category_scraper import CategoryScraper
-from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
+from scrapers.collectors.product_collection_scraper import (
+    ProductCollectionScraper,
+)
+
+
+pytestmark = pytest.mark.real_site
 
 
 class Category:
     name = "Jarros Mug"
 
-    url = "https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/"
+    url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/jarros-mug/"
+    )
 
 
-browser = Browser()
+def test_product_collection_real():
 
+    browser = Browser()
 
-category_scraper = CategoryScraper(browser)
+    category_scraper = CategoryScraper(
+        browser,
+    )
 
+    collection = ProductCollectionScraper(
+        category_scraper,
+    )
 
-collection = ProductCollectionScraper(category_scraper)
+    products = collection.scrape_category(
+        Category(),
+    )
 
+    assert products
 
-products = collection.scrape_category(Category())
+    print(
+        "TOTAL PRODUCTOS:",
+        len(products),
+    )
 
-
-print("=" * 80)
-
-print("TOTAL PRODUCTOS:", len(products))
-
-print("=" * 80)
-
-
-for product in products[:5]:
-    print(product)
+    for product in products[:5]:
+        print(product)

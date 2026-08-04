@@ -1,56 +1,54 @@
+import pytest
+
 from models.scraping.category import Category
 from scrapers.browser import Browser
 from scrapers.collectors.category_scraper import CategoryScraper
-from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
+from scrapers.collectors.product_collection_scraper import (
+    ProductCollectionScraper,
+)
 from scrapers.parser import Parser
 from scrapers.storage.product_storage import ProductStorage
 
-CATEGORY_URL = "https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/"
+
+pytestmark = pytest.mark.real_site
 
 
-category = Category(name="Jarros Mug", url=CATEGORY_URL)
+CATEGORY_URL = (
+    "https://stock.importacionesfacundo.com/"
+    "categoria-producto/jarros-mug/"
+)
 
 
-browser = Browser()
+def test_real_storage_pipeline():
 
-parser = Parser()
+    category = Category(
+        name="Jarros Mug",
+        url=CATEGORY_URL,
+    )
 
+    browser = Browser()
 
-category_scraper = CategoryScraper(browser=browser, parser=parser)
+    parser = Parser()
 
+    category_scraper = CategoryScraper(
+        browser=browser,
+        parser=parser,
+    )
 
-collection = ProductCollectionScraper(category_scraper=category_scraper)
+    collection = ProductCollectionScraper(
+        category_scraper=category_scraper,
+    )
 
+    products = collection.scrape_category(
+        category,
+    )
 
-print("=" * 80)
-print("SCRAPING")
-print("=" * 80)
+    assert products
 
+    storage = ProductStorage()
 
-products = collection.scrape_category(category)
+    storage.save(products)
 
+    saved = storage.load()
 
-print("Productos obtenidos:", len(products))
-
-
-storage = ProductStorage()
-
-
-storage.save(products)
-
-
-print("=" * 80)
-print("LECTURA STORAGE")
-print("=" * 80)
-
-
-saved = storage.load()
-
-
-print("Productos guardados:", len(saved))
-
-
-print()
-
-
-print(saved[0])
+    assert saved

@@ -34,7 +34,9 @@ class CategoryScraper:
         response = requests.get(
             url,
             timeout=20,
-            headers={"User-Agent": "Mozilla/5.0"},
+            headers={
+                "User-Agent": "Mozilla/5.0",
+            },
         )
 
         response.raise_for_status()
@@ -72,10 +74,7 @@ class CategoryScraper:
         if not html:
             return []
 
-        if self.parser and hasattr(
-            self.parser,
-            "extract_categories",
-        ):
+        if self.parser and hasattr(self.parser, "extract_categories"):
             return self.parser.extract_categories(html)
 
         soup = self._parse(html)
@@ -86,7 +85,7 @@ class CategoryScraper:
         return []
 
     # --------------------------------------------------
-    # PRODUCTOS
+    # PRODUCTOS (URLs)
     # --------------------------------------------------
 
     def get_product_urls(self, url: str):
@@ -124,8 +123,6 @@ class CategoryScraper:
         for link in soup.select("a.page-numbers"):
             href = link.get("href")
 
-            # Pyright fix:
-            # BeautifulSoup puede devolver varios tipos
             if not isinstance(href, str):
                 continue
 
@@ -139,6 +136,10 @@ class CategoryScraper:
 
         return pages
 
+    # --------------------------------------------------
+    # BLOQUES DE PRODUCTOS
+    # --------------------------------------------------
+
     def get_product_blocks(self, url: str):
 
         html = self.get_html(url)
@@ -148,10 +149,7 @@ class CategoryScraper:
 
         soup = self._parse(html)
 
-        if self.extractor and hasattr(
-            self.extractor,
-            "extract_blocks",
-        ):
-            return self.extractor.extract_blocks(soup)
+        if self.extractor:
+            return self.extractor.extract(soup)
 
         return []

@@ -1,13 +1,19 @@
+import hashlib
+import json
 from typing import ClassVar
 
 
-class ProductDiffService:
+class ProductHashService:
     """
-    Compara productos para detectar cambios
-    durante la sincronización incremental.
+    Genera una firma única del contenido
+    de un producto.
+
+    Permite detectar cambios
+    durante sincronizaciones incrementales.
     """
 
     FIELDS: ClassVar[list[str]] = [
+        "code",
         "name",
         "category",
         "description",
@@ -16,52 +22,36 @@ class ProductDiffService:
         "price_hundred",
         "price_thousand",
         "stock",
-        "image_path",
         "image_url",
     ]
 
-    def compare(
+    def generate(
         self,
-        old,
-        new,
-    ):
+        product,
+    ) -> str:
         """
-        Compara dos productos.
-
-        Retorna:
-        {
-            changed: bool,
-            fields: list[str]
-        }
+        Genera hash SHA256 estable.
         """
 
-        fields = []
+        data = {}
 
         for field in self.FIELDS:
-
-            old_value = self._normalize(
+            data[field] = self._normalize(
                 self._get_value(
-                    old,
+                    product,
                     field,
                 )
             )
 
-            new_value = self._normalize(
-                self._get_value(
-                    new,
-                    field,
-                )
-            )
+        payload = json.dumps(
+            data,
+            sort_keys=True,
+            ensure_ascii=False,
+        )
 
-            if old_value != new_value:
-                fields.append(
-                    field,
-                )
-
-        return {
-            "changed": len(fields) > 0,
-            "fields": fields,
-        }
+        return hashlib.sha256(
+            payload.encode("utf-8")
+        ).hexdigest()
 
     def _get_value(
         self,
@@ -71,8 +61,8 @@ class ProductDiffService:
         """
         Obtiene valores desde:
 
-        - diccionario
-        - objeto con atributos
+        - objetos
+        - diccionarios
         """
 
         if isinstance(
@@ -94,11 +84,8 @@ class ProductDiffService:
         value,
     ):
         """
-        Normaliza valores antes de comparar.
-
-        Evita falsos cambios:
-        "Producto A"
-        "Producto A "
+        Normaliza valores para evitar
+        falsos cambios.
         """
 
         if isinstance(

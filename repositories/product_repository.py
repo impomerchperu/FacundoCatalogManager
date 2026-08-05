@@ -221,6 +221,45 @@ class ProductRepository:
             rows[0],
         )
 
+    def get(
+        self,
+        code: str,
+    ) -> Product | None:
+        """
+        Obtiene un producto por código.
+
+        Método utilizado por servicios de sincronización.
+        """
+        return self.get_by_code(
+            code,
+        )
+
+    def save(
+        self,
+        product: Product,
+    ) -> Product:
+        """
+        Guarda un producto.
+
+        Crea si no existe.
+        Actualiza si ya existe.
+        """
+
+        existing = self.get_by_code(
+            product.code,
+        )
+
+        if existing is None:
+            return self.create(
+                product,
+            )
+
+        product.product_id = existing.product_id
+
+        return self.update(
+            product,
+        )
+
     def _row_to_product(
         self,
         row: sqlite3.Row,

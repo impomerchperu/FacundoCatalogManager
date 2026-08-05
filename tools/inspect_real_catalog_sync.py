@@ -1,26 +1,28 @@
+from time import perf_counter
+
 from database.db_manager import DBManager
-from models.scraping.category import Category
 from repositories.product_repository import ProductRepository
 from scrapers.browser import Browser
 from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.collectors.product_collection_scraper import (
     ProductCollectionScraper,
 )
-from scrapers.parser import Parser
-from services.scraping.scraped_product_mapper import (
-    ScrapedProductMapper,
-)
+from scrapers.extractors.category_extractor import CategoryExtractor
+from services.scraping.catalog_sync_service import CatalogSyncService
+from services.scraping.product_diff_service import ProductDiffService
 
-CATEGORY_URL = (
+STORE_URL = (
     "https://stock.importacionesfacundo.com/"
-    "categoria-producto/jarros-mug/"
+    "tienda/"
 )
 
 
 def main():
 
+    start = perf_counter()
+
     print("=" * 80)
-    print("SINCRONIZACION REAL CATALOGO")
+    print("SINCRONIZACIÓN COMPLETA REAL DEL CATÁLOGO")
     print("=" * 80)
 
     db = DBManager()
@@ -29,63 +31,113 @@ def main():
 
     browser = Browser()
 
-    parser = Parser()
-
     category_scraper = CategoryScraper(
         browser=browser,
-        parser=parser,
+        extractor=CategoryExtractor(),
     )
 
     collection = ProductCollectionScraper(
         category_scraper=category_scraper,
     )
 
-    category = Category(
-        name="Jarros Mug",
-        url=CATEGORY_URL,
+    sync_service = CatalogSyncService(
+        repository=repository,
+        diff_service=ProductDiffService(),
     )
-
-    scraped_products = collection.scrape_category(
-        category,
-    )
-
-    mapper = ScrapedProductMapper()
 
     print()
+    print("Obteniendo categorías...")
+    print()
+
+    categories = category_scraper.scrape(
+        STORE_URL,
+    )
+
     print(
-        f"Productos scrapeados: {len(scraped_products)}"
+        f"Categorías encontradas: {len(categories)}"
     )
+
+    total_products = 0
+
+    total_result = {
+        "processed": 0,
+        "created": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "errors": 0,
+    }
 
     print()
 
-    created = 0
+    for index, category in enumerate(categories, start=1):
 
-    for scraped in scraped_products:
-
-        product = mapper.to_product(
-            scraped,
-        )
-
-        repository.create(
-            product,
-        )
-
-        created += 1
+        print("-" * 80)
 
         print(
-            product.code,
-            "-",
-            product.name,
+            f"[{index}/{len(categories)}] "
+            f"{category.name}"
         )
+
+        products = collection.scrape_category(
+            category,
+        )
+
+        total_products += len(products)
+
+        print(
+            f"Productos encontrados: {len(products)}"
+        )
+
+        result = sync_service.synchronize(
+            products,
+        )
+
+        total_result["processed"] += result.processed
+        total_result["created"] += result.created
+        total_result["updated"] += result.updated
+        total_result["unchanged"] += result.unchanged
+        total_result["errors"] += result.errors
+
+
+    elapsed = perf_counter() - start
 
     print()
     print("=" * 80)
-    print("RESULTADO")
+    print("RESULTADO FINAL")
     print("=" * 80)
 
     print(
-        "Productos guardados:",
-        created,
+        f"Categorías procesadas: {len(categories)}"
+    )
+
+    print(
+        f"Productos scrapeados: {total_products}"
+    )
+
+    print(
+        f"Procesados : {total_result['processed']}"
+    )
+
+    print(
+        f"Creados    : {total_result['created']}"
+    )
+
+    print(
+        f"Actualizados: {total_result['updated']}"
+    )
+
+    print(
+        f"Sin cambios: {total_result['unchanged']}"
+    )
+
+    print(
+        f"Errores    : {total_result['errors']}"
+    )
+
+    print()
+
+    print(
+        f"Tiempo total: {elapsed:.2f} segundos"
     )
 
 

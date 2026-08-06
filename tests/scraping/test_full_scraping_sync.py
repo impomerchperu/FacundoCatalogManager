@@ -29,7 +29,7 @@ def test_full_scraping_runs_image_sync():
     service = FullScrapingService(
         category_service=FakeCategoryService(),
         product_scraper=FakeProductScraper(),
-        image_sync_service=image_sync,
+        image_sync_adapter=image_sync
     )
 
     result = service.run()

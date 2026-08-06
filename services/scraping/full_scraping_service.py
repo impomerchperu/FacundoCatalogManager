@@ -7,19 +7,14 @@ class FullScrapingService:
     """
     Orquestador principal del scraping completo.
 
-    Soporta dos flujos:
-
-    Flujo antiguo:
-    - category_scraper
-    - category_pagination_service
-    - product_scraper
-    - product_service
-
     Flujo moderno:
+
     - category_service
-    - product_scraper
-    - image_manager
-    - image_sync_service
+    - category_product_sync_service
+    - image_sync_adapter
+
+    Mantiene compatibilidad temporal con
+    componentes antiguos.
     """
 
     def __init__(
@@ -33,6 +28,7 @@ class FullScrapingService:
         downloader: Any = None,
         image_sync_service: Any = None,
         category_product_sync_service: Any = None,
+        image_sync_adapter: Any = None,
     ):
 
         self.category_scraper = category_scraper
@@ -44,7 +40,11 @@ class FullScrapingService:
 
         self.image_manager = image_manager
         self.downloader = downloader
-        self.image_sync_service = image_sync_service
+
+        self.image_sync_adapter = (
+            image_sync_adapter
+            or image_sync_service
+        )
 
         self.category_product_sync_service = (
             category_product_sync_service
@@ -59,11 +59,9 @@ class FullScrapingService:
         category,
     ):
 
-        # Nuevo flujo usando CategoryProductSyncService
         if self.category_product_sync_service:
 
             if isinstance(category, Category):
-
                 return (
                     self.category_product_sync_service.sync_category(
                         category.url,
@@ -77,7 +75,6 @@ class FullScrapingService:
                 )
             )
 
-        # Compatibilidad con flujo anterior
         if not self.category_pagination_service:
             return []
 
@@ -87,85 +84,76 @@ class FullScrapingService:
         if not self.product_service:
             return []
 
-        pages = (
-            self.category_pagination_service.get_pages(
-                category
-            )
+        pages = self.category_pagination_service.get_pages(
+            category
         )
 
         products = []
 
         for page in pages:
 
-            urls = (
-                self.category_scraper.get_product_urls(
-                    page
-                )
+            urls = self.category_scraper.get_product_urls(
+                page
             )
 
             for url in urls:
 
-                saved = (
-                    self.product_service.scrape_and_save(
-                        url
-                    )
+                saved = self.product_service.scrape_and_save(
+                    url
                 )
 
                 products.append(saved)
 
         return products
 
-
     # ======================================================
-    # Ejecución completa moderna
+    # Ejecución completa
     # ======================================================
 
     def run(self):
 
-        # Nuevo flujo
-        if self.category_service:
-
-            categories = (
-                self.category_service.scrape_all()
-            )
-
-            products = []
-
-            if self.product_scraper:
-
-                products = (
-                    self.product_scraper.scrape_products(
-                        categories
-                    )
-                )
-
-            images = []
-
-            if self.image_manager:
-
-                images = (
-                    self.image_manager.download_all(
-                        products,
-                        self.downloader,
-                    )
-                )
-
-            if self.image_sync_service:
-
-                products = (
-                    self.image_sync_service.sync_products(
-                        products
-                    )
-                )
-
+        if not self.category_service:
             return {
-                "products": products,
-                "images": images,
+                "products": [],
+                "images": [],
             }
 
+        categories = self.category_service.scrape_all()
 
-        # Sin configuración
+        products = []
+
+        if self.category_product_sync_service:
+
+            for category in categories:
+                products.extend(
+                    self.category_product_sync_service.sync_category(
+                        category.url,
+                        category.name,
+                    )
+                )
+
+        elif self.product_scraper:
+
+            products = self.product_scraper.scrape_products(
+                categories
+            )
+
+        images = []
+
+        if self.image_sync_adapter:
+
+            products = self.image_sync_adapter.sync_products(
+                products
+            )
+
+        elif self.image_manager:
+
+            images = self.image_manager.download_all(
+                products,
+                self.downloader,
+            )
+
         return {
-            "products": [],
-            "images": [],
+            "products": products,
+            "images": images,
         }

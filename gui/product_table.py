@@ -6,10 +6,13 @@ from controllers.product_controller import ProductController
 
 
 class ProductTable(QTableWidget):
-    def __init__(self):
+    def __init__(
+        self,
+        controller: ProductController,
+    ):
         super().__init__()
 
-        self.controller = ProductController()
+        self.controller = controller
 
         self.setColumnCount(6)
 
@@ -27,7 +30,6 @@ class ProductTable(QTableWidget):
         self.load_products()
 
     def load_products(self, productos=None):
-
         if productos is None:
             productos = self.controller.get_products()
 
@@ -36,10 +38,14 @@ class ProductTable(QTableWidget):
         for fila, producto in enumerate(productos):
             image = QLabel()
 
-            image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            image.setAlignment(
+                Qt.AlignmentFlag.AlignCenter,
+            )
 
             if producto.image_path:
-                pixmap = QPixmap(producto.image_path)
+                pixmap = QPixmap(
+                    producto.image_path,
+                )
 
                 if not pixmap.isNull():
                     pixmap = pixmap.scaled(
@@ -49,7 +55,9 @@ class ProductTable(QTableWidget):
                         Qt.TransformationMode.SmoothTransformation,
                     )
 
-                    image.setPixmap(pixmap)
+                    image.setPixmap(
+                        pixmap,
+                    )
 
             self.setCellWidget(
                 fila,
@@ -57,7 +65,9 @@ class ProductTable(QTableWidget):
                 image,
             )
 
-            item_code = QTableWidgetItem(producto.code)
+            item_code = QTableWidgetItem(
+                producto.code,
+            )
 
             item_code.setData(
                 Qt.ItemDataRole.UserRole,
@@ -73,28 +83,41 @@ class ProductTable(QTableWidget):
             self.setItem(
                 fila,
                 2,
-                QTableWidgetItem(producto.name),
+                QTableWidgetItem(
+                    producto.name,
+                ),
             )
 
             self.setItem(
                 fila,
                 3,
-                QTableWidgetItem(producto.category),
+                QTableWidgetItem(
+                    producto.category,
+                ),
             )
 
             self.setItem(
                 fila,
                 4,
-                QTableWidgetItem(str(producto.price)),
+                QTableWidgetItem(
+                    str(producto.price),
+                ),
             )
 
             self.setItem(
                 fila,
                 5,
-                QTableWidgetItem(str(producto.stock)),
+                QTableWidgetItem(
+                    str(producto.stock),
+                ),
             )
 
-        for fila in range(self.rowCount()):
-            self.setRowHeight(fila, 70)
+        for fila in range(
+            self.rowCount(),
+        ):
+            self.setRowHeight(
+                fila,
+                70,
+            )
 
         self.resizeColumnsToContents()

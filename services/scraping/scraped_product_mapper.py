@@ -48,15 +48,21 @@ class ScrapedProductMapper:
             name=scraped_product.name,
             category=scraped_product.category,
             description=scraped_product.description,
+
             price=self._resolve_price(
                 scraped_product,
             ),
+
             price_sample=scraped_product.price_sample,
             price_hundred=scraped_product.price_hundred,
             price_thousand=scraped_product.price_thousand,
+
             stock=scraped_product.stock,
+
             image_url=scraped_product.image_url,
             image_path=scraped_product.image_path,
+            image_hash=scraped_product.image_hash,
+
             content_hash=self.hash_service.generate(
                 scraped_product,
             ),

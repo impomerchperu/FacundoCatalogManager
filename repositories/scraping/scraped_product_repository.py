@@ -5,6 +5,9 @@ class ScrapedProductRepository:
     """
     Repository encargado de persistir productos
     obtenidos mediante scraping.
+
+    La identidad principal del producto
+    se determina mediante su URL.
     """
 
     def __init__(self, db):
@@ -14,13 +17,17 @@ class ScrapedProductRepository:
         """
         Guarda un producto.
 
-        Si la URL ya existe:
-        actualiza.
+        Si existe por URL:
+            actualiza.
+
         Si no existe:
-        inserta.
+            inserta.
         """
 
         existing = self.get_by_url(product.url)
+
+        if not existing and product.code:
+            existing = self.get_by_code(product.code)
 
         if existing:
             self.update(product)
@@ -28,10 +35,6 @@ class ScrapedProductRepository:
             self.create(product)
 
     def create(self, product: ScrapedProduct):
-        """
-        Inserta un nuevo producto scrapeado.
-        """
-
         query = """
         INSERT INTO scraped_products (
             source,
@@ -67,13 +70,12 @@ class ScrapedProductRepository:
             product.image_path,
         )
 
-        self.db.execute_query(query, params)
+        self.db.execute_query(
+            query,
+            params,
+        )
 
     def update(self, product: ScrapedProduct):
-        """
-        Actualiza un producto existente.
-        """
-
         query = """
         UPDATE scraped_products
         SET
@@ -90,7 +92,6 @@ class ScrapedProductRepository:
             image_url = ?,
             image_path = ?,
             updated_at = CURRENT_TIMESTAMP
-
         WHERE url = ?
         """
 
@@ -110,13 +111,12 @@ class ScrapedProductRepository:
             product.url,
         )
 
-        self.db.execute_query(query, params)
+        self.db.execute_query(
+            query,
+            params,
+        )
 
     def get_by_url(self, url):
-        """
-        Busca un producto mediante URL.
-        """
-
         query = """
         SELECT *
         FROM scraped_products
@@ -133,11 +133,24 @@ class ScrapedProductRepository:
 
         return None
 
-    def get_all(self):
-        """
-        Obtiene todos los productos scrapeados.
+    def get_by_code(self, code):
+        query = """
+        SELECT *
+        FROM scraped_products
+        WHERE code = ?
         """
 
+        result = self.db.fetch_all(
+            query,
+            (code,),
+        )
+
+        if result:
+            return result[0]
+
+        return None
+
+    def get_all(self):
         query = """
         SELECT *
         FROM scraped_products
@@ -146,17 +159,13 @@ class ScrapedProductRepository:
 
         return self.db.fetch_all(query)
 
-    def delete_by_url(self, url):
-        """
-        Elimina un producto por URL.
-        """
-
+    def delete_by_code(self, code):
         query = """
         DELETE FROM scraped_products
-        WHERE url = ?
+        WHERE code = ?
         """
 
         self.db.execute_query(
             query,
-            (url,),
+            (code,),
         )

@@ -1,110 +1,114 @@
-from typing import ClassVar
+from services.scraping.product_hash_service import ProductHashService
 
 
 class ProductDiffService:
     """
-    Compara productos para detectar cambios
-    durante la sincronización incremental.
+    Detecta diferencias entre dos productos.
+
+    Estrategia:
+
+    1. Si ambos poseen content_hash:
+       comparar hashes.
+
+    2. Si alguno no posee hash:
+       comparar todos los campos
+       relevantes.
     """
 
-    FIELDS: ClassVar[list[str]] = [
-        "name",
-        "category",
-        "description",
-        "price",
-        "price_sample",
-        "price_hundred",
-        "price_thousand",
-        "stock",
-        "image_path",
-        "image_url",
-    ]
+    def __init__(self):
+        self.hash_service = ProductHashService()
+
+        self.fields = [
+            "code",
+            "name",
+            "category",
+            "description",
+            "price",
+            "price_sample",
+            "price_hundred",
+            "price_thousand",
+            "stock",
+            "image_url",
+        ]
 
     def compare(
         self,
-        old,
-        new,
+        old_product,
+        new_product,
     ):
-        """
-        Compara dos productos.
+        old_hash = self._value(
+            old_product,
+            "content_hash",
+        )
 
-        Retorna:
-        {
-            changed: bool,
-            fields: list[str]
-        }
-        """
+        new_hash = self._value(
+            new_product,
+            "content_hash",
+        )
 
-        fields = []
+        if (
+            old_hash
+            and new_hash
+            and old_hash == new_hash
+        ):
+            return {
+                "changed": False,
+                "fields": [],
+            }
 
-        for field in self.FIELDS:
+        changed_fields = []
 
-            old_value = self._normalize(
-                self._get_value(
-                    old,
-                    field,
-                )
-            )
-
-            new_value = self._normalize(
-                self._get_value(
-                    new,
-                    field,
-                )
-            )
-
-            if old_value != new_value:
-                fields.append(
-                    field,
-                )
+        for field in self.fields:
+            if (
+                self._value(old_product, field)
+                != self._value(new_product, field)
+            ):
+                changed_fields.append(field)
 
         return {
-            "changed": len(fields) > 0,
-            "fields": fields,
+            "changed": bool(changed_fields),
+            "fields": changed_fields,
         }
 
-    def _get_value(
+    def has_changes(
         self,
-        product,
+        old_product,
+        new_product,
+    ) -> bool:
+        """
+        Método de compatibilidad.
+
+        Permite que el resto del proyecto
+        consulte simplemente si existen
+        cambios entre dos productos.
+        """
+        return self.compare(
+            old_product,
+            new_product,
+        )["changed"]
+
+    def _value(
+        self,
+        obj,
         field,
     ):
         """
-        Obtiene valores desde:
+        Compatible con:
 
-        - diccionario
-        - objeto con atributos
+        - dict
+        - Product
+        - ScrapedProduct
+        - objetos Fake
         """
 
         if isinstance(
-            product,
+            obj,
             dict,
         ):
-            return product.get(
-                field,
-            )
+            return obj.get(field)
 
         return getattr(
-            product,
+            obj,
             field,
             None,
         )
-
-    def _normalize(
-        self,
-        value,
-    ):
-        """
-        Normaliza valores antes de comparar.
-
-        Evita falsos cambios:
-        "Producto A"
-        "Producto A "
-        """
-
-        if isinstance(
-            value,
-            str,
-        ):
-            return value.strip()
-
-        return value

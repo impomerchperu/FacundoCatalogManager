@@ -4,19 +4,42 @@ import requests
 
 
 class ImageDownloadManager:
-    def __init__(self, image_downloader, image_validator, max_workers=4):
+    """
+    Gestiona descarga paralela de imágenes.
 
+    Compatible con:
+
+    - dict provenientes de flujos antiguos
+    - ScrapedProduct del scraper actual
+    """
+
+    def __init__(
+        self,
+        image_downloader,
+        image_validator,
+        max_workers=4,
+    ):
         self.image_downloader = image_downloader
         self.image_validator = image_validator
         self.max_workers = max_workers
 
-    def download_all(self, products, downloader):
-
+    def download_all(
+        self,
+        products,
+        downloader,
+    ):
         results = []
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+        with ThreadPoolExecutor(
+            max_workers=self.max_workers,
+        ) as executor:
+
             futures = [
-                executor.submit(self._download_one, product, downloader)
+                executor.submit(
+                    self._download_one,
+                    product,
+                    downloader,
+                )
                 for product in products
             ]
 
@@ -28,11 +51,19 @@ class ImageDownloadManager:
 
         return results
 
-    def _download_one(self, product, downloader):
+    def _download_one(
+        self,
+        product,
+        downloader,
+    ):
+        code = self._get_value(
+            product,
+            "code",
+        )
 
-        code = product.get("code")
-
-        image_url = product.get("image")
+        image_url = self._get_image_url(
+            product,
+        )
 
         if not code or not image_url:
             return None
@@ -44,10 +75,10 @@ class ImageDownloadManager:
                 downloader,
             )
 
-            if self.image_validator.is_valid(image_path):
-                product["image_path"] = image_path
-
-                return product
+            if not self.image_validator.is_valid(
+                image_path,
+            ):
+                return None
 
         except (
             requests.exceptions.RequestException,
@@ -56,4 +87,90 @@ class ImageDownloadManager:
         ):
             return None
 
-        return None
+        else:
+            self._set_value(
+                product,
+                "image_path",
+                image_path,
+            )
+
+            return product
+
+    def _get_value(
+        self,
+        product,
+        field,
+    ):
+        """
+        Obtiene valores desde:
+
+        - dict
+        - objetos compatibles
+        """
+
+        if isinstance(
+            product,
+            dict,
+        ):
+            return product.get(
+                field,
+            )
+
+        return getattr(
+            product,
+            field,
+            None,
+        )
+
+    def _get_image_url(
+        self,
+        product,
+    ):
+        """
+        Obtiene URL de imagen.
+
+        Mantiene compatibilidad:
+        - image
+        - image_url
+        """
+
+        image = self._get_value(
+            product,
+            "image",
+        )
+
+        if image:
+            return image
+
+        return self._get_value(
+            product,
+            "image_url",
+        )
+
+    def _set_value(
+        self,
+        product,
+        field,
+        value,
+    ):
+        """
+        Asigna resultado.
+
+        Compatible con:
+
+        - dict
+        - dataclass ScrapedProduct
+        """
+
+        if isinstance(
+            product,
+            dict,
+        ):
+            product[field] = value
+            return
+
+        setattr(
+            product,
+            field,
+            value,
+        )

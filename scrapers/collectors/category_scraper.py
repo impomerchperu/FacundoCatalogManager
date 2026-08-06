@@ -9,10 +9,17 @@ class CategoryScraper:
     Scraper de categorías WooCommerce.
     """
 
-    def __init__(self, browser, parser=None, extractor=None):
-
+    def __init__(
+        self,
+        browser,
+        parser=None,
+        category_extractor=None,
+        product_block_extractor=None,
+    ):
         self.parser = parser
-        self.extractor = extractor
+
+        self.category_extractor = category_extractor
+        self.product_block_extractor = product_block_extractor
 
         self.base_url = None
 
@@ -29,7 +36,15 @@ class CategoryScraper:
     def get_html(self, url: str) -> str:
 
         if self.browser:
-            return self.browser.get(url)
+            html = self.browser.get(url)
+
+            if isinstance(html, str):
+                return html
+
+            if hasattr(html, "text"):
+                return html.text
+
+            return str(html)
 
         response = requests.get(
             url,
@@ -46,7 +61,6 @@ class CategoryScraper:
     # --------------------------------------------------
 
     def _get_html(self, url: str) -> str:
-
         return self.get_html(url)
 
     # --------------------------------------------------
@@ -79,8 +93,8 @@ class CategoryScraper:
 
         soup = self._parse(html)
 
-        if self.extractor:
-            return self.extractor.extract(soup)
+        if self.category_extractor:
+            return self.category_extractor.extract(soup)
 
         return []
 
@@ -97,8 +111,8 @@ class CategoryScraper:
 
         soup = self._parse(html)
 
-        if self.extractor:
-            return self.extractor.extract(soup)
+        if self.category_extractor:
+            return self.category_extractor.extract(soup)
 
         return []
 
@@ -118,7 +132,7 @@ class CategoryScraper:
 
         soup = self._parse(html)
 
-        pages: list[str] = [category_url]
+        pages = [category_url]
 
         for link in soup.select("a.page-numbers"):
             href = link.get("href")
@@ -137,10 +151,13 @@ class CategoryScraper:
         return pages
 
     # --------------------------------------------------
-    # BLOQUES DE PRODUCTOS
+    # BLOQUES DE PRODUCTO
     # --------------------------------------------------
 
-    def get_product_blocks(self, url: str):
+    def get_product_blocks(
+        self,
+        url: str,
+    ):
 
         html = self.get_html(url)
 
@@ -149,7 +166,9 @@ class CategoryScraper:
 
         soup = self._parse(html)
 
-        if self.extractor:
-            return self.extractor.extract(soup)
+        if self.product_block_extractor:
+            return self.product_block_extractor.extract(
+                soup,
+            )
 
         return []

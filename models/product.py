@@ -4,15 +4,17 @@ from dataclasses import dataclass
 @dataclass
 class Product:
     """
-    Modelo que representa un producto del catálogo.
+    Modelo principal del catálogo.
+    Compatible con CRUD y sincronización.
     """
 
     code: str
     name: str
-    category: str = ""
-    description: str = ""
 
     price: float = 0
+
+    category: str = ""
+    description: str = ""
 
     price_sample: float = 0
     price_hundred: float = 0
@@ -22,6 +24,7 @@ class Product:
 
     image_url: str = ""
     image_path: str = ""
+    image_hash: str = ""
 
     content_hash: str = ""
 
@@ -39,17 +42,25 @@ class Product:
 
         errors = []
 
-        if not self.code or not self.code.strip():
-            errors.append("El código es obligatorio")
+        if not self.code.strip():
+            errors.append(
+                "El código es obligatorio"
+            )
 
-        if not self.name or not self.name.strip():
-            errors.append("El nombre es obligatorio")
+        if not self.name.strip():
+            errors.append(
+                "El nombre es obligatorio"
+            )
 
         if self.price < 0:
-            errors.append("El precio no puede ser negativo")
+            errors.append(
+                "El precio no puede ser negativo"
+            )
 
         if self.stock < 0:
-            errors.append("El stock no puede ser negativo")
+            errors.append(
+                "El stock no puede ser negativo"
+            )
 
         return errors
 
@@ -57,8 +68,13 @@ class Product:
 
         self.code = self.code.strip()
         self.name = self.name.strip()
-        self.category = self.category.strip()
-        self.description = self.description.strip()
+        self.category = str(
+            self.category
+        ).strip()
+
+        self.description = (
+            self.description.strip()
+        )
 
         return self
 

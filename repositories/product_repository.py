@@ -5,7 +5,6 @@ from models.product import Product
 
 
 class ProductRepository:
-    """Repositorio encargado del acceso a datos de productos."""
 
     def __init__(
         self,
@@ -13,11 +12,11 @@ class ProductRepository:
     ):
         self.db = db or DBManager()
 
+
     def create(
         self,
         product: Product,
-    ) -> Product:
-        """Inserta un producto."""
+    ):
 
         query = """
         INSERT INTO products
@@ -33,134 +32,199 @@ class ProductRepository:
             stock,
             image_url,
             image_path,
+            image_hash,
             content_hash
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
         """
-
-        params = (
-            product.code,
-            product.name,
-            product.category,
-            product.description,
-            product.price,
-            product.price_sample,
-            product.price_hundred,
-            product.price_thousand,
-            product.stock,
-            product.image_url,
-            product.image_path,
-            product.content_hash,
-        )
 
         cursor = self.db.execute_query(
             query,
-            params,
+            (
+                product.code,
+                product.name,
+                product.category,
+                product.description,
+                product.price,
+                product.price_sample,
+                product.price_hundred,
+                product.price_thousand,
+                product.stock,
+                product.image_url,
+                product.image_path,
+                product.image_hash,
+                product.content_hash,
+            ),
         )
 
-        product.product_id = cursor.lastrowid
+        product.product_id = (
+            cursor.lastrowid
+        )
 
         return product
+
 
     def update(
         self,
         product: Product,
-    ) -> Product:
-        """Actualiza un producto."""
+    ):
 
         query = """
-        UPDATE products
-        SET
-            code = ?,
-            name = ?,
-            category = ?,
-            description = ?,
-            price = ?,
-            price_sample = ?,
-            price_hundred = ?,
-            price_thousand = ?,
-            stock = ?,
-            image_url = ?,
-            image_path = ?,
-            content_hash = ?
-        WHERE id = ?
-        """
+        UPDATE products SET
 
-        params = (
-            product.code,
-            product.name,
-            product.category,
-            product.description,
-            product.price,
-            product.price_sample,
-            product.price_hundred,
-            product.price_thousand,
-            product.stock,
-            product.image_url,
-            product.image_path,
-            product.content_hash,
-            product.id,
-        )
+        code=?,
+        name=?,
+        category=?,
+        description=?,
+        price=?,
+        price_sample=?,
+        price_hundred=?,
+        price_thousand=?,
+        stock=?,
+        image_url=?,
+        image_path=?,
+        image_hash=?,
+        content_hash=?
+
+        WHERE id=?
+        """
 
         self.db.execute_query(
             query,
-            params,
+            (
+                product.code,
+                product.name,
+                product.category,
+                product.description,
+                product.price,
+                product.price_sample,
+                product.price_hundred,
+                product.price_thousand,
+                product.stock,
+                product.image_url,
+                product.image_path,
+                product.image_hash,
+                product.content_hash,
+                product.product_id,
+            ),
         )
 
         return product
 
-    def delete(
+
+    def save(
+        self,
+        product: Product,
+    ):
+
+        existing = self.get_by_code(
+            product.code
+        )
+
+        if existing:
+
+            product.product_id = (
+                existing.product_id
+            )
+
+            return self.update(
+                product
+            )
+
+        return self.create(product)
+
+
+
+    def get_by_code(
+        self,
+        code: str,
+    ):
+
+        rows = self.db.fetch_all(
+            """
+            SELECT *
+            FROM products
+            WHERE code=?
+            """,
+            (code,),
+        )
+
+        if not rows:
+            return None
+
+        return self._row_to_product(
+            rows[0]
+        )
+
+
+    def get(
+        self,
+        code: str,
+    ):
+
+        return self.get_by_code(code)
+
+
+
+    def get_by_id(
         self,
         product_id: int,
-    ) -> None:
-        """Elimina un producto."""
+    ):
 
-        query = """
-        DELETE FROM products
-        WHERE id = ?
-        """
-
-        self.db.execute_query(
-            query,
+        rows = self.db.fetch_all(
+            """
+            SELECT *
+            FROM products
+            WHERE id=?
+            """,
             (product_id,),
         )
 
-    def get_all(self) -> list[Product]:
-        """Obtiene todos los productos."""
+        if not rows:
+            return None
 
-        query = """
-        SELECT *
-        FROM products
-        ORDER BY id DESC
-        """
+        return self._row_to_product(
+            rows[0]
+        )
 
-        rows: list[sqlite3.Row] = self.db.fetch_all(query)
+
+
+    def get_all(self):
+
+        rows = self.db.fetch_all(
+            """
+            SELECT *
+            FROM products
+            ORDER BY id DESC
+            """
+        )
 
         return [
             self._row_to_product(row)
             for row in rows
         ]
 
+
+
     def search(
         self,
         text: str,
-    ) -> list[Product]:
-        """Busca productos."""
-
-        query = """
-        SELECT *
-        FROM products
-        WHERE
-            code LIKE ?
-            OR name LIKE ?
-            OR category LIKE ?
-        ORDER BY id DESC
-        """
+    ):
 
         value = f"%{text}%"
 
         rows = self.db.fetch_all(
-            query,
+            """
+            SELECT *
+            FROM products
+
+            WHERE
+            code LIKE ?
+            OR name LIKE ?
+            OR category LIKE ?
+
+            ORDER BY id DESC
+            """,
             (
                 value,
                 value,
@@ -173,111 +237,48 @@ class ProductRepository:
             for row in rows
         ]
 
-    def get_by_id(
+
+
+    def delete(
         self,
         product_id: int,
-    ) -> Product | None:
-        """Busca producto por ID."""
+    ):
 
-        query = """
-        SELECT *
-        FROM products
-        WHERE id = ?
-        """
-
-        rows = self.db.fetch_all(
-            query,
+        self.db.execute_query(
+            """
+            DELETE FROM products
+            WHERE id=?
+            """,
             (product_id,),
         )
 
-        if not rows:
-            return None
 
-        return self._row_to_product(
-            rows[0],
-        )
-
-    def get_by_code(
-        self,
-        code: str,
-    ) -> Product | None:
-        """Busca producto por código."""
-
-        query = """
-        SELECT *
-        FROM products
-        WHERE code = ?
-        """
-
-        rows = self.db.fetch_all(
-            query,
-            (code,),
-        )
-
-        if not rows:
-            return None
-
-        return self._row_to_product(
-            rows[0],
-        )
-
-    def get(
-        self,
-        code: str,
-    ) -> Product | None:
-        """
-        Obtiene un producto por código.
-
-        Método utilizado por servicios de sincronización.
-        """
-        return self.get_by_code(
-            code,
-        )
-
-    def save(
-        self,
-        product: Product,
-    ) -> Product:
-        """
-        Guarda un producto.
-
-        Crea si no existe.
-        Actualiza si ya existe.
-        """
-
-        existing = self.get_by_code(
-            product.code,
-        )
-
-        if existing is None:
-            return self.create(
-                product,
-            )
-
-        product.product_id = existing.product_id
-
-        return self.update(
-            product,
-        )
 
     def _row_to_product(
         self,
         row: sqlite3.Row,
-    ) -> Product:
-        """Convierte SQLite a Product."""
+    ):
 
         return Product(
             product_id=row["id"],
+
             code=row["code"],
             name=row["name"],
+
+            price=row["price"],
+
             category=row["category"],
             description=row["description"],
-            price=row["price"],
+
             price_sample=row["price_sample"],
             price_hundred=row["price_hundred"],
             price_thousand=row["price_thousand"],
+
             stock=row["stock"],
+
             image_url=row["image_url"],
             image_path=row["image_path"],
+            image_hash=row["image_hash"],
+
             content_hash=row["content_hash"],
         )

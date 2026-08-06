@@ -31,7 +31,9 @@ class MainWindow(QMainWindow):
 
         layout = QVBoxLayout(central)
 
-        self.table = ProductTable()
+        self.table = ProductTable(
+            self.controller,
+        )
 
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Buscar producto...")

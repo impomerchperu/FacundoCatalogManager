@@ -1,36 +1,29 @@
-from scrapers.collectors.category_scraper import CategoryScraper
-from scrapers.parser.category_product_parser import CategoryProductParser
+from models.scraping.category import Category
 
 
 class CategoryProductScrapingService:
     """
-    Convierte una página de categoría en una lista de ScrapedProduct.
+    Servicio encargado de obtener productos
+    desde una categoría.
     """
 
     def __init__(
         self,
-        scraper: CategoryScraper,
-        parser: CategoryProductParser,
+        scraper,
     ):
         self.scraper = scraper
-        self.parser = parser
 
     def scrape_category(
         self,
         category_url: str,
-        category: str = "",
+        category_name: str,
     ):
-        products = []
 
-        blocks = self.scraper.get_product_blocks(category_url)
+        category = Category(
+            name=category_name,
+            url=category_url,
+        )
 
-        for block in blocks:
-            product = self.parser.parse(
-                block,
-                category=category,
-            )
-
-            if product:
-                products.append(product)
-
-        return products
+        return self.scraper.scrape_category(
+            category,
+        )

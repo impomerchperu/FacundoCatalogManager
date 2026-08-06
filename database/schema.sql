@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS products (
 
     image_path TEXT,
 
+    image_hash TEXT DEFAULT '',
+
     content_hash TEXT DEFAULT '',
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

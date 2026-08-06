@@ -1,5 +1,5 @@
+from factories.scraping_factory import ScrapingFactory
 from models.scraping.category import Category
-from services.scraping.scraping_factory import ScrapingFactory
 
 
 def main():

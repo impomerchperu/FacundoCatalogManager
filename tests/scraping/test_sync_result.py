@@ -1,4 +1,4 @@
-from services.scraping.sync_result import SyncResult
+from models.scraping.sync_result import SyncResult
 
 
 def test_sync_result_initial_values():
@@ -10,7 +10,7 @@ def test_sync_result_initial_values():
     assert data["created"] == 0
     assert data["updated"] == 0
     assert data["unchanged"] == 0
-    assert data["errors"] == 0
+    assert data["errors"] == []
 
 
 def test_sync_result_increment():

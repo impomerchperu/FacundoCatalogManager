@@ -1,4 +1,4 @@
-from services.scraping.sync_result import SyncResult
+from models.scraping.sync_result import SyncResult
 
 
 class SyncController:
@@ -30,7 +30,9 @@ class SyncController:
 
         except (RuntimeError, ValueError, TypeError) as error:
 
-            result.errors += 1
+            result.add_error(
+                str(error),
+            )
 
             result.failures.append(
                 str(error),

@@ -1,4 +1,4 @@
-from services.scraping.sync_result import SyncResult
+from models.scraping.sync_result import SyncResult
 
 
 class CatalogSyncService:

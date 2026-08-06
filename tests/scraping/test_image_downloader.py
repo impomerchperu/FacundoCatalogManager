@@ -1,20 +1,50 @@
-from utils.scraping.image_downloader import ImageDownloader
+from pathlib import Path
+
+from scrapers.images.image_downloader import ImageDownloader
 
 
-def test_image_downloader_saves_image(tmp_path):
+def test_image_downloader_saves_image(
+    tmp_path,
+    monkeypatch,
+):
 
-    class FakeDownloader:
-        def get(self, url):
+    class FakeResponse:
 
-            return b"\xff\xd8fake-image-data"
+        content = b"\xff\xd8fake-image-data"
 
-    downloader = ImageDownloader(tmp_path)
+        def raise_for_status(self):
+            pass
 
-    result = downloader.download("P001", "http://image.jpg", FakeDownloader())
 
-    file = tmp_path / "P001.jpg"
+    def fake_get(
+        url,
+        timeout,
+        headers,
+    ):
+        return FakeResponse()
 
-    assert result == str(file)
+
+    monkeypatch.setattr(
+        "scrapers.images.image_downloader.requests.get",
+        fake_get,
+    )
+
+
+    downloader = ImageDownloader(
+        output_dir=tmp_path,
+    )
+
+
+    result = downloader.download(
+        "P001",
+        "http://image.jpg",
+    )
+
+
+    file = Path(tmp_path) / "P001.jpg"
+
+
+    assert result == file.as_posix()
 
     assert file.exists()
 

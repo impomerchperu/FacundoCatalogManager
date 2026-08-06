@@ -1,6 +1,6 @@
-from scrapers.images.image_manager import ImageManager
 from scrapers.storage.product_comparator import ProductComparator
 from scrapers.storage.product_storage import ProductStorage
+from scrapers.sync.image_sync import ImageSync
 
 
 class SyncEngine:
@@ -28,38 +28,37 @@ class SyncEngine:
         self,
         storage=None,
         comparator=None,
-        image_manager=None,
+        image_sync=None,
     ):
-
         self.storage = storage or ProductStorage()
 
-        self.comparator = comparator or ProductComparator()
+        self.comparator = (
+            comparator
+            or ProductComparator()
+        )
 
-        self.image_manager = image_manager or ImageManager()
+        self.image_sync = (
+            image_sync
+            or ImageSync()
+        )
 
-    def synchronize(self, products):
-
-        # ---------------------------------------------
-        # 1. Leer estado actual
-        # ---------------------------------------------
+    def synchronize(
+        self,
+        products,
+    ):
 
         old_products = self.storage.load()
 
-        # ---------------------------------------------
-        # 2. Comparar productos
-        # ---------------------------------------------
+        result = self.comparator.compare(
+            old_products,
+            products,
+        )
 
-        result = self.comparator.compare(old_products, products)
-
-        # ---------------------------------------------
-        # 3. Procesar imágenes solamente necesarias
-        # ---------------------------------------------
-
-        products = self._merge_images(products, old_products, result)
-
-        # ---------------------------------------------
-        # 4. Guardar estado final
-        # ---------------------------------------------
+        products = self._merge_images(
+            products,
+            old_products,
+            result,
+        )
 
         self.storage.save(products)
 
@@ -72,45 +71,58 @@ class SyncEngine:
         result,
     ):
 
-        old_map = {p["code"]: p for p in old_products if p.get("code")}
+        old_map = {
+            product["code"]: product
+            for product in old_products
+            if product.get("code")
+        }
 
         changed_codes = {
-            product.code for product in (result["new"] + result["updated"])
+            product.code
+            for product in (
+                result["new"]
+                +
+                result["updated"]
+            )
         }
 
         processed = []
 
         for product in products:
-            # -----------------------------------------
+
+            old = old_map.get(
+                product.code,
+            )
+
             # Producto sin cambios:
             # conservar imagen existente
-            # -----------------------------------------
 
             if product.code not in changed_codes:
-                old = old_map.get(product.code)
 
                 if old:
-                    product.image_path = old.get("image_path", "")
 
-                    product.image_hash = old.get("image_hash", "")
+                    product.image_path = old.get(
+                        "image_path",
+                        "",
+                    )
+
+                    product.image_hash = old.get(
+                        "image_hash",
+                        "",
+                    )
 
                 processed.append(product)
 
                 continue
 
-            # -----------------------------------------
+
             # Producto nuevo/modificado:
-            # procesar imagen
-            # -----------------------------------------
+            # sincronizar imagen
 
-            image_data = self.image_manager.process(
-                product.code,
-                product.image_url,
+            product = self.image_sync.sync_product(
+                product,
+                old,
             )
-
-            product.image_path = image_data.get("image_path", "")
-
-            product.image_hash = image_data.get("image_hash", "")
 
             processed.append(product)
 

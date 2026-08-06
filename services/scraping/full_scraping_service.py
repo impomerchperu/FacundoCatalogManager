@@ -38,9 +38,11 @@ class FullScrapingService:
 
         self.category_service = category_service
 
+        # Compatibilidad legacy
         self.image_manager = image_manager
         self.downloader = downloader
 
+        # Arquitectura nueva
         self.image_sync_adapter = (
             image_sync_adapter
             or image_sync_service
@@ -62,17 +64,14 @@ class FullScrapingService:
         if self.category_product_sync_service:
 
             if isinstance(category, Category):
-                return (
-                    self.category_product_sync_service.sync_category(
-                        category.url,
-                        category.name,
-                    )
+
+                return self.category_product_sync_service.sync_category(
+                    category.url,
+                    category.name,
                 )
 
-            return (
-                self.category_product_sync_service.sync_category(
-                    category,
-                )
+            return self.category_product_sync_service.sync_category(
+                category,
             )
 
         if not self.category_pagination_service:
@@ -125,6 +124,7 @@ class FullScrapingService:
         if self.category_product_sync_service:
 
             for category in categories:
+
                 products.extend(
                     self.category_product_sync_service.sync_category(
                         category.url,
@@ -140,11 +140,19 @@ class FullScrapingService:
 
         images = []
 
+        # ----------------------------------------------
+        # Arquitectura nueva
+        # ----------------------------------------------
+
         if self.image_sync_adapter:
 
             products = self.image_sync_adapter.sync_products(
                 products
             )
+
+        # ----------------------------------------------
+        # Compatibilidad legacy
+        # ----------------------------------------------
 
         elif self.image_manager:
 

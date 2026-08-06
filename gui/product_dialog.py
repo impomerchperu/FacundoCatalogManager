@@ -21,7 +21,6 @@ from PySide6.QtWidgets import (
 
 from models.product import Product
 from services.product_service import ProductService
-from utils.image_manager import ImageManager
 
 
 class ProductDialog(QDialog):
@@ -227,11 +226,8 @@ class ProductDialog(QDialog):
 
         image_path = self.image_path.text().strip()
 
-        if image_path and not image_path.replace("\\", "/").startswith("resources/"):
-            image_path = ImageManager.save_image(
-                image_path,
-                code,
-            )
+        if image_path:
+            image_path = image_path.replace("\\", "/")
 
         product = Product(
             code=code,

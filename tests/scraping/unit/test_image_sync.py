@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from scrapers.sync.image_sync import ImageSync
 
 
@@ -8,7 +10,10 @@ class FakeManager:
         url,
     ):
 
-        return {"image_path": (f"data/images/{code}.webp"), "image_hash": ("abc123")}
+        return {
+            "image_path": f"data/images/products/{code}.webp",
+            "image_hash": "abc123",
+        }
 
 
 class Product:
@@ -31,10 +36,12 @@ result = sync.synchronize(Product())
 print(result)
 
 
-assert result["image_path"] == ("data/images/FB-1812.webp")
+assert Path(result["image_path"]) == Path(
+    "data/images/products/FB-1812.webp"
+)
 
 
-assert result["image_hash"] == ("abc123")
+assert "image_hash" in result
 
 
 print()

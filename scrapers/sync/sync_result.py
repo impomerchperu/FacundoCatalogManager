@@ -13,23 +13,34 @@ class SyncResult:
 
     unchanged: list = field(default_factory=list)
 
+    removed: list = field(default_factory=list)
+
     images_processed: int = 0
 
     image_errors: int = 0
 
     errors: list = field(default_factory=list)
 
+
     @property
     def new_count(self):
         return len(self.new)
+
 
     @property
     def updated_count(self):
         return len(self.updated)
 
+
     @property
     def unchanged_count(self):
         return len(self.unchanged)
+
+
+    @property
+    def removed_count(self):
+        return len(self.removed)
+
 
     def summary(self):
 
@@ -37,6 +48,7 @@ class SyncResult:
             "new": self.new_count,
             "updated": self.updated_count,
             "unchanged": self.unchanged_count,
+            "removed": self.removed_count,
             "images_processed": self.images_processed,
             "image_errors": self.image_errors,
             "errors": len(self.errors),

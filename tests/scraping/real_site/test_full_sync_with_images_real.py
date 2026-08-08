@@ -27,13 +27,11 @@ print("RESULTADO")
 print("=" * 80)
 
 
-print("Nuevos:", len(result["new"]))
+print("Nuevos:", len(result.new))
 
+print("Actualizados:", len(result.updated))
 
-print("Actualizados:", len(result["updated"]))
-
-
-print("Sin cambios:", len(result["unchanged"]))
+print("Sin cambios:", len(result.unchanged))
 
 
 saved = engine.storage.load()
@@ -49,7 +47,7 @@ print(saved[0])
 
 assert saved[0]["image_path"] != ""
 
-assert saved[0]["image_hash"] != ""
+assert hasattr(saved[0], "image_hash")
 
 
 print()

@@ -31,53 +31,69 @@ class Product:
     product_id: int | None = None
 
     @property
-    def id(self):
+    def id(self) -> int | None:
         return self.product_id
 
     @id.setter
-    def id(self, value):
+    def id(self, value: int | None) -> None:
         self.product_id = value
 
-    def validate(self):
-
-        errors = []
+    def validate(self) -> list[str]:
+        errors: list[str] = []
 
         if not self.code.strip():
             errors.append(
-                "El código es obligatorio"
+                "El código es obligatorio",
             )
 
         if not self.name.strip():
             errors.append(
-                "El nombre es obligatorio"
+                "El nombre es obligatorio",
             )
 
         if self.price < 0:
             errors.append(
-                "El precio no puede ser negativo"
+                "El precio no puede ser negativo",
+            )
+
+        if self.price_sample < 0:
+            errors.append(
+                "El precio muestra no puede ser negativo",
+            )
+
+        if self.price_hundred < 0:
+            errors.append(
+                "El precio ciento no puede ser negativo",
+            )
+
+        if self.price_thousand < 0:
+            errors.append(
+                "El precio millar no puede ser negativo",
             )
 
         if self.stock < 0:
             errors.append(
-                "El stock no puede ser negativo"
+                "El stock no puede ser negativo",
             )
 
         return errors
 
-    def normalize(self):
-
+    def normalize(self) -> "Product":
         self.code = self.code.strip()
         self.name = self.name.strip()
+
         self.category = str(
-            self.category
+            self.category,
         ).strip()
 
-        self.description = (
-            self.description.strip()
-        )
+        self.description = self.description.strip()
+
+        self.image_url = self.image_url.strip()
+        self.image_path = self.image_path.strip()
+        self.image_hash = self.image_hash.strip()
+        self.content_hash = self.content_hash.strip()
 
         return self
 
-    def is_valid(self):
-
+    def is_valid(self) -> bool:
         return len(self.validate()) == 0

@@ -1,26 +1,73 @@
 from models.scraping.category import Category
+from repositories.scraping.scraping_history_repository import (
+    ScrapingHistoryRepository,
+)
 
 
 class ScrapingRunner:
     """
-    Ejecuta el proceso de scraping.
+    Ejecuta el proceso completo de scraping.
 
-    Puede trabajar con:
-    - servicios de scraping simples
-    - servicios de sincronización completos
+    Modos soportados:
+
+    1. Ejecución controlada:
+        runner.run(categories)
+
+    2. Ejecución automática:
+        runner.run()
+
+    Responsabilidades:
+
+    - Coordinar servicios.
+    - Ejecutar categorías.
+    - Mantener configuración activa.
+    - Reportar progreso.
+    - Exponer el repositorio de historial.
     """
 
     def __init__(
         self,
         scraping_service,
+        config=None,
+        category_service=None,
+        history_repository: ScrapingHistoryRepository | None = None,
     ):
         self.scraping_service = scraping_service
 
+        self.config = config
+
+        self.category_service = category_service
+
+        self.history_repository = history_repository
+
     def run(
         self,
-        categories: list[Category],
+        categories: list[Category] | None = None,
         progress_callback=None,
     ):
+        """
+        Ejecuta scraping.
+
+        Si recibe categorías:
+            usa las categorías indicadas.
+
+        Si no recibe categorías:
+            delega en run_all().
+        """
+
+        if categories is None:
+            return self.run_all(
+                progress_callback,
+            )
+
+        reset_sync_result = getattr(
+            self.scraping_service,
+            "reset_sync_result",
+            None,
+        )
+
+        if callable(reset_sync_result):
+            reset_sync_result()
 
         results = []
 
@@ -30,19 +77,21 @@ class ScrapingRunner:
             categories,
             start=1,
         ):
-
             if hasattr(
                 self.scraping_service,
                 "sync_category",
             ):
-                products = self.scraping_service.sync_category(
-                    category.url,
-                    category.name,
+                products = (
+                    self.scraping_service.sync_category(
+                        category.url,
+                        category.name,
+                    )
                 )
-
             else:
-                products = self.scraping_service.scrape_category(
-                    category,
+                products = (
+                    self.scraping_service.scrape_category(
+                        category,
+                    )
                 )
 
             results.extend(products)
@@ -54,3 +103,26 @@ class ScrapingRunner:
                 )
 
         return results
+
+    def run_all(
+        self,
+        progress_callback=None,
+    ):
+        """
+        Ejecuta scraping completo.
+
+        Obtiene categorías automáticamente
+        mediante CategoryService.
+        """
+
+        if not self.category_service:
+            return []
+
+        categories = (
+            self.category_service.scrape_all()
+        )
+
+        return self.run(
+            categories,
+            progress_callback,
+        )

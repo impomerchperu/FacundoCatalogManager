@@ -3,10 +3,6 @@ import os
 from models.scraping.scraped_product import ScrapedProduct
 from scrapers.sync.sync_engine import SyncEngine
 
-# ==========================================================
-# LIMPIEZA STORAGE DE PRUEBA
-# ==========================================================
-
 TEST_STORAGE = "data/scraping/products.json"
 
 
@@ -14,16 +10,8 @@ if os.path.exists(TEST_STORAGE):
     os.remove(TEST_STORAGE)
 
 
-# ==========================================================
-# MOTOR
-# ==========================================================
-
 engine = SyncEngine()
 
-
-# ==========================================================
-# PRODUCTO ORIGINAL
-# ==========================================================
 
 products = [
     ScrapedProduct(
@@ -41,10 +29,6 @@ products = [
 ]
 
 
-# ==========================================================
-# PRIMERA SINCRONIZACION
-# ==========================================================
-
 print("=" * 80)
 print("PRIMERA SINCRONIZACION")
 print("=" * 80)
@@ -53,17 +37,12 @@ print("=" * 80)
 result = engine.synchronize(products)
 
 
-print("Nuevos:", len(result["new"]))
+print("Nuevos:", len(result.new))
 
-print("Actualizados:", len(result["updated"]))
+print("Actualizados:", len(result.updated))
 
-print("Sin cambios:", len(result["unchanged"]))
+print("Sin cambios:", len(result.unchanged))
 
-
-# ==========================================================
-# SEGUNDA SINCRONIZACION
-# MISMO PRODUCTO
-# ==========================================================
 
 print()
 
@@ -76,17 +55,12 @@ print("=" * 80)
 result = engine.synchronize(products)
 
 
-print("Nuevos:", len(result["new"]))
+print("Nuevos:", len(result.new))
 
-print("Actualizados:", len(result["updated"]))
+print("Actualizados:", len(result.updated))
 
-print("Sin cambios:", len(result["unchanged"]))
+print("Sin cambios:", len(result.unchanged))
 
-
-# ==========================================================
-# TERCERA SINCRONIZACION
-# CAMBIO REAL
-# ==========================================================
 
 products_changed = [
     ScrapedProduct(
@@ -115,8 +89,8 @@ print("=" * 80)
 result = engine.synchronize(products_changed)
 
 
-print("Nuevos:", len(result["new"]))
+print("Nuevos:", len(result.new))
 
-print("Actualizados:", len(result["updated"]))
+print("Actualizados:", len(result.updated))
 
-print("Sin cambios:", len(result["unchanged"]))
+print("Sin cambios:", len(result.unchanged))

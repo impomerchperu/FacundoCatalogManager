@@ -5,19 +5,16 @@ from models.product import Product
 
 
 class ProductRepository:
-
     def __init__(
         self,
         db: DBManager | None = None,
-    ):
+    ) -> None:
         self.db = db or DBManager()
-
 
     def create(
         self,
         product: Product,
-    ):
-
+    ) -> Product:
         query = """
         INSERT INTO products
         (
@@ -57,35 +54,29 @@ class ProductRepository:
             ),
         )
 
-        product.product_id = (
-            cursor.lastrowid
-        )
+        product.product_id = cursor.lastrowid
 
         return product
-
 
     def update(
         self,
         product: Product,
-    ):
-
+    ) -> Product:
         query = """
         UPDATE products SET
-
-        code=?,
-        name=?,
-        category=?,
-        description=?,
-        price=?,
-        price_sample=?,
-        price_hundred=?,
-        price_thousand=?,
-        stock=?,
-        image_url=?,
-        image_path=?,
-        image_hash=?,
-        content_hash=?
-
+            code=?,
+            name=?,
+            category=?,
+            description=?,
+            price=?,
+            price_sample=?,
+            price_hundred=?,
+            price_thousand=?,
+            stock=?,
+            image_url=?,
+            image_path=?,
+            image_hash=?,
+            content_hash=?
         WHERE id=?
         """
 
@@ -111,35 +102,29 @@ class ProductRepository:
 
         return product
 
-
     def save(
         self,
         product: Product,
-    ):
-
+    ) -> Product:
         existing = self.get_by_code(
-            product.code
+            product.code,
         )
 
-        if existing:
-
-            product.product_id = (
-                existing.product_id
-            )
+        if existing is not None:
+            product.product_id = existing.product_id
 
             return self.update(
-                product
+                product,
             )
 
-        return self.create(product)
-
-
+        return self.create(
+            product,
+        )
 
     def get_by_code(
         self,
         code: str,
-    ):
-
+    ) -> Product | None:
         rows = self.db.fetch_all(
             """
             SELECT *
@@ -153,24 +138,21 @@ class ProductRepository:
             return None
 
         return self._row_to_product(
-            rows[0]
+            rows[0],
         )
-
 
     def get(
         self,
         code: str,
-    ):
-
-        return self.get_by_code(code)
-
-
+    ) -> Product | None:
+        return self.get_by_code(
+            code,
+        )
 
     def get_by_id(
         self,
         product_id: int,
-    ):
-
+    ) -> Product | None:
         rows = self.db.fetch_all(
             """
             SELECT *
@@ -184,19 +166,16 @@ class ProductRepository:
             return None
 
         return self._row_to_product(
-            rows[0]
+            rows[0],
         )
 
-
-
-    def get_all(self):
-
+    def get_all(self) -> list[Product]:
         rows = self.db.fetch_all(
             """
             SELECT *
             FROM products
             ORDER BY id DESC
-            """
+            """,
         )
 
         return [
@@ -204,25 +183,20 @@ class ProductRepository:
             for row in rows
         ]
 
-
-
     def search(
         self,
         text: str,
-    ):
-
+    ) -> list[Product]:
         value = f"%{text}%"
 
         rows = self.db.fetch_all(
             """
             SELECT *
             FROM products
-
             WHERE
-            code LIKE ?
-            OR name LIKE ?
-            OR category LIKE ?
-
+                code LIKE ?
+                OR name LIKE ?
+                OR category LIKE ?
             ORDER BY id DESC
             """,
             (
@@ -237,13 +211,10 @@ class ProductRepository:
             for row in rows
         ]
 
-
-
     def delete(
         self,
         product_id: int,
-    ):
-
+    ) -> None:
         self.db.execute_query(
             """
             DELETE FROM products
@@ -252,33 +223,23 @@ class ProductRepository:
             (product_id,),
         )
 
-
-
     def _row_to_product(
         self,
         row: sqlite3.Row,
-    ):
-
+    ) -> Product:
         return Product(
             product_id=row["id"],
-
             code=row["code"],
             name=row["name"],
-
             price=row["price"],
-
             category=row["category"],
             description=row["description"],
-
             price_sample=row["price_sample"],
             price_hundred=row["price_hundred"],
             price_thousand=row["price_thousand"],
-
             stock=row["stock"],
-
             image_url=row["image_url"],
             image_path=row["image_path"],
             image_hash=row["image_hash"],
-
             content_hash=row["content_hash"],
         )

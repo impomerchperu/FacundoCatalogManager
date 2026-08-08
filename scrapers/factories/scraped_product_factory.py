@@ -1,4 +1,5 @@
 from models.scraping.scraped_product import ScrapedProduct
+from scrapers.sync.content_hash import ContentHash
 
 
 class ScrapedProductFactory:
@@ -26,7 +27,7 @@ class ScrapedProductFactory:
         image_error: str = "",
     ) -> ScrapedProduct:
 
-        return ScrapedProduct(
+        product = ScrapedProduct(
             source=source,
             url=url,
             code=code,
@@ -43,3 +44,7 @@ class ScrapedProductFactory:
             image_hash=image_hash,
             image_error=image_error,
         )
+
+        product.content_hash = ContentHash.generate(product)
+
+        return product

@@ -1,15 +1,20 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QLabel, QTableWidget, QTableWidgetItem
+from PySide6.QtWidgets import (
+    QLabel,
+    QTableWidget,
+    QTableWidgetItem,
+)
 
 from controllers.product_controller import ProductController
+from models.product import Product
 
 
 class ProductTable(QTableWidget):
     def __init__(
         self,
         controller: ProductController,
-    ):
+    ) -> None:
         super().__init__()
 
         self.controller = controller
@@ -24,16 +29,22 @@ class ProductTable(QTableWidget):
                 "Categoría",
                 "Precio",
                 "Stock",
-            ]
+            ],
         )
 
         self.load_products()
 
-    def load_products(self, productos=None):
+    def load_products(
+        self,
+        productos: list[Product] | None = None,
+    ) -> None:
         if productos is None:
             productos = self.controller.get_products()
 
-        self.setRowCount(len(productos))
+        self.clearContents()
+        self.setRowCount(
+            len(productos),
+        )
 
         for fila, producto in enumerate(productos):
             image = QLabel()
@@ -112,9 +123,6 @@ class ProductTable(QTableWidget):
                 ),
             )
 
-        for fila in range(
-            self.rowCount(),
-        ):
             self.setRowHeight(
                 fila,
                 70,

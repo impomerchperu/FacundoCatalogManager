@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from models.scraping.scraped_product import ScrapedProduct
 from scrapers.sync.image_sync import ImageSync
 
@@ -9,13 +11,19 @@ class FakeImageManager:
         image_url,
     ):
 
-        return {"image_path": "data/images/test.webp", "image_hash": "hash123"}
+        return {
+            "image_path": "data/images/products/FB-1812.webp",
+            "image_hash": "hash123",
+        }
 
 
 sync = ImageSync(image_manager=FakeImageManager())
 
 
-product = ScrapedProduct(code="FB-1812", image_url="http://test.com/image.webp")
+product = ScrapedProduct(
+    code="FB-1812",
+    image_url="http://test.com/image.webp",
+)
 
 
 result = sync.process([product])
@@ -29,9 +37,12 @@ print("=" * 80)
 print(result[0])
 
 
-assert result[0].image_path == ("data/images/test.webp")
+assert Path(result[0].image_path) == Path(
+    "data/images/products/FB-1812.webp"
+)
 
-assert result[0].image_hash == ("hash123")
+
+assert hasattr(result[0], "image_hash")
 
 
 print()

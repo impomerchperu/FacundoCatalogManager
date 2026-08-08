@@ -35,7 +35,6 @@ CREATE TABLE IF NOT EXISTS products (
     content_hash TEXT DEFAULT '',
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-
 );
 
 
@@ -62,35 +61,27 @@ CREATE TABLE IF NOT EXISTS scraped_products (
 
     stock INTEGER DEFAULT 0,
 
-
-    -- Precio principal
     price REAL DEFAULT 0,
 
-
-    -- Precios comerciales
     price_sample REAL DEFAULT 0,
 
     price_hundred REAL DEFAULT 0,
 
     price_thousand REAL DEFAULT 0,
 
-
-    -- Imágenes
     image_url TEXT,
 
     image_path TEXT,
 
-
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-
 );
 
 
 
 -- ==========================================================
--- Registro de sincronización incremental
+-- Registro incremental
 -- ==========================================================
 
 CREATE TABLE IF NOT EXISTS sync_records (
@@ -99,22 +90,60 @@ CREATE TABLE IF NOT EXISTS sync_records (
 
     code TEXT UNIQUE NOT NULL,
 
-    url TEXT,
+    url TEXT DEFAULT '',
 
     name TEXT,
 
     category TEXT,
 
+    description TEXT DEFAULT '',
+
     price REAL DEFAULT 0,
+
+    price_sample REAL DEFAULT 0,
+
+    price_hundred REAL DEFAULT 0,
+
+    price_thousand REAL DEFAULT 0,
 
     stock INTEGER DEFAULT 0,
 
-    image_url TEXT,
+    image_url TEXT DEFAULT '',
 
-    image_path TEXT,
+    image_path TEXT DEFAULT '',
 
-    hash TEXT,
+    content_hash TEXT DEFAULT '',
+
+    image_hash TEXT DEFAULT '',
 
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
+
+
+-- ==========================================================
+-- Historial de actualizaciones manuales
+-- ==========================================================
+
+CREATE TABLE IF NOT EXISTS scraping_history (
+
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    started_at TEXT NOT NULL,
+
+    finished_at TEXT NOT NULL,
+
+    processed INTEGER DEFAULT 0,
+
+    created INTEGER DEFAULT 0,
+
+    updated INTEGER DEFAULT 0,
+
+    unchanged INTEGER DEFAULT 0,
+
+    errors INTEGER DEFAULT 0,
+
+    status TEXT DEFAULT 'SUCCESS',
+
+    message TEXT DEFAULT ''
 );

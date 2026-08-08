@@ -25,6 +25,9 @@ class ScrapedProduct:
     image_path: str = ""
 
     image_hash: str = ""
+
+    content_hash: str = ""
+
     image_error: str = ""
 
     scraped_at: str = ""

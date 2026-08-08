@@ -52,6 +52,7 @@ class ScrapingSession:
     Controlador de una sesión completa de scraping.
 
     Ejecuta el proceso, crea una carga histórica
+    utilizando los productos obtenidos durante el scraping
     y registra la ejecución en el historial.
 
     Una ejecución de scraping NO aplica automáticamente
@@ -214,7 +215,9 @@ class ScrapingSession:
             )
 
         # --------------------------------------------------
-        # Una ejecución exitosa genera una nueva carga.
+        # Una ejecución exitosa genera una nueva carga
+        # utilizando exactamente los productos obtenidos
+        # durante esta ejecución.
         #
         # IMPORTANTE:
         # La nueva carga NO se aplica automáticamente.
@@ -229,7 +232,8 @@ class ScrapingSession:
         ):
             self.result.load_id = (
                 self.catalog_load_repository
-                .create_from_current_catalog(
+                .create_from_products(
+                    self.result.products,
                     source="SCRAPING",
                     status="SUCCESS",
                     message=message,

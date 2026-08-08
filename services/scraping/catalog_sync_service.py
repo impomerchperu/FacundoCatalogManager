@@ -3,13 +3,21 @@ from models.scraping.sync_result import SyncResult
 
 class CatalogSyncService:
     """
-    Sincroniza productos del catálogo contra un repositorio.
+    Compara productos obtenidos durante el scraping contra
+    el catálogo actualmente aplicado.
 
-    Responsabilidades:
-    - Crear productos nuevos.
-    - Actualizar productos modificados.
-    - Registrar productos sin cambios.
-    - Generar un resultado consolidado de sincronización.
+    IMPORTANTE:
+    Este servicio no modifica el catálogo visible.
+
+    Su responsabilidad es exclusivamente:
+    - Detectar productos nuevos.
+    - Detectar productos modificados.
+    - Detectar productos sin cambios.
+    - Generar el resultado de sincronización.
+    - Mantener actualizado el snapshot incremental.
+
+    La persistencia de una nueva versión del catálogo queda
+    a cargo de CatalogLoadRepository.
     """
 
     def __init__(
@@ -20,44 +28,62 @@ class CatalogSyncService:
         self.repository = repository
         self.diff_service = diff_service
 
-    def sync(self, products):
+    def sync(
+        self,
+        products,
+    ):
         """
-        Ejecuta la sincronización de una colección de productos.
+        Compara una colección de productos contra el
+        snapshot incremental almacenado.
 
         Retorna:
-            SyncResult con métricas del proceso.
+            SyncResult con las métricas del proceso.
         """
 
         result = SyncResult()
 
         for product in products:
-
             result.increment_processed()
 
-            existing = self.repository.get(product.code)
+            existing = self.repository.get(
+                product.code,
+            )
 
             if existing is None:
-                self.repository.save(product)
                 result.created += 1
+
+                self.repository.save(
+                    product,
+                )
+
                 continue
 
             if self.diff_service.has_changes(
                 existing,
                 product,
             ):
-                self.repository.save(product)
                 result.updated += 1
 
-            else:
-                result.unchanged += 1
+                self.repository.save(
+                    product,
+                )
+
+                continue
+
+            result.unchanged += 1
 
         result.finish()
 
         return result
 
-    def synchronize(self, products):
+    def synchronize(
+        self,
+        products,
+    ):
         """
         Alias público para mantener compatibilidad.
         """
 
-        return self.sync(products)
+        return self.sync(
+            products,
+        )

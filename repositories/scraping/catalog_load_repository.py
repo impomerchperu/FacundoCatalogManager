@@ -5,11 +5,16 @@ from database.db_manager import DBManager
 
 class CatalogLoadRepository:
     """
-    Repositorio encargado de administrar las cargas
-    históricas completas del catálogo.
+    Repositorio encargado de administrar versiones históricas
+    completas del catálogo.
 
-    Una carga representa una fotografía completa
-    de la tabla products en un momento determinado.
+    Una carga representa una fotografía completa del catálogo
+    obtenido en una ejecución determinada.
+
+    Las cargas nuevas NO modifican automáticamente la tabla
+    products.
+
+    Solamente apply() modifica el catálogo visible.
     """
 
     def __init__(
@@ -18,22 +23,124 @@ class CatalogLoadRepository:
     ) -> None:
         self.db = db
 
-    def create_from_current_catalog(
+    def create_from_products(
         self,
+        products,
         source: str = "SCRAPING",
         status: str = "SUCCESS",
         message: str = "",
     ) -> int:
         """
-        Crea una nueva carga utilizando el catálogo
-        actualmente almacenado en products.
+        Crea una nueva carga a partir de una colección completa
+        de productos obtenidos durante el scraping.
 
-        La nueva carga NO queda aplicada automáticamente.
+        La carga queda almacenada como pendiente y NO se aplica
+        automáticamente al catálogo visible.
         """
 
         created_at = datetime.now(
             timezone.utc,
         ).isoformat()
+
+        connection = self.db.connection
+
+        try:
+            connection.execute(
+                "BEGIN",
+            )
+
+            cursor = connection.execute(
+                """
+                INSERT INTO catalog_loads (
+                    created_at,
+                    source,
+                    status,
+                    applied,
+                    product_count,
+                    message
+                )
+                VALUES (?, ?, ?, 0, ?, ?)
+                """,
+                (
+                    created_at,
+                    source,
+                    status,
+                    len(products),
+                    message,
+                ),
+            )
+
+            load_id = self._require_load_id(
+                cursor.lastrowid,
+            )
+
+            for product in products:
+                connection.execute(
+                    """
+                    INSERT INTO catalog_load_products (
+                        load_id,
+                        code,
+                        name,
+                        category,
+                        description,
+                        price,
+                        price_sample,
+                        price_hundred,
+                        price_thousand,
+                        stock,
+                        image_url,
+                        image_path,
+                        image_hash,
+                        content_hash
+                    )
+                    VALUES (
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?
+                    )
+                    """,
+                    (
+                        load_id,
+                        product.code,
+                        product.name,
+                        product.category,
+                        product.description,
+                        product.price,
+                        product.price_sample,
+                        product.price_hundred,
+                        product.price_thousand,
+                        product.stock,
+                        product.image_url,
+                        product.image_path,
+                        product.image_hash,
+                        product.content_hash,
+                    ),
+                )
+
+            connection.commit()
+
+        except Exception:
+            connection.rollback()
+            raise
+
+        return load_id
+
+    def create_from_current_catalog(
+        self,
+        source: str = "INITIAL",
+        status: str = "SUCCESS",
+        message: str = "",
+        applied: bool = False,
+    ) -> int:
+        """
+        Crea una carga a partir del catálogo actualmente
+        almacenado en products.
+
+        Este método se conserva para inicialización y
+        compatibilidad con instalaciones existentes.
+
+        No debe utilizarse para guardar resultados normales
+        de scraping.
+        """
 
         products = self.db.fetch_all(
             """
@@ -56,78 +163,92 @@ class CatalogLoadRepository:
             """,
         )
 
-        cursor = self.db.execute_query(
-            """
-            INSERT INTO catalog_loads (
-                created_at,
-                source,
-                status,
-                applied,
-                product_count,
-                message
-            )
-            VALUES (?, ?, ?, 0, ?, ?)
-            """,
-            (
-                created_at,
-                source,
-                status,
-                len(products),
-                message,
-            ),
-        )
+        created_at = datetime.now(
+            timezone.utc,
+        ).isoformat()
 
-        load_id = cursor.lastrowid
+        connection = self.db.connection
 
-        if load_id is None:
-            raise RuntimeError(
-                "No fue posible obtener el ID "
-                "de la carga creada.",
+        try:
+            connection.execute(
+                "BEGIN",
             )
 
-        for product in products:
-            self.db.execute_query(
+            cursor = connection.execute(
                 """
-                INSERT INTO catalog_load_products (
-                    load_id,
-                    code,
-                    name,
-                    category,
-                    description,
-                    price,
-                    price_sample,
-                    price_hundred,
-                    price_thousand,
-                    stock,
-                    image_url,
-                    image_path,
-                    image_hash,
-                    content_hash
+                INSERT INTO catalog_loads (
+                    created_at,
+                    source,
+                    status,
+                    applied,
+                    product_count,
+                    message
                 )
-                VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?
-                )
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    load_id,
-                    product["code"],
-                    product["name"],
-                    product["category"],
-                    product["description"],
-                    product["price"],
-                    product["price_sample"],
-                    product["price_hundred"],
-                    product["price_thousand"],
-                    product["stock"],
-                    product["image_url"],
-                    product["image_path"],
-                    product["image_hash"],
-                    product["content_hash"],
+                    created_at,
+                    source,
+                    status,
+                    1 if applied else 0,
+                    len(products),
+                    message,
                 ),
             )
 
-        return int(load_id)
+            load_id = self._require_load_id(
+                cursor.lastrowid,
+            )
+
+            for product in products:
+                connection.execute(
+                    """
+                    INSERT INTO catalog_load_products (
+                        load_id,
+                        code,
+                        name,
+                        category,
+                        description,
+                        price,
+                        price_sample,
+                        price_hundred,
+                        price_thousand,
+                        stock,
+                        image_url,
+                        image_path,
+                        image_hash,
+                        content_hash
+                    )
+                    VALUES (
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?
+                    )
+                    """,
+                    (
+                        load_id,
+                        product["code"],
+                        product["name"],
+                        product["category"],
+                        product["description"],
+                        product["price"],
+                        product["price_sample"],
+                        product["price_hundred"],
+                        product["price_thousand"],
+                        product["stock"],
+                        product["image_url"],
+                        product["image_path"],
+                        product["image_hash"],
+                        product["content_hash"],
+                    ),
+                )
+
+            connection.commit()
+
+        except Exception:
+            connection.rollback()
+            raise
+
+        return load_id
 
     def apply(
         self,
@@ -136,8 +257,8 @@ class CatalogLoadRepository:
         """
         Aplica una carga histórica al catálogo actual.
 
-        Esta es la única operación que debe cambiar
-        explícitamente la carga visible/aplicada.
+        Esta es la única operación de este repositorio que
+        reemplaza explícitamente el contenido de products.
         """
 
         load = self.get_by_id(
@@ -274,7 +395,7 @@ class CatalogLoadRepository:
 
     def get_latest_applied(self):
         """
-        Devuelve la última carga que el usuario dejó aplicada.
+        Devuelve la última carga que está aplicada.
         """
 
         return self.db.fetch_one(
@@ -312,15 +433,15 @@ class CatalogLoadRepository:
 
     def ensure_initial_applied_load(self) -> int | None:
         """
-        Inicializa el estado de cargas para instalaciones
-        existentes.
+        Inicializa el historial para instalaciones existentes.
 
         Si ya existe una carga aplicada, no modifica nada.
 
-        Si no existe ninguna carga aplicada pero sí existen
-        cargas exitosas, aplica la última carga exitosa.
+        Si no existe ninguna carga aplicada pero existen
+        productos en el catálogo actual, crea una carga
+        INITIAL y la marca como aplicada.
 
-        Devuelve el ID de la carga aplicada o None.
+        Devuelve el ID de la carga inicial o None.
         """
 
         applied = self.get_latest_applied()
@@ -328,14 +449,41 @@ class CatalogLoadRepository:
         if applied is not None:
             return int(applied["id"])
 
-        latest = self.get_latest_successful()
+        products = self.db.fetch_all(
+            """
+            SELECT id
+            FROM products
+            LIMIT 1
+            """,
+        )
 
-        if latest is None:
+        if not products:
             return None
 
-        load_id = int(latest["id"])
+        load_id = self.create_from_current_catalog(
+            source="INITIAL",
+            status="SUCCESS",
+            message=(
+                "Carga inicial creada a partir "
+                "del catálogo existente."
+            ),
+            applied=True,
+        )
 
-        if self.apply(load_id):
-            return load_id
+        return load_id
 
-        return None
+    @staticmethod
+    def _require_load_id(
+        load_id: int | None,
+    ) -> int:
+        """
+        Valida que SQLite haya generado el ID de la carga.
+        """
+
+        if load_id is None:
+            raise RuntimeError(
+                "No fue posible obtener el ID "
+                "de la carga creada.",
+            )
+
+        return int(load_id)

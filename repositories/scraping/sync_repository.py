@@ -11,25 +11,20 @@ class SyncRepository:
         self.db = db
         self.records = {}
 
-
     def save(self, product):
         """
         Guarda o actualiza un producto sincronizado.
         """
 
         if isinstance(product, list):
-
             for item in product:
                 self.save(item)
 
             return
 
-
         self._ensure_hash(product)
 
-
         if self.db:
-
             query = """
             INSERT INTO sync_records (
                 code,
@@ -51,36 +46,21 @@ class SyncRepository:
 
             ON CONFLICT(code)
             DO UPDATE SET
-
                 url = excluded.url,
-
                 name = excluded.name,
-
                 category = excluded.category,
-
                 description = excluded.description,
-
                 price = excluded.price,
-
                 price_sample = excluded.price_sample,
-
                 price_hundred = excluded.price_hundred,
-
                 price_thousand = excluded.price_thousand,
-
                 stock = excluded.stock,
-
                 image_url = excluded.image_url,
-
                 image_path = excluded.image_path,
-
                 content_hash = excluded.content_hash,
-
                 image_hash = excluded.image_hash,
-
                 updated_at = CURRENT_TIMESTAMP
             """
-
 
             self.db.execute_query(
                 query,
@@ -104,12 +84,7 @@ class SyncRepository:
 
             return
 
-
-        self.records[
-            self._get(product, "code")
-        ] = product
-
-
+        self.records[self._get(product, "code")] = product
 
     def get(self, code):
         """
@@ -117,7 +92,6 @@ class SyncRepository:
         """
 
         if self.db:
-
             query = """
             SELECT
                 code,
@@ -134,29 +108,21 @@ class SyncRepository:
                 image_path,
                 content_hash,
                 image_hash
-
             FROM sync_records
-
             WHERE code = ?
             """
-
 
             result = self.db.fetch_one(
                 query,
                 (code,),
             )
 
-
             if result is None:
                 return None
 
-
             return dict(result)
 
-
         return self.records.get(code)
-
-
 
     def load(self):
         """
@@ -164,7 +130,6 @@ class SyncRepository:
         """
 
         if self.db:
-
             query = """
             SELECT
                 code,
@@ -181,25 +146,17 @@ class SyncRepository:
                 image_path,
                 content_hash,
                 image_hash
-
             FROM sync_records
             """
 
-
             results = self.db.fetch_all(query)
-
 
             return [
                 dict(row)
                 for row in results
             ]
 
-
-        return list(
-            self.records.values()
-        )
-
-
+        return list(self.records.values())
 
     def save_all(self, products):
         """
@@ -209,15 +166,12 @@ class SyncRepository:
         for product in products:
             self.save(product)
 
-
-
     def delete(self, code):
         """
         Elimina un producto sincronizado.
         """
 
         if self.db:
-
             query = """
             DELETE FROM sync_records
             WHERE code = ?
@@ -230,13 +184,10 @@ class SyncRepository:
 
             return
 
-
         self.records.pop(
             code,
             None,
         )
-
-
 
     def _ensure_hash(self, product):
         """
@@ -248,24 +199,17 @@ class SyncRepository:
             "content_hash",
         )
 
-
         if not current:
-
-            product.content_hash = (
-                ContentHash.generate(product)
+            product.content_hash = ContentHash.generate(
+                product,
             )
 
-
-
     def _get(self, product, field):
-
         if isinstance(product, dict):
-
             return product.get(
                 field,
                 "",
             )
-
 
         return getattr(
             product,

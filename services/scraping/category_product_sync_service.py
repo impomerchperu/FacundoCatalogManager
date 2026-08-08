@@ -9,10 +9,10 @@ from services.scraping.scraped_product_persistence_service import (
 
 class CategoryProductSyncService:
     """
-    Orquesta extracción y sincronización
-    de productos obtenidos desde categorías.
+    Orquesta extracción y preparación de productos obtenidos
+    desde categorías.
 
-    Flujo enterprise:
+    Flujo:
 
         ScrapedProduct
               |
@@ -29,7 +29,15 @@ class CategoryProductSyncService:
         CatalogSyncService
               |
               v
-          SyncResult acumulado
+          SyncResult
+
+    IMPORTANTE:
+
+    CatalogSyncService solamente compara el resultado contra
+    el catálogo actualmente aplicado.
+
+    La nueva versión del catálogo se persiste posteriormente
+    mediante CatalogLoadRepository.
     """
 
     def __init__(
@@ -63,10 +71,11 @@ class CategoryProductSyncService:
             self.mapper
             and self.catalog_sync_service
         ):
-
             if self.image_sync_adapter:
-                products = self.image_sync_adapter.sync_products(
-                    products,
+                products = (
+                    self.image_sync_adapter.sync_products(
+                        products,
+                    )
                 )
 
             mapped_products = [

@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import datetime
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -11,9 +11,13 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from database.db_manager import DBManager
+from repositories.scraping.catalog_load_repository import (
+    CatalogLoadRepository,
+)
 from repositories.scraping.scraping_history_repository import (
     ScrapingHistoryRepository,
 )
@@ -23,7 +27,12 @@ class ScrapingHistoryDialog(QDialog):
     """
     Ventana que muestra el historial de ejecuciones
     de actualización del catálogo.
+
+    Cada ejecución exitosa asociada a una carga histórica
+    permite aplicar esa carga al catálogo visible.
     """
+
+    catalog_applied = Signal(int)
 
     def __init__(
         self,
@@ -31,8 +40,14 @@ class ScrapingHistoryDialog(QDialog):
     ) -> None:
         super().__init__(parent)
 
+        self.db = DBManager()
+
         self.repository = ScrapingHistoryRepository(
-            DBManager(),
+            self.db,
+        )
+
+        self.catalog_load_repository = CatalogLoadRepository(
+            self.db,
         )
 
         self.setWindowTitle(
@@ -40,7 +55,7 @@ class ScrapingHistoryDialog(QDialog):
         )
 
         self.resize(
-            1000,
+            1100,
             500,
         )
 
@@ -67,7 +82,7 @@ class ScrapingHistoryDialog(QDialog):
         self.table = QTableWidget()
 
         self.table.setColumnCount(
-            8,
+            9,
         )
 
         self.table.setHorizontalHeaderLabels(
@@ -80,6 +95,7 @@ class ScrapingHistoryDialog(QDialog):
                 "Sin cambios",
                 "Errores",
                 "Estado",
+                "Catálogo",
             ],
         )
 
@@ -235,9 +251,14 @@ class ScrapingHistoryDialog(QDialog):
                 record.status,
             )
 
+            self._set_catalog_action(
+                row,
+                record.load_id,
+            )
+
             self.table.setRowHeight(
                 row,
-                30,
+                34,
             )
 
         self.table.resizeColumnsToContents()
@@ -255,6 +276,179 @@ class ScrapingHistoryDialog(QDialog):
         self.table.setColumnWidth(
             7,
             100,
+        )
+
+        self.table.setColumnWidth(
+            8,
+            130,
+        )
+
+    def _set_catalog_action(
+        self,
+        row: int,
+        load_id: int | None,
+    ) -> None:
+        """
+        Crea el botón de aplicación de la carga histórica.
+        """
+
+        container = QWidget()
+        layout = QHBoxLayout(
+            container,
+        )
+        layout.setContentsMargins(
+            4,
+            2,
+            4,
+            2,
+        )
+
+        if load_id is None:
+            label = QLabel("Sin carga")
+            label.setAlignment(
+                Qt.AlignmentFlag.AlignCenter,
+            )
+            layout.addWidget(label)
+            self.table.setCellWidget(
+                row,
+                8,
+                container,
+            )
+            return
+
+        try:
+            load = self.catalog_load_repository.get_by_id(
+                int(load_id),
+            )
+        except sqlite3.Error:
+            load = None
+
+        if load is None:
+            label = QLabel("No disponible")
+            label.setAlignment(
+                Qt.AlignmentFlag.AlignCenter,
+            )
+            layout.addWidget(label)
+        elif bool(load["applied"]):
+            label = QLabel("Aplicado")
+            label.setAlignment(
+                Qt.AlignmentFlag.AlignCenter,
+            )
+            label.setStyleSheet(
+                "font-weight: bold; color: #00838f;",
+            )
+            layout.addWidget(label)
+        elif load["status"] == "SUCCESS":
+            button = QPushButton("Aplicar")
+            button.setProperty(
+                "load_id",
+                int(load_id),
+            )
+            button.clicked.connect(
+                self.apply_selected_load,
+            )
+            layout.addWidget(button)
+        else:
+            label = QLabel("No aplicable")
+            label.setAlignment(
+                Qt.AlignmentFlag.AlignCenter,
+            )
+            layout.addWidget(label)
+
+        self.table.setCellWidget(
+            row,
+            8,
+            container,
+        )
+
+    def apply_selected_load(self) -> None:
+        """
+        Aplica la carga asociada al botón pulsado.
+        """
+
+        button = self.sender()
+
+        if not isinstance(
+            button,
+            QPushButton,
+        ):
+            return
+
+        load_id = button.property("load_id")
+
+        if not isinstance(load_id, int):
+            return
+
+        load = self.catalog_load_repository.get_by_id(
+            load_id,
+        )
+
+        if load is None:
+            QMessageBox.warning(
+                self,
+                "Aplicar catálogo",
+                "La carga seleccionada ya no está disponible.",
+            )
+            self.load_history()
+            return
+
+        product_count = int(
+            load["product_count"],
+        )
+
+        response = QMessageBox.question(
+            self,
+            "Aplicar catálogo",
+            (
+                f"¿Desea aplicar la carga #{load_id} al "
+                f"catálogo visible?\n\n"
+                f"Productos: {product_count}\n\n"
+                "La carga actualmente aplicada será reemplazada."
+            ),
+            QMessageBox.StandardButton.Yes
+            | QMessageBox.StandardButton.No,
+        )
+
+        if response != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            applied = self.catalog_load_repository.apply(
+                load_id,
+            )
+        except sqlite3.Error as error:
+            QMessageBox.critical(
+                self,
+                "Error",
+                (
+                    "No fue posible aplicar la carga.\n\n"
+                    f"{error}"
+                ),
+            )
+            return
+
+        if not applied:
+            QMessageBox.warning(
+                self,
+                "Aplicar catálogo",
+                "La carga seleccionada no existe.",
+            )
+            self.load_history()
+            return
+
+        self.load_history()
+
+        self.catalog_applied.emit(
+            load_id,
+        )
+
+        QMessageBox.information(
+            self,
+            "Catálogo actualizado",
+            (
+                f"La carga #{load_id} fue aplicada correctamente.\n\n"
+                "El catálogo visible ha sido actualizado."
+            ),
         )
 
     def show_selected_details(self) -> None:
@@ -450,3 +644,11 @@ class ScrapingHistoryDialog(QDialog):
             )
 
         return f"{remaining_seconds}s"
+
+    def closeEvent(self, event) -> None:
+        """Cierra la conexión SQLite propia del diálogo."""
+
+        try:
+            self.db.close()
+        finally:
+            super().closeEvent(event)

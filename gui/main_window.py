@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QMainWindow,
     QMessageBox,
@@ -17,6 +18,7 @@ from gui.product_dialog import ProductDialog
 from gui.product_table import ProductTable
 from gui.scraping_dialog import ScrapingDialog
 from gui.scraping_history_dialog import ScrapingHistoryDialog
+from models.product import Product
 
 
 class MainWindow(QMainWindow):
@@ -30,9 +32,13 @@ class MainWindow(QMainWindow):
         )
 
         self.resize(
-            900,
-            600,
+            1200,
+            700,
         )
+
+        self.all_products: list[Product] = []
+
+        self.selected_categories: set[str] = set()
 
         central = QWidget()
 
@@ -42,10 +48,6 @@ class MainWindow(QMainWindow):
 
         layout = QVBoxLayout(
             central,
-        )
-
-        self.table = ProductTable(
-            self.controller,
         )
 
         self.search_box = QLineEdit()
@@ -62,8 +64,29 @@ class MainWindow(QMainWindow):
             self.search_box,
         )
 
+        self.create_filter_controls(
+            layout,
+        )
+
+        self.table = ProductTable(
+            self.controller,
+        )
+
         layout.addWidget(
             self.table,
+        )
+
+        self.product_counter = QLabel(
+            "Mostrando 0 de 0 productos",
+        )
+
+        self.product_counter.setAlignment(
+            Qt.AlignmentFlag.AlignRight
+            | Qt.AlignmentFlag.AlignVCenter,
+        )
+
+        layout.addWidget(
+            self.product_counter,
         )
 
         botones = QHBoxLayout()
@@ -116,7 +139,171 @@ class MainWindow(QMainWindow):
             botones,
         )
 
-        self.table.load_products()
+        self.refresh_catalog()
+
+    def create_filter_controls(
+        self,
+        layout: QVBoxLayout,
+    ) -> None:
+        """Crea los controles de filtro por categoría."""
+
+        category_layout = QHBoxLayout()
+
+        category_label = QLabel(
+            "Categorías:",
+        )
+
+        category_layout.addWidget(
+            category_label,
+        )
+
+        self.category_layout = category_layout
+
+        layout.addLayout(
+            category_layout,
+        )
+
+    def refresh_catalog(self) -> None:
+        self.all_products = (
+            self.controller.get_products()
+        )
+
+        self.rebuild_category_filters()
+
+        self.apply_filters()
+
+    def rebuild_category_filters(self) -> None:
+        while self.category_layout.count() > 1:
+            item = self.category_layout.takeAt(1)
+
+            if item is None:
+                continue
+
+            widget = item.widget()
+
+            if widget is not None:
+                widget.deleteLater()
+
+        categories = sorted(
+            {
+                product.category.strip()
+                for product in self.all_products
+                if product.category.strip()
+            },
+            key=str.casefold,
+        )
+
+        available_categories = set(
+            categories,
+        )
+
+        self.selected_categories.intersection_update(
+            available_categories,
+        )
+
+        for category in categories:
+            button = QPushButton(
+                category,
+            )
+
+            button.setCheckable(True)
+
+            button.setChecked(
+                category in self.selected_categories,
+            )
+
+            button.setStyleSheet(
+                """
+                QPushButton:checked {
+                    background-color: #b2ebf2;
+                    border: 1px solid #4dd0e1;
+                }
+                """,
+            )
+
+            button.clicked.connect(
+                lambda checked, value=category:
+                self.toggle_category(
+                    value,
+                    checked,
+                ),
+            )
+
+            self.category_layout.addWidget(
+                button,
+            )
+
+        self.category_layout.addStretch()
+
+    def toggle_category(
+        self,
+        category: str,
+        checked: bool,
+    ) -> None:
+        if checked:
+            self.selected_categories.add(
+                category,
+            )
+        else:
+            self.selected_categories.discard(
+                category,
+            )
+
+        self.apply_filters()
+
+    def apply_filters(self) -> None:
+        products = list(
+            self.all_products,
+        )
+
+        search_text = (
+            self.search_box.text()
+            .strip()
+            .casefold()
+        )
+
+        if search_text:
+            products = [
+                product
+                for product in products
+                if self.product_matches_search(
+                    product,
+                    search_text,
+                )
+            ]
+
+        if self.selected_categories:
+            products = [
+                product
+                for product in products
+                if product.category
+                in self.selected_categories
+            ]
+
+        self.table.load_products(
+            products,
+        )
+
+        self.update_product_counter(
+            len(products),
+        )
+
+    @staticmethod
+    def product_matches_search(
+        product: Product,
+        search_text: str,
+    ) -> bool:
+        values = (
+            product.code,
+            product.name,
+            product.description,
+            product.category,
+        )
+
+        return any(
+            search_text in str(value).casefold()
+            for value in values
+        )
 
     def open_scraping(self) -> None:
         dialog = ScrapingDialog(
@@ -137,7 +324,25 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def refresh_products(self) -> None:
-        self.table.load_products()
+        self.refresh_catalog()
+
+    def update_product_counter(
+        self,
+        filtered_count: int | None = None,
+    ) -> None:
+        total = len(
+            self.all_products,
+        )
+
+        visible = (
+            total
+            if filtered_count is None
+            else filtered_count
+        )
+
+        self.product_counter.setText(
+            f"Mostrando {visible} de {total} productos",
+        )
 
     def new_product(self) -> None:
         dialog = ProductDialog(
@@ -145,7 +350,7 @@ class MainWindow(QMainWindow):
         )
 
         if dialog.exec():
-            self.table.load_products()
+            self.refresh_catalog()
 
     def edit_product(self) -> None:
         row = self.table.currentRow()
@@ -189,7 +394,7 @@ class MainWindow(QMainWindow):
         )
 
         if dialog.exec():
-            self.table.load_products()
+            self.refresh_catalog()
 
     def delete_product(self) -> None:
         row = self.table.currentRow()
@@ -223,28 +428,21 @@ class MainWindow(QMainWindow):
             | QMessageBox.StandardButton.No,
         )
 
-        if respuesta == QMessageBox.StandardButton.Yes:
+        if (
+            respuesta
+            == QMessageBox.StandardButton.Yes
+        ):
             self.controller.delete_product(
                 product_id,
             )
 
-            self.table.load_products()
+            self.refresh_catalog()
 
     def search_products(
         self,
-        text: str,
+        _text: str,
     ) -> None:
-        if not text.strip():
-            self.table.load_products()
-            return
-
-        productos = self.controller.search_products(
-            text,
-        )
-
-        self.table.load_products(
-            productos,
-        )
+        self.apply_filters()
 
     def export_excel(self) -> None:
         filename, _ = QFileDialog.getSaveFileName(

@@ -2,13 +2,15 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from models.scraping.scraping_history import ScrapingHistory
+from repositories.scraping.catalog_load_repository import (
+    CatalogLoadRepository,
+)
 
 
 @dataclass
 class ScrapingSessionResult:
     """
-    Resultado de una ejecución completa
-    de scraping.
+    Resultado de una ejecución completa de scraping.
     """
 
     started_at: datetime | None = None
@@ -31,6 +33,10 @@ class ScrapingSessionResult:
         default_factory=list,
     )
 
+    load_id: int | None = None
+
+    history_id: int | None = None
+
     def success(self) -> bool:
         return len(self.errors) == 0
 
@@ -43,12 +49,16 @@ class ScrapingSessionResult:
 
 class ScrapingSession:
     """
-    Controlador de una sesión completa
-    de scraping.
+    Controlador de una sesión completa de scraping.
 
-    Además de ejecutar el proceso, registra
-    automáticamente cada ejecución en el
-    historial persistente.
+    Ejecuta el proceso, crea una carga histórica
+    y registra la ejecución en el historial.
+
+    Una ejecución de scraping NO aplica automáticamente
+    la nueva carga al catálogo visible.
+
+    La carga queda disponible en el historial para que
+    el usuario decida cuándo aplicarla.
     """
 
     def __init__(
@@ -61,6 +71,15 @@ class ScrapingSession:
         self.history_repository = (
             history_repository
         )
+
+        self.catalog_load_repository = None
+
+        if history_repository is not None:
+            self.catalog_load_repository = (
+                CatalogLoadRepository(
+                    history_repository.db,
+                )
+            )
 
         self.result = ScrapingSessionResult()
 
@@ -178,7 +197,8 @@ class ScrapingSession:
 
         message = (
             "Actualización de catálogo "
-            "completada correctamente."
+            "completada correctamente. "
+            "Nueva carga disponible para aplicar."
             if self.result.success()
             else (
                 "Actualización de catálogo "
@@ -193,6 +213,29 @@ class ScrapingSession:
                 f"{len(self.result.errors)}."
             )
 
+        # --------------------------------------------------
+        # Una ejecución exitosa genera una nueva carga.
+        #
+        # IMPORTANTE:
+        # La nueva carga NO se aplica automáticamente.
+        #
+        # La carga aplicada anteriormente permanece vigente
+        # hasta que el usuario seleccione "Aplicar".
+        # --------------------------------------------------
+
+        if (
+            self.result.success()
+            and self.catalog_load_repository is not None
+        ):
+            self.result.load_id = (
+                self.catalog_load_repository
+                .create_from_current_catalog(
+                    source="SCRAPING",
+                    status="SUCCESS",
+                    message=message,
+                )
+            )
+
         history = ScrapingHistory(
             started_at=self.result.started_at,
             finished_at=self.result.finished_at,
@@ -203,8 +246,11 @@ class ScrapingSession:
             errors=len(self.result.errors),
             status=self.result.status(),
             message=message,
+            load_id=self.result.load_id,
         )
 
-        self.history_repository.save(
-            history,
+        self.result.history_id = (
+            self.history_repository.save(
+                history,
+            )
         )

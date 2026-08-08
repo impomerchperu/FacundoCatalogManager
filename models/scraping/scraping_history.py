@@ -6,7 +6,8 @@ from datetime import datetime
 class ScrapingHistory:
     """
     Registro persistente de una ejecución
-    manual de actualización del catálogo.
+    manual o automática de actualización
+    del catálogo.
     """
 
     started_at: datetime
@@ -28,3 +29,5 @@ class ScrapingHistory:
     message: str = ""
 
     history_id: int | None = None
+
+    load_id: int | None = None

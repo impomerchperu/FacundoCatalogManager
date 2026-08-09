@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 
@@ -21,6 +21,9 @@ class ScrapedProduct:
     price_hundred: float = 0.0
     price_thousand: float = 0.0
 
+    colors: list[str] = field(default_factory=list)
+    color_stock: dict[str, int] = field(default_factory=dict)
+
     image_url: str = ""
     image_path: str = ""
 
@@ -37,6 +40,17 @@ class ScrapedProduct:
     def __post_init__(self):
         if not self.scraped_at:
             self.scraped_at = datetime.now(timezone.utc).isoformat()
+
+        self.colors = list(dict.fromkeys(
+            str(color).strip()
+            for color in self.colors
+            if str(color).strip()
+        ))
+        self.color_stock = {
+            str(color).strip(): max(int(stock), 0)
+            for color, stock in self.color_stock.items()
+            if str(color).strip()
+        }
 
     def __getitem__(self, key):
         return getattr(self, key)

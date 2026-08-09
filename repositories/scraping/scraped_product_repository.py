@@ -37,7 +37,7 @@ class ScrapedProductRepository:
             image_path=?, updated_at=CURRENT_TIMESTAMP
         WHERE url=?
         """
-        params = self._params(product) + (product.url,)
+        params = (*self._params(product), product.url)
         self.db.execute_query(query, params)
 
     def get_by_url(self, url):

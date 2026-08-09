@@ -176,8 +176,11 @@ class MainWindow(QMainWindow):
 
         while self.category_grid.count():
             item = self.category_grid.takeAt(0)
-            if item is not None and item.widget() is not None:
-                item.widget().deleteLater()
+            if item is None:
+                continue
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
 
         categories = sorted(
             {
@@ -223,8 +226,11 @@ class MainWindow(QMainWindow):
 
         while self.category_grid.count():
             item = self.category_grid.takeAt(0)
-            if item is not None and item.widget() is not None:
-                item.widget().setParent(None)
+            if item is None:
+                continue
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
 
         available_width = self.category_scroll.viewport().width()
         button_width = 150

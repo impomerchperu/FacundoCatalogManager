@@ -6,7 +6,6 @@ from zoneinfo import ZoneInfo
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QFileDialog,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -53,9 +52,7 @@ class MainWindow(QMainWindow):
 
         self.controller = ProductController()
         self.catalog_load_db = DBManager()
-        self.catalog_load_repository = CatalogLoadRepository(
-            self.catalog_load_db,
-        )
+        self.catalog_load_repository = CatalogLoadRepository(self.catalog_load_db)
         self.catalog_load_repository.ensure_initial_applied_load()
         self.catalog_load_repository.restore_latest_applied()
         self.catalog_load_repository.cleanup_expired_history()
@@ -69,11 +66,14 @@ class MainWindow(QMainWindow):
         self.category_buttons: list[QPushButton] = []
         self.categories_visible = False
         self.scraping_dialog: ScrapingDialog | None = None
+        self.history_dialog: ScrapingHistoryDialog | None = None
         self.last_scheduled_scraping: tuple[int, int, int] | None = None
 
         central = QWidget()
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
 
         self.create_filter_controls(layout)
 
@@ -102,7 +102,8 @@ class MainWindow(QMainWindow):
         counter_layout.addStretch()
         layout.addLayout(counter_layout)
 
-        botones = QHBoxLayout()
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(6)
         buttons = [
             ("Nuevo", self.new_product),
             ("Editar", self.edit_product),
@@ -112,12 +113,13 @@ class MainWindow(QMainWindow):
             ("Actualizar catálogo", self.open_scraping),
             ("Historial", self.open_scraping_history),
         ]
-
         for text, callback in buttons:
             button = QPushButton(text)
+            button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
             button.clicked.connect(callback)
-            botones.addWidget(button)
-        layout.addLayout(botones)
+            buttons_layout.addWidget(button)
+        buttons_layout.addStretch()
+        layout.addLayout(buttons_layout)
 
         self.refresh_catalog()
         self.start_scraping_scheduler()
@@ -141,12 +143,8 @@ class MainWindow(QMainWindow):
             "QPushButton { font-size: 18px; padding: 5px 10px; }\n"
             + self.ACTIVE_BUTTON_STYLE,
         )
-        self.category_toggle_button.setToolTip(
-            "Mostrar u ocultar los filtros de categorías.",
-        )
-        self.category_toggle_button.toggled.connect(
-            self.toggle_categories_visibility,
-        )
+        self.category_toggle_button.clicked.connect(self._fit_top_button)
+        self.category_toggle_button.toggled.connect(self.toggle_categories_visibility)
         top_controls.addWidget(self.category_toggle_button)
 
         self.stock_filter_button = QPushButton("Solo Stock Disponible")
@@ -155,14 +153,15 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Fixed,
             QSizePolicy.Policy.Fixed,
         )
+        self.stock_filter_button.setStyleSheet(
+            "QPushButton { font-size: 18px; padding: 5px 10px; }\n"
+            + self.ACTIVE_BUTTON_STYLE,
+        )
         self.stock_filter_button.setToolTip(
             "Mostrar únicamente productos con stock mayor a 0.",
         )
-        self.stock_filter_button.setStyleSheet(
-            "QPushButton { font-size: 16px; padding: 5px 10px; }\n"
-            + self.ACTIVE_BUTTON_STYLE,
-        )
         self.stock_filter_button.toggled.connect(self.toggle_stock_filter)
+        self.stock_filter_button.clicked.connect(self._fit_top_button)
         top_controls.addWidget(self.stock_filter_button)
         top_controls.addStretch()
         filter_layout.addLayout(top_controls)
@@ -182,10 +181,9 @@ class MainWindow(QMainWindow):
         filter_layout.addWidget(self.category_scroll)
 
         self.category_container = QWidget()
-        self.category_layout = QGridLayout(self.category_container)
+        self.category_layout = QVBoxLayout(self.category_container)
         self.category_layout.setContentsMargins(0, 0, 0, 0)
-        self.category_layout.setHorizontalSpacing(6)
-        self.category_layout.setVerticalSpacing(6)
+        self.category_layout.setSpacing(6)
         self.category_scroll.setWidget(self.category_container)
 
         self.all_categories_button = QPushButton("Todos")
@@ -194,13 +192,18 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Fixed,
             QSizePolicy.Policy.Fixed,
         )
-        self.all_categories_button.setToolTip(
-            "Restablecer todos los filtros de categoría.",
+        self.all_categories_button.setStyleSheet(
+            "QPushButton { padding: 5px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
         )
         self.all_categories_button.clicked.connect(self.clear_category_filters)
         self.category_buttons = [self.all_categories_button]
 
         layout.addLayout(filter_layout)
+
+    def _fit_top_button(self) -> None:
+        sender = self.sender()
+        if isinstance(sender, QPushButton):
+            sender.adjustSize()
 
     def toggle_categories_visibility(self, visible: bool) -> None:
         self.categories_visible = visible
@@ -208,6 +211,7 @@ class MainWindow(QMainWindow):
         self.category_toggle_button.setText(
             "Ocultar Categorías" if visible else "Filtrar Categorías",
         )
+        self.category_toggle_button.adjustSize()
         if visible:
             QTimer.singleShot(0, self._reflow_category_buttons)
 
@@ -216,11 +220,18 @@ class MainWindow(QMainWindow):
         self.rebuild_category_filters()
         self.apply_filters()
 
+    @staticmethod
+    def _product_categories(product: Product) -> set[str]:
+        return {
+            category.strip()
+            for category in str(product.category).split(",")
+            if category.strip()
+        }
+
     def rebuild_category_filters(self) -> None:
         for button in self.category_buttons:
             if button is self.all_categories_button:
                 continue
-            button.setParent(None)
             button.deleteLater()
         self.category_buttons = [self.all_categories_button]
 
@@ -229,39 +240,39 @@ class MainWindow(QMainWindow):
             if item is None:
                 continue
             widget = item.widget()
-            if widget is not None and widget is not self.all_categories_button:
+            if widget is not None:
                 widget.setParent(None)
 
         categories = sorted(
             {
-                product.category.strip()
+                category
                 for product in self.all_products
-                if product.category.strip()
+                for category in self._product_categories(product)
             },
             key=str.casefold,
         )
-        available_categories = set(categories)
-        self.selected_categories.intersection_update(available_categories)
+        self.selected_categories.intersection_update(set(categories))
 
         for category in categories:
             button = QPushButton(category)
             button.setProperty("category_text", category)
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
-            button.setMinimumHeight(36)
             button.setSizePolicy(
                 QSizePolicy.Policy.Fixed,
                 QSizePolicy.Policy.Fixed,
             )
-            button.setStyleSheet(self.ACTIVE_BUTTON_STYLE)
+            button.setStyleSheet(
+                "QPushButton { padding: 5px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
+            )
             button.clicked.connect(
                 lambda checked, value=category:
                 self.toggle_category(value, checked),
             )
             self.category_buttons.append(button)
 
-        self._reflow_category_buttons()
         self._update_all_categories_button()
+        self._reflow_category_buttons()
 
     def _reflow_category_buttons(self) -> None:
         if not hasattr(self, "category_layout"):
@@ -279,12 +290,10 @@ class MainWindow(QMainWindow):
         if available_width <= 0:
             return
 
-        spacing = self.category_layout.horizontalSpacing()
-        row = 0
-        column = 0
+        rows: list[list[QPushButton]] = []
+        current_row: list[QPushButton] = []
         current_width = 0
-        row_widths: list[int] = []
-        row_buttons: list[list[QPushButton]] = [[]]
+        spacing = self.category_layout.spacing()
 
         for button in self.category_buttons:
             original_text = str(
@@ -294,10 +303,7 @@ class MainWindow(QMainWindow):
             button.adjustSize()
 
             if button.sizeHint().width() > available_width:
-                wrap_width = max(
-                    12,
-                    min(34, available_width // 9),
-                )
+                wrap_width = max(10, min(34, available_width // 9))
                 button.setText(
                     "\n".join(
                         textwrap.wrap(
@@ -310,48 +316,35 @@ class MainWindow(QMainWindow):
                 )
                 button.adjustSize()
 
-            button_width = min(button.sizeHint().width(), available_width)
-            if column and current_width + spacing + button_width > available_width:
-                row_widths.append(current_width)
-                row += 1
-                column = 0
+            width = min(button.sizeHint().width(), available_width)
+            needed = width if not current_row else width + spacing
+            if current_row and current_width + needed > available_width:
+                rows.append(current_row)
+                current_row = []
                 current_width = 0
-                row_buttons.append([])
 
-            row_buttons[row].append(button)
-            current_width += button_width + (spacing if column else 0)
-            column += 1
+            current_row.append(button)
+            current_width += width if len(current_row) == 1 else width + spacing
 
-        row_widths.append(current_width)
+        if current_row:
+            rows.append(current_row)
 
-        for row_index, buttons in enumerate(row_buttons):
-            row_layout_width = row_widths[row_index]
-            left_space = max((available_width - row_layout_width) // 2, 0)
-            grid_column = 0
-
-            if left_space:
-                spacer = QWidget()
-                spacer.setFixedWidth(left_space)
-                self.category_layout.addWidget(spacer, row_index, 0)
-                grid_column = 1
-
-            for button in buttons:
-                self.category_layout.addWidget(
-                    button,
-                    row_index,
-                    grid_column,
-                )
-                grid_column += 1
+        for row_buttons in rows:
+            row_widget = QWidget()
+            row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(spacing)
+            row_layout.addStretch()
+            for button in row_buttons:
+                row_layout.addWidget(button)
+            row_layout.addStretch()
+            self.category_layout.addWidget(row_widget)
 
         self.category_container.adjustSize()
 
     def _update_all_categories_button(self) -> None:
-        active = bool(self.selected_categories)
-        self.all_categories_button.setChecked(not active)
-        self.all_categories_button.setStyleSheet(
-            "QPushButton { font-size: 16px; padding: 4px 10px; }\n"
-            + self.ACTIVE_BUTTON_STYLE,
-        )
+        self.all_categories_button.setChecked(not self.selected_categories)
+        self.all_categories_button.adjustSize()
 
     def clear_category_filters(self) -> None:
         self.selected_categories.clear()
@@ -371,6 +364,7 @@ class MainWindow(QMainWindow):
 
     def toggle_stock_filter(self, checked: bool) -> None:
         self.stock_only = checked
+        self.stock_filter_button.adjustSize()
         self.apply_filters()
 
     def apply_filters(self) -> None:
@@ -388,13 +382,16 @@ class MainWindow(QMainWindow):
             products = [
                 product
                 for product in products
-                if product.category in self.selected_categories
+                if self.selected_categories.intersection(
+                    self._product_categories(product),
+                )
             ]
 
         if self.stock_only:
             products = [product for product in products if product.stock > 0]
 
         self.table.load_products(products)
+        self.table.set_search_text(search_text)
         self.update_product_counter(len(products))
 
     @staticmethod
@@ -404,33 +401,45 @@ class MainWindow(QMainWindow):
             product.name,
             product.description,
             product.category,
+            ", ".join(product.colors),
         )
         return any(search_text in str(value).casefold() for value in values)
 
     def open_scraping(self) -> None:
-        """Abre el scraping sin mantenerlo siempre delante del catálogo."""
         if self.is_scraping_running():
             if self.scraping_dialog is not None:
                 self.scraping_dialog.activateWindow()
                 self.scraping_dialog.raise_()
             return
 
-        self.scraping_dialog = ScrapingDialog()
+        self.scraping_dialog = ScrapingDialog(self)
         self.scraping_dialog.finished_success.connect(self.scraping_finished)
         self.scraping_dialog.finished.connect(self.scraping_dialog_closed)
         self.scraping_dialog.setModal(False)
         self.scraping_dialog.show()
+        self.scraping_dialog.raise_()
+        self.scraping_dialog.activateWindow()
 
     def open_scraping_history(self) -> None:
-        dialog = ScrapingHistoryDialog(self)
-        dialog.catalog_applied.connect(self.refresh_catalog)
-        dialog.exec()
+        if self.history_dialog is not None:
+            self.history_dialog.raise_()
+            self.history_dialog.activateWindow()
+            return
+        self.history_dialog = ScrapingHistoryDialog(self)
+        self.history_dialog.catalog_applied.connect(self.refresh_catalog)
+        self.history_dialog.finished.connect(lambda: self._history_closed())
+        self.history_dialog.show()
+        self.history_dialog.raise_()
+        self.history_dialog.activateWindow()
+
+    def _history_closed(self) -> None:
+        self.history_dialog = None
 
     def scraping_finished(self) -> None:
         if self.scraping_dialog is not None:
-            self.scraping_dialog.setWindowTitle(
-                "Actualización completada",
-            )
+            self.scraping_dialog.setWindowTitle("Actualización completada")
+            self.scraping_dialog.raise_()
+            self.scraping_dialog.activateWindow()
 
     def scraping_dialog_closed(self) -> None:
         self.scraping_dialog = None
@@ -458,11 +467,9 @@ class MainWindow(QMainWindow):
             return
         if self.last_scheduled_scraping == schedule_key:
             return
-
         self.last_scheduled_scraping = schedule_key
         if self.is_scraping_running():
             return
-
         self.open_scraping()
         if self.scraping_dialog is not None:
             QTimer.singleShot(0, self.scraping_dialog.start_scraping)
@@ -470,9 +477,7 @@ class MainWindow(QMainWindow):
     def update_product_counter(self, filtered_count: int | None = None) -> None:
         total = len(self.all_products)
         visible = total if filtered_count is None else filtered_count
-        self.product_counter.setText(
-            f"Mostrando {visible} de {total} productos",
-        )
+        self.product_counter.setText(f"Mostrando {visible} de {total} productos")
 
     def new_product(self) -> None:
         dialog = ProductDialog(self)
@@ -508,13 +513,13 @@ class MainWindow(QMainWindow):
         if not isinstance(product_id, int):
             return
 
-        respuesta = QMessageBox.question(
+        response = QMessageBox.question(
             self,
             "Confirmar eliminación",
             "¿Desea eliminar este producto?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if respuesta == QMessageBox.StandardButton.Yes:
+        if response == QMessageBox.StandardButton.Yes:
             self.controller.delete_product(product_id)
             self.refresh_catalog()
 
@@ -528,9 +533,8 @@ class MainWindow(QMainWindow):
             "catalogo.xlsx",
             "Excel (*.xlsx)",
         )
-        if not filename:
-            return
-        ExcelExporter.export(self.controller.get_products(), filename)
+        if filename:
+            ExcelExporter.export(self.controller.get_products(), filename)
 
     def export_pdf(self) -> None:
         filename, _ = QFileDialog.getSaveFileName(
@@ -539,19 +543,21 @@ class MainWindow(QMainWindow):
             "catalogo.pdf",
             "PDF (*.pdf)",
         )
-        if not filename:
-            return
-        PDFExporter.export(self.controller.get_products(), filename)
+        if filename:
+            PDFExporter.export(self.controller.get_products(), filename)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        self._reflow_category_buttons()
+        if self.categories_visible:
+            self._reflow_category_buttons()
 
     def closeEvent(self, event) -> None:
         if hasattr(self, "scraping_scheduler"):
             self.scraping_scheduler.stop()
         if self.scraping_dialog is not None:
             self.scraping_dialog.close()
+        if self.history_dialog is not None:
+            self.history_dialog.close()
         if hasattr(self, "catalog_load_db"):
             self.catalog_load_db.close()
         super().closeEvent(event)

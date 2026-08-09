@@ -23,7 +23,9 @@ class DBManager:
 
     def initialize_database(self):
         cursor = self.connection.cursor()
-        schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
+        schema_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "schema.sql"
+        )
 
         if os.path.exists(schema_path):
             with open(schema_path, "r", encoding="utf-8") as file:
@@ -40,9 +42,15 @@ class DBManager:
         self._add_column_if_missing("products", "colors", "TEXT DEFAULT '[]'")
         self._add_column_if_missing("products", "color_stock", "TEXT DEFAULT '{}'")
         self._add_column_if_missing("scraped_products", "colors", "TEXT DEFAULT '[]'")
-        self._add_column_if_missing("scraped_products", "color_stock", "TEXT DEFAULT '{}'")
-        self._add_column_if_missing("catalog_load_products", "colors", "TEXT DEFAULT '[]'")
-        self._add_column_if_missing("catalog_load_products", "color_stock", "TEXT DEFAULT '{}'")
+        self._add_column_if_missing(
+            "scraped_products", "color_stock", "TEXT DEFAULT '{}'"
+        )
+        self._add_column_if_missing(
+            "catalog_load_products", "colors", "TEXT DEFAULT '[]'"
+        )
+        self._add_column_if_missing(
+            "catalog_load_products", "color_stock", "TEXT DEFAULT '{}'"
+        )
 
         self.connection.execute(
             """
@@ -66,7 +74,9 @@ class DBManager:
             """,
         )
 
-    def _add_column_if_missing(self, table_name: str, column_name: str, column_definition: str) -> None:
+    def _add_column_if_missing(
+        self, table_name: str, column_name: str, column_definition: str
+    ) -> None:
         columns = self.fetch_all(f"PRAGMA table_info({table_name})")
         if column_name in {row["name"] for row in columns}:
             return

@@ -1,4 +1,5 @@
 from PySide6.QtCore import QElapsedTimer, QThread, QTimer, Qt, Signal
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -233,6 +234,11 @@ class ScrapingDialog(QDialog):
                 item = QTableWidgetItem(value)
                 if column in {0, 3}:
                     item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                if column in {0, 3, 4, 5}:
+                    font = QFont(item.font())
+                    font.setBold(column in {0, 3})
+                    item.setFont(font)
+                    item.setBackground(table.palette().highlight())
                 table.setItem(row, column, item)
 
         if not rows:

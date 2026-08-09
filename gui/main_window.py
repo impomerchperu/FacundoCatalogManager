@@ -34,9 +34,18 @@ class MainWindow(QMainWindow):
     """Ventana principal del catálogo."""
 
     SCRAPING_SCHEDULE: ClassVar[set[tuple[int, int, int]]] = {
-        (0, 12, 0), (0, 22, 0), (1, 12, 0), (1, 22, 0),
-        (2, 12, 0), (2, 22, 0), (3, 12, 0), (3, 22, 0),
-        (4, 12, 0), (4, 22, 0), (5, 12, 0), (5, 22, 0),
+        (0, 12, 0),
+        (0, 22, 0),
+        (1, 12, 0),
+        (1, 22, 0),
+        (2, 12, 0),
+        (2, 22, 0),
+        (3, 12, 0),
+        (3, 22, 0),
+        (4, 12, 0),
+        (4, 22, 0),
+        (5, 12, 0),
+        (5, 22, 0),
     }
 
     ACTIVE_BUTTON_STYLE = """
@@ -115,7 +124,10 @@ class MainWindow(QMainWindow):
         ]
         for text, callback in buttons:
             button = QPushButton(text)
-            button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+            button.setSizePolicy(
+                QSizePolicy.Policy.Minimum,
+                QSizePolicy.Policy.Fixed,
+            )
             button.clicked.connect(callback)
             buttons_layout.addWidget(button)
         buttons_layout.addStretch()
@@ -144,7 +156,9 @@ class MainWindow(QMainWindow):
             + self.ACTIVE_BUTTON_STYLE,
         )
         self.category_toggle_button.clicked.connect(self._fit_top_button)
-        self.category_toggle_button.toggled.connect(self.toggle_categories_visibility)
+        self.category_toggle_button.toggled.connect(
+            self.toggle_categories_visibility,
+        )
         top_controls.addWidget(self.category_toggle_button)
 
         self.stock_filter_button = QPushButton("Solo Stock Disponible")
@@ -266,8 +280,10 @@ class MainWindow(QMainWindow):
                 "QPushButton { padding: 5px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
             )
             button.clicked.connect(
-                lambda checked, value=category:
-                self.toggle_category(value, checked),
+                lambda checked, value=category: self.toggle_category(
+                    value,
+                    checked,
+                ),
             )
             self.category_buttons.append(button)
 
@@ -286,7 +302,10 @@ class MainWindow(QMainWindow):
             if widget is not None:
                 widget.setParent(None)
 
-        available_width = self.category_scroll.viewport().width()
+        available_width = max(
+            self.category_scroll.viewport().width() - 8,
+            1,
+        )
         if available_width <= 0:
             return
 
@@ -300,6 +319,7 @@ class MainWindow(QMainWindow):
                 button.property("category_text") or button.text(),
             )
             button.setText(original_text)
+            button.setMaximumWidth(available_width)
             button.adjustSize()
 
             if button.sizeHint().width() > available_width:
@@ -334,7 +354,6 @@ class MainWindow(QMainWindow):
             row_layout = QHBoxLayout(row_widget)
             row_layout.setContentsMargins(0, 0, 0, 0)
             row_layout.setSpacing(spacing)
-            row_layout.addStretch()
             for button in row_buttons:
                 row_layout.addWidget(button)
             row_layout.addStretch()
@@ -351,7 +370,10 @@ class MainWindow(QMainWindow):
         for button in self.category_buttons:
             if button is not self.all_categories_button:
                 button.setChecked(False)
+                button.adjustSize()
         self._update_all_categories_button()
+        if self.categories_visible:
+            self._reflow_category_buttons()
         self.apply_filters()
 
     def toggle_category(self, category: str, checked: bool) -> None:
@@ -359,7 +381,13 @@ class MainWindow(QMainWindow):
             self.selected_categories.add(category)
         else:
             self.selected_categories.discard(category)
+
+        sender = self.sender()
+        if isinstance(sender, QPushButton):
+            sender.adjustSize()
         self._update_all_categories_button()
+        if self.categories_visible:
+            self._reflow_category_buttons()
         self.apply_filters()
 
     def toggle_stock_filter(self, checked: bool) -> None:
@@ -408,8 +436,10 @@ class MainWindow(QMainWindow):
     def open_scraping(self) -> None:
         if self.is_scraping_running():
             if self.scraping_dialog is not None:
-                self.scraping_dialog.activateWindow()
+                if self.scraping_dialog.isMinimized():
+                    self.scraping_dialog.showNormal()
                 self.scraping_dialog.raise_()
+                self.scraping_dialog.activateWindow()
             return
 
         self.scraping_dialog = ScrapingDialog(self)
@@ -422,12 +452,15 @@ class MainWindow(QMainWindow):
 
     def open_scraping_history(self) -> None:
         if self.history_dialog is not None:
+            if self.history_dialog.isMinimized():
+                self.history_dialog.showNormal()
             self.history_dialog.raise_()
             self.history_dialog.activateWindow()
             return
         self.history_dialog = ScrapingHistoryDialog(self)
         self.history_dialog.catalog_applied.connect(self.refresh_catalog)
         self.history_dialog.finished.connect(lambda: self._history_closed())
+        self.history_dialog.setModal(False)
         self.history_dialog.show()
         self.history_dialog.raise_()
         self.history_dialog.activateWindow()
@@ -477,7 +510,9 @@ class MainWindow(QMainWindow):
     def update_product_counter(self, filtered_count: int | None = None) -> None:
         total = len(self.all_products)
         visible = total if filtered_count is None else filtered_count
-        self.product_counter.setText(f"Mostrando {visible} de {total} productos")
+        self.product_counter.setText(
+            f"Mostrando {visible} de {total} productos",
+        )
 
     def new_product(self) -> None:
         dialog = ProductDialog(self)

@@ -163,7 +163,7 @@ class ProductExtractor:
 
         visible_stock = self._extract_visible_stock_values(soup)
         if len(visible_stock) == len(colors) and colors:
-            for color, stock in zip(colors, visible_stock):
+            for color, stock in zip(colors, visible_stock, strict=True):
                 color_stock[color] = stock
 
         return colors, color_stock
@@ -176,7 +176,7 @@ class ProductExtractor:
             return []
 
         color_pattern = (
-            r"\bcolou?rs?\s*:\s*(.+?)"
+            r"\b(?:colou?rs?|colores)\s*:\s*(.+?)"
             r"(?=\s+(?:presentaci[oó]n|precio|stock\s+disponible|"
             r"c[oó]digo)\b|$)"
         )

@@ -60,7 +60,7 @@ class CategoryProductExtractor:
         color_stock: dict[str, int] = {}
 
         def add_color(name: str, stock: int | None = None) -> None:
-            value = re.sub(r"\s+", " ", str(name)).strip()
+            value = re.sub(r"\s+", " ", str(name)).strip(" :-")
             if not value or value.casefold() in {
                 "color", "colour", "seleccionar color", "sin color",
             }:
@@ -84,8 +84,13 @@ class CategoryProductExtractor:
                 or element.get("title")
                 or element.get_text(" ", strip=True)
             )
-            stock = self._stock_attribute(element)
-            add_color(name, stock)
+            add_color(name, self._stock_attribute(element))
+
+        for paragraph in soup.select(".variaciones-producto p"):
+            text = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True))
+            match = re.match(r"^(.+?)\s*[:\-]\s*(\d+)\s*$", text)
+            if match:
+                add_color(match.group(1), int(match.group(2)))
 
         for select in soup.select("select"):
             selector_text = " ".join(

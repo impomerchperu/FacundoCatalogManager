@@ -4,36 +4,25 @@ from models.scraping.sync_result import SyncResult
 class CatalogSyncService:
     """
     Compara productos obtenidos durante el scraping contra el
-    snapshot incremental almacenado.
+    snapshot incremental almacenado en sync_records.
 
-    IMPORTANTE:
-
-    Este servicio NO modifica el catálogo visible.
-
-    El catálogo visible se encuentra en:
-
-        products
-
-    y solamente debe ser modificado mediante:
-
-        CatalogLoadRepository.apply(load_id)
-
-    Este servicio trabaja exclusivamente con:
-
-        sync_records
-
-    Responsabilidades:
-
-    - Detectar productos nuevos.
-    - Detectar productos modificados.
-    - Detectar productos sin cambios.
-    - Generar el resultado de sincronización.
-    - Mantener actualizado el snapshot incremental.
-
-    La creación de una nueva carga histórica queda a cargo de:
-
-        CatalogLoadRepository
+    Este servicio no modifica el catálogo visible.
     """
+
+    FIELD_LABELS = {
+        "name": "Nombre",
+        "category": "Categoría",
+        "description": "Detalle",
+        "price": "Precio",
+        "price_sample": "Precio muestra",
+        "price_hundred": "Precio ciento",
+        "price_thousand": "Precio millar",
+        "stock": "Stock",
+        "image_url": "URL imagen",
+        "image_path": "Ruta imagen",
+        "image_hash": "Hash imagen",
+        "content_hash": "Hash contenido",
+    }
 
     def __init__(
         self,
@@ -47,66 +36,76 @@ class CatalogSyncService:
         self,
         products,
     ):
-        """
-        Compara una colección de productos contra el
-        snapshot incremental almacenado en sync_records.
-
-        IMPORTANTE:
-
-        Esta operación NO modifica products.
-
-        Solamente actualiza el snapshot incremental para
-        permitir comparar la siguiente ejecución.
-
-        Retorna:
-
-            SyncResult con las métricas del proceso.
-        """
-
+        """Compara una colección y retorna su resultado consolidado."""
         result = SyncResult()
 
         for product in products:
             result.increment_processed()
 
-            existing = self.repository.get(
-                product.code,
-            )
+            existing = self.repository.get(product.code)
 
             if existing is None:
                 result.created += 1
-
-                self.repository.save(
-                    product,
+                result.changes.append(
+                    {
+                        "type": "NEW",
+                        "code": product.code,
+                        "name": product.name,
+                        "changes": [],
+                    },
                 )
-
+                self.repository.save(product)
                 continue
 
-            if self.diff_service.has_changes(
+            comparison = self.diff_service.compare(
                 existing,
                 product,
-            ):
+            )
+
+            if comparison["changed"]:
                 result.updated += 1
+                field_changes = []
+                for field in comparison["fields"]:
+                    field_changes.append(
+                        {
+                            "field": field,
+                            "label": self.FIELD_LABELS.get(
+                                field,
+                                field,
+                            ),
+                            "old": self._value(existing, field),
+                            "new": self._value(product, field),
+                        },
+                    )
 
-                self.repository.save(
-                    product,
+                result.changes.append(
+                    {
+                        "type": "UPDATED",
+                        "code": product.code,
+                        "name": product.name,
+                        "changes": field_changes,
+                    },
                 )
-
+                self.repository.save(product)
                 continue
 
             result.unchanged += 1
 
         result.finish()
-
         return result
 
     def synchronize(
         self,
         products,
     ):
-        """
-        Alias público para mantener compatibilidad.
-        """
+        """Alias público para mantener compatibilidad."""
+        return self.sync(products)
 
-        return self.sync(
-            products,
-        )
+    @staticmethod
+    def _value(obj, field):
+        if isinstance(obj, dict):
+            return obj.get(field)
+        try:
+            return obj[field]
+        except (KeyError, TypeError, IndexError):
+            return getattr(obj, field, None)

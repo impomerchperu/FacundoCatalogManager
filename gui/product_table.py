@@ -15,8 +15,8 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QStyle,
-    QStyleOptionViewItem,
     QStyledItemDelegate,
+    QStyleOptionViewItem,
     QTableWidget,
     QTableWidgetItem,
 )

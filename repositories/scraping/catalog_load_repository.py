@@ -16,6 +16,7 @@ class CatalogLoadRepository:
         status: str = "SUCCESS",
         message: str = "",
     ) -> int:
+        unique_products = self._deduplicate_products(products)
         created_at = datetime.now(timezone.utc).isoformat()
         connection = self.db.connection
 
@@ -29,12 +30,18 @@ class CatalogLoadRepository:
                 )
                 VALUES (?, ?, ?, 0, NULL, ?, ?)
                 """,
-                (created_at, source, status, len(products), message),
+                (
+                    created_at,
+                    source,
+                    status,
+                    len(unique_products),
+                    message,
+                ),
             )
 
             load_id = self._require_load_id(cursor.lastrowid)
 
-            for product in products:
+            for product in unique_products:
                 connection.execute(
                     """
                     INSERT INTO catalog_load_products (
@@ -285,6 +292,19 @@ class CatalogLoadRepository:
             message="Carga inicial creada a partir del catálogo existente.",
             applied=True,
         )
+
+    @staticmethod
+    def _deduplicate_products(products):
+        """Elimina duplicados por código antes de persistir una carga."""
+        unique = {}
+
+        for product in products:
+            code = str(getattr(product, "code", "")).strip()
+            if not code:
+                continue
+            unique.setdefault(code, product)
+
+        return list(unique.values())
 
     @staticmethod
     def _require_load_id(load_id: int | None) -> int:

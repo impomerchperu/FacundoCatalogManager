@@ -1,3 +1,4 @@
+import contextlib
 import json
 import re
 from urllib.parse import urljoin
@@ -158,14 +159,11 @@ class ProductExtractor:
             stock = None
             for key, item in value.items():
                 key_text = str(key).casefold()
-                if "color" in key_text or "colour" in key_text:
-                    if isinstance(item, str):
-                        color_name = item
+                if ("color" in key_text or "colour" in key_text) and isinstance(item, str):
+                    color_name = item
                 if key_text in {"max_qty", "max_quantity", "stock", "quantity"}:
-                    try:
+                    with contextlib.suppress(TypeError, ValueError):
                         stock = int(item)
-                    except (TypeError, ValueError):
-                        pass
             if color_name:
                 add_color(color_name, stock)
             for item in value.values():
@@ -178,9 +176,10 @@ class ProductExtractor:
     def _json_payloads(raw: str):
         try:
             parsed = json.loads(raw)
-            return [parsed]
         except json.JSONDecodeError:
             return []
+        else:
+            return [parsed]
 
     @staticmethod
     def _stock_from_tag(element) -> int | None:
@@ -197,7 +196,12 @@ class ProductExtractor:
         code = self.extract_code(soup)
         candidates = []
         for img in soup.find_all("img"):
-            url = img.get("data-src") or img.get("data-lazy-src") or img.get("src") or ""
+            url = (
+                img.get("data-src")
+                or img.get("data-lazy-src")
+                or img.get("src")
+                or ""
+            )
             if not url or url.startswith("data:image"):
                 continue
             if "Logo" in url or "Proximo" in url:

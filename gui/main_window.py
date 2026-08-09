@@ -5,12 +5,14 @@ from zoneinfo import ZoneInfo
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QFileDialog,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -31,12 +33,18 @@ class MainWindow(QMainWindow):
     """Ventana principal del catálogo."""
 
     SCRAPING_SCHEDULE: ClassVar[set[tuple[int, int, int]]] = {
-        (0, 12, 0), (0, 22, 0),
-        (1, 12, 0), (1, 22, 0),
-        (2, 12, 0), (2, 22, 0),
-        (3, 12, 0), (3, 22, 0),
-        (4, 12, 0), (4, 22, 0),
-        (5, 12, 0), (5, 22, 0),
+        (0, 12, 0),
+        (0, 22, 0),
+        (1, 12, 0),
+        (1, 22, 0),
+        (2, 12, 0),
+        (2, 22, 0),
+        (3, 12, 0),
+        (3, 22, 0),
+        (4, 12, 0),
+        (4, 22, 0),
+        (5, 12, 0),
+        (5, 22, 0),
     }
 
     def __init__(self) -> None:
@@ -55,6 +63,8 @@ class MainWindow(QMainWindow):
 
         self.all_products: list[Product] = []
         self.selected_categories: set[str] = set()
+        self.stock_only = False
+        self.category_buttons: list[QPushButton] = []
         self.scraping_dialog: ScrapingDialog | None = None
         self.last_scheduled_scraping: tuple[int, int, int] | None = None
 
@@ -98,10 +108,61 @@ class MainWindow(QMainWindow):
         self.start_scraping_scheduler()
 
     def create_filter_controls(self, layout: QVBoxLayout) -> None:
-        category_layout = QHBoxLayout()
-        category_layout.addWidget(QLabel("Categorías:"))
-        self.category_layout = category_layout
-        layout.addLayout(category_layout)
+        filter_layout = QVBoxLayout()
+
+        stock_controls = QHBoxLayout()
+        stock_controls.addWidget(QLabel("Filtros:"))
+
+        self.stock_filter_button = QPushButton("Solo stock disponible")
+        self.stock_filter_button.setCheckable(True)
+        self.stock_filter_button.setToolTip(
+            "Mostrar únicamente productos con stock mayor a 0.",
+        )
+        self.stock_filter_button.setStyleSheet(
+            """
+            QPushButton:checked {
+                background-color: #b2ebf2;
+                border: 1px solid #4dd0e1;
+                font-weight: bold;
+            }
+            """,
+        )
+        self.stock_filter_button.toggled.connect(self.toggle_stock_filter)
+        stock_controls.addWidget(self.stock_filter_button)
+        stock_controls.addStretch()
+        filter_layout.addLayout(stock_controls)
+
+        category_row = QHBoxLayout()
+        category_label = QLabel("Categorías:")
+        category_label.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft,
+        )
+        category_row.addWidget(category_label)
+
+        self.category_scroll = QScrollArea()
+        self.category_scroll.setWidgetResizable(True)
+        self.category_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
+        self.category_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded,
+        )
+        self.category_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.category_scroll.setMinimumHeight(44)
+        self.category_scroll.setMaximumHeight(110)
+
+        self.category_container = QWidget()
+        self.category_grid = QGridLayout(self.category_container)
+        self.category_grid.setContentsMargins(0, 0, 0, 0)
+        self.category_grid.setHorizontalSpacing(6)
+        self.category_grid.setVerticalSpacing(6)
+        self.category_scroll.setWidget(self.category_container)
+
+        category_row.addWidget(self.category_scroll, 1)
+        filter_layout.addLayout(category_row)
+
+        self.category_layout = category_row
+        layout.addLayout(filter_layout)
 
     def refresh_catalog(self) -> None:
         self.all_products = self.controller.get_products()
@@ -109,13 +170,14 @@ class MainWindow(QMainWindow):
         self.apply_filters()
 
     def rebuild_category_filters(self) -> None:
-        while self.category_layout.count() > 1:
-            item = self.category_layout.takeAt(1)
-            if item is None:
-                continue
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
+        for button in self.category_buttons:
+            button.deleteLater()
+        self.category_buttons.clear()
+
+        while self.category_grid.count():
+            item = self.category_grid.takeAt(0)
+            if item is not None and item.widget() is not None:
+                item.widget().deleteLater()
 
         categories = sorted(
             {
@@ -132,11 +194,18 @@ class MainWindow(QMainWindow):
             button = QPushButton(category)
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
+            button.setMinimumHeight(32)
+            button.setMinimumWidth(110)
+            button.setSizePolicy(
+                button.sizePolicy().horizontalPolicy(),
+                button.sizePolicy().verticalPolicy(),
+            )
             button.setStyleSheet(
                 """
                 QPushButton:checked {
                     background-color: #b2ebf2;
                     border: 1px solid #4dd0e1;
+                    font-weight: bold;
                 }
                 """,
             )
@@ -144,14 +213,39 @@ class MainWindow(QMainWindow):
                 lambda checked, value=category:
                 self.toggle_category(value, checked),
             )
-            self.category_layout.addWidget(button)
-        self.category_layout.addStretch()
+            self.category_buttons.append(button)
+
+        self._reflow_category_buttons()
+
+    def _reflow_category_buttons(self) -> None:
+        if not hasattr(self, "category_grid"):
+            return
+
+        while self.category_grid.count():
+            item = self.category_grid.takeAt(0)
+            if item is not None and item.widget() is not None:
+                item.widget().setParent(None)
+
+        available_width = self.category_scroll.viewport().width()
+        button_width = 150
+        columns = max(1, available_width // button_width)
+
+        for index, button in enumerate(self.category_buttons):
+            row, column = divmod(index, columns)
+            self.category_grid.addWidget(button, row, column)
+            self.category_grid.setColumnStretch(column, 1)
+
+        self.category_container.adjustSize()
 
     def toggle_category(self, category: str, checked: bool) -> None:
         if checked:
             self.selected_categories.add(category)
         else:
             self.selected_categories.discard(category)
+        self.apply_filters()
+
+    def toggle_stock_filter(self, checked: bool) -> None:
+        self.stock_only = checked
         self.apply_filters()
 
     def apply_filters(self) -> None:
@@ -164,12 +258,16 @@ class MainWindow(QMainWindow):
                 for product in products
                 if self.product_matches_search(product, search_text)
             ]
+
         if self.selected_categories:
             products = [
                 product
                 for product in products
                 if product.category in self.selected_categories
             ]
+
+        if self.stock_only:
+            products = [product for product in products if product.stock > 0]
 
         self.table.load_products(products)
         self.update_product_counter(len(products))
@@ -247,7 +345,9 @@ class MainWindow(QMainWindow):
     def update_product_counter(self, filtered_count: int | None = None) -> None:
         total = len(self.all_products)
         visible = total if filtered_count is None else filtered_count
-        self.product_counter.setText(f"Mostrando {visible} de {total} productos")
+        self.product_counter.setText(
+            f"Mostrando {visible} de {total} productos",
+        )
 
     def new_product(self) -> None:
         dialog = ProductDialog(self)
@@ -317,6 +417,10 @@ class MainWindow(QMainWindow):
         if not filename:
             return
         PDFExporter.export(self.controller.get_products(), filename)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._reflow_category_buttons()
 
     def closeEvent(self, event) -> None:
         if hasattr(self, "scraping_scheduler"):

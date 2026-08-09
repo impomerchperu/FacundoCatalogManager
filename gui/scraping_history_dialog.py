@@ -31,10 +31,16 @@ class ScrapingHistoryDialog(QDialog):
         self.db = DBManager()
         self.repository = ScrapingHistoryRepository(self.db)
         self.catalog_load_repository = CatalogLoadRepository(self.db)
+        self.detail_dialog: QDialog | None = None
         self.setWindowTitle("Historial de actualizaciones")
         self.resize(1100, 500)
         self.build_ui()
         self.load_history()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self.raise_()
+        self.activateWindow()
 
     def build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -71,10 +77,6 @@ class ScrapingHistoryDialog(QDialog):
         try:
             self.catalog_load_repository.cleanup_expired_history()
             history = self.repository.get_latest(limit=100)
-            latest_applied = self.catalog_load_repository.get_latest_applied()
-            latest_applied_id = (
-                int(latest_applied["id"]) if latest_applied is not None else None
-            )
         except sqlite3.Error as error:
             QMessageBox.critical(
                 self,
@@ -95,7 +97,7 @@ class ScrapingHistoryDialog(QDialog):
             self._set_item(row, 5, str(record.unchanged))
             self._set_item(row, 6, str(record.errors))
             self._set_item(row, 7, record.status)
-            self._set_catalog_action(row, record.load_id, latest_applied_id)
+            self._set_catalog_action(row, record.load_id)
             self.table.setRowHeight(row, 48)
 
         self.table.resizeColumnsToContents()
@@ -108,7 +110,6 @@ class ScrapingHistoryDialog(QDialog):
         self,
         row: int,
         load_id: int | None,
-        latest_applied_id: int | None,
     ) -> None:
         container = QWidget()
         layout = QHBoxLayout(container)
@@ -130,28 +131,19 @@ class ScrapingHistoryDialog(QDialog):
             label = QLabel("No disponible")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(label)
-        elif load["applied_at"] is not None:
-            applied_datetime = self._parse_datetime(load["applied_at"])
-            label = QLabel(
-                "Aplicado\n" + self._format_datetime(applied_datetime),
+        elif load["status"] == "SUCCESS":
+            button = QPushButton(
+                "Reaplicar" if load["applied_at"] is not None else "Aplicar",
             )
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            label.setStyleSheet("font-weight: bold; color: #00838f;")
-            layout.addWidget(label)
-        elif latest_applied_id is None or int(load_id) > latest_applied_id:
-            if load["status"] == "SUCCESS":
-                button = QPushButton("Aplicar")
-                button.setProperty("load_id", int(load_id))
-                button.clicked.connect(self.apply_selected_load)
-                layout.addWidget(button)
-            else:
-                label = QLabel("No aplicable")
-                label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                layout.addWidget(label)
+            button.setProperty("load_id", int(load_id))
+            button.setToolTip(
+                "Aplicar esta versión del catálogo a la tabla visible.",
+            )
+            button.clicked.connect(self.apply_selected_load)
+            layout.addWidget(button)
         else:
-            label = QLabel("No aplicado")
+            label = QLabel("No aplicable")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            label.setStyleSheet("color: #757575;")
             layout.addWidget(label)
 
         self.table.setCellWidget(row, 8, container)
@@ -180,7 +172,7 @@ class ScrapingHistoryDialog(QDialog):
             (
                 f"¿Desea aplicar la carga #{load_id} al catálogo visible?\n\n"
                 f"Productos: {int(load['product_count'])}\n\n"
-                "Esta aplicación quedará registrada permanentemente en el historial."
+                "Esta versión quedará disponible en el historial."
             ),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
@@ -213,7 +205,7 @@ class ScrapingHistoryDialog(QDialog):
             "Catálogo actualizado",
             (
                 f"La carga #{load_id} fue aplicada correctamente.\n\n"
-                "La fecha de aplicación quedó registrada en el historial."
+                "La tabla visible fue actualizada con esta versión."
             ),
         )
 
@@ -239,7 +231,7 @@ class ScrapingHistoryDialog(QDialog):
         if history.load_id is not None:
             try:
                 variations = self.catalog_load_repository.get_load_changes(
-                    int(history.load_id)
+                    int(history.load_id),
                 )
             except sqlite3.Error as error:
                 QMessageBox.critical(
@@ -283,9 +275,15 @@ class ScrapingHistoryDialog(QDialog):
         duration: str,
         variations: list[dict],
     ) -> None:
+        if self.detail_dialog is not None:
+            self.detail_dialog.close()
+
         dialog = QDialog(self)
+        self.detail_dialog = dialog
         dialog.setWindowTitle("Detalle de actualización")
         dialog.resize(1050, 620)
+        dialog.setModal(False)
+        dialog.finished.connect(self._detail_dialog_closed)
         layout = QVBoxLayout(dialog)
 
         summary = QLabel(
@@ -357,12 +355,21 @@ class ScrapingHistoryDialog(QDialog):
         table.resizeRowsToContents()
         layout.addWidget(table)
         close_button = QPushButton("Cerrar")
-        close_button.clicked.connect(dialog.accept)
+        close_button.clicked.connect(dialog.close)
         layout.addWidget(close_button)
-        dialog.exec()
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def _detail_dialog_closed(self) -> None:
+        self.detail_dialog = None
 
     @staticmethod
-    def _set_variation_row(table: QTableWidget, row: int, values: list[str]) -> None:
+    def _set_variation_row(
+        table: QTableWidget,
+        row: int,
+        values: list[str],
+    ) -> None:
         for column, value in enumerate(values):
             item = QTableWidgetItem(value)
             item.setTextAlignment(
@@ -417,6 +424,8 @@ class ScrapingHistoryDialog(QDialog):
 
     def closeEvent(self, event) -> None:
         try:
+            if self.detail_dialog is not None:
+                self.detail_dialog.close()
             self.db.close()
         finally:
             super().closeEvent(event)

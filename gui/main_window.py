@@ -145,7 +145,6 @@ class MainWindow(QMainWindow):
         self.category_scroll.setMinimumHeight(44)
         self.category_scroll.setMaximumHeight(110)
         category_header.addWidget(self.category_scroll, 1)
-
         filter_layout.addLayout(category_header)
 
         self.category_container = QWidget()
@@ -164,7 +163,6 @@ class MainWindow(QMainWindow):
         self.all_categories_button.clicked.connect(self.clear_category_filters)
         self.category_buttons = [self.all_categories_button]
 
-        filter_layout.addStretch(0)
         layout.addLayout(filter_layout)
 
     def refresh_catalog(self) -> None:
@@ -174,16 +172,18 @@ class MainWindow(QMainWindow):
 
     def rebuild_category_filters(self) -> None:
         for button in self.category_buttons:
+            if button is self.all_categories_button:
+                continue
             button.setParent(None)
             button.deleteLater()
-        self.category_buttons.clear()
+        self.category_buttons = [self.all_categories_button]
 
         while self.category_layout.count():
             item = self.category_layout.takeAt(0)
             if item is None:
                 continue
             widget = item.widget()
-            if widget is not None:
+            if widget is not None and widget is not self.all_categories_button:
                 widget.setParent(None)
 
         categories = sorted(
@@ -197,16 +197,11 @@ class MainWindow(QMainWindow):
         available_categories = set(categories)
         self.selected_categories.intersection_update(available_categories)
 
-        self.category_buttons.append(self.all_categories_button)
         for category in categories:
             button = QPushButton(category)
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
             button.setMinimumHeight(32)
-            button.setSizePolicy(
-                button.sizePolicy().Policy.Minimum,
-                button.sizePolicy().Policy.Fixed,
-            )
             button.setStyleSheet(
                 """
                 QPushButton:checked {
@@ -248,7 +243,7 @@ class MainWindow(QMainWindow):
 
         for button in self.category_buttons:
             button.adjustSize()
-            button_width = button.sizeHint().width()
+            button_width = max(button.sizeHint().width(), 50)
             if column and current_width + spacing + button_width > available_width:
                 row += 1
                 column = 0

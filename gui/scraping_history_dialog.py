@@ -2,9 +2,11 @@ import sqlite3
 from datetime import datetime
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QMessageBox,
     QPushButton,
@@ -84,6 +86,7 @@ class ScrapingHistoryDialog(QDialog):
 
     def load_history(self) -> None:
         try:
+            self.catalog_load_repository.cleanup_expired_history()
             history = self.repository.get_latest(limit=100)
             latest_applied = self.catalog_load_repository.get_latest_applied()
             latest_applied_id = (
@@ -158,7 +161,7 @@ class ScrapingHistoryDialog(QDialog):
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(label)
         elif latest_applied_id is not None and int(load_id) == latest_applied_id:
-            applied_at = load["applied_at"] or load["created_at"]
+            applied_at = load["applied_at"]
             applied_datetime = self._parse_datetime(applied_at)
             label = QLabel(
                 "Aplicado\n"
@@ -283,22 +286,184 @@ class ScrapingHistoryDialog(QDialog):
         started_at = self._parse_datetime(history.started_at)
         finished_at = self._parse_datetime(history.finished_at)
         duration = self._format_duration(started_at, finished_at)
-        message = history.message.strip() or "Sin mensaje adicional."
 
-        details = (
-            f"Fecha de inicio:\n{self._format_datetime(started_at)}\n\n"
-            f"Fecha de finalización:\n{self._format_datetime(finished_at)}\n\n"
-            f"Duración:\n{duration}\n\n"
-            f"Productos procesados: {history.processed}\n"
-            f"Nuevos: {history.created}\n"
-            f"Actualizados: {history.updated}\n"
-            f"Sin cambios: {history.unchanged}\n"
-            f"Errores: {history.errors}\n"
-            f"Estado: {history.status}\n\n"
-            f"Mensaje:\n{message}"
+        if history.load_id is not None:
+            try:
+                variations = self.catalog_load_repository.get_load_changes(
+                    int(history.load_id),
+                )
+            except sqlite3.Error as error:
+                QMessageBox.critical(
+                    self,
+                    "Detalle de actualización",
+                    f"No fue posible obtener las variaciones.\n\n{error}",
+                )
+                return
+            self._show_variation_dialog(
+                history,
+                started_at,
+                finished_at,
+                duration,
+                variations,
+            )
+            return
+
+        message = history.message.strip() or "Sin mensaje adicional."
+        QMessageBox.information(
+            self,
+            "Detalle de actualización",
+            (
+                f"Fecha de inicio:\n{self._format_datetime(started_at)}\n\n"
+                f"Fecha de finalización:\n{self._format_datetime(finished_at)}\n\n"
+                f"Duración:\n{duration}\n\n"
+                f"Productos procesados: {history.processed}\n"
+                f"Nuevos: {history.created}\n"
+                f"Actualizados: {history.updated}\n"
+                f"Sin cambios: {history.unchanged}\n"
+                f"Errores: {history.errors}\n"
+                f"Estado: {history.status}\n\n"
+                f"Mensaje:\n{message}"
+            ),
         )
 
-        QMessageBox.information(self, "Detalle de actualización", details)
+    def _show_variation_dialog(
+        self,
+        history,
+        started_at: datetime,
+        finished_at: datetime,
+        duration: str,
+        variations: list[dict],
+    ) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Detalle de actualización")
+        dialog.resize(1050, 620)
+
+        layout = QVBoxLayout(dialog)
+
+        summary = QLabel(
+            f"Inicio: {self._format_datetime(started_at)}    "
+            f"Fin: {self._format_datetime(finished_at)}    "
+            f"Duración: {duration}\n"
+            f"Procesados: {history.processed}    "
+            f"Nuevos: {history.created}    "
+            f"Actualizados: {history.updated}    "
+            f"Sin cambios: {history.unchanged}    "
+            f"Errores: {history.errors}",
+        )
+        summary.setStyleSheet("font-weight: bold; padding: 4px;")
+        layout.addWidget(summary)
+
+        table = QTableWidget()
+        table.setColumnCount(6)
+        table.setHorizontalHeaderLabels(
+            ["Tipo", "Código", "Producto", "Variación", "Anterior", "Nuevo"],
+        )
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setWordWrap(True)
+        table.horizontalHeader().setSectionResizeMode(
+            2,
+            QHeaderView.ResizeMode.Stretch,
+        )
+        table.horizontalHeader().setSectionResizeMode(
+            3,
+            QHeaderView.ResizeMode.Stretch,
+        )
+        table.horizontalHeader().setSectionResizeMode(
+            4,
+            QHeaderView.ResizeMode.Stretch,
+        )
+        table.horizontalHeader().setSectionResizeMode(
+            5,
+            QHeaderView.ResizeMode.Stretch,
+        )
+
+        row_count = sum(
+            max(len(item["changes"]), 1)
+            for item in variations
+        )
+        table.setRowCount(row_count)
+
+        row = 0
+        for item in variations:
+            if item["type"] == "NEW":
+                values = [
+                    "NUEVO",
+                    str(item["code"]),
+                    str(item["name"]),
+                    "Producto nuevo",
+                    "—",
+                    "Alta",
+                ]
+                self._set_variation_row(table, row, values, True)
+                row += 1
+                continue
+
+            for change in item["changes"]:
+                values = [
+                    "ACTUALIZADO",
+                    str(item["code"]),
+                    str(item["name"]),
+                    str(change["label"]),
+                    self._format_change_value(change["old"]),
+                    self._format_change_value(change["new"]),
+                ]
+                self._set_variation_row(table, row, values, True)
+                row += 1
+
+        if not variations:
+            table.setRowCount(1)
+            self._set_variation_row(
+                table,
+                0,
+                ["—", "—", "—", "Sin variaciones", "—", "—"],
+                False,
+            )
+
+        table.resizeRowsToContents()
+        layout.addWidget(table)
+
+        close_button = QPushButton("Cerrar")
+        close_button.clicked.connect(dialog.accept)
+        layout.addWidget(close_button)
+
+        dialog.exec()
+
+    @staticmethod
+    def _set_variation_row(
+        table: QTableWidget,
+        row: int,
+        values: list[str],
+        highlight: bool,
+    ) -> None:
+        for column, value in enumerate(values):
+            item = QTableWidgetItem(value)
+            item.setTextAlignment(
+                Qt.AlignmentFlag.AlignVCenter
+                | (
+                    Qt.AlignmentFlag.AlignCenter
+                    if column != 2
+                    else Qt.AlignmentFlag.AlignLeft
+                ),
+            )
+            if highlight:
+                font = QFont(item.font())
+                font.setBold(column in {0, 3})
+                item.setFont(font)
+                item.setBackground(
+                    table.palette().alternateBase()
+                    if column not in {3, 4, 5}
+                    else table.palette().highlight(),
+                )
+            table.setItem(row, column, item)
+
+    @staticmethod
+    def _format_change_value(value) -> str:
+        if value is None:
+            return "—"
+        if isinstance(value, float):
+            return f"{value:,.2f}"
+        return str(value)
 
     def _set_item(
         self,

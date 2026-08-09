@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta, timezone
 from typing import ClassVar
 
@@ -16,6 +17,8 @@ class CatalogLoadRepository:
         "price_hundred",
         "price_thousand",
         "stock",
+        "colors",
+        "color_stock",
         "image_url",
         "image_path",
         "image_hash",
@@ -31,6 +34,8 @@ class CatalogLoadRepository:
         "price_hundred": "Precio ciento",
         "price_thousand": "Precio millar",
         "stock": "Stock",
+        "colors": "Colores",
+        "color_stock": "Stock por color",
         "image_url": "URL imagen",
         "image_path": "Ruta imagen",
         "image_hash": "Hash imagen",
@@ -58,18 +63,10 @@ class CatalogLoadRepository:
                 INSERT INTO catalog_loads (
                     created_at, source, status, applied,
                     applied_at, product_count, message
-                )
-                VALUES (?, ?, ?, 0, NULL, ?, ?)
+                ) VALUES (?, ?, ?, 0, NULL, ?, ?)
                 """,
-                (
-                    created_at,
-                    source,
-                    status,
-                    len(unique_products),
-                    message,
-                ),
+                (created_at, source, status, len(unique_products), message),
             )
-
             load_id = self._require_load_id(cursor.lastrowid)
 
             for product in unique_products:
@@ -78,27 +75,11 @@ class CatalogLoadRepository:
                     INSERT INTO catalog_load_products (
                         load_id, code, name, category, description,
                         price, price_sample, price_hundred,
-                        price_thousand, stock, image_url, image_path,
-                        image_hash, content_hash
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        price_thousand, stock, colors, color_stock,
+                        image_url, image_path, image_hash, content_hash
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (
-                        load_id,
-                        product.code,
-                        product.name,
-                        product.category,
-                        product.description,
-                        product.price,
-                        product.price_sample,
-                        product.price_hundred,
-                        product.price_thousand,
-                        product.stock,
-                        product.image_url,
-                        product.image_path,
-                        product.image_hash,
-                        product.content_hash,
-                    ),
+                    self._product_params(load_id, product),
                 )
 
             connection.commit()
@@ -118,9 +99,9 @@ class CatalogLoadRepository:
         products = self.db.fetch_all(
             """
             SELECT code, name, category, description, price,
-                   price_sample, price_hundred, price_thousand,
-                   stock, image_url, image_path, image_hash,
-                   content_hash
+                   price_sample, price_hundred, price_thousand, stock,
+                   colors, color_stock, image_url, image_path,
+                   image_hash, content_hash
             FROM products ORDER BY id
             """,
         )
@@ -136,8 +117,7 @@ class CatalogLoadRepository:
                 INSERT INTO catalog_loads (
                     created_at, source, status, applied,
                     applied_at, product_count, message
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     created_at,
@@ -149,7 +129,6 @@ class CatalogLoadRepository:
                     message,
                 ),
             )
-
             load_id = self._require_load_id(cursor.lastrowid)
 
             for product in products:
@@ -158,10 +137,9 @@ class CatalogLoadRepository:
                     INSERT INTO catalog_load_products (
                         load_id, code, name, category, description,
                         price, price_sample, price_hundred,
-                        price_thousand, stock, image_url, image_path,
-                        image_hash, content_hash
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        price_thousand, stock, colors, color_stock,
+                        image_url, image_path, image_hash, content_hash
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         load_id,
@@ -174,6 +152,8 @@ class CatalogLoadRepository:
                         product["price_hundred"],
                         product["price_thousand"],
                         product["stock"],
+                        product["colors"] or "[]",
+                        product["color_stock"] or "{}",
                         product["image_url"],
                         product["image_path"],
                         product["image_hash"],
@@ -189,17 +169,8 @@ class CatalogLoadRepository:
         return load_id
 
     def apply(self, load_id: int) -> bool:
-        """
-        Aplica una carga y conserva permanentemente el estado de cada carga
-        que haya sido aplicada anteriormente.
-
-        ``applied`` representa si una carga fue aplicada alguna vez, no cuál
-        es la carga actualmente visible en el catálogo. Por eso una nueva
-        aplicación no revierte el estado ni la fecha ``applied_at`` de las
-        cargas anteriores.
-        """
+        """Aplica una carga y conserva el historial de aplicaciones."""
         load = self.get_by_id(load_id)
-
         if load is None:
             return False
         if bool(load["applied"]) or load["applied_at"] is not None:
@@ -211,7 +182,6 @@ class CatalogLoadRepository:
         try:
             connection.execute("BEGIN")
             self._replace_products_in_transaction(load_id)
-
             connection.execute(
                 """
                 UPDATE catalog_loads
@@ -230,20 +200,13 @@ class CatalogLoadRepository:
     def restore_latest_applied(self) -> int | None:
         """Restaura en products la última carga que fue aplicada."""
         load = self.get_latest_applied()
-
         if load is None:
             return None
-
         self._replace_products(int(load["id"]))
         return int(load["id"])
 
     def cleanup_expired_history(self, retention_days: int = 7) -> int:
-        """
-        Elimina historiales y cargas no aplicadas anteriores al período indicado.
-
-        Las cargas aplicadas se conservan para no perder el registro histórico
-        ni la fecha de aplicación de cada versión que haya sido utilizada.
-        """
+        """Elimina historiales no aplicados con más de siete días."""
         if retention_days < 1:
             raise ValueError("retention_days debe ser mayor que cero.")
 
@@ -254,7 +217,6 @@ class CatalogLoadRepository:
 
         try:
             connection.execute("BEGIN")
-
             connection.execute(
                 """
                 DELETE FROM scraping_history
@@ -262,8 +224,7 @@ class CatalogLoadRepository:
                   AND (
                       load_id IS NULL
                       OR NOT EXISTS (
-                          SELECT 1
-                          FROM catalog_loads
+                          SELECT 1 FROM catalog_loads
                           WHERE catalog_loads.id = scraping_history.load_id
                             AND (
                                 catalog_loads.applied = 1
@@ -274,7 +235,6 @@ class CatalogLoadRepository:
                 """,
                 (cutoff,),
             )
-
             cursor = connection.execute(
                 """
                 DELETE FROM catalog_loads
@@ -294,27 +254,24 @@ class CatalogLoadRepository:
 
     def get_load_changes(self, load_id: int) -> list[dict]:
         """Compara una carga con la carga exitosa inmediatamente anterior."""
+        select_fields = """
+            code, name, category, description, price,
+            price_sample, price_hundred, price_thousand, stock,
+            colors, color_stock, image_url, image_path,
+            image_hash, content_hash
+        """
         current_rows = self.db.fetch_all(
-            """
-            SELECT code, name, category, description, price,
-                   price_sample, price_hundred, price_thousand,
-                   stock, image_url, image_path, image_hash,
-                   content_hash
-            FROM catalog_load_products
-            WHERE load_id = ?
-            ORDER BY code
-            """,
+            f"SELECT {select_fields} FROM catalog_load_products "
+            "WHERE load_id = ? ORDER BY code",
             (load_id,),
         )
         current = {row["code"]: row for row in current_rows}
 
         previous_load = self.db.fetch_one(
             """
-            SELECT id
-            FROM catalog_loads
+            SELECT id FROM catalog_loads
             WHERE id < ? AND status = 'SUCCESS'
-            ORDER BY id DESC
-            LIMIT 1
+            ORDER BY id DESC LIMIT 1
             """,
             (load_id,),
         )
@@ -332,58 +289,44 @@ class CatalogLoadRepository:
             ]
 
         previous_rows = self.db.fetch_all(
-            """
-            SELECT code, name, category, description, price,
-                   price_sample, price_hundred, price_thousand,
-                   stock, image_url, image_path, image_hash,
-                   content_hash
-            FROM catalog_load_products
-            WHERE load_id = ?
-            """,
+            f"SELECT {select_fields} FROM catalog_load_products WHERE load_id = ?",
             (int(previous_load["id"]),),
         )
         previous = {row["code"]: row for row in previous_rows}
-
         changes: list[dict] = []
 
         for code, row in current.items():
             old = previous.get(code)
             if old is None:
-                changes.append(
-                    {
-                        "type": "NEW",
-                        "code": code,
-                        "name": row["name"],
-                        "fields": [],
-                        "changes": [],
-                    },
-                )
+                changes.append({
+                    "type": "NEW",
+                    "code": code,
+                    "name": row["name"],
+                    "fields": [],
+                    "changes": [],
+                })
                 continue
 
             field_changes = []
             for field in self.PRODUCT_FIELDS:
-                old_value = old[field]
-                new_value = row[field]
+                old_value = self._decode_value(field, old[field])
+                new_value = self._decode_value(field, row[field])
                 if old_value != new_value:
-                    field_changes.append(
-                        {
-                            "field": field,
-                            "label": self.FIELD_LABELS[field],
-                            "old": old_value,
-                            "new": new_value,
-                        },
-                    )
+                    field_changes.append({
+                        "field": field,
+                        "label": self.FIELD_LABELS[field],
+                        "old": old_value,
+                        "new": new_value,
+                    })
 
             if field_changes:
-                changes.append(
-                    {
-                        "type": "UPDATED",
-                        "code": code,
-                        "name": row["name"],
-                        "fields": [item["label"] for item in field_changes],
-                        "changes": field_changes,
-                    },
-                )
+                changes.append({
+                    "type": "UPDATED",
+                    "code": code,
+                    "name": row["name"],
+                    "fields": [item["label"] for item in field_changes],
+                    "changes": field_changes,
+                })
 
         return changes
 
@@ -401,16 +344,14 @@ class CatalogLoadRepository:
         products = self.db.fetch_all(
             """
             SELECT code, name, category, description, price,
-                   price_sample, price_hundred, price_thousand,
-                   stock, image_url, image_path, image_hash,
-                   content_hash
+                   price_sample, price_hundred, price_thousand, stock,
+                   colors, color_stock, image_url, image_path,
+                   image_hash, content_hash
             FROM catalog_load_products
-            WHERE load_id = ?
-            ORDER BY id
+            WHERE load_id = ? ORDER BY id
             """,
             (load_id,),
         )
-
         connection = self.db.connection
         connection.execute("DELETE FROM products")
 
@@ -419,11 +360,10 @@ class CatalogLoadRepository:
                 """
                 INSERT INTO products (
                     code, name, category, description, price,
-                    price_sample, price_hundred, price_thousand,
-                    stock, image_url, image_path, image_hash,
-                    content_hash
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    price_sample, price_hundred, price_thousand, stock,
+                    colors, color_stock, image_url, image_path,
+                    image_hash, content_hash
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     product["code"],
@@ -435,6 +375,8 @@ class CatalogLoadRepository:
                     product["price_hundred"],
                     product["price_thousand"],
                     product["stock"],
+                    product["colors"] or "[]",
+                    product["color_stock"] or "{}",
                     product["image_url"],
                     product["image_path"],
                     product["image_hash"],
@@ -459,8 +401,7 @@ class CatalogLoadRepository:
             """
             SELECT * FROM catalog_loads
             WHERE applied = 1 OR applied_at IS NOT NULL
-            ORDER BY applied_at DESC, id DESC
-            LIMIT 1
+            ORDER BY applied_at DESC, id DESC LIMIT 1
             """,
         )
 
@@ -478,7 +419,6 @@ class CatalogLoadRepository:
 
     def ensure_initial_applied_load(self) -> int | None:
         applied = self.get_latest_applied()
-
         if applied is not None:
             return int(applied["id"])
 
@@ -493,23 +433,119 @@ class CatalogLoadRepository:
             applied=True,
         )
 
+    @classmethod
+    def _product_params(cls, load_id: int, product) -> tuple:
+        colors = cls._normalize_colors(getattr(product, "colors", []))
+        color_stock = cls._normalize_color_stock(
+            getattr(product, "color_stock", {}),
+        )
+        return (
+            load_id,
+            product.code,
+            product.name,
+            product.category,
+            product.description,
+            product.price,
+            product.price_sample,
+            product.price_hundred,
+            product.price_thousand,
+            product.stock,
+            json.dumps(colors, ensure_ascii=False),
+            json.dumps(color_stock, ensure_ascii=False),
+            product.image_url,
+            product.image_path,
+            product.image_hash,
+            product.content_hash,
+        )
+
+    @staticmethod
+    def _normalize_colors(colors) -> list[str]:
+        return list(dict.fromkeys(
+            str(color).strip()
+            for color in (colors or [])
+            if str(color).strip()
+        ))
+
+    @staticmethod
+    def _normalize_color_stock(color_stock) -> dict[str, int]:
+        result: dict[str, int] = {}
+        for color, stock in (color_stock or {}).items():
+            name = str(color).strip()
+            if not name:
+                continue
+            try:
+                result[name] = max(int(stock), 0)
+            except (TypeError, ValueError):
+                result[name] = 0
+        return result
+
+    @staticmethod
+    def _decode_value(field: str, value):
+        if field == "colors":
+            try:
+                return json.loads(value or "[]")
+            except (TypeError, json.JSONDecodeError):
+                return []
+        if field == "color_stock":
+            try:
+                return json.loads(value or "{}")
+            except (TypeError, json.JSONDecodeError):
+                return {}
+        return value
+
     @staticmethod
     def _deduplicate_products(products):
-        """Elimina duplicados por código antes de persistir una carga."""
+        """Consolida por código sin perder categorías ni colores."""
         unique = {}
 
         for product in products:
             code = str(getattr(product, "code", "")).strip()
             if not code:
                 continue
-            unique.setdefault(code, product)
+
+            existing = unique.get(code)
+            if existing is None:
+                unique[code] = product
+                continue
+
+            categories = [
+                item.strip()
+                for item in str(getattr(existing, "category", "")).split(",")
+                if item.strip()
+            ]
+            incoming_categories = [
+                item.strip()
+                for item in str(getattr(product, "category", "")).split(",")
+                if item.strip()
+            ]
+            existing.category = ", ".join(
+                dict.fromkeys(categories + incoming_categories),
+            )
+
+            merged_colors = CatalogLoadRepository._normalize_colors(
+                list(getattr(existing, "colors", []))
+                + list(getattr(product, "colors", [])),
+            )
+            existing.colors = merged_colors
+
+            merged_stock = CatalogLoadRepository._normalize_color_stock(
+                getattr(existing, "color_stock", {}),
+            )
+            for color, stock in CatalogLoadRepository._normalize_color_stock(
+                getattr(product, "color_stock", {}),
+            ).items():
+                merged_stock[color] = max(merged_stock.get(color, 0), stock)
+            existing.color_stock = merged_stock
+
+            if not getattr(existing, "image_url", "") and getattr(
+                product, "image_url", "",
+            ):
+                existing.image_url = product.image_url
 
         return list(unique.values())
 
     @staticmethod
     def _require_load_id(load_id: int | None) -> int:
         if load_id is None:
-            raise RuntimeError(
-                "No fue posible obtener el ID de la carga creada.",
-            )
+            raise RuntimeError("No fue posible obtener el ID de la carga creada.")
         return int(load_id)

@@ -22,7 +22,7 @@ class ScrapingWorker(QObject):
                 progress_callback=self.emit_progress,
             )
             self.finished.emit(result)
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             self.error.emit(str(error))
 
     def emit_progress(self, current: int, total: int) -> None:

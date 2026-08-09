@@ -111,9 +111,6 @@ ON catalog_loads(created_at);
 CREATE INDEX IF NOT EXISTS idx_catalog_loads_applied
 ON catalog_loads(applied);
 
-CREATE INDEX IF NOT EXISTS idx_catalog_loads_applied_at
-ON catalog_loads(applied_at);
-
 CREATE INDEX IF NOT EXISTS idx_catalog_load_products_load_id
 ON catalog_load_products(load_id);
 

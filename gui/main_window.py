@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from controllers.product_controller import ProductController
+from database.db_manager import DBManager
 from exporters.excel_exporter import ExcelExporter
 from exporters.pdf_exporter import PDFExporter
 from gui.product_dialog import ProductDialog
@@ -23,6 +24,7 @@ from gui.product_table import ProductTable
 from gui.scraping_dialog import ScrapingDialog
 from gui.scraping_history_dialog import ScrapingHistoryDialog
 from models.product import Product
+from repositories.scraping.catalog_load_repository import CatalogLoadRepository
 
 
 class MainWindow(QMainWindow):
@@ -47,6 +49,11 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.controller = ProductController()
+        self.catalog_load_db = DBManager()
+        self.catalog_load_repository = CatalogLoadRepository(
+            self.catalog_load_db,
+        )
+        self.catalog_load_repository.ensure_initial_applied_load()
 
         self.setWindowTitle("Facundo Catalog Manager")
         self.resize(1200, 700)
@@ -101,7 +108,6 @@ class MainWindow(QMainWindow):
 
     def create_filter_controls(self, layout: QVBoxLayout) -> None:
         """Crea los controles de filtro por categoría."""
-
         category_layout = QHBoxLayout()
         category_layout.addWidget(QLabel("Categorías:"))
         self.category_layout = category_layout
@@ -109,7 +115,6 @@ class MainWindow(QMainWindow):
 
     def refresh_catalog(self) -> None:
         """Carga exclusivamente el catálogo actualmente aplicado."""
-
         self.all_products = self.controller.get_products()
         self.rebuild_category_filters()
         self.apply_filters()
@@ -117,12 +122,9 @@ class MainWindow(QMainWindow):
     def rebuild_category_filters(self) -> None:
         while self.category_layout.count() > 1:
             item = self.category_layout.takeAt(1)
-
             if item is None:
                 continue
-
             widget = item.widget()
-
             if widget is not None:
                 widget.deleteLater()
 
@@ -163,12 +165,10 @@ class MainWindow(QMainWindow):
             self.selected_categories.add(category)
         else:
             self.selected_categories.discard(category)
-
         self.apply_filters()
 
     def apply_filters(self) -> None:
         products = list(self.all_products)
-
         search_text = self.search_box.text().strip().casefold()
 
         if search_text:
@@ -199,22 +199,20 @@ class MainWindow(QMainWindow):
             product.description,
             product.category,
         )
-
         return any(
             search_text in str(value).casefold()
             for value in values
         )
 
     def open_scraping(self) -> None:
-        """Abre el scraping en segundo plano sin bloquear el catálogo."""
-
+        """Abre el scraping sin mantenerlo siempre delante del catálogo."""
         if self.is_scraping_running():
             if self.scraping_dialog is not None:
                 self.scraping_dialog.activateWindow()
                 self.scraping_dialog.raise_()
             return
 
-        self.scraping_dialog = ScrapingDialog(self)
+        self.scraping_dialog = ScrapingDialog()
         self.scraping_dialog.finished_success.connect(
             self.scraping_finished,
         )
@@ -230,13 +228,7 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def scraping_finished(self) -> None:
-        """
-        Conserva visible la última carga aplicada.
-
-        El scraping solamente agrega una nueva carga al historial.
-        El usuario decide cuándo aplicarla desde Historial.
-        """
-
+        """Actualiza el estado de la ventana sin aplicar la nueva carga."""
         if self.scraping_dialog is not None:
             self.scraping_dialog.setWindowTitle(
                 "Actualización completada - catálogo sin cambios",
@@ -248,29 +240,19 @@ class MainWindow(QMainWindow):
     def is_scraping_running(self) -> bool:
         if self.scraping_dialog is None:
             return False
-
         thread = self.scraping_dialog.scraping_thread
-
-        return bool(
-            thread is not None
-            and thread.isRunning()
-        )
+        return bool(thread is not None and thread.isRunning())
 
     def start_scraping_scheduler(self) -> None:
         """Programa scraping automático de lunes a sábado a 12:00 y 22:00."""
-
         self.scraping_scheduler = QTimer(self)
         self.scraping_scheduler.setInterval(30_000)
-        self.scraping_scheduler.timeout.connect(
-            self.check_scraping_schedule,
-        )
+        self.scraping_scheduler.timeout.connect(self.check_scraping_schedule)
         self.scraping_scheduler.start()
-
         self.check_scraping_schedule()
 
     def check_scraping_schedule(self) -> None:
         """Inicia scraping cuando coincide con un horario programado."""
-
         now = datetime.now(ZoneInfo("America/Lima")).replace(
             second=0,
             microsecond=0,
@@ -279,81 +261,61 @@ class MainWindow(QMainWindow):
 
         if schedule_key not in self.SCRAPING_SCHEDULE:
             return
-
         if self.last_scheduled_scraping == schedule_key:
             return
 
         self.last_scheduled_scraping = schedule_key
-
         if self.is_scraping_running():
             return
 
         self.open_scraping()
-
         if self.scraping_dialog is not None:
-            QTimer.singleShot(
-                0,
-                self.scraping_dialog.start_scraping,
-            )
+            QTimer.singleShot(0, self.scraping_dialog.start_scraping)
 
     def update_product_counter(self, filtered_count: int | None = None) -> None:
         total = len(self.all_products)
         visible = total if filtered_count is None else filtered_count
-
         self.product_counter.setText(
             f"Mostrando {visible} de {total} productos",
         )
 
     def new_product(self) -> None:
         dialog = ProductDialog(self)
-
         if dialog.exec():
             self.refresh_catalog()
 
     def edit_product(self) -> None:
         row = self.table.currentRow()
-
         if row < 0:
-            QMessageBox.warning(
-                self,
-                "Editar",
-                "Seleccione un producto.",
-            )
+            QMessageBox.warning(self, "Editar", "Seleccione un producto.")
             return
 
         item = self.table.item(row, 1)
-
         if item is None:
             return
 
         product_id = item.data(Qt.ItemDataRole.UserRole)
-
         if not isinstance(product_id, int):
             return
 
         product = self.controller.get_product_by_id(product_id)
-
         if product is None:
             return
 
         dialog = ProductDialog(self, product)
-
         if dialog.exec():
             self.refresh_catalog()
 
     def delete_product(self) -> None:
         row = self.table.currentRow()
-
         if row < 0:
             return
 
         item = self.table.item(row, 1)
-
         if item is None:
             return
 
         product_id = item.data(Qt.ItemDataRole.UserRole)
-
         if not isinstance(product_id, int):
             return
 
@@ -361,8 +323,7 @@ class MainWindow(QMainWindow):
             self,
             "Confirmar eliminación",
             "¿Desea eliminar este producto?",
-            QMessageBox.StandardButton.Yes
-            | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 
         if respuesta == QMessageBox.StandardButton.Yes:
@@ -379,10 +340,8 @@ class MainWindow(QMainWindow):
             "catalogo.xlsx",
             "Excel (*.xlsx)",
         )
-
         if not filename:
             return
-
         productos = self.controller.get_products()
         ExcelExporter.export(productos, filename)
 
@@ -393,18 +352,15 @@ class MainWindow(QMainWindow):
             "catalogo.pdf",
             "PDF (*.pdf)",
         )
-
         if not filename:
             return
-
         productos = self.controller.get_products()
         PDFExporter.export(productos, filename)
 
     def closeEvent(self, event) -> None:
         if hasattr(self, "scraping_scheduler"):
             self.scraping_scheduler.stop()
-
         if self.scraping_dialog is not None:
             self.scraping_dialog.close()
-
+        self.catalog_load_db.close()
         super().closeEvent(event)

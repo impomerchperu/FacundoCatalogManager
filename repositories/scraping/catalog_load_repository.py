@@ -201,7 +201,7 @@ class CatalogLoadRepository:
 
         if load is None:
             return False
-        if bool(load["applied"]):
+        if bool(load["applied"]) or load["applied_at"] is not None:
             return True
 
         connection = self.db.connection
@@ -264,7 +264,10 @@ class CatalogLoadRepository:
                           SELECT 1
                           FROM catalog_loads
                           WHERE catalog_loads.id = scraping_history.load_id
-                            AND catalog_loads.applied = 1
+                            AND (
+                                catalog_loads.applied = 1
+                                OR catalog_loads.applied_at IS NOT NULL
+                            )
                       )
                   )
                 """,
@@ -276,6 +279,7 @@ class CatalogLoadRepository:
                 DELETE FROM catalog_loads
                 WHERE created_at < ?
                   AND applied = 0
+                  AND applied_at IS NULL
                 """,
                 (cutoff,),
             )
@@ -453,7 +457,7 @@ class CatalogLoadRepository:
         return self.db.fetch_one(
             """
             SELECT * FROM catalog_loads
-            WHERE applied = 1
+            WHERE applied = 1 OR applied_at IS NOT NULL
             ORDER BY applied_at DESC, id DESC
             LIMIT 1
             """,

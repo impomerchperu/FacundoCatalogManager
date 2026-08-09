@@ -12,30 +12,6 @@ class CategoryProductSyncService:
     Orquesta extracción y preparación de productos obtenidos
     desde categorías.
 
-    Flujo:
-
-        ScrapedProduct
-              |
-              v
-        ImageSyncAdapter
-              |
-              v
-        ScrapedProductMapper
-              |
-              v
-            Product
-              |
-              v
-        CatalogSyncService
-              |
-              v
-          SyncResult
-
-    IMPORTANTE:
-
-    CatalogSyncService solamente compara el resultado contra
-    el catálogo actualmente aplicado.
-
     La nueva versión del catálogo se persiste posteriormente
     mediante CatalogLoadRepository.
     """
@@ -72,10 +48,8 @@ class CategoryProductSyncService:
             and self.catalog_sync_service
         ):
             if self.image_sync_adapter:
-                products = (
-                    self.image_sync_adapter.sync_products(
-                        products,
-                    )
+                products = self.image_sync_adapter.sync_products(
+                    products,
                 )
 
             mapped_products = [
@@ -87,47 +61,21 @@ class CategoryProductSyncService:
                 mapped_products,
             )
 
-            self._accumulate_sync_result(
-                result,
-            )
-
+            self._accumulate_sync_result(result)
             return mapped_products
 
-        return self.persistence_service.save_products(
-            products,
-        )
+        return self.persistence_service.save_products(products)
 
     def reset_sync_result(self):
-        """
-        Reinicia métricas antes de una ejecución completa.
-        """
-
+        """Reinicia métricas antes de una ejecución completa."""
         self.last_sync_result = SyncResult()
 
-    def _accumulate_sync_result(
-        self,
-        result: SyncResult,
-    ):
-        """
-        Acumula resultados de todas las categorías.
-        """
-
-        self.last_sync_result.processed += (
-            result.processed
-        )
-
-        self.last_sync_result.created += (
-            result.created
-        )
-
-        self.last_sync_result.updated += (
-            result.updated
-        )
-
-        self.last_sync_result.unchanged += (
-            result.unchanged
-        )
-
-        self.last_sync_result.errors.extend(
-            result.errors,
-        )
+    def _accumulate_sync_result(self, result: SyncResult):
+        """Acumula resultados de todas las categorías."""
+        self.last_sync_result.processed += result.processed
+        self.last_sync_result.created += result.created
+        self.last_sync_result.updated += result.updated
+        self.last_sync_result.unchanged += result.unchanged
+        self.last_sync_result.errors.extend(result.errors)
+        self.last_sync_result.failures.extend(result.failures)
+        self.last_sync_result.changes.extend(result.changes)

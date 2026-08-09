@@ -1,4 +1,4 @@
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, QTimer, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -13,215 +13,131 @@ from gui.workers.scraping_worker import ScrapingWorker
 
 
 class ScrapingDialog(QDialog):
-    """
-    Ventana manual de actualización del catálogo.
-
-    Ejecuta scraping en segundo plano
-    mediante QThread.
-    """
+    """Ventana manual de actualización del catálogo."""
 
     finished_success = Signal()
 
-    def __init__(
-        self,
-        parent=None,
-    ) -> None:
+    def __init__(self, parent=None) -> None:
         super().__init__(parent)
 
         self.scraping_thread: QThread | None = None
         self.worker: ScrapingWorker | None = None
+        self.pending_result = None
+        self.pending_error: str | None = None
 
-        self.setWindowTitle(
-            "Actualizar catálogo",
-        )
-
-        self.resize(
-            500,
-            280,
-        )
-
+        self.setWindowTitle("Actualizar catálogo")
+        self.resize(500, 280)
         self.build_ui()
 
     def build_ui(self) -> None:
-        layout = QVBoxLayout(
-            self,
-        )
+        layout = QVBoxLayout(self)
 
-        self.status_label = QLabel(
-            "Listo para actualizar catálogo.",
-        )
-
-        layout.addWidget(
-            self.status_label,
-        )
+        self.status_label = QLabel("Listo para actualizar catálogo.")
+        layout.addWidget(self.status_label)
 
         self.progress = QProgressBar()
-
-        layout.addWidget(
-            self.progress,
-        )
+        layout.addWidget(self.progress)
 
         buttons = QHBoxLayout()
 
-        self.start_button = QPushButton(
-            "Iniciar actualización",
-        )
+        self.start_button = QPushButton("Iniciar actualización")
+        self.start_button.clicked.connect(self.start_scraping)
+        buttons.addWidget(self.start_button)
 
-        self.start_button.clicked.connect(
-            self.start_scraping,
-        )
+        close_button = QPushButton("Cerrar")
+        close_button.clicked.connect(self.close)
+        buttons.addWidget(close_button)
 
-        buttons.addWidget(
-            self.start_button,
-        )
-
-        close_button = QPushButton(
-            "Cerrar",
-        )
-
-        close_button.clicked.connect(
-            self.close,
-        )
-
-        buttons.addWidget(
-            close_button,
-        )
-
-        layout.addLayout(
-            buttons,
-        )
+        layout.addLayout(buttons)
 
     def start_scraping(self) -> None:
-        self.start_button.setEnabled(
-            False,
-        )
+        if self.scraping_thread is not None and self.scraping_thread.isRunning():
+            return
 
-        self.progress.setValue(
-            0,
-        )
+        self.start_button.setEnabled(False)
+        self.progress.setValue(0)
+        self.status_label.setText("Ejecutando scraping...")
+        self.pending_result = None
+        self.pending_error = None
 
-        self.status_label.setText(
-            "Ejecutando scraping...",
-        )
-
-        self.scraping_thread = QThread(
-            self,
-        )
-
+        self.scraping_thread = QThread(self)
         self.worker = ScrapingWorker()
+        self.worker.moveToThread(self.scraping_thread)
 
-        self.worker.moveToThread(
-            self.scraping_thread,
-        )
-
-        self.scraping_thread.started.connect(
-            self.worker.run,
-        )
-
-        self.worker.progress.connect(
-            self.update_progress,
-        )
-
-        self.worker.finished.connect(
-            self.scraping_finished,
-        )
-
-        self.worker.error.connect(
-            self.scraping_error,
-        )
-
-        self.worker.finished.connect(
-            self.scraping_thread.quit,
-        )
-
-        self.worker.error.connect(
-            self.scraping_thread.quit,
-        )
-
-        self.scraping_thread.finished.connect(
-            self.cleanup_thread,
-        )
-
+        self.scraping_thread.started.connect(self.worker.run)
+        self.worker.progress.connect(self.update_progress)
+        self.worker.finished.connect(self.scraping_finished)
+        self.worker.error.connect(self.scraping_error)
+        self.worker.finished.connect(self.scraping_thread.quit)
+        self.worker.error.connect(self.scraping_thread.quit)
+        self.scraping_thread.finished.connect(self.cleanup_thread)
+        self.scraping_thread.finished.connect(self.thread_finished)
         self.scraping_thread.start()
 
-    def update_progress(
-        self,
-        current: int,
-        total: int,
-    ) -> None:
+    def update_progress(self, current: int, total: int) -> None:
         if total <= 0:
             return
 
-        value = int(
-            current * 100 / total,
-        )
-
-        self.progress.setValue(
-            value,
-        )
-
+        value = int(current * 100 / total)
+        self.progress.setValue(value)
         self.status_label.setText(
             f"Procesando categoría {current}/{total}...",
         )
 
-    def scraping_finished(
-        self,
-        result,
-    ) -> None:
-        self.progress.setValue(
-            100,
-        )
-
-        self.status_label.setText(
-            "Actualización completada.",
-        )
-
+    def scraping_finished(self, result) -> None:
+        self.pending_result = result
+        self.progress.setValue(100)
+        self.status_label.setText("Actualización completada.")
         self.finished_success.emit()
 
-        self.show_result(
-            result,
-        )
-
-        self.start_button.setEnabled(
-            True,
-        )
-
-    def scraping_error(
-        self,
-        message: str,
-    ) -> None:
-        self.start_button.setEnabled(
-            True,
-        )
-
+    def scraping_error(self, message: str) -> None:
+        self.pending_error = message
         self.status_label.setText(
             "La actualización terminó con errores.",
         )
 
-        QMessageBox.critical(
-            self,
-            "Error de scraping",
-            message,
+    def thread_finished(self) -> None:
+        """
+        Muestra el resultado solamente después de que QThread haya terminado.
+
+        Evita bloquear el hilo GUI mientras la señal finished todavía necesita
+        ejecutar QThread.quit(), que dejaría la ventana aparentemente detenida
+        al 100 %.
+        """
+
+        result = self.pending_result
+        error = self.pending_error
+
+        QTimer.singleShot(
+            0,
+            lambda: self.show_thread_result(result, error),
         )
 
-    def show_result(
-        self,
-        result,
-    ) -> None:
+    def show_thread_result(self, result, error: str | None) -> None:
+        if error is not None:
+            QMessageBox.critical(
+                self,
+                "Error de scraping",
+                error,
+            )
+            self.start_button.setEnabled(True)
+            return
+
+        if result is not None:
+            self.show_result(result)
+
+        self.start_button.setEnabled(True)
+
+    def show_result(self, result) -> None:
         QMessageBox.information(
             self,
             "Resumen actualización",
             (
-                f"Productos procesados: "
-                f"{result.processed}\n\n"
-                f"Nuevos: "
-                f"{result.created}\n"
-                f"Actualizados: "
-                f"{result.updated}\n"
-                f"Sin cambios: "
-                f"{result.unchanged}\n\n"
-                f"Errores: "
-                f"{len(result.errors)}"
+                f"Productos procesados: {result.processed}\n\n"
+                f"Nuevos: {result.created}\n"
+                f"Actualizados: {result.updated}\n"
+                f"Sin cambios: {result.unchanged}\n\n"
+                f"Errores: {len(result.errors)}"
             ),
         )
 

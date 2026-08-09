@@ -1,3 +1,4 @@
+import textwrap
 from datetime import datetime
 from typing import ClassVar
 from zoneinfo import ZoneInfo
@@ -244,8 +245,10 @@ class MainWindow(QMainWindow):
 
         for category in categories:
             button = QPushButton(category)
+            button.setProperty("category_text", category)
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
+            button.setMinimumHeight(36)
             button.setSizePolicy(
                 QSizePolicy.Policy.Fixed,
                 QSizePolicy.Policy.Fixed,
@@ -284,8 +287,30 @@ class MainWindow(QMainWindow):
         row_buttons: list[list[QPushButton]] = [[]]
 
         for button in self.category_buttons:
+            original_text = str(
+                button.property("category_text") or button.text(),
+            )
+            button.setText(original_text)
             button.adjustSize()
-            button_width = button.sizeHint().width()
+
+            if button.sizeHint().width() > available_width:
+                wrap_width = max(
+                    12,
+                    min(34, available_width // 9),
+                )
+                button.setText(
+                    "\n".join(
+                        textwrap.wrap(
+                            original_text,
+                            width=wrap_width,
+                            break_long_words=False,
+                            break_on_hyphens=False,
+                        ),
+                    ),
+                )
+                button.adjustSize()
+
+            button_width = min(button.sizeHint().width(), available_width)
             if column and current_width + spacing + button_width > available_width:
                 row_widths.append(current_width)
                 row += 1
@@ -302,13 +327,13 @@ class MainWindow(QMainWindow):
         for row_index, buttons in enumerate(row_buttons):
             row_layout_width = row_widths[row_index]
             left_space = max((available_width - row_layout_width) // 2, 0)
+            grid_column = 0
+
             if left_space:
                 spacer = QWidget()
                 spacer.setFixedWidth(left_space)
                 self.category_layout.addWidget(spacer, row_index, 0)
                 grid_column = 1
-            else:
-                grid_column = 0
 
             for button in buttons:
                 self.category_layout.addWidget(

@@ -181,18 +181,21 @@ class ProductExtractor:
             flags=re.IGNORECASE,
         )
         colors: list[str] = []
+        seen: set[str] = set()
         for match in matches:
             normalized = re.sub(r"\s+", " ", match).strip(" .")
             normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
             for item in normalized.split(","):
                 color = item.strip(" .")
-                if color and color.casefold() not in {item.casefold() for item in colors}:
+                key = color.casefold()
+                if color and key not in seen:
+                    seen.add(key)
                     colors.append(color)
         return colors
 
     @staticmethod
     def _extract_visible_stock_values(soup) -> list[int]:
-        """Extrae la secuencia de existencias mostrada tras 'Stock Disponible'."""
+        """Extrae la secuencia de existencias tras 'Stock Disponible'."""
         text = soup.get_text(" ", strip=True)
         match = re.search(
             r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
@@ -249,7 +252,12 @@ class ProductExtractor:
 
     @staticmethod
     def _stock_from_tag(element) -> int | None:
-        for key in ("data-stock", "data-quantity", "data-max-qty", "data-max_quantity"):
+        for key in (
+            "data-stock",
+            "data-quantity",
+            "data-max-qty",
+            "data-max_quantity",
+        ):
             value = element.get(key)
             if value is not None:
                 try:

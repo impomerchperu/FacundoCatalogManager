@@ -133,17 +133,6 @@ class MainWindow(QMainWindow):
         category_label = QLabel("Categorías:")
         category_header.addWidget(category_label)
 
-        self.all_categories_button = QPushButton("Todos")
-        self.all_categories_button.setCheckable(True)
-        self.all_categories_button.setMinimumHeight(32)
-        self.all_categories_button.setToolTip(
-            "Restablecer todos los filtros de categoría.",
-        )
-        self.all_categories_button.clicked.connect(self.clear_category_filters)
-        category_header.addWidget(self.all_categories_button)
-        category_header.addStretch()
-        filter_layout.addLayout(category_header)
-
         self.category_scroll = QScrollArea()
         self.category_scroll.setWidgetResizable(True)
         self.category_scroll.setHorizontalScrollBarPolicy(
@@ -155,6 +144,9 @@ class MainWindow(QMainWindow):
         self.category_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.category_scroll.setMinimumHeight(44)
         self.category_scroll.setMaximumHeight(110)
+        category_header.addWidget(self.category_scroll, 1)
+
+        filter_layout.addLayout(category_header)
 
         self.category_container = QWidget()
         self.category_layout = QGridLayout(self.category_container)
@@ -163,7 +155,16 @@ class MainWindow(QMainWindow):
         self.category_layout.setVerticalSpacing(6)
         self.category_scroll.setWidget(self.category_container)
 
-        filter_layout.addWidget(self.category_scroll)
+        self.all_categories_button = QPushButton("Todos")
+        self.all_categories_button.setCheckable(True)
+        self.all_categories_button.setMinimumHeight(32)
+        self.all_categories_button.setToolTip(
+            "Restablecer todos los filtros de categoría.",
+        )
+        self.all_categories_button.clicked.connect(self.clear_category_filters)
+        self.category_buttons = [self.all_categories_button]
+
+        filter_layout.addStretch(0)
         layout.addLayout(filter_layout)
 
     def refresh_catalog(self) -> None:
@@ -173,6 +174,7 @@ class MainWindow(QMainWindow):
 
     def rebuild_category_filters(self) -> None:
         for button in self.category_buttons:
+            button.setParent(None)
             button.deleteLater()
         self.category_buttons.clear()
 
@@ -195,11 +197,16 @@ class MainWindow(QMainWindow):
         available_categories = set(categories)
         self.selected_categories.intersection_update(available_categories)
 
+        self.category_buttons.append(self.all_categories_button)
         for category in categories:
             button = QPushButton(category)
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
             button.setMinimumHeight(32)
+            button.setSizePolicy(
+                button.sizePolicy().Policy.Minimum,
+                button.sizePolicy().Policy.Fixed,
+            )
             button.setStyleSheet(
                 """
                 QPushButton:checked {
@@ -234,22 +241,21 @@ class MainWindow(QMainWindow):
         if available_width <= 0:
             return
 
-        spacing = 6
+        spacing = self.category_layout.horizontalSpacing()
         row = 0
         column = 0
         current_width = 0
 
         for button in self.category_buttons:
+            button.adjustSize()
             button_width = button.sizeHint().width()
-            required_width = button_width if column == 0 else spacing + button_width
-            if column and current_width + required_width > available_width:
+            if column and current_width + spacing + button_width > available_width:
                 row += 1
                 column = 0
                 current_width = 0
-                required_width = button_width
 
             self.category_layout.addWidget(button, row, column)
-            current_width += required_width
+            current_width += button_width + (spacing if column else 0)
             column += 1
 
         self.category_container.adjustSize()
@@ -271,7 +277,8 @@ class MainWindow(QMainWindow):
     def clear_category_filters(self) -> None:
         self.selected_categories.clear()
         for button in self.category_buttons:
-            button.setChecked(False)
+            if button is not self.all_categories_button:
+                button.setChecked(False)
         self._update_all_categories_button()
         self.apply_filters()
 

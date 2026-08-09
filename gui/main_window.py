@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import ClassVar
+from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
@@ -26,7 +28,7 @@ from models.product import Product
 class MainWindow(QMainWindow):
     """Ventana principal del catálogo."""
 
-    SCRAPING_SCHEDULE = {
+    SCRAPING_SCHEDULE: ClassVar[set[tuple[int, int, int]]] = {
         (0, 12, 0),
         (0, 22, 0),
         (1, 12, 0),
@@ -271,7 +273,10 @@ class MainWindow(QMainWindow):
     def check_scraping_schedule(self) -> None:
         """Inicia scraping cuando coincide con un horario programado."""
 
-        now = datetime.now().replace(second=0, microsecond=0)
+        now = datetime.now(ZoneInfo("America/Lima")).replace(
+            second=0,
+            microsecond=0,
+        )
         schedule_key = (now.weekday(), now.hour, now.minute)
 
         if schedule_key not in self.SCRAPING_SCHEDULE:

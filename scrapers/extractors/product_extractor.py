@@ -21,6 +21,10 @@ class ProductExtractor:
 
     def extract(self, soup, url="", category=""):
         colors, color_stock = self.extract_colors(soup)
+        stock = self.stock_extractor.extract(soup)
+        if self._has_complete_color_stock(colors, color_stock):
+            stock = sum(color_stock.values())
+
         return ScrapedProductFactory.create(
             source=self.SOURCE,
             url=url,
@@ -28,7 +32,7 @@ class ProductExtractor:
             name=self.extract_name(soup),
             category=category,
             description=self.extract_description(soup),
-            stock=self.stock_extractor.extract(soup),
+            stock=stock,
             price=self.extract_price(soup),
             price_sample=self.price_extractor.extract_sample(soup),
             price_hundred=self.price_extractor.extract_hundred(soup),
@@ -100,7 +104,7 @@ class ProductExtractor:
         color_stock: dict[str, int] = {}
 
         def add_color(name: str, stock: int | None = None) -> None:
-            normalized = re.sub(r"\s+", " ", str(name)).strip()
+            normalized = re.sub(r"\s+", " ", str(name)).strip(" .")
             if not normalized:
                 return
             if normalized.casefold() in {
@@ -147,6 +151,9 @@ class ProductExtractor:
             if value:
                 add_color(str(value), self._stock_from_tag(element))
 
+        for color in self._extract_text_colors(soup):
+            add_color(color)
+
         for script in soup.find_all("script"):
             raw = script.string or script.get_text()
             if not raw or "variation" not in raw.casefold():
@@ -154,7 +161,61 @@ class ProductExtractor:
             for payload in self._json_payloads(raw):
                 self._extract_variation_colors(payload, add_color)
 
+        visible_stock = self._extract_visible_stock_values(soup)
+        if len(visible_stock) == len(colors) and colors:
+            for color, stock in zip(colors, visible_stock):
+                color_stock[color] = stock
+
         return colors, color_stock
+
+    @staticmethod
+    def _extract_text_colors(soup) -> list[str]:
+        """Extrae listas visibles del tipo 'Colores: Rojo, Azul y Negro'."""
+        text = soup.get_text(" ", strip=True)
+        if not text:
+            return []
+
+        matches = re.findall(
+            r"\bcolou?rs?\s*:\s*(.+?)(?=\s+(?:presentaci[oó]n|precio|stock\s+disponible|c[oó]digo)\b|$)",
+            text,
+            flags=re.IGNORECASE,
+        )
+        colors: list[str] = []
+        for match in matches:
+            normalized = re.sub(r"\s+", " ", match).strip(" .")
+            normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
+            for item in normalized.split(","):
+                color = item.strip(" .")
+                if color and color.casefold() not in {item.casefold() for item in colors}:
+                    colors.append(color)
+        return colors
+
+    @staticmethod
+    def _extract_visible_stock_values(soup) -> list[int]:
+        """Extrae la secuencia de existencias mostrada tras 'Stock Disponible'."""
+        text = soup.get_text(" ", strip=True)
+        match = re.search(
+            r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if match is None:
+            return []
+
+        values: list[int] = []
+        for raw_value in re.findall(r"\d[\d,.]*", match.group(1)):
+            try:
+                values.append(int(float(raw_value.replace(",", ""))))
+            except ValueError:
+                continue
+        return values
+
+    @staticmethod
+    def _has_complete_color_stock(
+        colors: list[str],
+        color_stock: dict[str, int],
+    ) -> bool:
+        return bool(colors) and all(color in color_stock for color in colors)
 
     def _extract_variation_colors(self, value, add_color) -> None:
         if isinstance(value, dict):
@@ -163,7 +224,7 @@ class ProductExtractor:
             for key, item in value.items():
                 key_text = str(key).casefold()
                 if ("color" in key_text or "colour" in key_text) and isinstance(
-                    item, str
+                    item, str,
                 ):
                     color_name = item
                 if key_text in {"max_qty", "max_quantity", "stock", "quantity"}:

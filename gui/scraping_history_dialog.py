@@ -162,35 +162,33 @@ class ScrapingHistoryDialog(QDialog):
             applied_datetime = self._parse_datetime(applied_at)
             label = QLabel(
                 "Aplicado\n"
-                f"Aplicación: {self._format_datetime(applied_datetime)}",
+                f"{self._format_datetime(applied_datetime)}",
             )
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet("font-weight: bold; color: #00838f;")
             layout.addWidget(label)
+        elif latest_applied_id is not None and int(load_id) > latest_applied_id:
+            if load["status"] == "SUCCESS":
+                button = QPushButton("Aplicar")
+                button.setProperty("load_id", int(load_id))
+                button.clicked.connect(self.apply_selected_load)
+                layout.addWidget(button)
+            else:
+                label = QLabel("No aplicable")
+                label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                layout.addWidget(label)
         elif latest_applied_id is not None and int(load_id) < latest_applied_id:
-            created_datetime = self._parse_datetime(load["created_at"])
-            label = QLabel(
-                "No se aplicó\n"
-                f"Carga: {self._format_datetime(created_datetime)}",
-            )
+            label = QLabel("No aplicado")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet("color: #757575;")
             layout.addWidget(label)
         elif load["status"] == "SUCCESS":
-            created_datetime = self._parse_datetime(load["created_at"])
-            button = QPushButton(
-                "Aplicar\n"
-                f"{self._format_datetime(created_datetime)}",
-            )
+            button = QPushButton("Aplicar")
             button.setProperty("load_id", int(load_id))
             button.clicked.connect(self.apply_selected_load)
             layout.addWidget(button)
         else:
-            created_datetime = self._parse_datetime(load["created_at"])
-            label = QLabel(
-                "No aplicable\n"
-                f"{self._format_datetime(created_datetime)}",
-            )
+            label = QLabel("No aplicable")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(label)
 

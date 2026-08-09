@@ -141,7 +141,7 @@ class ProductTable(QTableWidget):
             QHeaderView::section {
                 min-height: 64px;
                 padding: 8px 6px;
-                font-size: 20px;
+                font-size: 18px;
                 font-weight: bold;
                 text-align: center;
             }
@@ -153,6 +153,7 @@ class ProductTable(QTableWidget):
         self.setHorizontalHeader(header)
         header.sectionClicked.connect(self._handle_header_click)
         header.setStretchLastSection(False)
+        header.setDefaultSectionSize(135)
 
         for column in range(self.columnCount()):
             resize_mode = (
@@ -173,15 +174,15 @@ class ProductTable(QTableWidget):
         self.setColumnWidth(self.PRICE_THOUSAND_COLUMN, 135)
 
     def _handle_header_click(self, column: int) -> None:
-        """Ciclo por columna: ascendente, descendente y desactivado."""
+        """Ciclo por columna: descendente, ascendente y desactivado."""
         if column not in self.SORTABLE_COLUMNS:
             return
 
         current = self._sort_states.get(column)
         if current is None:
-            self._sort_states[column] = Qt.SortOrder.AscendingOrder
-        elif current == Qt.SortOrder.AscendingOrder:
             self._sort_states[column] = Qt.SortOrder.DescendingOrder
+        elif current == Qt.SortOrder.DescendingOrder:
+            self._sort_states[column] = Qt.SortOrder.AscendingOrder
         else:
             del self._sort_states[column]
 

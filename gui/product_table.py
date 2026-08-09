@@ -17,11 +17,7 @@ from models.product import Product
 class NumericTableWidgetItem(QTableWidgetItem):
     """Item de tabla que ordena utilizando un valor numérico."""
 
-    def __init__(
-        self,
-        text: str,
-        value: int | float,
-    ) -> None:
+    def __init__(self, text: str, value: int | float) -> None:
         super().__init__(text)
         self.setData(Qt.ItemDataRole.UserRole, value)
 
@@ -38,12 +34,12 @@ class NumericTableWidgetItem(QTableWidgetItem):
 
 
 class ProductHeader(QHeaderView):
-    """Encabezado con resaltado de todas las columnas filtradas."""
+    """Encabezado con resaltado de todas las columnas con orden activo."""
 
     def __init__(self, parent: QTableWidget) -> None:
         super().__init__(Qt.Orientation.Horizontal, parent)
         self.active_sections: set[int] = set()
-        self.setMinimumHeight(84)
+        self.setMinimumHeight(64)
         self.setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setSectionsClickable(True)
         self.setSortIndicatorShown(False)
@@ -143,9 +139,9 @@ class ProductTable(QTableWidget):
             }
 
             QHeaderView::section {
-                min-height: 84px;
+                min-height: 64px;
                 padding: 8px 6px;
-                font-size: 26px;
+                font-size: 20px;
                 font-weight: bold;
                 text-align: center;
             }
@@ -155,7 +151,6 @@ class ProductTable(QTableWidget):
     def _setup_header(self) -> None:
         header = ProductHeader(self)
         self.setHorizontalHeader(header)
-        header.setSectionsClickable(True)
         header.sectionClicked.connect(self._handle_header_click)
         header.setStretchLastSection(False)
 
@@ -168,14 +163,14 @@ class ProductTable(QTableWidget):
             header.setSectionResizeMode(column, resize_mode)
 
         self.setColumnWidth(self.IMAGE_COLUMN, 82)
-        self.setColumnWidth(self.CODE_COLUMN, 105)
-        self.setColumnWidth(self.NAME_COLUMN, 190)
+        self.setColumnWidth(self.CODE_COLUMN, 110)
+        self.setColumnWidth(self.NAME_COLUMN, 210)
         self.setColumnWidth(self.DETAIL_COLUMN, 300)
-        self.setColumnWidth(self.CATEGORY_COLUMN, 150)
-        self.setColumnWidth(self.STOCK_COLUMN, 90)
-        self.setColumnWidth(self.PRICE_SAMPLE_COLUMN, 125)
-        self.setColumnWidth(self.PRICE_HUNDRED_COLUMN, 125)
-        self.setColumnWidth(self.PRICE_THOUSAND_COLUMN, 125)
+        self.setColumnWidth(self.CATEGORY_COLUMN, 160)
+        self.setColumnWidth(self.STOCK_COLUMN, 95)
+        self.setColumnWidth(self.PRICE_SAMPLE_COLUMN, 135)
+        self.setColumnWidth(self.PRICE_HUNDRED_COLUMN, 135)
+        self.setColumnWidth(self.PRICE_THOUSAND_COLUMN, 135)
 
     def _handle_header_click(self, column: int) -> None:
         """Ciclo por columna: ascendente, descendente y desactivado."""
@@ -193,11 +188,11 @@ class ProductTable(QTableWidget):
         self._apply_current_sort()
 
     def _apply_current_sort(self) -> None:
-        if not self._sort_states:
-            products = list(self._products)
-        else:
-            products = list(self._products)
-            for column in reversed(list(self._sort_states)):
+        products = list(self._products)
+        if self._sort_states:
+            # El último encabezado pulsado queda como criterio primario.
+            # El orden estable de Python conserva las prioridades anteriores.
+            for column in self._sort_states:
                 reverse = (
                     self._sort_states[column]
                     == Qt.SortOrder.DescendingOrder
@@ -322,14 +317,9 @@ class ProductTable(QTableWidget):
             producto.price_thousand,
         )
 
-    def _set_price_item(
-        self,
-        row: int,
-        column: int,
-        value: float,
-    ) -> None:
+    def _set_price_item(self, row: int, column: int, value: float) -> None:
         item = NumericTableWidgetItem(
-            f"{self.CURRENCY_SYMBOL} {value:,.2f}",
+            f"S/ {value:,.2f}",
             value,
         )
         item.setTextAlignment(

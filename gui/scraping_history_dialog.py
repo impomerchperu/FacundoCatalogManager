@@ -104,7 +104,12 @@ class ScrapingHistoryDialog(QDialog):
         self.table.setColumnWidth(7, 100)
         self.table.setColumnWidth(8, 190)
 
-    def _set_catalog_action(self, row: int, load_id: int | None, latest_applied_id: int | None) -> None:
+    def _set_catalog_action(
+        self,
+        row: int,
+        load_id: int | None,
+        latest_applied_id: int | None,
+    ) -> None:
         container = QWidget()
         layout = QHBoxLayout(container)
         layout.setContentsMargins(4, 2, 4, 2)
@@ -161,7 +166,11 @@ class ScrapingHistoryDialog(QDialog):
 
         load = self.catalog_load_repository.get_by_id(load_id)
         if load is None:
-            QMessageBox.warning(self, "Aplicar catálogo", "La carga seleccionada ya no está disponible.")
+            QMessageBox.warning(
+                self,
+                "Aplicar catálogo",
+                "La carga seleccionada ya no está disponible.",
+            )
             self.load_history()
             return
 
@@ -181,11 +190,19 @@ class ScrapingHistoryDialog(QDialog):
         try:
             applied = self.catalog_load_repository.apply(load_id)
         except sqlite3.Error as error:
-            QMessageBox.critical(self, "Error", f"No fue posible aplicar la carga.\n\n{error}")
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"No fue posible aplicar la carga.\n\n{error}",
+            )
             return
 
         if not applied:
-            QMessageBox.warning(self, "Aplicar catálogo", "La carga seleccionada no existe.")
+            QMessageBox.warning(
+                self,
+                "Aplicar catálogo",
+                "La carga seleccionada no existe.",
+            )
             self.load_history()
             return
 
@@ -194,7 +211,10 @@ class ScrapingHistoryDialog(QDialog):
         QMessageBox.information(
             self,
             "Catálogo actualizado",
-            f"La carga #{load_id} fue aplicada correctamente.\n\nLa fecha de aplicación quedó registrada en el historial.",
+            (
+                f"La carga #{load_id} fue aplicada correctamente.\n\n"
+                "La fecha de aplicación quedó registrada en el historial."
+            ),
         )
 
     def show_selected_details(self) -> None:
@@ -218,7 +238,9 @@ class ScrapingHistoryDialog(QDialog):
 
         if history.load_id is not None:
             try:
-                variations = self.catalog_load_repository.get_load_changes(int(history.load_id))
+                variations = self.catalog_load_repository.get_load_changes(
+                    int(history.load_id)
+                )
             except sqlite3.Error as error:
                 QMessageBox.critical(
                     self,
@@ -226,7 +248,13 @@ class ScrapingHistoryDialog(QDialog):
                     f"No fue posible obtener las variaciones.\n\n{error}",
                 )
                 return
-            self._show_variation_dialog(history, started_at, finished_at, duration, variations)
+            self._show_variation_dialog(
+                history,
+                started_at,
+                finished_at,
+                duration,
+                variations,
+            )
             return
 
         message = history.message.strip() or "Sin mensaje adicional."
@@ -247,7 +275,14 @@ class ScrapingHistoryDialog(QDialog):
             ),
         )
 
-    def _show_variation_dialog(self, history, started_at: datetime, finished_at: datetime, duration: str, variations: list[dict]) -> None:
+    def _show_variation_dialog(
+        self,
+        history,
+        started_at: datetime,
+        finished_at: datetime,
+        duration: str,
+        variations: list[dict],
+    ) -> None:
         dialog = QDialog(self)
         dialog.setWindowTitle("Detalle de actualización")
         dialog.resize(1050, 620)
@@ -266,12 +301,17 @@ class ScrapingHistoryDialog(QDialog):
 
         table = QTableWidget()
         table.setColumnCount(6)
-        table.setHorizontalHeaderLabels(["Tipo", "Código", "Producto", "Variación", "Anterior", "Nuevo"])
+        table.setHorizontalHeaderLabels([
+            "Tipo", "Código", "Producto", "Variación", "Anterior", "Nuevo",
+        ])
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setWordWrap(True)
         for column in (2, 3, 4, 5):
-            table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
+            table.horizontalHeader().setSectionResizeMode(
+                column,
+                QHeaderView.ResizeMode.Stretch,
+            )
 
         row_count = sum(max(len(item["changes"]), 1) for item in variations)
         table.setRowCount(max(row_count, 1))
@@ -281,7 +321,14 @@ class ScrapingHistoryDialog(QDialog):
                 self._set_variation_row(
                     table,
                     row,
-                    ["NUEVO", str(item["code"]), str(item["name"]), "Producto nuevo", "—", "Alta"],
+                    [
+                        "NUEVO",
+                        str(item["code"]),
+                        str(item["name"]),
+                        "Producto nuevo",
+                        "—",
+                        "Alta",
+                    ],
                 )
                 row += 1
                 continue
@@ -301,7 +348,11 @@ class ScrapingHistoryDialog(QDialog):
                 row += 1
 
         if not variations:
-            self._set_variation_row(table, 0, ["—", "—", "—", "Sin variaciones", "—", "—"])
+            self._set_variation_row(
+                table,
+                0,
+                ["—", "—", "—", "Sin variaciones", "—", "—"],
+            )
 
         table.resizeRowsToContents()
         layout.addWidget(table)
@@ -316,7 +367,11 @@ class ScrapingHistoryDialog(QDialog):
             item = QTableWidgetItem(value)
             item.setTextAlignment(
                 Qt.AlignmentFlag.AlignVCenter
-                | (Qt.AlignmentFlag.AlignCenter if column != 2 else Qt.AlignmentFlag.AlignLeft),
+                | (
+                    Qt.AlignmentFlag.AlignCenter
+                    if column != 2
+                    else Qt.AlignmentFlag.AlignLeft
+                ),
             )
             table.setItem(row, column, item)
 

@@ -60,6 +60,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Facundo Catalog Manager")
         self.resize(1200, 700)
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
 
         self.all_products: list[Product] = []
         self.selected_categories: set[str] = set()
@@ -72,12 +73,17 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
 
+        self.create_filter_controls(layout)
+
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Buscar producto...")
+        self.search_box.setMinimumHeight(42)
+        self.search_box.setStyleSheet(
+            "QLineEdit { font-size: 18px; padding: 5px 8px; }",
+        )
         self.search_box.textChanged.connect(self.search_products)
         layout.addWidget(self.search_box)
 
-        self.create_filter_controls(layout)
         self.table = ProductTable(self.controller)
         layout.addWidget(self.table)
 
@@ -139,6 +145,12 @@ class MainWindow(QMainWindow):
         )
         category_row.addWidget(category_label)
 
+        self.all_categories_button = QPushButton("Todos")
+        self.all_categories_button.setMinimumHeight(32)
+        self.all_categories_button.setToolTip("Restablecer todos los filtros de categoría.")
+        self.all_categories_button.clicked.connect(self.clear_category_filters)
+        category_row.addWidget(self.all_categories_button)
+
         self.category_scroll = QScrollArea()
         self.category_scroll.setWidgetResizable(True)
         self.category_scroll.setHorizontalScrollBarPolicy(
@@ -198,11 +210,12 @@ class MainWindow(QMainWindow):
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
             button.setMinimumHeight(32)
-            button.setMinimumWidth(110)
             button.setSizePolicy(
                 button.sizePolicy().horizontalPolicy(),
                 button.sizePolicy().verticalPolicy(),
             )
+            button.adjustSize()
+            button.setMinimumWidth(button.sizeHint().width())
             button.setStyleSheet(
                 """
                 QPushButton:checked {
@@ -233,15 +246,38 @@ class MainWindow(QMainWindow):
                 widget.setParent(None)
 
         available_width = self.category_scroll.viewport().width()
-        button_width = 150
-        columns = max(1, available_width // button_width)
+        if available_width <= 0:
+            return
 
-        for index, button in enumerate(self.category_buttons):
-            row, column = divmod(index, columns)
-            self.category_grid.addWidget(button, row, column)
-            self.category_grid.setColumnStretch(column, 1)
+        spacing = self.category_grid.horizontalSpacing()
+        rows: list[list[QPushButton]] = [[]]
+        current_width = 0
+
+        for button in self.category_buttons:
+            button_width = button.sizeHint().width()
+            required_width = button_width if not rows[-1] else spacing + button_width
+            if rows[-1] and current_width + required_width > available_width:
+                rows.append([])
+                current_width = 0
+                required_width = button_width
+            rows[-1].append(button)
+            current_width += required_width
+
+        for row_index, row_buttons in enumerate(rows):
+            for column_index, button in enumerate(row_buttons):
+                self.category_grid.addWidget(
+                    button,
+                    row_index,
+                    column_index,
+                )
 
         self.category_container.adjustSize()
+
+    def clear_category_filters(self) -> None:
+        self.selected_categories.clear()
+        for button in self.category_buttons:
+            button.setChecked(False)
+        self.apply_filters()
 
     def toggle_category(self, category: str, checked: bool) -> None:
         if checked:

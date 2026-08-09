@@ -30,7 +30,7 @@ class SyncResult:
     updated: int = 0
     unchanged: int = 0
 
-    changes: list = field(default_factory=list)
+    changes: list[dict] = field(default_factory=list)
     failures: list = field(default_factory=list)
 
     # Métricas del catálogo completo
@@ -49,26 +49,17 @@ class SyncResult:
     errors: list[str] = field(default_factory=list)
 
     def increment_processed(self) -> None:
-        """
-        Incrementa la cantidad de productos procesados.
-        """
-
+        """Incrementa la cantidad de productos procesados."""
         self.processed += 1
 
     def finish(self) -> None:
-        """
-        Marca la finalización del proceso.
-        """
-
+        """Marca la finalización del proceso."""
         self.finished_at = datetime.now(timezone.utc)
         self.success = not self.has_errors
 
     @property
     def duration_seconds(self) -> float:
-        """
-        Duración total del proceso de sincronización.
-        """
-
+        """Duración total del proceso de sincronización."""
         if not self.started_at or not self.finished_at:
             return 0.0
 
@@ -78,52 +69,29 @@ class SyncResult:
 
     @property
     def has_errors(self) -> bool:
-        """
-        Indica si la sincronización tuvo errores.
-        """
-
+        """Indica si la sincronización tuvo errores."""
         return bool(self.errors) or bool(self.failures)
 
     def add_error(self, message: str) -> None:
-        """
-        Registra un error durante la sincronización.
-        """
-
+        """Registra un error durante la sincronización."""
         self.errors.append(message)
 
     def to_dict(self) -> dict:
-        """
-        Convierte el resultado a un diccionario serializable.
-        """
-
+        """Convierte el resultado a un diccionario serializable."""
         return {
             "success": self.success,
             "processed": self.processed,
             "created": self.created,
             "updated": self.updated,
             "unchanged": self.unchanged,
-            "categories_processed": (
-                self.categories_processed
-            ),
+            "categories_processed": self.categories_processed,
             "products_found": self.products_found,
-            "products_created": (
-                self.products_created
-            ),
-            "products_updated": (
-                self.products_updated
-            ),
-            "products_unchanged": (
-                self.products_unchanged
-            ),
-            "images_processed": (
-                self.images_processed
-            ),
-            "images_downloaded": (
-                self.images_downloaded
-            ),
-            "images_failed": (
-                self.images_failed
-            ),
+            "products_created": self.products_created,
+            "products_updated": self.products_updated,
+            "products_unchanged": self.products_unchanged,
+            "images_processed": self.images_processed,
+            "images_downloaded": self.images_downloaded,
+            "images_failed": self.images_failed,
             "errors": self.errors,
             "changes": self.changes,
             "failures": self.failures,
@@ -137,16 +105,11 @@ class SyncResult:
                 if self.finished_at
                 else None
             ),
-            "duration_seconds": (
-                self.duration_seconds
-            ),
+            "duration_seconds": self.duration_seconds,
         }
 
     def summary(self) -> dict:
-        """
-        Genera un resumen legible del resultado.
-        """
-
+        """Genera un resumen legible del resultado."""
         return {
             "Procesados": self.processed,
             "Nuevos": self.created,

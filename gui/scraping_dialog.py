@@ -1,4 +1,4 @@
-from PySide6.QtCore import QElapsedTimer, QThread, QTimer, Qt, Signal
+from PySide6.QtCore import QElapsedTimer, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,

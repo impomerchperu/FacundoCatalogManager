@@ -39,15 +39,15 @@ class StockExtractor:
         if len(parts) != 2:
             return []
 
-        fragment = re.split(
-            r"(?:Precio|Código|Imagen|Producto|Descripción)",
+        match = re.match(
+            r"\s*((?:\d[\d,.]*\s*)+)",
             parts[1],
-            maxsplit=1,
-            flags=re.IGNORECASE,
-        )[0]
+        )
+        if match is None:
+            return []
 
         values: list[int] = []
-        for raw_value in re.findall(r"\d[\d,.]*", fragment):
+        for raw_value in re.findall(r"\d[\d,.]*", match.group(1)):
             try:
                 values.append(int(float(raw_value.replace(",", ""))))
             except ValueError:

@@ -29,13 +29,7 @@ class CatalogLoadRepository:
                 )
                 VALUES (?, ?, ?, 0, NULL, ?, ?)
                 """,
-                (
-                    created_at,
-                    source,
-                    status,
-                    len(products),
-                    message,
-                ),
+                (created_at, source, status, len(products), message),
             )
 
             load_id = self._require_load_id(cursor.lastrowid)
@@ -89,8 +83,7 @@ class CatalogLoadRepository:
                    price_sample, price_hundred, price_thousand,
                    stock, image_url, image_path, image_hash,
                    content_hash
-            FROM products
-            ORDER BY id
+            FROM products ORDER BY id
             """,
         )
 
@@ -158,22 +151,38 @@ class CatalogLoadRepository:
         return load_id
 
     def apply(self, load_id: int) -> bool:
-        """
-        Aplica una carga y conserva permanentemente su marca de aplicación.
-
-        Las cargas ya aplicadas no se desmarcan cuando se aplica una carga
-        posterior. De esta forma el historial conserva la fecha real en que
-        cada carga fue aplicada.
-        """
-
+        """Aplica una carga y conserva permanentemente su marca."""
         load = self.get_by_id(load_id)
 
         if load is None:
             return False
-
         if bool(load["applied"]):
             return True
 
+        self._replace_products(load_id)
+
+        applied_at = datetime.now(timezone.utc).isoformat()
+        self.db.execute_query(
+            """
+            UPDATE catalog_loads
+            SET applied = 1, applied_at = ?
+            WHERE id = ?
+            """,
+            (applied_at, load_id),
+        )
+        return True
+
+    def restore_latest_applied(self) -> int | None:
+        """Restaura en products la última carga que fue aplicada."""
+        load = self.get_latest_applied()
+
+        if load is None:
+            return None
+
+        self._replace_products(int(load["id"]))
+        return int(load["id"])
+
+    def _replace_products(self, load_id: int) -> None:
         products = self.db.fetch_all(
             """
             SELECT code, name, category, description, price,
@@ -187,7 +196,6 @@ class CatalogLoadRepository:
             (load_id,),
         )
 
-        applied_at = datetime.now(timezone.utc).isoformat()
         connection = self.db.connection
 
         try:
@@ -222,35 +230,20 @@ class CatalogLoadRepository:
                     ),
                 )
 
-            connection.execute(
-                """
-                UPDATE catalog_loads
-                SET applied = 1, applied_at = ?
-                WHERE id = ?
-                """,
-                (applied_at, load_id),
-            )
             connection.commit()
         except Exception:
             connection.rollback()
             raise
 
-        return True
-
     def get_by_id(self, load_id: int):
         return self.db.fetch_one(
-            """
-            SELECT * FROM catalog_loads WHERE id = ?
-            """,
+            "SELECT * FROM catalog_loads WHERE id = ?",
             (load_id,),
         )
 
     def get_latest(self, limit: int = 10):
         return self.db.fetch_all(
-            """
-            SELECT * FROM catalog_loads
-            ORDER BY id DESC LIMIT ?
-            """,
+            "SELECT * FROM catalog_loads ORDER BY id DESC LIMIT ?",
             (limit,),
         )
 
@@ -282,19 +275,14 @@ class CatalogLoadRepository:
         if applied is not None:
             return int(applied["id"])
 
-        products = self.db.fetch_all(
-            "SELECT id FROM products LIMIT 1",
-        )
-
+        products = self.db.fetch_all("SELECT id FROM products LIMIT 1")
         if not products:
             return None
 
         return self.create_from_current_catalog(
             source="INITIAL",
             status="SUCCESS",
-            message=(
-                "Carga inicial creada a partir del catálogo existente."
-            ),
+            message="Carga inicial creada a partir del catálogo existente.",
             applied=True,
         )
 
@@ -304,5 +292,4 @@ class CatalogLoadRepository:
             raise RuntimeError(
                 "No fue posible obtener el ID de la carga creada.",
             )
-
         return int(load_id)

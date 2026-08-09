@@ -85,6 +85,12 @@ class ScrapingHistoryDialog(QDialog):
     def load_history(self) -> None:
         try:
             history = self.repository.get_latest(limit=100)
+            latest_applied = self.catalog_load_repository.get_latest_applied()
+            latest_applied_id = (
+                int(latest_applied["id"])
+                if latest_applied is not None
+                else None
+            )
         except sqlite3.Error as error:
             QMessageBox.critical(
                 self,
@@ -116,7 +122,7 @@ class ScrapingHistoryDialog(QDialog):
             self._set_item(row, 5, str(record.unchanged))
             self._set_item(row, 6, str(record.errors))
             self._set_item(row, 7, record.status)
-            self._set_catalog_action(row, record.load_id)
+            self._set_catalog_action(row, record.load_id, latest_applied_id)
             self.table.setRowHeight(row, 40)
 
         self.table.resizeColumnsToContents()
@@ -125,7 +131,12 @@ class ScrapingHistoryDialog(QDialog):
         self.table.setColumnWidth(7, 100)
         self.table.setColumnWidth(8, 180)
 
-    def _set_catalog_action(self, row: int, load_id: int | None) -> None:
+    def _set_catalog_action(
+        self,
+        row: int,
+        load_id: int | None,
+        latest_applied_id: int | None,
+    ) -> None:
         container = QWidget()
         layout = QHBoxLayout(container)
         layout.setContentsMargins(4, 2, 4, 2)
@@ -146,7 +157,7 @@ class ScrapingHistoryDialog(QDialog):
             label = QLabel("No disponible")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(label)
-        elif bool(load["applied"]):
+        elif latest_applied_id is not None and int(load_id) == latest_applied_id:
             applied_at = load["applied_at"] or load["created_at"]
             applied_datetime = self._parse_datetime(applied_at)
             label = QLabel(
@@ -156,13 +167,8 @@ class ScrapingHistoryDialog(QDialog):
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet("font-weight: bold; color: #00838f;")
             layout.addWidget(label)
-        elif load["applied_at"]:
-            applied_datetime = self._parse_datetime(load["applied_at"])
-            label = QLabel(
-                "No aplicado\n"
-                f"Aplicado anteriormente: "
-                f"{self._format_datetime(applied_datetime)}",
-            )
+        elif latest_applied_id is not None and int(load_id) < latest_applied_id:
+            label = QLabel("No se aplicó")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet("color: #757575;")
             layout.addWidget(label)

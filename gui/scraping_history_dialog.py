@@ -160,17 +160,12 @@ class ScrapingHistoryDialog(QDialog):
             label = QLabel("No disponible")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(label)
-        elif bool(load["applied"]):
-            applied_at = load["applied_at"]
-            if applied_at:
-                applied_datetime = self._parse_datetime(applied_at)
-                text = (
-                    "Aplicado\n"
-                    f"{self._format_datetime(applied_datetime)}"
-                )
-            else:
-                text = "Aplicado"
-            label = QLabel(text)
+        elif load["applied_at"] is not None:
+            applied_datetime = self._parse_datetime(load["applied_at"])
+            label = QLabel(
+                "Aplicado\n"
+                f"{self._format_datetime(applied_datetime)}",
+            )
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet("font-weight: bold; color: #00838f;")
             layout.addWidget(label)

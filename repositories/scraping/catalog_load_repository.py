@@ -1,10 +1,40 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from database.db_manager import DBManager
 
 
 class CatalogLoadRepository:
     """Administra versiones históricas completas del catálogo."""
+
+    PRODUCT_FIELDS = (
+        "name",
+        "category",
+        "description",
+        "price",
+        "price_sample",
+        "price_hundred",
+        "price_thousand",
+        "stock",
+        "image_url",
+        "image_path",
+        "image_hash",
+        "content_hash",
+    )
+
+    FIELD_LABELS = {
+        "name": "Nombre",
+        "category": "Categoría",
+        "description": "Detalle",
+        "price": "Precio",
+        "price_sample": "Precio muestra",
+        "price_hundred": "Precio ciento",
+        "price_thousand": "Precio millar",
+        "stock": "Stock",
+        "image_url": "URL imagen",
+        "image_path": "Ruta imagen",
+        "image_hash": "Hash imagen",
+        "content_hash": "Hash contenido",
+    }
 
     def __init__(self, db: DBManager) -> None:
         self.db = db
@@ -205,6 +235,152 @@ class CatalogLoadRepository:
 
         self._replace_products(int(load["id"]))
         return int(load["id"])
+
+    def cleanup_expired_history(self, retention_days: int = 7) -> int:
+        """
+        Elimina historiales y cargas no aplicadas anteriores al período indicado.
+
+        La última carga aplicada y cualquier carga marcada como aplicada se
+        conservan para no perder el catálogo vigente ni su fecha de aplicación.
+        """
+        if retention_days < 1:
+            raise ValueError("retention_days debe ser mayor que cero.")
+
+        cutoff = (
+            datetime.now(timezone.utc) - timedelta(days=retention_days)
+        ).isoformat()
+        connection = self.db.connection
+
+        try:
+            connection.execute("BEGIN")
+
+            connection.execute(
+                """
+                DELETE FROM scraping_history
+                WHERE started_at < ?
+                  AND (
+                      load_id IS NULL
+                      OR NOT EXISTS (
+                          SELECT 1
+                          FROM catalog_loads
+                          WHERE catalog_loads.id = scraping_history.load_id
+                            AND catalog_loads.applied = 1
+                      )
+                  )
+                """,
+                (cutoff,),
+            )
+
+            cursor = connection.execute(
+                """
+                DELETE FROM catalog_loads
+                WHERE created_at < ?
+                  AND applied = 0
+                """,
+                (cutoff,),
+            )
+            deleted = cursor.rowcount
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+
+        return max(int(deleted), 0)
+
+    def get_load_changes(self, load_id: int) -> list[dict]:
+        """Compara una carga con la carga exitosa inmediatamente anterior."""
+        current_rows = self.db.fetch_all(
+            """
+            SELECT code, name, category, description, price,
+                   price_sample, price_hundred, price_thousand,
+                   stock, image_url, image_path, image_hash,
+                   content_hash
+            FROM catalog_load_products
+            WHERE load_id = ?
+            ORDER BY code
+            """,
+            (load_id,),
+        )
+        current = {row["code"]: row for row in current_rows}
+
+        previous_load = self.db.fetch_one(
+            """
+            SELECT id
+            FROM catalog_loads
+            WHERE id < ? AND status = 'SUCCESS'
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (load_id,),
+        )
+
+        if previous_load is None:
+            return [
+                {
+                    "type": "NEW",
+                    "code": row["code"],
+                    "name": row["name"],
+                    "fields": [],
+                    "changes": [],
+                }
+                for row in current_rows
+            ]
+
+        previous_rows = self.db.fetch_all(
+            """
+            SELECT code, name, category, description, price,
+                   price_sample, price_hundred, price_thousand,
+                   stock, image_url, image_path, image_hash,
+                   content_hash
+            FROM catalog_load_products
+            WHERE load_id = ?
+            """,
+            (int(previous_load["id"]),),
+        )
+        previous = {row["code"]: row for row in previous_rows}
+
+        changes: list[dict] = []
+
+        for code, row in current.items():
+            old = previous.get(code)
+            if old is None:
+                changes.append(
+                    {
+                        "type": "NEW",
+                        "code": code,
+                        "name": row["name"],
+                        "fields": [],
+                        "changes": [],
+                    },
+                )
+                continue
+
+            field_changes = []
+            for field in self.PRODUCT_FIELDS:
+                old_value = old[field]
+                new_value = row[field]
+                if old_value != new_value:
+                    field_changes.append(
+                        {
+                            "field": field,
+                            "label": self.FIELD_LABELS[field],
+                            "old": old_value,
+                            "new": new_value,
+                        },
+                    )
+
+            if field_changes:
+                changes.append(
+                    {
+                        "type": "UPDATED",
+                        "code": code,
+                        "name": row["name"],
+                        "fields": [item["label"] for item in field_changes],
+                        "changes": field_changes,
+                    },
+                )
+
+        return changes
 
     def _replace_products(self, load_id: int) -> None:
         connection = self.db.connection

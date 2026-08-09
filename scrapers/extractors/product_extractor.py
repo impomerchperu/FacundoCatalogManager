@@ -104,7 +104,10 @@ class ProductExtractor:
             if not normalized:
                 return
             if normalized.casefold() in {
-                "color", "colour", "seleccionar color", "choose an option",
+                "color",
+                "colour",
+                "seleccionar color",
+                "choose an option",
             }:
                 return
             if normalized not in colors:
@@ -159,7 +162,9 @@ class ProductExtractor:
             stock = None
             for key, item in value.items():
                 key_text = str(key).casefold()
-                if ("color" in key_text or "colour" in key_text) and isinstance(item, str):
+                if ("color" in key_text or "colour" in key_text) and isinstance(
+                    item, str
+                ):
                     color_name = item
                 if key_text in {"max_qty", "max_quantity", "stock", "quantity"}:
                     with contextlib.suppress(TypeError, ValueError):

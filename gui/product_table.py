@@ -43,6 +43,7 @@ class ProductHeader(QHeaderView):
         self.setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setSectionsClickable(True)
         self.setSortIndicatorShown(False)
+        self.setTextElideMode(Qt.TextElideMode.ElideNone)
 
     def set_active_sections(self, sections: set[int]) -> None:
         self.active_sections = set(sections)
@@ -140,7 +141,7 @@ class ProductTable(QTableWidget):
 
             QHeaderView::section {
                 min-height: 64px;
-                padding: 8px 6px;
+                padding: 6px 6px;
                 font-size: 18px;
                 font-weight: bold;
                 text-align: center;
@@ -191,8 +192,6 @@ class ProductTable(QTableWidget):
     def _apply_current_sort(self) -> None:
         products = list(self._products)
         if self._sort_states:
-            # El último encabezado pulsado queda como criterio primario.
-            # El orden estable de Python conserva las prioridades anteriores.
             for column in self._sort_states:
                 reverse = (
                     self._sort_states[column]

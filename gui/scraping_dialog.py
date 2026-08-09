@@ -1,4 +1,4 @@
-from PySide6.QtCore import QElapsedTimer, QThread, QTimer, Signal
+from PySide6.QtCore import QElapsedTimer, QThread, QTimer, Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -131,13 +131,7 @@ class ScrapingDialog(QDialog):
         )
 
     def thread_finished(self) -> None:
-        """
-        Muestra el resultado solamente después de que QThread haya terminado.
-
-        Evita bloquear el hilo GUI mientras la señal finished todavía necesita
-        ejecutar QThread.quit().
-        """
-
+        """Muestra el resultado solamente después de que QThread haya terminado."""
         result = self.pending_result
         error = self.pending_error
 

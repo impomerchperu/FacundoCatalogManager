@@ -158,7 +158,7 @@ class CatalogLoadRepository:
         return load_id
 
     def apply(self, load_id: int) -> bool:
-        """Aplica una carga y conserva el historial de aplicaciones anteriores."""
+        """Aplica una carga y bloquea todas las cargas aplicadas anteriormente."""
         load = self.get_by_id(load_id)
 
         if load is None:
@@ -166,19 +166,20 @@ class CatalogLoadRepository:
         if bool(load["applied"]):
             return True
 
-        self._replace_products(load_id)
-
-        applied_at = datetime.now(timezone.utc).isoformat()
         connection = self.db.connection
+        applied_at = datetime.now(timezone.utc).isoformat()
 
         try:
             connection.execute("BEGIN")
+            self._replace_products_in_transaction(load_id)
+
             connection.execute(
                 """
                 UPDATE catalog_loads
                 SET applied = 0
-                WHERE applied = 1
+                WHERE applied = 1 AND id <> ?
                 """,
+                (load_id,),
             )
             connection.execute(
                 """
@@ -206,6 +207,16 @@ class CatalogLoadRepository:
         return int(load["id"])
 
     def _replace_products(self, load_id: int) -> None:
+        connection = self.db.connection
+        try:
+            connection.execute("BEGIN")
+            self._replace_products_in_transaction(load_id)
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+
+    def _replace_products_in_transaction(self, load_id: int) -> None:
         products = self.db.fetch_all(
             """
             SELECT code, name, category, description, price,
@@ -220,43 +231,35 @@ class CatalogLoadRepository:
         )
 
         connection = self.db.connection
+        connection.execute("DELETE FROM products")
 
-        try:
-            connection.execute("BEGIN")
-            connection.execute("DELETE FROM products")
-
-            for product in products:
-                connection.execute(
-                    """
-                    INSERT INTO products (
-                        code, name, category, description, price,
-                        price_sample, price_hundred, price_thousand,
-                        stock, image_url, image_path, image_hash,
-                        content_hash
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        product["code"],
-                        product["name"],
-                        product["category"],
-                        product["description"],
-                        product["price"],
-                        product["price_sample"],
-                        product["price_hundred"],
-                        product["price_thousand"],
-                        product["stock"],
-                        product["image_url"],
-                        product["image_path"],
-                        product["image_hash"],
-                        product["content_hash"],
-                    ),
+        for product in products:
+            connection.execute(
+                """
+                INSERT INTO products (
+                    code, name, category, description, price,
+                    price_sample, price_hundred, price_thousand,
+                    stock, image_url, image_path, image_hash,
+                    content_hash
                 )
-
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    product["code"],
+                    product["name"],
+                    product["category"],
+                    product["description"],
+                    product["price"],
+                    product["price_sample"],
+                    product["price_hundred"],
+                    product["price_thousand"],
+                    product["stock"],
+                    product["image_url"],
+                    product["image_path"],
+                    product["image_hash"],
+                    product["content_hash"],
+                ),
+            )
 
     def get_by_id(self, load_id: int):
         return self.db.fetch_one(

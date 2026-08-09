@@ -160,17 +160,21 @@ class ScrapingHistoryDialog(QDialog):
             label = QLabel("No disponible")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(label)
-        elif latest_applied_id is not None and int(load_id) == latest_applied_id:
+        elif bool(load["applied"]):
             applied_at = load["applied_at"]
-            applied_datetime = self._parse_datetime(applied_at)
-            label = QLabel(
-                "Aplicado\n"
-                f"{self._format_datetime(applied_datetime)}",
-            )
+            if applied_at:
+                applied_datetime = self._parse_datetime(applied_at)
+                text = (
+                    "Aplicado\n"
+                    f"{self._format_datetime(applied_datetime)}"
+                )
+            else:
+                text = "Aplicado"
+            label = QLabel(text)
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet("font-weight: bold; color: #00838f;")
             layout.addWidget(label)
-        elif latest_applied_id is not None and int(load_id) > latest_applied_id:
+        elif latest_applied_id is None or int(load_id) > latest_applied_id:
             if load["status"] == "SUCCESS":
                 button = QPushButton("Aplicar")
                 button.setProperty("load_id", int(load_id))
@@ -180,19 +184,10 @@ class ScrapingHistoryDialog(QDialog):
                 label = QLabel("No aplicable")
                 label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 layout.addWidget(label)
-        elif latest_applied_id is not None and int(load_id) < latest_applied_id:
+        else:
             label = QLabel("No aplicado")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet("color: #757575;")
-            layout.addWidget(label)
-        elif load["status"] == "SUCCESS":
-            button = QPushButton("Aplicar")
-            button.setProperty("load_id", int(load_id))
-            button.clicked.connect(self.apply_selected_load)
-            layout.addWidget(button)
-        else:
-            label = QLabel("No aplicable")
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(label)
 
         self.table.setCellWidget(row, 8, container)

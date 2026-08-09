@@ -95,9 +95,9 @@ class ProductTable(QTableWidget):
         "Detalle",
         "Categoría",
         "Stock",
-        "Precio\nmuestra",
-        "Precio\nciento",
-        "Precio\nmillar",
+        "Precio muestra",
+        "Precio ciento",
+        "Precio millar",
     ]
 
     CURRENCY_SYMBOL: ClassVar[str] = "S/"
@@ -123,7 +123,7 @@ class ProductTable(QTableWidget):
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setWordWrap(True)
         self.verticalHeader().setVisible(False)
-        self.verticalHeader().setDefaultSectionSize(76)
+        self.verticalHeader().setDefaultSectionSize(140)
         self.setShowGrid(True)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
@@ -137,6 +137,7 @@ class ProductTable(QTableWidget):
 
             QTableWidget::item {
                 padding: 6px;
+                font-size: 14px;
             }
 
             QHeaderView::section {
@@ -164,7 +165,7 @@ class ProductTable(QTableWidget):
             )
             header.setSectionResizeMode(column, resize_mode)
 
-        self.setColumnWidth(self.IMAGE_COLUMN, 82)
+        self.setColumnWidth(self.IMAGE_COLUMN, 150)
         self.setColumnWidth(self.CODE_COLUMN, 110)
         self.setColumnWidth(self.NAME_COLUMN, 210)
         self.setColumnWidth(self.DETAIL_COLUMN, 300)
@@ -257,14 +258,14 @@ class ProductTable(QTableWidget):
     def _add_product_row(self, fila: int, producto: Product) -> None:
         image = QLabel()
         image.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        image.setMinimumSize(70, 70)
+        image.setMinimumSize(134, 134)
 
         if producto.image_path:
             pixmap = QPixmap(producto.image_path)
             if not pixmap.isNull():
                 pixmap = pixmap.scaled(
-                    64,
-                    64,
+                    128,
+                    128,
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,
                 )
@@ -331,7 +332,7 @@ class ProductTable(QTableWidget):
         """Ajusta el alto al contenido, manteniendo límites razonables."""
         self.resizeRowsToContents()
         for row in range(self.rowCount()):
-            height = max(76, min(self.rowHeight(row), 150))
+            height = max(140, min(self.rowHeight(row), 220))
             self.setRowHeight(row, height)
 
     def resizeEvent(self, event) -> None:

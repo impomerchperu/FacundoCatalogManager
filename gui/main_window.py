@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QFileDialog,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -32,18 +33,9 @@ class MainWindow(QMainWindow):
     """Ventana principal del catálogo."""
 
     SCRAPING_SCHEDULE: ClassVar[set[tuple[int, int, int]]] = {
-        (0, 12, 0),
-        (0, 22, 0),
-        (1, 12, 0),
-        (1, 22, 0),
-        (2, 12, 0),
-        (2, 22, 0),
-        (3, 12, 0),
-        (3, 22, 0),
-        (4, 12, 0),
-        (4, 22, 0),
-        (5, 12, 0),
-        (5, 22, 0),
+        (0, 12, 0), (0, 22, 0), (1, 12, 0), (1, 22, 0),
+        (2, 12, 0), (2, 22, 0), (3, 12, 0), (3, 22, 0),
+        (4, 12, 0), (4, 22, 0), (5, 12, 0), (5, 22, 0),
     }
 
     def __init__(self) -> None:
@@ -124,10 +116,7 @@ class MainWindow(QMainWindow):
         )
         self.stock_filter_button.setStyleSheet(
             """
-            QPushButton {
-                font-size: 16px;
-            }
-
+            QPushButton { font-size: 16px; }
             QPushButton:checked {
                 background-color: #b2ebf2;
                 border: 1px solid #4dd0e1;
@@ -140,17 +129,20 @@ class MainWindow(QMainWindow):
         stock_controls.addStretch()
         filter_layout.addLayout(stock_controls)
 
-        category_controls = QVBoxLayout()
+        category_header = QHBoxLayout()
         category_label = QLabel("Categorías:")
-        category_controls.addWidget(category_label)
+        category_header.addWidget(category_label)
 
         self.all_categories_button = QPushButton("Todos")
+        self.all_categories_button.setCheckable(True)
         self.all_categories_button.setMinimumHeight(32)
         self.all_categories_button.setToolTip(
             "Restablecer todos los filtros de categoría.",
         )
         self.all_categories_button.clicked.connect(self.clear_category_filters)
-        category_controls.addWidget(self.all_categories_button)
+        category_header.addWidget(self.all_categories_button)
+        category_header.addStretch()
+        filter_layout.addLayout(category_header)
 
         self.category_scroll = QScrollArea()
         self.category_scroll.setWidgetResizable(True)
@@ -165,13 +157,13 @@ class MainWindow(QMainWindow):
         self.category_scroll.setMaximumHeight(110)
 
         self.category_container = QWidget()
-        self.category_layout = QVBoxLayout(self.category_container)
+        self.category_layout = QGridLayout(self.category_container)
         self.category_layout.setContentsMargins(0, 0, 0, 0)
-        self.category_layout.setSpacing(6)
+        self.category_layout.setHorizontalSpacing(6)
+        self.category_layout.setVerticalSpacing(6)
         self.category_scroll.setWidget(self.category_container)
 
-        category_controls.addWidget(self.category_scroll)
-        filter_layout.addLayout(category_controls)
+        filter_layout.addWidget(self.category_scroll)
         layout.addLayout(filter_layout)
 
     def refresh_catalog(self) -> None:
@@ -208,12 +200,6 @@ class MainWindow(QMainWindow):
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
             button.setMinimumHeight(32)
-            button.setSizePolicy(
-                button.sizePolicy().horizontalPolicy(),
-                button.sizePolicy().verticalPolicy(),
-            )
-            button.adjustSize()
-            button.setMinimumWidth(button.sizeHint().width())
             button.setStyleSheet(
                 """
                 QPushButton:checked {
@@ -249,27 +235,22 @@ class MainWindow(QMainWindow):
             return
 
         spacing = 6
-        rows: list[list[QPushButton]] = [[]]
+        row = 0
+        column = 0
         current_width = 0
 
         for button in self.category_buttons:
             button_width = button.sizeHint().width()
-            required_width = button_width if not rows[-1] else spacing + button_width
-            if rows[-1] and current_width + required_width > available_width:
-                rows.append([])
+            required_width = button_width if column == 0 else spacing + button_width
+            if column and current_width + required_width > available_width:
+                row += 1
+                column = 0
                 current_width = 0
                 required_width = button_width
-            rows[-1].append(button)
-            current_width += required_width
 
-        for row_buttons in rows:
-            row_layout = QHBoxLayout()
-            row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.setSpacing(spacing)
-            for button in row_buttons:
-                row_layout.addWidget(button)
-            row_layout.addStretch()
-            self.category_layout.addLayout(row_layout)
+            self.category_layout.addWidget(button, row, column)
+            current_width += required_width
+            column += 1
 
         self.category_container.adjustSize()
 
@@ -278,10 +259,7 @@ class MainWindow(QMainWindow):
         self.all_categories_button.setChecked(not active)
         self.all_categories_button.setStyleSheet(
             """
-            QPushButton {
-                font-size: 16px;
-            }
-
+            QPushButton { font-size: 16px; }
             QPushButton:checked {
                 background-color: #b2ebf2;
                 border: 1px solid #4dd0e1;
@@ -315,15 +293,13 @@ class MainWindow(QMainWindow):
 
         if search_text:
             products = [
-                product
-                for product in products
+                product for product in products
                 if self.product_matches_search(product, search_text)
             ]
 
         if self.selected_categories:
             products = [
-                product
-                for product in products
+                product for product in products
                 if product.category in self.selected_categories
             ]
 

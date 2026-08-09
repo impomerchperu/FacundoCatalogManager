@@ -2,7 +2,7 @@ import html
 import re
 from typing import ClassVar
 
-from PySide6.QtCore import Qt, QRectF
+from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import (
     QAbstractTextDocumentLayout,
     QPalette,
@@ -41,12 +41,10 @@ class SearchHighlightDelegate(QStyledItemDelegate):
         if not self.search_text:
             super().paint(painter, option, index)
             return
-
         value = index.data(Qt.ItemDataRole.DisplayRole)
         if value is None:
             super().paint(painter, option, index)
             return
-
         text = str(value)
         if self.search_text.casefold() not in text.casefold():
             super().paint(painter, option, index)
@@ -165,16 +163,8 @@ class ProductTable(QTableWidget):
     }
 
     HEADER_LABELS: ClassVar[list[str]] = [
-        "Imagen",
-        "Código",
-        "Nombre",
-        "Detalle",
-        "Categoría",
-        "Stock",
-        "Colores",
-        "Precio\nmuestra",
-        "Precio\nciento",
-        "Precio\nmillar",
+        "Imagen", "Código", "Nombre", "Detalle", "Categoría", "Stock",
+        "Colores", "Precio\nmuestra", "Precio\nciento", "Precio\nmillar",
     ]
 
     COLOR_NAMES: ClassVar[dict[str, str]] = {
@@ -202,7 +192,6 @@ class ProductTable(QTableWidget):
         self._search_text = ""
         self._search_delegate = SearchHighlightDelegate(self)
         self.setItemDelegate(self._search_delegate)
-
         self.setColumnCount(len(self.HEADER_LABELS))
         self.setHorizontalHeaderLabels(self.HEADER_LABELS)
         self._setup_table()
@@ -223,19 +212,9 @@ class ProductTable(QTableWidget):
         self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.setStyleSheet(
             """
-            QTableWidget {
-                gridline-color: #d9d9d9;
-                selection-background-color: #cceff1;
-                selection-color: #000000;
-            }
+            QTableWidget { gridline-color: #d9d9d9; selection-background-color: #cceff1; selection-color: #000000; }
             QTableWidget::item { padding: 6px; font-size: 16px; }
-            QHeaderView::section {
-                min-height: 64px;
-                padding: 4px 6px;
-                font-size: 18px;
-                font-weight: bold;
-                text-align: center;
-            }
+            QHeaderView::section { min-height: 64px; padding: 4px 6px; font-size: 18px; font-weight: bold; text-align: center; }
             """,
         )
 
@@ -248,22 +227,13 @@ class ProductTable(QTableWidget):
         for column in range(self.columnCount()):
             header.setSectionResizeMode(
                 column,
-                QHeaderView.ResizeMode.Fixed
-                if column == self.IMAGE_COLUMN
-                else QHeaderView.ResizeMode.Interactive,
+                QHeaderView.ResizeMode.Fixed if column == self.IMAGE_COLUMN else QHeaderView.ResizeMode.Interactive,
             )
-
         widths = {
-            self.IMAGE_COLUMN: 180,
-            self.CODE_COLUMN: 110,
-            self.NAME_COLUMN: 230,
-            self.DETAIL_COLUMN: 320,
-            self.CATEGORY_COLUMN: 180,
-            self.STOCK_COLUMN: 95,
-            self.COLORS_COLUMN: 180,
-            self.PRICE_SAMPLE_COLUMN: 140,
-            self.PRICE_HUNDRED_COLUMN: 140,
-            self.PRICE_THOUSAND_COLUMN: 140,
+            self.IMAGE_COLUMN: 180, self.CODE_COLUMN: 110, self.NAME_COLUMN: 230,
+            self.DETAIL_COLUMN: 320, self.CATEGORY_COLUMN: 180, self.STOCK_COLUMN: 95,
+            self.COLORS_COLUMN: 180, self.PRICE_SAMPLE_COLUMN: 140,
+            self.PRICE_HUNDRED_COLUMN: 140, self.PRICE_THOUSAND_COLUMN: 140,
         }
         for column, width in widths.items():
             self.setColumnWidth(column, width)
@@ -284,8 +254,7 @@ class ProductTable(QTableWidget):
         products = list(self._products)
         for column, order in reversed(list(self._sort_states.items())):
             products.sort(
-                key=lambda product, selected_column=column:
-                self._product_sort_value(product, selected_column),
+                key=lambda product, selected_column=column: self._product_sort_value(product, selected_column),
                 reverse=order == Qt.SortOrder.DescendingOrder,
             )
         self._render_products(products)
@@ -293,14 +262,10 @@ class ProductTable(QTableWidget):
 
     def _product_sort_value(self, product: Product, column: int):
         values = {
-            self.CODE_COLUMN: product.code.casefold(),
-            self.NAME_COLUMN: product.name.casefold(),
-            self.DETAIL_COLUMN: product.description.casefold(),
-            self.CATEGORY_COLUMN: product.category.casefold(),
-            self.STOCK_COLUMN: product.stock,
-            self.COLORS_COLUMN: ", ".join(product.colors).casefold(),
-            self.PRICE_SAMPLE_COLUMN: product.price_sample,
-            self.PRICE_HUNDRED_COLUMN: product.price_hundred,
+            self.CODE_COLUMN: product.code.casefold(), self.NAME_COLUMN: product.name.casefold(),
+            self.DETAIL_COLUMN: product.description.casefold(), self.CATEGORY_COLUMN: product.category.casefold(),
+            self.STOCK_COLUMN: product.stock, self.COLORS_COLUMN: ", ".join(product.colors).casefold(),
+            self.PRICE_SAMPLE_COLUMN: product.price_sample, self.PRICE_HUNDRED_COLUMN: product.price_hundred,
             self.PRICE_THOUSAND_COLUMN: product.price_thousand,
         }
         return values[column]
@@ -342,14 +307,7 @@ class ProductTable(QTableWidget):
         if product.image_path:
             pixmap = QPixmap(product.image_path)
             if not pixmap.isNull():
-                image.setPixmap(
-                    pixmap.scaled(
-                        160,
-                        160,
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation,
-                    ),
-                )
+                image.setPixmap(pixmap.scaled(160, 160, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         self.setCellWidget(row, self.IMAGE_COLUMN, image)
 
         item_code = QTableWidgetItem(product.code)
@@ -381,7 +339,6 @@ class ProductTable(QTableWidget):
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.setItem(row, self.COLORS_COLUMN, item)
             return
-
         label = QLabel()
         label.setTextFormat(Qt.TextFormat.RichText)
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -392,15 +349,9 @@ class ProductTable(QTableWidget):
             stock_text = f" — {stock}" if stock is not None else ""
             background = self._color_background(color)
             foreground = "#ffffff" if self._is_dark_color(background) else "#000000"
-            parts.append(
-                f'<span style="background:{background}; color:{foreground}; '
-                f'padding:2px 5px;">{self._escape_html(color)}{stock_text}</span>',
-            )
+            parts.append(f'<span style="background:{background}; color:{foreground}; padding:2px 5px;">{self._escape_html(color)}{stock_text}</span>')
         label.setText("<br>".join(parts))
-        label.setToolTip("\n".join(
-            f"{color}: {product.color_stock[color]}" if color in product.color_stock else color
-            for color in colors
-        ))
+        label.setToolTip("\n".join(f"{color}: {product.color_stock[color]}" if color in product.color_stock else color for color in colors))
         self.setCellWidget(row, self.COLORS_COLUMN, label)
 
     @classmethod
@@ -443,13 +394,8 @@ class ProductTable(QTableWidget):
         fixed_width = sum(
             self.columnWidth(column)
             for column in (
-                self.IMAGE_COLUMN,
-                self.CODE_COLUMN,
-                self.STOCK_COLUMN,
-                self.COLORS_COLUMN,
-                self.PRICE_SAMPLE_COLUMN,
-                self.PRICE_HUNDRED_COLUMN,
-                self.PRICE_THOUSAND_COLUMN,
+                self.IMAGE_COLUMN, self.CODE_COLUMN, self.STOCK_COLUMN, self.COLORS_COLUMN,
+                self.PRICE_SAMPLE_COLUMN, self.PRICE_HUNDRED_COLUMN, self.PRICE_THOUSAND_COLUMN,
             )
         )
         remaining = max(available_width - fixed_width, 540)

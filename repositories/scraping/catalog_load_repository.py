@@ -188,7 +188,15 @@ class CatalogLoadRepository:
         return load_id
 
     def apply(self, load_id: int) -> bool:
-        """Aplica una carga y bloquea todas las cargas aplicadas anteriormente."""
+        """
+        Aplica una carga y conserva permanentemente el estado de cada carga
+        que haya sido aplicada anteriormente.
+
+        ``applied`` representa si una carga fue aplicada alguna vez, no cuál
+        es la carga actualmente visible en el catálogo. Por eso una nueva
+        aplicación no revierte el estado ni la fecha ``applied_at`` de las
+        cargas anteriores.
+        """
         load = self.get_by_id(load_id)
 
         if load is None:
@@ -203,14 +211,6 @@ class CatalogLoadRepository:
             connection.execute("BEGIN")
             self._replace_products_in_transaction(load_id)
 
-            connection.execute(
-                """
-                UPDATE catalog_loads
-                SET applied = 0
-                WHERE applied = 1 AND id <> ?
-                """,
-                (load_id,),
-            )
             connection.execute(
                 """
                 UPDATE catalog_loads
@@ -240,8 +240,8 @@ class CatalogLoadRepository:
         """
         Elimina historiales y cargas no aplicadas anteriores al período indicado.
 
-        La última carga aplicada y cualquier carga marcada como aplicada se
-        conservan para no perder el catálogo vigente ni su fecha de aplicación.
+        Las cargas aplicadas se conservan para no perder el registro histórico
+        ni la fecha de aplicación de cada versión que haya sido utilizada.
         """
         if retention_days < 1:
             raise ValueError("retention_days debe ser mayor que cero.")

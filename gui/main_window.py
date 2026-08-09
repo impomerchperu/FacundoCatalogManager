@@ -56,6 +56,7 @@ class MainWindow(QMainWindow):
         self.selected_categories: set[str] = set()
         self.stock_only = False
         self.category_buttons: list[QPushButton] = []
+        self.categories_visible = False
         self.scraping_dialog: ScrapingDialog | None = None
         self.last_scheduled_scraping: tuple[int, int, int] | None = None
 
@@ -133,6 +134,16 @@ class MainWindow(QMainWindow):
         category_label = QLabel("Categorías:")
         category_header.addWidget(category_label)
 
+        self.category_toggle_button = QPushButton("Filtrar Categorías")
+        self.category_toggle_button.setCheckable(True)
+        self.category_toggle_button.setToolTip(
+            "Mostrar u ocultar los filtros de categorías.",
+        )
+        self.category_toggle_button.toggled.connect(
+            self.toggle_categories_visibility,
+        )
+        category_header.addWidget(self.category_toggle_button)
+
         self.category_scroll = QScrollArea()
         self.category_scroll.setWidgetResizable(True)
         self.category_scroll.setHorizontalScrollBarPolicy(
@@ -144,6 +155,7 @@ class MainWindow(QMainWindow):
         self.category_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.category_scroll.setMinimumHeight(44)
         self.category_scroll.setMaximumHeight(110)
+        self.category_scroll.setVisible(False)
         category_header.addWidget(self.category_scroll, 1)
         filter_layout.addLayout(category_header)
 
@@ -164,6 +176,15 @@ class MainWindow(QMainWindow):
         self.category_buttons = [self.all_categories_button]
 
         layout.addLayout(filter_layout)
+
+    def toggle_categories_visibility(self, visible: bool) -> None:
+        self.categories_visible = visible
+        self.category_scroll.setVisible(visible)
+        self.category_toggle_button.setText(
+            "Ocultar Categorías" if visible else "Filtrar Categorías",
+        )
+        if visible:
+            QTimer.singleShot(0, self._reflow_category_buttons)
 
     def refresh_catalog(self) -> None:
         self.all_products = self.controller.get_products()

@@ -14,6 +14,9 @@ class CategoryProductExtractor:
 
     def extract(self, card, url="", category=""):
         colors, color_stock = self._colors(card)
+        total_stock = self._stock(card)
+        if total_stock == 0 and color_stock:
+            total_stock = sum(color_stock.values())
         return ScrapedProduct(
             source=self.SOURCE,
             url=url or self._url(card),
@@ -21,7 +24,7 @@ class CategoryProductExtractor:
             name=self._name(card),
             category=category,
             description=self._description(card),
-            stock=self._stock(card),
+            stock=total_stock,
             price_sample=self.price_extractor.extract_sample(card),
             price_hundred=self.price_extractor.extract_hundred(card),
             price_thousand=self.price_extractor.extract_thousand(card),
@@ -130,11 +133,7 @@ class CategoryProductExtractor:
     @staticmethod
     def _normalize_image_url(url):
         for item in (
-            "-150x150",
-            "-300x300",
-            "-600x600",
-            "-768x768",
-            "-1024x1024",
+            "-150x150", "-300x300", "-600x600", "-768x768", "-1024x1024",
         ):
             url = url.replace(item, "")
         return url

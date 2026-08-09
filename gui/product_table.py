@@ -95,9 +95,9 @@ class ProductTable(QTableWidget):
         "Detalle",
         "Categoría",
         "Stock",
-        "Precio muestra",
-        "Precio ciento",
-        "Precio millar",
+        "Precio\nmuestra",
+        "Precio\nciento",
+        "Precio\nmillar",
     ]
 
     CURRENCY_SYMBOL: ClassVar[str] = "S/"

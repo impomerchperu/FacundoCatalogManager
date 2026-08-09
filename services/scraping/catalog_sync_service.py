@@ -29,8 +29,9 @@ class CatalogSyncService:
 
     def sync(self, products):
         result = SyncResult()
+        consolidated = self._consolidate_products(products)
 
-        for product in products:
+        for product in consolidated:
             result.increment_processed()
             existing = self.repository.get(product.code)
 
@@ -48,15 +49,15 @@ class CatalogSyncService:
             comparison = self.diff_service.compare(existing, product)
             if comparison["changed"]:
                 result.updated += 1
-                field_changes = []
-                for field in comparison["fields"]:
-                    field_changes.append({
+                field_changes = [
+                    {
                         "field": field,
                         "label": self.FIELD_LABELS.get(field, field),
                         "old": self._value(existing, field),
                         "new": self._value(product, field),
-                    })
-
+                    }
+                    for field in comparison["fields"]
+                ]
                 result.changes.append({
                     "type": "UPDATED",
                     "code": product.code,
@@ -73,6 +74,43 @@ class CatalogSyncService:
 
     def synchronize(self, products):
         return self.sync(products)
+
+    @classmethod
+    def _consolidate_products(cls, products):
+        consolidated = {}
+        for product in products:
+            code = str(getattr(product, "code", "")).strip()
+            if not code:
+                continue
+            existing = consolidated.get(code)
+            if existing is None:
+                consolidated[code] = product
+                continue
+
+            categories = [
+                item.strip()
+                for item in str(getattr(existing, "category", "")).split(",")
+                if item.strip()
+            ]
+            incoming = [
+                item.strip()
+                for item in str(getattr(product, "category", "")).split(",")
+                if item.strip()
+            ]
+            existing.category = ", ".join(dict.fromkeys(categories + incoming))
+
+            colors = list(getattr(existing, "colors", []))
+            colors.extend(getattr(product, "colors", []))
+            existing.colors = list(dict.fromkeys(
+                str(color).strip() for color in colors if str(color).strip()
+            ))
+
+            color_stock = dict(getattr(existing, "color_stock", {}))
+            for color, stock in getattr(product, "color_stock", {}).items():
+                color_stock[color] = max(color_stock.get(color, 0), int(stock))
+            existing.color_stock = color_stock
+
+        return list(consolidated.values())
 
     @staticmethod
     def _value(obj, field):

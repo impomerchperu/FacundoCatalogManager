@@ -223,8 +223,6 @@ class MainWindow(QMainWindow):
         )
         self.scraping_dialog.setModal(False)
         self.scraping_dialog.show()
-        self.scraping_dialog.raise_()
-        self.scraping_dialog.activateWindow()
 
     def open_scraping_history(self) -> None:
         dialog = ScrapingHistoryDialog(self)

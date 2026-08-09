@@ -5,7 +5,6 @@ from zoneinfo import ZoneInfo
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QFileDialog,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -60,7 +59,6 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Facundo Catalog Manager")
         self.resize(1200, 700)
-        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
 
         self.all_products: list[Product] = []
         self.selected_categories: set[str] = set()
@@ -126,6 +124,10 @@ class MainWindow(QMainWindow):
         )
         self.stock_filter_button.setStyleSheet(
             """
+            QPushButton {
+                font-size: 16px;
+            }
+
             QPushButton:checked {
                 background-color: #b2ebf2;
                 border: 1px solid #4dd0e1;
@@ -138,18 +140,17 @@ class MainWindow(QMainWindow):
         stock_controls.addStretch()
         filter_layout.addLayout(stock_controls)
 
-        category_row = QHBoxLayout()
+        category_controls = QVBoxLayout()
         category_label = QLabel("Categorías:")
-        category_label.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft,
-        )
-        category_row.addWidget(category_label)
+        category_controls.addWidget(category_label)
 
         self.all_categories_button = QPushButton("Todos")
         self.all_categories_button.setMinimumHeight(32)
-        self.all_categories_button.setToolTip("Restablecer todos los filtros de categoría.")
+        self.all_categories_button.setToolTip(
+            "Restablecer todos los filtros de categoría.",
+        )
         self.all_categories_button.clicked.connect(self.clear_category_filters)
-        category_row.addWidget(self.all_categories_button)
+        category_controls.addWidget(self.all_categories_button)
 
         self.category_scroll = QScrollArea()
         self.category_scroll.setWidgetResizable(True)
@@ -164,16 +165,13 @@ class MainWindow(QMainWindow):
         self.category_scroll.setMaximumHeight(110)
 
         self.category_container = QWidget()
-        self.category_grid = QGridLayout(self.category_container)
-        self.category_grid.setContentsMargins(0, 0, 0, 0)
-        self.category_grid.setHorizontalSpacing(6)
-        self.category_grid.setVerticalSpacing(6)
+        self.category_layout = QVBoxLayout(self.category_container)
+        self.category_layout.setContentsMargins(0, 0, 0, 0)
+        self.category_layout.setSpacing(6)
         self.category_scroll.setWidget(self.category_container)
 
-        category_row.addWidget(self.category_scroll, 1)
-        filter_layout.addLayout(category_row)
-
-        self.category_layout = category_row
+        category_controls.addWidget(self.category_scroll)
+        filter_layout.addLayout(category_controls)
         layout.addLayout(filter_layout)
 
     def refresh_catalog(self) -> None:
@@ -186,13 +184,13 @@ class MainWindow(QMainWindow):
             button.deleteLater()
         self.category_buttons.clear()
 
-        while self.category_grid.count():
-            item = self.category_grid.takeAt(0)
+        while self.category_layout.count():
+            item = self.category_layout.takeAt(0)
             if item is None:
                 continue
             widget = item.widget()
             if widget is not None:
-                widget.deleteLater()
+                widget.setParent(None)
 
         categories = sorted(
             {
@@ -232,13 +230,14 @@ class MainWindow(QMainWindow):
             self.category_buttons.append(button)
 
         self._reflow_category_buttons()
+        self._update_all_categories_button()
 
     def _reflow_category_buttons(self) -> None:
-        if not hasattr(self, "category_grid"):
+        if not hasattr(self, "category_layout"):
             return
 
-        while self.category_grid.count():
-            item = self.category_grid.takeAt(0)
+        while self.category_layout.count():
+            item = self.category_layout.takeAt(0)
             if item is None:
                 continue
             widget = item.widget()
@@ -249,7 +248,7 @@ class MainWindow(QMainWindow):
         if available_width <= 0:
             return
 
-        spacing = self.category_grid.horizontalSpacing()
+        spacing = 6
         rows: list[list[QPushButton]] = [[]]
         current_width = 0
 
@@ -263,20 +262,39 @@ class MainWindow(QMainWindow):
             rows[-1].append(button)
             current_width += required_width
 
-        for row_index, row_buttons in enumerate(rows):
-            for column_index, button in enumerate(row_buttons):
-                self.category_grid.addWidget(
-                    button,
-                    row_index,
-                    column_index,
-                )
+        for row_buttons in rows:
+            row_layout = QHBoxLayout()
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(spacing)
+            for button in row_buttons:
+                row_layout.addWidget(button)
+            row_layout.addStretch()
+            self.category_layout.addLayout(row_layout)
 
         self.category_container.adjustSize()
+
+    def _update_all_categories_button(self) -> None:
+        active = bool(self.selected_categories)
+        self.all_categories_button.setChecked(not active)
+        self.all_categories_button.setStyleSheet(
+            """
+            QPushButton {
+                font-size: 16px;
+            }
+
+            QPushButton:checked {
+                background-color: #b2ebf2;
+                border: 1px solid #4dd0e1;
+                font-weight: bold;
+            }
+            """,
+        )
 
     def clear_category_filters(self) -> None:
         self.selected_categories.clear()
         for button in self.category_buttons:
             button.setChecked(False)
+        self._update_all_categories_button()
         self.apply_filters()
 
     def toggle_category(self, category: str, checked: bool) -> None:
@@ -284,6 +302,7 @@ class MainWindow(QMainWindow):
             self.selected_categories.add(category)
         else:
             self.selected_categories.discard(category)
+        self._update_all_categories_button()
         self.apply_filters()
 
     def toggle_stock_filter(self, checked: bool) -> None:

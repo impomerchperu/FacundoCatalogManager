@@ -28,86 +28,65 @@ class DBManager:
         self.initialize_database()
 
     def _configure_sqlite(self):
-        """
-        Configuración optimizada para cargas
-        intensivas de scraping sobre SQLite.
-        """
-
         cursor = self.connection.cursor()
-
-        cursor.execute(
-            "PRAGMA journal_mode=WAL;",
-        )
-
-        cursor.execute(
-            "PRAGMA synchronous=NORMAL;",
-        )
-
-        cursor.execute(
-            "PRAGMA foreign_keys=ON;",
-        )
-
+        cursor.execute("PRAGMA journal_mode=WAL;")
+        cursor.execute("PRAGMA synchronous=NORMAL;")
+        cursor.execute("PRAGMA foreign_keys=ON;")
         self.connection.commit()
 
     def initialize_database(self):
         cursor = self.connection.cursor()
 
         schema_path = os.path.join(
-            os.path.dirname(
-                os.path.abspath(__file__),
-            ),
+            os.path.dirname(os.path.abspath(__file__)),
             "schema.sql",
         )
 
         if os.path.exists(schema_path):
-            with open(
-                schema_path,
-                "r",
-                encoding="utf-8",
-            ) as file:
+            with open(schema_path, "r", encoding="utf-8") as file:
                 schema = file.read()
+            cursor.executescript(schema)
 
-            cursor.executescript(
-                schema,
-            )
-
-        # Las migraciones deben ejecutarse después
-        # de crear las tablas y antes de crear índices
-        # que dependan de columnas nuevas.
         self._run_migrations()
-
         self._create_migration_dependent_indexes()
-
         self.connection.commit()
 
     def _run_migrations(self):
-        """
-        Ejecuta migraciones compatibles con bases
-        existentes.
-
-        Las migraciones son idempotentes y pueden
-        ejecutarse varias veces sin alterar los
-        datos existentes.
-        """
+        """Ejecuta migraciones idempotentes para bases existentes."""
 
         self._add_column_if_missing(
             "scraping_history",
             "load_id",
             "INTEGER",
         )
+        self._add_column_if_missing(
+            "catalog_loads",
+            "applied_at",
+            "TEXT",
+        )
+
+        self.connection.execute(
+            """
+            UPDATE catalog_loads
+            SET applied_at = created_at
+            WHERE applied = 1
+              AND applied_at IS NULL
+            """,
+        )
 
     def _create_migration_dependent_indexes(self):
-        """
-        Crea índices que dependen de columnas que
-        también pueden ser agregadas mediante
-        migraciones.
-        """
-
         self.connection.execute(
             """
             CREATE INDEX IF NOT EXISTS
             idx_scraping_history_load_id
             ON scraping_history(load_id)
+            """,
+        )
+        self.connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS
+            idx_catalog_loads_applied_at
+            ON catalog_loads(applied_at)
             """,
         )
 
@@ -121,66 +100,32 @@ class DBManager:
             f"PRAGMA table_info({table_name})",
         )
 
-        existing_columns = {
-            row["name"]
-            for row in columns
-        }
+        existing_columns = {row["name"] for row in columns}
 
         if column_name in existing_columns:
             return
 
-        cursor = self.connection.cursor()
-
-        cursor.execute(
+        self.connection.execute(
             f"""
             ALTER TABLE {table_name}
-            ADD COLUMN {column_name}
-            {column_definition}
+            ADD COLUMN {column_name} {column_definition}
             """,
         )
 
-    def execute_query(
-        self,
-        query,
-        params=(),
-    ):
+    def execute_query(self, query, params=()):
         cursor = self.connection.cursor()
-
-        cursor.execute(
-            query,
-            params,
-        )
-
+        cursor.execute(query, params)
         self.connection.commit()
-
         return cursor
 
-    def fetch_all(
-        self,
-        query,
-        params=(),
-    ):
+    def fetch_all(self, query, params=()):
         cursor = self.connection.cursor()
-
-        cursor.execute(
-            query,
-            params,
-        )
-
+        cursor.execute(query, params)
         return cursor.fetchall()
 
-    def fetch_one(
-        self,
-        query,
-        params=(),
-    ):
+    def fetch_one(self, query, params=()):
         cursor = self.connection.cursor()
-
-        cursor.execute(
-            query,
-            params,
-        )
-
+        cursor.execute(query, params)
         return cursor.fetchone()
 
     def close(self):

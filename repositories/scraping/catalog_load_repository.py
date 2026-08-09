@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import ClassVar
 
 from database.db_manager import DBManager
 
@@ -21,7 +22,7 @@ class CatalogLoadRepository:
         "content_hash",
     )
 
-    FIELD_LABELS = {
+    FIELD_LABELS: ClassVar[dict[str, str]] = {
         "name": "Nombre",
         "category": "Categoría",
         "description": "Detalle",

@@ -175,8 +175,13 @@ class ProductExtractor:
         if not text:
             return []
 
+        color_pattern = (
+            r"\bcolou?rs?\s*:\s*(.+?)"
+            r"(?=\s+(?:presentaci[oó]n|precio|stock\s+disponible|"
+            r"c[oó]digo)\b|$)"
+        )
         matches = re.findall(
-            r"\bcolou?rs?\s*:\s*(.+?)(?=\s+(?:presentaci[oó]n|precio|stock\s+disponible|c[oó]digo)\b|$)",
+            color_pattern,
             text,
             flags=re.IGNORECASE,
         )

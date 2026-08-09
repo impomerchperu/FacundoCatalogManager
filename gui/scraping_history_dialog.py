@@ -156,6 +156,16 @@ class ScrapingHistoryDialog(QDialog):
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet("font-weight: bold; color: #00838f;")
             layout.addWidget(label)
+        elif load["applied_at"]:
+            applied_datetime = self._parse_datetime(load["applied_at"])
+            label = QLabel(
+                "No aplicado\n"
+                f"Aplicado anteriormente: "
+                f"{self._format_datetime(applied_datetime)}",
+            )
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setStyleSheet("color: #757575;")
+            layout.addWidget(label)
         elif load["status"] == "SUCCESS":
             button = QPushButton("Aplicar")
             button.setProperty("load_id", int(load_id))

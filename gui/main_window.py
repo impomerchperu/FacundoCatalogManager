@@ -106,18 +106,42 @@ class MainWindow(QMainWindow):
 
     def create_filter_controls(self, layout: QVBoxLayout) -> None:
         filter_layout = QVBoxLayout()
+        filter_layout.setContentsMargins(0, 0, 0, 0)
+        filter_layout.setSpacing(6)
 
-        stock_controls = QHBoxLayout()
-        stock_controls.addWidget(QLabel("Filtros:"))
+        top_controls = QHBoxLayout()
+        top_controls.setContentsMargins(0, 0, 0, 0)
+        top_controls.setSpacing(8)
 
-        self.stock_filter_button = QPushButton("Solo stock disponible")
+        self.category_toggle_button = QPushButton("Filtrar Categorías")
+        self.category_toggle_button.setCheckable(True)
+        self.category_toggle_button.setSizePolicy(
+            self.category_toggle_button.sizePolicy().Policy.Preferred,
+            self.category_toggle_button.sizePolicy().Policy.Fixed,
+        )
+        self.category_toggle_button.setStyleSheet(
+            "QPushButton { font-size: 18px; padding: 5px 10px; }",
+        )
+        self.category_toggle_button.setToolTip(
+            "Mostrar u ocultar los filtros de categorías.",
+        )
+        self.category_toggle_button.toggled.connect(
+            self.toggle_categories_visibility,
+        )
+        top_controls.addWidget(self.category_toggle_button)
+
+        self.stock_filter_button = QPushButton("Solo Stock Disponible")
         self.stock_filter_button.setCheckable(True)
+        self.stock_filter_button.setSizePolicy(
+            self.stock_filter_button.sizePolicy().Policy.Preferred,
+            self.stock_filter_button.sizePolicy().Policy.Fixed,
+        )
         self.stock_filter_button.setToolTip(
             "Mostrar únicamente productos con stock mayor a 0.",
         )
         self.stock_filter_button.setStyleSheet(
             """
-            QPushButton { font-size: 16px; }
+            QPushButton { font-size: 16px; padding: 5px 10px; }
             QPushButton:checked {
                 background-color: #b2ebf2;
                 border: 1px solid #4dd0e1;
@@ -126,23 +150,9 @@ class MainWindow(QMainWindow):
             """,
         )
         self.stock_filter_button.toggled.connect(self.toggle_stock_filter)
-        stock_controls.addWidget(self.stock_filter_button)
-        stock_controls.addStretch()
-        filter_layout.addLayout(stock_controls)
-
-        category_header = QHBoxLayout()
-        category_label = QLabel("Categorías:")
-        category_header.addWidget(category_label)
-
-        self.category_toggle_button = QPushButton("Filtrar Categorías")
-        self.category_toggle_button.setCheckable(True)
-        self.category_toggle_button.setToolTip(
-            "Mostrar u ocultar los filtros de categorías.",
-        )
-        self.category_toggle_button.toggled.connect(
-            self.toggle_categories_visibility,
-        )
-        category_header.addWidget(self.category_toggle_button)
+        top_controls.addWidget(self.stock_filter_button)
+        top_controls.addStretch()
+        filter_layout.addLayout(top_controls)
 
         self.category_scroll = QScrollArea()
         self.category_scroll.setWidgetResizable(True)
@@ -153,11 +163,10 @@ class MainWindow(QMainWindow):
             Qt.ScrollBarPolicy.ScrollBarAsNeeded,
         )
         self.category_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        self.category_scroll.setMinimumHeight(44)
+        self.category_scroll.setMinimumHeight(0)
         self.category_scroll.setMaximumHeight(110)
         self.category_scroll.setVisible(False)
-        category_header.addWidget(self.category_scroll, 1)
-        filter_layout.addLayout(category_header)
+        filter_layout.addWidget(self.category_scroll)
 
         self.category_container = QWidget()
         self.category_layout = QGridLayout(self.category_container)
@@ -281,7 +290,7 @@ class MainWindow(QMainWindow):
         self.all_categories_button.setChecked(not active)
         self.all_categories_button.setStyleSheet(
             """
-            QPushButton { font-size: 16px; }
+            QPushButton { font-size: 16px; padding: 4px 10px; }
             QPushButton:checked {
                 background-color: #b2ebf2;
                 border: 1px solid #4dd0e1;
@@ -316,13 +325,15 @@ class MainWindow(QMainWindow):
 
         if search_text:
             products = [
-                product for product in products
+                product
+                for product in products
                 if self.product_matches_search(product, search_text)
             ]
 
         if self.selected_categories:
             products = [
-                product for product in products
+                product
+                for product in products
                 if product.category in self.selected_categories
             ]
 

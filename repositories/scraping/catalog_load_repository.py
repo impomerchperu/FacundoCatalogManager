@@ -158,7 +158,7 @@ class CatalogLoadRepository:
         return load_id
 
     def apply(self, load_id: int) -> bool:
-        """Aplica una carga y conserva permanentemente su marca."""
+        """Aplica una carga y conserva el historial de aplicaciones anteriores."""
         load = self.get_by_id(load_id)
 
         if load is None:
@@ -169,14 +169,30 @@ class CatalogLoadRepository:
         self._replace_products(load_id)
 
         applied_at = datetime.now(timezone.utc).isoformat()
-        self.db.execute_query(
-            """
-            UPDATE catalog_loads
-            SET applied = 1, applied_at = ?
-            WHERE id = ?
-            """,
-            (applied_at, load_id),
-        )
+        connection = self.db.connection
+
+        try:
+            connection.execute("BEGIN")
+            connection.execute(
+                """
+                UPDATE catalog_loads
+                SET applied = 0
+                WHERE applied = 1
+                """,
+            )
+            connection.execute(
+                """
+                UPDATE catalog_loads
+                SET applied = 1, applied_at = ?
+                WHERE id = ?
+                """,
+                (applied_at, load_id),
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+
         return True
 
     def restore_latest_applied(self) -> int | None:

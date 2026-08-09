@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from models.scraping.sync_result import SyncResult
 
 
@@ -9,7 +11,7 @@ class CatalogSyncService:
     Este servicio no modifica el catálogo visible.
     """
 
-    FIELD_LABELS = {
+    FIELD_LABELS: ClassVar[dict[str, str]] = {
         "name": "Nombre",
         "category": "Categoría",
         "description": "Detalle",

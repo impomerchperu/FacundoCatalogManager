@@ -90,8 +90,16 @@ def apply_main_window_tweaks(main_window_class):
     main_window_class.CATEGORY_BUTTON_VERTICAL_PADDING = 4
     main_window_class.CATEGORY_HORIZONTAL_SPACING = 1
     main_window_class.CATEGORY_VERTICAL_SPACING = 1
-    main_window_class._configure_toggle_button = classmethod(_configure_toggle_button)
-    main_window_class._set_toggle_button_width = classmethod(_set_toggle_button_width)
-    main_window_class._category_button_width = classmethod(_category_button_width)
-    main_window_class._fit_category_button = classmethod(_fit_category_button)
+    main_window_class._configure_toggle_button = classmethod(
+        _configure_toggle_button,
+    )
+    main_window_class._set_toggle_button_width = classmethod(
+        _set_toggle_button_width,
+    )
+    main_window_class._category_button_width = classmethod(
+        _category_button_width,
+    )
+    main_window_class._fit_category_button = classmethod(
+        _fit_category_button,
+    )
     return main_window_class

@@ -401,10 +401,8 @@ class MainWindow(QMainWindow):
                 row_widths[current] += spacing
 
         for row, buttons in enumerate(rows):
-            column = 0
-            for button in buttons:
+            for column, button in enumerate(buttons):
                 self.category_layout.addWidget(button, row, column)
-                column += 1
 
         self.category_container.adjustSize()
 

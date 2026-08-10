@@ -6,7 +6,6 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QFileDialog,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -57,14 +56,13 @@ class MainWindow(QMainWindow):
         }
     """
 
-    TOGGLE_FONT_SIZE = 14
+    TOGGLE_FONT_SIZE = 16
     TOGGLE_BUTTON_HORIZONTAL_PADDING = 24
-    TOGGLE_BUTTON_HEIGHT = 36
-    CATEGORY_FONT_SIZE = 14
+    TOGGLE_BUTTON_HEIGHT = 40
+    CATEGORY_FONT_SIZE = 13
     CATEGORY_BUTTON_HORIZONTAL_PADDING = 20
-    CATEGORY_BUTTON_VERTICAL_PADDING = 4
-    CATEGORY_HORIZONTAL_SPACING = 4
-    CATEGORY_VERTICAL_SPACING = 0
+    CATEGORY_BUTTON_HEIGHT = 30
+    CATEGORY_SPACING = 1
 
     def __init__(self) -> None:
         super().__init__()
@@ -187,17 +185,17 @@ class MainWindow(QMainWindow):
         filter_layout.addWidget(self.category_scroll)
 
         self.category_container = QWidget()
-        self.category_layout = QGridLayout(self.category_container)
+        self.category_layout = QVBoxLayout(self.category_container)
         self.category_layout.setContentsMargins(0, 0, 0, 0)
-        self.category_layout.setHorizontalSpacing(self.CATEGORY_HORIZONTAL_SPACING)
-        self.category_layout.setVerticalSpacing(self.CATEGORY_VERTICAL_SPACING)
+        self.category_layout.setSpacing(self.CATEGORY_SPACING)
+        self.category_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft,
+        )
         self.category_scroll.setWidget(self.category_container)
 
         self.all_categories_button = QPushButton("Todos")
         self.all_categories_button.setCheckable(True)
-        self.all_categories_button.setStyleSheet(
-            "QPushButton { padding: 4px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
-        )
+        self.all_categories_button.setProperty("category_text", "Todos")
         self.all_categories_button.clicked.connect(self.clear_category_filters)
         self.category_buttons = [self.all_categories_button]
         layout.addLayout(filter_layout)
@@ -208,17 +206,16 @@ class MainWindow(QMainWindow):
         button: QPushButton,
         *texts: str,
     ) -> None:
-        """Configura el tamaño fijo considerando normal y activo desde el inicio."""
+        """Configura un botón de filtro con tamaño fijo desde su creación."""
         font = button.font()
-        font.setPointSize(cls.TOGGLE_FONT_SIZE)
+        font.setPixelSize(cls.TOGGLE_FONT_SIZE)
         button.setFont(font)
         button.setSizePolicy(
             QSizePolicy.Policy.Fixed,
             QSizePolicy.Policy.Fixed,
         )
         button.setStyleSheet(
-            "QPushButton { font-size: 14px; padding: 4px 10px; }\n"
-            + cls.ACTIVE_BUTTON_STYLE,
+            "QPushButton { padding: 0px 12px; }\n" + cls.ACTIVE_BUTTON_STYLE,
         )
         cls._set_toggle_button_width(button, *texts)
 
@@ -228,7 +225,7 @@ class MainWindow(QMainWindow):
         button: QPushButton,
         *texts: str,
     ) -> None:
-        """Reserva desde la creación el ancho máximo de todos los estados."""
+        """Reserva el ancho máximo de todos los estados del botón."""
         font = button.font()
         metrics = QFontMetrics(font)
         bold_font = QFont(font)
@@ -245,33 +242,21 @@ class MainWindow(QMainWindow):
         button.setFixedHeight(cls.TOGGLE_BUTTON_HEIGHT)
 
     @classmethod
-    def _grow_toggle_button_width(cls, button: QPushButton) -> None:
-        """Reaplica el ancho reservado sin cambiarlo entre estados."""
-        if button is None:
-            return
-        if button is getattr(button.parent(), "category_toggle_button", None):
-            cls._set_toggle_button_width(
-                button,
-                "Filtrar Categorías",
-                "Ocultar Categorías",
-            )
-        else:
-            cls._set_toggle_button_width(button, "Solo Stock Disponible")
-
-    @classmethod
     def _category_button_width(cls, button: QPushButton, text: str) -> int:
-        """Calcula el ancho fijo necesario para texto normal y resaltado a 14 px."""
+        """Calcula el ancho necesario para texto normal y resaltado a 13 px."""
         font = button.font()
-        font.setPointSize(cls.CATEGORY_FONT_SIZE)
+        font.setPixelSize(cls.CATEGORY_FONT_SIZE)
         bold_font = QFont(font)
         bold_font.setBold(True)
         metrics = QFontMetrics(font)
         bold_metrics = QFontMetrics(bold_font)
-        text_width = max(
-            metrics.horizontalAdvance(text),
-            bold_metrics.horizontalAdvance(text),
+        return (
+            max(
+                metrics.horizontalAdvance(text),
+                bold_metrics.horizontalAdvance(text),
+            )
+            + cls.CATEGORY_BUTTON_HORIZONTAL_PADDING
         )
-        return text_width + cls.CATEGORY_BUTTON_HORIZONTAL_PADDING
 
     @classmethod
     def _fit_category_button(
@@ -279,9 +264,9 @@ class MainWindow(QMainWindow):
         button: QPushButton,
         text: str,
     ) -> int:
-        """Ajusta cada categoría al texto, incluyendo el estado resaltado."""
+        """Ajusta el botón al texto y conserva el ancho en ambos estados."""
         font = button.font()
-        font.setPointSize(cls.CATEGORY_FONT_SIZE)
+        font.setPixelSize(cls.CATEGORY_FONT_SIZE)
         button.setFont(font)
         button.setText(text)
         button.setToolTip(text)
@@ -291,7 +276,7 @@ class MainWindow(QMainWindow):
         )
         width = cls._category_button_width(button, text)
         button.setFixedWidth(width)
-        button.setFixedHeight(32)
+        button.setFixedHeight(cls.CATEGORY_BUTTON_HEIGHT)
         return width
 
     def toggle_categories_visibility(self, visible: bool) -> None:
@@ -326,13 +311,7 @@ class MainWindow(QMainWindow):
                 button.deleteLater()
         self.category_buttons = [self.all_categories_button]
 
-        while self.category_layout.count():
-            item = self.category_layout.takeAt(0)
-            if item is None:
-                continue
-            widget = item.widget()
-            if widget is not None:
-                widget.setParent(None)
+        self._clear_category_rows()
 
         categories = sorted(
             {
@@ -349,9 +328,6 @@ class MainWindow(QMainWindow):
             button.setProperty("category_text", category)
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
-            button.setStyleSheet(
-                "QPushButton { padding: 4px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
-            )
             button.clicked.connect(
                 lambda checked, value=category: self.toggle_category(value, checked),
             )
@@ -360,25 +336,32 @@ class MainWindow(QMainWindow):
         self._update_all_categories_button()
         self._reflow_category_buttons()
 
-    def _reflow_category_buttons(self) -> None:
-        if not hasattr(self, "category_layout"):
-            return
-
+    def _clear_category_rows(self) -> None:
+        """Elimina las filas visuales sin destruir los botones de categorías."""
         while self.category_layout.count():
             item = self.category_layout.takeAt(0)
             if item is None:
                 continue
-            widget = item.widget()
-            if widget is not None:
-                widget.setParent(None)
+            row_layout = item.layout()
+            if row_layout is None:
+                continue
+            while row_layout.count():
+                child = row_layout.takeAt(0)
+                if child is None:
+                    continue
+                widget = child.widget()
+                if widget is not None:
+                    widget.setParent(self.category_container)
+
+    def _reflow_category_buttons(self) -> None:
+        if not hasattr(self, "category_layout"):
+            return
+
+        self._clear_category_rows()
 
         viewport_width = self.category_scroll.viewport().width()
         if viewport_width <= 1 or not self.category_buttons:
             return
-
-        spacing = self.CATEGORY_HORIZONTAL_SPACING
-        rows: list[list[QPushButton]] = [[]]
-        row_widths = [0]
 
         prepared: list[tuple[QPushButton, int]] = []
         for button in self.category_buttons:
@@ -388,27 +371,39 @@ class MainWindow(QMainWindow):
             )
             prepared.append((button, self._fit_category_button(button, text)))
 
+        rows: list[list[QPushButton]] = [[]]
+        row_widths = [0]
+        spacing = self.CATEGORY_SPACING
+
         for button, width in prepared:
-            current = len(rows) - 1
-            required = width if not rows[current] else spacing + width
-            if rows[current] and row_widths[current] + required > viewport_width:
+            current_row = len(rows) - 1
+            required_width = width
+            if rows[current_row]:
+                required_width += spacing
+
+            if rows[current_row] and row_widths[current_row] + required_width > viewport_width:
                 rows.append([])
                 row_widths.append(0)
-                current += 1
-            rows[current].append(button)
-            row_widths[current] += width
-            if len(rows[current]) > 1:
-                row_widths[current] += spacing
+                current_row += 1
 
-        for row, buttons in enumerate(rows):
-            for column, button in enumerate(buttons):
-                self.category_layout.addWidget(button, row, column)
+            rows[current_row].append(button)
+            row_widths[current_row] += width
+            if len(rows[current_row]) > 1:
+                row_widths[current_row] += spacing
 
-        self.category_container.adjustSize()
+        for buttons in rows:
+            row_layout = QHBoxLayout()
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(spacing)
+            row_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            for button in buttons:
+                row_layout.addWidget(button)
+            self.category_layout.addLayout(row_layout)
 
     def _update_all_categories_button(self) -> None:
         self.all_categories_button.setChecked(not self.selected_categories)
         self.all_categories_button.setText("Todos")
+        self.all_categories_button.setProperty("category_text", "Todos")
 
     def clear_category_filters(self) -> None:
         self.selected_categories.clear()

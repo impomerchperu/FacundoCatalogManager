@@ -4,7 +4,7 @@ from typing import ClassVar
 from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFontMetrics
+from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QFileDialog,
     QGridLayout,
@@ -58,10 +58,14 @@ class MainWindow(QMainWindow):
         }
     """
 
-    CATEGORY_MIN_BUTTON_WIDTH = 120
-    CATEGORY_BUTTON_HORIZONTAL_PADDING = 20
+    TOGGLE_FONT_SIZE = 18
     TOGGLE_BUTTON_HORIZONTAL_PADDING = 24
-    CATEGORY_BUTTON_VERTICAL_PADDING = 10
+    CATEGORY_FONT_SIZE = 14
+    CATEGORY_MIN_FONT_SIZE = 9
+    CATEGORY_BUTTON_HORIZONTAL_PADDING = 20
+    CATEGORY_MIN_BUTTON_WIDTH = 80
+    CATEGORY_MAX_ROWS = 3
+    CATEGORY_VERTICAL_SPACING = 2
 
     def __init__(self) -> None:
         super().__init__()
@@ -147,26 +151,19 @@ class MainWindow(QMainWindow):
 
         self.category_toggle_button = QPushButton("Filtrar Categorías")
         self.category_toggle_button.setCheckable(True)
-        self.category_toggle_button.setSizePolicy(
-            QSizePolicy.Policy.Fixed,
-            QSizePolicy.Policy.Fixed,
-        )
-        self.category_toggle_button.setStyleSheet(
-            "QPushButton { font-size: 18px; padding: 5px 10px; }\n"
-            + self.ACTIVE_BUTTON_STYLE,
+        self._configure_toggle_button(
+            self.category_toggle_button,
+            "Filtrar Categorías",
+            "Ocultar Categorías",
         )
         self.category_toggle_button.toggled.connect(self.toggle_categories_visibility)
         top_controls.addWidget(self.category_toggle_button)
 
         self.stock_filter_button = QPushButton("Solo Stock Disponible")
         self.stock_filter_button.setCheckable(True)
-        self.stock_filter_button.setSizePolicy(
-            QSizePolicy.Policy.Fixed,
-            QSizePolicy.Policy.Fixed,
-        )
-        self.stock_filter_button.setStyleSheet(
-            "QPushButton { font-size: 18px; padding: 5px 10px; }\n"
-            + self.ACTIVE_BUTTON_STYLE,
+        self._configure_toggle_button(
+            self.stock_filter_button,
+            "Solo Stock Disponible",
         )
         self.stock_filter_button.setToolTip(
             "Mostrar únicamente productos con stock mayor a 0.",
@@ -175,16 +172,6 @@ class MainWindow(QMainWindow):
         top_controls.addWidget(self.stock_filter_button)
         top_controls.addStretch()
         filter_layout.addLayout(top_controls)
-
-        self._set_toggle_button_width(
-            self.category_toggle_button,
-            "Filtrar Categorías",
-            "Ocultar Categorías",
-        )
-        self._set_toggle_button_width(
-            self.stock_filter_button,
-            "Solo Stock Disponible",
-        )
 
         self.category_scroll = QScrollArea()
         self.category_scroll.setWidgetResizable(True)
@@ -204,7 +191,7 @@ class MainWindow(QMainWindow):
         self.category_layout = QGridLayout(self.category_container)
         self.category_layout.setContentsMargins(0, 0, 0, 0)
         self.category_layout.setHorizontalSpacing(6)
-        self.category_layout.setVerticalSpacing(6)
+        self.category_layout.setVerticalSpacing(self.CATEGORY_VERTICAL_SPACING)
         self.category_scroll.setWidget(self.category_container)
 
         self.all_categories_button = QPushButton("Todos")
@@ -214,81 +201,100 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Fixed,
         )
         self.all_categories_button.setStyleSheet(
-            "QPushButton { padding: 5px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
+            "QPushButton { padding: 3px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
         )
         self.all_categories_button.clicked.connect(self.clear_category_filters)
         self.category_buttons = [self.all_categories_button]
         layout.addLayout(filter_layout)
 
-    @staticmethod
-    def _set_toggle_button_width(
+    @classmethod
+    def _configure_toggle_button(
+        cls,
         button: QPushButton,
         *texts: str,
     ) -> None:
-        """Reserva desde el inicio el ancho del estado normal y activo."""
-        metrics = QFontMetrics(button.font())
-        bold_font = button.font()
+        """Configura el tamaño real de fuente y reserva ambos estados desde el inicio."""
+        font = button.font()
+        font.setPointSize(cls.TOGGLE_FONT_SIZE)
+        button.setFont(font)
+        button.setSizePolicy(
+            QSizePolicy.Policy.Fixed,
+            QSizePolicy.Policy.Fixed,
+        )
+        button.setStyleSheet(
+            "QPushButton { font-size: 18px; padding: 5px 10px; }\n"
+            + cls.ACTIVE_BUTTON_STYLE,
+        )
+        cls._set_toggle_button_width(button, *texts)
+
+    @classmethod
+    def _set_toggle_button_width(
+        cls,
+        button: QPushButton,
+        *texts: str,
+    ) -> None:
+        """Reserva desde el inicio el ancho necesario para normal y activo."""
+        font = button.font()
+        metrics = QFontMetrics(font)
+        bold_font = QFont(font)
         bold_font.setBold(True)
         bold_metrics = QFontMetrics(bold_font)
         required_width = max(
             max(metrics.horizontalAdvance(text), bold_metrics.horizontalAdvance(text))
             for text in texts
-        ) + MainWindow.TOGGLE_BUTTON_HORIZONTAL_PADDING
+        ) + cls.TOGGLE_BUTTON_HORIZONTAL_PADDING
         button.setFixedWidth(required_width)
-        button.setFixedHeight(max(button.sizeHint().height(), 42))
+        button.setMinimumHeight(42)
+        button.setMaximumHeight(42)
 
-    @staticmethod
-    def _grow_toggle_button_width(button: QPushButton) -> None:
-        """Garantiza que el estado activo también quepa sin cambiar luego de tamaño."""
-        MainWindow._set_toggle_button_width(button, button.text())
+    @classmethod
+    def _grow_toggle_button_width(cls, button: QPushButton) -> None:
+        """Mantiene el ancho correcto al cambiar el texto del estado."""
+        if button is cls:
+            return
+        if button is getattr(button.window(), "category_toggle_button", None):
+            cls._set_toggle_button_width(
+                button,
+                "Filtrar Categorías",
+                "Ocultar Categorías",
+            )
+        elif button is getattr(button.window(), "stock_filter_button", None):
+            cls._set_toggle_button_width(button, "Solo Stock Disponible")
+        else:
+            cls._set_toggle_button_width(button, button.text())
 
-    @staticmethod
-    def _category_button_width(button: QPushButton, text: str) -> int:
-        metrics = QFontMetrics(button.font())
-        bold_font = button.font()
+    @classmethod
+    def _category_font_for_width(cls, button: QPushButton, text: str, width: int) -> QFont:
+        """Reduce la fuente solo cuando es necesario para conservar una sola línea."""
+        font = button.font()
+        font.setPointSize(cls.CATEGORY_FONT_SIZE)
+        bold_font = QFont(font)
         bold_font.setBold(True)
-        bold_metrics = QFontMetrics(bold_font)
-        return max(
-            metrics.horizontalAdvance(text),
-            bold_metrics.horizontalAdvance(text),
-        ) + MainWindow.CATEGORY_BUTTON_HORIZONTAL_PADDING
+        available = max(20, width - cls.CATEGORY_BUTTON_HORIZONTAL_PADDING)
 
-    @staticmethod
-    def _wrap_category_text(text: str, available_width: int) -> str:
-        """Envuelve categorías largas en un máximo de dos líneas."""
-        metrics = QFontMetrics(QPushButton().font())
-        available_width = max(40, available_width)
-        if metrics.horizontalAdvance(text) <= available_width:
-            return text
+        while font.pointSize() > cls.CATEGORY_MIN_FONT_SIZE:
+            normal_width = QFontMetrics(font).horizontalAdvance(text)
+            bold_width = QFontMetrics(bold_font).horizontalAdvance(text)
+            if max(normal_width, bold_width) <= available:
+                break
+            next_size = font.pointSize() - 1
+            font.setPointSize(next_size)
+            bold_font.setPointSize(next_size)
 
-        character_width = max(metrics.averageCharWidth(), 1)
-        max_chars = max(4, available_width // character_width)
-        parts = textwrap.wrap(
-            text,
-            width=max_chars,
-            break_long_words=False,
-            break_on_hyphens=False,
-        )
-        if len(parts) <= 2:
-            return "\n".join(parts)
-        first = parts[0]
-        remaining = " ".join(parts[1:])
-        second = textwrap.shorten(
-            remaining,
-            width=max_chars,
-            placeholder="…",
-        )
-        return f"{first}\n{second}"
+        return font
 
+    @classmethod
     def _fit_category_button(
-        self,
+        cls,
         button: QPushButton,
         text: str,
         cell_width: int,
     ) -> None:
-        """Hace que cada botón ocupe toda su celda sin salir de la ventana."""
-        wrapped_text = self._wrap_category_text(text, cell_width - 20)
-        button.setText(wrapped_text)
+        """Ajusta cada categoría a una sola línea y al ancho de su celda."""
+        font = cls._category_font_for_width(button, text, cell_width)
+        button.setFont(font)
+        button.setText(text)
+        button.setToolTip(text)
         button.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
@@ -296,9 +302,7 @@ class MainWindow(QMainWindow):
         button.setMinimumWidth(0)
         button.setMaximumWidth(cell_width)
         button.setFixedWidth(cell_width)
-        line_count = wrapped_text.count("\n") + 1
-        height = 34 if line_count == 1 else 54
-        button.setFixedHeight(height)
+        button.setFixedHeight(34)
 
     def toggle_categories_visibility(self, visible: bool) -> None:
         self.categories_visible = visible
@@ -356,7 +360,7 @@ class MainWindow(QMainWindow):
                 QSizePolicy.Policy.Fixed,
             )
             button.setStyleSheet(
-                "QPushButton { padding: 5px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
+                "QPushButton { padding: 3px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
             )
             button.clicked.connect(
                 lambda checked, value=category: self.toggle_category(value, checked),
@@ -383,13 +387,11 @@ class MainWindow(QMainWindow):
             return
 
         spacing = self.category_layout.horizontalSpacing()
-        available_width = max(viewport_width, self.CATEGORY_MIN_BUTTON_WIDTH)
-        column_count = max(
-            1,
-            (available_width + spacing)
-            // (self.CATEGORY_MIN_BUTTON_WIDTH + spacing),
-        )
-        column_count = min(column_count, len(self.category_buttons))
+        available_width = max(viewport_width, 1)
+        total_buttons = len(self.category_buttons)
+        row_count = min(self.CATEGORY_MAX_ROWS, total_buttons)
+        column_count = max(1, (total_buttons + row_count - 1) // row_count)
+        column_count = min(column_count, total_buttons)
         column_width = max(
             1,
             (available_width - spacing * (column_count - 1)) // column_count,
@@ -397,8 +399,9 @@ class MainWindow(QMainWindow):
 
         for column in range(column_count):
             self.category_layout.setColumnStretch(column, 1)
+        for row in range(row_count):
+            self.category_layout.setRowStretch(row, 0)
 
-        total_buttons = len(self.category_buttons)
         for index, button in enumerate(self.category_buttons):
             row = index // column_count
             column = index % column_count
@@ -410,6 +413,7 @@ class MainWindow(QMainWindow):
                     span += 1
                 if column >= remaining:
                     continue
+
             cell_width = column_width * span + spacing * (span - 1)
             text = str(button.property("category_text") or button.text()).replace(
                 "\n",

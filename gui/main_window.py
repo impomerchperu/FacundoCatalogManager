@@ -63,6 +63,7 @@ class MainWindow(QMainWindow):
     CATEGORY_BUTTON_HORIZONTAL_PADDING = 20
     CATEGORY_BUTTON_HEIGHT = 30
     CATEGORY_SPACING = 1
+    CATEGORY_SCROLL_MAX_HEIGHT = 220
 
     def __init__(self) -> None:
         super().__init__()
@@ -129,7 +130,10 @@ class MainWindow(QMainWindow):
         ]
         for text, callback in buttons:
             button = QPushButton(text)
-            button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+            button.setSizePolicy(
+                QSizePolicy.Policy.Minimum,
+                QSizePolicy.Policy.Fixed,
+            )
             button.clicked.connect(callback)
             buttons_layout.addWidget(button)
         buttons_layout.addStretch()
@@ -153,7 +157,9 @@ class MainWindow(QMainWindow):
             "Filtrar Categorías",
             "Ocultar Categorías",
         )
-        self.category_toggle_button.toggled.connect(self.toggle_categories_visibility)
+        self.category_toggle_button.toggled.connect(
+            self.toggle_categories_visibility,
+        )
         top_controls.addWidget(self.category_toggle_button)
 
         self.stock_filter_button = QPushButton("Solo Stock Disponible")
@@ -180,7 +186,7 @@ class MainWindow(QMainWindow):
         )
         self.category_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.category_scroll.setMinimumHeight(0)
-        self.category_scroll.setMaximumHeight(220)
+        self.category_scroll.setMaximumHeight(self.CATEGORY_SCROLL_MAX_HEIGHT)
         self.category_scroll.setVisible(False)
         filter_layout.addWidget(self.category_scroll)
 
@@ -293,7 +299,11 @@ class MainWindow(QMainWindow):
             "Filtrar Categorías",
             "Ocultar Categorías",
         )
-        QTimer.singleShot(0, self._reflow_category_buttons)
+
+        if visible:
+            QTimer.singleShot(0, self._reflow_category_buttons)
+        else:
+            self.category_scroll.setFixedHeight(0)
 
     def refresh_catalog(self) -> None:
         self.all_products = self.controller.get_products()
@@ -335,7 +345,10 @@ class MainWindow(QMainWindow):
                 "QPushButton { padding: 0px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
             )
             button.clicked.connect(
-                lambda checked, value=category: self.toggle_category(value, checked),
+                lambda checked, value=category: self.toggle_category(
+                    value,
+                    checked,
+                ),
             )
             self.category_buttons.append(button)
 
@@ -371,11 +384,15 @@ class MainWindow(QMainWindow):
 
         prepared: list[tuple[QPushButton, int]] = []
         for button in self.category_buttons:
-            text = str(button.property("category_text") or button.text()).replace(
+            text = str(
+                button.property("category_text") or button.text(),
+            ).replace(
                 "\n",
                 " ",
             )
-            prepared.append((button, self._fit_category_button(button, text)))
+            prepared.append(
+                (button, self._fit_category_button(button, text)),
+            )
 
         rows: list[list[QPushButton]] = [[]]
         row_widths = [0]
@@ -408,6 +425,14 @@ class MainWindow(QMainWindow):
             for button in buttons:
                 row_layout.addWidget(button)
             self.category_layout.addLayout(row_layout)
+
+        content_height = (
+            len(rows) * self.CATEGORY_BUTTON_HEIGHT
+            + max(0, len(rows) - 1) * self.CATEGORY_SPACING
+        )
+        self.category_scroll.setFixedHeight(
+            min(self.CATEGORY_SCROLL_MAX_HEIGHT, content_height),
+        )
 
     def _update_all_categories_button(self) -> None:
         self.all_categories_button.setChecked(not self.selected_categories)

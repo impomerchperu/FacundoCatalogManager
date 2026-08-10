@@ -196,6 +196,9 @@ class MainWindow(QMainWindow):
         self.all_categories_button = QPushButton("Todos")
         self.all_categories_button.setCheckable(True)
         self.all_categories_button.setProperty("category_text", "Todos")
+        self.all_categories_button.setStyleSheet(
+            "QPushButton { padding: 0px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
+        )
         self.all_categories_button.clicked.connect(self.clear_category_filters)
         self.category_buttons = [self.all_categories_button]
         layout.addLayout(filter_layout)
@@ -328,6 +331,9 @@ class MainWindow(QMainWindow):
             button.setProperty("category_text", category)
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
+            button.setStyleSheet(
+                "QPushButton { padding: 0px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
+            )
             button.clicked.connect(
                 lambda checked, value=category: self.toggle_category(value, checked),
             )

@@ -213,7 +213,7 @@ class MainWindow(QMainWindow):
         button: QPushButton,
         *texts: str,
     ) -> None:
-        """Configura el tamaño real de fuente y reserva ambos estados desde el inicio."""
+        """Configura fuente y ancho real para todos los estados del botón."""
         font = button.font()
         font.setPointSize(cls.TOGGLE_FONT_SIZE)
         button.setFont(font)
@@ -249,22 +249,23 @@ class MainWindow(QMainWindow):
 
     @classmethod
     def _grow_toggle_button_width(cls, button: QPushButton) -> None:
-        """Mantiene el ancho correcto al cambiar el texto del estado."""
-        if button is cls:
-            return
-        if button is getattr(button.window(), "category_toggle_button", None):
+        """Mantiene el ancho reservado para el estado normal y activo."""
+        if button.text() in {"Filtrar Categorías", "Ocultar Categorías"}:
             cls._set_toggle_button_width(
                 button,
                 "Filtrar Categorías",
                 "Ocultar Categorías",
             )
-        elif button is getattr(button.window(), "stock_filter_button", None):
-            cls._set_toggle_button_width(button, "Solo Stock Disponible")
-        else:
-            cls._set_toggle_button_width(button, button.text())
+            return
+        cls._set_toggle_button_width(button, "Solo Stock Disponible")
 
     @classmethod
-    def _category_font_for_width(cls, button: QPushButton, text: str, width: int) -> QFont:
+    def _category_font_for_width(
+        cls,
+        button: QPushButton,
+        text: str,
+        width: int,
+    ) -> QFont:
         """Reduce la fuente solo cuando es necesario para conservar una sola línea."""
         font = button.font()
         font.setPointSize(cls.CATEGORY_FONT_SIZE)

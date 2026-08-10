@@ -387,7 +387,10 @@ class MainWindow(QMainWindow):
             if rows[current_row]:
                 required_width += spacing
 
-            if rows[current_row] and row_widths[current_row] + required_width > viewport_width:
+            if (
+                rows[current_row]
+                and row_widths[current_row] + required_width > viewport_width
+            ):
                 rows.append([])
                 row_widths.append(0)
                 current_row += 1
@@ -433,7 +436,10 @@ class MainWindow(QMainWindow):
 
     def toggle_stock_filter(self, checked: bool) -> None:
         self.stock_only = checked
-        self._set_toggle_button_width(self.stock_filter_button, "Solo Stock Disponible")
+        self._set_toggle_button_width(
+            self.stock_filter_button,
+            "Solo Stock Disponible",
+        )
         self.apply_filters()
 
     def apply_filters(self) -> None:

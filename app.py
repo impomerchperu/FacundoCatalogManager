@@ -3,9 +3,6 @@ import sys
 from PySide6.QtWidgets import QApplication
 
 from gui.main_window import MainWindow
-from gui.main_window_tweaks import apply_main_window_tweaks
-
-apply_main_window_tweaks(MainWindow)
 
 app = QApplication(sys.argv)
 

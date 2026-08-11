@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QBrush, QFont
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -452,13 +452,12 @@ class ScrapingHistoryDialog(QDialog):
         return str(value)
 
     @staticmethod
-    def _set_item(row: int, column: int, value: str, history=None) -> None:
+    def _set_item(row: int, column: int, value: str, history=None) -> QTableWidgetItem:
         item = QTableWidgetItem(value)
         item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         if history is not None:
             item.setData(Qt.ItemDataRole.UserRole, history)
-        item.setFont(QFont(item.font()))
-        ScrapingHistoryDialog._set_table_item(row, column, item)
+        return item
 
     def _set_table_item(self, row: int, column: int, item: QTableWidgetItem) -> None:
         self.table.setItem(row, column, item)

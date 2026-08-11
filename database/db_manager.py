@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from datetime import datetime, timedelta, timezone
 
 
 class DBManager:
@@ -33,6 +34,7 @@ class DBManager:
 
         self._run_migrations()
         self._create_migration_dependent_indexes()
+        self._cleanup_expired_catalog_history()
         self.connection.commit()
 
     def _run_migrations(self):
@@ -72,6 +74,58 @@ class DBManager:
             CREATE INDEX IF NOT EXISTS idx_catalog_loads_applied_at
             ON catalog_loads(applied_at)
             """,
+        )
+
+    def _cleanup_expired_catalog_history(self, retention_days: int = 7) -> None:
+        """Elimina historiales antiguos sin eliminar la última carga aplicada."""
+        cutoff = (
+            datetime.now(timezone.utc) - timedelta(days=retention_days)
+        ).isoformat()
+        latest_applied = self.fetch_one(
+            """
+            SELECT id
+            FROM catalog_loads
+            WHERE applied = 1 OR applied_at IS NOT NULL
+            ORDER BY applied_at DESC, id DESC
+            LIMIT 1
+            """,
+        )
+        protected_load_id = (
+            int(latest_applied["id"]) if latest_applied is not None else None
+        )
+
+        if protected_load_id is None:
+            self.connection.execute(
+                """
+                DELETE FROM scraping_history
+                WHERE started_at < ?
+                """,
+                (cutoff,),
+            )
+            self.connection.execute(
+                """
+                DELETE FROM catalog_loads
+                WHERE created_at < ?
+                """,
+                (cutoff,),
+            )
+            return
+
+        self.connection.execute(
+            """
+            DELETE FROM scraping_history
+            WHERE started_at < ?
+              AND (load_id IS NULL OR load_id != ?)
+            """,
+            (cutoff, protected_load_id),
+        )
+        self.connection.execute(
+            """
+            DELETE FROM catalog_loads
+            WHERE created_at < ?
+              AND id != ?
+            """,
+            (cutoff, protected_load_id),
         )
 
     def _add_column_if_missing(

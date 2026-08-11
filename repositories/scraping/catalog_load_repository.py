@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import ClassVar
 
 from database.db_manager import DBManager
@@ -52,6 +52,7 @@ class CatalogLoadRepository:
         status: str = "SUCCESS",
         message: str = "",
     ) -> int:
+        """Crea una descarga histórica sin modificar el catálogo activo."""
         unique_products = self._deduplicate_products(products)
         created_at = datetime.now(timezone.utc).isoformat()
         connection = self.db.connection
@@ -96,6 +97,7 @@ class CatalogLoadRepository:
         message: str = "",
         applied: bool = False,
     ) -> int:
+        """Crea una versión histórica a partir del catálogo actual."""
         products = self.db.fetch_all(
             """
             SELECT code, name, category, description, price,
@@ -169,7 +171,7 @@ class CatalogLoadRepository:
         return load_id
 
     def apply(self, load_id: int) -> bool:
-        """Aplica únicamente una carga posterior a la última aplicada."""
+        """Aplica manualmente una descarga posterior a la última aplicada."""
         load = self.get_by_id(load_id)
         if load is None or load["status"] != "SUCCESS":
             return False
@@ -211,10 +213,19 @@ class CatalogLoadRepository:
         self._replace_products(int(load["id"]))
         return int(load["id"])
 
-    def cleanup_expired_history(self, retention_days: int = 7) -> int:
-        """Elimina historiales antiguos conservando la última carga aplicada."""
+    def cleanup_expired_history(self, retention_days: int | None = None) -> int:
+        """
+        Limpia historial únicamente cuando se solicita explícitamente.
+
+        Por defecto no elimina nada: el historial de descargas debe
+        conservarse para consulta y auditoría.
+        """
+        if retention_days is None:
+            return 0
         if retention_days < 1:
             raise ValueError("retention_days debe ser mayor que cero.")
+
+        from datetime import timedelta
 
         cutoff = (
             datetime.now(timezone.utc) - timedelta(days=retention_days)
@@ -259,25 +270,29 @@ class CatalogLoadRepository:
         return max(int(deleted), 0)
 
     def get_catalog_action(self, load_id: int) -> tuple[str, str | None]:
-        """Devuelve el estado visible de una carga y su fecha de aplicación."""
+        """Devuelve el estado visible y la fecha de aplicación de una carga."""
         load = self.get_by_id(load_id)
         if load is None:
             return "NO_DISPONIBLE", None
         if load["status"] != "SUCCESS":
             return "NO_APLICABLE", None
 
+        if bool(load["applied"]) or load["applied_at"] is not None:
+            return "APLICADO", str(load["applied_at"])
+
         latest_applied = self.get_latest_applied()
         if latest_applied is not None:
             latest_id = int(latest_applied["id"])
-            if load_id == latest_id:
-                return "APLICADO", str(load["applied_at"])
             if load_id < latest_id:
                 return "NO_APLICADO", None
 
         return "APLICAR", None
 
     def get_load_changes(self, load_id: int) -> list[dict]:
-        """Compara una carga con la carga exitosa inmediatamente anterior."""
+        """
+        Devuelve altas y modificaciones de una descarga comparada
+        contra la descarga exitosa inmediatamente anterior.
+        """
         select_fields = """
             code, name, category, description, price,
             price_sample, price_hundred, price_thousand, stock,

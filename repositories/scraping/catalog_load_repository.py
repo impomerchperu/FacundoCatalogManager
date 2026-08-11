@@ -169,12 +169,18 @@ class CatalogLoadRepository:
         return load_id
 
     def apply(self, load_id: int) -> bool:
-        """Aplica una carga y conserva el historial de aplicaciones."""
+        """Aplica únicamente una carga posterior a la última aplicada."""
         load = self.get_by_id(load_id)
-        if load is None:
+        if load is None or load["status"] != "SUCCESS":
             return False
-        if bool(load["applied"]) or load["applied_at"] is not None:
-            return True
+
+        latest_applied = self.get_latest_applied()
+        if latest_applied is not None:
+            latest_id = int(latest_applied["id"])
+            if load_id == latest_id:
+                return True
+            if load_id < latest_id:
+                return False
 
         connection = self.db.connection
         applied_at = datetime.now(timezone.utc).isoformat()
@@ -206,44 +212,44 @@ class CatalogLoadRepository:
         return int(load["id"])
 
     def cleanup_expired_history(self, retention_days: int = 7) -> int:
-        """Elimina historiales no aplicados con más de siete días."""
+        """Elimina historiales antiguos conservando la última carga aplicada."""
         if retention_days < 1:
             raise ValueError("retention_days debe ser mayor que cero.")
 
         cutoff = (
             datetime.now(timezone.utc) - timedelta(days=retention_days)
         ).isoformat()
+        latest_applied = self.get_latest_applied()
+        protected_id = int(latest_applied["id"]) if latest_applied else None
         connection = self.db.connection
 
         try:
             connection.execute("BEGIN")
-            connection.execute(
-                """
-                DELETE FROM scraping_history
-                WHERE started_at < ?
-                  AND (
-                      load_id IS NULL
-                      OR NOT EXISTS (
-                          SELECT 1 FROM catalog_loads
-                          WHERE catalog_loads.id = scraping_history.load_id
-                            AND (
-                                catalog_loads.applied = 1
-                                OR catalog_loads.applied_at IS NOT NULL
-                            )
-                      )
-                  )
-                """,
-                (cutoff,),
-            )
-            cursor = connection.execute(
-                """
-                DELETE FROM catalog_loads
-                WHERE created_at < ?
-                  AND applied = 0
-                  AND applied_at IS NULL
-                """,
-                (cutoff,),
-            )
+            if protected_id is None:
+                connection.execute(
+                    "DELETE FROM scraping_history WHERE started_at < ?",
+                    (cutoff,),
+                )
+                cursor = connection.execute(
+                    "DELETE FROM catalog_loads WHERE created_at < ?",
+                    (cutoff,),
+                )
+            else:
+                connection.execute(
+                    """
+                    DELETE FROM scraping_history
+                    WHERE started_at < ?
+                      AND (load_id IS NULL OR load_id != ?)
+                    """,
+                    (cutoff, protected_id),
+                )
+                cursor = connection.execute(
+                    """
+                    DELETE FROM catalog_loads
+                    WHERE created_at < ? AND id != ?
+                    """,
+                    (cutoff, protected_id),
+                )
             deleted = cursor.rowcount
             connection.commit()
         except Exception:
@@ -251,6 +257,24 @@ class CatalogLoadRepository:
             raise
 
         return max(int(deleted), 0)
+
+    def get_catalog_action(self, load_id: int) -> tuple[str, str | None]:
+        """Devuelve el estado visible de una carga y su fecha de aplicación."""
+        load = self.get_by_id(load_id)
+        if load is None:
+            return "NO_DISPONIBLE", None
+        if load["status"] != "SUCCESS":
+            return "NO_APLICABLE", None
+
+        latest_applied = self.get_latest_applied()
+        if latest_applied is not None:
+            latest_id = int(latest_applied["id"])
+            if load_id == latest_id:
+                return "APLICADO", str(load["applied_at"])
+            if load_id < latest_id:
+                return "NO_APLICADO", None
+
+        return "APLICAR", None
 
     def get_load_changes(self, load_id: int) -> list[dict]:
         """Compara una carga con la carga exitosa inmediatamente anterior."""
@@ -298,13 +322,15 @@ class CatalogLoadRepository:
         for code, row in current.items():
             old = previous.get(code)
             if old is None:
-                changes.append({
-                    "type": "NEW",
-                    "code": code,
-                    "name": row["name"],
-                    "fields": [],
-                    "changes": [],
-                })
+                changes.append(
+                    {
+                        "type": "NEW",
+                        "code": code,
+                        "name": row["name"],
+                        "fields": [],
+                        "changes": [],
+                    }
+                )
                 continue
 
             field_changes = []
@@ -312,21 +338,25 @@ class CatalogLoadRepository:
                 old_value = self._decode_value(field, old[field])
                 new_value = self._decode_value(field, row[field])
                 if old_value != new_value:
-                    field_changes.append({
-                        "field": field,
-                        "label": self.FIELD_LABELS[field],
-                        "old": old_value,
-                        "new": new_value,
-                    })
+                    field_changes.append(
+                        {
+                            "field": field,
+                            "label": self.FIELD_LABELS[field],
+                            "old": old_value,
+                            "new": new_value,
+                        }
+                    )
 
             if field_changes:
-                changes.append({
-                    "type": "UPDATED",
-                    "code": code,
-                    "name": row["name"],
-                    "fields": [item["label"] for item in field_changes],
-                    "changes": field_changes,
-                })
+                changes.append(
+                    {
+                        "type": "UPDATED",
+                        "code": code,
+                        "name": row["name"],
+                        "fields": [item["label"] for item in field_changes],
+                        "changes": field_changes,
+                    }
+                )
 
         return changes
 
@@ -460,11 +490,13 @@ class CatalogLoadRepository:
 
     @staticmethod
     def _normalize_colors(colors) -> list[str]:
-        return list(dict.fromkeys(
-            str(color).strip()
-            for color in (colors or [])
-            if str(color).strip()
-        ))
+        return list(
+            dict.fromkeys(
+                str(color).strip()
+                for color in (colors or [])
+                if str(color).strip()
+            )
+        )
 
     @staticmethod
     def _normalize_color_stock(color_stock) -> dict[str, int]:

@@ -3,6 +3,7 @@ import sqlite3
 from datetime import datetime
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QBrush, QFont
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -26,6 +27,8 @@ class ScrapingHistoryDialog(QDialog):
 
     catalog_applied = Signal(int)
 
+    APPLIED_BACKGROUND = "#b2ebf2"
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.db = DBManager()
@@ -33,7 +36,7 @@ class ScrapingHistoryDialog(QDialog):
         self.catalog_load_repository = CatalogLoadRepository(self.db)
         self.detail_dialog: QDialog | None = None
         self.setWindowTitle("Historial de actualizaciones")
-        self.resize(1100, 500)
+        self.resize(1250, 560)
         self.build_ui()
         self.load_history()
 
@@ -49,10 +52,10 @@ class ScrapingHistoryDialog(QDialog):
         layout.addWidget(title)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(9)
+        self.table.setColumnCount(10)
         self.table.setHorizontalHeaderLabels([
             "Fecha", "Duración", "Procesados", "Nuevos", "Actualizados",
-            "Sin cambios", "Errores", "Estado", "Catálogo",
+            "Sin cambios", "Errores", "Estado", "Catálogo", "Detalle",
         ])
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
@@ -69,7 +72,7 @@ class ScrapingHistoryDialog(QDialog):
         buttons.addWidget(details_button)
         buttons.addStretch()
         close_button = QPushButton("Cerrar")
-        close_button.clicked.connect(self.accept)
+        close_button.clicked.connect(self.close)
         buttons.addWidget(close_button)
         layout.addLayout(buttons)
 
@@ -97,13 +100,15 @@ class ScrapingHistoryDialog(QDialog):
             self._set_item(row, 6, str(record.errors))
             self._set_item(row, 7, record.status)
             self._set_catalog_action(row, record.load_id)
+            self._set_detail_action(row, record.load_id)
             self.table.setRowHeight(row, 48)
 
         self.table.resizeColumnsToContents()
         self.table.setColumnWidth(0, 160)
         self.table.setColumnWidth(1, 100)
         self.table.setColumnWidth(7, 100)
-        self.table.setColumnWidth(8, 220)
+        self.table.setColumnWidth(8, 230)
+        self.table.setColumnWidth(9, 110)
 
     def _set_catalog_action(
         self,
@@ -136,12 +141,13 @@ class ScrapingHistoryDialog(QDialog):
             label = QLabel("No aplicable")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(label)
-        elif self._is_latest_applied(load, latest_applied):
+        elif bool(load["applied"]) or load["applied_at"] is not None:
             applied_at = self._parse_datetime(load["applied_at"])
             label = QLabel(
                 f"Aplicado\n{self._format_datetime(applied_at)}",
             )
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._style_applied_widget(container, label)
             layout.addWidget(label)
         elif latest_applied is not None and int(load_id) < int(latest_applied["id"]):
             label = QLabel("No Aplicado")
@@ -159,11 +165,28 @@ class ScrapingHistoryDialog(QDialog):
 
         self.table.setCellWidget(row, 8, container)
 
-    @staticmethod
-    def _is_latest_applied(load, latest_applied) -> bool:
-        if latest_applied is None:
-            return False
-        return int(load["id"]) == int(latest_applied["id"])
+    def _set_detail_action(self, row: int, load_id: int | None) -> None:
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(4, 2, 4, 2)
+        button = QPushButton("Ver detalle")
+        button.setProperty("history_row", row)
+        button.setEnabled(load_id is not None)
+        button.clicked.connect(self.show_row_details)
+        layout.addWidget(button)
+        self.table.setCellWidget(row, 9, container)
+
+    def _style_applied_widget(self, container: QWidget, label: QLabel) -> None:
+        container.setStyleSheet(
+            f"background-color: {self.APPLIED_BACKGROUND};"
+        )
+        font = QFont(label.font())
+        font.setBold(True)
+        label.setFont(font)
+        label.setStyleSheet(
+            f"background-color: {self.APPLIED_BACKGROUND};"
+            "font-weight: bold;"
+        )
 
     def apply_selected_load(self) -> None:
         button = self.sender()
@@ -235,6 +258,15 @@ class ScrapingHistoryDialog(QDialog):
                 "La tabla visible fue actualizada con esta versión."
             ),
         )
+
+    def show_row_details(self) -> None:
+        button = self.sender()
+        if not isinstance(button, QPushButton):
+            return
+        row = button.property("history_row")
+        if not isinstance(row, int):
+            return
+        self.show_details(row, 0)
 
     def show_selected_details(self) -> None:
         row = self.table.currentRow()
@@ -419,11 +451,16 @@ class ScrapingHistoryDialog(QDialog):
             return json.dumps(value, ensure_ascii=False, sort_keys=True)
         return str(value)
 
-    def _set_item(self, row: int, column: int, value: str, history=None) -> None:
+    @staticmethod
+    def _set_item(row: int, column: int, value: str, history=None) -> None:
         item = QTableWidgetItem(value)
         item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         if history is not None:
             item.setData(Qt.ItemDataRole.UserRole, history)
+        item.setFont(QFont(item.font()))
+        ScrapingHistoryDialog._set_table_item(row, column, item)
+
+    def _set_table_item(self, row: int, column: int, item: QTableWidgetItem) -> None:
         self.table.setItem(row, column, item)
 
     @staticmethod

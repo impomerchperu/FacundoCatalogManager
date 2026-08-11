@@ -99,6 +99,52 @@ def test_applied_load_keeps_application_timestamp():
     db.close()
 
 
+def test_applied_history_keeps_each_application_and_invalidates_only_pending_loads():
+    db = DBManager(":memory:")
+    repository = CatalogLoadRepository(db)
+
+    load_1 = _create_load(repository, "TEST-001", "Producto 1")
+    load_2 = _create_load(repository, "TEST-002", "Producto 2")
+    load_3 = _create_load(repository, "TEST-003", "Producto 3")
+    load_4 = _create_load(repository, "TEST-004", "Producto 4")
+
+    assert repository.get_catalog_action(load_1)[0] == "APLICAR"
+    assert repository.get_catalog_action(load_2)[0] == "APLICAR"
+    assert repository.get_catalog_action(load_3)[0] == "APLICAR"
+    assert repository.get_catalog_action(load_4)[0] == "APLICAR"
+
+    assert repository.apply(load_1) is True
+    first = repository.get_by_id(load_1)
+    assert first is not None
+    first_applied_at = first["applied_at"]
+    assert first_applied_at is not None
+
+    # La descarga 2 queda pendiente mientras la 3 todavía no se aplica.
+    assert repository.get_catalog_action(load_2)[0] == "APLICAR"
+
+    assert repository.apply(load_3) is True
+
+    # La descarga 1 conserva su estado y su propia fecha/hora.
+    action_1, applied_at_1 = repository.get_catalog_action(load_1)
+    assert action_1 == "APLICADO"
+    assert applied_at_1 == first_applied_at
+
+    # La descarga 2 fue superada por la 3 y ya no puede aplicarse.
+    assert repository.get_catalog_action(load_2) == ("NO_APLICADO", None)
+
+    action_3, applied_at_3 = repository.get_catalog_action(load_3)
+    assert action_3 == "APLICADO"
+    assert applied_at_3 is not None
+    assert applied_at_3 != first_applied_at
+
+    # La descarga 4 es posterior a la última aplicada y sigue disponible.
+    assert repository.get_catalog_action(load_4) == ("APLICAR", None)
+
+    assert repository.apply(load_2) is False
+
+    db.close()
+
+
 def test_load_details_report_new_and_updated_fields():
     db = DBManager(":memory:")
     repository = CatalogLoadRepository(db)

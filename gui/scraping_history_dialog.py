@@ -451,15 +451,11 @@ class ScrapingHistoryDialog(QDialog):
             return json.dumps(value, ensure_ascii=False, sort_keys=True)
         return str(value)
 
-    @staticmethod
-    def _set_item(row: int, column: int, value: str, history=None) -> QTableWidgetItem:
+    def _set_item(self, row: int, column: int, value: str, history=None) -> None:
         item = QTableWidgetItem(value)
         item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         if history is not None:
             item.setData(Qt.ItemDataRole.UserRole, history)
-        return item
-
-    def _set_table_item(self, row: int, column: int, item: QTableWidgetItem) -> None:
         self.table.setItem(row, column, item)
 
     @staticmethod

@@ -75,7 +75,6 @@ class ScrapingHistoryDialog(QDialog):
 
     def load_history(self) -> None:
         try:
-            self.catalog_load_repository.cleanup_expired_history()
             history = self.repository.get_latest(limit=100)
         except sqlite3.Error as error:
             QMessageBox.critical(
@@ -104,7 +103,7 @@ class ScrapingHistoryDialog(QDialog):
         self.table.setColumnWidth(0, 160)
         self.table.setColumnWidth(1, 100)
         self.table.setColumnWidth(7, 100)
-        self.table.setColumnWidth(8, 190)
+        self.table.setColumnWidth(8, 220)
 
     def _set_catalog_action(
         self,
@@ -124,29 +123,47 @@ class ScrapingHistoryDialog(QDialog):
 
         try:
             load = self.catalog_load_repository.get_by_id(int(load_id))
+            latest_applied = self.catalog_load_repository.get_latest_applied()
         except sqlite3.Error:
             load = None
+            latest_applied = None
 
         if load is None:
             label = QLabel("No disponible")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(label)
-        elif load["status"] == "SUCCESS":
-            button = QPushButton(
-                "Reaplicar" if load["applied_at"] is not None else "Aplicar",
-            )
-            button.setProperty("load_id", int(load_id))
-            button.setToolTip(
-                "Aplicar esta versión del catálogo a la tabla visible.",
-            )
-            button.clicked.connect(self.apply_selected_load)
-            layout.addWidget(button)
-        else:
+        elif load["status"] != "SUCCESS":
             label = QLabel("No aplicable")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(label)
+        elif self._is_latest_applied(load, latest_applied):
+            applied_at = self._parse_datetime(load["applied_at"])
+            label = QLabel(
+                f"Aplicado\n{self._format_datetime(applied_at)}",
+            )
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(label)
+        elif latest_applied is not None and int(load_id) < int(latest_applied["id"]):
+            label = QLabel("No Aplicado")
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setToolTip("Esta carga fue superada por una aplicación posterior.")
+            layout.addWidget(label)
+        else:
+            button = QPushButton("Aplicar")
+            button.setProperty("load_id", int(load_id))
+            button.setToolTip(
+                "Aplicar únicamente una carga posterior a la última aplicada.",
+            )
+            button.clicked.connect(self.apply_selected_load)
+            layout.addWidget(button)
 
         self.table.setCellWidget(row, 8, container)
+
+    @staticmethod
+    def _is_latest_applied(load, latest_applied) -> bool:
+        if latest_applied is None:
+            return False
+        return int(load["id"]) == int(latest_applied["id"])
 
     def apply_selected_load(self) -> None:
         button = self.sender()
@@ -157,11 +174,21 @@ class ScrapingHistoryDialog(QDialog):
             return
 
         load = self.catalog_load_repository.get_by_id(load_id)
+        latest_applied = self.catalog_load_repository.get_latest_applied()
         if load is None:
             QMessageBox.warning(
                 self,
                 "Aplicar catálogo",
                 "La carga seleccionada ya no está disponible.",
+            )
+            self.load_history()
+            return
+
+        if latest_applied is not None and load_id <= int(latest_applied["id"]):
+            QMessageBox.information(
+                self,
+                "Carga superada",
+                "Solo se pueden aplicar cargas posteriores a la última carga aplicada.",
             )
             self.load_history()
             return
@@ -172,7 +199,7 @@ class ScrapingHistoryDialog(QDialog):
             (
                 f"¿Desea aplicar la carga #{load_id} al catálogo visible?\n\n"
                 f"Productos: {int(load['product_count'])}\n\n"
-                "Esta versión quedará disponible en el historial."
+                "Esta carga pasará a ser la versión aplicada del catálogo."
             ),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
@@ -193,7 +220,7 @@ class ScrapingHistoryDialog(QDialog):
             QMessageBox.warning(
                 self,
                 "Aplicar catálogo",
-                "La carga seleccionada no existe.",
+                "La carga seleccionada no puede aplicarse porque fue superada.",
             )
             self.load_history()
             return
@@ -280,7 +307,7 @@ class ScrapingHistoryDialog(QDialog):
 
         dialog = QDialog(self)
         self.detail_dialog = dialog
-        dialog.setWindowTitle("Detalle de actualización")
+        dialog.setWindowTitle("Detalle de la descarga")
         dialog.resize(1050, 620)
         dialog.setModal(False)
         dialog.finished.connect(self._detail_dialog_closed)

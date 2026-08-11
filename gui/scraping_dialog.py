@@ -27,6 +27,7 @@ class ScrapingDialog(QDialog):
         self.worker: ScrapingWorker | None = None
         self.pending_result = None
         self.pending_error: str | None = None
+        self.detail_dialog: QDialog | None = None
         self.elapsed_timer = QElapsedTimer()
         self.elapsed_clock = QTimer(self)
         self.elapsed_clock.setInterval(250)
@@ -40,6 +41,9 @@ class ScrapingDialog(QDialog):
         super().showEvent(event)
         self.raise_()
         self.activateWindow()
+        if self.detail_dialog is not None and self.detail_dialog.isVisible():
+            self.detail_dialog.raise_()
+            self.detail_dialog.activateWindow()
 
     def build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -73,6 +77,10 @@ class ScrapingDialog(QDialog):
     def start_scraping(self) -> None:
         if self.scraping_thread is not None and self.scraping_thread.isRunning():
             return
+
+        if self.detail_dialog is not None:
+            self.detail_dialog.close()
+            self.detail_dialog = None
 
         self.start_button.setEnabled(False)
         self.details_button.setEnabled(False)
@@ -182,9 +190,17 @@ class ScrapingDialog(QDialog):
         if result is None:
             return
 
+        if self.detail_dialog is not None:
+            self.detail_dialog.raise_()
+            self.detail_dialog.activateWindow()
+            return
+
         dialog = QDialog(self)
+        self.detail_dialog = dialog
         dialog.setWindowTitle("Detalle de la descarga")
         dialog.resize(1000, 600)
+        dialog.setModal(False)
+        dialog.finished.connect(self._detail_dialog_closed)
         layout = QVBoxLayout(dialog)
 
         summary = QLabel(
@@ -254,11 +270,14 @@ class ScrapingDialog(QDialog):
         layout.addWidget(table)
 
         close_button = QPushButton("Cerrar")
-        close_button.clicked.connect(dialog.accept)
+        close_button.clicked.connect(dialog.close)
         layout.addWidget(close_button)
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
+
+    def _detail_dialog_closed(self) -> None:
+        self.detail_dialog = None
 
     @staticmethod
     def _format_value(value) -> str:
@@ -287,3 +306,10 @@ class ScrapingDialog(QDialog):
 
         self.worker = None
         self.scraping_thread = None
+
+    def closeEvent(self, event) -> None:
+        if self.detail_dialog is not None:
+            self.detail_dialog.close()
+        if self.elapsed_clock.isActive():
+            self.elapsed_clock.stop()
+        super().closeEvent(event)

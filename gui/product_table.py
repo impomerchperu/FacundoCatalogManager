@@ -1,94 +1,18 @@
 import html
-import re
 from typing import ClassVar
 
-from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import (
-    QAbstractTextDocumentLayout,
-    QPainter,
-    QPalette,
-    QPixmap,
-    QTextDocument,
-)
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
     QLabel,
-    QStyle,
-    QStyledItemDelegate,
-    QStyleOptionViewItem,
     QTableWidget,
     QTableWidgetItem,
 )
 
 from controllers.product_controller import ProductController
 from models.product import Product
-
-
-class SearchHighlightDelegate(QStyledItemDelegate):
-    """Pinta coincidencias de búsqueda sin perder el comportamiento de la tabla."""
-
-    HIGHLIGHT_COLOR = "#b2ebf2"
-
-    def __init__(self, parent=None) -> None:
-        super().__init__(parent)
-        self.search_text = ""
-
-    def set_search_text(self, text: str) -> None:
-        self.search_text = text.strip()
-
-    def paint(self, painter: QPainter, option, index) -> None:
-        if not self.search_text:
-            super().paint(painter, option, index)
-            return
-        value = index.data(Qt.ItemDataRole.DisplayRole)
-        if value is None:
-            super().paint(painter, option, index)
-            return
-        text = str(value)
-        if self.search_text.casefold() not in text.casefold():
-            super().paint(painter, option, index)
-            return
-
-        style_option = QStyleOptionViewItem(option)
-        self.initStyleOption(style_option, index)
-        style_option.text = ""
-        if style_option.widget is not None:
-            style_option.widget.style().drawControl(
-                QStyle.ControlElement.CE_ItemViewItem,
-                style_option,
-                painter,
-                style_option.widget,
-            )
-
-        highlighted = re.sub(
-            re.escape(self.search_text),
-            lambda match: (
-                f'<span style="background:{self.HIGHLIGHT_COLOR};">'
-                f"{html.escape(match.group(0))}</span>"
-            ),
-            html.escape(text),
-            flags=re.IGNORECASE,
-        )
-
-        document = QTextDocument()
-        document.setDefaultFont(option.font)
-        document.setHtml(highlighted)
-        document.setTextWidth(max(option.rect.width() - 12, 1))
-
-        context = QAbstractTextDocumentLayout.PaintContext()
-        if option.state & QStyle.StateFlag.State_Selected:
-            context.palette.setColor(
-                QPalette.ColorRole.Text,
-                option.palette.color(QPalette.ColorRole.HighlightedText),
-            )
-
-        rect = QRectF(option.rect.adjusted(6, 4, -6, -4))
-        painter.save()
-        painter.setClipRect(rect)
-        painter.translate(rect.left(), rect.top())
-        document.documentLayout().draw(painter, context)
-        painter.restore()
 
 
 class NumericTableWidgetItem(QTableWidgetItem):
@@ -128,7 +52,7 @@ class ProductHeader(QHeaderView):
         self.active_sections = set(sections)
         self.viewport().update()
 
-    def paintSection(self, painter: QPainter, rect, logical_index: int) -> None:
+    def paintSection(self, painter, rect, logical_index: int) -> None:
         painter.save()
         if logical_index in self.active_sections:
             painter.fillRect(rect, self.ACTIVE_COLOR)
@@ -163,25 +87,52 @@ class ProductTable(QTableWidget):
     }
 
     HEADER_LABELS: ClassVar[list[str]] = [
-        "Imagen", "Código", "Nombre", "Detalle", "Categoría", "Stock",
-        "Colores", "Precio\nmuestra", "Precio\nciento", "Precio\nmillar",
+        "Imagen",
+        "Código",
+        "Nombre",
+        "Detalle",
+        "Categoría",
+        "Stock",
+        "Colores",
+        "Precio\nmuestra",
+        "Precio\nciento",
+        "Precio\nmillar",
     ]
 
     COLOR_NAMES: ClassVar[dict[str, str]] = {
-        "rojo": "#ef9a9a", "red": "#ef9a9a",
-        "azul": "#90caf9", "blue": "#90caf9",
-        "verde": "#a5d6a7", "green": "#a5d6a7",
-        "amarillo": "#fff59d", "yellow": "#fff59d",
-        "naranja": "#ffcc80", "orange": "#ffcc80",
-        "rosado": "#f8bbd0", "rosa": "#f8bbd0", "pink": "#f8bbd0",
-        "morado": "#ce93d8", "violeta": "#ce93d8", "purple": "#ce93d8",
-        "negro": "#616161", "black": "#616161",
-        "blanco": "#ffffff", "white": "#ffffff",
-        "gris": "#bdbdbd", "gray": "#bdbdbd", "grey": "#bdbdbd",
-        "beige": "#d7ccc8", "marrón": "#a1887f", "marron": "#a1887f",
-        "brown": "#a1887f", "dorado": "#d4af37", "gold": "#d4af37",
-        "plateado": "#cfd8dc", "silver": "#cfd8dc",
-        "transparente": "#f5f5f5", "transparent": "#f5f5f5",
+        "rojo": "#ef9a9a",
+        "red": "#ef9a9a",
+        "azul": "#90caf9",
+        "blue": "#90caf9",
+        "verde": "#a5d6a7",
+        "green": "#a5d6a7",
+        "amarillo": "#fff59d",
+        "yellow": "#fff59d",
+        "naranja": "#ffcc80",
+        "orange": "#ffcc80",
+        "rosado": "#f8bbd0",
+        "rosa": "#f8bbd0",
+        "pink": "#f8bbd0",
+        "morado": "#ce93d8",
+        "violeta": "#ce93d8",
+        "purple": "#ce93d8",
+        "negro": "#616161",
+        "black": "#616161",
+        "blanco": "#ffffff",
+        "white": "#ffffff",
+        "gris": "#bdbdbd",
+        "gray": "#bdbdbd",
+        "grey": "#bdbdbd",
+        "beige": "#d7ccc8",
+        "marrón": "#a1887f",
+        "marron": "#a1887f",
+        "brown": "#a1887f",
+        "dorado": "#d4af37",
+        "gold": "#d4af37",
+        "plateado": "#cfd8dc",
+        "silver": "#cfd8dc",
+        "transparente": "#f5f5f5",
+        "transparent": "#f5f5f5",
     }
 
     def __init__(self, controller: ProductController) -> None:
@@ -190,8 +141,6 @@ class ProductTable(QTableWidget):
         self._sort_states: dict[int, Qt.SortOrder] = {}
         self._products: list[Product] = []
         self._search_text = ""
-        self._search_delegate = SearchHighlightDelegate(self)
-        self.setItemDelegate(self._search_delegate)
         self.setColumnCount(len(self.HEADER_LABELS))
         self.setHorizontalHeaderLabels(self.HEADER_LABELS)
         self._setup_table()
@@ -240,11 +189,9 @@ class ProductTable(QTableWidget):
         for column in range(self.columnCount()):
             header.setSectionResizeMode(
                 column,
-                (
-                    QHeaderView.ResizeMode.Fixed
-                    if column == self.IMAGE_COLUMN
-                    else QHeaderView.ResizeMode.Interactive
-                ),
+                QHeaderView.ResizeMode.Fixed
+                if column == self.IMAGE_COLUMN
+                else QHeaderView.ResizeMode.Interactive,
             )
         widths = {
             self.IMAGE_COLUMN: 180,
@@ -278,7 +225,8 @@ class ProductTable(QTableWidget):
         for column, order in reversed(list(self._sort_states.items())):
             products.sort(
                 key=lambda product, selected_column=column: self._product_sort_value(
-                    product, selected_column
+                    product,
+                    selected_column,
                 ),
                 reverse=order == Qt.SortOrder.DescendingOrder,
             )
@@ -315,9 +263,8 @@ class ProductTable(QTableWidget):
         self.product_header().set_active_sections(set(self._sort_states))
 
     def set_search_text(self, text: str) -> None:
+        """Conserva la API de búsqueda sin aplicar resaltado visual."""
         self._search_text = text.strip()
-        self._search_delegate.set_search_text(self._search_text)
-        self.viewport().update()
 
     def load_products(self, products: list[Product] | None = None) -> None:
         source = products if products is not None else self.controller.get_products()
@@ -369,7 +316,7 @@ class ProductTable(QTableWidget):
         item = QTableWidgetItem(text)
         item.setToolTip(text)
         item.setTextAlignment(
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
         )
         self.setItem(row, column, item)
 
@@ -432,7 +379,7 @@ class ProductTable(QTableWidget):
     def _set_price_item(self, row: int, column: int, value: float) -> None:
         item = NumericTableWidgetItem(f"S/ {value:,.2f}", value)
         item.setTextAlignment(
-            Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
+            Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter,
         )
         self.setItem(row, column, item)
 
@@ -461,5 +408,8 @@ class ProductTable(QTableWidget):
         remaining = max(available_width - fixed_width, 540)
         self.setColumnWidth(self.NAME_COLUMN, int(remaining * 0.29))
         self.setColumnWidth(self.DETAIL_COLUMN, int(remaining * 0.43))
-        self.setColumnWidth(self.CATEGORY_COLUMN, max(int(remaining * 0.28), 120))
+        self.setColumnWidth(
+            self.CATEGORY_COLUMN,
+            max(int(remaining * 0.28), 120),
+        )
         self._adjust_table_rows()

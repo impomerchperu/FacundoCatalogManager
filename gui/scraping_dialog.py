@@ -36,6 +36,11 @@ class ScrapingDialog(QDialog):
         self.resize(560, 320)
         self.build_ui()
 
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self.raise_()
+        self.activateWindow()
+
     def build_ui(self) -> None:
         layout = QVBoxLayout(self)
 
@@ -251,7 +256,9 @@ class ScrapingDialog(QDialog):
         close_button = QPushButton("Cerrar")
         close_button.clicked.connect(dialog.accept)
         layout.addWidget(close_button)
-        dialog.exec()
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
 
     @staticmethod
     def _format_value(value) -> str:

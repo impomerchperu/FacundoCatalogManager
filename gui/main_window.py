@@ -525,7 +525,6 @@ class MainWindow(QMainWindow):
             self.history_dialog.activateWindow()
             return
         self.history_dialog = ScrapingHistoryDialog(self)
-        self.history_dialog.catalog_applied.connect(self.refresh_catalog)
         self.history_dialog.finished.connect(lambda: self._history_closed())
         self.history_dialog.setModal(False)
         self.history_dialog.show()

@@ -1,6 +1,5 @@
 import os
 import sqlite3
-from datetime import datetime, timedelta, timezone
 
 
 class DBManager:
@@ -34,98 +33,41 @@ class DBManager:
 
         self._run_migrations()
         self._create_migration_dependent_indexes()
-        self._cleanup_expired_catalog_history()
         self.connection.commit()
 
     def _run_migrations(self):
-        """Ejecuta migraciones idempotentes para bases existentes."""
-        self._add_column_if_missing("scraping_history", "load_id", "INTEGER")
-        self._add_column_if_missing("catalog_loads", "applied_at", "TEXT")
+        """Ejecuta únicamente migraciones estructurales idempotentes."""
         self._add_column_if_missing("products", "colors", "TEXT DEFAULT '[]'")
         self._add_column_if_missing("products", "color_stock", "TEXT DEFAULT '{}'")
         self._add_column_if_missing("scraped_products", "colors", "TEXT DEFAULT '[]'")
         self._add_column_if_missing(
             "scraped_products", "color_stock", "TEXT DEFAULT '{}'"
         )
-        self._add_column_if_missing(
-            "catalog_load_products", "colors", "TEXT DEFAULT '[]'"
-        )
-        self._add_column_if_missing(
-            "catalog_load_products", "color_stock", "TEXT DEFAULT '{}'"
-        )
-
-        self.connection.execute(
-            """
-            UPDATE catalog_loads
-            SET applied_at = created_at
-            WHERE applied = 1 AND applied_at IS NULL
-            """,
-        )
 
     def _create_migration_dependent_indexes(self):
         self.connection.execute(
             """
-            CREATE INDEX IF NOT EXISTS idx_scraping_history_load_id
-            ON scraping_history(load_id)
+            CREATE INDEX IF NOT EXISTS idx_products_code
+            ON products(code)
             """,
         )
         self.connection.execute(
             """
-            CREATE INDEX IF NOT EXISTS idx_catalog_loads_applied_at
-            ON catalog_loads(applied_at)
+            CREATE INDEX IF NOT EXISTS idx_download_history_created_at
+            ON download_history(created_at)
             """,
-        )
-
-    def _cleanup_expired_catalog_history(self, retention_days: int = 7) -> None:
-        """Elimina historiales antiguos sin eliminar la última carga aplicada."""
-        cutoff = (
-            datetime.now(timezone.utc) - timedelta(days=retention_days)
-        ).isoformat()
-        latest_applied = self.fetch_one(
-            """
-            SELECT id
-            FROM catalog_loads
-            WHERE applied = 1 OR applied_at IS NOT NULL
-            ORDER BY applied_at DESC, id DESC
-            LIMIT 1
-            """,
-        )
-        protected_load_id = (
-            int(latest_applied["id"]) if latest_applied is not None else None
-        )
-
-        if protected_load_id is None:
-            self.connection.execute(
-                """
-                DELETE FROM scraping_history
-                WHERE started_at < ?
-                """,
-                (cutoff,),
-            )
-            self.connection.execute(
-                """
-                DELETE FROM catalog_loads
-                WHERE created_at < ?
-                """,
-                (cutoff,),
-            )
-            return
-
-        self.connection.execute(
-            """
-            DELETE FROM scraping_history
-            WHERE started_at < ?
-              AND (load_id IS NULL OR load_id != ?)
-            """,
-            (cutoff, protected_load_id),
         )
         self.connection.execute(
             """
-            DELETE FROM catalog_loads
-            WHERE created_at < ?
-              AND id != ?
+            CREATE INDEX IF NOT EXISTS idx_download_changes_history_id
+            ON download_changes(history_id)
             """,
-            (cutoff, protected_load_id),
+        )
+        self.connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_download_changes_code
+            ON download_changes(code)
+            """,
         )
 
     def _add_column_if_missing(

@@ -61,13 +61,19 @@ class ScrapingHistoryDialog(QDialog):
     def load_history(self) -> None:
         try:
             history = self.repository.get_latest(100)
-        except Exception as error:
-            QMessageBox.critical(self, "Historial", f"No fue posible cargar el historial.\n\n{error}")
+        except (RuntimeError, ValueError) as error:
+            message = f"No fue posible cargar el historial.\n\n{error}"
+            QMessageBox.critical(self, "Historial", message)
             return
 
         self.table.setRowCount(len(history))
         for row, record in enumerate(history):
-            self._set_item(row, 0, self._format_datetime(record.started_at), record.history_id)
+            self._set_item(
+                row,
+                0,
+                self._format_datetime(record.started_at),
+                record.history_id,
+            )
             self._set_item(row, 1, str(record.processed))
             self._set_item(row, 2, str(record.created))
             self._set_item(row, 3, str(record.updated))
@@ -93,8 +99,9 @@ class ScrapingHistoryDialog(QDialog):
 
         try:
             changes = self.repository.get_changes(history_id)
-        except Exception as error:
-            QMessageBox.critical(self, "Detalle", f"No fue posible obtener los cambios.\n\n{error}")
+        except (RuntimeError, ValueError) as error:
+            message = f"No fue posible obtener los cambios.\n\n{error}"
+            QMessageBox.critical(self, "Detalle", message)
             return
 
         dialog = QDialog(self)
@@ -123,7 +130,8 @@ class ScrapingHistoryDialog(QDialog):
             )
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
-                item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+                alignment = Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+                item.setTextAlignment(alignment)
                 if column == 0:
                     font = QFont(item.font())
                     font.setBold(True)

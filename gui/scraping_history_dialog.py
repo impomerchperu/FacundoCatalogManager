@@ -170,7 +170,9 @@ class ScrapingHistoryDialog(QDialog):
 
     def apply_selected_load(self) -> None:
         button = self.sender()
-        load_id = button.property("load_id") if isinstance(button, QPushButton) else None
+        load_id = (
+            button.property("load_id") if isinstance(button, QPushButton) else None
+        )
         if not isinstance(load_id, int):
             return
 

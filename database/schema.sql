@@ -63,6 +63,49 @@ CREATE TABLE IF NOT EXISTS sync_records (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS download_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    finished_at TEXT NOT NULL,
+    processed INTEGER NOT NULL DEFAULT 0,
+    new_products INTEGER NOT NULL DEFAULT 0,
+    updated_products INTEGER NOT NULL DEFAULT 0,
+    unchanged_products INTEGER NOT NULL DEFAULT 0,
+    errors INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'SUCCESS',
+    message TEXT DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS download_changes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    history_id INTEGER NOT NULL,
+    change_type TEXT NOT NULL,
+    code TEXT NOT NULL,
+    product_name TEXT NOT NULL DEFAULT '',
+    field_name TEXT,
+    field_label TEXT,
+    old_value TEXT,
+    new_value TEXT,
+    FOREIGN KEY (history_id) REFERENCES download_history(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_products_code
+ON products(code);
+
+CREATE INDEX IF NOT EXISTS idx_products_category
+ON products(category);
+
+CREATE INDEX IF NOT EXISTS idx_download_history_created_at
+ON download_history(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_download_changes_history_id
+ON download_changes(history_id);
+
+CREATE INDEX IF NOT EXISTS idx_download_changes_code
+ON download_changes(code);
+
+-- Legacy tables are intentionally retained for existing databases.
+-- They are no longer used by the active catalog/history workflow.
 CREATE TABLE IF NOT EXISTS catalog_loads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at TEXT NOT NULL,
@@ -110,15 +153,3 @@ CREATE TABLE IF NOT EXISTS scraping_history (
     message TEXT DEFAULT '',
     FOREIGN KEY (load_id) REFERENCES catalog_loads(id) ON DELETE SET NULL
 );
-
-CREATE INDEX IF NOT EXISTS idx_catalog_loads_created_at
-ON catalog_loads(created_at);
-
-CREATE INDEX IF NOT EXISTS idx_catalog_loads_applied
-ON catalog_loads(applied);
-
-CREATE INDEX IF NOT EXISTS idx_catalog_load_products_load_id
-ON catalog_load_products(load_id);
-
-CREATE INDEX IF NOT EXISTS idx_scraping_history_started_at
-ON scraping_history(started_at);

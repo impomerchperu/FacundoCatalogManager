@@ -1,42 +1,24 @@
+import json
 from datetime import datetime
 
 from models.scraping.scraping_history import ScrapingHistory
 
 
 class ScrapingHistoryRepository:
-    """
-    Repositorio SQLite para historial
-    de sincronizaciones de scraping.
-    """
+    """Persistencia ligera del historial de cambios del catálogo."""
 
-    def __init__(
-        self,
-        db,
-    ):
+    def __init__(self, db):
         self.db = db
 
-    def save(
-        self,
-        history: ScrapingHistory,
-    ) -> int:
+    def save(self, history: ScrapingHistory, changes: list[dict] | None = None) -> int:
         cursor = self.db.execute_query(
             """
-            INSERT INTO scraping_history (
-                load_id,
-                started_at,
-                finished_at,
-                processed,
-                created,
-                updated,
-                unchanged,
-                errors,
-                status,
-                message
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO download_history (
+                created_at, finished_at, processed, new_products,
+                updated_products, unchanged_products, errors, status, message
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                history.load_id,
                 history.started_at.isoformat(),
                 history.finished_at.isoformat(),
                 history.processed,
@@ -48,114 +30,120 @@ class ScrapingHistoryRepository:
                 history.message,
             ),
         )
+        history.history_id = int(cursor.lastrowid)
 
-        history.history_id = cursor.lastrowid
+        for item in changes or []:
+            item_changes = item.get("changes") or []
+            if item.get("type") == "NEW":
+                self.db.execute_query(
+                    """
+                    INSERT INTO download_changes (
+                        history_id, change_type, code, product_name,
+                        field_name, field_label, old_value, new_value
+                    ) VALUES (?, ?, ?, ?, NULL, ?, ?, ?)
+                    """,
+                    (
+                        history.history_id,
+                        "NEW",
+                        str(item.get("code", "")),
+                        str(item.get("name", "")),
+                        "Producto nuevo",
+                        None,
+                        "Alta",
+                    ),
+                )
+                continue
 
-        return int(cursor.lastrowid)
+            for change in item_changes:
+                self.db.execute_query(
+                    """
+                    INSERT INTO download_changes (
+                        history_id, change_type, code, product_name,
+                        field_name, field_label, old_value, new_value
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        history.history_id,
+                        "UPDATED",
+                        str(item.get("code", "")),
+                        str(item.get("name", "")),
+                        str(change.get("field", "")),
+                        str(change.get("label", change.get("field", ""))),
+                        self._serialize(change.get("old")),
+                        self._serialize(change.get("new")),
+                    ),
+                )
+
+        return history.history_id
 
     def get_all(self):
+        return self.get_latest(limit=1000)
+
+    def get_latest(self, limit: int = 100):
         rows = self.db.fetch_all(
             """
-            SELECT
-                id,
-                load_id,
-                started_at,
-                finished_at,
-                processed,
-                created,
-                updated,
-                unchanged,
-                errors,
-                status,
-                message
-            FROM scraping_history
-            ORDER BY id DESC
-            """
-        )
-
-        return [
-            self._map_row(row)
-            for row in rows
-        ]
-
-    def get_latest(
-        self,
-        limit: int = 10,
-    ):
-        rows = self.db.fetch_all(
-            """
-            SELECT
-                id,
-                load_id,
-                started_at,
-                finished_at,
-                processed,
-                created,
-                updated,
-                unchanged,
-                errors,
-                status,
-                message
-            FROM scraping_history
+            SELECT id, created_at, finished_at, processed,
+                   new_products, updated_products, unchanged_products,
+                   errors, status, message
+            FROM download_history
             ORDER BY id DESC
             LIMIT ?
             """,
-            (
-                limit,
-            ),
+            (limit,),
         )
+        return [self._map_row(row) for row in rows]
 
-        return [
-            self._map_row(row)
-            for row in rows
-        ]
-
-    def get_by_id(
-        self,
-        history_id: int,
-    ):
-        row = self.db.fetch_one(
+    def get_changes(self, history_id: int) -> list[dict]:
+        rows = self.db.fetch_all(
             """
-            SELECT
-                id,
-                load_id,
-                started_at,
-                finished_at,
-                processed,
-                created,
-                updated,
-                unchanged,
-                errors,
-                status,
-                message
-            FROM scraping_history
-            WHERE id = ?
+            SELECT change_type, code, product_name, field_name,
+                   field_label, old_value, new_value
+            FROM download_changes
+            WHERE history_id = ?
+            ORDER BY id
             """,
             (history_id,),
         )
+        return [
+            {
+                "type": row["change_type"],
+                "code": row["code"],
+                "name": row["product_name"],
+                "field": row["field_name"],
+                "label": row["field_label"],
+                "old": self._deserialize(row["old_value"]),
+                "new": self._deserialize(row["new_value"]),
+            }
+            for row in rows
+        ]
 
-        if row is None:
+    @staticmethod
+    def _serialize(value) -> str | None:
+        if value is None:
             return None
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, ensure_ascii=False, sort_keys=True)
+        return str(value)
 
-        return self._map_row(row)
+    @staticmethod
+    def _deserialize(value):
+        if value is None:
+            return None
+        try:
+            return json.loads(value)
+        except (TypeError, json.JSONDecodeError):
+            return value
 
-    def _map_row(
-        self,
-        row,
-    ) -> ScrapingHistory:
+    @staticmethod
+    def _map_row(row) -> ScrapingHistory:
         return ScrapingHistory(
             history_id=row["id"],
-            load_id=row["load_id"],
-            started_at=datetime.fromisoformat(
-                row["started_at"],
-            ),
-            finished_at=datetime.fromisoformat(
-                row["finished_at"],
-            ),
+            started_at=datetime.fromisoformat(row["created_at"]),
+            finished_at=datetime.fromisoformat(row["finished_at"]),
             processed=row["processed"],
-            created=row["created"],
-            updated=row["updated"],
-            unchanged=row["unchanged"],
+            created=row["new_products"],
+            updated=row["updated_products"],
+            unchanged=row["unchanged_products"],
             errors=row["errors"],
             status=row["status"],
             message=row["message"],

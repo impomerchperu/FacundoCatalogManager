@@ -129,9 +129,16 @@ class ScrapingHistoryRepository:
     def _deserialize(value):
         if value is None:
             return None
+        if not isinstance(value, str):
+            return value
+
+        stripped = value.strip()
+        if not stripped or stripped[0] not in "[{":
+            return value
+
         try:
             return json.loads(value)
-        except (TypeError, json.JSONDecodeError):
+        except json.JSONDecodeError:
             return value
 
     @staticmethod

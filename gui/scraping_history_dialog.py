@@ -23,11 +23,10 @@ from repositories.scraping.scraping_history_repository import ScrapingHistoryRep
 
 
 class ScrapingHistoryDialog(QDialog):
-    """Ventana que muestra el historial de ejecuciones de actualización."""
+    """Historial de descargas y versiones del catálogo."""
 
     catalog_applied = Signal(int)
-
-    APPLIED_BACKGROUND = "#b2ebf2"
+    APPLY_BACKGROUND = "#b2ebf2"
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -35,28 +34,31 @@ class ScrapingHistoryDialog(QDialog):
         self.repository = ScrapingHistoryRepository(self.db)
         self.catalog_load_repository = CatalogLoadRepository(self.db)
         self.detail_dialog: QDialog | None = None
-        self.setWindowTitle("Historial de actualizaciones")
-        self.resize(1250, 560)
-        self.build_ui()
+        self.setWindowTitle("Historial de descargas")
+        self.resize(1200, 600)
+        self._build_ui()
         self.load_history()
 
-    def showEvent(self, event) -> None:
-        super().showEvent(event)
-        self.raise_()
-        self.activateWindow()
-
-    def build_ui(self) -> None:
+    def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
-        title = QLabel("Historial de actualizaciones del catálogo")
+        title = QLabel("Historial de descargas del catálogo")
         title.setStyleSheet("font-size: 16px; font-weight: bold;")
         layout.addWidget(title)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(10)
-        self.table.setHorizontalHeaderLabels([
-            "Fecha", "Duración", "Procesados", "Nuevos", "Actualizados",
-            "Sin cambios", "Errores", "Estado", "Catálogo", "Detalle",
-        ])
+        self.table.setColumnCount(8)
+        self.table.setHorizontalHeaderLabels(
+            [
+                "Fecha de descarga",
+                "Productos",
+                "Nuevos",
+                "Actualizados",
+                "Sin cambios",
+                "Errores",
+                "Estado",
+                "Detalle",
+            ],
+        )
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -67,9 +69,9 @@ class ScrapingHistoryDialog(QDialog):
         refresh_button = QPushButton("Actualizar")
         refresh_button.clicked.connect(self.load_history)
         buttons.addWidget(refresh_button)
-        details_button = QPushButton("Ver detalle")
-        details_button.clicked.connect(self.show_selected_details)
-        buttons.addWidget(details_button)
+        detail_button = QPushButton("Ver detalle")
+        detail_button.clicked.connect(self.show_selected_details)
+        buttons.addWidget(detail_button)
         buttons.addStretch()
         close_button = QPushButton("Cerrar")
         close_button.clicked.connect(self.close)
@@ -90,103 +92,80 @@ class ScrapingHistoryDialog(QDialog):
         self.table.setRowCount(len(history))
         for row, record in enumerate(history):
             started_at = self._parse_datetime(record.started_at)
-            finished_at = self._parse_datetime(record.finished_at)
             self._set_item(row, 0, self._format_datetime(started_at), record)
-            self._set_item(row, 1, self._format_duration(started_at, finished_at))
-            self._set_item(row, 2, str(record.processed))
-            self._set_item(row, 3, str(record.created))
-            self._set_item(row, 4, str(record.updated))
-            self._set_item(row, 5, str(record.unchanged))
-            self._set_item(row, 6, str(record.errors))
-            self._set_item(row, 7, record.status)
-            self._set_catalog_action(row, record.load_id)
-            self._set_detail_action(row, record.load_id)
-            self.table.setRowHeight(row, 48)
+            self._set_item(row, 1, str(record.processed))
+            self._set_item(row, 2, str(record.created))
+            self._set_item(row, 3, str(record.updated))
+            self._set_item(row, 4, str(record.unchanged))
+            self._set_item(row, 5, str(record.errors))
+            self._set_status(row, record.load_id)
+            self._set_detail_button(row, record.load_id)
+            self.table.setRowHeight(row, 44)
 
         self.table.resizeColumnsToContents()
-        self.table.setColumnWidth(0, 160)
-        self.table.setColumnWidth(1, 100)
-        self.table.setColumnWidth(7, 100)
-        self.table.setColumnWidth(8, 230)
-        self.table.setColumnWidth(9, 110)
+        self.table.setColumnWidth(0, 165)
+        self.table.setColumnWidth(1, 90)
+        self.table.setColumnWidth(2, 80)
+        self.table.setColumnWidth(3, 100)
+        self.table.setColumnWidth(4, 100)
+        self.table.setColumnWidth(5, 70)
+        self.table.setColumnWidth(6, 250)
+        self.table.setColumnWidth(7, 110)
 
-    def _set_catalog_action(
-        self,
-        row: int,
-        load_id: int | None,
-    ) -> None:
+    def _set_status(self, row: int, load_id: int | None) -> None:
         container = QWidget()
         layout = QHBoxLayout(container)
         layout.setContentsMargins(4, 2, 4, 2)
 
-        if load_id is None:
-            label = QLabel("Sin carga")
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            layout.addWidget(label)
-            self.table.setCellWidget(row, 8, container)
-            return
+        action = "NO_APLICADO"
+        applied_at: datetime | None = None
+        if load_id is not None:
+            try:
+                action, timestamp = self.catalog_load_repository.get_catalog_action(
+                    int(load_id),
+                )
+                if timestamp:
+                    applied_at = self._parse_datetime(timestamp)
+            except sqlite3.Error:
+                action = "NO_APLICADO"
 
-        try:
-            load = self.catalog_load_repository.get_by_id(int(load_id))
-            latest_applied = self.catalog_load_repository.get_latest_applied()
-        except sqlite3.Error:
-            load = None
-            latest_applied = None
-
-        if load is None:
-            label = QLabel("No disponible")
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            layout.addWidget(label)
-        elif load["status"] != "SUCCESS":
-            label = QLabel("No aplicable")
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            layout.addWidget(label)
-        elif bool(load["applied"]) or load["applied_at"] is not None:
-            applied_at = self._parse_datetime(load["applied_at"])
-            label = QLabel(
-                f"Aplicado\n{self._format_datetime(applied_at)}",
-            )
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._style_applied_widget(container, label)
-            layout.addWidget(label)
-        elif latest_applied is not None and int(load_id) < int(latest_applied["id"]):
-            label = QLabel("No Aplicado")
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            label.setToolTip("Esta carga fue superada por una aplicación posterior.")
-            layout.addWidget(label)
-        else:
+        if action == "APLICAR":
             button = QPushButton("Aplicar")
             button.setProperty("load_id", int(load_id))
-            button.setToolTip(
-                "Aplicar únicamente una carga posterior a la última aplicada.",
+            button.setStyleSheet(
+                f"QPushButton {{ background-color: {self.APPLY_BACKGROUND}; "
+                "font-weight: bold; padding: 6px 18px; }"
             )
+            button.setToolTip("Aplicar manualmente esta descarga al catálogo.")
             button.clicked.connect(self.apply_selected_load)
             layout.addWidget(button)
+        else:
+            if action == "APLICADO" and applied_at is not None:
+                text = f"Aplicada — {self._format_datetime(applied_at)}"
+            elif action == "APLICADO":
+                text = "Aplicada"
+            else:
+                text = "No aplicada"
 
-        self.table.setCellWidget(row, 8, container)
+            label = QLabel(text)
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            font = QFont(label.font())
+            font.setBold(True)
+            label.setFont(font)
+            layout.addWidget(label)
 
-    def _set_detail_action(self, row: int, load_id: int | None) -> None:
+        self.table.setCellWidget(row, 6, container)
+
+    def _set_detail_button(self, row: int, load_id: int | None) -> None:
         container = QWidget()
         layout = QHBoxLayout(container)
         layout.setContentsMargins(4, 2, 4, 2)
         button = QPushButton("Ver detalle")
-        button.setProperty("history_row", row)
         button.setEnabled(load_id is not None)
+        button.setProperty("history_row", row)
         button.clicked.connect(self.show_row_details)
         layout.addWidget(button)
-        self.table.setCellWidget(row, 9, container)
-
-    def _style_applied_widget(self, container: QWidget, label: QLabel) -> None:
-        container.setStyleSheet(
-            f"background-color: {self.APPLIED_BACKGROUND};"
-        )
-        font = QFont(label.font())
-        font.setBold(True)
-        label.setFont(font)
-        label.setStyleSheet(
-            f"background-color: {self.APPLIED_BACKGROUND};"
-            "font-weight: bold;"
-        )
+        self.table.setCellWidget(row, 7, container)
 
     def apply_selected_load(self) -> None:
         button = self.sender()
@@ -196,22 +175,22 @@ class ScrapingHistoryDialog(QDialog):
         if not isinstance(load_id, int):
             return
 
-        load = self.catalog_load_repository.get_by_id(load_id)
-        latest_applied = self.catalog_load_repository.get_latest_applied()
-        if load is None:
-            QMessageBox.warning(
+        try:
+            load = self.catalog_load_repository.get_by_id(load_id)
+            action, _ = self.catalog_load_repository.get_catalog_action(load_id)
+        except sqlite3.Error as error:
+            QMessageBox.critical(
                 self,
-                "Aplicar catálogo",
-                "La carga seleccionada ya no está disponible.",
+                "Error",
+                f"No fue posible consultar la descarga.\n\n{error}",
             )
-            self.load_history()
             return
 
-        if latest_applied is not None and load_id <= int(latest_applied["id"]):
+        if load is None or action != "APLICAR":
             QMessageBox.information(
                 self,
-                "Carga superada",
-                "Solo se pueden aplicar cargas posteriores a la última carga aplicada.",
+                "Descarga no aplicable",
+                "La descarga seleccionada ya no puede aplicarse.",
             )
             self.load_history()
             return
@@ -220,9 +199,9 @@ class ScrapingHistoryDialog(QDialog):
             self,
             "Aplicar catálogo",
             (
-                f"¿Desea aplicar la carga #{load_id} al catálogo visible?\n\n"
+                f"¿Desea aplicar la descarga #{load_id} al catálogo?\n\n"
                 f"Productos: {int(load['product_count'])}\n\n"
-                "Esta carga pasará a ser la versión aplicada del catálogo."
+                "La aplicación será manual y quedará registrada con fecha y hora."
             ),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
@@ -235,105 +214,60 @@ class ScrapingHistoryDialog(QDialog):
             QMessageBox.critical(
                 self,
                 "Error",
-                f"No fue posible aplicar la carga.\n\n{error}",
+                f"No fue posible aplicar la descarga.\n\n{error}",
             )
             return
 
         if not applied:
             QMessageBox.warning(
                 self,
-                "Aplicar catálogo",
-                "La carga seleccionada no puede aplicarse porque fue superada.",
+                "Descarga no aplicable",
+                "La descarga seleccionada ya no puede aplicarse.",
             )
             self.load_history()
             return
 
         self.load_history()
         self.catalog_applied.emit(load_id)
-        QMessageBox.information(
-            self,
-            "Catálogo actualizado",
-            (
-                f"La carga #{load_id} fue aplicada correctamente.\n\n"
-                "La tabla visible fue actualizada con esta versión."
-            ),
-        )
 
     def show_row_details(self) -> None:
         button = self.sender()
         if not isinstance(button, QPushButton):
             return
         row = button.property("history_row")
-        if not isinstance(row, int):
-            return
-        self.show_details(row, 0)
+        if isinstance(row, int):
+            self.show_details(row, 0)
 
     def show_selected_details(self) -> None:
         row = self.table.currentRow()
-        if row < 0:
-            QMessageBox.information(self, "Historial", "Seleccione una ejecución.")
-            return
-        self.show_details(row, 0)
+        if row >= 0:
+            self.show_details(row, 0)
+        else:
+            QMessageBox.information(self, "Historial", "Seleccione una descarga.")
 
     def show_details(self, row: int, _column: int) -> None:
         item = self.table.item(row, 0)
         if item is None:
             return
         history = item.data(Qt.ItemDataRole.UserRole)
-        if history is None:
+        if history is None or history.load_id is None:
             return
 
-        started_at = self._parse_datetime(history.started_at)
-        finished_at = self._parse_datetime(history.finished_at)
-        duration = self._format_duration(started_at, finished_at)
-
-        if history.load_id is not None:
-            try:
-                variations = self.catalog_load_repository.get_load_changes(
-                    int(history.load_id),
-                )
-            except sqlite3.Error as error:
-                QMessageBox.critical(
-                    self,
-                    "Detalle de actualización",
-                    f"No fue posible obtener las variaciones.\n\n{error}",
-                )
-                return
-            self._show_variation_dialog(
-                history,
-                started_at,
-                finished_at,
-                duration,
-                variations,
+        try:
+            variations = self.catalog_load_repository.get_load_changes(
+                int(history.load_id),
+            )
+        except sqlite3.Error as error:
+            QMessageBox.critical(
+                self,
+                "Detalle de descarga",
+                f"No fue posible obtener las variaciones.\n\n{error}",
             )
             return
 
-        message = history.message.strip() or "Sin mensaje adicional."
-        QMessageBox.information(
-            self,
-            "Detalle de actualización",
-            (
-                f"Fecha de inicio:\n{self._format_datetime(started_at)}\n\n"
-                f"Fecha de finalización:\n{self._format_datetime(finished_at)}\n\n"
-                f"Duración:\n{duration}\n\n"
-                f"Productos procesados: {history.processed}\n"
-                f"Nuevos: {history.created}\n"
-                f"Actualizados: {history.updated}\n"
-                f"Sin cambios: {history.unchanged}\n"
-                f"Errores: {history.errors}\n"
-                f"Estado: {history.status}\n\n"
-                f"Mensaje:\n{message}"
-            ),
-        )
+        self._show_variation_dialog(history, variations)
 
-    def _show_variation_dialog(
-        self,
-        history,
-        started_at: datetime,
-        finished_at: datetime,
-        duration: str,
-        variations: list[dict],
-    ) -> None:
+    def _show_variation_dialog(self, history, variations: list[dict]) -> None:
         if self.detail_dialog is not None:
             self.detail_dialog.close()
 
@@ -345,11 +279,10 @@ class ScrapingHistoryDialog(QDialog):
         dialog.finished.connect(self._detail_dialog_closed)
         layout = QVBoxLayout(dialog)
 
+        started_at = self._parse_datetime(history.started_at)
         summary = QLabel(
-            f"Inicio: {self._format_datetime(started_at)}    "
-            f"Fin: {self._format_datetime(finished_at)}    "
-            f"Duración: {duration}\n"
-            f"Procesados: {history.processed}    Nuevos: {history.created}    "
+            f"Descarga: {self._format_datetime(started_at)}    "
+            f"Productos: {history.processed}    Nuevos: {history.created}    "
             f"Actualizados: {history.updated}    Sin cambios: {history.unchanged}    "
             f"Errores: {history.errors}",
         )
@@ -358,26 +291,26 @@ class ScrapingHistoryDialog(QDialog):
 
         table = QTableWidget()
         table.setColumnCount(6)
-        table.setHorizontalHeaderLabels([
-            "Tipo", "Código", "Producto", "Variación", "Anterior", "Nuevo",
-        ])
+        table.setHorizontalHeaderLabels(
+            ["Tipo", "Código", "Producto", "Variación", "Anterior", "Posterior"],
+        )
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setWordWrap(True)
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         for column in (2, 3, 4, 5):
-            table.horizontalHeader().setSectionResizeMode(
-                column,
-                QHeaderView.ResizeMode.Stretch,
-            )
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
 
         row_count = sum(max(len(item["changes"]), 1) for item in variations)
         table.setRowCount(max(row_count, 1))
-        row = 0
+        current_row = 0
         for item in variations:
             if item["type"] == "NEW":
                 self._set_variation_row(
                     table,
-                    row,
+                    current_row,
                     [
                         "NUEVO",
                         str(item["code"]),
@@ -387,12 +320,13 @@ class ScrapingHistoryDialog(QDialog):
                         "Alta",
                     ],
                 )
-                row += 1
+                current_row += 1
                 continue
+
             for change in item["changes"]:
                 self._set_variation_row(
                     table,
-                    row,
+                    current_row,
                     [
                         "ACTUALIZADO",
                         str(item["code"]),
@@ -402,7 +336,7 @@ class ScrapingHistoryDialog(QDialog):
                         self._format_change_value(change["new"]),
                     ],
                 )
-                row += 1
+                current_row += 1
 
         if not variations:
             self._set_variation_row(
@@ -424,19 +358,15 @@ class ScrapingHistoryDialog(QDialog):
         self.detail_dialog = None
 
     @staticmethod
-    def _set_variation_row(
-        table: QTableWidget,
-        row: int,
-        values: list[str],
-    ) -> None:
+    def _set_variation_row(table: QTableWidget, row: int, values: list[str]) -> None:
         for column, value in enumerate(values):
             item = QTableWidgetItem(value)
             item.setTextAlignment(
                 Qt.AlignmentFlag.AlignVCenter
                 | (
-                    Qt.AlignmentFlag.AlignCenter
-                    if column != 2
-                    else Qt.AlignmentFlag.AlignLeft
+                    Qt.AlignmentFlag.AlignLeft
+                    if column == 2
+                    else Qt.AlignmentFlag.AlignCenter
                 ),
             )
             table.setItem(row, column, item)
@@ -468,23 +398,8 @@ class ScrapingHistoryDialog(QDialog):
     def _format_datetime(value: datetime) -> str:
         return value.astimezone().strftime("%d/%m/%Y %H:%M:%S")
 
-    @staticmethod
-    def _format_duration(started_at: datetime, finished_at: datetime) -> str:
-        seconds = int((finished_at - started_at).total_seconds())
-        if seconds < 0:
-            return "N/D"
-        minutes, remaining_seconds = divmod(seconds, 60)
-        hours, minutes = divmod(minutes, 60)
-        if hours:
-            return f"{hours}h {minutes}m {remaining_seconds}s"
-        if minutes:
-            return f"{minutes}m {remaining_seconds}s"
-        return f"{remaining_seconds}s"
-
     def closeEvent(self, event) -> None:
-        try:
-            if self.detail_dialog is not None:
-                self.detail_dialog.close()
-            self.db.close()
-        finally:
-            super().closeEvent(event)
+        if self.detail_dialog is not None:
+            self.detail_dialog.close()
+        self.db.close()
+        super().closeEvent(event)

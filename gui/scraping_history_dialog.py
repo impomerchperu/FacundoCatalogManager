@@ -130,6 +130,7 @@ class ScrapingHistoryDialog(QDialog):
                 action = "NO_APLICADO"
 
         if action == "APLICAR":
+            assert load_id is not None
             button = QPushButton("Aplicar")
             button.setProperty("load_id", int(load_id))
             button.setStyleSheet(
@@ -169,9 +170,7 @@ class ScrapingHistoryDialog(QDialog):
 
     def apply_selected_load(self) -> None:
         button = self.sender()
-        if not isinstance(button, QPushButton):
-            return
-        load_id = button.property("load_id")
+        load_id = button.property("load_id") if isinstance(button, QPushButton) else None
         if not isinstance(load_id, int):
             return
 

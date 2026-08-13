@@ -49,16 +49,42 @@ class ScrapingSession:
             started_at=datetime.now(timezone.utc),
         )
 
+        db = getattr(self.history_repository, "db", None)
+        transaction_started = False
+
         try:
+            if db is not None:
+                db.begin()
+                transaction_started = True
+
             products = operation()
             self.result.products = products
             self.result.processed = len(products)
             self._extract_sync_result()
-        except Exception as error:  # noqa: BLE001
-            self.result.errors.append(str(error))
 
-        self.result.finished_at = datetime.now(timezone.utc)
-        self._save_history()
+            if self.result.errors:
+                if transaction_started:
+                    db.rollback()
+                    transaction_started = False
+                self.result.finished_at = datetime.now(timezone.utc)
+                self._save_history()
+                return self.result
+
+            self.result.finished_at = datetime.now(timezone.utc)
+            self._save_history()
+
+            if transaction_started:
+                db.commit()
+                transaction_started = False
+
+        except Exception as error:  # noqa: BLE001
+            if transaction_started:
+                db.rollback()
+                transaction_started = False
+            self.result.errors.append(str(error))
+            self.result.finished_at = datetime.now(timezone.utc)
+            self._save_history()
+
         return self.result
 
     def _extract_sync_result(self):
@@ -85,7 +111,7 @@ class ScrapingSession:
         if self.result.success():
             message = "Descarga completada y cambios aplicados automáticamente."
         else:
-            message = "Descarga finalizada con errores; no se registró como aplicada."
+            message = "Descarga finalizada con errores; cambios revertidos."
 
         history = ScrapingHistory(
             started_at=self.result.started_at,
@@ -98,6 +124,7 @@ class ScrapingSession:
             status=self.result.status(),
             message=message,
         )
+
         self.result.history_id = self.history_repository.save(
             history,
             self.result.changes if self.result.success() else [],

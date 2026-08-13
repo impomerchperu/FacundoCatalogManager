@@ -188,7 +188,7 @@ class ScrapingHistoryRepository:
                    field_label, old_value, new_value
             FROM download_changes
             WHERE history_id = ?
-            ORDER BY id
+            ORDER BY code COLLATE NOCASE ASC, id ASC
             """,
             (history_id,),
         )

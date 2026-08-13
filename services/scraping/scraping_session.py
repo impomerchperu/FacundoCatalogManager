@@ -79,7 +79,7 @@ class ScrapingSession:
                 )
 
             if self.result.errors:
-                if transaction_started:
+                if db is not None and transaction_started:
                     db.rollback()
                     transaction_started = False
                 self.result.finished_at = datetime.now(timezone.utc)
@@ -89,12 +89,12 @@ class ScrapingSession:
             self.result.finished_at = datetime.now(timezone.utc)
             self._save_history()
 
-            if transaction_started:
+            if db is not None and transaction_started:
                 db.commit()
                 transaction_started = False
 
         except Exception as error:  # noqa: BLE001
-            if transaction_started:
+            if db is not None and transaction_started:
                 db.rollback()
                 transaction_started = False
             self.result.errors.append(str(error))

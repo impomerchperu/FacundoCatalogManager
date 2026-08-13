@@ -52,6 +52,16 @@ class SyncResult:
         """Incrementa la cantidad de productos procesados."""
         self.processed += 1
 
+    @property
+    def classified_total(self) -> int:
+        """Total explicado por las tres categorías de sincronización."""
+        return self.created + self.updated + self.unchanged
+
+    @property
+    def counts_are_consistent(self) -> bool:
+        """Indica si procesados coincide con su clasificación completa."""
+        return self.processed == self.classified_total
+
     def finish(self) -> None:
         """Marca la finalización del proceso."""
         self.finished_at = datetime.now(timezone.utc)
@@ -84,6 +94,8 @@ class SyncResult:
             "created": self.created,
             "updated": self.updated,
             "unchanged": self.unchanged,
+            "classified_total": self.classified_total,
+            "counts_are_consistent": self.counts_are_consistent,
             "categories_processed": self.categories_processed,
             "products_found": self.products_found,
             "products_created": self.products_created,
@@ -115,6 +127,8 @@ class SyncResult:
             "Nuevos": self.created,
             "Actualizados": self.updated,
             "Sin cambios": self.unchanged,
+            "Total clasificado": self.classified_total,
+            "Conteos consistentes": self.counts_are_consistent,
             "Errores": len(self.errors),
             "Duración": self.duration_seconds,
         }

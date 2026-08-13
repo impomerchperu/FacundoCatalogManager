@@ -1,12 +1,12 @@
 import os
 import sqlite3
-from datetime import datetime, timedelta, timezone
 
 
 class DBManager:
+    """Gestiona SQLite con una inicialización ligera y persistente."""
+
     def __init__(self, db_path=None):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
         if db_path is None:
             db_path = os.path.join(base_dir, "database", "catalog.db")
 
@@ -23,113 +23,72 @@ class DBManager:
         self.connection.commit()
 
     def initialize_database(self):
-        cursor = self.connection.cursor()
         schema_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "schema.sql"
+            os.path.dirname(os.path.abspath(__file__)),
+            "schema.sql",
         )
-
         if os.path.exists(schema_path):
             with open(schema_path, "r", encoding="utf-8") as file:
-                cursor.executescript(file.read())
+                self.connection.executescript(file.read())
 
         self._run_migrations()
-        self._create_migration_dependent_indexes()
-        self._cleanup_expired_catalog_history()
         self.connection.commit()
 
     def _run_migrations(self):
-        """Ejecuta migraciones idempotentes para bases existentes."""
-        self._add_column_if_missing("scraping_history", "load_id", "INTEGER")
-        self._add_column_if_missing("catalog_loads", "applied_at", "TEXT")
+        """Completa tablas necesarias en bases SQLite ya existentes."""
         self._add_column_if_missing("products", "colors", "TEXT DEFAULT '[]'")
-        self._add_column_if_missing("products", "color_stock", "TEXT DEFAULT '{}'")
-        self._add_column_if_missing("scraped_products", "colors", "TEXT DEFAULT '[]'")
         self._add_column_if_missing(
-            "scraped_products", "color_stock", "TEXT DEFAULT '{}'"
+            "products",
+            "color_stock",
+            "TEXT DEFAULT '{}',",
         )
         self._add_column_if_missing(
-            "catalog_load_products", "colors", "TEXT DEFAULT '[]'"
+            "scraped_products",
+            "colors",
+            "TEXT DEFAULT '[]'",
         )
         self._add_column_if_missing(
-            "catalog_load_products", "color_stock", "TEXT DEFAULT '{}'"
+            "scraped_products",
+            "color_stock",
+            "TEXT DEFAULT '{}',",
         )
 
         self.connection.execute(
             """
-            UPDATE catalog_loads
-            SET applied_at = created_at
-            WHERE applied = 1 AND applied_at IS NULL
-            """,
-        )
-
-    def _create_migration_dependent_indexes(self):
-        self.connection.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_scraping_history_load_id
-            ON scraping_history(load_id)
-            """,
-        )
-        self.connection.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_catalog_loads_applied_at
-            ON catalog_loads(applied_at)
-            """,
-        )
-
-    def _cleanup_expired_catalog_history(self, retention_days: int = 7) -> None:
-        """Elimina historiales antiguos sin eliminar la última carga aplicada."""
-        cutoff = (
-            datetime.now(timezone.utc) - timedelta(days=retention_days)
-        ).isoformat()
-        latest_applied = self.fetch_one(
-            """
-            SELECT id
-            FROM catalog_loads
-            WHERE applied = 1 OR applied_at IS NOT NULL
-            ORDER BY applied_at DESC, id DESC
-            LIMIT 1
-            """,
-        )
-        protected_load_id = (
-            int(latest_applied["id"]) if latest_applied is not None else None
-        )
-
-        if protected_load_id is None:
-            self.connection.execute(
-                """
-                DELETE FROM scraping_history
-                WHERE started_at < ?
-                """,
-                (cutoff,),
+            CREATE TABLE IF NOT EXISTS download_changes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                history_id INTEGER NOT NULL,
+                change_type TEXT NOT NULL,
+                code TEXT NOT NULL,
+                product_name TEXT NOT NULL,
+                field_name TEXT,
+                field_label TEXT NOT NULL,
+                old_value TEXT,
+                new_value TEXT,
+                FOREIGN KEY (history_id)
+                    REFERENCES scraping_history(id)
+                    ON DELETE CASCADE
             )
-            self.connection.execute(
-                """
-                DELETE FROM catalog_loads
-                WHERE created_at < ?
-                """,
-                (cutoff,),
-            )
-            return
-
-        self.connection.execute(
-            """
-            DELETE FROM scraping_history
-            WHERE started_at < ?
-              AND (load_id IS NULL OR load_id != ?)
             """,
-            (cutoff, protected_load_id),
         )
         self.connection.execute(
             """
-            DELETE FROM catalog_loads
-            WHERE created_at < ?
-              AND id != ?
+            CREATE INDEX IF NOT EXISTS idx_download_changes_history_id
+            ON download_changes(history_id)
             """,
-            (cutoff, protected_load_id),
+        )
+        self.connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_scraping_history_finished_at
+            ON scraping_history(finished_at)
+            """,
         )
 
     def _add_column_if_missing(
-        self, table_name: str, column_name: str, column_definition: str
+        self,
+        table_name: str,
+        column_name: str,
+        column_definition: str,
     ) -> None:
         columns = self.fetch_all(f"PRAGMA table_info({table_name})")
         if column_name in {row["name"] for row in columns}:

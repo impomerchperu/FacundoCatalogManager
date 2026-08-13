@@ -3,7 +3,7 @@ import sqlite3
 
 
 class DBManager:
-    """Gestiona SQLite con una inicialización ligera y persistente."""
+    """Gestiona SQLite con inicialización, migraciones y persistencia segura."""
 
     def __init__(self, db_path=None):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -27,6 +27,7 @@ class DBManager:
             os.path.dirname(os.path.abspath(__file__)),
             "schema.sql",
         )
+
         if os.path.exists(schema_path):
             with open(schema_path, "r", encoding="utf-8") as file:
                 self.connection.executescript(file.read())
@@ -35,7 +36,7 @@ class DBManager:
         self.connection.commit()
 
     def _run_migrations(self):
-        """Completa tablas necesarias en bases SQLite ya existentes."""
+        """Completa y corrige estructuras necesarias en bases existentes."""
         self._add_column_if_missing("products", "colors", "TEXT DEFAULT '[]'")
         self._add_column_if_missing(
             "products",
@@ -53,6 +54,58 @@ class DBManager:
             "TEXT DEFAULT '{}'",
         )
 
+        self._migrate_download_changes()
+
+        self.connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_scraping_history_finished_at
+            ON scraping_history(finished_at)
+            """
+        )
+
+    def _migrate_download_changes(self):
+        """Garantiza la FK de download_changes hacia scraping_history."""
+        if not self._table_exists("download_changes"):
+            self._create_download_changes_table()
+            self._create_download_changes_indexes()
+            return
+
+        foreign_keys = self.fetch_all(
+            "PRAGMA foreign_key_list(download_changes)"
+        )
+
+        references_scraping_history = any(
+            row["table"] == "scraping_history"
+            and row["from"] == "history_id"
+            and row["to"] == "id"
+            for row in foreign_keys
+        )
+
+        if references_scraping_history:
+            self._create_download_changes_indexes()
+            return
+
+        self._backup_legacy_download_changes()
+        self._create_download_changes_table()
+        self._create_download_changes_indexes()
+
+    def _backup_legacy_download_changes(self):
+        """Conserva la tabla antigua antes de reconstruir su FK."""
+        legacy_table = "download_changes_legacy"
+
+        if self._table_exists(legacy_table):
+            return
+
+        self.connection.execute(
+            "DROP INDEX IF EXISTS idx_download_changes_history_id"
+        )
+        self.connection.execute("DROP INDEX IF EXISTS idx_download_changes_code")
+        self.connection.execute(
+            "ALTER TABLE download_changes RENAME TO download_changes_legacy"
+        )
+
+    def _create_download_changes_table(self):
+        """Crea la tabla de detalles con la FK correcta."""
         self.connection.execute(
             """
             CREATE TABLE IF NOT EXISTS download_changes (
@@ -69,20 +122,35 @@ class DBManager:
                     REFERENCES scraping_history(id)
                     ON DELETE CASCADE
             )
-            """,
+            """
         )
+
+    def _create_download_changes_indexes(self):
+        """Crea índices para las consultas del historial."""
         self.connection.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_download_changes_history_id
             ON download_changes(history_id)
-            """,
+            """
         )
         self.connection.execute(
             """
-            CREATE INDEX IF NOT EXISTS idx_scraping_history_finished_at
-            ON scraping_history(finished_at)
-            """,
+            CREATE INDEX IF NOT EXISTS idx_download_changes_code
+            ON download_changes(code)
+            """
         )
+
+    def _table_exists(self, table_name: str) -> bool:
+        row = self.connection.execute(
+            """
+            SELECT 1
+            FROM sqlite_master
+            WHERE type = 'table'
+              AND name = ?
+            """,
+            (table_name,),
+        ).fetchone()
+        return row is not None
 
     def _add_column_if_missing(
         self,
@@ -94,7 +162,7 @@ class DBManager:
         if column_name in {row["name"] for row in columns}:
             return
         self.connection.execute(
-            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}",
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"
         )
 
     def execute_query(self, query, params=()):

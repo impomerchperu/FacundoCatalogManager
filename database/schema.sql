@@ -63,42 +63,8 @@ CREATE TABLE IF NOT EXISTS sync_records (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS catalog_loads (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    created_at TEXT NOT NULL,
-    source TEXT NOT NULL DEFAULT 'SCRAPING',
-    status TEXT NOT NULL DEFAULT 'SUCCESS',
-    applied INTEGER NOT NULL DEFAULT 0,
-    applied_at TEXT,
-    product_count INTEGER NOT NULL DEFAULT 0,
-    message TEXT DEFAULT ''
-);
-
-CREATE TABLE IF NOT EXISTS catalog_load_products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    load_id INTEGER NOT NULL,
-    code TEXT NOT NULL,
-    name TEXT NOT NULL,
-    category TEXT,
-    description TEXT,
-    price REAL DEFAULT 0,
-    price_sample REAL DEFAULT 0,
-    price_hundred REAL DEFAULT 0,
-    price_thousand REAL DEFAULT 0,
-    stock INTEGER DEFAULT 0,
-    colors TEXT DEFAULT '[]',
-    color_stock TEXT DEFAULT '{}',
-    image_url TEXT,
-    image_path TEXT,
-    image_hash TEXT DEFAULT '',
-    content_hash TEXT DEFAULT '',
-    FOREIGN KEY (load_id) REFERENCES catalog_loads(id) ON DELETE CASCADE,
-    UNIQUE(load_id, code)
-);
-
 CREATE TABLE IF NOT EXISTS scraping_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    load_id INTEGER,
     started_at TEXT NOT NULL,
     finished_at TEXT NOT NULL,
     processed INTEGER DEFAULT 0,
@@ -107,18 +73,27 @@ CREATE TABLE IF NOT EXISTS scraping_history (
     unchanged INTEGER DEFAULT 0,
     errors INTEGER DEFAULT 0,
     status TEXT DEFAULT 'SUCCESS',
-    message TEXT DEFAULT '',
-    FOREIGN KEY (load_id) REFERENCES catalog_loads(id) ON DELETE SET NULL
+    message TEXT DEFAULT ''
 );
 
-CREATE INDEX IF NOT EXISTS idx_catalog_loads_created_at
-ON catalog_loads(created_at);
+CREATE TABLE IF NOT EXISTS download_changes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    history_id INTEGER NOT NULL,
+    change_type TEXT NOT NULL,
+    code TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    field_name TEXT,
+    field_label TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    FOREIGN KEY (history_id) REFERENCES scraping_history(id) ON DELETE CASCADE
+);
 
-CREATE INDEX IF NOT EXISTS idx_catalog_loads_applied
-ON catalog_loads(applied);
+CREATE INDEX IF NOT EXISTS idx_scraping_history_finished_at
+ON scraping_history(finished_at);
 
-CREATE INDEX IF NOT EXISTS idx_catalog_load_products_load_id
-ON catalog_load_products(load_id);
+CREATE INDEX IF NOT EXISTS idx_download_changes_history_id
+ON download_changes(history_id);
 
-CREATE INDEX IF NOT EXISTS idx_scraping_history_started_at
-ON scraping_history(started_at);
+CREATE INDEX IF NOT EXISTS idx_download_changes_code
+ON download_changes(code);

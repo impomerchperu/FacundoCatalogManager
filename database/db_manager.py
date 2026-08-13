@@ -40,7 +40,7 @@ class DBManager:
         self._add_column_if_missing(
             "products",
             "color_stock",
-            "TEXT DEFAULT '{}',",
+            "TEXT DEFAULT '{}'",
         )
         self._add_column_if_missing(
             "scraped_products",
@@ -50,7 +50,7 @@ class DBManager:
         self._add_column_if_missing(
             "scraped_products",
             "color_stock",
-            "TEXT DEFAULT '{}',",
+            "TEXT DEFAULT '{}'",
         )
 
         self.connection.execute(

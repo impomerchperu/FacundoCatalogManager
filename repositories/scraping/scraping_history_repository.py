@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from typing import ClassVar
 
 from models.scraping.scraping_history import ScrapingHistory
 
@@ -24,7 +25,7 @@ class ScrapingHistoryRepository:
         "content_hash",
     )
 
-    FIELD_LABELS = {
+    FIELD_LABELS: ClassVar[dict[str, str]] = {
         "name": "Nombre",
         "category": "Categoría",
         "description": "Detalle",

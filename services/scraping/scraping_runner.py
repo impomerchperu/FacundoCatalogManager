@@ -2,6 +2,7 @@ from models.scraping.category import Category
 from repositories.scraping.scraping_history_repository import (
     ScrapingHistoryRepository,
 )
+from services.scraping.category_service import CategoryService
 
 
 class ScrapingRunner:
@@ -29,15 +30,12 @@ class ScrapingRunner:
         self,
         scraping_service,
         config=None,
-        category_service=None,
+        category_service: CategoryService | None = None,
         history_repository: ScrapingHistoryRepository | None = None,
     ):
         self.scraping_service = scraping_service
-
         self.config = config
-
         self.category_service = category_service
-
         self.history_repository = history_repository
 
     def run(
@@ -81,17 +79,13 @@ class ScrapingRunner:
                 self.scraping_service,
                 "sync_category",
             ):
-                products = (
-                    self.scraping_service.sync_category(
-                        category.url,
-                        category.name,
-                    )
+                products = self.scraping_service.sync_category(
+                    category.url,
+                    category.name,
                 )
             else:
-                products = (
-                    self.scraping_service.scrape_category(
-                        category,
-                    )
+                products = self.scraping_service.scrape_category(
+                    category,
                 )
 
             results.extend(products)
@@ -115,12 +109,10 @@ class ScrapingRunner:
         mediante CategoryService.
         """
 
-        if not self.category_service:
+        if self.category_service is None:
             return []
 
-        categories = (
-            self.category_service.scrape_all()
-        )
+        categories = self.category_service.scrape_all()
 
         return self.run(
             categories,

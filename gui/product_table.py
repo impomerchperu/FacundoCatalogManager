@@ -301,7 +301,7 @@ class ProductTable(QTableWidget):
         self.setItem(row, self.CODE_COLUMN, item_code)
         self._set_text_item(row, self.NAME_COLUMN, product.name)
         self._set_text_item(row, self.DETAIL_COLUMN, product.description)
-        self._set_text_item(row, self.CATEGORY_COLUMN, product.category)
+        self._set_category_item(row, product.category)
 
         stock_item = NumericTableWidgetItem(str(product.stock), product.stock)
         stock_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -318,6 +318,23 @@ class ProductTable(QTableWidget):
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
         )
         self.setItem(row, column, item)
+
+    def _set_category_item(self, row: int, category: str) -> None:
+        """Muestra cada categoría del producto en una línea independiente."""
+        display_value = self._format_categories(category)
+        self._set_text_item(row, self.CATEGORY_COLUMN, display_value)
+
+    @staticmethod
+    def _format_categories(category: str) -> str:
+        categories = []
+        seen: set[str] = set()
+        for value in str(category or "").split(","):
+            normalized = value.strip()
+            key = normalized.casefold()
+            if normalized and key not in seen:
+                seen.add(key)
+                categories.append(normalized)
+        return "\n".join(categories) if categories else "—"
 
     def _set_colors_widget(self, row: int, product: Product) -> None:
         colors = list(product.colors) or list(product.color_stock)

@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from models.scraping.scraping_history import ScrapingHistory
-from repositories.scraping.catalog_load_repository import CatalogLoadRepository
 
 
 @dataclass
@@ -18,68 +17,44 @@ class ScrapingSessionResult:
     errors: list[str] = field(default_factory=list)
     products: list = field(default_factory=list)
     changes: list[dict] = field(default_factory=list)
-    load_id: int | None = None
     history_id: int | None = None
 
     def success(self) -> bool:
-        return len(self.errors) == 0
+        return not self.errors
 
     def status(self) -> str:
-        if self.success():
-            return "SUCCESS"
-        return "ERROR"
+        return "SUCCESS" if self.success() else "ERROR"
 
 
 class ScrapingSession:
-    """
-    Controlador de una sesión completa de scraping.
-
-    Una ejecución de scraping no aplica automáticamente la nueva carga.
-    La carga queda disponible en el historial para que el usuario decida
-    cuándo aplicarla.
-    """
+    """Coordina scraping, aplicación automática y registro de cambios."""
 
     def __init__(self, runner, history_repository=None):
         self.runner = runner
         self.history_repository = history_repository
-        self.catalog_load_repository = None
-
-        if history_repository is not None:
-            self.catalog_load_repository = CatalogLoadRepository(
-                history_repository.db,
-            )
-
         self.result = ScrapingSessionResult()
 
     def execute(self, categories=None, progress_callback=None):
-        self.result = ScrapingSessionResult()
-        self.result.started_at = datetime.now(timezone.utc)
-
-        try:
-            products = self.runner.run(
-                categories or [],
-                progress_callback,
-            )
-            self.result.products = products
-            self.result.processed = len(products)
-            self._extract_sync_result()
-        except RuntimeError as error:
-            self.result.errors.append(str(error))
-
-        self.result.finished_at = datetime.now(timezone.utc)
-        self._save_history()
-        return self.result
+        return self._execute(
+            lambda: self.runner.run(categories or [], progress_callback),
+        )
 
     def execute_all(self, progress_callback=None):
-        self.result = ScrapingSessionResult()
-        self.result.started_at = datetime.now(timezone.utc)
+        return self._execute(
+            lambda: self.runner.run_all(progress_callback),
+        )
+
+    def _execute(self, operation):
+        self.result = ScrapingSessionResult(
+            started_at=datetime.now(timezone.utc),
+        )
 
         try:
-            products = self.runner.run_all(progress_callback)
+            products = operation()
             self.result.products = products
             self.result.processed = len(products)
             self._extract_sync_result()
-        except RuntimeError as error:
+        except Exception as error:  # noqa: BLE001
             self.result.errors.append(str(error))
 
         self.result.finished_at = datetime.now(timezone.utc)
@@ -87,9 +62,11 @@ class ScrapingSession:
         return self.result
 
     def _extract_sync_result(self):
-        service = self.runner.scraping_service
-        sync_result = getattr(service, "last_sync_result", None)
-
+        sync_result = getattr(
+            self.runner.scraping_service,
+            "last_sync_result",
+            None,
+        )
         if sync_result is None:
             return
 
@@ -102,38 +79,13 @@ class ScrapingSession:
     def _save_history(self):
         if self.history_repository is None:
             return
-
-        if (
-            self.result.started_at is None
-            or self.result.finished_at is None
-        ):
+        if self.result.started_at is None or self.result.finished_at is None:
             return
 
-        message = (
-            "Actualización de catálogo completada correctamente. "
-            "Nueva carga disponible para aplicar."
-            if self.result.success()
-            else "Actualización de catálogo finalizada con errores."
-        )
-
-        if self.result.errors:
-            message = (
-                f"{message} Errores registrados: "
-                f"{len(self.result.errors)}."
-            )
-
-        if (
-            self.result.success()
-            and self.catalog_load_repository is not None
-        ):
-            self.result.load_id = (
-                self.catalog_load_repository.create_from_products(
-                    self.result.products,
-                    source="SCRAPING",
-                    status="SUCCESS",
-                    message=message,
-                )
-            )
+        if self.result.success():
+            message = "Descarga completada y cambios aplicados automáticamente."
+        else:
+            message = "Descarga finalizada con errores; no se registró como aplicada."
 
         history = ScrapingHistory(
             started_at=self.result.started_at,
@@ -145,7 +97,9 @@ class ScrapingSession:
             errors=len(self.result.errors),
             status=self.result.status(),
             message=message,
-            load_id=self.result.load_id,
         )
-
-        self.result.history_id = self.history_repository.save(history)
+        self.result.history_id = self.history_repository.save(
+            history,
+            self.result.changes if self.result.success() else [],
+            self.result.products if self.result.success() else [],
+        )

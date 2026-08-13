@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
 )
 
 from controllers.product_controller import ProductController
-from database.db_manager import DBManager
 from exporters.excel_exporter import ExcelExporter
 from exporters.pdf_exporter import PDFExporter
 from gui.product_dialog import ProductDialog
@@ -27,25 +26,15 @@ from gui.product_table import ProductTable
 from gui.scraping_dialog import ScrapingDialog
 from gui.scraping_history_dialog import ScrapingHistoryDialog
 from models.product import Product
-from repositories.scraping.catalog_load_repository import CatalogLoadRepository
 
 
 class MainWindow(QMainWindow):
     """Ventana principal del catálogo."""
 
     SCRAPING_SCHEDULE: ClassVar[set[tuple[int, int, int]]] = {
-        (0, 12, 0),
-        (0, 22, 0),
-        (1, 12, 0),
-        (1, 22, 0),
-        (2, 12, 0),
-        (2, 22, 0),
-        (3, 12, 0),
-        (3, 22, 0),
-        (4, 12, 0),
-        (4, 22, 0),
-        (5, 12, 0),
-        (5, 22, 0),
+        (0, 12, 0), (0, 22, 0), (1, 12, 0), (1, 22, 0),
+        (2, 12, 0), (2, 22, 0), (3, 12, 0), (3, 22, 0),
+        (4, 12, 0), (4, 22, 0), (5, 12, 0), (5, 22, 0),
     }
 
     ACTIVE_BUTTON_STYLE = """
@@ -68,11 +57,6 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.controller = ProductController()
-        self.catalog_load_db = DBManager()
-        self.catalog_load_repository = CatalogLoadRepository(self.catalog_load_db)
-        self.catalog_load_repository.ensure_initial_applied_load()
-        self.catalog_load_repository.restore_latest_applied()
-        self.catalog_load_repository.cleanup_expired_history()
         self.setWindowTitle("Facundo Catalog Manager")
         self.resize(1200, 700)
 
@@ -210,12 +194,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(filter_layout)
 
     @classmethod
-    def _configure_toggle_button(
-        cls,
-        button: QPushButton,
-        *texts: str,
-    ) -> None:
-        """Configura un botón de filtro con tamaño fijo desde su creación."""
+    def _configure_toggle_button(cls, button: QPushButton, *texts: str) -> None:
         font = button.font()
         font.setPixelSize(cls.TOGGLE_FONT_SIZE)
         button.setFont(font)
@@ -229,22 +208,14 @@ class MainWindow(QMainWindow):
         cls._set_toggle_button_width(button, *texts)
 
     @classmethod
-    def _set_toggle_button_width(
-        cls,
-        button: QPushButton,
-        *texts: str,
-    ) -> None:
-        """Reserva el ancho máximo de todos los estados del botón."""
+    def _set_toggle_button_width(cls, button: QPushButton, *texts: str) -> None:
         font = button.font()
         metrics = QFontMetrics(font)
         bold_font = QFont(font)
         bold_font.setBold(True)
         bold_metrics = QFontMetrics(bold_font)
         required_width = max(
-            max(
-                metrics.horizontalAdvance(text),
-                bold_metrics.horizontalAdvance(text),
-            )
+            max(metrics.horizontalAdvance(text), bold_metrics.horizontalAdvance(text))
             for text in texts
         ) + cls.TOGGLE_BUTTON_HORIZONTAL_PADDING
         button.setFixedWidth(required_width)
@@ -252,28 +223,19 @@ class MainWindow(QMainWindow):
 
     @classmethod
     def _category_button_width(cls, button: QPushButton, text: str) -> int:
-        """Calcula el ancho necesario para texto normal y resaltado a 13 px."""
         font = button.font()
         font.setPixelSize(cls.CATEGORY_FONT_SIZE)
         bold_font = QFont(font)
         bold_font.setBold(True)
         metrics = QFontMetrics(font)
         bold_metrics = QFontMetrics(bold_font)
-        return (
-            max(
-                metrics.horizontalAdvance(text),
-                bold_metrics.horizontalAdvance(text),
-            )
-            + cls.CATEGORY_BUTTON_HORIZONTAL_PADDING
-        )
+        return max(
+            metrics.horizontalAdvance(text),
+            bold_metrics.horizontalAdvance(text),
+        ) + cls.CATEGORY_BUTTON_HORIZONTAL_PADDING
 
     @classmethod
-    def _fit_category_button(
-        cls,
-        button: QPushButton,
-        text: str,
-    ) -> int:
-        """Ajusta el botón al texto y conserva el ancho en ambos estados."""
+    def _fit_category_button(cls, button: QPushButton, text: str) -> int:
         font = button.font()
         font.setPixelSize(cls.CATEGORY_FONT_SIZE)
         button.setFont(font)
@@ -299,7 +261,6 @@ class MainWindow(QMainWindow):
             "Filtrar Categorías",
             "Ocultar Categorías",
         )
-
         if visible:
             QTimer.singleShot(0, self._reflow_category_buttons)
         else:
@@ -323,7 +284,6 @@ class MainWindow(QMainWindow):
             if button is not self.all_categories_button:
                 button.deleteLater()
         self.category_buttons = [self.all_categories_button]
-
         self._clear_category_rows()
 
         categories = sorted(
@@ -356,7 +316,6 @@ class MainWindow(QMainWindow):
         self._reflow_category_buttons()
 
     def _clear_category_rows(self) -> None:
-        """Elimina las filas visuales sin destruir los botones de categorías."""
         while self.category_layout.count():
             item = self.category_layout.takeAt(0)
             if item is None:
@@ -375,35 +334,24 @@ class MainWindow(QMainWindow):
     def _reflow_category_buttons(self) -> None:
         if not hasattr(self, "category_layout"):
             return
-
         self._clear_category_rows()
-
         viewport_width = self.category_scroll.viewport().width()
         if viewport_width <= 1 or not self.category_buttons:
             return
 
-        prepared: list[tuple[QPushButton, int]] = []
+        prepared = []
         for button in self.category_buttons:
             text = str(
                 button.property("category_text") or button.text(),
-            ).replace(
-                "\n",
-                " ",
-            )
-            prepared.append(
-                (button, self._fit_category_button(button, text)),
-            )
+            ).replace("\n", " ")
+            prepared.append((button, self._fit_category_button(button, text)))
 
-        rows: list[list[QPushButton]] = [[]]
+        rows = [[]]
         row_widths = [0]
         spacing = self.CATEGORY_SPACING
-
         for button, width in prepared:
             current_row = len(rows) - 1
-            required_width = width
-            if rows[current_row]:
-                required_width += spacing
-
+            required_width = width + (spacing if rows[current_row] else 0)
             if (
                 rows[current_row]
                 and row_widths[current_row] + required_width > viewport_width
@@ -411,7 +359,6 @@ class MainWindow(QMainWindow):
                 rows.append([])
                 row_widths.append(0)
                 current_row += 1
-
             rows[current_row].append(button)
             row_widths[current_row] += width
             if len(rows[current_row]) > 1:
@@ -525,7 +472,6 @@ class MainWindow(QMainWindow):
             self.history_dialog.activateWindow()
             return
         self.history_dialog = ScrapingHistoryDialog(self)
-        self.history_dialog.catalog_applied.connect(self.refresh_catalog)
         self.history_dialog.finished.connect(lambda: self._history_closed())
         self.history_dialog.setModal(False)
         self.history_dialog.show()
@@ -536,6 +482,7 @@ class MainWindow(QMainWindow):
         self.history_dialog = None
 
     def scraping_finished(self) -> None:
+        self.refresh_catalog()
         if self.scraping_dialog is not None:
             self.scraping_dialog.setWindowTitle("Actualización completada")
             self.scraping_dialog.raise_()
@@ -657,6 +604,4 @@ class MainWindow(QMainWindow):
             self.scraping_dialog.close()
         if self.history_dialog is not None:
             self.history_dialog.close()
-        if hasattr(self, "catalog_load_db"):
-            self.catalog_load_db.close()
         super().closeEvent(event)

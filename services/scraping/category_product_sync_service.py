@@ -12,8 +12,9 @@ class CategoryProductSyncService:
     Orquesta extracción y preparación de productos obtenidos
     desde categorías.
 
-    La nueva versión del catálogo se persiste posteriormente
-    mediante CatalogLoadRepository.
+    La sincronización del catálogo se realiza una sola vez por
+    ejecución completa para que los productos presentes en varias
+    categorías puedan consolidarse correctamente.
     """
 
     def __init__(
@@ -42,25 +43,48 @@ class CategoryProductSyncService:
             category_url,
             category,
         )
+        return self.sync_products(products)
 
-        if (
-            self.mapper
-            and self.catalog_sync_service
-        ):
-            if self.image_sync_adapter:
-                products = self.image_sync_adapter.sync_products(
-                    products,
+    def sync_categories(
+        self,
+        categories,
+        progress_callback=None,
+    ):
+        """
+        Scrapea todas las categorías y sincroniza el conjunto completo.
+
+        La sincronización conjunta es importante porque un mismo código
+        puede aparecer en más de una categoría. CatalogSyncService puede
+        entonces consolidar las categorías antes de guardar el producto.
+        """
+        products = []
+        total = len(categories)
+
+        for index, category in enumerate(categories, start=1):
+            products.extend(
+                self.scraper_service.scrape_category(
+                    category.url,
+                    category.name,
                 )
+            )
+
+            if progress_callback:
+                progress_callback(index, total)
+
+        return self.sync_products(products)
+
+    def sync_products(self, products):
+        """Procesa y sincroniza un conjunto de productos scrapeados."""
+        if self.mapper and self.catalog_sync_service:
+            if self.image_sync_adapter:
+                products = self.image_sync_adapter.sync_products(products)
 
             mapped_products = [
                 self.mapper.map(product)
                 for product in products
             ]
 
-            result = self.catalog_sync_service.sync(
-                mapped_products,
-            )
-
+            result = self.catalog_sync_service.sync(mapped_products)
             self._accumulate_sync_result(result)
             return mapped_products
 

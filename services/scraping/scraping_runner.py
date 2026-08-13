@@ -67,6 +67,18 @@ class ScrapingRunner:
         if callable(reset_sync_result):
             reset_sync_result()
 
+        sync_categories = getattr(
+            self.scraping_service,
+            "sync_categories",
+            None,
+        )
+
+        if callable(sync_categories):
+            return sync_categories(
+                categories,
+                progress_callback,
+            )
+
         results = []
 
         total = len(categories)

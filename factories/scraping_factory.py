@@ -15,6 +15,7 @@ from scrapers.extractors.category_product_extractor import (
     CategoryProductExtractor,
 )
 from scrapers.extractors.product_card_extractor import ProductCardExtractor
+from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,
 )
@@ -41,13 +42,9 @@ class ScrapingFactory:
         db = DBManager()
 
         product_repository = ProductRepository(db)
-        diff_service = ProductDiffService()
-        catalog_sync_service = __import__(
-            "services.scraping.catalog_sync_service",
-            fromlist=["CatalogSyncService"],
-        ).CatalogSyncService(
+        catalog_sync_service = CatalogSyncService(
             product_repository,
-            diff_service,
+            ProductDiffService(),
         )
         mapper = ScrapedProductMapper()
         image_sync_adapter = ImageSyncAdapter()

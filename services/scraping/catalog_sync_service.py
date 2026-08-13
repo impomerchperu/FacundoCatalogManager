@@ -46,6 +46,11 @@ class CatalogSyncService:
                 self.repository.save(product)
                 continue
 
+            product.category = self._merge_categories(
+                existing.category,
+                product.category,
+            )
+
             comparison = self.diff_service.compare(existing, product)
             if comparison["changed"]:
                 result.updated += 1
@@ -87,17 +92,10 @@ class CatalogSyncService:
                 consolidated[code] = product
                 continue
 
-            categories = [
-                item.strip()
-                for item in str(getattr(existing, "category", "")).split(",")
-                if item.strip()
-            ]
-            incoming = [
-                item.strip()
-                for item in str(getattr(product, "category", "")).split(",")
-                if item.strip()
-            ]
-            existing.category = ", ".join(dict.fromkeys(categories + incoming))
+            existing.category = cls._merge_categories(
+                existing.category,
+                product.category,
+            )
 
             colors = list(getattr(existing, "colors", []))
             colors.extend(getattr(product, "colors", []))
@@ -111,6 +109,22 @@ class CatalogSyncService:
             existing.color_stock = color_stock
 
         return list(consolidated.values())
+
+    @staticmethod
+    def _merge_categories(*categories) -> str:
+        """Une categorías sin duplicarlas y conserva su orden de aparición."""
+        merged: list[str] = []
+        seen: set[str] = set()
+
+        for value in categories:
+            for category in str(value or "").split(","):
+                normalized = category.strip()
+                key = normalized.casefold()
+                if normalized and key not in seen:
+                    seen.add(key)
+                    merged.append(normalized)
+
+        return ", ".join(merged)
 
     @staticmethod
     def _value(obj, field):

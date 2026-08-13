@@ -100,39 +100,19 @@ class ProductTable(QTableWidget):
     ]
 
     COLOR_NAMES: ClassVar[dict[str, str]] = {
-        "rojo": "#ef9a9a",
-        "red": "#ef9a9a",
-        "azul": "#90caf9",
-        "blue": "#90caf9",
-        "verde": "#a5d6a7",
-        "green": "#a5d6a7",
-        "amarillo": "#fff59d",
-        "yellow": "#fff59d",
-        "naranja": "#ffcc80",
-        "orange": "#ffcc80",
-        "rosado": "#f8bbd0",
-        "rosa": "#f8bbd0",
-        "pink": "#f8bbd0",
-        "morado": "#ce93d8",
-        "violeta": "#ce93d8",
-        "purple": "#ce93d8",
-        "negro": "#616161",
-        "black": "#616161",
-        "blanco": "#ffffff",
-        "white": "#ffffff",
-        "gris": "#bdbdbd",
-        "gray": "#bdbdbd",
-        "grey": "#bdbdbd",
-        "beige": "#d7ccc8",
-        "marrón": "#a1887f",
-        "marron": "#a1887f",
-        "brown": "#a1887f",
-        "dorado": "#d4af37",
-        "gold": "#d4af37",
-        "plateado": "#cfd8dc",
-        "silver": "#cfd8dc",
-        "transparente": "#f5f5f5",
-        "transparent": "#f5f5f5",
+        "rojo": "#ef9a9a", "red": "#ef9a9a",
+        "azul": "#90caf9", "blue": "#90caf9",
+        "verde": "#a5d6a7", "green": "#a5d6a7",
+        "amarillo": "#fff59d", "yellow": "#fff59d",
+        "naranja": "#ffcc80", "orange": "#ffcc80",
+        "rosado": "#f8bbd0", "rosa": "#f8bbd0", "pink": "#f8bbd0",
+        "morado": "#ce93d8", "violeta": "#ce93d8", "purple": "#ce93d8",
+        "negro": "#616161", "black": "#616161", "blanco": "#ffffff",
+        "white": "#ffffff", "gris": "#bdbdbd", "gray": "#bdbdbd",
+        "grey": "#bdbdbd", "beige": "#d7ccc8", "marrón": "#a1887f",
+        "marron": "#a1887f", "brown": "#a1887f", "dorado": "#d4af37",
+        "gold": "#d4af37", "plateado": "#cfd8dc", "silver": "#cfd8dc",
+        "transparente": "#f5f5f5", "transparent": "#f5f5f5",
     }
 
     def __init__(self, controller: ProductController) -> None:
@@ -145,7 +125,6 @@ class ProductTable(QTableWidget):
         self.setHorizontalHeaderLabels(self.HEADER_LABELS)
         self._setup_table()
         self._setup_header()
-        self.load_products()
 
     def _setup_table(self) -> None:
         self.setSortingEnabled(False)
@@ -187,20 +166,16 @@ class ProductTable(QTableWidget):
         header.setStretchLastSection(False)
         header.setDefaultSectionSize(135)
         for column in range(self.columnCount()):
-            header.setSectionResizeMode(
-                column,
-                QHeaderView.ResizeMode.Fixed
-                if column == self.IMAGE_COLUMN
-                else QHeaderView.ResizeMode.Interactive,
-            )
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
+
         widths = {
             self.IMAGE_COLUMN: 180,
-            self.CODE_COLUMN: 110,
-            self.NAME_COLUMN: 230,
-            self.DETAIL_COLUMN: 320,
-            self.CATEGORY_COLUMN: 180,
-            self.STOCK_COLUMN: 95,
-            self.COLORS_COLUMN: 180,
+            self.CODE_COLUMN: 120,
+            self.NAME_COLUMN: 260,
+            self.DETAIL_COLUMN: 300,
+            self.CATEGORY_COLUMN: 220,
+            self.STOCK_COLUMN: 100,
+            self.COLORS_COLUMN: 220,
             self.PRICE_SAMPLE_COLUMN: 140,
             self.PRICE_HUNDRED_COLUMN: 140,
             self.PRICE_THOUSAND_COLUMN: 140,
@@ -263,7 +238,6 @@ class ProductTable(QTableWidget):
         self.product_header().set_active_sections(set(self._sort_states))
 
     def set_search_text(self, text: str) -> None:
-        """Conserva la API de búsqueda sin aplicar resaltado visual."""
         self._search_text = text.strip()
 
     def load_products(self, products: list[Product] | None = None) -> None:
@@ -292,124 +266,69 @@ class ProductTable(QTableWidget):
                         160,
                         Qt.AspectRatioMode.KeepAspectRatio,
                         Qt.TransformationMode.SmoothTransformation,
-                    )
+                    ),
                 )
         self.setCellWidget(row, self.IMAGE_COLUMN, image)
 
-        item_code = QTableWidgetItem(product.code)
-        item_code.setData(Qt.ItemDataRole.UserRole, product.id)
-        item_code.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setItem(row, self.CODE_COLUMN, item_code)
-        self._set_text_item(row, self.NAME_COLUMN, product.name)
-        self._set_text_item(row, self.DETAIL_COLUMN, product.description)
-        self._set_text_item(row, self.CATEGORY_COLUMN, product.category)
-
-        stock_item = NumericTableWidgetItem(str(product.stock), product.stock)
-        stock_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setItem(row, self.STOCK_COLUMN, stock_item)
-        self._set_colors_widget(row, product)
-        self._set_price_item(row, self.PRICE_SAMPLE_COLUMN, product.price_sample)
-        self._set_price_item(row, self.PRICE_HUNDRED_COLUMN, product.price_hundred)
-        self._set_price_item(row, self.PRICE_THOUSAND_COLUMN, product.price_thousand)
-
-    def _set_text_item(self, row: int, column: int, text: str) -> None:
-        item = QTableWidgetItem(text)
-        item.setToolTip(text)
-        item.setTextAlignment(
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-        )
-        self.setItem(row, column, item)
-
-    def _set_colors_widget(self, row: int, product: Product) -> None:
-        colors = list(product.colors) or list(product.color_stock)
-        if not colors:
-            item = QTableWidgetItem("—")
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.setItem(row, self.COLORS_COLUMN, item)
-            return
-        label = QLabel()
-        label.setTextFormat(Qt.TextFormat.RichText)
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label.setWordWrap(True)
-        parts = []
-        for color in colors:
-            stock = product.color_stock.get(color)
-            stock_text = f" — {stock}" if stock is not None else ""
-            background = self._color_background(color)
-            foreground = "#ffffff" if self._is_dark_color(background) else "#000000"
-            parts.append(
-                f'<span style="background:{background}; color:{foreground}; '
-                f'padding:2px 5px;">{self._escape_html(color)}{stock_text}</span>'
-            )
-        label.setText("<br>".join(parts))
-        label.setToolTip(
-            "\n".join(
-                (
-                    f"{color}: {product.color_stock[color]}"
-                    if color in product.color_stock
-                    else color
+        values = [
+            product.code,
+            product.name,
+            self._format_detail(product.description),
+            product.category,
+            str(product.stock),
+            self._format_colors(product.colors),
+            f"{product.price_sample:,.2f}",
+            f"{product.price_hundred:,.2f}",
+            f"{product.price_thousand:,.2f}",
+        ]
+        columns = [
+            self.CODE_COLUMN,
+            self.NAME_COLUMN,
+            self.DETAIL_COLUMN,
+            self.CATEGORY_COLUMN,
+            self.STOCK_COLUMN,
+            self.COLORS_COLUMN,
+            self.PRICE_SAMPLE_COLUMN,
+            self.PRICE_HUNDRED_COLUMN,
+            self.PRICE_THOUSAND_COLUMN,
+        ]
+        numeric_columns = {
+            self.STOCK_COLUMN,
+            self.PRICE_SAMPLE_COLUMN,
+            self.PRICE_HUNDRED_COLUMN,
+            self.PRICE_THOUSAND_COLUMN,
+        }
+        for column, value in zip(columns, values, strict=True):
+            if column in numeric_columns:
+                numeric_value = (
+                    product.stock
+                    if column == self.STOCK_COLUMN
+                    else self._price_for_column(product, column)
                 )
-                for color in colors
-            )
-        )
-        self.setCellWidget(row, self.COLORS_COLUMN, label)
-
-    @classmethod
-    def _color_background(cls, color: str) -> str:
-        key = color.casefold().strip()
-        if key in cls.COLOR_NAMES:
-            return cls.COLOR_NAMES[key]
-        for name, value in cls.COLOR_NAMES.items():
-            if name in key:
-                return value
-        return "#e0e0e0"
+                item = NumericTableWidgetItem(value, numeric_value)
+            else:
+                item = QTableWidgetItem(value)
+            if column == self.CODE_COLUMN:
+                item.setData(Qt.ItemDataRole.UserRole, product.product_id)
+            self.setItem(row, column, item)
 
     @staticmethod
-    def _is_dark_color(color: str) -> bool:
-        value = color.lstrip("#")
-        if len(value) != 6:
-            return False
-        red, green, blue = (int(value[i:i + 2], 16) for i in (0, 2, 4))
-        return (red * 299 + green * 587 + blue * 114) < 140000
+    def _price_for_column(product: Product, column: int) -> float:
+        if column == ProductTable.PRICE_SAMPLE_COLUMN:
+            return product.price_sample
+        if column == ProductTable.PRICE_HUNDRED_COLUMN:
+            return product.price_hundred
+        return product.price_thousand
 
     @staticmethod
-    def _escape_html(value: str) -> str:
-        return html.escape(str(value))
+    def _format_detail(value: str) -> str:
+        return html.unescape(str(value or ""))
 
-    def _set_price_item(self, row: int, column: int, value: float) -> None:
-        item = NumericTableWidgetItem(f"S/ {value:,.2f}", value)
-        item.setTextAlignment(
-            Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter,
-        )
-        self.setItem(row, column, item)
+    @staticmethod
+    def _format_colors(colors: list[str]) -> str:
+        return ", ".join(str(color) for color in colors)
 
     def _adjust_table_rows(self) -> None:
         self.resizeRowsToContents()
         for row in range(self.rowCount()):
-            self.setRowHeight(row, max(140, min(self.rowHeight(row), 260)))
-
-    def resizeEvent(self, event) -> None:
-        super().resizeEvent(event)
-        available_width = self.viewport().width()
-        if available_width <= 0:
-            return
-        fixed_width = sum(
-            self.columnWidth(column)
-            for column in (
-                self.IMAGE_COLUMN,
-                self.CODE_COLUMN,
-                self.STOCK_COLUMN,
-                self.COLORS_COLUMN,
-                self.PRICE_SAMPLE_COLUMN,
-                self.PRICE_HUNDRED_COLUMN,
-                self.PRICE_THOUSAND_COLUMN,
-            )
-        )
-        remaining = max(available_width - fixed_width, 540)
-        self.setColumnWidth(self.NAME_COLUMN, int(remaining * 0.29))
-        self.setColumnWidth(self.DETAIL_COLUMN, int(remaining * 0.43))
-        self.setColumnWidth(
-            self.CATEGORY_COLUMN,
-            max(int(remaining * 0.28), 120),
-        )
-        self._adjust_table_rows()
+            self.setRowHeight(row, max(self.rowHeight(row), 170))

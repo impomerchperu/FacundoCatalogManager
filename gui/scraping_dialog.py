@@ -171,6 +171,7 @@ class ScrapingDialog(QDialog):
         self.start_button.setEnabled(True)
 
     def show_result(self, result) -> None:
+        consistency = "OK" if result.counts_are_consistent else "ERROR"
         QMessageBox.information(
             self,
             "Resumen actualización",
@@ -178,7 +179,9 @@ class ScrapingDialog(QDialog):
                 f"Productos procesados: {result.processed}\n\n"
                 f"Nuevos: {result.created}\n"
                 f"Actualizados: {result.updated}\n"
-                f"Sin cambios: {result.unchanged}\n\n"
+                f"Sin cambios: {result.unchanged}\n"
+                f"Total clasificado: {result.classified_total}\n"
+                f"Conteos: {consistency}\n\n"
                 f"Errores: {len(result.errors)}\n\n"
                 "Use 'Ver detalle' para revisar los productos nuevos "
                 "y las variaciones detectadas."
@@ -208,6 +211,8 @@ class ScrapingDialog(QDialog):
             f"Nuevos: {result.created}    "
             f"Actualizados: {result.updated}    "
             f"Sin cambios: {result.unchanged}    "
+            f"Total clasificado: {result.classified_total}    "
+            f"Conteos: {'OK' if result.counts_are_consistent else 'ERROR'}    "
             f"Errores: {len(result.errors)}",
         )
         summary.setStyleSheet("font-weight: bold;")

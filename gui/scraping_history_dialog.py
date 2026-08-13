@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from database.db_manager import DBManager
@@ -98,7 +99,11 @@ class ScrapingHistoryDialog(QDialog):
             self._set_item(row, 3, str(record.updated))
             self._set_item(row, 4, str(record.unchanged))
             self._set_item(row, 5, str(record.errors))
-            self._set_item(row, 6, "APLICADO" if record.status == "SUCCESS" else "ERROR")
+            self._set_item(
+                row,
+                6,
+                "APLICADO" if record.status == "SUCCESS" else "ERROR",
+            )
             self._set_detail_button(row, record.history_id)
             self.table.setRowHeight(row, 44)
 
@@ -122,9 +127,7 @@ class ScrapingHistoryDialog(QDialog):
         self.table.setCellWidget(row, 7, self._layout_widget(container))
 
     @staticmethod
-    def _layout_widget(layout: QHBoxLayout):
-        from PySide6.QtWidgets import QWidget
-
+    def _layout_widget(layout: QHBoxLayout) -> QWidget:
         widget = QWidget()
         widget.setLayout(layout)
         return widget

@@ -75,8 +75,8 @@ def test_history_stores_only_detected_changes():
     updated = [item for item in stored if item["type"] == "UPDATED"]
     assert {(item["field"], item["old"], item["new"]) for item in updated} == {
         ("description", "Detalle original", "Detalle modificado"),
-        ("stock", "10", "25"),
-        ("price_sample", "5.0", "6.5"),
+        ("stock", 10, 25),
+        ("price_sample", 5.0, 6.5),
     }
 
     new_fields = [item for item in stored if item["type"] == "NEW"]

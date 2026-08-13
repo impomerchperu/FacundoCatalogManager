@@ -12,6 +12,7 @@ class DBManager:
 
         self.connection = sqlite3.connect(db_path, timeout=30)
         self.connection.row_factory = sqlite3.Row
+        self._transaction_active = False
         self._configure_sqlite()
         self.initialize_database()
 
@@ -165,10 +166,32 @@ class DBManager:
             f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"
         )
 
+    def begin(self):
+        """Inicia una transacción explícita."""
+        if self._transaction_active:
+            raise RuntimeError("Ya existe una transacción activa.")
+        self.connection.execute("BEGIN")
+        self._transaction_active = True
+
+    def commit(self):
+        """Confirma la transacción activa."""
+        if not self._transaction_active:
+            return
+        self.connection.commit()
+        self._transaction_active = False
+
+    def rollback(self):
+        """Revierte la transacción activa."""
+        if not self._transaction_active:
+            return
+        self.connection.rollback()
+        self._transaction_active = False
+
     def execute_query(self, query, params=()):
         cursor = self.connection.cursor()
         cursor.execute(query, params)
-        self.connection.commit()
+        if not self._transaction_active:
+            self.connection.commit()
         return cursor
 
     def fetch_all(self, query, params=()):
@@ -183,4 +206,6 @@ class DBManager:
 
     def close(self):
         if self.connection:
+            if self._transaction_active:
+                self.rollback()
             self.connection.close()

@@ -19,6 +19,16 @@ class ScrapingSessionResult:
     changes: list[dict] = field(default_factory=list)
     history_id: int | None = None
 
+    @property
+    def classified_total(self) -> int:
+        """Total explicado por nuevos, actualizados y sin cambios."""
+        return self.created + self.updated + self.unchanged
+
+    @property
+    def counts_are_consistent(self) -> bool:
+        """Indica si los productos procesados están completamente clasificados."""
+        return self.processed == self.classified_total
+
     def success(self) -> bool:
         return not self.errors
 
@@ -59,8 +69,14 @@ class ScrapingSession:
 
             products = operation()
             self.result.products = products
-            self.result.processed = len(products)
             self._extract_sync_result()
+
+            if not self.result.counts_are_consistent:
+                self.result.errors.append(
+                    "Inconsistencia en el resumen de sincronización: "
+                    f"procesados={self.result.processed}, "
+                    f"clasificados={self.result.classified_total}."
+                )
 
             if self.result.errors:
                 if transaction_started:
@@ -96,6 +112,7 @@ class ScrapingSession:
         if sync_result is None:
             return
 
+        self.result.processed = sync_result.processed
         self.result.created = sync_result.created
         self.result.updated = sync_result.updated
         self.result.unchanged = sync_result.unchanged

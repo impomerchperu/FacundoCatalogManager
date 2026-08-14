@@ -105,6 +105,14 @@ class ScrapingDialog(QDialog):
         self.scraping_thread.finished.connect(self.thread_finished)
         self.scraping_thread.start()
 
+        # El scraping ya se ejecuta en QThread. Devuelve el foco a la
+        # ventana principal para que el usuario pueda seguir navegando
+        # mientras la actualización está en curso.
+        parent_window = self.parentWidget()
+        if parent_window is not None:
+            parent_window.raise_()
+            parent_window.activateWindow()
+
     def update_progress(self, current: int, total: int) -> None:
         if total <= 0:
             return

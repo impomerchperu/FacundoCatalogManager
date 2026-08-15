@@ -156,37 +156,30 @@ class CatalogBootstrapService:
 
     @staticmethod
     def _convert_field(field: str, value):
+        defaults = {
+            "stock": 0,
+            "price": 0.0,
+            "price_sample": 0.0,
+            "price_hundred": 0.0,
+            "price_thousand": 0.0,
+            "color_stock": "{}",
+        }
         if value is None:
-            defaults = {
-                "stock": 0,
-                "price": 0.0,
-                "price_sample": 0.0,
-                "price_hundred": 0.0,
-                "price_thousand": 0.0,
-                "color_stock": "{}",
-            }
-            return defaults.get(field, "")
+            value = defaults.get(field, "")
 
-        if field in {"price", "price_sample", "price_hundred", "price_thousand"}:
-            try:
-                return float(value)
-            except (TypeError, ValueError):
-                return 0.0
+        try:
+            if field in {"price", "price_sample", "price_hundred", "price_thousand"}:
+                result = float(value)
+            elif field == "stock":
+                result = int(float(value))
+            elif field == "color_stock":
+                result = json.dumps(json.loads(str(value)), ensure_ascii=False)
+            else:
+                result = str(value)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            result = defaults.get(field, "")
 
-        if field == "stock":
-            try:
-                return int(float(value))
-            except (TypeError, ValueError):
-                return 0
-
-        if field == "color_stock":
-            try:
-                parsed = json.loads(str(value))
-            except (TypeError, ValueError, json.JSONDecodeError):
-                return "{}"
-            return json.dumps(parsed, ensure_ascii=False)
-
-        return str(value)
+        return result
 
     def bootstrap(self):
         """Mantiene compatibilidad con el servicio anterior sin hacer scraping."""

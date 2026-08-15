@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS sync_records (
     price_hundred REAL DEFAULT 0,
     price_thousand REAL DEFAULT 0,
     stock INTEGER DEFAULT 0,
+    color_stock TEXT DEFAULT '{}',
     image_url TEXT DEFAULT '',
     image_path TEXT DEFAULT '',
     content_hash TEXT DEFAULT '',

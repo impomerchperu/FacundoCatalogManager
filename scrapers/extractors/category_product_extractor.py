@@ -13,7 +13,7 @@ class CategoryProductExtractor:
         self.price_extractor = PriceExtractor()
 
     def extract(self, card, url="", category=""):
-        colors, color_stock = self._colors(card)
+        color_stock = self._color_stock(card)
         stock_values = self._stock_values(card)
         total_stock = sum(stock_values) if stock_values else self._stock(card)
         if color_stock:
@@ -30,7 +30,6 @@ class CategoryProductExtractor:
             price_sample=self.price_extractor.extract_sample(card),
             price_hundred=self.price_extractor.extract_hundred(card),
             price_thousand=self.price_extractor.extract_thousand(card),
-            colors=colors,
             color_stock=color_stock,
             image_url=self._image(card),
         )
@@ -62,8 +61,7 @@ class CategoryProductExtractor:
                 values.append(int(text))
         return values
 
-    def _colors(self, soup) -> tuple[list[str], dict[str, int]]:
-        colors: list[str] = []
+    def _color_stock(self, soup) -> dict[str, int]:
         color_stock: dict[str, int] = {}
 
         def add_color(name: str, stock: int | None = None) -> None:
@@ -76,8 +74,6 @@ class CategoryProductExtractor:
                 "sin color",
             }:
                 return
-            if value not in colors:
-                colors.append(value)
             if stock is not None:
                 color_stock[value] = max(
                     color_stock.get(value, 0),
@@ -111,11 +107,15 @@ class CategoryProductExtractor:
         self._extract_labeled_colors(soup, add_color)
 
         stock_values = self._stock_values(soup)
-        if colors and len(stock_values) == len(colors):
-            for color, stock in zip(colors, stock_values, strict=True):
+        color_names = list(color_stock)
+        if len(stock_values) == len(color_names):
+            for color, stock in zip(color_names, stock_values, strict=True):
+                color_stock[color] = stock
+        elif color_names and not all(color in color_stock for color in color_names):
+            for color, stock in zip(color_names, stock_values, strict=False):
                 color_stock[color] = stock
 
-        return colors, color_stock
+        return color_stock
 
     @staticmethod
     def _extract_labeled_colors(soup, add_color) -> None:
@@ -126,7 +126,9 @@ class CategoryProductExtractor:
             r"c[oó]digo|sku|categor[ií]as?)\b|$)",
             flags=re.IGNORECASE,
         )
-        for element in soup.find_all(string=re.compile(r"\bcolores?\s*[:|\-]", re.I)):
+        for element in soup.find_all(
+            string=re.compile(r"\bcolores?\s*[:|\-]", re.I)
+        ):
             text = str(element).strip()
             match = pattern.search(text)
             if match is None:

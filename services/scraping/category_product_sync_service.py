@@ -1,5 +1,6 @@
 import logging
 import time
+from pathlib import Path
 
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_product_scraping_service import (
@@ -11,6 +12,16 @@ from services.scraping.scraped_product_persistence_service import (
 
 
 logger = logging.getLogger("FCM")
+TIMING_LOG = Path("data") / "scraping_timing.log"
+
+
+def _log_timing(message, *args):
+    """Registra el diagnóstico tanto en el logger como en un archivo estable."""
+    logger.info(message, *args)
+    TIMING_LOG.parent.mkdir(parents=True, exist_ok=True)
+    formatted = message % args if args else message
+    with TIMING_LOG.open("a", encoding="utf-8") as file:
+        file.write(f"{formatted}\n")
 
 
 class CategoryProductSyncService:
@@ -51,7 +62,7 @@ class CategoryProductSyncService:
             category,
         )
         elapsed = time.perf_counter() - started
-        logger.info(
+        _log_timing(
             "SCRAPING TIMING | category=%s | products=%d | seconds=%.3f",
             category,
             len(products),
@@ -84,7 +95,7 @@ class CategoryProductSyncService:
             category_elapsed = time.perf_counter() - category_started
             products.extend(category_products)
 
-            logger.info(
+            _log_timing(
                 "SCRAPING TIMING | category=%s | products=%d | seconds=%.3f",
                 category.name,
                 len(category_products),
@@ -95,7 +106,7 @@ class CategoryProductSyncService:
                 progress_callback(index, total)
 
         scraping_elapsed = time.perf_counter() - started
-        logger.info(
+        _log_timing(
             "SCRAPING TIMING | stage=category_extraction | categories=%d "
             "| products=%d | seconds=%.3f",
             total,
@@ -119,7 +130,7 @@ class CategoryProductSyncService:
             if callable(consolidate):
                 products = consolidate(products)
             consolidate_elapsed = time.perf_counter() - consolidate_started
-            logger.info(
+            _log_timing(
                 "SCRAPING TIMING | stage=consolidation | products=%d "
                 "| seconds=%.3f",
                 len(products),
@@ -130,7 +141,7 @@ class CategoryProductSyncService:
                 image_started = time.perf_counter()
                 products = self.image_sync_adapter.sync_products(products)
                 image_elapsed = time.perf_counter() - image_started
-                logger.info(
+                _log_timing(
                     "SCRAPING TIMING | stage=images | products=%d "
                     "| seconds=%.3f",
                     len(products),
@@ -143,7 +154,7 @@ class CategoryProductSyncService:
                 for product in products
             ]
             mapping_elapsed = time.perf_counter() - mapping_started
-            logger.info(
+            _log_timing(
                 "SCRAPING TIMING | stage=mapping | products=%d "
                 "| seconds=%.3f",
                 len(mapped_products),
@@ -153,7 +164,7 @@ class CategoryProductSyncService:
             catalog_started = time.perf_counter()
             result = self.catalog_sync_service.sync(mapped_products)
             catalog_elapsed = time.perf_counter() - catalog_started
-            logger.info(
+            _log_timing(
                 "SCRAPING TIMING | stage=catalog_sync | products=%d "
                 "| seconds=%.3f",
                 len(mapped_products),
@@ -161,7 +172,7 @@ class CategoryProductSyncService:
             )
 
             total_elapsed = time.perf_counter() - total_started
-            logger.info(
+            _log_timing(
                 "SCRAPING TIMING | stage=sync_total | products=%d "
                 "| seconds=%.3f",
                 len(mapped_products),
@@ -175,13 +186,13 @@ class CategoryProductSyncService:
         result = self.persistence_service.save_products(products)
         persistence_elapsed = time.perf_counter() - persistence_started
         total_elapsed = time.perf_counter() - total_started
-        logger.info(
+        _log_timing(
             "SCRAPING TIMING | stage=persistence | products=%d "
             "| seconds=%.3f",
             len(products),
             persistence_elapsed,
         )
-        logger.info(
+        _log_timing(
             "SCRAPING TIMING | stage=sync_total | products=%d "
             "| seconds=%.3f",
             len(products),

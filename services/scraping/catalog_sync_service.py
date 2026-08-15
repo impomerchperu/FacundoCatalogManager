@@ -4,7 +4,7 @@ from models.scraping.sync_result import SyncResult
 
 
 class CatalogSyncService:
-    """Compara productos obtenidos durante el scraping contra sync_records."""
+    """Compara productos obtenidos contra el catálogo persistido."""
 
     FIELD_LABELS: ClassVar[dict[str, str]] = {
         "name": "Nombre",
@@ -29,7 +29,7 @@ class CatalogSyncService:
 
     def sync(self, products):
         result = SyncResult()
-        consolidated = self._consolidate_products(products)
+        consolidated = self.consolidate_products(products)
 
         for product in consolidated:
             result.increment_processed()
@@ -81,12 +81,15 @@ class CatalogSyncService:
         return self.sync(products)
 
     @classmethod
-    def _consolidate_products(cls, products):
+    def consolidate_products(cls, products):
+        """Consolida por código antes de comparar o guardar el catálogo."""
         consolidated = {}
+
         for product in products:
             code = str(getattr(product, "code", "")).strip()
             if not code:
                 continue
+
             existing = consolidated.get(code)
             if existing is None:
                 consolidated[code] = product
@@ -97,16 +100,29 @@ class CatalogSyncService:
                 product.category,
             )
 
-            colors = list(getattr(existing, "colors", []))
-            colors.extend(getattr(product, "colors", []))
-            existing.colors = list(dict.fromkeys(
-                str(color).strip() for color in colors if str(color).strip()
-            ))
-
             color_stock = dict(getattr(existing, "color_stock", {}))
             for color, stock in getattr(product, "color_stock", {}).items():
-                color_stock[color] = max(color_stock.get(color, 0), int(stock))
+                normalized_color = str(color).strip()
+                if not normalized_color:
+                    continue
+                try:
+                    normalized_stock = max(int(stock), 0)
+                except (TypeError, ValueError):
+                    continue
+                color_stock[normalized_color] = max(
+                    color_stock.get(normalized_color, 0),
+                    normalized_stock,
+                )
             existing.color_stock = color_stock
+
+            if not getattr(existing, "description", "") and getattr(
+                product, "description", ""
+            ):
+                existing.description = product.description
+            if not getattr(existing, "image_url", "") and getattr(
+                product, "image_url", ""
+            ):
+                existing.image_url = product.image_url
 
         return list(consolidated.values())
 

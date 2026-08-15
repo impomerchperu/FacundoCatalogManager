@@ -8,14 +8,7 @@ from models.scraping.category import Category
 
 
 class ProductCollectionScraper:
-    """
-    Recorre todas las páginas de una categoría y extrae
-    los productos encontrados.
-
-    Los productos con múltiples existencias reciben un enriquecimiento
-    desde su página de detalle para obtener los colores y asociarlos
-    con los valores de stock de la tarjeta de categoría.
-    """
+    """Recorre todas las páginas de una categoría y extrae sus productos."""
 
     def __init__(
         self,
@@ -85,10 +78,6 @@ class ProductCollectionScraper:
         if self.detail_extractor is None:
             return product
 
-        stock_values = self._stock_values(card)
-        if len(stock_values) <= 1:
-            return product
-
         link = card.select_one('a[href*="/producto/"]')
         href = link.get("href") if link else ""
         if not isinstance(href, str) or not href:
@@ -106,15 +95,26 @@ class ProductCollectionScraper:
             category=category_name,
         )
 
-        colors = list(getattr(detailed_product, "color_stock", {}).keys())
-        if not colors or len(colors) != len(stock_values):
+        detail_color_stock = dict(
+            getattr(detailed_product, "color_stock", {})
+        )
+        card_stock_values = self._stock_values(card)
+
+        if detail_color_stock:
+            colors = list(detail_color_stock)
+            if len(card_stock_values) == len(colors):
+                product.color_stock = dict(
+                    zip(colors, card_stock_values, strict=True),
+                )
+            else:
+                product.color_stock = detail_color_stock
+            product.stock = sum(product.color_stock.values())
+            product.url = detail_url
             return product
 
-        product.color_stock = dict(
-            zip(colors, stock_values, strict=True),
-        )
-        product.stock = sum(product.color_stock.values())
-        product.url = detail_url
+        if product.color_stock:
+            product.url = detail_url
+
         return product
 
     @staticmethod

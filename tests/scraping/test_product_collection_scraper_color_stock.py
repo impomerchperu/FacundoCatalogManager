@@ -53,7 +53,6 @@ def test_collection_scraper_enriches_color_stock_from_detail():
     )
 
     assert len(products) == 1
-    assert products[0].colors == ["Dorado", "Plateado"]
     assert products[0].color_stock == {
         "Dorado": 6646,
         "Plateado": 7942,

@@ -8,7 +8,6 @@ from database.db_manager import DBManager
 from gui.main_window import MainWindow
 from services.catalog_bootstrap_service import CatalogBootstrapService
 
-
 app = QApplication(sys.argv)
 
 window = MainWindow()

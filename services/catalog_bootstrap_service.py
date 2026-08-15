@@ -1,12 +1,19 @@
-from database.db_manager import DBManager
+from collections.abc import Callable
+
 from controllers.scraping_controller import ScrapingController
+from database.db_manager import DBManager
 
 
 class CatalogBootstrapService:
     """Garantiza una única base de catálogo inicial y persistente."""
 
-    def __init__(self) -> None:
-        self.db = DBManager()
+    def __init__(
+        self,
+        db: DBManager | None = None,
+        controller_factory: Callable[[], ScrapingController] = ScrapingController,
+    ) -> None:
+        self.db = db or DBManager()
+        self.controller_factory = controller_factory
 
     def is_initialized(self) -> bool:
         row = self.db.fetch_all(
@@ -42,7 +49,7 @@ class CatalogBootstrapService:
             self.db.commit()
             return None
 
-        controller = ScrapingController()
+        controller = self.controller_factory()
         result = controller.run_full_scraping()
 
         if result.success() and self.product_count() > 0:

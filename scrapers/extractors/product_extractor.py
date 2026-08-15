@@ -15,6 +15,16 @@ class ProductExtractor:
     SOURCE = "importacionesfacundo"
     BASE_URL = "https://stock.importacionesfacundo.com"
 
+    _IGNORED_COLOR_TAGS = {"select", "option", "script", "style", "noscript", "template"}
+    _INVALID_COLOR_MARKERS = {
+        "var acss",
+        "sourceurl=",
+        "sourceurl:",
+        "javascript",
+        "color_mode",
+        "enable_client_color_preference",
+    }
+
     def __init__(self):
         self.price_extractor = PriceExtractor()
         self.stock_extractor = StockExtractor()
@@ -116,15 +126,7 @@ class ProductExtractor:
     def _build_color_adder(color_stock, color_labels):
         def add_color(name: str, stock: int | None = None) -> None:
             normalized = re.sub(r"\s+", " ", str(name)).strip(" .:-|")
-            if not normalized:
-                return
-            if normalized.casefold() in {
-                "color",
-                "colour",
-                "colores",
-                "seleccionar color",
-                "choose an option",
-            }:
+            if not ProductExtractor._is_valid_color_name(normalized):
                 return
             normalized = color_labels.get(normalized.casefold(), normalized)
             color_stock.setdefault(normalized, 0)
@@ -135,6 +137,27 @@ class ProductExtractor:
                 )
 
         return add_color
+
+    @classmethod
+    def _is_valid_color_name(cls, value: str) -> bool:
+        if not value or len(value) > 80:
+            return False
+        folded = value.casefold()
+        if folded in {
+            "color",
+            "colour",
+            "colores",
+            "seleccionar color",
+            "choose an option",
+        }:
+            return False
+        if any(marker in folded for marker in cls._INVALID_COLOR_MARKERS):
+            return False
+        if any(token in value for token in ("{", "}", ";", "//", "=>")):
+            return False
+        if re.fullmatch(r"[\d\s.,:+-]+", value):
+            return False
+        return True
 
     @staticmethod
     def _extract_select_color_stock(soup, add_color) -> None:
@@ -150,26 +173,37 @@ class ProductExtractor:
                 label = option.get_text(" ", strip=True) or str(value)
                 add_color(label, ProductExtractor._stock_from_tag(option))
 
-    @staticmethod
-    def _extract_element_color_stock(soup, add_color) -> None:
-        ignored_tags = {"select", "option", "script", "style", "noscript", "template"}
+    @classmethod
+    def _extract_element_color_stock(cls, soup, add_color) -> None:
         for element in soup.find_all(True):
-            if element.name in ignored_tags:
+            if element.name in cls._IGNORED_COLOR_TAGS:
                 continue
+            if element.find(cls._IGNORED_COLOR_TAGS):
+                continue
+
             attributes = " ".join(
                 str(element.get(attribute, ""))
                 for attribute in ("class", "id", "name", "data-attribute_name")
             ).casefold()
             if "color" not in attributes and "colour" not in attributes:
                 continue
+
             value = (
                 element.get("data-value")
                 or element.get("data-color")
                 or element.get("title")
-                or element.get_text(" ", strip=True)
             )
             if value:
-                add_color(str(value), ProductExtractor._stock_from_tag(element))
+                add_color(str(value), cls._stock_from_tag(element))
+                continue
+
+            direct_text = " ".join(
+                str(text).strip()
+                for text in element.find_all(string=True, recursive=False)
+                if str(text).strip()
+            )
+            if direct_text:
+                add_color(direct_text, cls._stock_from_tag(element))
 
     def _extract_text_color_stock(self, soup, add_color) -> None:
         for color in self._extract_text_colors(soup):

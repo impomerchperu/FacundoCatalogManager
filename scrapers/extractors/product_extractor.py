@@ -152,8 +152,9 @@ class ProductExtractor:
 
     @staticmethod
     def _extract_element_color_stock(soup, add_color) -> None:
+        ignored_tags = {"select", "option", "script", "style", "noscript", "template"}
         for element in soup.find_all(True):
-            if element.name in {"select", "option"}:
+            if element.name in ignored_tags:
                 continue
             attributes = " ".join(
                 str(element.get(attribute, ""))

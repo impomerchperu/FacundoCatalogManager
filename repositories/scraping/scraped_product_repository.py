@@ -23,8 +23,8 @@ class ScrapedProductRepository:
         INSERT INTO scraped_products (
             source, url, code, name, category, description,
             stock, price, price_sample, price_hundred, price_thousand,
-            colors, color_stock, image_url, image_path
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            color_stock, image_url, image_path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         self.db.execute_query(query, self._params(product))
 
@@ -33,7 +33,7 @@ class ScrapedProductRepository:
         UPDATE scraped_products
         SET source=?, code=?, name=?, category=?, description=?,
             stock=?, price=?, price_sample=?, price_hundred=?,
-            price_thousand=?, colors=?, color_stock=?, image_url=?,
+            price_thousand=?, color_stock=?, image_url=?,
             image_path=?, updated_at=CURRENT_TIMESTAMP
         WHERE url=?
         """
@@ -79,7 +79,6 @@ class ScrapedProductRepository:
             product.price_sample,
             product.price_hundred,
             product.price_thousand,
-            json.dumps(product.colors, ensure_ascii=False),
             json.dumps(product.color_stock, ensure_ascii=False),
             product.image_url,
             product.image_path,

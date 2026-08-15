@@ -21,7 +21,6 @@ def test_category_product_extractor_maps_stock_to_colors():
     card = BeautifulSoup(html, "lxml")
     product = CategoryProductExtractor().extract(card)
 
-    assert product.colors == ["Dorado", "Plateado"]
     assert product.color_stock == {
         "Dorado": 6646,
         "Plateado": 7942,
@@ -43,6 +42,5 @@ def test_category_product_extractor_keeps_single_total_stock():
     card = BeautifulSoup(html, "lxml")
     product = CategoryProductExtractor().extract(card)
 
-    assert product.colors == []
     assert product.color_stock == {}
     assert product.stock == 9409

@@ -47,7 +47,6 @@ def test_product_extractor_maps_stock_to_visible_colors():
     soup = BeautifulSoup(html, "lxml")
     result = ProductExtractor().extract(soup)
 
-    assert result["colors"] == ["Rojo", "Azul", "Negro"]
     assert result["color_stock"] == {
         "Rojo": 10,
         "Azul": 20,

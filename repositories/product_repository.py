@@ -15,12 +15,11 @@ class ProductRepository:
         (
             code, name, category, description, price,
             price_sample, price_hundred, price_thousand, stock,
-            colors, color_stock, image_url, image_path,
+            color_stock, image_url, image_path,
             image_hash, content_hash
         )
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """
-
         cursor = self.db.execute_query(
             query,
             (
@@ -33,7 +32,6 @@ class ProductRepository:
                 product.price_hundred,
                 product.price_thousand,
                 product.stock,
-                json.dumps(product.colors, ensure_ascii=False),
                 json.dumps(product.color_stock, ensure_ascii=False),
                 product.image_url,
                 product.image_path,
@@ -49,11 +47,10 @@ class ProductRepository:
         UPDATE products SET
             code=?, name=?, category=?, description=?, price=?,
             price_sample=?, price_hundred=?, price_thousand=?, stock=?,
-            colors=?, color_stock=?, image_url=?, image_path=?,
+            color_stock=?, image_url=?, image_path=?,
             image_hash=?, content_hash=?
         WHERE id=?
         """
-
         self.db.execute_query(
             query,
             (
@@ -66,7 +63,6 @@ class ProductRepository:
                 product.price_hundred,
                 product.price_thousand,
                 product.stock,
-                json.dumps(product.colors, ensure_ascii=False),
                 json.dumps(product.color_stock, ensure_ascii=False),
                 product.image_url,
                 product.image_path,
@@ -126,18 +122,6 @@ class ProductRepository:
         )
 
     @staticmethod
-    def _json_list(value) -> list[str]:
-        if not value:
-            return []
-        try:
-            parsed = json.loads(value)
-        except (TypeError, json.JSONDecodeError):
-            return []
-        if not isinstance(parsed, list):
-            return []
-        return [str(item) for item in parsed if str(item).strip()]
-
-    @staticmethod
     def _json_dict(value) -> dict[str, int]:
         if not value:
             return {}
@@ -147,11 +131,15 @@ class ProductRepository:
             return {}
         if not isinstance(parsed, dict):
             return {}
-        return {
-            str(key): max(int(stock), 0)
-            for key, stock in parsed.items()
-            if str(key).strip()
-        }
+        result: dict[str, int] = {}
+        for key, stock in parsed.items():
+            try:
+                normalized = str(key).strip()
+                if normalized:
+                    result[normalized] = max(int(stock), 0)
+            except (TypeError, ValueError):
+                continue
+        return result
 
     def _row_to_product(self, row: sqlite3.Row) -> Product:
         return Product(
@@ -165,7 +153,6 @@ class ProductRepository:
             price_hundred=row["price_hundred"],
             price_thousand=row["price_thousand"],
             stock=row["stock"],
-            colors=self._json_list(row["colors"]),
             color_stock=self._json_dict(row["color_stock"]),
             image_url=row["image_url"],
             image_path=row["image_path"],

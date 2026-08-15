@@ -1,3 +1,4 @@
+import re
 from typing import Any, Iterable
 from urllib.parse import urljoin
 
@@ -85,7 +86,7 @@ class ProductCollectionScraper:
             return product
 
         stock_values = self._stock_values(card)
-        if product.color_stock or len(stock_values) <= 1:
+        if len(stock_values) <= 1:
             return product
 
         link = card.select_one('a[href*="/producto/"]')
@@ -105,7 +106,7 @@ class ProductCollectionScraper:
             category=category_name,
         )
 
-        colors = list(detailed_product.color_stock)
+        colors = list(getattr(detailed_product, "color_stock", {}).keys())
         if not colors or len(colors) != len(stock_values):
             return product
 
@@ -118,9 +119,28 @@ class ProductCollectionScraper:
 
     @staticmethod
     def _stock_values(card: Any) -> list[int]:
+        """Extrae existencias de la tarjeta, incluyendo el bloque textual visible."""
         values: list[int] = []
         for element in card.select(".variaciones-producto p"):
             text = element.get_text(strip=True)
             if text.isdigit():
                 values.append(int(text))
-        return values
+        if values:
+            return values
+
+        text = card.get_text(" ", strip=True)
+        match = re.search(
+            r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if match is None:
+            return []
+
+        result: list[int] = []
+        for raw_value in re.findall(r"\d[\d,.]*", match.group(1)):
+            try:
+                result.append(int(float(raw_value.replace(",", ""))))
+            except ValueError:
+                continue
+        return result

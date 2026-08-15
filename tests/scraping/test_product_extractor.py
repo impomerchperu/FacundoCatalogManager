@@ -53,3 +53,32 @@ def test_product_extractor_maps_stock_to_visible_colors():
         "Negro": 30,
     }
     assert result["stock"] == 60
+
+
+def test_product_extractor_reads_woocommerce_variation_stock_by_color():
+    html = """
+    <form
+        class="variations_form"
+        data-product_variations='[
+            {"attributes":{"attribute_pa_color":"amarillo"},"max_qty":1520},
+            {"attributes":{"attribute_pa_color":"azul"},"max_qty":0},
+            {"attributes":{"attribute_pa_color":"blanco"},"max_qty":20}
+        ]'
+    >
+        <select name="attribute_pa_color">
+            <option value="amarillo">Amarillo</option>
+            <option value="azul">Azul</option>
+            <option value="blanco">Blanco</option>
+        </select>
+    </form>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    result = ProductExtractor().extract(soup)
+
+    assert result["color_stock"] == {
+        "Amarillo": 1520,
+        "Azul": 0,
+        "Blanco": 20,
+    }
+    assert result["stock"] == 1540

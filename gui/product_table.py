@@ -294,7 +294,7 @@ class ProductTable(QTableWidget):
         return "\n".join(categories) if categories else "—"
 
     def _set_stock_widget(self, row: int, product: Product) -> None:
-        """Muestra color y stock en filas alineadas dentro de la columna Stock."""
+        """Muestra cada color y su stock en una fila dentro de Stock."""
         color_stock = self._ordered_color_stock(product)
         if not color_stock:
             item = NumericTableWidgetItem(str(product.stock), product.stock)
@@ -324,20 +324,15 @@ class ProductTable(QTableWidget):
 
     @staticmethod
     def _ordered_color_stock(product: Product) -> list[tuple[str, int]]:
-        """Conserva el orden de colores y añade cualquier stock sin color explícito."""
+        """Devuelve el stock por color conservando el orden recibido."""
         result: list[tuple[str, int]] = []
         seen: set[str] = set()
-        for color in product.colors:
-            normalized = str(color).strip()
-            if not normalized or normalized.casefold() in seen:
-                continue
-            seen.add(normalized.casefold())
-            result.append((normalized, max(int(product.color_stock.get(color, 0)), 0)))
         for color, stock in product.color_stock.items():
             normalized = str(color).strip()
-            if not normalized or normalized.casefold() in seen:
+            key = normalized.casefold()
+            if not normalized or key in seen:
                 continue
-            seen.add(normalized.casefold())
+            seen.add(key)
             result.append((normalized, max(int(stock), 0)))
         return result
 

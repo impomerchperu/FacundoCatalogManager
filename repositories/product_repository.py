@@ -1,4 +1,5 @@
 import json
+import re
 import sqlite3
 
 from database.db_manager import DBManager
@@ -6,6 +7,15 @@ from models.product import Product
 
 
 class ProductRepository:
+    _INVALID_COLOR_MARKERS = (
+        "var acss",
+        "sourceurl=",
+        "sourceurl:",
+        "javascript",
+        "color_mode",
+        "enable_client_color_preference",
+    )
+
     def __init__(self, db: DBManager | None = None) -> None:
         self.db = db or DBManager()
 
@@ -121,8 +131,29 @@ class ProductRepository:
             (product_id,),
         )
 
-    @staticmethod
-    def _json_dict(value) -> dict[str, int]:
+    @classmethod
+    def _is_valid_color_name(cls, value: str) -> bool:
+        if not value or len(value) > 80:
+            return False
+        folded = value.casefold()
+        if folded in {
+            "color",
+            "colour",
+            "colores",
+            "seleccionar color",
+            "choose an option",
+        }:
+            return False
+        if any(marker in folded for marker in cls._INVALID_COLOR_MARKERS):
+            return False
+        if any(token in value for token in ("{", "}", ";", "//", "=>")):
+            return False
+        if re.fullmatch(r"[\d\s.,:+-]+", value):
+            return False
+        return True
+
+    @classmethod
+    def _json_dict(cls, value) -> dict[str, int]:
         if not value:
             return {}
         try:
@@ -134,9 +165,10 @@ class ProductRepository:
         result: dict[str, int] = {}
         for key, stock in parsed.items():
             try:
-                normalized = str(key).strip()
-                if normalized:
-                    result[normalized] = max(int(stock), 0)
+                normalized = re.sub(r"\s+", " ", str(key)).strip(" .:-|")
+                if not cls._is_valid_color_name(normalized):
+                    continue
+                result[normalized] = max(int(stock), 0)
             except (TypeError, ValueError):
                 continue
         return result

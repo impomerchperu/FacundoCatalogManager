@@ -8,7 +8,6 @@ from repositories.scraping.scraping_history_repository import (
 )
 from services.scraping.category_service import CategoryService
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TIMING_LOG = PROJECT_ROOT / "data" / "scraping_timing.log"
 

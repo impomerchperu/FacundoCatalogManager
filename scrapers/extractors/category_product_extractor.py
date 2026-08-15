@@ -119,14 +119,19 @@ class CategoryProductExtractor:
 
     @staticmethod
     def _extract_labeled_colors(soup, add_color) -> None:
-        """Extrai listas visíveis como 'Colores: Rojo, Azul y Negro'."""
-        text = soup.get_text(" ", strip=True)
-        if not text:
-            return
-
-        pattern = r"(?:^|\s)colores?\s*(?:[:|\-]\s*)?(.+?)(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|c[oó]digo|sku|categor[ií]as?)\b|$)"
-        for match in re.findall(pattern, text, flags=re.IGNORECASE):
-            normalized = re.sub(r"\s+", " ", match).strip(" .|-")
+        """Extrae listas visibles como 'Colores: Rojo, Azul y Negro'."""
+        pattern = re.compile(
+            r"\bcolores?\s*[:|\-]\s*(.+?)(?="
+            r"\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
+            r"c[oó]digo|sku|categor[ií]as?)\b|$)",
+            flags=re.IGNORECASE,
+        )
+        for element in soup.find_all(string=re.compile(r"\bcolores?\s*[:|\-]", re.I)):
+            text = str(element).strip()
+            match = pattern.search(text)
+            if match is None:
+                continue
+            normalized = re.sub(r"\s+", " ", match.group(1)).strip(" .|-")
             normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
             for item in normalized.split(","):
                 add_color(item)

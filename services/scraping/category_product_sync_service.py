@@ -12,11 +12,12 @@ from services.scraping.scraped_product_persistence_service import (
 
 
 logger = logging.getLogger("FCM")
-TIMING_LOG = Path("data") / "scraping_timing.log"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+TIMING_LOG = PROJECT_ROOT / "data" / "scraping_timing.log"
 
 
 def _log_timing(message, *args):
-    """Registra el diagnóstico tanto en el logger como en un archivo estable."""
+    """Registra diagnóstico en el logger y en un archivo del proyecto."""
     logger.info(message, *args)
     TIMING_LOG.parent.mkdir(parents=True, exist_ok=True)
     formatted = message % args if args else message
@@ -44,18 +45,12 @@ class CategoryProductSyncService:
     ):
         self.scraper_service = scraper_service
         self.persistence_service = persistence_service
-
         self.mapper = mapper
         self.catalog_sync_service = catalog_sync_service
         self.image_sync_adapter = image_sync_adapter
-
         self.last_sync_result = SyncResult()
 
-    def sync_category(
-        self,
-        category_url: str,
-        category: str = "",
-    ):
+    def sync_category(self, category_url: str, category: str = ""):
         started = time.perf_counter()
         products = self.scraper_service.scrape_category(
             category_url,
@@ -70,11 +65,7 @@ class CategoryProductSyncService:
         )
         return self.sync_products(products)
 
-    def sync_categories(
-        self,
-        categories,
-        progress_callback=None,
-    ):
+    def sync_categories(self, categories, progress_callback=None):
         """
         Scrapea todas las categorías y sincroniza el conjunto completo.
 
@@ -149,10 +140,7 @@ class CategoryProductSyncService:
                 )
 
             mapping_started = time.perf_counter()
-            mapped_products = [
-                self.mapper.map(product)
-                for product in products
-            ]
+            mapped_products = [self.mapper.map(product) for product in products]
             mapping_elapsed = time.perf_counter() - mapping_started
             _log_timing(
                 "SCRAPING TIMING | stage=mapping | products=%d "

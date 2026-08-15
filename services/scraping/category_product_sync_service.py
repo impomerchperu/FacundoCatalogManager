@@ -81,6 +81,8 @@ class CategoryProductSyncService:
         categories = list(categories)
         total = len(categories)
 
+        self._reset_detail_metrics()
+
         if not categories:
             _log_timing(
                 "SCRAPING TIMING | stage=category_extraction | categories=0 "
@@ -124,6 +126,7 @@ class CategoryProductSyncService:
             len(products),
             scraping_elapsed,
         )
+        self._log_detail_metrics()
 
         return self.sync_products(products)
 
@@ -142,6 +145,29 @@ class CategoryProductSyncService:
             category_elapsed,
         )
         return products
+
+    def _reset_detail_metrics(self):
+        """Reinicia métricas del scraper antes de una ejecución completa."""
+        scraper = getattr(self.scraper_service, "scraper", None)
+        reset = getattr(scraper, "reset_detail_metrics", None)
+        if callable(reset):
+            reset()
+
+    def _log_detail_metrics(self):
+        """Registra métricas de peticiones y reutilización de páginas de detalle."""
+        scraper = getattr(self.scraper_service, "scraper", None)
+        get_metrics = getattr(scraper, "get_detail_metrics", None)
+        if not callable(get_metrics):
+            return
+
+        metrics = get_metrics()
+        _log_timing(
+            "SCRAPING TIMING | stage=detail_cache | requests=%d "
+            "| cache_hits=%d | cache_size=%d",
+            metrics.get("detail_requests", 0),
+            metrics.get("detail_cache_hits", 0),
+            metrics.get("detail_cache_size", 0),
+        )
 
     def sync_products(self, products):
         """Procesa y sincroniza un conjunto consolidado de productos scrapeados."""

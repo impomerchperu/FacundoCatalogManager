@@ -1,0 +1,23 @@
+{
+    "include": [
+        "controllers",
+        "core",
+        "database",
+        "exporters",
+        "gui",
+        "models",
+        "repositories",
+        "services",
+        "scrapers",
+        "utils"
+    ],
+    "exclude": [
+        "**/__pycache__",
+        "tests",
+        "tools",
+        ".venv"
+    ],
+    "pythonVersion": "3.14",
+    "typeCheckingMode": "basic",
+    "reportMissingImports": false
+}

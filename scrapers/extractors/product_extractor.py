@@ -1,6 +1,7 @@
 import contextlib
 import json
 import re
+from typing import ClassVar
 from urllib.parse import urljoin
 
 from scrapers.extractors.price_extractor import PriceExtractor
@@ -15,14 +16,31 @@ class ProductExtractor:
     SOURCE = "importacionesfacundo"
     BASE_URL = "https://stock.importacionesfacundo.com"
 
+    _IGNORED_COLOR_TAGS = (
+        "select",
+        "option",
+        "script",
+        "style",
+        "noscript",
+        "template",
+    )
+    _INVALID_COLOR_MARKERS: ClassVar[set[str]] = {
+        "var acss",
+        "sourceurl=",
+        "sourceurl:",
+        "javascript",
+        "color_mode",
+        "enable_client_color_preference",
+    }
+
     def __init__(self):
         self.price_extractor = PriceExtractor()
         self.stock_extractor = StockExtractor()
 
     def extract(self, soup, url="", category=""):
-        colors, color_stock = self.extract_colors(soup)
+        color_stock = self.extract_color_stock(soup)
         stock = self.stock_extractor.extract(soup)
-        if self._has_complete_color_stock(colors, color_stock):
+        if color_stock:
             stock = sum(color_stock.values())
 
         return ScrapedProductFactory.create(
@@ -37,7 +55,6 @@ class ProductExtractor:
             price_sample=self.price_extractor.extract_sample(soup),
             price_hundred=self.price_extractor.extract_hundred(soup),
             price_thousand=self.price_extractor.extract_thousand(soup),
-            colors=colors,
             color_stock=color_stock,
             image_url=self.extract_image(soup),
         )
@@ -98,31 +115,71 @@ class ProductExtractor:
                     continue
         return 0.0
 
-    def extract_colors(self, soup):
-        """Extrae colores y stock por color de selectores y variaciones WooCommerce."""
-        colors: list[str] = []
+    def extract_color_stock(self, soup) -> dict[str, int]:
+        """Extrae exclusivamente el stock asociado a cada color visible."""
         color_stock: dict[str, int] = {}
+        color_labels: dict[str, str] = {}
+        add_color = self._build_color_adder(color_stock, color_labels)
 
+        self._collect_color_labels(soup, color_labels)
+
+        explicit_colors = self._extract_text_colors(soup)
+        visible_stock = self._extract_visible_stock_values(soup)
+        if explicit_colors:
+            for color in explicit_colors:
+                add_color(color)
+            if len(explicit_colors) == len(visible_stock):
+                for color, stock in zip(explicit_colors, visible_stock, strict=True):
+                    add_color(color, stock)
+                return color_stock
+            if not visible_stock:
+                return color_stock
+
+        self._extract_select_color_stock(soup, add_color)
+        self._extract_element_color_stock(soup, add_color)
+        self._extract_variation_color_stock(soup, add_color, color_labels)
+        self._apply_visible_color_stock(soup, color_stock)
+        return color_stock
+
+    @staticmethod
+    def _build_color_adder(color_stock, color_labels):
         def add_color(name: str, stock: int | None = None) -> None:
-            normalized = re.sub(r"\s+", " ", str(name)).strip(" .")
-            if not normalized:
+            normalized = re.sub(r"\s+", " ", str(name)).strip(" .:-|")
+            if not ProductExtractor._is_valid_color_name(normalized):
                 return
-            if normalized.casefold() in {
-                "color",
-                "colour",
-                "colores",
-                "seleccionar color",
-                "choose an option",
-            }:
-                return
-            if normalized not in colors:
-                colors.append(normalized)
+            normalized = color_labels.get(normalized.casefold(), normalized)
+            color_stock.setdefault(normalized, 0)
             if stock is not None:
                 color_stock[normalized] = max(
                     color_stock.get(normalized, 0),
                     max(stock, 0),
                 )
 
+        return add_color
+
+    @classmethod
+    def _is_valid_color_name(cls, value: str) -> bool:
+        folded = value.casefold()
+        invalid = (
+            not value
+            or len(value) > 80
+            or folded
+            in {
+                "color",
+                "colour",
+                "colores",
+                "seleccionar color",
+                "choose an option",
+            }
+            or "," in value
+            or any(marker in folded for marker in cls._INVALID_COLOR_MARKERS)
+            or any(token in value for token in ("{", "}", ";", "//", "=>"))
+            or re.fullmatch(r"[\d\s.,:+-]+", value) is not None
+        )
+        return not invalid
+
+    @staticmethod
+    def _extract_select_color_stock(soup, add_color) -> None:
         for select in soup.select("select"):
             select_name = " ".join(
                 str(select.get(attribute, ""))
@@ -133,70 +190,136 @@ class ProductExtractor:
             for option in select.select("option"):
                 value = option.get("value", "")
                 label = option.get_text(" ", strip=True) or str(value)
-                stock = self._stock_from_tag(option)
-                add_color(label, stock)
+                add_color(label, ProductExtractor._stock_from_tag(option))
 
+    @classmethod
+    def _extract_element_color_stock(cls, soup, add_color) -> None:
         for element in soup.find_all(True):
+            if element.name in cls._IGNORED_COLOR_TAGS:
+                continue
+            if element.find(cls._IGNORED_COLOR_TAGS):
+                continue
+
             attributes = " ".join(
                 str(element.get(attribute, ""))
                 for attribute in ("class", "id", "name", "data-attribute_name")
             ).casefold()
             if "color" not in attributes and "colour" not in attributes:
                 continue
+
             value = (
                 element.get("data-value")
                 or element.get("data-color")
                 or element.get("title")
-                or element.get_text(" ", strip=True)
             )
             if value:
-                add_color(str(value), self._stock_from_tag(element))
+                add_color(str(value), cls._stock_from_tag(element))
+                continue
 
-        for color in self._extract_text_colors(soup):
-            add_color(color)
+            direct_text = " ".join(
+                str(text).strip()
+                for text in element.find_all(string=True, recursive=False)
+                if str(text).strip()
+            )
+            if direct_text:
+                add_color(direct_text, cls._stock_from_tag(element))
+
+    def _extract_variation_color_stock(
+        self,
+        soup,
+        add_color,
+        color_labels,
+    ) -> None:
+        for element in soup.select("[data-product_variations]"):
+            raw = element.get("data-product_variations")
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            for payload in self._json_payloads(raw):
+                self._extract_variation_colors(
+                    payload,
+                    add_color,
+                    color_labels,
+                )
 
         for script in soup.find_all("script"):
             raw = script.string or script.get_text()
             if not raw or "variation" not in raw.casefold():
                 continue
             for payload in self._json_payloads(raw):
-                self._extract_variation_colors(payload, add_color)
-
-        visible_stock = self._extract_visible_stock_values(soup)
-        if len(visible_stock) == len(colors) and colors:
-            for color, stock in zip(colors, visible_stock, strict=True):
-                color_stock[color] = stock
-
-        return colors, color_stock
+                self._extract_variation_colors(
+                    payload,
+                    add_color,
+                    color_labels,
+                )
 
     @staticmethod
-    def _extract_text_colors(soup) -> list[str]:
-        """Extrae listas visibles como 'Colores: Rojo, Azul y Negro'."""
-        text = soup.get_text(" ", strip=True)
-        if not text:
-            return []
+    def _apply_visible_color_stock(soup, color_stock) -> None:
+        visible_stock = ProductExtractor._extract_visible_stock_values(soup)
+        color_names = list(color_stock)
+        if len(visible_stock) != len(color_names) or not color_names:
+            return
+        for color, stock in zip(color_names, visible_stock, strict=True):
+            color_stock[color] = stock
 
-        color_pattern = (
-            r"\b(?:colou?rs?|colores)\s*(?:[:|\-]\s*)?(.+?)"
-            r"(?=\s+(?:presentaci[oó]n|precio|stock\s+disponible|"
-            r"c[oó]digo|sku|categor[ií]as?)\b|$)"
-        )
-        colors: list[str] = []
-        seen: set[str] = set()
-        matches = re.findall(
-            color_pattern,
-            text,
+    @staticmethod
+    def _collect_color_labels(soup, color_labels: dict[str, str]) -> None:
+        for select in soup.select("select"):
+            select_name = " ".join(
+                str(select.get(attribute, ""))
+                for attribute in ("name", "id", "class")
+            ).casefold()
+            if "color" not in select_name and "colour" not in select_name:
+                continue
+            for option in select.select("option"):
+                value = str(option.get("value", "")).strip()
+                label = option.get_text(" ", strip=True)
+                if value and label:
+                    color_labels[value.casefold()] = label
+
+    @classmethod
+    def _extract_text_colors(cls, soup) -> list[str]:
+        """Extrae listas explícitas y enlaces bajo el encabezado 'Colores'."""
+        pattern = re.compile(
+            r"\bcolores?\s*[:|\-]\s*(.+?)(?="
+            r"\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
+            r"c[oó]digo|sku|categor[ií]as?)\b|$)",
             flags=re.IGNORECASE,
         )
-        for match in matches:
-            normalized = re.sub(r"\s+", " ", match).strip(" .|-")
-            normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
-            for item in normalized.split(","):
-                color = item.strip(" .|-")
-                key = color.casefold()
-                if color and key not in seen:
-                    seen.add(key)
-                    colors.append(color)
+        marker = re.compile(r"\bcolores?\s*[:|\-]", re.IGNORECASE)
+        for element in soup.find_all(string=marker):
+            match = pattern.search(str(element).strip())
+            if match is None:
+                continue
+            colors = cls._split_color_text(match.group(1))
+            if colors:
+                return colors
+
+        heading = re.compile(r"^\s*colores?\s*:?\s*$", re.IGNORECASE)
+        for text_node in soup.find_all(string=heading):
+            parent = text_node.parent
+            if parent is None:
+                continue
+            colors = [
+                link.get_text(" ", strip=True)
+                for link in parent.find_all("a")
+                if cls._is_valid_color_name(link.get_text(" ", strip=True))
+            ]
+            if colors:
+                return colors
+        return []
+
+    @staticmethod
+    def _split_color_text(value: str) -> list[str]:
+        normalized = re.sub(r"\s+", " ", value).strip(" .|-")
+        normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
+        colors: list[str] = []
+        seen: set[str] = set()
+        for item in normalized.split(","):
+            color = item.strip(" .|-")
+            key = color.casefold()
+            if color and key not in seen:
+                seen.add(key)
+                colors.append(color)
         return colors
 
     @staticmethod
@@ -219,39 +342,81 @@ class ProductExtractor:
                 continue
         return values
 
-    @staticmethod
-    def _has_complete_color_stock(
-        colors: list[str],
-        color_stock: dict[str, int],
-    ) -> bool:
-        return bool(colors) and all(color in color_stock for color in colors)
-
-    def _extract_variation_colors(self, value, add_color) -> None:
+    def _extract_variation_colors(
+        self,
+        value,
+        add_color,
+        color_labels: dict[str, str] | None = None,
+        inherited_stock: int | None = None,
+    ) -> None:
         if isinstance(value, dict):
-            color_name = ""
-            stock = None
-            for key, item in value.items():
-                key_text = str(key).casefold()
-                if ("color" in key_text or "colour" in key_text) and isinstance(
-                    item, str,
-                ):
-                    color_name = item
-                if key_text in {"max_qty", "max_quantity", "stock", "quantity"}:
-                    with contextlib.suppress(TypeError, ValueError):
-                        stock = int(item)
+            stock = self._variation_stock(value)
+            if stock is None:
+                stock = inherited_stock
+            color_name = self._variation_color(value, color_labels)
             if color_name:
                 add_color(color_name, stock)
             for item in value.values():
-                self._extract_variation_colors(item, add_color)
-        elif isinstance(value, list):
+                self._extract_variation_colors(
+                    item,
+                    add_color,
+                    color_labels,
+                    stock,
+                )
+            return
+        if isinstance(value, list):
             for item in value:
-                self._extract_variation_colors(item, add_color)
+                self._extract_variation_colors(
+                    item,
+                    add_color,
+                    color_labels,
+                    inherited_stock,
+                )
+
+    @staticmethod
+    def _variation_stock(value: dict) -> int | None:
+        stock_keys = {
+            "max_qty",
+            "max_quantity",
+            "stock",
+            "quantity",
+            "stock_quantity",
+        }
+        for key, item in value.items():
+            if str(key).casefold() not in stock_keys:
+                continue
+            with contextlib.suppress(TypeError, ValueError):
+                return int(item)
+        return None
+
+    @staticmethod
+    def _variation_color(
+        value: dict,
+        color_labels: dict[str, str] | None = None,
+    ) -> str:
+        for key, item in value.items():
+            key_text = str(key).casefold()
+            if isinstance(item, str) and (
+                "color" in key_text or "colour" in key_text
+            ):
+                color_name = item
+                if color_labels:
+                    color_name = color_labels.get(
+                        color_name.casefold(),
+                        color_name,
+                    )
+                return color_name
+            if isinstance(item, dict):
+                nested = ProductExtractor._variation_color(item, color_labels)
+                if nested:
+                    return nested
+        return ""
 
     @staticmethod
     def _json_payloads(raw: str):
         try:
             parsed = json.loads(raw)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
             return []
         else:
             return [parsed]

@@ -1,0 +1,33 @@
+[tool.ruff]
+
+target-version = "py314"
+
+line-length = 88
+
+exclude = [
+    "tools/inspection",
+]
+
+[tool.ruff.lint]
+
+select = [
+    "E",
+    "F",
+    "W",
+    "I",
+    "B",
+    "BLE",
+    "DTZ",
+    "SIM",
+    "TRY",
+    "PLR",
+    "RUF",
+]
+
+ignore = [
+    "PLR0913",
+    "PLR0915",
+    "PLR0917",
+    "PLR2004",
+    "TRY003",
+]

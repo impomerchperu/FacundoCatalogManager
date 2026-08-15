@@ -13,13 +13,10 @@ class CategoryProductExtractor:
         self.price_extractor = PriceExtractor()
 
     def extract(self, card, url="", category=""):
-        colors, color_stock = self._colors(card)
+        color_stock = self._color_stock(card)
         stock_values = self._stock_values(card)
-        total_stock = sum(stock_values)
-        if not stock_values:
-            total_stock = self._stock(card)
-
-        if color_stock:
+        total_stock = sum(stock_values) if stock_values else self._stock(card)
+        if color_stock and len(color_stock) == len(stock_values):
             total_stock = sum(color_stock.values())
 
         return ScrapedProduct(
@@ -33,7 +30,6 @@ class CategoryProductExtractor:
             price_sample=self.price_extractor.extract_sample(card),
             price_hundred=self.price_extractor.extract_hundred(card),
             price_thousand=self.price_extractor.extract_thousand(card),
-            colors=colors,
             color_stock=color_stock,
             image_url=self._image(card),
         )
@@ -58,15 +54,33 @@ class CategoryProductExtractor:
         return sum(self._stock_values(soup))
 
     def _stock_values(self, soup) -> list[int]:
+        """Extrae los valores de stock visibles en la tarjeta."""
         values: list[int] = []
         for value in soup.select(".variaciones-producto p"):
             text = value.get_text(strip=True)
             if text.isdigit():
                 values.append(int(text))
+
+        if values:
+            return values
+
+        text = soup.get_text(" ", strip=True)
+        match = re.search(
+            r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if match is None:
+            return []
+
+        for raw_value in re.findall(r"\d[\d,.]*", match.group(1)):
+            try:
+                values.append(int(float(raw_value.replace(",", ""))))
+            except ValueError:
+                continue
         return values
 
-    def _colors(self, soup) -> tuple[list[str], dict[str, int]]:
-        colors: list[str] = []
+    def _color_stock(self, soup) -> dict[str, int]:
         color_stock: dict[str, int] = {}
 
         def add_color(name: str, stock: int | None = None) -> None:
@@ -79,8 +93,7 @@ class CategoryProductExtractor:
                 "sin color",
             }:
                 return
-            if value not in colors:
-                colors.append(value)
+            color_stock.setdefault(value, 0)
             if stock is not None:
                 color_stock[value] = max(
                     color_stock.get(value, 0),
@@ -114,26 +127,47 @@ class CategoryProductExtractor:
         self._extract_labeled_colors(soup, add_color)
 
         stock_values = self._stock_values(soup)
-        if colors and len(stock_values) == len(colors):
-            for color, stock in zip(colors, stock_values, strict=True):
+        color_names = list(color_stock)
+        if len(stock_values) == len(color_names):
+            for color, stock in zip(color_names, stock_values, strict=True):
                 color_stock[color] = stock
+        else:
+            color_stock.clear()
 
-        return colors, color_stock
+        return color_stock
 
     @staticmethod
     def _extract_labeled_colors(soup, add_color) -> None:
-        """Extrae listas visibles como 'Colores: Rojo, Azul y Negro'."""
-        text = soup.get_text(" ", strip=True)
-        if not text:
-            return
-
-        pattern = (
-            r"\b(?:colou?rs?|colores)\s*:\s*(.+?)"
-            r"(?=\s+(?:presentaci[oó]n|precio|stock\s+disponible|"
-            r"c[oó]digo|sku)\b|$)"
+        """Extrae colores declarados en la descripción de la tarjeta."""
+        patterns = (
+            re.compile(
+                r"\b(?:\d+\s+)?colores?\s+de\s+tinta\s*[:|\-]\s*(.+?)"
+                r"(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
+                r"c[oó]digo|sku|categor[ií]as?)\b|$)",
+                flags=re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b(?:\d+\s+)?colores?\s*[:|\-]\s*(.+?)"
+                r"(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
+                r"c[oó]digo|sku|categor[ií]as?)\b|$)",
+                flags=re.IGNORECASE,
+            ),
         )
-        for match in re.findall(pattern, text, flags=re.IGNORECASE):
-            normalized = re.sub(r"\s+", " ", match).strip(" .")
+
+        for element in soup.find_all(string=True):
+            text = re.sub(r"\s+", " ", str(element)).strip()
+            if not text:
+                continue
+
+            match = next(
+                (pattern.search(text) for pattern in patterns if pattern.search(text)),
+                None,
+            )
+            if match is None:
+                continue
+
+            normalized = match.group(1).strip(" .|-")
+            normalized = re.sub(r"\s*\([^)]*\)\s*$", "", normalized)
             normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
             for item in normalized.split(","):
                 add_color(item)

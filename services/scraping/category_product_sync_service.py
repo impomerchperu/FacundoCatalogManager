@@ -1,3 +1,6 @@
+import logging
+import time
+
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,
@@ -5,6 +8,9 @@ from services.scraping.category_product_scraping_service import (
 from services.scraping.scraped_product_persistence_service import (
     ScrapedProductPersistenceService,
 )
+
+
+logger = logging.getLogger("FCM")
 
 
 class CategoryProductSyncService:
@@ -39,9 +45,17 @@ class CategoryProductSyncService:
         category_url: str,
         category: str = "",
     ):
+        started = time.perf_counter()
         products = self.scraper_service.scrape_category(
             category_url,
             category,
+        )
+        elapsed = time.perf_counter() - started
+        logger.info(
+            "SCRAPING TIMING | category=%s | products=%d | seconds=%.3f",
+            category,
+            len(products),
+            elapsed,
         )
         return self.sync_products(products)
 
@@ -57,25 +71,46 @@ class CategoryProductSyncService:
         puede aparecer en más de una categoría. La consolidación se hace
         antes de descargar imágenes, mapear y comparar contra el catálogo.
         """
+        started = time.perf_counter()
         products = []
         total = len(categories)
 
         for index, category in enumerate(categories, start=1):
-            products.extend(
-                self.scraper_service.scrape_category(
-                    category.url,
-                    category.name,
-                )
+            category_started = time.perf_counter()
+            category_products = self.scraper_service.scrape_category(
+                category.url,
+                category.name,
+            )
+            category_elapsed = time.perf_counter() - category_started
+            products.extend(category_products)
+
+            logger.info(
+                "SCRAPING TIMING | category=%s | products=%d | seconds=%.3f",
+                category.name,
+                len(category_products),
+                category_elapsed,
             )
 
             if progress_callback:
                 progress_callback(index, total)
 
+        scraping_elapsed = time.perf_counter() - started
+        logger.info(
+            "SCRAPING TIMING | stage=category_extraction | categories=%d "
+            "| products=%d | seconds=%.3f",
+            total,
+            len(products),
+            scraping_elapsed,
+        )
+
         return self.sync_products(products)
 
     def sync_products(self, products):
         """Procesa y sincroniza un conjunto consolidado de productos scrapeados."""
+        total_started = time.perf_counter()
+
         if self.mapper and self.catalog_sync_service:
+            consolidate_started = time.perf_counter()
             consolidate = getattr(
                 self.catalog_sync_service,
                 "consolidate_products",
@@ -83,20 +118,76 @@ class CategoryProductSyncService:
             )
             if callable(consolidate):
                 products = consolidate(products)
+            consolidate_elapsed = time.perf_counter() - consolidate_started
+            logger.info(
+                "SCRAPING TIMING | stage=consolidation | products=%d "
+                "| seconds=%.3f",
+                len(products),
+                consolidate_elapsed,
+            )
 
             if self.image_sync_adapter:
+                image_started = time.perf_counter()
                 products = self.image_sync_adapter.sync_products(products)
+                image_elapsed = time.perf_counter() - image_started
+                logger.info(
+                    "SCRAPING TIMING | stage=images | products=%d "
+                    "| seconds=%.3f",
+                    len(products),
+                    image_elapsed,
+                )
 
+            mapping_started = time.perf_counter()
             mapped_products = [
                 self.mapper.map(product)
                 for product in products
             ]
+            mapping_elapsed = time.perf_counter() - mapping_started
+            logger.info(
+                "SCRAPING TIMING | stage=mapping | products=%d "
+                "| seconds=%.3f",
+                len(mapped_products),
+                mapping_elapsed,
+            )
 
+            catalog_started = time.perf_counter()
             result = self.catalog_sync_service.sync(mapped_products)
+            catalog_elapsed = time.perf_counter() - catalog_started
+            logger.info(
+                "SCRAPING TIMING | stage=catalog_sync | products=%d "
+                "| seconds=%.3f",
+                len(mapped_products),
+                catalog_elapsed,
+            )
+
+            total_elapsed = time.perf_counter() - total_started
+            logger.info(
+                "SCRAPING TIMING | stage=sync_total | products=%d "
+                "| seconds=%.3f",
+                len(mapped_products),
+                total_elapsed,
+            )
+
             self._accumulate_sync_result(result)
             return mapped_products
 
-        return self.persistence_service.save_products(products)
+        persistence_started = time.perf_counter()
+        result = self.persistence_service.save_products(products)
+        persistence_elapsed = time.perf_counter() - persistence_started
+        total_elapsed = time.perf_counter() - total_started
+        logger.info(
+            "SCRAPING TIMING | stage=persistence | products=%d "
+            "| seconds=%.3f",
+            len(products),
+            persistence_elapsed,
+        )
+        logger.info(
+            "SCRAPING TIMING | stage=sync_total | products=%d "
+            "| seconds=%.3f",
+            len(products),
+            total_elapsed,
+        )
+        return result
 
     def reset_sync_result(self):
         """Reinicia métricas antes de una ejecución completa."""

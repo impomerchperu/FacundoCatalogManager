@@ -28,6 +28,9 @@ class ProductCollectionScraper:
         self.max_workers = max(1, max_workers)
         self._detail_cache: dict[str, Future[Any]] = {}
         self._detail_cache_lock = Lock()
+        self._detail_requests = 0
+        self._detail_cache_hits = 0
+        self._detail_metrics_lock = Lock()
 
     def scrape_category(self, category: Any) -> list[Any]:
         """Extrae todos los productos de una categoría."""
@@ -139,11 +142,6 @@ class ProductCollectionScraper:
 
         if detail_color_stock:
             colors = list(detail_color_stock)
-
-            # The detail page can expose color names without exposing the
-            # corresponding stock values. In that case the card's single
-            # number is the total stock, not the stock of the first color.
-            # Do not manufacture per-color values filled with zeroes.
             if len(card_stock_values) == len(colors):
                 product.color_stock = dict(
                     zip(colors, card_stock_values, strict=True),
@@ -153,9 +151,6 @@ class ProductCollectionScraper:
                 product.color_stock = detail_color_stock
                 product.stock = sum(detail_color_stock.values())
             elif not card_stock_values:
-                # There is no reliable per-color stock source. Keep the
-                # detail colors out of the catalog's Stock column rather than
-                # presenting misleading zero values.
                 product.color_stock = {}
             product.url = detail_url
             return product
@@ -174,9 +169,15 @@ class ProductCollectionScraper:
                 future = Future()
                 self._detail_cache[detail_url] = future
                 owner = True
+            else:
+                with self._detail_metrics_lock:
+                    self._detail_cache_hits += 1
 
         if not owner:
             return future.result()
+
+        with self._detail_metrics_lock:
+            self._detail_requests += 1
 
         try:
             detail_html = self.category_scraper.get_html(detail_url)
@@ -197,6 +198,21 @@ class ProductCollectionScraper:
                 self._detail_cache.pop(detail_url, None)
             future.set_exception(exc)
             raise
+
+    def get_detail_metrics(self) -> dict[str, int]:
+        """Devuelve métricas acumuladas de páginas de detalle y caché."""
+        with self._detail_metrics_lock:
+            return {
+                "detail_requests": self._detail_requests,
+                "detail_cache_hits": self._detail_cache_hits,
+                "detail_cache_size": len(self._detail_cache),
+            }
+
+    def reset_detail_metrics(self) -> None:
+        """Reinicia las métricas sin borrar el caché de productos."""
+        with self._detail_metrics_lock:
+            self._detail_requests = 0
+            self._detail_cache_hits = 0
 
     @staticmethod
     def _stock_values(card: Any) -> list[int]:

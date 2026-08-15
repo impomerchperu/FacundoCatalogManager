@@ -25,7 +25,6 @@ class ScrapedProductMapper:
             price_hundred=scraped_product.price_hundred,
             price_thousand=scraped_product.price_thousand,
             stock=scraped_product.stock,
-            colors=list(scraped_product.colors),
             color_stock=dict(scraped_product.color_stock),
             image_url=scraped_product.image_url,
             image_path=scraped_product.image_path,

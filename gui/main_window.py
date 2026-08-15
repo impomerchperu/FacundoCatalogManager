@@ -444,7 +444,7 @@ class MainWindow(QMainWindow):
             product.name,
             product.description,
             product.category,
-            ", ".join(product.colors),
+            ", ".join(product.color_stock.keys()),
         )
         return any(search_text in str(value).casefold() for value in values)
 
@@ -605,3 +605,4 @@ class MainWindow(QMainWindow):
         if self.history_dialog is not None:
             self.history_dialog.close()
         super().closeEvent(event)
+

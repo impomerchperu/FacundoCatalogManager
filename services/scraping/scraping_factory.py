@@ -20,6 +20,7 @@ from scrapers.extractors.category_product_extractor import (
 from scrapers.extractors.product_card_extractor import (
     ProductCardExtractor,
 )
+from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.catalog_sync_service import (
     CatalogSyncService,
 )
@@ -163,6 +164,7 @@ class ScrapingFactory:
             category_scraper,
             ProductCardExtractor(),
             CategoryProductExtractor(),
+            ProductExtractor(),
         )
 
         product_scraping_service = (

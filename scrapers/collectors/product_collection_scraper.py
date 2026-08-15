@@ -106,9 +106,13 @@ class ProductCollectionScraper:
                 product.color_stock = dict(
                     zip(colors, card_stock_values, strict=True),
                 )
-            else:
+                product.stock = sum(product.color_stock.values())
+            elif (
+                sum(detail_color_stock.values()) > 0
+                or getattr(product, "stock", 0) == 0
+            ):
                 product.color_stock = detail_color_stock
-            product.stock = sum(product.color_stock.values())
+                product.stock = sum(detail_color_stock.values())
             product.url = detail_url
             return product
 

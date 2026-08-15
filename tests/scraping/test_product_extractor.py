@@ -82,3 +82,27 @@ def test_product_extractor_reads_woocommerce_variation_stock_by_color():
         "Blanco": 20,
     }
     assert result["stock"] == 1540
+
+
+def test_product_extractor_ignores_script_text_as_color():
+    html = """
+    <html>
+        <body>
+            <div>Colores: Rojo, Azul</div>
+            <div>Stock Disponible 10 20</div>
+            <script id="color-scheme-switcher">
+                var acss = {"color_mode":"light","enable_client_color_preference":"false"};
+                // sourceURL=color-scheme-switcher
+            </script>
+        </body>
+    </html>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    result = ProductExtractor().extract(soup)
+
+    assert result["color_stock"] == {
+        "Rojo": 10,
+        "Azul": 20,
+    }
+    assert result["stock"] == 30

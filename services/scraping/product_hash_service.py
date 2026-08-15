@@ -16,7 +16,6 @@ class ProductHashService:
         "price_hundred",
         "price_thousand",
         "stock",
-        "colors",
         "color_stock",
     ]
 

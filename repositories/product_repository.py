@@ -42,7 +42,10 @@ class ProductRepository:
                 product.price_hundred,
                 product.price_thousand,
                 product.stock,
-                json.dumps(self._clean_color_stock(product.color_stock), ensure_ascii=False),
+                json.dumps(
+                    self._clean_color_stock(product.color_stock),
+                    ensure_ascii=False,
+                ),
                 product.image_url,
                 product.image_path,
                 product.image_hash,
@@ -73,7 +76,10 @@ class ProductRepository:
                 product.price_hundred,
                 product.price_thousand,
                 product.stock,
-                json.dumps(self._clean_color_stock(product.color_stock), ensure_ascii=False),
+                json.dumps(
+                    self._clean_color_stock(product.color_stock),
+                    ensure_ascii=False,
+                ),
                 product.image_url,
                 product.image_path,
                 product.image_hash,
@@ -172,7 +178,10 @@ class ProductRepository:
         return result
 
     @classmethod
-    def _clean_color_stock(cls, color_stock: dict[str, int] | None) -> dict[str, int]:
+    def _clean_color_stock(
+        cls,
+        color_stock: dict[str, int] | None,
+    ) -> dict[str, int]:
         if not color_stock:
             return {}
         return cls._json_dict(json.dumps(color_stock, ensure_ascii=False))

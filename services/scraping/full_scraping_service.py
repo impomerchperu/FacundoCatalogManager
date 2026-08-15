@@ -85,9 +85,10 @@ class FullScrapingService:
         products = []
 
         if self.category_product_sync_service:
-            # Nunca sincronizar categoría por categoría en el flujo completo:
-            # el mismo código puede aparecer en varias categorías y debe
-            # consolidarse antes de clasificar el resultado.
+            # La sincronización moderna ya consolida productos y sincroniza
+            # sus imágenes dentro de sync_products(). No volver a ejecutar
+            # image_sync_adapter aquí: hacerlo duplicaba la búsqueda y el
+            # cálculo de hash de cada imagen en cada ejecución.
             sync_categories = getattr(
                 self.category_product_sync_service,
                 "sync_categories",
@@ -107,22 +108,23 @@ class FullScrapingService:
         elif self.product_scraper:
             products = self.product_scraper.scrape_products(categories)
 
-        images = []
+            # En el flujo legacy/modular, el adaptador es el responsable de
+            # sincronizar las imágenes porque no existe un
+            # category_product_sync_service que lo haga.
+            if self.image_sync_adapter:
+                products = self.image_sync_adapter.sync_products(products)
 
-        # ----------------------------------------------
-        # Arquitectura nueva
-        # ----------------------------------------------
-        if self.image_sync_adapter:
-            products = self.image_sync_adapter.sync_products(products)
+        images = []
 
         # ----------------------------------------------
         # Compatibilidad legacy
         # ----------------------------------------------
-        elif self.image_manager:
-            images = self.image_manager.download_all(
-                products,
-                self.downloader,
-            )
+        if not self.category_product_sync_service and not self.product_scraper:
+            if self.image_manager:
+                images = self.image_manager.download_all(
+                    products,
+                    self.downloader,
+                )
 
         return {
             "products": products,

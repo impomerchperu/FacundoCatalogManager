@@ -275,7 +275,11 @@ class ProductTable(QTableWidget):
 
     def _set_category_item(self, row: int, category: str) -> None:
         """Muestra cada categoría del producto en una línea independiente."""
-        self._set_text_item(row, self.CATEGORY_COLUMN, self._format_categories(category))
+        self._set_text_item(
+            row,
+            self.CATEGORY_COLUMN,
+            self._format_categories(category),
+        )
 
     @staticmethod
     def _format_categories(category: str) -> str:

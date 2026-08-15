@@ -177,3 +177,121 @@ def test_collection_scraper_reads_detail_variation_stock_when_card_has_total_onl
         "Blanco": 20,
     }
     assert products[0].stock == 1540
+
+
+def test_category_extractor_maps_real_description_colors_to_stock_values():
+    html = """
+    <article>
+        <a href="/producto/lapicero/">
+            <h2 class="brxe-f31760">Lapicero Metálico</h2>
+        </a>
+        <p class="brxe-a26f34">FB-2200</p>
+        <div class="text-content">
+            Colores: Rojo, Negro, Azul, Gris Gun, y Silver.
+        </div>
+        <div class="variaciones-producto">
+            <p>100</p>
+            <p>200</p>
+            <p>300</p>
+            <p>400</p>
+            <p>500</p>
+        </div>
+    </article>
+    """
+
+    from bs4 import BeautifulSoup
+
+    card = BeautifulSoup(html, "lxml").select_one("article")
+    result = CategoryProductExtractor().extract(card)
+
+    assert result.color_stock == {
+        "Rojo": 100,
+        "Negro": 200,
+        "Azul": 300,
+        "Gris Gun": 400,
+        "Silver": 500,
+    }
+    assert result.stock == 1500
+
+
+def test_category_extractor_reads_colores_de_tinta_and_numeric_label():
+    html = """
+    <article>
+        <h2 class="brxe-f31760">Resaltador</h2>
+        <p class="brxe-a26f34">FB-1319</p>
+        <div class="text-content">
+            Colores de tinta: Fucsia, amarillo, verde y celeste
+        </div>
+        <div class="variaciones-producto">
+            <p>10</p>
+            <p>20</p>
+            <p>30</p>
+            <p>40</p>
+        </div>
+    </article>
+    """
+
+    from bs4 import BeautifulSoup
+
+    card = BeautifulSoup(html, "lxml").select_one("article")
+    result = CategoryProductExtractor().extract(card)
+
+    assert result.color_stock == {
+        "Fucsia": 10,
+        "amarillo": 20,
+        "verde": 30,
+        "celeste": 40,
+    }
+    assert result.stock == 100
+
+
+def test_collection_scraper_does_not_replace_total_stock_with_detail_color_names():
+    class FakeTotalStockCategoryScraper:
+        def get_category_pages(self, url):
+            return [url]
+
+        def get_html(self, url):
+            if "/producto/" in url:
+                return """
+                <html>
+                    <h1>Resaltador en Pote</h1>
+                    <p class="brxe-heading">FB-1308</p>
+                    <div>
+                        Colores: Fucsia, Naranja, Amarillo, Verde y Celeste
+                    </div>
+                </html>
+                """
+            return """
+            <html>
+                <article>
+                    <a href="/producto/resaltador-en-pote/">
+                        <h2 class="brxe-f31760">Resaltador en Pote</h2>
+                    </a>
+                    <p class="brxe-a26f34">FB-1308</p>
+                    <div class="text-content">
+                        Resaltadores en 5 colores: Fucsia, Naranja, Amarillo,
+                        Verde y Celeste.
+                    </div>
+                    <div class="variaciones-producto">
+                        <p>5364</p>
+                    </div>
+                </article>
+                </html>
+                """
+
+    scraper = ProductCollectionScraper(
+        FakeTotalStockCategoryScraper(),
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+
+    products = scraper.scrape_category(
+        Category(
+            name="Resaltadores",
+            url="https://example.com/categoria/",
+        ),
+    )
+
+    assert products[0].color_stock == {}
+    assert products[0].stock == 5364

@@ -44,63 +44,37 @@ class ProductCollectionScraper:
         self,
         category,
     ):
-        """
-        Extrae todos los productos de una categoría.
-
-        Acepta Category o compatibilidad
-        con url + nombre.
-        """
-
-        if isinstance(
-            category,
-            Category,
-        ):
+        """Extrae todos los productos de una categoría."""
+        if isinstance(category, Category):
             category_url = category.url
             category_name = category.name
-
         else:
             category_url = category
             category_name = ""
 
         products = []
-
-        pages = self.category_scraper.get_category_pages(
-            category_url,
-        )
+        pages = self.category_scraper.get_category_pages(category_url)
 
         for page in pages:
-
-            html = self.category_scraper.get_html(
-                page,
-            )
-
+            html = self.category_scraper.get_html(page)
             if not html:
                 continue
 
-            soup = BeautifulSoup(
-                html,
-                "html.parser",
-            )
-
-            cards = self.card_extractor.extract(
-                soup,
-            )
+            soup = BeautifulSoup(html, "html.parser")
+            cards = self.card_extractor.extract(soup)
 
             for card in cards:
-
                 product = self.product_extractor.extract(
                     card,
                     url="",
                     category=category_name,
                 )
-
                 product = self._enrich_from_detail_page(
                     card,
                     page,
                     product,
                     category_name,
                 )
-
                 products.append(product)
 
         return products
@@ -116,7 +90,8 @@ class ProductCollectionScraper:
         if self.detail_extractor is None:
             return product
 
-        if product.color_stock or len(self._stock_values(card)) <= 1:
+        stock_values = self._stock_values(card)
+        if product.color_stock or len(stock_values) <= 1:
             return product
 
         link = card.select_one('a[href*="/producto/"]')
@@ -129,24 +104,28 @@ class ProductCollectionScraper:
         if not detail_html:
             return product
 
-        detail_soup = BeautifulSoup(
-            detail_html,
-            "html.parser",
-        )
+        detail_soup = BeautifulSoup(detail_html, "html.parser")
         detailed_product = self.detail_extractor.extract(
             detail_soup,
             url=detail_url,
             category=category_name,
         )
 
-        if not detailed_product.color_stock:
+        colors = list(detailed_product.colors)
+        color_stock = dict(detailed_product.color_stock)
+
+        if colors and len(colors) == len(stock_values):
+            color_stock = dict(
+                zip(colors, stock_values, strict=True),
+            )
+
+        if not color_stock:
             return product
 
-        product.colors = list(detailed_product.colors)
-        product.color_stock = dict(detailed_product.color_stock)
-        product.stock = sum(product.color_stock.values())
-        if detailed_product.url:
-            product.url = detailed_product.url
+        product.colors = colors
+        product.color_stock = color_stock
+        product.stock = sum(color_stock.values())
+        product.url = detail_url
         return product
 
     @staticmethod

@@ -138,6 +138,8 @@ class ProductExtractor:
                 add_color(label, stock)
 
         for element in soup.find_all(True):
+            if element.name in {"select", "option"}:
+                continue
             attributes = " ".join(
                 str(element.get(attribute, ""))
                 for attribute in ("class", "id", "name", "data-attribute_name")
@@ -253,31 +255,13 @@ class ProductExtractor:
         value,
         add_color,
         color_labels: dict[str, str] | None = None,
+        inherited_stock: int | None = None,
     ) -> None:
         if isinstance(value, dict):
-            color_name = ""
-            stock = None
-            for key, item in value.items():
-                key_text = str(key).casefold()
-                if (
-                    ("color" in key_text or "colour" in key_text)
-                    and isinstance(item, str)
-                ):
-                    color_name = item
-                    if color_labels:
-                        color_name = color_labels.get(
-                            color_name.casefold(),
-                            color_name,
-                        )
-                if key_text in {
-                    "max_qty",
-                    "max_quantity",
-                    "stock",
-                    "quantity",
-                    "stock_quantity",
-                }:
-                    with contextlib.suppress(TypeError, ValueError):
-                        stock = int(item)
+            stock = self._variation_stock(value)
+            if stock is None:
+                stock = inherited_stock
+            color_name = self._variation_color(value, color_labels)
             if color_name:
                 add_color(color_name, stock)
             for item in value.values():
@@ -285,14 +269,53 @@ class ProductExtractor:
                     item,
                     add_color,
                     color_labels,
+                    stock,
                 )
-        elif isinstance(value, list):
+            return
+        if isinstance(value, list):
             for item in value:
                 self._extract_variation_colors(
                     item,
                     add_color,
                     color_labels,
+                    inherited_stock,
                 )
+
+    @staticmethod
+    def _variation_stock(value: dict) -> int | None:
+        stock_keys = {
+            "max_qty",
+            "max_quantity",
+            "stock",
+            "quantity",
+            "stock_quantity",
+        }
+        for key, item in value.items():
+            if str(key).casefold() not in stock_keys:
+                continue
+            with contextlib.suppress(TypeError, ValueError):
+                return int(item)
+        return None
+
+    @staticmethod
+    def _variation_color(
+        value: dict,
+        color_labels: dict[str, str] | None = None,
+    ) -> str:
+        for key, item in value.items():
+            key_text = str(key).casefold()
+            if (
+                ("color" in key_text or "colour" in key_text)
+                and isinstance(item, str)
+            ):
+                color_name = item
+                if color_labels:
+                    color_name = color_labels.get(
+                        color_name.casefold(),
+                        color_name,
+                    )
+                return color_name
+        return ""
 
     @staticmethod
     def _json_payloads(raw: str):

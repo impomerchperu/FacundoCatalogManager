@@ -3,12 +3,13 @@ from __future__ import annotations
 import hashlib
 from collections import defaultdict
 from pathlib import Path
+from typing import ClassVar
 
 
 class ImageAuditService:
     """Audita duplicados físicos sin borrar archivos durante una auditoría."""
 
-    IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+    IMAGE_EXTENSIONS: ClassVar[set[str]] = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
     def __init__(self, image_root: str | Path = "data/images/products"):
         self.image_root = Path(image_root)

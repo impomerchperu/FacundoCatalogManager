@@ -131,7 +131,7 @@ class ProductCollectionScraper:
             return product
 
         detail_url = urljoin(page_url, href)
-        detail_key = self._detail_cache_key(product, detail_url)
+        detail_key = self._detail_cache_key(card, product, detail_url)
         detailed_product = self._get_detailed_product(
             detail_key,
             detail_url,
@@ -166,13 +166,28 @@ class ProductCollectionScraper:
         return product
 
     @staticmethod
-    def _detail_cache_key(product: Any, detail_url: str) -> str:
-        """Usa el código como identidad principal y la URL como respaldo."""
-        code = getattr(product, "code", None)
-        if code is not None:
-            normalized_code = str(code).strip()
-            if normalized_code:
-                return f"code:{normalized_code}"
+    def _detail_cache_key(card: Any, product: Any, detail_url: str) -> str:
+        """Usa el código del producto; el código de la tarjeta es respaldo."""
+        candidates = [getattr(product, "code", "")]
+        try:
+            element = card.select_one(
+                "p.brxe-a26f34, p.brxe-heading, span.sku, [sku]"
+            )
+        except AttributeError:
+            element = None
+        if element is not None:
+            candidates.append(element.get_text(" ", strip=True))
+            for attribute in ("sku", "data-sku"):
+                candidates.append(str(element.get(attribute, "")))
+
+        for candidate in candidates:
+            normalized = str(candidate).strip()
+            if not normalized:
+                continue
+            match = re.search(r"\b[A-Z]{1,5}-[A-Z0-9][A-Z0-9._-]*\b", normalized)
+            if match:
+                return f"code:{match.group(0).upper()}"
+
         return f"url:{detail_url}"
 
     def _get_detailed_product(

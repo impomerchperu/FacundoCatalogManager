@@ -17,3 +17,7 @@ DEFAULT_HEADERS = {
 REQUEST_TIMEOUT = 15
 
 MAX_RETRIES = 3
+
+# Number of concurrent HTTP workers used when enriching product detail pages.
+# Keep this conservative to avoid overloading the source site.
+SCRAPING_MAX_WORKERS = 8

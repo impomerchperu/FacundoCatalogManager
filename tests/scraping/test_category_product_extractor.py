@@ -28,6 +28,29 @@ def test_category_product_extractor_maps_stock_to_colors():
     assert product.stock == 14588
 
 
+def test_category_product_extractor_maps_visible_stock_to_colors():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-5000</p>
+        <h2 class="brxe-f31760">Producto por colores</h2>
+        <div class="text-content">
+            Colores: Amarillo, Azul, Blanco
+            Stock Disponible 1520 0 20
+        </div>
+    </article>
+    """
+
+    card = BeautifulSoup(html, "lxml")
+    product = CategoryProductExtractor().extract(card)
+
+    assert product.color_stock == {
+        "Amarillo": 1520,
+        "Azul": 0,
+        "Blanco": 20,
+    }
+    assert product.stock == 1540
+
+
 def test_category_product_extractor_keeps_single_total_stock():
     html = """
     <article>

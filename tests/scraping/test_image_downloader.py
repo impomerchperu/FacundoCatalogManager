@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import ClassVar
 
 from scrapers.images.image_downloader import ImageDownloader
 
@@ -9,7 +10,7 @@ def test_image_downloader_saves_image(
 ):
     class FakeResponse:
         content = b"\xff\xd8fake-image-data"
-        headers = {"Content-Type": "image/jpeg"}
+        headers: ClassVar[dict[str, str]] = {"Content-Type": "image/jpeg"}
 
         def raise_for_status(self):
             pass

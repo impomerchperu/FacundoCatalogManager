@@ -139,15 +139,10 @@ class ScrapingFactory:
             image_sync_adapter,
         )
 
-        runner = ScrapingRunner(
+        return ScrapingRunner(
             sync_service,
             config=config,
             category_service=category_service,
+            history_repository=history_repository,
+            catalog_repository=product_repository,
         )
-
-        runner.config = config
-        runner.category_service = category_service
-        runner.history_repository = history_repository
-        runner.catalog_repository = product_repository
-
-        return runner

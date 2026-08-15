@@ -91,7 +91,10 @@ def test_product_extractor_ignores_script_text_as_color():
             <div>Colores: Rojo, Azul</div>
             <div>Stock Disponible 10 20</div>
             <script id="color-scheme-switcher">
-                var acss = {"color_mode":"light","enable_client_color_preference":"false"};
+                var acss = {
+                    "color_mode":"light",
+                    "enable_client_color_preference":"false"
+                };
                 // sourceURL=color-scheme-switcher
             </script>
         </body>

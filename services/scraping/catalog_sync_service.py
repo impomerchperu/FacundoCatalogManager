@@ -100,6 +100,16 @@ class CatalogSyncService:
                 product.category,
             )
 
+            colors = list(getattr(existing, "colors", []))
+            colors.extend(getattr(product, "colors", []))
+            existing.colors = list(
+                dict.fromkeys(
+                    str(color).strip()
+                    for color in colors
+                    if str(color).strip()
+                )
+            )
+
             color_stock = dict(getattr(existing, "color_stock", {}))
             for color, stock in getattr(product, "color_stock", {}).items():
                 normalized_color = str(color).strip()

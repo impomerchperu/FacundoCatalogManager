@@ -88,15 +88,20 @@ def test_product_extractor_ignores_script_text_as_color():
     html = """
     <html>
         <body>
-            <div>Colores: Rojo, Azul</div>
+            <div class="color-summary">
+                Colores: Rojo, Azul
+            </div>
             <div>Stock Disponible 10 20</div>
-            <script id="color-scheme-switcher">
-                var acss = {
-                    "color_mode":"light",
-                    "enable_client_color_preference":"false"
-                };
-                // sourceURL=color-scheme-switcher
-            </script>
+            <div class="color-container">
+                <span>Rojo</span>
+                <script id="color-scheme-switcher">
+                    var acss = {
+                        "color_mode":"light",
+                        "enable_client_color_preference":"false"
+                    };
+                    // sourceURL=color-scheme-switcher
+                </script>
+            </div>
         </body>
     </html>
     """
@@ -109,3 +114,31 @@ def test_product_extractor_ignores_script_text_as_color():
         "Azul": 20,
     }
     assert result["stock"] == 30
+
+
+def test_product_extractor_ignores_javascript_like_color_attributes():
+    html = """
+    <html>
+        <body>
+            <div
+                class="color-scheme-switcher-frontend-js-extra"
+                data-color='var acss = {"color_mode":"light"};'
+            >
+                <script>
+                    var acss = {"color_mode":"light"};
+                </script>
+            </div>
+            <div>Colores: Amarillo, Azul</div>
+            <div>Stock Disponible 152 87</div>
+        </body>
+    </html>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    result = ProductExtractor().extract(soup)
+
+    assert result["color_stock"] == {
+        "Amarillo": 152,
+        "Azul": 87,
+    }
+    assert result["stock"] == 239

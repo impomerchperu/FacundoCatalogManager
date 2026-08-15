@@ -1,4 +1,5 @@
 from models.scraping.category import Category
+from repositories.product_repository import ProductRepository
 from repositories.scraping.scraping_history_repository import (
     ScrapingHistoryRepository,
 )
@@ -23,7 +24,7 @@ class ScrapingRunner:
     - Ejecutar categorías.
     - Mantener configuración activa.
     - Reportar progreso.
-    - Exponer el repositorio de historial.
+    - Exponer los repositorios de historial y catálogo.
     """
 
     def __init__(
@@ -32,11 +33,13 @@ class ScrapingRunner:
         config=None,
         category_service: CategoryService | None = None,
         history_repository: ScrapingHistoryRepository | None = None,
+        catalog_repository: ProductRepository | None = None,
     ):
         self.scraping_service = scraping_service
         self.config = config
         self.category_service = category_service
         self.history_repository = history_repository
+        self.catalog_repository = catalog_repository
 
     def run(
         self,

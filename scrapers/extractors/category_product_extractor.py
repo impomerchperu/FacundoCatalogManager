@@ -54,11 +54,30 @@ class CategoryProductExtractor:
         return sum(self._stock_values(soup))
 
     def _stock_values(self, soup) -> list[int]:
+        """Extrae los valores de stock visibles en la tarjeta."""
         values: list[int] = []
         for value in soup.select(".variaciones-producto p"):
             text = value.get_text(strip=True)
             if text.isdigit():
                 values.append(int(text))
+
+        if values:
+            return values
+
+        text = soup.get_text(" ", strip=True)
+        match = re.search(
+            r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if match is None:
+            return []
+
+        for raw_value in re.findall(r"\d[\d,.]*", match.group(1)):
+            try:
+                values.append(int(float(raw_value.replace(",", ""))))
+            except ValueError:
+                continue
         return values
 
     def _color_stock(self, soup) -> dict[str, int]:

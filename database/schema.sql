@@ -88,6 +88,11 @@ CREATE TABLE IF NOT EXISTS download_changes (
     FOREIGN KEY (history_id) REFERENCES scraping_history(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS catalog_metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_scraping_history_finished_at
 ON scraping_history(finished_at);
 

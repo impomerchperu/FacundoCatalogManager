@@ -105,11 +105,10 @@ class ProductCollectionScraper:
             category=category_name,
         )
 
-        colors = list(detailed_product.colors)
+        colors = list(detailed_product.color_stock)
         if not colors or len(colors) != len(stock_values):
             return product
 
-        product.colors = colors
         product.color_stock = dict(
             zip(colors, stock_values, strict=True),
         )

@@ -131,7 +131,12 @@ class ProductCollectionScraper:
             return product
 
         detail_url = urljoin(page_url, href)
-        detailed_product = self._get_detailed_product(detail_url, category_name)
+        detail_key = self._detail_cache_key(product, detail_url)
+        detailed_product = self._get_detailed_product(
+            detail_key,
+            detail_url,
+            category_name,
+        )
         if detailed_product is None:
             return product
 
@@ -160,14 +165,29 @@ class ProductCollectionScraper:
 
         return product
 
-    def _get_detailed_product(self, detail_url: str, category_name: str):
-        """Obtiene una página de detalle una sola vez por URL concurrentemente."""
+    @staticmethod
+    def _detail_cache_key(product: Any, detail_url: str) -> str:
+        """Usa el código como identidad principal y la URL como respaldo."""
+        code = getattr(product, "code", None)
+        if code is not None:
+            normalized_code = str(code).strip()
+            if normalized_code:
+                return f"code:{normalized_code}"
+        return f"url:{detail_url}"
+
+    def _get_detailed_product(
+        self,
+        detail_key: str,
+        detail_url: str,
+        category_name: str,
+    ):
+        """Obtiene el detalle una sola vez por código, incluso entre categorías."""
         owner = False
         with self._detail_cache_lock:
-            future = self._detail_cache.get(detail_url)
+            future = self._detail_cache.get(detail_key)
             if future is None:
                 future = Future()
-                self._detail_cache[detail_url] = future
+                self._detail_cache[detail_key] = future
                 owner = True
             else:
                 with self._detail_metrics_lock:
@@ -195,7 +215,7 @@ class ProductCollectionScraper:
             return detailed_product
         except Exception as exc:
             with self._detail_cache_lock:
-                self._detail_cache.pop(detail_url, None)
+                self._detail_cache.pop(detail_key, None)
             future.set_exception(exc)
             raise
 

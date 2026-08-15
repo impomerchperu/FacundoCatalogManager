@@ -62,7 +62,10 @@ class CategoryProductSyncService:
 
         for index, category in enumerate(categories, start=1):
             products.extend(
-                self.scraper_service.scrape_category(category)
+                self.scraper_service.scrape_category(
+                    category.url,
+                    category.name,
+                )
             )
 
             if progress_callback:

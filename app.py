@@ -1,5 +1,5 @@
-import sys
 import threading
+import sys
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox

@@ -13,7 +13,6 @@ class ContentHash:
         "price_sample",
         "price_hundred",
         "price_thousand",
-        "colors",
         "color_stock",
     )
 

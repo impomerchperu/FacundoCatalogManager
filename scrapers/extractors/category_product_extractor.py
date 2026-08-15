@@ -74,6 +74,7 @@ class CategoryProductExtractor:
                 "sin color",
             }:
                 return
+            color_stock.setdefault(value, 0)
             if stock is not None:
                 color_stock[value] = max(
                     color_stock.get(value, 0),
@@ -110,9 +111,6 @@ class CategoryProductExtractor:
         color_names = list(color_stock)
         if len(stock_values) == len(color_names):
             for color, stock in zip(color_names, stock_values, strict=True):
-                color_stock[color] = stock
-        elif color_names and not all(color in color_stock for color in color_names):
-            for color, stock in zip(color_names, stock_values, strict=False):
                 color_stock[color] = stock
 
         return color_stock

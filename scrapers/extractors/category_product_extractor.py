@@ -128,12 +128,12 @@ class CategoryProductExtractor:
             return
 
         pattern = (
-            r"\bcolou?rs?\s*:\s*(.+?)"
+            r"\b(?:colou?rs?|colores)\s*(?:[:|\-]\s*)?(.+?)"
             r"(?=\s+(?:presentaci[oó]n|precio|stock\s+disponible|"
-            r"c[oó]digo|sku)\b|$)"
+            r"c[oó]digo|sku|categor[ií]as?)\b|$)"
         )
         for match in re.findall(pattern, text, flags=re.IGNORECASE):
-            normalized = re.sub(r"\s+", " ", match).strip(" .")
+            normalized = re.sub(r"\s+", " ", match).strip(" .|-")
             normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
             for item in normalized.split(","):
                 add_color(item)

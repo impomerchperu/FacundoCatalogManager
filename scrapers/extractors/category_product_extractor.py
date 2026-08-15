@@ -15,10 +15,7 @@ class CategoryProductExtractor:
     def extract(self, card, url="", category=""):
         colors, color_stock = self._colors(card)
         stock_values = self._stock_values(card)
-        total_stock = sum(stock_values)
-        if not stock_values:
-            total_stock = self._stock(card)
-
+        total_stock = sum(stock_values) if stock_values else self._stock(card)
         if color_stock:
             total_stock = sum(color_stock.values())
 
@@ -122,16 +119,12 @@ class CategoryProductExtractor:
 
     @staticmethod
     def _extract_labeled_colors(soup, add_color) -> None:
-        """Extrae listas visibles como 'Colores: Rojo, Azul y Negro'."""
+        """Extrai listas visíveis como 'Colores: Rojo, Azul y Negro'."""
         text = soup.get_text(" ", strip=True)
         if not text:
             return
 
-        pattern = (
-            r"\b(?:colou?rs?|colores)\s*(?:[:|\-]\s*)?(.+?)"
-            r"(?=\s+(?:presentaci[oó]n|precio|stock\s+disponible|"
-            r"c[oó]digo|sku|categor[ií]as?)\b|$)"
-        )
+        pattern = r"(?:^|\s)colores?\s*(?:[:|\-]\s*)?(.+?)(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|c[oó]digo|sku|categor[ií]as?)\b|$)"
         for match in re.findall(pattern, text, flags=re.IGNORECASE):
             normalized = re.sub(r"\s+", " ", match).strip(" .|-")
             normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)

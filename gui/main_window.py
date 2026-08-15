@@ -90,7 +90,7 @@ class MainWindow(QMainWindow):
 
         counter_layout = QHBoxLayout()
         counter_layout.setContentsMargins(0, 0, 0, 0)
-        self.product_counter = QLabel("Mostrando 0 de 0 productos")
+        self.product_counter = QLabel("Cargando catálogo...")
         self.product_counter.setAlignment(
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
         )
@@ -122,8 +122,18 @@ class MainWindow(QMainWindow):
             buttons_layout.addWidget(button)
         buttons_layout.addStretch()
         layout.addLayout(buttons_layout)
-        self.refresh_catalog()
+
+        # La ventana se muestra primero y la lectura/renderizado del catálogo
+        # se difiere al siguiente ciclo del event loop. Así la interfaz queda
+        # disponible inmediatamente y la base catalog.db sigue siendo la única
+        # fuente de datos del catálogo.
+        QTimer.singleShot(0, self._load_initial_catalog)
         self.start_scraping_scheduler()
+
+    def _load_initial_catalog(self) -> None:
+        """Carga el catálogo persistido después de mostrar la ventana."""
+        if self.isVisible():
+            self.refresh_catalog()
 
     def create_filter_controls(self, layout: QVBoxLayout) -> None:
         filter_layout = QVBoxLayout()
@@ -605,4 +615,3 @@ class MainWindow(QMainWindow):
         if self.history_dialog is not None:
             self.history_dialog.close()
         super().closeEvent(event)
-

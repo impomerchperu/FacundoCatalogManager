@@ -20,9 +20,9 @@ class ProductExtractor:
         self.stock_extractor = StockExtractor()
 
     def extract(self, soup, url="", category=""):
-        colors, color_stock = self.extract_colors(soup)
+        color_stock = self.extract_color_stock(soup)
         stock = self.stock_extractor.extract(soup)
-        if self._has_complete_color_stock(colors, color_stock):
+        if color_stock:
             stock = sum(color_stock.values())
 
         return ScrapedProductFactory.create(
@@ -37,7 +37,6 @@ class ProductExtractor:
             price_sample=self.price_extractor.extract_sample(soup),
             price_hundred=self.price_extractor.extract_hundred(soup),
             price_thousand=self.price_extractor.extract_thousand(soup),
-            colors=colors,
             color_stock=color_stock,
             image_url=self.extract_image(soup),
         )
@@ -98,9 +97,8 @@ class ProductExtractor:
                     continue
         return 0.0
 
-    def extract_colors(self, soup):
-        """Extrae colores y stock por color de selectores y variaciones WooCommerce."""
-        colors: list[str] = []
+    def extract_color_stock(self, soup) -> dict[str, int]:
+        """Extrae exclusivamente el stock asociado a cada color visible."""
         color_stock: dict[str, int] = {}
 
         def add_color(name: str, stock: int | None = None) -> None:
@@ -115,8 +113,7 @@ class ProductExtractor:
                 "choose an option",
             }:
                 return
-            if normalized not in colors:
-                colors.append(normalized)
+            color_stock.setdefault(normalized, 0)
             if stock is not None:
                 color_stock[normalized] = max(
                     color_stock.get(normalized, 0),
@@ -163,11 +160,12 @@ class ProductExtractor:
                 self._extract_variation_colors(payload, add_color)
 
         visible_stock = self._extract_visible_stock_values(soup)
-        if len(visible_stock) == len(colors) and colors:
-            for color, stock in zip(colors, visible_stock, strict=True):
+        color_names = list(color_stock)
+        if len(visible_stock) == len(color_names) and color_names:
+            for color, stock in zip(color_names, visible_stock, strict=True):
                 color_stock[color] = stock
 
-        return colors, color_stock
+        return color_stock
 
     @staticmethod
     def _extract_text_colors(soup) -> list[str]:
@@ -215,13 +213,6 @@ class ProductExtractor:
             except ValueError:
                 continue
         return values
-
-    @staticmethod
-    def _has_complete_color_stock(
-        colors: list[str],
-        color_stock: dict[str, int],
-    ) -> bool:
-        return bool(colors) and all(color in color_stock for color in colors)
 
     def _extract_variation_colors(self, value, add_color) -> None:
         if isinstance(value, dict):

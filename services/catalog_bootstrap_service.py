@@ -1,5 +1,6 @@
 import json
 from collections.abc import Callable
+from typing import ClassVar
 
 from controllers.scraping_controller import ScrapingController
 from database.db_manager import DBManager
@@ -8,7 +9,7 @@ from database.db_manager import DBManager
 class CatalogBootstrapService:
     """Gestiona la recuperación local del catálogo persistente."""
 
-    PRODUCT_FIELDS = {
+    PRODUCT_FIELDS: ClassVar[set[str]] = {
         "name",
         "category",
         "description",
@@ -124,30 +125,33 @@ class CatalogBootstrapService:
                     """
                     INSERT INTO products (
                         code, name, category, description, price,
-                        price_sample, price_hundred, price_thousand, stock,
-                        color_stock, image_url, image_path, image_hash,
+                        price_sample, price_hundred, price_hundred, price_thousand,
+                        stock, color_stock, image_url, image_path, image_hash,
                         content_hash
                     )
                     VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                     )
                     """,
-                    tuple(product[field] for field in (
-                        "code",
-                        "name",
-                        "category",
-                        "description",
-                        "price",
-                        "price_sample",
-                        "price_hundred",
-                        "price_thousand",
-                        "stock",
-                        "color_stock",
-                        "image_url",
-                        "image_path",
-                        "image_hash",
-                        "content_hash",
-                    )),
+                    tuple(
+                        product[field]
+                        for field in (
+                            "code",
+                            "name",
+                            "category",
+                            "description",
+                            "price",
+                            "price_sample",
+                            "price_hundred",
+                            "price_thousand",
+                            "stock",
+                            "color_stock",
+                            "image_url",
+                            "image_path",
+                            "image_hash",
+                            "content_hash",
+                        )
+                    ),
                 )
             self.db.commit()
         except Exception:
@@ -163,13 +167,15 @@ class CatalogBootstrapService:
     @staticmethod
     def _convert_field(field: str, value):
         if value is None:
-            if field in {"stock"}:
-                return 0
-            if field.startswith("price") or field == "price":
-                return 0.0
-            if field == "color_stock":
-                return "{}"
-            return ""
+            defaults = {
+                "stock": 0,
+                "price": 0.0,
+                "price_sample": 0.0,
+                "price_hundred": 0.0,
+                "price_thousand": 0.0,
+                "color_stock": "{}",
+            }
+            return defaults.get(field, "")
 
         if field in {"price", "price_sample", "price_hundred", "price_thousand"}:
             try:
@@ -186,9 +192,9 @@ class CatalogBootstrapService:
         if field == "color_stock":
             try:
                 parsed = json.loads(str(value))
-                return json.dumps(parsed, ensure_ascii=False)
             except (TypeError, ValueError, json.JSONDecodeError):
                 return "{}"
+            return json.dumps(parsed, ensure_ascii=False)
 
         return str(value)
 

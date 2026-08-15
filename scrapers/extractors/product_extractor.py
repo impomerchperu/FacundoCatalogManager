@@ -289,7 +289,7 @@ class ProductExtractor:
             if colors:
                 return colors
 
-        heading = re.compile(r"^\s*colores?\s*:??\s*$", re.IGNORECASE)
+        heading = re.compile(r"^\s*colores?\s*:?\s*$", re.IGNORECASE)
         for text_node in soup.find_all(string=heading):
             parent = text_node.parent
             if parent is None:

@@ -110,6 +110,7 @@ class ProductExtractor:
             if normalized.casefold() in {
                 "color",
                 "colour",
+                "colores",
                 "seleccionar color",
                 "choose an option",
             }:
@@ -170,28 +171,28 @@ class ProductExtractor:
 
     @staticmethod
     def _extract_text_colors(soup) -> list[str]:
-        """Extrae listas visibles del tipo 'Colores: Rojo, Azul y Negro'."""
+        """Extrae listas como 'Colores: Rojo, Azul' o 'Colores | Rojo, Azul'."""
         text = soup.get_text(" ", strip=True)
         if not text:
             return []
 
         color_pattern = (
-            r"\b(?:colou?rs?|colores)\s*:\s*(.+?)"
+            r"\b(?:colou?rs?|colores)\s*(?:[:|\-]\s*)?(.+?)"
             r"(?=\s+(?:presentaci[oó]n|precio|stock\s+disponible|"
-            r"c[oó]digo)\b|$)"
+            r"c[oó]digo|sku|categor[ií]as?)\b|$)"
         )
+        colors: list[str] = []
+        seen: set[str] = set()
         matches = re.findall(
             color_pattern,
             text,
             flags=re.IGNORECASE,
         )
-        colors: list[str] = []
-        seen: set[str] = set()
         for match in matches:
-            normalized = re.sub(r"\s+", " ", match).strip(" .")
+            normalized = re.sub(r"\s+", " ", match).strip(" .|-")
             normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
             for item in normalized.split(","):
-                color = item.strip(" .")
+                color = item.strip(" .|-")
                 key = color.casefold()
                 if color and key not in seen:
                     seen.add(key)

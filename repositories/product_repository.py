@@ -42,7 +42,7 @@ class ProductRepository:
                 product.price_hundred,
                 product.price_thousand,
                 product.stock,
-                json.dumps(product.color_stock, ensure_ascii=False),
+                json.dumps(self._clean_color_stock(product.color_stock), ensure_ascii=False),
                 product.image_url,
                 product.image_path,
                 product.image_hash,
@@ -73,7 +73,7 @@ class ProductRepository:
                 product.price_hundred,
                 product.price_thousand,
                 product.stock,
-                json.dumps(product.color_stock, ensure_ascii=False),
+                json.dumps(self._clean_color_stock(product.color_stock), ensure_ascii=False),
                 product.image_url,
                 product.image_path,
                 product.image_hash,
@@ -148,9 +148,7 @@ class ProductRepository:
             return False
         if any(token in value for token in ("{", "}", ";", "//", "=>")):
             return False
-        if re.fullmatch(r"[\d\s.,:+-]+", value):
-            return False
-        return True
+        return not re.fullmatch(r"[\d\s.,:+-]+", value)
 
     @classmethod
     def _json_dict(cls, value) -> dict[str, int]:
@@ -172,6 +170,12 @@ class ProductRepository:
             except (TypeError, ValueError):
                 continue
         return result
+
+    @classmethod
+    def _clean_color_stock(cls, color_stock: dict[str, int] | None) -> dict[str, int]:
+        if not color_stock:
+            return {}
+        return cls._json_dict(json.dumps(color_stock, ensure_ascii=False))
 
     def _row_to_product(self, row: sqlite3.Row) -> Product:
         return Product(

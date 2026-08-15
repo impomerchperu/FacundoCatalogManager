@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Iterable
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
@@ -66,8 +66,12 @@ class ProductCollectionScraper:
 
     def _extract_cards(self, soup: Any) -> list[Any]:
         if callable(self.card_extractor):
-            return list(self.card_extractor(soup))
-        return list(self.card_extractor.extract(soup))
+            cards = self.card_extractor(soup)
+        else:
+            cards = self.card_extractor.extract(soup)
+        if not isinstance(cards, Iterable):
+            raise TypeError("El extractor de tarjetas debe devolver un iterable.")
+        return list(cards)
 
     def _enrich_from_detail_page(
         self,

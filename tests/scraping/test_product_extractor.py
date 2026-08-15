@@ -58,10 +58,10 @@ def test_product_extractor_maps_stock_to_visible_colors():
 def test_product_extractor_reads_detail_page_color_links():
     html = """
     <div class="product-information">
-        <div>Colores</div>
         <div>
-            <a href="/color/negro">Negro</a>,
-            <a href="/color/azul">Azul</a>,
+            Colores
+            <a href="/color/negro">Negro</a>
+            <a href="/color/azul">Azul</a>
             <a href="/color/rojo">Rojo</a>
         </div>
     </div>

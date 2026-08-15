@@ -1,3 +1,4 @@
+from typing import Any
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
@@ -17,17 +18,17 @@ class ProductCollectionScraper:
 
     def __init__(
         self,
-        category_scraper,
-        card_extractor,
-        product_extractor,
-        detail_extractor=None,
+        category_scraper: Any,
+        card_extractor: Any,
+        product_extractor: Any,
+        detail_extractor: Any = None,
     ):
         self.category_scraper = category_scraper
         self.card_extractor = card_extractor
         self.product_extractor = product_extractor
         self.detail_extractor = detail_extractor
 
-    def scrape_category(self, category):
+    def scrape_category(self, category: Any) -> list[Any]:
         """Extrae todos los productos de una categoría."""
         if isinstance(category, Category):
             category_url = category.url
@@ -36,7 +37,7 @@ class ProductCollectionScraper:
             category_url = category
             category_name = ""
 
-        products = []
+        products: list[Any] = []
         pages = self.category_scraper.get_category_pages(category_url)
 
         for page in pages:
@@ -63,18 +64,18 @@ class ProductCollectionScraper:
 
         return products
 
-    def _extract_cards(self, soup) -> list:
+    def _extract_cards(self, soup: Any) -> list[Any]:
         if callable(self.card_extractor):
-            return self.card_extractor(soup)
-        return self.card_extractor.extract(soup)
+            return list(self.card_extractor(soup))
+        return list(self.card_extractor.extract(soup))
 
     def _enrich_from_detail_page(
         self,
-        card,
+        card: Any,
         page_url: str,
-        product,
+        product: Any,
         category_name: str,
-    ):
+    ) -> Any:
         """Completa colores y stock desde la página de detalle."""
         if self.detail_extractor is None:
             return product
@@ -113,7 +114,7 @@ class ProductCollectionScraper:
         return product
 
     @staticmethod
-    def _stock_values(card) -> list[int]:
+    def _stock_values(card: Any) -> list[int]:
         values: list[int] = []
         for element in card.select(".variaciones-producto p"):
             text = element.get_text(strip=True)

@@ -63,7 +63,7 @@ class ProductCollectionScraper:
 
         return products
 
-    def _extract_cards(self, soup):
+    def _extract_cards(self, soup) -> list:
         if callable(self.card_extractor):
             return self.card_extractor(soup)
         return self.card_extractor.extract(soup)

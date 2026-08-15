@@ -45,7 +45,7 @@ class ProductCollectionScraper:
                 continue
 
             soup = BeautifulSoup(html, "html.parser")
-            cards = self.card_extractor.extract(soup)
+            cards = self._extract_cards(soup)
 
             for card in cards:
                 product = self.product_extractor.extract(
@@ -62,6 +62,11 @@ class ProductCollectionScraper:
                 products.append(product)
 
         return products
+
+    def _extract_cards(self, soup):
+        if callable(self.card_extractor):
+            return self.card_extractor(soup)
+        return self.card_extractor.extract(soup)
 
     def _enrich_from_detail_page(
         self,

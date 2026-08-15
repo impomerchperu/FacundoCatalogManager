@@ -1,4 +1,3 @@
-import html
 from typing import ClassVar
 
 from PySide6.QtCore import Qt
@@ -69,10 +68,9 @@ class ProductTable(QTableWidget):
     DETAIL_COLUMN = 3
     CATEGORY_COLUMN = 4
     STOCK_COLUMN = 5
-    COLORS_COLUMN = 6
-    PRICE_SAMPLE_COLUMN = 7
-    PRICE_HUNDRED_COLUMN = 8
-    PRICE_THOUSAND_COLUMN = 9
+    PRICE_SAMPLE_COLUMN = 6
+    PRICE_HUNDRED_COLUMN = 7
+    PRICE_THOUSAND_COLUMN = 8
 
     SORTABLE_COLUMNS: ClassVar[set[int]] = {
         CODE_COLUMN,
@@ -80,7 +78,6 @@ class ProductTable(QTableWidget):
         DETAIL_COLUMN,
         CATEGORY_COLUMN,
         STOCK_COLUMN,
-        COLORS_COLUMN,
         PRICE_SAMPLE_COLUMN,
         PRICE_HUNDRED_COLUMN,
         PRICE_THOUSAND_COLUMN,
@@ -93,47 +90,10 @@ class ProductTable(QTableWidget):
         "Detalle",
         "Categoría",
         "Stock",
-        "Colores",
         "Precio\nmuestra",
         "Precio\nciento",
         "Precio\nmillar",
     ]
-
-    COLOR_NAMES: ClassVar[dict[str, str]] = {
-        "rojo": "#ef9a9a",
-        "red": "#ef9a9a",
-        "azul": "#90caf9",
-        "blue": "#90caf9",
-        "verde": "#a5d6a7",
-        "green": "#a5d6a7",
-        "amarillo": "#fff59d",
-        "yellow": "#fff59d",
-        "naranja": "#ffcc80",
-        "orange": "#ffcc80",
-        "rosado": "#f8bbd0",
-        "rosa": "#f8bbd0",
-        "pink": "#f8bbd0",
-        "morado": "#ce93d8",
-        "violeta": "#ce93d8",
-        "purple": "#ce93d8",
-        "negro": "#616161",
-        "black": "#616161",
-        "blanco": "#ffffff",
-        "white": "#ffffff",
-        "gris": "#bdbdbd",
-        "gray": "#bdbdbd",
-        "grey": "#bdbdbd",
-        "beige": "#d7ccc8",
-        "marrón": "#a1887f",
-        "marron": "#a1887f",
-        "brown": "#a1887f",
-        "dorado": "#d4af37",
-        "gold": "#d4af37",
-        "plateado": "#cfd8dc",
-        "silver": "#cfd8dc",
-        "transparente": "#f5f5f5",
-        "transparent": "#f5f5f5",
-    }
 
     def __init__(self, controller: ProductController) -> None:
         super().__init__()
@@ -198,8 +158,7 @@ class ProductTable(QTableWidget):
             self.NAME_COLUMN: 230,
             self.DETAIL_COLUMN: 320,
             self.CATEGORY_COLUMN: 180,
-            self.STOCK_COLUMN: 95,
-            self.COLORS_COLUMN: 180,
+            self.STOCK_COLUMN: 190,
             self.PRICE_SAMPLE_COLUMN: 140,
             self.PRICE_HUNDRED_COLUMN: 140,
             self.PRICE_THOUSAND_COLUMN: 140,
@@ -239,7 +198,6 @@ class ProductTable(QTableWidget):
             self.DETAIL_COLUMN: product.description.casefold(),
             self.CATEGORY_COLUMN: product.category.casefold(),
             self.STOCK_COLUMN: product.stock,
-            self.COLORS_COLUMN: ", ".join(product.colors).casefold(),
             self.PRICE_SAMPLE_COLUMN: product.price_sample,
             self.PRICE_HUNDRED_COLUMN: product.price_hundred,
             self.PRICE_THOUSAND_COLUMN: product.price_thousand,
@@ -302,11 +260,7 @@ class ProductTable(QTableWidget):
         self._set_text_item(row, self.NAME_COLUMN, product.name)
         self._set_text_item(row, self.DETAIL_COLUMN, product.description)
         self._set_category_item(row, product.category)
-
-        stock_item = NumericTableWidgetItem(str(product.stock), product.stock)
-        stock_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setItem(row, self.STOCK_COLUMN, stock_item)
-        self._set_colors_widget(row, product)
+        self._set_stock_widget(row, product)
         self._set_price_item(row, self.PRICE_SAMPLE_COLUMN, product.price_sample)
         self._set_price_item(row, self.PRICE_HUNDRED_COLUMN, product.price_hundred)
         self._set_price_item(row, self.PRICE_THOUSAND_COLUMN, product.price_thousand)
@@ -321,8 +275,7 @@ class ProductTable(QTableWidget):
 
     def _set_category_item(self, row: int, category: str) -> None:
         """Muestra cada categoría del producto en una línea independiente."""
-        display_value = self._format_categories(category)
-        self._set_text_item(row, self.CATEGORY_COLUMN, display_value)
+        self._set_text_item(row, self.CATEGORY_COLUMN, self._format_categories(category))
 
     @staticmethod
     def _format_categories(category: str) -> str:
@@ -336,61 +289,63 @@ class ProductTable(QTableWidget):
                 categories.append(normalized)
         return "\n".join(categories) if categories else "—"
 
-    def _set_colors_widget(self, row: int, product: Product) -> None:
-        colors = list(product.colors) or list(product.color_stock)
-        if not colors:
-            item = QTableWidgetItem("—")
+    def _set_stock_widget(self, row: int, product: Product) -> None:
+        """Muestra color y stock en filas alineadas dentro de la columna Stock."""
+        color_stock = self._ordered_color_stock(product)
+        if not color_stock:
+            item = NumericTableWidgetItem(str(product.stock), product.stock)
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.setItem(row, self.COLORS_COLUMN, item)
+            self.setItem(row, self.STOCK_COLUMN, item)
             return
+
         label = QLabel()
         label.setTextFormat(Qt.TextFormat.RichText)
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
         label.setWordWrap(True)
-        parts = []
-        for color in colors:
-            stock = product.color_stock.get(color)
-            stock_text = f" — {stock}" if stock is not None else ""
-            background = self._color_background(color)
-            foreground = "#ffffff" if self._is_dark_color(background) else "#000000"
-            parts.append(
-                f'<span style="background:{background}; color:{foreground}; '
-                f'padding:2px 5px;">{self._escape_html(color)}{stock_text}</span>'
-            )
-        label.setText("<br>".join(parts))
-        label.setToolTip(
-            "\n".join(
-                (
-                    f"{color}: {product.color_stock[color]}"
-                    if color in product.color_stock
-                    else color
-                )
-                for color in colors
-            )
-        )
-        self.setCellWidget(row, self.COLORS_COLUMN, label)
 
-    @classmethod
-    def _color_background(cls, color: str) -> str:
-        key = color.casefold().strip()
-        if key in cls.COLOR_NAMES:
-            return cls.COLOR_NAMES[key]
-        for name, value in cls.COLOR_NAMES.items():
-            if name in key:
-                return value
-        return "#e0e0e0"
+        rows = [
+            "<table width='100%' cellspacing='0' cellpadding='1'>",
+        ]
+        for color, stock in color_stock:
+            rows.append(
+                "<tr>"
+                f"<td align='left'>{self._escape_html(color)}</td>"
+                f"<td align='right'>{stock:,}</td>"
+                "</tr>"
+            )
+        rows.append("</table>")
+        label.setText("".join(rows))
+        label.setToolTip("\n".join(f"{color}: {stock}" for color, stock in color_stock))
+        self.setCellWidget(row, self.STOCK_COLUMN, label)
 
     @staticmethod
-    def _is_dark_color(color: str) -> bool:
-        value = color.lstrip("#")
-        if len(value) != 6:
-            return False
-        red, green, blue = (int(value[i:i + 2], 16) for i in (0, 2, 4))
-        return (red * 299 + green * 587 + blue * 114) < 140000
+    def _ordered_color_stock(product: Product) -> list[tuple[str, int]]:
+        """Conserva el orden de colores y añade cualquier stock sin color explícito."""
+        result: list[tuple[str, int]] = []
+        seen: set[str] = set()
+        for color in product.colors:
+            normalized = str(color).strip()
+            if not normalized or normalized.casefold() in seen:
+                continue
+            seen.add(normalized.casefold())
+            result.append((normalized, max(int(product.color_stock.get(color, 0)), 0)))
+        for color, stock in product.color_stock.items():
+            normalized = str(color).strip()
+            if not normalized or normalized.casefold() in seen:
+                continue
+            seen.add(normalized.casefold())
+            result.append((normalized, max(int(stock), 0)))
+        return result
 
     @staticmethod
     def _escape_html(value: str) -> str:
-        return html.escape(str(value))
+        return (
+            str(value)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+        )
 
     def _set_price_item(self, row: int, column: int, value: float) -> None:
         item = NumericTableWidgetItem(f"S/ {value:,.2f}", value)
@@ -415,7 +370,6 @@ class ProductTable(QTableWidget):
                 self.IMAGE_COLUMN,
                 self.CODE_COLUMN,
                 self.STOCK_COLUMN,
-                self.COLORS_COLUMN,
                 self.PRICE_SAMPLE_COLUMN,
                 self.PRICE_HUNDRED_COLUMN,
                 self.PRICE_THOUSAND_COLUMN,

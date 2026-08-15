@@ -88,12 +88,16 @@ def test_update_product(repository):
 
 
 def test_repository_ignores_malformed_color_stock(repository):
+    malformed_color = (
+        'var acss = {"color_mode":"light"}; '
+        "//# sourceURL=color-scheme-switcher-frontend-js-extra"
+    )
     product = Product(
         code="REP005",
         name="Producto con stock contaminado",
         stock=370,
         color_stock={
-            "var acss = {\"color_mode\":\"light\"}; //# sourceURL=color-scheme-switcher-frontend-js-extra": 370,
+            malformed_color: 370,
             "Rojo": 12,
         },
     )
@@ -115,6 +119,10 @@ def test_repository_ignores_malformed_color_stock(repository):
 
 
 def test_repository_filters_malformed_json_color_stock(repository):
+    malformed_color = (
+        'var acss = {"color_mode":"light"}; '
+        "//# sourceURL=color-scheme-switcher-frontend-js-extra"
+    )
     repository.db.execute_query(
         """
         INSERT INTO products (
@@ -133,11 +141,7 @@ def test_repository_filters_malformed_json_color_stock(repository):
             0,
             0,
             124904,
-            json.dumps(
-                {
-                    "var acss = {\"color_mode\":\"light\"}; //# sourceURL=color-scheme-switcher-frontend-js-extra": 124904,
-                }
-            ),
+            json.dumps({malformed_color: 124904}),
             "",
             "",
             "",

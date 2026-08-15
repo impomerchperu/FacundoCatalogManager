@@ -271,9 +271,9 @@ class ProductExtractor:
                 if value and label:
                     color_labels[value.casefold()] = label
 
-    @staticmethod
-    def _extract_text_colors(soup) -> list[str]:
-        """Extrae listas explícitas como 'Colores: Rojo, Azul'."""
+    @classmethod
+    def _extract_text_colors(cls, soup) -> list[str]:
+        """Extrae listas explícitas y enlaces bajo el encabezado 'Colores'."""
         pattern = re.compile(
             r"\bcolores?\s*[:|\-]\s*(.+?)(?="
             r"\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
@@ -285,18 +285,37 @@ class ProductExtractor:
             match = pattern.search(str(element).strip())
             if match is None:
                 continue
-            normalized = re.sub(r"\s+", " ", match.group(1)).strip(" .|-")
-            normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
-            colors: list[str] = []
-            seen: set[str] = set()
-            for item in normalized.split(","):
-                color = item.strip(" .|-")
-                key = color.casefold()
-                if color and key not in seen:
-                    seen.add(key)
-                    colors.append(color)
-            return colors
+            colors = cls._split_color_text(match.group(1))
+            if colors:
+                return colors
+
+        heading = re.compile(r"^\s*colores?\s*:??\s*$", re.IGNORECASE)
+        for text_node in soup.find_all(string=heading):
+            parent = text_node.parent
+            if parent is None:
+                continue
+            colors = [
+                link.get_text(" ", strip=True)
+                for link in parent.find_all("a")
+                if cls._is_valid_color_name(link.get_text(" ", strip=True))
+            ]
+            if colors:
+                return colors
         return []
+
+    @staticmethod
+    def _split_color_text(value: str) -> list[str]:
+        normalized = re.sub(r"\s+", " ", value).strip(" .|-")
+        normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
+        colors: list[str] = []
+        seen: set[str] = set()
+        for item in normalized.split(","):
+            color = item.strip(" .|-")
+            key = color.casefold()
+            if color and key not in seen:
+                seen.add(key)
+                colors.append(color)
+        return colors
 
     @staticmethod
     def _extract_visible_stock_values(soup) -> list[int]:

@@ -1,14 +1,28 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
+
+# Permite ejecutar el archivo directamente desde la raíz del proyecto:
+# ``python tools/audit_images.py``.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from services.scraping.image_audit_service import ImageAuditService
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Audita y limpia duplicados de imágenes.")
+    parser = argparse.ArgumentParser(
+        description="Audita y limpia duplicados de imágenes."
+    )
     parser.add_argument("--root", default="data/images/products")
-    parser.add_argument("--clean", action="store_true", help="Elimina duplicados byte-a-byte.")
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Elimina duplicados byte-a-byte.",
+    )
     args = parser.parse_args()
 
     service = ImageAuditService(args.root)

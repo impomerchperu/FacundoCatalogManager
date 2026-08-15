@@ -1,3 +1,4 @@
+import threading
 import time
 
 import requests
@@ -11,26 +12,45 @@ from config.scraping_config import (
 
 class Browser:
     def __init__(self, session=None):
+        self.session = session
+        self._thread_local = threading.local()
 
-        self.session = session or requests.Session()
+        if session is None:
+            self.session = requests.Session()
 
         self.headers = DEFAULT_HEADERS
-
         self.timeout = REQUEST_TIMEOUT
-
         self.max_retries = MAX_RETRIES
 
-    def fetch(self, url):
+    def _get_session(self):
+        """Return a session safe for the current scraping worker."""
+        if self.session is not None and not getattr(
+            self,
+            "_use_thread_sessions",
+            False,
+        ):
+            return self.session
 
+        session = getattr(self._thread_local, "session", None)
+        if session is None:
+            session = requests.Session()
+            self._thread_local.session = session
+        return session
+
+    def enable_thread_sessions(self):
+        """Use one requests session per worker thread for concurrent scraping."""
+        self._use_thread_sessions = True
+
+    def fetch(self, url):
         return self.get(url)
 
     def get(self, url):
-
         last_error = None
+        session = self._get_session()
 
         for attempt in range(self.max_retries):
             try:
-                response = self.session.get(
+                response = session.get(
                     url,
                     headers=self.headers,
                     timeout=self.timeout,

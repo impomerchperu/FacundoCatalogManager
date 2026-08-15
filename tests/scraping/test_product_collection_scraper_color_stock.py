@@ -1,5 +1,3 @@
-from bs4 import BeautifulSoup
-
 from models.scraping.category import Category
 from scrapers.collectors.product_collection_scraper import (
     ProductCollectionScraper,

@@ -16,7 +16,7 @@ class CategoryProductExtractor:
         color_stock = self._color_stock(card)
         stock_values = self._stock_values(card)
         total_stock = sum(stock_values) if stock_values else self._stock(card)
-        if color_stock:
+        if color_stock and len(color_stock) == len(stock_values):
             total_stock = sum(color_stock.values())
 
         return ScrapedProduct(
@@ -131,26 +131,43 @@ class CategoryProductExtractor:
         if len(stock_values) == len(color_names):
             for color, stock in zip(color_names, stock_values, strict=True):
                 color_stock[color] = stock
+        else:
+            color_stock.clear()
 
         return color_stock
 
     @staticmethod
     def _extract_labeled_colors(soup, add_color) -> None:
-        """Extrae listas visibles como 'Colores: Rojo, Azul y Negro'."""
-        pattern = re.compile(
-            r"\bcolores?\s*[:|\-]\s*(.+?)(?="
-            r"\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
-            r"c[oó]digo|sku|categor[ií]as?)\b|$)",
-            flags=re.IGNORECASE,
+        """Extrae colores declarados en la descripción de la tarjeta."""
+        patterns = (
+            re.compile(
+                r"\b(?:\d+\s+)?colores?\s+de\s+tinta\s*[:|\-]\s*(.+?)"
+                r"(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
+                r"c[oó]digo|sku|categor[ií]as?)\b|$)",
+                flags=re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b(?:\d+\s+)?colores?\s*[:|\-]\s*(.+?)"
+                r"(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
+                r"c[oó]digo|sku|categor[ií]as?)\b|$)",
+                flags=re.IGNORECASE,
+            ),
         )
-        for element in soup.find_all(
-            string=re.compile(r"\bcolores?\s*[:|\-]", re.I)
-        ):
-            text = str(element).strip()
-            match = pattern.search(text)
+
+        for element in soup.find_all(string=True):
+            text = re.sub(r"\s+", " ", str(element)).strip()
+            if not text:
+                continue
+
+            match = next(
+                (pattern.search(text) for pattern in patterns if pattern.search(text)),
+                None,
+            )
             if match is None:
                 continue
-            normalized = re.sub(r"\s+", " ", match.group(1)).strip(" .|-")
+
+            normalized = match.group(1).strip(" .|-")
+            normalized = re.sub(r"\s*\([^)]*\)\s*$", "", normalized)
             normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
             for item in normalized.split(","):
                 add_color(item)

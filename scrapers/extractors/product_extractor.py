@@ -158,6 +158,10 @@ class ProductExtractor:
             "choose an option",
         }:
             return False
+        if re.search(r"\bcolou?res?\s*[:|\-]", folded):
+            return False
+        if "," in value:
+            return False
         if any(marker in folded for marker in cls._INVALID_COLOR_MARKERS):
             return False
         if any(token in value for token in ("{", "}", ";", "//", "=>")):

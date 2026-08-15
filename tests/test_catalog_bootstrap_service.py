@@ -12,9 +12,9 @@ def test_restore_from_change_history_populates_empty_catalog(tmp_path):
         """,
         ("2026-08-14 10:00:00", "2026-08-14 10:01:00", 1, 1, "SUCCESS", "ok"),
     )
-    history_id = db.fetch_one("SELECT id FROM scraping_history ORDER BY id DESC LIMIT 1")[
-        "id"
-    ]
+    history_id = db.fetch_one(
+        "SELECT id FROM scraping_history ORDER BY id DESC LIMIT 1"
+    )["id"]
     changes = [
         (history_id, "NEW", "BOOT001", "Producto inicial", "category", "General"),
         (history_id, "NEW", "BOOT001", "Producto inicial", "stock", "12"),
@@ -35,7 +35,7 @@ def test_restore_from_change_history_populates_empty_catalog(tmp_path):
             field_label, new_value
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        [row + (row[4],) for row in changes],
+        [(*row, row[4]) for row in changes],
     )
     db.commit()
 

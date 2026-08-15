@@ -29,10 +29,16 @@ class ScrapingController:
             "history_repository",
             None,
         )
+        catalog_repository = getattr(
+            runner,
+            "catalog_repository",
+            None,
+        )
 
         self.session = ScrapingSession(
             runner,
             history_repository,
+            catalog_repository,
         )
 
     def run_scraping(

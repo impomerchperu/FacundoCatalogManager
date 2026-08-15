@@ -167,26 +167,28 @@ class ProductCollectionScraper:
 
     @staticmethod
     def _detail_cache_key(card: Any, product: Any, detail_url: str) -> str:
-        """Usa el código del producto; el código de la tarjeta es respaldo."""
-        candidates = [getattr(product, "code", "")]
+        """Prioriza el código real del producto y usa la tarjeta como respaldo."""
+        product_code = str(getattr(product, "code", "")).strip()
+        if product_code:
+            return f"code:{product_code.casefold()}"
+
         try:
-            element = card.select_one(
-                "p.brxe-a26f34, p.brxe-heading, span.sku, [sku]"
+            elements = card.select(
+                "p.brxe-a26f34, p.brxe-heading, span.sku, [sku], [data-sku]"
             )
         except AttributeError:
-            element = None
-        if element is not None:
-            candidates.append(element.get_text(" ", strip=True))
-            for attribute in ("sku", "data-sku"):
-                candidates.append(str(element.get(attribute, "")))
+            elements = []
 
-        for candidate in candidates:
-            normalized = str(candidate).strip()
-            if not normalized:
-                continue
-            match = re.search(r"\b[A-Z]{1,5}-[A-Z0-9][A-Z0-9._-]*\b", normalized)
-            if match:
-                return f"code:{match.group(0).upper()}"
+        for element in elements:
+            candidates = [
+                element.get_text(" ", strip=True),
+                str(element.get("sku", "")),
+                str(element.get("data-sku", "")),
+            ]
+            for candidate in candidates:
+                normalized = str(candidate).strip()
+                if normalized:
+                    return f"code:{normalized.casefold()}"
 
         return f"url:{detail_url}"
 
@@ -244,7 +246,9 @@ class ProductCollectionScraper:
             }
 
     def reset_detail_metrics(self) -> None:
-        """Reinicia las métricas sin borrar el caché de productos."""
+        """Reinicia métricas y caché antes de una nueva ejecución completa."""
+        with self._detail_cache_lock:
+            self._detail_cache.clear()
         with self._detail_metrics_lock:
             self._detail_requests = 0
             self._detail_cache_hits = 0

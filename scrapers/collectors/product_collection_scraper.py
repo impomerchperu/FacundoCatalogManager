@@ -1,5 +1,6 @@
 import re
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
+from threading import Lock
 from typing import Any, Iterable
 from urllib.parse import urljoin
 
@@ -25,6 +26,8 @@ class ProductCollectionScraper:
         self.product_extractor = product_extractor
         self.detail_extractor = detail_extractor
         self.max_workers = max(1, max_workers)
+        self._detail_cache: dict[str, Future[Any]] = {}
+        self._detail_cache_lock = Lock()
 
     def scrape_category(self, category: Any) -> list[Any]:
         """Extrae todos los productos de una categoría."""
@@ -125,16 +128,9 @@ class ProductCollectionScraper:
             return product
 
         detail_url = urljoin(page_url, href)
-        detail_html = self.category_scraper.get_html(detail_url)
-        if not detail_html:
+        detailed_product = self._get_detailed_product(detail_url, category_name)
+        if detailed_product is None:
             return product
-
-        detail_soup = BeautifulSoup(detail_html, "html.parser")
-        detailed_product = self.detail_extractor.extract(
-            detail_soup,
-            url=detail_url,
-            category=category_name,
-        )
 
         detail_color_stock = dict(
             getattr(detailed_product, "color_stock", {})
@@ -168,6 +164,39 @@ class ProductCollectionScraper:
             product.url = detail_url
 
         return product
+
+    def _get_detailed_product(self, detail_url: str, category_name: str):
+        """Obtiene una página de detalle una sola vez por URL concurrentemente."""
+        owner = False
+        with self._detail_cache_lock:
+            future = self._detail_cache.get(detail_url)
+            if future is None:
+                future = Future()
+                self._detail_cache[detail_url] = future
+                owner = True
+
+        if not owner:
+            return future.result()
+
+        try:
+            detail_html = self.category_scraper.get_html(detail_url)
+            if not detail_html:
+                future.set_result(None)
+                return None
+
+            detail_soup = BeautifulSoup(detail_html, "html.parser")
+            detailed_product = self.detail_extractor.extract(
+                detail_soup,
+                url=detail_url,
+                category=category_name,
+            )
+            future.set_result(detailed_product)
+            return detailed_product
+        except Exception as exc:
+            with self._detail_cache_lock:
+                self._detail_cache.pop(detail_url, None)
+            future.set_exception(exc)
+            raise
 
     @staticmethod
     def _stock_values(card: Any) -> list[int]:

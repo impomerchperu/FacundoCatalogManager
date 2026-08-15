@@ -1,7 +1,9 @@
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+from config.scraping_config import SCRAPING_CATEGORY_WORKERS
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,
@@ -42,12 +44,14 @@ class CategoryProductSyncService:
         mapper=None,
         catalog_sync_service=None,
         image_sync_adapter=None,
+        category_workers: int = SCRAPING_CATEGORY_WORKERS,
     ):
         self.scraper_service = scraper_service
         self.persistence_service = persistence_service
         self.mapper = mapper
         self.catalog_sync_service = catalog_sync_service
         self.image_sync_adapter = image_sync_adapter
+        self.category_workers = max(1, category_workers)
         self.last_sync_result = SyncResult()
 
     def sync_category(self, category_url: str, category: str = ""):
@@ -69,32 +73,48 @@ class CategoryProductSyncService:
         """
         Scrapea todas las categorías y sincroniza el conjunto completo.
 
-        La sincronización conjunta es importante porque un mismo código
-        puede aparecer en más de una categoría. La consolidación se hace
-        antes de descargar imágenes, mapear y comparar contra el catálogo.
+        Las categorías se extraen en paralelo con un límite conservador.
+        La consolidación sigue ocurriendo después de completar todas las
+        categorías para preservar correctamente las categorías múltiples.
         """
         started = time.perf_counter()
-        products = []
+        categories = list(categories)
         total = len(categories)
 
-        for index, category in enumerate(categories, start=1):
-            category_started = time.perf_counter()
-            category_products = self.scraper_service.scrape_category(
-                category.url,
-                category.name,
-            )
-            category_elapsed = time.perf_counter() - category_started
-            products.extend(category_products)
-
+        if not categories:
             _log_timing(
-                "SCRAPING TIMING | category=%s | products=%d | seconds=%.3f",
-                category.name,
-                len(category_products),
-                category_elapsed,
+                "SCRAPING TIMING | stage=category_extraction | categories=0 "
+                "| products=0 | seconds=0.000",
             )
+            return self.sync_products([])
 
-            if progress_callback:
-                progress_callback(index, total)
+        worker_count = min(self.category_workers, total)
+        results: list[list] = [[] for _ in categories]
+        completed = 0
+
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            future_to_index = {
+                executor.submit(
+                    self._scrape_category,
+                    index,
+                    category,
+                ): index
+                for index, category in enumerate(categories)
+            }
+
+            for future in as_completed(future_to_index):
+                index = future_to_index[future]
+                results[index] = future.result()
+                completed += 1
+
+                if progress_callback:
+                    progress_callback(completed, total)
+
+        products = [
+            product
+            for category_products in results
+            for product in category_products
+        ]
 
         scraping_elapsed = time.perf_counter() - started
         _log_timing(
@@ -106,6 +126,22 @@ class CategoryProductSyncService:
         )
 
         return self.sync_products(products)
+
+    def _scrape_category(self, index, category):
+        """Extrae una categoría en un worker independiente."""
+        category_started = time.perf_counter()
+        products = self.scraper_service.scrape_category(
+            category.url,
+            category.name,
+        )
+        category_elapsed = time.perf_counter() - category_started
+        _log_timing(
+            "SCRAPING TIMING | category=%s | products=%d | seconds=%.3f",
+            category.name,
+            len(products),
+            category_elapsed,
+        )
+        return products
 
     def sync_products(self, products):
         """Procesa y sincroniza un conjunto consolidado de productos scrapeados."""

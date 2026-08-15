@@ -8,14 +8,14 @@ from services.scraping.category_product_sync_service import (
 
 
 class FakeScraper:
-    def scrape_category(self, category):
+    def scrape_category(self, category_url, category_name):
         return [
             ScrapedProduct(
                 code="P001",
                 name="Producto compartido",
-                category=category.name,
+                category=category_name,
                 color_stock={"Rojo": 5}
-                if category.name == "Jarros"
+                if category_name == "Jarros"
                 else {"Azul": 7},
             ),
         ]

@@ -17,7 +17,7 @@ class SyncController:
             )
 
             if isinstance(sync_result, SyncResult):
-                result = SyncResult(
+                return SyncResult(
                     success=sync_result.success,
                     started_at=sync_result.started_at,
                     finished_at=sync_result.finished_at,
@@ -37,19 +37,19 @@ class SyncController:
                     images_failed=sync_result.images_failed,
                     errors=list(sync_result.errors),
                 )
-                return result
 
             # Compatibilidad con runners antiguos que no exponen
             # last_sync_result: en ese caso solo podemos reportar lo procesado.
             result = SyncResult()
             result.processed = len(products)
             result.unchanged = len(products)
-            result.finish()
-            return result
-
         except (RuntimeError, ValueError, TypeError) as error:
             result = SyncResult()
             result.add_error(str(error))
             result.failures.append(str(error))
+        else:
             result.finish()
             return result
+
+        result.finish()
+        return result

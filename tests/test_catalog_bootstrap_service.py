@@ -1,62 +1,80 @@
-from dataclasses import dataclass
-
 from database.db_manager import DBManager
 from services.catalog_bootstrap_service import CatalogBootstrapService
 
 
-@dataclass
-class FakeResult:
-    successful: bool = True
-
-    def success(self) -> bool:
-        return self.successful
-
-
-class FakeController:
-    def __init__(self, db: DBManager) -> None:
-        self.db = db
-
-    def run_full_scraping(self):
-        self.db.execute_query(
-            """
-            INSERT INTO products (code, name, category)
-            VALUES (?, ?, ?)
-            """,
-            ("BOOT001", "Producto inicial", "General"),
-        )
-        return FakeResult()
-
-
-def test_bootstrap_populates_empty_catalog_and_marks_it_initialized(tmp_path):
+def test_restore_from_change_history_populates_empty_catalog(tmp_path):
     db = DBManager(str(tmp_path / "catalog.db"))
-    service = CatalogBootstrapService(
-        db=db,
-        controller_factory=lambda: FakeController(db),
+    db.execute_query(
+        """
+        INSERT INTO scraping_history (
+            started_at, finished_at, processed, created, status, message
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        ("2026-08-14 10:00:00", "2026-08-14 10:01:00", 1, 1, "SUCCESS", "ok"),
     )
+    history_id = db.fetch_one("SELECT id FROM scraping_history ORDER BY id DESC LIMIT 1")[
+        "id"
+    ]
+    changes = [
+        (history_id, "NEW", "BOOT001", "Producto inicial", "category", "General"),
+        (history_id, "NEW", "BOOT001", "Producto inicial", "stock", "12"),
+        (history_id, "NEW", "BOOT001", "Producto inicial", "price_sample", "4.50"),
+        (
+            history_id,
+            "NEW",
+            "BOOT001",
+            "Producto inicial",
+            "color_stock",
+            '{"Rojo": 12}',
+        ),
+    ]
+    db.connection.executemany(
+        """
+        INSERT INTO download_changes (
+            history_id, change_type, code, product_name, field_name,
+            field_label, new_value
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        [row + (row[4],) for row in changes],
+    )
+    db.commit()
 
-    assert service.is_ready() is False
+    service = CatalogBootstrapService(db=db)
+    assert service.product_count() == 0
 
-    result = service.bootstrap()
+    restored = service.restore_from_change_history()
 
-    assert result is not None
-    assert result.success() is True
-    assert service.product_count() == 1
+    assert restored == 1
+    product = db.fetch_one("SELECT * FROM products WHERE code=?", ("BOOT001",))
+    assert product["name"] == "Producto inicial"
+    assert product["category"] == "General"
+    assert product["stock"] == 12
+    assert product["price_sample"] == 4.5
+    assert product["color_stock"] == '{"Rojo": 12}'
     assert service.is_initialized() is True
-    assert service.is_ready() is True
 
     db.close()
 
 
-def test_bootstrap_does_not_scrape_initialized_catalog(tmp_path):
+def test_restore_from_change_history_does_not_overwrite_existing_catalog(tmp_path):
     db = DBManager(str(tmp_path / "catalog.db"))
-    service = CatalogBootstrapService(
-        db=db,
-        controller_factory=lambda: (_ for _ in ()).throw(
-            AssertionError("No debe ejecutar scraping")
-        ),
+    db.execute_query(
+        "INSERT INTO products (code, name) VALUES (?, ?)",
+        ("EXIST001", "Producto existente"),
     )
-    service.mark_initialized()
-    db.commit()
+
+    service = CatalogBootstrapService(db=db)
+
+    assert service.restore_from_change_history() == 0
+    assert service.product_count() == 1
+    assert service.is_initialized() is False
+
+    db.close()
+
+
+def test_bootstrap_never_starts_web_scraping(tmp_path):
+    db = DBManager(str(tmp_path / "catalog.db"))
+    service = CatalogBootstrapService(db=db)
 
     assert service.bootstrap() is None
     assert service.product_count() == 0

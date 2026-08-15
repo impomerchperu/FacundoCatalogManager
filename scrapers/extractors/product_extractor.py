@@ -104,7 +104,7 @@ class ProductExtractor:
         color_stock: dict[str, int] = {}
 
         def add_color(name: str, stock: int | None = None) -> None:
-            normalized = re.sub(r"\s+", " ", str(name)).strip(" .")
+            normalized = re.sub(r"\s+", " ", str(name)).strip(" .:-|")
             if not normalized:
                 return
             if normalized.casefold() in {
@@ -176,19 +176,10 @@ class ProductExtractor:
         if not text:
             return []
 
-        color_pattern = (
-            r"\b(?:colou?rs?|colores)\s*(?:[:|\-]\s*)?(.+?)"
-            r"(?=\s+(?:presentaci[oó]n|precio|stock\s+disponible|"
-            r"c[oó]digo|sku|categor[ií]as?)\b|$)"
-        )
+        pattern = r"(?:^|\s)colores?\s*(?:[:|\-]\s*)?(.+?)(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|c[oó]digo|sku|categor[ií]as?)\b|$)"
         colors: list[str] = []
         seen: set[str] = set()
-        matches = re.findall(
-            color_pattern,
-            text,
-            flags=re.IGNORECASE,
-        )
-        for match in matches:
+        for match in re.findall(pattern, text, flags=re.IGNORECASE):
             normalized = re.sub(r"\s+", " ", match).strip(" .|-")
             normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
             for item in normalized.split(","):
@@ -220,10 +211,7 @@ class ProductExtractor:
         return values
 
     @staticmethod
-    def _has_complete_color_stock(
-        colors: list[str],
-        color_stock: dict[str, int],
-    ) -> bool:
+    def _has_complete_color_stock(colors: list[str], color_stock: dict[str, int]) -> bool:
         return bool(colors) and all(color in color_stock for color in colors)
 
     def _extract_variation_colors(self, value, add_color) -> None:
@@ -232,9 +220,7 @@ class ProductExtractor:
             stock = None
             for key, item in value.items():
                 key_text = str(key).casefold()
-                if ("color" in key_text or "colour" in key_text) and isinstance(
-                    item, str,
-                ):
+                if ("color" in key_text or "colour" in key_text) and isinstance(item, str):
                     color_name = item
                 if key_text in {"max_qty", "max_quantity", "stock", "quantity"}:
                     with contextlib.suppress(TypeError, ValueError):

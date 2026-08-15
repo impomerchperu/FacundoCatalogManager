@@ -14,9 +14,14 @@ class CategoryProductExtractor:
 
     def extract(self, card, url="", category=""):
         colors, color_stock = self._colors(card)
-        total_stock = self._stock(card)
-        if total_stock == 0 and color_stock:
+        stock_values = self._stock_values(card)
+        total_stock = sum(stock_values)
+        if not stock_values:
+            total_stock = self._stock(card)
+
+        if color_stock:
             total_stock = sum(color_stock.values())
+
         return ScrapedProduct(
             source=self.SOURCE,
             url=url or self._url(card),
@@ -50,67 +55,97 @@ class CategoryProductExtractor:
         return element.get_text(" ", strip=True) if element else ""
 
     def _stock(self, soup):
-        values = soup.select(".variaciones-producto p")
-        total = 0
-        for value in values:
+        return sum(self._stock_values(soup))
+
+    def _stock_values(self, soup) -> list[int]:
+        values: list[int] = []
+        for value in soup.select(".variaciones-producto p"):
             text = value.get_text(strip=True)
             if text.isdigit():
-                total += int(text)
-        return total
+                values.append(int(text))
+        return values
 
     def _colors(self, soup) -> tuple[list[str], dict[str, int]]:
         colors: list[str] = []
         color_stock: dict[str, int] = {}
 
         def add_color(name: str, stock: int | None = None) -> None:
-            value = re.sub(r"\s+", " ", str(name)).strip(" :-")
+            value = re.sub(r"\s+", " ", str(name)).strip(" :-.")
             if not value or value.casefold() in {
-                "color", "colour", "seleccionar color", "sin color",
+                "color",
+                "colour",
+                "colores",
+                "seleccionar color",
+                "sin color",
             }:
                 return
             if value not in colors:
                 colors.append(value)
             if stock is not None:
-                color_stock[value] = max(color_stock.get(value, 0), stock)
+                color_stock[value] = max(
+                    color_stock.get(value, 0),
+                    max(stock, 0),
+                )
 
-        for element in soup.select(
-            ".variaciones-producto [data-color], "
-            ".variaciones-producto [data-value], "
-            ".variaciones-producto [title], "
-            ".variaciones-producto .color, "
-            ".variaciones-producto .color-name, "
-            ".variaciones-producto .swatch",
-        ):
-            name = (
-                element.get("data-color")
-                or element.get("data-value")
-                or element.get("title")
-                or element.get_text(" ", strip=True)
-            )
-            add_color(name, self._stock_attribute(element))
+        variation = soup.select_one(".variaciones-producto")
+        if variation:
+            for element in variation.select(
+                "[data-color], [data-value], [title], .color, "
+                ".color-name, .swatch",
+            ):
+                name = (
+                    element.get("data-color")
+                    or element.get("data-value")
+                    or element.get("title")
+                    or element.get_text(" ", strip=True)
+                )
+                add_color(name, self._stock_attribute(element))
 
-        for paragraph in soup.select(".variaciones-producto p"):
-            text = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True))
-            match = re.match(r"^(.+?)\s*[:\-]\s*(\d+)\s*$", text)
-            if match:
-                add_color(match.group(1), int(match.group(2)))
+            for paragraph in variation.select("p"):
+                text = re.sub(
+                    r"\s+",
+                    " ",
+                    paragraph.get_text(" ", strip=True),
+                )
+                match = re.match(r"^(.+?)\s*[:\-]\s*(\d+)\s*$", text)
+                if match:
+                    add_color(match.group(1), int(match.group(2)))
 
-        for select in soup.select("select"):
-            selector_text = " ".join(
-                str(select.get(key, ""))
-                for key in ("name", "id", "class")
-            ).casefold()
-            if "color" not in selector_text and "colour" not in selector_text:
-                continue
-            for option in select.select("option"):
-                name = option.get_text(" ", strip=True) or option.get("value", "")
-                add_color(name, self._stock_attribute(option))
+        self._extract_labeled_colors(soup, add_color)
+
+        stock_values = self._stock_values(soup)
+        if colors and len(stock_values) == len(colors):
+            for color, stock in zip(colors, stock_values, strict=True):
+                color_stock[color] = stock
 
         return colors, color_stock
 
     @staticmethod
+    def _extract_labeled_colors(soup, add_color) -> None:
+        """Extrae listas visibles como 'Colores: Rojo, Azul y Negro'."""
+        text = soup.get_text(" ", strip=True)
+        if not text:
+            return
+
+        pattern = (
+            r"\bcolou?rs?\s*:\s*(.+?)"
+            r"(?=\s+(?:presentaci[oó]n|precio|stock\s+disponible|"
+            r"c[oó]digo|sku)\b|$)"
+        )
+        for match in re.findall(pattern, text, flags=re.IGNORECASE):
+            normalized = re.sub(r"\s+", " ", match).strip(" .")
+            normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
+            for item in normalized.split(","):
+                add_color(item)
+
+    @staticmethod
     def _stock_attribute(element) -> int | None:
-        for key in ("data-stock", "data-quantity", "data-max-qty", "data-max_quantity"):
+        for key in (
+            "data-stock",
+            "data-quantity",
+            "data-max-qty",
+            "data-max_quantity",
+        ):
             value = element.get(key)
             if value is not None:
                 try:
@@ -133,7 +168,11 @@ class CategoryProductExtractor:
     @staticmethod
     def _normalize_image_url(url):
         for item in (
-            "-150x150", "-300x300", "-600x600", "-768x768", "-1024x1024",
+            "-150x150",
+            "-300x300",
+            "-600x600",
+            "-768x768",
+            "-1024x1024",
         ):
             url = url.replace(item, "")
         return url

@@ -1,4 +1,4 @@
-from scrapers.images.image_manager import ImageManager
+from scrapers.images.safe_image_manager import SafeImageManager
 
 
 class FakeDownloader:
@@ -11,7 +11,7 @@ class FakeRepository:
         return None
 
 
-manager = ImageManager(
+manager = SafeImageManager(
     downloader=FakeDownloader(),
     repository=FakeRepository(),
 )

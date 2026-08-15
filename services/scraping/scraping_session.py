@@ -39,9 +39,15 @@ class ScrapingSessionResult:
 class ScrapingSession:
     """Coordina scraping, aplicación automática y registro de cambios."""
 
-    def __init__(self, runner, history_repository=None):
+    def __init__(
+        self,
+        runner,
+        history_repository=None,
+        catalog_repository=None,
+    ):
         self.runner = runner
         self.history_repository = history_repository
+        self.catalog_repository = catalog_repository
         self.result = ScrapingSessionResult()
 
     def execute(self, categories=None, progress_callback=None):
@@ -78,6 +84,9 @@ class ScrapingSession:
                     f"clasificados={self.result.classified_total}."
                 )
 
+            if not self.result.errors:
+                self._persist_catalog_products()
+
             if self.result.errors:
                 if db is not None and transaction_started:
                     db.rollback()
@@ -102,6 +111,14 @@ class ScrapingSession:
             self._save_history()
 
         return self.result
+
+    def _persist_catalog_products(self):
+        """Garantiza que el resultado sincronizado quede en el catálogo principal."""
+        if self.catalog_repository is None:
+            return
+
+        for product in self.result.products:
+            self.catalog_repository.save(product)
 
     def _extract_sync_result(self):
         sync_result = getattr(

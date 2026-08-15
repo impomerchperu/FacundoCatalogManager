@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from scrapers.images.image_manager import ImageManager
 from scrapers.images.image_repository import ImageRepository
+from scrapers.images.safe_image_manager import SafeImageManager
 
 
 class ImageSync:
     """Sincronización incremental de imágenes por código y URL."""
 
     def __init__(self, image_manager=None, image_repository=None):
-        self.image_manager = image_manager or ImageManager()
+        self.image_manager = image_manager or SafeImageManager()
         self.image_repository = image_repository or ImageRepository()
 
     def synchronize(self, product, old_product=None):

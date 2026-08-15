@@ -88,51 +88,22 @@ class ScrapingFactory:
     def create_runner(
         config: ScrapingConfig | None = None,
     ) -> ScrapingRunner:
-
         config = config or ScrapingConfig()
-
         db = DBManager()
 
-        # ==================================================
-        # Repositorio temporal de scraping
-        # ==================================================
-
-        scraped_repository = ScrapedProductRepository(
-            db,
+        scraped_repository = ScrapedProductRepository(db)
+        scraped_persistence = ScrapedProductPersistenceService(
+            scraped_repository,
         )
 
-        scraped_persistence = (
-            ScrapedProductPersistenceService(
-                scraped_repository,
-            )
-        )
-
-        # ==================================================
-        # Catálogo principal
-        # ==================================================
-
-        product_repository = ProductRepository(
-            db,
-        )
-
+        product_repository = ProductRepository(db)
         catalog_sync_service = CatalogSyncService(
             product_repository,
             ProductDiffService(),
         )
-
         mapper = ScrapedProductMapper()
 
-        # ==================================================
-        # Historial de sincronizaciones
-        # ==================================================
-
-        history_repository = ScrapingHistoryRepository(
-            db,
-        )
-
-        # ==================================================
-        # Sincronización de imágenes
-        # ==================================================
+        history_repository = ScrapingHistoryRepository(db)
 
         image_sync_adapter = (
             ImageSyncAdapter()
@@ -140,25 +111,15 @@ class ScrapingFactory:
             else None
         )
 
-        # ==================================================
-        # Navegación web
-        # ==================================================
-
         browser = Browser()
-
         category_scraper = CategoryScraper(
             browser=browser,
             category_extractor=CategoryExtractor(),
         )
-
         category_service = CategoryService(
             category_scraper,
             config.catalog_url,
         )
-
-        # ==================================================
-        # Scraper de productos
-        # ==================================================
 
         collection_scraper = ProductCollectionScraper(
             category_scraper,
@@ -166,16 +127,9 @@ class ScrapingFactory:
             CategoryProductExtractor(),
             ProductExtractor(),
         )
-
-        product_scraping_service = (
-            CategoryProductScrapingService(
-                collection_scraper,
-            )
+        product_scraping_service = CategoryProductScrapingService(
+            collection_scraper,
         )
-
-        # ==================================================
-        # Sincronización completa
-        # ==================================================
 
         sync_service = CategoryProductSyncService(
             product_scraping_service,
@@ -191,14 +145,9 @@ class ScrapingFactory:
             category_service=category_service,
         )
 
-        # ==================================================
-        # Componentes expuestos
-        # ==================================================
-
         runner.config = config
-
         runner.category_service = category_service
-
         runner.history_repository = history_repository
+        runner.catalog_repository = product_repository
 
         return runner

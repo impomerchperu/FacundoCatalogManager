@@ -83,6 +83,7 @@ class FullScrapingService:
 
         categories = self.category_service.scrape_all()
         products = []
+        images = []
 
         if self.category_product_sync_service:
             # La sincronización moderna ya consolida productos y sincroniza
@@ -108,23 +109,24 @@ class FullScrapingService:
         elif self.product_scraper:
             products = self.product_scraper.scrape_products(categories)
 
-            # En el flujo legacy/modular, el adaptador es el responsable de
-            # sincronizar las imágenes porque no existe un
-            # category_product_sync_service que lo haga.
+            # En el flujo legacy/modular, priorizar el adaptador moderno
+            # cuando fue inyectado. Si no existe, mantener el antiguo
+            # image_manager para compatibilidad con los consumidores legacy.
             if self.image_sync_adapter:
                 products = self.image_sync_adapter.sync_products(products)
-
-        images = []
-
-        # ----------------------------------------------
-        # Compatibilidad legacy
-        # ----------------------------------------------
-        if not self.category_product_sync_service and not self.product_scraper:
-            if self.image_manager:
+            elif self.image_manager:
                 images = self.image_manager.download_all(
                     products,
                     self.downloader,
                 )
+
+        elif self.image_manager:
+            # Compatibilidad con el flujo legacy que entrega los productos
+            # desde otra etapa y delega aquí únicamente la descarga.
+            images = self.image_manager.download_all(
+                products,
+                self.downloader,
+            )
 
         return {
             "products": products,

@@ -31,6 +31,7 @@ class ProductCollectionScraper:
         self._detail_requests = 0
         self._detail_cache_hits = 0
         self._detail_metrics_lock = Lock()
+        self._detail_executor = ThreadPoolExecutor(max_workers=self.max_workers)
 
     def scrape_category(self, category: Any) -> list[Any]:
         """Extrae todos los productos de una categoría."""
@@ -76,7 +77,7 @@ class ProductCollectionScraper:
         category_name: str,
     ) -> list[Any]:
         """Enriquece páginas de detalle en paralelo y conserva el orden."""
-        if self.detail_extractor is None or len(products) <= 1:
+        if self.detail_extractor is None or not products:
             return [
                 self._enrich_from_detail_page(
                     card,
@@ -91,19 +92,17 @@ class ProductCollectionScraper:
         if browser is not None and hasattr(browser, "enable_thread_sessions"):
             browser.enable_thread_sessions()
 
-        worker_count = min(self.max_workers, len(products))
-        with ThreadPoolExecutor(max_workers=worker_count) as executor:
-            futures = [
-                executor.submit(
-                    self._enrich_from_detail_page,
-                    card,
-                    page_url,
-                    product,
-                    category_name,
-                )
-                for card, page_url, product in products
-            ]
-            return [future.result() for future in futures]
+        futures = [
+            self._detail_executor.submit(
+                self._enrich_from_detail_page,
+                card,
+                page_url,
+                product,
+                category_name,
+            )
+            for card, page_url, product in products
+        ]
+        return [future.result() for future in futures]
 
     def _extract_cards(self, soup: Any) -> list[Any]:
         if callable(self.card_extractor):

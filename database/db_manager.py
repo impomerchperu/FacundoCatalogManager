@@ -48,6 +48,11 @@ class DBManager:
             "color_stock",
             "TEXT DEFAULT '{}'",
         )
+        self._add_column_if_missing(
+            "sync_records",
+            "color_stock",
+            "TEXT DEFAULT '{}'",
+        )
         self._remove_legacy_colors_column("products")
         self._remove_legacy_colors_column("scraped_products")
 

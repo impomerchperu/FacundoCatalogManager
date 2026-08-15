@@ -11,26 +11,17 @@ class FakeRepository:
         return None
 
 
-manager = SafeImageManager(
-    downloader=FakeDownloader(),
-    repository=FakeRepository(),
-)
+def test_safe_image_manager_handles_empty_download():
+    manager = SafeImageManager(
+        downloader=FakeDownloader(),
+        repository=FakeRepository(),
+    )
 
+    result = manager.process(
+        "FB-1812",
+        "http://test.com/image.webp",
+    )
 
-result = manager.process("FB-1812", "http://test.com/image.webp")
-
-
-print("=" * 80)
-print("IMAGE ERROR HANDLING")
-print("=" * 80)
-
-print(result)
-
-
-assert result["image_path"] == ""
-assert result["image_hash"] == ""
-assert result["image_error"] == "Download failed"
-
-
-print()
-print("OK")
+    assert result["image_path"] == ""
+    assert result["image_hash"] == ""
+    assert result["image_error"] == "Download failed"

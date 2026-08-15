@@ -102,17 +102,24 @@ class ProductCollectionScraper:
 
         if detail_color_stock:
             colors = list(detail_color_stock)
+
+            # The detail page can expose color names without exposing the
+            # corresponding stock values. In that case the card's single
+            # number is the total stock, not the stock of the first color.
+            # Do not manufacture per-color values filled with zeroes.
             if len(card_stock_values) == len(colors):
                 product.color_stock = dict(
                     zip(colors, card_stock_values, strict=True),
                 )
                 product.stock = sum(product.color_stock.values())
-            elif (
-                sum(detail_color_stock.values()) > 0
-                or getattr(product, "stock", 0) == 0
-            ):
+            elif sum(detail_color_stock.values()) > 0:
                 product.color_stock = detail_color_stock
                 product.stock = sum(detail_color_stock.values())
+            elif not card_stock_values:
+                # There is no reliable per-color stock source. Keep the
+                # detail colors out of the catalog's Stock column rather than
+                # presenting misleading zero values.
+                product.color_stock = {}
             product.url = detail_url
             return product
 

@@ -101,7 +101,19 @@ class ProductExtractor:
         """Extrae exclusivamente el stock asociado a cada color visible."""
         color_stock: dict[str, int] = {}
         color_labels: dict[str, str] = {}
+        add_color = self._build_color_adder(color_stock, color_labels)
 
+        self._collect_color_labels(soup, color_labels)
+        self._extract_select_color_stock(soup, add_color)
+        self._extract_element_color_stock(soup, add_color)
+        self._extract_text_color_stock(soup, add_color)
+        self._extract_variation_color_stock(soup, add_color, color_labels)
+        self._apply_visible_color_stock(soup, color_stock)
+
+        return color_stock
+
+    @staticmethod
+    def _build_color_adder(color_stock, color_labels):
         def add_color(name: str, stock: int | None = None) -> None:
             normalized = re.sub(r"\s+", " ", str(name)).strip(" .:-|")
             if not normalized:
@@ -122,8 +134,10 @@ class ProductExtractor:
                     max(stock, 0),
                 )
 
-        self._collect_color_labels(soup, color_labels)
+        return add_color
 
+    @staticmethod
+    def _extract_select_color_stock(soup, add_color) -> None:
         for select in soup.select("select"):
             select_name = " ".join(
                 str(select.get(attribute, ""))
@@ -134,9 +148,10 @@ class ProductExtractor:
             for option in select.select("option"):
                 value = option.get("value", "")
                 label = option.get_text(" ", strip=True) or str(value)
-                stock = self._stock_from_tag(option)
-                add_color(label, stock)
+                add_color(label, ProductExtractor._stock_from_tag(option))
 
+    @staticmethod
+    def _extract_element_color_stock(soup, add_color) -> None:
         for element in soup.find_all(True):
             if element.name in {"select", "option"}:
                 continue
@@ -153,11 +168,18 @@ class ProductExtractor:
                 or element.get_text(" ", strip=True)
             )
             if value:
-                add_color(str(value), self._stock_from_tag(element))
+                add_color(str(value), ProductExtractor._stock_from_tag(element))
 
+    def _extract_text_color_stock(self, soup, add_color) -> None:
         for color in self._extract_text_colors(soup):
             add_color(color)
 
+    def _extract_variation_color_stock(
+        self,
+        soup,
+        add_color,
+        color_labels,
+    ) -> None:
         for element in soup.select("[data-product_variations]"):
             raw = element.get("data-product_variations")
             if not isinstance(raw, str) or not raw.strip():
@@ -180,13 +202,14 @@ class ProductExtractor:
                     color_labels,
                 )
 
-        visible_stock = self._extract_visible_stock_values(soup)
+    @staticmethod
+    def _apply_visible_color_stock(soup, color_stock) -> None:
+        visible_stock = ProductExtractor._extract_visible_stock_values(soup)
         color_names = list(color_stock)
-        if len(visible_stock) == len(color_names) and color_names:
-            for color, stock in zip(color_names, visible_stock, strict=True):
-                color_stock[color] = stock
-
-        return color_stock
+        if len(visible_stock) != len(color_names) or not color_names:
+            return
+        for color, stock in zip(color_names, visible_stock, strict=True):
+            color_stock[color] = stock
 
     @staticmethod
     def _collect_color_labels(soup, color_labels: dict[str, str]) -> None:

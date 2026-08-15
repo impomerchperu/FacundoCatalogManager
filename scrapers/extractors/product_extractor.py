@@ -1,6 +1,7 @@
 import contextlib
 import json
 import re
+from typing import ClassVar
 from urllib.parse import urljoin
 
 from scrapers.extractors.price_extractor import PriceExtractor
@@ -23,7 +24,7 @@ class ProductExtractor:
         "noscript",
         "template",
     )
-    _INVALID_COLOR_MARKERS = {
+    _INVALID_COLOR_MARKERS: ClassVar[set[str]] = {
         "var acss",
         "sourceurl=",
         "sourceurl:",
@@ -121,12 +122,18 @@ class ProductExtractor:
         add_color = self._build_color_adder(color_stock, color_labels)
 
         self._collect_color_labels(soup, color_labels)
+
+        explicit_colors = self._extract_text_colors(soup)
+        visible_stock = self._extract_visible_stock_values(soup)
+        if explicit_colors and len(explicit_colors) == len(visible_stock):
+            for color, stock in zip(explicit_colors, visible_stock, strict=True):
+                add_color(color, stock)
+            return color_stock
+
         self._extract_select_color_stock(soup, add_color)
         self._extract_element_color_stock(soup, add_color)
-        self._extract_text_color_stock(soup, add_color)
         self._extract_variation_color_stock(soup, add_color, color_labels)
         self._apply_visible_color_stock(soup, color_stock)
-
         return color_stock
 
     @staticmethod
@@ -147,28 +154,24 @@ class ProductExtractor:
 
     @classmethod
     def _is_valid_color_name(cls, value: str) -> bool:
-        if not value or len(value) > 80:
-            return False
         folded = value.casefold()
-        if folded in {
-            "color",
-            "colour",
-            "colores",
-            "seleccionar color",
-            "choose an option",
-        }:
-            return False
-        if re.search(r"\bcolou?res?\s*[:|\-]", folded):
-            return False
-        if "," in value:
-            return False
-        if any(marker in folded for marker in cls._INVALID_COLOR_MARKERS):
-            return False
-        if any(token in value for token in ("{", "}", ";", "//", "=>")):
-            return False
-        if re.fullmatch(r"[\d\s.,:+-]+", value):
-            return False
-        return True
+        invalid = (
+            not value
+            or len(value) > 80
+            or folded
+            in {
+                "color",
+                "colour",
+                "colores",
+                "seleccionar color",
+                "choose an option",
+            }
+            or "," in value
+            or any(marker in folded for marker in cls._INVALID_COLOR_MARKERS)
+            or any(token in value for token in ("{", "}", ";", "//", "=>"))
+            or re.fullmatch(r"[\d\s.,:+-]+", value) is not None
+        )
+        return not invalid
 
     @staticmethod
     def _extract_select_color_stock(soup, add_color) -> None:
@@ -215,10 +218,6 @@ class ProductExtractor:
             )
             if direct_text:
                 add_color(direct_text, cls._stock_from_tag(element))
-
-    def _extract_text_color_stock(self, soup, add_color) -> None:
-        for color in self._extract_text_colors(soup):
-            add_color(color)
 
     def _extract_variation_color_stock(
         self,
@@ -373,9 +372,8 @@ class ProductExtractor:
     ) -> str:
         for key, item in value.items():
             key_text = str(key).casefold()
-            if (
-                ("color" in key_text or "colour" in key_text)
-                and isinstance(item, str)
+            if isinstance(item, str) and (
+                "color" in key_text or "colour" in key_text
             ):
                 color_name = item
                 if color_labels:
@@ -384,6 +382,10 @@ class ProductExtractor:
                         color_name,
                     )
                 return color_name
+            if isinstance(item, dict):
+                nested = ProductExtractor._variation_color(item, color_labels)
+                if nested:
+                    return nested
         return ""
 
     @staticmethod

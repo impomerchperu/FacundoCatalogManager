@@ -228,13 +228,14 @@ class ProductCollectionScraper:
                 url=detail_url,
                 category=category_name,
             )
-            future.set_result(detailed_product)
-            return detailed_product
         except Exception as exc:
             with self._detail_cache_lock:
                 self._detail_cache.pop(detail_key, None)
             future.set_exception(exc)
             raise
+        else:
+            future.set_result(detailed_product)
+            return detailed_product
 
     def get_detail_metrics(self) -> dict[str, int]:
         """Devuelve métricas acumuladas de páginas de detalle y caché."""

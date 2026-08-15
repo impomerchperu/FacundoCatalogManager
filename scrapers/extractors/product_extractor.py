@@ -125,10 +125,15 @@ class ProductExtractor:
 
         explicit_colors = self._extract_text_colors(soup)
         visible_stock = self._extract_visible_stock_values(soup)
-        if explicit_colors and len(explicit_colors) == len(visible_stock):
-            for color, stock in zip(explicit_colors, visible_stock, strict=True):
-                add_color(color, stock)
-            return color_stock
+        if explicit_colors:
+            for color in explicit_colors:
+                add_color(color)
+            if len(explicit_colors) == len(visible_stock):
+                for color, stock in zip(explicit_colors, visible_stock, strict=True):
+                    add_color(color, stock)
+                return color_stock
+            if not visible_stock:
+                return color_stock
 
         self._extract_select_color_stock(soup, add_color)
         self._extract_element_color_stock(soup, add_color)

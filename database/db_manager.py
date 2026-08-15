@@ -38,7 +38,6 @@ class DBManager:
 
     def _run_migrations(self):
         """Completa y corrige estructuras necesarias en bases existentes."""
-        self._add_column_if_missing("products", "colors", "TEXT DEFAULT '[]'")
         self._add_column_if_missing(
             "products",
             "color_stock",
@@ -46,14 +45,11 @@ class DBManager:
         )
         self._add_column_if_missing(
             "scraped_products",
-            "colors",
-            "TEXT DEFAULT '[]'",
-        )
-        self._add_column_if_missing(
-            "scraped_products",
             "color_stock",
             "TEXT DEFAULT '{}'",
         )
+        self._remove_legacy_colors_column("products")
+        self._remove_legacy_colors_column("scraped_products")
 
         self._migrate_download_changes()
 
@@ -63,6 +59,13 @@ class DBManager:
             ON scraping_history(finished_at)
             """
         )
+
+    def _remove_legacy_colors_column(self, table_name: str) -> None:
+        """Elimina la columna antigua colors de bases existentes."""
+        columns = self.fetch_all(f"PRAGMA table_info({table_name})")
+        if "colors" not in {row["name"] for row in columns}:
+            return
+        self.connection.execute(f"ALTER TABLE {table_name} DROP COLUMN colors")
 
     def _migrate_download_changes(self):
         """Garantiza la FK de download_changes hacia scraping_history."""

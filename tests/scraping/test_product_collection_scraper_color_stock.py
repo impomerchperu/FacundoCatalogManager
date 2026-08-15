@@ -18,7 +18,11 @@ class FakeCategoryScraper:
             <html>
                 <h1>Pelota Antiestrés 6.3 cm</h1>
                 <p class="brxe-heading">FB-4001-D</p>
-                <div>Colores | Dorado, Plateado</div>
+                <div>
+                    Colores
+                    <a href="/color/dorado">Dorado</a>
+                    <a href="/color/plateado">Plateado</a>
+                </div>
             </html>
             """
         return """

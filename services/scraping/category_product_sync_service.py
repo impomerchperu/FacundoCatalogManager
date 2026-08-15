@@ -54,8 +54,8 @@ class CategoryProductSyncService:
         Scrapea todas las categorías y sincroniza el conjunto completo.
 
         La sincronización conjunta es importante porque un mismo código
-        puede aparecer en más de una categoría. CatalogSyncService puede
-        entonces consolidar las categorías antes de guardar el producto.
+        puede aparecer en más de una categoría. La consolidación se hace
+        antes de descargar imágenes, mapear y comparar contra el catálogo.
         """
         products = []
         total = len(categories)
@@ -74,8 +74,16 @@ class CategoryProductSyncService:
         return self.sync_products(products)
 
     def sync_products(self, products):
-        """Procesa y sincroniza un conjunto de productos scrapeados."""
+        """Procesa y sincroniza un conjunto consolidado de productos scrapeados."""
         if self.mapper and self.catalog_sync_service:
+            consolidate = getattr(
+                self.catalog_sync_service,
+                "consolidate_products",
+                None,
+            )
+            if callable(consolidate):
+                products = consolidate(products)
+
             if self.image_sync_adapter:
                 products = self.image_sync_adapter.sync_products(products)
 
@@ -95,7 +103,7 @@ class CategoryProductSyncService:
         self.last_sync_result = SyncResult()
 
     def _accumulate_sync_result(self, result: SyncResult):
-        """Acumula resultados de todas las categorías."""
+        """Acumula resultados de sincronizaciones realizadas en una sesión."""
         self.last_sync_result.processed += result.processed
         self.last_sync_result.created += result.created
         self.last_sync_result.updated += result.updated

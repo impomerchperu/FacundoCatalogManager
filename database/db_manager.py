@@ -182,16 +182,12 @@ class DBManager:
         self._transaction_active = True
 
     def commit(self):
-        """Confirma la transacción activa."""
-        if not self._transaction_active:
-            return
+        """Confirma cualquier transacción abierta en la conexión."""
         self.connection.commit()
         self._transaction_active = False
 
     def rollback(self):
-        """Revierte la transacción activa."""
-        if not self._transaction_active:
-            return
+        """Revierte cualquier transacción abierta en la conexión."""
         self.connection.rollback()
         self._transaction_active = False
 

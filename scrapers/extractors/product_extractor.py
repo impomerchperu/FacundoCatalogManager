@@ -15,7 +15,14 @@ class ProductExtractor:
     SOURCE = "importacionesfacundo"
     BASE_URL = "https://stock.importacionesfacundo.com"
 
-    _IGNORED_COLOR_TAGS = {"select", "option", "script", "style", "noscript", "template"}
+    _IGNORED_COLOR_TAGS = (
+        "select",
+        "option",
+        "script",
+        "style",
+        "noscript",
+        "template",
+    )
     _INVALID_COLOR_MARKERS = {
         "var acss",
         "sourceurl=",

@@ -12,7 +12,6 @@ from services.scraping.scraped_product_persistence_service import (
     ScrapedProductPersistenceService,
 )
 
-
 logger = logging.getLogger("FCM")
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TIMING_LOG = PROJECT_ROOT / "data" / "scraping_timing.log"

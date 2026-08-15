@@ -22,7 +22,7 @@ class SharedProductCategoryScraper:
             </html>
             """
 
-        return f"""
+        return """
         <html>
             <article>
                 <a href="/producto/producto-compartido/">

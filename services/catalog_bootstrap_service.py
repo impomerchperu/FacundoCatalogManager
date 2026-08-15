@@ -121,37 +121,27 @@ class CatalogBootstrapService:
             for product in products.values():
                 if not product["name"]:
                     continue
+                fields = (
+                    "code",
+                    "name",
+                    "category",
+                    "description",
+                    "price",
+                    "price_sample",
+                    "price_hundred",
+                    "price_thousand",
+                    "stock",
+                    "color_stock",
+                    "image_url",
+                    "image_path",
+                    "image_hash",
+                    "content_hash",
+                )
+                placeholders = ", ".join("?" for _ in fields)
                 self.db.execute_query(
-                    """
-                    INSERT INTO products (
-                        code, name, category, description, price,
-                        price_sample, price_hundred, price_hundred, price_thousand,
-                        stock, color_stock, image_url, image_path, image_hash,
-                        content_hash
-                    )
-                    VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                    )
-                    """,
-                    tuple(
-                        product[field]
-                        for field in (
-                            "code",
-                            "name",
-                            "category",
-                            "description",
-                            "price",
-                            "price_sample",
-                            "price_hundred",
-                            "price_thousand",
-                            "stock",
-                            "color_stock",
-                            "image_url",
-                            "image_path",
-                            "image_hash",
-                            "content_hash",
-                        )
-                    ),
+                    f"INSERT INTO products ({', '.join(fields)}) "
+                    f"VALUES ({placeholders})",
+                    tuple(product[field] for field in fields),
                 )
             self.db.commit()
         except Exception:

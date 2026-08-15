@@ -35,7 +35,7 @@ def test_restore_from_change_history_populates_empty_catalog(tmp_path):
             field_label, new_value
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        [(*row, row[4]) for row in changes],
+        [(*row[:5], row[4], row[5]) for row in changes],
     )
     db.commit()
 

@@ -49,14 +49,10 @@ class ProductCollectionScraper:
     def scrape_category(self, category: Any) -> list[Any]:
         """Extrae todos los productos de una categoría."""
         category_name = category.name if isinstance(category, Category) else ""
-
         collected = self.collect_category(category)
         return self.enrich_category_products(collected, category_name)
 
-    def collect_category(
-        self,
-        category: Any,
-    ) -> list[tuple[Any, str, Any]]:
+    def collect_category(self, category: Any) -> list[tuple[Any, str, Any]]:
         """Descarga y extrae tarjetas sin solicitar páginas de detalle."""
         if isinstance(category, Category):
             category_url = category.url
@@ -72,10 +68,8 @@ class ProductCollectionScraper:
             html = self.category_scraper.get_html(page)
             if not html:
                 continue
-
             soup = BeautifulSoup(html, "html.parser")
             cards = self._extract_cards(soup)
-
             for card in cards:
                 product = self.product_extractor.extract(
                     card,
@@ -86,7 +80,6 @@ class ProductCollectionScraper:
                 if product_url:
                     product.url = product_url
                 products.append((card, page, product))
-
         return products
 
     def enrich_category_products(
@@ -105,12 +98,7 @@ class ProductCollectionScraper:
         """Enriquece páginas de detalle en paralelo y conserva el orden."""
         if self.detail_extractor is None or not products:
             return [
-                self._enrich_from_detail_page(
-                    card,
-                    page_url,
-                    product,
-                    category_name,
-                )
+                self._enrich_from_detail_page(card, page_url, product, category_name)
                 for card, page_url, product in products
             ]
 
@@ -151,11 +139,7 @@ class ProductCollectionScraper:
             )
 
         for index, future in futures:
-            results[index] = (
-                products[index][0],
-                products[index][1],
-                future.result(),
-            )
+            results[index] = (products[index][0], products[index][1], future.result())
 
         return [
             product if not isinstance(product, tuple) else product[2]
@@ -172,21 +156,11 @@ class ProductCollectionScraper:
         if len(stock_values) != 1:
             return None
 
-        required_fields = (
-            "code",
-            "name",
-            "description",
-            "image_url",
-        )
-        if any(
-            not str(getattr(product, field, "")).strip()
-            for field in required_fields
-        ):
+        required_fields = ("code", "name", "description", "image_url")
+        if any(not str(getattr(product, field, "")).strip() for field in required_fields):
             return None
-
         if cls._missing_price_fields(card, product):
             return None
-
         return "complete_single_stock"
 
     @classmethod
@@ -195,22 +169,11 @@ class ProductCollectionScraper:
         stock_values = cls._stock_values(card)
         if len(stock_values) != 1:
             return cls._stock_request_reason(card, stock_values)
-
-        required_fields = (
-            "code",
-            "name",
-            "description",
-            "image_url",
-        )
-        if any(
-            not str(getattr(product, field, "")).strip()
-            for field in required_fields
-        ):
+        required_fields = ("code", "name", "description", "image_url")
+        if any(not str(getattr(product, field, "")).strip() for field in required_fields):
             return "missing_fields"
-
         if cls._missing_price_fields(card, product):
             return "missing_prices"
-
         return "other"
 
     @staticmethod
@@ -218,7 +181,6 @@ class ProductCollectionScraper:
         """Clasifica solicitudes según la forma visible del stock de la tarjeta."""
         if not stock_values:
             return "missing_stock"
-
         variation = card.select_one(".variaciones-producto")
         if variation is not None:
             labeled_values = [
@@ -231,7 +193,6 @@ class ProductCollectionScraper:
             ]
             if len(labeled_values) == len(stock_values):
                 return "multiple_labeled_stock"
-
         return "multiple_numeric_stock"
 
     @classmethod
@@ -252,34 +213,31 @@ class ProductCollectionScraper:
 
     def _record_detail_reason(self, reason: str) -> None:
         """Acumula una clasificación de decisión de enriquecimiento."""
-        self._detail_reason_counts[reason] = (
-            self._detail_reason_counts.get(reason, 0) + 1
-        )
+        self._detail_reason_counts[reason] = self._detail_reason_counts.get(reason, 0) + 1
 
     @staticmethod
     def _has_complete_card_color_stock(card: Any, product: Any) -> bool:
-        """Evita el detalle solo cuando el stock por color es estructurado."""
+        """Solo acepta color-stock completo cuando existe estructura explícita de colores."""
         color_stock = dict(getattr(product, "color_stock", {}) or {})
         if not color_stock:
             return False
-
         stock_values = ProductCollectionScraper._stock_values(card)
         if len(color_stock) != len(stock_values) or not stock_values:
             return False
-
         variation = card.select_one(".variaciones-producto")
         if variation is None:
             return False
 
-        if variation.select(
+        explicit_color_nodes = variation.select(
             "[data-color], [data-value], [title], .color, .color-name, .swatch"
-        ):
+        )
+        if explicit_color_nodes:
             return True
 
-        return any(
-            re.match(r"^.+?\s*[:\-]\s*\d+\s*$", paragraph.get_text(" ", strip=True))
-            for paragraph in variation.select("p")
-        )
+        # Texto del tipo "Rojo: 10" no demuestra que el extractor ya haya
+        # asociado correctamente cada cantidad al color. Debe continuar al
+        # detalle para validar esa correspondencia.
+        return False
 
     @staticmethod
     def _card_detail_url(card: Any, page_url: str, product: Any) -> str:
@@ -309,33 +267,21 @@ class ProductCollectionScraper:
         """Completa colores y stock desde la página de detalle."""
         if self.detail_extractor is None:
             return product
-
         link = card.select_one('a[href*="/producto/"]')
         href = link.get("href") if link else ""
         if not isinstance(href, str) or not href:
             return product
-
         detail_url = urljoin(page_url, href)
         detail_key = self._detail_cache_key(card, product, detail_url)
-        detailed_product = self._get_detailed_product(
-            detail_key,
-            detail_url,
-            category_name,
-        )
+        detailed_product = self._get_detailed_product(detail_key, detail_url, category_name)
         if detailed_product is None:
             return product
-
-        detail_color_stock = dict(
-            getattr(detailed_product, "color_stock", {})
-        )
+        detail_color_stock = dict(getattr(detailed_product, "color_stock", {}))
         card_stock_values = self._stock_values(card)
-
         if detail_color_stock:
             colors = list(detail_color_stock)
             if len(card_stock_values) == len(colors):
-                product.color_stock = dict(
-                    zip(colors, card_stock_values, strict=True),
-                )
+                product.color_stock = dict(zip(colors, card_stock_values, strict=True))
                 product.stock = sum(product.color_stock.values())
             elif sum(detail_color_stock.values()) > 0:
                 product.color_stock = detail_color_stock
@@ -344,10 +290,8 @@ class ProductCollectionScraper:
                 product.color_stock = {}
             product.url = detail_url
             return product
-
         if product.color_stock:
             product.url = detail_url
-
         return product
 
     @staticmethod
@@ -356,126 +300,78 @@ class ProductCollectionScraper:
         product_code = str(getattr(product, "code", "")).strip()
         if product_code:
             return f"code:{product_code.casefold()}"
-
         try:
-            elements = card.select(
-                "p.brxe-a26f34, p.brxe-heading, span.sku, [sku], [data-sku]"
-            )
+            card_text = " ".join(card.stripped_strings).strip().casefold()
         except AttributeError:
-            elements = []
-
-        for element in elements:
-            candidates = [
-                element.get_text(" ", strip=True),
-                str(element.get("sku", "")),
-                str(element.get("data-sku", "")),
-            ]
-            for candidate in candidates:
-                normalized = str(candidate).strip()
-                if normalized:
-                    return f"code:{normalized.casefold()}"
-
-        return f"url:{detail_url}"
+            card_text = ""
+        return f"url:{detail_url.casefold()}|card:{card_text}"
 
     def _get_detailed_product(
         self,
-        detail_key: str,
+        cache_key: str,
         detail_url: str,
         category_name: str,
-    ):
-        """Obtiene el detalle una sola vez por código, incluso entre categorías."""
-        owner = False
+    ) -> Any | None:
         with self._detail_cache_lock:
-            future = self._detail_cache.get(detail_key)
-            if future is None:
-                future = Future()
-                self._detail_cache[detail_key] = future
-                owner = True
+            future = self._detail_cache.get(cache_key)
+            if future is not None:
+                self._detail_cache_hits += 1
             else:
-                with self._detail_metrics_lock:
-                    self._detail_cache_hits += 1
-
-        if not owner:
-            return future.result()
-
-        with self._detail_metrics_lock:
-            self._detail_requests += 1
-
+                self._detail_requests += 1
+                future = self._detail_executor.submit(
+                    self._fetch_detail_product,
+                    detail_url,
+                    category_name,
+                )
+                self._detail_cache[cache_key] = future
         try:
-            detail_html = self.category_scraper.get_html(detail_url)
-            if not detail_html:
-                future.set_result(None)
-                return None
-
-            detail_soup = BeautifulSoup(detail_html, "html.parser")
-            detailed_product = self.detail_extractor.extract(
-                detail_soup,
-                url=detail_url,
-                category=category_name,
-            )
-        except Exception as exc:
+            return future.result()
+        except Exception:
             with self._detail_cache_lock:
-                self._detail_cache.pop(detail_key, None)
-            future.set_exception(exc)
-            raise
-        else:
-            future.set_result(detailed_product)
-            return detailed_product
+                if self._detail_cache.get(cache_key) is future:
+                    self._detail_cache.pop(cache_key, None)
+            return None
 
-    def get_detail_metrics(self) -> dict[str, Any]:
-        """Devuelve métricas acumuladas de páginas de detalle y caché."""
-        with self._detail_metrics_lock:
-            return {
-                "detail_requests": self._detail_requests,
-                "detail_cache_hits": self._detail_cache_hits,
-                "detail_cache_size": len(self._detail_cache),
-                "detail_skipped": self._detail_skipped,
-                "detail_reason_counts": dict(self._detail_reason_counts),
-            }
-
-    def reset_detail_metrics(self) -> None:
-        """Reinicia métricas y caché antes de una nueva ejecución completa."""
-        with self._detail_cache_lock:
-            self._detail_cache.clear()
-        with self._detail_metrics_lock:
-            self._detail_requests = 0
-            self._detail_cache_hits = 0
-            self._detail_skipped = 0
-            self._detail_reason_counts.clear()
+    def _fetch_detail_product(self, detail_url: str, category_name: str) -> Any | None:
+        html = self.category_scraper.get_html(detail_url)
+        if not html:
+            return None
+        soup = BeautifulSoup(html, "html.parser")
+        return self.detail_extractor.extract(
+            soup,
+            url=detail_url,
+            category=category_name,
+        )
 
     @staticmethod
     def _stock_values(card: Any) -> list[int]:
-        """Extrae existencias de la tarjeta, incluyendo el bloque textual visible."""
         values: list[int] = []
-        for element in card.select(".variaciones-producto p"):
-            text = element.get_text(" ", strip=True)
-            if text.isdigit():
-                values.append(int(text))
-                continue
-
-            match = re.match(r"^.+?\s*[:\-]\s*(\d[\d,.]*)\s*$", text)
-            if match:
+        variation = card.select_one(".variaciones-producto")
+        if variation is None:
+            return values
+        for paragraph in variation.select("p"):
+            text = paragraph.get_text(" ", strip=True)
+            numbers = re.findall(r"\d[\d,.]*", text)
+            if numbers:
                 try:
-                    values.append(int(float(match.group(1).replace(",", ""))))
+                    values.append(int(float(numbers[-1].replace(",", ""))))
                 except ValueError:
                     continue
+        return values
 
-        if values:
-            return values
-
-        text = card.get_text(" ", strip=True)
-        match = re.search(
-            r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
-            text,
-            flags=re.IGNORECASE,
-        )
-        if match is None:
-            return []
-
-        result: list[int] = []
-        for raw_value in re.findall(r"\d[\d,.]*", match.group(1)):
-            try:
-                result.append(int(float(raw_value.replace(",", ""))))
-            except ValueError:
-                continue
-        return result
+    def get_detail_metrics(self) -> dict[str, Any]:
+        """Devuelve métricas de cache y clasificación de detalle."""
+        with self._detail_cache_lock:
+            detail_requests = self._detail_requests
+            detail_cache_hits = self._detail_cache_hits
+            cache_size = len(self._detail_cache)
+        with self._detail_metrics_lock:
+            detail_skipped = self._detail_skipped
+            detail_reason_counts = dict(self._detail_reason_counts)
+        return {
+            "detail_requests": detail_requests,
+            "detail_cache_hits": detail_cache_hits,
+            "detail_skipped": detail_skipped,
+            "detail_cache_size": cache_size,
+            "detail_reason_counts": detail_reason_counts,
+        }

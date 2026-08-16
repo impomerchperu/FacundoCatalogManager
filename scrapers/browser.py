@@ -76,6 +76,7 @@ class Browser:
             self._http_semaphore.acquire()
             started = time.perf_counter()
             self._begin_request(url)
+            retry_after_release = False
 
             try:
                 response = session.get(
@@ -96,7 +97,7 @@ class Browser:
 
                 if attempt < self.max_retries - 1:
                     self._record_retry()
-                    time.sleep(attempt + 1)
+                    retry_after_release = True
             else:
                 elapsed = time.perf_counter() - started
                 self._finish_request(elapsed, success=True, url=url)
@@ -109,6 +110,9 @@ class Browser:
                 return response
             finally:
                 self._http_semaphore.release()
+
+            if retry_after_release:
+                time.sleep(attempt + 1)
 
         if last_error:
             raise last_error

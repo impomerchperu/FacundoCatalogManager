@@ -149,24 +149,31 @@ class ProductCollectionScraper:
         if len(color_stock) != len(stock_values):
             return False
 
-        for element in structured_colors:
-            has_stock_attribute = any(
-                element.get(key) not in (None, "")
-                for key in (
-                    "data-stock",
-                    "data-quantity",
-                    "data-max-qty",
-                    "data-max_quantity",
-                )
-            )
-            if has_stock_attribute:
-                return True
+        return ProductCollectionScraper._has_structured_stock_attributes(
+            structured_colors,
+        ) or ProductCollectionScraper._has_labeled_stock_values(variation)
 
+    @staticmethod
+    def _has_structured_stock_attributes(elements: Iterable[Any]) -> bool:
+        """Indica si algún selector de color expone stock mediante atributos."""
+        stock_keys = (
+            "data-stock",
+            "data-quantity",
+            "data-max-qty",
+            "data-max_quantity",
+        )
+        return any(
+            any(element.get(key) not in (None, "") for key in stock_keys)
+            for element in elements
+        )
+
+    @staticmethod
+    def _has_labeled_stock_values(variation: Any) -> bool:
+        """Indica si la variación contiene pares explícitos color:stock."""
         for paragraph in variation.select("p"):
             text = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True))
             if re.match(r"^.+?\s*[:\-]\s*\d+\s*$", text):
                 return True
-
         return False
 
     @staticmethod

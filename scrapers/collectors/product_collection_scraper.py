@@ -157,7 +157,10 @@ class ProductCollectionScraper:
             return None
 
         required_fields = ("code", "name", "description", "image_url")
-        if any(not str(getattr(product, field, "")).strip() for field in required_fields):
+        if any(
+            not str(getattr(product, field, "")).strip()
+            for field in required_fields
+        ):
             return None
         if cls._missing_price_fields(card, product):
             return None
@@ -170,7 +173,10 @@ class ProductCollectionScraper:
         if len(stock_values) != 1:
             return cls._stock_request_reason(card, stock_values)
         required_fields = ("code", "name", "description", "image_url")
-        if any(not str(getattr(product, field, "")).strip() for field in required_fields):
+        if any(
+            not str(getattr(product, field, "")).strip()
+            for field in required_fields
+        ):
             return "missing_fields"
         if cls._missing_price_fields(card, product):
             return "missing_prices"
@@ -213,11 +219,13 @@ class ProductCollectionScraper:
 
     def _record_detail_reason(self, reason: str) -> None:
         """Acumula una clasificación de decisión de enriquecimiento."""
-        self._detail_reason_counts[reason] = self._detail_reason_counts.get(reason, 0) + 1
+        self._detail_reason_counts[reason] = (
+            self._detail_reason_counts.get(reason, 0) + 1
+        )
 
     @staticmethod
     def _has_complete_card_color_stock(card: Any, product: Any) -> bool:
-        """Solo acepta color-stock completo cuando existe estructura explícita de colores."""
+        """Acepta color-stock completo solo con estructura explícita de colores."""
         color_stock = dict(getattr(product, "color_stock", {}) or {})
         if not color_stock:
             return False
@@ -231,13 +239,7 @@ class ProductCollectionScraper:
         explicit_color_nodes = variation.select(
             "[data-color], [data-value], [title], .color, .color-name, .swatch"
         )
-        if explicit_color_nodes:
-            return True
-
-        # Texto del tipo "Rojo: 10" no demuestra que el extractor ya haya
-        # asociado correctamente cada cantidad al color. Debe continuar al
-        # detalle para validar esa correspondencia.
-        return False
+        return bool(explicit_color_nodes)
 
     @staticmethod
     def _card_detail_url(card: Any, page_url: str, product: Any) -> str:
@@ -273,7 +275,11 @@ class ProductCollectionScraper:
             return product
         detail_url = urljoin(page_url, href)
         detail_key = self._detail_cache_key(card, product, detail_url)
-        detailed_product = self._get_detailed_product(detail_key, detail_url, category_name)
+        detailed_product = self._get_detailed_product(
+            detail_key,
+            detail_url,
+            category_name,
+        )
         if detailed_product is None:
             return product
         detail_color_stock = dict(getattr(detailed_product, "color_stock", {}))
@@ -326,7 +332,7 @@ class ProductCollectionScraper:
                 self._detail_cache[cache_key] = future
         try:
             return future.result()
-        except Exception:
+        except (AttributeError, RuntimeError, TypeError, ValueError):
             with self._detail_cache_lock:
                 if self._detail_cache.get(cache_key) is future:
                     self._detail_cache.pop(cache_key, None)
@@ -358,6 +364,16 @@ class ProductCollectionScraper:
                 except ValueError:
                     continue
         return values
+
+    def reset_detail_metrics(self) -> None:
+        """Reinicia métricas y cache para comenzar una nueva corrida completa."""
+        with self._detail_cache_lock:
+            self._detail_cache.clear()
+            self._detail_requests = 0
+            self._detail_cache_hits = 0
+        with self._detail_metrics_lock:
+            self._detail_skipped = 0
+            self._detail_reason_counts.clear()
 
     def get_detail_metrics(self) -> dict[str, Any]:
         """Devuelve métricas de cache y clasificación de detalle."""

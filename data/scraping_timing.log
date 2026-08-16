@@ -1,3 +1,1445 @@
-# Local scraping timing log placeholder.
-# This file is intentionally tracked so the scraper timing artifact can be reviewed from GitHub.
-# Runtime executions append/replace this file locally; commit the generated measurements when a run needs to be analyzed remotely.
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.004
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.812
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=64.008
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=56.680
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=26.720
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=14.244
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=36.887
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=8.686
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=36.897
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=20.185
+SCRAPING TIMING | category=Estuches | products=8 | seconds=19.193
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=32.651
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=56.729
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=42.384
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=7.539
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=10.587
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=22.632
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=52.662
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=51.509
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=48.642
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=58.696
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=57.062
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=32.068
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=33.760
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=44.728
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=35.634
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=870.821
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=1.480
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.020
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.020
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=1.526
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=872.350
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.176
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=27.227
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=26.217
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=14.731
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=10.410
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=20.424
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=7.456
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=16.370
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=12.564
+SCRAPING TIMING | category=Estuches | products=8 | seconds=10.706
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=14.814
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=23.314
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=21.162
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=5.882
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=6.577
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=12.185
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=20.636
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=23.456
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=21.174
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=20.879
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=21.146
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=14.338
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=13.927
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=20.829
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=12.887
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=399.339
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.654
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.008
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.011
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.676
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=400.017
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.099
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=14.830
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=11.188
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=28.414
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=28.829
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=7.272
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=23.373
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=26.262
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=16.636
+SCRAPING TIMING | category=Estuches | products=8 | seconds=12.422
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=17.298
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=7.076
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=26.428
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=8.221
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=21.814
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=13.537
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=29.142
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=30.143
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=28.179
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=18.013
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=27.190
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=28.446
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=18.577
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=16.107
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=23.229
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=164.452
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.562
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.004
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.009
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.577
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=165.031
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.005
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.004
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.006
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.003
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.003
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.028
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=13.825
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=10.487
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=28.063
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=28.789
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=6.910
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=24.855
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=15.189
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=21.383
+SCRAPING TIMING | category=Estuches | products=8 | seconds=11.391
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=16.746
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=7.542
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=27.500
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=22.148
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=8.373
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=12.499
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=27.193
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=27.910
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=23.711
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=20.206
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=30.091
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=30.497
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=17.826
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=13.506
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=20.371
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=160.500
+SCRAPING TIMING | stage=detail_cache | requests=381 | cache_hits=2 | cache_size=381
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.627
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.006
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.011
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.646
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=161.149
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.005
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.004
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=1.839
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=13.873
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=11.527
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=28.781
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=29.419
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=7.533
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=26.059
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=15.491
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=22.475
+SCRAPING TIMING | category=Estuches | products=8 | seconds=10.745
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=14.322
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=7.690
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=26.008
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=10.379
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=23.689
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=16.422
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=28.603
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=28.034
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=26.047
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=21.446
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=31.284
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=31.850
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=19.485
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=16.244
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=21.684
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=165.832
+SCRAPING TIMING | stage=detail_cache | requests=381 | cache_hits=2 | cache_size=381
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.625
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.005
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.009
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.642
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=166.476
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.003
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.538
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=18.607
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=12.603
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=46.392
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=49.347
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=10.180
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=25.840
+SCRAPING TIMING | category=Estuches | products=8 | seconds=13.077
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=16.485
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=24.592
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=16.955
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=8.485
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=23.773
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=26.229
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=8.048
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=13.551
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=24.541
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=23.909
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=25.528
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=26.283
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=18.666
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=28.209
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=20.208
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=15.061
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=21.132
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=176.606
+SCRAPING TIMING | stage=detail_cache | requests=381 | cache_hits=2 | cache_size=381
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=1.340
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.010
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.020
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=1.375
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=177.985
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.010
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.007
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.006
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.005
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.002
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.003
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.002
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.005
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.003
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.010
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.006
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.002
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.009
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.005
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.022
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.006
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.005
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.002
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.006
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.005
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.000
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.001
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.411
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=16.292
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=26.597
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=31.258
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=15.972
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=6.949
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=22.342
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=20.392
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=15.979
+SCRAPING TIMING | category=Estuches | products=8 | seconds=11.294
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=14.232
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=5.732
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=25.059
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=22.620
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=11.074
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=12.624
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=22.854
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=30.232
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=27.800
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=24.429
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=22.763
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=20.110
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=16.163
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=13.678
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=21.083
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=157.792
+SCRAPING TIMING | stage=detail_cache | requests=366 | cache_hits=17 | cache_size=366
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.573
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.005
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.008
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.588
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=158.385
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.017
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.010
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.002
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.269
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=10.926
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=16.330
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=21.126
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=11.023
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=4.243
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=12.662
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=10.716
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=8.889
+SCRAPING TIMING | category=Estuches | products=8 | seconds=6.491
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=8.548
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=11.714
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=17.950
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=11.131
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=6.533
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=8.672
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=14.608
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=18.066
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=16.040
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=14.676
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=14.568
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=12.552
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=10.528
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=12.589
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=11.823
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=101.308
+SCRAPING TIMING | stage=detail_cache | requests=366 | cache_hits=17 | cache_size=366
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.584
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.005
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.010
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.601
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=101.911
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.012
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=9.510
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=15.933
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=21.374
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=13.013
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=6.277
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=15.331
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=13.146
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=10.264
+SCRAPING TIMING | category=Estuches | products=8 | seconds=8.064
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=10.971
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=16.841
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=19.782
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=12.394
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=5.018
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=7.690
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=12.577
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=17.497
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=16.298
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=20.514
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=19.599
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=17.400
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=11.234
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=13.370
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=12.279
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=112.797
+SCRAPING TIMING | stage=detail_cache | requests=366 | cache_hits=17 | cache_size=366
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.611
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.006
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.008
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.628
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=113.427
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.006
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.004
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.007
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.005
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.002
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.096
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=9.297
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=14.496
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=19.896
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=10.923
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=13.045
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=8.190
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=12.506
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=8.187
+SCRAPING TIMING | category=Estuches | products=8 | seconds=8.742
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=9.626
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=3.905
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=12.785
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=19.233
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=8.903
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=8.051
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=12.455
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=17.726
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=19.948
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=14.464
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=15.077
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=13.623
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=14.978
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=16.172
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=15.692
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=107.027
+SCRAPING TIMING | stage=detail_cache | requests=366 | cache_hits=17 | cache_size=366
+SCRAPING TIMING | stage=http | requests=390 | successes=390 | errors=0 | retries=0 | detail_requests=366 | category_requests=24 | other_requests=0 | max_concurrency=10 | http_seconds=785.549 | slowest_request=10.433
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.674
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.006
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.010
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.692
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=107.723
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.051
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=9.940
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=17.443
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=22.554
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=12.891
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=12.060
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=7.168
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=10.307
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=6.904
+SCRAPING TIMING | category=Estuches | products=8 | seconds=7.959
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=9.664
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=3.884
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=14.394
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=21.043
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=11.198
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=8.879
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=13.639
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=18.672
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=20.431
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=15.137
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=14.540
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=12.509
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=10.982
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=12.504
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=11.693
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=105.709
+SCRAPING TIMING | stage=detail_cache | requests=366 | cache_hits=17 | cache_size=366
+SCRAPING TIMING | stage=http | requests=390 | successes=390 | errors=0 | retries=0 | detail_requests=366 | category_requests=24 | other_requests=0 | max_concurrency=10 | http_seconds=775.553 | slowest_request=11.748
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=313 | 2_5=62 | 5_10=14 | gte_10=1
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=11.748 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=9.988 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=9.162 | url=https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=8.767 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=8.410 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=8.095 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=7.945 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=7.649 | url=https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=7.543 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=7.457 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-personales/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.645
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.005
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.009
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.662
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=106.379
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.158
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=8.204
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=11.684
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=12.309
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=17.504
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=22.338
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=28.115
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=23.230
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=21.634
+SCRAPING TIMING | category=Estuches | products=8 | seconds=22.332
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=20.560
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=20.362
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=11.625
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=19.255
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=14.843
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=15.757
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=16.475
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=16.465
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=22.336
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=22.224
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=27.027
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=27.689
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=26.357
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=25.232
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=21.948
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=87.064
+SCRAPING TIMING | stage=detail_cache | requests=366 | cache_hits=17 | cache_size=366
+SCRAPING TIMING | stage=http | requests=390 | successes=390 | errors=0 | retries=0 | detail_requests=366 | category_requests=24 | other_requests=0 | max_concurrency=13 | http_seconds=798.654 | slowest_request=9.790
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=292 | 2_5=78 | 5_10=20 | gte_10=0
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=9.790 | url=https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=9.742 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=9.391 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=8.732 | url=https://stock.importacionesfacundo.com/categoria-producto/cocina-mesa-y-hogar/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=8.660 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=8.422 | url=https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=8.241 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-personales/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=8.113 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=7.947 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=7.906 | url=https://stock.importacionesfacundo.com/categoria-producto/resaltadores-publicitarios/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.615
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.008
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.014
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.640
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=87.713
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.001
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.000
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.001
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.064
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=5.109
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=6.715
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=11.328
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=15.143
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=21.025
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=25.756
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=24.089
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=24.597
+SCRAPING TIMING | category=Estuches | products=8 | seconds=22.045
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=21.079
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=20.309
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=12.350
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=21.812
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=17.741
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=18.827
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=20.316
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=20.558
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=26.216
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=24.337
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=22.461
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=29.841
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=25.109
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=23.002
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=19.906
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=87.467
+SCRAPING TIMING | stage=detail_cache | requests=366 | cache_hits=17 | cache_size=366
+SCRAPING TIMING | stage=http | requests=390 | successes=390 | errors=0 | retries=0 | detail_requests=366 | category_requests=24 | other_requests=0 | max_concurrency=13 | http_seconds=826.575 | slowest_request=12.569
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=280 | 2_5=91 | 5_10=13 | gte_10=6
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=12.569 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=11.669 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=10.363 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=10.261 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=10.226 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=10.096 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=9.996 | url=https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=9.178 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=8.569 | url=https://stock.importacionesfacundo.com/categoria-producto/resaltadores-publicitarios/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=8.162 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-personales/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.375
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.003
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.006
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.386
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=87.859
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.001
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.005
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.001
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.006
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.002
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.249
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=7.458
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=11.487
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=12.690
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=16.779
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=21.669
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=26.582
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=22.850
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=21.167
+SCRAPING TIMING | category=Estuches | products=8 | seconds=21.528
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=20.326
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=13.929
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=22.789
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=14.475
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=24.697
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=19.676
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=21.407
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=20.944
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=25.530
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=27.992
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=24.036
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=30.904
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=26.459
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=23.351
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=20.719
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=90.716
+SCRAPING TIMING | stage=detail_cache | requests=366 | cache_hits=17 | cache_size=366
+SCRAPING TIMING | stage=http | requests=390 | successes=390 | errors=0 | retries=0 | detail_requests=366 | category_requests=24 | other_requests=0 | max_concurrency=12 | http_seconds=851.909 | slowest_request=12.232
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=258 | 2_5=111 | 5_10=17 | gte_10=4
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=12.232 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=11.484 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=10.742 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=10.405 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=9.978 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=9.771 | url=https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=9.463 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=9.437 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-personales/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=9.427 | url=https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=8.901 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.366
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.004
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.006
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.377
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=91.097
+SCRAPING TIMING | category=Jarros | products=1 | seconds=0.000
+SCRAPING TIMING | category=Promocionales | products=1 | seconds=0.000
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.271
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | category=Bolsas Mochilas | products=3 | seconds=5.148
+SCRAPING TIMING | category=Articulos De Playa | products=5 | seconds=7.236
+SCRAPING TIMING | category=Enmicadoras Laminadoras | products=9 | seconds=10.542
+SCRAPING TIMING | category=Articulos De Oficina | products=12 | seconds=17.106
+SCRAPING TIMING | category=Cocina Mesa Y Hogar | products=18 | seconds=20.215
+SCRAPING TIMING | category=Articulos Personales | products=17 | seconds=24.784
+SCRAPING TIMING | category=Articulos De Escritorio | products=25 | seconds=31.005
+SCRAPING TIMING | category=Estuches | products=8 | seconds=27.036
+SCRAPING TIMING | category=Articulos De Antiestres | products=25 | seconds=37.621
+SCRAPING TIMING | category=Impresoras Y Consumible Fotograficas Termicas | products=14 | seconds=33.372
+SCRAPING TIMING | category=Kits De Herramientas | products=2 | seconds=20.992
+SCRAPING TIMING | category=Insumos De Sublimacion | products=25 | seconds=36.769
+SCRAPING TIMING | category=Jarros Mug | products=19 | seconds=34.459
+SCRAPING TIMING | category=Lapiceros Ecologicos | products=4 | seconds=28.253
+SCRAPING TIMING | category=Lapiceros Metalicos | products=10 | seconds=23.739
+SCRAPING TIMING | category=Llaveros Y Accesorios | products=25 | seconds=26.516
+SCRAPING TIMING | category=Maquinas De Sublimacion | products=25 | seconds=25.939
+SCRAPING TIMING | category=Micas Para Enmicados | products=25 | seconds=27.787
+SCRAPING TIMING | category=Papeleria Grafipapel | products=23 | seconds=32.383
+SCRAPING TIMING | category=Papeles Fotograficos Koala Paper | products=25 | seconds=30.721
+SCRAPING TIMING | category=Plotters De Corte | products=15 | seconds=28.883
+SCRAPING TIMING | category=Porta Tacos Post It | products=15 | seconds=30.308
+SCRAPING TIMING | category=Resaltadores Publicitarios | products=21 | seconds=32.886
+SCRAPING TIMING | category=Tecnologia Y Accesorios | products=13 | seconds=30.547
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=89.272
+SCRAPING TIMING | stage=detail_cache | requests=366 | cache_hits=17 | cache_size=366
+SCRAPING TIMING | stage=http | requests=390 | successes=390 | errors=0 | retries=0 | detail_requests=366 | category_requests=24 | other_requests=0 | max_concurrency=14 | http_seconds=828.791 | slowest_request=14.530
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=286 | 2_5=84 | 5_10=17 | gte_10=3
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=14.530 | url=https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=13.524 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=10.091 | url=https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=9.640 | url=https://stock.importacionesfacundo.com/categoria-producto/impresoras-y-consumible-fotograficas-termicas/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=9.623 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=9.489 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=9.144 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-personales/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=8.636 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=8.506 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=8.230 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.599
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.006
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.011
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.618
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=89.896
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.007
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.004
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.004
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.057
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=23.544
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=71.226
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=94.772
+SCRAPING TIMING | stage=detail_cache | requests=366 | cache_hits=17 | cache_size=366
+SCRAPING TIMING | stage=http | requests=390 | successes=390 | errors=0 | retries=0 | detail_requests=366 | category_requests=24 | other_requests=0 | max_concurrency=8 | http_seconds=707.420 | slowest_request=10.762
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=353 | 2_5=18 | 5_10=17 | gte_10=2
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=10.762 | url=https://stock.importacionesfacundo.com/categoria-producto/cocina-mesa-y-hogar/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=10.190 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=9.842 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=9.160 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-playa/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=8.880 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=8.647 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=8.048 | url=https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=7.867 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-personales/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=7.758 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=7.488 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.613
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.006
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.017
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.638
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=95.417
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.005
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=1.930
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=24.141
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=66.054
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=90.197
+SCRAPING TIMING | stage=detail_cache | requests=366 | cache_hits=17 | cache_size=366
+SCRAPING TIMING | stage=http | requests=390 | successes=390 | errors=0 | retries=0 | detail_requests=366 | category_requests=24 | other_requests=0 | max_concurrency=14 | http_seconds=1049.554 | slowest_request=11.088
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=58 | 2_5=315 | 5_10=14 | gte_10=3
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=11.088 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=10.932 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=10.331 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=9.974 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=9.788 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=9.567 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=9.543 | url=https://stock.importacionesfacundo.com/producto/maquina-prensa-termica-automatica-freesub-f3880/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=9.472 | url=https://stock.importacionesfacundo.com/producto/maquina-plancha-transfer-automatica-con-bandeja-deslizante-60x40/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=9.307 | url=https://stock.importacionesfacundo.com/categoria-producto/resaltadores-publicitarios/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=8.663 | url=https://stock.importacionesfacundo.com/categoria-producto/plotters-de-corte/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=1.292
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.011
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.026
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=1.334
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=91.547
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.004
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.495
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=24.753
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=70.789
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=95.544
+SCRAPING TIMING | stage=detail_cache | requests=366 | cache_hits=17 | cache_size=366
+SCRAPING TIMING | stage=http | requests=390 | successes=390 | errors=0 | retries=0 | detail_requests=366 | category_requests=24 | other_requests=0 | max_concurrency=14 | http_seconds=1125.665 | slowest_request=11.413
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=12 | 2_5=359 | 5_10=17 | gte_10=2
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=11.413 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=10.139 | url=https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=9.860 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=9.754 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=9.344 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=9.204 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=8.981 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=8.466 | url=https://stock.importacionesfacundo.com/categoria-producto/resaltadores-publicitarios/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=8.007 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-personales/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=7.908 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.560
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.008
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.009
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.579
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=96.130
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.004
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.007
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.003
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.002
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.004
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.077
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=22.536
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=70.459
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=92.996
+SCRAPING TIMING | stage=detail_cache | requests=366 | cache_hits=17 | skipped=0 | cache_size=366
+SCRAPING TIMING | stage=http | requests=390 | successes=390 | errors=0 | retries=0 | detail_requests=366 | category_requests=24 | other_requests=0 | max_concurrency=14 | http_seconds=1102.233 | slowest_request=8.704
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=11 | 2_5=362 | 5_10=17 | gte_10=0
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=8.704 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=8.622 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=8.509 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=8.413 | url=https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=8.336 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=8.142 | url=https://stock.importacionesfacundo.com/categoria-producto/resaltadores-publicitarios/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=7.782 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=7.713 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=7.246 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-personales/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=7.181 | url=https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.579
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.005
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.008
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.595
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=93.599
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.007
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.004
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.006
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.003
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.001
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.004
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.000
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=3.962
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=21.332
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=47.150
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=68.484
+SCRAPING TIMING | stage=detail_cache | requests=253 | cache_hits=15 | skipped=115 | cache_size=253
+SCRAPING TIMING | stage=http | requests=277 | successes=277 | errors=0 | retries=0 | detail_requests=253 | category_requests=24 | other_requests=0 | max_concurrency=14 | http_seconds=781.096 | slowest_request=10.307
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=21 | 2_5=239 | 5_10=16 | gte_10=1
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=10.307 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=8.729 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=8.025 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-personales/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=7.827 | url=https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=7.804 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=7.777 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=7.506 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=7.459 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=7.197 | url=https://stock.importacionesfacundo.com/categoria-producto/cocina-mesa-y-hogar/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=7.032 | url=https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.001
+SCRAPING TIMING | stage=images | products=357 | seconds=0.529
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.005
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.008
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.545
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=69.036
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.004
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.093
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=27.338
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=41.271
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=68.610
+SCRAPING TIMING | stage=detail_cache | requests=253 | cache_hits=15 | skipped=115 | cache_size=253
+SCRAPING TIMING | stage=http | requests=284 | successes=277 | errors=7 | retries=14 | detail_requests=253 | category_requests=31 | other_requests=0 | max_concurrency=20 | http_seconds=1095.093 | slowest_request=15.410
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=8 | 2_5=248 | 5_10=12 | gte_10=16
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=15.410 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=15.409 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=15.378 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=15.376 | url=https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=15.011 | url=https://stock.importacionesfacundo.com/categoria-producto/resaltadores-publicitarios/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=15.008 | url=https://stock.importacionesfacundo.com/categoria-producto/porta-tacos-post-it/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=14.999 | url=https://stock.importacionesfacundo.com/categoria-producto/plotters-de-corte/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=14.936 | url=https://stock.importacionesfacundo.com/categoria-producto/lapiceros-metalicos/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=14.681 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=14.419 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.577
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.006
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.010
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.595
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=69.213
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.005
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=18.624
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=26.501
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=40.547
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=67.050
+SCRAPING TIMING | stage=detail_cache | requests=253 | cache_hits=15 | skipped=115 | cache_size=253
+SCRAPING TIMING | stage=http | requests=278 | successes=277 | errors=1 | retries=2 | detail_requests=253 | category_requests=25 | other_requests=0 | max_concurrency=20 | http_seconds=1011.927 | slowest_request=15.291
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=7 | 2_5=251 | 5_10=7 | gte_10=13
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=15.291 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=14.335 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=14.260 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=14.167 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=13.548 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=13.408 | url=https://stock.importacionesfacundo.com/categoria-producto/resaltadores-publicitarios/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=13.243 | url=https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=12.925 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=12.720 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-personales/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=12.658 | url=https://stock.importacionesfacundo.com/categoria-producto/plotters-de-corte/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.673
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.007
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.008
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.692
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=67.749
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.334
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=23.355
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=42.540
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=65.897
+SCRAPING TIMING | stage=detail_cache | requests=253 | cache_hits=15 | skipped=115 | cache_size=253 | reasons=requested_missing_fields:16,requested_missing_prices:140,requested_multiple_or_missing_stock:112,skipped_complete_single_stock:115
+SCRAPING TIMING | stage=http | requests=277 | successes=277 | errors=0 | retries=0 | detail_requests=253 | category_requests=24 | other_requests=0 | max_concurrency=20 | http_seconds=1059.049 | slowest_request=15.412
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=2 | 2_5=249 | 5_10=11 | gte_10=15
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=15.412 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=15.016 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=14.753 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=14.522 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=13.474 | url=https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=13.310 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=12.979 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=12.415 | url=https://stock.importacionesfacundo.com/categoria-producto/resaltadores-publicitarios/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=12.177 | url=https://stock.importacionesfacundo.com/categoria-producto/tecnologia-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=11.623 | url=https://stock.importacionesfacundo.com/categoria-producto/cocina-mesa-y-hogar/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.570
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.004
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.008
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.585
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=66.489
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.087
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=20.801
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=42.486
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=63.288
+SCRAPING TIMING | stage=detail_cache | requests=253 | cache_hits=15 | skipped=115 | cache_size=253 | reasons=requested_missing_fields:16,requested_missing_prices:140,requested_multiple_or_missing_stock:112,skipped_complete_single_stock:115
+SCRAPING TIMING | stage=http | requests=277 | successes=277 | errors=0 | retries=0 | detail_requests=253 | category_requests=24 | other_requests=0 | max_concurrency=20 | http_seconds=1027.849 | slowest_request=13.414
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=7 | 2_5=249 | 5_10=12 | gte_10=9
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=13.414 | url=https://stock.importacionesfacundo.com/categoria-producto/cocina-mesa-y-hogar/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=13.410 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=12.812 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=10.924 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=10.849 | url=https://stock.importacionesfacundo.com/categoria-producto/tecnologia-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=10.673 | url=https://stock.importacionesfacundo.com/categoria-producto/resaltadores-publicitarios/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=10.225 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=10.140 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=10.103 | url=https://stock.importacionesfacundo.com/categoria-producto/lapiceros-ecologicos/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=9.899 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.405
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.003
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.005
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.415
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=63.708
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=1.923
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=19.574
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=53.072
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=72.647
+SCRAPING TIMING | stage=detail_cache | requests=253 | cache_hits=15 | skipped=115 | cache_size=253 | reasons=requested_missing_fields:16,requested_missing_prices:140,requested_multiple_or_missing_stock:112,skipped_complete_single_stock:115
+SCRAPING TIMING | stage=http | requests=278 | successes=277 | errors=1 | retries=2 | detail_requests=254 | category_requests=24 | other_requests=0 | max_concurrency=20 | http_seconds=1070.656 | slowest_request=15.015
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=9 | 2_5=231 | 5_10=29 | gte_10=9
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=15.015 | url=https://stock.importacionesfacundo.com/producto/porta-lapiceros-con-post-it-4/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=13.182 | url=https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=11.835 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=11.576 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=10.961 | url=https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=10.852 | url=https://stock.importacionesfacundo.com/categoria-producto/resaltadores-publicitarios/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=10.742 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=10.560 | url=https://stock.importacionesfacundo.com/categoria-producto/tecnologia-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=10.231 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=9.279 | url=https://stock.importacionesfacundo.com/categoria-producto/kits-de-herramientas/
+SCRAPING TIMING | stage=consolidation | products=366 | seconds=0.000
+SCRAPING TIMING | stage=images | products=366 | seconds=5.233
+SCRAPING TIMING | stage=mapping | products=366 | seconds=0.003
+SCRAPING TIMING | stage=catalog_sync | products=366 | seconds=0.005
+SCRAPING TIMING | stage=sync_total | products=366 | seconds=5.243
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=77.894

@@ -86,6 +86,10 @@ class CatalogSyncService:
         result.finish()
         return result
 
+    def sync_full_catalog(self, products):
+        """Sincroniza el catálogo completo y elimina productos ausentes del origen."""
+        return self.sync(products, prune_missing=True)
+
     def synchronize(self, products, prune_missing: bool = False):
         return self.sync(products, prune_missing=prune_missing)
 

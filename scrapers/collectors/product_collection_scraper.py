@@ -31,6 +31,7 @@ class ProductCollectionScraper:
         self._detail_requests = 0
         self._detail_cache_hits = 0
         self._detail_skipped = 0
+        self._detail_reason_counts: dict[str, int] = {}
         self._detail_metrics_lock = Lock()
         self._detail_executor = ThreadPoolExecutor(max_workers=self.max_workers)
 
@@ -109,10 +110,14 @@ class ProductCollectionScraper:
         results = list(products)
         futures: list[tuple[int, Future[Any]]] = []
         for index, (card, page_url, product) in enumerate(products):
-            if self._can_skip_detail(card, product):
+            skip_reason = self._detail_skip_reason(card, product)
+            if skip_reason is not None:
                 product.url = self._card_detail_url(card, page_url, product)
                 with self._detail_metrics_lock:
                     self._detail_skipped += 1
+                    self._detail_reason_counts[skip_reason] = (
+                        self._detail_reason_counts.get(skip_reason, 0) + 1
+                    )
                 continue
 
             futures.append(
@@ -141,14 +146,14 @@ class ProductCollectionScraper:
         ]
 
     @classmethod
-    def _can_skip_detail(cls, card: Any, product: Any) -> bool:
-        """Evita el detalle cuando la tarjeta ya contiene datos suficientes."""
+    def _detail_skip_reason(cls, card: Any, product: Any) -> str | None:
+        """Explica por qué una tarjeta puede evitar la página de detalle."""
         if cls._has_complete_card_color_stock(card, product):
-            return True
+            return "complete_color_stock"
 
         stock_values = cls._stock_values(card)
         if len(stock_values) != 1:
-            return False
+            return "needs_detail_multiple_or_missing_stock"
 
         required_fields = (
             "code",
@@ -156,20 +161,35 @@ class ProductCollectionScraper:
             "description",
             "image_url",
         )
-        if any(
-            not str(getattr(product, field, "")).strip()
+        missing_fields = [
+            field
             for field in required_fields
-        ):
-            return False
+            if not str(getattr(product, field, "")).strip()
+        ]
+        if missing_fields:
+            return "needs_detail_missing_fields"
 
-        return all(
-            float(getattr(product, field, 0.0) or 0.0) > 0
+        missing_prices = [
+            field
             for field in (
                 "price_sample",
                 "price_hundred",
                 "price_thousand",
             )
-        )
+            if float(getattr(product, field, 0.0) or 0.0) <= 0
+        ]
+        if missing_prices:
+            return "needs_detail_missing_prices"
+
+        return "complete_single_stock"
+
+    @classmethod
+    def _can_skip_detail(cls, card: Any, product: Any) -> bool:
+        """Evita el detalle cuando la tarjeta ya contiene datos suficientes."""
+        return cls._detail_skip_reason(card, product) in {
+            "complete_color_stock",
+            "complete_single_stock",
+        }
 
     @staticmethod
     def _has_complete_card_color_stock(card: Any, product: Any) -> bool:
@@ -337,7 +357,7 @@ class ProductCollectionScraper:
             future.set_result(detailed_product)
             return detailed_product
 
-    def get_detail_metrics(self) -> dict[str, int]:
+    def get_detail_metrics(self) -> dict[str, int | dict[str, int]]:
         """Devuelve métricas acumuladas de páginas de detalle y caché."""
         with self._detail_metrics_lock:
             return {
@@ -345,6 +365,7 @@ class ProductCollectionScraper:
                 "detail_cache_hits": self._detail_cache_hits,
                 "detail_cache_size": len(self._detail_cache),
                 "detail_skipped": self._detail_skipped,
+                "detail_reason_counts": dict(self._detail_reason_counts),
             }
 
     def reset_detail_metrics(self) -> None:
@@ -355,6 +376,7 @@ class ProductCollectionScraper:
             self._detail_requests = 0
             self._detail_cache_hits = 0
             self._detail_skipped = 0
+            self._detail_reason_counts.clear()
 
     @staticmethod
     def _stock_values(card: Any) -> list[int]:

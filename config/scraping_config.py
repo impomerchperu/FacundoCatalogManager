@@ -23,7 +23,9 @@ MAX_RETRIES = 3
 # detail executor is shared across category enrichment tasks.
 SCRAPING_MAX_WORKERS = 20
 
-# Category listing requests use a separate, conservative budget. The source
-# site became slower and started returning errors when category listing and
-# detail enrichment both used 20 concurrent requests.
-SCRAPING_CATEGORY_WORKERS = 14
+# Category listing requests use a separate budget. The source site became
+# slower and started returning errors when category listing and detail
+# enrichment both used 20 concurrent requests. Sixteen keeps a small safety
+# margin while allowing one additional request batch slot over the previous
+# fourteen-worker limit.
+SCRAPING_CATEGORY_WORKERS = 16

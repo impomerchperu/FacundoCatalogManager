@@ -137,6 +137,13 @@ class ProductRepository:
             (product_id,),
         )
 
+    def delete_by_code(self, code: str) -> None:
+        """Elimina un producto identificado por su código."""
+        self.db.execute_query(
+            "DELETE FROM products WHERE code=?",
+            (code,),
+        )
+
     @classmethod
     def _is_valid_color_name(cls, value: str) -> bool:
         if not value or len(value) > 80:

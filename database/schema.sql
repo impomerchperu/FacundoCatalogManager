@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS scraping_history (
     created INTEGER DEFAULT 0,
     updated INTEGER DEFAULT 0,
     unchanged INTEGER DEFAULT 0,
+    deleted INTEGER DEFAULT 0,
     errors INTEGER DEFAULT 0,
     status TEXT DEFAULT 'SUCCESS',
     message TEXT DEFAULT ''

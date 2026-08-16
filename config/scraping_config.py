@@ -19,11 +19,10 @@ REQUEST_TIMEOUT = 15
 MAX_RETRIES = 3
 
 # Number of concurrent HTTP workers used when enriching product detail pages.
-# Empirical measurements on the source site show better throughput at 14
-# workers than at 8, without increasing the request count or retry rate.
-SCRAPING_MAX_WORKERS = 14
+# The previous 14-worker baseline was stable, but the timing data shows that
+# the source site still has enough parallel capacity to test a higher budget.
+SCRAPING_MAX_WORKERS = 20
 
-# Category listing requests can use the same concurrency budget as detail
-# enrichment. Keeping both limits aligned avoids leaving HTTP capacity idle
-# during the initial listing phase, which otherwise makes the UI appear stuck.
-SCRAPING_CATEGORY_WORKERS = 14
+# Category listing requests use the same concurrency budget as detail
+# enrichment so both HTTP phases can use the available worker capacity.
+SCRAPING_CATEGORY_WORKERS = 20

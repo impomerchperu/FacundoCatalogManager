@@ -1,3 +1,4 @@
+from threading import Lock
 from urllib.parse import urljoin
 
 import requests
@@ -22,6 +23,8 @@ class CategoryScraper:
         self.product_block_extractor = product_block_extractor
 
         self.base_url = None
+        self._category_html_cache: dict[str, str] = {}
+        self._category_html_cache_lock = Lock()
 
         if isinstance(browser, str):
             self.base_url = browser.rstrip("/")
@@ -34,6 +37,11 @@ class CategoryScraper:
     # --------------------------------------------------
 
     def get_html(self, url: str) -> str:
+        with self._category_html_cache_lock:
+            cached_html = self._category_html_cache.pop(url, None)
+
+        if cached_html is not None:
+            return cached_html
 
         if self.browser:
             html = self.browser.get(url)
@@ -129,6 +137,9 @@ class CategoryScraper:
 
         if not html:
             return []
+
+        with self._category_html_cache_lock:
+            self._category_html_cache[category_url] = html
 
         soup = self._parse(html)
 

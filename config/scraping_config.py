@@ -23,8 +23,7 @@ MAX_RETRIES = 3
 # detail executor is shared across category enrichment tasks.
 SCRAPING_MAX_WORKERS = 20
 
-# Category listing requests run in a dedicated phase before detail enrichment,
-# so the previous contention between both request types no longer applies.
-# Twenty workers lets all 24 category listings be dispatched in two small
-# batches while keeping the concurrency aligned with the detail budget.
-SCRAPING_CATEGORY_WORKERS = 20
+# Category listing requests run in a dedicated phase before detail enrichment.
+# Measurements show that 20 workers add contention without improving the
+# end-to-end runtime, so keep the category budget at the stable 16-worker level.
+SCRAPING_CATEGORY_WORKERS = 16

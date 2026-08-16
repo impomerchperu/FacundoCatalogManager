@@ -31,7 +31,7 @@ class ScrapingHistoryDialog(QDialog):
         self.repository = ScrapingHistoryRepository(self.db)
         self.detail_dialog: QDialog | None = None
         self.setWindowTitle("Historial de descargas")
-        self.resize(1200, 600)
+        self.resize(1300, 600)
         self._build_ui()
         self.load_history()
 
@@ -42,7 +42,7 @@ class ScrapingHistoryDialog(QDialog):
         layout.addWidget(title)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(8)
+        self.table.setColumnCount(9)
         self.table.setHorizontalHeaderLabels(
             [
                 "Aplicado",
@@ -50,6 +50,7 @@ class ScrapingHistoryDialog(QDialog):
                 "Nuevos",
                 "Actualizados",
                 "Sin cambios",
+                "Eliminados",
                 "Errores",
                 "Estado",
                 "Detalle",
@@ -98,10 +99,11 @@ class ScrapingHistoryDialog(QDialog):
             self._set_item(row, 2, str(record.created))
             self._set_item(row, 3, str(record.updated))
             self._set_item(row, 4, str(record.unchanged))
-            self._set_item(row, 5, str(record.errors))
+            self._set_item(row, 5, str(record.deleted))
+            self._set_item(row, 6, str(record.errors))
             self._set_item(
                 row,
-                6,
+                7,
                 "APLICADO" if record.status == "SUCCESS" else "ERROR",
             )
             self._set_detail_button(row, record.history_id)
@@ -113,9 +115,10 @@ class ScrapingHistoryDialog(QDialog):
         self.table.setColumnWidth(2, 80)
         self.table.setColumnWidth(3, 100)
         self.table.setColumnWidth(4, 100)
-        self.table.setColumnWidth(5, 70)
-        self.table.setColumnWidth(6, 100)
-        self.table.setColumnWidth(7, 110)
+        self.table.setColumnWidth(5, 90)
+        self.table.setColumnWidth(6, 70)
+        self.table.setColumnWidth(7, 100)
+        self.table.setColumnWidth(8, 110)
 
     def _set_detail_button(self, row: int, history_id: int | None) -> None:
         container = QHBoxLayout()
@@ -124,7 +127,7 @@ class ScrapingHistoryDialog(QDialog):
         button.setProperty("history_id", history_id)
         button.clicked.connect(self.show_row_details)
         container.addWidget(button)
-        self.table.setCellWidget(row, 7, self._layout_widget(container))
+        self.table.setCellWidget(row, 8, self._layout_widget(container))
 
     @staticmethod
     def _layout_widget(layout: QHBoxLayout) -> QWidget:
@@ -189,7 +192,8 @@ class ScrapingHistoryDialog(QDialog):
         summary = QLabel(
             f"Aplicado: {self._format_datetime(applied_at)}    "
             f"Productos: {history.processed}    Nuevos: {history.created}    "
-            f"Actualizados: {history.updated}    Sin cambios: {history.unchanged}",
+            f"Actualizados: {history.updated}    Sin cambios: {history.unchanged}    "
+            f"Eliminados: {history.deleted}",
         )
         summary.setStyleSheet("font-weight: bold; padding: 4px;")
         layout.addWidget(summary)
@@ -210,8 +214,13 @@ class ScrapingHistoryDialog(QDialog):
 
         table.setRowCount(max(len(changes), 1))
         for row, change in enumerate(changes):
+            change_type = {
+                "NEW": "NUEVO",
+                "UPDATED": "ACTUALIZADO",
+                "DELETED": "ELIMINADO",
+            }.get(change["type"], change["type"])
             values = [
-                "NUEVO" if change["type"] == "NEW" else "ACTUALIZADO",
+                change_type,
                 str(change["code"]),
                 str(change["name"]),
                 str(change["label"]),

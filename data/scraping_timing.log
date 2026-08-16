@@ -1515,3 +1515,27 @@ SCRAPING TIMING | stage=mapping | products=357 | seconds=0.003
 SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.005
 SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.397
 SCRAPING TIMING | stage=run_total | categories=24 | seconds=43.592
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=1.899
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=27.219
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=8.735
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=35.956
+SCRAPING TIMING | stage=detail_cache | requests=26 | cache_hits=0 | skipped=357 | cache_size=26 | reasons=requested_missing_fields:26,skipped_complete_single_stock:357
+SCRAPING TIMING | stage=http | requests=52 | successes=50 | errors=2 | retries=4 | detail_requests=26 | category_requests=26 | other_requests=0 | max_concurrency=14 | http_seconds=297.501 | slowest_request=15.218
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=26 | 2_5=3 | 5_10=10 | gte_10=13
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=15.218 | url=https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=15.084 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=15.015 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=14.052 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=13.240 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-playa/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=12.528 | url=https://stock.importacionesfacundo.com/categoria-producto/resaltadores-publicitarios/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=11.752 | url=https://stock.importacionesfacundo.com/categoria-producto/lapiceros-metalicos/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=11.669 | url=https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=11.660 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=11.561 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=1.073
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.015
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.017
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=1.110
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=37.085

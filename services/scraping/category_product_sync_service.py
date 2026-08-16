@@ -117,11 +117,12 @@ class CategoryProductSyncService:
                 for index, category in enumerate(categories)
             }
 
-            completed = 0
-            for future in as_completed(future_to_index):
+            for completed, future in enumerate(
+                as_completed(future_to_index),
+                start=1,
+            ):
                 index = future_to_index[future]
                 collected[index] = future.result()
-                completed += 1
 
                 if progress_callback:
                     listing_progress = 5 + int(completed * 35 / total)
@@ -138,7 +139,6 @@ class CategoryProductSyncService:
         )
 
         results: list[list] = [[] for _ in categories]
-        completed = 0
         enrichment_started = time.perf_counter()
 
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
@@ -152,10 +152,12 @@ class CategoryProductSyncService:
                 for index, category in enumerate(categories)
             }
 
-            for future in as_completed(future_to_index):
+            for completed, future in enumerate(
+                as_completed(future_to_index),
+                start=1,
+            ):
                 index = future_to_index[future]
                 results[index] = future.result()
-                completed += 1
 
                 if progress_callback:
                     enrichment_progress = 40 + int(completed * 50 / total)

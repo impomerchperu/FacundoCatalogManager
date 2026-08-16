@@ -272,7 +272,7 @@ class ProductCollectionScraper:
         product: Any,
         category_name: str,
     ) -> Any:
-        """Completa colores y stock desde la página de detalle."""
+        """Completa los datos faltantes y colores/stock desde la página de detalle."""
         if self.detail_extractor is None:
             return product
 
@@ -290,6 +290,8 @@ class ProductCollectionScraper:
         )
         if detailed_product is None:
             return product
+
+        self._merge_missing_detail_fields(product, detailed_product)
 
         detail_color_stock = dict(
             getattr(detailed_product, "color_stock", {})
@@ -315,6 +317,42 @@ class ProductCollectionScraper:
             product.url = detail_url
 
         return product
+
+    @staticmethod
+    def _merge_missing_detail_fields(product: Any, detailed_product: Any) -> None:
+        """Completa solo campos ausentes sin pisar datos válidos de la tarjeta."""
+        string_fields = (
+            "code",
+            "name",
+            "description",
+            "image_url",
+            "image_path",
+            "image_hash",
+            "content_hash",
+        )
+        numeric_fields = (
+            "price",
+            "price_sample",
+            "price_hundred",
+            "price_thousand",
+            "stock",
+        )
+
+        for field in string_fields:
+            current = str(getattr(product, field, "") or "").strip()
+            detailed = getattr(detailed_product, field, "")
+            if not current and str(detailed or "").strip():
+                setattr(product, field, detailed)
+
+        for field in numeric_fields:
+            current = getattr(product, field, 0) or 0
+            detailed = getattr(detailed_product, field, 0) or 0
+            if current <= 0 and detailed > 0:
+                setattr(product, field, detailed)
+
+        detailed_scraped_at = getattr(detailed_product, "scraped_at", None)
+        if not getattr(product, "scraped_at", None) and detailed_scraped_at:
+            product.scraped_at = detailed_scraped_at
 
     @staticmethod
     def _detail_cache_key(card: Any, product: Any, detail_url: str) -> str:

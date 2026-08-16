@@ -36,10 +36,7 @@ class ProductCollectionScraper:
 
     def scrape_category(self, category: Any) -> list[Any]:
         """Extrae todos los productos de una categoría."""
-        if isinstance(category, Category):
-            category_name = category.name
-        else:
-            category_name = ""
+        category_name = category.name if isinstance(category, Category) else ""
 
         collected = self.collect_category(category)
         return self.enrich_category_products(collected, category_name)

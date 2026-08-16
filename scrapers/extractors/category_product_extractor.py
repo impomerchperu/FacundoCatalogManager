@@ -57,9 +57,17 @@ class CategoryProductExtractor:
         """Extrae los valores de stock visibles en la tarjeta."""
         values: list[int] = []
         for value in soup.select(".variaciones-producto p"):
-            text = value.get_text(strip=True)
+            text = value.get_text(" ", strip=True)
             if text.isdigit():
                 values.append(int(text))
+                continue
+
+            match = re.match(r"^.+?\s*[:\-]\s*(\d[\d,.]*)\s*$", text)
+            if match:
+                try:
+                    values.append(int(float(match.group(1).replace(",", ""))))
+                except ValueError:
+                    continue
 
         if values:
             return values

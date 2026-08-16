@@ -226,7 +226,7 @@ class CategoryProductSyncService:
         if callable(enrich_category_products):
             return enrich_category_products(collected, category.name)
 
-        return self.scraping_service.scrape_category(
+        return self.scraper_service.scrape_category(
             category.url,
             category.name,
         )

@@ -83,7 +83,8 @@ class Browser:
 
                 if hasattr(response, "text"):
                     return response.text
-                return response
+                else:
+                    return response
 
             except requests.exceptions.RequestException as error:
                 elapsed = time.perf_counter() - started

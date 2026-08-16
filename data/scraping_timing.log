@@ -1467,3 +1467,27 @@ SCRAPING TIMING | stage=mapping | products=357 | seconds=0.004
 SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.005
 SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.373
 SCRAPING TIMING | stage=run_total | categories=24 | seconds=78.462
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.426
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=22.623
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=19.264
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=41.887
+SCRAPING TIMING | stage=detail_cache | requests=113 | cache_hits=15 | skipped=255 | cache_size=113 | reasons=requested_missing_fields:16,requested_multiple_or_missing_stock:112,skipped_complete_single_stock:255
+SCRAPING TIMING | stage=http | requests=137 | successes=137 | errors=0 | retries=0 | detail_requests=113 | category_requests=24 | other_requests=0 | max_concurrency=20 | http_seconds=582.524 | slowest_request=15.164
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=7 | 2_5=110 | 5_10=6 | gte_10=14
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=15.164 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=14.886 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=13.720 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=13.334 | url=https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=13.153 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=12.180 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=12.119 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-personales/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=11.754 | url=https://stock.importacionesfacundo.com/categoria-producto/tecnologia-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=10.939 | url=https://stock.importacionesfacundo.com/categoria-producto/impresoras-y-consumible-fotograficas-termicas/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=10.763 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.395
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.003
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.005
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.405
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=42.297

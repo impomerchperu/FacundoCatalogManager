@@ -203,7 +203,11 @@ def test_detail_reason_metrics_identify_missing_card_data():
 
     metrics = scraper.get_detail_metrics()
     assert metrics["detail_requests"] == 1
-    assert metrics["detail_reason_counts"] == {"requested_missing_fields": 1}
+    assert metrics["detail_reason_counts"] == {
+        "requested_missing_fields": 1,
+        "requested_missing_description": 1,
+        "requested_missing_image_url": 1,
+    }
 
 
 def test_detail_reason_metrics_classify_labeled_multiple_stock():

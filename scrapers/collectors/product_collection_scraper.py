@@ -73,7 +73,7 @@ class ProductCollectionScraper:
             soup = BeautifulSoup(html, "html.parser")
             cards = self._extract_cards(soup)
             for card in cards:
-                product = self.product_extractor.extract(
+                product = self._extract_product_from_card(
                     card,
                     url="",
                     category=category_name,
@@ -265,6 +265,18 @@ class ProductCollectionScraper:
         if not isinstance(cards, Iterable):
             raise TypeError("El extractor de tarjetas debe devolver un iterable.")
         return list(cards)
+
+    def _extract_product_from_card(
+        self,
+        card: Any,
+        *,
+        url: str,
+        category: str,
+    ) -> Any:
+        """Extrae una tarjeta aceptando extractores objeto o funciones."""
+        if callable(self.product_extractor):
+            return self.product_extractor(card, url=url, category=category)
+        return self.product_extractor.extract(card, url=url, category=category)
 
     def _enrich_from_detail_page(
         self,

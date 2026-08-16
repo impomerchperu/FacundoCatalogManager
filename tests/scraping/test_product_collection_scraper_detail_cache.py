@@ -88,3 +88,44 @@ def test_detail_cache_is_cleared_between_full_runs():
     assert metrics["detail_requests"] == 1
     assert metrics["detail_cache_hits"] == 0
     assert metrics["detail_cache_size"] == 1
+
+
+def test_complete_card_color_stock_skips_detail_request():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+
+    html = """
+    <html>
+        <article>
+            <a href="/producto/producto-con-colores/">
+                <h2 class="brxe-f31760">Producto con colores</h2>
+            </a>
+            <p class="brxe-a26f34">FB-1234</p>
+            <div class="text-content">Colores: Rojo, Azul</div>
+            <div class="variaciones-producto">
+                <p>10</p>
+                <p>20</p>
+            </div>
+        </article>
+    </html>
+    """
+
+    category_scraper.get_html = lambda url: html
+    result = scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    assert len(result) == 1
+    assert category_scraper.detail_requests == []
+    assert result[0].url == "https://example.com/producto/producto-con-colores/"
+    assert result[0].color_stock == {"Rojo": 10, "Azul": 20}
+    assert result[0].stock == 30
+
+    metrics = scraper.get_detail_metrics()
+    assert metrics["detail_requests"] == 0
+    assert metrics["detail_skipped"] == 1

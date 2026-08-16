@@ -156,7 +156,10 @@ class ProductCollectionScraper:
             "description",
             "image_url",
         )
-        if any(not str(getattr(product, field, "")).strip() for field in required_fields):
+        if any(
+            not str(getattr(product, field, "")).strip()
+            for field in required_fields
+        ):
             return False
 
         return all(

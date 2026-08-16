@@ -13,6 +13,12 @@ from models.scraping.category import Category
 class ProductCollectionScraper:
     """Recorre todas las páginas de una categoría y extrae sus productos."""
 
+    _PRICE_FIELDS = (
+        "price_sample",
+        "price_hundred",
+        "price_thousand",
+    )
+
     def __init__(
         self,
         category_scraper: Any,
@@ -121,6 +127,11 @@ class ProductCollectionScraper:
             request_reason = self._detail_request_reason(card, product)
             with self._detail_metrics_lock:
                 self._record_detail_reason(f"requested_{request_reason}")
+                if request_reason == "missing_prices":
+                    for field in self._missing_price_fields(product):
+                        self._record_detail_reason(
+                            f"requested_missing_{field}"
+                        )
             futures.append(
                 (
                     index,
@@ -168,14 +179,7 @@ class ProductCollectionScraper:
         ):
             return None
 
-        if any(
-            float(getattr(product, field, 0.0) or 0.0) <= 0
-            for field in (
-                "price_sample",
-                "price_hundred",
-                "price_thousand",
-            )
-        ):
+        if cls._missing_price_fields(product):
             return None
 
         return "complete_single_stock"
@@ -199,17 +203,19 @@ class ProductCollectionScraper:
         ):
             return "missing_fields"
 
-        if any(
-            float(getattr(product, field, 0.0) or 0.0) <= 0
-            for field in (
-                "price_sample",
-                "price_hundred",
-                "price_thousand",
-            )
-        ):
+        if cls._missing_price_fields(product):
             return "missing_prices"
 
         return "other"
+
+    @classmethod
+    def _missing_price_fields(cls, product: Any) -> tuple[str, ...]:
+        """Devuelve los precios ausentes o no positivos de una tarjeta."""
+        return tuple(
+            field
+            for field in cls._PRICE_FIELDS
+            if float(getattr(product, field, 0.0) or 0.0) <= 0
+        )
 
     @classmethod
     def _can_skip_detail(cls, card: Any, product: Any) -> bool:

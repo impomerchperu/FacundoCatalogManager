@@ -23,6 +23,7 @@ class ProductCollectionScraper:
         "price_hundred": "precio ciento",
         "price_thousand": "precio millar",
     }
+    _REQUIRED_DETAIL_FIELDS = ("code", "name", "description", "image_url")
 
     def __init__(
         self,
@@ -120,6 +121,10 @@ class ProductCollectionScraper:
             request_reason = self._detail_request_reason(card, product)
             with self._detail_metrics_lock:
                 self._record_detail_reason(f"requested_{request_reason}")
+                if request_reason == "missing_fields":
+                    missing_fields = self._missing_detail_fields(product)
+                    for field in missing_fields:
+                        self._record_detail_reason(f"requested_missing_{field}")
                 if request_reason == "missing_prices":
                     for field in self._missing_price_fields(card, product):
                         self._record_detail_reason(
@@ -156,11 +161,7 @@ class ProductCollectionScraper:
         if len(stock_values) != 1:
             return None
 
-        required_fields = ("code", "name", "description", "image_url")
-        if any(
-            not str(getattr(product, field, "")).strip()
-            for field in required_fields
-        ):
+        if cls._missing_detail_fields(product):
             return None
         if cls._missing_price_fields(card, product):
             return None
@@ -172,15 +173,20 @@ class ProductCollectionScraper:
         stock_values = cls._stock_values(card)
         if len(stock_values) != 1:
             return cls._stock_request_reason(card, stock_values)
-        required_fields = ("code", "name", "description", "image_url")
-        if any(
-            not str(getattr(product, field, "")).strip()
-            for field in required_fields
-        ):
+        if cls._missing_detail_fields(product):
             return "missing_fields"
         if cls._missing_price_fields(card, product):
             return "missing_prices"
         return "other"
+
+    @classmethod
+    def _missing_detail_fields(cls, product: Any) -> tuple[str, ...]:
+        """Devuelve campos básicos ausentes en la tarjeta del producto."""
+        return tuple(
+            field
+            for field in cls._REQUIRED_DETAIL_FIELDS
+            if not str(getattr(product, field, "")).strip()
+        )
 
     @staticmethod
     def _stock_request_reason(card: Any, stock_values: list[int]) -> str:

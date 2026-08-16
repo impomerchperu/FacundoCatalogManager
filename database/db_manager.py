@@ -53,6 +53,11 @@ class DBManager:
             "color_stock",
             "TEXT DEFAULT '{}'",
         )
+        self._add_column_if_missing(
+            "scraping_history",
+            "deleted",
+            "INTEGER DEFAULT 0",
+        )
         self._remove_legacy_colors_column("products")
         self._remove_legacy_colors_column("scraped_products")
 
@@ -182,16 +187,17 @@ class DBManager:
         self._transaction_active = True
 
     def commit(self):
-        """Confirma cualquier transacción abierta en la conexión."""
+        """Confirma una transacción explícita."""
         self.connection.commit()
         self._transaction_active = False
 
     def rollback(self):
-        """Revierte cualquier transacción abierta en la conexión."""
+        """Revierte una transacción explícita."""
         self.connection.rollback()
         self._transaction_active = False
 
     def execute_query(self, query, params=()):
+        """Ejecuta una consulta de escritura."""
         cursor = self.connection.cursor()
         cursor.execute(query, params)
         if not self._transaction_active:
@@ -199,17 +205,18 @@ class DBManager:
         return cursor
 
     def fetch_all(self, query, params=()):
+        """Devuelve todas las filas de una consulta."""
         cursor = self.connection.cursor()
         cursor.execute(query, params)
         return cursor.fetchall()
 
     def fetch_one(self, query, params=()):
+        """Devuelve una fila de una consulta."""
         cursor = self.connection.cursor()
         cursor.execute(query, params)
         return cursor.fetchone()
 
     def close(self):
+        """Cierra la conexión."""
         if self.connection:
-            if self._transaction_active:
-                self.rollback()
             self.connection.close()

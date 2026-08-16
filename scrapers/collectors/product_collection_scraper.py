@@ -46,6 +46,7 @@ class ProductCollectionScraper:
         self._detail_reason_counts: dict[str, int] = {}
         self._detail_metrics_lock = Lock()
         self._detail_executor = ThreadPoolExecutor(max_workers=self.max_workers)
+        self._detail_fetch_executor = ThreadPoolExecutor(max_workers=self.max_workers)
 
     def scrape_category(self, category: Any) -> list[Any]:
         """Extrae todos los productos de una categoría."""
@@ -330,7 +331,7 @@ class ProductCollectionScraper:
                 self._detail_cache_hits += 1
             else:
                 self._detail_requests += 1
-                future = self._detail_executor.submit(
+                future = self._detail_fetch_executor.submit(
                     self._fetch_detail_product,
                     detail_url,
                     category_name,

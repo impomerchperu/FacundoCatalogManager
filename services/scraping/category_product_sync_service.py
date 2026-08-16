@@ -103,7 +103,7 @@ class CategoryProductSyncService:
             )
             if progress_callback:
                 progress_callback(100, 100)
-            return self.sync_products([])
+            return self.sync_products([], full_sync=True)
 
         worker_count = min(self.category_workers, total)
         collected: list[list[Any]] = [[] for _ in categories]
@@ -208,7 +208,7 @@ class CategoryProductSyncService:
         if progress_callback:
             progress_callback(95, 100)
 
-        result = self.sync_products(products)
+        result = self.sync_products(products, full_sync=True)
 
         if progress_callback:
             progress_callback(100, 100)
@@ -339,7 +339,7 @@ class CategoryProductSyncService:
                 url,
             )
 
-    def sync_products(self, products: list[Any]):
+    def sync_products(self, products: list[Any], full_sync: bool = False):
         """Procesa y sincroniza un conjunto consolidado de productos scrapeados."""
         total_started = time.perf_counter()
 
@@ -384,7 +384,18 @@ class CategoryProductSyncService:
             )
 
             catalog_started = time.perf_counter()
-            result = self.catalog_sync_service.sync(mapped_products)
+            if full_sync:
+                sync_full_catalog = getattr(
+                    self.catalog_sync_service,
+                    "sync_full_catalog",
+                    None,
+                )
+                if callable(sync_full_catalog):
+                    result = sync_full_catalog(mapped_products)
+                else:
+                    result = self.catalog_sync_service.sync(mapped_products)
+            else:
+                result = self.catalog_sync_service.sync(mapped_products)
             catalog_elapsed = time.perf_counter() - catalog_started
             _log_timing(
                 "SCRAPING TIMING | stage=catalog_sync | products=%d "
@@ -432,6 +443,7 @@ class CategoryProductSyncService:
         self.last_sync_result.created += result.created
         self.last_sync_result.updated += result.updated
         self.last_sync_result.unchanged += result.unchanged
+        self.last_sync_result.deleted += result.deleted
         self.last_sync_result.errors.extend(result.errors)
         self.last_sync_result.failures.extend(result.failures)
         self.last_sync_result.changes.extend(result.changes)

@@ -139,13 +139,28 @@ class ProductCollectionScraper:
 
     @staticmethod
     def _has_complete_card_color_stock(card: Any, product: Any) -> bool:
-        """Evita el detalle cuando la tarjeta ya trae color y stock alineados."""
+        """Evita el detalle solo cuando el stock por color es estructurado."""
         color_stock = dict(getattr(product, "color_stock", {}) or {})
         if not color_stock:
             return False
 
         stock_values = ProductCollectionScraper._stock_values(card)
-        return len(color_stock) == len(stock_values) and len(stock_values) > 0
+        if len(color_stock) != len(stock_values) or not stock_values:
+            return False
+
+        variation = card.select_one(".variaciones-producto")
+        if variation is None:
+            return False
+
+        if variation.select(
+            "[data-color], [data-value], [title], .color, .color-name, .swatch"
+        ):
+            return True
+
+        return any(
+            re.match(r"^.+?\s*[:\-]\s*\d+\s*$", paragraph.get_text(" ", strip=True))
+            for paragraph in variation.select("p")
+        )
 
     @staticmethod
     def _card_detail_url(card: Any, page_url: str, product: Any) -> str:

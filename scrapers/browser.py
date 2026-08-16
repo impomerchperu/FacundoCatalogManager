@@ -7,6 +7,7 @@ from config.scraping_config import (
     DEFAULT_HEADERS,
     MAX_RETRIES,
     REQUEST_TIMEOUT,
+    SCRAPING_CATEGORY_WORKERS,
 )
 
 
@@ -14,6 +15,7 @@ class Browser:
     def __init__(self, session=None):
         self.session = session
         self._thread_local = threading.local()
+        self._http_semaphore = threading.BoundedSemaphore(SCRAPING_CATEGORY_WORKERS)
 
         if session is None:
             self.session = requests.Session()
@@ -71,6 +73,7 @@ class Browser:
         session = self._get_session()
 
         for attempt in range(self.max_retries):
+            self._http_semaphore.acquire()
             started = time.perf_counter()
             self._begin_request(url)
 
@@ -83,18 +86,6 @@ class Browser:
 
                 if hasattr(response, "raise_for_status"):
                     response.raise_for_status()
-
-                elapsed = time.perf_counter() - started
-                self._finish_request(elapsed, success=True, url=url)
-
-                if attempt:
-                    self._record_retry()
-
-                if hasattr(response, "text"):
-                    return response.text
-                else:
-                    return response
-
             except requests.exceptions.RequestException as error:
                 elapsed = time.perf_counter() - started
                 self._finish_request(elapsed, success=False, url=url)
@@ -106,6 +97,18 @@ class Browser:
                 if attempt < self.max_retries - 1:
                     self._record_retry()
                     time.sleep(attempt + 1)
+            else:
+                elapsed = time.perf_counter() - started
+                self._finish_request(elapsed, success=True, url=url)
+
+                if attempt:
+                    self._record_retry()
+
+                if hasattr(response, "text"):
+                    return response.text
+                return response
+            finally:
+                self._http_semaphore.release()
 
         if last_error:
             raise last_error

@@ -109,7 +109,7 @@ class ProductCollectionScraper:
         results = list(products)
         futures: list[tuple[int, Future[Any]]] = []
         for index, (card, page_url, product) in enumerate(products):
-            if self._has_complete_card_color_stock(card, product):
+            if self._can_skip_detail(card, product):
                 product.url = self._card_detail_url(card, page_url, product)
                 with self._detail_metrics_lock:
                     self._detail_skipped += 1
@@ -139,6 +139,34 @@ class ProductCollectionScraper:
             product if not isinstance(product, tuple) else product[2]
             for product in results
         ]
+
+    @classmethod
+    def _can_skip_detail(cls, card: Any, product: Any) -> bool:
+        """Evita el detalle cuando la tarjeta ya contiene datos suficientes."""
+        if cls._has_complete_card_color_stock(card, product):
+            return True
+
+        stock_values = cls._stock_values(card)
+        if len(stock_values) != 1:
+            return False
+
+        required_fields = (
+            "code",
+            "name",
+            "description",
+            "image_url",
+        )
+        if any(not str(getattr(product, field, "")).strip() for field in required_fields):
+            return False
+
+        return all(
+            float(getattr(product, field, 0.0) or 0.0) > 0
+            for field in (
+                "price_sample",
+                "price_hundred",
+                "price_thousand",
+            )
+        )
 
     @staticmethod
     def _has_complete_card_color_stock(card: Any, product: Any) -> bool:

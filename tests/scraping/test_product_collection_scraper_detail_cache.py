@@ -128,7 +128,7 @@ def test_complete_card_color_stock_skips_detail_request():
     metrics = scraper.get_detail_metrics()
     assert metrics["detail_requests"] == 0
     assert metrics["detail_skipped"] == 1
-    assert metrics["detail_reason_counts"] == {"complete_color_stock": 1}
+    assert metrics["detail_reason_counts"] == {"skipped_complete_color_stock": 1}
 
 
 def test_complete_single_stock_card_skips_detail_when_all_fields_are_present():
@@ -170,7 +170,7 @@ def test_complete_single_stock_card_skips_detail_when_all_fields_are_present():
     metrics = scraper.get_detail_metrics()
     assert metrics["detail_requests"] == 0
     assert metrics["detail_skipped"] == 1
-    assert metrics["detail_reason_counts"] == {"complete_single_stock": 1}
+    assert metrics["detail_reason_counts"] == {"skipped_complete_single_stock": 1}
 
 
 def test_detail_reason_metrics_identify_missing_card_data():
@@ -201,4 +201,4 @@ def test_detail_reason_metrics_identify_missing_card_data():
 
     metrics = scraper.get_detail_metrics()
     assert metrics["detail_requests"] == 1
-    assert metrics["detail_reason_counts"] == {}
+    assert metrics["detail_reason_counts"] == {"requested_missing_fields": 1}

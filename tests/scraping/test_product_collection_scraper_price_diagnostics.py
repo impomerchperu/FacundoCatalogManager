@@ -37,8 +37,10 @@ def _run_missing_price_case(price_html: str):
     return scraper.get_detail_metrics()
 
 
-def test_detail_reason_metrics_identify_missing_sample_price():
+def test_detail_reason_metrics_identify_parser_missed_sample_price():
     metrics = _run_missing_price_case(
+        "<h3>Precio Muestra</h3>"
+        "<h4>Disponible bajo consulta</h4>"
         "<h3>Precio Ciento</h3><h4>S/ 700.00</h4>"
         "<h3>Precio Millar</h3><h4>S/ 6500.00</h4>"
     )
@@ -46,44 +48,47 @@ def test_detail_reason_metrics_identify_missing_sample_price():
     assert metrics["detail_requests"] == 1
     assert metrics["detail_reason_counts"] == {
         "requested_missing_prices": 1,
-        "requested_missing_price_sample": 1,
+        "requested_missing_sample": 1,
     }
 
 
-def test_detail_reason_metrics_identify_missing_hundred_price():
+def test_absent_price_label_does_not_force_detail_request():
+    metrics = _run_missing_price_case(
+        "<h3>Precio Ciento</h3><h4>S/ 700.00</h4>"
+        "<h3>Precio Por Caja</h3><h4>S/ 650.00</h4>"
+    )
+
+    assert metrics["detail_requests"] == 0
+    assert metrics["detail_skipped"] == 1
+    assert metrics["detail_reason_counts"] == {
+        "skipped_complete_single_stock": 1,
+    }
+
+
+def test_missing_hundred_is_requested_only_when_label_is_advertised():
     metrics = _run_missing_price_case(
         "<h3>Precio Muestra</h3><h4>S/ 8.00</h4>"
+        "<h3>Precio Ciento</h3><h4>Consultar</h4>"
         "<h3>Precio Millar</h3><h4>S/ 6500.00</h4>"
     )
 
     assert metrics["detail_requests"] == 1
     assert metrics["detail_reason_counts"] == {
         "requested_missing_prices": 1,
-        "requested_missing_price_hundred": 1,
+        "requested_missing_hundred": 1,
     }
 
 
-def test_detail_reason_metrics_identify_missing_thousand_price():
+def test_missing_multiple_advertised_prices_are_all_recorded():
     metrics = _run_missing_price_case(
-        "<h3>Precio Muestra</h3><h4>S/ 8.00</h4>"
+        "<h3>Precio Muestra</h3><h4>Consultar</h4>"
         "<h3>Precio Ciento</h3><h4>S/ 700.00</h4>"
+        "<h3>Precio Millar</h3><h4>Consultar</h4>"
     )
 
     assert metrics["detail_requests"] == 1
     assert metrics["detail_reason_counts"] == {
         "requested_missing_prices": 1,
-        "requested_missing_price_thousand": 1,
-    }
-
-
-def test_detail_reason_metrics_record_multiple_missing_prices():
-    metrics = _run_missing_price_case(
-        "<h3>Precio Ciento</h3><h4>S/ 700.00</h4>"
-    )
-
-    assert metrics["detail_requests"] == 1
-    assert metrics["detail_reason_counts"] == {
-        "requested_missing_prices": 1,
-        "requested_missing_price_sample": 1,
-        "requested_missing_price_thousand": 1,
+        "requested_missing_sample": 1,
+        "requested_missing_thousand": 1,
     }

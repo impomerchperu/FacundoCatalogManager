@@ -115,11 +115,14 @@ class ProductCollectionScraper:
                 product.url = self._card_detail_url(card, page_url, product)
                 with self._detail_metrics_lock:
                     self._detail_skipped += 1
-                    self._detail_reason_counts[skip_reason] = (
-                        self._detail_reason_counts.get(skip_reason, 0) + 1
+                    self._record_detail_reason(
+                        f"skipped_{skip_reason}",
                     )
                 continue
 
+            request_reason = self._detail_request_reason(card, product)
+            with self._detail_metrics_lock:
+                self._record_detail_reason(f"requested_{request_reason}")
             futures.append(
                 (
                     index,
@@ -153,7 +156,7 @@ class ProductCollectionScraper:
 
         stock_values = cls._stock_values(card)
         if len(stock_values) != 1:
-            return "needs_detail_multiple_or_missing_stock"
+            return None
 
         required_fields = (
             "code",
@@ -167,7 +170,7 @@ class ProductCollectionScraper:
             if not str(getattr(product, field, "")).strip()
         ]
         if missing_fields:
-            return "needs_detail_missing_fields"
+            return None
 
         missing_prices = [
             field
@@ -179,17 +182,52 @@ class ProductCollectionScraper:
             if float(getattr(product, field, 0.0) or 0.0) <= 0
         ]
         if missing_prices:
-            return "needs_detail_missing_prices"
+            return None
 
         return "complete_single_stock"
 
     @classmethod
+    def _detail_request_reason(cls, card: Any, product: Any) -> str:
+        """Clasifica por qué una tarjeta todavía necesita su página de detalle."""
+        stock_values = cls._stock_values(card)
+        if len(stock_values) != 1:
+            return "multiple_or_missing_stock"
+
+        required_fields = (
+            "code",
+            "name",
+            "description",
+            "image_url",
+        )
+        if any(
+            not str(getattr(product, field, "")).strip()
+            for field in required_fields
+        ):
+            return "missing_fields"
+
+        if any(
+            float(getattr(product, field, 0.0) or 0.0) <= 0
+            for field in (
+                "price_sample",
+                "price_hundred",
+                "price_thousand",
+            )
+        ):
+            return "missing_prices"
+
+        return "other"
+
+    @classmethod
     def _can_skip_detail(cls, card: Any, product: Any) -> bool:
         """Evita el detalle cuando la tarjeta ya contiene datos suficientes."""
-        return cls._detail_skip_reason(card, product) in {
-            "complete_color_stock",
-            "complete_single_stock",
-        }
+        return cls._detail_skip_reason(card, product) is not None
+
+    @staticmethod
+    def _record_detail_reason(self, reason: str) -> None:
+        """Acumula una clasificación de decisión de enriquecimiento."""
+        self._detail_reason_counts[reason] = (
+            self._detail_reason_counts.get(reason, 0) + 1
+        )
 
     @staticmethod
     def _has_complete_card_color_stock(card: Any, product: Any) -> bool:
@@ -357,7 +395,7 @@ class ProductCollectionScraper:
             future.set_result(detailed_product)
             return detailed_product
 
-    def get_detail_metrics(self) -> dict[str, int | dict[str, int]]:
+    def get_detail_metrics(self) -> dict[str, Any]:
         """Devuelve métricas acumuladas de páginas de detalle y caché."""
         with self._detail_metrics_lock:
             return {

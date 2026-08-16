@@ -22,6 +22,6 @@ MAX_RETRIES = 3
 # Keep this conservative to avoid overloading the source site.
 SCRAPING_MAX_WORKERS = 8
 
-# Number of categories scraped concurrently. This is intentionally kept
-# moderate while measuring the impact on slow category-page requests.
-SCRAPING_CATEGORY_WORKERS = 6
+# Number of categories scraped concurrently. Eight workers better utilize
+# the existing HTTP concurrency while keeping category pressure bounded.
+SCRAPING_CATEGORY_WORKERS = 8

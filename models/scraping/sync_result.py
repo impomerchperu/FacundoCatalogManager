@@ -29,6 +29,7 @@ class SyncResult:
     created: int = 0
     updated: int = 0
     unchanged: int = 0
+    deleted: int = 0
 
     changes: list[dict] = field(default_factory=list)
     failures: list = field(default_factory=list)
@@ -40,6 +41,7 @@ class SyncResult:
     products_created: int = 0
     products_updated: int = 0
     products_unchanged: int = 0
+    products_deleted: int = 0
 
     # Métricas de imágenes
     images_processed: int = 0
@@ -94,6 +96,7 @@ class SyncResult:
             "created": self.created,
             "updated": self.updated,
             "unchanged": self.unchanged,
+            "deleted": self.deleted,
             "classified_total": self.classified_total,
             "counts_are_consistent": self.counts_are_consistent,
             "categories_processed": self.categories_processed,
@@ -101,6 +104,7 @@ class SyncResult:
             "products_created": self.products_created,
             "products_updated": self.products_updated,
             "products_unchanged": self.products_unchanged,
+            "products_deleted": self.products_deleted,
             "images_processed": self.images_processed,
             "images_downloaded": self.images_downloaded,
             "images_failed": self.images_failed,
@@ -127,6 +131,7 @@ class SyncResult:
             "Nuevos": self.created,
             "Actualizados": self.updated,
             "Sin cambios": self.unchanged,
+            "Eliminados": self.deleted,
             "Total clasificado": self.classified_total,
             "Conteos consistentes": self.counts_are_consistent,
             "Errores": len(self.errors),

@@ -330,9 +330,18 @@ class ProductCollectionScraper:
         """Extrae existencias de la tarjeta, incluyendo el bloque textual visible."""
         values: list[int] = []
         for element in card.select(".variaciones-producto p"):
-            text = element.get_text(strip=True)
+            text = element.get_text(" ", strip=True)
             if text.isdigit():
                 values.append(int(text))
+                continue
+
+            match = re.match(r"^.+?\s*[:\-]\s*(\d[\d,.]*)\s*$", text)
+            if match:
+                try:
+                    values.append(int(float(match.group(1).replace(",", ""))))
+                except ValueError:
+                    continue
+
         if values:
             return values
 

@@ -56,8 +56,8 @@ class ScrapingHistoryRepository:
             """
             INSERT INTO scraping_history (
                 started_at, finished_at, processed, created, updated,
-                unchanged, errors, status, message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                unchanged, deleted, errors, status, message
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 history.started_at.isoformat(),
@@ -66,6 +66,7 @@ class ScrapingHistoryRepository:
                 history.created,
                 history.updated,
                 history.unchanged,
+                history.deleted,
                 history.errors,
                 history.status,
                 history.message,
@@ -106,6 +107,19 @@ class ScrapingHistoryRepository:
                         None,
                         self._serialize(self._value(product, field)),
                     )
+                continue
+
+            if item.get("type") == "DELETED":
+                self._insert_change(
+                    history.history_id,
+                    "DELETED",
+                    code,
+                    name,
+                    None,
+                    "Producto eliminado",
+                    "Presente en catálogo",
+                    "Ausente en origen",
+                )
                 continue
 
             for change in item.get("changes") or []:
@@ -160,7 +174,7 @@ class ScrapingHistoryRepository:
         rows = self.db.fetch_all(
             """
             SELECT id, started_at, finished_at, processed, created,
-                   updated, unchanged, errors, status, message
+                   updated, unchanged, deleted, errors, status, message
             FROM scraping_history
             ORDER BY id DESC
             LIMIT ?
@@ -173,7 +187,7 @@ class ScrapingHistoryRepository:
         row = self.db.fetch_one(
             """
             SELECT id, started_at, finished_at, processed, created,
-                   updated, unchanged, errors, status, message
+                   updated, unchanged, deleted, errors, status, message
             FROM scraping_history
             WHERE id = ?
             """,
@@ -238,6 +252,7 @@ class ScrapingHistoryRepository:
             created=row["created"],
             updated=row["updated"],
             unchanged=row["unchanged"],
+            deleted=row["deleted"],
             errors=row["errors"],
             status=row["status"],
             message=row["message"],

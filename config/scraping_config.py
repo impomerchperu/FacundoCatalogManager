@@ -23,6 +23,7 @@ MAX_RETRIES = 3
 # workers than at 8, without increasing the request count or retry rate.
 SCRAPING_MAX_WORKERS = 14
 
-# Number of categories scraped concurrently. Eight workers better utilize
-# the existing HTTP concurrency while keeping category pressure bounded.
-SCRAPING_CATEGORY_WORKERS = 8
+# Category listing requests can use the same concurrency budget as detail
+# enrichment. Keeping both limits aligned avoids leaving HTTP capacity idle
+# during the initial listing phase, which otherwise makes the UI appear stuck.
+SCRAPING_CATEGORY_WORKERS = 14

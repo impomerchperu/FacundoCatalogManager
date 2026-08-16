@@ -7,11 +7,15 @@ from scrapers.extractors.product_extractor import ProductExtractor
 class SharedProductCategoryScraper:
     def __init__(self):
         self.detail_requests = []
+        self.html_override = None
 
     def get_category_pages(self, url):
         return [url]
 
     def get_html(self, url):
+        if self.html_override is not None:
+            return self.html_override
+
         if "/producto/" in url:
             self.detail_requests.append(url)
             return """
@@ -116,7 +120,7 @@ def test_complete_card_color_stock_skips_detail_request():
     </html>
     """
 
-    category_scraper.get_html = lambda url: html
+    category_scraper.html_override = html
     result = scraper.scrape_category(
         Category(name="Promocionales", url="https://example.com/promocionales/")
     )
@@ -159,7 +163,7 @@ def test_complete_single_stock_card_skips_detail_when_all_fields_are_present():
     </html>
     """
 
-    category_scraper.get_html = lambda url: html
+    category_scraper.html_override = html
     result = scraper.scrape_category(
         Category(name="Promocionales", url="https://example.com/promocionales/")
     )
@@ -196,7 +200,7 @@ def test_detail_reason_metrics_identify_missing_card_data():
     </html>
     """
 
-    category_scraper.get_html = lambda url: html
+    category_scraper.html_override = html
     scraper.scrape_category(
         Category(name="Promocionales", url="https://example.com/promocionales/")
     )
@@ -234,7 +238,7 @@ def test_detail_reason_metrics_classify_labeled_multiple_stock():
     </html>
     """
 
-    category_scraper.get_html = lambda url: html
+    category_scraper.html_override = html
     scraper.scrape_category(
         Category(name="Promocionales", url="https://example.com/promocionales/")
     )
@@ -269,7 +273,7 @@ def test_detail_reason_metrics_classify_multiple_numeric_stock():
     </html>
     """
 
-    category_scraper.get_html = lambda url: html
+    category_scraper.html_override = html
     scraper.scrape_category(
         Category(name="Promocionales", url="https://example.com/promocionales/")
     )
@@ -300,7 +304,7 @@ def test_detail_reason_metrics_classify_missing_stock():
     </html>
     """
 
-    category_scraper.get_html = lambda url: html
+    category_scraper.html_override = html
     scraper.scrape_category(
         Category(name="Promocionales", url="https://example.com/promocionales/")
     )

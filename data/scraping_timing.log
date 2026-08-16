@@ -1,0 +1,3 @@
+# Local scraping timing log placeholder.
+# This file is intentionally tracked so the scraper timing artifact can be reviewed from GitHub.
+# Runtime executions append/replace this file locally; commit the generated measurements when a run needs to be analyzed remotely.

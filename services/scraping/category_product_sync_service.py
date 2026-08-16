@@ -391,11 +391,17 @@ class CategoryProductSyncService:
                     None,
                 )
                 if callable(sync_full_catalog):
-                    result = sync_full_catalog(mapped_products)
+                    result = cast(SyncResult, sync_full_catalog(mapped_products))
                 else:
-                    result = self.catalog_sync_service.sync(mapped_products)
+                    result = cast(
+                        SyncResult,
+                        self.catalog_sync_service.sync(mapped_products),
+                    )
             else:
-                result = self.catalog_sync_service.sync(mapped_products)
+                result = cast(
+                    SyncResult,
+                    self.catalog_sync_service.sync(mapped_products),
+                )
             catalog_elapsed = time.perf_counter() - catalog_started
             _log_timing(
                 "SCRAPING TIMING | stage=catalog_sync | products=%d "

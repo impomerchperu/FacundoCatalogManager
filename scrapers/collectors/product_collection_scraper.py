@@ -37,13 +37,26 @@ class ProductCollectionScraper:
     def scrape_category(self, category: Any) -> list[Any]:
         """Extrae todos los productos de una categoría."""
         if isinstance(category, Category):
+            category_name = category.name
+        else:
+            category_name = ""
+
+        collected = self.collect_category(category)
+        return self.enrich_category_products(collected, category_name)
+
+    def collect_category(
+        self,
+        category: Any,
+    ) -> list[tuple[Any, str, Any]]:
+        """Descarga y extrae tarjetas sin solicitar páginas de detalle."""
+        if isinstance(category, Category):
             category_url = category.url
             category_name = category.name
         else:
             category_url = category
             category_name = ""
 
-        products: list[Any] = []
+        products: list[tuple[Any, str, Any]] = []
         pages = self.category_scraper.get_category_pages(category_url)
 
         for page in pages:
@@ -54,23 +67,23 @@ class ProductCollectionScraper:
             soup = BeautifulSoup(html, "html.parser")
             cards = self._extract_cards(soup)
 
-            page_products = []
             for card in cards:
                 product = self.product_extractor.extract(
                     card,
                     url="",
                     category=category_name,
                 )
-                page_products.append((card, page, product))
-
-            products.extend(
-                self._enrich_products(
-                    page_products,
-                    category_name,
-                )
-            )
+                products.append((card, page, product))
 
         return products
+
+    def enrich_category_products(
+        self,
+        products: list[tuple[Any, str, Any]],
+        category_name: str = "",
+    ) -> list[Any]:
+        """Completa las tarjetas recolectadas usando páginas de detalle."""
+        return self._enrich_products(products, category_name)
 
     def _enrich_products(
         self,

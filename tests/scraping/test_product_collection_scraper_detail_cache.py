@@ -128,6 +128,7 @@ def test_complete_card_color_stock_skips_detail_request():
     metrics = scraper.get_detail_metrics()
     assert metrics["detail_requests"] == 0
     assert metrics["detail_skipped"] == 1
+    assert metrics["detail_reason_counts"] == {"complete_color_stock": 1}
 
 
 def test_complete_single_stock_card_skips_detail_when_all_fields_are_present():
@@ -169,3 +170,35 @@ def test_complete_single_stock_card_skips_detail_when_all_fields_are_present():
     metrics = scraper.get_detail_metrics()
     assert metrics["detail_requests"] == 0
     assert metrics["detail_skipped"] == 1
+    assert metrics["detail_reason_counts"] == {"complete_single_stock": 1}
+
+
+def test_detail_reason_metrics_identify_missing_card_data():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+
+    html = """
+    <html>
+        <article>
+            <a href="/producto/producto-incompleto/">
+                <h2 class="brxe-f31760">Producto incompleto</h2>
+            </a>
+            <p class="brxe-a26f34">FB-1236</p>
+            <div class="variaciones-producto"><p>10</p></div>
+        </article>
+    </html>
+    """
+
+    category_scraper.get_html = lambda url: html
+    scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    metrics = scraper.get_detail_metrics()
+    assert metrics["detail_requests"] == 1
+    assert metrics["detail_reason_counts"] == {"needs_detail_missing_fields": 0}

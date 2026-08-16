@@ -72,9 +72,10 @@ class CategoryProductSyncService:
         """
         Scrapea todas las categorías y sincroniza el conjunto completo.
 
-        Las categorías se extraen en paralelo con un límite conservador.
-        La consolidación sigue ocurriendo después de completar todas las
-        categorías para preservar correctamente las categorías múltiples.
+        Primero obtiene todas las páginas de categoría en paralelo. Solo
+        después de terminar esa fase comienza el enriquecimiento de detalle,
+        evitando mezclar solicitudes de listado y detalle y reduciendo la
+        presión concurrente sobre el servidor origen.
         """
         started = time.perf_counter()
         categories = list(categories)
@@ -84,21 +85,54 @@ class CategoryProductSyncService:
 
         if not categories:
             _log_timing(
+                "SCRAPING TIMING | stage=category_listing | categories=0 "
+                "| products=0 | seconds=0.000",
+            )
+            _log_timing(
                 "SCRAPING TIMING | stage=category_extraction | categories=0 "
                 "| products=0 | seconds=0.000",
             )
             return self.sync_products([])
 
         worker_count = min(self.category_workers, total)
-        results: list[list] = [[] for _ in categories]
-        completed = 0
+        collected: list[list[tuple]] = [[] for _ in categories]
+        listing_started = time.perf_counter()
 
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
             future_to_index = {
                 executor.submit(
-                    self._scrape_category,
+                    self._collect_category,
                     index,
                     category,
+                ): index
+                for index, category in enumerate(categories)
+            }
+
+            for future in as_completed(future_to_index):
+                index = future_to_index[future]
+                collected[index] = future.result()
+
+        listing_elapsed = time.perf_counter() - listing_started
+        collected_count = sum(len(products) for products in collected)
+        _log_timing(
+            "SCRAPING TIMING | stage=category_listing | categories=%d "
+            "| products=%d | seconds=%.3f",
+            total,
+            collected_count,
+            listing_elapsed,
+        )
+
+        results: list[list] = [[] for _ in categories]
+        completed = 0
+        enrichment_started = time.perf_counter()
+
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            future_to_index = {
+                executor.submit(
+                    self._enrich_category,
+                    index,
+                    category,
+                    collected[index],
                 ): index
                 for index, category in enumerate(categories)
             }
@@ -111,11 +145,20 @@ class CategoryProductSyncService:
                 if progress_callback:
                     progress_callback(completed, total)
 
+        enrichment_elapsed = time.perf_counter() - enrichment_started
         products = [
             product
             for category_products in results
             for product in category_products
         ]
+
+        _log_timing(
+            "SCRAPING TIMING | stage=detail_enrichment | categories=%d "
+            "| products=%d | seconds=%.3f",
+            total,
+            len(products),
+            enrichment_elapsed,
+        )
 
         scraping_elapsed = time.perf_counter() - started
         _log_timing(
@@ -130,23 +173,37 @@ class CategoryProductSyncService:
 
         return self.sync_products(products)
 
-    def _scrape_category(self, index, category):
-        """Extrae una categoría en un worker independiente."""
+    def _collect_category(self, index, category):
+        """Obtiene las tarjetas de una categoría sin solicitar detalles."""
         del index
 
-        category_started = time.perf_counter()
-        products = self.scraper_service.scrape_category(
+        scraper = getattr(self.scraper_service, "scraper", None)
+        collect_category = getattr(scraper, "collect_category", None)
+        if callable(collect_category):
+            return collect_category(category)
+
+        return self.scraper_service.scrape_category(
             category.url,
             category.name,
         )
-        category_elapsed = time.perf_counter() - category_started
-        _log_timing(
-            "SCRAPING TIMING | category=%s | products=%d | seconds=%.3f",
-            category.name,
-            len(products),
-            category_elapsed,
+
+    def _enrich_category(self, index, category, collected):
+        """Enriquece una categoría después de completar todos los listados."""
+        del index
+
+        scraper = getattr(self.scraper_service, "scraper", None)
+        enrich_category_products = getattr(
+            scraper,
+            "enrich_category_products",
+            None,
         )
-        return products
+        if callable(enrich_category_products):
+            return enrich_category_products(collected, category.name)
+
+        return self.scraper_service.scrape_category(
+            category.url,
+            category.name,
+        )
 
     def _reset_scraping_metrics(self):
         """Reinicia métricas de scraping antes de una ejecución completa."""

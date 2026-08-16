@@ -100,12 +100,36 @@ class Browser:
                 self._finish_request(elapsed, success=False, url=url)
                 last_error = error
 
+                if not self._is_retryable_error(error):
+                    raise
+
                 if attempt < self.max_retries - 1:
                     self._record_retry()
                     time.sleep(attempt + 1)
 
         if last_error:
             raise last_error
+
+    @staticmethod
+    def _is_retryable_error(error):
+        """Retry only transient network/server failures, not permanent 4xx errors."""
+        if isinstance(
+            error,
+            (
+                requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout,
+            ),
+        ):
+            return True
+
+        if isinstance(error, requests.exceptions.HTTPError):
+            response = getattr(error, "response", None)
+            status_code = getattr(response, "status_code", None)
+            return status_code == 429 or (
+                isinstance(status_code, int) and status_code >= 500
+            )
+
+        return False
 
     def _begin_request(self, url):
         with self._metrics_lock:

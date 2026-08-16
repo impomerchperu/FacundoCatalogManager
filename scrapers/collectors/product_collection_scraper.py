@@ -1,7 +1,7 @@
 import re
 from concurrent.futures import Future, ThreadPoolExecutor
 from threading import Lock
-from typing import Any, Iterable
+from typing import Any, ClassVar, Iterable
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
@@ -18,7 +18,7 @@ class ProductCollectionScraper:
         "price_hundred",
         "price_thousand",
     )
-    _PRICE_LABELS = {
+    _PRICE_LABELS: ClassVar[dict[str, str]] = {
         "price_sample": "precio muestra",
         "price_hundred": "precio ciento",
         "price_thousand": "precio millar",

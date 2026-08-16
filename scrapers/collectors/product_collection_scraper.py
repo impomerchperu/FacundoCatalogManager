@@ -30,6 +30,7 @@ class ProductCollectionScraper:
         self._detail_cache_lock = Lock()
         self._detail_requests = 0
         self._detail_cache_hits = 0
+        self._detail_skipped = 0
         self._detail_metrics_lock = Lock()
         self._detail_executor = ThreadPoolExecutor(max_workers=self.max_workers)
 
@@ -95,6 +96,12 @@ class ProductCollectionScraper:
         results = list(products)
         futures: list[tuple[int, Future[Any]]] = []
         for index, (card, page_url, product) in enumerate(products):
+            if self._has_structured_card_color_stock(card, product):
+                product.url = self._card_detail_url(card, page_url, product)
+                with self._detail_metrics_lock:
+                    self._detail_skipped += 1
+                continue
+
             futures.append(
                 (
                     index,
@@ -115,7 +122,61 @@ class ProductCollectionScraper:
                 future.result(),
             )
 
-        return [product for _card, _page_url, product in results]
+        return [
+            product if not isinstance(product, tuple) else product[2]
+            for product in results
+        ]
+
+    @staticmethod
+    def _has_structured_card_color_stock(card: Any, product: Any) -> bool:
+        """Evita el detalle solo con stock por color estructurado y completo."""
+        color_stock = dict(getattr(product, "color_stock", {}) or {})
+        if not color_stock:
+            return False
+
+        variation = card.select_one(".variaciones-producto")
+        if variation is None:
+            return False
+
+        structured_colors = variation.select(
+            "[data-color], [data-value], [title], .color, "
+            ".color-name, .swatch",
+        )
+        if not structured_colors:
+            return False
+
+        stock_values = ProductCollectionScraper._stock_values(card)
+        if len(color_stock) != len(stock_values):
+            return False
+
+        for element in structured_colors:
+            has_stock_attribute = any(
+                element.get(key) not in (None, "")
+                for key in (
+                    "data-stock",
+                    "data-quantity",
+                    "data-max-qty",
+                    "data-max_quantity",
+                )
+            )
+            if has_stock_attribute:
+                return True
+
+        for paragraph in variation.select("p"):
+            text = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True))
+            if re.match(r"^.+?\s*[:\-]\s*\d+\s*$", text):
+                return True
+
+        return False
+
+    @staticmethod
+    def _card_detail_url(card: Any, page_url: str, product: Any) -> str:
+        """Construye la URL absoluta sin realizar una petición HTTP."""
+        link = card.select_one('a[href*="/producto/"]')
+        href = link.get("href") if link else ""
+        if isinstance(href, str) and href:
+            return urljoin(page_url, href)
+        return str(getattr(product, "url", ""))
 
     @staticmethod
     def _has_complete_card_color_stock(card: Any, product: Any) -> bool:
@@ -287,6 +348,7 @@ class ProductCollectionScraper:
                 "detail_requests": self._detail_requests,
                 "detail_cache_hits": self._detail_cache_hits,
                 "detail_cache_size": len(self._detail_cache),
+                "detail_skipped": self._detail_skipped,
             }
 
     def reset_detail_metrics(self) -> None:
@@ -296,6 +358,7 @@ class ProductCollectionScraper:
         with self._detail_metrics_lock:
             self._detail_requests = 0
             self._detail_cache_hits = 0
+            self._detail_skipped = 0
 
     @staticmethod
     def _stock_values(card: Any) -> list[int]:

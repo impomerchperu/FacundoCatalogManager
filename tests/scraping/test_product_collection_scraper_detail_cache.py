@@ -106,10 +106,9 @@ def test_complete_card_color_stock_skips_detail_request():
                 <h2 class="brxe-f31760">Producto con colores</h2>
             </a>
             <p class="brxe-a26f34">FB-1234</p>
-            <div class="text-content">Colores: Rojo, Azul</div>
             <div class="variaciones-producto">
-                <p>10</p>
-                <p>20</p>
+                <p>Rojo: 10</p>
+                <p>Azul: 20</p>
             </div>
         </article>
     </html>

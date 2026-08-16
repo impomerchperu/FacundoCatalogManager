@@ -258,9 +258,10 @@ class CategoryProductSyncService:
         metrics = get_metrics()
         _log_timing(
             "SCRAPING TIMING | stage=detail_cache | requests=%d "
-            "| cache_hits=%d | cache_size=%d",
+            "| cache_hits=%d | skipped=%d | cache_size=%d",
             metrics.get("detail_requests", 0),
             metrics.get("detail_cache_hits", 0),
+            metrics.get("detail_skipped", 0),
             metrics.get("detail_cache_size", 0),
         )
 

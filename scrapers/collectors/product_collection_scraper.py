@@ -351,18 +351,37 @@ class ProductCollectionScraper:
 
     @staticmethod
     def _stock_values(card: Any) -> list[int]:
+        """Extrae el stock de la tarjeta, incluyendo la secuencia tras su etiqueta."""
         values: list[int] = []
         variation = card.select_one(".variaciones-producto")
-        if variation is None:
+        if variation is not None:
+            for paragraph in variation.select("p"):
+                text = paragraph.get_text(" ", strip=True)
+                numbers = re.findall(r"\d[\d,.]*", text)
+                if numbers:
+                    try:
+                        values.append(
+                            int(float(numbers[-1].replace(",", "")))
+                        )
+                    except ValueError:
+                        continue
+        if values:
             return values
-        for paragraph in variation.select("p"):
-            text = paragraph.get_text(" ", strip=True)
-            numbers = re.findall(r"\d[\d,.]*", text)
-            if numbers:
-                try:
-                    values.append(int(float(numbers[-1].replace(",", ""))))
-                except ValueError:
-                    continue
+
+        text = card.get_text(" ", strip=True)
+        match = re.search(
+            r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if match is None:
+            return []
+
+        for raw_value in re.findall(r"\d[\d,.]*", match.group(1)):
+            try:
+                values.append(int(float(raw_value.replace(",", ""))))
+            except ValueError:
+                continue
         return values
 
     def reset_detail_metrics(self) -> None:

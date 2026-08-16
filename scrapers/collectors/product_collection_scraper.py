@@ -70,6 +70,9 @@ class ProductCollectionScraper:
                     url="",
                     category=category_name,
                 )
+                product_url = self._card_detail_url(card, page, product)
+                if product_url:
+                    product.url = product_url
                 products.append((card, page, product))
 
         return products

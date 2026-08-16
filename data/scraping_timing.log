@@ -1709,3 +1709,40 @@ SCRAPING TIMING | stage=mapping | products=357 | seconds=0.004
 SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.006
 SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.381
 SCRAPING TIMING | stage=run_total | categories=24 | seconds=31.497
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.002
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.343
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=35.342
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=32.742
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=37.026
+SCRAPING TIMING | stage=detail_cache | requests=26 | cache_hits=0 | skipped=357 | cache_size=26 | reasons=requested_missing_code:24,requested_missing_description:18,requested_missing_fields:26,skipped_complete_single_stock:357
+SCRAPING TIMING | stage=http | requests=57 | successes=50 | errors=7 | retries=14 | detail_requests=26 | category_requests=31 | other_requests=0 | max_concurrency=16 | http_seconds=466.741 | slowest_request=15.320
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=10 | 2_5=7 | 5_10=18 | gte_10=22
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=15.320 | url=https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=15.268 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=15.254 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-escritorio/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=15.253 | url=https://stock.importacionesfacundo.com/categoria-producto/articulos-de-oficina/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=15.249 | url=https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=15.243 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=15.213 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=15.006 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=14.879 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=14.769 | url=https://stock.importacionesfacundo.com/categoria-producto/plotters-de-corte/
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.576
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.005
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.013
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.596
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=37.631

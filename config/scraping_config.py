@@ -19,10 +19,11 @@ REQUEST_TIMEOUT = 15
 MAX_RETRIES = 3
 
 # Number of concurrent HTTP workers used when enriching product detail pages.
-# The previous 14-worker baseline was stable, but the timing data shows that
-# the source site still has enough parallel capacity to test a higher budget.
+# Detail requests can use a larger budget because they are numerous and the
+# detail executor is shared across category enrichment tasks.
 SCRAPING_MAX_WORKERS = 20
 
-# Category listing requests use the same concurrency budget as detail
-# enrichment so both HTTP phases can use the available worker capacity.
-SCRAPING_CATEGORY_WORKERS = 20
+# Category listing requests use a separate, conservative budget. The source
+# site became slower and started returning errors when category listing and
+# detail enrichment both used 20 concurrent requests.
+SCRAPING_CATEGORY_WORKERS = 14

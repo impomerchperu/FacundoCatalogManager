@@ -73,14 +73,15 @@ class CategoryProductSyncService:
         """
         Scrapea todas las categorías y sincroniza el conjunto completo.
 
-        Primero obtiene todas las páginas de categoría en paralelo. Solo
-        después de terminar esa fase comienza el enriquecimiento de detalle,
-        evitando mezclar solicitudes de listado y detalle y reduciendo la
-        presión concurrente sobre el servidor origen.
+        El listado de categorías y el enriquecimiento de detalle se
+        solapan: cuando una categoría termina de listar sus tarjetas,
+        su enriquecimiento puede comenzar inmediatamente. El navegador
+        mantiene un límite HTTP global estable para evitar aumentar la
+        presión sobre el servidor origen.
 
-        El callback usa una escala estable de 0 a 100 para que la interfaz
-        pueda mostrar progreso durante ambas fases HTTP, en lugar de quedarse
-        en 0% mientras termina el listado inicial.
+        El callback usa una escala estable de 0 a 100 y combina el avance
+        de ambas fases para que la interfaz refleje trabajo real durante
+        toda la extracción.
         """
         started = time.perf_counter()
         categories = list(categories)
@@ -106,30 +107,65 @@ class CategoryProductSyncService:
 
         worker_count = min(self.category_workers, total)
         collected: list[list[Any]] = [[] for _ in categories]
+        results: list[list[Any]] = [[] for _ in categories]
         listing_started = time.perf_counter()
+        enrichment_started: float | None = None
+        listing_completed = 0
+        enrichment_completed = 0
 
-        with ThreadPoolExecutor(max_workers=worker_count) as executor:
-            future_to_index = {
-                executor.submit(
+        with (
+            ThreadPoolExecutor(max_workers=worker_count) as listing_executor,
+            ThreadPoolExecutor(max_workers=worker_count) as enrichment_executor,
+        ):
+            listing_future_to_index = {
+                listing_executor.submit(
                     self._collect_category,
                     index,
                     category,
                 ): index
                 for index, category in enumerate(categories)
             }
+            enrichment_futures: dict[Any, int] = {}
 
-            for completed, future in enumerate(
-                as_completed(future_to_index),
-                start=1,
-            ):
-                index = future_to_index[future]
+            for future in as_completed(listing_future_to_index):
+                index = listing_future_to_index[future]
                 collected[index] = cast(list[Any], future.result())
+                listing_completed += 1
+
+                if enrichment_started is None:
+                    enrichment_started = time.perf_counter()
+
+                enrichment_future = enrichment_executor.submit(
+                    self._enrich_category,
+                    index,
+                    categories[index],
+                    collected[index],
+                )
+                enrichment_futures[enrichment_future] = index
 
                 if progress_callback:
-                    listing_progress = 5 + int(completed * 35 / total)
-                    progress_callback(min(40, listing_progress), 100)
+                    progress = 5 + int(
+                        listing_completed * 35 / total
+                    ) + int(
+                        enrichment_completed * 50 / total
+                    )
+                    progress_callback(min(90, progress), 100)
 
-        listing_elapsed = time.perf_counter() - listing_started
+            listing_elapsed = time.perf_counter() - listing_started
+
+            for future in as_completed(enrichment_futures):
+                index = enrichment_futures[future]
+                results[index] = cast(list[Any], future.result())
+                enrichment_completed += 1
+
+                if progress_callback:
+                    progress = 5 + int(
+                        listing_completed * 35 / total
+                    ) + int(
+                        enrichment_completed * 50 / total
+                    )
+                    progress_callback(min(90, progress), 100)
+
         collected_count = sum(len(products) for products in collected)
         _log_timing(
             "SCRAPING TIMING | stage=category_listing | categories=%d "
@@ -139,32 +175,11 @@ class CategoryProductSyncService:
             listing_elapsed,
         )
 
-        results: list[list[Any]] = [[] for _ in categories]
-        enrichment_started = time.perf_counter()
-
-        with ThreadPoolExecutor(max_workers=worker_count) as executor:
-            future_to_index = {
-                executor.submit(
-                    self._enrich_category,
-                    index,
-                    category,
-                    collected[index],
-                ): index
-                for index, category in enumerate(categories)
-            }
-
-            for completed, future in enumerate(
-                as_completed(future_to_index),
-                start=1,
-            ):
-                index = future_to_index[future]
-                results[index] = cast(list[Any], future.result())
-
-                if progress_callback:
-                    enrichment_progress = 40 + int(completed * 50 / total)
-                    progress_callback(min(90, enrichment_progress), 100)
-
-        enrichment_elapsed = time.perf_counter() - enrichment_started
+        enrichment_elapsed = (
+            time.perf_counter() - enrichment_started
+            if enrichment_started is not None
+            else 0.0
+        )
         products = [
             product
             for category_products in results
@@ -215,7 +230,7 @@ class CategoryProductSyncService:
         )
 
     def _enrich_category(self, index, category, collected):
-        """Enriquece una categoría después de completar todos los listados."""
+        """Enriquece una categoría sin bloquear el listado de las restantes."""
         del index
 
         scraper = getattr(self.scraper_service, "scraper", None)

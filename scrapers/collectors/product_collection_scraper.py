@@ -101,8 +101,61 @@ class ProductCollectionScraper:
                 category_name,
             )
             for card, page_url, product in products
+            if not self._has_complete_card_color_stock(card, product)
         ]
-        return [future.result() for future in futures]
+        future_results = [future.result() for future in futures]
+
+        skipped = [
+            product
+            for card, _page_url, product in products
+            if self._has_complete_card_color_stock(card, product)
+        ]
+        if not futures:
+            return skipped
+
+        results_by_identity = {
+            id(product): result
+            for result in future_results
+            for product in [result]
+        }
+        result: list[Any] = []
+        for card, page_url, product in products:
+            if self._has_complete_card_color_stock(card, product):
+                result.append(product)
+            else:
+                result.append(results_by_identity.get(id(product), product))
+        return result
+
+    @staticmethod
+    def _has_complete_card_color_stock(card: Any, product: Any) -> bool:
+        """Evita el detalle cuando la tarjeta ya trae color y stock alineados."""
+        color_stock = dict(getattr(product, "color_stock", {}) or {})
+        if not color_stock:
+            return False
+
+        stock_values: list[int] = []
+        for element in card.select(".variaciones-producto p"):
+            text = element.get_text(strip=True)
+            if text.isdigit():
+                stock_values.append(int(text))
+
+        if not stock_values:
+            text = card.get_text(" ", strip=True)
+            match = re.search(
+                r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
+                text,
+                flags=re.IGNORECASE,
+            )
+            if match is not None:
+                for raw_value in re.findall(r"\d[\d,.]*", match.group(1)):
+                    try:
+                        stock_values.append(
+                            int(float(raw_value.replace(",", "")))
+                        )
+                    except ValueError:
+                        continue
+
+        return len(color_stock) == len(stock_values)
 
     def _extract_cards(self, soup: Any) -> list[Any]:
         if callable(self.card_extractor):

@@ -1,10 +1,11 @@
 import re
+from typing import ClassVar
 
 
 class PriceExtractor:
     """Extrae los tres precios de las tarjetas de producto."""
 
-    _FIELDS = {
+    _FIELDS: ClassVar[dict[str, str]] = {
         "muestra": "sample",
         "ciento": "hundred",
         "millar": "thousand",

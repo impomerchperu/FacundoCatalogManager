@@ -194,7 +194,7 @@ class ProductCollectionScraper:
         """Clasifica por qué una tarjeta todavía necesita su página de detalle."""
         stock_values = cls._stock_values(card)
         if len(stock_values) != 1:
-            return "multiple_or_missing_stock"
+            return cls._stock_request_reason(card, stock_values)
 
         required_fields = (
             "code",
@@ -212,6 +212,27 @@ class ProductCollectionScraper:
             return "missing_prices"
 
         return "other"
+
+    @staticmethod
+    def _stock_request_reason(card: Any, stock_values: list[int]) -> str:
+        """Clasifica solicitudes según la forma visible del stock de la tarjeta."""
+        if not stock_values:
+            return "missing_stock"
+
+        variation = card.select_one(".variaciones-producto")
+        if variation is not None:
+            labeled_values = [
+                paragraph
+                for paragraph in variation.select("p")
+                if re.match(
+                    r"^.+?\s*[:\-]\s*\d[\d,.]*\s*$",
+                    paragraph.get_text(" ", strip=True),
+                )
+            ]
+            if len(labeled_values) == len(stock_values):
+                return "multiple_labeled_stock"
+
+        return "multiple_numeric_stock"
 
     @classmethod
     def _missing_price_fields(cls, card: Any, product: Any) -> tuple[str, ...]:

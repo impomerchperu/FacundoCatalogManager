@@ -92,39 +92,28 @@ class ProductCollectionScraper:
         if browser is not None and hasattr(browser, "enable_thread_sessions"):
             browser.enable_thread_sessions()
 
-        futures = [
-            self._detail_executor.submit(
-                self._enrich_from_detail_page,
-                card,
-                page_url,
-                product,
-                category_name,
-            )
-            for card, page_url, product in products
-            if not self._has_complete_card_color_stock(card, product)
-        ]
-        future_results = [future.result() for future in futures]
-
-        skipped = [
-            product
-            for card, _page_url, product in products
-            if self._has_complete_card_color_stock(card, product)
-        ]
-        if not futures:
-            return skipped
-
-        results_by_identity = {
-            id(product): result
-            for result in future_results
-            for product in [result]
-        }
-        result: list[Any] = []
-        for card, page_url, product in products:
+        results = list(products)
+        futures: list[tuple[int, Future[Any]]] = []
+        for index, (card, page_url, product) in enumerate(products):
             if self._has_complete_card_color_stock(card, product):
-                result.append(product)
-            else:
-                result.append(results_by_identity.get(id(product), product))
-        return result
+                continue
+            futures.append(
+                (
+                    index,
+                    self._detail_executor.submit(
+                        self._enrich_from_detail_page,
+                        card,
+                        page_url,
+                        product,
+                        category_name,
+                    ),
+                )
+            )
+
+        for index, future in futures:
+            results[index] = future.result()
+
+        return [product for _card, _page_url, product in results]
 
     @staticmethod
     def _has_complete_card_color_stock(card: Any, product: Any) -> bool:

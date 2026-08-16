@@ -2,6 +2,7 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Any, cast
 
 from config.scraping_config import SCRAPING_CATEGORY_WORKERS
 from models.scraping.sync_result import SyncResult
@@ -104,7 +105,7 @@ class CategoryProductSyncService:
             return self.sync_products([])
 
         worker_count = min(self.category_workers, total)
-        collected: list[list[tuple]] = [[] for _ in categories]
+        collected: list[list[Any]] = [[] for _ in categories]
         listing_started = time.perf_counter()
 
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
@@ -122,7 +123,7 @@ class CategoryProductSyncService:
                 start=1,
             ):
                 index = future_to_index[future]
-                collected[index] = future.result()
+                collected[index] = cast(list[Any], future.result())
 
                 if progress_callback:
                     listing_progress = 5 + int(completed * 35 / total)
@@ -138,7 +139,7 @@ class CategoryProductSyncService:
             listing_elapsed,
         )
 
-        results: list[list] = [[] for _ in categories]
+        results: list[list[Any]] = [[] for _ in categories]
         enrichment_started = time.perf_counter()
 
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
@@ -157,7 +158,7 @@ class CategoryProductSyncService:
                 start=1,
             ):
                 index = future_to_index[future]
-                results[index] = future.result()
+                results[index] = cast(list[Any], future.result())
 
                 if progress_callback:
                     enrichment_progress = 40 + int(completed * 50 / total)
@@ -255,7 +256,7 @@ class CategoryProductSyncService:
         if not callable(get_metrics):
             return
 
-        metrics = get_metrics()
+        metrics = cast(dict[str, Any], get_metrics())
         reason_counts = metrics.get("detail_reason_counts", {})
         reason_text = ",".join(
             f"{key}:{value}" for key, value in sorted(reason_counts.items())
@@ -282,7 +283,7 @@ class CategoryProductSyncService:
         if not callable(get_metrics):
             return
 
-        metrics = get_metrics()
+        metrics = cast(dict[str, Any], get_metrics())
         _log_timing(
             "SCRAPING TIMING | stage=http | requests=%d "
             "| successes=%d | errors=%d | retries=%d "
@@ -323,7 +324,7 @@ class CategoryProductSyncService:
                 url,
             )
 
-    def sync_products(self, products):
+    def sync_products(self, products: list[Any]):
         """Procesa y sincroniza un conjunto consolidado de productos scrapeados."""
         total_started = time.perf_counter()
 
@@ -335,7 +336,7 @@ class CategoryProductSyncService:
                 None,
             )
             if callable(consolidate):
-                products = consolidate(products)
+                products = cast(list[Any], consolidate(products))
             consolidate_elapsed = time.perf_counter() - consolidate_started
             _log_timing(
                 "SCRAPING TIMING | stage=consolidation | products=%d "
@@ -346,7 +347,9 @@ class CategoryProductSyncService:
 
             if self.image_sync_adapter:
                 image_started = time.perf_counter()
-                products = self.image_sync_adapter.sync_products(products)
+                products = cast(
+                    list[Any], self.image_sync_adapter.sync_products(products)
+                )
                 image_elapsed = time.perf_counter() - image_started
                 _log_timing(
                     "SCRAPING TIMING | stage=images | products=%d "

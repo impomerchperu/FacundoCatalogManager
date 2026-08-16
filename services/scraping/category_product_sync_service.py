@@ -80,7 +80,7 @@ class CategoryProductSyncService:
         categories = list(categories)
         total = len(categories)
 
-        self._reset_detail_metrics()
+        self._reset_scraping_metrics()
 
         if not categories:
             _log_timing(
@@ -126,11 +126,14 @@ class CategoryProductSyncService:
             scraping_elapsed,
         )
         self._log_detail_metrics()
+        self._log_http_metrics()
 
         return self.sync_products(products)
 
     def _scrape_category(self, index, category):
         """Extrae una categoría en un worker independiente."""
+        del index
+
         category_started = time.perf_counter()
         products = self.scraper_service.scrape_category(
             category.url,
@@ -145,12 +148,22 @@ class CategoryProductSyncService:
         )
         return products
 
-    def _reset_detail_metrics(self):
-        """Reinicia métricas del scraper antes de una ejecución completa."""
+    def _reset_scraping_metrics(self):
+        """Reinicia métricas de scraping antes de una ejecución completa."""
         scraper = getattr(self.scraper_service, "scraper", None)
-        reset = getattr(scraper, "reset_detail_metrics", None)
-        if callable(reset):
-            reset()
+
+        reset_detail = getattr(scraper, "reset_detail_metrics", None)
+        if callable(reset_detail):
+            reset_detail()
+
+        browser = getattr(self.scraper_service, "browser", None)
+        if browser is None:
+            category_scraper = getattr(scraper, "category_scraper", None)
+            browser = getattr(category_scraper, "browser", None)
+
+        reset_http = getattr(browser, "reset_http_metrics", None)
+        if callable(reset_http):
+            reset_http()
 
     def _log_detail_metrics(self):
         """Registra métricas de peticiones y reutilización de páginas de detalle."""
@@ -166,6 +179,37 @@ class CategoryProductSyncService:
             metrics.get("detail_requests", 0),
             metrics.get("detail_cache_hits", 0),
             metrics.get("detail_cache_size", 0),
+        )
+
+    def _log_http_metrics(self):
+        """Registra métricas HTTP reales y concurrencia efectiva."""
+        scraper = getattr(self.scraper_service, "scraper", None)
+        category_scraper = getattr(scraper, "category_scraper", None)
+        browser = getattr(category_scraper, "browser", None)
+        if browser is None:
+            browser = getattr(self.scraper_service, "browser", None)
+
+        get_metrics = getattr(browser, "get_http_metrics", None)
+        if not callable(get_metrics):
+            return
+
+        metrics = get_metrics()
+        _log_timing(
+            "SCRAPING TIMING | stage=http | requests=%d "
+            "| successes=%d | errors=%d | retries=%d "
+            "| detail_requests=%d | category_requests=%d "
+            "| other_requests=%d | max_concurrency=%d "
+            "| http_seconds=%.3f | slowest_request=%.3f",
+            metrics.get("http_requests", 0),
+            metrics.get("http_successes", 0),
+            metrics.get("http_errors", 0),
+            metrics.get("http_retries", 0),
+            metrics.get("detail_http_requests", 0),
+            metrics.get("category_http_requests", 0),
+            metrics.get("other_http_requests", 0),
+            metrics.get("http_max_in_flight", 0),
+            metrics.get("http_total_seconds", 0.0),
+            metrics.get("http_max_seconds", 0.0),
         )
 
     def sync_products(self, products):

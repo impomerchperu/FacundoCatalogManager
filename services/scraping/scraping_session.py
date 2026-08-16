@@ -14,6 +14,7 @@ class ScrapingSessionResult:
     created: int = 0
     updated: int = 0
     unchanged: int = 0
+    deleted: int = 0
     errors: list[str] = field(default_factory=list)
     products: list = field(default_factory=list)
     changes: list[dict] = field(default_factory=list)
@@ -133,6 +134,7 @@ class ScrapingSession:
         self.result.created = sync_result.created
         self.result.updated = sync_result.updated
         self.result.unchanged = sync_result.unchanged
+        self.result.deleted = sync_result.deleted
         self.result.changes = list(sync_result.changes)
         self.result.errors.extend(sync_result.errors)
 
@@ -154,6 +156,7 @@ class ScrapingSession:
             created=self.result.created,
             updated=self.result.updated,
             unchanged=self.result.unchanged,
+            deleted=self.result.deleted,
             errors=len(self.result.errors),
             status=self.result.status(),
             message=message,

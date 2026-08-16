@@ -212,6 +212,28 @@ class CategoryProductSyncService:
             metrics.get("http_max_seconds", 0.0),
         )
 
+        buckets = metrics.get("latency_buckets", {})
+        _log_timing(
+            "SCRAPING TIMING | stage=http_latency | lt_0_5=%d "
+            "| 0_5_1=%d | 1_2=%d | 2_5=%d | 5_10=%d | gte_10=%d",
+            buckets.get("lt_0_5", 0),
+            buckets.get("0_5_1", 0),
+            buckets.get("1_2", 0),
+            buckets.get("2_5", 0),
+            buckets.get("5_10", 0),
+            buckets.get("gte_10", 0),
+        )
+
+        slowest_requests = metrics.get("slowest_requests", [])
+        for index, (elapsed, url) in enumerate(slowest_requests, start=1):
+            _log_timing(
+                "SCRAPING TIMING | stage=http_slowest | rank=%d "
+                "| seconds=%.3f | url=%s",
+                index,
+                elapsed,
+                url,
+            )
+
     def sync_products(self, products):
         """Procesa y sincroniza un conjunto consolidado de productos scrapeados."""
         total_started = time.perf_counter()

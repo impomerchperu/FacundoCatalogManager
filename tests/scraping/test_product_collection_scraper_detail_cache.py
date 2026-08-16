@@ -107,6 +107,8 @@ def test_complete_card_color_stock_skips_detail_request():
             </a>
             <p class="brxe-a26f34">FB-1234</p>
             <div class="variaciones-producto">
+                <span data-color="Rojo">Rojo</span>
+                <span data-color="Azul">Azul</span>
                 <p>Rojo: 10</p>
                 <p>Azul: 20</p>
             </div>

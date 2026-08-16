@@ -2,37 +2,82 @@ import re
 
 
 class PriceExtractor:
+    """Extrae los tres precios de las tarjetas de producto."""
+
+    _FIELDS = {
+        "muestra": "sample",
+        "ciento": "hundred",
+        "millar": "thousand",
+    }
+
     def _extract_price_block(self, soup, label):
+        """Extrae un precio a partir de un bloque etiquetado."""
+        blocks = soup.select(".content-precio")
+        label_normalized = label.casefold()
+
+        for block in blocks:
+            title = block.find(["h3", "h4"])
+            if title is None:
+                continue
+
+            title_text = " ".join(title.get_text(" ", strip=True).split())
+            if label_normalized not in title_text.casefold():
+                continue
+
+            value = block.find_all(["h3", "h4"])
+            for element in reversed(value):
+                if element is title:
+                    continue
+                price = self._parse_price(element.get_text(" ", strip=True))
+                if price is not None:
+                    return price
+
+            price = self._parse_price(block.get_text(" ", strip=True))
+            if price is not None:
+                return price
 
         heading = soup.find(
-            lambda tag: tag.name in ["h3", "h4"] and label in tag.get_text()
+            lambda tag: tag.name in ["h3", "h4"]
+            and label_normalized in tag.get_text(" ", strip=True).casefold()
         )
-
-        if not heading:
+        if heading is None:
             return 0.0
 
         price = heading.find_next("h4")
-
-        if not price:
+        if price is None:
             return 0.0
 
-        text = price.get_text(strip=True)
+        return self._parse_price(price.get_text(" ", strip=True)) or 0.0
 
-        numbers = re.findall(r"\d+(?:\.\d+)?", text)
+    @staticmethod
+    def _parse_price(text):
+        """Convierte importes monetarios comunes del sitio a float."""
+        cleaned = text.replace("S/", "").replace("US$", "")
+        cleaned = cleaned.replace("USD", "").replace("$", "").strip()
 
-        if numbers:
-            return float(numbers[0])
+        match = re.search(r"\d[\d,.]*", cleaned)
+        if match is None:
+            return None
 
-        return 0.0
+        raw = match.group(0)
+        if "," in raw and "." in raw:
+            if raw.rfind(",") > raw.rfind("."):
+                raw = raw.replace(".", "").replace(",", ".")
+            else:
+                raw = raw.replace(",", "")
+        elif "," in raw:
+            raw = raw.replace(",", ".")
+
+        try:
+            return float(raw)
+        except ValueError:
+            return None
 
     def extract_sample(self, soup):
-
         return self._extract_price_block(soup, "Precio Muestra")
 
     def extract_hundred(self, soup):
-
         return self._extract_price_block(soup, "Precio Ciento")
 
     def extract_thousand(self, soup):
-
         return self._extract_price_block(soup, "Precio Millar")

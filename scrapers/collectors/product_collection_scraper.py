@@ -95,8 +95,6 @@ class ProductCollectionScraper:
         results = list(products)
         futures: list[tuple[int, Future[Any]]] = []
         for index, (card, page_url, product) in enumerate(products):
-            if self._has_complete_card_color_stock(card, product):
-                continue
             futures.append(
                 (
                     index,
@@ -111,7 +109,11 @@ class ProductCollectionScraper:
             )
 
         for index, future in futures:
-            results[index] = future.result()
+            results[index] = (
+                products[index][0],
+                products[index][1],
+                future.result(),
+            )
 
         return [product for _card, _page_url, product in results]
 

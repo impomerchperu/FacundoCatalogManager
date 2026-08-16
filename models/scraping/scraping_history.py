@@ -12,6 +12,7 @@ class ScrapingHistory:
     created: int = 0
     updated: int = 0
     unchanged: int = 0
+    deleted: int = 0
     errors: int = 0
     status: str = "SUCCESS"
     message: str = ""

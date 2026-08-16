@@ -27,9 +27,15 @@ class CatalogSyncService:
         self.repository = repository
         self.diff_service = diff_service
 
-    def sync(self, products):
+    def sync(self, products, prune_missing: bool = False):
+        """Sincroniza productos y opcionalmente elimina los ausentes del origen."""
         result = SyncResult()
         consolidated = self.consolidate_products(products)
+        scraped_codes = {
+            str(product.code).strip()
+            for product in consolidated
+            if str(getattr(product, "code", "")).strip()
+        }
 
         for product in consolidated:
             result.increment_processed()
@@ -74,11 +80,34 @@ class CatalogSyncService:
 
             result.unchanged += 1
 
+        if prune_missing:
+            self._remove_missing_products(scraped_codes, result)
+
         result.finish()
         return result
 
-    def synchronize(self, products):
-        return self.sync(products)
+    def synchronize(self, products, prune_missing: bool = False):
+        return self.sync(products, prune_missing=prune_missing)
+
+    def _remove_missing_products(
+        self,
+        scraped_codes: set[str],
+        result: SyncResult,
+    ) -> None:
+        """Elimina del catálogo los productos que ya no aparecen en el origen."""
+        for existing in self.repository.get_all():
+            code = str(getattr(existing, "code", "")).strip()
+            if not code or code in scraped_codes:
+                continue
+
+            result.deleted += 1
+            result.changes.append({
+                "type": "DELETED",
+                "code": code,
+                "name": getattr(existing, "name", ""),
+                "changes": [],
+            })
+            self.repository.delete_by_code(code)
 
     @classmethod
     def consolidate_products(cls, products):

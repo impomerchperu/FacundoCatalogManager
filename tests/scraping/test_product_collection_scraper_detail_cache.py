@@ -1,3 +1,5 @@
+from typing import Any
+
 from models.scraping.category import Category
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 from scrapers.extractors.category_product_extractor import CategoryProductExtractor
@@ -5,14 +7,14 @@ from scrapers.extractors.product_extractor import ProductExtractor
 
 
 class SharedProductCategoryScraper:
-    def __init__(self):
-        self.detail_requests = []
-        self.html_override = None
+    def __init__(self) -> None:
+        self.detail_requests: list[str] = []
+        self.html_override: str | None = None
 
-    def get_category_pages(self, url):
+    def get_category_pages(self, url: str) -> list[str]:
         return [url]
 
-    def get_html(self, url):
+    def get_html(self, url: str) -> str:
         if self.html_override is not None:
             return self.html_override
 

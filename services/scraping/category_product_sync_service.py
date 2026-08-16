@@ -76,12 +76,19 @@ class CategoryProductSyncService:
         después de terminar esa fase comienza el enriquecimiento de detalle,
         evitando mezclar solicitudes de listado y detalle y reduciendo la
         presión concurrente sobre el servidor origen.
+
+        El callback usa una escala estable de 0 a 100 para que la interfaz
+        pueda mostrar progreso durante ambas fases HTTP, en lugar de quedarse
+        en 0% mientras termina el listado inicial.
         """
         started = time.perf_counter()
         categories = list(categories)
         total = len(categories)
 
         self._reset_scraping_metrics()
+
+        if progress_callback:
+            progress_callback(0, 100)
 
         if not categories:
             _log_timing(
@@ -92,6 +99,8 @@ class CategoryProductSyncService:
                 "SCRAPING TIMING | stage=category_extraction | categories=0 "
                 "| products=0 | seconds=0.000",
             )
+            if progress_callback:
+                progress_callback(100, 100)
             return self.sync_products([])
 
         worker_count = min(self.category_workers, total)
@@ -108,9 +117,15 @@ class CategoryProductSyncService:
                 for index, category in enumerate(categories)
             }
 
+            completed = 0
             for future in as_completed(future_to_index):
                 index = future_to_index[future]
                 collected[index] = future.result()
+                completed += 1
+
+                if progress_callback:
+                    listing_progress = 5 + int(completed * 35 / total)
+                    progress_callback(min(40, listing_progress), 100)
 
         listing_elapsed = time.perf_counter() - listing_started
         collected_count = sum(len(products) for products in collected)
@@ -143,7 +158,8 @@ class CategoryProductSyncService:
                 completed += 1
 
                 if progress_callback:
-                    progress_callback(completed, total)
+                    enrichment_progress = 40 + int(completed * 50 / total)
+                    progress_callback(min(90, enrichment_progress), 100)
 
         enrichment_elapsed = time.perf_counter() - enrichment_started
         products = [
@@ -171,7 +187,15 @@ class CategoryProductSyncService:
         self._log_detail_metrics()
         self._log_http_metrics()
 
-        return self.sync_products(products)
+        if progress_callback:
+            progress_callback(95, 100)
+
+        result = self.sync_products(products)
+
+        if progress_callback:
+            progress_callback(100, 100)
+
+        return result
 
     def _collect_category(self, index, category):
         """Obtiene las tarjetas de una categoría sin solicitar detalles."""

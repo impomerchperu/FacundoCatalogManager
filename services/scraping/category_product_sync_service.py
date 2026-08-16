@@ -226,7 +226,7 @@ class CategoryProductSyncService:
         if callable(enrich_category_products):
             return enrich_category_products(collected, category.name)
 
-        return self.scraper_service.scrape_category(
+        return self.scraping_service.scrape_category(
             category.url,
             category.name,
         )
@@ -256,13 +256,18 @@ class CategoryProductSyncService:
             return
 
         metrics = get_metrics()
+        reason_counts = metrics.get("detail_reason_counts", {})
+        reason_text = ",".join(
+            f"{key}:{value}" for key, value in sorted(reason_counts.items())
+        ) or "none"
         _log_timing(
             "SCRAPING TIMING | stage=detail_cache | requests=%d "
-            "| cache_hits=%d | skipped=%d | cache_size=%d",
+            "| cache_hits=%d | skipped=%d | cache_size=%d | reasons=%s",
             metrics.get("detail_requests", 0),
             metrics.get("detail_cache_hits", 0),
             metrics.get("detail_skipped", 0),
             metrics.get("detail_cache_size", 0),
+            reason_text,
         )
 
     def _log_http_metrics(self):

@@ -115,9 +115,7 @@ class ProductCollectionScraper:
                 product.url = self._card_detail_url(card, page_url, product)
                 with self._detail_metrics_lock:
                     self._detail_skipped += 1
-                    self._record_detail_reason(
-                        f"skipped_{skip_reason}",
-                    )
+                    self._record_detail_reason(f"skipped_{skip_reason}")
                 continue
 
             request_reason = self._detail_request_reason(card, product)
@@ -164,24 +162,20 @@ class ProductCollectionScraper:
             "description",
             "image_url",
         )
-        missing_fields = [
-            field
+        if any(
+            not str(getattr(product, field, "")).strip()
             for field in required_fields
-            if not str(getattr(product, field, "")).strip()
-        ]
-        if missing_fields:
+        ):
             return None
 
-        missing_prices = [
-            field
+        if any(
+            float(getattr(product, field, 0.0) or 0.0) <= 0
             for field in (
                 "price_sample",
                 "price_hundred",
                 "price_thousand",
             )
-            if float(getattr(product, field, 0.0) or 0.0) <= 0
-        ]
-        if missing_prices:
+        ):
             return None
 
         return "complete_single_stock"
@@ -222,7 +216,6 @@ class ProductCollectionScraper:
         """Evita el detalle cuando la tarjeta ya contiene datos suficientes."""
         return cls._detail_skip_reason(card, product) is not None
 
-    @staticmethod
     def _record_detail_reason(self, reason: str) -> None:
         """Acumula una clasificación de decisión de enriquecimiento."""
         self._detail_reason_counts[reason] = (

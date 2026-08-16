@@ -34,6 +34,15 @@ class Browser:
         self._detail_http_requests = 0
         self._category_http_requests = 0
         self._other_http_requests = 0
+        self._latency_buckets = {
+            "lt_0_5": 0,
+            "0_5_1": 0,
+            "1_2": 0,
+            "2_5": 0,
+            "5_10": 0,
+            "gte_10": 0,
+        }
+        self._slowest_requests: list[tuple[float, str]] = []
 
     def _get_session(self):
         """Return a session safe for the current scraping worker."""
@@ -76,7 +85,7 @@ class Browser:
                     response.raise_for_status()
 
                 elapsed = time.perf_counter() - started
-                self._finish_request(elapsed, success=True)
+                self._finish_request(elapsed, success=True, url=url)
 
                 if attempt:
                     self._record_retry()
@@ -88,7 +97,7 @@ class Browser:
 
             except requests.exceptions.RequestException as error:
                 elapsed = time.perf_counter() - started
-                self._finish_request(elapsed, success=False)
+                self._finish_request(elapsed, success=False, url=url)
                 last_error = error
 
                 if attempt < self.max_retries - 1:
@@ -115,7 +124,7 @@ class Browser:
             else:
                 self._other_http_requests += 1
 
-    def _finish_request(self, elapsed, success):
+    def _finish_request(self, elapsed, success, url):
         with self._metrics_lock:
             self._http_in_flight = max(0, self._http_in_flight - 1)
             self._http_total_seconds += elapsed
@@ -128,6 +137,24 @@ class Browser:
                 self._http_successes += 1
             else:
                 self._http_errors += 1
+
+            if elapsed < 0.5:
+                bucket = "lt_0_5"
+            elif elapsed < 1:
+                bucket = "0_5_1"
+            elif elapsed < 2:
+                bucket = "1_2"
+            elif elapsed < 5:
+                bucket = "2_5"
+            elif elapsed < 10:
+                bucket = "5_10"
+            else:
+                bucket = "gte_10"
+            self._latency_buckets[bucket] += 1
+
+            self._slowest_requests.append((elapsed, str(url)))
+            self._slowest_requests.sort(reverse=True)
+            del self._slowest_requests[10:]
 
     def _record_retry(self):
         with self._metrics_lock:
@@ -148,6 +175,8 @@ class Browser:
                 "detail_http_requests": self._detail_http_requests,
                 "category_http_requests": self._category_http_requests,
                 "other_http_requests": self._other_http_requests,
+                "latency_buckets": dict(self._latency_buckets),
+                "slowest_requests": list(self._slowest_requests),
             }
 
     def reset_http_metrics(self):
@@ -164,3 +193,12 @@ class Browser:
             self._detail_http_requests = 0
             self._category_http_requests = 0
             self._other_http_requests = 0
+            self._latency_buckets = {
+                "lt_0_5": 0,
+                "0_5_1": 0,
+                "1_2": 0,
+                "2_5": 0,
+                "5_10": 0,
+                "gte_10": 0,
+            }
+            self._slowest_requests = []

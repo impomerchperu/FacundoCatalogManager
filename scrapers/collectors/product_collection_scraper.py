@@ -18,6 +18,11 @@ class ProductCollectionScraper:
         "price_hundred",
         "price_thousand",
     )
+    _PRICE_LABELS = {
+        "price_sample": "precio muestra",
+        "price_hundred": "precio ciento",
+        "price_thousand": "precio millar",
+    }
 
     def __init__(
         self,
@@ -128,9 +133,9 @@ class ProductCollectionScraper:
             with self._detail_metrics_lock:
                 self._record_detail_reason(f"requested_{request_reason}")
                 if request_reason == "missing_prices":
-                    for field in self._missing_price_fields(product):
+                    for field in self._missing_price_fields(card, product):
                         self._record_detail_reason(
-                            f"requested_missing_{field}"
+                            f"requested_missing_{field.removeprefix('price_')}"
                         )
             futures.append(
                 (
@@ -179,7 +184,7 @@ class ProductCollectionScraper:
         ):
             return None
 
-        if cls._missing_price_fields(product):
+        if cls._missing_price_fields(card, product):
             return None
 
         return "complete_single_stock"
@@ -203,18 +208,20 @@ class ProductCollectionScraper:
         ):
             return "missing_fields"
 
-        if cls._missing_price_fields(product):
+        if cls._missing_price_fields(card, product):
             return "missing_prices"
 
         return "other"
 
     @classmethod
-    def _missing_price_fields(cls, product: Any) -> tuple[str, ...]:
-        """Devuelve los precios ausentes o no positivos de una tarjeta."""
+    def _missing_price_fields(cls, card: Any, product: Any) -> tuple[str, ...]:
+        """Devuelve solo precios ausentes que la tarjeta realmente anuncia."""
+        card_text = " ".join(card.stripped_strings).casefold()
         return tuple(
             field
             for field in cls._PRICE_FIELDS
             if float(getattr(product, field, 0.0) or 0.0) <= 0
+            and cls._PRICE_LABELS[field] in card_text
         )
 
     @classmethod

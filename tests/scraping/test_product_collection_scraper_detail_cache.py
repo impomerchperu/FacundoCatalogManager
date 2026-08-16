@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from models.scraping.category import Category
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 from scrapers.extractors.category_product_extractor import CategoryProductExtractor
@@ -202,3 +204,105 @@ def test_detail_reason_metrics_identify_missing_card_data():
     metrics = scraper.get_detail_metrics()
     assert metrics["detail_requests"] == 1
     assert metrics["detail_reason_counts"] == {"requested_missing_fields": 1}
+
+
+def test_detail_merge_fills_only_missing_fields():
+    product = SimpleNamespace(
+        code="FB-1237",
+        name="Producto de tarjeta",
+        description="",
+        image_url="https://example.com/card.jpg",
+        image_path="",
+        image_hash="",
+        content_hash="",
+        price=0.0,
+        price_sample=0.0,
+        price_hundred=700.0,
+        price_thousand=0.0,
+        stock=25,
+        scraped_at=None,
+    )
+    detailed_product = SimpleNamespace(
+        code="FB-OTRO",
+        name="Nombre del detalle",
+        description="Descripción completa",
+        image_url="https://example.com/detail.jpg",
+        image_path="images/FB-1237.jpg",
+        image_hash="detail-hash",
+        content_hash="content-hash",
+        price=8.0,
+        price_sample=8.0,
+        price_hundred=650.0,
+        price_thousand=6000.0,
+        stock=40,
+        scraped_at="2026-08-15T00:00:00",
+    )
+
+    ProductCollectionScraper._merge_missing_detail_fields(
+        product, detailed_product
+    )
+
+    assert product.code == "FB-1237"
+    assert product.name == "Producto de tarjeta"
+    assert product.description == "Descripción completa"
+    assert product.image_url == "https://example.com/card.jpg"
+    assert product.image_path == "images/FB-1237.jpg"
+    assert product.image_hash == "detail-hash"
+    assert product.content_hash == "content-hash"
+    assert product.price == 8.0
+    assert product.price_sample == 8.0
+    assert product.price_hundred == 700.0
+    assert product.price_thousand == 6000.0
+    assert product.stock == 25
+    assert product.scraped_at == "2026-08-15T00:00:00"
+
+
+def test_detail_merge_does_not_replace_valid_card_values():
+    product = SimpleNamespace(
+        code="FB-1238",
+        name="Nombre correcto",
+        description="Descripción correcta",
+        image_url="https://example.com/card.jpg",
+        image_path="images/card.jpg",
+        image_hash="card-hash",
+        content_hash="card-content-hash",
+        price=5.0,
+        price_sample=5.0,
+        price_hundred=500.0,
+        price_thousand=5000.0,
+        stock=12,
+        scraped_at="2026-08-14T00:00:00",
+    )
+    detailed_product = SimpleNamespace(
+        code="FB-DETAIL",
+        name="Nombre diferente",
+        description="Descripción diferente",
+        image_url="https://example.com/detail.jpg",
+        image_path="images/detail.jpg",
+        image_hash="detail-hash",
+        content_hash="detail-content-hash",
+        price=9.0,
+        price_sample=9.0,
+        price_hundred=900.0,
+        price_thousand=9000.0,
+        stock=99,
+        scraped_at="2026-08-15T00:00:00",
+    )
+
+    ProductCollectionScraper._merge_missing_detail_fields(
+        product, detailed_product
+    )
+
+    assert product.code == "FB-1238"
+    assert product.name == "Nombre correcto"
+    assert product.description == "Descripción correcta"
+    assert product.image_url == "https://example.com/card.jpg"
+    assert product.image_path == "images/card.jpg"
+    assert product.image_hash == "card-hash"
+    assert product.content_hash == "card-content-hash"
+    assert product.price == 5.0
+    assert product.price_sample == 5.0
+    assert product.price_hundred == 500.0
+    assert product.price_thousand == 5000.0
+    assert product.stock == 12
+    assert product.scraped_at == "2026-08-14T00:00:00"

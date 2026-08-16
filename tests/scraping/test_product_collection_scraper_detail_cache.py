@@ -201,4 +201,4 @@ def test_detail_reason_metrics_identify_missing_card_data():
 
     metrics = scraper.get_detail_metrics()
     assert metrics["detail_requests"] == 1
-    assert metrics["detail_reason_counts"] == {"needs_detail_missing_fields": 0}
+    assert metrics["detail_reason_counts"] == {}

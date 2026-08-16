@@ -106,7 +106,7 @@ class ProductCollectionScraper:
         results = list(products)
         futures: list[tuple[int, Future[Any]]] = []
         for index, (card, page_url, product) in enumerate(products):
-            if self._has_structured_card_color_stock(card, product):
+            if self._has_complete_card_color_stock(card, product):
                 product.url = self._card_detail_url(card, page_url, product)
                 with self._detail_metrics_lock:
                     self._detail_skipped += 1
@@ -138,53 +138,14 @@ class ProductCollectionScraper:
         ]
 
     @staticmethod
-    def _has_structured_card_color_stock(card: Any, product: Any) -> bool:
-        """Evita el detalle solo con stock por color estructurado y completo."""
+    def _has_complete_card_color_stock(card: Any, product: Any) -> bool:
+        """Evita el detalle cuando la tarjeta ya trae color y stock alineados."""
         color_stock = dict(getattr(product, "color_stock", {}) or {})
         if not color_stock:
             return False
 
-        variation = card.select_one(".variaciones-producto")
-        if variation is None:
-            return False
-
-        structured_colors = variation.select(
-            "[data-color], [data-value], [title], .color, "
-            ".color-name, .swatch",
-        )
-        if not structured_colors:
-            return False
-
         stock_values = ProductCollectionScraper._stock_values(card)
-        if len(color_stock) != len(stock_values):
-            return False
-
-        return ProductCollectionScraper._has_structured_stock_attributes(
-            structured_colors,
-        ) or ProductCollectionScraper._has_labeled_stock_values(variation)
-
-    @staticmethod
-    def _has_structured_stock_attributes(elements: Iterable[Any]) -> bool:
-        """Indica si algún selector de color expone stock mediante atributos."""
-        stock_keys = (
-            "data-stock",
-            "data-quantity",
-            "data-max-qty",
-            "data-max_quantity",
-        )
-        return any(
-            any(element.get(key) not in (None, "") for key in stock_keys)
-            for element in elements
-        )
-
-    @staticmethod
-    def _has_labeled_stock_values(variation: Any) -> bool:
-        """Indica si la variación contiene pares explícitos color:stock."""
-        for paragraph in variation.select("p"):
-            text = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True))
-            if re.match(r"^.+?\s*[:\-]\s*\d+\s*$", text):
-                return True
-        return False
+        return len(color_stock) == len(stock_values) and len(stock_values) > 0
 
     @staticmethod
     def _card_detail_url(card: Any, page_url: str, product: Any) -> str:
@@ -194,37 +155,6 @@ class ProductCollectionScraper:
         if isinstance(href, str) and href:
             return urljoin(page_url, href)
         return str(getattr(product, "url", ""))
-
-    @staticmethod
-    def _has_complete_card_color_stock(card: Any, product: Any) -> bool:
-        """Evita el detalle cuando la tarjeta ya trae color y stock alineados."""
-        color_stock = dict(getattr(product, "color_stock", {}) or {})
-        if not color_stock:
-            return False
-
-        stock_values: list[int] = []
-        for element in card.select(".variaciones-producto p"):
-            text = element.get_text(strip=True)
-            if text.isdigit():
-                stock_values.append(int(text))
-
-        if not stock_values:
-            text = card.get_text(" ", strip=True)
-            match = re.search(
-                r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
-                text,
-                flags=re.IGNORECASE,
-            )
-            if match is not None:
-                for raw_value in re.findall(r"\d[\d,.]*", match.group(1)):
-                    try:
-                        stock_values.append(
-                            int(float(raw_value.replace(",", "")))
-                        )
-                    except ValueError:
-                        continue
-
-        return len(color_stock) == len(stock_values)
 
     def _extract_cards(self, soup: Any) -> list[Any]:
         if callable(self.card_extractor):

@@ -1783,3 +1783,72 @@ SCRAPING TIMING | stage=mapping | products=357 | seconds=0.013
 SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.030
 SCRAPING TIMING | stage=sync_total | products=357 | seconds=1.373
 SCRAPING TIMING | stage=run_total | categories=24 | seconds=32.063
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=detail_enrichment | categories=2 | products=2 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | seconds=0.003
+SCRAPING TIMING | stage=prune_guard | enabled=true | reason=complete | products=2 | categories=2
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000 | prune=true
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=missing_code | name=Sin código | url=(sin url)
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.098
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=383 | seconds=21.294
+SCRAPING TIMING | stage=detail_enrichment | categories=24 | products=383 | seconds=19.773
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=383 | seconds=23.291
+SCRAPING TIMING | stage=detail_cache | requests=31 | cache_hits=0 | skipped=352 | cache_size=31 | reasons=requested_missing_code:29,requested_missing_description:18,requested_missing_fields:31,skipped_complete_single_stock:352
+SCRAPING TIMING | stage=http | requests=55 | successes=55 | errors=0 | terminal_errors=0 | retries=0 | detail_requests=31 | category_requests=24 | other_requests=0 | max_concurrency=20 | http_seconds=406.770 | slowest_request=14.453
+SCRAPING TIMING | stage=http_latency | lt_0_5=0 | 0_5_1=0 | 1_2=0 | 2_5=16 | 5_10=26 | gte_10=13
+SCRAPING TIMING | stage=http_slowest | rank=1 | seconds=14.453 | url=https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/
+SCRAPING TIMING | stage=http_slowest | rank=2 | seconds=14.182 | url=https://stock.importacionesfacundo.com/categoria-producto/llaveros-y-accesorios/
+SCRAPING TIMING | stage=http_slowest | rank=3 | seconds=14.081 | url=https://stock.importacionesfacundo.com/categoria-producto/papeles-fotograficos-koala-paper/
+SCRAPING TIMING | stage=http_slowest | rank=4 | seconds=13.959 | url=https://stock.importacionesfacundo.com/categoria-producto/maquinas-de-sublimacion/
+SCRAPING TIMING | stage=http_slowest | rank=5 | seconds=13.427 | url=https://stock.importacionesfacundo.com/categoria-producto/cocina-mesa-y-hogar/
+SCRAPING TIMING | stage=http_slowest | rank=6 | seconds=13.377 | url=https://stock.importacionesfacundo.com/categoria-producto/micas-para-enmicados/
+SCRAPING TIMING | stage=http_slowest | rank=7 | seconds=12.925 | url=https://stock.importacionesfacundo.com/categoria-producto/papeleria-grafipapel/
+SCRAPING TIMING | stage=http_slowest | rank=8 | seconds=12.871 | url=https://stock.importacionesfacundo.com/categoria-producto/resaltadores-publicitarios/
+SCRAPING TIMING | stage=http_slowest | rank=9 | seconds=12.004 | url=https://stock.importacionesfacundo.com/categoria-producto/porta-tacos-post-it/
+SCRAPING TIMING | stage=http_slowest | rank=10 | seconds=11.974 | url=https://stock.importacionesfacundo.com/categoria-producto/impresoras-y-consumible-fotograficas-termicas/
+SCRAPING TIMING | stage=missing_code | name=Antiestrés Cerebro Largo | url=https://stock.importacionesfacundo.com/producto/antiestres-cerebro-largo/
+SCRAPING TIMING | stage=missing_code | name=Porta Lapiceros | url=https://stock.importacionesfacundo.com/producto/porta-lapiceros-2/
+SCRAPING TIMING | stage=missing_code | name=Porta Lapiceros | url=https://stock.importacionesfacundo.com/producto/porta-lapiceros/
+SCRAPING TIMING | stage=missing_code | name=Guillotina Cortadora de Papel – A4 | url=https://stock.importacionesfacundo.com/producto/guillotina-cortadora-de-papel-a4/
+SCRAPING TIMING | stage=missing_code | name=Set de Cubiertos Portátil de 3 Piezas con Estuche | url=https://stock.importacionesfacundo.com/producto/set-de-cubiertos-portatil-de-3-piezas-con-estuche/
+SCRAPING TIMING | stage=missing_code | name=Set de Cubiertos de Fibra de Trigo de 3 Piezas con Estuche | url=https://stock.importacionesfacundo.com/producto/set-de-cubiertos-de-fibra-de-trigo-de-3-piezas-con-estuche/
+SCRAPING TIMING | stage=missing_code | name=Set para Quesos con Tabla de Bambú y 2 Utensilios | url=https://stock.importacionesfacundo.com/producto/set-para-quesos-con-tabla-de-bambu-y-2-utensilios/
+SCRAPING TIMING | stage=missing_code | name=Set de 4 Utensilios para Quesos con Mango de Bambú | url=https://stock.importacionesfacundo.com/producto/set-de-4-utensilios-para-quesos-con-mango-de-bambu/
+SCRAPING TIMING | stage=missing_code | name=Set para Quesos con Tabla de Bambú en Estuche | url=https://stock.importacionesfacundo.com/producto/set-para-quesos-con-tabla-de-bambu-en-estuche/
+SCRAPING TIMING | stage=missing_code | name=Set para Quesos con Tabla Tipo Estuche de Bambú | url=https://stock.importacionesfacundo.com/producto/set-para-quesos-con-tabla-tipo-estuche-de-bambu/
+SCRAPING TIMING | stage=missing_code | name=Set para Quesos con Tabla Magnética Plegable de Bambú | url=https://stock.importacionesfacundo.com/producto/set-para-quesos-con-tabla-magnetica-plegable-de-bambu/
+SCRAPING TIMING | stage=missing_code | name=Repuesto de Corte Ol381S 5 en 1 – A3 | url=https://stock.importacionesfacundo.com/producto/repuesto-de-corte-ol381s-5-en-1-a3/
+SCRAPING TIMING | stage=missing_code | name=Lapicero Bamboo con Touch | url=https://stock.importacionesfacundo.com/producto/lapicero-bamboo-con-touch/
+SCRAPING TIMING | stage=missing_code | name=Lapicero Metalico | url=https://stock.importacionesfacundo.com/producto/lapicero-metalico-9/
+SCRAPING TIMING | stage=missing_code | name=Dispensador de Bolsas para Mascotas en Forma de Hueso | url=https://stock.importacionesfacundo.com/producto/dispensador-de-bolsas-para-mascotas-en-forma-de-hueso/
+SCRAPING TIMING | stage=missing_code | name=Llavero Destapador de Aluminio | url=https://stock.importacionesfacundo.com/producto/llavero-destapador-de-aluminio/
+SCRAPING TIMING | stage=missing_code | name=Llavero Linterna LED Cilíndrico de Bambú | url=https://stock.importacionesfacundo.com/producto/llavero-linterna-led-cilindrico-de-bambu/
+SCRAPING TIMING | stage=missing_code | name=Llavero Linterna LED con Cuerpo de Bambú | url=https://stock.importacionesfacundo.com/producto/llavero-linterna-led-con-cuerpo-de-bambu/
+SCRAPING TIMING | stage=missing_code | name=Llavero Cinta Métrica de 1 Metro con Inserto de Bambú | url=https://stock.importacionesfacundo.com/producto/llavero-cinta-metrica-de-1-metro-con-inserto-de-bambu/
+SCRAPING TIMING | stage=missing_code | name=Llavero Métalico Rectangular con Correa | url=https://stock.importacionesfacundo.com/producto/llavero-metalico-rectangular-con-correa/
+SCRAPING TIMING | stage=missing_code | name=Llavero Metalico Rectangular con Inserto de Corcho Natural | url=https://stock.importacionesfacundo.com/producto/llavero-metalico-rectangular-con-inserto-de-corcho-natural/
+SCRAPING TIMING | stage=missing_code | name=Llavero Metálico con Forma de Auto con Inserto de Bambú | url=https://stock.importacionesfacundo.com/producto/llavero-metalico-con-forma-de-auto-con-inserto-de-bambu/
+SCRAPING TIMING | stage=missing_code | name=Llavero Metálico Redondo Giratorio con Inserto de Bambú | url=https://stock.importacionesfacundo.com/producto/llavero-metalico-redondo-giratorio-con-inserto-de-bambu/
+SCRAPING TIMING | stage=missing_code | name=Maquina Portátil para Tazas 11 oz Freesub | url=https://stock.importacionesfacundo.com/producto/maquina-portatil-para-tazas-11-oz-freesub/
+SCRAPING TIMING | stage=missing_code | name=Papel Fotográfico Brillante PAMUNDO 180 GSM A4 – 20 Hojas | url=https://stock.importacionesfacundo.com/producto/papel-fotografico-brillante-pamundo-180-gsm-a4-20-hojas/
+SCRAPING TIMING | stage=missing_code | name=Papel Imprimible Para Tatuajes Temporales A4 – 05 Hojas | url=https://stock.importacionesfacundo.com/producto/papel-imprimible-para-tatuajes-temporales-a4-05-hojas/
+SCRAPING TIMING | stage=missing_code | name=Papel Fotográfico Brillante Premium 180 GSM A3+ – 20 Hojas | url=https://stock.importacionesfacundo.com/producto/papel-fotografico-brillante-premium-180-gsm-a3-20-hojas/
+SCRAPING TIMING | stage=missing_code | name=Papel Fotográfico Brillante Adhesivo 115 GSM A4 – 100 Hojas | url=https://stock.importacionesfacundo.com/producto/papel-fotografico-brillante-adhesivo-115-gsm-a4-100-hojas/
+SCRAPING TIMING | stage=missing_code | name=Papel Fotográfico Brillante Adhesivo 115 GSM A3 – 20 Hojas | url=https://stock.importacionesfacundo.com/producto/papel-fotografico-brillante-adhesivo-115-gsm-a3-20-hojas/
+SCRAPING TIMING | stage=prune_guard | enabled=false | reason=missing_codes:29 | products=383 | categories=24
+SCRAPING TIMING | stage=consolidation | products=351 | seconds=0.000
+SCRAPING TIMING | stage=images | products=351 | seconds=2.512
+SCRAPING TIMING | stage=mapping | products=351 | seconds=0.004
+SCRAPING TIMING | stage=catalog_sync | products=351 | seconds=0.009 | prune=false
+SCRAPING TIMING | stage=sync_total | products=351 | seconds=2.528
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=25.837

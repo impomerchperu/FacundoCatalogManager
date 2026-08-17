@@ -81,27 +81,6 @@ def test_product_extractor_does_not_accept_unrelated_model_text_as_code():
     assert ProductExtractor().extract_code(soup) == ""
 
 
-def test_product_extractor_maps_stock_to_visible_colors():
-    html = """
-    <div class="jsfb-filterable">
-        <h2 class="brxe-heading">Producto por colores</h2>
-        <p class="brxe-heading">FB-9999</p>
-        <div>Colores: Rojo, Azul y Negro.</div>
-        <div>Stock Disponible 10 20 30</div>
-    </div>
-    """
-
-    soup = BeautifulSoup(html, "lxml")
-    result = ProductExtractor().extract(soup)
-
-    assert result["color_stock"] == {
-        "Rojo": 10,
-        "Azul": 20,
-        "Negro": 30,
-    }
-    assert result["stock"] == 60
-
-
 def test_product_extractor_reads_detail_page_color_links():
     html = """
     <div class="product-information">

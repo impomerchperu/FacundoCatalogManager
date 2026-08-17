@@ -78,10 +78,6 @@ class CategoryProductSyncService:
         su enriquecimiento puede comenzar inmediatamente. El navegador
         mantiene un límite HTTP global estable para evitar aumentar la
         presión sobre el servidor origen.
-
-        El callback usa una escala estable de 0 a 100 y combina el avance
-        de ambas fases para que la interfaz refleje trabajo real durante
-        toda la extracción.
         """
         started = time.perf_counter()
         categories = list(categories)
@@ -103,7 +99,7 @@ class CategoryProductSyncService:
             )
             if progress_callback:
                 progress_callback(100, 100)
-            return self.sync_products([], full_sync=True)
+            return self.sync_products([], full_sync=False)
 
         worker_count = min(self.category_workers, total)
         collected: list[list[Any]] = [[] for _ in categories]
@@ -144,9 +140,7 @@ class CategoryProductSyncService:
                 enrichment_futures[enrichment_future] = index
 
                 if progress_callback:
-                    progress = 5 + int(
-                        listing_completed * 35 / total
-                    ) + int(
+                    progress = 5 + int(listing_completed * 35 / total) + int(
                         enrichment_completed * 50 / total
                     )
                     progress_callback(min(90, progress), 100)
@@ -159,9 +153,7 @@ class CategoryProductSyncService:
                 enrichment_completed += 1
 
                 if progress_callback:
-                    progress = 5 + int(
-                        listing_completed * 35 / total
-                    ) + int(
+                    progress = 5 + int(listing_completed * 35 / total) + int(
                         enrichment_completed * 50 / total
                     )
                     progress_callback(min(90, progress), 100)
@@ -205,10 +197,24 @@ class CategoryProductSyncService:
         self._log_detail_metrics()
         self._log_http_metrics()
 
+        allow_prune, guard_reason = self._full_sync_prune_guard(products, total)
+        _log_timing(
+            "SCRAPING TIMING | stage=prune_guard | enabled=%s | reason=%s "
+            "| products=%d | categories=%d",
+            str(allow_prune).lower(),
+            guard_reason,
+            len(products),
+            total,
+        )
+
         if progress_callback:
             progress_callback(95, 100)
 
-        result = self.sync_products(products, full_sync=True)
+        result = self.sync_products(
+            products,
+            full_sync=True,
+            allow_prune=allow_prune,
+        )
 
         if progress_callback:
             progress_callback(100, 100)
@@ -288,12 +294,7 @@ class CategoryProductSyncService:
 
     def _log_http_metrics(self):
         """Registra métricas HTTP reales y concurrencia efectiva."""
-        scraper = getattr(self.scraper_service, "scraper", None)
-        category_scraper = getattr(scraper, "category_scraper", None)
-        browser = getattr(category_scraper, "browser", None)
-        if browser is None:
-            browser = getattr(self.scraper_service, "browser", None)
-
+        browser = self._get_browser()
         get_metrics = getattr(browser, "get_http_metrics", None)
         if not callable(get_metrics):
             return
@@ -301,13 +302,14 @@ class CategoryProductSyncService:
         metrics = cast(dict[str, Any], get_metrics())
         _log_timing(
             "SCRAPING TIMING | stage=http | requests=%d "
-            "| successes=%d | errors=%d | retries=%d "
+            "| successes=%d | errors=%d | terminal_errors=%d | retries=%d "
             "| detail_requests=%d | category_requests=%d "
             "| other_requests=%d | max_concurrency=%d "
             "| http_seconds=%.3f | slowest_request=%.3f",
             metrics.get("http_requests", 0),
             metrics.get("http_successes", 0),
             metrics.get("http_errors", 0),
+            metrics.get("http_terminal_errors", 0),
             metrics.get("http_retries", 0),
             metrics.get("detail_http_requests", 0),
             metrics.get("category_http_requests", 0),
@@ -339,7 +341,47 @@ class CategoryProductSyncService:
                 url,
             )
 
-    def sync_products(self, products: list[Any], full_sync: bool = False):
+    def _get_browser(self):
+        scraper = getattr(self.scraper_service, "scraper", None)
+        category_scraper = getattr(scraper, "category_scraper", None)
+        browser = getattr(category_scraper, "browser", None)
+        if browser is None:
+            browser = getattr(self.scraper_service, "browser", None)
+        return browser
+
+    def _full_sync_prune_guard(
+        self,
+        products: list[Any],
+        category_count: int,
+    ) -> tuple[bool, str]:
+        """Permite pruning solo cuando la extracción completa es confiable."""
+        if category_count <= 0:
+            return False, "no_categories"
+
+        missing_codes = sum(
+            1
+            for product in products
+            if not str(getattr(product, "code", "")).strip()
+        )
+        if missing_codes:
+            return False, f"missing_codes:{missing_codes}"
+
+        browser = self._get_browser()
+        get_metrics = getattr(browser, "get_http_metrics", None)
+        if callable(get_metrics):
+            metrics = cast(dict[str, Any], get_metrics())
+            terminal_errors = int(metrics.get("http_terminal_errors", 0))
+            if terminal_errors:
+                return False, f"terminal_http_errors:{terminal_errors}"
+
+        return True, "complete"
+
+    def sync_products(
+        self,
+        products: list[Any],
+        full_sync: bool = False,
+        allow_prune: bool = False,
+    ):
         """Procesa y sincroniza un conjunto consolidado de productos scrapeados."""
         total_started = time.perf_counter()
 
@@ -384,19 +426,14 @@ class CategoryProductSyncService:
             )
 
             catalog_started = time.perf_counter()
-            if full_sync:
-                sync_full_catalog = getattr(
-                    self.catalog_sync_service,
-                    "sync_full_catalog",
-                    None,
-                )
-                if callable(sync_full_catalog):
-                    result = cast(SyncResult, sync_full_catalog(mapped_products))
-                else:
-                    result = cast(
-                        SyncResult,
-                        self.catalog_sync_service.sync(mapped_products),
-                    )
+            use_prune = bool(full_sync and allow_prune)
+            sync_full_catalog = getattr(
+                self.catalog_sync_service,
+                "sync_full_catalog",
+                None,
+            )
+            if use_prune and callable(sync_full_catalog):
+                result = cast(SyncResult, sync_full_catalog(mapped_products))
             else:
                 result = cast(
                     SyncResult,
@@ -405,9 +442,10 @@ class CategoryProductSyncService:
             catalog_elapsed = time.perf_counter() - catalog_started
             _log_timing(
                 "SCRAPING TIMING | stage=catalog_sync | products=%d "
-                "| seconds=%.3f",
+                "| seconds=%.3f | prune=%s",
                 len(mapped_products),
                 catalog_elapsed,
+                str(use_prune).lower(),
             )
 
             total_elapsed = time.perf_counter() - total_started

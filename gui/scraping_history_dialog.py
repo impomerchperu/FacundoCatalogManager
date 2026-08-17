@@ -91,7 +91,12 @@ class ScrapingHistoryDialog(QDialog):
         self.table.setRowCount(len(history))
         for row, record in enumerate(history):
             applied_at = self._parse_datetime(record.finished_at)
-            self._set_item(row, 0, self._format_datetime(applied_at), record.history_id)
+            self._set_item(
+                row,
+                0,
+                self._format_datetime(applied_at),
+                record.history_id,
+            )
             self._set_item(row, 1, str(record.processed))
             self._set_item(row, 2, str(record.created))
             self._set_item(row, 3, str(record.updated))
@@ -104,7 +109,13 @@ class ScrapingHistoryDialog(QDialog):
                 f"M:{record.products_multiple_categories} "
                 f"D:{record.duplicate_occurrences}"
             )
-            self._set_item(row, 6, coverage_text)
+            coverage_item = QTableWidgetItem(coverage_text)
+            coverage_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            coverage_item.setToolTip(
+                "Esperados / Encontrados / Únicos / "
+                "Productos en múltiples categorías / Apariciones duplicadas"
+            )
+            self.table.setItem(row, 6, coverage_item)
             self._set_item(row, 7, str(record.errors))
             self._set_item(
                 row,
@@ -270,11 +281,7 @@ class ScrapingHistoryDialog(QDialog):
             ]
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
-                if change["type"] == "CODE_GENERATED":
-                    item.setBackground(QColor("#fff3cd"))
-                    item.setForeground(QColor("#664d03"))
-                    item.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-                elif change["type"] == "MISSING_CODE":
+                if change["type"] in {"CODE_GENERATED", "MISSING_CODE"}:
                     item.setBackground(QColor("#fff3cd"))
                     item.setForeground(QColor("#664d03"))
                     item.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
@@ -297,28 +304,34 @@ class ScrapingHistoryDialog(QDialog):
         dialog.activateWindow()
 
     @staticmethod
-    def _parse_datetime(value):
+    def _format_change_value(value) -> str:
+        if value is None:
+            return "—"
+        if isinstance(value, float):
+            return f"{value:,.2f}"
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, ensure_ascii=False, sort_keys=True)
+        return str(value)
+
+    def _set_item(self, row: int, column: int, value: str, history_id=None) -> None:
+        item = QTableWidgetItem(value)
+        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        if history_id is not None:
+            item.setData(Qt.ItemDataRole.UserRole, history_id)
+        self.table.setItem(row, column, item)
+
+    @staticmethod
+    def _parse_datetime(value) -> datetime:
         if isinstance(value, datetime):
             return value
         return datetime.fromisoformat(str(value))
 
     @staticmethod
-    def _format_datetime(value):
-        return value.strftime("%Y-%m-%d %H:%M:%S")
+    def _format_datetime(value: datetime) -> str:
+        return value.astimezone().strftime("%d/%m/%Y %H:%M:%S")
 
-    @staticmethod
-    def _format_change_value(value):
-        if isinstance(value, (dict, list)):
-            return json.dumps(value, ensure_ascii=False, sort_keys=True)
-        if value is None:
-            return ""
-        return str(value)
-
-    @staticmethod
-    def _set_item(
-        table_row: int,
-        column: int,
-        value: str,
-        history_id: int | None = None,
-    ) -> None:
-        pass
+    def closeEvent(self, event) -> None:
+        if self.detail_dialog is not None:
+            self.detail_dialog.close()
+        self.db.close()
+        super().closeEvent(event)

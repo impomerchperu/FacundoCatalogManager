@@ -77,9 +77,35 @@ def test_catalog_sync_consolidates_product_in_multiple_categories():
     assert result.processed == 1
     assert result.classified_total == 1
     assert result.counts_are_consistent
+    assert result.products_found == 2
+    assert result.products_unique == 1
+    assert result.duplicate_occurrences == 1
+    assert result.products_multiple_categories == 1
     assert stored.category == "Jarros Mug, Promocionales"
     assert stored.colors == ["Rojo", "Azul"]
     assert stored.color_stock == {"Rojo": 5, "Azul": 7}
+
+
+def test_catalog_sync_reports_duplicate_occurrences_across_multiple_categories():
+    repository = SyncRepository()
+    service = CatalogSyncService(repository, ProductDiffService())
+
+    products = [
+        Product("P005", "Compartido", 10, category="Jarros"),
+        Product("P005", "Compartido", 10, category="Promocionales"),
+        Product("P005", "Compartido", 10, category="Oficina"),
+        Product("P006", "Único", 12, category="Oficina"),
+    ]
+
+    result = service.synchronize(products)
+
+    assert result.products_found == 4
+    assert result.products_unique == 2
+    assert result.duplicate_occurrences == 2
+    assert result.products_multiple_categories == 1
+    assert result.processed == 2
+    assert result.classified_total == 2
+    assert result.counts_are_consistent
 
 
 def test_catalog_sync_preserves_categories_across_separate_category_syncs():
@@ -145,12 +171,36 @@ def test_catalog_sync_generates_stable_auditable_code_when_missing():
     )
 
     result = service.synchronize([product])
-    stored = repository.get_all()[0]
 
-    assert result.created == 1
-    assert stored.code.startswith("AUTO-PRODUCTO-SIN-CODIGO-")
+    assert result.generated == 1
+    assert result.created == 0
+    assert result.processed == 0
+    assert product.code.startswith("AUTO-PRODUCTO-SIN-CODIGO-")
+    assert repository.get_all() == []
     assert result.changes[0]["type"] == "CODE_GENERATED"
-    assert result.changes[0]["code"] == stored.code
+    assert result.changes[0]["code"] == product.code
+
+
+def test_catalog_sync_full_cleanup_removes_old_generated_code():
+    repository = SyncRepository()
+    repository.save(Product("AUTO-OLD-PRODUCT-12345678", "Producto provisional", 10))
+    repository.save(Product("KEEP001", "Producto vigente", 20))
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.sync(
+        [Product("KEEP001", "Producto vigente", 20)],
+        prune_missing=False,
+        cleanup_generated=True,
+    )
+
+    assert result.deleted == 1
+    assert repository.get("AUTO-OLD-PRODUCT-12345678") is None
+    assert repository.get("KEEP001") is not None
+    assert any(
+        change["type"] == "DELETED"
+        and change["code"] == "AUTO-OLD-PRODUCT-12345678"
+        for change in result.changes
+    )
 
 
 def test_catalog_sync_prunes_codes_not_present_in_scraping():

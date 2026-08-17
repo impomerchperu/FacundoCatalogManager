@@ -13,6 +13,11 @@ class ScrapingHistory:
     updated: int = 0
     unchanged: int = 0
     deleted: int = 0
+    generated: int = 0
+    products_found: int = 0
+    products_unique: int = 0
+    products_multiple_categories: int = 0
+    duplicate_occurrences: int = 0
     errors: int = 0
     status: str = "SUCCESS"
     message: str = ""

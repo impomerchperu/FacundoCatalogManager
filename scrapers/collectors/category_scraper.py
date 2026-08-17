@@ -1,3 +1,4 @@
+import re
 from threading import Lock
 from urllib.parse import urljoin
 
@@ -104,9 +105,23 @@ class CategoryScraper:
             if page_url not in pages:
                 pages.append(page_url)
 
+        if not expected_count:
+            text = soup.get_text(" ", strip=True)
+            match = re.search(
+                r"Productos?\s+en\s+Stock\s+(\d+)",
+                text,
+                flags=re.IGNORECASE,
+            )
+            if match:
+                expected_count = int(match.group(1))
+
         expected_pages = max(
             1,
-            (max(int(expected_count or 0), 0) + self.PRODUCTS_PER_PAGE - 1)
+            (
+                max(int(expected_count or 0), 0)
+                + self.PRODUCTS_PER_PAGE
+                - 1
+            )
             // self.PRODUCTS_PER_PAGE,
         )
         for page_number in range(2, expected_pages + 1):

@@ -293,7 +293,11 @@ class CatalogSyncService:
                 normalized = category.strip().casefold()
                 if normalized:
                     categories.add(normalized)
-        return sum(1 for categories in categories_by_code.values() if len(categories) > 1)
+        return sum(
+            1
+            for categories in categories_by_code.values()
+            if len(categories) > 1
+        )
 
     @staticmethod
     def _merge_categories(*categories) -> str:

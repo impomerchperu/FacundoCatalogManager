@@ -15,6 +15,7 @@ class ProductExtractor:
 
     SOURCE = "importacionesfacundo"
     BASE_URL = "https://stock.importacionesfacundo.com"
+    _CODE_PATTERN = re.compile(r"^[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+$", re.IGNORECASE)
 
     _IGNORED_COLOR_TAGS = (
         "select",
@@ -59,14 +60,48 @@ class ProductExtractor:
             image_url=self.extract_image(soup),
         )
 
+    @classmethod
+    def _normalize_code_candidate(cls, text: str) -> str:
+        """Devuelve un código válido del sitio sin asumir el prefijo FB-."""
+        for token in re.split(r"\s+", text.strip()):
+            candidate = token.strip(".,:;()[]{}")
+            if cls._CODE_PATTERN.fullmatch(candidate):
+                return candidate.upper()
+        return ""
+
     def extract_code(self, soup):
-        selectors = ["p.brxe-heading", "span.sku", "[sku]"]
+        selectors = [
+            "p.brxe-heading",
+            "span.sku",
+            "[sku]",
+            "[data-sku]",
+        ]
         for selector in selectors:
             element = soup.select_one(selector)
-            if element:
-                text = element.get_text(" ", strip=True)
-                if "FB-" in text:
-                    return text.split()[0]
+            if not element:
+                continue
+            text = element.get("sku") or element.get("data-sku") or element.get_text(
+                " ",
+                strip=True,
+            )
+            code = self._normalize_code_candidate(str(text))
+            if code:
+                return code
+
+        for text_node in soup.find_all(string=re.compile(r"\b(?:c[oó]digo|sku)\b", re.I)):
+            parent = text_node.parent
+            if parent is None:
+                continue
+            code = self._normalize_code_candidate(parent.get_text(" ", strip=True))
+            if code:
+                return code
+
+            sibling = parent.find_next(string=True)
+            if sibling is not None:
+                code = self._normalize_code_candidate(str(sibling))
+                if code:
+                    return code
+
         return ""
 
     def extract_name(self, soup):

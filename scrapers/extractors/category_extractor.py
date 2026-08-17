@@ -14,39 +14,35 @@ class CategoryExtractor:
         categories = []
         seen = set()
 
-        links = soup.select(category_selectors.CATEGORY_LINK)
-
-        for link in links:
+        for link in soup.select(category_selectors.CATEGORY_LINK):
             url = link.get("href", "")
-            if not url:
+            if not url or "nuevos-productos" in url or url in seen:
                 continue
 
-            if "nuevos-productos" in url:
-                continue
-
-            if url in seen:
-                continue
-
-            name = link.get_text(" ", strip=True)
-            if not name or "Ver Categoría" in name:
-                name = (
-                    url.rstrip("/")
-                    .split("/")[-1]
-                    .replace("-", " ")
-                    .title()
-                )
-
+            name = self._extract_name(link, url)
             expected_count = self._extract_expected_count(link)
             categories.append(
-                Category(
-                    name=name,
-                    url=url,
-                    expected_count=expected_count,
-                )
+                Category(name=name, url=url, expected_count=expected_count)
             )
             seen.add(url)
 
         return categories
+
+    @staticmethod
+    def _extract_name(link, url: str) -> str:
+        name = link.get_text(" ", strip=True)
+        if name and "Ver Categoría" not in name:
+            return name
+
+        container = link.find_parent(["section", "article", "li", "div"])
+        if container is not None:
+            heading = container.find(["h1", "h2", "h3", "h4", "h5", "h6"])
+            if heading is not None:
+                heading_name = heading.get_text(" ", strip=True)
+                if heading_name:
+                    return heading_name
+
+        return url.rstrip("/").split("/")[-1].replace("-", " ").title()
 
     @staticmethod
     def _extract_expected_count(link) -> int:

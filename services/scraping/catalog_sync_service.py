@@ -37,11 +37,13 @@ class CatalogSyncService:
         products,
         prune_missing: bool = False,
         cleanup_generated: bool = True,
+        expected_products: int = 0,
     ):
         """Sincroniza productos y opcionalmente reconcilia códigos ausentes."""
         result = SyncResult()
         prepared = self._prepare_products(products)
         consolidated = self.consolidate_products(prepared)
+        result.products_expected = max(int(expected_products or 0), 0)
         result.products_found = len(prepared)
         result.products_unique = len(consolidated)
         result.duplicate_occurrences = max(
@@ -134,12 +136,14 @@ class CatalogSyncService:
         self,
         products,
         prune_missing: bool = True,
+        expected_products: int = 0,
     ):
         """Sincroniza el catálogo y limpia códigos locales no presentes en origen."""
         return self.sync(
             products,
             prune_missing=prune_missing,
             cleanup_generated=True,
+            expected_products=expected_products,
         )
 
     def synchronize(self, products, prune_missing: bool = False):

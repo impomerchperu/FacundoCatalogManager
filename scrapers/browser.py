@@ -203,6 +203,7 @@ class Browser:
                 "http_max_seconds": self._http_max_seconds,
                 "http_in_flight": self._http_in_flight,
                 "http_max_in_flight": self._http_max_in_flight,
+                "http_concurrency_limit": SCRAPING_HTTP_WORKERS,
                 "detail_http_requests": self._detail_http_requests,
                 "category_http_requests": self._category_http_requests,
                 "other_http_requests": self._other_http_requests,

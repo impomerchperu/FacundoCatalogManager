@@ -62,16 +62,23 @@ class ProductExtractor:
 
     @classmethod
     def _normalize_code_candidate(cls, text: str) -> str:
-        """Devuelve un código alfanumérico del sitio sin asumir prefijo."""
-        for token in re.split(r"\s+", text.strip()):
-            candidate = token.strip(".,:;()[]{}")
-            if not cls._CODE_PATTERN.fullmatch(candidate):
-                continue
-            if not any(char.isalpha() for char in candidate):
-                continue
-            if not any(char.isdigit() for char in candidate):
-                continue
-            return candidate.upper()
+        """Valida un código completo sin asumir un prefijo concreto."""
+        candidate = str(text).strip().strip(".,:;()[]{}")
+        if not cls._CODE_PATTERN.fullmatch(candidate):
+            return ""
+        if not any(char.isalpha() for char in candidate):
+            return ""
+        if not any(char.isdigit() for char in candidate):
+            return ""
+        return candidate.upper()
+
+    @classmethod
+    def _find_code_token(cls, text: str) -> str:
+        """Busca un código dentro de texto explícitamente marcado como SKU."""
+        for token in re.split(r"\s+", str(text).strip()):
+            code = cls._normalize_code_candidate(token)
+            if code:
+                return code
         return ""
 
     def extract_code(self, soup):
@@ -98,13 +105,13 @@ class ProductExtractor:
             parent = text_node.parent
             if parent is None:
                 continue
-            code = self._normalize_code_candidate(parent.get_text(" ", strip=True))
+            code = self._find_code_token(parent.get_text(" ", strip=True))
             if code:
                 return code
 
             sibling = parent.find_next(string=True)
             if sibling is not None:
-                code = self._normalize_code_candidate(str(sibling))
+                code = self._find_code_token(str(sibling))
                 if code:
                     return code
 
@@ -512,6 +519,6 @@ class ProductExtractor:
             return "https:" + url
         if url.startswith("/"):
             return urljoin(self.BASE_URL, url)
-        if "://" not in url:
+        if not url.startswith(("http://", "https://")):
             return urljoin(self.BASE_URL + "/", url)
         return url

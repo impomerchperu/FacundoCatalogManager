@@ -184,7 +184,7 @@ class ScrapingHistoryDialog(QDialog):
         dialog = QDialog(self)
         self.detail_dialog = dialog
         dialog.setWindowTitle("Detalle de la descarga")
-        dialog.resize(1050, 620)
+        dialog.resize(1100, 680)
         dialog.setModal(False)
         dialog.finished.connect(lambda: setattr(self, "detail_dialog", None))
         layout = QVBoxLayout(dialog)
@@ -192,12 +192,43 @@ class ScrapingHistoryDialog(QDialog):
         applied_at = self._parse_datetime(history.finished_at)
         summary = QLabel(
             f"Aplicado: {self._format_datetime(applied_at)}    "
-            f"Productos: {history.processed}    Nuevos: {history.created}    "
+            f"Procesados: {history.processed}    Nuevos: {history.created}    "
             f"Actualizados: {history.updated}    Sin cambios: {history.unchanged}    "
             f"Eliminados: {history.deleted}",
         )
         summary.setStyleSheet("font-weight: bold; padding: 4px;")
         layout.addWidget(summary)
+
+        coverage = QLabel(
+            "COBERTURA DEL SCRAPING    "
+            f"Encontrados: {history.products_found}    |    "
+            f"Únicos: {history.products_unique}    |    "
+            f"En múltiples categorías: {history.products_multiple_categories}    |    "
+            f"Apariciones duplicadas: {history.duplicate_occurrences}    |    "
+            f"Códigos generados: {history.generated}"
+        )
+        coverage.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        coverage.setStyleSheet(
+            "background:#fff3cd; color:#664d03; "
+            "border:1px solid #ffda6a; border-radius:5px; padding:8px;"
+        )
+        layout.addWidget(coverage)
+
+        consistency = history.products_unique == history.processed + history.generated
+        consistency_label = QLabel(
+            "Relación: encontrados = únicos + apariciones duplicadas"
+            if history.products_found
+            else "Sin métricas de cobertura disponibles para este registro."
+        )
+        if history.products_found:
+            consistency_label.setText(
+                "Relación de cobertura: "
+                f"{history.products_found} = {history.products_unique} + "
+                f"{history.duplicate_occurrences}    |    "
+                f"Conteo operativo consistente: {'SÍ' if consistency else 'NO'}"
+            )
+        consistency_label.setStyleSheet("padding: 2px 4px; font-style: italic;")
+        layout.addWidget(consistency_label)
 
         table = QTableWidget()
         table.setColumnCount(6)
@@ -232,10 +263,12 @@ class ScrapingHistoryDialog(QDialog):
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 if change["type"] == "CODE_GENERATED":
-                    item.setBackground(QColor("#FFF2CC"))
-                    font = QFont(item.font())
-                    font.setBold(True)
-                    item.setFont(font)
+                    item.setBackground(QColor("#fff3cd"))
+                    item.setForeground(QColor("#664d03"))
+                    item.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+                elif change["type"] == "DELETED":
+                    item.setBackground(QColor("#f8d7da"))
+                    item.setForeground(QColor("#842029"))
                 table.setItem(row, column, item)
 
         if not changes:

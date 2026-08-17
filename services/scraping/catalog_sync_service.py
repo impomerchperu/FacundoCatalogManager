@@ -33,7 +33,7 @@ class CatalogSyncService:
     def sync(self, products, prune_missing: bool = False):
         """Sincroniza productos y opcionalmente elimina los ausentes del origen."""
         result = SyncResult()
-        prepared = self._prepare_products(products, result)
+        prepared = self._prepare_products(products)
         consolidated = self.consolidate_products(prepared)
         scraped_codes = {
             str(product.code).strip()
@@ -102,7 +102,7 @@ class CatalogSyncService:
     def synchronize(self, products, prune_missing: bool = False):
         return self.sync(products, prune_missing=prune_missing)
 
-    def _prepare_products(self, products, result: SyncResult):
+    def _prepare_products(self, products):
         """Garantiza que cada producto tenga un código único y auditable."""
         prepared = []
         used_codes: set[str] = set()
@@ -112,17 +112,6 @@ class CatalogSyncService:
                 code = self._generate_code(product, used_codes)
                 product.code = code
                 product._generated_code = True
-                result.changes.append({
-                    "type": "CODE_GENERATED",
-                    "code": code,
-                    "name": getattr(product, "name", ""),
-                    "changes": [{
-                        "field": "code",
-                        "label": "Código generado",
-                        "old": "",
-                        "new": code,
-                    }],
-                })
             used_codes.add(code.casefold())
             prepared.append(product)
         return prepared
@@ -135,7 +124,9 @@ class CatalogSyncService:
         source = url or name or "producto"
         slug = re.sub(r"[^A-Za-z0-9]+", "-", source).strip("-").upper()
         slug = slug[:48].strip("-") or "PRODUCTO"
-        digest = hashlib.sha1(source.casefold().encode("utf-8")).hexdigest()[:8].upper()
+        digest = hashlib.sha1(
+            source.casefold().encode("utf-8"),
+        ).hexdigest()[:8].upper()
         base = f"AUTO-{slug}-{digest}"
         candidate = base
         suffix = 2

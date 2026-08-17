@@ -88,7 +88,10 @@ class ProductExtractor:
             if code:
                 return code
 
-        for text_node in soup.find_all(string=re.compile(r"\b(?:c[oó]digo|sku)\b", re.I)):
+        code_nodes = soup.find_all(
+            string=re.compile(r"\b(?:c[oó]digo|sku)\b", re.I)
+        )
+        for text_node in code_nodes:
             parent = text_node.parent
             if parent is None:
                 continue
@@ -482,28 +485,19 @@ class ProductExtractor:
                 or img.get("src")
                 or ""
             )
-            if not url or url.startswith("data:image"):
+            if not isinstance(url, str) or not url or "data:image" in url:
                 continue
-            if "Logo" in url or "Proximo" in url:
-                continue
-            candidates.append(self._normalize_image_url(url))
-
+            if code:
+                score = self._image_score(url, code)
+                candidates.append((score, url))
+            else:
+                candidates.append((0, url))
         if not candidates:
             return ""
-        if code:
-            for url in candidates:
-                if code.lower() in url.lower():
-                    return url
-        for url in candidates:
-            if "/uploads/" in url:
-                return url
-        return candidates[0]
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        return urljoin(self.BASE_URL, candidates[0][1])
 
-    def _normalize_image_url(self, url):
-        if not url:
-            return ""
-        if url.startswith("//"):
-            return "https:" + url
-        if url.startswith("/"):
-            return urljoin(self.BASE_URL, url)
-        return url
+    @staticmethod
+    def _image_score(url, code):
+        filename = url.rsplit("/", 1)[-1].casefold()
+        return 10 if code.casefold() in filename else 0

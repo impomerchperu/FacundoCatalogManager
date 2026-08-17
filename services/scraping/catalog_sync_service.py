@@ -1,6 +1,7 @@
 import hashlib
 import re
 from typing import ClassVar
+from urllib.parse import urlparse
 
 from models.scraping.sync_result import SyncResult
 
@@ -121,11 +122,13 @@ class CatalogSyncService:
         """Genera un código estable, legible y determinista para revisión manual."""
         url = str(getattr(product, "url", "")).strip()
         name = str(getattr(product, "name", "")).strip()
-        source = url or name or "producto"
+        parsed_path = urlparse(url).path.strip("/") if url else ""
+        source = parsed_path.split("/")[-1] or name or "producto"
         slug = re.sub(r"[^A-Za-z0-9]+", "-", source).strip("-").upper()
         slug = slug[:48].strip("-") or "PRODUCTO"
+        digest_source = url or name or source
         digest = hashlib.sha1(
-            source.casefold().encode("utf-8"),
+            digest_source.casefold().encode("utf-8"),
         ).hexdigest()[:8].upper()
         base = f"AUTO-{slug}-{digest}"
         candidate = base

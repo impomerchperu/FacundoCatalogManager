@@ -1,7 +1,4 @@
-import hashlib
-import re
 from typing import ClassVar
-from urllib.parse import urlparse
 
 from models.scraping.sync_result import SyncResult
 
@@ -27,6 +24,16 @@ class CatalogSyncService:
         "content_hash": "Hash contenido",
     }
 
+    LEGACY_GENERATED_PREFIXES: ClassVar[tuple[str, ...]] = (
+        "AUTO-",
+        "GENERATED-",
+        "GENERATED_",
+        "SIN-CODIGO",
+        "SIN_CODIGO",
+        "NO-CODE",
+        "NO_CODE",
+    )
+
     def __init__(self, repository, diff_service):
         self.repository = repository
         self.diff_service = diff_service
@@ -39,12 +46,39 @@ class CatalogSyncService:
         cleanup_generated: bool = True,
         expected_products: int = 0,
     ):
-        """Sincroniza productos y opcionalmente reconcilia códigos ausentes."""
+        """Sincroniza por códigos reales, sin generar códigos locales."""
+        del cleanup_generated
         result = SyncResult()
-        prepared = self._prepare_products(products)
+        raw_products = list(products)
+        missing_code_products = [
+            product
+            for product in raw_products
+            if not str(getattr(product, "code", "")).strip()
+        ]
+        for product in missing_code_products:
+            result.missing_code += 1
+            result.changes.append({
+                "type": "MISSING_CODE",
+                "code": "",
+                "name": str(getattr(product, "name", "")).strip(),
+                "changes": [
+                    {
+                        "field": "code",
+                        "label": "Código no encontrado",
+                        "old": "Sin código",
+                        "new": "Requiere revisión",
+                    }
+                ],
+            })
+
+        prepared = [
+            product
+            for product in raw_products
+            if str(getattr(product, "code", "")).strip()
+        ]
         consolidated = self.consolidate_products(prepared)
         result.products_expected = max(int(expected_products or 0), 0)
-        result.products_found = len(prepared)
+        result.products_found = len(raw_products)
         result.products_unique = len(consolidated)
         result.duplicate_occurrences = max(
             result.products_found - result.products_unique,
@@ -58,27 +92,9 @@ class CatalogSyncService:
             str(product.code).strip().casefold()
             for product in consolidated
             if str(getattr(product, "code", "")).strip()
-            and not getattr(product, "_generated_code", False)
         }
 
         for product in consolidated:
-            if getattr(product, "_generated_code", False):
-                result.generated += 1
-                result.changes.append({
-                    "type": "CODE_GENERATED",
-                    "code": product.code,
-                    "name": product.name,
-                    "changes": [
-                        {
-                            "field": "code",
-                            "label": "Código generado",
-                            "old": "Sin código",
-                            "new": product.code,
-                        }
-                    ],
-                })
-                continue
-
             result.increment_processed()
             existing = self.repository.get(product.code)
 
@@ -121,12 +137,9 @@ class CatalogSyncService:
 
             result.unchanged += 1
 
-        if cleanup_generated or prune_missing:
-            self._remove_missing_products(
-                scraped_codes,
-                result,
-                prune_real_codes=prune_missing,
-            )
+        if prune_missing:
+            self._remove_missing_products(scraped_codes, result)
+        self._remove_legacy_generated_products(scraped_codes, result)
 
         result.finish()
         self.last_sync_result = result
@@ -138,78 +151,23 @@ class CatalogSyncService:
         prune_missing: bool = True,
         expected_products: int = 0,
     ):
-        """Sincroniza el catálogo y limpia códigos locales no presentes en origen."""
+        """Sincroniza y limpia códigos ausentes cuando la cobertura es completa."""
         return self.sync(
             products,
             prune_missing=prune_missing,
-            cleanup_generated=True,
             expected_products=expected_products,
         )
 
     def synchronize(self, products, prune_missing: bool = False):
         return self.sync(products, prune_missing=prune_missing)
 
-    def _prepare_products(self, products):
-        """Garantiza que cada producto tenga un código único y auditable."""
-        prepared = []
-        used_codes: set[str] = set()
-        generated_by_source: dict[str, str] = {}
-        for product in products:
-            code = str(getattr(product, "code", "")).strip()
-            if not code:
-                url = str(getattr(product, "url", "")).strip()
-                name = str(getattr(product, "name", "")).strip()
-                source_key = (url or name).casefold()
-                code = generated_by_source.get(source_key, "")
-                if not code:
-                    code = self._generate_code(product, used_codes)
-                    generated_by_source[source_key] = code
-                product.code = code
-                product._generated_code = True
-            used_codes.add(code.casefold())
-            prepared.append(product)
-        return prepared
-
-    @staticmethod
-    def _generate_code(product, used_codes: set[str]) -> str:
-        """Genera un código estable, legible y determinista para revisión manual."""
-        url = str(getattr(product, "url", "")).strip()
-        name = str(getattr(product, "name", "")).strip()
-        parsed_path = urlparse(url).path.strip("/") if url else ""
-        source = parsed_path.split("/")[-1] or name or "producto"
-        slug = re.sub(r"[^A-Za-z0-9]+", "-", source).strip("-").upper()
-        slug = slug[:48].strip("-") or "PRODUCTO"
-        digest_source = url or name or source
-        digest = hashlib.sha1(
-            digest_source.casefold().encode("utf-8"),
-        ).hexdigest()[:8].upper()
-        base = f"AUTO-{slug}-{digest}"
-        candidate = base
-        suffix = 2
-        while candidate.casefold() in used_codes:
-            candidate = f"{base}-{suffix}"
-            suffix += 1
-        return candidate
-
-    def _remove_missing_products(
-        self,
-        scraped_codes: set[str],
-        result: SyncResult,
-        prune_real_codes: bool,
-    ) -> None:
-        """Elimina AUTO siempre y códigos reales solo con extracción completa."""
+    def _remove_missing_products(self, scraped_codes: set[str], result: SyncResult):
+        """Elimina códigos reales ausentes del scraping completo."""
         normalized_scraped_codes = {code.casefold() for code in scraped_codes}
         for existing in self.repository.get_all():
             code = str(getattr(existing, "code", "")).strip()
-            if not code:
+            if not code or code.casefold() in normalized_scraped_codes:
                 continue
-            normalized_code = code.casefold()
-            is_generated = normalized_code.startswith("auto-")
-            if normalized_code in normalized_scraped_codes:
-                continue
-            if not is_generated and not prune_real_codes:
-                continue
-
             result.deleted += 1
             result.changes.append({
                 "type": "DELETED",
@@ -219,26 +177,57 @@ class CatalogSyncService:
             })
             self.repository.delete_by_code(code)
 
+    def _remove_legacy_generated_products(
+        self,
+        scraped_codes: set[str],
+        result: SyncResult,
+    ) -> None:
+        """Limpia códigos provisionales creados por versiones anteriores."""
+        normalized_scraped_codes = {code.casefold() for code in scraped_codes}
+        for existing in self.repository.get_all():
+            code = str(getattr(existing, "code", "")).strip()
+            normalized = code.casefold()
+            if not code or normalized in normalized_scraped_codes:
+                continue
+            if not self._is_legacy_generated_code(code):
+                continue
+            result.deleted += 1
+            result.changes.append({
+                "type": "DELETED",
+                "code": code,
+                "name": getattr(existing, "name", ""),
+                "changes": [
+                    {
+                        "field": "code",
+                        "label": "Código provisional anterior",
+                        "old": code,
+                        "new": "Eliminado",
+                    }
+                ],
+            })
+            self.repository.delete_by_code(code)
+
+    @classmethod
+    def _is_legacy_generated_code(cls, code: str) -> bool:
+        normalized = code.strip().upper()
+        return normalized.startswith(cls.LEGACY_GENERATED_PREFIXES)
+
     @classmethod
     def consolidate_products(cls, products):
         """Consolida por código antes de comparar o guardar el catálogo."""
         consolidated = {}
-
         for product in products:
             code = str(getattr(product, "code", "")).strip()
             if not code:
                 continue
-
             existing = consolidated.get(code.casefold())
             if existing is None:
                 consolidated[code.casefold()] = product
                 continue
-
             existing.category = cls._merge_categories(
                 existing.category,
                 product.category,
             )
-
             colors = list(getattr(existing, "colors", []))
             colors.extend(getattr(product, "colors", []))
             existing.colors = list(
@@ -248,7 +237,6 @@ class CatalogSyncService:
                     if str(color).strip()
                 )
             )
-
             color_stock = dict(getattr(existing, "color_stock", {}))
             for color, stock in getattr(product, "color_stock", {}).items():
                 normalized_color = str(color).strip()
@@ -263,20 +251,14 @@ class CatalogSyncService:
                     normalized_stock,
                 )
             existing.color_stock = color_stock
-
             if not getattr(existing, "description", "") and getattr(
-                product,
-                "description",
-                "",
+                product, "description", ""
             ):
                 existing.description = product.description
             if not getattr(existing, "image_url", "") and getattr(
-                product,
-                "image_url",
-                "",
+                product, "image_url", ""
             ):
                 existing.image_url = product.image_url
-
         return list(consolidated.values())
 
     @classmethod
@@ -304,7 +286,6 @@ class CatalogSyncService:
         """Une categorías sin duplicarlas y conserva su orden de aparición."""
         merged: list[str] = []
         seen: set[str] = set()
-
         for value in categories:
             for category in str(value or "").split(","):
                 normalized = category.strip()
@@ -312,7 +293,6 @@ class CatalogSyncService:
                 if normalized and key not in seen:
                     seen.add(key)
                     merged.append(normalized)
-
         return ", ".join(merged)
 
     @staticmethod

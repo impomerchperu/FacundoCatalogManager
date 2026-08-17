@@ -106,6 +106,10 @@ class SyncRepository:
 
         return list(self.records.values())
 
+    def get_all(self):
+        """Alias de compatibilidad para recorridos completos del repositorio."""
+        return self.load()
+
     def save_all(self, products):
         """Guarda una colección completa."""
         for product in products:

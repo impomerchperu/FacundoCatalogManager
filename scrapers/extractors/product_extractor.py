@@ -63,33 +63,32 @@ class ProductExtractor:
     @classmethod
     def _normalize_code_candidate(cls, text: str) -> str:
         """Devuelve un código alfanumérico del sitio sin asumir prefijo."""
-        for token in re.split(r"\s+", text.strip()):
-            candidate = token.strip(".,:;()[]{}")
-            if not cls._CODE_PATTERN.fullmatch(candidate):
-                continue
-            if not any(char.isalpha() for char in candidate):
-                continue
-            if not any(char.isdigit() for char in candidate):
-                continue
-            return candidate.upper()
-        return ""
+        candidate = str(text).strip().strip(".,:;()[]{}")
+        if not cls._CODE_PATTERN.fullmatch(candidate):
+            return ""
+        if not any(char.isalpha() for char in candidate):
+            return ""
+        if not any(char.isdigit() for char in candidate):
+            return ""
+        return candidate.upper()
 
     def extract_code(self, soup):
         selectors = [
-            "p.brxe-heading",
             "span.sku",
+            ".sku",
             "[sku]",
             "[data-sku]",
-            ".sku",
+            "p.brxe-heading",
         ]
         for selector in selectors:
             for element in soup.select(selector):
-                text = (
-                    element.get("sku")
-                    or element.get("data-sku")
-                    or element.get_text(" ", strip=True)
-                )
-                code = self._normalize_code_candidate(str(text))
+                raw_value = element.get("sku") or element.get("data-sku")
+                if raw_value:
+                    code = self._normalize_code_candidate(str(raw_value))
+                else:
+                    code = self._normalize_code_candidate(
+                        element.get_text(" ", strip=True)
+                    )
                 if code:
                     return code
 
@@ -98,13 +97,22 @@ class ProductExtractor:
             parent = text_node.parent
             if parent is None:
                 continue
-            code = self._normalize_code_candidate(parent.get_text(" ", strip=True))
+            parent_text = parent.get_text(" ", strip=True)
+            code = self._normalize_code_candidate(parent_text)
             if code:
                 return code
 
             sibling = parent.find_next(string=True)
             if sibling is not None:
                 code = self._normalize_code_candidate(str(sibling))
+                if code:
+                    return code
+
+            next_element = parent.find_next()
+            if next_element is not None:
+                code = self._normalize_code_candidate(
+                    next_element.get_text(" ", strip=True)
+                )
                 if code:
                     return code
 

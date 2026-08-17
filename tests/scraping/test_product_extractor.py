@@ -55,6 +55,53 @@ def test_product_extractor_maps_stock_to_visible_colors():
     assert result["stock"] == 60
 
 
+def test_product_extractor_reads_alternate_product_code_formats():
+    cases = (
+        ("PS-1100", "PS-1100"),
+        ("KO-001", "KO-001"),
+        ("SKB05X-1", "SKB05X-1"),
+        ("PM810KB-12OZ", "PM810KB-12OZ"),
+        ("FB-1703-AZ", "FB-1703-AZ"),
+    )
+
+    for source, expected in cases:
+        soup = BeautifulSoup(
+            f'<p class="brxe-heading">{source}</p>',
+            "lxml",
+        )
+        assert ProductExtractor().extract_code(soup) == expected
+
+
+def test_product_extractor_does_not_accept_unrelated_model_text_as_code():
+    soup = BeautifulSoup(
+        "<p class='brxe-heading'>8274A</p>",
+        "lxml",
+    )
+
+    assert ProductExtractor().extract_code(soup) == ""
+
+
+def test_product_extractor_maps_stock_to_visible_colors():
+    html = """
+    <div class="jsfb-filterable">
+        <h2 class="brxe-heading">Producto por colores</h2>
+        <p class="brxe-heading">FB-9999</p>
+        <div>Colores: Rojo, Azul y Negro.</div>
+        <div>Stock Disponible 10 20 30</div>
+    </div>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    result = ProductExtractor().extract(soup)
+
+    assert result["color_stock"] == {
+        "Rojo": 10,
+        "Azul": 20,
+        "Negro": 30,
+    }
+    assert result["stock"] == 60
+
+
 def test_product_extractor_reads_detail_page_color_links():
     html = """
     <div class="product-information">

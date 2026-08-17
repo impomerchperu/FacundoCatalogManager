@@ -31,30 +31,58 @@ class CatalogSyncService:
         self.repository = repository
         self.diff_service = diff_service
 
-    def sync(self, products, prune_missing: bool = False):
-        """Sincroniza productos y opcionalmente elimina los ausentes del origen."""
+    def sync(
+        self,
+        products,
+        prune_missing: bool = False,
+        cleanup_generated: bool = False,
+    ):
+        """Sincroniza productos y opcionalmente reconcilia códigos ausentes."""
         result = SyncResult()
         prepared = self._prepare_products(products)
         consolidated = self.consolidate_products(prepared)
+        result.products_found = len(prepared)
+        result.products_unique = len(consolidated)
+        result.duplicate_occurrences = max(
+            result.products_found - result.products_unique,
+            0,
+        )
+        result.products_multiple_categories = self._count_multi_category_products(
+            prepared,
+        )
+
         scraped_codes = {
-            str(product.code).strip()
+            str(product.code).strip().casefold()
             for product in consolidated
             if str(getattr(product, "code", "")).strip()
+            and not getattr(product, "_generated_code", False)
         }
 
         for product in consolidated:
+            if getattr(product, "_generated_code", False):
+                result.generated += 1
+                result.changes.append({
+                    "type": "CODE_GENERATED",
+                    "code": product.code,
+                    "name": product.name,
+                    "changes": [
+                        {
+                            "field": "code",
+                            "label": "Código generado",
+                            "old": "Sin código",
+                            "new": product.code,
+                        }
+                    ],
+                })
+                continue
+
             result.increment_processed()
             existing = self.repository.get(product.code)
 
             if existing is None:
                 result.created += 1
-                change_type = "CODE_GENERATED" if getattr(
-                    product,
-                    "_generated_code",
-                    False,
-                ) else "NEW"
                 result.changes.append({
-                    "type": change_type,
+                    "type": "NEW",
                     "code": product.code,
                     "name": product.name,
                     "changes": [],
@@ -90,15 +118,27 @@ class CatalogSyncService:
 
             result.unchanged += 1
 
-        if prune_missing:
-            self._remove_missing_products(scraped_codes, result)
+        if cleanup_generated or prune_missing:
+            self._remove_missing_products(
+                scraped_codes,
+                result,
+                prune_real_codes=prune_missing,
+            )
 
         result.finish()
         return result
 
-    def sync_full_catalog(self, products):
-        """Sincroniza el catálogo completo por código y elimina códigos ausentes."""
-        return self.sync(products, prune_missing=True)
+    def sync_full_catalog(
+        self,
+        products,
+        prune_missing: bool = True,
+    ):
+        """Sincroniza el catálogo y limpia códigos locales no presentes en origen."""
+        return self.sync(
+            products,
+            prune_missing=prune_missing,
+            cleanup_generated=True,
+        )
 
     def synchronize(self, products, prune_missing: bool = False):
         return self.sync(products, prune_missing=prune_missing)
@@ -142,12 +182,19 @@ class CatalogSyncService:
         self,
         scraped_codes: set[str],
         result: SyncResult,
+        prune_real_codes: bool,
     ) -> None:
-        """Elimina del catálogo todo código que no apareció en el scraping completo."""
+        """Elimina AUTO siempre y códigos reales solo con extracción completa."""
         normalized_scraped_codes = {code.casefold() for code in scraped_codes}
         for existing in self.repository.get_all():
             code = str(getattr(existing, "code", "")).strip()
-            if not code or code.casefold() in normalized_scraped_codes:
+            if not code:
+                continue
+            normalized_code = code.casefold()
+            is_generated = normalized_code.startswith("auto-")
+            if normalized_code in normalized_scraped_codes:
+                continue
+            if not is_generated and not prune_real_codes:
                 continue
 
             result.deleted += 1
@@ -205,15 +252,35 @@ class CatalogSyncService:
             existing.color_stock = color_stock
 
             if not getattr(existing, "description", "") and getattr(
-                product, "description", ""
+                product,
+                "description",
+                "",
             ):
                 existing.description = product.description
             if not getattr(existing, "image_url", "") and getattr(
-                product, "image_url", ""
+                product,
+                "image_url",
+                "",
             ):
                 existing.image_url = product.image_url
 
         return list(consolidated.values())
+
+    @classmethod
+    def _count_multi_category_products(cls, products) -> int:
+        """Cuenta códigos que aparecen en más de una categoría distinta."""
+        categories_by_code: dict[str, set[str]] = {}
+        for product in products:
+            code = str(getattr(product, "code", "")).strip()
+            if not code:
+                continue
+            categories = categories_by_code.setdefault(code.casefold(), set())
+            raw_categories = str(getattr(product, "category", "") or "")
+            for category in raw_categories.split(","):
+                normalized = category.strip().casefold()
+                if normalized:
+                    categories.add(normalized)
+        return sum(1 for categories in categories_by_code.values() if len(categories) > 1)
 
     @staticmethod
     def _merge_categories(*categories) -> str:

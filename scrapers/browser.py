@@ -7,7 +7,7 @@ from config.scraping_config import (
     DEFAULT_HEADERS,
     MAX_RETRIES,
     REQUEST_TIMEOUT,
-    SCRAPING_CATEGORY_WORKERS,
+    SCRAPING_HTTP_WORKERS,
 )
 
 
@@ -15,7 +15,7 @@ class Browser:
     def __init__(self, session=None):
         self.session = session
         self._thread_local = threading.local()
-        self._http_semaphore = threading.BoundedSemaphore(SCRAPING_CATEGORY_WORKERS)
+        self._http_semaphore = threading.BoundedSemaphore(SCRAPING_HTTP_WORKERS)
 
         if session is None:
             self.session = requests.Session()

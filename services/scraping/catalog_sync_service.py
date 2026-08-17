@@ -30,6 +30,7 @@ class CatalogSyncService:
     def __init__(self, repository, diff_service):
         self.repository = repository
         self.diff_service = diff_service
+        self.last_sync_result = SyncResult()
 
     def sync(
         self,
@@ -126,6 +127,7 @@ class CatalogSyncService:
             )
 
         result.finish()
+        self.last_sync_result = result
         return result
 
     def sync_full_catalog(

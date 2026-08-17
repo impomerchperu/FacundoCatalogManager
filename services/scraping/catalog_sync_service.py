@@ -137,7 +137,11 @@ class CatalogSyncService:
 
             result.unchanged += 1
 
-        if prune_missing:
+        coverage_complete = (
+            expected_products <= 0 or len(raw_products) == expected_products
+        )
+        prune_allowed = prune_missing and coverage_complete and not missing_code_products
+        if prune_allowed:
             self._remove_missing_products(scraped_codes, result)
         self._remove_legacy_generated_products(scraped_codes, result)
 
@@ -151,7 +155,7 @@ class CatalogSyncService:
         prune_missing: bool = True,
         expected_products: int = 0,
     ):
-        """Sincroniza y limpia códigos ausentes cuando la cobertura es completa."""
+        """Sincroniza y limpia códigos ausentes solo con cobertura completa."""
         return self.sync(
             products,
             prune_missing=prune_missing,

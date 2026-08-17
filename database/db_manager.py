@@ -58,6 +58,31 @@ class DBManager:
             "deleted",
             "INTEGER DEFAULT 0",
         )
+        self._add_column_if_missing(
+            "scraping_history",
+            "generated",
+            "INTEGER DEFAULT 0",
+        )
+        self._add_column_if_missing(
+            "scraping_history",
+            "products_found",
+            "INTEGER DEFAULT 0",
+        )
+        self._add_column_if_missing(
+            "scraping_history",
+            "products_unique",
+            "INTEGER DEFAULT 0",
+        )
+        self._add_column_if_missing(
+            "scraping_history",
+            "products_multiple_categories",
+            "INTEGER DEFAULT 0",
+        )
+        self._add_column_if_missing(
+            "scraping_history",
+            "duplicate_occurrences",
+            "INTEGER DEFAULT 0",
+        )
         self._remove_legacy_colors_column("products")
         self._remove_legacy_colors_column("scraped_products")
 
@@ -211,7 +236,7 @@ class DBManager:
         return cursor.fetchall()
 
     def fetch_one(self, query, params=()):
-        """Devuelve una fila de una consulta."""
+        """Devuelve una fila de la base de datos."""
         cursor = self.connection.cursor()
         cursor.execute(query, params)
         return cursor.fetchone()

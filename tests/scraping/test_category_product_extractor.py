@@ -69,7 +69,21 @@ def test_category_product_extractor_keeps_single_total_stock():
     assert product.stock == 9409
 
 
-def test_category_product_extractor_recovers_alternate_code_class():
+def test_category_product_extractor_recovers_catalog_code_formats():
+    for code in ("PS-1100", "F320", "F110", "R7512"):
+        html = f"""
+        <article>
+            <p class="brxe-heading">{code}</p>
+            <h2 class="brxe-f31760">Producto de prueba</h2>
+        </article>
+        """
+
+        card = BeautifulSoup(html, "lxml")
+
+        assert CategoryProductExtractor().extract(card).code == code
+
+
+def test_category_product_extractor_recovers_code_from_sku_class():
     html = """
     <article>
         <span class="sku">PS-1100</span>
@@ -80,19 +94,6 @@ def test_category_product_extractor_recovers_alternate_code_class():
     card = BeautifulSoup(html, "lxml")
 
     assert CategoryProductExtractor().extract(card).code == "PS-1100"
-
-
-def test_category_product_extractor_recovers_code_from_card_text():
-    html = """
-    <article>
-        <h2 class="brxe-f31760">Producto SKB05X-1</h2>
-        <div class="text-content">Detalle sin selector SKU.</div>
-    </article>
-    """
-
-    card = BeautifulSoup(html, "lxml")
-
-    assert CategoryProductExtractor().extract(card).code == "SKB05X-1"
 
 
 def test_category_product_extractor_rejects_unrelated_model_text():

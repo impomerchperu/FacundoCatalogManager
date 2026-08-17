@@ -26,6 +26,7 @@ class ScrapingHistoryRepository:
     )
 
     FIELD_LABELS: ClassVar[dict[str, str]] = {
+        "code": "Código",
         "name": "Nombre",
         "category": "Categoría",
         "description": "Detalle",
@@ -82,7 +83,22 @@ class ScrapingHistoryRepository:
         for item in changes or []:
             code = str(item.get("code", ""))
             name = str(item.get("name", ""))
-            if item.get("type") == "NEW":
+            item_type = item.get("type")
+
+            if item_type == "CODE_GENERATED":
+                self._insert_change(
+                    history.history_id,
+                    "CODE_GENERATED",
+                    code,
+                    name,
+                    "code",
+                    "Código generado",
+                    "Sin código",
+                    code,
+                )
+                continue
+
+            if item_type == "NEW":
                 product = product_map.get(code)
                 if product is None:
                     self._insert_change(
@@ -109,7 +125,7 @@ class ScrapingHistoryRepository:
                     )
                 continue
 
-            if item.get("type") == "DELETED":
+            if item_type == "DELETED":
                 self._insert_change(
                     history.history_id,
                     "DELETED",

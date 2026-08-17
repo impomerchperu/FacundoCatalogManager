@@ -46,7 +46,12 @@ class ScrapingHistoryRepository:
     def __init__(self, db):
         self.db = db
 
-    def save(self, history: ScrapingHistory, changes: list[dict] | None = None, products: list | None = None) -> int:
+    def save(
+        self,
+        history: ScrapingHistory,
+        changes: list[dict] | None = None,
+        products: list | None = None,
+    ) -> int:
         """Guarda una descarga ya aplicada y sus cambios."""
         cursor = self.db.execute_query(
             """
@@ -78,7 +83,10 @@ class ScrapingHistoryRepository:
         )
         history.history_id = int(cursor.lastrowid)
 
-        product_map = {str(getattr(product, "code", "")): product for product in (products or [])}
+        product_map = {
+            str(getattr(product, "code", "")): product
+            for product in (products or [])
+        }
         for item in changes or []:
             code = str(item.get("code", ""))
             name = str(item.get("name", ""))
@@ -151,7 +159,17 @@ class ScrapingHistoryRepository:
                 )
         return history.history_id
 
-    def _insert_change(self, history_id: int, change_type: str, code: str, name: str, field: str | None, label: str, old_value, new_value) -> None:
+    def _insert_change(
+        self,
+        history_id: int,
+        change_type: str,
+        code: str,
+        name: str,
+        field: str | None,
+        label: str,
+        old_value,
+        new_value,
+    ) -> None:
         self.db.execute_query(
             """
             INSERT INTO download_changes (
@@ -159,7 +177,16 @@ class ScrapingHistoryRepository:
                 field_name, field_label, old_value, new_value
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (history_id, change_type, code, name, field, label, old_value, new_value),
+            (
+                history_id,
+                change_type,
+                code,
+                name,
+                field,
+                label,
+                old_value,
+                new_value,
+            ),
         )
 
     def get_all(self):

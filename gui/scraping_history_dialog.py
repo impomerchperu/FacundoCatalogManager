@@ -3,6 +3,7 @@ import sqlite3
 from datetime import datetime
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -218,6 +219,7 @@ class ScrapingHistoryDialog(QDialog):
                 "NEW": "NUEVO",
                 "UPDATED": "ACTUALIZADO",
                 "DELETED": "ELIMINADO",
+                "CODE_GENERATED": "CÓDIGO GENERADO",
             }.get(change["type"], change["type"])
             values = [
                 change_type,
@@ -228,7 +230,13 @@ class ScrapingHistoryDialog(QDialog):
                 self._format_change_value(change["new"]),
             ]
             for column, value in enumerate(values):
-                table.setItem(row, column, QTableWidgetItem(value))
+                item = QTableWidgetItem(value)
+                if change["type"] == "CODE_GENERATED":
+                    item.setBackground(QColor("#FFF2CC"))
+                    font = QFont(item.font())
+                    font.setBold(True)
+                    item.setFont(font)
+                table.setItem(row, column, item)
 
         if not changes:
             table.setItem(0, 0, QTableWidgetItem("—"))

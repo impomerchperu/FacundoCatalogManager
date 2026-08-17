@@ -8,7 +8,7 @@ class CategoryProductExtractor:
     """Extrae productos desde tarjetas de categoría Bricks + Jet Engine."""
 
     SOURCE = "importacionesfacundo"
-    _CODE_PATTERN = re.compile(r"\b[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+\b")
+    _CODE_PATTERN = re.compile(r"^[A-Z0-9]{1,16}(?:-[A-Z0-9]+)*$", re.IGNORECASE)
 
     def __init__(self):
         self.price_extractor = PriceExtractor()
@@ -40,6 +40,19 @@ class CategoryProductExtractor:
         return element.get("href", "") if element else ""
 
     @classmethod
+    def _normalize_code(cls, text: str) -> str:
+        for token in re.split(r"\s+", str(text).strip()):
+            candidate = token.strip(".,:;()[]{}")
+            if not cls._CODE_PATTERN.fullmatch(candidate):
+                continue
+            if not any(char.isalpha() for char in candidate):
+                continue
+            if not any(char.isdigit() for char in candidate):
+                continue
+            return candidate.upper()
+        return ""
+
+    @classmethod
     def _code(cls, soup):
         """Extrae el código aunque la plantilla cambie la clase visual del SKU."""
         selectors = (
@@ -53,23 +66,23 @@ class CategoryProductExtractor:
         )
         for selector in selectors:
             for element in soup.select(selector):
-                code = cls._normalize_code(element.get_text(" ", strip=True))
+                text = (
+                    element.get("sku")
+                    or element.get("data-sku")
+                    or element.get_text(" ", strip=True)
+                )
+                code = cls._normalize_code(text)
                 if code:
                     return code
 
-        text = soup.get_text(" ", strip=True)
-        match = cls._CODE_PATTERN.search(text)
-        return match.group(0).strip() if match else ""
-
-    @classmethod
-    def _normalize_code(cls, text: str) -> str:
-        normalized = re.sub(r"\s+", " ", str(text)).strip()
-        if not normalized:
-            return ""
-        match = cls._CODE_PATTERN.search(normalized)
-        if match is None:
-            return ""
-        return match.group(0)
+        name_element = soup.select_one("h2.brxe-f31760, h2.brxe-heading, h3")
+        for text_node in soup.find_all(string=True):
+            if name_element is not None and text_node is name_element.string:
+                break
+            code = cls._normalize_code(text_node)
+            if code:
+                return code
+        return ""
 
     def _name(self, soup):
         element = soup.select_one("h2.brxe-f31760")

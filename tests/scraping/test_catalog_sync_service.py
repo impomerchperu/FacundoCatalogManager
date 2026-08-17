@@ -113,14 +113,8 @@ def test_catalog_sync_preserves_categories_across_separate_category_syncs():
     service = CatalogSyncService(repository, ProductDiffService())
 
     first = service.synchronize([
-        Product(
-            "P003",
-            "Producto compartido",
-            10,
-            category="Jarros",
-        ),
+        Product("P003", "Producto compartido", 10, category="Jarros"),
     ])
-
     second = service.synchronize([
         Product(
             "P003",
@@ -143,10 +137,7 @@ def test_catalog_sync_does_not_duplicate_existing_category():
     repository = SyncRepository()
     service = CatalogSyncService(repository, ProductDiffService())
 
-    service.synchronize([
-        Product("P004", "Producto", 10, category="Jarros"),
-    ])
-
+    service.synchronize([Product("P004", "Producto", 10, category="Jarros")])
     result = service.synchronize([
         Product("P004", "Producto", 10, category="jarros"),
     ])
@@ -159,10 +150,9 @@ def test_catalog_sync_does_not_duplicate_existing_category():
     assert stored.category == "Jarros"
 
 
-def test_catalog_sync_generates_stable_auditable_code_when_missing():
+def test_catalog_sync_does_not_create_local_code_when_missing():
     repository = SyncRepository()
     service = CatalogSyncService(repository, ProductDiffService())
-
     product = Product(
         "",
         "Producto sin código",
@@ -172,16 +162,15 @@ def test_catalog_sync_generates_stable_auditable_code_when_missing():
 
     result = service.synchronize([product])
 
-    assert result.generated == 1
+    assert result.missing_code == 1
     assert result.created == 0
     assert result.processed == 0
-    assert product.code.startswith("AUTO-PRODUCTO-SIN-CODIGO-")
+    assert product.code == ""
     assert repository.get_all() == []
-    assert result.changes[0]["type"] == "CODE_GENERATED"
-    assert result.changes[0]["code"] == product.code
+    assert result.changes[0]["type"] == "MISSING_CODE"
 
 
-def test_catalog_sync_full_cleanup_removes_old_generated_code():
+def test_catalog_sync_cleans_legacy_generated_codes_without_pruning_real_codes():
     repository = SyncRepository()
     repository.save(Product("AUTO-OLD-PRODUCT-12345678", "Producto provisional", 10))
     repository.save(Product("KEEP001", "Producto vigente", 20))
@@ -190,7 +179,6 @@ def test_catalog_sync_full_cleanup_removes_old_generated_code():
     result = service.sync(
         [Product("KEEP001", "Producto vigente", 20)],
         prune_missing=False,
-        cleanup_generated=True,
     )
 
     assert result.deleted == 1
@@ -203,19 +191,41 @@ def test_catalog_sync_full_cleanup_removes_old_generated_code():
     )
 
 
-def test_catalog_sync_prunes_codes_not_present_in_scraping():
+def test_catalog_sync_prune_requires_complete_coverage():
     repository = SyncRepository()
     repository.save(Product("OLD001", "Producto antiguo", 10))
     repository.save(Product("KEEP001", "Producto vigente", 20))
 
     service = CatalogSyncService(repository, ProductDiffService())
-    result = service.sync_full_catalog([
-        Product("KEEP001", "Producto vigente", 20),
-    ])
+    result = service.sync_full_catalog(
+        [Product("KEEP001", "Producto vigente", 20)],
+        expected_products=2,
+    )
+
+    assert result.deleted == 0
+    assert repository.get("OLD001") is not None
+    assert repository.get("KEEP001") is not None
+
+
+def test_catalog_sync_prunes_codes_not_present_in_complete_scraping():
+    repository = SyncRepository()
+    repository.save(Product("OLD001", "Producto antiguo", 10))
+    repository.save(Product("KEEP001", "Producto vigente", 20))
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.sync_full_catalog(
+        [
+            Product("KEEP001", "Producto vigente", 20),
+            Product("NEW001", "Producto nuevo", 30),
+        ],
+        expected_products=2,
+    )
 
     assert result.deleted == 1
+    assert result.created == 1
     assert repository.get("OLD001") is None
     assert repository.get("KEEP001") is not None
+    assert repository.get("NEW001") is not None
     assert any(
         change["type"] == "DELETED" and change["code"] == "OLD001"
         for change in result.changes

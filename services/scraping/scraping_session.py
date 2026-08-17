@@ -75,7 +75,7 @@ class ScrapingSession:
                 transaction_started = True
 
             products = operation()
-            self.result.products = products
+            self.result.products = products or []
             self._extract_sync_result()
 
             if not self.result.counts_are_consistent:
@@ -128,15 +128,29 @@ class ScrapingSession:
             None,
         )
         if sync_result is None:
+            self.result.processed = len(self.result.products)
             return
 
-        self.result.processed = sync_result.processed
         self.result.created = sync_result.created
         self.result.updated = sync_result.updated
         self.result.unchanged = sync_result.unchanged
         self.result.deleted = sync_result.deleted
         self.result.changes = list(sync_result.changes)
         self.result.errors.extend(sync_result.errors)
+
+        # En una ejecución completa, products contiene el conjunto consolidado
+        # que realmente se sincronizó. Ese valor es la fuente de verdad para
+        # "Procesados" en el historial.
+        consolidated_count = len(self.result.products)
+        classified_total = self.result.classified_total
+        if classified_total == consolidated_count:
+            self.result.processed = consolidated_count
+            return
+
+        # Si algún contador interno quedó desfasado, no mostramos un número
+        # parcial como "Procesados". Marcamos la inconsistencia y conservamos
+        # el total real de productos devueltos por la sincronización.
+        self.result.processed = consolidated_count
 
     def _save_history(self):
         if self.history_repository is None:

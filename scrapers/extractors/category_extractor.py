@@ -3,7 +3,6 @@ import re
 from models.scraping.category import Category
 from scrapers.selectors import category_selectors
 
-
 _COUNT_PATTERN = re.compile(r"Producto\(s\)\s*(\d+)", re.IGNORECASE)
 
 

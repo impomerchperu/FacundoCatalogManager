@@ -5,10 +5,13 @@ from scrapers.extractors.price_extractor import PriceExtractor
 
 
 class CategoryProductExtractor:
-    """Extrae productos desde tarjetas de categoría Bricks + Jet Engine."""
+    """Extrae productos desde tarjetas y filas de tabla de categoría."""
 
     SOURCE = "importacionesfacundo"
-    _CODE_PATTERN = re.compile(r"^[A-Z0-9]{1,16}(?:-[A-Z0-9]+)*$", re.IGNORECASE)
+    _CODE_PATTERN = re.compile(
+        r"^[A-Z0-9]{1,16}(?:-[A-Z0-9]+)*$",
+        re.IGNORECASE,
+    )
 
     def __init__(self):
         self.price_extractor = PriceExtractor()
@@ -54,7 +57,7 @@ class CategoryProductExtractor:
 
     @classmethod
     def _code(cls, soup):
-        """Extrae el código aunque la plantilla cambie la clase visual del SKU."""
+        """Extrae el código aunque cambie la plantilla visual del SKU."""
         selectors = (
             "p.brxe-a26f34",
             "span.sku",
@@ -75,7 +78,7 @@ class CategoryProductExtractor:
                 if code:
                     return code
 
-        name_element = soup.select_one("h2.brxe-f31760, h2.brxe-heading, h3")
+        name_element = soup.select_one("h2.brxe-f31760, h2.brxe-heading, h2, h3")
         for text_node in soup.find_all(string=True):
             if name_element is not None and text_node is name_element.string:
                 break
@@ -85,7 +88,9 @@ class CategoryProductExtractor:
         return ""
 
     def _name(self, soup):
-        element = soup.select_one("h2.brxe-f31760")
+        element = soup.select_one(
+            "h2.brxe-f31760, h2.brxe-heading, h2, h3",
+        )
         return element.get_text(" ", strip=True) if element else ""
 
     def _description(self, soup):
@@ -208,9 +213,12 @@ class CategoryProductExtractor:
             text = re.sub(r"\s+", " ", str(element)).strip()
             if not text:
                 continue
-
             match = next(
-                (pattern.search(text) for pattern in patterns if pattern.search(text)),
+                (
+                    pattern.search(text)
+                    for pattern in patterns
+                    if pattern.search(text)
+                ),
                 None,
             )
             if match is None:

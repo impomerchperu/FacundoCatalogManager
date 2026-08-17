@@ -9,11 +9,9 @@ class SyncResult:
     """Resultado consolidado de una sincronización de catálogo."""
 
     success: bool = False
-
     started_at: datetime | None = field(
         default_factory=lambda: datetime.now(timezone.utc),
     )
-
     finished_at: datetime | None = None
 
     processed: int = 0
@@ -28,7 +26,7 @@ class SyncResult:
 
     categories_processed: int = 0
 
-    # Cobertura de extracción antes y después de consolidar por código.
+    products_expected: int = 0
     products_found: int = 0
     products_unique: int = 0
     products_multiple_categories: int = 0
@@ -55,6 +53,10 @@ class SyncResult:
     @property
     def counts_are_consistent(self) -> bool:
         return self.processed == self.classified_total
+
+    @property
+    def coverage_gap(self) -> int:
+        return max(self.products_expected - self.products_found, 0)
 
     def finish(self) -> None:
         self.finished_at = datetime.now(timezone.utc)
@@ -85,10 +87,12 @@ class SyncResult:
             "classified_total": self.classified_total,
             "counts_are_consistent": self.counts_are_consistent,
             "categories_processed": self.categories_processed,
+            "products_expected": self.products_expected,
             "products_found": self.products_found,
             "products_unique": self.products_unique,
             "products_multiple_categories": self.products_multiple_categories,
             "duplicate_occurrences": self.duplicate_occurrences,
+            "coverage_gap": self.coverage_gap,
             "products_created": self.products_created,
             "products_updated": self.products_updated,
             "products_unchanged": self.products_unchanged,
@@ -112,10 +116,12 @@ class SyncResult:
             "Sin cambios": self.unchanged,
             "Eliminados": self.deleted,
             "Códigos generados": self.generated,
+            "Esperados por categorías": self.products_expected,
             "Encontrados": self.products_found,
             "Únicos": self.products_unique,
             "Múltiples categorías": self.products_multiple_categories,
             "Apariciones duplicadas": self.duplicate_occurrences,
+            "Brecha de cobertura": self.coverage_gap,
             "Total clasificado": self.classified_total,
             "Conteos consistentes": self.counts_are_consistent,
             "Errores": len(self.errors),

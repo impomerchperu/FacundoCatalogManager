@@ -20,6 +20,7 @@ class SyncResult:
     unchanged: int = 0
     deleted: int = 0
     generated: int = 0
+    missing_code: int = 0
 
     changes: list[dict] = field(default_factory=list)
     failures: list = field(default_factory=list)
@@ -84,6 +85,7 @@ class SyncResult:
             "unchanged": self.unchanged,
             "deleted": self.deleted,
             "generated": self.generated,
+            "missing_code": self.missing_code,
             "classified_total": self.classified_total,
             "counts_are_consistent": self.counts_are_consistent,
             "categories_processed": self.categories_processed,
@@ -116,6 +118,7 @@ class SyncResult:
             "Sin cambios": self.unchanged,
             "Eliminados": self.deleted,
             "Códigos generados": self.generated,
+            "Sin código": self.missing_code,
             "Esperados por categorías": self.products_expected,
             "Encontrados": self.products_found,
             "Únicos": self.products_unique,

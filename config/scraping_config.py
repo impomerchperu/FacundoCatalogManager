@@ -17,12 +17,16 @@ REQUEST_TIMEOUT = 15
 
 MAX_RETRIES = 3
 
-# Detail workers may prepare several categories concurrently, but Browser
-# applies a shared HTTP semaphore so category and detail traffic never exceed
-# the stable server-facing concurrency budget.
+# Detail workers may prepare several categories concurrently, while Browser
+# applies a shared HTTP semaphore so category and detail traffic remain
+# bounded independently.
 SCRAPING_MAX_WORKERS = 20
 
 # Measurements show that 20 category workers add contention without improving
-# end-to-end runtime. Keep the stable category budget at 16 workers; Browser
-# also uses this value as the global HTTP concurrency ceiling.
+# end-to-end runtime. Keep the stable category budget at 16 workers.
 SCRAPING_CATEGORY_WORKERS = 16
+
+# Allow a slightly wider HTTP pipeline than the category executor. This is
+# intentionally independent so detail requests can use spare network capacity
+# without increasing category scheduling contention.
+SCRAPING_HTTP_WORKERS = 20

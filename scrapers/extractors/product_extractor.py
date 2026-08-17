@@ -15,7 +15,7 @@ class ProductExtractor:
 
     SOURCE = "importacionesfacundo"
     BASE_URL = "https://stock.importacionesfacundo.com"
-    _CODE_PATTERN = re.compile(r"^[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+$", re.IGNORECASE)
+    _CODE_PATTERN = re.compile(r"^[A-Z0-9]{1,16}(?:-[A-Z0-9]+)*$", re.IGNORECASE)
 
     _IGNORED_COLOR_TAGS = (
         "select",
@@ -62,11 +62,16 @@ class ProductExtractor:
 
     @classmethod
     def _normalize_code_candidate(cls, text: str) -> str:
-        """Devuelve un código válido del sitio sin asumir el prefijo FB-."""
+        """Devuelve un código alfanumérico del sitio sin asumir prefijo."""
         for token in re.split(r"\s+", text.strip()):
             candidate = token.strip(".,:;()[]{}")
-            if cls._CODE_PATTERN.fullmatch(candidate):
-                return candidate.upper()
+            if not cls._CODE_PATTERN.fullmatch(candidate):
+                continue
+            if not any(char.isalpha() for char in candidate):
+                continue
+            if not any(char.isdigit() for char in candidate):
+                continue
+            return candidate.upper()
         return ""
 
     def extract_code(self, soup):
@@ -75,23 +80,21 @@ class ProductExtractor:
             "span.sku",
             "[sku]",
             "[data-sku]",
+            ".sku",
         ]
         for selector in selectors:
-            element = soup.select_one(selector)
-            if not element:
-                continue
-            text = element.get("sku") or element.get("data-sku") or element.get_text(
-                " ",
-                strip=True,
-            )
-            code = self._normalize_code_candidate(str(text))
-            if code:
-                return code
+            for element in soup.select(selector):
+                text = (
+                    element.get("sku")
+                    or element.get("data-sku")
+                    or element.get_text(" ", strip=True)
+                )
+                code = self._normalize_code_candidate(str(text))
+                if code:
+                    return code
 
-        code_nodes = soup.find_all(
-            string=re.compile(r"\b(?:c[oó]digo|sku)\b", re.I)
-        )
-        for text_node in code_nodes:
+        code_marker = re.compile(r"\b(?:c[oó]digo|sku|cod)\b", re.I)
+        for text_node in soup.find_all(string=code_marker):
             parent = text_node.parent
             if parent is None:
                 continue
@@ -485,19 +488,28 @@ class ProductExtractor:
                 or img.get("src")
                 or ""
             )
-            if not isinstance(url, str) or not url or "data:image" in url:
+            if not url or url.startswith("data:image"):
                 continue
-            if code:
-                score = self._image_score(url, code)
-                candidates.append((score, url))
-            else:
-                candidates.append((0, url))
+            if "Logo" in url or "Proximo" in url:
+                continue
+            candidates.append(self._normalize_image_url(url))
+
         if not candidates:
             return ""
-        candidates.sort(key=lambda item: item[0], reverse=True)
-        return urljoin(self.BASE_URL, candidates[0][1])
+        if code:
+            for url in candidates:
+                if code.lower() in url.lower():
+                    return url
+        for url in candidates:
+            if "/uploads/" in url:
+                return url
+        return candidates[0]
 
-    @staticmethod
-    def _image_score(url, code):
-        filename = url.rsplit("/", 1)[-1].casefold()
-        return 10 if code.casefold() in filename else 0
+    def _normalize_image_url(self, url):
+        if not url:
+            return ""
+        if url.startswith("//"):
+            return "https:" + url
+        if url.startswith("/"):
+            return urljoin(self.BASE_URL, url)
+        return url

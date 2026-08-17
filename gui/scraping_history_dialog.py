@@ -90,12 +90,7 @@ class ScrapingHistoryDialog(QDialog):
         self.table.setRowCount(len(history))
         for row, record in enumerate(history):
             applied_at = self._parse_datetime(record.finished_at)
-            self._set_item(
-                row,
-                0,
-                self._format_datetime(applied_at),
-                record.history_id,
-            )
+            self._set_item(row, 0, self._format_datetime(applied_at), record.history_id)
             self._set_item(row, 1, str(record.processed))
             self._set_item(row, 2, str(record.created))
             self._set_item(row, 3, str(record.updated))
@@ -199,12 +194,15 @@ class ScrapingHistoryDialog(QDialog):
         summary.setStyleSheet("font-weight: bold; padding: 4px;")
         layout.addWidget(summary)
 
+        expected_gap = max(history.products_expected - history.products_found, 0)
         coverage = QLabel(
             "COBERTURA DEL SCRAPING    "
+            f"Esperados en categorías: {history.products_expected}    |    "
             f"Encontrados: {history.products_found}    |    "
             f"Únicos: {history.products_unique}    |    "
             f"En múltiples categorías: {history.products_multiple_categories}    |    "
             f"Apariciones duplicadas: {history.duplicate_occurrences}    |    "
+            f"Brecha: {expected_gap}    |    "
             f"Códigos generados: {history.generated}"
         )
         coverage.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
@@ -214,21 +212,17 @@ class ScrapingHistoryDialog(QDialog):
         )
         layout.addWidget(coverage)
 
-        consistency = history.products_unique == history.processed + history.generated
-        consistency_label = QLabel(
-            "Relación: encontrados = únicos + apariciones duplicadas"
-            if history.products_found
-            else "Sin métricas de cobertura disponibles para este registro."
-        )
         if history.products_found:
-            consistency_label.setText(
+            relation = (
                 "Relación de cobertura: "
                 f"{history.products_found} = {history.products_unique} + "
-                f"{history.duplicate_occurrences}    |    "
-                f"Conteo operativo consistente: {'SÍ' if consistency else 'NO'}"
+                f"{history.duplicate_occurrences} apariciones duplicadas"
             )
-        consistency_label.setStyleSheet("padding: 2px 4px; font-style: italic;")
-        layout.addWidget(consistency_label)
+        else:
+            relation = "Sin métricas de cobertura disponibles para este registro."
+        relation_label = QLabel(relation)
+        relation_label.setStyleSheet("padding: 2px 4px; font-style: italic;")
+        layout.addWidget(relation_label)
 
         table = QTableWidget()
         table.setColumnCount(6)

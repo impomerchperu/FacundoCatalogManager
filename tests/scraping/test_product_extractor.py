@@ -57,12 +57,14 @@ def test_product_extractor_accepts_catalog_code_formats():
 
 
 def test_product_extractor_does_not_use_unrelated_model_text_as_code():
-    soup = BeautifulSoup(
+    soups = (
         "<h2>Modelo 8274A</h2>",
-        "lxml",
+        '<p class="brxe-heading">Modelo F110</p>',
     )
 
-    assert ProductExtractor().extract_code(soup) == ""
+    for html in soups:
+        soup = BeautifulSoup(html, "lxml")
+        assert ProductExtractor().extract_code(soup) == ""
 
 
 def test_product_extractor_maps_stock_to_visible_colors():

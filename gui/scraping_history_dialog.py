@@ -32,7 +32,7 @@ class ScrapingHistoryDialog(QDialog):
         self.repository = ScrapingHistoryRepository(self.db)
         self.detail_dialog: QDialog | None = None
         self.setWindowTitle("Historial de descargas")
-        self.resize(1300, 600)
+        self.resize(1450, 620)
         self._build_ui()
         self.load_history()
 
@@ -43,15 +43,16 @@ class ScrapingHistoryDialog(QDialog):
         layout.addWidget(title)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(9)
+        self.table.setColumnCount(10)
         self.table.setHorizontalHeaderLabels(
             [
                 "Aplicado",
-                "Productos",
+                "Procesados",
                 "Nuevos",
                 "Actualizados",
                 "Sin cambios",
                 "Eliminados",
+                "Cobertura",
                 "Errores",
                 "Estado",
                 "Detalle",
@@ -96,25 +97,38 @@ class ScrapingHistoryDialog(QDialog):
             self._set_item(row, 3, str(record.updated))
             self._set_item(row, 4, str(record.unchanged))
             self._set_item(row, 5, str(record.deleted))
-            self._set_item(row, 6, str(record.errors))
+            coverage_text = (
+                f"E:{record.products_expected} "
+                f"F:{record.products_found} "
+                f"U:{record.products_unique} "
+                f"M:{record.products_multiple_categories} "
+                f"D:{record.duplicate_occurrences}"
+            )
+            self._set_item(row, 6, coverage_text)
+            self._set_item(row, 7, str(record.errors))
             self._set_item(
                 row,
-                7,
+                8,
                 "APLICADO" if record.status == "SUCCESS" else "ERROR",
             )
             self._set_detail_button(row, record.history_id)
             self.table.setRowHeight(row, 44)
 
         self.table.resizeColumnsToContents()
-        self.table.setColumnWidth(0, 165)
-        self.table.setColumnWidth(1, 90)
-        self.table.setColumnWidth(2, 80)
-        self.table.setColumnWidth(3, 100)
-        self.table.setColumnWidth(4, 100)
-        self.table.setColumnWidth(5, 90)
-        self.table.setColumnWidth(6, 70)
-        self.table.setColumnWidth(7, 100)
-        self.table.setColumnWidth(8, 110)
+        widths = {
+            0: 165,
+            1: 85,
+            2: 75,
+            3: 95,
+            4: 95,
+            5: 85,
+            6: 230,
+            7: 70,
+            8: 95,
+            9: 110,
+        }
+        for column, width in widths.items():
+            self.table.setColumnWidth(column, width)
 
     def _set_detail_button(self, row: int, history_id: int | None) -> None:
         container = QHBoxLayout()
@@ -123,7 +137,7 @@ class ScrapingHistoryDialog(QDialog):
         button.setProperty("history_id", history_id)
         button.clicked.connect(self.show_row_details)
         container.addWidget(button)
-        self.table.setCellWidget(row, 8, self._layout_widget(container))
+        self.table.setCellWidget(row, 9, self._layout_widget(container))
 
     @staticmethod
     def _layout_widget(layout: QHBoxLayout) -> QWidget:
@@ -202,8 +216,7 @@ class ScrapingHistoryDialog(QDialog):
             f"Únicos: {history.products_unique}    |    "
             f"En múltiples categorías: {history.products_multiple_categories}    |    "
             f"Apariciones duplicadas: {history.duplicate_occurrences}    |    "
-            f"Brecha: {expected_gap}    |    "
-            f"Códigos generados: {history.generated}"
+            f"Brecha: {expected_gap}"
         )
         coverage.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         coverage.setStyleSheet(
@@ -245,6 +258,7 @@ class ScrapingHistoryDialog(QDialog):
                 "UPDATED": "ACTUALIZADO",
                 "DELETED": "ELIMINADO",
                 "CODE_GENERATED": "CÓDIGO GENERADO",
+                "MISSING_CODE": "SIN CÓDIGO",
             }.get(change["type"], change["type"])
             values = [
                 change_type,
@@ -257,6 +271,10 @@ class ScrapingHistoryDialog(QDialog):
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 if change["type"] == "CODE_GENERATED":
+                    item.setBackground(QColor("#fff3cd"))
+                    item.setForeground(QColor("#664d03"))
+                    item.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+                elif change["type"] == "MISSING_CODE":
                     item.setBackground(QColor("#fff3cd"))
                     item.setForeground(QColor("#664d03"))
                     item.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
@@ -279,34 +297,28 @@ class ScrapingHistoryDialog(QDialog):
         dialog.activateWindow()
 
     @staticmethod
-    def _format_change_value(value) -> str:
-        if value is None:
-            return "—"
-        if isinstance(value, float):
-            return f"{value:,.2f}"
-        if isinstance(value, (dict, list)):
-            return json.dumps(value, ensure_ascii=False, sort_keys=True)
-        return str(value)
-
-    def _set_item(self, row: int, column: int, value: str, history_id=None) -> None:
-        item = QTableWidgetItem(value)
-        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        if history_id is not None:
-            item.setData(Qt.ItemDataRole.UserRole, history_id)
-        self.table.setItem(row, column, item)
-
-    @staticmethod
-    def _parse_datetime(value) -> datetime:
+    def _parse_datetime(value):
         if isinstance(value, datetime):
             return value
         return datetime.fromisoformat(str(value))
 
     @staticmethod
-    def _format_datetime(value: datetime) -> str:
-        return value.astimezone().strftime("%d/%m/%Y %H:%M:%S")
+    def _format_datetime(value):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
 
-    def closeEvent(self, event) -> None:
-        if self.detail_dialog is not None:
-            self.detail_dialog.close()
-        self.db.close()
-        super().closeEvent(event)
+    @staticmethod
+    def _format_change_value(value):
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, ensure_ascii=False, sort_keys=True)
+        if value is None:
+            return ""
+        return str(value)
+
+    @staticmethod
+    def _set_item(
+        table_row: int,
+        column: int,
+        value: str,
+        history_id: int | None = None,
+    ) -> None:
+        pass

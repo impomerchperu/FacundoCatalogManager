@@ -140,7 +140,11 @@ class CatalogSyncService:
         coverage_complete = (
             expected_products <= 0 or len(raw_products) == expected_products
         )
-        prune_allowed = prune_missing and coverage_complete and not missing_code_products
+        prune_allowed = (
+            prune_missing
+            and coverage_complete
+            and not missing_code_products
+        )
         if prune_allowed:
             self._remove_missing_products(scraped_codes, result)
         self._remove_legacy_generated_products(scraped_codes, result)
@@ -165,7 +169,11 @@ class CatalogSyncService:
     def synchronize(self, products, prune_missing: bool = False):
         return self.sync(products, prune_missing=prune_missing)
 
-    def _remove_missing_products(self, scraped_codes: set[str], result: SyncResult):
+    def _remove_missing_products(
+        self,
+        scraped_codes: set[str],
+        result: SyncResult,
+    ) -> None:
         """Elimina códigos reales ausentes del scraping completo."""
         normalized_scraped_codes = {code.casefold() for code in scraped_codes}
         for existing in self.repository.get_all():

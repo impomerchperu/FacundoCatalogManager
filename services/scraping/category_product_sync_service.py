@@ -349,6 +349,19 @@ class CategoryProductSyncService:
             browser = getattr(self.scraper_service, "browser", None)
         return browser
 
+    def _log_missing_code_diagnostics(self, products: list[Any]) -> None:
+        """Registra productos que siguen sin código después del enriquecimiento."""
+        for product in products:
+            if str(getattr(product, "code", "")).strip():
+                continue
+            name = str(getattr(product, "name", "")).strip()
+            url = str(getattr(product, "url", "")).strip()
+            _log_timing(
+                "SCRAPING TIMING | stage=missing_code | name=%s | url=%s",
+                name or "(sin nombre)",
+                url or "(sin url)",
+            )
+
     def _full_sync_prune_guard(
         self,
         products: list[Any],
@@ -364,6 +377,7 @@ class CategoryProductSyncService:
             if not str(getattr(product, "code", "")).strip()
         )
         if missing_codes:
+            self._log_missing_code_diagnostics(products)
             return False, f"missing_codes:{missing_codes}"
 
         browser = self._get_browser()

@@ -28,6 +28,7 @@ class Browser:
         self._http_requests = 0
         self._http_successes = 0
         self._http_errors = 0
+        self._http_terminal_errors = 0
         self._http_retries = 0
         self._http_total_seconds = 0.0
         self._http_max_seconds = 0.0
@@ -93,11 +94,14 @@ class Browser:
                 last_error = error
 
                 if not self._is_retryable_error(error):
+                    self._record_terminal_error()
                     raise
 
                 if attempt < self.max_retries - 1:
                     self._record_retry()
                     retry_after_release = True
+                else:
+                    self._record_terminal_error()
             else:
                 elapsed = time.perf_counter() - started
                 self._finish_request(elapsed, success=True, url=url)
@@ -191,6 +195,10 @@ class Browser:
         with self._metrics_lock:
             self._http_retries += 1
 
+    def _record_terminal_error(self):
+        with self._metrics_lock:
+            self._http_terminal_errors += 1
+
     def get_http_metrics(self):
         """Return accumulated HTTP timing and concurrency metrics."""
         with self._metrics_lock:
@@ -198,6 +206,7 @@ class Browser:
                 "http_requests": self._http_requests,
                 "http_successes": self._http_successes,
                 "http_errors": self._http_errors,
+                "http_terminal_errors": self._http_terminal_errors,
                 "http_retries": self._http_retries,
                 "http_total_seconds": self._http_total_seconds,
                 "http_max_seconds": self._http_max_seconds,
@@ -217,6 +226,7 @@ class Browser:
             self._http_requests = 0
             self._http_successes = 0
             self._http_errors = 0
+            self._http_terminal_errors = 0
             self._http_retries = 0
             self._http_total_seconds = 0.0
             self._http_max_seconds = 0.0

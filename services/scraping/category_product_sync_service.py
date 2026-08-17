@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from config.scraping_config import SCRAPING_CATEGORY_WORKERS
-from models.scraping.scraped_product import ScrapedProduct
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,
@@ -20,7 +19,6 @@ TIMING_LOG = PROJECT_ROOT / "data" / "scraping_timing.log"
 
 
 def _log_timing(message, *args):
-    """Registra diagnóstico en el logger y en un archivo del proyecto."""
     logger.info(message, *args)
     TIMING_LOG.parent.mkdir(parents=True, exist_ok=True)
     formatted = message % args if args else message
@@ -50,10 +48,7 @@ class CategoryProductSyncService:
 
     def sync_category(self, category_url: str, category: str = ""):
         started = time.perf_counter()
-        products = self.scraper_service.scrape_category(
-            category_url,
-            category,
-        )
+        products = self.scraper_service.scrape_category(category_url, category)
         elapsed = time.perf_counter() - started
         _log_timing(
             "SCRAPING TIMING | category=%s | products=%d | seconds=%.3f",
@@ -74,7 +69,6 @@ class CategoryProductSyncService:
         )
 
         self._reset_scraping_metrics()
-
         if progress_callback:
             progress_callback(0, 100)
 
@@ -117,7 +111,6 @@ class CategoryProductSyncService:
                 index = listing_future_to_index[future]
                 collected[index] = cast(list[Any], future.result())
                 listing_completed += 1
-
                 if enrichment_started is None:
                     enrichment_started = time.perf_counter()
 
@@ -141,14 +134,13 @@ class CategoryProductSyncService:
                 index = enrichment_futures[future]
                 results[index] = cast(list[Any], future.result())
                 enrichment_completed += 1
-
                 if progress_callback:
                     progress = 5 + int(listing_completed * 35 / total) + int(
                         enrichment_completed * 50 / total
                     )
                     progress_callback(min(90, progress), 100)
 
-        collected_count = sum(len(products) for products in collected)
+        collected_count = sum(len(items) for items in collected)
         _log_timing(
             "SCRAPING TIMING | stage=category_listing | categories=%d "
             "| products=%d | expected=%d | gap=%d | seconds=%.3f",
@@ -169,7 +161,6 @@ class CategoryProductSyncService:
             for category_products in results
             for product in category_products
         ]
-
         _log_timing(
             "SCRAPING TIMING | stage=detail_enrichment | categories=%d "
             "| products=%d | seconds=%.3f",
@@ -213,23 +204,17 @@ class CategoryProductSyncService:
 
         if progress_callback:
             progress_callback(100, 100)
-
         return result
 
     def _collect_category(self, index, category):
-        """Obtiene las tarjetas de una categoría sin solicitar detalles."""
         del index
         scraper = getattr(self.scraper_service, "scraper", None)
         collect_category = getattr(scraper, "collect_category", None)
         if callable(collect_category):
             return collect_category(category)
-        return self.scraper_service.scrape_category(
-            category.url,
-            category.name,
-        )
+        return self.scraper_service.scrape_category(category.url, category.name)
 
     def _enrich_category(self, index, category, collected):
-        """Enriquece una categoría sin bloquear el listado de las restantes."""
         del index
         scraper = getattr(self.scraper_service, "scraper", None)
         enrich_category_products = getattr(
@@ -239,10 +224,7 @@ class CategoryProductSyncService:
         )
         if callable(enrich_category_products):
             return enrich_category_products(collected, category.name)
-        return self.scraper_service.scrape_category(
-            category.url,
-            category.name,
-        )
+        return self.scraper_service.scrape_category(category.url, category.name)
 
     def _reset_scraping_metrics(self):
         scraper = getattr(self.scraper_service, "scraper", None)
@@ -285,8 +267,8 @@ class CategoryProductSyncService:
             return
         metrics = cast(dict[str, Any], get_metrics())
         _log_timing(
-            "SCRAPING TIMING | stage=http | requests=%d "
-            "| successes=%d | errors=%d | terminal_errors=%d | retries=%d "
+            "SCRAPING TIMING | stage=http | requests=%d | successes=%d "
+            "| errors=%d | terminal_errors=%d | retries=%d "
             "| detail_requests=%d | category_requests=%d "
             "| other_requests=%d | max_concurrency=%d "
             "| http_seconds=%.3f | slowest_request=%.3f",
@@ -345,11 +327,7 @@ class CategoryProductSyncService:
                 str(getattr(product, "url", "")).strip() or "(sin url)",
             )
 
-    def _full_sync_prune_guard(
-        self,
-        products: list[Any],
-        category_count: int,
-    ) -> tuple[bool, str]:
+    def _full_sync_prune_guard(self, products: list[Any], category_count: int):
         """Permite pruning de códigos reales solo con extracción completa."""
         if category_count <= 0:
             return False, "no_categories"
@@ -378,12 +356,14 @@ class CategoryProductSyncService:
         allow_prune: bool = False,
         expected_products: int = 0,
     ):
-        """Procesa y sincroniza un conjunto consolidado de productos scrapeados."""
         total_started = time.perf_counter()
-
         if self.mapper and self.catalog_sync_service:
             consolidate_started = time.perf_counter()
-            consolidate = getattr(self.catalog_sync_service, "consolidate_products", None)
+            consolidate = getattr(
+                self.catalog_sync_service,
+                "consolidate_products",
+                None,
+            )
             if callable(consolidate):
                 products = cast(list[Any], consolidate(products))
             _log_timing(
@@ -394,7 +374,10 @@ class CategoryProductSyncService:
 
             if self.image_sync_adapter:
                 image_started = time.perf_counter()
-                products = cast(list[Any], self.image_sync_adapter.sync_products(products))
+                products = cast(
+                    list[Any],
+                    self.image_sync_adapter.sync_products(products),
+                )
                 _log_timing(
                     "SCRAPING TIMING | stage=images | products=%d | seconds=%.3f",
                     len(products),
@@ -411,7 +394,11 @@ class CategoryProductSyncService:
 
             catalog_started = time.perf_counter()
             use_prune = bool(full_sync and allow_prune)
-            sync_full_catalog = getattr(self.catalog_sync_service, "sync_full_catalog", None)
+            sync_full_catalog = getattr(
+                self.catalog_sync_service,
+                "sync_full_catalog",
+                None,
+            )
             if use_prune and callable(sync_full_catalog):
                 result = cast(
                     SyncResult,
@@ -442,7 +429,6 @@ class CategoryProductSyncService:
                 len(mapped_products),
                 time.perf_counter() - total_started,
             )
-
             self._accumulate_sync_result(result)
             return mapped_products
 

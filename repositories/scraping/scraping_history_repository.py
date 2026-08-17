@@ -46,21 +46,16 @@ class ScrapingHistoryRepository:
     def __init__(self, db):
         self.db = db
 
-    def save(
-        self,
-        history: ScrapingHistory,
-        changes: list[dict] | None = None,
-        products: list | None = None,
-    ) -> int:
-        """Guarda una descarga ya aplicada y únicamente sus cambios."""
+    def save(self, history: ScrapingHistory, changes: list[dict] | None = None, products: list | None = None) -> int:
+        """Guarda una descarga ya aplicada y sus cambios."""
         cursor = self.db.execute_query(
             """
             INSERT INTO scraping_history (
                 started_at, finished_at, processed, created, updated,
-                unchanged, deleted, generated, products_found, products_unique,
-                products_multiple_categories, duplicate_occurrences,
+                unchanged, deleted, generated, products_expected, products_found,
+                products_unique, products_multiple_categories, duplicate_occurrences,
                 errors, status, message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 history.started_at.isoformat(),
@@ -71,6 +66,7 @@ class ScrapingHistoryRepository:
                 history.unchanged,
                 history.deleted,
                 history.generated,
+                history.products_expected,
                 history.products_found,
                 history.products_unique,
                 history.products_multiple_categories,
@@ -82,11 +78,7 @@ class ScrapingHistoryRepository:
         )
         history.history_id = int(cursor.lastrowid)
 
-        product_map = {
-            str(getattr(product, "code", "")): product
-            for product in (products or [])
-        }
-
+        product_map = {str(getattr(product, "code", "")): product for product in (products or [])}
         for item in changes or []:
             code = str(item.get("code", ""))
             name = str(item.get("name", ""))
@@ -157,20 +149,9 @@ class ScrapingHistoryRepository:
                     self._serialize(change.get("old")),
                     self._serialize(change.get("new")),
                 )
-
         return history.history_id
 
-    def _insert_change(
-        self,
-        history_id: int,
-        change_type: str,
-        code: str,
-        name: str,
-        field: str | None,
-        label: str,
-        old_value,
-        new_value,
-    ) -> None:
+    def _insert_change(self, history_id: int, change_type: str, code: str, name: str, field: str | None, label: str, old_value, new_value) -> None:
         self.db.execute_query(
             """
             INSERT INTO download_changes (
@@ -178,16 +159,7 @@ class ScrapingHistoryRepository:
                 field_name, field_label, old_value, new_value
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (
-                history_id,
-                change_type,
-                code,
-                name,
-                field,
-                label,
-                old_value,
-                new_value,
-            ),
+            (history_id, change_type, code, name, field, label, old_value, new_value),
         )
 
     def get_all(self):
@@ -198,7 +170,7 @@ class ScrapingHistoryRepository:
             """
             SELECT id, started_at, finished_at, processed, created,
                    updated, unchanged, deleted, generated,
-                   products_found, products_unique,
+                   products_expected, products_found, products_unique,
                    products_multiple_categories, duplicate_occurrences,
                    errors, status, message
             FROM scraping_history
@@ -214,7 +186,7 @@ class ScrapingHistoryRepository:
             """
             SELECT id, started_at, finished_at, processed, created,
                    updated, unchanged, deleted, generated,
-                   products_found, products_unique,
+                   products_expected, products_found, products_unique,
                    products_multiple_categories, duplicate_occurrences,
                    errors, status, message
             FROM scraping_history
@@ -283,6 +255,7 @@ class ScrapingHistoryRepository:
             unchanged=row["unchanged"],
             deleted=row["deleted"],
             generated=row["generated"],
+            products_expected=row["products_expected"],
             products_found=row["products_found"],
             products_unique=row["products_unique"],
             products_multiple_categories=row["products_multiple_categories"],

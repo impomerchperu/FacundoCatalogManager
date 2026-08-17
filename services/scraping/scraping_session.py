@@ -15,6 +15,11 @@ class ScrapingSessionResult:
     updated: int = 0
     unchanged: int = 0
     deleted: int = 0
+    generated: int = 0
+    products_found: int = 0
+    products_unique: int = 0
+    products_multiple_categories: int = 0
+    duplicate_occurrences: int = 0
     errors: list[str] = field(default_factory=list)
     products: list = field(default_factory=list)
     changes: list[dict] = field(default_factory=list)
@@ -122,35 +127,35 @@ class ScrapingSession:
             self.catalog_repository.save(product)
 
     def _extract_sync_result(self):
-        sync_result = getattr(
-            self.runner.scraping_service,
-            "last_sync_result",
-            None,
-        )
+        sync_service = self.runner.scraping_service
+        sync_result = getattr(sync_service, "last_sync_result", None)
+        catalog_sync = getattr(sync_service, "catalog_sync_service", None)
+        coverage_result = getattr(catalog_sync, "last_sync_result", None)
+
         if sync_result is None:
             self.result.processed = len(self.result.products)
+            self.result.products_unique = self.result.processed
             return
 
+        self.result.processed = sync_result.processed
         self.result.created = sync_result.created
         self.result.updated = sync_result.updated
         self.result.unchanged = sync_result.unchanged
         self.result.deleted = sync_result.deleted
+        self.result.generated = sync_result.generated
         self.result.changes = list(sync_result.changes)
         self.result.errors.extend(sync_result.errors)
 
-        # En una ejecución completa, products contiene el conjunto consolidado
-        # que realmente se sincronizó. Ese valor es la fuente de verdad para
-        # "Procesados" en el historial.
-        consolidated_count = len(self.result.products)
-        classified_total = self.result.classified_total
-        if classified_total == consolidated_count:
-            self.result.processed = consolidated_count
-            return
-
-        # Si algún contador interno quedó desfasado, no mostramos un número
-        # parcial como "Procesados". Marcamos la inconsistencia y conservamos
-        # el total real de productos devueltos por la sincronización.
-        self.result.processed = consolidated_count
+        if coverage_result is not None:
+            self.result.products_found = coverage_result.products_found
+            self.result.products_unique = coverage_result.products_unique
+            self.result.products_multiple_categories = (
+                coverage_result.products_multiple_categories
+            )
+            self.result.duplicate_occurrences = coverage_result.duplicate_occurrences
+        else:
+            self.result.products_found = len(self.result.products)
+            self.result.products_unique = len(self.result.products)
 
     def _save_history(self):
         if self.history_repository is None:
@@ -171,6 +176,11 @@ class ScrapingSession:
             updated=self.result.updated,
             unchanged=self.result.unchanged,
             deleted=self.result.deleted,
+            generated=self.result.generated,
+            products_found=self.result.products_found,
+            products_unique=self.result.products_unique,
+            products_multiple_categories=self.result.products_multiple_categories,
+            duplicate_occurrences=self.result.duplicate_occurrences,
             errors=len(self.result.errors),
             status=self.result.status(),
             message=message,

@@ -38,14 +38,30 @@ class DBManager:
 
     def _run_migrations(self):
         """Completa y corrige estructuras necesarias en bases existentes."""
-        self._add_column_if_missing("products", "color_stock", "TEXT DEFAULT '{}'")
-        self._add_column_if_missing("scraped_products", "color_stock", "TEXT DEFAULT '{}'")
-        self._add_column_if_missing("sync_records", "color_stock", "TEXT DEFAULT '{}'")
-        self._add_column_if_missing("scraping_history", "deleted", "INTEGER DEFAULT 0")
-        self._add_column_if_missing("scraping_history", "generated", "INTEGER DEFAULT 0")
-        self._add_column_if_missing("scraping_history", "products_expected", "INTEGER DEFAULT 0")
-        self._add_column_if_missing("scraping_history", "products_found", "INTEGER DEFAULT 0")
-        self._add_column_if_missing("scraping_history", "products_unique", "INTEGER DEFAULT 0")
+        self._add_column_if_missing(
+            "products", "color_stock", "TEXT DEFAULT '{}'"
+        )
+        self._add_column_if_missing(
+            "scraped_products", "color_stock", "TEXT DEFAULT '{}'"
+        )
+        self._add_column_if_missing(
+            "sync_records", "color_stock", "TEXT DEFAULT '{}'"
+        )
+        self._add_column_if_missing(
+            "scraping_history", "deleted", "INTEGER DEFAULT 0"
+        )
+        self._add_column_if_missing(
+            "scraping_history", "generated", "INTEGER DEFAULT 0"
+        )
+        self._add_column_if_missing(
+            "scraping_history", "products_expected", "INTEGER DEFAULT 0"
+        )
+        self._add_column_if_missing(
+            "scraping_history", "products_found", "INTEGER DEFAULT 0"
+        )
+        self._add_column_if_missing(
+            "scraping_history", "products_unique", "INTEGER DEFAULT 0"
+        )
         self._add_column_if_missing(
             "scraping_history",
             "products_multiple_categories",
@@ -97,7 +113,9 @@ class DBManager:
         legacy_table = "download_changes_legacy"
         if self._table_exists(legacy_table):
             return
-        self.connection.execute("DROP INDEX IF EXISTS idx_download_changes_history_id")
+        self.connection.execute(
+            "DROP INDEX IF EXISTS idx_download_changes_history_id"
+        )
         self.connection.execute("DROP INDEX IF EXISTS idx_download_changes_code")
         self.connection.execute(
             "ALTER TABLE download_changes RENAME TO download_changes_legacy"

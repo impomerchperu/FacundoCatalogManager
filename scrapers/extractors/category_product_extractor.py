@@ -8,6 +8,7 @@ class CategoryProductExtractor:
     """Extrae productos desde tarjetas de categoría Bricks + Jet Engine."""
 
     SOURCE = "importacionesfacundo"
+    _CODE_PATTERN = re.compile(r"\b[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+\b")
 
     def __init__(self):
         self.price_extractor = PriceExtractor()
@@ -38,9 +39,37 @@ class CategoryProductExtractor:
         element = soup.select_one('a[href*="/producto/"]')
         return element.get("href", "") if element else ""
 
-    def _code(self, soup):
-        element = soup.select_one("p.brxe-a26f34")
-        return element.get_text(strip=True) if element else ""
+    @classmethod
+    def _code(cls, soup):
+        """Extrae el código aunque la plantilla cambie la clase visual del SKU."""
+        selectors = (
+            "p.brxe-a26f34",
+            "span.sku",
+            ".sku",
+            "[sku]",
+            "[data-sku]",
+            "p[class*='sku']",
+            "span[class*='sku']",
+        )
+        for selector in selectors:
+            for element in soup.select(selector):
+                code = cls._normalize_code(element.get_text(" ", strip=True))
+                if code:
+                    return code
+
+        text = soup.get_text(" ", strip=True)
+        match = cls._CODE_PATTERN.search(text)
+        return match.group(0).strip() if match else ""
+
+    @classmethod
+    def _normalize_code(cls, text: str) -> str:
+        normalized = re.sub(r"\s+", " ", str(text)).strip()
+        if not normalized:
+            return ""
+        match = cls._CODE_PATTERN.search(normalized)
+        if match is None:
+            return ""
+        return match.group(0)
 
     def _name(self, soup):
         element = soup.select_one("h2.brxe-f31760")

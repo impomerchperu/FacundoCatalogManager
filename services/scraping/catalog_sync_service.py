@@ -36,7 +36,7 @@ class CatalogSyncService:
         self,
         products,
         prune_missing: bool = False,
-        cleanup_generated: bool = False,
+        cleanup_generated: bool = True,
     ):
         """Sincroniza productos y opcionalmente reconcilia códigos ausentes."""
         result = SyncResult()
@@ -149,10 +149,17 @@ class CatalogSyncService:
         """Garantiza que cada producto tenga un código único y auditable."""
         prepared = []
         used_codes: set[str] = set()
+        generated_by_source: dict[str, str] = {}
         for product in products:
             code = str(getattr(product, "code", "")).strip()
             if not code:
-                code = self._generate_code(product, used_codes)
+                url = str(getattr(product, "url", "")).strip()
+                name = str(getattr(product, "name", "")).strip()
+                source_key = (url or name).casefold()
+                code = generated_by_source.get(source_key, "")
+                if not code:
+                    code = self._generate_code(product, used_codes)
+                    generated_by_source[source_key] = code
                 product.code = code
                 product._generated_code = True
             used_codes.add(code.casefold())

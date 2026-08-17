@@ -57,8 +57,10 @@ class ScrapingHistoryRepository:
             """
             INSERT INTO scraping_history (
                 started_at, finished_at, processed, created, updated,
-                unchanged, deleted, errors, status, message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                unchanged, deleted, generated, products_found, products_unique,
+                products_multiple_categories, duplicate_occurrences,
+                errors, status, message
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 history.started_at.isoformat(),
@@ -68,6 +70,11 @@ class ScrapingHistoryRepository:
                 history.updated,
                 history.unchanged,
                 history.deleted,
+                history.generated,
+                history.products_found,
+                history.products_unique,
+                history.products_multiple_categories,
+                history.duplicate_occurrences,
                 history.errors,
                 history.status,
                 history.message,
@@ -190,7 +197,10 @@ class ScrapingHistoryRepository:
         rows = self.db.fetch_all(
             """
             SELECT id, started_at, finished_at, processed, created,
-                   updated, unchanged, deleted, errors, status, message
+                   updated, unchanged, deleted, generated,
+                   products_found, products_unique,
+                   products_multiple_categories, duplicate_occurrences,
+                   errors, status, message
             FROM scraping_history
             ORDER BY id DESC
             LIMIT ?
@@ -203,7 +213,10 @@ class ScrapingHistoryRepository:
         row = self.db.fetch_one(
             """
             SELECT id, started_at, finished_at, processed, created,
-                   updated, unchanged, deleted, errors, status, message
+                   updated, unchanged, deleted, generated,
+                   products_found, products_unique,
+                   products_multiple_categories, duplicate_occurrences,
+                   errors, status, message
             FROM scraping_history
             WHERE id = ?
             """,
@@ -269,6 +282,11 @@ class ScrapingHistoryRepository:
             updated=row["updated"],
             unchanged=row["unchanged"],
             deleted=row["deleted"],
+            generated=row["generated"],
+            products_found=row["products_found"],
+            products_unique=row["products_unique"],
+            products_multiple_categories=row["products_multiple_categories"],
+            duplicate_occurrences=row["duplicate_occurrences"],
             errors=row["errors"],
             status=row["status"],
             message=row["message"],

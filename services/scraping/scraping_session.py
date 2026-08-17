@@ -16,6 +16,7 @@ class ScrapingSessionResult:
     unchanged: int = 0
     deleted: int = 0
     generated: int = 0
+    products_expected: int = 0
     products_found: int = 0
     products_unique: int = 0
     products_multiple_categories: int = 0
@@ -27,12 +28,10 @@ class ScrapingSessionResult:
 
     @property
     def classified_total(self) -> int:
-        """Total explicado por nuevos, actualizados y sin cambios."""
         return self.created + self.updated + self.unchanged
 
     @property
     def counts_are_consistent(self) -> bool:
-        """Indica si los productos procesados están completamente clasificados."""
         return self.processed == self.classified_total
 
     def success(self) -> bool:
@@ -45,12 +44,7 @@ class ScrapingSessionResult:
 class ScrapingSession:
     """Coordina scraping, aplicación automática y registro de cambios."""
 
-    def __init__(
-        self,
-        runner,
-        history_repository=None,
-        catalog_repository=None,
-    ):
+    def __init__(self, runner, history_repository=None, catalog_repository=None):
         self.runner = runner
         self.history_repository = history_repository
         self.catalog_repository = catalog_repository
@@ -62,15 +56,12 @@ class ScrapingSession:
         )
 
     def execute_all(self, progress_callback=None):
-        return self._execute(
-            lambda: self.runner.run_all(progress_callback),
-        )
+        return self._execute(lambda: self.runner.run_all(progress_callback))
 
     def _execute(self, operation):
         self.result = ScrapingSessionResult(
             started_at=datetime.now(timezone.utc),
         )
-
         db = getattr(self.history_repository, "db", None)
         transaction_started = False
 
@@ -119,10 +110,8 @@ class ScrapingSession:
         return self.result
 
     def _persist_catalog_products(self):
-        """Garantiza que el resultado sincronizado quede en el catálogo principal."""
         if self.catalog_repository is None:
             return
-
         for product in self.result.products:
             self.catalog_repository.save(product)
 
@@ -134,6 +123,8 @@ class ScrapingSession:
 
         if sync_result is None:
             self.result.processed = len(self.result.products)
+            self.result.products_expected = 0
+            self.result.products_found = self.result.processed
             self.result.products_unique = self.result.processed
             return
 
@@ -147,6 +138,7 @@ class ScrapingSession:
         self.result.errors.extend(sync_result.errors)
 
         if coverage_result is not None:
+            self.result.products_expected = coverage_result.products_expected
             self.result.products_found = coverage_result.products_found
             self.result.products_unique = coverage_result.products_unique
             self.result.products_multiple_categories = (
@@ -163,10 +155,11 @@ class ScrapingSession:
         if self.result.started_at is None or self.result.finished_at is None:
             return
 
-        if self.result.success():
-            message = "Descarga completada y cambios aplicados automáticamente."
-        else:
-            message = "Descarga finalizada con errores; cambios revertidos."
+        message = (
+            "Descarga completada y cambios aplicados automáticamente."
+            if self.result.success()
+            else "Descarga finalizada con errores; cambios revertidos."
+        )
 
         history = ScrapingHistory(
             started_at=self.result.started_at,
@@ -177,6 +170,7 @@ class ScrapingSession:
             unchanged=self.result.unchanged,
             deleted=self.result.deleted,
             generated=self.result.generated,
+            products_expected=self.result.products_expected,
             products_found=self.result.products_found,
             products_unique=self.result.products_unique,
             products_multiple_categories=self.result.products_multiple_categories,

@@ -98,7 +98,7 @@ class ProductRepository:
 
     def get_by_code(self, code: str) -> Product | None:
         rows = self.db.fetch_all(
-            "SELECT * FROM products WHERE code=?",
+            "SELECT * FROM products WHERE code = ? COLLATE NOCASE",
             (code,),
         )
         return self._row_to_product(rows[0]) if rows else None
@@ -138,9 +138,9 @@ class ProductRepository:
         )
 
     def delete_by_code(self, code: str) -> None:
-        """Elimina un producto identificado por su código."""
+        """Elimina un producto identificado por su código, ignorando mayúsculas."""
         self.db.execute_query(
-            "DELETE FROM products WHERE code=?",
+            "DELETE FROM products WHERE code = ? COLLATE NOCASE",
             (code,),
         )
 

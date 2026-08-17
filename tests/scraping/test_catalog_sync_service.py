@@ -12,6 +12,7 @@ class Product:
         category="",
         colors=None,
         color_stock=None,
+        url="",
     ):
         self.code = code
         self.name = name
@@ -19,6 +20,7 @@ class Product:
         self.category = category
         self.colors = list(colors or [])
         self.color_stock = dict(color_stock or {})
+        self.url = url
 
 
 def test_catalog_sync_creates_new_product():
@@ -129,3 +131,42 @@ def test_catalog_sync_does_not_duplicate_existing_category():
     assert result.updated == 0
     assert result.counts_are_consistent
     assert stored.category == "Jarros"
+
+
+def test_catalog_sync_generates_stable_auditable_code_when_missing():
+    repository = SyncRepository()
+    service = CatalogSyncService(repository, ProductDiffService())
+
+    product = Product(
+        "",
+        "Producto sin código",
+        10,
+        url="https://stock.importacionesfacundo.com/producto/producto-sin-codigo/",
+    )
+
+    result = service.synchronize([product])
+    stored = repository.get_all()[0]
+
+    assert result.created == 1
+    assert stored.code.startswith("AUTO-PRODUCTO-SIN-CODIGO-")
+    assert result.changes[0]["type"] == "CODE_GENERATED"
+    assert result.changes[0]["code"] == stored.code
+
+
+def test_catalog_sync_prunes_codes_not_present_in_scraping():
+    repository = SyncRepository()
+    repository.save(Product("OLD001", "Producto antiguo", 10))
+    repository.save(Product("KEEP001", "Producto vigente", 20))
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.sync_full_catalog([
+        Product("KEEP001", "Producto vigente", 20),
+    ])
+
+    assert result.deleted == 1
+    assert repository.get("OLD001") is None
+    assert repository.get("KEEP001") is not None
+    assert any(
+        change["type"] == "DELETED" and change["code"] == "OLD001"
+        for change in result.changes
+    )

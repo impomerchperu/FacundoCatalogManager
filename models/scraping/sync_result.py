@@ -59,7 +59,17 @@ class SyncResult:
 
     @property
     def coverage_gap(self) -> int:
-        return max(self.products_expected - self.products_found, 0)
+        """Diferencia entre productos únicos esperados y encontrados."""
+        return max(self.products_expected - self.products_unique, 0)
+
+    @property
+    def coverage_complete(self) -> bool:
+        """Indica si la extracción alcanzó todos los productos únicos esperados."""
+        return (
+            self.products_expected > 0
+            and self.products_unique >= self.products_expected
+            and self.coverage_gap == 0
+        )
 
     def finish(self) -> None:
         self.finished_at = datetime.now(timezone.utc)
@@ -97,6 +107,7 @@ class SyncResult:
             "products_multiple_categories": self.products_multiple_categories,
             "duplicate_occurrences": self.duplicate_occurrences,
             "coverage_gap": self.coverage_gap,
+            "coverage_complete": self.coverage_complete,
             "products_created": self.products_created,
             "products_updated": self.products_updated,
             "products_unchanged": self.products_unchanged,
@@ -127,6 +138,7 @@ class SyncResult:
             "Múltiples categorías": self.products_multiple_categories,
             "Apariciones duplicadas": self.duplicate_occurrences,
             "Brecha de cobertura": self.coverage_gap,
+            "Cobertura completa": self.coverage_complete,
             "Total clasificado": self.classified_total,
             "Conteos consistentes": self.counts_are_consistent,
             "Errores": len(self.errors),

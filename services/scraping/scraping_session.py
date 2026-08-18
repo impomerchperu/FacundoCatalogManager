@@ -21,6 +21,8 @@ class ScrapingSessionResult:
     products_unique: int = 0
     products_multiple_categories: int = 0
     duplicate_occurrences: int = 0
+    category_summary: list[dict] = field(default_factory=list)
+    multiple_category_products: list[dict] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     products: list = field(default_factory=list)
     changes: list[dict] = field(default_factory=list)
@@ -145,6 +147,12 @@ class ScrapingSession:
                 coverage_result.products_multiple_categories
             )
             self.result.duplicate_occurrences = coverage_result.duplicate_occurrences
+            self.result.category_summary = list(
+                getattr(coverage_result, "category_summary", [])
+            )
+            self.result.multiple_category_products = list(
+                getattr(coverage_result, "multiple_category_products", [])
+            )
         else:
             self.result.products_found = len(self.result.products)
             self.result.products_unique = len(self.result.products)
@@ -175,6 +183,8 @@ class ScrapingSession:
             products_unique=self.result.products_unique,
             products_multiple_categories=self.result.products_multiple_categories,
             duplicate_occurrences=self.result.duplicate_occurrences,
+            category_summary=self.result.category_summary,
+            multiple_category_products=self.result.multiple_category_products,
             errors=len(self.result.errors),
             status=self.result.status(),
             message=message,

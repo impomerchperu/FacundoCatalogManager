@@ -110,9 +110,6 @@ class CategoryProductSyncService:
         if progress_callback:
             progress_callback(95, 100)
 
-        # El guard ya verificó que la extracción es completa (sin códigos faltantes
-        # ni errores HTTP terminales). En ese caso, la cantidad única consolidada
-        # en ESTA extracción es la referencia segura para habilitar el prune.
         expected_unique = len(self._consolidate_for_coverage(products)) if allow_prune else 0
         synced_products = self.sync_products(
             products,
@@ -122,9 +119,79 @@ class CategoryProductSyncService:
         )
         self.last_sync_result.expected_category_occurrences = expected_category_occurrences
         self.last_sync_result.categories_processed = total
+        self._attach_category_coverage(synced_products, categories)
         if progress_callback:
             progress_callback(100, 100)
         return synced_products
+
+    @staticmethod
+    def _split_categories(value: Any) -> list[str]:
+        if not isinstance(value, str):
+            return []
+        return sorted({part.strip() for part in value.split(",") if part.strip()}, key=str.casefold)
+
+    def _attach_category_coverage(self, products, categories):
+        """Construye métricas auditables por categoría y por código."""
+        category_counts: dict[str, int] = {}
+        category_products: dict[str, set[str]] = {}
+        product_categories: dict[str, set[str]] = {}
+        product_names: dict[str, str] = {}
+        for product in products:
+            code = str(getattr(product, "code", "")).strip()
+            if not code:
+                continue
+            name = str(getattr(product, "name", "")).strip()
+            product_names[code] = name
+            values = self._split_categories(getattr(product, "category", ""))
+            for category in values:
+                category_counts[category] = category_counts.get(category, 0) + 1
+                category_products.setdefault(category, set()).add(code)
+                product_categories.setdefault(code, set()).add(category)
+
+        expected_names = {
+            str(getattr(category, "name", "")).strip()
+            for category in categories
+            if str(getattr(category, "name", "")).strip()
+        }
+        all_names = expected_names | set(category_counts)
+        self.last_sync_result.category_summary = [
+            {
+                "category": name,
+                "products": category_counts.get(name, 0),
+                "unique_products": len(category_products.get(name, set())),
+            }
+            for name in sorted(all_names, key=str.casefold)
+        ]
+        multiple = []
+        for code, names in sorted(product_categories.items(), key=lambda item: item[0].casefold()):
+            if len(names) < 2:
+                continue
+            multiple.append({
+                "code": code,
+                "name": product_names.get(code, ""),
+                "categories": sorted(names, key=str.casefold),
+            })
+        self.last_sync_result.multiple_category_products = multiple
+        self.last_sync_result.products_multiple_categories = len(multiple)
+        self.last_sync_result.products_found = len(products)
+        self.last_sync_result.products_unique = len({
+            str(getattr(product, "code", "")).strip()
+            for product in products
+            if str(getattr(product, "code", "")).strip()
+        })
+        self.last_sync_result.duplicate_occurrences = max(
+            self.last_sync_result.products_found - self.last_sync_result.products_unique,
+            0,
+        )
+        for row in self.last_sync_result.category_summary:
+            _log_timing(
+                "SCRAPING TIMING | stage=category_coverage | category=%s | products=%d | unique=%d",
+                row["category"], row["products"], row["unique_products"],
+            )
+        _log_timing(
+            "SCRAPING TIMING | stage=multi_category_coverage | products=%d | categories=%d",
+            len(multiple), len(self.last_sync_result.category_summary),
+        )
 
     def _consolidate_for_coverage(self, products):
         if self.catalog_sync_service:

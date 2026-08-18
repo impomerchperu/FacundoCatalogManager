@@ -27,6 +27,8 @@ class SyncResult:
     products_unique: int = 0
     products_multiple_categories: int = 0
     duplicate_occurrences: int = 0
+    category_summary: list[dict] = field(default_factory=list)
+    multiple_category_products: list[dict] = field(default_factory=list)
     products_created: int = 0
     products_updated: int = 0
     products_unchanged: int = 0
@@ -95,6 +97,8 @@ class SyncResult:
             "products_unique": self.products_unique,
             "products_multiple_categories": self.products_multiple_categories,
             "duplicate_occurrences": self.duplicate_occurrences,
+            "category_summary": self.category_summary,
+            "multiple_category_products": self.multiple_category_products,
             "coverage_gap": self.coverage_gap,
             "category_occurrence_gap": self.category_occurrence_gap,
             "coverage_complete": self.coverage_complete,
@@ -118,6 +122,7 @@ class SyncResult:
             "Actualizados": self.updated, "Sin cambios": self.unchanged,
             "Eliminados": self.deleted, "Códigos generados": self.generated,
             "Sin código": self.missing_code,
+            "Categorías": self.categories_processed,
             "Esperados únicos": self.products_expected,
             "Esperados por categorías": self.expected_category_occurrences,
             "Encontrados": self.products_found, "Únicos": self.products_unique,

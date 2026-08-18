@@ -63,7 +63,7 @@ class CategoryProductSyncService:
         started = time.perf_counter()
         categories = list(categories)
         total = len(categories)
-        expected_products = sum(
+        expected_category_occurrences = sum(
             max(int(getattr(category, "expected_count", 0) or 0), 0)
             for category in categories
         )
@@ -75,11 +75,13 @@ class CategoryProductSyncService:
         if not categories:
             _log_timing(
                 "SCRAPING TIMING | stage=category_listing | categories=0 "
-                "| products=0 | seconds=0.000",
+                "| products=0 | expected_category_occurrences=0 "
+                "| gap=0 | seconds=0.000",
             )
             _log_timing(
                 "SCRAPING TIMING | stage=category_extraction | categories=0 "
-                "| products=0 | seconds=0.000",
+                "| products=0 | expected_category_occurrences=0 "
+                "| gap=0 | seconds=0.000",
             )
             if progress_callback:
                 progress_callback(100, 100)
@@ -143,11 +145,12 @@ class CategoryProductSyncService:
         collected_count = sum(len(items) for items in collected)
         _log_timing(
             "SCRAPING TIMING | stage=category_listing | categories=%d "
-            "| products=%d | expected=%d | gap=%d | seconds=%.3f",
+            "| products=%d | expected_category_occurrences=%d "
+            "| occurrence_gap=%d | seconds=%.3f",
             total,
             collected_count,
-            expected_products,
-            max(expected_products - collected_count, 0),
+            expected_category_occurrences,
+            max(expected_category_occurrences - collected_count, 0),
             listing_elapsed,
         )
 
@@ -172,17 +175,21 @@ class CategoryProductSyncService:
         scraping_elapsed = time.perf_counter() - started
         _log_timing(
             "SCRAPING TIMING | stage=category_extraction | categories=%d "
-            "| products=%d | expected=%d | gap=%d | seconds=%.3f",
+            "| products=%d | expected_category_occurrences=%d "
+            "| occurrence_gap=%d | seconds=%.3f",
             total,
             len(products),
-            expected_products,
-            max(expected_products - len(products), 0),
+            expected_category_occurrences,
+            max(expected_category_occurrences - len(products), 0),
             scraping_elapsed,
         )
         self._log_detail_metrics()
         self._log_http_metrics()
 
-        allow_prune, guard_reason = self._full_sync_prune_guard(products, total)
+        allow_prune, guard_reason = self._full_sync_prune_guard(
+            products,
+            total,
+        )
         _log_timing(
             "SCRAPING TIMING | stage=prune_guard | enabled=%s | reason=%s "
             "| products=%d | categories=%d",
@@ -199,7 +206,8 @@ class CategoryProductSyncService:
             products,
             full_sync=True,
             allow_prune=allow_prune,
-            expected_products=expected_products,
+            expected_products=None,
+            expected_category_occurrences=expected_category_occurrences,
         )
 
         if progress_callback:
@@ -328,7 +336,7 @@ class CategoryProductSyncService:
             )
 
     def _full_sync_prune_guard(self, products: list[Any], category_count: int):
-        """Permite pruning de códigos reales solo con extracción completa."""
+        """El prune definitivo se decide después de consolidar por código."""
         if category_count <= 0:
             return False, "no_categories"
         missing_codes = sum(
@@ -354,7 +362,8 @@ class CategoryProductSyncService:
         products: list[Any],
         full_sync: bool = False,
         allow_prune: bool = False,
-        expected_products: int = 0,
+        expected_products: int | None = 0,
+        expected_category_occurrences: int = 0,
     ):
         total_started = time.perf_counter()
         if self.mapper and self.catalog_sync_service:
@@ -405,6 +414,7 @@ class CategoryProductSyncService:
                     sync_full_catalog(
                         mapped_products,
                         expected_products=expected_products,
+                        expected_category_occurrences=expected_category_occurrences,
                     ),
                 )
             else:
@@ -413,15 +423,19 @@ class CategoryProductSyncService:
                     self.catalog_sync_service.sync(
                         mapped_products,
                         expected_products=expected_products,
+                        expected_category_occurrences=expected_category_occurrences,
                     ),
                 )
             _log_timing(
                 "SCRAPING TIMING | stage=catalog_sync | products=%d "
-                "| seconds=%.3f | prune=%s | expected=%d | gap=%d",
+                "| seconds=%.3f | prune=%s | expected_unique=%s "
+                "| expected_category_occurrences=%d | unique=%d | gap=%d",
                 len(mapped_products),
                 time.perf_counter() - catalog_started,
                 str(use_prune).lower(),
-                result.products_expected,
+                expected_products if expected_products is not None else "unknown",
+                expected_category_occurrences,
+                result.products_unique,
                 result.coverage_gap,
             )
             _log_timing(
@@ -429,40 +443,16 @@ class CategoryProductSyncService:
                 len(mapped_products),
                 time.perf_counter() - total_started,
             )
-            self._accumulate_sync_result(result)
-            return mapped_products
+            self.last_sync_result = result
+            return result
 
-        persistence_started = time.perf_counter()
-        result = self.persistence_service.save_products(products)
-        _log_timing(
-            "SCRAPING TIMING | stage=persistence | products=%d | seconds=%.3f",
-            len(products),
-            time.perf_counter() - persistence_started,
-        )
-        _log_timing(
-            "SCRAPING TIMING | stage=sync_total | products=%d | seconds=%.3f",
-            len(products),
-            time.perf_counter() - total_started,
-        )
+        result = SyncResult()
+        for product in products:
+            self.persistence_service.save(product)
+        result.processed = len(products)
+        result.products_found = len(products)
+        result.products_unique = len(products)
+        result.products_expected = max(int(expected_products or 0), 0)
+        result.finish()
+        self.last_sync_result = result
         return result
-
-    def reset_sync_result(self):
-        self.last_sync_result = SyncResult()
-
-    def _accumulate_sync_result(self, result: SyncResult):
-        self.last_sync_result.processed += result.processed
-        self.last_sync_result.created += result.created
-        self.last_sync_result.updated += result.updated
-        self.last_sync_result.unchanged += result.unchanged
-        self.last_sync_result.deleted += result.deleted
-        self.last_sync_result.generated += result.generated
-        self.last_sync_result.products_expected += result.products_expected
-        self.last_sync_result.products_found += result.products_found
-        self.last_sync_result.products_unique += result.products_unique
-        self.last_sync_result.products_multiple_categories += (
-            result.products_multiple_categories
-        )
-        self.last_sync_result.duplicate_occurrences += result.duplicate_occurrences
-        self.last_sync_result.errors.extend(result.errors)
-        self.last_sync_result.failures.extend(result.failures)
-        self.last_sync_result.changes.extend(result.changes)

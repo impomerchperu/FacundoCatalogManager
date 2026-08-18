@@ -14,7 +14,7 @@ class Product:
         self.url = f"https://example.com/product/{code.lower()}/"
 
 
-def test_catalog_sync_keeps_expected_category_assignment_count():
+def test_catalog_sync_uses_unique_product_count_for_coverage():
     service = CatalogSyncService(SyncRepository(), ProductDiffService())
 
     result = service.sync(
@@ -23,12 +23,13 @@ def test_catalog_sync_keeps_expected_category_assignment_count():
             Product("P001", "Producto 1", "Promocionales"),
             Product("P002", "Producto 2", "Oficina"),
         ],
-        expected_products=3,
+        expected_products=2,
     )
 
-    assert result.products_expected == 3
+    assert result.products_expected == 2
     assert result.products_found == 3
     assert result.products_unique == 2
     assert result.duplicate_occurrences == 1
     assert result.products_multiple_categories == 1
     assert result.coverage_gap == 0
+    assert result.coverage_complete is True

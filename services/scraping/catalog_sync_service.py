@@ -36,7 +36,7 @@ class CatalogSyncService:
         cleanup_generated: bool = True,
         expected_products: int = 0,
     ):
-        """Sincroniza exclusivamente por códigos reales del scraping."""
+        """Sincroniza el catálogo exclusivamente mediante códigos reales."""
         del cleanup_generated
         result = SyncResult()
         raw_products = list(products)
@@ -56,11 +56,14 @@ class CatalogSyncService:
                         "field": "code",
                         "label": "Código no encontrado",
                         "old": "Sin código",
-                        "new": "Requiere revisión",
+                        "new": "Ignorado",
                     }
                 ],
             })
 
+        # Nunca se genera ni se asigna un código local para un producto
+        # scrapeado sin código. Sin código no existe identidad confiable
+        # para crear, actualizar o eliminar por coincidencia.
         prepared = [
             product
             for product in raw_products
@@ -127,12 +130,13 @@ class CatalogSyncService:
 
             result.unchanged += 1
 
+        # La eliminación solo ocurre en un full sync autorizado por el
+        # orquestador. Ese orquestador ya valida categorías, cobertura,
+        # códigos y errores HTTP antes de llamar con prune_missing=True.
         coverage_complete = (
             expected_products > 0 and len(raw_products) == expected_products
         )
-        prune_allowed = coverage_complete and (
-            prune_missing or expected_products > 0
-        )
+        prune_allowed = bool(prune_missing and coverage_complete)
         if prune_allowed:
             self._remove_missing_products(scraped_codes, result)
 
@@ -146,7 +150,7 @@ class CatalogSyncService:
         prune_missing: bool = True,
         expected_products: int = 0,
     ):
-        """Sincroniza y elimina todo código local que no exista en el origen."""
+        """Sincroniza y elimina códigos locales ausentes en el scraping completo."""
         return self.sync(
             products,
             prune_missing=prune_missing,
@@ -161,7 +165,7 @@ class CatalogSyncService:
         scraped_codes: set[str],
         result: SyncResult,
     ) -> None:
-        """Elimina cualquier código local que no aparezca en el scraping completo."""
+        """Elimina códigos locales que no aparezcan en el scraping completo."""
         normalized_scraped_codes = {code.casefold() for code in scraped_codes}
         for existing in self.repository.get_all():
             code = str(getattr(existing, "code", "")).strip()

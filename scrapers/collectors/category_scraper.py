@@ -108,7 +108,7 @@ class CategoryScraper:
         if not expected_count:
             text = soup.get_text(" ", strip=True)
             match = re.search(
-                r"Productos?\s+en\s+Stock\s+(\d+)",
+                r"(?:Productos?\s+en\s+Stock|Producto\(s\))\s*(\d+)",
                 text,
                 flags=re.IGNORECASE,
             )

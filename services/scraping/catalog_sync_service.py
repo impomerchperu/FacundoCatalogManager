@@ -24,16 +24,6 @@ class CatalogSyncService:
         "content_hash": "Hash contenido",
     }
 
-    LEGACY_GENERATED_PREFIXES: ClassVar[tuple[str, ...]] = (
-        "AUTO-",
-        "GENERATED-",
-        "GENERATED_",
-        "SIN-CODIGO",
-        "SIN_CODIGO",
-        "NO-CODE",
-        "NO_CODE",
-    )
-
     def __init__(self, repository, diff_service):
         self.repository = repository
         self.diff_service = diff_service
@@ -46,7 +36,7 @@ class CatalogSyncService:
         cleanup_generated: bool = True,
         expected_products: int = 0,
     ):
-        """Sincroniza por códigos reales, sin generar códigos locales."""
+        """Sincroniza exclusivamente por códigos reales del scraping."""
         del cleanup_generated
         result = SyncResult()
         raw_products = list(products)
@@ -80,6 +70,7 @@ class CatalogSyncService:
         result.products_expected = max(int(expected_products or 0), 0)
         result.products_found = len(raw_products)
         result.products_unique = len(consolidated)
+        result.processed = result.products_found
         result.duplicate_occurrences = max(
             result.products_found - result.products_unique,
             0,
@@ -95,7 +86,6 @@ class CatalogSyncService:
         }
 
         for product in consolidated:
-            result.increment_processed()
             existing = self.repository.get(product.code)
 
             if existing is None:
@@ -138,16 +128,13 @@ class CatalogSyncService:
             result.unchanged += 1
 
         coverage_complete = (
-            expected_products <= 0 or len(raw_products) == expected_products
+            expected_products > 0 and len(raw_products) == expected_products
         )
-        prune_allowed = (
-            prune_missing
-            and coverage_complete
-            and not missing_code_products
+        prune_allowed = coverage_complete and (
+            prune_missing or expected_products > 0
         )
         if prune_allowed:
             self._remove_missing_products(scraped_codes, result)
-        self._remove_legacy_generated_products(scraped_codes, result)
 
         result.finish()
         self.last_sync_result = result
@@ -159,7 +146,7 @@ class CatalogSyncService:
         prune_missing: bool = True,
         expected_products: int = 0,
     ):
-        """Sincroniza y limpia códigos ausentes solo con cobertura completa."""
+        """Sincroniza y elimina todo código local que no exista en el origen."""
         return self.sync(
             products,
             prune_missing=prune_missing,
@@ -174,7 +161,7 @@ class CatalogSyncService:
         scraped_codes: set[str],
         result: SyncResult,
     ) -> None:
-        """Elimina códigos reales ausentes del scraping completo."""
+        """Elimina cualquier código local que no aparezca en el scraping completo."""
         normalized_scraped_codes = {code.casefold() for code in scraped_codes}
         for existing in self.repository.get_all():
             code = str(getattr(existing, "code", "")).strip()
@@ -185,44 +172,16 @@ class CatalogSyncService:
                 "type": "DELETED",
                 "code": code,
                 "name": getattr(existing, "name", ""),
-                "changes": [],
-            })
-            self.repository.delete_by_code(code)
-
-    def _remove_legacy_generated_products(
-        self,
-        scraped_codes: set[str],
-        result: SyncResult,
-    ) -> None:
-        """Limpia códigos provisionales creados por versiones anteriores."""
-        normalized_scraped_codes = {code.casefold() for code in scraped_codes}
-        for existing in self.repository.get_all():
-            code = str(getattr(existing, "code", "")).strip()
-            normalized = code.casefold()
-            if not code or normalized in normalized_scraped_codes:
-                continue
-            if not self._is_legacy_generated_code(code):
-                continue
-            result.deleted += 1
-            result.changes.append({
-                "type": "DELETED",
-                "code": code,
-                "name": getattr(existing, "name", ""),
                 "changes": [
                     {
                         "field": "code",
-                        "label": "Código provisional anterior",
+                        "label": "Código ausente en origen",
                         "old": code,
                         "new": "Eliminado",
                     }
                 ],
             })
             self.repository.delete_by_code(code)
-
-    @classmethod
-    def _is_legacy_generated_code(cls, code: str) -> bool:
-        normalized = code.strip().upper()
-        return normalized.startswith(cls.LEGACY_GENERATED_PREFIXES)
 
     @classmethod
     def consolidate_products(cls, products):

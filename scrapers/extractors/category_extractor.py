@@ -19,7 +19,7 @@ class CategoryExtractor:
                 continue
 
             name = self._extract_name(link, url)
-            expected_count = self._extract_expected_count(link)
+            expected_count = self._extract_expected_count(link, name)
             categories.append(
                 Category(name=name, url=url, expected_count=expected_count)
             )
@@ -44,15 +44,27 @@ class CategoryExtractor:
         return url.rstrip("/").split("/")[-1].replace("-", " ").title()
 
     @staticmethod
-    def _extract_expected_count(link) -> int:
-        """Busca el ``Producto(s) N`` del bloque visual de la categoría."""
+    def _extract_expected_count(link, category_name: str) -> int:
+        """Busca el conteo del bloque individual de la categoría."""
         current = link
-        for _ in range(7):
+        for _ in range(10):
             current = getattr(current, "parent", None)
             if current is None:
                 break
+
             text = current.get_text(" ", strip=True)
-            matches = _COUNT_PATTERN.findall(text)
-            if len(matches) == 1:
-                return int(matches[0])
+            matches = [int(value) for value in _COUNT_PATTERN.findall(text)]
+            if len(matches) != 1:
+                continue
+
+            headings = current.find_all(
+                ["h1", "h2", "h3", "h4", "h5", "h6"],
+            )
+            heading_texts = {
+                heading.get_text(" ", strip=True).casefold()
+                for heading in headings
+            }
+            if category_name.casefold() in heading_texts:
+                return matches[0]
+
         return 0

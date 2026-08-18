@@ -9,7 +9,6 @@ class DBManager:
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         if db_path is None:
             db_path = os.path.join(base_dir, "database", "catalog.db")
-
         self.connection = sqlite3.connect(db_path, timeout=30)
         self.connection.row_factory = sqlite3.Row
         self._transaction_active = False
@@ -24,62 +23,35 @@ class DBManager:
         self.connection.commit()
 
     def initialize_database(self):
-        schema_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "schema.sql",
-        )
-
+        schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
         if os.path.exists(schema_path):
             with open(schema_path, "r", encoding="utf-8") as file:
                 self.connection.executescript(file.read())
-
         self._run_migrations()
         self.connection.commit()
 
     def _run_migrations(self):
         """Completa y corrige estructuras necesarias en bases existentes."""
-        self._add_column_if_missing(
-            "products", "color_stock", "TEXT DEFAULT '{}'"
-        )
-        self._add_column_if_missing(
-            "scraped_products", "color_stock", "TEXT DEFAULT '{}'"
-        )
-        self._add_column_if_missing(
-            "sync_records", "color_stock", "TEXT DEFAULT '{}'"
-        )
-        self._add_column_if_missing(
-            "scraping_history", "deleted", "INTEGER DEFAULT 0"
-        )
-        self._add_column_if_missing(
-            "scraping_history", "generated", "INTEGER DEFAULT 0"
-        )
-        self._add_column_if_missing(
-            "scraping_history", "products_expected", "INTEGER DEFAULT 0"
-        )
-        self._add_column_if_missing(
-            "scraping_history", "products_found", "INTEGER DEFAULT 0"
-        )
-        self._add_column_if_missing(
-            "scraping_history", "products_unique", "INTEGER DEFAULT 0"
-        )
-        self._add_column_if_missing(
-            "scraping_history",
-            "products_multiple_categories",
-            "INTEGER DEFAULT 0",
-        )
-        self._add_column_if_missing(
-            "scraping_history",
-            "duplicate_occurrences",
-            "INTEGER DEFAULT 0",
-        )
+        for table in ("products", "scraped_products", "sync_records"):
+            self._add_column_if_missing(table, "color_stock", "TEXT DEFAULT '{}'")
+        for column, definition in (
+            ("deleted", "INTEGER DEFAULT 0"),
+            ("generated", "INTEGER DEFAULT 0"),
+            ("products_expected", "INTEGER DEFAULT 0"),
+            ("products_found", "INTEGER DEFAULT 0"),
+            ("products_unique", "INTEGER DEFAULT 0"),
+            ("products_multiple_categories", "INTEGER DEFAULT 0"),
+            ("duplicate_occurrences", "INTEGER DEFAULT 0"),
+            ("category_summary", "TEXT DEFAULT '[]'"),
+            ("multiple_category_products", "TEXT DEFAULT '[]'"),
+        ):
+            self._add_column_if_missing("scraping_history", column, definition)
         self._remove_legacy_colors_column("products")
         self._remove_legacy_colors_column("scraped_products")
         self._migrate_download_changes()
         self.connection.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_scraping_history_finished_at
-            ON scraping_history(finished_at)
-            """
+            "CREATE INDEX IF NOT EXISTS idx_scraping_history_finished_at "
+            "ON scraping_history(finished_at)"
         )
 
     def _remove_legacy_colors_column(self, table_name: str) -> None:
@@ -93,18 +65,14 @@ class DBManager:
             self._create_download_changes_table()
             self._create_download_changes_indexes()
             return
-
         foreign_keys = self.fetch_all("PRAGMA foreign_key_list(download_changes)")
         references_scraping_history = any(
-            row["table"] == "scraping_history"
-            and row["from"] == "history_id"
-            and row["to"] == "id"
+            row["table"] == "scraping_history" and row["from"] == "history_id" and row["to"] == "id"
             for row in foreign_keys
         )
         if references_scraping_history:
             self._create_download_changes_indexes()
             return
-
         self._backup_legacy_download_changes()
         self._create_download_changes_table()
         self._create_download_changes_indexes()
@@ -113,13 +81,9 @@ class DBManager:
         legacy_table = "download_changes_legacy"
         if self._table_exists(legacy_table):
             return
-        self.connection.execute(
-            "DROP INDEX IF EXISTS idx_download_changes_history_id"
-        )
+        self.connection.execute("DROP INDEX IF EXISTS idx_download_changes_history_id")
         self.connection.execute("DROP INDEX IF EXISTS idx_download_changes_code")
-        self.connection.execute(
-            "ALTER TABLE download_changes RENAME TO download_changes_legacy"
-        )
+        self.connection.execute("ALTER TABLE download_changes RENAME TO download_changes_legacy")
 
     def _create_download_changes_table(self):
         self.connection.execute(
@@ -134,44 +98,22 @@ class DBManager:
                 field_label TEXT NOT NULL,
                 old_value TEXT,
                 new_value TEXT,
-                FOREIGN KEY (history_id)
-                    REFERENCES scraping_history(id)
-                    ON DELETE CASCADE
+                FOREIGN KEY (history_id) REFERENCES scraping_history(id) ON DELETE CASCADE
             )
             """
         )
 
     def _create_download_changes_indexes(self):
-        self.connection.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_download_changes_history_id
-            ON download_changes(history_id)
-            """
-        )
-        self.connection.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_download_changes_code
-            ON download_changes(code)
-            """
-        )
+        self.connection.execute("CREATE INDEX IF NOT EXISTS idx_download_changes_history_id ON download_changes(history_id)")
+        self.connection.execute("CREATE INDEX IF NOT EXISTS idx_download_changes_code ON download_changes(code)")
 
     def _table_exists(self, table_name: str) -> bool:
         row = self.connection.execute(
-            """
-            SELECT 1
-            FROM sqlite_master
-            WHERE type = 'table' AND name = ?
-            """,
-            (table_name,),
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table_name,)
         ).fetchone()
         return row is not None
 
-    def _add_column_if_missing(
-        self,
-        table_name: str,
-        column_name: str,
-        column_definition: str,
-    ) -> None:
+    def _add_column_if_missing(self, table_name: str, column_name: str, column_definition: str) -> None:
         columns = self.fetch_all(f"PRAGMA table_info({table_name})")
         if column_name in {row["name"] for row in columns}:
             return

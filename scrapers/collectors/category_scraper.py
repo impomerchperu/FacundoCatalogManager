@@ -99,9 +99,35 @@ class CategoryScraper:
 
         for link in soup.select("a.page-numbers, nav.woocommerce-pagination a"):
             href = link.get("href")
-            if not isinstance(href, str):
+            if not isinstance(href, str) or not href.strip():
                 continue
             page_url = urljoin(category_url, href)
+            if page_url not in pages:
+                pages.append(page_url)
+
+        # JetSmartFilters renders pagination as non-anchor elements with
+        # data-value="N". Those controls are the pagination for the same
+        # category, not additional categories. When a real href is absent,
+        # use the standard WordPress/WooCommerce page URL for that number.
+        for item in soup.select(
+            ".jet-filters-pagination__item[data-value]"
+        ):
+            raw_value = item.get("data-value")
+            try:
+                page_number = int(str(raw_value).strip())
+            except (TypeError, ValueError):
+                continue
+            if page_number <= 1:
+                continue
+            link = item.select_one(".jet-filters-pagination__link")
+            href = link.get("href") if link else None
+            if isinstance(href, str) and href.strip():
+                page_url = urljoin(category_url, href)
+            else:
+                page_url = urljoin(
+                    category_url.rstrip("/") + "/",
+                    f"page/{page_number}/",
+                )
             if page_url not in pages:
                 pages.append(page_url)
 

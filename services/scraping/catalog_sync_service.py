@@ -34,9 +34,10 @@ class CatalogSyncService:
         products,
         prune_missing: bool = False,
         cleanup_generated: bool = True,
-        expected_products: int = 0,
+        expected_products: int | None = 0,
+        expected_category_occurrences: int = 0,
     ):
-        """Sincroniza el catálogo exclusivamente mediante códigos reales."""
+        """Sincroniza el catálogo usando códigos reales como identidad."""
         del cleanup_generated
         result = SyncResult()
         raw_products = list(products)
@@ -68,6 +69,9 @@ class CatalogSyncService:
         ]
         consolidated = self.consolidate_products(prepared)
         result.products_expected = max(int(expected_products or 0), 0)
+        result.expected_category_occurrences = max(
+            int(expected_category_occurrences or 0),
+        )
         result.products_found = len(raw_products)
         result.products_unique = len(consolidated)
         result.processed = result.products_found
@@ -127,14 +131,12 @@ class CatalogSyncService:
 
             result.unchanged += 1
 
-        # Un full sync solo puede eliminar ausentes cuando la cobertura de
-        # productos únicos está completa. Las apariciones por categoría no
-        # son una medida válida de cobertura porque un código puede repetirse
-        # en varias categorías.
+        # El prune exige una referencia explícita de productos únicos esperados.
+        # Los conteos por categoría nunca habilitan por sí solos la eliminación.
         prune_allowed = (
             result.coverage_complete
             and not result.has_errors
-            and (prune_missing or expected_products > 0)
+            and (prune_missing or result.products_expected > 0)
         )
         if prune_allowed:
             self._remove_missing_products(scraped_codes, result)
@@ -147,13 +149,15 @@ class CatalogSyncService:
         self,
         products,
         prune_missing: bool = True,
-        expected_products: int = 0,
+        expected_products: int | None = 0,
+        expected_category_occurrences: int = 0,
     ):
-        """Sincroniza y elimina códigos locales ausentes en el scraping completo."""
+        """Sincroniza y elimina ausentes solo con cobertura única explícita."""
         return self.sync(
             products,
             prune_missing=prune_missing,
             expected_products=expected_products,
+            expected_category_occurrences=expected_category_occurrences,
         )
 
     def synchronize(self, products, prune_missing: bool = False):

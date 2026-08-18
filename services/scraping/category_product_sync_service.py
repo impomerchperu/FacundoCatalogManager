@@ -112,12 +112,17 @@ class CategoryProductSyncService:
 
         # No existe todavía una cifra global fiable de productos únicos. La suma
         # por categoría se conserva solo como diagnóstico y NO habilita prune.
-        result = self.sync_products(products, full_sync=True, allow_prune=allow_prune,
-                                    expected_products=0)
-        result.expected_category_occurrences = expected_category_occurrences
+        synced_products = self.sync_products(
+            products,
+            full_sync=True,
+            allow_prune=allow_prune,
+            expected_products=0,
+        )
+        self.last_sync_result.expected_category_occurrences = expected_category_occurrences
+        self.last_sync_result.categories_processed = total
         if progress_callback:
             progress_callback(100, 100)
-        return result
+        return synced_products
 
     def _collect_category(self, index, category):
         del index

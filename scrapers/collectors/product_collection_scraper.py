@@ -66,6 +66,7 @@ class ProductCollectionScraper:
             expected_count = 0
 
         products: list[tuple[Any, str, Any]] = []
+        seen: set[str] = set()
         try:
             pages = self.category_scraper.get_category_pages(
                 category_url,
@@ -91,8 +92,26 @@ class ProductCollectionScraper:
                 product_url = self._card_detail_url(card, page, product)
                 if product_url:
                     product.url = product_url
+                identity = self._product_identity(product, product_url, page, card)
+                if identity in seen:
+                    continue
+                seen.add(identity)
                 products.append((card, page, product))
         return products
+
+    @staticmethod
+    def _product_identity(product: Any, product_url: str, page_url: str, card: Any) -> str:
+        """Usa el código real como identidad y URL/tarjeta solo como respaldo."""
+        code = str(getattr(product, "code", "")).strip().casefold()
+        if code:
+            return f"code:{code}"
+        if product_url:
+            return f"url:{product_url.casefold()}"
+        try:
+            card_text = " ".join(card.stripped_strings).strip().casefold()
+        except AttributeError:
+            card_text = ""
+        return f"page:{page_url.casefold()}|card:{card_text}"
 
     def enrich_category_products(
         self,
@@ -164,7 +183,6 @@ class ProductCollectionScraper:
 
     @classmethod
     def _detail_skip_reason(cls, card: Any, product: Any) -> str | None:
-        """Explica por qué una tarjeta puede evitar la página de detalle."""
         if cls._has_complete_card_color_stock(card, product):
             return "complete_color_stock"
 
@@ -180,7 +198,6 @@ class ProductCollectionScraper:
 
     @classmethod
     def _detail_request_reason(cls, card: Any, product: Any) -> str:
-        """Clasifica por qué una tarjeta todavía necesita su página de detalle."""
         stock_values = cls._stock_values(card)
         if len(stock_values) != 1:
             return cls._stock_request_reason(card, stock_values)
@@ -192,7 +209,6 @@ class ProductCollectionScraper:
 
     @classmethod
     def _missing_detail_fields(cls, product: Any) -> tuple[str, ...]:
-        """Devuelve campos básicos ausentes en la tarjeta del producto."""
         return tuple(
             field
             for field in cls._REQUIRED_DETAIL_FIELDS
@@ -201,7 +217,6 @@ class ProductCollectionScraper:
 
     @staticmethod
     def _stock_request_reason(card: Any, stock_values: list[int]) -> str:
-        """Clasifica solicitudes según la forma visible del stock de la tarjeta."""
         if not stock_values:
             return "missing_stock"
         variation = card.select_one(".variaciones-producto")
@@ -220,7 +235,6 @@ class ProductCollectionScraper:
 
     @classmethod
     def _missing_price_fields(cls, card: Any, product: Any) -> tuple[str, ...]:
-        """Devuelve solo precios ausentes que la tarjeta realmente anuncia."""
         card_text = " ".join(card.stripped_strings).casefold()
         return tuple(
             field
@@ -231,18 +245,15 @@ class ProductCollectionScraper:
 
     @classmethod
     def _can_skip_detail(cls, card: Any, product: Any) -> bool:
-        """Evita el detalle cuando la tarjeta ya contiene datos suficientes."""
         return cls._detail_skip_reason(card, product) is not None
 
     def _record_detail_reason(self, reason: str) -> None:
-        """Acumula una clasificación de decisión de enriquecimiento."""
         self._detail_reason_counts[reason] = (
             self._detail_reason_counts.get(reason, 0) + 1
         )
 
     @staticmethod
     def _has_complete_card_color_stock(card: Any, product: Any) -> bool:
-        """Acepta color-stock completo solo con estructura explícita de colores."""
         color_stock = dict(getattr(product, "color_stock", {}) or {})
         if not color_stock:
             return False
@@ -260,7 +271,6 @@ class ProductCollectionScraper:
 
     @staticmethod
     def _card_detail_url(card: Any, page_url: str, product: Any) -> str:
-        """Construye la URL absoluta sin realizar una petición HTTP."""
         link = card.select_one('a[href*="/producto/"]')
         href = link.get("href") if link else ""
         if isinstance(href, str) and href:
@@ -283,7 +293,6 @@ class ProductCollectionScraper:
         url: str,
         category: str,
     ) -> Any:
-        """Extrae una tarjeta aceptando extractores objeto o funciones."""
         if callable(self.product_extractor):
             return self.product_extractor(card, url=url, category=category)
         return self.product_extractor.extract(card, url=url, category=category)
@@ -295,7 +304,6 @@ class ProductCollectionScraper:
         product: Any,
         category_name: str,
     ) -> Any:
-        """Completa colores y stock desde la página de detalle."""
         if self.detail_extractor is None:
             return product
         link = card.select_one('a[href*="/producto/"]')
@@ -331,7 +339,6 @@ class ProductCollectionScraper:
 
     @staticmethod
     def _detail_cache_key(card: Any, product: Any, detail_url: str) -> str:
-        """Prioriza el código real del producto y usa la tarjeta como respaldo."""
         product_code = str(getattr(product, "code", "")).strip()
         if product_code:
             return f"code:{product_code.casefold()}"
@@ -380,7 +387,6 @@ class ProductCollectionScraper:
 
     @staticmethod
     def _stock_values(card: Any) -> list[int]:
-        """Extrae el stock de la tarjeta, incluyendo la secuencia tras su etiqueta."""
         values: list[int] = []
         variation = card.select_one(".variaciones-producto")
         if variation is not None:
@@ -414,7 +420,6 @@ class ProductCollectionScraper:
         return values
 
     def reset_detail_metrics(self) -> None:
-        """Reinicia métricas y cache para comenzar una nueva corrida completa."""
         with self._detail_cache_lock:
             self._detail_cache.clear()
             self._detail_requests = 0
@@ -424,7 +429,6 @@ class ProductCollectionScraper:
             self._detail_reason_counts.clear()
 
     def get_detail_metrics(self) -> dict[str, Any]:
-        """Devuelve métricas de cache y clasificación de detalle."""
         with self._detail_cache_lock:
             detail_requests = self._detail_requests
             detail_cache_hits = self._detail_cache_hits

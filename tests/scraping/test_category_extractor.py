@@ -44,3 +44,26 @@ def test_extract_categories_reads_product_count_from_category_card():
 
     assert category.name == "Insumos de Sublimación"
     assert category.expected_count == 61
+
+
+def test_extract_categories_keeps_each_category_product_count_isolated():
+    html = """
+    <div class="category-card">
+        <div>Producto(s) 61</div>
+        <h3>Insumos de Sublimación</h3>
+        <a href="/categoria-producto/insumos-de-sublimacion/">
+            Ver Categoría
+        </a>
+    </div>
+    <div class="category-card">
+        <div>Producto(s) 31</div>
+        <h3>Artículos de Escritorio</h3>
+        <a href="/categoria-producto/articulos-de-escritorio/">
+            Ver Categoría
+        </a>
+    </div>
+    """
+
+    categories = CategoryExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert [category.expected_count for category in categories] == [61, 31]

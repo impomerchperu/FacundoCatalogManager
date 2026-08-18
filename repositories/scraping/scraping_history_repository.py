@@ -9,38 +9,17 @@ class ScrapingHistoryRepository:
     """Persistencia del historial de descargas y sus cambios."""
 
     PRODUCT_FIELDS = (
-        "name",
-        "category",
-        "description",
-        "price",
-        "price_sample",
-        "price_hundred",
-        "price_thousand",
-        "stock",
-        "colors",
-        "color_stock",
-        "image_url",
-        "image_path",
-        "image_hash",
-        "content_hash",
+        "name", "category", "description", "price", "price_sample",
+        "price_hundred", "price_thousand", "stock", "colors", "color_stock",
+        "image_url", "image_path", "image_hash", "content_hash",
     )
-
     FIELD_LABELS: ClassVar[dict[str, str]] = {
-        "code": "Código",
-        "name": "Nombre",
-        "category": "Categoría",
-        "description": "Detalle",
-        "price": "Precio",
-        "price_sample": "Precio muestra",
-        "price_hundred": "Precio ciento",
-        "price_thousand": "Precio millar",
-        "stock": "Stock",
-        "colors": "Colores",
-        "color_stock": "Stock por color",
-        "image_url": "URL imagen",
-        "image_path": "Ruta imagen",
-        "image_hash": "Hash imagen",
-        "content_hash": "Hash contenido",
+        "code": "Código", "name": "Nombre", "category": "Categoría",
+        "description": "Detalle", "price": "Precio", "price_sample": "Precio muestra",
+        "price_hundred": "Precio ciento", "price_thousand": "Precio millar",
+        "stock": "Stock", "colors": "Colores", "color_stock": "Stock por color",
+        "image_url": "URL imagen", "image_path": "Ruta imagen",
+        "image_hash": "Hash imagen", "content_hash": "Hash contenido",
     }
 
     def __init__(self, db):
@@ -59,26 +38,20 @@ class ScrapingHistoryRepository:
                 started_at, finished_at, processed, created, updated,
                 unchanged, deleted, generated, products_expected, products_found,
                 products_unique, products_multiple_categories, duplicate_occurrences,
+                category_summary, multiple_category_products,
                 errors, status, message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                history.started_at.isoformat(),
-                history.finished_at.isoformat(),
-                history.processed,
-                history.created,
-                history.updated,
-                history.unchanged,
-                history.deleted,
-                history.generated,
-                history.products_expected,
-                history.products_found,
-                history.products_unique,
-                history.products_multiple_categories,
+                history.started_at.isoformat(), history.finished_at.isoformat(),
+                history.processed, history.created, history.updated,
+                history.unchanged, history.deleted, history.generated,
+                history.products_expected, history.products_found,
+                history.products_unique, history.products_multiple_categories,
                 history.duplicate_occurrences,
-                history.errors,
-                history.status,
-                history.message,
+                self._serialize(history.category_summary),
+                self._serialize(history.multiple_category_products),
+                history.errors, history.status, history.message,
             ),
         )
         history.history_id = int(cursor.lastrowid)
@@ -91,85 +64,37 @@ class ScrapingHistoryRepository:
             code = str(item.get("code", ""))
             name = str(item.get("name", ""))
             item_type = item.get("type")
-
             if item_type == "CODE_GENERATED":
-                self._insert_change(
-                    history.history_id,
-                    "CODE_GENERATED",
-                    code,
-                    name,
-                    "code",
-                    "Código generado",
-                    "Sin código",
-                    code,
-                )
+                self._insert_change(history.history_id, "CODE_GENERATED", code, name,
+                                    "code", "Código generado", "Sin código", code)
                 continue
-
             if item_type == "NEW":
                 product = product_map.get(code)
                 if product is None:
-                    self._insert_change(
-                        history.history_id,
-                        "NEW",
-                        code,
-                        name,
-                        None,
-                        "Producto nuevo",
-                        None,
-                        "Alta",
-                    )
+                    self._insert_change(history.history_id, "NEW", code, name, None,
+                                        "Producto nuevo", None, "Alta")
                     continue
                 for field in self.PRODUCT_FIELDS:
                     self._insert_change(
-                        history.history_id,
-                        "NEW",
-                        code,
-                        name,
-                        field,
-                        self.FIELD_LABELS[field],
-                        None,
+                        history.history_id, "NEW", code, name, field,
+                        self.FIELD_LABELS[field], None,
                         self._serialize(self._value(product, field)),
                     )
                 continue
-
             if item_type == "DELETED":
-                self._insert_change(
-                    history.history_id,
-                    "DELETED",
-                    code,
-                    name,
-                    None,
-                    "Producto eliminado",
-                    "Presente en catálogo",
-                    "Ausente en origen",
-                )
+                self._insert_change(history.history_id, "DELETED", code, name, None,
+                                    "Producto eliminado", "Presente en catálogo", "Ausente en origen")
                 continue
-
             for change in item.get("changes") or []:
                 field = str(change.get("field", ""))
                 self._insert_change(
-                    history.history_id,
-                    "UPDATED",
-                    code,
-                    name,
-                    field,
+                    history.history_id, "UPDATED", code, name, field,
                     str(change.get("label", self.FIELD_LABELS.get(field, field))),
-                    self._serialize(change.get("old")),
-                    self._serialize(change.get("new")),
+                    self._serialize(change.get("old")), self._serialize(change.get("new")),
                 )
         return history.history_id
 
-    def _insert_change(
-        self,
-        history_id: int,
-        change_type: str,
-        code: str,
-        name: str,
-        field: str | None,
-        label: str,
-        old_value,
-        new_value,
-    ) -> None:
+    def _insert_change(self, history_id, change_type, code, name, field, label, old_value, new_value):
         self.db.execute_query(
             """
             INSERT INTO download_changes (
@@ -177,16 +102,7 @@ class ScrapingHistoryRepository:
                 field_name, field_label, old_value, new_value
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (
-                history_id,
-                change_type,
-                code,
-                name,
-                field,
-                label,
-                old_value,
-                new_value,
-            ),
+            (history_id, change_type, code, name, field, label, old_value, new_value),
         )
 
     def get_all(self):
@@ -199,10 +115,9 @@ class ScrapingHistoryRepository:
                    updated, unchanged, deleted, generated,
                    products_expected, products_found, products_unique,
                    products_multiple_categories, duplicate_occurrences,
+                   category_summary, multiple_category_products,
                    errors, status, message
-            FROM scraping_history
-            ORDER BY id DESC
-            LIMIT ?
+            FROM scraping_history ORDER BY id DESC LIMIT ?
             """,
             (limit,),
         )
@@ -215,9 +130,9 @@ class ScrapingHistoryRepository:
                    updated, unchanged, deleted, generated,
                    products_expected, products_found, products_unique,
                    products_multiple_categories, duplicate_occurrences,
+                   category_summary, multiple_category_products,
                    errors, status, message
-            FROM scraping_history
-            WHERE id = ?
+            FROM scraping_history WHERE id = ?
             """,
             (history_id,),
         )
@@ -235,15 +150,9 @@ class ScrapingHistoryRepository:
             (history_id,),
         )
         return [
-            {
-                "type": row["change_type"],
-                "code": row["code"],
-                "name": row["product_name"],
-                "field": row["field_name"],
-                "label": row["field_label"],
-                "old": self._deserialize(row["old_value"]),
-                "new": self._deserialize(row["new_value"]),
-            }
+            {"type": row["change_type"], "code": row["code"], "name": row["product_name"],
+             "field": row["field_name"], "label": row["field_label"],
+             "old": self._deserialize(row["old_value"]), "new": self._deserialize(row["new_value"])}
             for row in rows
         ]
 
@@ -276,18 +185,15 @@ class ScrapingHistoryRepository:
             history_id=row["id"],
             started_at=datetime.fromisoformat(row["started_at"]),
             finished_at=datetime.fromisoformat(row["finished_at"]),
-            processed=row["processed"],
-            created=row["created"],
-            updated=row["updated"],
-            unchanged=row["unchanged"],
-            deleted=row["deleted"],
-            generated=row["generated"],
-            products_expected=row["products_expected"],
-            products_found=row["products_found"],
+            processed=row["processed"], created=row["created"], updated=row["updated"],
+            unchanged=row["unchanged"], deleted=row["deleted"], generated=row["generated"],
+            products_expected=row["products_expected"], products_found=row["products_found"],
             products_unique=row["products_unique"],
             products_multiple_categories=row["products_multiple_categories"],
             duplicate_occurrences=row["duplicate_occurrences"],
-            errors=row["errors"],
-            status=row["status"],
-            message=row["message"],
+            category_summary=ScrapingHistoryRepository._deserialize(row["category_summary"]) or [],
+            multiple_category_products=(
+                ScrapingHistoryRepository._deserialize(row["multiple_category_products"]) or []
+            ),
+            errors=row["errors"], status=row["status"], message=row["message"],
         )

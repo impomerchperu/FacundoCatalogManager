@@ -136,7 +136,9 @@ class CatalogSyncService:
         coverage_complete = (
             expected_products > 0 and len(raw_products) == expected_products
         )
-        prune_allowed = bool(prune_missing and coverage_complete)
+        prune_allowed = coverage_complete and (
+            prune_missing or expected_products > 0
+        )
         if prune_allowed:
             self._remove_missing_products(scraped_codes, result)
 

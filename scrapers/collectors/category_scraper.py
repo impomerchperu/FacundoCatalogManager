@@ -110,7 +110,9 @@ class CategoryScraper:
             if page_number:
                 discovered_page_numbers.add(page_number)
 
-        # JetSmartFilters puede renderizar paginación sin href.
+        # JetSmartFilters puede renderizar paginación sin href. Si existe una
+        # URL explícita la respetamos; si no, dejamos que el fallback pruebe
+        # las variantes de URL para ese número.
         for item in soup.select(
             ".jet-filters-pagination__item[data-value], "
             "[data-page], [data-page-number], [data-paged]"
@@ -124,15 +126,13 @@ class CategoryScraper:
             page_number = self._page_number_from_value(raw_value)
             if not page_number or page_number <= 1:
                 continue
-            discovered_page_numbers.add(page_number)
             link = item.select_one("a[href], .jet-filters-pagination__link")
             href = link.get("href") if link else None
             if isinstance(href, str) and href.strip():
+                discovered_page_numbers.add(page_number)
                 page_url = urljoin(category_url, href)
-            else:
-                page_url = self._page_url(category_url, page_number)
-            if page_url not in pages:
-                pages.append(page_url)
+                if page_url not in pages:
+                    pages.append(page_url)
 
         if not expected_count:
             text = soup.get_text(" ", strip=True)
@@ -174,11 +174,12 @@ class CategoryScraper:
         text = str(value).strip()
         if not text:
             return None
+        if text.isdigit():
+            return int(text)
         for pattern in (
             r"(?:product-page|paged|page)[=/\-](\d+)",
             r"[?&](?:product-page|paged|page)=(\d+)",
             r"(?:^|/)page/(\d+)(?:/|$)",
-            r"^\d+$",
         ):
             match = re.search(pattern, text, flags=re.IGNORECASE)
             if match:

@@ -71,6 +71,7 @@ class CatalogSyncService:
         result.products_expected = max(int(expected_products or 0), 0)
         result.expected_category_occurrences = max(
             int(expected_category_occurrences or 0),
+            0,
         )
         result.products_found = len(raw_products)
         result.products_unique = len(consolidated)
@@ -131,8 +132,6 @@ class CatalogSyncService:
 
             result.unchanged += 1
 
-        # El prune exige una referencia explícita de productos únicos esperados.
-        # Los conteos por categoría nunca habilitan por sí solos la eliminación.
         prune_allowed = (
             result.coverage_complete
             and not result.has_errors

@@ -49,11 +49,13 @@ class SyncResult:
 
     @property
     def classified_total(self) -> int:
+        """Productos únicos que recibieron una clasificación de sincronización."""
         return self.created + self.updated + self.unchanged
 
     @property
     def counts_are_consistent(self) -> bool:
-        return self.processed == self.classified_total
+        """La clasificación debe cubrir exactamente los productos únicos."""
+        return self.classified_total == self.products_unique
 
     @property
     def coverage_gap(self) -> int:

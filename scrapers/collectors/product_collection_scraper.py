@@ -59,12 +59,17 @@ class ProductCollectionScraper:
         if isinstance(category, Category):
             category_url = category.url
             category_name = category.name
+            expected_count = category.expected_count
         else:
             category_url = category
             category_name = ""
+            expected_count = 0
 
         products: list[tuple[Any, str, Any]] = []
-        pages = self.category_scraper.get_category_pages(category_url)
+        pages = self.category_scraper.get_category_pages(
+            category_url,
+            expected_count=expected_count,
+        )
 
         for page in pages:
             html = self.category_scraper.get_html(page)

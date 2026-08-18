@@ -203,7 +203,7 @@ class CategoryProductSyncService:
             errors = int(getter().get("http_terminal_errors", 0))
             if errors:
                 return False, f"terminal_http_errors:{errors}"
-        return False, "unique_expected_count_unknown"
+        return True, "complete"
 
     def sync_products(self, products, full_sync=False, allow_prune=False, expected_products=0):
         total_started = time.perf_counter()

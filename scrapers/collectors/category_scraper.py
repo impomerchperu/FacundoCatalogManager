@@ -87,6 +87,7 @@ class CategoryScraper:
         category_url: str,
         expected_count: int = 0,
     ) -> list[str]:
+        """Descubre todas las páginas físicas de una categoría."""
         html = self.get_html(category_url)
         if not html:
             return []
@@ -96,6 +97,7 @@ class CategoryScraper:
 
         soup = self._parse(html)
         pages = [category_url]
+        discovered_page_numbers: set[int] = {1}
 
         for link in soup.select("a.page-numbers, nav.woocommerce-pagination a"):
             href = link.get("href")
@@ -104,30 +106,31 @@ class CategoryScraper:
             page_url = urljoin(category_url, href)
             if page_url not in pages:
                 pages.append(page_url)
+            page_number = self._page_number_from_value(href)
+            if page_number:
+                discovered_page_numbers.add(page_number)
 
-        # JetSmartFilters renders pagination as non-anchor elements with
-        # data-value="N". Those controls are the pagination for the same
-        # category, not additional categories. When a real href is absent,
-        # use the standard WordPress/WooCommerce page URL for that number.
+        # JetSmartFilters puede renderizar paginación sin href.
         for item in soup.select(
-            ".jet-filters-pagination__item[data-value]"
+            ".jet-filters-pagination__item[data-value], "
+            "[data-page], [data-page-number], [data-paged]"
         ):
-            raw_value = item.get("data-value")
-            try:
-                page_number = int(str(raw_value).strip())
-            except (TypeError, ValueError):
+            raw_value = (
+                item.get("data-value")
+                or item.get("data-page")
+                or item.get("data-page-number")
+                or item.get("data-paged")
+            )
+            page_number = self._page_number_from_value(raw_value)
+            if not page_number or page_number <= 1:
                 continue
-            if page_number <= 1:
-                continue
-            link = item.select_one(".jet-filters-pagination__link")
+            discovered_page_numbers.add(page_number)
+            link = item.select_one("a[href], .jet-filters-pagination__link")
             href = link.get("href") if link else None
             if isinstance(href, str) and href.strip():
                 page_url = urljoin(category_url, href)
             else:
-                page_url = urljoin(
-                    category_url.rstrip("/") + "/",
-                    f"page/{page_number}/",
-                )
+                page_url = self._page_url(category_url, page_number)
             if page_url not in pages:
                 pages.append(page_url)
 
@@ -150,15 +153,56 @@ class CategoryScraper:
             )
             // self.PRODUCTS_PER_PAGE,
         )
+
+        # Cuando el HTML no publica todos los enlaces, probamos las formas
+        # habituales de WooCommerce/WordPress. La colección deduplica por
+        # código para evitar contar dos veces una misma página si el sitio
+        # responde con más de una variante válida.
         for page_number in range(2, expected_pages + 1):
-            page_url = urljoin(
-                category_url.rstrip("/") + "/",
-                f"page/{page_number}/",
-            )
-            if page_url not in pages:
-                pages.append(page_url)
+            if page_number in discovered_page_numbers:
+                continue
+            for page_url in self._page_url_variants(category_url, page_number):
+                if page_url not in pages:
+                    pages.append(page_url)
 
         return pages
+
+    @classmethod
+    def _page_number_from_value(cls, value) -> int | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        for pattern in (
+            r"(?:product-page|paged|page)[=/\-](\d+)",
+            r"[?&](?:product-page|paged|page)=(\d+)",
+            r"(?:^|/)page/(\d+)(?:/|$)",
+            r"^\d+$",
+        ):
+            match = re.search(pattern, text, flags=re.IGNORECASE)
+            if match:
+                try:
+                    return int(match.group(1))
+                except (IndexError, TypeError, ValueError):
+                    return None
+        return None
+
+    @classmethod
+    def _page_url(cls, category_url: str, page_number: int) -> str:
+        return urljoin(
+            category_url.rstrip("/") + "/",
+            f"page/{page_number}/",
+        )
+
+    @classmethod
+    def _page_url_variants(cls, category_url: str, page_number: int) -> list[str]:
+        base = category_url.rstrip("/")
+        return [
+            cls._page_url(category_url, page_number),
+            f"{base}/?product-page={page_number}",
+            f"{base}/?paged={page_number}",
+        ]
 
     def get_product_blocks(self, url: str):
         html = self.get_html(url)

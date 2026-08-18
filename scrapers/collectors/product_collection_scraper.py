@@ -66,10 +66,15 @@ class ProductCollectionScraper:
             expected_count = 0
 
         products: list[tuple[Any, str, Any]] = []
-        pages = self.category_scraper.get_category_pages(
-            category_url,
-            expected_count=expected_count,
-        )
+        try:
+            pages = self.category_scraper.get_category_pages(
+                category_url,
+                expected_count=expected_count,
+            )
+        except TypeError as exc:
+            if "expected_count" not in str(exc):
+                raise
+            pages = self.category_scraper.get_category_pages(category_url)
 
         for page in pages:
             html = self.category_scraper.get_html(page)

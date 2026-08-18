@@ -77,6 +77,8 @@ CREATE TABLE IF NOT EXISTS scraping_history (
     products_unique INTEGER DEFAULT 0,
     products_multiple_categories INTEGER DEFAULT 0,
     duplicate_occurrences INTEGER DEFAULT 0,
+    category_summary TEXT DEFAULT '[]',
+    multiple_category_products TEXT DEFAULT '[]',
     errors INTEGER DEFAULT 0,
     status TEXT DEFAULT 'SUCCESS',
     message TEXT DEFAULT ''

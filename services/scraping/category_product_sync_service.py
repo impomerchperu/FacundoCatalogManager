@@ -6,12 +6,8 @@ from typing import Any, cast
 
 from config.scraping_config import SCRAPING_CATEGORY_WORKERS
 from models.scraping.sync_result import SyncResult
-from services.scraping.category_product_scraping_service import (
-    CategoryProductScrapingService,
-)
-from services.scraping.scraped_product_persistence_service import (
-    ScrapedProductPersistenceService,
-)
+from services.scraping.category_product_scraping_service import CategoryProductScrapingService
+from services.scraping.scraped_product_persistence_service import ScrapedProductPersistenceService
 
 logger = logging.getLogger("FCM")
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -29,15 +25,9 @@ def _log_timing(message, *args):
 class CategoryProductSyncService:
     """Orquesta extracción, consolidación y sincronización del catálogo."""
 
-    def __init__(
-        self,
-        scraper_service: CategoryProductScrapingService,
-        persistence_service: ScrapedProductPersistenceService,
-        mapper=None,
-        catalog_sync_service=None,
-        image_sync_adapter=None,
-        category_workers: int = SCRAPING_CATEGORY_WORKERS,
-    ):
+    def __init__(self, scraper_service, persistence_service, mapper=None,
+                 catalog_sync_service=None, image_sync_adapter=None,
+                 category_workers: int = SCRAPING_CATEGORY_WORKERS):
         self.scraper_service = scraper_service
         self.persistence_service = persistence_service
         self.mapper = mapper
@@ -49,13 +39,8 @@ class CategoryProductSyncService:
     def sync_category(self, category_url: str, category: str = ""):
         started = time.perf_counter()
         products = self.scraper_service.scrape_category(category_url, category)
-        elapsed = time.perf_counter() - started
-        _log_timing(
-            "SCRAPING TIMING | category=%s | products=%d | seconds=%.3f",
-            category,
-            len(products),
-            elapsed,
-        )
+        _log_timing("SCRAPING TIMING | category=%s | products=%d | seconds=%.3f",
+                     category, len(products), time.perf_counter() - started)
         return self.sync_products(products)
 
     def sync_categories(self, categories, progress_callback=None):
@@ -67,149 +52,69 @@ class CategoryProductSyncService:
             max(int(getattr(category, "expected_count", 0) or 0), 0)
             for category in categories
         )
-
         self._reset_scraping_metrics()
+        self.reset_sync_result()
         if progress_callback:
             progress_callback(0, 100)
-
         if not categories:
-            _log_timing(
-                "SCRAPING TIMING | stage=category_listing | categories=0 "
-                "| products=0 | expected_category_occurrences=0 "
-                "| gap=0 | seconds=0.000",
-            )
-            _log_timing(
-                "SCRAPING TIMING | stage=category_extraction | categories=0 "
-                "| products=0 | expected_category_occurrences=0 "
-                "| gap=0 | seconds=0.000",
-            )
-            if progress_callback:
-                progress_callback(100, 100)
             return self.sync_products([], full_sync=False, expected_products=0)
 
         worker_count = min(self.category_workers, total)
-        collected: list[list[Any]] = [[] for _ in categories]
-        results: list[list[Any]] = [[] for _ in categories]
+        collected = [[] for _ in categories]
+        results = [[] for _ in categories]
         listing_started = time.perf_counter()
-        enrichment_started: float | None = None
+        enrichment_started = None
         listing_completed = 0
         enrichment_completed = 0
-
-        with (
-            ThreadPoolExecutor(max_workers=worker_count) as listing_executor,
-            ThreadPoolExecutor(max_workers=worker_count) as enrichment_executor,
-        ):
-            listing_future_to_index = {
-                listing_executor.submit(
-                    self._collect_category,
-                    index,
-                    category,
-                ): index
+        with (ThreadPoolExecutor(max_workers=worker_count) as listing_executor,
+              ThreadPoolExecutor(max_workers=worker_count) as enrichment_executor):
+            listing_futures = {
+                listing_executor.submit(self._collect_category, index, category): index
                 for index, category in enumerate(categories)
             }
-            enrichment_futures: dict[Any, int] = {}
-
-            for future in as_completed(listing_future_to_index):
-                index = listing_future_to_index[future]
+            enrichment_futures = {}
+            for future in as_completed(listing_futures):
+                index = listing_futures[future]
                 collected[index] = cast(list[Any], future.result())
                 listing_completed += 1
                 if enrichment_started is None:
                     enrichment_started = time.perf_counter()
-
-                enrichment_future = enrichment_executor.submit(
-                    self._enrich_category,
-                    index,
-                    categories[index],
-                    collected[index],
-                )
-                enrichment_futures[enrichment_future] = index
-
+                enrichment_futures[enrichment_executor.submit(
+                    self._enrich_category, index, categories[index], collected[index]
+                )] = index
                 if progress_callback:
-                    progress = 5 + int(listing_completed * 35 / total) + int(
-                        enrichment_completed * 50 / total
-                    )
-                    progress_callback(min(90, progress), 100)
-
+                    progress_callback(min(40, 5 + int(listing_completed * 35 / total)), 100)
             listing_elapsed = time.perf_counter() - listing_started
-
             for future in as_completed(enrichment_futures):
                 index = enrichment_futures[future]
                 results[index] = cast(list[Any], future.result())
                 enrichment_completed += 1
                 if progress_callback:
-                    progress = 5 + int(listing_completed * 35 / total) + int(
-                        enrichment_completed * 50 / total
-                    )
-                    progress_callback(min(90, progress), 100)
+                    progress_callback(min(90, 40 + int(enrichment_completed * 50 / total)), 100)
 
-        collected_count = sum(len(items) for items in collected)
-        _log_timing(
-            "SCRAPING TIMING | stage=category_listing | categories=%d "
-            "| products=%d | expected_category_occurrences=%d "
-            "| occurrence_gap=%d | seconds=%.3f",
-            total,
-            collected_count,
-            expected_category_occurrences,
-            max(expected_category_occurrences - collected_count, 0),
-            listing_elapsed,
-        )
-
-        enrichment_elapsed = (
-            time.perf_counter() - enrichment_started
-            if enrichment_started is not None
-            else 0.0
-        )
-        products = [
-            product
-            for category_products in results
-            for product in category_products
-        ]
-        _log_timing(
-            "SCRAPING TIMING | stage=detail_enrichment | categories=%d "
-            "| products=%d | seconds=%.3f",
-            total,
-            len(products),
-            enrichment_elapsed,
-        )
-
-        scraping_elapsed = time.perf_counter() - started
-        _log_timing(
-            "SCRAPING TIMING | stage=category_extraction | categories=%d "
-            "| products=%d | expected_category_occurrences=%d "
-            "| occurrence_gap=%d | seconds=%.3f",
-            total,
-            len(products),
-            expected_category_occurrences,
-            max(expected_category_occurrences - len(products), 0),
-            scraping_elapsed,
-        )
+        products = [product for items in results for product in items]
+        _log_timing("SCRAPING TIMING | stage=category_listing | categories=%d | products=%d "
+                     "| expected_category_occurrences=%d | occurrence_gap=%d | seconds=%.3f",
+                     total, sum(map(len, collected)), expected_category_occurrences,
+                     max(expected_category_occurrences - sum(map(len, collected)), 0), listing_elapsed)
+        _log_timing("SCRAPING TIMING | stage=category_extraction | categories=%d | products=%d "
+                     "| expected_category_occurrences=%d | occurrence_gap=%d | seconds=%.3f",
+                     total, len(products), expected_category_occurrences,
+                     max(expected_category_occurrences - len(products), 0), time.perf_counter() - started)
         self._log_detail_metrics()
         self._log_http_metrics()
 
-        allow_prune, guard_reason = self._full_sync_prune_guard(
-            products,
-            total,
-        )
-        _log_timing(
-            "SCRAPING TIMING | stage=prune_guard | enabled=%s | reason=%s "
-            "| products=%d | categories=%d",
-            str(allow_prune).lower(),
-            guard_reason,
-            len(products),
-            total,
-        )
-
+        allow_prune, reason = self._full_sync_prune_guard(products, total)
+        _log_timing("SCRAPING TIMING | stage=prune_guard | enabled=%s | reason=%s | products=%d | categories=%d",
+                     str(allow_prune).lower(), reason, len(products), total)
         if progress_callback:
             progress_callback(95, 100)
 
-        result = self.sync_products(
-            products,
-            full_sync=True,
-            allow_prune=allow_prune,
-            expected_products=None,
-            expected_category_occurrences=expected_category_occurrences,
-        )
-
+        # No existe todavía una cifra global fiable de productos únicos. La suma
+        # por categoría se conserva solo como diagnóstico y NO habilita prune.
+        result = self.sync_products(products, full_sync=True, allow_prune=allow_prune,
+                                    expected_products=0)
+        result.expected_category_occurrences = expected_category_occurrences
         if progress_callback:
             progress_callback(100, 100)
         return result
@@ -217,242 +122,126 @@ class CategoryProductSyncService:
     def _collect_category(self, index, category):
         del index
         scraper = getattr(self.scraper_service, "scraper", None)
-        collect_category = getattr(scraper, "collect_category", None)
-        if callable(collect_category):
-            return collect_category(category)
+        collect = getattr(scraper, "collect_category", None)
+        if callable(collect):
+            return collect(category)
         return self.scraper_service.scrape_category(category.url, category.name)
 
     def _enrich_category(self, index, category, collected):
         del index
         scraper = getattr(self.scraper_service, "scraper", None)
-        enrich_category_products = getattr(
-            scraper,
-            "enrich_category_products",
-            None,
-        )
-        if callable(enrich_category_products):
-            return enrich_category_products(collected, category.name)
+        enrich = getattr(scraper, "enrich_category_products", None)
+        if callable(enrich):
+            return enrich(collected, category.name)
         return self.scraper_service.scrape_category(category.url, category.name)
 
     def _reset_scraping_metrics(self):
         scraper = getattr(self.scraper_service, "scraper", None)
-        reset_detail = getattr(scraper, "reset_detail_metrics", None)
-        if callable(reset_detail):
-            reset_detail()
-
-        browser = getattr(self.scraper_service, "browser", None)
-        if browser is None:
-            category_scraper = getattr(scraper, "category_scraper", None)
-            browser = getattr(category_scraper, "browser", None)
+        reset = getattr(scraper, "reset_detail_metrics", None)
+        if callable(reset):
+            reset()
+        browser = self._get_browser()
         reset_http = getattr(browser, "reset_http_metrics", None)
         if callable(reset_http):
             reset_http()
 
     def _log_detail_metrics(self):
         scraper = getattr(self.scraper_service, "scraper", None)
-        get_metrics = getattr(scraper, "get_detail_metrics", None)
-        if not callable(get_metrics):
+        getter = getattr(scraper, "get_detail_metrics", None)
+        if not callable(getter):
             return
-        metrics = cast(dict[str, Any], get_metrics())
-        reason_counts = metrics.get("detail_reason_counts", {})
-        reason_text = ",".join(
-            f"{key}:{value}" for key, value in sorted(reason_counts.items())
-        ) or "none"
-        _log_timing(
-            "SCRAPING TIMING | stage=detail_cache | requests=%d "
-            "| cache_hits=%d | skipped=%d | cache_size=%d | reasons=%s",
-            metrics.get("detail_requests", 0),
-            metrics.get("detail_cache_hits", 0),
-            metrics.get("detail_skipped", 0),
-            metrics.get("detail_cache_size", 0),
-            reason_text,
-        )
+        metrics = cast(dict[str, Any], getter())
+        reasons = metrics.get("detail_reason_counts", {})
+        _log_timing("SCRAPING TIMING | stage=detail_cache | requests=%d | cache_hits=%d | skipped=%d | cache_size=%d | reasons=%s",
+                     metrics.get("detail_requests", 0), metrics.get("detail_cache_hits", 0),
+                     metrics.get("detail_skipped", 0), metrics.get("detail_cache_size", 0),
+                     ",".join(f"{k}:{v}" for k, v in sorted(reasons.items())) or "none")
 
     def _log_http_metrics(self):
         browser = self._get_browser()
-        get_metrics = getattr(browser, "get_http_metrics", None)
-        if not callable(get_metrics):
+        getter = getattr(browser, "get_http_metrics", None)
+        if not callable(getter):
             return
-        metrics = cast(dict[str, Any], get_metrics())
-        _log_timing(
-            "SCRAPING TIMING | stage=http | requests=%d | successes=%d "
-            "| errors=%d | terminal_errors=%d | retries=%d "
-            "| detail_requests=%d | category_requests=%d "
-            "| other_requests=%d | max_concurrency=%d "
-            "| http_seconds=%.3f | slowest_request=%.3f",
-            metrics.get("http_requests", 0),
-            metrics.get("http_successes", 0),
-            metrics.get("http_errors", 0),
-            metrics.get("http_terminal_errors", 0),
-            metrics.get("http_retries", 0),
-            metrics.get("detail_http_requests", 0),
-            metrics.get("category_http_requests", 0),
-            metrics.get("other_http_requests", 0),
-            metrics.get("http_max_in_flight", 0),
-            metrics.get("http_total_seconds", 0.0),
-            metrics.get("http_max_seconds", 0.0),
-        )
-
-        buckets = metrics.get("latency_buckets", {})
-        _log_timing(
-            "SCRAPING TIMING | stage=http_latency | lt_0_5=%d "
-            "| 0_5_1=%d | 1_2=%d | 2_5=%d | 5_10=%d | gte_10=%d",
-            buckets.get("lt_0_5", 0),
-            buckets.get("0_5_1", 0),
-            buckets.get("1_2", 0),
-            buckets.get("2_5", 0),
-            buckets.get("5_10", 0),
-            buckets.get("gte_10", 0),
-        )
-
-        for index, (elapsed, url) in enumerate(
-            metrics.get("slowest_requests", []),
-            start=1,
-        ):
-            _log_timing(
-                "SCRAPING TIMING | stage=http_slowest | rank=%d "
-                "| seconds=%.3f | url=%s",
-                index,
-                elapsed,
-                url,
-            )
+        metrics = cast(dict[str, Any], getter())
+        _log_timing("SCRAPING TIMING | stage=http | requests=%d | successes=%d | errors=%d | terminal_errors=%d | retries=%d | detail_requests=%d | category_requests=%d | other_requests=%d | max_concurrency=%d | http_seconds=%.3f | slowest_request=%.3f",
+                     metrics.get("http_requests", 0), metrics.get("http_successes", 0),
+                     metrics.get("http_errors", 0), metrics.get("http_terminal_errors", 0),
+                     metrics.get("http_retries", 0), metrics.get("detail_http_requests", 0),
+                     metrics.get("category_http_requests", 0), metrics.get("other_requests", 0),
+                     metrics.get("http_max_in_flight", 0), metrics.get("http_total_seconds", 0.0),
+                     metrics.get("http_max_seconds", 0.0))
 
     def _get_browser(self):
         scraper = getattr(self.scraper_service, "scraper", None)
         category_scraper = getattr(scraper, "category_scraper", None)
         browser = getattr(category_scraper, "browser", None)
-        if browser is None:
-            browser = getattr(self.scraper_service, "browser", None)
-        return browser
+        return browser if browser is not None else getattr(self.scraper_service, "browser", None)
 
-    def _log_missing_code_diagnostics(self, products: list[Any]) -> None:
+    def _log_missing_code_diagnostics(self, products):
         for product in products:
             if str(getattr(product, "code", "")).strip():
                 continue
-            _log_timing(
-                "SCRAPING TIMING | stage=missing_code | name=%s | url=%s",
-                str(getattr(product, "name", "")).strip() or "(sin nombre)",
-                str(getattr(product, "url", "")).strip() or "(sin url)",
-            )
+            _log_timing("SCRAPING TIMING | stage=missing_code | name=%s | url=%s",
+                         str(getattr(product, "name", "")).strip() or "(sin nombre)",
+                         str(getattr(product, "url", "")).strip() or "(sin url)")
 
-    def _full_sync_prune_guard(self, products: list[Any], category_count: int):
-        """El prune definitivo se decide después de consolidar por código."""
+    def _full_sync_prune_guard(self, products, category_count):
         if category_count <= 0:
             return False, "no_categories"
-        missing_codes = sum(
-            1
-            for product in products
-            if not str(getattr(product, "code", "")).strip()
-        )
-        if missing_codes:
+        missing = sum(1 for product in products if not str(getattr(product, "code", "")).strip())
+        if missing:
             self._log_missing_code_diagnostics(products)
-            return False, f"missing_codes:{missing_codes}"
-
+            return False, f"missing_codes:{missing}"
         browser = self._get_browser()
-        get_metrics = getattr(browser, "get_http_metrics", None)
-        if callable(get_metrics):
-            metrics = cast(dict[str, Any], get_metrics())
-            terminal_errors = int(metrics.get("http_terminal_errors", 0))
-            if terminal_errors:
-                return False, f"terminal_http_errors:{terminal_errors}"
-        return True, "complete"
+        getter = getattr(browser, "get_http_metrics", None)
+        if callable(getter):
+            errors = int(getter().get("http_terminal_errors", 0))
+            if errors:
+                return False, f"terminal_http_errors:{errors}"
+        return False, "unique_expected_count_unknown"
 
-    def sync_products(
-        self,
-        products: list[Any],
-        full_sync: bool = False,
-        allow_prune: bool = False,
-        expected_products: int | None = 0,
-        expected_category_occurrences: int = 0,
-    ):
+    def sync_products(self, products, full_sync=False, allow_prune=False, expected_products=0):
         total_started = time.perf_counter()
         if self.mapper and self.catalog_sync_service:
-            consolidate_started = time.perf_counter()
-            consolidate = getattr(
-                self.catalog_sync_service,
-                "consolidate_products",
-                None,
-            )
+            started = time.perf_counter()
+            consolidate = getattr(self.catalog_sync_service, "consolidate_products", None)
             if callable(consolidate):
                 products = cast(list[Any], consolidate(products))
-            _log_timing(
-                "SCRAPING TIMING | stage=consolidation | products=%d | seconds=%.3f",
-                len(products),
-                time.perf_counter() - consolidate_started,
-            )
-
+            _log_timing("SCRAPING TIMING | stage=consolidation | products=%d | seconds=%.3f", len(products), time.perf_counter() - started)
             if self.image_sync_adapter:
-                image_started = time.perf_counter()
-                products = cast(
-                    list[Any],
-                    self.image_sync_adapter.sync_products(products),
-                )
-                _log_timing(
-                    "SCRAPING TIMING | stage=images | products=%d | seconds=%.3f",
-                    len(products),
-                    time.perf_counter() - image_started,
-                )
-
-            mapping_started = time.perf_counter()
+                started = time.perf_counter()
+                products = cast(list[Any], self.image_sync_adapter.sync_products(products))
+                _log_timing("SCRAPING TIMING | stage=images | products=%d | seconds=%.3f", len(products), time.perf_counter() - started)
+            started = time.perf_counter()
             mapped_products = [self.mapper.map(product) for product in products]
-            _log_timing(
-                "SCRAPING TIMING | stage=mapping | products=%d | seconds=%.3f",
-                len(mapped_products),
-                time.perf_counter() - mapping_started,
-            )
-
-            catalog_started = time.perf_counter()
-            use_prune = bool(full_sync and allow_prune)
-            sync_full_catalog = getattr(
-                self.catalog_sync_service,
-                "sync_full_catalog",
-                None,
-            )
-            if use_prune and callable(sync_full_catalog):
-                result = cast(
-                    SyncResult,
-                    sync_full_catalog(
-                        mapped_products,
-                        expected_products=expected_products,
-                        expected_category_occurrences=expected_category_occurrences,
-                    ),
-                )
+            _log_timing("SCRAPING TIMING | stage=mapping | products=%d | seconds=%.3f", len(mapped_products), time.perf_counter() - started)
+            started = time.perf_counter()
+            use_prune = bool(full_sync and allow_prune and expected_products)
+            sync_full = getattr(self.catalog_sync_service, "sync_full_catalog", None)
+            if use_prune and callable(sync_full):
+                result = cast(SyncResult, sync_full(mapped_products, expected_products=expected_products))
             else:
-                result = cast(
-                    SyncResult,
-                    self.catalog_sync_service.sync(
-                        mapped_products,
-                        expected_products=expected_products,
-                        expected_category_occurrences=expected_category_occurrences,
-                    ),
-                )
-            _log_timing(
-                "SCRAPING TIMING | stage=catalog_sync | products=%d "
-                "| seconds=%.3f | prune=%s | expected_unique=%s "
-                "| expected_category_occurrences=%d | unique=%d | gap=%d",
-                len(mapped_products),
-                time.perf_counter() - catalog_started,
-                str(use_prune).lower(),
-                expected_products if expected_products is not None else "unknown",
-                expected_category_occurrences,
-                result.products_unique,
-                result.coverage_gap,
-            )
-            _log_timing(
-                "SCRAPING TIMING | stage=sync_total | products=%d | seconds=%.3f",
-                len(mapped_products),
-                time.perf_counter() - total_started,
-            )
-            self.last_sync_result = result
-            return result
-
-        result = SyncResult()
-        for product in products:
-            self.persistence_service.save(product)
-        result.processed = len(products)
-        result.products_found = len(products)
-        result.products_unique = len(products)
-        result.products_expected = max(int(expected_products or 0), 0)
-        result.finish()
-        self.last_sync_result = result
+                result = cast(SyncResult, self.catalog_sync_service.sync(mapped_products, expected_products=expected_products))
+            _log_timing("SCRAPING TIMING | stage=catalog_sync | products=%d | seconds=%.3f | prune=%s | expected_unique=%s | unique=%d | gap=%d",
+                         len(mapped_products), time.perf_counter() - started, str(use_prune).lower(),
+                         expected_products if expected_products else "unknown", result.products_unique, result.coverage_gap)
+            _log_timing("SCRAPING TIMING | stage=sync_total | products=%d | seconds=%.3f", len(mapped_products), time.perf_counter() - total_started)
+            self._accumulate_sync_result(result)
+            return mapped_products
+        started = time.perf_counter()
+        result = self.persistence_service.save_products(products)
+        _log_timing("SCRAPING TIMING | stage=persistence | products=%d | seconds=%.3f", len(products), time.perf_counter() - started)
+        _log_timing("SCRAPING TIMING | stage=sync_total | products=%d | seconds=%.3f", len(products), time.perf_counter() - total_started)
         return result
+
+    def reset_sync_result(self):
+        self.last_sync_result = SyncResult()
+
+    def _accumulate_sync_result(self, result):
+        for field in ("processed", "created", "updated", "unchanged", "deleted", "generated",
+                      "products_expected", "products_found", "products_unique",
+                      "products_multiple_categories", "duplicate_occurrences"):
+            setattr(self.last_sync_result, field, getattr(self.last_sync_result, field) + getattr(result, field, 0))
+        self.last_sync_result.errors.extend(result.errors)
+        self.last_sync_result.failures.extend(result.failures)
+        self.last_sync_result.changes.extend(result.changes)

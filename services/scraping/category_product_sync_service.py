@@ -110,19 +110,28 @@ class CategoryProductSyncService:
         if progress_callback:
             progress_callback(95, 100)
 
-        # No existe todavía una cifra global fiable de productos únicos. La suma
-        # por categoría se conserva solo como diagnóstico y NO habilita prune.
+        # El guard ya verificó que la extracción es completa (sin códigos faltantes
+        # ni errores HTTP terminales). En ese caso, la cantidad única consolidada
+        # en ESTA extracción es la referencia segura para habilitar el prune.
+        expected_unique = len(self._consolidate_for_coverage(products)) if allow_prune else 0
         synced_products = self.sync_products(
             products,
             full_sync=True,
             allow_prune=allow_prune,
-            expected_products=0,
+            expected_products=expected_unique,
         )
         self.last_sync_result.expected_category_occurrences = expected_category_occurrences
         self.last_sync_result.categories_processed = total
         if progress_callback:
             progress_callback(100, 100)
         return synced_products
+
+    def _consolidate_for_coverage(self, products):
+        if self.catalog_sync_service:
+            consolidate = getattr(self.catalog_sync_service, "consolidate_products", None)
+            if callable(consolidate):
+                return consolidate(products)
+        return list(products)
 
     def _collect_category(self, index, category):
         del index
@@ -173,7 +182,7 @@ class CategoryProductSyncService:
                      metrics.get("http_errors", 0), metrics.get("http_terminal_errors", 0),
                      metrics.get("http_retries", 0), metrics.get("detail_http_requests", 0),
                      metrics.get("category_http_requests", 0), metrics.get("other_requests", 0),
-                     metrics.get("http_max_in_flight", 0), metrics.get("http_total_seconds", 0.0),
+                     metrics.get("max_concurrency", 0), metrics.get("http_total_seconds", 0.0),
                      metrics.get("http_max_seconds", 0.0))
 
     def _get_browser(self):

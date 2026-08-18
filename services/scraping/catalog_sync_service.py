@@ -61,9 +61,6 @@ class CatalogSyncService:
                 ],
             })
 
-        # Nunca se genera ni se asigna un código local para un producto
-        # scrapeado sin código. Sin código no existe identidad confiable
-        # para crear, actualizar o eliminar por coincidencia.
         prepared = [
             product
             for product in raw_products
@@ -130,14 +127,14 @@ class CatalogSyncService:
 
             result.unchanged += 1
 
-        # La eliminación solo ocurre en un full sync autorizado por el
-        # orquestador. Ese orquestador ya valida categorías, cobertura,
-        # códigos y errores HTTP antes de llamar con prune_missing=True.
-        coverage_complete = (
-            expected_products > 0 and len(raw_products) == expected_products
-        )
-        prune_allowed = coverage_complete and (
-            prune_missing or expected_products > 0
+        # Un full sync solo puede eliminar ausentes cuando la cobertura de
+        # productos únicos está completa. Las apariciones por categoría no
+        # son una medida válida de cobertura porque un código puede repetirse
+        # en varias categorías.
+        prune_allowed = (
+            result.coverage_complete
+            and not result.has_errors
+            and (prune_missing or expected_products > 0)
         )
         if prune_allowed:
             self._remove_missing_products(scraped_codes, result)

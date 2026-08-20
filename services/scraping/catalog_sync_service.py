@@ -1,6 +1,12 @@
+from datetime import datetime, timezone
+import json
+from pathlib import Path
 from typing import ClassVar
 
 from models.scraping.sync_result import SyncResult
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SCRAPING_CODE_SNAPSHOT = PROJECT_ROOT / "data" / "last_scraping_codes.json"
 
 
 class CatalogSyncService:
@@ -22,8 +28,8 @@ class CatalogSyncService:
 
     @staticmethod
     def _normalize_code(value) -> str:
-        """Normaliza el código para que sea la única identidad del producto."""
-        return " ".join(str(value or "").split()).strip().upper()
+        """Normaliza solo mayúsculas y espacios exteriores; conserva el cuerpo exacto."""
+        return str(value or "").strip().upper()
 
     def sync(self, products, prune_missing: bool = False, cleanup_generated: bool = True,
              expected_products: int | None = 0, expected_category_occurrences: int = 0):
@@ -67,9 +73,6 @@ class CatalogSyncService:
                 self.repository.save(product)
                 continue
 
-            # The sync repository may return either a Product-like object or a
-            # database row dict. The product identity is already the normalized
-            # code, so no product_id assignment is required here.
             product.category = self._merge_categories(
                 self._value(existing, "category"),
                 getattr(product, "category", ""),
@@ -95,7 +98,29 @@ class CatalogSyncService:
             self._remove_missing_products(scraped_codes, result)
         result.finish()
         self.last_sync_result = result
+        if result.products_expected > 0:
+            self._write_code_snapshot(scraped_codes, result)
         return result
+
+    @staticmethod
+    def _write_code_snapshot(scraped_codes: set[str], result: SyncResult) -> None:
+        """Persiste los códigos exactos del scraping completo para auditoría y limpieza."""
+        SCRAPING_CODE_SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "scraped_at": datetime.now(timezone.utc).isoformat(),
+            "codes": sorted(scraped_codes),
+            "scraped_unique_products": len(scraped_codes),
+            "expected_unique_products": result.products_expected,
+            "expected_category_occurrences": result.expected_category_occurrences,
+            "products_found": result.products_found,
+            "coverage_complete": result.coverage_complete,
+            "errors": list(result.errors),
+            "failures": list(result.failures),
+        }
+        SCRAPING_CODE_SNAPSHOT.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
     def sync_full_catalog(self, products, prune_missing: bool = True,
                           expected_products: int | None = 0,

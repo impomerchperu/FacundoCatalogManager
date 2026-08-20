@@ -30,3 +30,8 @@ SCRAPING_CATEGORY_WORKERS = 16
 # intentionally independent so detail requests can use spare network capacity
 # without increasing category scheduling contention.
 SCRAPING_HTTP_WORKERS = 20
+
+# Trusted unique-product target for a complete catalog run. Category counts are
+# occurrence counts and may include the same product in multiple categories,
+# so they must not be used as the unique-product target.
+EXPECTED_CATALOG_PRODUCTS = 525

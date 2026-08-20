@@ -2854,3 +2854,122 @@ SCRAPING TIMING | stage=category_coverage | category=Tecnologia y Accesorios | p
 SCRAPING TIMING | stage=category_coverage | category=Tecnologia Y Accesorios | products=9 | unique=9
 SCRAPING TIMING | stage=multi_category_coverage | products=136 | categories=45
 SCRAPING TIMING | stage=run_total | categories=24 | seconds=150.589
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | seconds=0.003
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | seconds=0.005
+SCRAPING TIMING | stage=prune_guard | enabled=true | reason=complete | products=2 | categories=2 | expected_category_occurrences=0
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000 | prune=true | expected_unique=1 | expected_category_occurrences=unknown | unique=1 | gap=0
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.004
+SCRAPING TIMING | stage=category_coverage | category=Jarros | products=1 | unique=1
+SCRAPING TIMING | stage=category_coverage | category=Promocionales | products=1 | unique=1
+SCRAPING TIMING | stage=multi_category_coverage | products=1 | categories=2
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.001
+SCRAPING TIMING | stage=missing_code | name=Sin código | url=(sin url)
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | seconds=0.002
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | seconds=0.003
+SCRAPING TIMING | stage=prune_guard | enabled=true | reason=complete | products=2 | categories=2 | expected_category_occurrences=0
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000 | prune=true | expected_unique=1 | expected_category_occurrences=unknown | unique=1 | gap=0
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | stage=category_coverage | category=Jarros | products=1 | unique=1
+SCRAPING TIMING | stage=category_coverage | category=Promocionales | products=1 | unique=1
+SCRAPING TIMING | stage=multi_category_coverage | products=1 | categories=2
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.001
+SCRAPING TIMING | stage=missing_code | name=Sin código | url=(sin url)
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.001
+SCRAPING TIMING | stage=missing_code | name=Sin código | url=(sin url)
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | seconds=0.011
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | expected_unique_products=525 | seconds=0.012
+SCRAPING TIMING | stage=prune_guard | enabled=false | reason=unique_coverage_gap:524 | products=2 | categories=2 | expected_unique_products=525 | expected_category_occurrences=0
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000 | prune=false | expected_unique=unknown | expected_category_occurrences=unknown | unique=1 | gap=0
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.002
+SCRAPING TIMING | stage=category_coverage | category=Jarros | products=1 | unique=1
+SCRAPING TIMING | stage=category_coverage | category=Promocionales | products=1 | unique=1
+SCRAPING TIMING | stage=multi_category_coverage | products=1 | categories=2
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=missing_code | name=Sin código | url=(sin url)
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.721
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=362 | expected_category_occurrences=525 | occurrence_gap=163 | seconds=172.753
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=362 | expected_category_occurrences=525 | occurrence_gap=163 | expected_unique_products=525 | seconds=172.781
+SCRAPING TIMING | stage=detail_cache | requests=22 | cache_hits=0 | skipped=340 | cache_size=22 | reasons=requested_missing_code:3,requested_missing_description:18,requested_missing_fields:21,requested_missing_stock:1,skipped_complete_single_stock:340
+SCRAPING TIMING | stage=http | requests=102 | successes=96 | errors=6 | terminal_errors=0 | retries=12 | detail_requests=22 | category_requests=80 | other_requests=0 | max_concurrency=0 | http_seconds=965.236 | slowest_request=20.229
+SCRAPING TIMING | stage=missing_code | name=Solución Fotográfica Para Eventos (Kit) | url=https://stock.importacionesfacundo.com/producto/solucion-fotografica-para-eventos-kit/
+SCRAPING TIMING | stage=missing_code | name=Software Ppmplus – Photoprintme Citizen | url=https://stock.importacionesfacundo.com/producto/software-ppmplus-photoprintme-citizen/
+SCRAPING TIMING | stage=missing_code | name=Software Ikiosk Estandar Foto | url=https://stock.importacionesfacundo.com/producto/software-ikiosk-estandar-foto/
+SCRAPING TIMING | stage=prune_guard | enabled=false | reason=missing_codes:3 | products=362 | categories=24 | expected_unique_products=525 | expected_category_occurrences=525
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.726
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.005
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.018 | prune=false | expected_unique=unknown | expected_category_occurrences=525 | unique=357 | gap=0
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.752
+SCRAPING TIMING | stage=category_coverage | category=Articulos De Antiestres | products=11 | unique=11
+SCRAPING TIMING | stage=category_coverage | category=Articulos De Escritorio | products=12 | unique=12
+SCRAPING TIMING | stage=category_coverage | category=Articulos De Oficina | products=7 | unique=7
+SCRAPING TIMING | stage=category_coverage | category=Articulos De Playa | products=1 | unique=1
+SCRAPING TIMING | stage=category_coverage | category=Articulos Personales | products=5 | unique=5
+SCRAPING TIMING | stage=category_coverage | category=Artículos Antiestrés | products=25 | unique=25
+SCRAPING TIMING | stage=category_coverage | category=Artículos de Escritorio | products=25 | unique=25
+SCRAPING TIMING | stage=category_coverage | category=Artículos de Oficina | products=12 | unique=12
+SCRAPING TIMING | stage=category_coverage | category=Artículos de Playa | products=5 | unique=5
+SCRAPING TIMING | stage=category_coverage | category=Artículos Personales | products=17 | unique=17
+SCRAPING TIMING | stage=category_coverage | category=Bolsas / Mochilas | products=3 | unique=3
+SCRAPING TIMING | stage=category_coverage | category=Cocina | products=18 | unique=18
+SCRAPING TIMING | stage=category_coverage | category=Cocina Mesa Y Hogar | products=14 | unique=14
+SCRAPING TIMING | stage=category_coverage | category=Cocina, Mesa y Hogar | products=0 | unique=0
+SCRAPING TIMING | stage=category_coverage | category=Enmicadoras / Laminadoras | products=9 | unique=9
+SCRAPING TIMING | stage=category_coverage | category=Enmicadoras Laminadoras | products=9 | unique=9
+SCRAPING TIMING | stage=category_coverage | category=Estuches | products=8 | unique=8
+SCRAPING TIMING | stage=category_coverage | category=Impresoras Y Consumible Fotograficas Termicas | products=11 | unique=11
+SCRAPING TIMING | stage=category_coverage | category=Impresoras y Consumible Fotográficas Térmicas | products=11 | unique=11
+SCRAPING TIMING | stage=category_coverage | category=Insumos De Sublimacion | products=16 | unique=16
+SCRAPING TIMING | stage=category_coverage | category=Insumos de Sublimación | products=25 | unique=25
+SCRAPING TIMING | stage=category_coverage | category=Jarros Mug | products=19 | unique=19
+SCRAPING TIMING | stage=category_coverage | category=Kits De Herramientas | products=2 | unique=2
+SCRAPING TIMING | stage=category_coverage | category=Kits de Herramientas | products=0 | unique=0
+SCRAPING TIMING | stage=category_coverage | category=Lapiceros Ecologicos | products=4 | unique=4
+SCRAPING TIMING | stage=category_coverage | category=Lapiceros Metalicos | products=2 | unique=2
+SCRAPING TIMING | stage=category_coverage | category=Lapiceros Metálicos | products=10 | unique=10
+SCRAPING TIMING | stage=category_coverage | category=Llaveros Y Accesorios | products=14 | unique=14
+SCRAPING TIMING | stage=category_coverage | category=Llaveros y Accesorios | products=12 | unique=12
+SCRAPING TIMING | stage=category_coverage | category=Maquinas De Sublimacion | products=4 | unique=4
+SCRAPING TIMING | stage=category_coverage | category=Mesa y Hogar | products=18 | unique=18
+SCRAPING TIMING | stage=category_coverage | category=Micas Para Enmicados | products=25 | unique=25
+SCRAPING TIMING | stage=category_coverage | category=Micas para Enmicados | products=0 | unique=0
+SCRAPING TIMING | stage=category_coverage | category=Máquinas de Sublimación | products=4 | unique=4
+SCRAPING TIMING | stage=category_coverage | category=Papeleria Grafipapel | products=22 | unique=22
+SCRAPING TIMING | stage=category_coverage | category=Papelería Grafipapel | products=23 | unique=23
+SCRAPING TIMING | stage=category_coverage | category=Papeles Fotograficos Koala Paper | products=9 | unique=9
+SCRAPING TIMING | stage=category_coverage | category=Papeles Fotográficos Koala Paper | products=25 | unique=25
+SCRAPING TIMING | stage=category_coverage | category=Plotters de Corte | products=1 | unique=1
+SCRAPING TIMING | stage=category_coverage | category=Plotters De Corte | products=14 | unique=14
+SCRAPING TIMING | stage=category_coverage | category=Porta Tacos Post It | products=10 | unique=10
+SCRAPING TIMING | stage=category_coverage | category=Porta Tacos Post-It | products=15 | unique=15
+SCRAPING TIMING | stage=category_coverage | category=Resaltadores Publicitarios | products=21 | unique=21
+SCRAPING TIMING | stage=category_coverage | category=Tecnologia Y Accesorios | products=9 | unique=9
+SCRAPING TIMING | stage=category_coverage | category=Tecnologia y Accesorios | products=4 | unique=4
+SCRAPING TIMING | stage=multi_category_coverage | products=136 | categories=45
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=173.562

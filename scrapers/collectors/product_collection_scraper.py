@@ -92,7 +92,12 @@ class ProductCollectionScraper:
                 product_url = self._card_detail_url(card, page, product)
                 if product_url:
                     product.url = product_url
-                identity = self._product_identity(product, product_url, page, card)
+                identity = self._product_identity(
+                    product,
+                    product_url,
+                    page,
+                    card,
+                )
                 if identity in seen:
                     continue
                 seen.add(identity)
@@ -100,7 +105,12 @@ class ProductCollectionScraper:
         return products
 
     @staticmethod
-    def _product_identity(product: Any, product_url: str, page_url: str, card: Any) -> str:
+    def _product_identity(
+        product: Any,
+        product_url: str,
+        page_url: str,
+        card: Any,
+    ) -> str:
         """Usa el código real como identidad y URL/tarjeta solo como respaldo."""
         code = str(getattr(product, "code", "")).strip().casefold()
         if code:
@@ -395,9 +405,7 @@ class ProductCollectionScraper:
                 numbers = re.findall(r"\d[\d,.]*", text)
                 if numbers:
                     try:
-                        values.append(
-                            int(float(numbers[-1].replace(",", "")))
-                        )
+                        values.append(int(float(numbers[-1].replace(",", ""))))
                     except ValueError:
                         continue
         if values:

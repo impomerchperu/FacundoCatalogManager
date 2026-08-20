@@ -190,25 +190,28 @@ class CategoryScraper:
                 if page_url not in visited_pages and page_url not in pending_pages:
                     pending_pages.append(page_url)
 
-        # Si conocemos la cantidad de productos pero no hay enlaces de
-        # paginación, construimos las variantes de WooCommerce necesarias.
-        # Esto garantiza que una categoría de 50 productos no quede limitada
-        # a sus primeros 25 por falta de controles visibles en el HTML.
-        if expected_count > self.PRODUCTS_PER_PAGE and not has_explicit_pagination_href:
+        # Si conocemos la cantidad pero no hay ninguna señal de paginación,
+        # la paginación estándar de WooCommerce es suficiente: se recorren
+        # las páginas /page/N/ una por una. No agregamos variantes query en
+        # paralelo porque representan rutas alternativas para la misma página.
+        if expected_count > self.PRODUCTS_PER_PAGE and not explicit_page_numbers and not has_explicit_pagination_href:
             expected_pages = min(
                 self.MAX_PAGE_PROBE,
-                max(1, (expected_count + self.PRODUCTS_PER_PAGE - 1) // self.PRODUCTS_PER_PAGE),
+                max(
+                    1,
+                    (expected_count + self.PRODUCTS_PER_PAGE - 1)
+                    // self.PRODUCTS_PER_PAGE,
+                ),
             )
             for page_number in range(2, expected_pages + 1):
-                for page_url in self._page_url_variants(category_url, page_number):
-                    if page_url not in pages:
-                        pages.append(page_url)
+                page_url = self._page_url(category_url, page_number)
+                if page_url not in pages:
+                    pages.append(page_url)
 
-        # Si el sitio oculta completamente la paginación y tampoco informa una
-        # cantidad útil, buscamos secuencialmente páginas internas. Para cada
-        # número se prueba primero la URL WooCommerce estándar y solo se usan
-        # variantes cuando esa URL no devuelve productos nuevos.
-        if not explicit_page_numbers and not has_explicit_pagination_href:
+        # Si no hay cantidad ni señales de paginación, prueba únicamente la
+        # ruta estándar /page/N/. Las variantes query se reservan como fallback
+        # para el mismo número y nunca se mezclan con una página ya encontrada.
+        if not expected_count and not explicit_page_numbers and not has_explicit_pagination_href:
             pages.extend(
                 self._probe_internal_pages(
                     category_url,
@@ -230,10 +233,14 @@ class CategoryScraper:
         seen_keys = set(first_page_keys)
 
         for page_number in range(2, self.MAX_PAGE_PROBE + 1):
+            standard_url = self._page_url(category_url, page_number)
+            candidates = [standard_url]
+            for variant in self._page_url_variants(category_url, page_number)[1:]:
+                candidates.append(variant)
+
             found_url = None
             found_keys: set[str] = set()
-
-            for candidate in self._page_url_variants(category_url, page_number):
+            for candidate in candidates:
                 if candidate in known_pages or candidate in discovered:
                     continue
                 try:

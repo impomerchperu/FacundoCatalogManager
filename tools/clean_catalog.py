@@ -23,8 +23,7 @@ def normalize_code(value: object) -> str:
 
 
 def is_legacy_generated(code: str) -> bool:
-    normalized = normalize_code(code)
-    return normalized.startswith(LEGACY_GENERATED_PREFIXES)
+    return normalize_code(code).startswith(LEGACY_GENERATED_PREFIXES)
 
 
 def find_cleanup_candidates(connection: sqlite3.Connection) -> tuple[list[sqlite3.Row], dict[str, list[sqlite3.Row]]]:
@@ -32,8 +31,11 @@ def find_cleanup_candidates(connection: sqlite3.Connection) -> tuple[list[sqlite
         "SELECT id, code, name, category FROM products ORDER BY id"
     ).fetchall()
     generated = [row for row in rows if is_legacy_generated(row["code"])]
+    generated_ids = {row["id"] for row in generated}
     groups: dict[str, list[sqlite3.Row]] = defaultdict(list)
     for row in rows:
+        if row["id"] in generated_ids:
+            continue
         code = normalize_code(row["code"])
         if code:
             groups[code].append(row)
@@ -82,13 +84,13 @@ def clean_catalog(db_path: str | None = None, apply: bool = False) -> dict[str, 
             connection.executemany("DELETE FROM products WHERE id = ?", ((row_id,) for row_id in generated_ids))
             summary["deleted"] += len(generated_ids)
 
-        for code, items in duplicates.items():
+        for items in duplicates.values():
             survivor = items[0]
-            survivors_categories = merge_categories([item["category"] for item in items])
-            if survivors_categories != (survivor["category"] or ""):
+            survivor_categories = merge_categories([item["category"] for item in items])
+            if survivor_categories != (survivor["category"] or ""):
                 connection.execute(
                     "UPDATE products SET category = ? WHERE id = ?",
-                    (survivors_categories, survivor["id"]),
+                    (survivor_categories, survivor["id"]),
                 )
             duplicate_ids = [(item["id"],) for item in items[1:]]
             connection.executemany("DELETE FROM products WHERE id = ?", duplicate_ids)

@@ -124,7 +124,18 @@ class CategoryScraper:
                 continue
             visited_pages.add(current_url)
 
-            current_html = html if current_url == category_url else self.get_html(current_url)
+            try:
+                current_html = (
+                    html if current_url == category_url else self.get_html(current_url)
+                )
+            except requests.RequestException:
+                # Una variante de paginación puede ser un control incrustado
+                # de JetSmartFilters que no corresponde a una URL física.
+                # Nunca debe abortar el descubrimiento completo de la categoría.
+                if current_url != category_url:
+                    continue
+                raise
+
             if not current_html:
                 continue
 

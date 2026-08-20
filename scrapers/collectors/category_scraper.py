@@ -88,13 +88,7 @@ class CategoryScraper:
         category_url: str,
         expected_count: int = 0,
     ) -> list[str]:
-        """Descubre todas las páginas reales e incrustadas de una categoría.
-
-        La paginación del sitio no siempre aparece como enlaces HTML. Cuando
-        no hay una señal explícita, se recorren secuencialmente las páginas
-        internas y se detiene únicamente cuando una página no aporta productos
-        nuevos. Así no se limita la extracción a los primeros 25 productos.
-        """
+        """Descubre todas las páginas reales e incrustadas de una categoría."""
         html = self.get_html(category_url)
         if not html:
             return []
@@ -180,13 +174,18 @@ class CategoryScraper:
                     pages.append(page_url)
                     newly_discovered.append(page_url)
 
-            # Algunos templates guardan la paginación únicamente en atributos
-            # o JavaScript embebido, sin nodos navegables. Recuperamos esos
-            # números directamente del HTML para no perder páginas internas.
             for page_number in self._page_numbers_from_html(current_html):
                 if page_number > 1:
                     explicit_page_numbers.add(page_number)
                     discovered_page_numbers.add(page_number)
+
+            # Si el HTML declara una página máxima (por ejemplo totalPages=3),
+            # no basta con visitar esa última página: todas las páginas internas
+            # intermedias deben entrar al recorrido.
+            if explicit_page_numbers:
+                probe_required = False
+                max_page = max(explicit_page_numbers)
+                for page_number in range(2, max_page + 1):
                     page_url = self._page_url(category_url, page_number)
                     if page_url not in pages:
                         pages.append(page_url)
@@ -195,9 +194,6 @@ class CategoryScraper:
             for page_url in newly_discovered:
                 if page_url not in visited_pages and page_url not in pending_pages:
                     pending_pages.append(page_url)
-
-            if current_url == category_url and explicit_page_numbers:
-                probe_required = False
 
         if probe_required:
             pages.extend(
@@ -274,8 +270,6 @@ class CategoryScraper:
         if keys:
             return keys
 
-        # Fallback para tests/plantillas donde todavía no se dispone del
-        # extractor de tarjetas.
         pattern = re.compile(r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", re.IGNORECASE)
         return {match.upper() for match in pattern.findall(html)}
 

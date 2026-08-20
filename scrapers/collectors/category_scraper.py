@@ -96,10 +96,9 @@ class CategoryScraper:
         pages = [category_url]
         pending_pages = [category_url]
         visited_pages: set[str] = set()
-        discovered_page_numbers: set[int] = {1}
         explicit_page_numbers: set[int] = set()
         page_product_keys: dict[str, set[str]] = {}
-        probe_required = True
+        has_explicit_pagination_href = False
 
         if expected_count <= 0:
             text = self._parse(html).get_text(" ", strip=True)
@@ -143,8 +142,8 @@ class CategoryScraper:
                 page_url = urljoin(current_url, href)
                 page_number = self._page_number_from_value(href)
                 if page_number:
+                    has_explicit_pagination_href = True
                     explicit_page_numbers.add(page_number)
-                    discovered_page_numbers.add(page_number)
                 if page_url not in pages:
                     pages.append(page_url)
                     newly_discovered.append(page_url)
@@ -163,11 +162,11 @@ class CategoryScraper:
                 if not page_number or page_number <= 1:
                     continue
                 explicit_page_numbers.add(page_number)
-                discovered_page_numbers.add(page_number)
                 link = item.select_one("a[href], .jet-filters-pagination__link")
                 href = link.get("href") if link else None
                 if isinstance(href, str) and href.strip():
                     page_url = urljoin(current_url, href)
+                    has_explicit_pagination_href = True
                 else:
                     page_url = self._page_url(category_url, page_number)
                 if page_url not in pages:
@@ -177,25 +176,39 @@ class CategoryScraper:
             for page_number in self._page_numbers_from_html(current_html):
                 if page_number > 1:
                     explicit_page_numbers.add(page_number)
-                    discovered_page_numbers.add(page_number)
 
-            # Si el HTML declara una página máxima (por ejemplo totalPages=3),
-            # no basta con visitar esa última página: todas las páginas internas
-            # intermedias deben entrar al recorrido.
             if explicit_page_numbers:
-                probe_required = False
                 max_page = max(explicit_page_numbers)
-                for page_number in range(2, max_page + 1):
-                    page_url = self._page_url(category_url, page_number)
-                    if page_url not in pages:
-                        pages.append(page_url)
-                        newly_discovered.append(page_url)
+                if not has_explicit_pagination_href:
+                    for page_number in range(2, max_page + 1):
+                        page_url = self._page_url(category_url, page_number)
+                        if page_url not in pages:
+                            pages.append(page_url)
+                            newly_discovered.append(page_url)
 
             for page_url in newly_discovered:
                 if page_url not in visited_pages and page_url not in pending_pages:
                     pending_pages.append(page_url)
 
-        if probe_required:
+        # Si conocemos la cantidad de productos pero no hay enlaces de
+        # paginación, construimos las variantes de WooCommerce necesarias.
+        # Esto garantiza que una categoría de 50 productos no quede limitada
+        # a sus primeros 25 por falta de controles visibles en el HTML.
+        if expected_count > self.PRODUCTS_PER_PAGE and not has_explicit_pagination_href:
+            expected_pages = min(
+                self.MAX_PAGE_PROBE,
+                max(1, (expected_count + self.PRODUCTS_PER_PAGE - 1) // self.PRODUCTS_PER_PAGE),
+            )
+            for page_number in range(2, expected_pages + 1):
+                for page_url in self._page_url_variants(category_url, page_number):
+                    if page_url not in pages:
+                        pages.append(page_url)
+
+        # Si el sitio oculta completamente la paginación y tampoco informa una
+        # cantidad útil, buscamos secuencialmente páginas internas. Para cada
+        # número se prueba primero la URL WooCommerce estándar y solo se usan
+        # variantes cuando esa URL no devuelve productos nuevos.
+        if not explicit_page_numbers and not has_explicit_pagination_href:
             pages.extend(
                 self._probe_internal_pages(
                     category_url,
@@ -232,9 +245,7 @@ class CategoryScraper:
 
                 soup = self._parse(candidate_html)
                 keys = self._product_keys(candidate_html, soup)
-                if not keys:
-                    continue
-                if keys.issubset(seen_keys):
+                if not keys or keys.issubset(seen_keys):
                     continue
 
                 found_url = candidate

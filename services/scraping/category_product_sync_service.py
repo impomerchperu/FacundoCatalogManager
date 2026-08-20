@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, cast
 
-from config.scraping_config import SCRAPING_CATEGORY_WORKERS
+from config.scraping_config import EXPECTED_CATALOG_PRODUCTS, SCRAPING_CATEGORY_WORKERS
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_product_scraping_service import CategoryProductScrapingService
 from services.scraping.scraped_product_persistence_service import ScrapedProductPersistenceService
@@ -43,7 +43,7 @@ class CategoryProductSyncService:
                      category, len(products), time.perf_counter() - started)
         return self.sync_products(products)
 
-    def sync_categories(self, categories, progress_callback=None):
+    def sync_categories(self, categories, progress_callback=None, expected_products=None):
         """Scrapea todas las categorías y sincroniza el conjunto completo."""
         started = time.perf_counter()
         categories = list(categories)
@@ -51,6 +51,11 @@ class CategoryProductSyncService:
         expected_category_occurrences = sum(
             max(int(getattr(category, "expected_count", 0) or 0), 0)
             for category in categories
+        )
+        trusted_expected_products = (
+            EXPECTED_CATALOG_PRODUCTS
+            if expected_products is None
+            else max(int(expected_products or 0), 0)
         )
         self._reset_scraping_metrics()
         self.reset_sync_result()
@@ -93,14 +98,15 @@ class CategoryProductSyncService:
                     progress_callback(min(90, 40 + int(enrichment_completed * 50 / total)), 100)
 
         products = [product for items in results for product in items]
+        occurrence_gap = max(expected_category_occurrences - len(products), 0)
         _log_timing("SCRAPING TIMING | stage=category_listing | categories=%d | products=%d "
                      "| expected_category_occurrences=%d | occurrence_gap=%d | seconds=%.3f",
                      total, sum(map(len, collected)), expected_category_occurrences,
                      max(expected_category_occurrences - sum(map(len, collected)), 0), listing_elapsed)
         _log_timing("SCRAPING TIMING | stage=category_extraction | categories=%d | products=%d "
-                     "| expected_category_occurrences=%d | occurrence_gap=%d | seconds=%.3f",
+                     "| expected_category_occurrences=%d | occurrence_gap=%d | expected_unique_products=%d | seconds=%.3f",
                      total, len(products), expected_category_occurrences,
-                     max(expected_category_occurrences - len(products), 0), time.perf_counter() - started)
+                     occurrence_gap, trusted_expected_products, time.perf_counter() - started)
         self._log_detail_metrics()
         self._log_http_metrics()
 
@@ -108,22 +114,23 @@ class CategoryProductSyncService:
             products,
             total,
             expected_category_occurrences,
+            trusted_expected_products,
         )
-        _log_timing("SCRAPING TIMING | stage=prune_guard | enabled=%s | reason=%s | products=%d | categories=%d | expected_category_occurrences=%d",
+        _log_timing("SCRAPING TIMING | stage=prune_guard | enabled=%s | reason=%s | products=%d | categories=%d | expected_unique_products=%d | expected_category_occurrences=%d",
                      str(allow_prune).lower(), reason, len(products), total,
-                     expected_category_occurrences)
+                     trusted_expected_products, expected_category_occurrences)
         if progress_callback:
             progress_callback(95, 100)
 
-        expected_unique = len(self._consolidate_for_coverage(products)) if allow_prune else 0
         synced_products = self.sync_products(
             products,
             full_sync=True,
             allow_prune=allow_prune,
-            expected_products=expected_unique,
+            expected_products=trusted_expected_products if allow_prune else 0,
             expected_category_occurrences=expected_category_occurrences,
         )
         self.last_sync_result.expected_category_occurrences = expected_category_occurrences
+        self.last_sync_result.products_expected = trusted_expected_products
         self.last_sync_result.categories_processed = total
         self._attach_category_coverage(synced_products, categories)
         if progress_callback:
@@ -258,12 +265,6 @@ class CategoryProductSyncService:
                      metrics.get("max_concurrency", 0), metrics.get("http_total_seconds", 0.0),
                      metrics.get("http_max_seconds", 0.0))
 
-    def _get_browser(self):
-        scraper = getattr(self.scraper_service, "scraper", None)
-        category_scraper = getattr(scraper, "category_scraper", None)
-        browser = getattr(category_scraper, "browser", None)
-        return browser if browser is not None else getattr(self.scraper_service, "browser", None)
-
     def _log_missing_code_diagnostics(self, products):
         for product in products:
             if str(getattr(product, "code", "")).strip():
@@ -272,7 +273,8 @@ class CategoryProductSyncService:
                          str(getattr(product, "name", "")).strip() or "(sin nombre)",
                          str(getattr(product, "url", "")).strip() or "(sin url)")
 
-    def _full_sync_prune_guard(self, products, category_count, expected_category_occurrences=0):
+    def _full_sync_prune_guard(self, products, category_count, expected_category_occurrences=0,
+                               expected_products=EXPECTED_CATALOG_PRODUCTS):
         if category_count <= 0:
             return False, "no_categories"
         missing = sum(1 for product in products if not str(getattr(product, "code", "")).strip())
@@ -283,6 +285,10 @@ class CategoryProductSyncService:
             return False, (
                 f"category_coverage_gap:{expected_category_occurrences - len(products)}"
             )
+        unique_products = self._consolidate_for_coverage(products)
+        unique_count = len(unique_products)
+        if expected_products > 0 and unique_count < expected_products:
+            return False, f"unique_coverage_gap:{expected_products - unique_count}"
         browser = self._get_browser()
         getter = getattr(browser, "get_http_metrics", None)
         if callable(getter):

@@ -98,7 +98,12 @@ class CatalogSyncService:
             self._remove_missing_products(scraped_codes, result)
         result.finish()
         self.last_sync_result = result
-        if result.products_expected > 0:
+
+        # El snapshot es un artefacto operativo de seguridad: solo se reemplaza
+        # después de un scraping que alcanzó cobertura completa. Un scraping
+        # parcial, una prueba o una ejecución con cobertura insuficiente nunca
+        # puede sobrescribir el último conjunto de códigos confiable.
+        if result.products_expected > 0 and result.coverage_complete and not result.has_errors:
             self._write_code_snapshot(scraped_codes, result)
         return result
 

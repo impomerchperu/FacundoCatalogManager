@@ -12,7 +12,13 @@ class CategoryScraper:
     PRODUCTS_PER_PAGE = 25
     MAX_PAGE_PROBE = 50
 
-    def __init__(self, browser, parser=None, category_extractor=None, product_block_extractor=None):  # noqa: E501
+    def __init__(
+        self,
+        browser,
+        parser=None,
+        category_extractor=None,
+        product_block_extractor=None,
+    ):
         self.parser = parser
         self.category_extractor = category_extractor
         self.product_block_extractor = product_block_extractor
@@ -107,7 +113,9 @@ class CategoryScraper:
             visited_pages.add(current_url)
 
             try:
-                current_html = html if current_url == category_url else self.get_html(current_url)  # noqa: E501
+                current_html = (
+                    html if current_url == category_url else self.get_html(current_url)
+                )
             except requests.RequestException:
                 if current_url != category_url:
                     continue
@@ -187,7 +195,7 @@ class CategoryScraper:
                 max(
                     1,
                     (expected_count + self.PRODUCTS_PER_PAGE - 1)
-                    // self.PRODUCTS_PER_PAGE,  # noqa: E501
+                    // self.PRODUCTS_PER_PAGE,
                 ),
             )
             discovered = self._probe_expected_pages(

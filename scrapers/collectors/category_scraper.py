@@ -135,7 +135,10 @@ class CategoryScraper:
             page_product_keys[current_url] = self._product_keys(current_html, soup)
             newly_discovered: list[str] = []
 
-            for link in soup.select("a.page-numbers, nav.woocommerce-pagination a"):
+            for link in soup.select(
+                "a.page-numbers, nav.woocommerce-pagination a, "
+                "a[href*='product-page='], a[href*='paged='], a[href*='/page/']"
+            ):
                 href = link.get("href")
                 if not isinstance(href, str) or not href.strip():
                     continue
@@ -190,13 +193,7 @@ class CategoryScraper:
                 if page_url not in visited_pages and page_url not in pending_pages:
                     pending_pages.append(page_url)
 
-        # Cuando conocemos la cantidad y no existe una paginación explícita,
-        # mantenemos las tres formas WooCommerce compatibles para cada página.
-        # ProductCollectionScraper deduplica por código, por lo que si el sitio
-        # expone la misma página mediante dos variantes no se crean productos
-        # duplicados. Si el sitio usa solo una variante, alguna de ellas será la
-        # que permita descubrir los productos que faltaban.
-        if expected_count > self.PRODUCTS_PER_PAGE and not explicit_page_numbers and not has_explicit_pagination_href:
+        if expected_count > self.PRODUCTS_PER_PAGE:
             expected_pages = min(
                 self.MAX_PAGE_PROBE,
                 max(
@@ -205,15 +202,16 @@ class CategoryScraper:
                     // self.PRODUCTS_PER_PAGE,
                 ),
             )
-            for page_number in range(2, expected_pages + 1):
-                for page_url in self._page_url_variants(category_url, page_number):
-                    if page_url not in pages:
-                        pages.append(page_url)
+            discovered = self._probe_expected_pages(
+                category_url,
+                pages,
+                page_product_keys.get(category_url, set()),
+                expected_pages,
+            )
+            for page_url in discovered:
+                if page_url not in pages:
+                    pages.append(page_url)
 
-        # Si no hay cantidad ni señales de paginación, prueba primero la ruta
-        # estándar /page/N/ y usa query variants solo como fallback para ese
-        # mismo número. Nunca agregamos dos URLs que hayan producido el mismo
-        # conjunto de productos.
         if not expected_count and not explicit_page_numbers and not has_explicit_pagination_href:
             pages.extend(
                 self._probe_internal_pages(
@@ -224,6 +222,56 @@ class CategoryScraper:
             )
 
         return pages
+
+    def _probe_expected_pages(
+        self,
+        category_url: str,
+        known_pages: list[str],
+        first_page_keys: set[str],
+        expected_pages: int,
+    ) -> list[str]:
+        """Encuentra la variante de URL que realmente contiene cada página."""
+        discovered: list[str] = []
+        seen_keys = set(first_page_keys)
+        page_numbers_seen = {
+            number
+            for url in known_pages
+            if (number := self._page_number_from_value(url)) and number > 1
+        }
+
+        for page_number in range(2, expected_pages + 1):
+            if page_number in page_numbers_seen:
+                continue
+
+            best_url = None
+            best_keys: set[str] = set()
+            for candidate in self._page_url_variants(category_url, page_number):
+                if candidate in known_pages or candidate in discovered:
+                    continue
+                try:
+                    candidate_html = self.get_html(candidate)
+                except requests.RequestException:
+                    continue
+                if not candidate_html:
+                    continue
+
+                soup = self._parse(candidate_html)
+                keys = self._product_keys(candidate_html, soup)
+                new_keys = keys - seen_keys
+                if len(new_keys) > len(best_keys):
+                    best_url = candidate
+                    best_keys = new_keys
+                    with self._category_html_cache_lock:
+                        self._category_html_cache[candidate] = candidate_html
+
+            if best_url is None or not best_keys:
+                continue
+
+            discovered.append(best_url)
+            page_numbers_seen.add(page_number)
+            seen_keys.update(best_keys)
+
+        return discovered
 
     def _probe_internal_pages(
         self,

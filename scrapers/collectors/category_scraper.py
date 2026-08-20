@@ -1,4 +1,5 @@
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 from urllib.parse import urljoin
 
@@ -11,6 +12,7 @@ class CategoryScraper:
 
     PRODUCTS_PER_PAGE = 25
     MAX_PAGE_PROBE = 50
+    PAGE_VARIANT_WORKERS = 5
 
     def __init__(
         self,
@@ -223,6 +225,50 @@ class CategoryScraper:
 
         return pages
 
+    def _probe_page_variants(
+        self,
+        category_url: str,
+        page_number: int,
+        known_pages: list[str],
+        discovered: list[str],
+    ) -> list[tuple[str, set[str]]]:
+        """Obtiene las variantes de una página en paralelo."""
+        candidates = [
+            candidate
+            for candidate in self._page_url_variants(category_url, page_number)
+            if candidate not in known_pages and candidate not in discovered
+        ]
+        if not candidates:
+            return []
+
+        results: list[tuple[str, set[str]]] = []
+        worker_count = min(self.PAGE_VARIANT_WORKERS, len(candidates))
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures = {
+                executor.submit(self._fetch_product_keys, candidate): candidate
+                for candidate in candidates
+            }
+            for future in as_completed(futures):
+                candidate = futures[future]
+                try:
+                    candidate_html, keys = future.result()
+                except requests.RequestException:
+                    continue
+                if not candidate_html:
+                    continue
+                results.append((candidate, keys))
+                if keys:
+                    with self._category_html_cache_lock:
+                        self._category_html_cache[candidate] = candidate_html
+        return results
+
+    def _fetch_product_keys(self, url: str) -> tuple[str, set[str]]:
+        html = self.get_html(url)
+        if not html:
+            return "", set()
+        soup = self._parse(html)
+        return html, self._product_keys(html, soup)
+
     def _probe_expected_pages(
         self,
         category_url: str,
@@ -245,30 +291,13 @@ class CategoryScraper:
 
             best_url = None
             best_keys: set[str] = set()
-            for candidate in self._page_url_variants(category_url, page_number):
-                if candidate in known_pages or candidate in discovered:
-                    continue
-                try:
-                    candidate_html = self.get_html(candidate)
-                except requests.RequestException:
-                    continue
-                if not candidate_html:
-                    continue
-
-                soup = self._parse(candidate_html)
-                keys = self._product_keys(candidate_html, soup)
+            for candidate, keys in self._probe_page_variants(
+                category_url, page_number, known_pages, discovered
+            ):
                 new_keys = keys - seen_keys
                 if len(new_keys) > len(best_keys):
                     best_url = candidate
                     best_keys = new_keys
-                    with self._category_html_cache_lock:
-                        self._category_html_cache[candidate] = candidate_html
-
-                # A full product page is already a decisive match. Continuing
-                # to probe the remaining URL variants only adds network latency
-                # and was the main source of the recent 3+ minute regression.
-                if len(new_keys) >= self.PRODUCTS_PER_PAGE:
-                    break
 
             if best_url is None or not best_keys:
                 continue
@@ -290,30 +319,18 @@ class CategoryScraper:
         seen_keys = set(first_page_keys)
 
         for page_number in range(2, self.MAX_PAGE_PROBE + 1):
-            candidates = self._page_url_variants(category_url, page_number)
-
+            variants = self._probe_page_variants(
+                category_url, page_number, known_pages, discovered
+            )
             found_url = None
             found_keys: set[str] = set()
-            for candidate in candidates:
-                if candidate in known_pages or candidate in discovered:
+            for candidate, keys in variants:
+                new_keys = keys - seen_keys
+                if not new_keys:
                     continue
-                try:
-                    candidate_html = self.get_html(candidate)
-                except requests.RequestException:
-                    continue
-                if not candidate_html:
-                    continue
-
-                soup = self._parse(candidate_html)
-                keys = self._product_keys(candidate_html, soup)
-                if not keys or keys.issubset(seen_keys):
-                    continue
-
-                found_url = candidate
-                found_keys = keys
-                with self._category_html_cache_lock:
-                    self._category_html_cache[candidate] = candidate_html
-                break
+                if len(new_keys) > len(found_keys):
+                    found_url = candidate
+                    found_keys = new_keys
 
             if found_url is None:
                 break

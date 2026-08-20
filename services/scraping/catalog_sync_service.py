@@ -67,8 +67,13 @@ class CatalogSyncService:
                 self.repository.save(product)
                 continue
 
-            product.product_id = existing.product_id
-            product.category = self._merge_categories(existing.category, product.category)
+            # The sync repository may return either a Product-like object or a
+            # database row dict. The product identity is already the normalized
+            # code, so no product_id assignment is required here.
+            product.category = self._merge_categories(
+                self._value(existing, "category"),
+                getattr(product, "category", ""),
+            )
             comparison = self.diff_service.compare(existing, product)
             if comparison["changed"]:
                 result.updated += 1
@@ -104,12 +109,12 @@ class CatalogSyncService:
 
     def _remove_missing_products(self, scraped_codes: set[str], result: SyncResult) -> None:
         for existing in self.repository.get_all():
-            code = self._normalize_code(getattr(existing, "code", ""))
+            code = self._normalize_code(self._value(existing, "code"))
             if not code or code.casefold() in scraped_codes:
                 continue
             result.deleted += 1
             result.changes.append({"type": "DELETED", "code": code,
-                                   "name": getattr(existing, "name", ""),
+                                   "name": self._value(existing, "name"),
                                    "changes": [{"field": "code",
                                                 "label": "Código ausente en origen",
                                                 "old": code, "new": "Eliminado"}]})

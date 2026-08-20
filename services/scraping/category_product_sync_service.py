@@ -104,9 +104,14 @@ class CategoryProductSyncService:
         self._log_detail_metrics()
         self._log_http_metrics()
 
-        allow_prune, reason = self._full_sync_prune_guard(products, total)
-        _log_timing("SCRAPING TIMING | stage=prune_guard | enabled=%s | reason=%s | products=%d | categories=%d",
-                     str(allow_prune).lower(), reason, len(products), total)
+        allow_prune, reason = self._full_sync_prune_guard(
+            products,
+            total,
+            expected_category_occurrences,
+        )
+        _log_timing("SCRAPING TIMING | stage=prune_guard | enabled=%s | reason=%s | products=%d | categories=%d | expected_category_occurrences=%d",
+                     str(allow_prune).lower(), reason, len(products), total,
+                     expected_category_occurrences)
         if progress_callback:
             progress_callback(95, 100)
 
@@ -116,6 +121,7 @@ class CategoryProductSyncService:
             full_sync=True,
             allow_prune=allow_prune,
             expected_products=expected_unique,
+            expected_category_occurrences=expected_category_occurrences,
         )
         self.last_sync_result.expected_category_occurrences = expected_category_occurrences
         self.last_sync_result.categories_processed = total
@@ -266,13 +272,19 @@ class CategoryProductSyncService:
                          str(getattr(product, "name", "")).strip() or "(sin nombre)",
                          str(getattr(product, "url", "")).strip() or "(sin url)")
 
-    def _full_sync_prune_guard(self, products, category_count):
+    def _full_sync_prune_guard(self, products, category_count, expected_category_occurrences=0):
         if category_count <= 0:
             return False, "no_categories"
         missing = sum(1 for product in products if not str(getattr(product, "code", "")).strip())
         if missing:
             self._log_missing_code_diagnostics(products)
             return False, f"missing_codes:{missing}"
+        if expected_category_occurrences <= 0:
+            return False, "unknown_expected_category_occurrences"
+        if len(products) < expected_category_occurrences:
+            return False, (
+                f"category_coverage_gap:{expected_category_occurrences - len(products)}"
+            )
         browser = self._get_browser()
         getter = getattr(browser, "get_http_metrics", None)
         if callable(getter):
@@ -281,7 +293,8 @@ class CategoryProductSyncService:
                 return False, f"terminal_http_errors:{errors}"
         return True, "complete"
 
-    def sync_products(self, products, full_sync=False, allow_prune=False, expected_products=0):
+    def sync_products(self, products, full_sync=False, allow_prune=False, expected_products=0,
+                      expected_category_occurrences=0):
         total_started = time.perf_counter()
         if self.mapper and self.catalog_sync_service:
             started = time.perf_counter()
@@ -300,12 +313,22 @@ class CategoryProductSyncService:
             use_prune = bool(full_sync and allow_prune and expected_products)
             sync_full = getattr(self.catalog_sync_service, "sync_full_catalog", None)
             if use_prune and callable(sync_full):
-                result = cast(SyncResult, sync_full(mapped_products, expected_products=expected_products))
+                result = cast(SyncResult, sync_full(
+                    mapped_products,
+                    expected_products=expected_products,
+                    expected_category_occurrences=expected_category_occurrences,
+                ))
             else:
-                result = cast(SyncResult, self.catalog_sync_service.sync(mapped_products, expected_products=expected_products))
-            _log_timing("SCRAPING TIMING | stage=catalog_sync | products=%d | seconds=%.3f | prune=%s | expected_unique=%s | unique=%d | gap=%d",
+                result = cast(SyncResult, self.catalog_sync_service.sync(
+                    mapped_products,
+                    expected_products=expected_products,
+                    expected_category_occurrences=expected_category_occurrences,
+                ))
+            _log_timing("SCRAPING TIMING | stage=catalog_sync | products=%d | seconds=%.3f | prune=%s | expected_unique=%s | expected_category_occurrences=%s | unique=%d | gap=%d",
                          len(mapped_products), time.perf_counter() - started, str(use_prune).lower(),
-                         expected_products if expected_products else "unknown", result.products_unique, result.coverage_gap)
+                         expected_products if expected_products else "unknown",
+                         expected_category_occurrences if expected_category_occurrences else "unknown",
+                         result.products_unique, result.coverage_gap)
             _log_timing("SCRAPING TIMING | stage=sync_total | products=%d | seconds=%.3f", len(mapped_products), time.perf_counter() - total_started)
             self._accumulate_sync_result(result)
             return mapped_products
@@ -320,9 +343,9 @@ class CategoryProductSyncService:
 
     def _accumulate_sync_result(self, result):
         for field in ("processed", "created", "updated", "unchanged", "deleted", "generated",
-                      "products_expected", "products_found", "products_unique",
+                      "products_expected", "expected_category_occurrences", "products_found", "products_unique",
                       "products_multiple_categories", "duplicate_occurrences"):
-            setattr(self.last_sync_result, field, getattr(self.last_sync_result, field) + getattr(result, field, 0))
+            setattr(self.last_sync_result, field, getattr(self.last_sync_result, field, 0) + getattr(result, field, 0))
         self.last_sync_result.errors.extend(result.errors)
         self.last_sync_result.failures.extend(result.failures)
         self.last_sync_result.changes.extend(result.changes)

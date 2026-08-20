@@ -229,6 +229,16 @@ class CategoryProductSyncService:
             return enrich(collected, category.name)
         return self.scraper_service.scrape_category(category.url, category.name)
 
+    def _get_browser(self):
+        scraper = getattr(self.scraper_service, "scraper", None)
+        if scraper is None:
+            return None
+        category_scraper = getattr(scraper, "category_scraper", None)
+        browser = getattr(category_scraper, "browser", None)
+        if browser is not None:
+            return browser
+        return getattr(scraper, "browser", None)
+
     def _reset_scraping_metrics(self):
         scraper = getattr(self.scraper_service, "scraper", None)
         reset = getattr(scraper, "reset_detail_metrics", None)
@@ -274,27 +284,28 @@ class CategoryProductSyncService:
                          str(getattr(product, "url", "")).strip() or "(sin url)")
 
     def _full_sync_prune_guard(self, products, category_count, expected_category_occurrences=0,
-                               expected_products=EXPECTED_CATALOG_PRODUCTS):
+                               expected_products=None):
         if category_count <= 0:
             return False, "no_categories"
         missing = sum(1 for product in products if not str(getattr(product, "code", "")).strip())
         if missing:
             self._log_missing_code_diagnostics(products)
             return False, f"missing_codes:{missing}"
-        if expected_category_occurrences > 0 and len(products) < expected_category_occurrences:
-            return False, (
-                f"category_coverage_gap:{expected_category_occurrences - len(products)}"
-            )
-        unique_products = self._consolidate_for_coverage(products)
-        unique_count = len(unique_products)
-        if expected_products > 0 and unique_count < expected_products:
-            return False, f"unique_coverage_gap:{expected_products - unique_count}"
         browser = self._get_browser()
         getter = getattr(browser, "get_http_metrics", None)
         if callable(getter):
             errors = int(getter().get("http_terminal_errors", 0))
             if errors:
                 return False, f"terminal_http_errors:{errors}"
+        if expected_category_occurrences > 0 and len(products) < expected_category_occurrences:
+            return False, (
+                f"category_coverage_gap:{expected_category_occurrences - len(products)}"
+            )
+        if expected_products is not None and expected_products > 0:
+            unique_products = self._consolidate_for_coverage(products)
+            unique_count = len(unique_products)
+            if unique_count < expected_products:
+                return False, f"unique_coverage_gap:{expected_products - unique_count}"
         return True, "complete"
 
     def sync_products(self, products, full_sync=False, allow_prune=False, expected_products=0,

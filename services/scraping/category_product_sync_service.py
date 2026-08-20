@@ -279,9 +279,7 @@ class CategoryProductSyncService:
         if missing:
             self._log_missing_code_diagnostics(products)
             return False, f"missing_codes:{missing}"
-        if expected_category_occurrences <= 0:
-            return False, "unknown_expected_category_occurrences"
-        if len(products) < expected_category_occurrences:
+        if expected_category_occurrences > 0 and len(products) < expected_category_occurrences:
             return False, (
                 f"category_coverage_gap:{expected_category_occurrences - len(products)}"
             )

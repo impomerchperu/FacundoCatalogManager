@@ -55,16 +55,11 @@ class SyncResult:
 
     @property
     def coverage_complete(self) -> bool:
-        unique_coverage_complete = (
+        return (
             self.products_expected > 0
             and self.products_unique >= self.products_expected
             and self.coverage_gap == 0
         )
-        category_coverage_complete = (
-            self.expected_category_occurrences <= 0
-            or self.products_found >= self.expected_category_occurrences
-        )
-        return unique_coverage_complete and category_coverage_complete
 
     @property
     def category_occurrence_gap(self) -> int:

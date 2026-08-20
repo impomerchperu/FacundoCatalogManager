@@ -7,7 +7,9 @@ class ProductBlockExtractor:
     """Extrae bloques de productos desde una página categoría."""
 
     SELECTOR = ".jsfb-filterable"
-    CODE_PATTERN = re.compile(r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", re.IGNORECASE)
+    CODE_PATTERN = re.compile(
+        r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", re.IGNORECASE
+    )
 
     def extract(self, soup: BeautifulSoup):
         if soup is None:
@@ -42,11 +44,22 @@ class ProductBlockExtractor:
 
     @classmethod
     def _extract_code(cls, block) -> str:
-        for selector in ("span.sku", "p.brxe-heading", "[sku]", "[data-sku]", ".sku"):
+        selectors = (
+            "span.sku",
+            "p.brxe-heading",
+            "[sku]",
+            "[data-sku]",
+            ".sku",
+        )
+        for selector in selectors:
             element = block.select_one(selector)
             if element is None:
                 continue
-            value = element.get("sku") or element.get("data-sku") or element.get_text(" ", strip=True)
+            value = (
+                element.get("sku")
+                or element.get("data-sku")
+                or element.get_text(" ", strip=True)
+            )
             match = cls.CODE_PATTERN.search(str(value))
             if match:
                 return match.group(0).upper()
@@ -77,7 +90,9 @@ class ProductBlockExtractor:
         if not name:
             return None
 
-        wrapper = BeautifulSoup("<div class='jsfb-filterable'></div>", "html.parser").div
+        wrapper = BeautifulSoup(
+            "<div class='jsfb-filterable'></div>", "html.parser"
+        ).div
         if wrapper is None:
             return None
 
@@ -94,6 +109,8 @@ class ProductBlockExtractor:
         wrapper.append(link)
 
         for child in row.contents:
-            wrapper.append(child.__copy__() if hasattr(child, "__copy__") else str(child))
+            wrapper.append(
+                child.__copy__() if hasattr(child, "__copy__") else str(child)
+            )
 
         return wrapper

@@ -264,6 +264,12 @@ class CategoryScraper:
                     with self._category_html_cache_lock:
                         self._category_html_cache[candidate] = candidate_html
 
+                # A full product page is already a decisive match. Continuing
+                # to probe the remaining URL variants only adds network latency
+                # and was the main source of the recent 3+ minute regression.
+                if len(new_keys) >= self.PRODUCTS_PER_PAGE:
+                    break
+
             if best_url is None or not best_keys:
                 continue
 
@@ -416,8 +422,8 @@ class CategoryScraper:
     def _page_url_variants(cls, category_url: str, page_number: int) -> list[str]:
         base = category_url.rstrip("/")
         return [
-            cls._page_url(category_url, page_number),
             f"{base}/?product-page={page_number}",
+            cls._page_url(category_url, page_number),
             f"{base}/?paged={page_number}",
             f"{base}/?page={page_number}",
             f"{base}/?page_num={page_number}",

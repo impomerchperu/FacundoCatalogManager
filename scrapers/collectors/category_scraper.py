@@ -111,8 +111,8 @@ class CategoryScraper:
                 discovered_page_numbers.add(page_number)
 
         # JetSmartFilters puede renderizar paginación sin href. Si existe una
-        # URL explícita la respetamos; si no, dejamos que el fallback pruebe
-        # las variantes de URL para ese número.
+        # URL explícita la respetamos; de lo contrario usamos la ruta
+        # canónica /page/N/ para que la página siga siendo procesable.
         for item in soup.select(
             ".jet-filters-pagination__item[data-value], "
             "[data-page], [data-page-number], [data-paged]"
@@ -126,13 +126,16 @@ class CategoryScraper:
             page_number = self._page_number_from_value(raw_value)
             if not page_number or page_number <= 1:
                 continue
+            discovered_page_numbers.add(page_number)
+
             link = item.select_one("a[href], .jet-filters-pagination__link")
             href = link.get("href") if link else None
             if isinstance(href, str) and href.strip():
-                discovered_page_numbers.add(page_number)
                 page_url = urljoin(category_url, href)
-                if page_url not in pages:
-                    pages.append(page_url)
+            else:
+                page_url = self._page_url(category_url, page_number)
+            if page_url not in pages:
+                pages.append(page_url)
 
         if not expected_count:
             text = soup.get_text(" ", strip=True)

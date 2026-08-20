@@ -9,7 +9,16 @@ from __future__ import annotations
 
 import argparse
 import sqlite3
+import sys
 from collections import defaultdict
+from pathlib import Path
+
+# Ejecutar `python tools/clean_catalog.py` coloca `tools/` en sys.path, no la
+# raíz del proyecto. Añadimos la raíz para que los imports de la aplicación
+# funcionen igual que al ejecutar `python app.py`.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from database.db_manager import DBManager
 
@@ -26,7 +35,9 @@ def is_legacy_generated(code: str) -> bool:
     return normalize_code(code).startswith(LEGACY_GENERATED_PREFIXES)
 
 
-def find_cleanup_candidates(connection: sqlite3.Connection) -> tuple[list[sqlite3.Row], dict[str, list[sqlite3.Row]]]:
+def find_cleanup_candidates(
+    connection: sqlite3.Connection,
+) -> tuple[list[sqlite3.Row], dict[str, list[sqlite3.Row]]]:
     rows = connection.execute(
         "SELECT id, code, name, category FROM products ORDER BY id"
     ).fetchall()
@@ -81,7 +92,10 @@ def clean_catalog(db_path: str | None = None, apply: bool = False) -> dict[str, 
     try:
         generated_ids = [row["id"] for row in generated]
         if generated_ids:
-            connection.executemany("DELETE FROM products WHERE id = ?", ((row_id,) for row_id in generated_ids))
+            connection.executemany(
+                "DELETE FROM products WHERE id = ?",
+                ((row_id,) for row_id in generated_ids),
+            )
             summary["deleted"] += len(generated_ids)
 
         for items in duplicates.values():
@@ -106,7 +120,9 @@ def clean_catalog(db_path: str | None = None, apply: bool = False) -> dict[str, 
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Limpia códigos generados y duplicados del catálogo local.")
+    parser = argparse.ArgumentParser(
+        description="Limpia códigos generados y duplicados del catálogo local."
+    )
     parser.add_argument("--apply", action="store_true", help="Aplica los cambios; sin esto solo simula.")
     parser.add_argument("--db", default=None, help="Ruta opcional al catalog.db.")
     args = parser.parse_args()

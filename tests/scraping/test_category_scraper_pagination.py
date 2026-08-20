@@ -13,19 +13,18 @@ class FakeBrowser:
         return self.pages.get(url, "")
 
 
-def test_category_scraper_generates_woocommerce_page_variants_from_expected_count():
+def test_category_scraper_discovers_real_woocommerce_page_variant_from_expected_count():
     url = "https://example.test/categoria-producto/antiestres/"
+    page_two = f"{url}page/2/"
     browser = FakeBrowser({
         url: "<html><body><strong>Productos en Stock 50</strong></body></html>",
+        page_two: "<article>FB-1001-AZ producto 2</article>",
     })
     scraper = CategoryScraper(browser)
 
     pages = scraper.get_category_pages(url, expected_count=50)
 
-    assert url in pages
-    assert f"{url}page/2/" in pages
-    assert f"{url}?product-page=2" in pages
-    assert f"{url}?paged=2" in pages
+    assert pages == [url, page_two]
 
 
 def test_category_scraper_respects_explicit_pagination_href():

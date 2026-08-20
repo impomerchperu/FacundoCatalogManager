@@ -100,10 +100,19 @@ class CatalogSyncService:
         self.last_sync_result = result
 
         # El snapshot es un artefacto operativo de seguridad: solo se reemplaza
-        # después de un scraping que alcanzó cobertura completa. Un scraping
-        # parcial, una prueba o una ejecución con cobertura insuficiente nunca
+        # después de un scraping de catálogo completo. Exigimos además cobertura
+        # por categorías porque las ejecuciones unitarias pueden declarar una
+        # cobertura única artificial (por ejemplo KEEP001) sin representar el
+        # scraping real de las 24 categorías. Un test o scraping parcial nunca
         # puede sobrescribir el último conjunto de códigos confiable.
-        if result.products_expected > 0 and result.coverage_complete and not result.has_errors:
+        snapshot_eligible = (
+            result.products_expected > 0
+            and result.expected_category_occurrences > 0
+            and result.coverage_complete
+            and result.products_found >= result.expected_category_occurrences
+            and not result.has_errors
+        )
+        if snapshot_eligible:
             self._write_code_snapshot(scraped_codes, result)
         return result
 

@@ -190,10 +190,12 @@ class CategoryScraper:
                 if page_url not in visited_pages and page_url not in pending_pages:
                     pending_pages.append(page_url)
 
-        # Si conocemos la cantidad pero no hay ninguna señal de paginación,
-        # la paginación estándar de WooCommerce es suficiente: se recorren
-        # las páginas /page/N/ una por una. No agregamos variantes query en
-        # paralelo porque representan rutas alternativas para la misma página.
+        # Cuando conocemos la cantidad y no existe una paginación explícita,
+        # mantenemos las tres formas WooCommerce compatibles para cada página.
+        # ProductCollectionScraper deduplica por código, por lo que si el sitio
+        # expone la misma página mediante dos variantes no se crean productos
+        # duplicados. Si el sitio usa solo una variante, alguna de ellas será la
+        # que permita descubrir los productos que faltaban.
         if expected_count > self.PRODUCTS_PER_PAGE and not explicit_page_numbers and not has_explicit_pagination_href:
             expected_pages = min(
                 self.MAX_PAGE_PROBE,
@@ -204,13 +206,14 @@ class CategoryScraper:
                 ),
             )
             for page_number in range(2, expected_pages + 1):
-                page_url = self._page_url(category_url, page_number)
-                if page_url not in pages:
-                    pages.append(page_url)
+                for page_url in self._page_url_variants(category_url, page_number):
+                    if page_url not in pages:
+                        pages.append(page_url)
 
-        # Si no hay cantidad ni señales de paginación, prueba únicamente la
-        # ruta estándar /page/N/. Las variantes query se reservan como fallback
-        # para el mismo número y nunca se mezclan con una página ya encontrada.
+        # Si no hay cantidad ni señales de paginación, prueba primero la ruta
+        # estándar /page/N/ y usa query variants solo como fallback para ese
+        # mismo número. Nunca agregamos dos URLs que hayan producido el mismo
+        # conjunto de productos.
         if not expected_count and not explicit_page_numbers and not has_explicit_pagination_href:
             pages.extend(
                 self._probe_internal_pages(
@@ -235,8 +238,7 @@ class CategoryScraper:
         for page_number in range(2, self.MAX_PAGE_PROBE + 1):
             standard_url = self._page_url(category_url, page_number)
             candidates = [standard_url]
-            for variant in self._page_url_variants(category_url, page_number)[1:]:
-                candidates.append(variant)
+            candidates.extend(self._page_url_variants(category_url, page_number)[1:])
 
             found_url = None
             found_keys: set[str] = set()
@@ -265,7 +267,6 @@ class CategoryScraper:
                 break
 
             discovered.append(found_url)
-            known_pages.append(found_url)
             seen_keys.update(found_keys)
 
         return discovered

@@ -12,7 +12,7 @@ class CategoryScraper:
     PRODUCTS_PER_PAGE = 25
     MAX_PAGE_PROBE = 50
 
-    def __init__(self, browser, parser=None, category_extractor=None, product_block_extractor=None):
+    def __init__(self, browser, parser=None, category_extractor=None, product_block_extractor=None):  # noqa: E501
         self.parser = parser
         self.category_extractor = category_extractor
         self.product_block_extractor = product_block_extractor
@@ -107,7 +107,7 @@ class CategoryScraper:
             visited_pages.add(current_url)
 
             try:
-                current_html = html if current_url == category_url else self.get_html(current_url)
+                current_html = html if current_url == category_url else self.get_html(current_url)  # noqa: E501
             except requests.RequestException:
                 if current_url != category_url:
                     continue
@@ -184,7 +184,11 @@ class CategoryScraper:
         if expected_count > self.PRODUCTS_PER_PAGE:
             expected_pages = min(
                 self.MAX_PAGE_PROBE,
-                max(1, (expected_count + self.PRODUCTS_PER_PAGE - 1) // self.PRODUCTS_PER_PAGE),
+                max(
+                    1,
+                    (expected_count + self.PRODUCTS_PER_PAGE - 1)
+                    // self.PRODUCTS_PER_PAGE,  # noqa: E501
+                ),
             )
             discovered = self._probe_expected_pages(
                 category_url,
@@ -196,7 +200,11 @@ class CategoryScraper:
                 if page_url not in pages:
                     pages.append(page_url)
 
-        if not expected_count and not explicit_page_numbers and not has_explicit_pagination_href:
+        if (
+            not expected_count
+            and not explicit_page_numbers
+            and not has_explicit_pagination_href
+        ):
             pages.extend(
                 self._probe_internal_pages(
                     category_url,
@@ -207,7 +215,13 @@ class CategoryScraper:
 
         return pages
 
-    def _probe_expected_pages(self, category_url: str, known_pages: list[str], first_page_keys: set[str], expected_pages: int) -> list[str]:
+    def _probe_expected_pages(
+        self,
+        category_url: str,
+        known_pages: list[str],
+        first_page_keys: set[str],
+        expected_pages: int,
+    ) -> list[str]:
         """Encuentra la variante de URL que realmente contiene cada página."""
         discovered: list[str] = []
         seen_keys = set(first_page_keys)
@@ -251,7 +265,12 @@ class CategoryScraper:
 
         return discovered
 
-    def _probe_internal_pages(self, category_url: str, known_pages: list[str], first_page_keys: set[str]) -> list[str]:
+    def _probe_internal_pages(
+        self,
+        category_url: str,
+        known_pages: list[str],
+        first_page_keys: set[str],
+    ) -> list[str]:
         """Busca páginas internas cuando el sitio oculta la paginación."""
         discovered: list[str] = []
         seen_keys = set(first_page_keys)

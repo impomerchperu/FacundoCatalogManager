@@ -81,3 +81,25 @@ def test_category_scraper_skips_invalid_embedded_page_without_aborting_category(
     pages = scraper.get_category_pages(category_url)
 
     assert pages == [category_url, f"{category_url}page/2/", page_3_url]
+
+
+def test_category_scraper_uses_authoritative_expected_count_for_hidden_pages():
+    category_url = "https://example.com/categoria-producto/catalogo/"
+    first_page_codes = " ".join(f"FB-{number:03d}" for number in range(1, 26))
+    second_page_codes = " ".join(f"FB-{number:03d}" for number in range(26, 51))
+    first_page_html = f"<div>{first_page_codes}</div>"
+    second_page_html = f"<div>{second_page_codes}</div>"
+
+    class FakeBrowser:
+        def get(self, url):
+            if url == category_url:
+                return first_page_html
+            if url == f"{category_url}?product-page=2":
+                return second_page_html
+            raise requests.HTTPError("404 Not Found")
+
+    scraper = CategoryScraper(FakeBrowser())
+
+    pages = scraper.get_category_pages(category_url, expected_count=50)
+
+    assert pages == [category_url, f"{category_url}?product-page=2"]

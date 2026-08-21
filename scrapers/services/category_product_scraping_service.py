@@ -23,12 +23,14 @@ class CategoryProductScrapingService:
         self,
         category_url: str,
         category: str = "",
+        expected_count: int = 0,
     ) -> list:
 
         products = []
 
         pages = self.scraper.get_category_pages(
             category_url,
+            expected_count=expected_count,
         )
 
         for page in pages:

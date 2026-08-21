@@ -6,7 +6,8 @@ from services.scraping.category_product_sync_service import CategoryProductSyncS
 
 
 class FakeScraper:
-    def scrape_category(self, category_url, category_name):
+    def scrape_category(self, category_url, category_name, expected_count=0):
+        del category_url, expected_count
         return [
             ScrapedProduct(
                 code="P001",

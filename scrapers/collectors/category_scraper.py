@@ -14,20 +14,13 @@ class CategoryScraper:
     MAX_PAGE_PROBE = 50
     PAGE_VARIANT_WORKERS = 5
 
-    def __init__(
-        self,
-        browser,
-        parser=None,
-        category_extractor=None,
-        product_block_extractor=None,
-    ):
+    def __init__(self, browser, parser=None, category_extractor=None, product_block_extractor=None):
         self.parser = parser
         self.category_extractor = category_extractor
         self.product_block_extractor = product_block_extractor
         self.base_url = None
         self._category_html_cache: dict[str, str] = {}
         self._category_html_cache_lock = Lock()
-
         if isinstance(browser, str):
             self.base_url = browser.rstrip("/")
             self.browser = None
@@ -37,10 +30,8 @@ class CategoryScraper:
     def get_html(self, url: str) -> str:
         with self._category_html_cache_lock:
             cached_html = self._category_html_cache.pop(url, None)
-
         if cached_html is not None:
             return cached_html
-
         if self.browser:
             html = self.browser.get(url)
             if isinstance(html, str):
@@ -48,7 +39,6 @@ class CategoryScraper:
             if hasattr(html, "text"):
                 return html.text
             return str(html)
-
         response = requests.get(url, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
         response.raise_for_status()
         return response.text
@@ -81,11 +71,7 @@ class CategoryScraper:
             return self.category_extractor.extract(soup)
         return []
 
-    def get_category_pages(  # noqa: PLR0912
-        self,
-        category_url: str,
-        expected_count: int = 0,
-    ) -> list[str]:
+    def get_category_pages(self, category_url: str, expected_count: int = 0) -> list[str]:
         """Descubre todas las páginas reales e incrustadas de una categoría."""
         html = self.get_html(category_url)
         if not html:
@@ -113,29 +99,20 @@ class CategoryScraper:
             if current_url in visited_pages:
                 continue
             visited_pages.add(current_url)
-
             try:
-                current_html = (
-                    html if current_url == category_url else self.get_html(current_url)
-                )
+                current_html = html if current_url == category_url else self.get_html(current_url)
             except requests.RequestException:
                 if current_url != category_url:
                     continue
                 raise
-
             if not current_html:
                 continue
 
             with self._category_html_cache_lock:
                 self._category_html_cache[current_url] = current_html
-
             soup = self._parse(current_html)
             page_product_keys[current_url] = self._product_keys(current_html, soup)
 
-            # Algunas categorías entregan el catálogo completo dentro de la
-            # misma respuesta HTML (incluyendo una tabla incrustada), aunque
-            # visualmente parezcan paginadas. No probes URLs adicionales si ya
-            # tenemos todos los productos esperados en la página inicial.
             if (
                 current_url == category_url
                 and expected_count > 0
@@ -144,7 +121,6 @@ class CategoryScraper:
                 return pages
 
             newly_discovered: list[str] = []
-
             for link in soup.select(
                 "a.page-numbers, nav.woocommerce-pagination a, "
                 "a[href*='product-page='], a[href*='paged='], a[href*='page/']"
@@ -206,27 +182,20 @@ class CategoryScraper:
         if expected_count > self.PRODUCTS_PER_PAGE:
             expected_pages = min(
                 self.MAX_PAGE_PROBE,
-                max(
-                    1,
-                    (expected_count + self.PRODUCTS_PER_PAGE - 1)
-                    // self.PRODUCTS_PER_PAGE,
-                ),
+                max(1, (expected_count + self.PRODUCTS_PER_PAGE - 1) // self.PRODUCTS_PER_PAGE),
             )
             discovered = self._probe_expected_pages(
                 category_url,
                 pages,
                 page_product_keys.get(category_url, set()),
                 expected_pages,
+                expected_count,
             )
             for page_url in discovered:
                 if page_url not in pages:
                     pages.append(page_url)
 
-        if (
-            not expected_count
-            and not explicit_page_numbers
-            and not has_explicit_pagination_href
-        ):
+        if not expected_count and not explicit_page_numbers and not has_explicit_pagination_href:
             pages.extend(
                 self._probe_internal_pages(
                     category_url,
@@ -234,17 +203,9 @@ class CategoryScraper:
                     page_product_keys.get(category_url, set()),
                 )
             )
-
         return pages
 
-    def _probe_page_variants(
-        self,
-        category_url: str,
-        page_number: int,
-        known_pages: list[str],
-        discovered: list[str],
-    ) -> list[tuple[str, set[str]]]:
-        """Obtiene las variantes de una página en paralelo."""
+    def _probe_page_variants(self, category_url, page_number, known_pages, discovered):
         candidates = [
             candidate
             for candidate in self._page_url_variants(category_url, page_number)
@@ -252,8 +213,7 @@ class CategoryScraper:
         ]
         if not candidates:
             return []
-
-        results: list[tuple[str, set[str]]] = []
+        results = []
         worker_count = min(self.PAGE_VARIANT_WORKERS, len(candidates))
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
             futures = {
@@ -287,20 +247,21 @@ class CategoryScraper:
         known_pages: list[str],
         first_page_keys: set[str],
         expected_pages: int,
+        expected_count: int,
     ) -> list[str]:
-        """Encuentra la variante de URL que realmente contiene cada página."""
-        discovered: list[str] = []
+        """Encuentra páginas ocultas y se detiene al cubrir el conteo esperado."""
+        discovered = []
         seen_keys = set(first_page_keys)
         page_numbers_seen = {
             number
             for url in known_pages
             if (number := self._page_number_from_value(url)) and number > 1
         }
-
         for page_number in range(2, expected_pages + 1):
+            if len(seen_keys) >= expected_count:
+                break
             if page_number in page_numbers_seen:
                 continue
-
             best_url = None
             best_keys: set[str] = set()
             for candidate, keys in self._probe_page_variants(
@@ -310,53 +271,34 @@ class CategoryScraper:
                 if len(new_keys) > len(best_keys):
                     best_url = candidate
                     best_keys = new_keys
-
             if best_url is None or not best_keys:
                 continue
-
             discovered.append(best_url)
             page_numbers_seen.add(page_number)
             seen_keys.update(best_keys)
-
         return discovered
 
-    def _probe_internal_pages(
-        self,
-        category_url: str,
-        known_pages: list[str],
-        first_page_keys: set[str],
-    ) -> list[str]:
-        """Busca páginas internas cuando el sitio oculta la paginación."""
-        discovered: list[str] = []
+    def _probe_internal_pages(self, category_url, known_pages, first_page_keys):
+        discovered = []
         seen_keys = set(first_page_keys)
-
         for page_number in range(2, self.MAX_PAGE_PROBE + 1):
-            variants = self._probe_page_variants(
-                category_url, page_number, known_pages, discovered
-            )
+            variants = self._probe_page_variants(category_url, page_number, known_pages, discovered)
             found_url = None
             found_keys: set[str] = set()
             for candidate, keys in variants:
                 new_keys = keys - seen_keys
-                if not new_keys:
-                    continue
-                if len(new_keys) > len(found_keys):
+                if new_keys and len(new_keys) > len(found_keys):
                     found_url = candidate
                     found_keys = new_keys
-
             if found_url is None:
                 break
-
             discovered.append(found_url)
             seen_keys.update(found_keys)
-
         return discovered
 
     def _product_keys(self, html: str, soup=None) -> set[str]:
-        """Obtiene identidades de productos para detectar páginas repetidas."""
         soup = soup or self._parse(html)
         keys: set[str] = set()
-
         if self.product_block_extractor:
             try:
                 cards = self.product_block_extractor.extract(soup)
@@ -366,10 +308,8 @@ class CategoryScraper:
                 key = self._product_key_from_card(card)
                 if key:
                     keys.add(key)
-
         if keys:
             return keys
-
         pattern = re.compile(r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", re.IGNORECASE)
         return {match.upper() for match in pattern.findall(html)}
 
@@ -383,25 +323,12 @@ class CategoryScraper:
             element = card.select_one(selector)
             if element is None:
                 continue
-            value = (
-                element.get("sku")
-                or element.get("data-sku")
-                or element.get_text(" ", strip=True)
-            )
-            match = re.search(
-                r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b",
-                str(value),
-                flags=re.IGNORECASE,
-            )
+            value = element.get("sku") or element.get("data-sku") or element.get_text(" ", strip=True)
+            match = re.search(r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", str(value), flags=re.IGNORECASE)
             if match:
                 return match.group(0).upper()
-
         text = card.get_text(" ", strip=True)
-        match = re.search(
-            r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b",
-            text,
-            flags=re.IGNORECASE,
-        )
+        match = re.search(r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", text, flags=re.IGNORECASE)
         return match.group(0).upper() if match else ""
 
     @classmethod

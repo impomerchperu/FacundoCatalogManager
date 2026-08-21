@@ -219,7 +219,11 @@ class CategoryProductSyncService:
         collect = getattr(scraper, "collect_category", None)
         if callable(collect):
             return collect(category)
-        return self.scraper_service.scrape_category(category.url, category.name)
+        return self.scraper_service.scrape_category(
+            category.url,
+            category.name,
+            expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),
+        )
 
     def _enrich_category(self, index, category, collected):
         del index
@@ -227,7 +231,11 @@ class CategoryProductSyncService:
         enrich = getattr(scraper, "enrich_category_products", None)
         if callable(enrich):
             return enrich(collected, category.name)
-        return self.scraper_service.scrape_category(category.url, category.name)
+        return self.scraper_service.scrape_category(
+            category.url,
+            category.name,
+            expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),
+        )
 
     def _get_browser(self):
         scraper = getattr(self.scraper_service, "scraper", None)

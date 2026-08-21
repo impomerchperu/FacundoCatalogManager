@@ -81,7 +81,8 @@ class ProductCollectionScraper:
             html = self.category_scraper.get_html(page)
             if not html:
                 continue
-            soup = BeautifulSoup(html, "html.parser")
+            parser = getattr(self.category_scraper, "_parse", None)
+            soup = parser(html) if callable(parser) else BeautifulSoup(html, "html.parser")
             cards = self._extract_cards(soup)
             for card in cards:
                 product = self._extract_product_from_card(
@@ -388,7 +389,8 @@ class ProductCollectionScraper:
         html = self.category_scraper.get_html(detail_url)
         if not html:
             return None
-        soup = BeautifulSoup(html, "html.parser")
+        parser = getattr(self.category_scraper, "_parse", None)
+        soup = parser(html) if callable(parser) else BeautifulSoup(html, "html.parser")
         return self.detail_extractor.extract(
             soup,
             url=detail_url,

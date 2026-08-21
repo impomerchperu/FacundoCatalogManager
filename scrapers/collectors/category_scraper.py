@@ -14,7 +14,13 @@ class CategoryScraper:
     MAX_PAGE_PROBE = 50
     PAGE_VARIANT_WORKERS = 5
 
-    def __init__(self, browser, parser=None, category_extractor=None, product_block_extractor=None):
+    def __init__(
+        self,
+        browser,
+        parser=None,
+        category_extractor=None,
+        product_block_extractor=None,
+    ):
         self.parser = parser
         self.category_extractor = category_extractor
         self.product_block_extractor = product_block_extractor
@@ -71,7 +77,11 @@ class CategoryScraper:
             return self.category_extractor.extract(soup)
         return []
 
-    def get_category_pages(self, category_url: str, expected_count: int = 0) -> list[str]:
+    def get_category_pages(
+        self,
+        category_url: str,
+        expected_count: int = 0,
+    ) -> list[str]:  # noqa: PLR0912
         """Descubre todas las páginas reales e incrustadas de una categoría."""
         html = self.get_html(category_url)
         if not html:
@@ -100,7 +110,11 @@ class CategoryScraper:
                 continue
             visited_pages.add(current_url)
             try:
-                current_html = html if current_url == category_url else self.get_html(current_url)
+                current_html = (
+                    html
+                    if current_url == category_url
+                    else self.get_html(current_url)
+                )
             except requests.RequestException:
                 if current_url != category_url:
                     continue
@@ -182,7 +196,11 @@ class CategoryScraper:
         if expected_count > self.PRODUCTS_PER_PAGE:
             expected_pages = min(
                 self.MAX_PAGE_PROBE,
-                max(1, (expected_count + self.PRODUCTS_PER_PAGE - 1) // self.PRODUCTS_PER_PAGE),
+                max(
+                    1,
+                    (expected_count + self.PRODUCTS_PER_PAGE - 1)
+                    // self.PRODUCTS_PER_PAGE,
+                ),
             )
             discovered = self._probe_expected_pages(
                 category_url,
@@ -195,7 +213,11 @@ class CategoryScraper:
                 if page_url not in pages:
                     pages.append(page_url)
 
-        if not expected_count and not explicit_page_numbers and not has_explicit_pagination_href:
+        if (
+            not expected_count
+            and not explicit_page_numbers
+            and not has_explicit_pagination_href
+        ):
             pages.extend(
                 self._probe_internal_pages(
                     category_url,
@@ -282,7 +304,12 @@ class CategoryScraper:
         discovered = []
         seen_keys = set(first_page_keys)
         for page_number in range(2, self.MAX_PAGE_PROBE + 1):
-            variants = self._probe_page_variants(category_url, page_number, known_pages, discovered)
+            variants = self._probe_page_variants(
+                category_url,
+                page_number,
+                known_pages,
+                discovered,
+            )
             found_url = None
             found_keys: set[str] = set()
             for candidate, keys in variants:
@@ -310,7 +337,10 @@ class CategoryScraper:
                     keys.add(key)
         if keys:
             return keys
-        pattern = re.compile(r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", re.IGNORECASE)
+        pattern = re.compile(
+            r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b",
+            re.IGNORECASE,
+        )
         return {match.upper() for match in pattern.findall(html)}
 
     @staticmethod
@@ -323,12 +353,24 @@ class CategoryScraper:
             element = card.select_one(selector)
             if element is None:
                 continue
-            value = element.get("sku") or element.get("data-sku") or element.get_text(" ", strip=True)
-            match = re.search(r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", str(value), flags=re.IGNORECASE)
+            value = (
+                element.get("sku")
+                or element.get("data-sku")
+                or element.get_text(" ", strip=True)
+            )
+            match = re.search(
+                r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b",
+                str(value),
+                flags=re.IGNORECASE,
+            )
             if match:
                 return match.group(0).upper()
         text = card.get_text(" ", strip=True)
-        match = re.search(r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", text, flags=re.IGNORECASE)
+        match = re.search(
+            r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b",
+            text,
+            flags=re.IGNORECASE,
+        )
         return match.group(0).upper() if match else ""
 
     @classmethod

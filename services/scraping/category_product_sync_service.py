@@ -263,13 +263,13 @@ class CategoryProductSyncService:
             len(self.last_sync_result.category_summary),
         )
 
-    def _consolidate_for_coverage(self, products):
+    def _consolidate_for_coverage(self, products) -> list[Any]:
         if self.catalog_sync_service:
             consolidate = getattr(
                 self.catalog_sync_service, "consolidate_products", None
             )
             if callable(consolidate):
-                return consolidate(products)
+                return cast(list[Any], consolidate(products))
         return list(products)
 
     def _collect_category(self, index, category):
@@ -386,7 +386,8 @@ class CategoryProductSyncService:
         browser = self._get_browser()
         getter = getattr(browser, "get_http_metrics", None)
         if callable(getter):
-            errors = int(getter().get("http_terminal_errors", 0))
+            metrics = cast(dict[str, Any], getter())
+            errors = int(metrics.get("http_terminal_errors", 0))
             if errors:
                 return False, f"terminal_http_errors:{errors}"
         if (

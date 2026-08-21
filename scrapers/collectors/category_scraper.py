@@ -81,7 +81,7 @@ class CategoryScraper:
         self,
         category_url: str,
         expected_count: int = 0,
-    ) -> list[str]:  # noqa: PLR0912
+    ) -> list[str]:
         """Descubre todas las páginas reales e incrustadas de una categoría."""
         html = self.get_html(category_url)
         if not html:

@@ -131,6 +131,18 @@ class CategoryScraper:
 
             soup = self._parse(current_html)
             page_product_keys[current_url] = self._product_keys(current_html, soup)
+
+            # Algunas categorías entregan el catálogo completo dentro de la
+            # misma respuesta HTML (incluyendo una tabla incrustada), aunque
+            # visualmente parezcan paginadas. No probes URLs adicionales si ya
+            # tenemos todos los productos esperados en la página inicial.
+            if (
+                current_url == category_url
+                and expected_count > 0
+                and len(page_product_keys[current_url]) >= expected_count
+            ):
+                return pages
+
             newly_discovered: list[str] = []
 
             for link in soup.select(

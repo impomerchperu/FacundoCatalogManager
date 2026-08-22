@@ -64,9 +64,6 @@ class CategoryScraper:
             with self._category_html_cache_lock:
                 self._category_html_cache[url] = html
 
-    def _get_html(self, url: str) -> str:
-        return self.get_html(url)
-
     def _parse(self, html: str):
         if self.parser and hasattr(self.parser, "parse"):
             return self.parser.parse(html)
@@ -92,9 +89,7 @@ class CategoryScraper:
             return self.category_extractor.extract(soup)
         return []
 
-    def get_category_pages(
-        self, category_url: str, expected_count: int = 0
-    ) -> list[str]:
+    def get_category_pages(self, category_url: str, expected_count: int = 0) -> list[str]:
         """Obtiene todas las páginas reales declaradas por JetSmartFilters."""
         category_html = self.get_html(category_url)
         if not category_html:
@@ -102,13 +97,9 @@ class CategoryScraper:
 
         category_id = self._category_id(category_html)
         if category_id is not None and self._is_facundo_url(category_url):
-            return self._jsf_category_pages(
-                category_url, category_id, expected_count
-            )
+            return self._jsf_category_pages(category_url, category_id, expected_count)
 
-        return self._fallback_category_pages(
-            category_url, category_html, expected_count
-        )
+        return self._fallback_category_pages(category_url, category_html, expected_count)
 
     def _jsf_category_pages(
         self, category_url: str, category_id: int, expected_count: int
@@ -124,16 +115,13 @@ class CategoryScraper:
 
         if max_num_pages <= 0:
             return [category_url]
-
         if not first_html:
             raise RuntimeError(
-                f"JetSmartFilters no devolvió contenido para {category_url} "
-                "en la página 1."
+                f"JetSmartFilters no devolvió contenido para {category_url} en la página 1."
             )
 
         pages = [category_url]
         self._cache_category_html(category_url, first_html)
-
         page_number = 2
         while page_number <= max_num_pages:
             page_url = self._jsf_page_url(category_url, page_number)
@@ -149,13 +137,10 @@ class CategoryScraper:
                 found_posts = page_found
                 max_num_pages = max(
                     max_num_pages,
-                    (
-                        found_posts + self.PRODUCTS_PER_PAGE - 1
-                    )
+                    (found_posts + self.PRODUCTS_PER_PAGE - 1)
                     // self.PRODUCTS_PER_PAGE,
                 )
-            if page_total > max_num_pages:
-                max_num_pages = page_total
+            max_num_pages = max(max_num_pages, page_total)
             self._cache_category_html(page_url, rendered_html)
             pages.append(page_url)
             page_number += 1
@@ -186,10 +171,7 @@ class CategoryScraper:
         )
         if found_posts > 0 or max_num_pages > 0:
             with self._jsf_cache_lock:
-                self._jsf_metadata_cache[category_url] = (
-                    found_posts,
-                    max_num_pages,
-                )
+                self._jsf_metadata_cache[category_url] = (found_posts, max_num_pages)
         if rendered_html:
             with self._jsf_cache_lock:
                 self._jsf_page_cache[cache_key] = rendered_html
@@ -208,9 +190,7 @@ class CategoryScraper:
         return response.text
 
     @staticmethod
-    def _jet_smart_filters_payload(
-        category_id: int, page: int
-    ) -> list[tuple[str, str]]:
+    def _jet_smart_filters_payload(category_id: int, page: int) -> list[tuple[str, str]]:
         return [
             ("action", "jet_smart_filters"),
             ("provider", "bricks-query-loop/querydesk"),
@@ -246,9 +226,7 @@ class CategoryScraper:
             if isinstance(value, str):
                 stripped = value.strip()
                 if stripped.startswith(("{", "[")):
-                    with contextlib.suppress(
-                        TypeError, ValueError, json.JSONDecodeError
-                    ):
+                    with contextlib.suppress(TypeError, ValueError, json.JSONDecodeError):
                         visit(json.loads(stripped))
                 return
             if isinstance(value, list):
@@ -262,9 +240,7 @@ class CategoryScraper:
                 if normalized == "found_posts":
                     found_posts = max(found_posts, CategoryScraper._to_int(item))
                 elif normalized == "max_num_pages":
-                    max_num_pages = max(
-                        max_num_pages, CategoryScraper._to_int(item)
-                    )
+                    max_num_pages = max(max_num_pages, CategoryScraper._to_int(item))
                 elif (
                     normalized == "rendered_content"
                     and isinstance(item, str)
@@ -278,18 +254,12 @@ class CategoryScraper:
         if found_posts == 0:
             found_posts = CategoryScraper._first_int(
                 payload,
-                (
-                    r'"found_posts"\s*:\s*(\d+)',
-                    r"found_posts\s*[:=]\s*(\d+)",
-                ),
+                (r'"found_posts"\s*:\s*(\d+)', r"found_posts\s*[:=]\s*(\d+)"),
             )
         if max_num_pages == 0:
             max_num_pages = CategoryScraper._first_int(
                 payload,
-                (
-                    r'"max_num_pages"\s*:\s*(\d+)',
-                    r"max_num_pages\s*[:=]\s*(\d+)",
-                ),
+                (r'"max_num_pages"\s*:\s*(\d+)', r"max_num_pages\s*[:=]\s*(\d+)"),
             )
         if max_num_pages == 0 and found_posts > 0:
             max_num_pages = (
@@ -322,13 +292,33 @@ class CategoryScraper:
 
     @staticmethod
     def _category_id(html: str) -> int | None:
+        """Resolve the current category id from the document body first.
+
+        The full page contains many category links and classes. Searching the
+        whole document for the first ``term-<id>`` can select a different
+        category from the header/sidebar. The archive body class is the
+        authoritative category identity on the Facundo catalog.
+        """
+        soup = BeautifulSoup(html or "", "html.parser")
+        body = soup.body
+        if body is not None:
+            for class_name in body.get("class", []):
+                match = re.fullmatch(r"(?:term|product_cat)-(\d+)", str(class_name))
+                if match:
+                    return int(match.group(1))
+
+            for attribute in ("data-term-id", "data-category-id"):
+                value = body.get(attribute)
+                if str(value).isdigit():
+                    return int(value)
+
         patterns = (
-            r"\bterm-(\d+)\b",
-            r"\bproduct_cat-(\d+)\b",
             r'data-term-id=["\'](\d+)["\']',
             r'data-category-id=["\'](\d+)["\']',
             r'"filtered_post_id"\s*[:=]\s*["\']?(\d+)',
             r'"_tax_query_product_cat"\s*[:=]\s*["\']?(\d+)',
+            r"\bterm-(\d+)\b",
+            r"\bproduct_cat-(\d+)\b",
         )
         for pattern in patterns:
             match = re.search(pattern, html or "", flags=re.IGNORECASE)
@@ -372,9 +362,7 @@ class CategoryScraper:
                 return int(match.group(1))
         return None
 
-    def _fallback_pagination_links(
-        self, category_url: str, html: str
-    ) -> list[str]:
+    def _fallback_pagination_links(self, category_url: str, html: str) -> list[str]:
         soup = self._parse(html)
         links = []
         for link in soup.select(
@@ -454,50 +442,3 @@ class CategoryScraper:
                 page_number += 1
 
         return pages
-
-    def _product_keys(self, html: str, soup=None) -> set[str]:
-        soup = soup or self._parse(html)
-        keys: set[str] = set()
-        if self.product_block_extractor:
-            try:
-                cards = self.product_block_extractor.extract(soup)
-            except (AttributeError, TypeError, ValueError):
-                cards = []
-            for card in cards or []:
-                key = self._product_key_from_card(card)
-                if key:
-                    keys.add(key)
-        if keys:
-            return keys
-        pattern = re.compile(
-            r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", re.IGNORECASE
-        )
-        return {match.upper() for match in pattern.findall(html)}
-
-    @staticmethod
-    def _product_key_from_card(card) -> str:
-        for selector in (
-            "p.brxe-a26f34",
-            "span.sku",
-            ".sku",
-            "[sku]",
-            "[data-sku]",
-            "p[class*='sku']",
-            "span[class*='sku']",
-        ):
-            element = card.select_one(selector)
-            if element is None:
-                continue
-            value = (
-                element.get("sku")
-                or element.get("data-sku")
-                or element.get_text(" ", strip=True)
-            )
-            match = re.search(
-                r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b",
-                str(value),
-                flags=re.IGNORECASE,
-            )
-            if match:
-                return match.group(0).upper()
-        return ""

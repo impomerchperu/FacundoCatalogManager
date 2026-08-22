@@ -95,6 +95,7 @@ class CategoryScraper:
         page_product_keys: dict[str, set[str]] = {}
         explicit_pagination_urls: set[str] = set()
         has_explicit_pagination_href = False
+        discovered: list[str] = []
 
         if expected_count <= 0:
             text = self._parse(html).get_text(" ", strip=True)

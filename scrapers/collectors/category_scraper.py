@@ -176,7 +176,7 @@ class CategoryScraper:
                     explicit_pagination_urls.add(page_url)
                 else:
                     implicit_page_numbers.add(page_number)
-                    continue
+                    page_url = self._page_url(category_url, page_number)
                 if page_url not in pages:
                     pages.append(page_url)
                     newly_discovered.append(page_url)

@@ -1,3 +1,6 @@
+from concurrent.futures import ThreadPoolExecutor
+
+from config.scraping_config import SCRAPING_CATEGORY_WORKERS
 from models.scraping.category import Category
 from scrapers.collectors.category_scraper import CategoryScraper
 
@@ -39,19 +42,37 @@ class CatalogScraper:
         """
 
         categories = self.category_scraper.scrape(catalog_url)
-        pages: list[tuple[Category, str]] = []
+        if not categories:
+            return []
 
-        for category in categories:
-            category_pages = self.category_scraper.get_category_pages(
-                category.url,
-                expected_count=getattr(category, "expected_count", 0),
+        self._enable_thread_sessions()
+        worker_count = min(SCRAPING_CATEGORY_WORKERS, len(categories))
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            category_pages = list(
+                executor.map(self._get_category_pages, categories)
             )
 
-            if not category_pages:
+        pages: list[tuple[Category, str]] = []
+        for category, discovered_pages in zip(
+            categories,
+            category_pages,
+            strict=True,
+        ):
+            if not discovered_pages:
                 pages.append((category, category.url))
                 continue
 
-            for page in category_pages:
-                pages.append((category, page))
+            pages.extend((category, page) for page in discovered_pages)
 
         return pages
+
+    def _get_category_pages(self, category: Category) -> list[str]:
+        return self.category_scraper.get_category_pages(
+            category.url,
+            expected_count=getattr(category, "expected_count", 0),
+        )
+
+    def _enable_thread_sessions(self) -> None:
+        browser = getattr(self.category_scraper, "browser", None)
+        if browser is not None and hasattr(browser, "enable_thread_sessions"):
+            browser.enable_thread_sessions()

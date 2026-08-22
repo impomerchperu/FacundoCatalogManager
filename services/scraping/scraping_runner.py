@@ -1,83 +1,29 @@
+from __future__ import annotations
+
 import time
 import traceback
 from pathlib import Path
 
-from models.scraping.category import Category
-from repositories.product_repository import ProductRepository
-from repositories.scraping.scraping_history_repository import (
-    ScrapingHistoryRepository,
-)
-from services.scraping.category_service import CategoryService
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-TIMING_LOG = PROJECT_ROOT / "data" / "scraping_timing.log"
+TIMING_LOG = Path("data/scraping_timing.log")
 
 
-def _log_timing(message, *args):
+def _log_timing(message: str, *args: object) -> None:
     TIMING_LOG.parent.mkdir(parents=True, exist_ok=True)
-    formatted = message % args if args else message
-    with TIMING_LOG.open("a", encoding="utf-8") as file:
-        file.write(f"{formatted}\n")
+    with TIMING_LOG.open("a", encoding="utf-8") as handle:
+        handle.write(message % args + "\n")
 
 
 class ScrapingRunner:
-    """
-    Ejecuta el proceso completo de scraping.
-
-    Modos soportados:
-
-    1. Ejecución controlada:
-        runner.run(categories)
-
-    2. Ejecución automática:
-        runner.run()
-
-    Responsabilidades:
-
-    - Coordinar servicios.
-    - Ejecutar categorías.
-    - Mantener configuración activa.
-    - Reportar progreso.
-    - Exponer los repositorios de historial y catálogo.
-    """
-
-    def __init__(
-        self,
-        scraping_service,
-        config=None,
-        category_service: CategoryService | None = None,
-        history_repository: ScrapingHistoryRepository | None = None,
-        catalog_repository: ProductRepository | None = None,
-    ):
+    def __init__(self, scraping_service):
         self.scraping_service = scraping_service
-        self.config = config
-        self.category_service = category_service
-        self.history_repository = history_repository
-        self.catalog_repository = catalog_repository
 
-    def run(
-        self,
-        categories: list[Category] | None = None,
-        progress_callback=None,
-    ):
-        """Ejecuta scraping sobre las categorías recibidas."""
-        if categories is None:
-            return self.run_all(progress_callback)
-
+    def run(self, categories, progress_callback=None):
+        """Ejecuta el scraping para las categorías recibidas."""
         started = time.perf_counter()
         _log_timing(
             "SCRAPING TIMING | stage=run_start | categories=%d",
             len(categories),
         )
-
-        reset_sync_result = getattr(
-            self.scraping_service,
-            "reset_sync_result",
-            None,
-        )
-        if callable(reset_sync_result):
-            reset_sync_result()
-
         try:
             sync_categories = getattr(
                 self.scraping_service,
@@ -103,8 +49,7 @@ class ScrapingRunner:
                 if progress_callback:
                     progress_callback(index, total)
 
-            return results
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:
             _log_timing(
                 "SCRAPING TIMING | stage=run_error | categories=%d | "
                 "error_type=%s | error=%s",
@@ -118,6 +63,8 @@ class ScrapingRunner:
             for line in traceback_text.splitlines():
                 _log_timing("SCRAPING TIMING | stage=run_traceback | %s", line)
             raise
+        else:
+            return results
         finally:
             _log_timing(
                 "SCRAPING TIMING | stage=run_total | categories=%d "
@@ -128,16 +75,12 @@ class ScrapingRunner:
 
     def run_all(self, progress_callback=None):
         """Obtiene categorías automáticamente y ejecuta el scraping completo."""
-        if self.category_service is None:
-            return []
-
         started = time.perf_counter()
-        categories = self.category_service.scrape_all()
+        categories = self.scraping_service.category_service.scrape_all()
         _log_timing(
             "SCRAPING TIMING | stage=category_discovery | categories=%d "
             "| seconds=%.3f",
             len(categories),
             time.perf_counter() - started,
         )
-
         return self.run(categories, progress_callback)

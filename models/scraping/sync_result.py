@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from uuid import uuid4
 
 
 @dataclass(slots=True)
 class SyncResult:
     """Resultado consolidado de una sincronización de catálogo."""
 
+    run_id: str = field(default_factory=lambda: uuid4().hex)
     success: bool = False
     started_at: datetime | None = field(default_factory=lambda: datetime.now(timezone.utc))
     finished_at: datetime | None = None
@@ -84,10 +86,15 @@ class SyncResult:
 
     def to_dict(self) -> dict:
         return {
-            "success": self.success, "processed": self.processed,
-            "created": self.created, "updated": self.updated,
-            "unchanged": self.unchanged, "deleted": self.deleted,
-            "generated": self.generated, "missing_code": self.missing_code,
+            "run_id": self.run_id,
+            "success": self.success,
+            "processed": self.processed,
+            "created": self.created,
+            "updated": self.updated,
+            "unchanged": self.unchanged,
+            "deleted": self.deleted,
+            "generated": self.generated,
+            "missing_code": self.missing_code,
             "classified_total": self.classified_total,
             "counts_are_consistent": self.counts_are_consistent,
             "categories_processed": self.categories_processed,
@@ -109,7 +116,8 @@ class SyncResult:
             "images_processed": self.images_processed,
             "images_downloaded": self.images_downloaded,
             "images_failed": self.images_failed,
-            "errors": self.errors, "changes": self.changes,
+            "errors": self.errors,
+            "changes": self.changes,
             "failures": self.failures,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "finished_at": self.finished_at.isoformat() if self.finished_at else None,
@@ -118,14 +126,18 @@ class SyncResult:
 
     def summary(self) -> dict:
         return {
-            "Procesados": self.processed, "Nuevos": self.created,
-            "Actualizados": self.updated, "Sin cambios": self.unchanged,
-            "Eliminados": self.deleted, "Códigos generados": self.generated,
+            "Procesados": self.processed,
+            "Nuevos": self.created,
+            "Actualizados": self.updated,
+            "Sin cambios": self.unchanged,
+            "Eliminados": self.deleted,
+            "Códigos generados": self.generated,
             "Sin código": self.missing_code,
             "Categorías": self.categories_processed,
             "Esperados únicos": self.products_expected,
             "Esperados por categorías": self.expected_category_occurrences,
-            "Encontrados": self.products_found, "Únicos": self.products_unique,
+            "Encontrados": self.products_found,
+            "Únicos": self.products_unique,
             "Múltiples categorías": self.products_multiple_categories,
             "Apariciones duplicadas": self.duplicate_occurrences,
             "Brecha única": self.coverage_gap,
@@ -133,5 +145,6 @@ class SyncResult:
             "Cobertura completa": self.coverage_complete,
             "Total clasificado": self.classified_total,
             "Conteos consistentes": self.counts_are_consistent,
-            "Errores": len(self.errors), "Duración": self.duration_seconds,
+            "Errores": len(self.errors),
+            "Duración": self.duration_seconds,
         }

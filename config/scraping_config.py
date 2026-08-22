@@ -35,3 +35,11 @@ SCRAPING_HTTP_WORKERS = 20
 # occurrence counts and may include the same product in multiple categories,
 # so they must not be used as the unique-product target.
 EXPECTED_CATALOG_PRODUCTS = 525
+
+# JetSmartFilters/Bricks Query Loop request metadata observed on the live catalog.
+# Keep these values centralized so the scraper can reproduce the provider query
+# without hard-coding them inside the pagination implementation.
+JETSMARTFILTERS_AJAX_URL = f"{BASE_URL}/wp-admin/admin-ajax.php"
+JETSMARTFILTERS_ELEMENT_ID = "95dc8a"
+JETSMARTFILTERS_SIGNATURE = "83bc155f208a7b2c473d90a84cf5fe01"
+JETSMARTFILTERS_INDEXING_FILTERS = "434"

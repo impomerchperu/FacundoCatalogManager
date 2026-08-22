@@ -150,12 +150,6 @@ class CatalogSyncService:
         result.finish()
         self.last_sync_result = result
 
-        # El snapshot es un artefacto operativo de seguridad: solo se reemplaza
-        # después de un scraping de catálogo completo. Exigimos además cobertura
-        # por categorías porque las ejecuciones unitarias pueden declarar una
-        # cobertura única artificial (por ejemplo KEEP001) sin representar el
-        # scraping real de las 24 categorías. Un test o scraping parcial nunca
-        # puede sobrescribir el último conjunto de códigos confiable.
         snapshot_eligible = (
             result.products_expected > 0
             and result.expected_category_occurrences > 0
@@ -175,7 +169,8 @@ class CatalogSyncService:
             "scraped_at": datetime.now(timezone.utc).isoformat(),
             "codes": sorted(scraped_codes),
             "scraped_unique_products": len(scraped_codes),
-            "expected_unique_products": result.products_expected,
+            "expected_unique_products": result.products_unique,
+            "expected_catalog_products": result.products_expected,
             "expected_category_occurrences": result.expected_category_occurrences,
             "products_found": result.products_found,
             "coverage_complete": result.coverage_complete,
@@ -257,7 +252,7 @@ class CatalogSyncService:
                     continue
                 try:
                     normalized_stock = max(int(stock), 0)
-                except TypeError, ValueError:
+                except (TypeError, ValueError):
                     continue
                 color_stock[normalized_color] = max(
                     color_stock.get(normalized_color, 0), normalized_stock
@@ -307,5 +302,5 @@ class CatalogSyncService:
             return obj.get(field)
         try:
             return obj[field]
-        except KeyError, TypeError, IndexError:
+        except (KeyError, TypeError, IndexError):
             return getattr(obj, field, None)

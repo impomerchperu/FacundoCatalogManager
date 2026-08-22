@@ -59,6 +59,12 @@ class CategoryScraper:
         response.raise_for_status()
         return response.text
 
+    def _cache_category_html(self, url: str, html: str) -> None:
+        if not html:
+            return
+        with self._category_html_cache_lock:
+            self._category_html_cache[url] = html
+
     def _get_html(self, url: str) -> str:
         return self.get_html(url)
 

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "run_id": null,
+  "scraped_at": null,
+  "categories": 0,
+  "products_found": 0,
+  "unique_products": 0,
+  "expected_unique_products": null,
+  "expected_category_occurrences": null,
+  "coverage_complete": false,
+  "missing_codes": [],
+  "failures": [],
+  "codes": [],
+  "timing": {}
+}

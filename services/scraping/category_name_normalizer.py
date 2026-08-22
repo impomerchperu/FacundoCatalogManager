@@ -18,6 +18,8 @@ def normalize_category_name(value: object) -> str:
 
     text = value.strip()
     for _ in range(2):
+        for broken, repaired in _LOSSY_MOJIBAKE_REPLACEMENTS.items():
+            text = text.replace(broken, repaired)
         if not any(marker in text for marker in _MOJIBAKE_MARKERS):
             break
         try:
@@ -27,9 +29,6 @@ def normalize_category_name(value: object) -> str:
         if decoded == text:
             break
         text = decoded
-
-    for broken, repaired in _LOSSY_MOJIBAKE_REPLACEMENTS.items():
-        text = text.replace(broken, repaired)
 
     text = unicodedata.normalize("NFKD", text)
     text = "".join(char for char in text if not unicodedata.combining(char))

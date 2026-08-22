@@ -2,6 +2,7 @@ import re
 import unicodedata
 
 _MOJIBAKE_MARKERS = ("Ã", "Â", "â", "ð", "�")
+_COMPARISON_STOPWORDS = {"de"}
 
 
 def normalize_category_name(value: object) -> str:
@@ -25,4 +26,5 @@ def normalize_category_name(value: object) -> str:
     text = "".join(char for char in text if not unicodedata.combining(char))
     text = text.casefold()
     text = re.sub(r"[^\w\s]", " ", text, flags=re.UNICODE)
-    return " ".join(text.split())
+    tokens = [token for token in text.split() if token not in _COMPARISON_STOPWORDS]
+    return " ".join(tokens)

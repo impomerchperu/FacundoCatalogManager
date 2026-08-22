@@ -9,7 +9,7 @@ from repositories.product_repository import ProductRepository
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _DIAGNOSTIC_FILES = (
     PROJECT_ROOT / "data" / "scraping_timing.log",
-    PROJECT_ROOT / "data" / "last_scraping_codes.json",
+    PROJECT_ROOT / "data" / "scraping_result.json",
 )
 
 

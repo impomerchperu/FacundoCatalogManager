@@ -504,8 +504,17 @@ class CategoryScraper:
                     pending.append(next_url)
 
         if total_pages == 0 and not discovered:
+            required_pages = 0
+            if expected_count > 0:
+                required_pages = (
+                    expected_count + self.PRODUCTS_PER_PAGE - 1
+                ) // self.PRODUCTS_PER_PAGE
             self._probe_hidden_pages(
-                category_url, pages, visited, start_page=2
+                category_url,
+                pages,
+                visited,
+                start_page=2,
+                max_page=required_pages or None,
             )
         return pages
 
@@ -515,11 +524,15 @@ class CategoryScraper:
         pages: list[str],
         visited: set[str],
         start_page: int,
+        max_page: int | None = None,
     ) -> None:
         """Recupera páginas consecutivas cuando la paginación no se publica."""
-        for page in range(
-            start_page, self.MAX_HIDDEN_PAGE_PROBES + start_page
-        ):
+        end_page = (
+            max_page + 1
+            if max_page is not None
+            else self.MAX_HIDDEN_PAGE_PROBES + start_page
+        )
+        for page in range(start_page, end_page):
             page_url = self._fallback_page_url(category_url, page)
             if page_url in visited:
                 continue

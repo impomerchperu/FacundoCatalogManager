@@ -191,9 +191,10 @@ class CategoryScraper:
                 if page_url not in visited_pages and page_url not in pending_pages:
                     pending_pages.append(page_url)
 
-        if expected_pages > 1:
-            page_numbers = set(range(2, expected_pages + 1))
-            page_numbers.update(explicit_page_numbers)
+        if expected_pages > 1 or explicit_page_numbers:
+            page_numbers = set(explicit_page_numbers)
+            if expected_pages > 1:
+                page_numbers.update(range(2, expected_pages + 1))
             discovered = self._probe_declared_page_numbers(
                 category_url,
                 pages,
@@ -246,14 +247,22 @@ class CategoryScraper:
             return cached
 
         try:
-            response = requests.post(
-                JETSMARTFILTERS_AJAX_URL,
-                data=self._jet_smart_filters_payload(category_id, 1),
-                headers=DEFAULT_HEADERS,
-                timeout=20,
-            )
-            response.raise_for_status()
-            found_posts, max_num_pages = self._parse_jsf_metadata(response.text)
+            payload = self._jet_smart_filters_payload(category_id, 1)
+            if self.browser and hasattr(self.browser, "post"):
+                response_text = self.browser.post(
+                    JETSMARTFILTERS_AJAX_URL,
+                    data=payload,
+                )
+            else:
+                response = requests.post(
+                    JETSMARTFILTERS_AJAX_URL,
+                    data=payload,
+                    headers=DEFAULT_HEADERS,
+                    timeout=20,
+                )
+                response.raise_for_status()
+                response_text = response.text
+            found_posts, max_num_pages = self._parse_jsf_metadata(response_text)
         except requests.RequestException:
             return 0, 0
 

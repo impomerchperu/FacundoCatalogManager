@@ -225,19 +225,97 @@ class CategoryScraper:
                 if page_url not in pages:
                     pages.append(page_url)
 
+        if discovered:
+            self._discover_embedded_pages(
+                category_url,
+                pages,
+                discovered,
+                page_product_keys,
+            )
+
         if (
             not expected_count
             and not explicit_page_numbers
             and not has_explicit_pagination_href
         ):
-            pages.extend(
-                self._probe_internal_pages(
+            internal_pages = self._probe_internal_pages(
+                category_url,
+                pages,
+                page_product_keys.get(category_url, set()),
+            )
+            for page_url in internal_pages:
+                if page_url not in pages:
+                    pages.append(page_url)
+        return pages
+
+    def _discover_embedded_pages(
+        self,
+        category_url: str,
+        pages: list[str],
+        discovered: list[str],
+        page_product_keys: dict[str, set[str]],
+    ) -> None:
+        """Continúa la búsqueda cuando una página descubierta contiene más paginación implícita."""
+        frontier = list(discovered)
+        processed: set[str] = set()
+        while frontier:
+            current_url = frontier.pop(0)
+            if current_url in processed:
+                continue
+            processed.add(current_url)
+            try:
+                with self._category_html_cache_lock:
+                    current_html = self._category_html_cache.get(current_url)
+                if current_html is None:
+                    current_html = self.get_html(current_url)
+            except requests.RequestException:
+                continue
+            if not current_html:
+                continue
+
+            soup = self._parse(current_html)
+            keys = page_product_keys.setdefault(
+                current_url,
+                self._product_keys(current_html, soup),
+            )
+            declared_numbers: set[int] = set()
+            explicit_urls: list[str] = []
+
+            for item in soup.select(
+                ".jet-filters-pagination__item[data-value], "
+                "[data-page], [data-page-number], [data-paged]"
+            ):
+                raw_value = (
+                    item.get("data-value")
+                    or item.get("data-page")
+                    or item.get("data-page-number")
+                    or item.get("data-paged")
+                )
+                page_number = self._page_number_from_value(raw_value)
+                if not page_number or page_number <= 1:
+                    continue
+                declared_numbers.add(page_number)
+                link = item.select_one("a[href], .jet-filters-pagination__link")
+                href = link.get("href") if link else None
+                if isinstance(href, str) and href.strip():
+                    explicit_urls.append(urljoin(current_url, href))
+
+            for page_url in explicit_urls:
+                if page_url not in pages:
+                    pages.append(page_url)
+                    frontier.append(page_url)
+
+            if declared_numbers and not explicit_urls:
+                new_pages = self._probe_declared_page_numbers(
                     category_url,
                     pages,
-                    page_product_keys.get(category_url, set()),
+                    keys,
+                    declared_numbers,
                 )
-            )
-        return pages
+                for page_url in new_pages:
+                    if page_url not in pages:
+                        pages.append(page_url)
+                        frontier.append(page_url)
 
     def _probe_page_variants(self, category_url, page_number, known_pages, discovered):
         candidates = [
@@ -461,12 +539,12 @@ class CategoryScraper:
 
     @classmethod
     def _page_url_variants(cls, category_url: str, page_number: int) -> list[str]:
-        base = category_url.rstrip("/")
+        base = category_url.rstrip("/") + "/"
         return [
-            f"{base}/?product-page={page_number}",
-            cls._page_url(category_url, page_number),
-            f"{base}/?paged={page_number}",
-            f"{base}/?page={page_number}",
             f"{base}?product-page={page_number}",
+            cls._page_url(category_url, page_number),
             f"{base}?paged={page_number}",
+            f"{base}?page={page_number}",
+            f"{category_url.rstrip('/')}?product-page={page_number}",
+            f"{category_url.rstrip('/')}?paged={page_number}",
         ]

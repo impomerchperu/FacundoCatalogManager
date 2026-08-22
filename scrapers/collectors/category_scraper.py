@@ -553,18 +553,29 @@ class CategoryScraper:
     @classmethod
     def _page_numbers_from_html(cls, html: str) -> set[int]:
         numbers: set[int] = set()
-        patterns = (
+        exact_patterns = (
             r"(?:product-page|paged|page)[=/\-](\d+)",
             r"[?&](?:product-page|paged|page)=(\d+)",
             r"(?:data-(?:page|page-number|paged|value))=[\"'](\d+)[\"']",
-            r"(?:pageNumber|page_number|currentPage|totalPages)\s*[:=]\s*[\"']?(\d+)",
         )
-        for pattern in patterns:
+        for pattern in exact_patterns:
             for match in re.finditer(pattern, html, flags=re.IGNORECASE):
                 try:
                     numbers.add(int(match.group(1)))
                 except (IndexError, TypeError, ValueError):
                     continue
+
+        total_patterns = (
+            r"(?:totalPages|max_num_pages)\s*[:=]\s*[\"']?(\d+)",
+        )
+        for pattern in total_patterns:
+            for match in re.finditer(pattern, html, flags=re.IGNORECASE):
+                try:
+                    total_pages = int(match.group(1))
+                except (IndexError, TypeError, ValueError):
+                    continue
+                if total_pages > 1:
+                    numbers.update(range(2, total_pages + 1))
         return numbers
 
     @classmethod

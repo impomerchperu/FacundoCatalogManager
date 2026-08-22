@@ -5,13 +5,17 @@ from scrapers.extractors.product_extractor import ProductExtractor
 
 
 class SharedProductCategoryScraper:
-    def __init__(self):
-        self.detail_requests = []
+    def __init__(self) -> None:
+        self.detail_requests: list[str] = []
+        self.html_override: str | None = None
 
-    def get_category_pages(self, url):
+    def get_category_pages(self, url: str) -> list[str]:
         return [url]
 
-    def get_html(self, url):
+    def get_html(self, url: str) -> str:
+        if self.html_override is not None:
+            return self.html_override
+
         if "/producto/" in url:
             self.detail_requests.append(url)
             return """
@@ -88,3 +92,224 @@ def test_detail_cache_is_cleared_between_full_runs():
     assert metrics["detail_requests"] == 1
     assert metrics["detail_cache_hits"] == 0
     assert metrics["detail_cache_size"] == 1
+
+
+def test_complete_card_color_stock_skips_detail_request():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+
+    html = """
+    <html>
+        <article>
+            <a href="/producto/producto-con-colores/">
+                <h2 class="brxe-f31760">Producto con colores</h2>
+            </a>
+            <p class="brxe-a26f34">FB-1234</p>
+            <div class="variaciones-producto">
+                <span data-color="Rojo">Rojo</span>
+                <span data-color="Azul">Azul</span>
+                <p>Rojo: 10</p>
+                <p>Azul: 20</p>
+            </div>
+        </article>
+    </html>
+    """
+
+    category_scraper.html_override = html
+    result = scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    assert len(result) == 1
+    assert category_scraper.detail_requests == []
+    assert result[0].url == "https://example.com/producto/producto-con-colores/"
+    assert result[0].color_stock == {"Rojo": 10, "Azul": 20}
+    assert result[0].stock == 30
+
+    metrics = scraper.get_detail_metrics()
+    assert metrics["detail_requests"] == 0
+    assert metrics["detail_skipped"] == 1
+    assert metrics["detail_reason_counts"] == {"skipped_complete_color_stock": 1}
+
+
+def test_complete_single_stock_card_skips_detail_when_all_fields_are_present():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+
+    html = """
+    <html>
+        <article>
+            <a href="/producto/producto-completo/">
+                <img src="https://example.com/producto.jpg">
+                <h2 class="brxe-f31760">Producto completo</h2>
+            </a>
+            <p class="brxe-a26f34">FB-1235</p>
+            <div class="text-content">Producto listo para catálogo.</div>
+            <div class="variaciones-producto"><p>152</p></div>
+            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+            <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+            <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+        </article>
+    </html>
+    """
+
+    category_scraper.html_override = html
+    result = scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    assert len(result) == 1
+    assert category_scraper.detail_requests == []
+    assert result[0].url == "https://example.com/producto/producto-completo/"
+    assert result[0].stock == 152
+
+    metrics = scraper.get_detail_metrics()
+    assert metrics["detail_requests"] == 0
+    assert metrics["detail_skipped"] == 1
+    assert metrics["detail_reason_counts"] == {"skipped_complete_single_stock": 1}
+
+
+def test_detail_reason_metrics_identify_missing_card_data():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+
+    html = """
+    <html>
+        <article>
+            <a href="/producto/producto-incompleto/">
+                <h2 class="brxe-f31760">Producto incompleto</h2>
+            </a>
+            <p class="brxe-a26f34">FB-1236</p>
+            <div class="variaciones-producto"><p>10</p></div>
+        </article>
+    </html>
+    """
+
+    category_scraper.html_override = html
+    scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    metrics = scraper.get_detail_metrics()
+    assert metrics["detail_requests"] == 1
+    assert metrics["detail_reason_counts"] == {
+        "requested_missing_fields": 1,
+        "requested_missing_description": 1,
+        "requested_missing_image_url": 1,
+    }
+
+
+def test_detail_reason_metrics_classify_labeled_multiple_stock():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+
+    html = """
+    <html>
+        <article>
+            <a href="/producto/producto-colores-incompleto/">
+                <h2 class="brxe-f31760">Producto con colores</h2>
+            </a>
+            <p class="brxe-a26f34">FB-1237</p>
+            <div class="variaciones-producto">
+                <p>Rojo: 10</p>
+                <p>Azul: 20</p>
+            </div>
+        </article>
+    </html>
+    """
+
+    category_scraper.html_override = html
+    scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    metrics = scraper.get_detail_metrics()
+    assert metrics["detail_reason_counts"] == {
+        "requested_multiple_labeled_stock": 1,
+    }
+
+
+def test_detail_reason_metrics_classify_multiple_numeric_stock():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+
+    html = """
+    <html>
+        <article>
+            <a href="/producto/producto-varios-stocks/">
+                <h2 class="brxe-f31760">Producto con varios stocks</h2>
+            </a>
+            <p class="brxe-a26f34">FB-1238</p>
+            <div class="variaciones-producto">
+                <p>10</p>
+                <p>20</p>
+            </div>
+        </article>
+    </html>
+    """
+
+    category_scraper.html_override = html
+    scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    metrics = scraper.get_detail_metrics()
+    assert metrics["detail_reason_counts"] == {
+        "requested_multiple_numeric_stock": 1,
+    }
+
+
+def test_detail_reason_metrics_classify_missing_stock():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+
+    html = """
+    <html>
+        <article>
+            <a href="/producto/producto-sin-stock/">
+                <h2 class="brxe-f31760">Producto sin stock visible</h2>
+            </a>
+            <p class="brxe-a26f34">FB-1239</p>
+        </article>
+    </html>
+    """
+
+    category_scraper.html_override = html
+    scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    metrics = scraper.get_detail_metrics()
+    assert metrics["detail_reason_counts"] == {
+        "requested_missing_stock": 1,
+    }

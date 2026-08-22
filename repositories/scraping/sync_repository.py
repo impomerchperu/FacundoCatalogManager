@@ -106,6 +106,10 @@ class SyncRepository:
 
         return list(self.records.values())
 
+    def get_all(self):
+        """Alias de compatibilidad para recorridos completos del repositorio."""
+        return self.load()
+
     def save_all(self, products):
         """Guarda una colección completa."""
         for product in products:
@@ -120,6 +124,10 @@ class SyncRepository:
             )
             return
         self.records.pop(code, None)
+
+    def delete_by_code(self, code):
+        """Alias de compatibilidad para eliminación explícita por código."""
+        self.delete(code)
 
     def _ensure_hash(self, product):
         """Genera content_hash si no existe."""

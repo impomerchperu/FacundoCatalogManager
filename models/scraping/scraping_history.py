@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 
@@ -12,6 +12,15 @@ class ScrapingHistory:
     created: int = 0
     updated: int = 0
     unchanged: int = 0
+    deleted: int = 0
+    generated: int = 0
+    products_expected: int = 0
+    products_found: int = 0
+    products_unique: int = 0
+    products_multiple_categories: int = 0
+    duplicate_occurrences: int = 0
+    category_summary: list[dict] = field(default_factory=list)
+    multiple_category_products: list[dict] = field(default_factory=list)
     errors: int = 0
     status: str = "SUCCESS"
     message: str = ""

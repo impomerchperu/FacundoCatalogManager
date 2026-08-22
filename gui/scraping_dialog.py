@@ -121,8 +121,7 @@ class ScrapingDialog(QDialog):
         self.progress.setValue(value)
         elapsed = self._format_elapsed()
         self.status_label.setText(
-            f"Procesando categoría {current}/{total} "
-            f"• {value}% • {elapsed}",
+            f"Extracción en curso • {value}% • {elapsed}",
         )
 
     def update_elapsed_status(self) -> None:

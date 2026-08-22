@@ -15,6 +15,7 @@ class ProductExtractor:
 
     SOURCE = "importacionesfacundo"
     BASE_URL = "https://stock.importacionesfacundo.com"
+    _CODE_PATTERN = re.compile(r"^[A-Z0-9]{1,16}(?:-[A-Z0-9]+)*$", re.IGNORECASE)
 
     _IGNORED_COLOR_TAGS = (
         "select",
@@ -59,14 +60,61 @@ class ProductExtractor:
             image_url=self.extract_image(soup),
         )
 
+    @classmethod
+    def _normalize_code_candidate(cls, text: str) -> str:
+        """Valida un código completo sin asumir un prefijo concreto."""
+        candidate = str(text).strip().strip(".,:;()[]{}")
+        if not cls._CODE_PATTERN.fullmatch(candidate):
+            return ""
+        if not any(char.isalpha() for char in candidate):
+            return ""
+        if not any(char.isdigit() for char in candidate):
+            return ""
+        return candidate.upper()
+
+    @classmethod
+    def _find_code_token(cls, text: str) -> str:
+        """Busca un código dentro de texto explícitamente marcado como SKU."""
+        for token in re.split(r"\s+", str(text).strip()):
+            code = cls._normalize_code_candidate(token)
+            if code:
+                return code
+        return ""
+
     def extract_code(self, soup):
-        selectors = ["p.brxe-heading", "span.sku", "[sku]"]
+        selectors = [
+            "p.brxe-heading",
+            "span.sku",
+            "[sku]",
+            "[data-sku]",
+            ".sku",
+        ]
         for selector in selectors:
-            element = soup.select_one(selector)
-            if element:
-                text = element.get_text(" ", strip=True)
-                if "FB-" in text:
-                    return text.split()[0]
+            for element in soup.select(selector):
+                text = (
+                    element.get("sku")
+                    or element.get("data-sku")
+                    or element.get_text(" ", strip=True)
+                )
+                code = self._normalize_code_candidate(str(text))
+                if code:
+                    return code
+
+        code_marker = re.compile(r"\b(?:c[oó]digo|sku|cod)\b", re.I)
+        for text_node in soup.find_all(string=code_marker):
+            parent = text_node.parent
+            if parent is None:
+                continue
+            code = self._find_code_token(parent.get_text(" ", strip=True))
+            if code:
+                return code
+
+            sibling = parent.find_next(string=True)
+            if sibling is not None:
+                code = self._find_code_token(str(sibling))
+                if code:
+                    return code
+
         return ""
 
     def extract_name(self, soup):
@@ -471,4 +519,6 @@ class ProductExtractor:
             return "https:" + url
         if url.startswith("/"):
             return urljoin(self.BASE_URL, url)
+        if not url.startswith(("http://", "https://")):
+            return urljoin(self.BASE_URL + "/", url)
         return url

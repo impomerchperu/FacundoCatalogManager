@@ -2,19 +2,20 @@ from models.scraping.category import Category
 from models.scraping.scraped_product import ScrapedProduct
 from models.scraping.sync_result import SyncResult
 from services.scraping.catalog_sync_service import CatalogSyncService
-from services.scraping.category_product_sync_service import (
-    CategoryProductSyncService,
-)
+from services.scraping.category_product_sync_service import CategoryProductSyncService
 
 
 class FakeScraper:
-    def scrape_category(self, category_url, category_name):
+    def scrape_category(self, category_url, category_name, expected_count=0):
+        del category_url, expected_count
         return [
             ScrapedProduct(
                 code="P001",
                 name="Producto compartido",
                 category=category_name,
-                color_stock={"Rojo": 5}
+                color_stock={
+                    "Rojo": 5,
+                }
                 if category_name == "Jarros"
                 else {"Azul": 7},
             ),
@@ -47,11 +48,15 @@ class FakeCatalogSync:
     def consolidate_products(self, products):
         return CatalogSyncService.consolidate_products(products)
 
-    def sync(self, products):
+    def sync(self, products, expected_products=0, expected_category_occurrences=0):
         self.received = list(products)
         result = SyncResult()
         result.processed = len(self.received)
         result.created = len(self.received)
+        result.products_expected = expected_products
+        result.expected_category_occurrences = expected_category_occurrences
+        result.products_found = len(self.received)
+        result.products_unique = len(self.received)
         result.finish()
         return result
 

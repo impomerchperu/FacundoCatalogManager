@@ -1,0 +1,14 @@
+{
+  "scraped_at": "2026-08-21T01:22:49.062358+00:00",
+  "codes": [
+    "p001",
+    "p002"
+  ],
+  "scraped_unique_products": 2,
+  "expected_unique_products": 2,
+  "expected_category_occurrences": 3,
+  "products_found": 3,
+  "coverage_complete": true,
+  "errors": [],
+  "failures": []
+}

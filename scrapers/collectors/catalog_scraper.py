@@ -38,34 +38,20 @@ class CatalogScraper:
         dentro de una categoría.
         """
 
-        categories = self.category_scraper.scrape(
-            catalog_url,
-        )
-
+        categories = self.category_scraper.scrape(catalog_url)
         pages: list[tuple[Category, str]] = []
 
         for category in categories:
-            category_pages = (
-                self.category_scraper.get_category_pages(
-                    category.url,
-                )
+            category_pages = self.category_scraper.get_category_pages(
+                category.url,
+                expected_count=getattr(category, "expected_count", 0),
             )
 
             if not category_pages:
-                pages.append(
-                    (
-                        category,
-                        category.url,
-                    )
-                )
+                pages.append((category, category.url))
                 continue
 
             for page in category_pages:
-                pages.append(
-                    (
-                        category,
-                        page,
-                    )
-                )
+                pages.append((category, page))
 
         return pages

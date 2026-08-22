@@ -1,8 +1,9 @@
+import requests
+
 from scrapers.collectors.category_scraper import CategoryScraper
 
 
 def test_category_scraper_extracts_categories():
-
     class FakeBrowser:
         def get(self, url):
             return "<html></html>"
@@ -12,7 +13,181 @@ def test_category_scraper_extracts_categories():
             return ["Herramientas", "Electricidad"]
 
     scraper = CategoryScraper(FakeBrowser(), FakeParser())
-
     result = scraper.scrape("https://example.com/categories")
-
     assert result == ["Herramientas", "Electricidad"]
+
+
+def test_category_scraper_parses_jetsmartfilters_metadata():
+    payload = '{"found_posts":50,"max_num_pages":2,"page":1}'
+    assert CategoryScraper._parse_jsf_metadata(payload) == (50, 2)
+
+
+def test_category_scraper_derives_pages_from_jetsmartfilters_count():
+    category_url = "https://stock.importacionesfacundo.com/categoria-producto/catalogo/"
+    first_codes = " ".join(f"FB-{number:03d}" for number in range(1, 26))
+    second_codes = " ".join(f"FB-{number:03d}" for number in range(26, 51))
+    category_html = (
+        '<body class="archive tax-product_cat term-127">'
+        f"<div>{first_codes}</div></body>"
+    )
+    second_page_html = f"<div>{second_codes}</div>"
+
+    class FakeBrowser:
+        def get(self, url):
+            if url == category_url:
+                return category_html
+            if url.endswith("?product-page=2"):
+                return second_page_html
+            if url.endswith("/page/2/") or url.endswith("?paged=2"):
+                return second_page_html
+            raise requests.HTTPError("404 Not Found")
+
+    scraper = CategoryScraper(FakeBrowser())
+    scraper._jet_smart_filters_metadata = lambda url, html: (50, 2)
+    pages = scraper.get_category_pages(category_url, expected_count=25)
+
+    assert pages[0] == category_url
+    assert len(pages) == 2
+    assert any("product-page=2" in page for page in pages)
+
+
+def test_category_scraper_detects_embedded_jetsmartfilters_pages():
+    category_url = "https://example.com/categoria-producto/jarros-mug/"
+    first_codes = " ".join(f"FB-{number:03d}" for number in range(1, 26))
+    second_codes = " ".join(f"FB-{number:03d}" for number in range(26, 51))
+    third_codes = " ".join(f"FB-{number:03d}" for number in range(51, 76))
+    category_html = f"""
+    <html><body>
+      <div>{first_codes}</div>
+      <div class="jet-filters-pagination__item" data-value="1">
+        <div class="jet-filters-pagination__link">1</div>
+      </div>
+      <div class="jet-filters-pagination__item" data-value="2">
+        <div class="jet-filters-pagination__link">2</div>
+      </div>
+      <div class="jet-filters-pagination__item" data-value="3">
+        <div class="jet-filters-pagination__link">3</div>
+      </div>
+    </body></html>
+    """
+
+    class FakeBrowser:
+        def get(self, url):
+            if url == category_url:
+                return category_html
+            if url.endswith("?product-page=2"):
+                return f"<div>{second_codes}</div>"
+            if url.endswith("?product-page=3"):
+                return f"<div>{third_codes}</div>"
+            raise requests.HTTPError("404 Not Found")
+
+    scraper = CategoryScraper(FakeBrowser())
+    pages = scraper.get_category_pages(category_url, expected_count=75)
+    assert pages == [
+        category_url,
+        f"{category_url}?product-page=2",
+        f"{category_url}?product-page=3",
+    ]
+
+
+def test_category_scraper_skips_invalid_embedded_page_without_aborting_category():
+    category_url = "https://example.com/categoria-producto/jarros-mug/"
+    first_codes = " ".join(f"FB-{number:03d}" for number in range(1, 26))
+    third_codes = " ".join(f"FB-{number:03d}" for number in range(51, 76))
+    category_html = f"""
+    <div>{first_codes}</div>
+    <div class="jet-filters-pagination__item" data-value="2">
+      <div class="jet-filters-pagination__link">2</div>
+    </div>
+    <div class="jet-filters-pagination__item" data-value="3">
+      <div class="jet-filters-pagination__link">3</div>
+    </div>
+    """
+    page_3_url = f"{category_url}?product-page=3"
+    page_3_html = f"<div>{third_codes}</div>"
+
+    class FakeBrowser:
+        def get(self, url):
+            if url == category_url:
+                return category_html
+            if url.endswith("?product-page=2"):
+                raise requests.HTTPError("404 Not Found")
+            if url == page_3_url:
+                return page_3_html
+            raise requests.HTTPError("404 Not Found")
+
+    scraper = CategoryScraper(FakeBrowser())
+    pages = scraper.get_category_pages(category_url, expected_count=75)
+    assert pages == [category_url, page_3_url]
+
+
+def test_category_scraper_uses_authoritative_expected_count_for_hidden_pages():
+    category_url = "https://example.com/categoria-producto/catalogo/"
+    first_page_codes = " ".join(f"FB-{number:03d}" for number in range(1, 26))
+    second_page_codes = " ".join(f"FB-{number:03d}" for number in range(26, 51))
+    first_page_html = f"<div>{first_page_codes}</div>"
+    second_page_html = f"<div>{second_page_codes}</div>"
+
+    class FakeBrowser:
+        def get(self, url):
+            if url == category_url:
+                return first_page_html
+            if url == f"{category_url}?product-page=2":
+                return second_page_html
+            raise requests.HTTPError("404 Not Found")
+
+    scraper = CategoryScraper(FakeBrowser())
+    pages = scraper.get_category_pages(category_url, expected_count=50)
+    assert pages == [category_url, f"{category_url}?product-page=2"]
+
+
+def test_category_scraper_stops_probing_when_expected_count_is_reached():
+    category_url = "https://example.com/categoria-producto/catalogo/"
+    pages_html = {
+        category_url: " ".join(f"FB-{number:03d}" for number in range(1, 26)),
+        f"{category_url}?product-page=2": " ".join(
+            f"FB-{number:03d}" for number in range(26, 51)
+        ),
+    }
+    requested = []
+
+    class FakeBrowser:
+        def get(self, url):
+            requested.append(url)
+            if url in pages_html:
+                return f"<div>{pages_html[url]}</div>"
+            raise requests.HTTPError("404 Not Found")
+
+    scraper = CategoryScraper(FakeBrowser())
+    pages = scraper.get_category_pages(category_url, expected_count=50)
+
+    assert pages == [category_url, f"{category_url}?product-page=2"]
+    assert all("page=3" not in url and "page/3" not in url for url in requested)
+    assert all("paged=3" not in url and "page_num=3" not in url for url in requested)
+
+
+def test_category_scraper_ignores_duplicate_variant_and_continues():
+    category_url = "https://example.com/categoria-producto/catalogo/"
+    first = " ".join(f"FB-{number:03d}" for number in range(1, 26))
+    second = " ".join(f"FB-{number:03d}" for number in range(26, 51))
+    third = " ".join(f"FB-{number:03d}" for number in range(51, 76))
+
+    class FakeBrowser:
+        def get(self, url):
+            if url == category_url:
+                return f"<div>{first}</div>"
+            if url.endswith("?product-page=2") or url.endswith("/page/2/"):
+                return f"<div>{first}</div>"
+            if url.endswith("?paged=2"):
+                return f"<div>{second}</div>"
+            if url.endswith("?product-page=3"):
+                return f"<div>{third}</div>"
+            raise requests.HTTPError("404 Not Found")
+
+    scraper = CategoryScraper(FakeBrowser())
+    pages = scraper.get_category_pages(category_url, expected_count=75)
+
+    assert len(pages) == 3
+    assert pages[0] == category_url
+    assert pages[1].endswith("?paged=2")
+    assert pages[2].endswith("?product-page=3")

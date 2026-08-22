@@ -1,10 +1,12 @@
 import re
 
+import requests
+
 from scrapers.collectors.category_scraper import CategoryScraper
 
 
 class ResilientCategoryScraper(CategoryScraper):
-    """Preserva el flujo JSF y recupera categorías cuando el AJAX queda vacío."""
+    """Preserva el flujo JSF y recupera categorías ante fallos transitorios."""
 
     EMPTY_JSF_RETRIES = 2
 
@@ -20,8 +22,10 @@ class ResilientCategoryScraper(CategoryScraper):
 
         try:
             return super().get_category_pages(category_url, expected_count)
-        except RuntimeError as error:
-            if "JetSmartFilters no devolvió contenido" not in str(error):
+        except (RuntimeError, requests.exceptions.HTTPError) as error:
+            if isinstance(error, requests.exceptions.HTTPError) and not self._is_retryable_http_error(error):
+                raise
+            if isinstance(error, RuntimeError) and "JetSmartFilters no devolvió contenido" not in str(error):
                 raise
 
             # CategoryScraper's broad SKU regex also matches taxonomy markers
@@ -47,10 +51,21 @@ class ResilientCategoryScraper(CategoryScraper):
                         category_url,
                         expected_count,
                     )
-                except RuntimeError as retry_error:
-                    if "JetSmartFilters no devolvió contenido" not in str(
+                except (RuntimeError, requests.exceptions.HTTPError) as retry_error:
+                    if isinstance(retry_error, requests.exceptions.HTTPError):
+                        if not self._is_retryable_http_error(retry_error):
+                            raise
+                    elif "JetSmartFilters no devolvió contenido" not in str(
                         retry_error
                     ):
                         raise
 
             raise
+
+    @staticmethod
+    def _is_retryable_http_error(error: requests.exceptions.HTTPError) -> bool:
+        response = getattr(error, "response", None)
+        status_code = getattr(response, "status_code", None)
+        return status_code == 429 or (
+            isinstance(status_code, int) and status_code >= 500
+        )

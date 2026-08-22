@@ -66,7 +66,7 @@ def test_category_scraper_uses_jetsmartfilters_for_every_declared_page():
 
     pages = scraper.get_category_pages(category_url)
 
-    page_2 = f"{category_url}?product-page=2"
+    page_2 = f"{category_url.rstrip('/')}?product-page=2"
     assert pages == [category_url, page_2]
     assert len(browser.get_calls) == 1
     assert [
@@ -89,7 +89,7 @@ def test_category_scraper_uses_jetsmartfilters_for_every_declared_page():
     assert scraper.get_html(page_2) == "<div>FB-026 FB-027</div>"
 
 
-def test_category_scraper_uses_found_posts_to_derive_pages_when_max_num_pages_missing():
+def test_category_scraper_uses_found_posts_when_max_num_pages_missing():
     category_url = (
         "https://stock.importacionesfacundo.com/"
         "categoria-producto/catalogo/"
@@ -107,12 +107,12 @@ def test_category_scraper_uses_found_posts_to_derive_pages_when_max_num_pages_mi
 
     assert pages == [
         category_url,
-        f"{category_url}?product-page=2",
-        f"{category_url}?product-page=3",
+        f"{category_url.rstrip('/')}?product-page=2",
+        f"{category_url.rstrip('/')}?product-page=3",
     ]
 
 
-def test_category_scraper_does_not_probe_wordpress_page_variants_when_jsf_metadata_exists():
+def test_category_scraper_does_not_probe_wordpress_when_jsf_metadata_exists():
     category_url = (
         "https://stock.importacionesfacundo.com/"
         "categoria-producto/catalogo/"

@@ -3,6 +3,12 @@ import unicodedata
 
 _MOJIBAKE_MARKERS = ("Ã", "Â", "â", "ð", "�")
 _COMPARISON_STOPWORDS = {"de"}
+# Some legacy catalog text was already partially corrupted, so it cannot be
+# repaired by a reversible latin1/UTF-8 round-trip. Keep only the observed
+# lossy fragments here; this affects comparison keys, never stored names.
+_LOSSY_MOJIBAKE_REPLACEMENTS = {
+    "Ãculos": "ículos",
+}
 
 
 def normalize_category_name(value: object) -> str:
@@ -21,6 +27,9 @@ def normalize_category_name(value: object) -> str:
         if decoded == text:
             break
         text = decoded
+
+    for broken, repaired in _LOSSY_MOJIBAKE_REPLACEMENTS.items():
+        text = text.replace(broken, repaired)
 
     text = unicodedata.normalize("NFKD", text)
     text = "".join(char for char in text if not unicodedata.combining(char))

@@ -296,6 +296,19 @@ class CategoryScraper:
     def _jsf_page_url(category_url: str, page: int) -> str:
         return f"{category_url.rstrip('/')}?product-page={page}"
 
+    @staticmethod
+    def _fallback_page_url(category_url: str, page: int) -> str:
+        return f"{category_url.rstrip('/')}/page/{page}/"
+
+    @staticmethod
+    def _declared_total_pages(html: str) -> int:
+        patterns = (
+            r"\btotalPages\s*[:=]\s*(\d+)",
+            r'"max_num_pages"\s*[:=]\s*(\d+)',
+            r"\bmax_num_pages\s*[:=]\s*(\d+)",
+        )
+        return CategoryScraper._first_int(html, patterns)
+
     def _cache_category_html(self, url: str, html: str) -> None:
         with self._category_html_cache_lock:
             self._category_html_cache[url] = html
@@ -303,7 +316,7 @@ class CategoryScraper:
     def _fallback_category_pages(
         self, category_url: str, category_html: str, expected_count: int
     ) -> list[str]:
-        """Fallback legado solo para páginas sin metadatos JetSmartFilters."""
+        """Fallback legado para páginas sin metadatos JetSmartFilters."""
         pages = [category_url]
         soup = self._parse(category_html)
         links = []
@@ -313,18 +326,41 @@ class CategoryScraper:
         ):
             href = link.get("href")
             if isinstance(href, str) and href.strip():
-                links.append(urljoin(category_url, href))
-        if expected_count > 0:
+                page_url = urljoin(category_url, href)
+                if page_url not in links:
+                    links.append(page_url)
+
+        declared_total = self._declared_total_pages(category_html)
+        if declared_total > 1:
+            total_pages = declared_total
+        elif expected_count > 0:
             total_pages = (
                 expected_count + self.PRODUCTS_PER_PAGE - 1
             ) // self.PRODUCTS_PER_PAGE
+        else:
+            total_pages = 0
+
+        if total_pages > 1:
             for page in range(2, total_pages + 1):
-                candidate = self._jsf_page_url(category_url, page)
+                candidate = self._fallback_page_url(category_url, page)
                 if candidate not in links:
                     links.append(candidate)
+
         for page_url in links:
             if page_url not in pages:
                 pages.append(page_url)
+
+        if not links and total_pages == 0:
+            page_number = 2
+            while True:
+                candidate = self._fallback_page_url(category_url, page_number)
+                html = self.get_html(candidate)
+                if not html:
+                    break
+                self._cache_category_html(candidate, html)
+                pages.append(candidate)
+                page_number += 1
+
         return pages
 
     def _product_keys(self, html: str, soup=None) -> set[str]:

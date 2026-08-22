@@ -45,7 +45,10 @@ def test_parse_jsf_response_reads_pagination_and_rendered_content():
 
 
 def test_category_scraper_uses_jetsmartfilters_for_every_declared_page():
-    category_url = "https://stock.importacionesfacundo.com/categoria-producto/catalogo/"
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
     category_html = '<body class="archive tax-product_cat term-127"></body>'
     responses = {
         category_url: category_html,
@@ -77,7 +80,9 @@ def test_category_scraper_uses_jetsmartfilters_for_every_declared_page():
     assert first_payload["defaults[posts_per_page]"] == "25"
     assert first_payload["settings[filtered_post_id]"] == "127"
     assert first_payload["settings[element_id]"] == "95dc8a"
-    assert first_payload["settings[jsf_signature]"] == "83bc155f208a7b2c473d90a84cf5fe01"
+    assert first_payload["settings[jsf_signature]"] == (
+        "83bc155f208a7b2c473d90a84cf5fe01"
+    )
     assert first_payload["indexing_filters[]"] == "434"
 
     assert scraper.get_html(category_url) == "<div>FB-001 FB-002</div>"
@@ -85,7 +90,10 @@ def test_category_scraper_uses_jetsmartfilters_for_every_declared_page():
 
 
 def test_category_scraper_uses_found_posts_to_derive_pages_when_max_num_pages_missing():
-    category_url = "https://stock.importacionesfacundo.com/categoria-producto/catalogo/"
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
     responses = {
         category_url: '<body class="tax-product_cat term-127"></body>',
         "ajax:1": '{"found_posts":51,"rendered_content":"<div>page1</div>"}',
@@ -105,10 +113,16 @@ def test_category_scraper_uses_found_posts_to_derive_pages_when_max_num_pages_mi
 
 
 def test_category_scraper_does_not_probe_wordpress_page_variants_when_jsf_metadata_exists():
-    category_url = "https://stock.importacionesfacundo.com/categoria-producto/catalogo/"
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
     responses = {
         category_url: '<body class="tax-product_cat term-127"></body>',
-        "ajax:1": '{"found_posts":25,"max_num_pages":1,"rendered_content":"<div>only</div>"}',
+        "ajax:1": (
+            '{"found_posts":25,"max_num_pages":1,'
+            '"rendered_content":"<div>only</div>"}'
+        ),
     }
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(browser)

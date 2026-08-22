@@ -46,6 +46,7 @@ class CategoryExtractor:
     @staticmethod
     def _extract_expected_count(link, category_name: str) -> int:
         """Busca el conteo del bloque individual de la categoría."""
+        fallback_count = 0
         current = link
         for _ in range(10):
             current = getattr(current, "parent", None)
@@ -57,6 +58,10 @@ class CategoryExtractor:
             if len(matches) != 1:
                 continue
 
+            candidate = matches[0]
+            if fallback_count == 0:
+                fallback_count = candidate
+
             headings = current.find_all(
                 ["h1", "h2", "h3", "h4", "h5", "h6"],
             )
@@ -65,6 +70,6 @@ class CategoryExtractor:
                 for heading in headings
             }
             if category_name.casefold() in heading_texts:
-                return matches[0]
+                return candidate
 
-        return 0
+        return fallback_count

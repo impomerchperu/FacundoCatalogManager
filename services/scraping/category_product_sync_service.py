@@ -193,7 +193,7 @@ class CategoryProductSyncService:
         """Construye métricas auditables por categoría y por código."""
         category_counts: dict[str, int] = {}
         category_products: dict[str, set[str]] = {}
-        product_categories: dict[str, set[str]] = {}
+        product_categories: dict[str, dict[str, str]] = {}
         product_names: dict[str, str] = {}
         for product in products:
             code = str(getattr(product, "code", "")).strip()
@@ -206,11 +206,9 @@ class CategoryProductSyncService:
                 key = normalize_category_name(category)
                 if not key:
                     continue
-                category_counts.setdefault(key, 0)
-                category_products.setdefault(key, set())
-                category_counts[key] += 1
-                category_products[key].add(code)
-                product_categories.setdefault(code, set()).add(category)
+                category_counts[key] = category_counts.get(key, 0) + 1
+                category_products.setdefault(key, set()).add(code)
+                product_categories.setdefault(code, {})[key] = category
 
         expected_names = {
             normalize_category_name(getattr(category, "name", ""))
@@ -242,16 +240,18 @@ class CategoryProductSyncService:
             for name in sorted(all_keys)
         ]
         multiple = []
-        for code, names in sorted(
+        for code, category_map in sorted(
             product_categories.items(), key=lambda item: item[0].casefold()
         ):
-            if len(names) < 2:
+            if len(category_map) < 2:
                 continue
             multiple.append(
                 {
                     "code": code,
                     "name": product_names.get(code, ""),
-                    "categories": sorted(names, key=str.casefold),
+                    "categories": sorted(
+                        category_map.values(), key=str.casefold
+                    ),
                 }
             )
         self.last_sync_result.multiple_category_products = multiple

@@ -190,14 +190,18 @@ class CategoryScraper:
         max_num_pages = 0
         rendered_html = ""
         objects = []
-        with contextlib.suppress(TypeError, ValueError, json.JSONDecodeError):
+        with contextlib.suppress(
+            TypeError, ValueError, json.JSONDecodeError
+        ):
             objects.append(json.loads(payload))
 
         def visit(value):
             nonlocal found_posts, max_num_pages, rendered_html
             if isinstance(value, str):
                 if value.startswith("{") or value.startswith("["):
-                    with contextlib.suppress(TypeError, ValueError, json.JSONDecodeError):
+                    with contextlib.suppress(
+                        TypeError, ValueError, json.JSONDecodeError
+                    ):
                         visit(json.loads(value))
                 return
             if isinstance(value, list):

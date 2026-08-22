@@ -1,3 +1,4 @@
+import contextlib
 import json
 import re
 from threading import Lock
@@ -86,7 +87,11 @@ class CategoryScraper:
             return self.category_extractor.extract(soup)
         return []
 
-    def get_category_pages(self, category_url: str, expected_count: int = 0) -> list[str]:
+    def get_category_pages(
+        self,
+        category_url: str,
+        expected_count: int = 0,
+    ) -> list[str]:
         """Obtiene todas las páginas desde la consulta AJAX real de JetSmartFilters."""
         category_html = self.get_html(category_url)
         if not category_html:
@@ -113,7 +118,11 @@ class CategoryScraper:
                         pages.append(page_url)
                 return pages
 
-        return self._fallback_category_pages(category_url, category_html, expected_count)
+        return self._fallback_category_pages(
+            category_url,
+            category_html,
+            expected_count,
+        )
 
     def _fetch_jsf_page(
         self,
@@ -135,7 +144,9 @@ class CategoryScraper:
         except requests.RequestException:
             return 0, 0, ""
 
-        found_posts, max_num_pages, rendered_html = self._parse_jsf_response(response_text)
+        found_posts, max_num_pages, rendered_html = self._parse_jsf_response(
+            response_text
+        )
         if found_posts > 0 or max_num_pages > 0:
             with self._jsf_cache_lock:
                 self._jsf_metadata_cache[category_url] = (
@@ -160,7 +171,10 @@ class CategoryScraper:
         return response.text
 
     @staticmethod
-    def _jet_smart_filters_payload(category_id: int, page: int) -> list[tuple[str, str]]:
+    def _jet_smart_filters_payload(
+        category_id: int,
+        page: int,
+    ) -> list[tuple[str, str]]:
         return [
             ("action", "jet_smart_filters"),
             ("provider", "bricks-query-loop/querydesk"),
@@ -188,19 +202,19 @@ class CategoryScraper:
         max_num_pages = 0
         rendered_html = ""
         objects = []
-        try:
+        with contextlib.suppress(TypeError, ValueError, json.JSONDecodeError):
             objects.append(json.loads(payload))
-        except (TypeError, ValueError, json.JSONDecodeError):
-            pass
 
         def visit(value):
             nonlocal found_posts, max_num_pages, rendered_html
             if isinstance(value, str):
                 if value.startswith("{") or value.startswith("["):
-                    try:
+                    with contextlib.suppress(
+                        TypeError,
+                        ValueError,
+                        json.JSONDecodeError,
+                    ):
                         visit(json.loads(value))
-                    except (TypeError, ValueError, json.JSONDecodeError):
-                        pass
                 return
             if isinstance(value, list):
                 for item in value:
@@ -211,12 +225,17 @@ class CategoryScraper:
             for key, item in value.items():
                 normalized = str(key).casefold()
                 if normalized == "found_posts":
-                    found_posts = max(found_posts, CategoryScraper._to_int(item))
+                    found_posts = max(
+                        found_posts,
+                        CategoryScraper._to_int(item),
+                    )
                 elif normalized == "max_num_pages":
-                    max_num_pages = max(max_num_pages, CategoryScraper._to_int(item))
-                elif normalized == "rendered_content" and isinstance(item, str):
-                    if len(item) > len(rendered_html):
-                        rendered_html = item
+                    max_num_pages = max(
+                        max_num_pages,
+                        CategoryScraper._to_int(item),
+                    )
+                elif normalized == "rendered_content" and isinstance(item, str) and len(item) > len(rendered_html):
+                    rendered_html = item
                 visit(item)
 
         for obj in objects:
@@ -225,7 +244,10 @@ class CategoryScraper:
         if found_posts == 0:
             found_posts = CategoryScraper._first_int(
                 payload,
-                (r'"found_posts"\s*:\s*(\d+)', r"found_posts\s*[:=]\s*(\d+)"),
+                (
+                    r'"found_posts"\s*:\s*(\d+)',
+                    r"found_posts\s*[:=]\s*(\d+)",
+                ),
             )
         if max_num_pages == 0:
             max_num_pages = CategoryScraper._first_int(
@@ -236,7 +258,9 @@ class CategoryScraper:
                 ),
             )
         if max_num_pages == 0 and found_posts > 0:
-            max_num_pages = (found_posts + CategoryScraper.PRODUCTS_PER_PAGE - 1) // CategoryScraper.PRODUCTS_PER_PAGE
+            max_num_pages = (
+                found_posts + CategoryScraper.PRODUCTS_PER_PAGE - 1
+            ) // CategoryScraper.PRODUCTS_PER_PAGE
         return found_posts, max_num_pages, rendered_html
 
     @staticmethod
@@ -309,7 +333,9 @@ class CategoryScraper:
             if isinstance(href, str) and href.strip():
                 links.append(urljoin(category_url, href))
         if expected_count > 0:
-            total_pages = (expected_count + self.PRODUCTS_PER_PAGE - 1) // self.PRODUCTS_PER_PAGE
+            total_pages = (
+                expected_count + self.PRODUCTS_PER_PAGE - 1
+            ) // self.PRODUCTS_PER_PAGE
             for page in range(2, total_pages + 1):
                 candidate = self._jsf_page_url(category_url, page)
                 if candidate not in links:
@@ -333,14 +359,22 @@ class CategoryScraper:
                     keys.add(key)
         if keys:
             return keys
-        pattern = re.compile(r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", re.IGNORECASE)
+        pattern = re.compile(
+            r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b",
+            re.IGNORECASE,
+        )
         return {match.upper() for match in pattern.findall(html)}
 
     @staticmethod
     def _product_key_from_card(card) -> str:
         for selector in (
-            "p.brxe-a26f34", "span.sku", ".sku", "[sku]", "[data-sku]",
-            "p[class*='sku']", "span[class*='sku']",
+            "p.brxe-a26f34",
+            "span.sku",
+            ".sku",
+            "[sku]",
+            "[data-sku]",
+            "p[class*='sku']",
+            "span[class*='sku']",
         ):
             element = card.select_one(selector)
             if element is None:

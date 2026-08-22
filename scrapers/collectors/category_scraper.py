@@ -355,15 +355,17 @@ class CategoryScraper:
         soup = BeautifulSoup(html or "", "html.parser")
         body = soup.body
         if body is not None:
-            for class_name in body.get("class", []):
-                match = re.fullmatch(
-                    r"(?:term|product_cat)-(\d+)", str(class_name)
-                )
-                if match:
-                    return int(match.group(1))
+            class_names = body.get("class")
+            if isinstance(class_names, (list, tuple)):
+                for class_name in class_names:
+                    match = re.fullmatch(
+                        r"(?:term|product_cat)-(\d+)", str(class_name)
+                    )
+                    if match:
+                        return int(match.group(1))
             for attribute in ("data-term-id", "data-category-id"):
                 value = body.get(attribute)
-                if str(value).isdigit():
+                if isinstance(value, str) and value.isdigit():
                     return int(value)
         patterns = (
             r'data-term-id=["\'](\d+)["\']',
@@ -437,7 +439,7 @@ class CategoryScraper:
         self, category_url: str, html: str
     ) -> list[str]:
         soup = self._parse(html)
-        links: list[str] = []
+        links = []
         selector = (
             "a.page-numbers, nav.woocommerce-pagination a, "
             "a[href*='product-page='], a[href*='paged='], "
@@ -552,7 +554,7 @@ class CategoryScraper:
                         pages.append(next_url)
                         visited.add(next_url)
 
-    def _product_keys(self, html: str, soup: Any = None) -> set[str]:
+    def _product_keys(self, html: str, soup=None) -> set[str]:
         soup = soup or self._parse(html)
         keys: set[str] = set()
         if self.product_block_extractor:
@@ -572,7 +574,7 @@ class CategoryScraper:
         return {match.upper() for match in pattern.findall(html)}
 
     @staticmethod
-    def _product_key_from_card(card: Any) -> str:
+    def _product_key_from_card(card) -> str:
         for selector in (
             "p.brxe-a26f34",
             "span.sku",

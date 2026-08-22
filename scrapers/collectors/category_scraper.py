@@ -2,6 +2,7 @@ import contextlib
 import json
 import re
 from threading import Lock
+from typing import Any
 from urllib.parse import urljoin
 
 import requests
@@ -24,15 +25,15 @@ class CategoryScraper:
 
     def __init__(
         self,
-        browser,
-        parser=None,
-        category_extractor=None,
-        product_block_extractor=None,
-    ):
+        browser: Any,
+        parser: Any = None,
+        category_extractor: Any = None,
+        product_block_extractor: Any = None,
+    ) -> None:
         self.parser = parser
         self.category_extractor = category_extractor
         self.product_block_extractor = product_block_extractor
-        self.base_url = None
+        self.base_url: str | None = None
         self._category_html_cache: dict[str, str] = {}
         self._category_html_cache_lock = Lock()
         self._jsf_metadata_cache: dict[str, tuple[int, int]] = {}
@@ -50,27 +51,31 @@ class CategoryScraper:
         if cached_html is not None:
             return cached_html
         if self.browser:
-            html = self.browser.get(url)
-            if isinstance(html, str):
-                return html
-            if hasattr(html, "text"):
-                return html.text
-            return str(html)
+            return self._response_text(self.browser.get(url))
         response = requests.get(url, timeout=20, headers=DEFAULT_HEADERS)
         response.raise_for_status()
         return response.text
+
+    @staticmethod
+    def _response_text(response: Any) -> str:
+        if isinstance(response, str):
+            return response
+        text = getattr(response, "text", None)
+        if isinstance(text, str):
+            return text
+        return str(response)
 
     def _cache_category_html(self, url: str, html: str) -> None:
         if html:
             with self._category_html_cache_lock:
                 self._category_html_cache[url] = html
 
-    def _parse(self, html: str):
+    def _parse(self, html: str) -> Any:
         if self.parser and hasattr(self.parser, "parse"):
             return self.parser.parse(html)
         return BeautifulSoup(html, "html.parser")
 
-    def scrape(self, url: str):
+    def scrape(self, url: str) -> Any:
         html = self.get_html(url)
         if not html:
             return []
@@ -81,7 +86,7 @@ class CategoryScraper:
             return self.category_extractor.extract(soup)
         return []
 
-    def get_product_urls(self, url: str):
+    def get_product_urls(self, url: str) -> Any:
         html = self.get_html(url)
         if not html:
             return []
@@ -218,7 +223,9 @@ class CategoryScraper:
 
     def _post_jsf(self, payload: list[tuple[str, str]]) -> str:
         if self.browser and hasattr(self.browser, "post"):
-            return self.browser.post(JETSMARTFILTERS_AJAX_URL, data=payload)
+            return self._response_text(
+                self.browser.post(JETSMARTFILTERS_AJAX_URL, data=payload)
+            )
         response = requests.post(
             JETSMARTFILTERS_AJAX_URL,
             data=payload,
@@ -259,17 +266,15 @@ class CategoryScraper:
         max_num_pages = 0
         rendered_html = ""
         objects = []
-        with contextlib.suppress(TypeError, ValueError, json.JSONDecodeError):
+        with contextlib.suppress(TypeError, ValueError):
             objects.append(json.loads(payload))
 
-        def visit(value):
+        def visit(value: Any) -> None:
             nonlocal found_posts, max_num_pages, rendered_html
             if isinstance(value, str):
                 stripped = value.strip()
                 if stripped.startswith(("{", "[")):
-                    with contextlib.suppress(
-                        TypeError, ValueError, json.JSONDecodeError
-                    ):
+                    with contextlib.suppress(TypeError, ValueError):
                         visit(json.loads(stripped))
                 return
             if isinstance(value, list):
@@ -328,7 +333,7 @@ class CategoryScraper:
         return found_posts, max_num_pages
 
     @staticmethod
-    def _to_int(value) -> int:
+    def _to_int(value: Any) -> int:
         try:
             return int(value)
         except (TypeError, ValueError):
@@ -432,7 +437,7 @@ class CategoryScraper:
         self, category_url: str, html: str
     ) -> list[str]:
         soup = self._parse(html)
-        links = []
+        links: list[str] = []
         selector = (
             "a.page-numbers, nav.woocommerce-pagination a, "
             "a[href*='product-page='], a[href*='paged='], "
@@ -547,7 +552,7 @@ class CategoryScraper:
                         pages.append(next_url)
                         visited.add(next_url)
 
-    def _product_keys(self, html: str, soup=None) -> set[str]:
+    def _product_keys(self, html: str, soup: Any = None) -> set[str]:
         soup = soup or self._parse(html)
         keys: set[str] = set()
         if self.product_block_extractor:
@@ -567,7 +572,7 @@ class CategoryScraper:
         return {match.upper() for match in pattern.findall(html)}
 
     @staticmethod
-    def _product_key_from_card(card) -> str:
+    def _product_key_from_card(card: Any) -> str:
         for selector in (
             "p.brxe-a26f34",
             "span.sku",

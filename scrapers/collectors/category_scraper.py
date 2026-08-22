@@ -309,16 +309,22 @@ class CategoryScraper:
         )
         return CategoryScraper._first_int(html, patterns)
 
-    def _cache_category_html(self, url: str, html: str) -> None:
-        with self._category_html_cache_lock:
-            self._category_html_cache[url] = html
+    @staticmethod
+    def _page_number(url: str) -> int | None:
+        patterns = (
+            r"[?&](?:product-page|paged)=(\d+)",
+            r"/page/(\d+)(?:/|$)",
+        )
+        for pattern in patterns:
+            match = re.search(pattern, url or "", flags=re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        return None
 
-    def _fallback_category_pages(
-        self, category_url: str, category_html: str, expected_count: int
+    def _fallback_pagination_links(
+        self, category_url: str, html: str
     ) -> list[str]:
-        """Fallback legado para páginas sin metadatos JetSmartFilters."""
-        pages = [category_url]
-        soup = self._parse(category_html)
+        soup = self._parse(html)
         links = []
         for link in soup.select(
             "a.page-numbers, nav.woocommerce-pagination a, "
@@ -329,7 +335,29 @@ class CategoryScraper:
                 page_url = urljoin(category_url, href)
                 if page_url not in links:
                     links.append(page_url)
+        for item in soup.select(
+            ".jet-filters-pagination__item[data-value], "
+            ".jet-filters-pagination__link[data-value]"
+        ):
+            value = item.get("data-value")
+            if not str(value).isdigit() or int(value) <= 1:
+                continue
+            page_url = self._fallback_page_url(category_url, int(value))
+            if page_url not in links:
+                links.append(page_url)
+        return links
 
+    def _fallback_category_pages(
+        self, category_url: str, category_html: str, expected_count: int
+    ) -> list[str]:
+        """Fallback legado para páginas sin metadatos JetSmartFilters."""
+        pages = [category_url]
+        discovered = self._fallback_pagination_links(category_url, category_html)
+        discovered_numbers = {
+            number
+            for number in (self._page_number(url) for url in discovered)
+            if number is not None
+        }
         declared_total = self._declared_total_pages(category_html)
         if declared_total > 1:
             total_pages = declared_total
@@ -342,15 +370,28 @@ class CategoryScraper:
 
         if total_pages > 1:
             for page in range(2, total_pages + 1):
-                candidate = self._fallback_page_url(category_url, page)
-                if candidate not in links:
-                    links.append(candidate)
+                if page in discovered_numbers:
+                    continue
+                discovered.append(self._fallback_page_url(category_url, page))
+                discovered_numbers.add(page)
 
-        for page_url in links:
-            if page_url not in pages:
-                pages.append(page_url)
+        pending = list(discovered)
+        visited = set(pages)
+        while pending:
+            page_url = pending.pop(0)
+            if page_url in visited:
+                continue
+            visited.add(page_url)
+            pages.append(page_url)
+            html = self.get_html(page_url)
+            if not html:
+                continue
+            self._cache_category_html(page_url, html)
+            for next_url in self._fallback_pagination_links(category_url, html):
+                if next_url not in visited and next_url not in pending:
+                    pending.append(next_url)
 
-        if not links and total_pages == 0:
+        if not discovered and total_pages == 0:
             page_number = 2
             while True:
                 candidate = self._fallback_page_url(category_url, page_number)

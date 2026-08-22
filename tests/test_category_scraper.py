@@ -26,7 +26,10 @@ def test_category_scraper_derives_pages_from_jetsmartfilters_count():
     category_url = "https://stock.importacionesfacundo.com/categoria-producto/catalogo/"
     first_codes = " ".join(f"FB-{number:03d}" for number in range(1, 26))
     second_codes = " ".join(f"FB-{number:03d}" for number in range(26, 51))
-    category_html = f'<body class="archive tax-product_cat term-127"><div>{first_codes}</div></body>'
+    category_html = (
+        '<body class="archive tax-product_cat term-127">'
+        f"<div>{first_codes}</div></body>"
+    )
     second_page_html = f"<div>{second_codes}</div>"
 
     class FakeBrowser:

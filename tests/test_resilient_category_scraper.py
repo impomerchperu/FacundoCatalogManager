@@ -1,4 +1,5 @@
 import pytest
+import requests
 
 from scrapers.collectors.resilient_category_scraper import (
     ResilientCategoryScraper,
@@ -18,7 +19,10 @@ class FakeBrowser:
     def post(self, url, data=None):
         self.post_calls.append((url, data))
         page = next(value for key, value in data if key == "paged")
-        return self.responses[f"ajax:{page}"]
+        response = self.responses[f"ajax:{page}"]
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 def test_resilient_scraper_falls_back_to_server_rendered_category():
@@ -61,3 +65,27 @@ def test_resilient_scraper_retries_empty_jsf_before_raising():
         scraper.get_category_pages(category_url)
 
     assert len(browser.post_calls) == 3
+
+
+def test_resilient_scraper_falls_back_after_retryable_jsf_http_error():
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/enmicadoras-laminadoras/"
+    )
+    response = requests.Response()
+    response.status_code = 500
+    response.url = "https://stock.importacionesfacundo.com/wp-admin/admin-ajax.php"
+    error = requests.exceptions.HTTPError(response=response)
+    browser = FakeBrowser(
+        {
+            category_url: (
+                '<body class="archive tax-product_cat term-127">'
+                "<div>FB-1504 FB-1503</div>"
+                "</body>"
+            ),
+            "ajax:1": error,
+        }
+    )
+    scraper = ResilientCategoryScraper(browser)
+
+    assert scraper.get_category_pages(category_url) == [category_url]

@@ -7,9 +7,11 @@ from repositories.scraping.scraping_history_repository import (
     ScrapingHistoryRepository,
 )
 from scrapers.browser import Browser
-from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.collectors.product_collection_scraper import (
     ProductCollectionScraper,
+)
+from scrapers.collectors.resilient_category_scraper import (
+    ResilientCategoryScraper,
 )
 from scrapers.extractors.category_extractor import (
     CategoryExtractor,
@@ -112,7 +114,7 @@ class ScrapingFactory:
         )
 
         browser = Browser()
-        category_scraper = CategoryScraper(
+        category_scraper = ResilientCategoryScraper(
             browser=browser,
             category_extractor=CategoryExtractor(),
         )

@@ -1,7 +1,7 @@
 import json
 from types import SimpleNamespace
 
-import services.scraping.scraping_result_writer as scraping_result_writer
+from services.scraping import scraping_result_writer
 from models.scraping.category import Category
 from repositories.scraping.sync_repository import SyncRepository
 from services.scraping.catalog_sync_service import CatalogSyncService
@@ -48,7 +48,9 @@ class IdentityMapper:
         return product
 
 
-def test_category_sync_rewrites_result_artifact_with_final_coverage(tmp_path, monkeypatch):
+def test_category_sync_rewrites_result_artifact_with_final_coverage(
+    tmp_path, monkeypatch
+):
     result_path = tmp_path / "scraping_result.json"
     monkeypatch.setattr(scraping_result_writer, "RESULT_PATH", result_path)
     categories = [

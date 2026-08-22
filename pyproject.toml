@@ -1,7 +1,6 @@
 [tool.ruff]
 
 target-version = "py314"
-
 line-length = 88
 
 exclude = [
@@ -31,6 +30,3 @@ ignore = [
     "PLR2004",
     "TRY003",
 ]
-
-[tool.ruff.lint.per-file-ignores]
-"scrapers/collectors/category_scraper.py" = ["PLR0912"]

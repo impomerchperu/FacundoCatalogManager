@@ -3269,3 +3269,71 @@ SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.001
 SCRAPING TIMING | stage=missing_code | name=Sin código | url=(sin url)
 SCRAPING TIMING | stage=run_start | categories=2
 SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | seconds=0.003
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | expected_unique_products=525 | seconds=0.007
+SCRAPING TIMING | stage=coverage_incomplete | reason=unique_coverage_gap:524 | products=2 | categories=2 | expected_unique_products=525 | expected_category_occurrences=0
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000 | prune=false | expected_unique=unknown | expected_category_occurrences=unknown | unique=1 | gap=0
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.005
+SCRAPING TIMING | stage=category_coverage | category=Jarros | products=1 | unique=1
+SCRAPING TIMING | stage=category_coverage | category=Promocionales | products=1 | unique=1
+SCRAPING TIMING | stage=multi_category_coverage | products=1 | categories=2
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.001
+SCRAPING TIMING | stage=missing_code | name=Sin código | url=(sin url)
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.002
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | seconds=0.003
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | expected_unique_products=525 | seconds=0.005
+SCRAPING TIMING | stage=coverage_incomplete | reason=unique_coverage_gap:524 | products=2 | categories=2 | expected_unique_products=525 | expected_category_occurrences=0
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000 | prune=false | expected_unique=unknown | expected_category_occurrences=unknown | unique=1 | gap=0
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.005
+SCRAPING TIMING | stage=category_coverage | category=Jarros | products=1 | unique=1
+SCRAPING TIMING | stage=category_coverage | category=Promocionales | products=1 | unique=1
+SCRAPING TIMING | stage=multi_category_coverage | products=1 | categories=2
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.002
+SCRAPING TIMING | stage=missing_code | name=Sin código | url=(sin url)
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.002
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | expected_unique_products=525 | seconds=0.002
+SCRAPING TIMING | stage=coverage_incomplete | reason=unique_coverage_gap:524 | products=2 | categories=2 | expected_unique_products=525 | expected_category_occurrences=0
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000 | prune=false | expected_unique=unknown | expected_category_occurrences=unknown | unique=1 | gap=0
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.001
+SCRAPING TIMING | stage=category_coverage | category=Jarros | products=1 | unique=1
+SCRAPING TIMING | stage=category_coverage | category=Promocionales | products=1 | unique=1
+SCRAPING TIMING | stage=multi_category_coverage | products=1 | categories=2
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=missing_code | name=Sin código | url=(sin url)
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
+SCRAPING TIMING | stage=category_listing | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | seconds=0.001
+SCRAPING TIMING | stage=category_extraction | categories=2 | products=2 | expected_category_occurrences=0 | occurrence_gap=0 | expected_unique_products=525 | seconds=0.002
+SCRAPING TIMING | stage=coverage_incomplete | reason=unique_coverage_gap:524 | products=2 | categories=2 | expected_unique_products=525 | expected_category_occurrences=0
+SCRAPING TIMING | stage=consolidation | products=1 | seconds=0.000
+SCRAPING TIMING | stage=images | products=1 | seconds=0.000
+SCRAPING TIMING | stage=mapping | products=1 | seconds=0.000
+SCRAPING TIMING | stage=catalog_sync | products=1 | seconds=0.000 | prune=false | expected_unique=unknown | expected_category_occurrences=unknown | unique=1 | gap=0
+SCRAPING TIMING | stage=sync_total | products=1 | seconds=0.001
+SCRAPING TIMING | stage=category_coverage | category=Jarros | products=1 | unique=1
+SCRAPING TIMING | stage=category_coverage | category=Promocionales | products=1 | unique=1
+SCRAPING TIMING | stage=multi_category_coverage | products=1 | categories=2
+SCRAPING TIMING | category=categoria | products=2 | seconds=0.000
+SCRAPING TIMING | stage=persistence | products=2 | seconds=0.000
+SCRAPING TIMING | stage=sync_total | products=2 | seconds=0.000
+SCRAPING TIMING | stage=missing_code | name=Sin código | url=(sin url)
+SCRAPING TIMING | stage=run_start | categories=2
+SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001

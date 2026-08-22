@@ -473,12 +473,13 @@ class CategoryScraper:
         total_pages = max(
             declared_total, self._pagination_max_page(category_html)
         )
+        required_pages = 0
         if expected_count > 0:
-            total_pages = max(
-                total_pages,
-                (expected_count + self.PRODUCTS_PER_PAGE - 1)
-                // self.PRODUCTS_PER_PAGE,
-            )
+            required_pages = (
+                expected_count + self.PRODUCTS_PER_PAGE - 1
+            ) // self.PRODUCTS_PER_PAGE
+            if total_pages > 0:
+                total_pages = max(total_pages, required_pages)
         for page in range(2, total_pages + 1):
             if page in discovered_numbers:
                 continue
@@ -504,11 +505,6 @@ class CategoryScraper:
                     pending.append(next_url)
 
         if total_pages == 0 and not discovered:
-            required_pages = 0
-            if expected_count > 0:
-                required_pages = (
-                    expected_count + self.PRODUCTS_PER_PAGE - 1
-                ) // self.PRODUCTS_PER_PAGE
             self._probe_hidden_pages(
                 category_url,
                 pages,

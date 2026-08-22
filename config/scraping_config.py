@@ -31,11 +31,10 @@ SCRAPING_CATEGORY_WORKERS = 16
 # without being serialized by the shared Browser semaphore.
 SCRAPING_HTTP_WORKERS = 32
 
-# Unique-product coverage is intentionally not hard-coded. Category counts are
+# The live catalog reference is 525 unique products. Category counts are
 # occurrence counts and may contain the same product in multiple categories.
-# The live category totals are calculated from Category.expected_count for each
-# execution and are used as the coverage reference.
-EXPECTED_CATALOG_PRODUCTS = 0
+# Keep the unique-product target separate from category occurrence coverage.
+EXPECTED_CATALOG_PRODUCTS = 525
 
 # JetSmartFilters/Bricks Query Loop request metadata observed on the live catalog.
 # Keep these values centralized so the scraper can reproduce the provider query

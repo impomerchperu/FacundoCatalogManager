@@ -1,10 +1,7 @@
-from pathlib import Path
 from typing import ClassVar
 
 from models.scraping.sync_result import SyncResult
 from services.scraping.scraping_result_writer import ScrapingResultWriter
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class CatalogSyncService:
@@ -36,10 +33,7 @@ class CatalogSyncService:
 
     @staticmethod
     def _normalize_code(value) -> str:
-        """Normaliza mayúsculas y espacios exteriores.
-
-        Conserva el cuerpo exacto del código.
-        """
+        """Normaliza mayúsculas y espacios exteriores."""
         return str(value or "").strip().upper()
 
     def sync(
@@ -150,7 +144,12 @@ class CatalogSyncService:
             self._remove_missing_products(scraped_codes, result)
         result.finish()
         self.last_sync_result = result
-        self.result_writer.write(result, scraped_codes)
+
+        # Solo una ejecución con expectativas de catálogo genera el artefacto
+        # persistente. Las pruebas/unitarias y sincronizaciones parciales no
+        # pisan el resultado de la última ejecución real.
+        if result.products_expected > 0 or result.expected_category_occurrences > 0:
+            self.result_writer.write(result, scraped_codes)
         return result
 
     def sync_full_catalog(

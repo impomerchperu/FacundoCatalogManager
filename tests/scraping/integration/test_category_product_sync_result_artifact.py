@@ -1,9 +1,9 @@
 import json
 from types import SimpleNamespace
 
-from services.scraping import scraping_result_writer
 from models.scraping.category import Category
 from repositories.scraping.sync_repository import SyncRepository
+from services.scraping import scraping_result_writer
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.category_product_sync_service import CategoryProductSyncService
 from services.scraping.product_diff_service import ProductDiffService

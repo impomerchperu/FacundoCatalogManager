@@ -9,10 +9,10 @@ from uuid import uuid4
 class SyncResult:
     """Resultado consolidado de una sincronización de catálogo."""
 
-    run_id: str = field(default_factory=lambda: uuid4().hex)
     success: bool = False
     started_at: datetime | None = field(default_factory=lambda: datetime.now(timezone.utc))
     finished_at: datetime | None = None
+    run_id: str = field(default_factory=lambda: uuid4().hex)
     processed: int = 0
     created: int = 0
     updated: int = 0

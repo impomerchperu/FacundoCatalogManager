@@ -84,7 +84,6 @@ class ScrapingRunner:
                 results.extend(products)
                 if progress_callback:
                     progress_callback(index, total)
-            return results
         except Exception as error:
             _log_timing(
                 "SCRAPING TIMING | stage=run_error | categories=%d | "
@@ -99,6 +98,8 @@ class ScrapingRunner:
             for line in traceback_text.splitlines():
                 _log_timing("SCRAPING TIMING | stage=run_traceback | %s", line)
             raise
+        else:
+            return results
         finally:
             _log_timing(
                 "SCRAPING TIMING | stage=run_total | categories=%d "

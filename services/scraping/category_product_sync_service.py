@@ -1,6 +1,7 @@
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, cast
 
@@ -120,6 +121,7 @@ class CategoryProductSyncService:
                     )
 
         products = [product for items in results for product in items]
+        raw_products = deepcopy(products)
         occurrence_gap = max(expected_category_occurrences - len(products), 0)
         _log_timing(
             "SCRAPING TIMING | stage=category_listing | categories=%d | products=%d "
@@ -175,7 +177,10 @@ class CategoryProductSyncService:
         )
         self.last_sync_result.products_expected = trusted_expected_products
         self.last_sync_result.categories_processed = total
-        self._attach_category_coverage(products, categories)
+        # La cobertura se calcula sobre una copia profunda de las ocurrencias
+        # crudas. La consolidación/pruning puede mutar objetos de producto.
+        self._attach_category_coverage(raw_products, categories)
+        self._write_final_result_artifact(raw_products)
         if progress_callback:
             progress_callback(100, 100)
         return synced_products
@@ -284,13 +289,25 @@ class CategoryProductSyncService:
             len(self.last_sync_result.category_summary),
         )
 
+    def _write_final_result_artifact(self, raw_products):
+        writer = getattr(self.catalog_sync_service, "result_writer", None)
+        if writer is None:
+            return
+        self.last_sync_result.finish()
+        codes = {
+            str(getattr(product, "code", "")).strip().upper().casefold()
+            for product in raw_products
+            if str(getattr(product, "code", "")).strip()
+        }
+        writer.write(self.last_sync_result, codes)
+
     def _consolidate_for_coverage(self, products) -> list[Any]:
         if self.catalog_sync_service:
             consolidate = getattr(
                 self.catalog_sync_service, "consolidate_products", None
             )
             if callable(consolidate):
-                return cast(list[Any], consolidate(products))
+                return cast(list[Any], consolidate(deepcopy(products)))
         return list(products)
 
     def _collect_category(self, index, category):
@@ -440,7 +457,7 @@ class CategoryProductSyncService:
                 self.catalog_sync_service, "consolidate_products", None
             )
             if callable(consolidate):
-                products = cast(list[Any], consolidate(products))
+                products = cast(list[Any], consolidate(list(products)))
             _log_timing(
                 "SCRAPING TIMING | stage=consolidation | products=%d | seconds=%.3f",
                 len(products),

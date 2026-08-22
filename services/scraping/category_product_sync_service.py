@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from config.scraping_config import EXPECTED_CATALOG_PRODUCTS, SCRAPING_CATEGORY_WORKERS
 from models.scraping.sync_result import SyncResult
+from services.scraping.category_name_normalizer import normalize_category_name
 
 logger = logging.getLogger("FCM")
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -202,23 +203,43 @@ class CategoryProductSyncService:
             product_names[code] = name
             values = self._split_categories(getattr(product, "category", ""))
             for category in values:
-                category_counts[category] = category_counts.get(category, 0) + 1
-                category_products.setdefault(category, set()).add(code)
+                key = normalize_category_name(category)
+                if not key:
+                    continue
+                category_counts.setdefault(key, 0)
+                category_products.setdefault(key, set())
+                category_counts[key] += 1
+                category_products[key].add(code)
                 product_categories.setdefault(code, set()).add(category)
 
         expected_names = {
-            str(getattr(category, "name", "")).strip()
+            normalize_category_name(getattr(category, "name", ""))
             for category in categories
-            if str(getattr(category, "name", "")).strip()
+            if normalize_category_name(getattr(category, "name", ""))
         }
-        all_names = expected_names | set(category_counts)
+        all_keys = expected_names | set(category_counts)
+        display_names = {
+            normalize_category_name(getattr(category, "name", "")): str(
+                getattr(category, "name", "")
+            ).strip()
+            for category in categories
+            if normalize_category_name(getattr(category, "name", ""))
+        }
+        display_names.update(
+            {
+                key: key
+                for key in category_counts
+                if key not in display_names
+            }
+        )
         self.last_sync_result.category_summary = [
             {
-                "category": name,
+                "category": display_names[name],
+                "comparison_key": name,
                 "products": category_counts.get(name, 0),
                 "unique_products": len(category_products.get(name, set())),
             }
-            for name in sorted(all_names, key=str.casefold)
+            for name in sorted(all_keys)
         ]
         multiple = []
         for code, names in sorted(

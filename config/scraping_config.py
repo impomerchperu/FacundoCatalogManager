@@ -26,10 +26,10 @@ SCRAPING_MAX_WORKERS = 20
 # end-to-end runtime. Keep the stable category budget at 16 workers.
 SCRAPING_CATEGORY_WORKERS = 16
 
-# Allow a slightly wider HTTP pipeline than the category executor. This is
-# intentionally independent so detail requests can use spare network capacity
-# without increasing category scheduling contention.
-SCRAPING_HTTP_WORKERS = 20
+# The detail pipeline is the dominant network workload. Keep its HTTP budget
+# above the category executor so detail workers can overlap across categories
+# without being serialized by the shared Browser semaphore.
+SCRAPING_HTTP_WORKERS = 32
 
 # Trusted unique-product target for a complete catalog run. Category counts are
 # occurrence counts and may include the same product in multiple categories,

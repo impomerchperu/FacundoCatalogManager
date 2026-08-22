@@ -27,10 +27,11 @@ class CategoryProductScrapingService:
         self,
         category_url: str,
         category_name,
+        expected_count: int = 0,
     ):
         """
         Ejecuta extracción de productos
-        para una categoría.
+        para una categoría, conservando su conteo esperado.
         """
 
         if isinstance(
@@ -43,6 +44,7 @@ class CategoryProductScrapingService:
             category = Category(
                 name=category_name,
                 url=category_url,
+                expected_count=max(int(expected_count or 0), 0),
             )
 
         return self.scraper.scrape_category(

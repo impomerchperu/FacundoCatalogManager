@@ -60,10 +60,9 @@ class CategoryScraper:
         return response.text
 
     def _cache_category_html(self, url: str, html: str) -> None:
-        if not html:
-            return
-        with self._category_html_cache_lock:
-            self._category_html_cache[url] = html
+        if html:
+            with self._category_html_cache_lock:
+                self._category_html_cache[url] = html
 
     def _get_html(self, url: str) -> str:
         return self.get_html(url)
@@ -96,33 +95,73 @@ class CategoryScraper:
     def get_category_pages(
         self, category_url: str, expected_count: int = 0
     ) -> list[str]:
-        """Obtiene todas las páginas desde la consulta AJAX real de JetSmartFilters."""
+        """Obtiene todas las páginas reales declaradas por JetSmartFilters."""
         category_html = self.get_html(category_url)
         if not category_html:
             return []
+
         category_id = self._category_id(category_html)
         if category_id is not None and self._is_facundo_url(category_url):
-            found_posts, max_num_pages, first_html = self._fetch_jsf_page(
-                category_url, category_id, 1
+            return self._jsf_category_pages(
+                category_url, category_id, expected_count
             )
-            if found_posts > 0:
-                expected_count = found_posts
-            if max_num_pages > 0:
-                pages = [category_url]
-                if first_html:
-                    self._cache_category_html(category_url, first_html)
-                for page_number in range(2, max_num_pages + 1):
-                    page_url = self._jsf_page_url(category_url, page_number)
-                    _, _, rendered_html = self._fetch_jsf_page(
-                        category_url, category_id, page_number
-                    )
-                    if rendered_html:
-                        self._cache_category_html(page_url, rendered_html)
-                        pages.append(page_url)
-                return pages
+
         return self._fallback_category_pages(
             category_url, category_html, expected_count
         )
+
+    def _jsf_category_pages(
+        self, category_url: str, category_id: int, expected_count: int
+    ) -> list[str]:
+        found_posts, max_num_pages, first_html = self._fetch_jsf_page(
+            category_url, category_id, 1
+        )
+        expected_count = max(found_posts, expected_count)
+        if max_num_pages <= 0:
+            if expected_count <= 0:
+                return [category_url]
+            max_num_pages = (
+                expected_count + self.PRODUCTS_PER_PAGE - 1
+            ) // self.PRODUCTS_PER_PAGE
+
+        if not first_html:
+            raise RuntimeError(
+                f"JetSmartFilters no devolvió contenido para {category_url} "
+                "en la página 1."
+            )
+
+        pages = [category_url]
+        self._cache_category_html(category_url, first_html)
+
+        for page_number in range(2, max_num_pages + 1):
+            page_url = self._jsf_page_url(category_url, page_number)
+            page_found, page_total, rendered_html = self._fetch_jsf_page(
+                category_url, category_id, page_number
+            )
+            if not rendered_html:
+                raise RuntimeError(
+                    f"JetSmartFilters no devolvió contenido para {category_url} "
+                    f"en la página {page_number}/{max_num_pages}."
+                )
+            if page_total and page_total != max_num_pages:
+                raise RuntimeError(
+                    f"JetSmartFilters cambió max_num_pages en {category_url}: "
+                    f"esperado {max_num_pages}, recibido {page_total}."
+                )
+            if page_found and found_posts and page_found != found_posts:
+                raise RuntimeError(
+                    f"JetSmartFilters cambió found_posts en {category_url}: "
+                    f"esperado {found_posts}, recibido {page_found}."
+                )
+            self._cache_category_html(page_url, rendered_html)
+            pages.append(page_url)
+
+        if len(pages) != max_num_pages:
+            raise RuntimeError(
+                f"Paginación incompleta para {category_url}: "
+                f"{len(pages)}/{max_num_pages} páginas."
+            )
+        return pages
 
     def _fetch_jsf_page(
         self, category_url: str, category_id: int, page: int
@@ -134,11 +173,10 @@ class CategoryScraper:
         if cached_html is not None:
             found_posts, max_num_pages = cached_metadata or (0, 0)
             return found_posts, max_num_pages, cached_html
-        payload = self._jet_smart_filters_payload(category_id, page)
-        try:
-            response_text = self._post_jsf(payload)
-        except requests.RequestException:
-            return 0, 0, ""
+
+        response_text = self._post_jsf(
+            self._jet_smart_filters_payload(category_id, page)
+        )
         found_posts, max_num_pages, rendered_html = self._parse_jsf_response(
             response_text
         )
@@ -196,19 +234,18 @@ class CategoryScraper:
         max_num_pages = 0
         rendered_html = ""
         objects = []
-        with contextlib.suppress(
-            TypeError, ValueError, json.JSONDecodeError
-        ):
+        with contextlib.suppress(TypeError, ValueError, json.JSONDecodeError):
             objects.append(json.loads(payload))
 
         def visit(value):
             nonlocal found_posts, max_num_pages, rendered_html
             if isinstance(value, str):
-                if value.startswith("{") or value.startswith("["):
+                stripped = value.strip()
+                if stripped.startswith(("{", "[")):
                     with contextlib.suppress(
                         TypeError, ValueError, json.JSONDecodeError
                     ):
-                        visit(json.loads(value))
+                        visit(json.loads(stripped))
                 return
             if isinstance(value, list):
                 for item in value:
@@ -221,7 +258,9 @@ class CategoryScraper:
                 if normalized == "found_posts":
                     found_posts = max(found_posts, CategoryScraper._to_int(item))
                 elif normalized == "max_num_pages":
-                    max_num_pages = max(max_num_pages, CategoryScraper._to_int(item))
+                    max_num_pages = max(
+                        max_num_pages, CategoryScraper._to_int(item)
+                    )
                 elif (
                     normalized == "rendered_content"
                     and isinstance(item, str)
@@ -284,6 +323,8 @@ class CategoryScraper:
             r"\bproduct_cat-(\d+)\b",
             r'data-term-id=["\'](\d+)["\']',
             r'data-category-id=["\'](\d+)["\']',
+            r'"filtered_post_id"\s*[:=]\s*["\']?(\d+)',
+            r'"_tax_query_product_cat"\s*[:=]\s*["\']?(\d+)',
         )
         for pattern in patterns:
             match = re.search(pattern, html or "", flags=re.IGNORECASE)
@@ -291,7 +332,7 @@ class CategoryScraper:
                 try:
                     return int(match.group(1))
                 except (IndexError, TypeError, ValueError):
-                    return None
+                    continue
         return None
 
     @staticmethod
@@ -424,7 +465,9 @@ class CategoryScraper:
                     keys.add(key)
         if keys:
             return keys
-        pattern = re.compile(r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", re.IGNORECASE)
+        pattern = re.compile(
+            r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", re.IGNORECASE
+        )
         return {match.upper() for match in pattern.findall(html)}
 
     @staticmethod

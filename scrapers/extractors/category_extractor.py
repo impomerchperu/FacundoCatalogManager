@@ -33,12 +33,15 @@ class CategoryExtractor:
         if name and "Ver Categoría" not in name:
             return name
 
-        container = link.find_parent(["section", "article", "li", "div"])
-        if container is not None:
-            heading = container.find(["h1", "h2", "h3", "h4", "h5", "h6"])
+        current = link
+        while current is not None:
+            current = getattr(current, "parent", None)
+            if current is None:
+                break
+            heading = current.find(["h1", "h2", "h3", "h4", "h5", "h6"])
             if heading is not None:
                 heading_name = heading.get_text(" ", strip=True)
-                if heading_name:
+                if heading_name and "Ver Categoría" not in heading_name:
                     return heading_name
 
         return url.rstrip("/").split("/")[-1].replace("-", " ").title()

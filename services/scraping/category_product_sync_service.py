@@ -175,7 +175,7 @@ class CategoryProductSyncService:
         )
         self.last_sync_result.products_expected = trusted_expected_products
         self.last_sync_result.categories_processed = total
-        self._attach_category_coverage(synced_products, categories)
+        self._attach_category_coverage(products, categories)
         if progress_callback:
             progress_callback(100, 100)
         return synced_products

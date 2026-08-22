@@ -60,9 +60,11 @@ class SyncResult:
 
     @property
     def coverage_complete(self) -> bool:
-        """True cuando se recuperaron las ocurrencias esperadas por categoría."""
+        """True cuando se recuperaron las expectativas de catálogo y categoría."""
         return (
-            self.expected_category_occurrences > 0
+            self.products_expected > 0
+            and self.products_unique >= self.products_expected
+            and self.expected_category_occurrences > 0
             and self.category_occurrence_gap == 0
             and self.products_found > 0
             and self.missing_code == 0

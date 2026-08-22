@@ -17,6 +17,37 @@ def test_category_scraper_extracts_categories():
     assert result == ["Herramientas", "Electricidad"]
 
 
+def test_category_scraper_parses_jetsmartfilters_metadata():
+    payload = '{"found_posts":50,"max_num_pages":2,"page":1}'
+    assert CategoryScraper._parse_jsf_metadata(payload) == (50, 2)
+
+
+def test_category_scraper_derives_pages_from_jetsmartfilters_count():
+    category_url = "https://stock.importacionesfacundo.com/categoria-producto/catalogo/"
+    first_codes = " ".join(f"FB-{number:03d}" for number in range(1, 26))
+    second_codes = " ".join(f"FB-{number:03d}" for number in range(26, 51))
+    category_html = f'<body class="archive tax-product_cat term-127"><div>{first_codes}</div></body>'
+    second_page_html = f"<div>{second_codes}</div>"
+
+    class FakeBrowser:
+        def get(self, url):
+            if url == category_url:
+                return category_html
+            if url.endswith("?product-page=2"):
+                return second_page_html
+            if url.endswith("/page/2/") or url.endswith("?paged=2"):
+                return second_page_html
+            raise requests.HTTPError("404 Not Found")
+
+    scraper = CategoryScraper(FakeBrowser())
+    scraper._jet_smart_filters_metadata = lambda url, html: (50, 2)
+    pages = scraper.get_category_pages(category_url, expected_count=25)
+
+    assert pages[0] == category_url
+    assert len(pages) == 2
+    assert any("product-page=2" in page for page in pages)
+
+
 def test_category_scraper_detects_embedded_jetsmartfilters_pages():
     category_url = "https://example.com/categoria-producto/jarros-mug/"
     first_codes = " ".join(f"FB-{number:03d}" for number in range(1, 26))

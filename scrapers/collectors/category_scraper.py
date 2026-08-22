@@ -117,12 +117,13 @@ class CategoryScraper:
             category_url, category_id, 1
         )
         expected_count = max(found_posts, expected_count)
+        expected_pages = (
+            expected_count + self.PRODUCTS_PER_PAGE - 1
+        ) // self.PRODUCTS_PER_PAGE
+        max_num_pages = max(max_num_pages, expected_pages)
+
         if max_num_pages <= 0:
-            if expected_count <= 0:
-                return [category_url]
-            max_num_pages = (
-                expected_count + self.PRODUCTS_PER_PAGE - 1
-            ) // self.PRODUCTS_PER_PAGE
+            return [category_url]
 
         if not first_html:
             raise RuntimeError(
@@ -133,7 +134,8 @@ class CategoryScraper:
         pages = [category_url]
         self._cache_category_html(category_url, first_html)
 
-        for page_number in range(2, max_num_pages + 1):
+        page_number = 2
+        while page_number <= max_num_pages:
             page_url = self._jsf_page_url(category_url, page_number)
             page_found, page_total, rendered_html = self._fetch_jsf_page(
                 category_url, category_id, page_number
@@ -143,18 +145,20 @@ class CategoryScraper:
                     f"JetSmartFilters no devolvió contenido para {category_url} "
                     f"en la página {page_number}/{max_num_pages}."
                 )
-            if page_total and page_total != max_num_pages:
-                raise RuntimeError(
-                    f"JetSmartFilters cambió max_num_pages en {category_url}: "
-                    f"esperado {max_num_pages}, recibido {page_total}."
+            if page_found and page_found > found_posts:
+                found_posts = page_found
+                max_num_pages = max(
+                    max_num_pages,
+                    (
+                        found_posts + self.PRODUCTS_PER_PAGE - 1
+                    )
+                    // self.PRODUCTS_PER_PAGE,
                 )
-            if page_found and found_posts and page_found != found_posts:
-                raise RuntimeError(
-                    f"JetSmartFilters cambió found_posts en {category_url}: "
-                    f"esperado {found_posts}, recibido {page_found}."
-                )
+            if page_total > max_num_pages:
+                max_num_pages = page_total
             self._cache_category_html(page_url, rendered_html)
             pages.append(page_url)
+            page_number += 1
 
         if len(pages) != max_num_pages:
             raise RuntimeError(

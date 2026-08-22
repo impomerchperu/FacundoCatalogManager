@@ -1,3 +1,5 @@
+import re
+
 from scrapers.collectors.category_scraper import CategoryScraper
 
 
@@ -22,7 +24,16 @@ class ResilientCategoryScraper(CategoryScraper):
             if "JetSmartFilters no devolvió contenido" not in str(error):
                 raise
 
-            if category_html and self._product_keys(category_html):
+            # CategoryScraper's broad SKU regex also matches taxonomy markers
+            # such as "term-127". Do not mistake those markers for products:
+            # fallback pagination is only safe when the original HTML contains
+            # an actual product code.
+            product_keys = {
+                key
+                for key in self._product_keys(category_html)
+                if not re.fullmatch(r"(?:TERM|PRODUCT_CAT)-\d+", key)
+            }
+            if product_keys:
                 return self._fallback_category_pages(
                     category_url,
                     category_html,

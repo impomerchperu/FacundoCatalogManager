@@ -48,7 +48,7 @@ class CategoryExtractor:
         """Busca el conteo del bloque individual de la categoría."""
         fallback_count = 0
         current = link
-        for _ in range(10):
+        while current is not None:
             current = getattr(current, "parent", None)
             if current is None:
                 break

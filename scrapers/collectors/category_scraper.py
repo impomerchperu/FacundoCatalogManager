@@ -91,7 +91,9 @@ class CategoryScraper:
         pending_pages = [category_url]
         visited_pages: set[str] = set()
         explicit_page_numbers: set[int] = set()
+        implicit_page_numbers: set[int] = set()
         page_product_keys: dict[str, set[str]] = {}
+        explicit_pagination_urls: set[str] = set()
         has_explicit_pagination_href = False
 
         if expected_count <= 0:
@@ -147,6 +149,7 @@ class CategoryScraper:
                 if page_number:
                     has_explicit_pagination_href = True
                     explicit_page_numbers.add(page_number)
+                    explicit_pagination_urls.add(page_url)
                 if page_url not in pages:
                     pages.append(page_url)
                     newly_discovered.append(page_url)
@@ -170,8 +173,10 @@ class CategoryScraper:
                 if isinstance(href, str) and href.strip():
                     page_url = urljoin(current_url, href)
                     has_explicit_pagination_href = True
+                    explicit_pagination_urls.add(page_url)
                 else:
-                    page_url = self._page_url(category_url, page_number)
+                    implicit_page_numbers.add(page_number)
+                    continue
                 if page_url not in pages:
                     pages.append(page_url)
                     newly_discovered.append(page_url)
@@ -179,15 +184,12 @@ class CategoryScraper:
             for page_number in self._page_numbers_from_html(current_html):
                 if page_number > 1:
                     explicit_page_numbers.add(page_number)
+                    if not has_explicit_pagination_href:
+                        implicit_page_numbers.add(page_number)
 
-            if explicit_page_numbers:
-                max_page = max(explicit_page_numbers)
-                if not has_explicit_pagination_href:
-                    for page_number in range(2, max_page + 1):
-                        page_url = self._page_url(category_url, page_number)
-                        if page_url not in pages:
-                            pages.append(page_url)
-                            newly_discovered.append(page_url)
+            if explicit_page_numbers and not has_explicit_pagination_href:
+                for page_number in range(2, max(explicit_page_numbers) + 1):
+                    implicit_page_numbers.add(page_number)
 
             for page_url in newly_discovered:
                 if page_url not in visited_pages and page_url not in pending_pages:
@@ -208,6 +210,17 @@ class CategoryScraper:
                 page_product_keys.get(category_url, set()),
                 expected_pages,
                 expected_count,
+                explicit_pagination_urls,
+            )
+            for page_url in discovered:
+                if page_url not in pages:
+                    pages.append(page_url)
+        elif implicit_page_numbers:
+            discovered = self._probe_declared_page_numbers(
+                category_url,
+                pages,
+                page_product_keys.get(category_url, set()),
+                implicit_page_numbers,
             )
             for page_url in discovered:
                 if page_url not in pages:
@@ -270,13 +283,15 @@ class CategoryScraper:
         first_page_keys: set[str],
         expected_pages: int,
         expected_count: int,
+        explicit_pagination_urls: set[str] | None = None,
     ) -> list[str]:
         """Encuentra páginas ocultas y se detiene al cubrir el conteo esperado."""
         discovered = []
         seen_keys = set(first_page_keys)
+        explicit_pagination_urls = explicit_pagination_urls or set()
         page_numbers_seen = {
             number
-            for url in known_pages
+            for url in explicit_pagination_urls
             if (number := self._page_number_from_value(url)) and number > 1
         }
         for page_number in range(2, expected_pages + 1):
@@ -297,6 +312,35 @@ class CategoryScraper:
                 continue
             discovered.append(best_url)
             page_numbers_seen.add(page_number)
+            seen_keys.update(best_keys)
+        return discovered
+
+    def _probe_declared_page_numbers(
+        self,
+        category_url: str,
+        known_pages: list[str],
+        first_page_keys: set[str],
+        page_numbers: set[int],
+    ) -> list[str]:
+        """Resuelve páginas declaradas por JSF/Bricks sin href navegable."""
+        discovered: list[str] = []
+        seen_keys = set(first_page_keys)
+        for page_number in sorted(number for number in page_numbers if number > 1):
+            best_url = None
+            best_keys: set[str] = set()
+            for candidate, keys in self._probe_page_variants(
+                category_url,
+                page_number,
+                known_pages,
+                discovered,
+            ):
+                new_keys = keys - seen_keys
+                if len(new_keys) > len(best_keys):
+                    best_url = candidate
+                    best_keys = new_keys
+            if best_url is None or not best_keys:
+                continue
+            discovered.append(best_url)
             seen_keys.update(best_keys)
         return discovered
 

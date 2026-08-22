@@ -53,14 +53,17 @@ class SyncResult:
 
     @property
     def coverage_gap(self) -> int:
-        return max(self.products_expected - self.products_unique, 0)
+        """Brecha respecto de las ocurrencias publicadas por categorías."""
+        return self.category_occurrence_gap
 
     @property
     def coverage_complete(self) -> bool:
+        """True cuando se recuperaron las ocurrencias esperadas por categoría."""
         return (
-            self.products_expected > 0
-            and self.products_unique >= self.products_expected
-            and self.coverage_gap == 0
+            self.expected_category_occurrences > 0
+            and self.category_occurrence_gap == 0
+            and self.products_found > 0
+            and self.missing_code == 0
         )
 
     @property
@@ -109,6 +112,10 @@ class SyncResult:
             "coverage_gap": self.coverage_gap,
             "category_occurrence_gap": self.category_occurrence_gap,
             "coverage_complete": self.coverage_complete,
+            "reference_category_occurrences": self.expected_category_occurrences,
+            "actual_category_occurrences": self.products_found,
+            "unique_products": self.products_unique,
+            "multi_category_products": self.products_multiple_categories,
             "products_created": self.products_created,
             "products_updated": self.products_updated,
             "products_unchanged": self.products_unchanged,
@@ -140,7 +147,7 @@ class SyncResult:
             "Únicos": self.products_unique,
             "Múltiples categorías": self.products_multiple_categories,
             "Apariciones duplicadas": self.duplicate_occurrences,
-            "Brecha única": self.coverage_gap,
+            "Brecha cobertura": self.coverage_gap,
             "Brecha por categorías": self.category_occurrence_gap,
             "Cobertura completa": self.coverage_complete,
             "Total clasificado": self.classified_total,

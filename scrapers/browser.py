@@ -121,6 +121,58 @@ class Browser:
         if last_error:
             raise last_error
 
+    def post(self, url, data=None, headers=None):
+        """POST using the same concurrency, retry and metrics pipeline as GET."""
+        last_error = None
+        session = self._get_session()
+        request_headers = headers or self.headers
+
+        for attempt in range(self.max_retries):
+            self._http_semaphore.acquire()
+            started = time.perf_counter()
+            self._begin_request(url)
+            retry_after_release = False
+
+            try:
+                response = session.post(
+                    url,
+                    data=data,
+                    headers=request_headers,
+                    timeout=self.timeout,
+                )
+                if hasattr(response, "raise_for_status"):
+                    response.raise_for_status()
+            except requests.exceptions.RequestException as error:
+                elapsed = time.perf_counter() - started
+                self._finish_request(elapsed, success=False, url=url)
+                last_error = error
+
+                if not self._is_retryable_error(error):
+                    self._record_terminal_error()
+                    raise
+
+                if attempt < self.max_retries - 1:
+                    self._record_retry()
+                    retry_after_release = True
+                else:
+                    self._record_terminal_error()
+            else:
+                elapsed = time.perf_counter() - started
+                self._finish_request(elapsed, success=True, url=url)
+                if attempt:
+                    self._record_retry()
+                if hasattr(response, "text"):
+                    return response.text
+                return response
+            finally:
+                self._http_semaphore.release()
+
+            if retry_after_release:
+                time.sleep(attempt + 1)
+
+        if last_error:
+            raise last_error
+
     @staticmethod
     def _is_retryable_error(error):
         """Retry only transient network/server failures, not permanent 4xx errors."""

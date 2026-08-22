@@ -3490,3 +3490,101 @@ SCRAPING TIMING | stage=run_start | categories=2
 SCRAPING TIMING | stage=run_total | categories=2 | seconds=0.001
 SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=1.999
 SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.450
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.318
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=run_error | categories=24 | error_type=RuntimeError | error=JetSmartFilters no devolvió contenido para https://stock.importacionesfacundo.com/categoria-producto/enmicadoras-laminadoras/ en la página 1.
+SCRAPING TIMING | stage=run_traceback | Traceback (most recent call last):
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\services\scraping\scraping_runner.py", line 70, in run
+SCRAPING TIMING | stage=run_traceback |     return sync_categories(categories, progress_callback)
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\services\scraping\category_product_sync_service.py", line 97, in sync_categories
+SCRAPING TIMING | stage=run_traceback |     collected[index] = cast(list[Any], future.result())
+SCRAPING TIMING | stage=run_traceback |                                        ~~~~~~~~~~~~~^^
+SCRAPING TIMING | stage=run_traceback |   File "C:\Users\LENOVO\AppData\Local\Programs\Python\Python314\Lib\concurrent\futures\_base.py", line 447, in result
+SCRAPING TIMING | stage=run_traceback |     return self.__get_result()
+SCRAPING TIMING | stage=run_traceback |            ~~~~~~~~~~~~~~~~~^^
+SCRAPING TIMING | stage=run_traceback |   File "C:\Users\LENOVO\AppData\Local\Programs\Python\Python314\Lib\concurrent\futures\_base.py", line 396, in __get_result
+SCRAPING TIMING | stage=run_traceback |     raise self._exception
+SCRAPING TIMING | stage=run_traceback |   File "C:\Users\LENOVO\AppData\Local\Programs\Python\Python314\Lib\concurrent\futures\thread.py", line 86, in run
+SCRAPING TIMING | stage=run_traceback |     result = ctx.run(self.task)
+SCRAPING TIMING | stage=run_traceback |   File "C:\Users\LENOVO\AppData\Local\Programs\Python\Python314\Lib\concurrent\futures\thread.py", line 73, in run
+SCRAPING TIMING | stage=run_traceback |     return fn(*args, **kwargs)
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\services\scraping\category_product_sync_service.py", line 318, in _collect_category
+SCRAPING TIMING | stage=run_traceback |     return collect(category)
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\scrapers\collectors\product_collection_scraper.py", line 71, in collect_category
+SCRAPING TIMING | stage=run_traceback |     pages = self.category_scraper.get_category_pages(
+SCRAPING TIMING | stage=run_traceback |         category_url,
+SCRAPING TIMING | stage=run_traceback |         expected_count=expected_count,
+SCRAPING TIMING | stage=run_traceback |     )
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\scrapers\collectors\category_scraper.py", line 106, in get_category_pages
+SCRAPING TIMING | stage=run_traceback |     return self._jsf_category_pages(
+SCRAPING TIMING | stage=run_traceback |            ~~~~~~~~~~~~~~~~~~~~~~~~^
+SCRAPING TIMING | stage=run_traceback |         category_url, category_id, expected_count
+SCRAPING TIMING | stage=run_traceback |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SCRAPING TIMING | stage=run_traceback |     )
+SCRAPING TIMING | stage=run_traceback |     ^
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\scrapers\collectors\category_scraper.py", line 130, in _jsf_category_pages
+SCRAPING TIMING | stage=run_traceback |     raise RuntimeError(
+SCRAPING TIMING | stage=run_traceback |     ...<2 lines>...
+SCRAPING TIMING | stage=run_traceback |     )
+SCRAPING TIMING | stage=run_traceback | RuntimeError: JetSmartFilters no devolvió contenido para https://stock.importacionesfacundo.com/categoria-producto/enmicadoras-laminadoras/ en la página 1.
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=35.434
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.623
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=run_error | categories=24 | error_type=HTTPError | error=500 Server Error: Internal Server Error for url: https://stock.importacionesfacundo.com/wp-admin/admin-ajax.php
+SCRAPING TIMING | stage=run_traceback | Traceback (most recent call last):
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\services\scraping\scraping_runner.py", line 70, in run
+SCRAPING TIMING | stage=run_traceback |     return sync_categories(categories, progress_callback)
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\services\scraping\category_product_sync_service.py", line 97, in sync_categories
+SCRAPING TIMING | stage=run_traceback |     collected[index] = cast(list[Any], future.result())
+SCRAPING TIMING | stage=run_traceback |                                        ~~~~~~~~~~~~~^^
+SCRAPING TIMING | stage=run_traceback |   File "C:\Users\LENOVO\AppData\Local\Programs\Python\Python314\Lib\concurrent\futures\_base.py", line 447, in result
+SCRAPING TIMING | stage=run_traceback |     return self.__get_result()
+SCRAPING TIMING | stage=run_traceback |            ~~~~~~~~~~~~~~~~~^^
+SCRAPING TIMING | stage=run_traceback |   File "C:\Users\LENOVO\AppData\Local\Programs\Python\Python314\Lib\concurrent\futures\_base.py", line 396, in __get_result
+SCRAPING TIMING | stage=run_traceback |     raise self._exception
+SCRAPING TIMING | stage=run_traceback |   File "C:\Users\LENOVO\AppData\Local\Programs\Python\Python314\Lib\concurrent\futures\thread.py", line 86, in run
+SCRAPING TIMING | stage=run_traceback |     result = ctx.run(self.task)
+SCRAPING TIMING | stage=run_traceback |   File "C:\Users\LENOVO\AppData\Local\Programs\Python\Python314\Lib\concurrent\futures\thread.py", line 73, in run
+SCRAPING TIMING | stage=run_traceback |     return fn(*args, **kwargs)
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\services\scraping\category_product_sync_service.py", line 318, in _collect_category
+SCRAPING TIMING | stage=run_traceback |     return collect(category)
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\scrapers\collectors\product_collection_scraper.py", line 71, in collect_category
+SCRAPING TIMING | stage=run_traceback |     pages = self.category_scraper.get_category_pages(
+SCRAPING TIMING | stage=run_traceback |         category_url,
+SCRAPING TIMING | stage=run_traceback |         expected_count=expected_count,
+SCRAPING TIMING | stage=run_traceback |     )
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\scrapers\collectors\resilient_category_scraper.py", line 22, in get_category_pages
+SCRAPING TIMING | stage=run_traceback |     return super().get_category_pages(category_url, expected_count)
+SCRAPING TIMING | stage=run_traceback |            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\scrapers\collectors\category_scraper.py", line 106, in get_category_pages
+SCRAPING TIMING | stage=run_traceback |     return self._jsf_category_pages(
+SCRAPING TIMING | stage=run_traceback |            ~~~~~~~~~~~~~~~~~~~~~~~~^
+SCRAPING TIMING | stage=run_traceback |         category_url, category_id, expected_count
+SCRAPING TIMING | stage=run_traceback |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SCRAPING TIMING | stage=run_traceback |     )
+SCRAPING TIMING | stage=run_traceback |     ^
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\scrapers\collectors\category_scraper.py", line 116, in _jsf_category_pages
+SCRAPING TIMING | stage=run_traceback |     found_posts, max_num_pages, first_html = self._fetch_jsf_page(
+SCRAPING TIMING | stage=run_traceback |                                              ~~~~~~~~~~~~~~~~~~~~^
+SCRAPING TIMING | stage=run_traceback |         category_url, category_id, 1
+SCRAPING TIMING | stage=run_traceback |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SCRAPING TIMING | stage=run_traceback |     )
+SCRAPING TIMING | stage=run_traceback |     ^
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\scrapers\collectors\category_scraper.py", line 207, in _fetch_jsf_page
+SCRAPING TIMING | stage=run_traceback |     response_text = self._post_jsf(
+SCRAPING TIMING | stage=run_traceback |         self._jet_smart_filters_payload(category_id, page)
+SCRAPING TIMING | stage=run_traceback |     )
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\scrapers\collectors\category_scraper.py", line 227, in _post_jsf
+SCRAPING TIMING | stage=run_traceback |     self.browser.post(JETSMARTFILTERS_AJAX_URL, data=payload)
+SCRAPING TIMING | stage=run_traceback |     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\scrapers\browser.py", line 174, in post
+SCRAPING TIMING | stage=run_traceback |     raise last_error
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\scrapers\browser.py", line 144, in post
+SCRAPING TIMING | stage=run_traceback |     response.raise_for_status()
+SCRAPING TIMING | stage=run_traceback |     ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+SCRAPING TIMING | stage=run_traceback |   File "C:\Proyectos\FacundoCatalogManager\.venv\Lib\site-packages\requests\models.py", line 1167, in raise_for_status
+SCRAPING TIMING | stage=run_traceback |     raise HTTPError(http_error_msg, response=self)
+SCRAPING TIMING | stage=run_traceback | requests.exceptions.HTTPError: 500 Server Error: Internal Server Error for url: https://stock.importacionesfacundo.com/wp-admin/admin-ajax.php
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=89.021

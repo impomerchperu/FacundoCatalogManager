@@ -256,7 +256,7 @@ class CategoryScraper:
         discovered: list[str],
         page_product_keys: dict[str, set[str]],
     ) -> None:
-        """Continúa la búsqueda cuando una página descubierta contiene más paginación implícita."""
+        """Continúa la búsqueda cuando una página contiene más paginación implícita."""
         frontier = list(discovered)
         processed: set[str] = set()
         while frontier:
@@ -345,6 +345,8 @@ class CategoryScraper:
                 if keys:
                     with self._category_html_cache_lock:
                         self._category_html_cache[candidate] = candidate_html
+        candidate_order = {candidate: index for index, candidate in enumerate(candidates)}
+        results.sort(key=lambda result: candidate_order[result[0]])
         return results
 
     def _fetch_product_keys(self, url: str) -> tuple[str, set[str]]:

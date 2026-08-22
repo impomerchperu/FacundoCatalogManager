@@ -22,7 +22,12 @@ def test_category_coverage_uses_normalized_key_but_preserves_display_name():
             category="ArtÃculos AntiestrÃ©s",
         )
     ]
-    categories = [SimpleNamespace(name="Articulos De Antiestres", expected_count=1)]
+    categories = [
+        SimpleNamespace(
+            name="Articulos De Antiestres",
+            expected_count=1,
+        )
+    ]
 
     service._attach_category_coverage(products, categories)
 

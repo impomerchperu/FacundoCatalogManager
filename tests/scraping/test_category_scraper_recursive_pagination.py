@@ -14,16 +14,20 @@ def test_category_scraper_discovers_pagination_embedded_on_intermediate_page():
             self.calls.append(url)
             if url == category_url:
                 return (
+                    '<div>FB-1001-A producto 1</div>'
                     '<div class="jet-filters-pagination__item" data-value="2">'
                     '<div class="jet-filters-pagination__link">2</div>'
                     '</div>'
                 )
             if url == page_two:
                 return (
+                    '<div>FB-1002-B producto 2</div>'
                     '<div class="jet-filters-pagination__item" data-value="3">'
                     '<div class="jet-filters-pagination__link">3</div>'
                     '</div>'
                 )
+            if url == page_three:
+                return '<div>FB-1003-C producto 3</div>'
             return ""
 
     browser = FakeBrowser()

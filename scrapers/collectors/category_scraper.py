@@ -234,8 +234,9 @@ class CategoryScraper:
                         max_num_pages,
                         CategoryScraper._to_int(item),
                     )
-                elif normalized == "rendered_content" and isinstance(item, str) and len(item) > len(rendered_html):
-                    rendered_html = item
+                elif normalized == "rendered_content" and isinstance(item, str):
+                    if len(item) > len(rendered_html):
+                        rendered_html = item
                 visit(item)
 
         for obj in objects:

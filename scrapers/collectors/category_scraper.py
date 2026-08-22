@@ -174,12 +174,11 @@ class CategoryScraper:
                     page_url = urljoin(current_url, href)
                     has_explicit_pagination_href = True
                     explicit_pagination_urls.add(page_url)
+                    if page_url not in pages:
+                        pages.append(page_url)
+                        newly_discovered.append(page_url)
                 else:
                     implicit_page_numbers.add(page_number)
-                    page_url = self._page_url(category_url, page_number)
-                if page_url not in pages:
-                    pages.append(page_url)
-                    newly_discovered.append(page_url)
 
             for page_number in self._page_numbers_from_html(current_html):
                 if page_number > 1:
@@ -468,14 +467,6 @@ class CategoryScraper:
             cls._page_url(category_url, page_number),
             f"{base}/?paged={page_number}",
             f"{base}/?page={page_number}",
-            f"{base}/?page_num={page_number}",
+            f"{base}?product-page={page_number}",
+            f"{base}?paged={page_number}",
         ]
-
-    def get_product_blocks(self, url: str):
-        html = self.get_html(url)
-        if not html:
-            return []
-        soup = self._parse(html)
-        if self.product_block_extractor:
-            return self.product_block_extractor.extract(soup)
-        return []

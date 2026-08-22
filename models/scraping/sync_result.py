@@ -10,7 +10,9 @@ class SyncResult:
     """Resultado consolidado de una sincronización de catálogo."""
 
     success: bool = False
-    started_at: datetime | None = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime | None = field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
     finished_at: datetime | None = None
     run_id: str = field(default_factory=lambda: uuid4().hex)
     processed: int = 0

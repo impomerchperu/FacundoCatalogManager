@@ -8,6 +8,7 @@ _COMPARISON_STOPWORDS = {"de"}
 # lossy fragments here; this affects comparison keys, never stored names.
 _LOSSY_MOJIBAKE_REPLACEMENTS = {
     "Ãculos": "ículos",
+    "Ã©": "é",
 }
 
 

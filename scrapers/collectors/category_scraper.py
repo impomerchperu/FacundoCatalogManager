@@ -6,9 +6,17 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
+from config.scraping_config import (
+    DEFAULT_HEADERS,
+    JETSMARTFILTERS_AJAX_URL,
+    JETSMARTFILTERS_ELEMENT_ID,
+    JETSMARTFILTERS_INDEXING_FILTERS,
+    JETSMARTFILTERS_SIGNATURE,
+)
+
 
 class CategoryScraper:
-    """Scraper de categorías WooCommerce."""
+    """Scraper de categorías WooCommerce con paginación Bricks/JetSmartFilters."""
 
     PRODUCTS_PER_PAGE = 25
     MAX_PAGE_PROBE = 50
@@ -27,6 +35,8 @@ class CategoryScraper:
         self.base_url = None
         self._category_html_cache: dict[str, str] = {}
         self._category_html_cache_lock = Lock()
+        self._jsf_metadata_cache: dict[str, tuple[int, int]] = {}
+        self._jsf_metadata_lock = Lock()
         if isinstance(browser, str):
             self.base_url = browser.rstrip("/")
             self.browser = None
@@ -45,7 +55,7 @@ class CategoryScraper:
             if hasattr(html, "text"):
                 return html.text
             return str(html)
-        response = requests.get(url, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+        response = requests.get(url, timeout=20, headers=DEFAULT_HEADERS)
         response.raise_for_status()
         return response.text
 
@@ -82,7 +92,7 @@ class CategoryScraper:
         category_url: str,
         expected_count: int = 0,
     ) -> list[str]:
-        """Descubre todas las páginas reales e incrustadas de una categoría."""
+        """Descubre páginas, priorizando metadatos reales de JetSmartFilters."""
         html = self.get_html(category_url)
         if not html:
             return []
@@ -91,21 +101,26 @@ class CategoryScraper:
         pending_pages = [category_url]
         visited_pages: set[str] = set()
         explicit_page_numbers: set[int] = set()
-        implicit_page_numbers: set[int] = set()
         page_product_keys: dict[str, set[str]] = {}
-        explicit_pagination_urls: set[str] = set()
         has_explicit_pagination_href = False
         discovered: list[str] = []
 
-        if expected_count <= 0:
-            text = self._parse(html).get_text(" ", strip=True)
-            match = re.search(
-                r"(?:Productos?\s+en\s+Stock|Producto\(s\))\s*(\d+)",
-                text,
-                flags=re.IGNORECASE,
+        jsf_count, jsf_pages = self._jet_smart_filters_metadata(
+            category_url,
+            html,
+        )
+        if jsf_count > 0:
+            expected_count = jsf_count
+        if jsf_pages > 0:
+            expected_pages = jsf_pages
+        elif expected_count > 0:
+            expected_pages = max(
+                1,
+                (expected_count + self.PRODUCTS_PER_PAGE - 1)
+                // self.PRODUCTS_PER_PAGE,
             )
-            if match:
-                expected_count = int(match.group(1))
+        else:
+            expected_pages = 0
 
         while pending_pages:
             current_url = pending_pages.pop(0)
@@ -114,9 +129,7 @@ class CategoryScraper:
             visited_pages.add(current_url)
             try:
                 current_html = (
-                    html
-                    if current_url == category_url
-                    else self.get_html(current_url)
+                    html if current_url == category_url else self.get_html(current_url)
                 )
             except requests.RequestException:
                 if current_url != category_url:
@@ -129,13 +142,6 @@ class CategoryScraper:
                 self._category_html_cache[current_url] = current_html
             soup = self._parse(current_html)
             page_product_keys[current_url] = self._product_keys(current_html, soup)
-
-            if (
-                current_url == category_url
-                and expected_count > 0
-                and len(page_product_keys[current_url]) >= expected_count
-            ):
-                return pages
 
             newly_discovered: list[str] = []
             for link in soup.select(
@@ -150,7 +156,6 @@ class CategoryScraper:
                 if page_number:
                     has_explicit_pagination_href = True
                     explicit_page_numbers.add(page_number)
-                    explicit_pagination_urls.add(page_url)
                 if page_url not in pages:
                     pages.append(page_url)
                     newly_discovered.append(page_url)
@@ -174,53 +179,26 @@ class CategoryScraper:
                 if isinstance(href, str) and href.strip():
                     page_url = urljoin(current_url, href)
                     has_explicit_pagination_href = True
-                    explicit_pagination_urls.add(page_url)
                     if page_url not in pages:
                         pages.append(page_url)
                         newly_discovered.append(page_url)
-                else:
-                    implicit_page_numbers.add(page_number)
 
             for page_number in self._page_numbers_from_html(current_html):
                 if page_number > 1:
                     explicit_page_numbers.add(page_number)
-                    if not has_explicit_pagination_href:
-                        implicit_page_numbers.add(page_number)
-
-            if explicit_page_numbers and not has_explicit_pagination_href:
-                for page_number in range(2, max(explicit_page_numbers) + 1):
-                    implicit_page_numbers.add(page_number)
 
             for page_url in newly_discovered:
                 if page_url not in visited_pages and page_url not in pending_pages:
                     pending_pages.append(page_url)
 
-        if expected_count > self.PRODUCTS_PER_PAGE:
-            expected_pages = min(
-                self.MAX_PAGE_PROBE,
-                max(
-                    1,
-                    (expected_count + self.PRODUCTS_PER_PAGE - 1)
-                    // self.PRODUCTS_PER_PAGE,
-                ),
-            )
-            discovered = self._probe_expected_pages(
-                category_url,
-                pages,
-                page_product_keys.get(category_url, set()),
-                expected_pages,
-                expected_count,
-                explicit_pagination_urls,
-            )
-            for page_url in discovered:
-                if page_url not in pages:
-                    pages.append(page_url)
-        elif implicit_page_numbers:
+        if expected_pages > 1:
+            page_numbers = set(range(2, expected_pages + 1))
+            page_numbers.update(explicit_page_numbers)
             discovered = self._probe_declared_page_numbers(
                 category_url,
                 pages,
                 page_product_keys.get(category_url, set()),
-                implicit_page_numbers,
+                page_numbers,
             )
             for page_url in discovered:
                 if page_url not in pages:
@@ -235,7 +213,7 @@ class CategoryScraper:
             )
 
         if (
-            not expected_count
+            expected_pages == 0
             and not explicit_page_numbers
             and not has_explicit_pagination_href
         ):
@@ -249,6 +227,112 @@ class CategoryScraper:
                     pages.append(page_url)
         return pages
 
+    def _jet_smart_filters_metadata(
+        self,
+        category_url: str,
+        category_html: str,
+    ) -> tuple[int, int]:
+        """Obtiene found_posts/max_num_pages de la consulta Bricks real."""
+        if not category_url.startswith("https://stock.importacionesfacundo.com/"):
+            return 0, 0
+
+        category_id = self._category_id(category_html)
+        if category_id is None:
+            return 0, 0
+
+        with self._jsf_metadata_lock:
+            cached = self._jsf_metadata_cache.get(category_url)
+        if cached is not None:
+            return cached
+
+        try:
+            response = requests.post(
+                JETSMARTFILTERS_AJAX_URL,
+                data=self._jet_smart_filters_payload(category_id, 1),
+                headers=DEFAULT_HEADERS,
+                timeout=20,
+            )
+            response.raise_for_status()
+            found_posts, max_num_pages = self._parse_jsf_metadata(response.text)
+        except requests.RequestException:
+            return 0, 0
+
+        result = (found_posts, max_num_pages)
+        with self._jsf_metadata_lock:
+            self._jsf_metadata_cache[category_url] = result
+        return result
+
+    @staticmethod
+    def _jet_smart_filters_payload(category_id: int, page: int):
+        return [
+            ("action", "jet_smart_filters"),
+            ("provider", "bricks-query-loop/querydesk"),
+            ("query[_tax_query_product_cat]", str(category_id)),
+            ("defaults[post_type][]", "product"),
+            ("defaults[orderby][menu_order]", "ASC"),
+            ("defaults[posts_per_page]", "25"),
+            ("defaults[no_results_text]", "No existen productos"),
+            ("defaults[disable_query_merge]", "true"),
+            ("defaults[is_archive_main_query]", "true"),
+            ("defaults[post_status]", "publish"),
+            ("defaults[paged]", "1"),
+            ("settings[filtered_post_id]", str(category_id)),
+            ("settings[element_id]", JETSMARTFILTERS_ELEMENT_ID),
+            ("settings[is_archive_main_query]", "true"),
+            ("settings[jsf_signature]", JETSMARTFILTERS_SIGNATURE),
+            ("props[page]", str(page)),
+            ("paged", str(page)),
+            ("indexing_filters[]", JETSMARTFILTERS_INDEXING_FILTERS),
+        ]
+
+    @staticmethod
+    def _parse_jsf_metadata(payload: str) -> tuple[int, int]:
+        found_patterns = (
+            r'"found_posts"\s*:\s*(\d+)',
+            r"'found_posts'\s*:\s*(\d+)",
+            r"found_posts\s*[:=]\s*(\d+)",
+        )
+        pages_patterns = (
+            r'"max_num_pages"\s*:\s*(\d+)',
+            r"'max_num_pages'\s*:\s*(\d+)",
+            r"max_num_pages\s*[:=]\s*(\d+)",
+        )
+        found_posts = CategoryScraper._first_int(payload, found_patterns)
+        max_num_pages = CategoryScraper._first_int(payload, pages_patterns)
+        if max_num_pages == 0 and found_posts > 0:
+            max_num_pages = (
+                found_posts + CategoryScraper.PRODUCTS_PER_PAGE - 1
+            ) // CategoryScraper.PRODUCTS_PER_PAGE
+        return found_posts, max_num_pages
+
+    @staticmethod
+    def _first_int(text: str, patterns: tuple[str, ...]) -> int:
+        for pattern in patterns:
+            match = re.search(pattern, text or "", flags=re.IGNORECASE)
+            if match:
+                try:
+                    return int(match.group(1))
+                except (IndexError, TypeError, ValueError):
+                    return 0
+        return 0
+
+    @staticmethod
+    def _category_id(html: str) -> int | None:
+        patterns = (
+            r"\bterm-(\d+)\b",
+            r"\bproduct_cat-(\d+)\b",
+            r'data-term-id=["\'](\d+)["\']',
+            r'data-category-id=["\'](\d+)["\']',
+        )
+        for pattern in patterns:
+            match = re.search(pattern, html or "", flags=re.IGNORECASE)
+            if match:
+                try:
+                    return int(match.group(1))
+                except (IndexError, TypeError, ValueError):
+                    return None
+        return None
+
     def _discover_embedded_pages(
         self,
         category_url: str,
@@ -256,7 +340,7 @@ class CategoryScraper:
         discovered: list[str],
         page_product_keys: dict[str, set[str]],
     ) -> None:
-        """Continúa la búsqueda cuando una página contiene más paginación implícita."""
+        """Continúa la búsqueda cuando una página contiene más paginación."""
         frontier = list(discovered)
         processed: set[str] = set()
         while frontier:
@@ -281,7 +365,6 @@ class CategoryScraper:
             )
             declared_numbers: set[int] = set()
             explicit_urls: list[str] = []
-
             for item in soup.select(
                 ".jet-filters-pagination__item[data-value], "
                 "[data-page], [data-page-number], [data-paged]"
@@ -300,12 +383,10 @@ class CategoryScraper:
                 href = link.get("href") if link else None
                 if isinstance(href, str) and href.strip():
                     explicit_urls.append(urljoin(current_url, href))
-
             for page_url in explicit_urls:
                 if page_url not in pages:
                     pages.append(page_url)
                     frontier.append(page_url)
-
             if declared_numbers and not explicit_urls:
                 new_pages = self._probe_declared_page_numbers(
                     category_url,
@@ -358,45 +439,6 @@ class CategoryScraper:
         soup = self._parse(html)
         return html, self._product_keys(html, soup)
 
-    def _probe_expected_pages(
-        self,
-        category_url: str,
-        known_pages: list[str],
-        first_page_keys: set[str],
-        expected_pages: int,
-        expected_count: int,
-        explicit_pagination_urls: set[str] | None = None,
-    ) -> list[str]:
-        """Encuentra páginas ocultas y se detiene al cubrir el conteo esperado."""
-        discovered = []
-        seen_keys = set(first_page_keys)
-        explicit_pagination_urls = explicit_pagination_urls or set()
-        page_numbers_seen = {
-            number
-            for url in explicit_pagination_urls
-            if (number := self._page_number_from_value(url)) and number > 1
-        }
-        for page_number in range(2, expected_pages + 1):
-            if len(seen_keys) >= expected_count:
-                break
-            if page_number in page_numbers_seen:
-                continue
-            best_url = None
-            best_keys: set[str] = set()
-            for candidate, keys in self._probe_page_variants(
-                category_url, page_number, known_pages, discovered
-            ):
-                new_keys = keys - seen_keys
-                if len(new_keys) > len(best_keys):
-                    best_url = candidate
-                    best_keys = new_keys
-            if best_url is None or not best_keys:
-                continue
-            discovered.append(best_url)
-            page_numbers_seen.add(page_number)
-            seen_keys.update(best_keys)
-        return discovered
-
     def _probe_declared_page_numbers(
         self,
         category_url: str,
@@ -420,7 +462,7 @@ class CategoryScraper:
                 if len(new_keys) > len(best_keys):
                     best_url = candidate
                     best_keys = new_keys
-            if best_url is None or not best_keys:
+            if best_url is None:
                 continue
             discovered.append(best_url)
             seen_keys.update(best_keys)

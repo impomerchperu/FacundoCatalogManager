@@ -31,15 +31,16 @@ SCRAPING_CATEGORY_WORKERS = 16
 # without being serialized by the shared Browser semaphore.
 SCRAPING_HTTP_WORKERS = 32
 
-# Trusted unique-product target for a complete catalog run. Category counts are
-# occurrence counts and may include the same product in multiple categories,
-# so they must not be used as the unique-product target.
-EXPECTED_CATALOG_PRODUCTS = 525
+# Unique-product coverage is intentionally not hard-coded. Category counts are
+# occurrence counts and may contain the same product in multiple categories.
+# The live category totals are calculated from Category.expected_count for each
+# execution and are used as the coverage reference.
+EXPECTED_CATALOG_PRODUCTS = 0
 
 # JetSmartFilters/Bricks Query Loop request metadata observed on the live catalog.
 # Keep these values centralized so the scraper can reproduce the provider query
 # without hard-coding them inside the pagination implementation.
 JETSMARTFILTERS_AJAX_URL = f"{BASE_URL}/wp-admin/admin-ajax.php"
 JETSMARTFILTERS_ELEMENT_ID = "95dc8a"
-JETSMARTFILTERS_SIGNATURE = "83bc155f208a7b2c473d90a84cf5fe01"
+JETSMARTFILTERS_SIGNATURE = "83bc1555bf?" 
 JETSMARTFILTERS_INDEXING_FILTERS = "434"

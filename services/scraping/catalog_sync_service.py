@@ -1,12 +1,10 @@
-import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import ClassVar
 
 from models.scraping.sync_result import SyncResult
+from services.scraping.scraping_result_writer import ScrapingResultWriter
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SCRAPING_CODE_SNAPSHOT = PROJECT_ROOT / "data" / "last_scraping_codes.json"
 
 
 class CatalogSyncService:
@@ -34,6 +32,7 @@ class CatalogSyncService:
         self.repository = repository
         self.diff_service = diff_service
         self.last_sync_result = SyncResult()
+        self.result_writer = ScrapingResultWriter()
 
     @staticmethod
     def _normalize_code(value) -> str:
@@ -96,7 +95,9 @@ class CatalogSyncService:
         result.products_multiple_categories = self._count_multi_category_products(
             prepared
         )
-        scraped_codes = {self._normalize_code(p.code).casefold() for p in consolidated}
+        scraped_codes = {
+            self._normalize_code(p.code).casefold() for p in consolidated
+        }
 
         for product in consolidated:
             existing = self.repository.get(product.code)
@@ -149,38 +150,8 @@ class CatalogSyncService:
             self._remove_missing_products(scraped_codes, result)
         result.finish()
         self.last_sync_result = result
-
-        snapshot_eligible = (
-            result.products_expected > 0
-            and result.expected_category_occurrences > 0
-            and result.coverage_complete
-            and result.products_found >= result.expected_category_occurrences
-            and not result.has_errors
-        )
-        if snapshot_eligible:
-            self._write_code_snapshot(scraped_codes, result)
+        self.result_writer.write(result, scraped_codes)
         return result
-
-    @staticmethod
-    def _write_code_snapshot(scraped_codes: set[str], result: SyncResult) -> None:
-        """Persiste los códigos del scraping completo para auditoría y limpieza."""
-        SCRAPING_CODE_SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "scraped_at": datetime.now(timezone.utc).isoformat(),
-            "codes": sorted(scraped_codes),
-            "scraped_unique_products": len(scraped_codes),
-            "expected_unique_products": result.products_unique,
-            "expected_catalog_products": result.products_expected,
-            "expected_category_occurrences": result.expected_category_occurrences,
-            "products_found": result.products_found,
-            "coverage_complete": result.coverage_complete,
-            "errors": list(result.errors),
-            "failures": list(result.failures),
-        }
-        SCRAPING_CODE_SNAPSHOT.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
 
     def sync_full_catalog(
         self,

@@ -24,7 +24,18 @@ class FakeScraper:
         return products
 
 
+class FakeResultWriter:
+    def __init__(self):
+        self.results = []
+
+    def write(self, result, codes):
+        self.results.append((result, codes))
+
+
 class FakeCatalogSyncService:
+    def __init__(self):
+        self.result_writer = FakeResultWriter()
+
     @staticmethod
     def consolidate_products(products):
         return [products[0]]
@@ -55,11 +66,12 @@ def test_category_sync_uses_raw_occurrences_for_coverage():
         "Categoria A": [Product("Categoria A")],
         "Categoria B": [Product("Categoria B")],
     }
+    catalog_sync_service = FakeCatalogSyncService()
     service = CategoryProductSyncService(
         SimpleNamespace(scraper=FakeScraper(products_by_category)),
         persistence_service=SimpleNamespace(),
         mapper=IdentityMapper(),
-        catalog_sync_service=FakeCatalogSyncService(),
+        catalog_sync_service=catalog_sync_service,
         category_workers=1,
     )
 
@@ -73,6 +85,31 @@ def test_category_sync_uses_raw_occurrences_for_coverage():
     assert result.expected_category_occurrences == 2
     assert result.coverage_gap == 0
     assert result.coverage_complete is True
+    assert result.success is True
+    assert catalog_sync_service.result_writer.results[-1][0] is result
+
+
+def test_category_sync_fails_when_category_coverage_is_incomplete():
+    categories = [
+        Category("Categoria A", "https://example.com/a/", expected_count=2),
+    ]
+    products_by_category = {"Categoria A": [Product("Categoria A")]}
+    service = CategoryProductSyncService(
+        SimpleNamespace(scraper=FakeScraper(products_by_category)),
+        persistence_service=SimpleNamespace(),
+        mapper=IdentityMapper(),
+        catalog_sync_service=FakeCatalogSyncService(),
+        category_workers=1,
+    )
+
+    service.sync_categories(categories, expected_products=1)
+
+    result = service.last_sync_result
+    assert result.expected_category_occurrences == 2
+    assert result.products_found == 1
+    assert result.category_occurrence_gap == 1
+    assert result.coverage_complete is False
+    assert result.success is False
 
 
 def test_category_sync_coverage_payload_keeps_occurrences_separate():

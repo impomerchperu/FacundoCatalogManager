@@ -65,3 +65,34 @@ def test_to_dict_keeps_occurrence_and_unique_metrics_separate():
     assert payload["actual_category_occurrences"] == 362
     assert payload["unique_products"] == 357
     assert payload["multi_category_products"] == 136
+
+
+def test_finish_fails_when_catalog_coverage_is_incomplete():
+    result = SyncResult(
+        expected_category_occurrences=525,
+        products_found=362,
+        products_unique=357,
+        products_expected=525,
+        updated=50,
+        unchanged=307,
+    )
+
+    result.finish()
+
+    assert result.coverage_complete is False
+    assert result.success is False
+
+
+def test_finish_succeeds_when_catalog_coverage_is_complete():
+    result = SyncResult(
+        expected_category_occurrences=525,
+        products_found=525,
+        products_unique=525,
+        products_expected=525,
+        unchanged=525,
+    )
+
+    result.finish()
+
+    assert result.coverage_complete is True
+    assert result.success is True

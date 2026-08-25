@@ -30,7 +30,10 @@ def _runner_with_coverage(*, coverage_complete: bool):
         last_sync_result=sync_result,
         catalog_sync_service=SimpleNamespace(last_sync_result=coverage_result),
     )
-    return SimpleNamespace(scraping_service=scraping_service)
+    return SimpleNamespace(
+        scraping_service=scraping_service,
+        run=lambda categories, progress_callback=None: [],
+    )
 
 
 def test_session_fails_when_catalog_coverage_is_incomplete():

@@ -153,6 +153,13 @@ class ScrapingSession:
             self.result.multiple_category_products = list(
                 getattr(coverage_result, "multiple_category_products", [])
             )
+            if not coverage_result.coverage_complete:
+                self.result.errors.append(
+                    "Cobertura del catálogo incompleta: "
+                    f"esperados={coverage_result.expected_category_occurrences}, "
+                    f"encontrados={coverage_result.products_found}, "
+                    f"brecha={coverage_result.category_occurrence_gap}."
+                )
         else:
             self.result.products_found = len(self.result.products)
             self.result.products_unique = len(self.result.products)

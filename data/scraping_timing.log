@@ -3633,3 +3633,48 @@ SCRAPING TIMING | stage=category_coverage | category=Tecnologia y Accesorios | p
 SCRAPING TIMING | stage=multi_category_coverage | products=20 | categories=26
 SCRAPING TIMING | stage=result_artifact | run_id=1c84121406804373b31aa1ebefb0ca9d | scraped_at=2026-08-22T20:43:40.143625+00:00 | coverage_complete=False | products_found=362 | products_unique=357
 SCRAPING TIMING | stage=run_total | categories=24 | seconds=94.944
+SCRAPING TIMING | stage=category_discovery | categories=24 | seconds=2.103
+SCRAPING TIMING | stage=run_start | categories=24
+SCRAPING TIMING | stage=category_listing | categories=24 | products=362 | expected_category_occurrences=525 | occurrence_gap=163 | seconds=75.451
+SCRAPING TIMING | stage=category_extraction | categories=24 | products=362 | expected_category_occurrences=525 | occurrence_gap=163 | expected_unique_products=525 | seconds=75.495
+SCRAPING TIMING | stage=detail_cache | requests=22 | cache_hits=0 | skipped=340 | cache_size=22 | reasons=requested_missing_code:3,requested_missing_description:18,requested_missing_fields:21,requested_missing_stock:1,skipped_complete_single_stock:340
+SCRAPING TIMING | stage=http | requests=106 | successes=103 | errors=3 | terminal_errors=1 | retries=2 | detail_requests=22 | category_requests=58 | other_requests=0 | max_concurrency=25 | http_seconds=790.861 | slowest_request=19.452
+SCRAPING TIMING | stage=missing_code | name=Solución Fotográfica Para Eventos (Kit) | url=https://stock.importacionesfacundo.com/producto/solucion-fotografica-para-eventos-kit/
+SCRAPING TIMING | stage=missing_code | name=Software Ppmplus – Photoprintme Citizen | url=https://stock.importacionesfacundo.com/producto/software-ppmplus-photoprintme-citizen/
+SCRAPING TIMING | stage=missing_code | name=Software Ikiosk Estandar Foto | url=https://stock.importacionesfacundo.com/producto/software-ikiosk-estandar-foto/
+SCRAPING TIMING | stage=coverage_incomplete | reason=missing_codes:3 | products=362 | categories=24 | expected_unique_products=525 | expected_category_occurrences=525
+SCRAPING TIMING | stage=consolidation | products=357 | seconds=0.000
+SCRAPING TIMING | stage=images | products=357 | seconds=0.697
+SCRAPING TIMING | stage=mapping | products=357 | seconds=0.005
+SCRAPING TIMING | stage=result_artifact | run_id=9dacc0ff2de24fe483d2f2e043fd81d9 | scraped_at=2026-08-25T02:26:21.979862+00:00 | coverage_complete=False | products_found=357 | products_unique=357
+SCRAPING TIMING | stage=catalog_sync | products=357 | seconds=0.029 | prune=false | expected_unique=unknown | expected_category_occurrences=525 | unique=357 | gap=168
+SCRAPING TIMING | stage=sync_total | products=357 | seconds=0.733
+SCRAPING TIMING | stage=category_coverage | category=Artículos Antiestrés | products=25 | unique=25
+SCRAPING TIMING | stage=category_coverage | category=Artículos de Escritorio | products=25 | unique=25
+SCRAPING TIMING | stage=category_coverage | category=Artículos de Oficina | products=12 | unique=12
+SCRAPING TIMING | stage=category_coverage | category=Artículos Personales | products=17 | unique=17
+SCRAPING TIMING | stage=category_coverage | category=Artículos de Playa | products=5 | unique=5
+SCRAPING TIMING | stage=category_coverage | category=Bolsas / Mochilas | products=3 | unique=3
+SCRAPING TIMING | stage=category_coverage | category=cocina | products=18 | unique=18
+SCRAPING TIMING | stage=category_coverage | category=Cocina, Mesa y Hogar | products=0 | unique=0
+SCRAPING TIMING | stage=category_coverage | category=Enmicadoras / Laminadoras | products=9 | unique=9
+SCRAPING TIMING | stage=category_coverage | category=Estuches | products=8 | unique=8
+SCRAPING TIMING | stage=category_coverage | category=Impresoras y Consumible Fotográficas Térmicas | products=11 | unique=11
+SCRAPING TIMING | stage=category_coverage | category=Insumos de Sublimación | products=25 | unique=25
+SCRAPING TIMING | stage=category_coverage | category=Jarros Mug | products=19 | unique=19
+SCRAPING TIMING | stage=category_coverage | category=Kits de Herramientas | products=2 | unique=2
+SCRAPING TIMING | stage=category_coverage | category=Lapiceros Ecologicos | products=4 | unique=4
+SCRAPING TIMING | stage=category_coverage | category=Lapiceros Metálicos | products=10 | unique=10
+SCRAPING TIMING | stage=category_coverage | category=Llaveros y Accesorios | products=25 | unique=25
+SCRAPING TIMING | stage=category_coverage | category=Máquinas de Sublimación | products=4 | unique=4
+SCRAPING TIMING | stage=category_coverage | category=mesa y hogar | products=18 | unique=18
+SCRAPING TIMING | stage=category_coverage | category=Micas para Enmicados | products=25 | unique=25
+SCRAPING TIMING | stage=category_coverage | category=Papelería Grafipapel | products=23 | unique=23
+SCRAPING TIMING | stage=category_coverage | category=Papeles Fotográficos Koala Paper | products=25 | unique=25
+SCRAPING TIMING | stage=category_coverage | category=Plotters de Corte | products=15 | unique=15
+SCRAPING TIMING | stage=category_coverage | category=Porta Tacos Post-It | products=15 | unique=15
+SCRAPING TIMING | stage=category_coverage | category=Resaltadores Publicitarios | products=21 | unique=21
+SCRAPING TIMING | stage=category_coverage | category=Tecnologia y Accesorios | products=13 | unique=13
+SCRAPING TIMING | stage=multi_category_coverage | products=20 | categories=26
+SCRAPING TIMING | stage=result_artifact | run_id=7e2ee5b07a36425d828901591b8d4484 | scraped_at=2026-08-25T02:26:22.002233+00:00 | coverage_complete=False | products_found=362 | products_unique=357
+SCRAPING TIMING | stage=run_total | categories=24 | seconds=76.255

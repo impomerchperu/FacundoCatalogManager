@@ -1,10 +1,10 @@
 {
-  "run_id": "1c84121406804373b31aa1ebefb0ca9d",
-  "success": true,
+  "run_id": "7e2ee5b07a36425d828901591b8d4484",
+  "success": false,
   "processed": 357,
   "created": 0,
-  "updated": 50,
-  "unchanged": 307,
+  "updated": 12,
+  "unchanged": 345,
   "deleted": 0,
   "generated": 0,
   "missing_code": 0,
@@ -339,11 +339,11 @@
   ],
   "coverage_gap": 163,
   "category_occurrence_gap": 163,
-  "coverage_complete": false,
   "reference_category_occurrences": 525,
   "actual_category_occurrences": 362,
   "unique_products": 357,
   "multi_category_products": 20,
+  "coverage_complete": false,
   "products_created": 0,
   "products_updated": 0,
   "products_unchanged": 0,
@@ -355,508 +355,79 @@
   "changes": [
     {
       "type": "UPDATED",
-      "code": "FB-4009",
-      "name": "Pelota Antiestrés 6.3 cm",
+      "code": "FB-4032",
+      "name": "Pelota de Futbol Antiestrés",
       "changes": [
         {
           "field": "stock",
           "label": "Stock",
-          "old": 67529,
-          "new": 67028
+          "old": 2276,
+          "new": 2266
         }
       ]
     },
     {
       "type": "UPDATED",
-      "code": "FB-4030",
-      "name": "Pelota Mundo Antiestrés",
+      "code": "FB-5009",
+      "name": "Alcancía Cerdito Pvc",
       "changes": [
         {
           "field": "stock",
           "label": "Stock",
-          "old": 2478,
-          "new": 2477
+          "old": 35343,
+          "new": 35243
         }
       ]
     },
     {
       "type": "UPDATED",
-      "code": "SFPU-1019",
-      "name": "Pelota Mundo Mano Antiestrés",
+      "code": "FB-1702",
+      "name": "Tarjetero de Celular Silicona",
       "changes": [
         {
           "field": "stock",
           "label": "Stock",
-          "old": 631,
-          "new": 630
+          "old": 43960,
+          "new": 43910
         }
       ]
     },
     {
       "type": "UPDATED",
-      "code": "FB-4012",
-      "name": "Casco Antiestrés",
+      "code": "FB-1703",
+      "name": "Porta Celular Flexible Silicona",
       "changes": [
         {
           "field": "stock",
           "label": "Stock",
-          "old": 5898,
-          "new": 5848
+          "old": 28886,
+          "new": 28836
         }
       ]
     },
     {
       "type": "UPDATED",
-      "code": "FB-4011",
-      "name": "Corazón Antiestrés",
+      "code": "HL-4670",
+      "name": "Plactic Frasco de Gel Antibacterial Lleno 30 ml",
       "changes": [
         {
           "field": "stock",
           "label": "Stock",
-          "old": 3545,
-          "new": 3439
+          "old": 4253,
+          "new": 4203
         }
       ]
     },
     {
       "type": "UPDATED",
-      "code": "FB-4036",
-      "name": "Diente Antiestrés",
+      "code": "FB-1801",
+      "name": "Mug de Acrílico 400 ml-",
       "changes": [
         {
           "field": "stock",
           "label": "Stock",
-          "old": 4775,
-          "new": 4774
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-4014",
-      "name": "Cubo Antiestrés",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 15579,
-          "new": 15576
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-4019",
-      "name": "Estrella Antiestrés",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 4233,
-          "new": 4231
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-4035",
-      "name": "Cerdito Antiestrés",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 4013,
-          "new": 4008
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-4027",
-      "name": "Nube Antiestrés Con Soporte Para Teléfono",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 3420,
-          "new": 3418
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-4003",
-      "name": "Soporte para Celular Antiestrés",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 6162,
-          "new": 6159
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "HL-8181",
-      "name": "Linterna de PVC",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 14365,
-          "new": 14362
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "HL-9398",
-      "name": "Set de Escritorio Grande",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 10262,
-          "new": 10260
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "HL-9401A",
-      "name": "Set de Escritorio Giratorio",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 11765,
-          "new": 11763
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-5019",
-      "name": "Alcancía de Plástico Cerdito",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 18191,
-          "new": 17987
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "HL-9403",
-      "name": "Set Mini Escritorio",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 10117,
-          "new": 10116
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-5017",
-      "name": "Set de Escritorio",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 8633,
-          "new": 8631
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "HL-9400",
-      "name": "Set de Escritorio Pote",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 9806,
-          "new": 9805
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-5001",
-      "name": "Porta Celular",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 53330,
-          "new": 53327
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-5008",
-      "name": "Porta Pastillas Circular",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 10112,
-          "new": 10111
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-5010",
-      "name": "Porta Pastillas Cuadrado",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 17865,
-          "new": 17864
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-5020",
-      "name": "Cinta Métrica",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 12184,
-          "new": 12183
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-5004",
-      "name": "Soporte Celular Mesa Ajustable",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 4209,
-          "new": 4185
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-1202",
-      "name": "Mini Ventilador con Conexión USB",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 22696,
-          "new": 22693
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-1707",
-      "name": "Set Manicure Metal Tubo",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 7862,
-          "new": 7861
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-2106",
-      "name": "Set Destapador Vino 3 Piezas en Caja de Madera",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 590,
-          "new": 589
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "SKB05X-1",
-      "name": "Taza Reactiva Corazón Mate 11 oz",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 2165,
-          "new": 2161
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-2004",
-      "name": "Taza Reactiva Negro Matte 11 oz",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 3052,
-          "new": 3042
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-2018",
-      "name": "Chop Vidrio Pavonado 16 oz",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 559,
-          "new": 275
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-2010",
-      "name": "Tomatodo Aluminio 750 ml",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 613,
-          "new": 610
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-2034",
-      "name": "Botella de Agua de Aluminio 750 ml",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 140,
-          "new": 120
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "SKB-55",
-      "name": "Taza Interior y Asa de Color 15 oz",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 877,
-          "new": 876
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-2038",
-      "name": "Taza Interior y Asa de Color 11 oz",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 1441,
-          "new": 1440
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-1800",
-      "name": "Jarro Mug Ecólogico con Tapa 600 ml",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 6046,
-          "new": 6044
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-1809",
-      "name": "Jarro Mug Ecológico con Tapa 360 ml",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 11483,
-          "new": 11481
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-1804",
-      "name": "Termo Metálico 500 ml",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 14494,
-          "new": 14332
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-8020",
-      "name": "Llavero Muñeco Antiestrés",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 12799,
-          "new": 12797
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-8014",
-      "name": "Llavero Metálico Rectangular con Inserto de Bambu",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 2133,
-          "new": 2083
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-5005",
-      "name": "Alcancía de Plástico Llavero Cerdito",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 12679,
-          "new": 12676
+          "old": 9799,
+          "new": 9749
         }
       ]
     },
@@ -868,148 +439,83 @@
         {
           "field": "stock",
           "label": "Stock",
-          "old": 2029,
-          "new": 1978
+          "old": 1978,
+          "new": 1974
         }
       ]
     },
     {
       "type": "UPDATED",
-      "code": "FB-1404",
-      "name": "Micas para Enmicados  A4 – 75 mic",
+      "code": "FB-1426",
+      "name": "Micas para Enmicados 100 x 145 mm – 200 mic",
       "changes": [
         {
           "field": "stock",
           "label": "Stock",
-          "old": 230,
-          "new": 220
+          "old": 2963,
+          "new": 2960
         }
       ]
     },
     {
       "type": "UPDATED",
-      "code": "FB-1413",
-      "name": "Micas para Enmicados A3 – 125 mic",
+      "code": "FB-1301",
+      "name": "Resaltador Triangulo",
       "changes": [
         {
           "field": "stock",
           "label": "Stock",
-          "old": 37,
-          "new": 36
+          "old": 19469,
+          "new": 19459
         }
       ]
     },
     {
       "type": "UPDATED",
-      "code": "FB-7035",
-      "name": "Papel Fotográfico Brillante 115 GSM A4 – 100 Hojas",
+      "code": "FB-1309",
+      "name": "Resaltador Fibra de Trigo Triangulo",
       "changes": [
         {
           "field": "stock",
           "label": "Stock",
-          "old": 1339,
-          "new": 1337
+          "old": 1036,
+          "new": 634
         }
       ]
     },
     {
       "type": "UPDATED",
-      "code": "FB-7057",
-      "name": "Papel Fotográfico Brillante 180 GSM A4 – 100 Hojas",
+      "code": "FB-1304",
+      "name": "Resaltador Manito",
       "changes": [
         {
           "field": "stock",
           "label": "Stock",
-          "old": 1848,
-          "new": 36
+          "old": 1564,
+          "new": 1414
         }
       ]
     },
     {
       "type": "UPDATED",
-      "code": "FB-7041",
-      "name": "Papel Fotográfico Jumbo RC 260GSM 10x15cm – 100 Hojas",
+      "code": "MU-511",
+      "name": "USB modelo Tarjeta 16 GB",
       "changes": [
         {
           "field": "stock",
           "label": "Stock",
-          "old": 801,
-          "new": 800
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-1009",
-      "name": "Porta Taco con Post-It",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 3899,
-          "new": 3898
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-1012",
-      "name": "Porta Taco con Post-It Regla",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 3889,
-          "new": 3888
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-1312",
-      "name": "Resaltador Limpiador Teclado",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 4988,
-          "new": 4987
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-1308",
-      "name": "Resaltador en Pote",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 5361,
-          "new": 5360
-        }
-      ]
-    },
-    {
-      "type": "UPDATED",
-      "code": "FB-1306",
-      "name": "Resaltador Circular",
-      "changes": [
-        {
-          "field": "stock",
-          "label": "Stock",
-          "old": 9540,
-          "new": 9539
+          "old": 384,
+          "new": 333
         }
       ]
     }
   ],
   "failures": [],
-  "started_at": "2026-08-22T20:42:05.207092+00:00",
-  "finished_at": "2026-08-22T20:43:40.143625+00:00",
-  "duration_seconds": 94.936533,
+  "started_at": "2026-08-25T02:25:05.753303+00:00",
+  "finished_at": "2026-08-25T02:26:22.002233+00:00",
+  "duration_seconds": 76.24893,
   "schema_version": 2,
-  "scraped_at": "2026-08-22T20:43:40.143625+00:00",
+  "scraped_at": "2026-08-25T02:26:22.002233+00:00",
   "codes": [
     "21098nd",
     "858-a4",

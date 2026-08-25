@@ -73,7 +73,7 @@ class SyncResult:
 
     def finish(self) -> None:
         self.finished_at = datetime.now(timezone.utc)
-        self.success = not self.has_errors
+        self.success = self.coverage_complete and not self.has_errors
 
     @property
     def duration_seconds(self) -> float:
@@ -112,11 +112,11 @@ class SyncResult:
             "multiple_category_products": self.multiple_category_products,
             "coverage_gap": self.coverage_gap,
             "category_occurrence_gap": self.category_occurrence_gap,
-            "coverage_complete": self.coverage_complete,
             "reference_category_occurrences": self.expected_category_occurrences,
             "actual_category_occurrences": self.products_found,
             "unique_products": self.products_unique,
             "multi_category_products": self.products_multiple_categories,
+            "coverage_complete": self.coverage_complete,
             "products_created": self.products_created,
             "products_updated": self.products_updated,
             "products_unchanged": self.products_unchanged,

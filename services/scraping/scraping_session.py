@@ -34,7 +34,7 @@ class ScrapingSessionResult:
 
     @property
     def counts_are_consistent(self) -> bool:
-        return self.processed == self.classified_total
+        return self.classified_total == self.products_unique
 
     def success(self) -> bool:
         return not self.errors
@@ -80,7 +80,8 @@ class ScrapingSession:
                 self.result.errors.append(
                     "Inconsistencia en el resumen de sincronización: "
                     f"procesados={self.result.processed}, "
-                    f"clasificados={self.result.classified_total}."
+                    f"clasificados={self.result.classified_total}, "
+                    f"únicos={self.result.products_unique}."
                 )
 
             if not self.result.errors:

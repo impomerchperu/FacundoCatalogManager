@@ -1,5 +1,3 @@
-from bs4 import BeautifulSoup
-
 from scrapers.collectors.category_scraper import CategoryScraper
 
 
@@ -64,11 +62,11 @@ def test_sku_text_does_not_fake_complete_archive():
         category_url: html,
         "ajax:1": (
             '{"pagination":{"found_posts":51,"max_num_pages":2},'
-            '"rendered_content":"<article class="product">page1</article>"}'
+            '"rendered_content":"<article class=\'product\'>page1</article>"}'
         ),
         "ajax:2": (
             '{"pagination":{"found_posts":51,"max_num_pages":2},'
-            '"rendered_content":"<article class="product">page2</article>"}'
+            '"rendered_content":"<article class=\'product\'>page2</article>"}'
         ),
     }
     browser = FakeBrowser(responses)

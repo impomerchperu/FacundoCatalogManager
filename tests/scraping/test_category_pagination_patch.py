@@ -23,6 +23,24 @@ def test_jsf_payload_uses_requested_page_for_all_pagination_fields():
     assert payload["paged"] == "3"
 
 
+def test_complete_category_html_is_used_before_jsf():
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+    html = "".join(
+        f'<article><span class="sku">FB-{code}</span></article>'
+        for code in ("1001", "1002", "1003")
+    )
+    browser = FakeBrowser({category_url: html})
+    scraper = CategoryScraper(browser)
+
+    pages = scraper.get_category_pages(category_url, expected_count=3)
+
+    assert pages == [category_url]
+    assert browser.post_calls == []
+
+
 def test_jsf_pagination_uses_each_category_count_not_global_total():
     category_url = (
         "https://stock.importacionesfacundo.com/"

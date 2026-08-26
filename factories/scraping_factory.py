@@ -57,13 +57,15 @@ class ScrapingFactory:
 
         browser = Browser()
 
+        product_card_extractor = ProductCardExtractor()
         category_scraper = CategoryScraper(
             browser=browser,
+            product_block_extractor=product_card_extractor,
         )
 
         collection_scraper = ProductCollectionScraper(
             category_scraper,
-            ProductCardExtractor(),
+            product_card_extractor,
             CategoryProductExtractor(),
             detail_extractor=ProductExtractor(),
         )

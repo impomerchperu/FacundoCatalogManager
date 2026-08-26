@@ -116,13 +116,15 @@ class CategoryScraper:
         found_posts, max_num_pages, first_html = self._fetch_jsf_page(
             category_url, category_id, 1
         )
-        expected_count = max(found_posts, expected_count)
+        category_total = max(int(expected_count or 0), found_posts)
+        required_pages = (
+            category_total + self.PRODUCTS_PER_PAGE - 1
+        ) // self.PRODUCTS_PER_PAGE
         max_num_pages = max(
             max_num_pages,
+            required_pages,
             self._declared_total_pages(first_html),
             self._pagination_max_page(first_html),
-            (expected_count + self.PRODUCTS_PER_PAGE - 1)
-            // self.PRODUCTS_PER_PAGE,
         )
         if max_num_pages <= 0:
             return [category_url]
@@ -134,8 +136,7 @@ class CategoryScraper:
 
         pages = [category_url]
         self._cache_category_html(category_url, first_html)
-        page_number = 2
-        while page_number <= max_num_pages:
+        for page_number in range(2, max_num_pages + 1):
             page_url = self._jsf_page_url(category_url, page_number)
             rendered_html = self._fetch_category_page_html(
                 category_url, category_id, page_number, page_url
@@ -148,19 +149,6 @@ class CategoryScraper:
                 )
             self._cache_category_html(page_url, rendered_html)
             pages.append(page_url)
-            page_found, page_total, _ = self._fetch_jsf_page(
-                category_url, category_id, page_number
-            )
-            found_posts = max(found_posts, page_found)
-            max_num_pages = max(
-                max_num_pages,
-                page_total,
-                self._declared_total_pages(rendered_html),
-                self._pagination_max_page(rendered_html),
-                (found_posts + self.PRODUCTS_PER_PAGE - 1)
-                // self.PRODUCTS_PER_PAGE,
-            )
-            page_number += 1
         if len(pages) != max_num_pages:
             raise RuntimeError(
                 f"Paginación incompleta para {category_url}: "
@@ -250,7 +238,7 @@ class CategoryScraper:
             ("defaults[disable_query_merge]", "true"),
             ("defaults[is_archive_main_query]", "true"),
             ("defaults[post_status]", "publish"),
-            ("defaults[paged]", "1"),
+            ("defaults[paged]", str(page)),
             ("settings[filtered_post_id]", str(category_id)),
             ("settings[element_id]", JETSMARTFILTERS_ELEMENT_ID),
             ("settings[is_archive_main_query]", "true"),

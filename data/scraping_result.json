@@ -1,18 +1,18 @@
 {
-  "run_id": "7e2ee5b07a36425d828901591b8d4484",
+  "run_id": "fc98e3c31b554177b60a3decb0f78d51",
   "success": false,
   "processed": 357,
   "created": 0,
-  "updated": 12,
-  "unchanged": 345,
+  "updated": 53,
+  "unchanged": 304,
   "deleted": 0,
   "generated": 0,
   "missing_code": 0,
   "classified_total": 357,
   "counts_are_consistent": true,
   "categories_processed": 24,
-  "products_expected": 525,
-  "expected_category_occurrences": 525,
+  "products_expected": 0,
+  "expected_category_occurrences": 528,
   "products_found": 362,
   "products_unique": 357,
   "products_multiple_categories": 20,
@@ -145,8 +145,8 @@
       "unique_products": 23
     },
     {
-      "category": "Papeles Fotográficos Koala Paper",
-      "comparison_key": "papeles fotograficos koala paper",
+      "category": "Papeles Fotográficos",
+      "comparison_key": "papeles fotograficos",
       "products": 25,
       "unique_products": 25
     },
@@ -337,9 +337,9 @@
       ]
     }
   ],
-  "coverage_gap": 163,
-  "category_occurrence_gap": 163,
-  "reference_category_occurrences": 525,
+  "coverage_gap": 166,
+  "category_occurrence_gap": 166,
+  "reference_category_occurrences": 528,
   "actual_category_occurrences": 362,
   "unique_products": 357,
   "multi_category_products": 20,
@@ -355,6 +355,32 @@
   "changes": [
     {
       "type": "UPDATED",
+      "code": "FB-4009",
+      "name": "Pelota Antiestrés 6.3 cm",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 67028,
+          "new": 66460
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-4030",
+      "name": "Pelota Mundo Antiestrés",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 2477,
+          "new": 2407
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
       "code": "FB-4032",
       "name": "Pelota de Futbol Antiestrés",
       "changes": [
@@ -368,6 +394,71 @@
     },
     {
       "type": "UPDATED",
+      "code": "FB-4019",
+      "name": "Estrella Antiestrés",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 4231,
+          "new": 3021
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-4029",
+      "name": "Muñeco Antiestrés",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 15269,
+          "new": 15169
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-5002",
+      "name": "Navaja 11 Funciones",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 2737,
+          "new": 2635
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-5008",
+      "name": "Porta Pastillas Circular",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 10111,
+          "new": 10009
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-5010",
+      "name": "Porta Pastillas Cuadrado",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 17864,
+          "new": 17764
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
       "code": "FB-5009",
       "name": "Alcancía Cerdito Pvc",
       "changes": [
@@ -375,7 +466,7 @@
           "field": "stock",
           "label": "Stock",
           "old": 35343,
-          "new": 35243
+          "new": 34543
         }
       ]
     },
@@ -401,7 +492,7 @@
           "field": "stock",
           "label": "Stock",
           "old": 28886,
-          "new": 28836
+          "new": 28784
         }
       ]
     },
@@ -420,6 +511,32 @@
     },
     {
       "type": "UPDATED",
+      "code": "HL-4670S",
+      "name": "Round Frasco de Gel Antibacterial Envase Lleno 30 ml",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 5241,
+          "new": 5140
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-2011",
+      "name": "Termo Auto Blanco 450 ml",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 1014,
+          "new": 981
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
       "code": "FB-1801",
       "name": "Mug de Acrílico 400 ml-",
       "changes": [
@@ -433,6 +550,32 @@
     },
     {
       "type": "UPDATED",
+      "code": "FB-1806",
+      "name": "Jarro Mug Fibra de Trigo 280 ml",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 3070,
+          "new": 3018
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-1808",
+      "name": "Jarro Ecológico Porta Celular",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 4622,
+          "new": 4612
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
       "code": "FB-8016",
       "name": "Llavero de Metal Boleado",
       "changes": [
@@ -440,7 +583,46 @@
           "field": "stock",
           "label": "Stock",
           "old": 1978,
-          "new": 1974
+          "new": 1164
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-1413",
+      "name": "Micas para Enmicados A3 – 125 mic",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 36,
+          "new": 31
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-1419",
+      "name": "Micas para Enmicados A3 – 250 mic",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 164,
+          "new": 153
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-1420",
+      "name": "Micas para Enmicados 60 x 95 mm – 200 mic",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 42,
+          "new": 39
         }
       ]
     },
@@ -459,6 +641,374 @@
     },
     {
       "type": "UPDATED",
+      "code": "FB-7033",
+      "name": "Papel Fotográfico Brillante PAMUNDO 180 GSM A4 – 20 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7030",
+      "name": "Papel Imprimible Para Tatuajes Temporales A4 – 05 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7017",
+      "name": "Papel Fotográfico RC Satinado 260 GSM A4 – 20 hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        },
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 219,
+          "new": 194
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7014",
+      "name": "Papel Fotográfico Brillante 115 GSM A4 – 50 hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7035",
+      "name": "Papel Fotográfico Brillante 115 GSM A4 – 100 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        },
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 1337,
+          "new": 1335
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7046",
+      "name": "Papel Fotográfico Brillante 180 GSM A4 – 22 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7015",
+      "name": "Papel Fotográfico Brillante 180 GSM A4 – 50 hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        },
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 249,
+          "new": 247
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7057",
+      "name": "Papel Fotográfico Brillante 180 GSM A4 – 100 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7068",
+      "name": "Papel Fotográfico Brillante 180 GSM A3 – 20 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7074",
+      "name": "Papel Fotográfico Brillante 230 GSM A4 – 20 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7076",
+      "name": "Papel Fotográfico Brillante 260 GSM A4 – 20 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7040",
+      "name": "Papel Fotográfico Brillante RC 260 GSM A3 – 20 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7041",
+      "name": "Papel Fotográfico Jumbo RC 260GSM 10x15cm – 100 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        },
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 800,
+          "new": 720
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7054",
+      "name": "Papel Fotográfico Brillante RC 260 GSM A4 – 20 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7034",
+      "name": "Papel Fotográfico Brillante Premium 180 GSM A3+ – 20 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7072",
+      "name": "Papel Fotográfico Brillante Premium 260 GSM A3+ – 20 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7077",
+      "name": "Papel Fotográfico Jumbo 230GSM 10x15cm – 100 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7037",
+      "name": "Papel Mate 110 GSM A4 – 100 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7038",
+      "name": "Papel Fotográfico Mate 180 GSM A4 – 20 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7039",
+      "name": "Papel Fotográfico Mate 230 GSM A4 – 100 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7078",
+      "name": "Papel Fotográfico Brillante Adhesivo 115 GSM A4 – 20 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7016",
+      "name": "Papel Fotográfico Brillante Adhesivo 115 GSM A4 – 50 hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7032",
+      "name": "Papel Fotográfico Brillante Adhesivo 115 GSM A4 – 100 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7031",
+      "name": "Papel Fotográfico Brillante Adhesivo 115 GSM A3 – 20 Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotograficos Koala Paper, Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-7079",
+      "name": "Papel Fotográfico Brillante Adhesivo 135 GSM A4 – 20-Hojas",
+      "changes": [
+        {
+          "field": "category",
+          "label": "Categoría",
+          "old": "Papeles Fotográficos Koala Paper",
+          "new": "Papeles Fotográficos Koala Paper, Papeles Fotográficos"
+        },
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 8,
+          "new": 5
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-1302",
+      "name": "Resaltador Muñeco",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 6822,
+          "new": 5619
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
       "code": "FB-1301",
       "name": "Resaltador Triangulo",
       "changes": [
@@ -466,7 +1016,20 @@
           "field": "stock",
           "label": "Stock",
           "old": 19469,
-          "new": 19459
+          "new": 19359
+        }
+      ]
+    },
+    {
+      "type": "UPDATED",
+      "code": "FB-1311",
+      "name": "Resaltador Crayola",
+      "changes": [
+        {
+          "field": "stock",
+          "label": "Stock",
+          "old": 9253,
+          "new": 9251
         }
       ]
     },
@@ -511,11 +1074,11 @@
     }
   ],
   "failures": [],
-  "started_at": "2026-08-25T02:25:05.753303+00:00",
-  "finished_at": "2026-08-25T02:26:22.002233+00:00",
-  "duration_seconds": 76.24893,
+  "started_at": "2026-08-26T05:22:41.671118+00:00",
+  "finished_at": "2026-08-26T05:23:53.202243+00:00",
+  "duration_seconds": 71.531125,
   "schema_version": 2,
-  "scraped_at": "2026-08-25T02:26:22.002233+00:00",
+  "scraped_at": "2026-08-26T05:23:53.202243+00:00",
   "codes": [
     "21098nd",
     "858-a4",

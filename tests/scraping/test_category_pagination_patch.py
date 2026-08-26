@@ -1,3 +1,5 @@
+from bs4 import BeautifulSoup
+
 from scrapers.collectors.category_scraper import CategoryScraper
 
 
@@ -15,6 +17,11 @@ class FakeBrowser:
         return self.responses[f"ajax:{page}"]
 
 
+class FakeProductBlockExtractor:
+    def extract(self, soup):
+        return soup.select("article.product")
+
+
 def test_jsf_payload_uses_requested_page_for_all_pagination_fields():
     payload = dict(CategoryScraper._jet_smart_filters_payload(127, 3))
 
@@ -23,22 +30,59 @@ def test_jsf_payload_uses_requested_page_for_all_pagination_fields():
     assert payload["paged"] == "3"
 
 
-def test_complete_category_html_is_used_before_jsf():
+def test_complete_category_html_is_used_before_jsf_when_cards_are_complete():
     category_url = (
         "https://stock.importacionesfacundo.com/"
         "categoria-producto/catalogo/"
     )
     html = "".join(
-        f'<article><span class="sku">FB-{code}</span></article>'
+        f'<article class="product"><span>FB-{code}</span></article>'
         for code in ("1001", "1002", "1003")
     )
     browser = FakeBrowser({category_url: html})
-    scraper = CategoryScraper(browser)
+    scraper = CategoryScraper(
+        browser,
+        product_block_extractor=FakeProductBlockExtractor(),
+    )
 
     pages = scraper.get_category_pages(category_url, expected_count=3)
 
     assert pages == [category_url]
     assert browser.post_calls == []
+
+
+def test_sku_text_does_not_fake_complete_archive():
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+    html = "".join(
+        f'<span class="sku">FB-{code}</span>'
+        for code in range(1001, 1052)
+    )
+    responses = {
+        category_url: html,
+        "ajax:1": (
+            '{"pagination":{"found_posts":51,"max_num_pages":2},'
+            '"rendered_content":"<article class="product">page1</article>"}'
+        ),
+        "ajax:2": (
+            '{"pagination":{"found_posts":51,"max_num_pages":2},'
+            '"rendered_content":"<article class="product">page2</article>"}'
+        ),
+    }
+    browser = FakeBrowser(responses)
+    scraper = CategoryScraper(
+        browser,
+        product_block_extractor=FakeProductBlockExtractor(),
+    )
+
+    pages = scraper.get_category_pages(category_url, expected_count=51)
+
+    assert pages == [
+        category_url,
+        f"{category_url.rstrip('/')}?product-page=2",
+    ]
 
 
 def test_jsf_pagination_uses_each_category_count_not_global_total():

@@ -4,6 +4,7 @@ from models.scraping.category import Category
 from scrapers.selectors import category_selectors
 
 _COUNT_PATTERN = re.compile(r"Producto\(s\)\s*(\d+)", re.IGNORECASE)
+_HEADING_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6"]
 
 
 class CategoryExtractor:
@@ -38,7 +39,7 @@ class CategoryExtractor:
             current = getattr(current, "parent", None)
             if current is None:
                 break
-            heading = current.find(["h1", "h2", "h3", "h4", "h5", "h6"])
+            heading = current.find(_HEADING_TAGS)
             if heading is not None:
                 heading_name = heading.get_text(" ", strip=True)
                 if heading_name and "Ver Categoría" not in heading_name:
@@ -49,6 +50,16 @@ class CategoryExtractor:
     @staticmethod
     def _extract_expected_count(link, category_name: str) -> int:
         """Busca el conteo del bloque individual de la categoría."""
+        heading = link.find_previous(_HEADING_TAGS)
+        if heading is not None:
+            heading_name = heading.get_text(" ", strip=True)
+            if heading_name.casefold() == category_name.casefold():
+                count_node = heading.find_previous(string=_COUNT_PATTERN)
+                if count_node is not None:
+                    match = _COUNT_PATTERN.search(str(count_node))
+                    if match:
+                        return int(match.group(1))
+
         fallback_count = 0
         current = link
         while current is not None:
@@ -65,9 +76,7 @@ class CategoryExtractor:
             if fallback_count == 0:
                 fallback_count = candidate
 
-            headings = current.find_all(
-                ["h1", "h2", "h3", "h4", "h5", "h6"],
-            )
+            headings = current.find_all(_HEADING_TAGS)
             heading_texts = {
                 heading.get_text(" ", strip=True).casefold()
                 for heading in headings

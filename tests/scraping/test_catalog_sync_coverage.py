@@ -14,7 +14,7 @@ class Product:
         self.url = f"https://example.com/product/{code.lower()}/"
 
 
-def test_catalog_sync_uses_unique_product_count_for_coverage():
+def test_catalog_sync_uses_unique_product_count_for_identity_only():
     service = CatalogSyncService(SyncRepository(), ProductDiffService())
 
     result = service.sync(
@@ -38,7 +38,7 @@ def test_catalog_sync_uses_unique_product_count_for_coverage():
     assert result.coverage_complete is True
 
 
-def test_catalog_sync_does_not_enable_prune_without_unique_expected_count():
+def test_catalog_sync_can_complete_category_coverage_without_unique_target():
     service = CatalogSyncService(SyncRepository(), ProductDiffService())
 
     result = service.sync_full_catalog(
@@ -50,5 +50,5 @@ def test_catalog_sync_does_not_enable_prune_without_unique_expected_count():
     assert result.products_expected == 0
     assert result.expected_category_occurrences == 1
     assert result.products_unique == 1
-    assert result.coverage_complete is False
+    assert result.coverage_complete is True
     assert result.deleted == 0

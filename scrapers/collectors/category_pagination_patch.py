@@ -1,4 +1,8 @@
-from typing import Any
+from config.scraping_config import (
+    JETSMARTFILTERS_ELEMENT_ID,
+    JETSMARTFILTERS_INDEXING_FILTERS,
+    JETSMARTFILTERS_SIGNATURE,
+)
 
 from .category_scraper import CategoryScraper
 
@@ -18,12 +22,12 @@ def _jet_smart_filters_payload(category_id: int, page: int) -> list[tuple[str, s
         ("defaults[post_status]", "publish"),
         ("defaults[paged]", str(page)),
         ("settings[filtered_post_id]", str(category_id)),
-        ("settings[element_id]", "95dc8a"),
+        ("settings[element_id]", JETSMARTFILTERS_ELEMENT_ID),
         ("settings[is_archive_main_query]", "true"),
-        ("settings[jsf_signature]", "83bc155f208a7b2c473d90a84cf5fe01"),
+        ("settings[jsf_signature]", JETSMARTFILTERS_SIGNATURE),
         ("props[page]", str(page)),
         ("paged", str(page)),
-        ("indexing_filters[]", "434"),
+        ("indexing_filters[]", JETSMARTFILTERS_INDEXING_FILTERS),
     ]
 
 

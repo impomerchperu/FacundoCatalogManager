@@ -1,20 +1,7 @@
 from models.scraping.sync_result import SyncResult
 
 
-def test_coverage_requires_unique_target_when_catalog_expectation_is_provided():
-    result = SyncResult(
-        expected_category_occurrences=5,
-        products_found=5,
-        products_unique=4,
-        products_expected=4,
-    )
-
-    assert result.category_occurrence_gap == 0
-    assert result.coverage_gap == 0
-    assert result.coverage_complete is True
-
-
-def test_coverage_is_incomplete_when_unique_target_is_not_met():
+def test_coverage_is_complete_when_category_occurrences_are_met():
     result = SyncResult(
         expected_category_occurrences=5,
         products_found=5,
@@ -24,7 +11,20 @@ def test_coverage_is_incomplete_when_unique_target_is_not_met():
 
     assert result.category_occurrence_gap == 0
     assert result.coverage_gap == 0
-    assert result.coverage_complete is False
+    assert result.coverage_complete is True
+
+
+def test_unique_count_does_not_override_complete_category_coverage():
+    result = SyncResult(
+        expected_category_occurrences=5,
+        products_found=5,
+        products_unique=4,
+        products_expected=999,
+    )
+
+    assert result.category_occurrence_gap == 0
+    assert result.coverage_gap == 0
+    assert result.coverage_complete is True
 
 
 def test_coverage_is_incomplete_when_category_occurrences_are_missing():
@@ -40,7 +40,7 @@ def test_coverage_is_incomplete_when_category_occurrences_are_missing():
     assert result.coverage_complete is False
 
 
-def test_coverage_is_complete_without_category_expectation_when_unique_target_is_met():
+def test_coverage_is_complete_without_category_expectation_when_products_exist():
     result = SyncResult(
         expected_category_occurrences=0,
         products_found=1,
@@ -53,28 +53,27 @@ def test_coverage_is_complete_without_category_expectation_when_unique_target_is
 
 def test_to_dict_keeps_occurrence_and_unique_metrics_separate():
     result = SyncResult(
-        expected_category_occurrences=525,
-        products_found=362,
-        products_unique=357,
-        products_multiple_categories=136,
+        expected_category_occurrences=20,
+        products_found=17,
+        products_unique=15,
+        products_multiple_categories=2,
     )
 
     payload = result.to_dict()
 
-    assert payload["reference_category_occurrences"] == 525
-    assert payload["actual_category_occurrences"] == 362
-    assert payload["unique_products"] == 357
-    assert payload["multi_category_products"] == 136
+    assert payload["reference_category_occurrences"] == 20
+    assert payload["actual_category_occurrences"] == 17
+    assert payload["unique_products"] == 15
+    assert payload["multi_category_products"] == 2
 
 
-def test_finish_fails_when_catalog_coverage_is_incomplete():
+def test_finish_fails_when_category_coverage_is_incomplete():
     result = SyncResult(
-        expected_category_occurrences=525,
-        products_found=362,
-        products_unique=357,
-        products_expected=525,
-        updated=50,
-        unchanged=307,
+        expected_category_occurrences=20,
+        products_found=17,
+        products_unique=15,
+        updated=10,
+        unchanged=5,
     )
 
     result.finish()
@@ -83,13 +82,12 @@ def test_finish_fails_when_catalog_coverage_is_incomplete():
     assert result.success is False
 
 
-def test_finish_succeeds_when_catalog_coverage_is_complete():
+def test_finish_succeeds_when_category_coverage_is_complete():
     result = SyncResult(
-        expected_category_occurrences=525,
-        products_found=525,
-        products_unique=525,
-        products_expected=525,
-        unchanged=525,
+        expected_category_occurrences=20,
+        products_found=20,
+        products_unique=18,
+        unchanged=18,
     )
 
     result.finish()

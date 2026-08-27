@@ -1,9 +1,9 @@
 """Category pagination compatibility layer.
 
-Facundo's category archive can contain the complete product table in its
-initial HTML. Use that archive only when the real product-card extractor
-confirms that it contains the category's published product count. Otherwise
-fall back to the JSF pagination path.
+The category index publishes the authoritative product count for each
+category. For categories larger than one page, always traverse the required
+WooCommerce ``product-page`` URLs. JetSmartFilters remains the fallback when
+a direct page does not return usable product cards.
 """
 
 from .category_scraper import CategoryScraper
@@ -14,7 +14,7 @@ _PATCHED = False
 
 
 def pages_required(expected_count: int, products_per_page: int = 25) -> int:
-    """Return pages required by one category's own product count."""
+    """Return the number of pages required by one category's own count."""
     count = max(int(expected_count or 0), 0)
     if count == 0:
         return 0
@@ -28,13 +28,22 @@ def _archive_product_count(self: CategoryScraper, html: str) -> int:
         return 0
     try:
         soup = self._parse(html)
-        if callable(extractor):
-            cards = extractor(soup)
-        else:
-            cards = extractor.extract(soup)
+        cards = (
+            extractor(soup)
+            if callable(extractor)
+            else extractor.extract(soup)
+        )
         return len(cards or [])
     except (AttributeError, TypeError, ValueError):
         return 0
+
+
+def _direct_page_html(self: CategoryScraper, page_url: str) -> str:
+    """Fetch one explicit category page without invoking JSF."""
+    try:
+        return self.get_html(page_url)
+    except Exception:
+        return ""
 
 
 def _get_category_pages(
@@ -42,7 +51,7 @@ def _get_category_pages(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Prefer a complete archive only after validating actual product blocks."""
+    """Traverse every page required by the category's published count."""
     category_html = self.get_html(category_url)
     if not category_html:
         return []
@@ -54,11 +63,51 @@ def _get_category_pages(
     if expected > 0 and archive_count >= expected:
         return [category_url]
 
-    return _ORIGINAL_GET_CATEGORY_PAGES(
-        self,
-        category_url,
-        expected_count=expected,
+    required_pages = pages_required(
+        expected,
+        getattr(self, "PRODUCTS_PER_PAGE", 25),
     )
+    if required_pages <= 1:
+        return [category_url]
+
+    pages = [category_url]
+    category_id = self._category_id(category_html)
+
+    for page_number in range(2, required_pages + 1):
+        page_url = self._jsf_page_url(category_url, page_number)
+        direct_html = _direct_page_html(self, page_url)
+        if direct_html and direct_html != category_html:
+            direct_count = _archive_product_count(self, direct_html)
+            if direct_count > 0:
+                self._cache_category_html(page_url, direct_html)
+                pages.append(page_url)
+                continue
+
+        if category_id is None:
+            if direct_html:
+                self._cache_category_html(page_url, direct_html)
+            pages.append(page_url)
+            continue
+
+        _, _, rendered_html = self._fetch_jsf_page(
+            category_url,
+            category_id,
+            page_number,
+        )
+        if not rendered_html:
+            raise RuntimeError(
+                "No se pudo obtener la página "
+                f"{page_number}/{required_pages} de {category_url}."
+            )
+        self._cache_category_html(page_url, rendered_html)
+        pages.append(page_url)
+
+    if len(pages) != required_pages:
+        raise RuntimeError(
+            f"Paginación incompleta para {category_url}: "
+            f"{len(pages)}/{required_pages} páginas."
+        )
+    return pages
 
 
 def activate() -> None:

@@ -6,6 +6,8 @@ required by that category's own published count. JetSmartFilters is used for
 those additional pages so page 2+ cannot silently repeat the first archive.
 """
 
+import requests
+
 from .category_scraper import CategoryScraper
 
 
@@ -61,7 +63,7 @@ def _get_direct_page_html(self: CategoryScraper, page_url: str) -> str:
     """Try the public category URL when a JSF page is empty or duplicated."""
     try:
         html = self.get_html(page_url)
-    except Exception:
+    except requests.RequestException:
         return ""
     return html if html and _archive_product_keys(self, html) else ""
 

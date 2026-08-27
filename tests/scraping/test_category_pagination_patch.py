@@ -1,5 +1,5 @@
-from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.collectors.category_pagination_patch import pages_required
+from scrapers.collectors.category_scraper import CategoryScraper
 
 
 class FakeBrowser:

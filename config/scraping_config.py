@@ -31,10 +31,6 @@ SCRAPING_CATEGORY_WORKERS = 16
 # without being serialized by the shared Browser semaphore.
 SCRAPING_HTTP_WORKERS = 32
 
-# Legacy compatibility only. Coverage is no longer based on a global catalog
-# total; Category.expected_count is the authoritative per-category reference.
-EXPECTED_CATALOG_PRODUCTS = 0
-
 # JetSmartFilters/Bricks Query Loop request metadata observed on the live catalog.
 # Keep these values centralized so the scraper can reproduce the provider query
 # without hard-coding them inside the pagination implementation.

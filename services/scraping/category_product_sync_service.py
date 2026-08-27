@@ -5,7 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, cast
 
-from config.scraping_config import EXPECTED_CATALOG_PRODUCTS, SCRAPING_CATEGORY_WORKERS
+from config.scraping_config import SCRAPING_CATEGORY_WORKERS
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_name_normalizer import normalize_category_name
 
@@ -65,7 +65,7 @@ class CategoryProductSyncService:
             for category in categories
         )
         trusted_expected_products = (
-            EXPECTED_CATALOG_PRODUCTS
+            0
             if expected_products is None
             else max(int(expected_products or 0), 0)
         )
@@ -177,8 +177,6 @@ class CategoryProductSyncService:
         )
         self.last_sync_result.products_expected = trusted_expected_products
         self.last_sync_result.categories_processed = total
-        # La cobertura se calcula sobre una copia profunda de las ocurrencias
-        # crudas. La consolidación/pruning puede mutar objetos de producto.
         self._attach_category_coverage(raw_products, categories)
         self._write_final_result_artifact(raw_products)
         if progress_callback:
@@ -428,139 +426,18 @@ class CategoryProductSyncService:
             errors = int(metrics.get("http_terminal_errors", 0))
             if errors:
                 return False, f"terminal_http_errors:{errors}"
-        if (
-            expected_category_occurrences > 0
-            and len(products) < expected_category_occurrences
-        ):
-            return False, (
-                f"category_coverage_gap:{expected_category_occurrences - len(products)}"
-            )
-        if expected_products is not None and expected_products > 0:
-            unique_products = self._consolidate_for_coverage(products)
-            unique_count = len(unique_products)
-            if unique_count < expected_products:
-                return False, f"unique_coverage_gap:{expected_products - unique_count}"
+        if expected_category_occurrences <= 0:
+            return False, "no_category_counts"
+        occurrence_gap = max(expected_category_occurrences - len(products), 0)
+        if occurrence_gap:
+            return False, f"category_occurrence_gap:{occurrence_gap}"
+        expected_unique = max(int(expected_products or 0), 0)
+        if expected_unique > 0:
+            unique_codes = {
+                str(getattr(product, "code", "")).strip().casefold()
+                for product in products
+                if str(getattr(product, "code", "")).strip()
+            }
+            if len(unique_codes) < expected_unique:
+                return False, f"unique_coverage_gap:{expected_unique - len(unique_codes)}"
         return True, "complete"
-
-    def sync_products(
-        self,
-        products,
-        full_sync=False,
-        allow_prune=False,
-        expected_products=0,
-        expected_category_occurrences=0,
-    ):
-        total_started = time.perf_counter()
-        if self.mapper and self.catalog_sync_service:
-            started = time.perf_counter()
-            consolidate = getattr(
-                self.catalog_sync_service, "consolidate_products", None
-            )
-            if callable(consolidate):
-                products = cast(list[Any], consolidate(list(products)))
-            _log_timing(
-                "SCRAPING TIMING | stage=consolidation | products=%d | seconds=%.3f",
-                len(products),
-                time.perf_counter() - started,
-            )
-            if self.image_sync_adapter:
-                started = time.perf_counter()
-                products = cast(
-                    list[Any], self.image_sync_adapter.sync_products(products)
-                )
-                _log_timing(
-                    "SCRAPING TIMING | stage=images | products=%d | seconds=%.3f",
-                    len(products),
-                    time.perf_counter() - started,
-                )
-            started = time.perf_counter()
-            mapped_products = [self.mapper.map(product) for product in products]
-            _log_timing(
-                "SCRAPING TIMING | stage=mapping | products=%d | seconds=%.3f",
-                len(mapped_products),
-                time.perf_counter() - started,
-            )
-            started = time.perf_counter()
-            use_prune = bool(full_sync and allow_prune and expected_products)
-            sync_full = getattr(self.catalog_sync_service, "sync_full_catalog", None)
-            if use_prune and callable(sync_full):
-                result = cast(
-                    SyncResult,
-                    sync_full(
-                        mapped_products,
-                        expected_products=expected_products,
-                        expected_category_occurrences=expected_category_occurrences,
-                    ),
-                )
-            else:
-                result = cast(
-                    SyncResult,
-                    self.catalog_sync_service.sync(
-                        mapped_products,
-                        expected_products=expected_products,
-                        expected_category_occurrences=expected_category_occurrences,
-                    ),
-                )
-            _log_timing(
-                "SCRAPING TIMING | stage=catalog_sync | products=%d | seconds=%.3f | "
-                "prune=%s | expected_unique=%s | expected_category_occurrences=%s | "
-                "unique=%d | gap=%d",
-                len(mapped_products),
-                time.perf_counter() - started,
-                str(use_prune).lower(),
-                expected_products if expected_products else "unknown",
-                expected_category_occurrences
-                if expected_category_occurrences
-                else "unknown",
-                result.products_unique,
-                result.coverage_gap,
-            )
-            _log_timing(
-                "SCRAPING TIMING | stage=sync_total | products=%d | seconds=%.3f",
-                len(mapped_products),
-                time.perf_counter() - total_started,
-            )
-            self._accumulate_sync_result(result)
-            return mapped_products
-
-        started = time.perf_counter()
-        result = self.persistence_service.save_products(products)
-        _log_timing(
-            "SCRAPING TIMING | stage=persistence | products=%d | seconds=%.3f",
-            len(products),
-            time.perf_counter() - started,
-        )
-        _log_timing(
-            "SCRAPING TIMING | stage=sync_total | products=%d | seconds=%.3f",
-            len(products),
-            time.perf_counter() - total_started,
-        )
-        return result
-
-    def _accumulate_sync_result(self, result):
-        for field in (
-            "processed",
-            "created",
-            "updated",
-            "unchanged",
-            "deleted",
-            "generated",
-            "products_expected",
-            "expected_category_occurrences",
-            "products_found",
-            "products_unique",
-            "products_multiple_categories",
-            "duplicate_occurrences",
-        ):
-            setattr(
-                self.last_sync_result,
-                field,
-                getattr(self.last_sync_result, field, 0)
-                + getattr(result, field, 0),
-            )
-        self.last_sync_result.errors.extend(result.errors)
-        self.last_sync_result.failures.extend(result.failures)
-        self.last_sync_result.changes.extend(result.changes)
-
-    def reset_sync_result(self):
-        self.last_sync_result = SyncResult()

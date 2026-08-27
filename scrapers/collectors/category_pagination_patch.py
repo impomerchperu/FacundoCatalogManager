@@ -21,19 +21,49 @@ def pages_required(expected_count: int, products_per_page: int = 25) -> int:
     return (count + products_per_page - 1) // products_per_page
 
 
-def _archive_product_count(self: CategoryScraper, html: str) -> int:
-    """Count real product blocks instead of SKU-like text in the whole HTML."""
+def _archive_product_keys(self: CategoryScraper, html: str) -> set[str]:
+    """Return stable identities for real product cards in one archive page."""
     extractor = getattr(self, "product_block_extractor", None)
     if extractor is None:
-        return 0
+        return set()
     try:
         soup = self._parse(html)
-        cards = (
-            extractor(soup) if callable(extractor) else extractor.extract(soup)
-        )
-        return len(cards or [])
+        cards = extractor(soup) if callable(extractor) else extractor.extract(soup)
     except (AttributeError, TypeError, ValueError):
-        return 0
+        return set()
+
+    keys: set[str] = set()
+    for card in cards or []:
+        sku = card.select_one(".sku") if hasattr(card, "select_one") else None
+        code = sku.get_text(" ", strip=True) if sku is not None else ""
+        if code:
+            keys.add(f"code:{code.casefold()}")
+            continue
+        link = (
+            card.select_one('a[href*="/producto/"]')
+            if hasattr(card, "select_one")
+            else None
+        )
+        href = link.get("href", "") if link is not None else ""
+        if href:
+            keys.add(f"url:{href.casefold()}")
+            continue
+        try:
+            text = " ".join(card.stripped_strings).strip().casefold()
+        except AttributeError:
+            text = ""
+        if text:
+            keys.add(f"text:{text}")
+    return keys
+
+
+def _get_direct_page_html(self: CategoryScraper, page_url: str) -> str:
+    """Try the public category URL when a JSF page is empty or duplicated."""
+    try:
+        html = self.get_html(page_url)
+    except Exception:
+        return ""
+    return html if html and _archive_product_keys(self, html) else ""
 
 
 def _get_category_pages(
@@ -51,8 +81,8 @@ def _get_category_pages(
         return []
     self._cache_category_html(category_url, category_html)
 
-    archive_count = _archive_product_count(self, category_html)
-    if archive_count >= expected:
+    first_keys = _archive_product_keys(self, category_html)
+    if len(first_keys) >= expected:
         return [category_url]
 
     required_pages = pages_required(
@@ -67,6 +97,7 @@ def _get_category_pages(
         category_id = 0
 
     pages = [category_url]
+    seen_keys = set(first_keys)
     for page_number in range(2, required_pages + 1):
         page_url = self._jsf_page_url(category_url, page_number)
         _, _, rendered_html = self._fetch_jsf_page(
@@ -74,12 +105,28 @@ def _get_category_pages(
             category_id,
             page_number,
         )
-        if not rendered_html:
+        page_keys = _archive_product_keys(self, rendered_html)
+        if not page_keys or page_keys.issubset(seen_keys):
+            direct_html = _get_direct_page_html(self, page_url)
+            direct_keys = _archive_product_keys(self, direct_html)
+            if direct_keys and not direct_keys.issubset(seen_keys):
+                rendered_html = direct_html
+                page_keys = direct_keys
+
+        if not rendered_html or not page_keys:
             raise RuntimeError(
-                "No se pudo obtener la página "
+                "No se pudo obtener productos de la página "
                 f"{page_number}/{required_pages} de {category_url}."
             )
+        if page_keys.issubset(seen_keys):
+            raise RuntimeError(
+                "La página "
+                f"{page_number}/{required_pages} de {category_url} "
+                "repitió los productos de una página anterior."
+            )
+
         self._cache_category_html(page_url, rendered_html)
+        seen_keys.update(page_keys)
         pages.append(page_url)
 
     if len(pages) != required_pages:

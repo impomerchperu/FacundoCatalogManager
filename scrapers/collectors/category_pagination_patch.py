@@ -136,6 +136,11 @@ def _get_category_pages(
             f"Paginación incompleta para {category_url}: "
             f"{len(pages)}/{required_pages} páginas."
         )
+    if len(seen_keys) < expected:
+        raise RuntimeError(
+            f"Cobertura incompleta para {category_url}: "
+            f"{len(seen_keys)}/{expected} productos detectados."
+        )
     return pages
 
 

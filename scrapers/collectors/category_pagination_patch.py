@@ -6,6 +6,8 @@ WooCommerce ``product-page`` URLs. JetSmartFilters remains the fallback when
 a direct page does not return usable product cards.
 """
 
+import requests
+
 from .category_scraper import CategoryScraper
 
 
@@ -42,7 +44,7 @@ def _direct_page_html(self: CategoryScraper, page_url: str) -> str:
     """Fetch one explicit category page without invoking JSF."""
     try:
         return self.get_html(page_url)
-    except Exception:
+    except (AttributeError, requests.RequestException, RuntimeError, TypeError, ValueError):
         return ""
 
 

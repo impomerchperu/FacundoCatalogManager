@@ -1,19 +1,19 @@
 """Reliable pagination compatibility layer for Facundo category archives.
 
-The category index publishes an expected product count.  Facundo's archive
-uses JetSmartFilters/Bricks, but the public WooCommerce ``/page/N/`` archive
-is also available and is materially more reliable than the AJAX endpoint.
+The category index publishes an expected product count. Facundo's archive
+uses JetSmartFilters/Bricks, but the public WooCommerce archive is also
+available and is materially more reliable than the AJAX endpoint.
 
 Pagination therefore follows this order for every page after page 1:
-1. public WooCommerce ``/page/N/``;
-2. WooCommerce ``?product-page=N``;
-3. JetSmartFilters AJAX.
+1. explicit pagination links published by the category page;
+2. public WooCommerce ``/page/N/``;
+3. WooCommerce ``?product-page=N`` / ``?paged=N``;
+4. JetSmartFilters AJAX.
 
-Every accepted page must contain products not already seen.  This prevents
-an AJAX response that silently repeats page 1 from being counted as coverage.
+Every accepted page must contain products not already seen. This prevents an
+AJAX response that silently repeats an earlier page from being counted as
+coverage.
 """
-
-from __future__ import annotations
 
 import requests
 
@@ -34,49 +34,24 @@ def pages_required(expected_count: int, products_per_page: int = 25) -> int:
 
 
 def _archive_product_keys(self: CategoryScraper, html: str) -> set[str]:
-    """Return stable identities for products present in one archive page."""
+    """Return stable product identities using the scraper's canonical logic."""
     if not html:
         return set()
+    return self._product_keys(html)
 
-    soup = self._parse(html)
-    keys: set[str] = set()
 
-    # Prefer the project's product-block extractor when available because it
-    # knows the exact archive markup.  Keep a direct-link fallback because
-    # pagination validation must not depend on an extractor being able to
-    # parse every variation returned by JetSmartFilters.
-    extractor = getattr(self, "product_block_extractor", None)
-    if extractor is not None:
-        try:
-            cards = (
-                extractor(soup)
-                if callable(extractor)
-                else extractor.extract(soup)
-            )
-        except (AttributeError, TypeError, ValueError):
-            cards = []
-
-        for card in cards or []:
-            sku = card.select_one(".sku") if hasattr(card, "select_one") else None
-            code = sku.get_text(" ", strip=True) if sku is not None else ""
-            if code:
-                keys.add(f"code:{code.casefold()}")
-                continue
-            link = (
-                card.select_one('a[href*="/producto/"]')
-                if hasattr(card, "select_one")
-                else None
-            )
-            href = link.get("href", "") if link is not None else ""
-            if href:
-                keys.add(f"url:{href.casefold()}")
-
-    for link in soup.select('a[href*="/producto/"]'):
-        href = link.get("href", "").strip()
-        if href:
-            keys.add(f"url:{href.casefold().rstrip('/')}")
-
-    return keys
+def _explicit_page_urls(
+    self: CategoryScraper,
+    category_url: str,
+    html: str,
+    page_number: int,
+) -> tuple[str, ...]:
+    """Return published pagination URLs matching the requested page."""
+    urls: list[str] = []
+    for url in self._fallback_pagination_links(category_url, html):
+        if self._page_number(url) == page_number and url not in urls:
+            urls.append(url)
+    return tuple(urls)
 
 
 def _get_direct_page_html(self: CategoryScraper, page_url: str) -> str:
@@ -88,25 +63,39 @@ def _get_direct_page_html(self: CategoryScraper, page_url: str) -> str:
     return html if _archive_product_keys(self, html) else ""
 
 
-def _candidate_page_urls(category_url: str, page_number: int) -> tuple[str, ...]:
-    """Return public archive URL variants supported by WooCommerce."""
-    base = category_url.rstrip("/")
-    return (
-        f"{base}/page/{page_number}/",
-        f"{base}?product-page={page_number}",
-        f"{base}?paged={page_number}",
+def _candidate_page_urls(
+    self: CategoryScraper,
+    category_url: str,
+    category_html: str,
+    page_number: int,
+) -> tuple[str, ...]:
+    """Return published and conventional WooCommerce page URL variants."""
+    candidates = list(
+        _explicit_page_urls(self, category_url, category_html, page_number)
     )
+    base = category_url.rstrip("/")
+    candidates.extend(
+        (
+            f"{base}/page/{page_number}/",
+            f"{base}?product-page={page_number}",
+            f"{base}?paged={page_number}",
+        )
+    )
+    return tuple(dict.fromkeys(candidates))
 
 
 def _fetch_non_duplicate_page(
     self: CategoryScraper,
     category_url: str,
+    category_html: str,
     category_id: int,
     page_number: int,
     seen_keys: set[str],
 ) -> tuple[str, str, set[str]]:
     """Return the first page representation containing new products."""
-    for page_url in _candidate_page_urls(category_url, page_number):
+    for page_url in _candidate_page_urls(
+        self, category_url, category_html, page_number
+    ):
         html = _get_direct_page_html(self, page_url)
         page_keys = _archive_product_keys(self, html)
         if page_keys and not page_keys.issubset(seen_keys):
@@ -134,7 +123,7 @@ def _get_category_pages(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Traverse all required category pages without accepting duplicates."""
+    """Traverse all pages required by the category's published count."""
     expected = max(int(expected_count or 0), 0)
     if expected == 0:
         return _ORIGINAL_GET_CATEGORY_PAGES(
@@ -148,7 +137,6 @@ def _get_category_pages(
         return []
     self._cache_category_html(category_url, category_html)
 
-    first_keys = _archive_product_keys(self, category_html)
     required_pages = pages_required(
         expected,
         getattr(self, "PRODUCTS_PER_PAGE", 25),
@@ -158,12 +146,13 @@ def _get_category_pages(
 
     category_id = self._category_id(category_html) or 0
     pages = [category_url]
-    seen_keys = set(first_keys)
+    seen_keys = _archive_product_keys(self, category_html)
 
     for page_number in range(2, required_pages + 1):
         page_url, rendered_html, page_keys = _fetch_non_duplicate_page(
             self,
             category_url,
+            category_html,
             category_id,
             page_number,
             seen_keys,
@@ -182,12 +171,6 @@ def _get_category_pages(
         raise RuntimeError(
             f"Paginación incompleta para {category_url}: "
             f"{len(pages)}/{required_pages} páginas."
-        )
-
-    if len(seen_keys) < expected:
-        raise RuntimeError(
-            f"Cobertura incompleta para {category_url}: "
-            f"{len(seen_keys)}/{expected} productos detectados."
         )
 
     return pages

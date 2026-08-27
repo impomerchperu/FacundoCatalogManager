@@ -6,8 +6,10 @@ class FakeBrowser:
     def __init__(self, responses):
         self.responses = responses
         self.post_calls = []
+        self.get_calls = []
 
     def get(self, url):
+        self.get_calls.append(url)
         return self.responses.get(url, "<html></html>")
 
     def post(self, url, data=None):
@@ -19,6 +21,10 @@ class FakeBrowser:
 class FakeProductBlockExtractor:
     def extract(self, soup):
         return soup.select("article.product")
+
+
+def _product(code):
+    return f'<article class="product"><span class="sku">{code}</span></article>'
 
 
 def test_pages_required_uses_only_the_category_published_count():
@@ -37,15 +43,12 @@ def test_jsf_payload_uses_requested_page_for_all_pagination_fields():
     assert payload["paged"] == "3"
 
 
-def test_complete_category_html_is_used_before_jsf_when_cards_are_complete():
+def test_complete_category_html_is_used_before_pagination():
     category_url = (
         "https://stock.importacionesfacundo.com/"
         "categoria-producto/catalogo/"
     )
-    html = "".join(
-        f'<article class="product"><span>FB-{code}</span></article>'
-        for code in ("1001", "1002", "1003")
-    )
+    html = "".join(_product(code) for code in ("FB-1001", "FB-1002", "FB-1003"))
     browser = FakeBrowser({category_url: html})
     scraper = CategoryScraper(
         browser,
@@ -58,22 +61,44 @@ def test_complete_category_html_is_used_before_jsf_when_cards_are_complete():
     assert browser.post_calls == []
 
 
-def test_category_count_forces_every_required_jsf_page():
+def test_public_woocommerce_page_is_preferred_to_jsf():
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+    page_two = f"{category_url.rstrip('/')}/page/2/"
+    page_three = f"{category_url.rstrip('/')}/page/3/"
+    responses = {
+        category_url: _product("FB-1001"),
+        page_two: _product("FB-1002"),
+        page_three: _product("FB-1003"),
+    }
+    browser = FakeBrowser(responses)
+    scraper = CategoryScraper(
+        browser,
+        product_block_extractor=FakeProductBlockExtractor(),
+    )
+
+    pages = scraper.get_category_pages(category_url, expected_count=51)
+
+    assert pages == [category_url, page_two, page_three]
+    assert browser.post_calls == []
+
+
+def test_jsf_is_used_when_public_archive_page_is_unavailable():
     category_url = (
         "https://stock.importacionesfacundo.com/"
         "categoria-producto/catalogo/"
     )
     responses = {
-        category_url: "<body class=\"tax-product_cat term-127\"></body>",
+        category_url: _product("FB-1001"),
         "ajax:2": (
             '{"pagination":{"found_posts":51,"max_num_pages":2},'
-            '"rendered_content":"<article class=\"product\">'
-            "<span class=\"sku\">FB-1002</span></article>"}'
+            f'"rendered_content":"{_product("FB-1002")}"}}'
         ),
         "ajax:3": (
             '{"pagination":{"found_posts":51,"max_num_pages":2},'
-            '"rendered_content":"<article class=\"product\">'
-            "<span class=\"sku\">FB-1003</span></article>"}'
+            f'"rendered_content":"{_product("FB-1003")}"}}'
         ),
     }
     browser = FakeBrowser(responses)
@@ -95,31 +120,31 @@ def test_category_count_forces_every_required_jsf_page():
     ] == ["2", "3"]
 
 
-def test_jsf_pagination_uses_each_category_count_not_global_total():
+def test_repeated_jsf_page_is_rejected_when_no_new_products_exist():
     category_url = (
         "https://stock.importacionesfacundo.com/"
         "categoria-producto/catalogo/"
     )
     responses = {
-        category_url: '<body class="tax-product_cat term-127"></body>',
+        category_url: _product("FB-1001"),
         "ajax:2": (
-            '{"pagination":{"found_posts":25,"max_num_pages":1},'
-            '"rendered_content":"<article class=\"product\">'
-            "<span class=\"sku\">FB-2002</span></article>"}'
+            '{"pagination":{"found_posts":51,"max_num_pages":2},'
+            f'"rendered_content":"{_product("FB-1001")}"}}'
         ),
         "ajax:3": (
-            '{"pagination":{"found_posts":25,"max_num_pages":1},'
-            '"rendered_content":"<article class=\"product\">'
-            "<span class=\"sku\">FB-2003</span></article>"}'
+            '{"pagination":{"found_posts":51,"max_num_pages":2},'
+            f'"rendered_content":"{_product("FB-1001")}"}}'
         ),
     }
     browser = FakeBrowser(responses)
-    scraper = CategoryScraper(browser)
+    scraper = CategoryScraper(
+        browser,
+        product_block_extractor=FakeProductBlockExtractor(),
+    )
 
-    pages = scraper.get_category_pages(category_url, expected_count=51)
-
-    assert pages == [
-        category_url,
-        f"{category_url.rstrip('/')}?product-page=2",
-        f"{category_url.rstrip('/')}?product-page=3",
-    ]
+    try:
+        scraper.get_category_pages(category_url, expected_count=51)
+    except RuntimeError as exc:
+        assert "página nueva" in str(exc)
+    else:
+        raise AssertionError("Expected repeated pagination to fail")

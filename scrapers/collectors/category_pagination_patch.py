@@ -11,7 +11,6 @@ import requests
 from .category_scraper import CategoryScraper
 
 
-_ORIGINAL_GET_CATEGORY_PAGES = CategoryScraper.get_category_pages
 _PATCHED = False
 
 
@@ -44,7 +43,13 @@ def _direct_page_html(self: CategoryScraper, page_url: str) -> str:
     """Fetch one explicit category page without invoking JSF."""
     try:
         return self.get_html(page_url)
-    except (AttributeError, requests.RequestException, RuntimeError, TypeError, ValueError):
+    except (
+        AttributeError,
+        requests.RequestException,
+        RuntimeError,
+        TypeError,
+        ValueError,
+    ):
         return ""
 
 

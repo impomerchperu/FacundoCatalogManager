@@ -1,4 +1,5 @@
 from scrapers.collectors.category_scraper import CategoryScraper
+from scrapers.collectors.category_pagination_patch import pages_required
 
 
 class FakeBrowser:
@@ -18,6 +19,14 @@ class FakeBrowser:
 class FakeProductBlockExtractor:
     def extract(self, soup):
         return soup.select("article.product")
+
+
+def test_pages_required_uses_only_the_category_published_count():
+    assert pages_required(25) == 1
+    assert pages_required(26) == 2
+    assert pages_required(61) == 3
+    assert pages_required(79) == 4
+    assert pages_required(0) == 0
 
 
 def test_jsf_payload_uses_requested_page_for_all_pagination_fields():
@@ -116,4 +125,4 @@ def test_jsf_pagination_uses_each_category_count_not_global_total():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3"]
+    ] == ["2", "3"]

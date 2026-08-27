@@ -58,24 +58,22 @@ def test_complete_category_html_is_used_before_jsf_when_cards_are_complete():
     assert browser.post_calls == []
 
 
-def test_sku_text_does_not_fake_complete_archive():
+def test_category_count_forces_every_required_jsf_page():
     category_url = (
         "https://stock.importacionesfacundo.com/"
         "categoria-producto/catalogo/"
     )
-    html = "".join(
-        f'<span class="sku">FB-{code}</span>'
-        for code in range(1001, 1052)
-    )
     responses = {
-        category_url: html,
-        "ajax:1": (
-            '{"pagination":{"found_posts":51,"max_num_pages":2},'
-            '"rendered_content":"<article class=\'product\'>page1</article>"}'
-        ),
+        category_url: "<body class=\"tax-product_cat term-127\"></body>",
         "ajax:2": (
             '{"pagination":{"found_posts":51,"max_num_pages":2},'
-            '"rendered_content":"<article class=\'product\'>page2</article>"}'
+            '"rendered_content":"<article class=\"product\">'
+            "<span class=\"sku\">FB-1002</span></article>"}'
+        ),
+        "ajax:3": (
+            '{"pagination":{"found_posts":51,"max_num_pages":2},'
+            '"rendered_content":"<article class=\"product\">'
+            "<span class=\"sku\">FB-1003</span></article>"}'
         ),
     }
     browser = FakeBrowser(responses)
@@ -89,7 +87,12 @@ def test_sku_text_does_not_fake_complete_archive():
     assert pages == [
         category_url,
         f"{category_url.rstrip('/')}?product-page=2",
+        f"{category_url.rstrip('/')}?product-page=3",
     ]
+    assert [
+        next(value for key, value in data if key == "paged")
+        for _, data in browser.post_calls
+    ] == ["2", "3"]
 
 
 def test_jsf_pagination_uses_each_category_count_not_global_total():
@@ -99,17 +102,15 @@ def test_jsf_pagination_uses_each_category_count_not_global_total():
     )
     responses = {
         category_url: '<body class="tax-product_cat term-127"></body>',
-        "ajax:1": (
-            '{"pagination":{"found_posts":25,"max_num_pages":1},'
-            '"rendered_content":"<div>page1</div>"}'
-        ),
         "ajax:2": (
             '{"pagination":{"found_posts":25,"max_num_pages":1},'
-            '"rendered_content":"<div>page2</div>"}'
+            '"rendered_content":"<article class=\"product\">'
+            "<span class=\"sku\">FB-2002</span></article>"}'
         ),
         "ajax:3": (
             '{"pagination":{"found_posts":25,"max_num_pages":1},'
-            '"rendered_content":"<div>page3</div>"}'
+            '"rendered_content":"<article class=\"product\">'
+            "<span class=\"sku\">FB-2003</span></article>"}'
         ),
     }
     browser = FakeBrowser(responses)
@@ -122,7 +123,3 @@ def test_jsf_pagination_uses_each_category_count_not_global_total():
         f"{category_url.rstrip('/')}?product-page=2",
         f"{category_url.rstrip('/')}?product-page=3",
     ]
-    assert [
-        next(value for key, value in data if key == "paged")
-        for _, data in browser.post_calls
-    ] == ["2", "3"]

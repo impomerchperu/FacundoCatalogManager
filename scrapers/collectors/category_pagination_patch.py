@@ -39,13 +39,17 @@ def _safe_get_html(scraper: CategoryScraper, url: str) -> str:
         return ""
 
 
-def _page_product_count(scraper: CategoryScraper, html: str) -> int:
+def _page_product_keys(scraper: CategoryScraper, html: str) -> set[str]:
     if not html:
-        return 0
+        return set()
     try:
-        return len(scraper._product_keys(html))
+        return set(scraper._product_keys(html))
     except (AttributeError, TypeError, ValueError):
-        return 0
+        return set()
+
+
+def _page_product_count(scraper: CategoryScraper, html: str) -> int:
+    return len(_page_product_keys(scraper, html))
 
 
 def _page_url_variants(scraper: CategoryScraper, category_url: str, page: int):
@@ -54,6 +58,68 @@ def _page_url_variants(scraper: CategoryScraper, category_url: str, page: int):
     if query_url not in variants:
         variants.append(query_url)
     return variants
+
+
+def _facundo_jsf_pages(
+    scraper: CategoryScraper,
+    category_url: str,
+    category_id: int,
+    first_html: str,
+    expected_count: int,
+) -> list[str]:
+    """Use the already fetched archive page, then continue with native JSF."""
+    pages = [category_url]
+    scraper._cache_category_html(category_url, first_html)
+    seen_products = _page_product_keys(scraper, first_html)
+    first_count = len(seen_products)
+
+    if first_count == 0:
+        raise RuntimeError(
+            "JetSmartFilters no encontró productos en la primera página de "
+            f"{category_url}."
+        )
+
+    required_pages = pages_required(
+        max(int(expected_count or 0), first_count),
+        scraper.PRODUCTS_PER_PAGE,
+    )
+    published_count = _published_product_count(first_html)
+    if published_count > 0:
+        required_pages = max(
+            required_pages,
+            pages_required(published_count, scraper.PRODUCTS_PER_PAGE),
+        )
+
+    # Page 1 is already available from the public archive. JSF is only used
+    # for the remaining pages, avoiding a redundant page-1 AJAX request.
+    next_page = 2
+    declared_pages = required_pages
+    while next_page <= declared_pages:
+        page_url = scraper._jsf_page_url(category_url, next_page)
+        _, jsf_max_pages, rendered_html = scraper._fetch_jsf_page(
+            category_url, category_id, next_page
+        )
+        if not rendered_html:
+            raise RuntimeError(
+                "JetSmartFilters no devolvió contenido para "
+                f"{category_url} en la página {next_page}."
+            )
+
+        page_keys = _page_product_keys(scraper, rendered_html)
+        if not page_keys or not page_keys.difference(seen_products):
+            raise RuntimeError(
+                "Paginación repetida para "
+                f"{category_url}: la página {next_page} "
+                "no contiene productos nuevos."
+            )
+
+        seen_products.update(page_keys)
+        scraper._cache_category_html(page_url, rendered_html)
+        pages.append(page_url)
+        declared_pages = max(declared_pages, jsf_max_pages)
+        next_page += 1
+
+    return pages
 
 
 def _extend_public_archive_pages(
@@ -67,6 +133,12 @@ def _extend_public_archive_pages(
         return pages
 
     known = set(pages)
+    seen_products: set[str] = set()
+    for page_url in pages:
+        seen_products.update(
+            _page_product_keys(scraper, _safe_get_html(scraper, page_url))
+        )
+
     for page_number in range(2, target_pages + 1):
         if any(scraper._page_number(url) == page_number for url in known):
             continue
@@ -75,10 +147,12 @@ def _extend_public_archive_pages(
         selected_html = ""
         for candidate in _page_url_variants(scraper, category_url, page_number):
             html = _safe_get_html(scraper, candidate)
-            if not html or _page_product_count(scraper, html) <= 0:
+            page_keys = _page_product_keys(scraper, html)
+            if not page_keys or not page_keys.difference(seen_products):
                 continue
             selected_url = candidate
             selected_html = html
+            seen_products.update(page_keys)
             break
 
         if not selected_url:
@@ -121,35 +195,31 @@ def _get_category_pages(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Discover all published archive pages before product consolidation.
+    """Discover all published archive pages before product consolidation."""
+    if self._is_facundo_url(category_url):
+        first_html = _safe_get_html(self, category_url)
+        if not first_html:
+            return []
+        category_id = self._category_id(first_html)
+        if category_id is None:
+            return _ORIGINAL_GET_CATEGORY_PAGES(
+                self,
+                category_url,
+                expected_count=expected_count,
+            )
+        return _facundo_jsf_pages(
+            self,
+            category_url,
+            category_id,
+            first_html,
+            expected_count,
+        )
 
-    The count shown in the category menu is only a reference. Facundo's
-    category archive exposes its actual total as ``Productos en Stock N``;
-    that value is used to extend pagination when the public archive or native
-    JSF path returned only the first page. Duplicates are consolidated later
-    by product code, after all category occurrences have been collected.
-    """
     pages = _ORIGINAL_GET_CATEGORY_PAGES(
         self,
         category_url,
         expected_count=expected_count,
     )
-
-    if self._is_facundo_url(category_url):
-        first_html = _safe_get_html(self, category_url)
-        published_count = _published_product_count(first_html)
-        if published_count <= 0:
-            return pages
-        target_pages = pages_required(
-            published_count,
-            self.PRODUCTS_PER_PAGE,
-        )
-        return _extend_public_archive_pages(
-            self,
-            category_url,
-            pages,
-            max(target_pages, len(pages)),
-        )
 
     # Keep the generic fallback resilient to archives that omit pagination
     # controls and expose a partial final page. This is intentionally a single

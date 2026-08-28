@@ -150,7 +150,7 @@ def test_facundo_uses_native_jsf_before_public_woocommerce_variants():
         category_url,
         f"{category_url.rstrip('/')}?product-page=2",
     ]
-    assert browser.get_calls == [category_url, category_url]
+    assert browser.get_calls == [category_url]
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls

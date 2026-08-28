@@ -29,6 +29,12 @@ def _product(code):
     return f'<article class="product"><span class="sku">{code}</span></article>'
 
 
+def _products(start, count):
+    return "".join(
+        _product(f"FB-{start + offset:04d}") for offset in range(count)
+    )
+
+
 def _jsf_response(code, found_posts=51, max_num_pages=2):
     return json.dumps(
         {
@@ -62,7 +68,9 @@ def test_complete_category_html_is_used_before_pagination():
         "https://stock.importacionesfacundo.com/"
         "categoria-producto/catalogo/"
     )
-    html = "".join(_product(code) for code in ("FB-1001", "FB-1002", "FB-1003"))
+    html = "".join(
+        _product(code) for code in ("FB-1001", "FB-1002", "FB-1003")
+    )
     browser = FakeBrowser({category_url: html})
     scraper = CategoryScraper(
         browser,
@@ -126,6 +134,29 @@ def test_jsf_is_used_when_public_archive_page_is_unavailable():
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
     ] == ["2", "3"]
+
+
+def test_pagination_probes_beyond_nominal_page_count_when_pages_are_partial():
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+    page_two = f"{category_url.rstrip('/')}/page/2/"
+    page_three = f"{category_url.rstrip('/')}/page/3/"
+    responses = {
+        category_url: _products(1001, 20),
+        page_two: _products(1021, 20),
+        page_three: _products(1041, 20),
+    }
+    browser = FakeBrowser(responses)
+    scraper = CategoryScraper(
+        browser,
+        product_block_extractor=FakeProductBlockExtractor(),
+    )
+
+    pages = scraper.get_category_pages(category_url, expected_count=50)
+
+    assert pages == [category_url, page_two, page_three]
 
 
 def test_repeated_jsf_page_is_rejected_when_no_new_products_exist():

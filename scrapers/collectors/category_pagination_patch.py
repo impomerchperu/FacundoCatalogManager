@@ -10,9 +10,11 @@ Pagination therefore follows this order for every page after page 1:
 3. WooCommerce ``?product-page=N`` / ``?paged=N``;
 4. JetSmartFilters AJAX.
 
-The published count determines how many pages must be traversed. Product
-identity checks are used only to reject repeated pages; they do not require
-minimal test fixtures to contain every product declared by the category.
+The published count determines the minimum number of pages, while the
+products actually discovered determine whether more pages must be probed.
+This prevents a category from being silently truncated when the archive
+returns fewer than 25 products on a page or publishes incomplete pagination
+metadata.
 """
 
 import requests
@@ -95,14 +97,6 @@ def _candidate_page_urls(
     return tuple(dict.fromkeys(candidates))
 
 
-def _is_new_page(
-    page_keys: set[str],
-    seen_keys: set[str],
-) -> bool:
-    """Reject a page only when its available identities all repeat."""
-    return not page_keys or not page_keys.issubset(seen_keys)
-
-
 def _fetch_non_duplicate_page(
     self: CategoryScraper,
     category_url: str,
@@ -112,30 +106,15 @@ def _fetch_non_duplicate_page(
     seen_keys: set[str],
 ) -> tuple[str, str, set[str]]:
     """Return the first usable page representation containing new content."""
-    explicit_urls = _explicit_page_urls(
+    for page_url in _candidate_page_urls(
         self,
         category_url,
         category_html,
         page_number,
-    )
-    for page_url in explicit_urls:
+    ):
         html = _get_direct_page_html(self, page_url)
         page_keys = _archive_product_keys(self, html)
-        if html and _is_new_page(page_keys, seen_keys):
-            return page_url, html, page_keys
-        if not html:
-            return page_url, "", set()
-
-    base = category_url.rstrip("/")
-    candidates = (
-        f"{base}/page/{page_number}/",
-        f"{base}?product-page={page_number}",
-        f"{base}?paged={page_number}",
-    )
-    for page_url in candidates:
-        html = _get_direct_page_html(self, page_url)
-        page_keys = _archive_product_keys(self, html)
-        if html and _is_new_page(page_keys, seen_keys):
+        if html and (not page_keys or not page_keys.issubset(seen_keys)):
             return page_url, html, page_keys
 
     try:
@@ -148,12 +127,10 @@ def _fetch_non_duplicate_page(
         rendered_html = ""
 
     page_keys = _archive_product_keys(self, rendered_html)
-    if rendered_html and _has_archive_content(self, rendered_html) and _is_new_page(
-        page_keys,
-        seen_keys,
-    ):
-        page_url = self._jsf_page_url(category_url, page_number)
-        return page_url, rendered_html, page_keys
+    if rendered_html and _has_archive_content(self, rendered_html):
+        if not page_keys or not page_keys.issubset(seen_keys):
+            page_url = self._jsf_page_url(category_url, page_number)
+            return page_url, rendered_html, page_keys
 
     return "", "", set()
 
@@ -163,7 +140,7 @@ def _get_category_pages(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Traverse all pages required by the category's published count."""
+    """Traverse every page needed to cover the category's published count."""
     expected = max(int(expected_count or 0), 0)
     if expected == 0:
         return _ORIGINAL_GET_CATEGORY_PAGES(
@@ -208,10 +185,36 @@ def _get_category_pages(
         seen_keys.update(page_keys)
         pages.append(page_url)
 
-    if len(pages) != required_pages:
+    # The 25-products-per-page value is only a minimum assumption. Some
+    # archive configurations can return fewer products while valid products
+    # still exist on subsequent pages. Keep probing until the category's
+    # published product count is actually covered.
+    probe_limit = max(
+        required_pages + 1,
+        required_pages + getattr(self, "MAX_HIDDEN_PAGE_PROBES", 100),
+    )
+    next_page = required_pages + 1
+    while len(seen_keys) < expected and next_page <= probe_limit:
+        page_url, rendered_html, page_keys = _fetch_non_duplicate_page(
+            self,
+            category_url,
+            category_html,
+            category_id,
+            next_page,
+            seen_keys,
+        )
+        if not page_url:
+            break
+        self._cache_category_html(page_url, rendered_html)
+        seen_keys.update(page_keys)
+        pages.append(page_url)
+        next_page += 1
+
+    if len(seen_keys) < expected:
         raise RuntimeError(
-            f"Paginación incompleta para {category_url}: "
-            f"{len(pages)}/{required_pages} páginas."
+            "Cobertura incompleta de productos para "
+            f"{category_url}: {len(seen_keys)}/{expected} productos "
+            f"tras recorrer {len(pages)} páginas."
         )
 
     return pages

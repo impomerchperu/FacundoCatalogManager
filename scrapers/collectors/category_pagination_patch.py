@@ -82,10 +82,6 @@ def _facundo_jsf_pages(
             pages_required(published_count, scraper.PRODUCTS_PER_PAGE),
         )
 
-    # Probe JSF page 1 even though the public archive already supplies page 1.
-    # This preserves native JSF metadata and request ordering. If page 1 is not
-    # available, page 2 is still probed so a later JSF response can reveal the
-    # authoritative page count.
     try:
         _, jsf_max_pages, jsf_first_html = scraper._fetch_jsf_page(
             category_url, category_id, 1
@@ -134,34 +130,6 @@ def _facundo_jsf_pages(
     return pages
 
 
-def _probe_one_more_public_page(
-    scraper: CategoryScraper,
-    category_url: str,
-    pages: list[str],
-) -> list[str]:
-    """Probe a consecutive public page when the nominal count may be partial."""
-    page_numbers = [
-        number
-        for number in (scraper._page_number(url) for url in pages)
-        if number is not None
-    ]
-    next_page = max(page_numbers, default=1) + 1
-    candidates = [
-        scraper._fallback_page_url(category_url, next_page),
-        scraper._jsf_page_url(category_url, next_page),
-    ]
-    for candidate in candidates:
-        if candidate in pages:
-            continue
-        html = _safe_get_html(scraper, candidate)
-        if not html or _page_product_count(scraper, html) <= 0:
-            continue
-        scraper._cache_category_html(candidate, html)
-        pages.append(candidate)
-        return pages
-    return pages
-
-
 def _get_category_pages(
     self: CategoryScraper,
     category_url: str,
@@ -194,17 +162,11 @@ def _get_category_pages(
             expected_count,
         )
 
-    pages = _ORIGINAL_GET_CATEGORY_PAGES(
+    return _ORIGINAL_GET_CATEGORY_PAGES(
         self,
         category_url,
         expected_count=expected_count,
     )
-
-    if expected_count > 0 and len(pages) == pages_required(
-        expected_count, self.PRODUCTS_PER_PAGE
-    ):
-        return _probe_one_more_public_page(self, category_url, pages)
-    return pages
 
 
 def activate() -> None:

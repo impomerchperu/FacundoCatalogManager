@@ -55,9 +55,7 @@ class CategoryExtractor:
         current = str(current or "").strip()
         if not candidate or candidate.casefold() == "ver categoría":
             return False
-        if not current or current.casefold() == "ver categoría":
-            return True
-        return False
+        return not current or current.casefold() == "ver categoría"
 
     @staticmethod
     def _extract_name(link, url: str) -> str:

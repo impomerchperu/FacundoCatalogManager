@@ -1,4 +1,4 @@
-"""Reliable pagination compatibility layer for Facundo category archives."""
+"""Reliable pagination compatibility layer for category archives."""
 
 import re
 
@@ -22,7 +22,7 @@ def pages_required(expected_count: int, products_per_page: int = 25) -> int:
 
 
 def _published_product_count(html: str) -> int:
-    """Read the archive's own product total instead of trusting the menu count."""
+    """Read the archive's own product total instead of the menu count."""
     match = _PRODUCTS_IN_ARCHIVE_PATTERN.search(html or "")
     if not match:
         return 0
@@ -75,9 +75,7 @@ def _extend_public_archive_pages(
         selected_html = ""
         for candidate in _page_url_variants(scraper, category_url, page_number):
             html = _safe_get_html(scraper, candidate)
-            if not html:
-                continue
-            if _page_product_count(scraper, html) <= 0:
+            if not html or _page_product_count(scraper, html) <= 0:
                 continue
             selected_url = candidate
             selected_html = html
@@ -96,12 +94,34 @@ def _extend_public_archive_pages(
     return pages
 
 
+def _probe_one_more_public_page(
+    scraper: CategoryScraper,
+    category_url: str,
+    pages: list[str],
+) -> list[str]:
+    """Probe one consecutive page when the archive gave no explicit total."""
+    page_numbers = [
+        number
+        for number in (scraper._page_number(url) for url in pages)
+        if number is not None
+    ]
+    next_page = max(page_numbers, default=1) + 1
+    for candidate in _page_url_variants(scraper, category_url, next_page):
+        html = _safe_get_html(scraper, candidate)
+        if not html or _page_product_count(scraper, html) <= 0:
+            continue
+        scraper._cache_category_html(candidate, html)
+        pages.append(candidate)
+        return pages
+    return pages
+
+
 def _get_category_pages(
     self: CategoryScraper,
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Discover every published archive page before product consolidation.
+    """Discover all published archive pages before product consolidation.
 
     The count shown in the category menu is only a reference. Facundo's
     category archive exposes its actual total as ``Productos en Stock N``;
@@ -114,21 +134,29 @@ def _get_category_pages(
         category_url,
         expected_count=expected_count,
     )
-    if not self._is_facundo_url(category_url):
-        return pages
 
-    first_html = _safe_get_html(self, category_url)
-    published_count = _published_product_count(first_html)
-    target_pages = pages_required(
-        max(published_count, int(expected_count or 0)),
-        self.PRODUCTS_PER_PAGE,
-    )
-    return _extend_public_archive_pages(
-        self,
-        category_url,
-        pages,
-        max(target_pages, len(pages)),
-    )
+    if self._is_facundo_url(category_url):
+        first_html = _safe_get_html(self, category_url)
+        published_count = _published_product_count(first_html)
+        target_pages = pages_required(
+            published_count or int(expected_count or 0),
+            self.PRODUCTS_PER_PAGE,
+        )
+        return _extend_public_archive_pages(
+            self,
+            category_url,
+            pages,
+            max(target_pages, len(pages)),
+        )
+
+    # Keep the generic fallback resilient to archives that omit pagination
+    # controls and expose a partial final page. This is intentionally a single
+    # probe so ordinary scrapes do not turn into an open-ended crawl.
+    if expected_count > 0 and len(pages) == pages_required(
+        expected_count, self.PRODUCTS_PER_PAGE
+    ):
+        return _probe_one_more_public_page(self, category_url, pages)
+    return pages
 
 
 def activate() -> None:

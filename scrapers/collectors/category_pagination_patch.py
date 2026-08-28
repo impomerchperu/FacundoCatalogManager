@@ -52,14 +52,6 @@ def _page_product_count(scraper: CategoryScraper, html: str) -> int:
     return len(_page_product_keys(scraper, html))
 
 
-def _page_url_variants(scraper: CategoryScraper, category_url: str, page: int):
-    variants = [scraper._fallback_page_url(category_url, page)]
-    query_url = scraper._jsf_page_url(category_url, page)
-    if query_url not in variants:
-        variants.append(query_url)
-    return variants
-
-
 def _facundo_jsf_pages(
     scraper: CategoryScraper,
     category_url: str,
@@ -67,7 +59,7 @@ def _facundo_jsf_pages(
     first_html: str,
     expected_count: int,
 ) -> list[str]:
-    """Use the already fetched archive page, then continue with native JSF."""
+    """Use the public first page, then native JSF for every later page."""
     pages = [category_url]
     scraper._cache_category_html(category_url, first_html)
     seen_products = _page_product_keys(scraper, first_html)
@@ -90,8 +82,23 @@ def _facundo_jsf_pages(
             pages_required(published_count, scraper.PRODUCTS_PER_PAGE),
         )
 
+    # Facundo's native JSF is authoritative for the number of archive pages.
+    # We intentionally probe page 1 as well: it establishes the JSF metadata and
+    # keeps the native request sequence observable and deterministic.
+    try:
+        _, jsf_max_pages, jsf_first_html = scraper._fetch_jsf_page(
+            category_url, category_id, 1
+        )
+    except (KeyError, RuntimeError, TypeError, ValueError):
+        jsf_first_html = ""
+        jsf_max_pages = 0
+    if jsf_first_html:
+        jsf_first_keys = _page_product_keys(scraper, jsf_first_html)
+        if jsf_first_keys:
+            seen_products.update(jsf_first_keys)
+    declared_pages = max(required_pages, jsf_max_pages)
+
     next_page = 2
-    declared_pages = required_pages
     while next_page <= declared_pages:
         page_url = scraper._jsf_page_url(category_url, next_page)
         _, jsf_max_pages, rendered_html = scraper._fetch_jsf_page(
@@ -120,65 +127,25 @@ def _facundo_jsf_pages(
     return pages
 
 
-def _extend_public_archive_pages(
-    scraper: CategoryScraper,
-    category_url: str,
-    pages: list[str],
-    target_pages: int,
-) -> list[str]:
-    """Extend a partially discovered archive using real WooCommerce pages."""
-    if target_pages <= len(pages):
-        return pages
-
-    known = set(pages)
-    seen_products: set[str] = set()
-    for page_url in pages:
-        seen_products.update(
-            _page_product_keys(scraper, _safe_get_html(scraper, page_url))
-        )
-
-    for page_number in range(2, target_pages + 1):
-        if any(scraper._page_number(url) == page_number for url in known):
-            continue
-
-        selected_url = ""
-        selected_html = ""
-        for candidate in _page_url_variants(scraper, category_url, page_number):
-            html = _safe_get_html(scraper, candidate)
-            page_keys = _page_product_keys(scraper, html)
-            if not page_keys or not page_keys.difference(seen_products):
-                continue
-            selected_url = candidate
-            selected_html = html
-            seen_products.update(page_keys)
-            break
-
-        if not selected_url:
-            raise RuntimeError(
-                "Paginación incompleta para "
-                f"{category_url}: no se pudo obtener la página {page_number}."
-            )
-
-        scraper._cache_category_html(selected_url, selected_html)
-        pages.append(selected_url)
-        known.add(selected_url)
-
-    return pages
-
-
 def _probe_one_more_public_page(
     scraper: CategoryScraper,
     category_url: str,
     pages: list[str],
 ) -> list[str]:
-    """Probe one consecutive page when the archive gave no explicit total."""
+    """Probe a consecutive public page when the nominal count may be partial."""
     page_numbers = [
         number
         for number in (scraper._page_number(url) for url in pages)
         if number is not None
     ]
     next_page = max(page_numbers, default=1) + 1
-    for candidate in _page_url_variants(scraper, category_url, next_page):
+    candidates = [
+        scraper._fallback_page_url(category_url, next_page),
+        scraper._jsf_page_url(category_url, next_page),
+    ]
+    for candidate in candidates:
+        if candidate in pages:
+            continue
         html = _safe_get_html(scraper, candidate)
         if not html or _page_product_count(scraper, html) <= 0:
             continue

@@ -82,21 +82,28 @@ def _facundo_jsf_pages(
             pages_required(published_count, scraper.PRODUCTS_PER_PAGE),
         )
 
-    # Facundo's native JSF is authoritative for the number of archive pages.
-    # We intentionally probe page 1 as well: it establishes the JSF metadata and
-    # keeps the native request sequence observable and deterministic.
+    # Probe JSF page 1 even though the public archive already supplies page 1.
+    # This preserves native JSF metadata and request ordering. If page 1 is not
+    # available, page 2 is still probed so a later JSF response can reveal the
+    # authoritative page count.
     try:
         _, jsf_max_pages, jsf_first_html = scraper._fetch_jsf_page(
             category_url, category_id, 1
         )
+        jsf_first_available = bool(jsf_first_html)
     except (KeyError, RuntimeError, TypeError, ValueError):
         jsf_first_html = ""
         jsf_max_pages = 0
+        jsf_first_available = False
+
     if jsf_first_html:
         jsf_first_keys = _page_product_keys(scraper, jsf_first_html)
         if jsf_first_keys:
             seen_products.update(jsf_first_keys)
+
     declared_pages = max(required_pages, jsf_max_pages)
+    if not jsf_first_available and declared_pages < 2:
+        declared_pages = 2
 
     next_page = 2
     while next_page <= declared_pages:

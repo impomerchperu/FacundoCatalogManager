@@ -80,26 +80,14 @@ def _candidate_page_urls(
     return tuple(dict.fromkeys(candidates))
 
 
-def _fetch_non_duplicate_page(
+def _fetch_jsf_non_duplicate_page(
     self: CategoryScraper,
     category_url: str,
-    category_html: str,
     category_id: int,
     page_number: int,
     seen_keys: set[str],
 ) -> tuple[str, str, set[str]]:
-    """Return the first usable page representation containing new content."""
-    for page_url in _candidate_page_urls(
-        self,
-        category_url,
-        category_html,
-        page_number,
-    ):
-        html = _get_direct_page_html(self, page_url)
-        page_keys = _archive_product_keys(self, html)
-        if html and (not page_keys or not page_keys.issubset(seen_keys)):
-            return page_url, html, page_keys
-
+    """Return a native JetSmartFilters page when it contains new products."""
     try:
         _, _, rendered_html = self._fetch_jsf_page(
             category_url,
@@ -117,6 +105,49 @@ def _fetch_non_duplicate_page(
     ):
         page_url = self._jsf_page_url(category_url, page_number)
         return page_url, rendered_html, page_keys
+
+    return "", "", set()
+
+
+def _fetch_non_duplicate_page(
+    self: CategoryScraper,
+    category_url: str,
+    category_html: str,
+    category_id: int,
+    page_number: int,
+    seen_keys: set[str],
+) -> tuple[str, str, set[str]]:
+    """Return the first usable page representation containing new content."""
+    if self._is_facundo_url(category_url):
+        page = _fetch_jsf_non_duplicate_page(
+            self,
+            category_url,
+            category_id,
+            page_number,
+            seen_keys,
+        )
+        if page[0]:
+            return page
+
+    for page_url in _candidate_page_urls(
+        self,
+        category_url,
+        category_html,
+        page_number,
+    ):
+        html = _get_direct_page_html(self, page_url)
+        page_keys = _archive_product_keys(self, html)
+        if html and (not page_keys or not page_keys.issubset(seen_keys)):
+            return page_url, html, page_keys
+
+    if not self._is_facundo_url(category_url):
+        return _fetch_jsf_non_duplicate_page(
+            self,
+            category_url,
+            category_id,
+            page_number,
+            seen_keys,
+        )
 
     return "", "", set()
 

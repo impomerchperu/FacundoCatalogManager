@@ -179,8 +179,9 @@ def _get_category_pages(
         )
         if not page_url:
             raise RuntimeError(
-                "No se pudo obtener una página nueva de productos: "
-                f"{category_url} página {page_number}/{required_pages}."
+                "Cobertura incompleta de productos para "
+                f"{category_url}: no se pudo obtener una página nueva "
+                f"para cubrir la página {page_number}/{required_pages}."
             )
 
         if rendered_html:

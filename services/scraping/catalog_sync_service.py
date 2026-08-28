@@ -135,8 +135,13 @@ class CatalogSyncService:
             else:
                 result.unchanged += 1
 
+        expected_complete = (
+            result.products_expected <= 0
+            or result.products_unique >= result.products_expected
+        )
         prune_allowed = (
             result.coverage_complete
+            and expected_complete
             and not result.has_errors
             and (prune_missing or result.products_expected > 0)
         )
@@ -145,9 +150,6 @@ class CatalogSyncService:
         result.finish()
         self.last_sync_result = result
 
-        # Solo una ejecución con expectativas de catálogo genera el artefacto
-        # persistente. Las pruebas/unitarias y sincronizaciones parciales no
-        # pisan el resultado de la última ejecución real.
         if result.products_expected > 0 or result.expected_category_occurrences > 0:
             self.result_writer.write(result, scraped_codes)
         return result

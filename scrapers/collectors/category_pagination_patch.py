@@ -129,6 +129,48 @@ def _facundo_jsf_pages(
     return pages
 
 
+def _generic_complete_pages(
+    scraper: CategoryScraper,
+    category_url: str,
+    pages: list[str],
+    expected_count: int,
+) -> list[str]:
+    """Continue public pagination until the expected product coverage is met."""
+    target_count = max(int(expected_count or 0), 0)
+    if target_count == 0:
+        return pages
+
+    seen_products: set[str] = set()
+    for page_url in pages:
+        html = _safe_get_html(scraper, page_url)
+        if html:
+            seen_products.update(_page_product_keys(scraper, html))
+
+    next_page = max(
+        (scraper._page_number(url) or 1 for url in pages),
+        default=1,
+    ) + 1
+    visited = set(pages)
+    while len(seen_products) < target_count:
+        page_url = scraper._fallback_page_url(category_url, next_page)
+        if page_url in visited:
+            next_page += 1
+            continue
+        html = _safe_get_html(scraper, page_url)
+        if not html:
+            break
+        page_keys = _page_product_keys(scraper, html)
+        if not page_keys or not page_keys.difference(seen_products):
+            break
+        seen_products.update(page_keys)
+        scraper._cache_category_html(page_url, html)
+        pages.append(page_url)
+        visited.add(page_url)
+        next_page += 1
+
+    return pages
+
+
 def _get_category_pages(
     self: CategoryScraper,
     category_url: str,
@@ -161,10 +203,16 @@ def _get_category_pages(
             expected_count,
         )
 
-    return _ORIGINAL_GET_CATEGORY_PAGES(
+    pages = _ORIGINAL_GET_CATEGORY_PAGES(
         self,
         category_url,
         expected_count=expected_count,
+    )
+    return _generic_complete_pages(
+        self,
+        category_url,
+        pages,
+        expected_count,
     )
 
 

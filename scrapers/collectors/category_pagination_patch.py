@@ -1,21 +1,4 @@
-"""Reliable pagination compatibility layer for Facundo category archives.
-
-The category index publishes an expected product count. Facundo's archive
-uses JetSmartFilters/Bricks, but the public WooCommerce archive is also
-available and is materially more reliable than the AJAX endpoint.
-
-Pagination therefore follows this order for every page after page 1:
-1. explicit pagination links published by the category page;
-2. public WooCommerce ``/page/N/``;
-3. WooCommerce ``?product-page=N`` / ``?paged=N``;
-4. JetSmartFilters AJAX.
-
-The published count determines the minimum number of pages, while the
-products actually discovered determine whether more pages must be probed.
-This prevents a category from being silently truncated when the archive
-returns fewer than 25 products on a page or publishes incomplete pagination
-metadata.
-"""
+"""Reliable pagination compatibility layer for Facundo category archives."""
 
 import requests
 
@@ -157,6 +140,18 @@ def _get_category_pages(
         return []
     self._cache_category_html(category_url, category_html)
 
+    # Facundo's real archive is driven by JetSmartFilters/Bricks. The native
+    # CategoryScraper implementation already derives the authoritative page
+    # count from found_posts, max_num_pages and the archive pagination. Do not
+    # replace that flow with heuristic HTML product-key counting: the public
+    # page can contain only the first 25 products even when more pages exist.
+    if self._is_facundo_url(category_url) and self._category_id(category_html) is not None:
+        return _ORIGINAL_GET_CATEGORY_PAGES(
+            self,
+            category_url,
+            expected_count=expected_count,
+        )
+
     required_pages = pages_required(
         expected,
         getattr(self, "PRODUCTS_PER_PAGE", 25),
@@ -179,16 +174,11 @@ def _get_category_pages(
         )
         if not page_url:
             break
-
         if rendered_html:
             self._cache_category_html(page_url, rendered_html)
         seen_keys.update(page_keys)
         pages.append(page_url)
 
-    # The 25-products-per-page value is only a minimum assumption. Some
-    # archive configurations can return fewer products while valid products
-    # still exist on subsequent pages. Keep probing until the category's
-    # published product count is actually covered.
     probe_limit = max(
         required_pages + 1,
         required_pages + getattr(self, "MAX_HIDDEN_PAGE_PROBES", 100),

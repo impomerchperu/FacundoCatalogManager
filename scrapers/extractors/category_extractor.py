@@ -11,22 +11,53 @@ class CategoryExtractor:
     """Extrae categorías WooCommerce y su conteo publicado en la tienda."""
 
     def extract(self, soup):
-        categories = []
-        seen = set()
+        categories_by_url: dict[str, Category] = {}
 
         for link in soup.select(category_selectors.CATEGORY_LINK):
             url = link.get("href", "")
-            if not url or "nuevos-productos" in url or url in seen:
+            if not url or "nuevos-productos" in url:
                 continue
 
             name = self._extract_name(link, url)
             expected_count = self._extract_expected_count(link, name)
-            categories.append(
-                Category(name=name, url=url, expected_count=expected_count)
+            category = Category(
+                name=name,
+                url=url,
+                expected_count=expected_count,
             )
-            seen.add(url)
+            previous = categories_by_url.get(url)
+            if previous is None:
+                categories_by_url[url] = category
+                continue
 
-        return categories
+            if (
+                category.expected_count > previous.expected_count
+                or self._is_better_name(category.name, previous.name)
+            ):
+                categories_by_url[url] = Category(
+                    name=(
+                        category.name
+                        if self._is_better_name(category.name, previous.name)
+                        else previous.name
+                    ),
+                    url=url,
+                    expected_count=max(
+                        previous.expected_count,
+                        category.expected_count,
+                    ),
+                )
+
+        return list(categories_by_url.values())
+
+    @staticmethod
+    def _is_better_name(candidate: str, current: str) -> bool:
+        candidate = str(candidate or "").strip()
+        current = str(current or "").strip()
+        if not candidate or candidate.casefold() == "ver categoría":
+            return False
+        if not current or current.casefold() == "ver categoría":
+            return True
+        return False
 
     @staticmethod
     def _extract_name(link, url: str) -> str:
@@ -54,7 +85,11 @@ class CategoryExtractor:
         if heading is not None:
             heading_name = heading.get_text(" ", strip=True)
             if heading_name.casefold() == category_name.casefold():
-                count_node = heading.find_previous(string=_COUNT_PATTERN)
+                count_node = heading.find_previous(
+                    string=lambda value: bool(
+                        value and _COUNT_PATTERN.search(str(value))
+                    )
+                )
                 if count_node is not None:
                     match = _COUNT_PATTERN.search(str(count_node))
                     if match:

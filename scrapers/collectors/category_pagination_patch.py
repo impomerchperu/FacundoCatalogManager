@@ -90,8 +90,6 @@ def _facundo_jsf_pages(
             pages_required(published_count, scraper.PRODUCTS_PER_PAGE),
         )
 
-    # Page 1 is already available from the public archive. JSF is only used
-    # for the remaining pages, avoiding a redundant page-1 AJAX request.
     next_page = 2
     declared_pages = required_pages
     while next_page <= declared_pages:
@@ -197,6 +195,13 @@ def _get_category_pages(
 ) -> list[str]:
     """Discover all published archive pages before product consolidation."""
     if self._is_facundo_url(category_url):
+        if not expected_count:
+            return _ORIGINAL_GET_CATEGORY_PAGES(
+                self,
+                category_url,
+                expected_count=expected_count,
+            )
+
         first_html = _safe_get_html(self, category_url)
         if not first_html:
             return []
@@ -221,9 +226,6 @@ def _get_category_pages(
         expected_count=expected_count,
     )
 
-    # Keep the generic fallback resilient to archives that omit pagination
-    # controls and expose a partial final page. This is intentionally a single
-    # probe so ordinary scrapes do not turn into an open-ended crawl.
     if expected_count > 0 and len(pages) == pages_required(
         expected_count, self.PRODUCTS_PER_PAGE
     ):

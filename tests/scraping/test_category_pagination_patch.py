@@ -1,3 +1,5 @@
+import json
+
 from scrapers.collectors.category_pagination_patch import pages_required
 from scrapers.collectors.category_scraper import CategoryScraper
 
@@ -25,6 +27,18 @@ class FakeProductBlockExtractor:
 
 def _product(code):
     return f'<article class="product"><span class="sku">{code}</span></article>'
+
+
+def _jsf_response(code, found_posts=51, max_num_pages=2):
+    return json.dumps(
+        {
+            "pagination": {
+                "found_posts": found_posts,
+                "max_num_pages": max_num_pages,
+            },
+            "rendered_content": _product(code),
+        }
+    )
 
 
 def test_pages_required_uses_only_the_category_published_count():
@@ -92,14 +106,8 @@ def test_jsf_is_used_when_public_archive_page_is_unavailable():
     )
     responses = {
         category_url: _product("FB-1001"),
-        "ajax:2": (
-            '{"pagination":{"found_posts":51,"max_num_pages":2},'
-            f'"rendered_content":"{_product("FB-1002")}"}}'
-        ),
-        "ajax:3": (
-            '{"pagination":{"found_posts":51,"max_num_pages":2},'
-            f'"rendered_content":"{_product("FB-1003")}"}}'
-        ),
+        "ajax:2": _jsf_response("FB-1002"),
+        "ajax:3": _jsf_response("FB-1003"),
     }
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(
@@ -127,14 +135,8 @@ def test_repeated_jsf_page_is_rejected_when_no_new_products_exist():
     )
     responses = {
         category_url: _product("FB-1001"),
-        "ajax:2": (
-            '{"pagination":{"found_posts":51,"max_num_pages":2},'
-            f'"rendered_content":"{_product("FB-1001")}"}}'
-        ),
-        "ajax:3": (
-            '{"pagination":{"found_posts":51,"max_num_pages":2},'
-            f'"rendered_content":"{_product("FB-1001")}"}}'
-        ),
+        "ajax:2": _jsf_response("FB-1001"),
+        "ajax:3": _jsf_response("FB-1001"),
     }
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(

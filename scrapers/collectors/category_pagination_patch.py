@@ -140,14 +140,17 @@ def _get_category_pages(
         return []
     self._cache_category_html(category_url, category_html)
 
-    # Facundo's real archive is driven by JetSmartFilters/Bricks. The native
-    # CategoryScraper implementation already derives the authoritative page
-    # count from found_posts, max_num_pages and the archive pagination. Do not
-    # replace that flow with heuristic HTML product-key counting: the public
-    # page can contain only the first 25 products even when more pages exist.
+    # Facundo's public archive can contain the complete product table even
+    # though the visual block is limited to 25 items. Prefer that authoritative
+    # archive when it already covers the published category count.
     is_facundo = self._is_facundo_url(category_url)
-    has_category_id = self._category_id(category_html) is not None
-    if is_facundo and has_category_id:
+    seen_keys = _archive_product_keys(self, category_html)
+    if is_facundo and len(seen_keys) >= expected:
+        return [category_url]
+
+    # Otherwise preserve the native Facundo JetSmartFilters flow, which derives
+    # the remaining page count from found_posts/max_num_pages and the archive.
+    if is_facundo and self._category_id(category_html) is not None:
         return _ORIGINAL_GET_CATEGORY_PAGES(
             self,
             category_url,
@@ -163,7 +166,6 @@ def _get_category_pages(
 
     category_id = self._category_id(category_html) or 0
     pages = [category_url]
-    seen_keys = _archive_product_keys(self, category_html)
 
     for page_number in range(2, required_pages + 1):
         page_url, rendered_html, page_keys = _fetch_non_duplicate_page(

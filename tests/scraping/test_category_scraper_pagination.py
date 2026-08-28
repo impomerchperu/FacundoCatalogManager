@@ -17,7 +17,7 @@ def test_category_scraper_discovers_real_woocommerce_page_variant_from_expected_
     url = "https://example.test/categoria-producto/antiestres/"
     page_two = f"{url}page/2/"
     browser = FakeBrowser({
-        url: "<html><body><strong>Productos en Stock 50</strong></body></html>",
+        url: "<article>FB-1000-AZ producto 1</article>",
         page_two: "<article>FB-1001-AZ producto 2</article>",
     })
     scraper = CategoryScraper(browser)
@@ -32,10 +32,12 @@ def test_category_scraper_respects_explicit_pagination_href():
     page_two = f"{url}?product-page=2"
     browser = FakeBrowser({
         url: (
+            '<article>FB-1000-AZ producto 1</article>'
             '<nav class="woocommerce-pagination">'
             f'<a class="page-numbers" href="{page_two}">2</a>'
             "</nav>"
         ),
+        page_two: "<article>FB-1001-AZ producto 2</article>",
     })
     scraper = CategoryScraper(browser)
 

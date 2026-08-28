@@ -48,10 +48,6 @@ def _page_product_keys(scraper: CategoryScraper, html: str) -> set[str]:
         return set()
 
 
-def _page_product_count(scraper: CategoryScraper, html: str) -> int:
-    return len(_page_product_keys(scraper, html))
-
-
 def _facundo_jsf_pages(
     scraper: CategoryScraper,
     category_url: str,
@@ -59,7 +55,7 @@ def _facundo_jsf_pages(
     first_html: str,
     expected_count: int,
 ) -> list[str]:
-    """Use the public first page, then native JSF for every later page."""
+    """Use the public first page, then native JSF for every required page."""
     pages = [category_url]
     scraper._cache_category_html(category_url, first_html)
     seen_products = _page_product_keys(scraper, first_html)
@@ -102,7 +98,10 @@ def _facundo_jsf_pages(
         declared_pages = 2
 
     next_page = 2
-    while next_page <= declared_pages:
+    target_count = max(int(expected_count or 0), 0)
+    while next_page <= declared_pages or (
+        target_count > 0 and len(seen_products) < target_count
+    ):
         page_url = scraper._jsf_page_url(category_url, next_page)
         _, jsf_max_pages, rendered_html = scraper._fetch_jsf_page(
             category_url, category_id, next_page

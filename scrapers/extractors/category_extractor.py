@@ -5,6 +5,7 @@ from scrapers.selectors import category_selectors
 
 _COUNT_PATTERN = re.compile(r"Producto\(s\)\s*(\d+)", re.IGNORECASE)
 _HEADING_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6"]
+_CATEGORY_SECTION_NAME = "nuestras categorías"
 
 
 class CategoryExtractor:
@@ -13,7 +14,7 @@ class CategoryExtractor:
     def extract(self, soup):
         categories_by_url: dict[str, Category] = {}
 
-        for link in soup.select(category_selectors.CATEGORY_LINK):
+        for link in self._category_links(soup):
             url = link.get("href", "")
             if not url or "nuevos-productos" in url:
                 continue
@@ -48,6 +49,31 @@ class CategoryExtractor:
                 )
 
         return list(categories_by_url.values())
+
+    @classmethod
+    def _category_links(cls, soup):
+        """Limita la extracción a la sección pública de categorías del catálogo."""
+        heading = next(
+            (
+                node
+                for node in soup.find_all(_HEADING_TAGS)
+                if node.get_text(" ", strip=True).casefold()
+                == _CATEGORY_SECTION_NAME
+            ),
+            None,
+        )
+        if heading is not None:
+            for parent in heading.parents:
+                links = parent.select(category_selectors.CATEGORY_LINK)
+                category_links = [
+                    link
+                    for link in links
+                    if "Ver Categoría" in link.get_text(" ", strip=True)
+                ]
+                if category_links:
+                    return category_links
+
+        return soup.select(category_selectors.CATEGORY_LINK)
 
     @staticmethod
     def _is_better_name(candidate: str, current: str) -> bool:

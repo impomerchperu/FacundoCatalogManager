@@ -15,8 +15,6 @@ identity checks are used only to reject repeated pages; they do not require
 minimal test fixtures to contain every product declared by the category.
 """
 
-from __future__ import annotations
-
 import requests
 
 from .category_scraper import CategoryScraper
@@ -72,7 +70,7 @@ def _get_direct_page_html(self: CategoryScraper, page_url: str) -> str:
     """Fetch a public archive page and accept it only when it has content."""
     try:
         html = self.get_html(page_url)
-    except requests.RequestException:
+    except (KeyError, requests.RequestException):
         return ""
     return html if _has_archive_content(self, html) else ""
 
@@ -115,9 +113,27 @@ def _fetch_non_duplicate_page(
     seen_keys: set[str],
 ) -> tuple[str, str, set[str]]:
     """Return the first usable page representation containing new content."""
-    for page_url in _candidate_page_urls(
-        self, category_url, category_html, page_number
-    ):
+    explicit_urls = _explicit_page_urls(
+        self,
+        category_url,
+        category_html,
+        page_number,
+    )
+    for page_url in explicit_urls:
+        html = _get_direct_page_html(self, page_url)
+        page_keys = _archive_product_keys(self, html)
+        if html and _is_new_page(page_keys, seen_keys):
+            return page_url, html, page_keys
+        if not html:
+            return page_url, "", set()
+
+    base = category_url.rstrip("/")
+    candidates = (
+        f"{base}/page/{page_number}/",
+        f"{base}?product-page={page_number}",
+        f"{base}?paged={page_number}",
+    )
+    for page_url in candidates:
         html = _get_direct_page_html(self, page_url)
         page_keys = _archive_product_keys(self, html)
         if html and _is_new_page(page_keys, seen_keys):
@@ -133,10 +149,12 @@ def _fetch_non_duplicate_page(
         rendered_html = ""
 
     page_keys = _archive_product_keys(self, rendered_html)
-    if rendered_html and _has_archive_content(self, rendered_html):
-        if _is_new_page(page_keys, seen_keys):
-            page_url = self._jsf_page_url(category_url, page_number)
-            return page_url, rendered_html, page_keys
+    if rendered_html and _has_archive_content(self, rendered_html) and _is_new_page(
+        page_keys,
+        seen_keys,
+    ):
+        page_url = self._jsf_page_url(category_url, page_number)
+        return page_url, rendered_html, page_keys
 
     return "", "", set()
 
@@ -180,13 +198,14 @@ def _get_category_pages(
             page_number,
             seen_keys,
         )
-        if not page_url or not rendered_html:
+        if not page_url:
             raise RuntimeError(
                 "No se pudo obtener una página nueva de productos: "
                 f"{category_url} página {page_number}/{required_pages}."
             )
 
-        self._cache_category_html(page_url, rendered_html)
+        if rendered_html:
+            self._cache_category_html(page_url, rendered_html)
         seen_keys.update(page_keys)
         pages.append(page_url)
 

@@ -52,7 +52,7 @@ class CategoryExtractor:
 
     @classmethod
     def _category_links(cls, soup):
-        """Limita la extracción a la sección pública de categorías del catálogo."""
+        """Limita la extracción a las tarjetas de categorías del catálogo."""
         heading = next(
             (
                 node
@@ -62,18 +62,24 @@ class CategoryExtractor:
             ),
             None,
         )
-        if heading is not None:
-            for parent in heading.parents:
-                links = parent.select(category_selectors.CATEGORY_LINK)
-                category_links = [
-                    link
-                    for link in links
-                    if "Ver Categoría" in link.get_text(" ", strip=True)
-                ]
-                if category_links:
-                    return category_links
+        if heading is None:
+            return soup.select(category_selectors.CATEGORY_LINK)
 
-        return soup.select(category_selectors.CATEGORY_LINK)
+        # El encabezado está dentro de un contenedor que también puede incluir
+        # menús, filtros o enlaces de taxonomías auxiliares. Solo aceptamos
+        # enlaces cuyo texto sea exactamente el CTA de las tarjetas públicas.
+        for parent in heading.parents:
+            links = parent.select(category_selectors.CATEGORY_LINK)
+            category_links = [
+                link
+                for link in links
+                if link.get_text(" ", strip=True).casefold()
+                == "ver categoría"
+            ]
+            if category_links:
+                return category_links
+
+        return []
 
     @staticmethod
     def _is_better_name(candidate: str, current: str) -> bool:
@@ -86,7 +92,7 @@ class CategoryExtractor:
     @staticmethod
     def _extract_name(link, url: str) -> str:
         name = link.get_text(" ", strip=True)
-        if name and "Ver Categoría" not in name:
+        if name and "ver categoría" not in name.casefold():
             return name
 
         current = link
@@ -97,50 +103,35 @@ class CategoryExtractor:
             heading = current.find(_HEADING_TAGS)
             if heading is not None:
                 heading_name = heading.get_text(" ", strip=True)
-                if heading_name and "Ver Categoría" not in heading_name:
+                if heading_name and "ver categoría" not in heading_name.casefold():
                     return heading_name
 
         return url.rstrip("/").split("/")[-1].replace("-", " ").title()
 
     @staticmethod
     def _extract_expected_count(link, category_name: str) -> int:
-        """Busca el conteo del bloque individual de la categoría."""
-        heading = link.find_previous(_HEADING_TAGS)
-        if heading is not None:
-            heading_name = heading.get_text(" ", strip=True)
-            if heading_name.casefold() == category_name.casefold():
-                count_node = heading.find_previous(
-                    string=lambda value: bool(
-                        value and _COUNT_PATTERN.search(str(value))
-                    )
-                )
-                if count_node is not None:
-                    match = _COUNT_PATTERN.search(str(count_node))
-                    if match:
-                        return int(match.group(1))
-
-        fallback_count = 0
+        """Busca el conteo dentro del mismo bloque visual de la categoría."""
         current = link
         while current is not None:
             current = getattr(current, "parent", None)
             if current is None:
                 break
 
-            text = current.get_text(" ", strip=True)
-            matches = [int(value) for value in _COUNT_PATTERN.findall(text)]
-            if len(matches) != 1:
-                continue
-
-            candidate = matches[0]
-            if fallback_count == 0:
-                fallback_count = candidate
-
             headings = current.find_all(_HEADING_TAGS)
-            heading_texts = {
+            heading_names = {
                 heading.get_text(" ", strip=True).casefold()
                 for heading in headings
             }
-            if category_name.casefold() in heading_texts:
-                return candidate
+            if category_name.casefold() not in heading_names:
+                continue
 
-        return fallback_count
+            matches = [
+                int(value)
+                for value in _COUNT_PATTERN.findall(
+                    current.get_text(" ", strip=True)
+                )
+            ]
+            if len(matches) == 1:
+                return matches[0]
+
+        return 0

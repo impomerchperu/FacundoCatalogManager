@@ -15,8 +15,6 @@ identity checks are used only to reject repeated pages; they do not require
 minimal test fixtures to contain every product declared by the category.
 """
 
-from __future__ import annotations
-
 import requests
 
 from .category_scraper import CategoryScraper

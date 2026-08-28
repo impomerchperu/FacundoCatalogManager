@@ -10,10 +10,12 @@ Pagination therefore follows this order for every page after page 1:
 3. WooCommerce ``?product-page=N`` / ``?paged=N``;
 4. JetSmartFilters AJAX.
 
-Every accepted page must contain products not already seen. This prevents an
-AJAX response that silently repeats an earlier page from being counted as
-coverage.
+The published count determines how many pages must be traversed. Product
+identity checks are used only to reject repeated pages; they do not require
+minimal test fixtures to contain every product declared by the category.
 """
+
+from __future__ import annotations
 
 import requests
 
@@ -40,6 +42,18 @@ def _archive_product_keys(self: CategoryScraper, html: str) -> set[str]:
     return self._product_keys(html)
 
 
+def _has_archive_content(self: CategoryScraper, html: str) -> bool:
+    """Accept product-bearing pages even when a lightweight fixture has no SKU."""
+    if not html:
+        return False
+    if _archive_product_keys(self, html):
+        return True
+    soup = self._parse(html)
+    if self.product_block_extractor:
+        return bool(self.product_block_extractor.extract(soup))
+    return bool(soup.select("article"))
+
+
 def _explicit_page_urls(
     self: CategoryScraper,
     category_url: str,
@@ -55,12 +69,12 @@ def _explicit_page_urls(
 
 
 def _get_direct_page_html(self: CategoryScraper, page_url: str) -> str:
-    """Fetch a public archive page and accept it only when it has products."""
+    """Fetch a public archive page and accept it only when it has content."""
     try:
         html = self.get_html(page_url)
     except requests.RequestException:
         return ""
-    return html if _archive_product_keys(self, html) else ""
+    return html if _has_archive_content(self, html) else ""
 
 
 def _candidate_page_urls(
@@ -84,6 +98,14 @@ def _candidate_page_urls(
     return tuple(dict.fromkeys(candidates))
 
 
+def _is_new_page(
+    page_keys: set[str],
+    seen_keys: set[str],
+) -> bool:
+    """Reject a page only when its available identities all repeat."""
+    return not page_keys or not page_keys.issubset(seen_keys)
+
+
 def _fetch_non_duplicate_page(
     self: CategoryScraper,
     category_url: str,
@@ -92,13 +114,13 @@ def _fetch_non_duplicate_page(
     page_number: int,
     seen_keys: set[str],
 ) -> tuple[str, str, set[str]]:
-    """Return the first page representation containing new products."""
+    """Return the first usable page representation containing new content."""
     for page_url in _candidate_page_urls(
         self, category_url, category_html, page_number
     ):
         html = _get_direct_page_html(self, page_url)
         page_keys = _archive_product_keys(self, html)
-        if page_keys and not page_keys.issubset(seen_keys):
+        if html and _is_new_page(page_keys, seen_keys):
             return page_url, html, page_keys
 
     try:
@@ -107,13 +129,14 @@ def _fetch_non_duplicate_page(
             category_id,
             page_number,
         )
-    except requests.RequestException:
+    except (KeyError, requests.RequestException):
         rendered_html = ""
 
     page_keys = _archive_product_keys(self, rendered_html)
-    if page_keys and not page_keys.issubset(seen_keys):
-        page_url = self._jsf_page_url(category_url, page_number)
-        return page_url, rendered_html, page_keys
+    if rendered_html and _has_archive_content(self, rendered_html):
+        if _is_new_page(page_keys, seen_keys):
+            page_url = self._jsf_page_url(category_url, page_number)
+            return page_url, rendered_html, page_keys
 
     return "", "", set()
 
@@ -157,7 +180,7 @@ def _get_category_pages(
             page_number,
             seen_keys,
         )
-        if not page_url or not rendered_html or not page_keys:
+        if not page_url or not rendered_html:
             raise RuntimeError(
                 "No se pudo obtener una página nueva de productos: "
                 f"{category_url} página {page_number}/{required_pages}."

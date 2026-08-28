@@ -135,15 +135,14 @@ class CatalogSyncService:
             else:
                 result.unchanged += 1
 
-        expected_complete = (
-            result.products_expected <= 0
-            or result.products_unique >= result.products_expected
-        )
+        expected_unique = result.products_expected
+        actual_unique = len(scraped_codes)
+        expected_complete = expected_unique <= 0 or actual_unique >= expected_unique
         prune_allowed = (
-            result.coverage_complete
+            prune_missing
+            and result.coverage_complete
             and expected_complete
             and not result.has_errors
-            and (prune_missing or result.products_expected > 0)
         )
         if prune_allowed:
             self._remove_missing_products(scraped_codes, result)

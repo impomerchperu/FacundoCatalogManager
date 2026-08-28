@@ -35,14 +35,14 @@ def _products(start, count):
     )
 
 
-def _jsf_response(code, found_posts=51, max_num_pages=2):
+def _jsf_response(start, count, found_posts=51, max_num_pages=3):
     return json.dumps(
         {
             "pagination": {
                 "found_posts": found_posts,
                 "max_num_pages": max_num_pages,
             },
-            "rendered_content": _product(code),
+            "rendered_content": _products(start, count),
         }
     )
 
@@ -91,9 +91,9 @@ def test_public_woocommerce_page_is_preferred_to_jsf():
     page_two = f"{category_url.rstrip('/')}/page/2/"
     page_three = f"{category_url.rstrip('/')}/page/3/"
     responses = {
-        category_url: _product("FB-1001"),
-        page_two: _product("FB-1002"),
-        page_three: _product("FB-1003"),
+        category_url: _products(1001, 25),
+        page_two: _products(1026, 25),
+        page_three: _products(1051, 1),
     }
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(
@@ -113,9 +113,9 @@ def test_jsf_is_used_when_public_archive_page_is_unavailable():
         "categoria-producto/catalogo/"
     )
     responses = {
-        category_url: _product("FB-1001"),
-        "ajax:2": _jsf_response("FB-1002"),
-        "ajax:3": _jsf_response("FB-1003"),
+        category_url: _products(1001, 25),
+        "ajax:2": _jsf_response(1026, 25),
+        "ajax:3": _jsf_response(1051, 1),
     }
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(
@@ -166,8 +166,7 @@ def test_repeated_jsf_page_is_rejected_when_no_new_products_exist():
     )
     responses = {
         category_url: _product("FB-1001"),
-        "ajax:2": _jsf_response("FB-1001"),
-        "ajax:3": _jsf_response("FB-1001"),
+        "ajax:2": _jsf_response(1001, 1),
     }
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(
@@ -178,6 +177,6 @@ def test_repeated_jsf_page_is_rejected_when_no_new_products_exist():
     try:
         scraper.get_category_pages(category_url, expected_count=51)
     except RuntimeError as exc:
-        assert "página nueva" in str(exc)
+        assert "Cobertura incompleta" in str(exc)
     else:
         raise AssertionError("Expected repeated pagination to fail")

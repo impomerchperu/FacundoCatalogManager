@@ -35,7 +35,7 @@ def _published_product_count(html: str) -> int:
 def _safe_get_html(scraper: CategoryScraper, url: str) -> str:
     try:
         return scraper.get_html(url)
-    except Exception:
+    except (AttributeError, RuntimeError, TypeError, ValueError):
         return ""
 
 
@@ -138,8 +138,10 @@ def _get_category_pages(
     if self._is_facundo_url(category_url):
         first_html = _safe_get_html(self, category_url)
         published_count = _published_product_count(first_html)
+        if published_count <= 0:
+            return pages
         target_pages = pages_required(
-            published_count or int(expected_count or 0),
+            published_count,
             self.PRODUCTS_PER_PAGE,
         )
         return _extend_public_archive_pages(

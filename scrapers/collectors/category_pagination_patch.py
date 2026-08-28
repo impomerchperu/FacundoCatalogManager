@@ -178,11 +178,7 @@ def _get_category_pages(
             seen_keys,
         )
         if not page_url:
-            raise RuntimeError(
-                "Cobertura incompleta de productos para "
-                f"{category_url}: no se pudo obtener una página nueva "
-                f"para cubrir la página {page_number}/{required_pages}."
-            )
+            break
 
         if rendered_html:
             self._cache_category_html(page_url, rendered_html)
@@ -197,7 +193,7 @@ def _get_category_pages(
         required_pages + 1,
         required_pages + getattr(self, "MAX_HIDDEN_PAGE_PROBES", 100),
     )
-    next_page = required_pages + 1
+    next_page = len(pages) + 1
     while len(seen_keys) < expected and next_page <= probe_limit:
         page_url, rendered_html, page_keys = _fetch_non_duplicate_page(
             self,

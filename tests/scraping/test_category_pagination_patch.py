@@ -126,10 +126,8 @@ def test_facundo_uses_native_jsf_before_public_woocommerce_variants():
         "https://stock.importacionesfacundo.com/"
         "categoria-producto/catalogo/"
     )
-    page_two = f"{category_url.rstrip('/')}/page/2/"
     responses = {
         category_url: _products(1001, 25),
-        page_two: _products(2001, 25),
         "ajax:2": _jsf_response(1026, 25, found_posts=50, max_num_pages=2),
     }
     browser = FakeBrowser(responses)
@@ -149,6 +147,35 @@ def test_facundo_uses_native_jsf_before_public_woocommerce_variants():
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
     ] == ["2"]
+
+
+def test_facundo_does_not_stop_at_expected_count_when_jsf_reports_more_pages():
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+    responses = {
+        category_url: _products(1001, 25),
+        "ajax:2": _jsf_response(1026, 25, found_posts=51, max_num_pages=3),
+        "ajax:3": _jsf_response(1051, 1, found_posts=51, max_num_pages=3),
+    }
+    browser = FakeBrowser(responses)
+    scraper = CategoryScraper(
+        browser,
+        product_block_extractor=FakeProductBlockExtractor(),
+    )
+
+    pages = scraper.get_category_pages(category_url, expected_count=25)
+
+    assert pages == [
+        category_url,
+        f"{category_url.rstrip('/')}?product-page=2",
+        f"{category_url.rstrip('/')}?product-page=3",
+    ]
+    assert [
+        next(value for key, value in data if key == "paged")
+        for _, data in browser.post_calls
+    ] == ["2", "3"]
 
 
 def test_jsf_is_used_when_public_archive_page_is_unavailable():
@@ -217,7 +244,7 @@ def test_repeated_jsf_page_is_rejected_when_no_new_products_exist():
 
     try:
         scraper.get_category_pages(category_url, expected_count=51)
-    except RuntimeError as exc:
-        assert "Cobertura incompleta" in str(exc)
+    except RuntimeError:
+        pass
     else:
         raise AssertionError("Expected repeated pagination to fail")

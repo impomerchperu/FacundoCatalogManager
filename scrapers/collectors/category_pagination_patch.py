@@ -140,22 +140,9 @@ def _get_category_pages(
         return []
     self._cache_category_html(category_url, category_html)
 
-    # Facundo's public archive can contain the complete product table even
-    # though the visual block is limited to 25 items. Prefer that authoritative
-    # archive when it already covers the published category count.
-    is_facundo = self._is_facundo_url(category_url)
     seen_keys = _archive_product_keys(self, category_html)
-    if is_facundo and len(seen_keys) >= expected:
+    if self._is_facundo_url(category_url) and len(seen_keys) >= expected:
         return [category_url]
-
-    # Otherwise preserve the native Facundo JetSmartFilters flow, which derives
-    # the remaining page count from found_posts/max_num_pages and the archive.
-    if is_facundo and self._category_id(category_html) is not None:
-        return _ORIGINAL_GET_CATEGORY_PAGES(
-            self,
-            category_url,
-            expected_count=expected_count,
-        )
 
     required_pages = pages_required(
         expected,

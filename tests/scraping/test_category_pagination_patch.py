@@ -35,6 +35,14 @@ def _products(start, count):
     )
 
 
+def _facundo_products(start, count, category_id=127):
+    return (
+        f'<html><body class="product_cat-{category_id}">'
+        f"{_products(start, count)}"
+        "</body></html>"
+    )
+
+
 def _jsf_response(start, count, found_posts=51, max_num_pages=3):
     return json.dumps(
         {
@@ -127,7 +135,7 @@ def test_facundo_uses_native_jsf_before_public_woocommerce_variants():
         "categoria-producto/catalogo/"
     )
     responses = {
-        category_url: _products(1001, 25),
+        category_url: _facundo_products(1001, 25),
         "ajax:2": _jsf_response(1026, 25, found_posts=50, max_num_pages=2),
     }
     browser = FakeBrowser(responses)
@@ -142,11 +150,11 @@ def test_facundo_uses_native_jsf_before_public_woocommerce_variants():
         category_url,
         f"{category_url.rstrip('/')}?product-page=2",
     ]
-    assert browser.get_calls == [category_url]
+    assert browser.get_calls == [category_url, category_url]
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["2"]
+    ] == ["1", "2"]
 
 
 def test_facundo_does_not_stop_at_expected_count_when_jsf_reports_more_pages():
@@ -155,7 +163,7 @@ def test_facundo_does_not_stop_at_expected_count_when_jsf_reports_more_pages():
         "categoria-producto/catalogo/"
     )
     responses = {
-        category_url: _products(1001, 25),
+        category_url: _facundo_products(1001, 25),
         "ajax:2": _jsf_response(1026, 25, found_posts=51, max_num_pages=3),
         "ajax:3": _jsf_response(1051, 1, found_posts=51, max_num_pages=3),
     }
@@ -175,7 +183,7 @@ def test_facundo_does_not_stop_at_expected_count_when_jsf_reports_more_pages():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["2", "3"]
+    ] == ["1", "2", "3"]
 
 
 def test_jsf_is_used_when_public_archive_page_is_unavailable():
@@ -184,7 +192,7 @@ def test_jsf_is_used_when_public_archive_page_is_unavailable():
         "categoria-producto/catalogo/"
     )
     responses = {
-        category_url: _products(1001, 25),
+        category_url: _facundo_products(1001, 25),
         "ajax:2": _jsf_response(1026, 25),
         "ajax:3": _jsf_response(1051, 1),
     }
@@ -204,7 +212,7 @@ def test_jsf_is_used_when_public_archive_page_is_unavailable():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["2", "3"]
+    ] == ["1", "2", "3"]
 
 
 def test_pagination_probes_beyond_nominal_page_count_when_pages_are_partial():
@@ -233,7 +241,7 @@ def test_repeated_jsf_page_is_rejected_when_no_new_products_exist():
         "categoria-producto/catalogo/"
     )
     responses = {
-        category_url: _product("FB-1001"),
+        category_url: _facundo_products(1001, 1),
         "ajax:2": _jsf_response(1001, 1),
     }
     browser = FakeBrowser(responses)

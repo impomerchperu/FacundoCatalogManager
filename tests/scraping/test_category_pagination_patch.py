@@ -101,10 +101,7 @@ def test_public_archive_with_more_than_25_products_skips_jsf():
 
 
 def test_public_woocommerce_page_is_preferred_to_jsf():
-    category_url = (
-        "https://stock.importacionesfacundo.com/"
-        "categoria-producto/catalogo/"
-    )
+    category_url = "https://example.com/categoria-producto/catalogo/"
     page_two = f"{category_url.rstrip('/')}/page/2/"
     page_three = f"{category_url.rstrip('/')}/page/3/"
     responses = {
@@ -122,6 +119,36 @@ def test_public_woocommerce_page_is_preferred_to_jsf():
 
     assert pages == [category_url, page_two, page_three]
     assert browser.post_calls == []
+
+
+def test_facundo_uses_native_jsf_before_public_woocommerce_variants():
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+    page_two = f"{category_url.rstrip('/')}/page/2/"
+    responses = {
+        category_url: _products(1001, 25),
+        page_two: _products(2001, 25),
+        "ajax:2": _jsf_response(1026, 25, found_posts=50, max_num_pages=2),
+    }
+    browser = FakeBrowser(responses)
+    scraper = CategoryScraper(
+        browser,
+        product_block_extractor=FakeProductBlockExtractor(),
+    )
+
+    pages = scraper.get_category_pages(category_url, expected_count=50)
+
+    assert pages == [
+        category_url,
+        f"{category_url.rstrip('/')}?product-page=2",
+    ]
+    assert browser.get_calls == [category_url]
+    assert [
+        next(value for key, value in data if key == "paged")
+        for _, data in browser.post_calls
+    ] == ["2"]
 
 
 def test_jsf_is_used_when_public_archive_page_is_unavailable():
@@ -154,10 +181,7 @@ def test_jsf_is_used_when_public_archive_page_is_unavailable():
 
 
 def test_pagination_probes_beyond_nominal_page_count_when_pages_are_partial():
-    category_url = (
-        "https://stock.importacionesfacundo.com/"
-        "categoria-producto/catalogo/"
-    )
+    category_url = "https://example.com/categoria-producto/catalogo/"
     page_two = f"{category_url.rstrip('/')}/page/2/"
     page_three = f"{category_url.rstrip('/')}/page/3/"
     responses = {

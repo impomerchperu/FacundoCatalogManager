@@ -83,6 +83,23 @@ def test_complete_category_html_is_used_before_pagination():
     assert browser.post_calls == []
 
 
+def test_public_archive_with_more_than_25_products_skips_jsf():
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+    browser = FakeBrowser({category_url: _products(1001, 51)})
+    scraper = CategoryScraper(
+        browser,
+        product_block_extractor=FakeProductBlockExtractor(),
+    )
+
+    pages = scraper.get_category_pages(category_url, expected_count=51)
+
+    assert pages == [category_url]
+    assert browser.post_calls == []
+
+
 def test_public_woocommerce_page_is_preferred_to_jsf():
     category_url = (
         "https://stock.importacionesfacundo.com/"

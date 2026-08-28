@@ -127,10 +127,13 @@ def _fetch_non_duplicate_page(
         rendered_html = ""
 
     page_keys = _archive_product_keys(self, rendered_html)
-    if rendered_html and _has_archive_content(self, rendered_html):
-        if not page_keys or not page_keys.issubset(seen_keys):
-            page_url = self._jsf_page_url(category_url, page_number)
-            return page_url, rendered_html, page_keys
+    if (
+        rendered_html
+        and _has_archive_content(self, rendered_html)
+        and (not page_keys or not page_keys.issubset(seen_keys))
+    ):
+        page_url = self._jsf_page_url(category_url, page_number)
+        return page_url, rendered_html, page_keys
 
     return "", "", set()
 

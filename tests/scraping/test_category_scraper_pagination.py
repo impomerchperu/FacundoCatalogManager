@@ -21,8 +21,9 @@ def test_category_scraper_discovers_real_woocommerce_page_variant_from_expected_
         page_two: "<article>FB-1001-AZ producto 2</article>",
     })
     scraper = CategoryScraper(browser)
+    scraper.PRODUCTS_PER_PAGE = 1
 
-    pages = scraper.get_category_pages(url, expected_count=50)
+    pages = scraper.get_category_pages(url, expected_count=2)
 
     assert pages == [url, page_two]
 
@@ -40,8 +41,9 @@ def test_category_scraper_respects_explicit_pagination_href():
         page_two: "<article>FB-1001-AZ producto 2</article>",
     })
     scraper = CategoryScraper(browser)
+    scraper.PRODUCTS_PER_PAGE = 1
 
-    pages = scraper.get_category_pages(url, expected_count=50)
+    pages = scraper.get_category_pages(url, expected_count=2)
 
     assert pages == [url, page_two]
 

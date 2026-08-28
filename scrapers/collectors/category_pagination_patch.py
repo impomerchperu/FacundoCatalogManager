@@ -145,7 +145,9 @@ def _get_category_pages(
     # count from found_posts, max_num_pages and the archive pagination. Do not
     # replace that flow with heuristic HTML product-key counting: the public
     # page can contain only the first 25 products even when more pages exist.
-    if self._is_facundo_url(category_url) and self._category_id(category_html) is not None:
+    is_facundo = self._is_facundo_url(category_url)
+    has_category_id = self._category_id(category_html) is not None
+    if is_facundo and has_category_id:
         return _ORIGINAL_GET_CATEGORY_PAGES(
             self,
             category_url,

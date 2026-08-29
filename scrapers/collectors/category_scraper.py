@@ -497,6 +497,11 @@ class CategoryScraper:
                 category_url, html
             ):
                 if next_url not in visited and next_url not in pending:
+                    page_number = self._page_number(next_url)
+                    if required_pages and (
+                        page_number is None or page_number > required_pages
+                    ):
+                        continue
                     pending.append(next_url)
 
         if total_pages == 0 and not discovered:
@@ -539,6 +544,8 @@ class CategoryScraper:
                 if next_url not in visited:
                     page_number = self._page_number(next_url)
                     if page_number and page_number > page:
+                        if max_page is not None and page_number > max_page:
+                            continue
                         pages.append(next_url)
                         visited.add(next_url)
 

@@ -92,17 +92,10 @@ def _facundo_jsf_pages(
         jsf_max_pages,
     )
 
-    # A full public first page is evidence that pagination may be hidden even
-    # when JSF reports one page. Once a hidden page is found, continue probing
-    # while it is full or its own metadata declares more pages. This avoids
-    # stopping at an arbitrary first hidden page when JSF omits max_num_pages.
-    hidden_page_probe = (
-        not jsf_page_one_available
-        or (
-            required_pages <= 1
-            and len(seen_products) >= scraper.PRODUCTS_PER_PAGE
-        )
-    )
+    # Probe beyond the declared range only when JSF did not provide a usable
+    # page count. When JSF explicitly declares the range, that metadata is the
+    # authoritative boundary and must not trigger speculative extra requests.
+    hidden_page_probe = not jsf_page_one_available or jsf_max_pages <= 0
     next_page = 2
     probe_limit = max(required_pages, 2 if hidden_page_probe else 1)
     while next_page <= probe_limit:
@@ -138,10 +131,9 @@ def _facundo_jsf_pages(
         )
         probe_limit = max(probe_limit, required_pages)
 
-        # If this is a hidden pagination chain, a complete page is evidence
-        # that another page may exist even when JSF supplied no page-count
-        # metadata. A partial page is the natural end unless metadata says
-        # otherwise (already reflected in probe_limit).
+        # If JSF omits page-count metadata, a complete hidden page is evidence
+        # that another page may exist. Continue the probe chain with the safety
+        # limit instead of stopping after the first hidden page.
         if hidden_page_probe and len(page_keys) >= scraper.PRODUCTS_PER_PAGE:
             probe_limit = min(
                 max(probe_limit, next_page + 1),

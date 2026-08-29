@@ -82,6 +82,11 @@ def _facundo_jsf_pages(
         scraper, category_url, category_id, 1
     )
     target_count = max(target_count, found_posts)
+    if found_posts > 0 and not jsf_first_html:
+        raise RuntimeError(
+            "JetSmartFilters no devolvió contenido para "
+            f"{category_url} en la página 1."
+        )
     if jsf_first_html:
         seen_products.update(_page_product_keys(scraper, jsf_first_html))
         scraper._cache_category_html(category_url, jsf_first_html)
@@ -92,11 +97,11 @@ def _facundo_jsf_pages(
         jsf_max_pages,
     )
 
-    # When no source has declared a page count, probe page 2 at least once.
-    # This is what detects categories whose public first page omits pagination
-    # metadata while JSF still exposes additional products.
+    # If the server did not declare a page count, probe page 2 when the public
+    # first page actually contains products. Otherwise trust a declared single
+    # page and avoid speculative requests that can trigger false failures.
     next_page = 2
-    probe_limit = max(required_pages, 2)
+    probe_limit = max(required_pages, 1 if required_pages else 2)
     while next_page <= probe_limit:
         page_url = scraper._jsf_page_url(category_url, next_page)
         found_posts, jsf_max_pages, rendered_html = _fetch_jsf_page_safely(
@@ -119,7 +124,7 @@ def _facundo_jsf_pages(
             jsf_max_pages,
             pages_required(target_count, scraper.PRODUCTS_PER_PAGE),
         )
-        probe_limit = max(required_pages, 2)
+        probe_limit = max(required_pages, 2 if required_pages == 0 else required_pages)
         next_page += 1
 
     return pages

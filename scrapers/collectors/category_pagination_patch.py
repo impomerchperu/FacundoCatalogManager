@@ -92,11 +92,19 @@ def _facundo_jsf_pages(
         jsf_max_pages,
     )
 
-    # A real JSF page-count declaration is authoritative. Without page-one
-    # metadata, however, probe page two once so hidden pagination can reveal
-    # its own found_posts/max_num_pages values.
+    # A real JSF page-count declaration is normally authoritative. When the
+    # public page itself is full, however, a single-page JSF declaration can
+    # still hide later pages. Probe page two once in that case; if it exists,
+    # its metadata extends the traversal naturally.
+    hidden_page_probe = (
+        not jsf_page_one_available
+        or (
+            required_pages <= 1
+            and len(seen_products) >= scraper.PRODUCTS_PER_PAGE
+        )
+    )
     next_page = 2
-    probe_limit = max(required_pages, 2 if not jsf_page_one_available else 1)
+    probe_limit = max(required_pages, 2 if hidden_page_probe else 1)
     while next_page <= probe_limit:
         page_url = scraper._jsf_page_url(category_url, next_page)
         try:

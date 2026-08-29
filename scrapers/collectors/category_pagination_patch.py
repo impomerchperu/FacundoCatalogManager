@@ -7,7 +7,8 @@ from .category_scraper import CategoryScraper
 _PATCHED = False
 _ORIGINAL_GET_CATEGORY_PAGES = CategoryScraper.get_category_pages
 _PRODUCTS_IN_ARCHIVE_PATTERN = re.compile(
-    r"Productos\s+en\s+Stock\s*(\d+)", re.IGNORECASE
+    r"Productos\s+en\s+Stock\s*[:\-]?\s*([\d\s.,]+)",
+    re.IGNORECASE,
 )
 
 
@@ -24,7 +25,7 @@ def _published_product_count(html: str) -> int:
     if not match:
         return 0
     try:
-        return int(match.group(1))
+        return int(re.sub(r"\D", "", match.group(1)))
     except (TypeError, ValueError):
         return 0
 

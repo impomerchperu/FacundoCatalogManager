@@ -199,9 +199,11 @@ class CategoryScraper:
         discovered = self._complete_page_sequence(
             category_url, discovered, total_pages
         )
-        pages.extend(self._collect_fallback_pages(
-            category_url, discovered, required_pages
-        ))
+        pages.extend(
+            self._collect_fallback_pages(
+                category_url, discovered, required_pages
+            )
+        )
         if total_pages == 0 and not discovered:
             visited = set(pages)
             self._probe_hidden_pages(
@@ -211,16 +213,6 @@ class CategoryScraper:
                 start_page=2,
                 max_page=required_pages or None,
             )
-        if required_pages:
-            pages = [
-                pages[0],
-                *[
-                    url
-                    for url in pages[1:]
-                    if (page_number := self._page_number(url)) is not None
-                    and page_number <= required_pages
-                ],
-            ]
         return pages
 
     def _required_page_count(self, expected_count: int) -> int:
@@ -355,10 +347,274 @@ class CategoryScraper:
 
     @staticmethod
     def _product_keys(html: str) -> set[str]:
-        keys = set(
+        return set(
             re.findall(
                 r"\b[A-Z]{2,}[A-Z0-9]*(?:-[A-Z0-9]+)+\b",
                 html or "",
             )
         )
-        return keys
+
+    def _fetch_jsf_page(
+        self, category_url: str, category_id: int, page: int
+    ) -> tuple[int, int, str]:
+        cache_key = (category_url, page)
+        with self._jsf_cache_lock:
+            cached_html = self._jsf_page_cache.get(cache_key)
+            cached_metadata = self._jsf_metadata_cache.get(category_url)
+        if cached_html is not None:
+            found_posts, max_num_pages = cached_metadata or (0, 0)
+            return found_posts, max_num_pages, cached_html
+
+        response_text = self._post_jsf(
+            self._jet_smart_filters_payload(category_id, page)
+        )
+        found_posts, max_num_pages, rendered_html = self._parse_jsf_response(
+            response_text
+        )
+        if found_posts > 0 or max_num_pages > 0:
+            with self._jsf_cache_lock:
+                self._jsf_metadata_cache[category_url] = (
+                    found_posts,
+                    max_num_pages,
+                )
+        if rendered_html:
+            with self._jsf_cache_lock:
+                self._jsf_page_cache[cache_key] = rendered_html
+        return found_posts, max_num_pages, rendered_html
+
+    def _post_jsf(self, payload: list[tuple[str, str]]) -> str:
+        if self.browser and hasattr(self.browser, "post"):
+            return self._response_text(
+                self.browser.post(JETSMARTFILTERS_AJAX_URL, data=payload)
+            )
+        response = requests.post(
+            JETSMARTFILTERS_AJAX_URL,
+            data=payload,
+            headers=DEFAULT_HEADERS,
+            timeout=20,
+        )
+        response.raise_for_status()
+        return response.text
+
+    @staticmethod
+    def _jet_smart_filters_payload(
+        category_id: int, page: int
+    ) -> list[tuple[str, str]]:
+        return [
+            ("action", "jet_smart_filters"),
+            ("provider", "bricks-query-loop/querydesk"),
+            ("query[_tax_query_product_cat]", str(category_id)),
+            ("defaults[post_type][]", "product"),
+            ("defaults[orderby][menu_order]", "ASC"),
+            ("defaults[posts_per_page]", "25"),
+            ("defaults[no_results_text]", "No existen productos"),
+            ("defaults[disable_query_merge]", "true"),
+            ("defaults[is_archive_main_query]", "true"),
+            ("defaults[post_status]", "publish"),
+            ("defaults[paged]", str(page)),
+            ("settings[filtered_post_id]", str(category_id)),
+            ("settings[element_id]", JETSMARTFILTERS_ELEMENT_ID),
+            ("settings[is_archive_main_query]", "true"),
+            ("settings[jsf_signature]", JETSMARTFILTERS_SIGNATURE),
+            ("props[page]", str(page)),
+            ("paged", str(page)),
+            ("indexing_filters[]", JETSMARTFILTERS_INDEXING_FILTERS),
+        ]
+
+    @staticmethod
+    def _parse_jsf_response(payload: str) -> tuple[int, int, str]:
+        found_posts = 0
+        max_num_pages = 0
+        rendered_html = ""
+        objects = []
+        with contextlib.suppress(TypeError, ValueError):
+            objects.append(json.loads(payload))
+
+        def visit(value: Any) -> None:
+            nonlocal found_posts, max_num_pages, rendered_html
+            if isinstance(value, str):
+                stripped = value.strip()
+                if stripped.startswith(("{", "[")):
+                    with contextlib.suppress(TypeError, ValueError):
+                        visit(json.loads(stripped))
+                return
+            if isinstance(value, list):
+                for item in value:
+                    visit(item)
+                return
+            if not isinstance(value, dict):
+                return
+            for key, item in value.items():
+                normalized = str(key).casefold()
+                if normalized == "found_posts":
+                    found_posts = max(
+                        found_posts, CategoryScraper._to_int(item)
+                    )
+                elif normalized == "max_num_pages":
+                    max_num_pages = max(
+                        max_num_pages, CategoryScraper._to_int(item)
+                    )
+                elif (
+                    normalized == "rendered_content"
+                    and isinstance(item, str)
+                    and len(item) > len(rendered_html)
+                ):
+                    rendered_html = item
+                visit(item)
+
+        for obj in objects:
+            visit(obj)
+        if found_posts == 0:
+            found_posts = CategoryScraper._first_int(
+                payload,
+                (
+                    r'"found_posts"\s*:\s*(\d+)',
+                    r"found_posts\s*[:=]\s*(\d+)",
+                ),
+            )
+        if max_num_pages == 0:
+            max_num_pages = CategoryScraper._first_int(
+                payload,
+                (
+                    r'"max_num_pages"\s*:\s*(\d+)',
+                    r"max_num_pages\s*[:=]\s*(\d+)",
+                ),
+            )
+        if max_num_pages == 0 and found_posts > 0:
+            max_num_pages = (
+                found_posts + CategoryScraper.PRODUCTS_PER_PAGE - 1
+            ) // CategoryScraper.PRODUCTS_PER_PAGE
+        return found_posts, max_num_pages, rendered_html
+
+    @staticmethod
+    def _parse_jsf_metadata(payload: str) -> tuple[int, int]:
+        found_posts, max_num_pages, _ = CategoryScraper._parse_jsf_response(
+            payload
+        )
+        return found_posts, max_num_pages
+
+    @staticmethod
+    def _to_int(value: Any) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
+    def _first_int(text: str, patterns: tuple[str, ...]) -> int:
+        for pattern in patterns:
+            match = re.search(pattern, text or "", flags=re.IGNORECASE)
+            if match:
+                try:
+                    return int(match.group(1))
+                except (IndexError, TypeError, ValueError):
+                    return 0
+        return 0
+
+    @staticmethod
+    def _category_id(html: str) -> int | None:
+        soup = BeautifulSoup(html or "", "html.parser")
+        body = soup.body
+        if body is not None:
+            class_names = body.get("class")
+            if isinstance(class_names, (list, tuple)):
+                for class_name in class_names:
+                    match = re.fullmatch(
+                        r"(?:term|product_cat)-(\d+)", str(class_name)
+                    )
+                    if match:
+                        return int(match.group(1))
+            for attribute in ("data-term-id", "data-category-id"):
+                value = body.get(attribute)
+                if isinstance(value, str) and value.isdigit():
+                    return int(value)
+        patterns = (
+            r'data-term-id=["\'](\d+)["\']',
+            r'data-category-id=["\'](\d+)["\']',
+            r'"filtered_post_id"\s*[:=]\s*["\']?(\d+)',
+            r'"_tax_query_product_cat"\s*[:=]\s*["\']?(\d+)',
+            r"\bterm-(\d+)\b",
+            r"\bproduct_cat-(\d+)\b",
+        )
+        for pattern in patterns:
+            match = re.search(pattern, html or "", flags=re.IGNORECASE)
+            if match:
+                try:
+                    return int(match.group(1))
+                except (IndexError, TypeError, ValueError):
+                    continue
+        return None
+
+    @staticmethod
+    def _is_facundo_url(url: str) -> bool:
+        return url.startswith("https://stock.importacionesfacundo.com/")
+
+    @staticmethod
+    def _jsf_page_url(category_url: str, page: int) -> str:
+        return f"{category_url.rstrip('/')}?product-page={page}"
+
+    @staticmethod
+    def _fallback_page_url(category_url: str, page: int) -> str:
+        return f"{category_url.rstrip('/')}/page/{page}/"
+
+    @staticmethod
+    def _declared_total_pages(html: str) -> int:
+        patterns = (
+            r"\btotalPages\s*[:=]\s*(\d+)",
+            r'"max_num_pages"\s*[:=]\s*(\d+)',
+            r"\bmax_num_pages\s*[:=]\s*(\d+)",
+        )
+        return CategoryScraper._first_int(html, patterns)
+
+    @staticmethod
+    def _pagination_max_page(html: str) -> int:
+        if not html:
+            return 0
+        numbers: list[int] = []
+        patterns = (
+            r"[?&](?:product-page|paged)=(\d+)",
+            r"/page/(\d+)(?:/|$)",
+            r"data-value=[\"'](\d+)[\"']",
+            r"data-page=[\"'](\d+)[\"']",
+        )
+        for pattern in patterns:
+            numbers.extend(
+                int(value)
+                for value in re.findall(
+                    pattern, html, flags=re.IGNORECASE
+                )
+            )
+        return max(numbers, default=0)
+
+    @staticmethod
+    def _page_number(url: str) -> int | None:
+        patterns = (
+            r"[?&](?:product-page|paged)=(\d+)",
+            r"/page/(\d+)(?:/|$)",
+        )
+        for pattern in patterns:
+            match = re.search(pattern, url or "", flags=re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        return None
+
+    def _fallback_pagination_links(
+        self, category_url: str, html: str
+    ) -> list[str]:
+        soup = self._parse(html)
+        links: dict[int, str] = {}
+        selector = (
+            "a.page-numbers, nav.woocommerce-pagination a, "
+            "a[href*='product-page='], a[href*='paged='], "
+            "a[href*='page/']"
+        )
+        for link in soup.select(selector):
+            href = link.get("href")
+            if not isinstance(href, str) or not href:
+                continue
+            absolute_url = urljoin(category_url, href)
+            page_number = self._page_number(absolute_url)
+            if page_number is None or page_number <= 1:
+                continue
+            links.setdefault(page_number, absolute_url)
+        return [links[number] for number in sorted(links)]

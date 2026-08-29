@@ -211,6 +211,16 @@ class CategoryScraper:
                 start_page=2,
                 max_page=required_pages or None,
             )
+        if required_pages:
+            pages = [
+                pages[0],
+                *[
+                    url
+                    for url in pages[1:]
+                    if (page_number := self._page_number(url)) is not None
+                    and page_number <= required_pages
+                ],
+            ]
         return pages
 
     def _required_page_count(self, expected_count: int) -> int:

@@ -92,10 +92,10 @@ def _facundo_jsf_pages(
         jsf_max_pages,
     )
 
-    # A real JSF page-count declaration is normally authoritative. When the
-    # public page itself is full, however, a single-page JSF declaration can
-    # still hide later pages. Probe page two once in that case; if it exists,
-    # its metadata extends the traversal naturally.
+    # A full public first page is evidence that pagination may be hidden even
+    # when JSF reports one page. Once a hidden page is found, continue probing
+    # while it is full or its own metadata declares more pages. This avoids
+    # stopping at an arbitrary first hidden page when JSF omits max_num_pages.
     hidden_page_probe = (
         not jsf_page_one_available
         or (
@@ -128,7 +128,8 @@ def _facundo_jsf_pages(
 
         scraper._cache_category_html(page_url, rendered_html)
         pages.append(page_url)
-        seen_products.update(_page_product_keys(scraper, rendered_html))
+        page_keys = _page_product_keys(scraper, rendered_html)
+        seen_products.update(page_keys)
         target_count = max(target_count, found_posts)
         required_pages = max(
             required_pages,
@@ -136,6 +137,16 @@ def _facundo_jsf_pages(
             pages_required(target_count, scraper.PRODUCTS_PER_PAGE),
         )
         probe_limit = max(probe_limit, required_pages)
+
+        # If this is a hidden pagination chain, a complete page is evidence
+        # that another page may exist even when JSF supplied no page-count
+        # metadata. A partial page is the natural end unless metadata says
+        # otherwise (already reflected in probe_limit).
+        if hidden_page_probe and len(page_keys) >= scraper.PRODUCTS_PER_PAGE:
+            probe_limit = min(
+                max(probe_limit, next_page + 1),
+                next_page + scraper.MAX_HIDDEN_PAGE_PROBES,
+            )
         next_page += 1
 
     return pages

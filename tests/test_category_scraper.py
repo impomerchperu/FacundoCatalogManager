@@ -140,29 +140,34 @@ def test_category_scraper_uses_expected_count_to_cover_all_pages():
     responses = {
         category_url: '<body class="tax-product_cat term-127"></body>',
         "ajax:1": (
-            '{"found_posts":51,"max_num_pages":2,'
+            '{"found_posts":25,"max_num_pages":1,'
             '"rendered_content":"<div>page1</div>"}'
         ),
         "ajax:2": (
-            '{"found_posts":51,"max_num_pages":2,'
+            '{"found_posts":25,"max_num_pages":1,'
             '"rendered_content":"<div>page2</div>"}'
         ),
         "ajax:3": (
-            '{"found_posts":51,"max_num_pages":2,'
+            '{"found_posts":25,"max_num_pages":1,'
             '"rendered_content":"<div>page3</div>"}'
+        ),
+        "ajax:4": (
+            '{"found_posts":25,"max_num_pages":1,'
+            '"rendered_content":"<div>page4</div>"}'
         ),
     }
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(browser)
 
-    pages = scraper.get_category_pages(category_url)
+    pages = scraper.get_category_pages(category_url, expected_count=82)
 
     assert pages == [
         category_url,
         f"{category_url.rstrip('/')}?product-page=2",
         f"{category_url.rstrip('/')}?product-page=3",
+        f"{category_url.rstrip('/')}?product-page=4",
     ]
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3"]
+    ] == ["1", "2", "3", "4"]

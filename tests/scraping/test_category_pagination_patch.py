@@ -235,6 +235,51 @@ def test_pagination_probes_beyond_nominal_page_count_when_pages_are_partial():
     assert pages == [category_url, page_two, page_three]
 
 
+def test_published_category_total_overrides_lower_expected_count():
+    category_url = "https://example.com/categoria-producto/catalogo/"
+    page_two = f"{category_url.rstrip('/')}/page/2/"
+    page_three = f"{category_url.rstrip('/')}/page/3/"
+    responses = {
+        category_url: (
+            '<div class="woocommerce-result-count">'
+            "Productos en Stock 51"
+            "</div>"
+            + _products(1001, 20)
+        ),
+        page_two: _products(1021, 20),
+        page_three: _products(1041, 11),
+    }
+    browser = FakeBrowser(responses)
+    scraper = CategoryScraper(
+        browser,
+        product_block_extractor=FakeProductBlockExtractor(),
+    )
+
+    pages = scraper.get_category_pages(category_url, expected_count=20)
+
+    assert pages == [category_url, page_two, page_three]
+
+
+def test_published_category_total_accepts_thousands_separators():
+    category_url = "https://example.com/categoria-producto/catalogo/"
+    page_two = f"{category_url.rstrip('/')}/page/2/"
+    responses = {
+        category_url: (
+            "<div>Productos en Stock: 1,001</div>" + _products(1001, 20)
+        ),
+        page_two: _products(1021, 20),
+    }
+    browser = FakeBrowser(responses)
+    scraper = CategoryScraper(
+        browser,
+        product_block_extractor=FakeProductBlockExtractor(),
+    )
+
+    pages = scraper.get_category_pages(category_url, expected_count=20)
+
+    assert pages == [category_url, page_two]
+
+
 def test_repeated_jsf_page_is_rejected_when_no_new_products_exist():
     category_url = (
         "https://stock.importacionesfacundo.com/"

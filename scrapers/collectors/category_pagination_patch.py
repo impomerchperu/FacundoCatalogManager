@@ -131,10 +131,10 @@ def _facundo_jsf_pages(
         )
         probe_limit = max(probe_limit, required_pages)
 
-        # If JSF omits page-count metadata, a complete hidden page is evidence
-        # that another page may exist. Continue the probe chain with the safety
-        # limit instead of stopping after the first hidden page.
-        if hidden_page_probe and len(page_keys) >= scraper.PRODUCTS_PER_PAGE:
+        # Continue the hidden-page chain only while the current JSF response
+        # still omits a usable page-count declaration. Once JSF declares a
+        # boundary, it becomes authoritative and prevents speculative probes.
+        if hidden_page_probe and jsf_max_pages <= 0 and len(page_keys) >= scraper.PRODUCTS_PER_PAGE:
             probe_limit = min(
                 max(probe_limit, next_page + 1),
                 next_page + scraper.MAX_HIDDEN_PAGE_PROBES,

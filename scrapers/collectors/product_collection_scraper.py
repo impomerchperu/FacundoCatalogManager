@@ -45,6 +45,8 @@ class ProductCollectionScraper:
         self._detail_skipped = 0
         self._detail_reason_counts: dict[str, int] = {}
         self._detail_metrics_lock = Lock()
+        self._page_metrics: dict[str, dict[str, Any]] = {}
+        self._page_metrics_lock = Lock()
         self._detail_executor = ThreadPoolExecutor(max_workers=self.max_workers)
         self._detail_fetch_executor = ThreadPoolExecutor(max_workers=self.max_workers)
 
@@ -77,9 +79,19 @@ class ProductCollectionScraper:
                 raise
             pages = self.category_scraper.get_category_pages(category_url)
 
-        for page in pages:
+        page_metrics: list[dict[str, Any]] = []
+        for page_number, page in enumerate(pages, start=1):
             html = self.category_scraper.get_html(page)
             if not html:
+                page_metrics.append(
+                    self._build_page_metric(
+                        page_number=page_number,
+                        page_url=page,
+                        html_available=False,
+                        card_count=0,
+                        unique_product_count=0,
+                    )
+                )
                 continue
             parser = getattr(self.category_scraper, "_parse", None)
             soup = (
@@ -88,6 +100,7 @@ class ProductCollectionScraper:
                 else BeautifulSoup(html, "html.parser")
             )
             cards = self._extract_cards(soup)
+            page_seen_before = len(seen)
             for card in cards:
                 product = self._extract_product_from_card(
                     card,
@@ -107,7 +120,81 @@ class ProductCollectionScraper:
                     continue
                 seen.add(identity)
                 products.append((card, page, product))
+            page_metrics.append(
+                self._build_page_metric(
+                    page_number=page_number,
+                    page_url=page,
+                    html_available=True,
+                    card_count=len(cards),
+                    unique_product_count=len(seen) - page_seen_before,
+                )
+            )
+        self._store_page_metrics(
+            category_url=category_url,
+            category_name=category_name,
+            expected_count=expected_count,
+            pages=page_metrics,
+            unique_products=len(products),
+        )
         return products
+
+    @staticmethod
+    def _build_page_metric(
+        *,
+        page_number: int,
+        page_url: str,
+        html_available: bool,
+        card_count: int,
+        unique_product_count: int,
+    ) -> dict[str, Any]:
+        return {
+            "page": page_number,
+            "url": page_url,
+            "html_available": html_available,
+            "cards": card_count,
+            "unique_products": unique_product_count,
+        }
+
+    def _store_page_metrics(
+        self,
+        *,
+        category_url: str,
+        category_name: str,
+        expected_count: int,
+        pages: list[dict[str, Any]],
+        unique_products: int,
+    ) -> None:
+        with self._page_metrics_lock:
+            self._page_metrics[category_url] = {
+                "category": category_name,
+                "expected_count": int(expected_count or 0),
+                "pages_expected": (
+                    (int(expected_count) + 24) // 25
+                    if int(expected_count or 0) > 0
+                    else len(pages)
+                ),
+                "pages_requested": len(pages),
+                "pages_loaded": sum(
+                    1 for page in pages if page["html_available"]
+                ),
+                "cards_found": sum(page["cards"] for page in pages),
+                "unique_products": unique_products,
+                "pages": pages,
+            }
+
+    def reset_page_metrics(self) -> None:
+        with self._page_metrics_lock:
+            self._page_metrics.clear()
+
+    def get_page_metrics(self) -> dict[str, dict[str, Any]]:
+        with self._page_metrics_lock:
+            return {
+                category_url: {
+                    **metrics,
+                    "pages": [dict(page) for page in metrics["pages"]],
+                }
+                for category_url, metrics in self._page_metrics.items()
+            }
 
     @staticmethod
     def _product_identity(

@@ -46,6 +46,19 @@ def _page_product_keys(scraper: CategoryScraper, html: str) -> set[str]:
         return set()
 
 
+def _fetch_jsf_page_safely(
+    scraper: CategoryScraper,
+    category_url: str,
+    category_id: int,
+    page: int,
+) -> tuple[int, int, str]:
+    """Fetch a JSF page without turning an absent probe into a hard failure."""
+    try:
+        return scraper._fetch_jsf_page(category_url, category_id, page)
+    except (KeyError, RuntimeError, TypeError, ValueError):
+        return 0, 0, ""
+
+
 def _facundo_jsf_pages(
     scraper: CategoryScraper,
     category_url: str,
@@ -53,72 +66,60 @@ def _facundo_jsf_pages(
     first_html: str,
     expected_count: int,
 ) -> list[str]:
-    """Use the public first page, then native JSF until category discovery ends."""
+    """Discover every category page using public and JSF-local evidence."""
     pages = [category_url]
     scraper._cache_category_html(category_url, first_html)
     seen_products = _page_product_keys(scraper, first_html)
-    if not seen_products:
-        raise RuntimeError(
-            "JetSmartFilters no encontró productos en la primera página de "
-            f"{category_url}."
-        )
 
     published_count = _published_product_count(first_html)
     target_count = max(int(expected_count or 0), published_count)
-    required_pages = pages_required(
-        max(target_count, len(seen_products)), scraper.PRODUCTS_PER_PAGE
+    declared_pages = pages_required(target_count, scraper.PRODUCTS_PER_PAGE)
+
+    # Page 1 is normally available through JSF, but some responses expose only
+    # pages 2+ in tests and in partially initialized archives. Treat page 1 as
+    # optional because the public archive page is already our first page.
+    found_posts, jsf_max_pages, jsf_first_html = _fetch_jsf_page_safely(
+        scraper, category_url, category_id, 1
     )
-
-    try:
-        found_posts, jsf_max_pages, jsf_first_html = scraper._fetch_jsf_page(
-            category_url, category_id, 1
-        )
-    except (KeyError, RuntimeError, TypeError, ValueError):
-        found_posts, jsf_max_pages, jsf_first_html = 0, 0, ""
-
     target_count = max(target_count, found_posts)
     if jsf_first_html:
         seen_products.update(_page_product_keys(scraper, jsf_first_html))
+        scraper._cache_category_html(category_url, jsf_first_html)
+
     required_pages = max(
-        required_pages,
+        declared_pages,
         pages_required(target_count, scraper.PRODUCTS_PER_PAGE),
         jsf_max_pages,
     )
 
+    # When no source has declared a page count, probe page 2 at least once.
+    # This is what detects categories whose public first page omits pagination
+    # metadata while JSF still exposes additional products.
     next_page = 2
-    while next_page <= required_pages or (
-        target_count > 0 and len(seen_products) < target_count
-    ):
+    probe_limit = max(required_pages, 2)
+    while next_page <= probe_limit:
         page_url = scraper._jsf_page_url(category_url, next_page)
-        found_posts, jsf_max_pages, rendered_html = scraper._fetch_jsf_page(
-            category_url, category_id, next_page
+        found_posts, jsf_max_pages, rendered_html = _fetch_jsf_page_safely(
+            scraper, category_url, category_id, next_page
         )
         if not rendered_html:
-            if len(seen_products) >= target_count:
-                break
-            raise RuntimeError(
-                "JetSmartFilters no devolvió contenido para "
-                f"{category_url} en la página {next_page}."
-            )
-        page_keys = _page_product_keys(scraper, rendered_html)
-        new_keys = page_keys.difference(seen_products)
-        if not new_keys:
-            if len(seen_products) >= target_count:
-                break
-            raise RuntimeError(
-                "Paginación repetida para "
-                f"{category_url}: la página {next_page} no contiene productos nuevos."
-            )
+            if next_page <= required_pages and len(seen_products) < target_count:
+                raise RuntimeError(
+                    "JetSmartFilters no devolvió contenido para "
+                    f"{category_url} en la página {next_page}."
+                )
+            break
 
-        seen_products.update(new_keys)
         scraper._cache_category_html(page_url, rendered_html)
         pages.append(page_url)
+        seen_products.update(_page_product_keys(scraper, rendered_html))
         target_count = max(target_count, found_posts)
         required_pages = max(
             required_pages,
             jsf_max_pages,
             pages_required(target_count, scraper.PRODUCTS_PER_PAGE),
         )
+        probe_limit = max(required_pages, 2)
         next_page += 1
 
     return pages

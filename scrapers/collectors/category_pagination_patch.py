@@ -46,7 +46,7 @@ def _page_product_keys(scraper: CategoryScraper, html: str) -> set[str]:
         return set()
 
 
-def _facundo_jsf_pages(
+def _facundo_jsf_pages(  # noqa: PLR0912
     scraper: CategoryScraper,
     category_url: str,
     category_id: int,
@@ -95,7 +95,9 @@ def _facundo_jsf_pages(
     next_page = 2
     probe_limit = max(required_pages, 2 if hidden_page_probe else 1)
     if expected_count > 0:
-        probe_limit = min(probe_limit, pages_required(expected_count, scraper.PRODUCTS_PER_PAGE))
+        probe_limit = min(
+            probe_limit, pages_required(expected_count, scraper.PRODUCTS_PER_PAGE)
+        )
     while next_page <= probe_limit:
         page_url = scraper._jsf_page_url(category_url, next_page)
         try:

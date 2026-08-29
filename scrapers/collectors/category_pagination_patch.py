@@ -46,19 +46,6 @@ def _page_product_keys(scraper: CategoryScraper, html: str) -> set[str]:
         return set()
 
 
-def _fetch_jsf_page_safely(
-    scraper: CategoryScraper,
-    category_url: str,
-    category_id: int,
-    page: int,
-) -> tuple[int, int, str]:
-    """Fetch a JSF page without turning an absent probe into a hard failure."""
-    try:
-        return scraper._fetch_jsf_page(category_url, category_id, page)
-    except (KeyError, RuntimeError, TypeError, ValueError):
-        return 0, 0, ""
-
-
 def _facundo_jsf_pages(
     scraper: CategoryScraper,
     category_url: str,
@@ -75,14 +62,22 @@ def _facundo_jsf_pages(
     target_count = max(int(expected_count or 0), published_count)
     declared_pages = pages_required(target_count, scraper.PRODUCTS_PER_PAGE)
 
-    # Page 1 is normally available through JSF, but some responses expose only
-    # pages 2+ in tests and in partially initialized archives. Treat page 1 as
-    # optional because the public archive page is already our first page.
-    found_posts, jsf_max_pages, jsf_first_html = _fetch_jsf_page_safely(
-        scraper, category_url, category_id, 1
-    )
+    # JSF page one is the authoritative source when it responds. If it is not
+    # available, the public page remains valid evidence and page two is probed
+    # because the archive can expose pagination only on later JSF responses.
+    jsf_page_one_available = True
+    try:
+        found_posts, jsf_max_pages, jsf_first_html = scraper._fetch_jsf_page(
+            category_url, category_id, 1
+        )
+    except KeyError:
+        jsf_page_one_available = False
+        found_posts, jsf_max_pages, jsf_first_html = 0, 0, ""
+    except (RuntimeError, TypeError, ValueError):
+        found_posts, jsf_max_pages, jsf_first_html = 0, 0, ""
+
     target_count = max(target_count, found_posts)
-    if found_posts > 0 and not jsf_first_html:
+    if jsf_page_one_available and found_posts > 0 and not jsf_first_html:
         raise RuntimeError(
             "JetSmartFilters no devolvió contenido para "
             f"{category_url} en la página 1."
@@ -97,19 +92,24 @@ def _facundo_jsf_pages(
         jsf_max_pages,
     )
 
-    # A declared page count is authoritative. Only probe beyond it when the
-    # category supplied no page-count evidence at all and the public first page
-    # contains products, so hidden pagination can still be discovered.
+    # A real JSF page-count declaration is authoritative. Without page-one
+    # metadata, however, probe page two once so hidden pagination can reveal
+    # its own found_posts/max_num_pages values.
     next_page = 2
-    if required_pages > 0:
-        probe_limit = required_pages
-    else:
-        probe_limit = 2 if seen_products else 1
+    probe_limit = max(required_pages, 2 if not jsf_page_one_available else 1)
     while next_page <= probe_limit:
         page_url = scraper._jsf_page_url(category_url, next_page)
-        found_posts, jsf_max_pages, rendered_html = _fetch_jsf_page_safely(
-            scraper, category_url, category_id, next_page
-        )
+        try:
+            found_posts, jsf_max_pages, rendered_html = scraper._fetch_jsf_page(
+                category_url, category_id, next_page
+            )
+        except (KeyError, RuntimeError, TypeError, ValueError):
+            if next_page <= required_pages and len(seen_products) < target_count:
+                raise RuntimeError(
+                    "JetSmartFilters no devolvió contenido para "
+                    f"{category_url} en la página {next_page}."
+                ) from None
+            break
         if not rendered_html:
             if next_page <= required_pages and len(seen_products) < target_count:
                 raise RuntimeError(
@@ -127,8 +127,7 @@ def _facundo_jsf_pages(
             jsf_max_pages,
             pages_required(target_count, scraper.PRODUCTS_PER_PAGE),
         )
-        if required_pages > probe_limit:
-            probe_limit = required_pages
+        probe_limit = max(probe_limit, required_pages)
         next_page += 1
 
     return pages

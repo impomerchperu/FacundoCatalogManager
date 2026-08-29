@@ -97,11 +97,14 @@ def _facundo_jsf_pages(
         jsf_max_pages,
     )
 
-    # If the server did not declare a page count, probe page 2 when the public
-    # first page actually contains products. Otherwise trust a declared single
-    # page and avoid speculative requests that can trigger false failures.
+    # A declared page count is authoritative. Only probe beyond it when the
+    # category supplied no page-count evidence at all and the public first page
+    # contains products, so hidden pagination can still be discovered.
     next_page = 2
-    probe_limit = max(required_pages, 1 if required_pages else 2)
+    if required_pages > 0:
+        probe_limit = required_pages
+    else:
+        probe_limit = 2 if seen_products else 1
     while next_page <= probe_limit:
         page_url = scraper._jsf_page_url(category_url, next_page)
         found_posts, jsf_max_pages, rendered_html = _fetch_jsf_page_safely(
@@ -124,7 +127,8 @@ def _facundo_jsf_pages(
             jsf_max_pages,
             pages_required(target_count, scraper.PRODUCTS_PER_PAGE),
         )
-        probe_limit = max(required_pages, 2 if required_pages == 0 else required_pages)
+        if required_pages > probe_limit:
+            probe_limit = required_pages
         next_page += 1
 
     return pages

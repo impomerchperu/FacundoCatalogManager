@@ -475,6 +475,23 @@ class CategoryScraper:
             ) // self.PRODUCTS_PER_PAGE
             if total_pages > 0:
                 total_pages = max(total_pages, required_pages)
+
+        if required_pages:
+            discovered = [
+                url
+                for url in discovered
+                if (page_number := self._page_number(url)) is not None
+                and page_number <= required_pages
+            ]
+            discovered_numbers = {
+                number
+                for number in (
+                    self._page_number(url) for url in discovered
+                )
+                if number is not None
+            }
+            total_pages = min(total_pages, required_pages) if total_pages else 0
+
         for page in range(2, total_pages + 1):
             if page in discovered_numbers:
                 continue
@@ -486,6 +503,11 @@ class CategoryScraper:
         while pending:
             page_url = pending.pop(0)
             if page_url in visited:
+                continue
+            page_number = self._page_number(page_url)
+            if required_pages and (
+                page_number is None or page_number > required_pages
+            ):
                 continue
             visited.add(page_url)
             pages.append(page_url)
@@ -523,12 +545,15 @@ class CategoryScraper:
         max_page: int | None = None,
     ) -> None:
         """Recupera páginas consecutivas cuando la paginación no se publica."""
-        end_page = (
-            max_page + 1
-            if max_page is not None
-            else self.MAX_HIDDEN_PAGE_PROBES + start_page
-        )
-        for page in range(start_page, end_page):
+        if max_page is not None:
+            end_page = min(
+                max_page,
+                start_page + self.MAX_HIDDEN_PAGE_PROBES - 1,
+            )
+        else:
+            end_page = start_page + self.MAX_HIDDEN_PAGE_PROBES - 1
+
+        for page in range(start_page, end_page + 1):
             page_url = self._fallback_page_url(category_url, page)
             if page_url in visited:
                 continue
@@ -543,55 +568,19 @@ class CategoryScraper:
             ):
                 if next_url not in visited:
                     page_number = self._page_number(next_url)
-                    if page_number and page_number > page:
-                        if max_page is not None and page_number > max_page:
-                            continue
-                        pages.append(next_url)
-                        visited.add(next_url)
-
-    def _product_keys(self, html: str, soup=None) -> set[str]:
-        soup = soup or self._parse(html)
-        keys: set[str] = set()
-        if self.product_block_extractor:
-            try:
-                cards = self.product_block_extractor.extract(soup)
-            except (AttributeError, TypeError, ValueError):
-                cards = []
-            for card in cards or []:
-                key = self._product_key_from_card(card)
-                if key:
-                    keys.add(key)
-        if keys:
-            return keys
-        pattern = re.compile(
-            r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b", re.IGNORECASE
-        )
-        return {match.upper() for match in pattern.findall(html)}
+                    if page_number is None:
+                        continue
+                    if max_page is not None and page_number > max_page:
+                        continue
+                    pages.append(next_url)
+                    visited.add(next_url)
 
     @staticmethod
-    def _product_key_from_card(card) -> str:
-        for selector in (
-            "p.brxe-a26f34",
-            "span.sku",
-            ".sku",
-            "[sku]",
-            "[data-sku]",
-            "p[class*='sku']",
-            "span[class*='sku']",
-        ):
-            element = card.select_one(selector)
-            if element is None:
-                continue
-            value = (
-                element.get("sku")
-                or element.get("data-sku")
-                or element.get_text(" ", strip=True)
+    def _product_keys(html: str) -> set[str]:
+        keys = set(
+            re.findall(
+                r"\b[A-Z]{2,}[A-Z0-9]*(?:-[A-Z0-9]+)+\b",
+                html or "",
             )
-            match = re.search(
-                r"\b[A-Z0-9]{1,16}(?:-[A-Z0-9]+)+\b",
-                str(value),
-                flags=re.IGNORECASE,
-            )
-            if match:
-                return match.group(0).upper()
-        return ""
+        )
+        return keys

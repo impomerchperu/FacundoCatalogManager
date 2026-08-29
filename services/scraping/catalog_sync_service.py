@@ -39,7 +39,7 @@ class CatalogSyncService:
     def sync(
         self,
         products,
-        prune_missing: bool = False,
+        prune_missing: bool = True,
         cleanup_generated: bool = True,
         expected_products: int | None = 0,
         expected_category_occurrences: int = 0,
@@ -49,7 +49,9 @@ class CatalogSyncService:
         result = SyncResult()
         raw_products = list(products)
         missing_code_products = [
-            p for p in raw_products if not self._normalize_code(getattr(p, "code", ""))
+            p
+            for p in raw_products
+            if not self._normalize_code(getattr(p, "code", ""))
         ]
         for product in missing_code_products:
             result.missing_code += 1

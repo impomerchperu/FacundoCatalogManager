@@ -62,9 +62,6 @@ def _facundo_jsf_pages(
     target_count = max(int(expected_count or 0), published_count)
     declared_pages = pages_required(target_count, scraper.PRODUCTS_PER_PAGE)
 
-    # JSF page one is the authoritative source when it responds. If it is not
-    # available, the public page remains valid evidence and page two is probed
-    # because the archive can expose pagination only on later JSF responses.
     jsf_page_one_available = True
     try:
         found_posts, jsf_max_pages, jsf_first_html = scraper._fetch_jsf_page(
@@ -91,13 +88,14 @@ def _facundo_jsf_pages(
         pages_required(target_count, scraper.PRODUCTS_PER_PAGE),
         jsf_max_pages,
     )
+    if expected_count > 0:
+        required_pages = min(required_pages, declared_pages)
 
-    # Probe beyond the declared range only when JSF did not provide a usable
-    # page count. When JSF explicitly declares the range, that metadata is the
-    # authoritative boundary and must not trigger speculative extra requests.
     hidden_page_probe = not jsf_page_one_available or jsf_max_pages <= 0
     next_page = 2
     probe_limit = max(required_pages, 2 if hidden_page_probe else 1)
+    if expected_count > 0:
+        probe_limit = min(probe_limit, pages_required(expected_count, scraper.PRODUCTS_PER_PAGE))
     while next_page <= probe_limit:
         page_url = scraper._jsf_page_url(category_url, next_page)
         try:
@@ -129,16 +127,28 @@ def _facundo_jsf_pages(
             jsf_max_pages,
             pages_required(target_count, scraper.PRODUCTS_PER_PAGE),
         )
+        if expected_count > 0:
+            required_pages = min(
+                required_pages,
+                pages_required(expected_count, scraper.PRODUCTS_PER_PAGE),
+            )
         probe_limit = max(probe_limit, required_pages)
+        if expected_count > 0:
+            probe_limit = min(
+                probe_limit,
+                pages_required(expected_count, scraper.PRODUCTS_PER_PAGE),
+            )
 
-        # Continue the hidden-page chain only while the current JSF response
-        # still omits a usable page-count declaration. Once JSF declares a
-        # boundary, it becomes authoritative and prevents speculative probes.
         if hidden_page_probe and jsf_max_pages <= 0 and len(page_keys) >= scraper.PRODUCTS_PER_PAGE:
             probe_limit = min(
                 max(probe_limit, next_page + 1),
                 next_page + scraper.MAX_HIDDEN_PAGE_PROBES,
             )
+            if expected_count > 0:
+                probe_limit = min(
+                    probe_limit,
+                    pages_required(expected_count, scraper.PRODUCTS_PER_PAGE),
+                )
         next_page += 1
 
     return pages
@@ -153,6 +163,19 @@ def _generic_complete_pages(
     """Continue public pagination until the category product coverage is met."""
     if not pages:
         return pages
+
+    required_pages = pages_required(expected_count, scraper.PRODUCTS_PER_PAGE)
+    if required_pages:
+        pages = [
+            page_url
+            for page_url in pages
+            if page_url == category_url
+            or (
+                (page_number := scraper._page_number(page_url)) is not None
+                and page_number <= required_pages
+            )
+        ]
+
     seen_products: set[str] = set()
     first_html = ""
     for index, page_url in enumerate(pages):
@@ -170,6 +193,8 @@ def _generic_complete_pages(
     next_page = max((scraper._page_number(url) or 1 for url in pages), default=1) + 1
     visited = set(pages)
     while len(seen_products) < target_count:
+        if required_pages and next_page > required_pages:
+            break
         page_url = scraper._fallback_page_url(category_url, next_page)
         if page_url in visited:
             next_page += 1

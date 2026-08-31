@@ -56,6 +56,7 @@ class ScrapingFactory:
         )
 
         browser = Browser()
+        browser.enable_thread_sessions()
 
         product_card_extractor = ProductCardExtractor()
         category_scraper = CategoryScraper(

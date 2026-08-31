@@ -183,19 +183,19 @@ def test_category_scraper_continues_real_products_past_underreported_jsf_pages()
         "ajax:1": (
             '{"found_posts":75,"max_num_pages":2,'
             '"rendered_content":"'
-            '<ul><li><a href=\"https://stock.importacionesfacundo.com/producto/fb-001/\">'
+            '<ul><li><a href=\\"https://stock.importacionesfacundo.com/producto/fb-001/\\">'
             'FB-001</a></li></ul>"}'
         ),
         "ajax:2": (
             '{"found_posts":75,"max_num_pages":2,'
             '"rendered_content":"'
-            '<ul><li><a href=\"https://stock.importacionesfacundo.com/producto/fb-026/\">'
+            '<ul><li><a href=\\"https://stock.importacionesfacundo.com/producto/fb-026/\\">'
             'FB-026</a></li></ul>"}'
         ),
         "ajax:3": (
             '{"found_posts":75,"max_num_pages":2,'
             '"rendered_content":"'
-            '<ul><li><a href=\"https://stock.importacionesfacundo.com/producto/fb-051/\">'
+            '<ul><li><a href=\\"https://stock.importacionesfacundo.com/producto/fb-051/\\">'
             'FB-051</a></li></ul>"}'
         ),
         "ajax:4": "",

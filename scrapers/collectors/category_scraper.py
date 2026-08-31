@@ -111,13 +111,46 @@ class CategoryScraper:
             return [category_url]
 
         pages = [category_url]
+        seen_product_keys = self._product_keys(first_html)
         if first_html:
             self._cache_category_html(category_url, first_html)
+
         for page_number in range(2, max_num_pages + 1):
             page_url = self._jsf_page_url(category_url, page_number)
             _, _, rendered_html = self._fetch_jsf_page(category_url, category_id, page_number)
-            if rendered_html:
-                self._cache_category_html(page_url, rendered_html)
+            if not rendered_html:
+                break
+            current_product_keys = self._product_keys(rendered_html)
+            if current_product_keys and not current_product_keys - seen_product_keys:
+                raise RuntimeError(
+                    f"Repeated JSF pagination page {page_number} for {category_url}"
+                )
+            if not current_product_keys and rendered_html == first_html:
+                raise RuntimeError(
+                    f"Repeated JSF pagination page {page_number} for {category_url}"
+                )
+            seen_product_keys.update(current_product_keys)
+            self._cache_category_html(page_url, rendered_html)
+            pages.append(page_url)
+
+        probe_start = max_num_pages + 1
+        for offset in range(self.MAX_HIDDEN_PAGE_PROBES):
+            page_number = probe_start + offset
+            page_url = self._jsf_page_url(category_url, page_number)
+            _, _, rendered_html = self._fetch_jsf_page(category_url, category_id, page_number)
+            if not rendered_html:
+                break
+            current_product_keys = self._product_keys(rendered_html)
+            if current_product_keys and not current_product_keys - seen_product_keys:
+                raise RuntimeError(
+                    f"Repeated JSF pagination page {page_number} for {category_url}"
+                )
+            if not current_product_keys and rendered_html == first_html:
+                raise RuntimeError(
+                    f"Repeated JSF pagination page {page_number} for {category_url}"
+                )
+            seen_product_keys.update(current_product_keys)
+            self._cache_category_html(page_url, rendered_html)
             pages.append(page_url)
         return pages
 

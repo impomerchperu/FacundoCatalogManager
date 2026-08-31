@@ -99,15 +99,17 @@ class CategoryScraper:
         return self._fallback_category_pages(category_url, category_html, expected_count)
 
     def _jsf_category_pages(self, category_url: str, category_id: int, expected_count: int) -> list[str]:
-        found_posts, max_num_pages, first_html = self._fetch_jsf_page(category_url, category_id, 1)
+        found_posts, declared_max_num_pages, first_html = self._fetch_jsf_page(category_url, category_id, 1)
         expected_pages = self._required_page_count(expected_count)
         published_pages = self._required_page_count(found_posts)
+        declared_total_pages = self._declared_total_pages(first_html)
+        declared_pagination_max_page = self._pagination_max_page(first_html)
         max_num_pages = max(
-            max_num_pages,
+            declared_max_num_pages,
             published_pages,
             expected_pages,
-            self._declared_total_pages(first_html),
-            self._pagination_max_page(first_html),
+            declared_total_pages,
+            declared_pagination_max_page,
         )
         if max_num_pages <= 0:
             return [category_url]
@@ -117,10 +119,12 @@ class CategoryScraper:
         if first_html:
             self._cache_category_html(category_url, first_html)
 
+        completed_declared_range = True
         for page_number in range(2, max_num_pages + 1):
             page_url = self._jsf_page_url(category_url, page_number)
             _, _, rendered_html = self._fetch_jsf_page(category_url, category_id, page_number)
             if not rendered_html:
+                completed_declared_range = False
                 break
             current_product_keys = self._product_keys(rendered_html)
             if current_product_keys and not current_product_keys - seen_product_keys:
@@ -134,6 +138,30 @@ class CategoryScraper:
             seen_product_keys.update(current_product_keys)
             self._cache_category_html(page_url, rendered_html)
             pages.append(page_url)
+
+        underreported_metadata = (
+            declared_max_num_pages > 0
+            and published_pages > declared_max_num_pages
+        )
+        if underreported_metadata and completed_declared_range:
+            sentinel_page = max_num_pages + 1
+            sentinel_html = self._fetch_jsf_page(
+                category_url,
+                category_id,
+                sentinel_page,
+            )[2]
+            if sentinel_html:
+                sentinel_url = self._jsf_page_url(category_url, sentinel_page)
+                sentinel_product_keys = self._product_keys(sentinel_html)
+                if sentinel_product_keys and not sentinel_product_keys - seen_product_keys:
+                    raise RuntimeError(
+                        f"Repeated JSF pagination page {sentinel_page} for {category_url}"
+                    )
+                if sentinel_product_keys:
+                    seen_product_keys.update(sentinel_product_keys)
+                    self._cache_category_html(sentinel_url, sentinel_html)
+                    pages.append(sentinel_url)
+
         return pages
 
     def _fetch_category_page_html(self, category_url: str, category_id: int, page: int, page_url: str) -> str:
@@ -282,9 +310,9 @@ class CategoryScraper:
         for obj in objects:
             visit(obj)
         if found_posts == 0:
-            found_posts = CategoryScraper._first_int(payload, (r'"found_posts"\s*:\s*(\d+)', r"found_posts\s*[:=]\s*(\d+)"))
+            found_posts = CategoryScraper._first_int(payload, (r'\"found_posts\"\s*:\s*(\d+)', r"found_posts\s*[:=]\s*(\d+)"))
         if max_num_pages == 0:
-            max_num_pages = CategoryScraper._first_int(payload, (r'"max_num_pages"\s*:\s*(\d+)', r"max_num_pages\s*[:=]\s*(\d+)"))
+            max_num_pages = CategoryScraper._first_int(payload, (r'\"max_num_pages\"\s*:\s*(\d+)', r"max_num_pages\s*[:=]\s*(\d+)"))
         if max_num_pages == 0 and found_posts > 0:
             max_num_pages = (found_posts + CategoryScraper.PRODUCTS_PER_PAGE - 1) // CategoryScraper.PRODUCTS_PER_PAGE
         return found_posts, max_num_pages, rendered_html

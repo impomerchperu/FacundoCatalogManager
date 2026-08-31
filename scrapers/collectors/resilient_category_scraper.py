@@ -21,7 +21,12 @@ class ResilientCategoryScraper(CategoryScraper):
         self._cache_category_html(category_url, category_html)
 
         try:
-            return super().get_category_pages(category_url, expected_count)
+            pages = super().get_category_pages(category_url, expected_count)
+            if self._is_empty_jsf_result(category_url, category_html, pages):
+                raise RuntimeError(
+                    "JetSmartFilters no devolvió contenido para la categoría"
+                )
+            return pages
         except (RuntimeError, requests.exceptions.HTTPError) as error:
             if isinstance(
                 error, requests.exceptions.HTTPError
@@ -52,10 +57,19 @@ class ResilientCategoryScraper(CategoryScraper):
             for _ in range(self.EMPTY_JSF_RETRIES):
                 self._cache_category_html(category_url, category_html)
                 try:
-                    return super().get_category_pages(
+                    pages = super().get_category_pages(
                         category_url,
                         expected_count,
                     )
+                    if self._is_empty_jsf_result(
+                        category_url,
+                        category_html,
+                        pages,
+                    ):
+                        raise RuntimeError(
+                            "JetSmartFilters no devolvió contenido para la categoría"
+                        )
+                    return pages
                 except (
                     RuntimeError,
                     requests.exceptions.HTTPError,
@@ -72,6 +86,21 @@ class ResilientCategoryScraper(CategoryScraper):
                         raise
 
             raise
+
+    def _is_empty_jsf_result(
+        self,
+        category_url: str,
+        category_html: str,
+        pages: list[str],
+    ) -> bool:
+        if not self._is_facundo_url(category_url):
+            return False
+        product_keys = {
+            key
+            for key in self._product_keys(category_html)
+            if not re.fullmatch(r"(?:TERM|PRODUCT_CAT)-\d+", key)
+        }
+        return not product_keys and pages == [category_url]
 
     @staticmethod
     def _is_retryable_http_error(error: requests.exceptions.HTTPError) -> bool:

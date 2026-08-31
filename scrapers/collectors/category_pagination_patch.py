@@ -1,26 +1,28 @@
 """Reliable pagination compatibility layer for category archives."""
 
 import re
+from urllib.parse import urlsplit, urlunsplit
 
 from .category_scraper import CategoryScraper
 
 _PATCHED = False
 _ORIGINAL_GET_CATEGORY_PAGES = CategoryScraper.get_category_pages
 _PRODUCTS_IN_ARCHIVE_PATTERN = re.compile(
-    r"Productos\s+en\s+Stock\s*[:\-]?\s*([\d\s.,]+)",
-    re.IGNORECASE,
+    r"Productos\s+en\s+Stock\s*[:\-]?\s*([\d\s.,]+)", re.IGNORECASE
+)
+_PRODUCT_URL_PATTERN = re.compile(
+    r'href=["\']([^"\']*/producto/[^"\'#?]+/?)[^"\']*["\']', re.IGNORECASE
 )
 
 
 def pages_required(expected_count: int, products_per_page: int = 25) -> int:
-    """Return the minimum number of pages required by a category count."""
+    """Return only a coverage estimate; never use it as a pagination ceiling."""
     count = max(int(expected_count or 0), 0)
     per_page = max(int(products_per_page or 25), 1)
     return 0 if count == 0 else (count + per_page - 1) // per_page
 
 
 def _published_product_count(html: str) -> int:
-    """Read the archive's own category total, when it is published."""
     match = _PRODUCTS_IN_ARCHIVE_PATTERN.search(html or "")
     if not match:
         return 0
@@ -37,122 +39,101 @@ def _safe_get_html(scraper: CategoryScraper, url: str) -> str:
         return ""
 
 
-def _page_product_keys(scraper: CategoryScraper, html: str) -> set[str]:
+def _product_keys(scraper: CategoryScraper, html: str) -> set[str]:
+    """Identify archive products independently from SKU extraction.
+
+    Category coverage must not depend on a product having a SKU. Product URLs are
+    the primary identity; the legacy scraper keys are retained as a fallback.
+    """
     if not html:
         return set()
+    keys = set()
+    for url in _PRODUCT_URL_PATTERN.findall(html):
+        parts = urlsplit(url)
+        path = parts.path.rstrip("/")
+        keys.add(urlunsplit((parts.scheme, parts.netloc, path, "", "")))
+    if keys:
+        return keys
     try:
         return set(scraper._product_keys(html))
     except (AttributeError, TypeError, ValueError):
         return set()
 
 
-def _facundo_jsf_pages(  # noqa: PLR0912
+def _facundo_jsf_pages(
     scraper: CategoryScraper,
     category_url: str,
     category_id: int,
     first_html: str,
     expected_count: int,
 ) -> list[str]:
-    """Discover every category page using public and JSF-local evidence."""
+    """Fetch every consecutive JSF page until the archive is actually exhausted.
+
+    ``expected_count`` and published counts are validation targets, not limits.
+    The site metadata can under-report pages, so a page is never skipped merely
+    because a count-derived estimate says the category should have ended.
+    """
     pages = [category_url]
     scraper._cache_category_html(category_url, first_html)
-    seen_products = _page_product_keys(scraper, first_html)
+    seen_products = _product_keys(scraper, first_html)
 
     published_count = _published_product_count(first_html)
     target_count = max(int(expected_count or 0), published_count)
-    declared_pages = pages_required(target_count, scraper.PRODUCTS_PER_PAGE)
 
-    jsf_page_one_available = True
     try:
-        found_posts, jsf_max_pages, jsf_first_html = scraper._fetch_jsf_page(
+        found_posts, declared_pages, jsf_first_html = scraper._fetch_jsf_page(
             category_url, category_id, 1
         )
-    except KeyError:
-        jsf_page_one_available = False
-        found_posts, jsf_max_pages, jsf_first_html = 0, 0, ""
-    except (RuntimeError, TypeError, ValueError):
-        found_posts, jsf_max_pages, jsf_first_html = 0, 0, ""
+    except (KeyError, RuntimeError, TypeError, ValueError):
+        found_posts, declared_pages, jsf_first_html = 0, 0, ""
 
     target_count = max(target_count, found_posts)
-    if jsf_page_one_available and found_posts > 0 and not jsf_first_html:
-        raise RuntimeError(
-            "JetSmartFilters no devolvió contenido para "
-            f"{category_url} en la página 1."
-        )
     if jsf_first_html:
-        seen_products.update(_page_product_keys(scraper, jsf_first_html))
         scraper._cache_category_html(category_url, jsf_first_html)
+        seen_products.update(_product_keys(scraper, jsf_first_html))
 
-    required_pages = max(
-        declared_pages,
-        pages_required(target_count, scraper.PRODUCTS_PER_PAGE),
-        jsf_max_pages,
-    )
-    if expected_count > 0:
-        required_pages = min(required_pages, declared_pages)
-
-    hidden_page_probe = not jsf_page_one_available or jsf_max_pages <= 0
-    next_page = 2
-    probe_limit = max(required_pages, 2 if hidden_page_probe else 1)
-    if expected_count > 0:
-        probe_limit = min(
-            probe_limit, pages_required(expected_count, scraper.PRODUCTS_PER_PAGE)
-        )
-    while next_page <= probe_limit:
-        page_url = scraper._jsf_page_url(category_url, next_page)
+    page = 2
+    empty_or_repeat_pages = 0
+    safety_limit = max(scraper.MAX_HIDDEN_PAGE_PROBES, declared_pages or 0, 2)
+    while page <= safety_limit:
+        page_url = scraper._jsf_page_url(category_url, page)
         try:
-            found_posts, jsf_max_pages, rendered_html = scraper._fetch_jsf_page(
-                category_url, category_id, next_page
+            found_posts, page_count, rendered_html = scraper._fetch_jsf_page(
+                category_url, category_id, page
             )
         except (KeyError, RuntimeError, TypeError, ValueError):
-            if next_page <= required_pages and len(seen_products) < target_count:
-                raise RuntimeError(
-                    "JetSmartFilters no devolvió contenido para "
-                    f"{category_url} en la página {next_page}."
-                ) from None
-            break
-        if not rendered_html:
-            if next_page <= required_pages and len(seen_products) < target_count:
-                raise RuntimeError(
-                    "JetSmartFilters no devolvió contenido para "
-                    f"{category_url} en la página {next_page}."
-                )
             break
 
-        scraper._cache_category_html(page_url, rendered_html)
-        pages.append(page_url)
-        page_keys = _page_product_keys(scraper, rendered_html)
-        seen_products.update(page_keys)
         target_count = max(target_count, found_posts)
-        required_pages = max(
-            required_pages,
-            jsf_max_pages,
-            pages_required(target_count, scraper.PRODUCTS_PER_PAGE),
+        safety_limit = max(safety_limit, page_count)
+        if not rendered_html:
+            break
+
+        page_keys = _product_keys(scraper, rendered_html)
+        new_keys = page_keys.difference(seen_products)
+        if not page_keys or not new_keys:
+            # A repeated/empty JSF response marks the real end of consecutive pages.
+            empty_or_repeat_pages += 1
+            if empty_or_repeat_pages >= 1:
+                break
+        else:
+            empty_or_repeat_pages = 0
+            seen_products.update(new_keys)
+            scraper._cache_category_html(page_url, rendered_html)
+            pages.append(page_url)
+
+        # If metadata says there are more pages, keep following it. If coverage is
+        # still short, probing also continues; neither expected_count nor 25/page
+        # arithmetic is allowed to truncate the archive.
+        if page >= safety_limit and len(seen_products) < target_count:
+            safety_limit = page + scraper.MAX_HIDDEN_PAGE_PROBES
+        page += 1
+
+    if target_count and len(seen_products) < target_count:
+        raise RuntimeError(
+            "Cobertura incompleta para "
+            f"{category_url}: encontrados={len(seen_products)} esperados={target_count}."
         )
-        if expected_count > 0:
-            required_pages = min(
-                required_pages,
-                pages_required(expected_count, scraper.PRODUCTS_PER_PAGE),
-            )
-        probe_limit = max(probe_limit, required_pages)
-        if expected_count > 0:
-            probe_limit = min(
-                probe_limit,
-                pages_required(expected_count, scraper.PRODUCTS_PER_PAGE),
-            )
-
-        if hidden_page_probe and jsf_max_pages <= 0 and len(page_keys) >= scraper.PRODUCTS_PER_PAGE:
-            probe_limit = min(
-                max(probe_limit, next_page + 1),
-                next_page + scraper.MAX_HIDDEN_PAGE_PROBES,
-            )
-            if expected_count > 0:
-                probe_limit = min(
-                    probe_limit,
-                    pages_required(expected_count, scraper.PRODUCTS_PER_PAGE),
-                )
-        next_page += 1
-
     return pages
 
 
@@ -162,62 +143,50 @@ def _generic_complete_pages(
     pages: list[str],
     expected_count: int,
 ) -> list[str]:
-    """Continue public pagination until the category product coverage is met."""
+    """Continue consecutive public pages; expected_count is validation only."""
     if not pages:
-        return pages
-
-    required_pages = pages_required(expected_count, scraper.PRODUCTS_PER_PAGE)
-    if required_pages:
-        pages = [
-            page_url
-            for page_url in pages
-            if page_url == category_url
-            or (
-                (page_number := scraper._page_number(page_url)) is not None
-                and page_number <= required_pages
-            )
-        ]
+        pages = [category_url]
 
     seen_products: set[str] = set()
+    visited = set()
     first_html = ""
     for index, page_url in enumerate(pages):
         html = _safe_get_html(scraper, page_url)
         if index == 0:
             first_html = html
-        seen_products.update(_page_product_keys(scraper, html))
+        seen_products.update(_product_keys(scraper, html))
+        visited.add(page_url)
 
-    target_count = max(
-        int(expected_count or 0), _published_product_count(first_html)
-    )
-    if target_count == 0:
-        return pages
-
+    target_count = max(int(expected_count or 0), _published_product_count(first_html))
     next_page = max((scraper._page_number(url) or 1 for url in pages), default=1) + 1
-    visited = set(pages)
-    while len(seen_products) < target_count:
-        if required_pages and next_page > required_pages:
-            break
+    for _ in range(scraper.MAX_HIDDEN_PAGE_PROBES):
         page_url = scraper._fallback_page_url(category_url, next_page)
         if page_url in visited:
             next_page += 1
             continue
         html = _safe_get_html(scraper, page_url)
-        page_keys = _page_product_keys(scraper, html)
+        page_keys = _product_keys(scraper, html)
         new_keys = page_keys.difference(seen_products)
-        if not html or not new_keys:
+        if not page_keys or not new_keys:
             break
-        seen_products.update(new_keys)
         scraper._cache_category_html(page_url, html)
         pages.append(page_url)
         visited.add(page_url)
+        seen_products.update(new_keys)
         next_page += 1
+
+    if target_count and len(seen_products) < target_count:
+        raise RuntimeError(
+            "Cobertura incompleta para "
+            f"{category_url}: encontrados={len(seen_products)} esperados={target_count}."
+        )
     return pages
 
 
 def _get_category_pages(
     self: CategoryScraper, category_url: str, expected_count: int = 0
 ) -> list[str]:
-    """Discover archive pages using category-local evidence only."""
+    """Discover every archive page using page content as the source of truth."""
     first_html = _safe_get_html(self, category_url)
     if not first_html:
         return []
@@ -228,9 +197,7 @@ def _get_category_pages(
         )
 
     self._cache_category_html(category_url, first_html)
-    pages = _ORIGINAL_GET_CATEGORY_PAGES(
-        self, category_url, expected_count=expected_count
-    )
+    pages = _ORIGINAL_GET_CATEGORY_PAGES(self, category_url, expected_count=0)
     return _generic_complete_pages(self, category_url, pages, expected_count)
 
 

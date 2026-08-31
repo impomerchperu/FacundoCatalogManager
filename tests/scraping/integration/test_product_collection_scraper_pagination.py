@@ -15,9 +15,15 @@ class FakeCategoryScraper:
     def get_html(self, page_url):
         self.get_html_calls.append(page_url)
         return {
-            self.pages[0]: "<article class='product'>P001</article><article class='product'>P002</article>",
+            self.pages[0]: (
+                "<article class='product'>P001</article>"
+                "<article class='product'>P002</article>"
+            ),
             self.pages[1]: "<article class='product'>P003</article>",
-            self.pages[2]: "<article class='product'>P002</article><article class='product'>P004</article>",
+            self.pages[2]: (
+                "<article class='product'>P002</article>"
+                "<article class='product'>P004</article>"
+            ),
         }[page_url]
 
 
@@ -29,7 +35,12 @@ class FakeCardExtractor:
 class FakeProductExtractor:
     def __call__(self, card, *, url, category):
         code = card.get_text(strip=True)
-        return SimpleNamespace(code=code, name=f"Producto {code}", category=category, url=url)
+        return SimpleNamespace(
+            code=code,
+            name=f"Producto {code}",
+            category=category,
+            url=url,
+        )
 
 
 def test_collect_category_processes_every_discovered_page_and_deduplicates_products():

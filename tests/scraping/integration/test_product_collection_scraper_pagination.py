@@ -1,5 +1,7 @@
-from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
+from types import SimpleNamespace
+
 from models.scraping.category import Category
+from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 
 
 class FakeCategoryScraper:
@@ -34,11 +36,12 @@ class FakeCardExtractor:
 class FakeProductExtractor:
     def __call__(self, card, *, url, category):
         code = card.get_text(strip=True)
-        return type(
-            "FakeProduct",
-            (),
-            {"code": code, "name": f"Producto {code}", "category": category, "url": url},
-        )()
+        return SimpleNamespace(
+            code=code,
+            name=f"Producto {code}",
+            category=category,
+            url=url,
+        )
 
 
 def test_collect_category_processes_every_discovered_page_and_deduplicates_products():

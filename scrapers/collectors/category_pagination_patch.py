@@ -86,17 +86,6 @@ def _facundo_jsf_pages(
     return pages
 
 
-def _generic_complete_pages(
-    scraper: CategoryScraper,
-    category_url: str,
-    pages: list[str],
-    expected_count: int,
-) -> list[str]:
-    """Preserve fallback pagination; expected_count is validation-only metadata."""
-    del scraper, category_url, expected_count
-    return pages or []
-
-
 def _get_category_pages(
     self: CategoryScraper, category_url: str, expected_count: int = 0
 ) -> list[str]:
@@ -111,8 +100,7 @@ def _get_category_pages(
         )
 
     self._cache_category_html(category_url, first_html)
-    pages = _ORIGINAL_GET_CATEGORY_PAGES(self, category_url, expected_count=0)
-    return _generic_complete_pages(self, category_url, pages, expected_count)
+    return _ORIGINAL_GET_CATEGORY_PAGES(self, category_url, expected_count=0)
 
 
 def activate() -> None:

@@ -56,6 +56,8 @@ def _facundo_jsf_pages(
     expected_pages = max(pages_required(expected_count), pages_required(found_posts))
     safety_limit = max(declared_pages or 0, expected_pages, 1)
     real_product_html = _is_real_product_html(jsf_first_html)
+    if real_product_html:
+        safety_limit = max(safety_limit, 1 + scraper.MAX_HIDDEN_PAGE_PROBES)
 
     while page <= safety_limit:
         page_url = scraper._jsf_page_url(category_url, page)

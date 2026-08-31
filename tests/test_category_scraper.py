@@ -171,3 +171,52 @@ def test_category_scraper_uses_expected_count_to_cover_all_pages():
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
     ] == ["1", "2", "3", "4"]
+
+
+def test_category_scraper_continues_real_products_past_underreported_jsf_pages():
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+    responses = {
+        category_url: '<body class="archive tax-product_cat term-127"></body>',
+        "ajax:1": (
+            '{"found_posts":75,"max_num_pages":2,'
+            '"rendered_content":"'
+            '<ul><li><a href="https://stock.importacionesfacundo.com/producto/fb-001/">'
+            'FB-001</a></li></ul>"}'
+        ),
+        "ajax:2": (
+            '{"found_posts":75,"max_num_pages":2,'
+            '"rendered_content":"'
+            '<ul><li><a href="https://stock.importacionesfacundo.com/producto/fb-026/">'
+            'FB-026</a></li></ul>"}'
+        ),
+        "ajax:3": (
+            '{"found_posts":75,"max_num_pages":2,'
+            '"rendered_content":"'
+            '<ul><li><a href="https://stock.importacionesfacundo.com/producto/fb-051/">'
+            'FB-051</a></li></ul>"}'
+        ),
+        "ajax:4": "",
+    }
+    browser = FakeBrowser(responses)
+    scraper = CategoryScraper(browser)
+
+    pages = scraper.get_category_pages(category_url)
+
+    assert pages == [
+        category_url,
+        f"{category_url.rstrip('/')}?product-page=2",
+        f"{category_url.rstrip('/')}?product-page=3",
+    ]
+    assert [
+        next(value for key, value in data if key == "paged")
+        for _, data in browser.post_calls
+    ] == ["1", "2", "3", "4"]
+    assert scraper.get_html(
+        f"{category_url.rstrip('/')}?product-page=3"
+    ) == (
+        '<ul><li><a href="https://stock.importacionesfacundo.com/producto/fb-051/">'
+        "FB-051</a></li></ul>"
+    )

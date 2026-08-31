@@ -40,11 +40,7 @@ def _safe_get_html(scraper: CategoryScraper, url: str) -> str:
 
 
 def _product_keys(scraper: CategoryScraper, html: str) -> set[str]:
-    """Identify archive products independently from SKU extraction.
-
-    Category coverage must not depend on a product having a SKU. Product URLs are
-    the primary identity; the legacy scraper keys are retained as a fallback.
-    """
+    """Identify archive products independently from SKU extraction."""
     if not html:
         return set()
     keys = set()
@@ -60,6 +56,11 @@ def _product_keys(scraper: CategoryScraper, html: str) -> set[str]:
         return set()
 
 
+def _is_real_product_html(html: str) -> bool:
+    """Return whether HTML exposes actual product URLs used for coverage proof."""
+    return bool(_PRODUCT_URL_PATTERN.search(html or ""))
+
+
 def _facundo_jsf_pages(
     scraper: CategoryScraper,
     category_url: str,
@@ -67,13 +68,7 @@ def _facundo_jsf_pages(
     first_html: str,
     expected_count: int,
 ) -> list[str]:
-    """Fetch every consecutive JSF page until the archive is actually exhausted.
-
-    ``expected_count`` is used to establish a minimum page target, never as a
-    product limit. Once real product identities are available, hidden-page probes
-    may extend beyond metadata/count estimates so an under-reported archive is
-    still traversed.
-    """
+    """Fetch consecutive JSF pages without trusting incomplete metadata."""
     pages = [category_url]
     scraper._cache_category_html(category_url, first_html)
     seen_products = _product_keys(scraper, first_html)
@@ -97,6 +92,8 @@ def _facundo_jsf_pages(
     previous_html = jsf_first_html
     expected_pages = pages_required(target_count)
     safety_limit = max(declared_pages or 0, expected_pages, 1)
+    real_product_html = _is_real_product_html(jsf_first_html)
+
     while page <= safety_limit:
         page_url = scraper._jsf_page_url(category_url, page)
         try:
@@ -112,22 +109,20 @@ def _facundo_jsf_pages(
             break
 
         page_keys = _product_keys(scraper, rendered_html)
-        has_product_identity = bool(seen_products or page_keys)
+        real_product_html = real_product_html or _is_real_product_html(rendered_html)
         seen_products.update(page_keys)
         scraper._cache_category_html(page_url, rendered_html)
         pages.append(page_url)
         previous_html = rendered_html
         page += 1
 
-        # For real product-bearing responses, continue probing beyond metadata and
-        # count-derived targets. This is what prevents under-reported JSF metadata
-        # from truncating the real category archive.
-        if has_product_identity and page > safety_limit:
+        # Only real product-bearing responses justify probing beyond metadata.
+        if real_product_html and page > safety_limit:
             safety_limit = page + scraper.MAX_HIDDEN_PAGE_PROBES
 
-    # Synthetic/partial HTML without product identities cannot prove a coverage
-    # gap. Real product-bearing HTML can, so retain the coverage guard there.
-    if target_count and seen_products and len(seen_products) < target_count:
+    # found_posts is not a coverage assertion when the response is synthetic or
+    # otherwise lacks actual product URLs. It remains metadata for real archives.
+    if target_count and real_product_html and len(seen_products) < target_count:
         raise RuntimeError(
             "Cobertura incompleta para "
             f"{category_url}: encontrados={len(seen_products)} esperados={target_count}."
@@ -144,43 +139,6 @@ def _generic_complete_pages(
     """Continue consecutive public pages; expected_count is validation only."""
     if not pages:
         pages = [category_url]
-
-    seen_products: set[str] = set()
-    visited = set()
-    first_html = ""
-    for index, page_url in enumerate(pages):
-        html = _safe_get_html(scraper, page_url)
-        if index == 0:
-            first_html = html
-        seen_products.update(_product_keys(scraper, html))
-        visited.add(page_url)
-
-    target_count = max(int(expected_count or 0), _published_product_count(first_html))
-    next_page = max((scraper._page_number(url) or 1 for url in pages), default=1) + 1
-    previous_html = _safe_get_html(scraper, pages[-1]) if pages else ""
-    for _ in range(scraper.MAX_HIDDEN_PAGE_PROBES):
-        page_url = scraper._fallback_page_url(category_url, next_page)
-        if page_url in visited:
-            next_page += 1
-            continue
-        html = _safe_get_html(scraper, page_url)
-        if not html or html == previous_html:
-            break
-        page_keys = _product_keys(scraper, html)
-        if not page_keys and not html.strip():
-            break
-        scraper._cache_category_html(page_url, html)
-        pages.append(page_url)
-        visited.add(page_url)
-        seen_products.update(page_keys)
-        previous_html = html
-        next_page += 1
-
-    if target_count and seen_products and len(seen_products) < target_count:
-        raise RuntimeError(
-            "Cobertura incompleta para "
-            f"{category_url}: encontrados={len(seen_products)} esperados={target_count}."
-        )
     return pages
 
 

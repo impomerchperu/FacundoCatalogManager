@@ -358,13 +358,22 @@ class CategoryScraper:
     def _fallback_pagination_links(self, category_url: str, html: str) -> list[str]:
         soup = self._parse(html)
         links: dict[int, str] = {}
-        selector = "a.page-numbers, nav.woocommerce-pagination a, a[href*='product-page='], a[href*='paged='], a[href*='page/']"
+        selector = (
+            "a.page-numbers, nav.woocommerce-pagination a, "
+            "a[href*='product-page='], a[href*='paged='], a[href*='page/'], "
+            ".jet-filters-pagination__item[data-value]"
+        )
         for link in soup.select(selector):
             href = link.get("href")
-            if not isinstance(href, str) or not href:
-                continue
-            absolute_url = urljoin(category_url, href)
-            page_number = self._page_number(absolute_url)
+            if isinstance(href, str) and href:
+                absolute_url = urljoin(category_url, href)
+                page_number = self._page_number(absolute_url)
+            else:
+                value = link.get("data-value")
+                if not isinstance(value, str) or not value.isdigit():
+                    continue
+                page_number = int(value)
+                absolute_url = self._fallback_page_url(category_url, page_number)
             if page_number is None or page_number <= 1:
                 continue
             links.setdefault(page_number, absolute_url)

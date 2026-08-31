@@ -100,7 +100,7 @@ def _get_category_pages(
         )
 
     self._cache_category_html(category_url, first_html)
-    return _ORIGINAL_GET_CATEGORY_PAGES(self, category_url, expected_count=0)
+    return _ORIGINAL_GET_CATEGORY_PAGES(self, category_url, expected_count=expected_count)
 
 
 def activate() -> None:

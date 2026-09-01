@@ -13,25 +13,17 @@ class ResilientCategoryScraper(CategoryScraper):
     def get_category_pages(
         self, category_url: str, expected_count: int = 0
     ) -> list[str]:
-        # Preserve the original category HTML across retries. CategoryScraper
-        # consumes its cache entry on each get_html() call; without restoring
-        # it, a retry can lose the term ID and silently switch to the fallback
-        # paginator instead of retrying JetSmartFilters.
         category_html = self.get_html(category_url)
         self._cache_category_html(category_url, category_html)
 
-        try:
-            pages = super().get_category_pages(category_url, expected_count)
-        except (RuntimeError, requests.exceptions.HTTPError) as error:
-            self._raise_if_not_retryable(error)
-        else:
-            self._raise_if_empty_jsf_result(category_url, category_html, pages)
+        pages = self._get_pages_or_none(
+            category_url,
+            category_html,
+            expected_count,
+        )
+        if pages is not None:
             return pages
 
-        # CategoryScraper's broad SKU regex also matches taxonomy markers
-        # such as "term-127". Do not mistake those markers for products:
-        # fallback pagination is only safe when the original HTML contains
-        # an actual product code.
         product_keys = self._product_keys_without_taxonomy_markers(category_html)
         if product_keys:
             return self._fallback_category_pages(
@@ -40,25 +32,49 @@ class ResilientCategoryScraper(CategoryScraper):
                 expected_count,
             )
 
+        return self._retry_empty_jsf_result(
+            category_url,
+            category_html,
+            expected_count,
+        )
+
+    def _get_pages_or_none(
+        self,
+        category_url: str,
+        category_html: str,
+        expected_count: int,
+    ) -> list[str] | None:
+        try:
+            pages = super().get_category_pages(category_url, expected_count)
+        except (RuntimeError, requests.exceptions.HTTPError) as error:
+            self._raise_if_not_retryable(error)
+            return None
+
+        if self._is_empty_jsf_result(category_url, category_html, pages):
+            return None
+        return pages
+
+    def _retry_empty_jsf_result(
+        self,
+        category_url: str,
+        category_html: str,
+        expected_count: int,
+    ) -> list[str]:
         last_error: RuntimeError | requests.exceptions.HTTPError | None = None
         for _ in range(self.EMPTY_JSF_RETRIES):
             self._cache_category_html(category_url, category_html)
             try:
                 pages = super().get_category_pages(category_url, expected_count)
-            except (RuntimeError, requests.exceptions.HTTPError) as retry_error:
-                self._raise_if_not_retryable(retry_error)
-                last_error = retry_error
-            else:
-                try:
-                    self._raise_if_empty_jsf_result(
-                        category_url,
-                        category_html,
-                        pages,
-                    )
-                except RuntimeError as retry_error:
-                    last_error = retry_error
-                else:
-                    return pages
+            except (RuntimeError, requests.exceptions.HTTPError) as error:
+                self._raise_if_not_retryable(error)
+                last_error = error
+                continue
+
+            if not self._is_empty_jsf_result(category_url, category_html, pages):
+                return pages
+            last_error = RuntimeError(
+                "JetSmartFilters no devolvió contenido para la categoría"
+            )
 
         if last_error is not None:
             raise last_error
@@ -76,15 +92,6 @@ class ResilientCategoryScraper(CategoryScraper):
             not self._product_keys_without_taxonomy_markers(category_html)
             and pages == [category_url]
         )
-
-    def _raise_if_empty_jsf_result(
-        self,
-        category_url: str,
-        category_html: str,
-        pages: list[str],
-    ) -> None:
-        if self._is_empty_jsf_result(category_url, category_html, pages):
-            raise RuntimeError("JetSmartFilters no devolvió contenido para la categoría")
 
     def _raise_if_not_retryable(
         self,

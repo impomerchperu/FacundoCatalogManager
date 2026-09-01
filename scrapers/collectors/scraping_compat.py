@@ -12,7 +12,7 @@ _PRODUCT_URL_PATTERN = re.compile(
 
 
 def _normalize_code_candidate(cls, text: str) -> str:
-    """Accept alphanumeric SKU codes with or without digits."""
+    """Accept SKU codes made of letters/digits separated by hyphens."""
     candidate = str(text).strip().strip(".,:;()[]{}")
     if not cls._CODE_PATTERN.fullmatch(candidate):
         return ""
@@ -40,7 +40,7 @@ def _facundo_category_pages(
     first_html: str,
     expected_count: int,
 ) -> list[str]:
-    """Traverse every JSF page and continue until the server returns no new products."""
+    """Fetch declared pages and probe one sentinel only for underreported totals."""
     pages = [category_url]
     scraper._cache_category_html(category_url, first_html)
 
@@ -56,10 +56,10 @@ def _facundo_category_pages(
         _required_pages(found_posts),
         int(declared_pages or 1),
     )
+    declared_pages = max(int(declared_pages or 0), 1)
+    published_pages = _required_pages(found_posts)
 
-    page = 2
-    hidden_probes = 0
-    while hidden_probes < scraper.MAX_HIDDEN_PAGE_PROBES:
+    for page in range(2, required + 1):
         page_url = scraper._jsf_page_url(category_url, page)
         try:
             _, page_count, page_html = scraper._fetch_jsf_page(
@@ -67,24 +67,32 @@ def _facundo_category_pages(
             )
         except (KeyError, RuntimeError, TypeError, ValueError):
             break
-
         required = max(required, int(page_count or 0))
         if not page_html:
             break
-
         current = _product_keys(page_html)
         if current and not current - seen:
-            break
-
+            raise RuntimeError(
+                f"Repeated JSF pagination page {page} for {category_url}"
+            )
         scraper._cache_category_html(page_url, page_html)
         pages.append(page_url)
         seen.update(current)
-        page += 1
 
-        if page > required:
-            hidden_probes += 1
-        else:
-            hidden_probes = 0
+    if published_pages > declared_pages:
+        sentinel_page = required + 1
+        sentinel_url = scraper._jsf_page_url(category_url, sentinel_page)
+        try:
+            _, _, sentinel_html = scraper._fetch_jsf_page(
+                category_url, category_id, sentinel_page
+            )
+        except (KeyError, RuntimeError, TypeError, ValueError):
+            sentinel_html = ""
+        if sentinel_html:
+            sentinel_keys = _product_keys(sentinel_html)
+            if sentinel_keys and not sentinel_keys - seen:
+                scraper._cache_category_html(sentinel_url, sentinel_html)
+                pages.append(sentinel_url)
 
     return pages
 

@@ -61,9 +61,13 @@ def _facundo_category_pages(
     hidden_probes = 0
     while hidden_probes < scraper.MAX_HIDDEN_PAGE_PROBES:
         page_url = scraper._jsf_page_url(category_url, page)
-        _, page_count, page_html = scraper._fetch_jsf_page(
-            category_url, category_id, page
-        )
+        try:
+            _, page_count, page_html = scraper._fetch_jsf_page(
+                category_url, category_id, page
+            )
+        except (KeyError, RuntimeError, TypeError, ValueError):
+            break
+
         required = max(required, int(page_count or 0))
         if not page_html:
             break

@@ -3,6 +3,7 @@
 import re
 
 from scrapers.extractors.product_extractor import ProductExtractor
+
 from .category_scraper import CategoryScraper
 
 _PRODUCT_URL_PATTERN = re.compile(

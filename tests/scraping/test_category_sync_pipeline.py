@@ -11,7 +11,7 @@ class FakeCategoryScraper:
             "https://stock.importacionesfacundo.com/categoria-producto/demo/": (
                 '<div class="card"><a href="/producto/uno/"><h3>UNO</h3></a></div>'
             ),
-            "https://stock.importacionesfacundo.com/categoria-producto/demo/?product-page=2": (
+            "https://stock.importacionesfacundo.com/categoria-producto/demo?product-page=2": (
                 '<div class="card"><a href="/producto/dos/"><h3>DOS</h3></a></div>'
             ),
         }

@@ -22,70 +22,47 @@ class ResilientCategoryScraper(CategoryScraper):
 
         try:
             pages = super().get_category_pages(category_url, expected_count)
-            if self._is_empty_jsf_result(category_url, category_html, pages):
-                raise RuntimeError(
-                    "JetSmartFilters no devolvió contenido para la categoría"
-                )
-            return pages
         except (RuntimeError, requests.exceptions.HTTPError) as error:
-            if isinstance(
-                error, requests.exceptions.HTTPError
-            ) and not self._is_retryable_http_error(error):
-                raise
-            if (
-                isinstance(error, RuntimeError)
-                and "JetSmartFilters no devolvió contenido" not in str(error)
-            ):
-                raise
+            self._raise_if_not_retryable(error)
+        else:
+            self._raise_if_empty_jsf_result(category_url, category_html, pages)
+            return pages
 
-            # CategoryScraper's broad SKU regex also matches taxonomy markers
-            # such as "term-127". Do not mistake those markers for products:
-            # fallback pagination is only safe when the original HTML contains
-            # an actual product code.
-            product_keys = {
-                key
-                for key in self._product_keys(category_html)
-                if not re.fullmatch(r"(?:TERM|PRODUCT_CAT)-\d+", key)
-            }
-            if product_keys:
-                return self._fallback_category_pages(
-                    category_url,
-                    category_html,
-                    expected_count,
-                )
+        # CategoryScraper's broad SKU regex also matches taxonomy markers
+        # such as "term-127". Do not mistake those markers for products:
+        # fallback pagination is only safe when the original HTML contains
+        # an actual product code.
+        product_keys = self._product_keys_without_taxonomy_markers(category_html)
+        if product_keys:
+            return self._fallback_category_pages(
+                category_url,
+                category_html,
+                expected_count,
+            )
 
-            for _ in range(self.EMPTY_JSF_RETRIES):
-                self._cache_category_html(category_url, category_html)
+        last_error: RuntimeError | requests.exceptions.HTTPError | None = None
+        for _ in range(self.EMPTY_JSF_RETRIES):
+            self._cache_category_html(category_url, category_html)
+            try:
+                pages = super().get_category_pages(category_url, expected_count)
+            except (RuntimeError, requests.exceptions.HTTPError) as retry_error:
+                self._raise_if_not_retryable(retry_error)
+                last_error = retry_error
+            else:
                 try:
-                    pages = super().get_category_pages(
-                        category_url,
-                        expected_count,
-                    )
-                    if self._is_empty_jsf_result(
+                    self._raise_if_empty_jsf_result(
                         category_url,
                         category_html,
                         pages,
-                    ):
-                        raise RuntimeError(
-                            "JetSmartFilters no devolvió contenido para la categoría"
-                        )
+                    )
+                except RuntimeError as retry_error:
+                    last_error = retry_error
+                else:
                     return pages
-                except (
-                    RuntimeError,
-                    requests.exceptions.HTTPError,
-                ) as retry_error:
-                    if isinstance(
-                        retry_error,
-                        requests.exceptions.HTTPError,
-                    ):
-                        if not self._is_retryable_http_error(retry_error):
-                            raise
-                    elif "JetSmartFilters no devolvió contenido" not in str(
-                        retry_error
-                    ):
-                        raise
 
-            raise
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("JetSmartFilters no devolvió contenido para la categoría")
 
     def _is_empty_jsf_result(
         self,
@@ -95,12 +72,40 @@ class ResilientCategoryScraper(CategoryScraper):
     ) -> bool:
         if not self._is_facundo_url(category_url):
             return False
-        product_keys = {
+        return (
+            not self._product_keys_without_taxonomy_markers(category_html)
+            and pages == [category_url]
+        )
+
+    def _raise_if_empty_jsf_result(
+        self,
+        category_url: str,
+        category_html: str,
+        pages: list[str],
+    ) -> None:
+        if self._is_empty_jsf_result(category_url, category_html, pages):
+            raise RuntimeError("JetSmartFilters no devolvió contenido para la categoría")
+
+    def _raise_if_not_retryable(
+        self,
+        error: RuntimeError | requests.exceptions.HTTPError,
+    ) -> None:
+        if isinstance(error, requests.exceptions.HTTPError):
+            if not self._is_retryable_http_error(error):
+                raise error
+            return
+        if "JetSmartFilters no devolvió contenido" not in str(error):
+            raise error
+
+    def _product_keys_without_taxonomy_markers(
+        self,
+        category_html: str,
+    ) -> set[str]:
+        return {
             key
             for key in self._product_keys(category_html)
             if not re.fullmatch(r"(?:TERM|PRODUCT_CAT)-\d+", key)
         }
-        return not product_keys and pages == [category_url]
 
     @staticmethod
     def _is_retryable_http_error(error: requests.exceptions.HTTPError) -> bool:

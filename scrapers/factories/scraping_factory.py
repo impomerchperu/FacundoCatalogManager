@@ -3,7 +3,6 @@ from repositories.scraping.scraped_product_repository import (
     ScrapedProductRepository,
 )
 from scrapers.browser import Browser
-from scrapers.collectors import product_code_patch as _product_code_patch
 from scrapers.collectors.category_scraper import (
     CategoryScraper,
 )

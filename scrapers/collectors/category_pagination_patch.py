@@ -131,6 +131,56 @@ def _remember_jsf_metadata(category_id: int, found_posts: int, max_num_pages: in
         _JSF_QUERY_STATE[category_id] = (found_posts, max_num_pages)
 
 
+def _apply_live_query_defaults(values: dict[str, str], query: object) -> None:
+    if not isinstance(query, dict):
+        return
+
+    post_type = query.get("post_type")
+    if isinstance(post_type, list) and post_type:
+        values["defaults[post_type][]"] = str(post_type[0])
+
+    orderby = query.get("orderby")
+    if isinstance(orderby, dict):
+        menu_order = orderby.get("menu_order")
+        if menu_order:
+            values["defaults[orderby][menu_order]"] = str(menu_order)
+
+    for key in (
+        "posts_per_page",
+        "no_results_text",
+        "disable_query_merge",
+        "is_archive_main_query",
+        "post_status",
+    ):
+        value = query.get(key)
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            values[f"defaults[{key}]"] = str(value).lower()
+        else:
+            values[f"defaults[{key}]"] = str(value)
+
+
+def _apply_live_request_settings(values: dict[str, str], settings: object) -> None:
+    if not isinstance(settings, dict):
+        return
+
+    filtered_post_id = settings.get("filtered_post_id")
+    element_id = settings.get("element_id")
+    archive_query = settings.get("is_archive_main_query")
+    signature = settings.get("jsf_signature")
+
+    if filtered_post_id is not None:
+        values["query[_tax_query_product_cat]"] = str(filtered_post_id)
+        values["settings[filtered_post_id]"] = str(filtered_post_id)
+    if element_id:
+        values["settings[element_id]"] = str(element_id)
+    if archive_query is not None:
+        values["settings[is_archive_main_query]"] = str(archive_query).lower()
+    if signature:
+        values["settings[jsf_signature]"] = str(signature)
+
+
 def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[str, str]]:
     """Build a JSF request from the live querydesk configuration."""
     with _JSF_STATE_LOCK:
@@ -139,45 +189,8 @@ def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[s
 
     payload = _ORIGINAL_JSF_PAYLOAD(category_id, 1)
     values = dict(payload)
-    query = request_state.get("query")
-    settings = request_state.get("settings")
-
-    if isinstance(query, dict):
-        post_type = query.get("post_type")
-        if isinstance(post_type, list) and post_type:
-            values["defaults[post_type][]"] = str(post_type[0])
-        orderby = query.get("orderby")
-        if isinstance(orderby, dict):
-            menu_order = orderby.get("menu_order")
-            if menu_order:
-                values["defaults[orderby][menu_order]"] = str(menu_order)
-        for key, value in (
-            ("posts_per_page", query.get("posts_per_page")),
-            ("no_results_text", query.get("no_results_text")),
-            ("disable_query_merge", query.get("disable_query_merge")),
-            ("is_archive_main_query", query.get("is_archive_main_query")),
-            ("post_status", query.get("post_status")),
-        ):
-            if value is not None:
-                if isinstance(value, bool):
-                    values[f"defaults[{key}]"] = str(value).lower()
-                else:
-                    values[f"defaults[{key}]"] = str(value)
-
-    if isinstance(settings, dict):
-        filtered_post_id = settings.get("filtered_post_id")
-        element_id = settings.get("element_id")
-        archive_query = settings.get("is_archive_main_query")
-        signature = settings.get("jsf_signature")
-        if filtered_post_id is not None:
-            values["query[_tax_query_product_cat]"] = str(filtered_post_id)
-            values["settings[filtered_post_id]"] = str(filtered_post_id)
-        if element_id:
-            values["settings[element_id]"] = str(element_id)
-        if archive_query is not None:
-            values["settings[is_archive_main_query]"] = str(archive_query).lower()
-        if signature:
-            values["settings[jsf_signature]"] = str(signature)
+    _apply_live_query_defaults(values, request_state.get("query"))
+    _apply_live_request_settings(values, request_state.get("settings"))
 
     values["defaults[paged]"] = "1"
     values["props[page]"] = "1"

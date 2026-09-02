@@ -193,7 +193,11 @@ def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[s
     values["defaults[paged]"] = "1"
     values["props[page]"] = "1"
     values["paged"] = str(page)
-    return [(key, values.get(key, value)) for key, value in payload]
+    return [
+        (key, values.get(key, value))
+        for key, value in payload
+        if key != "indexing_filters[]"
+    ]
 
 
 def _retry_jsf_page(

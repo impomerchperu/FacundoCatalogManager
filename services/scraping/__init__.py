@@ -23,6 +23,7 @@ from .scraping_session import (
     ScrapingSession,
     ScrapingSessionResult,
 )
+from . import category_coverage_patch as _category_coverage_patch
 
 __all__ = [
     "CatalogSyncService",

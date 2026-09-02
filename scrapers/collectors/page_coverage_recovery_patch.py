@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from .category_scraper import CategoryScraper
 from .resilient_category_scraper import ResilientCategoryScraper
 

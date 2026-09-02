@@ -41,8 +41,15 @@ def _direct_product_urls(html: str, base_url: str) -> set[str]:
         absolute = urljoin(base_url.rstrip("/") + "/", raw_url)
         normalized = absolute.rstrip("/")
         if "/producto/" in normalized.casefold():
-            urls.add(normalized)
+            urls.add(normalized.casefold())
     return urls
+
+
+def _page_product_keys(self: CategoryScraper, html: str, base_url: str) -> set[str]:
+    """Return stable product identifiers from URLs plus legacy SKU-like tokens."""
+    urls = _direct_product_urls(html, base_url)
+    legacy = self._product_keys(html)
+    return urls | legacy
 
 
 def _facundo_direct_pages(
@@ -119,12 +126,19 @@ def _retry_jsf_page(
                 found_posts, max_num_pages = cached_metadata or (0, 0)
                 return found_posts, max_num_pages, cached_html
 
-            response_text = self._post_jsf(_browser_compatible_jsf_payload(category_id, page))
-            found_posts, max_num_pages, rendered_html = self._parse_jsf_response(response_text)
+            response_text = self._post_jsf(
+                _browser_compatible_jsf_payload(category_id, page)
+            )
+            found_posts, max_num_pages, rendered_html = self._parse_jsf_response(
+                response_text
+            )
             _remember_jsf_metadata(category_id, found_posts, max_num_pages)
             if found_posts > 0 or max_num_pages > 0:
                 with self._jsf_cache_lock:
-                    self._jsf_metadata_cache[category_url] = (found_posts, max_num_pages)
+                    self._jsf_metadata_cache[category_url] = (
+                        found_posts,
+                        max_num_pages,
+                    )
             if rendered_html:
                 with self._jsf_cache_lock:
                     self._jsf_page_cache[cache_key] = rendered_html
@@ -145,8 +159,15 @@ def _jsf_category_pages_with_probe(
     category_id: int,
     expected_count: int,
 ) -> list[str]:
-    """Walk JSF pages until no new products remain, regardless of declared totals."""
-    found_posts, declared_max, first_html = self._fetch_jsf_page(category_url, category_id, 1)
+    """Walk JSF pages until the server returns an empty/repeated page."""
+    found_posts, declared_max, first_html = self._fetch_jsf_page(
+        category_url,
+        category_id,
+        1,
+    )
+    if not first_html:
+        return [category_url]
+
     expected_pages = self._required_page_count(expected_count)
     published_pages = self._required_page_count(found_posts)
     html_pages = max(
@@ -156,18 +177,29 @@ def _jsf_category_pages_with_probe(
     known_pages = max(declared_max, published_pages, expected_pages, html_pages, 1)
 
     pages = [category_url]
-    seen_product_keys = self._product_keys(first_html)
-    if first_html:
-        self._cache_category_html(category_url, first_html)
+    seen_product_keys = _page_product_keys(self, first_html, category_url)
+    self._cache_category_html(category_url, first_html)
 
     for page_number in range(2, known_pages + 1):
         page_url = self._jsf_page_url(category_url, page_number)
-        _, _, rendered_html = self._fetch_jsf_page(category_url, category_id, page_number)
+        _, _, rendered_html = self._fetch_jsf_page(
+            category_url,
+            category_id,
+            page_number,
+        )
         if not rendered_html:
             raise RuntimeError(
                 f"Empty JSF pagination page {page_number} for {category_url}"
             )
-        current_product_keys = self._product_keys(rendered_html)
+        current_product_keys = _page_product_keys(
+            self,
+            rendered_html,
+            page_url,
+        )
+        if not current_product_keys:
+            raise RuntimeError(
+                f"No products found on JSF pagination page {page_number} for {category_url}"
+            )
         new_product_keys = current_product_keys - seen_product_keys
         if not new_product_keys:
             raise RuntimeError(
@@ -180,10 +212,21 @@ def _jsf_category_pages_with_probe(
     for offset in range(self.MAX_HIDDEN_PAGE_PROBES):
         page_number = known_pages + offset + 1
         page_url = self._jsf_page_url(category_url, page_number)
-        _, _, rendered_html = self._fetch_jsf_page(category_url, category_id, page_number)
+        _, _, rendered_html = _ORIGINAL_FETCH_JSF_PAGE(
+            self,
+            category_url,
+            category_id,
+            page_number,
+        )
         if not rendered_html:
             break
-        current_product_keys = self._product_keys(rendered_html)
+        current_product_keys = _page_product_keys(
+            self,
+            rendered_html,
+            page_url,
+        )
+        if not current_product_keys:
+            break
         new_product_keys = current_product_keys - seen_product_keys
         if not new_product_keys:
             break
@@ -194,48 +237,52 @@ def _jsf_category_pages_with_probe(
     return pages
 
 
-def _facundo_jsf_pages(
-    scraper: CategoryScraper,
-    category_url: str,
-    expected_count: int,
-) -> list[str]:
-    return _jsf_category_pages_with_probe(
-        scraper,
-        category_url,
-        scraper._category_id(scraper.get_html(category_url)) or 0,
-        expected_count,
-    )
-
-
 def _get_category_pages(
     self: CategoryScraper,
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Use authoritative JSF pagination for Facundo and retain public fallback elsewhere."""
+    """Use authoritative JSF pagination for Facundo and public fallback elsewhere."""
     first_html = _safe_get_html(self, category_url)
     if not first_html:
         return []
     if not self._is_facundo_url(category_url):
         self._cache_category_html(category_url, first_html)
-        return _ORIGINAL_GET_CATEGORY_PAGES(self, category_url, expected_count=expected_count)
+        return _ORIGINAL_GET_CATEGORY_PAGES(
+            self,
+            category_url,
+            expected_count=expected_count,
+        )
 
     category_id = self._category_id(first_html)
     if category_id is not None:
         self._cache_category_html(category_url, first_html)
-        return _jsf_category_pages_with_probe(self, category_url, category_id, expected_count)
+        return _jsf_category_pages_with_probe(
+            self,
+            category_url,
+            category_id,
+            expected_count,
+        )
 
     direct_products = _direct_product_urls(first_html, category_url)
     if direct_products:
         direct_pages, direct_count = _facundo_direct_pages(
-            self, category_url, first_html, expected_count
+            self,
+            category_url,
+            first_html,
+            expected_count,
         )
         expected = max(int(expected_count or 0), 0)
         if expected == 0 or direct_count >= expected:
             self._cache_category_html(category_url, first_html)
             return direct_pages
+
     self._cache_category_html(category_url, first_html)
-    return _ORIGINAL_GET_CATEGORY_PAGES(self, category_url, expected_count=expected_count)
+    return _ORIGINAL_GET_CATEGORY_PAGES(
+        self,
+        category_url,
+        expected_count=expected_count,
+    )
 
 
 def activate() -> None:
@@ -245,7 +292,9 @@ def activate() -> None:
         CategoryScraper._original_get_category_pages = _ORIGINAL_GET_CATEGORY_PAGES
         CategoryScraper._original_fetch_jsf_page = _ORIGINAL_FETCH_JSF_PAGE
         CategoryScraper._fetch_jsf_page = _retry_jsf_page
-        CategoryScraper._jet_smart_filters_payload = staticmethod(_browser_compatible_jsf_payload)
+        CategoryScraper._jet_smart_filters_payload = staticmethod(
+            _browser_compatible_jsf_payload
+        )
         CategoryScraper.get_category_pages = _get_category_pages
         _PATCHED = True
 

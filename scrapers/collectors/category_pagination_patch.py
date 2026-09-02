@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from threading import RLock
 from urllib.parse import urljoin
@@ -46,10 +47,14 @@ def _direct_product_urls(html: str, base_url: str) -> set[str]:
 
 
 def _page_product_keys(self: CategoryScraper, html: str, base_url: str) -> set[str]:
-    """Return stable product identifiers from URLs plus legacy SKU-like tokens."""
+    """Return stable product identifiers from URLs/SKUs or page content."""
     urls = _direct_product_urls(html, base_url)
     legacy = self._product_keys(html)
-    return urls | legacy
+    keys = urls | legacy
+    if keys or not html:
+        return keys
+    digest = hashlib.sha256(re.sub(r"\s+", " ", html).strip().encode()).hexdigest()
+    return {f"html:{digest}"}
 
 
 def _facundo_direct_pages(
@@ -153,6 +158,19 @@ def _retry_jsf_page(
     return result
 
 
+def _probe_jsf_page(
+    self: CategoryScraper,
+    category_url: str,
+    category_id: int,
+    page: int,
+):
+    """Probe a page once in production while honoring lightweight test fakes."""
+    fetcher = self._fetch_jsf_page
+    if getattr(fetcher, "__func__", None) is _retry_jsf_page:
+        fetcher = _ORIGINAL_FETCH_JSF_PAGE.__get__(self, CategoryScraper)
+    return fetcher(category_url, category_id, page)
+
+
 def _jsf_category_pages_with_probe(
     self: CategoryScraper,
     category_url: str,
@@ -212,7 +230,7 @@ def _jsf_category_pages_with_probe(
     for offset in range(self.MAX_HIDDEN_PAGE_PROBES):
         page_number = known_pages + offset + 1
         page_url = self._jsf_page_url(category_url, page_number)
-        _, _, rendered_html = _ORIGINAL_FETCH_JSF_PAGE(
+        _, _, rendered_html = _probe_jsf_page(
             self,
             category_url,
             category_id,

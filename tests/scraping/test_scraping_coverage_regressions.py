@@ -79,6 +79,7 @@ def test_facundo_get_category_pages_prefers_jsf_pagination():
         category_url,
         f"{category_url}?product-page=2",
     ]
+    assert scraper._jsf_page_limits[category_url] == 2
 
 
 def test_facundo_get_category_pages_does_not_replace_jsf_with_public_fallback():
@@ -132,6 +133,37 @@ def test_facundo_jsf_page_retries_empty_response():
 
     assert result[2] == successful_html
     assert calls == [2, 2, 2]
+
+
+def test_facundo_jsf_retry_respects_expected_category_pages():
+    scraper = object.__new__(CategoryScraper)
+    category_url = "https://stock.importacionesfacundo.com/categoria-producto/demo/"
+    scraper._jsf_cache_lock = RLock()
+    scraper._jsf_metadata_cache = {category_url: (25, 1)}
+    scraper._jsf_page_limits = {category_url: 4}
+    calls = []
+    successful_html = _product_html(76, 7)
+
+    def fetch(_self, url, category_id, page):
+        calls.append(page)
+        if len(calls) < 3:
+            return 25, 1, ""
+        return 25, 1, successful_html
+
+    original = category_pagination_patch._ORIGINAL_FETCH_JSF_PAGE
+    try:
+        category_pagination_patch._ORIGINAL_FETCH_JSF_PAGE = fetch
+        result = category_pagination_patch._retry_jsf_page(
+            scraper,
+            category_url,
+            123,
+            4,
+        )
+    finally:
+        category_pagination_patch._ORIGINAL_FETCH_JSF_PAGE = original
+
+    assert result[2] == successful_html
+    assert calls == [4, 4, 4]
 
 
 def test_product_code_patch_reads_json_ld_sku_without_fb_prefix():

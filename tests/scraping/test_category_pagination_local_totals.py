@@ -59,6 +59,7 @@ def test_facundo_discovers_all_pages_from_jsf_when_no_expected_count_is_given():
         "ajax:1": jsf_response(1, 25, 51, 3),
         "ajax:2": jsf_response(26, 25, 51, 3),
         "ajax:3": jsf_response(51, 1, 51, 3),
+        "ajax:4": "",
     }
     scraper = CategoryScraper(
         FakeBrowser(responses),

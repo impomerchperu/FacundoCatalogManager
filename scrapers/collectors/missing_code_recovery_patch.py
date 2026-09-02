@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import requests
 from bs4 import BeautifulSoup
 
 from scrapers.extractors.product_extractor import ProductExtractor
@@ -26,7 +27,7 @@ def _recover_one(product, browser, extractor: ProductExtractor) -> bool:
 
     try:
         html = browser.get(url)
-    except Exception:
+    except requests.RequestException:
         return False
 
     if not isinstance(html, str) or not html:

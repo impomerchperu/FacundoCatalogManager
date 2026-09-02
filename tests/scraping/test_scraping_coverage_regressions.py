@@ -90,7 +90,7 @@ def test_facundo_get_category_pages_prefers_jsf_pagination():
 
     assert pages == [
         category_url,
-        f"{category_url}?product-page=2",
+        f"{category_url.rstrip('/')}?product-page=2",
     ]
 
 
@@ -123,7 +123,7 @@ def test_facundo_get_category_pages_does_not_replace_jsf_with_public_fallback():
 
     assert pages == [
         category_url,
-        f"{category_url}?product-page=2",
+        f"{category_url.rstrip('/')}?product-page=2",
     ]
 
 
@@ -254,8 +254,8 @@ def test_facundo_jsf_pagination_does_not_treat_max_num_pages_as_hard_ceiling():
 
     assert pages == [
         category_url,
-        f"{category_url}?product-page=2",
-        f"{category_url}?product-page=3",
+        f"{category_url.rstrip('/')}?product-page=2",
+        f"{category_url.rstrip('/')}?product-page=3",
     ]
 
 

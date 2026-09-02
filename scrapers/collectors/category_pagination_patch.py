@@ -182,36 +182,18 @@ def _apply_live_request_settings(values: dict[str, str], settings: object) -> No
 
 
 def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[str, str]]:
-    """Build a JSF request from the live querydesk configuration."""
+    """Build the smallest JSF request compatible with the live querydesk state."""
     with _JSF_STATE_LOCK:
-        found_posts, max_num_pages = _JSF_QUERY_STATE.get(category_id, (0, 0))
         request_state = dict(_JSF_REQUEST_STATE.get(category_id, {}))
 
     payload = _ORIGINAL_JSF_PAYLOAD(category_id, 1)
     values = dict(payload)
     _apply_live_query_defaults(values, request_state.get("query"))
     _apply_live_request_settings(values, request_state.get("settings"))
-
     values["defaults[paged]"] = "1"
     values["props[page]"] = "1"
-    if found_posts > 0:
-        values["props[found_posts]"] = str(found_posts)
-    if max_num_pages > 0:
-        values["props[max_num_pages]"] = str(max_num_pages)
     values["paged"] = str(page)
-
-    ordered: list[tuple[str, str]] = []
-    seen: set[str] = set()
-    for key, value in payload:
-        ordered.append((key, values.get(key, value)))
-        seen.add(key)
-    for key in (
-        "props[found_posts]",
-        "props[max_num_pages]",
-    ):
-        if key in values and key not in seen and values[key] != "0":
-            ordered.insert(len(ordered) - 2, (key, values[key]))
-    return ordered
+    return [(key, values.get(key, value)) for key, value in payload]
 
 
 def _retry_jsf_page(

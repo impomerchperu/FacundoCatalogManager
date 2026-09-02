@@ -56,3 +56,21 @@ def test_falls_back_to_visual_cards_when_product_table_is_absent():
     soup = BeautifulSoup(html, "lxml")
 
     assert len(ProductCardExtractor().extract(soup)) == 1
+
+
+def test_falls_back_to_jsfb_cards_when_default_card_selector_matches_none():
+    html = """
+    <div class="jsfb-filterable">
+        <a href="/producto/page-two/"><h2>Producto pagina dos</h2></a>
+    </div>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+
+    cards = ProductCardExtractor().extract(soup)
+
+    assert len(cards) == 1
+    assert cards[0].get("class") == ["jsfb-filterable"]
+    assert cards[0].select_one('a[href*="/producto/"]')["href"] == (
+        "/producto/page-two/"
+    )

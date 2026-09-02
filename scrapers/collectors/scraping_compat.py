@@ -4,6 +4,7 @@ import re
 
 from scrapers.extractors.product_extractor import ProductExtractor
 
+from .category_pagination_patch import _facundo_direct_pages
 from .category_scraper import CategoryScraper
 
 _PRODUCT_URL_PATTERN = re.compile(
@@ -41,7 +42,7 @@ def _facundo_category_pages(
     first_html: str,
     expected_count: int,
 ) -> list[str]:
-    """Fetch declared pages and probe one sentinel only for underreported totals."""
+    """Fetch declared JSF pages and probe one sentinel for underreported totals."""
     pages = [category_url]
     scraper._cache_category_html(category_url, first_html)
 
@@ -102,6 +103,17 @@ def _get_category_pages(self, category_url: str, expected_count: int = 0) -> lis
     first_html = self.get_html(category_url)
     if not first_html:
         return []
+
+    if self._is_facundo_url(category_url):
+        direct_pages, direct_count = _facundo_direct_pages(
+            self,
+            category_url,
+            first_html,
+            expected_count,
+        )
+        expected = max(int(expected_count or 0), 0)
+        if len(direct_pages) > 1 or expected == 0 or direct_count >= expected:
+            return direct_pages
 
     category_id = self._category_id(first_html)
     if category_id is None or not self._is_facundo_url(category_url):

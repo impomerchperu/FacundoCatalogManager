@@ -176,8 +176,9 @@ def _jsf_category_pages_with_probe(
     category_url: str,
     category_id: int,
     expected_count: int,
+    category_html: str = "",
 ) -> list[str]:
-    """Walk JSF pages until the server returns an empty/repeated page."""
+    """Walk all visible JSF pages, then probe beyond the visible range."""
     found_posts, declared_max, first_html = self._fetch_jsf_page(
         category_url,
         category_id,
@@ -188,15 +189,26 @@ def _jsf_category_pages_with_probe(
 
     expected_pages = self._required_page_count(expected_count)
     published_pages = self._required_page_count(found_posts)
-    html_pages = max(
+    response_html_pages = max(
         self._declared_total_pages(first_html),
         self._pagination_max_page(first_html),
     )
-    known_pages = max(declared_max, published_pages, expected_pages, html_pages, 1)
+    category_html_pages = max(
+        self._declared_total_pages(category_html),
+        self._pagination_max_page(category_html),
+    )
+    known_pages = max(
+        declared_max,
+        published_pages,
+        expected_pages,
+        response_html_pages,
+        category_html_pages,
+        1,
+    )
 
     pages = [category_url]
     seen_product_keys = _page_product_keys(self, first_html, category_url)
-    self._cache_category_html(category_url, first_html)
+    self._cache_category_html(category_url, category_html)
 
     for page_number in range(2, known_pages + 1):
         page_url = self._jsf_page_url(category_url, page_number)
@@ -280,6 +292,7 @@ def _get_category_pages(
             category_url,
             category_id,
             expected_count,
+            category_html=first_html,
         )
 
     direct_products = _direct_product_urls(first_html, category_url)

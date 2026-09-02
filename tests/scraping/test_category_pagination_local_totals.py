@@ -24,7 +24,11 @@ class FakeProductBlockExtractor:
 
 def products(start, count):
     return "".join(
-        f'<article class="product"><span class="sku">P{number}</span></article>'
+        (
+            f'<article class="product"><a href="/producto/p{number}/">'
+            f"<span class=\"sku\">P{number}</span>"
+            "</a></article>"
+        )
         for number in range(start, start + count)
     )
 

@@ -5,15 +5,22 @@ from __future__ import annotations
 import json
 import re
 
+from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 from scrapers.extractors.product_extractor import ProductExtractor
 
 _PATCHED = False
 _CODE_PATTERN = re.compile(r"^[A-Z0-9]{1,32}(?:[-_./][A-Z0-9]+)*$", re.IGNORECASE)
+_ORIGINAL_ENRICH_FROM_DETAIL_PAGE = ProductCollectionScraper._enrich_from_detail_page
 
 
 def _normalize(value: object) -> str:
     candidate = str(value or "").strip().strip(".,:;()[]{}")
-    candidate = re.sub(r"^(?:sku|c[oó]digo|cod)\s*[:#-]?\s*", "", candidate, flags=re.IGNORECASE)
+    candidate = re.sub(
+        r"^(?:sku|c[oó]digo|cod)\s*[:#-]?\s*",
+        "",
+        candidate,
+        flags=re.IGNORECASE,
+    )
     if not _CODE_PATTERN.fullmatch(candidate):
         return ""
     if not any(char.isalpha() for char in candidate):
@@ -79,17 +86,55 @@ def _extract_code(self: ProductExtractor, soup) -> str:
     return self._legacy_extract_code(soup)
 
 
+def _enrich_with_authoritative_code(
+    self: ProductCollectionScraper,
+    card,
+    page_url: str,
+    product,
+    category_name: str,
+):
+    """Use the product detail SKU as the authoritative catalog code."""
+    result = _ORIGINAL_ENRICH_FROM_DETAIL_PAGE(
+        self,
+        card,
+        page_url,
+        product,
+        category_name,
+    )
+    if self.detail_extractor is None:
+        return result
+
+    detail_url = self._card_detail_url(card, page_url, result)
+    if not detail_url:
+        return result
+
+    detailed_product = self._get_detailed_product(
+        self._detail_cache_key(card, result, detail_url),
+        detail_url,
+        category_name,
+    )
+    if detailed_product is None:
+        return result
+
+    detail_code = _normalize(getattr(detailed_product, "code", ""))
+    if detail_code:
+        result.code = detail_code
+        result.url = detail_url
+    return result
+
+
 def activate() -> None:
-    """Patch ProductExtractor once while retaining its existing fallback."""
+    """Patch ProductExtractor and authoritative detail-page code extraction once."""
     global _PATCHED
     if _PATCHED:
         return
     legacy = ProductExtractor.extract_code
     ProductExtractor._legacy_extract_code = legacy
     ProductExtractor.extract_code = _extract_code
+    ProductCollectionScraper._enrich_from_detail_page = _enrich_with_authoritative_code
     _PATCHED = True
 
 
 activate()
 
-__all__ = ["ProductExtractor", "activate"]
+__all__ = ["ProductExtractor", "ProductCollectionScraper", "activate"]

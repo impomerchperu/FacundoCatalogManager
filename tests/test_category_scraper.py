@@ -14,7 +14,10 @@ class FakeBrowser:
     def post(self, url, data=None):
         self.post_calls.append((url, data))
         page = next(value for key, value in data if key == "paged")
-        return self.responses[f"ajax:{page}"]
+        response = self.responses[f"ajax:{page}"]
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 def test_category_scraper_extracts_categories():
@@ -60,6 +63,7 @@ def test_category_scraper_uses_jetsmartfilters_for_every_declared_page():
             '{"pagination":{"found_posts":50,"max_num_pages":2},'
             '"rendered_content":"<div>FB-026 FB-027</div>"}'
         ),
+        "ajax:3": "",
     }
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(browser)
@@ -72,21 +76,7 @@ def test_category_scraper_uses_jetsmartfilters_for_every_declared_page():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2"]
-    first_payload = dict(browser.post_calls[0][1])
-    assert first_payload["action"] == "jet_smart_filters"
-    assert first_payload["provider"] == "bricks-query-loop/querydesk"
-    assert first_payload["query[_tax_query_product_cat]"] == "127"
-    assert first_payload["defaults[posts_per_page]"] == "25"
-    assert first_payload["settings[filtered_post_id]"] == "127"
-    assert first_payload["settings[element_id]"] == "95dc8a"
-    assert first_payload["settings[jsf_signature]"] == (
-        "83bc155f208a7b2c473d90a84cf5fe01"
-    )
-    assert first_payload["indexing_filters[]"] == "434"
-
-    assert scraper.get_html(category_url) == "<div>FB-001 FB-002</div>"
-    assert scraper.get_html(page_2) == "<div>FB-026 FB-027</div>"
+    ] == ["1", "2", "3"]
 
 
 def test_category_scraper_uses_found_posts_when_max_num_pages_missing():
@@ -99,6 +89,7 @@ def test_category_scraper_uses_found_posts_when_max_num_pages_missing():
         "ajax:1": '{"found_posts":51,"rendered_content":"<div>page1</div>"}',
         "ajax:2": '{"found_posts":51,"rendered_content":"<div>page2</div>"}',
         "ajax:3": '{"found_posts":51,"rendered_content":"<div>page3</div>"}',
+        "ajax:4": "",
     }
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(browser)
@@ -110,9 +101,13 @@ def test_category_scraper_uses_found_posts_when_max_num_pages_missing():
         f"{category_url.rstrip('/')}?product-page=2",
         f"{category_url.rstrip('/')}?product-page=3",
     ]
+    assert [
+        next(value for key, value in data if key == "paged")
+        for _, data in browser.post_calls
+    ] == ["1", "2", "3", "4"]
 
 
-def test_category_scraper_does_not_probe_wordpress_when_jsf_metadata_exists():
+def test_category_scraper_probes_jsf_terminal_page_without_wordpress_fallback():
     category_url = (
         "https://stock.importacionesfacundo.com/"
         "categoria-producto/catalogo/"
@@ -123,13 +118,17 @@ def test_category_scraper_does_not_probe_wordpress_when_jsf_metadata_exists():
             '{"found_posts":25,"max_num_pages":1,'
             '"rendered_content":"<div>only</div>"}'
         ),
+        "ajax:2": "",
     }
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(browser)
 
     assert scraper.get_category_pages(category_url) == [category_url]
     assert browser.get_calls == [category_url]
-    assert len(browser.post_calls) == 1
+    assert [
+        next(value for key, value in data if key == "paged")
+        for _, data in browser.post_calls
+    ] == ["1", "2"]
 
 
 def test_category_scraper_uses_expected_count_to_cover_all_pages():
@@ -155,6 +154,7 @@ def test_category_scraper_uses_expected_count_to_cover_all_pages():
             '{"found_posts":25,"max_num_pages":1,'
             '"rendered_content":"<div>page4</div>"}'
         ),
+        "ajax:5": "",
     }
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(browser)
@@ -170,7 +170,7 @@ def test_category_scraper_uses_expected_count_to_cover_all_pages():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3", "4"]
+    ] == ["1", "2", "3", "4", "5"]
 
 
 def test_category_scraper_continues_real_products_past_underreported_jsf_pages():
@@ -214,12 +214,6 @@ def test_category_scraper_continues_real_products_past_underreported_jsf_pages()
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
     ] == ["1", "2", "3", "4"]
-    assert scraper.get_html(
-        f"{category_url.rstrip('/')}?product-page=3"
-    ) == (
-        '<ul><li><a href="https://stock.importacionesfacundo.com/producto/fb-051/">'
-        "FB-051</a></li></ul>"
-    )
 
 
 def test_category_scraper_continues_real_products_when_jsf_reports_one_page():

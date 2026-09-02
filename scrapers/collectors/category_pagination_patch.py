@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from threading import RLock
@@ -52,15 +51,15 @@ def _direct_product_urls(html: str, base_url: str) -> set[str]:
     return urls
 
 
-def _page_product_keys(self: CategoryScraper, html: str, base_url: str) -> set[str]:
+def _page_product_keys(
+    self: CategoryScraper,
+    html: str,
+    base_url: str,
+) -> set[str]:
     """Return stable product identifiers from URLs/SKUs or page content."""
     urls = _direct_product_urls(html, base_url)
     legacy = self._product_keys(html)
-    keys = urls | legacy
-    if keys or not html:
-        return keys
-    digest = hashlib.sha256(re.sub(r"\s+", " ", html).strip().encode()).hexdigest()
-    return {f"html:{digest}"}
+    return urls | legacy
 
 
 def _facundo_direct_pages(

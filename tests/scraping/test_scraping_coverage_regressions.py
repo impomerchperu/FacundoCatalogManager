@@ -72,7 +72,9 @@ def test_facundo_get_category_pages_prefers_jsf_pagination():
     def fetch(_url, _category_id, page):
         if page == 1:
             return 50, 2, first_html
-        return 50, 2, _product_html(26, 6)
+        if page == 2:
+            return 50, 2, _product_html(26, 6)
+        return 50, 2, ""
 
     scraper._fetch_jsf_page = fetch
     scraper._fallback_category_pages = lambda *_args, **_kwargs: [
@@ -96,10 +98,17 @@ def test_facundo_get_category_pages_does_not_replace_jsf_with_public_fallback():
     scraper = _new_jsf_test_scraper()
     category_url = "https://stock.importacionesfacundo.com/categoria-producto/demo/"
     first_html = _product_html(1, 25)
+    second_html = _product_html(26, 6)
     scraper.get_html = lambda url: first_html
     scraper._is_facundo_url = lambda url: True
     scraper._category_id = lambda html: 123
-    scraper._fetch_jsf_page = lambda *_args: (25, 1, first_html)
+
+    def fetch(_url, _category_id, page):
+        if page == 1:
+            return 25, 1, first_html
+        return 25, 1, second_html
+
+    scraper._fetch_jsf_page = fetch
 
     def unexpected_public_fallback(*_args, **_kwargs):
         raise AssertionError("La paginación pública no debe ser la ruta primaria de Facundo")
@@ -112,7 +121,10 @@ def test_facundo_get_category_pages_does_not_replace_jsf_with_public_fallback():
         expected_count=50,
     )
 
-    assert pages == [category_url]
+    assert pages == [
+        category_url,
+        f"{category_url}?product-page=2",
+    ]
 
 
 def test_facundo_jsf_page_retries_empty_response():
@@ -151,7 +163,7 @@ def test_facundo_jsf_retry_does_not_disable_retries_for_hidden_pages():
     responses = [
         "",
         "",
-        '<div>FB-076</div>',
+        '{"rendered_content":"<div>FB-076</div>"}',
     ]
     calls = []
 

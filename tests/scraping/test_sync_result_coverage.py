@@ -67,6 +67,29 @@ def test_to_dict_keeps_occurrence_and_unique_metrics_separate():
     assert payload["multi_category_products"] == 2
 
 
+def test_product_counter_aliases_follow_canonical_counters():
+    result = SyncResult(created=2, updated=3, unchanged=4, deleted=5)
+
+    assert result.products_created == 2
+    assert result.products_updated == 3
+    assert result.products_unchanged == 4
+    assert result.products_deleted == 5
+
+    result.products_created = 7
+    result.products_updated = 8
+    result.products_unchanged = 9
+    result.products_deleted = 10
+
+    assert result.created == 7
+    assert result.updated == 8
+    assert result.unchanged == 9
+    assert result.deleted == 10
+    assert result.to_dict()["products_created"] == 7
+    assert result.to_dict()["products_updated"] == 8
+    assert result.to_dict()["products_unchanged"] == 9
+    assert result.to_dict()["products_deleted"] == 10
+
+
 def test_finish_fails_when_category_coverage_is_incomplete():
     result = SyncResult(
         expected_category_occurrences=20,

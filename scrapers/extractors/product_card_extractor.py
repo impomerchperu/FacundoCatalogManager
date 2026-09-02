@@ -7,7 +7,8 @@ class ProductCardExtractor:
 
     La página actual publica una tabla completa de productos además del
     bloque visual limitado a 25 tarjetas. Preferimos las filas de esa tabla
-    cuando están disponibles para no truncar categorías grandes.
+    cuando están disponibles; las páginas JetSmartFilters siguientes pueden
+    publicar solo los bloques visuales.
     """
 
     def extract(self, soup):
@@ -20,4 +21,8 @@ class ProductCardExtractor:
         if product_rows:
             return product_rows
 
-        return soup.select(product_card_selectors.PRODUCT_CARD)
+        cards = soup.select(product_card_selectors.PRODUCT_CARD)
+        if cards:
+            return cards
+
+        return soup.select(".jsfb-filterable")

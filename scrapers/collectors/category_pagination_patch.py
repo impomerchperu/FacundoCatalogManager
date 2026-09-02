@@ -45,15 +45,15 @@ def _facundo_direct_pages(
     first_html: str,
     expected_count: int,
 ) -> tuple[list[str], int]:
-    """Use the public archive only when it actually exposes product links."""
+    """Use the public archive only when it already exposes product links."""
     pages = scraper._fallback_category_pages(
         category_url,
         first_html,
         expected_count,
     )
-    product_urls: set[str] = _direct_product_urls(first_html, category_url)
+    product_urls: set[str] = set(_direct_product_urls(first_html, category_url))
 
-    for page_url in pages:
+    for page_url in pages[1:]:
         html = scraper._category_html_cache.get(page_url, "")
         if html:
             product_urls.update(_direct_product_urls(html, page_url))
@@ -68,65 +68,11 @@ def _facundo_jsf_pages(
     first_html: str,
     expected_count: int,
 ) -> list[str]:
-    """Use JSF as recovery when the public archive does not expose products."""
-    pages = [category_url]
-    scraper._cache_category_html(category_url, first_html)
-
-    try:
-        found_posts, declared_pages, rendered_first = scraper._fetch_jsf_page(
-            category_url, category_id, 1
-        )
-    except (KeyError, RuntimeError, TypeError, ValueError):
-        found_posts, declared_pages, rendered_first = 0, 0, ""
-
-    if rendered_first:
-        scraper._cache_category_html(category_url, rendered_first)
-
-    expected_pages = max(
-        pages_required(expected_count), pages_required(found_posts), 1
+    """Preserve CategoryScraper's JSF pagination semantics for Facundo archives."""
+    return scraper._original_get_category_pages(
+        category_url,
+        expected_count=expected_count,
     )
-    metadata_pages = max(int(declared_pages or 0), expected_pages)
-    seen_urls = _direct_product_urls(rendered_first, category_url)
-    seen_keys = scraper._product_keys(rendered_first)
-    previous_html = rendered_first
-    page = 2
-    hidden_probes = 0
-
-    while True:
-        if page > metadata_pages:
-            if hidden_probes >= scraper.MAX_HIDDEN_PAGE_PROBES:
-                break
-            hidden_probes += 1
-
-        page_url = scraper._jsf_page_url(category_url, page)
-        try:
-            _, page_count, rendered_html = scraper._fetch_jsf_page(
-                category_url, category_id, page
-            )
-        except (KeyError, RuntimeError, TypeError, ValueError):
-            break
-
-        metadata_pages = max(metadata_pages, int(page_count or 0))
-        if not rendered_html or rendered_html == previous_html:
-            break
-
-        current_urls = _direct_product_urls(rendered_html, page_url)
-        current_keys = scraper._product_keys(rendered_html)
-        if current_urls and seen_urls and not current_urls - seen_urls:
-            break
-        if current_keys and seen_keys and not current_keys - seen_keys:
-            break
-        if not current_urls and not current_keys:
-            break
-
-        seen_urls.update(current_urls)
-        seen_keys.update(current_keys)
-        scraper._cache_category_html(page_url, rendered_html)
-        pages.append(page_url)
-        previous_html = rendered_html
-        page += 1
-
-    return pages
 
 
 def _get_category_pages(
@@ -134,41 +80,46 @@ def _get_category_pages(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Prefer the public archive when it contains products; otherwise use JSF."""
+    """Use public archive pagination when product links are present; otherwise JSF."""
     first_html = _safe_get_html(self, category_url)
     if not first_html:
         return []
 
-    if self._is_facundo_url(category_url):
-        direct_product_urls = _direct_product_urls(first_html, category_url)
-        if direct_product_urls:
-            direct_pages, direct_count = _facundo_direct_pages(
-                self,
-                category_url,
-                first_html,
-                expected_count,
-            )
-            expected = max(int(expected_count or 0), 0)
-            direct_complete = expected == 0 or direct_count >= expected
-            if len(direct_pages) > 1 or direct_complete:
-                self._cache_category_html(category_url, first_html)
-                return direct_pages
+    if not self._is_facundo_url(category_url):
+        self._cache_category_html(category_url, first_html)
+        return _ORIGINAL_GET_CATEGORY_PAGES(
+            self,
+            category_url,
+            expected_count=expected_count,
+        )
 
-        category_id = self._category_id(first_html)
-        if category_id is not None:
-            return _facundo_jsf_pages(
-                self,
-                category_url,
-                category_id,
-                first_html,
-                expected_count,
-            )
+    direct_products = _direct_product_urls(first_html, category_url)
+    if direct_products:
+        direct_pages, direct_count = _facundo_direct_pages(
+            self,
+            category_url,
+            first_html,
+            expected_count,
+        )
+        expected = max(int(expected_count or 0), 0)
+        if len(direct_pages) > 1 or expected == 0 or direct_count >= expected:
+            self._cache_category_html(category_url, first_html)
+            return direct_pages
 
     self._cache_category_html(category_url, first_html)
-    return _ORIGINAL_GET_CATEGORY_PAGES(
+    category_id = self._category_id(first_html)
+    if category_id is None:
+        return self._original_get_category_pages(
+            category_url,
+            expected_count=expected_count,
+        )
+
+    return _facundo_jsf_pages(
         self,
         category_url,
-        expected_count=expected_count,
+        category_id,
+        first_html,
+        expected_count,
     )
 
 
@@ -176,6 +127,7 @@ def activate() -> None:
     """Install the compatibility behavior once for the collectors package."""
     global _PATCHED
     if not _PATCHED:
+        CategoryScraper._original_get_category_pages = _ORIGINAL_GET_CATEGORY_PAGES
         CategoryScraper.get_category_pages = _get_category_pages
         _PATCHED = True
 

@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from scrapers.collectors import product_code_patch
+from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
 
 
@@ -45,3 +46,13 @@ def test_product_code_patch_backfills_authoritative_detail_code(monkeypatch):
 
     assert result.code == "FB-7008"
     assert result.url == "https://stock.importacionesfacundo.com/producto/demo/"
+
+
+def test_product_code_patch_accepts_published_letter_only_skus():
+    extractor = CategoryProductExtractor()
+    for code in (
+        "IEV-SFE-CIT",
+        "PPMPLUS-CIT",
+        "IKIOSK-ESTANDAR",
+    ):
+        assert extractor._normalize_code(code) == code

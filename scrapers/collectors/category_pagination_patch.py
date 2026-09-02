@@ -45,14 +45,13 @@ def _facundo_direct_pages(
     first_html: str,
     expected_count: int,
 ) -> tuple[list[str], int]:
-    """Use the public archive before falling back to the JSF provider."""
+    """Use the public archive only when it actually exposes product links."""
     pages = scraper._fallback_category_pages(
         category_url,
         first_html,
         expected_count,
     )
-    product_urls: set[str] = set()
-    product_urls.update(_direct_product_urls(first_html, category_url))
+    product_urls: set[str] = _direct_product_urls(first_html, category_url)
 
     for page_url in pages:
         html = scraper._category_html_cache.get(page_url, "")
@@ -69,7 +68,7 @@ def _facundo_jsf_pages(
     first_html: str,
     expected_count: int,
 ) -> list[str]:
-    """Use JSF only as a recovery path when the public archive is insufficient."""
+    """Use JSF as recovery when the public archive does not expose products."""
     pages = [category_url]
     scraper._cache_category_html(category_url, first_html)
 
@@ -135,23 +134,25 @@ def _get_category_pages(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Discover public archive pages first; use JSF only as recovery."""
+    """Prefer the public archive when it contains products; otherwise use JSF."""
     first_html = _safe_get_html(self, category_url)
     if not first_html:
         return []
 
     if self._is_facundo_url(category_url):
-        direct_pages, direct_count = _facundo_direct_pages(
-            self,
-            category_url,
-            first_html,
-            expected_count,
-        )
-        expected = max(int(expected_count or 0), 0)
-        direct_complete = expected == 0 or direct_count >= expected
-        if len(direct_pages) > 1 or direct_complete:
-            self._cache_category_html(category_url, first_html)
-            return direct_pages
+        direct_product_urls = _direct_product_urls(first_html, category_url)
+        if direct_product_urls:
+            direct_pages, direct_count = _facundo_direct_pages(
+                self,
+                category_url,
+                first_html,
+                expected_count,
+            )
+            expected = max(int(expected_count or 0), 0)
+            direct_complete = expected == 0 or direct_count >= expected
+            if len(direct_pages) > 1 or direct_complete:
+                self._cache_category_html(category_url, first_html)
+                return direct_pages
 
         category_id = self._category_id(first_html)
         if category_id is not None:
@@ -162,7 +163,6 @@ def _get_category_pages(
                 first_html,
                 expected_count,
             )
-        return direct_pages
 
     self._cache_category_html(category_url, first_html)
     return _ORIGINAL_GET_CATEGORY_PAGES(

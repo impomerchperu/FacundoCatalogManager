@@ -93,6 +93,7 @@ def _get_category_pages(
 
     category_id = self._category_id(first_html)
     if category_id is not None:
+        self._cache_category_html(category_url, first_html)
         try:
             jsf_pages = _facundo_jsf_pages(
                 self,
@@ -101,7 +102,6 @@ def _get_category_pages(
             )
             required_pages = pages_required(expected_count)
             if required_pages == 0 or len(jsf_pages) >= required_pages:
-                self._cache_category_html(category_url, first_html)
                 return jsf_pages
         except (RuntimeError, TypeError, ValueError):
             pass

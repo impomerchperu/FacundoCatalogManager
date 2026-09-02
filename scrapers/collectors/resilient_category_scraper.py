@@ -51,7 +51,16 @@ class ResilientCategoryScraper(CategoryScraper):
             return None
 
         if self._is_empty_jsf_result(category_url, category_html, pages):
-            return None
+            product_keys = self._product_keys_without_taxonomy_markers(category_html)
+            if product_keys:
+                return self._fallback_category_pages(
+                    category_url,
+                    category_html,
+                    expected_count,
+                )
+            raise RuntimeError(
+                "JetSmartFilters no devolvió contenido para la categoría"
+            )
         return pages
 
     def _retry_empty_jsf_result(

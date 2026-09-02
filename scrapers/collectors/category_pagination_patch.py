@@ -259,7 +259,41 @@ def _probe_jsf_page(
     return fetcher(category_url, category_id, page)
 
 
-def _jsf_category_pages_with_probe(
+def _probe_boundary_page(
+    self: CategoryScraper,
+    category_url: str,
+    category_id: int,
+    page: int,
+    seen_product_keys: set[str],
+) -> tuple[bool, set[str]]:
+    """Check one boundary page and return whether it adds products."""
+    page_url = self._jsf_page_url(category_url, page)
+    _, _, rendered_html = _probe_jsf_page(
+        self,
+        category_url,
+        category_id,
+        page,
+    )
+    if not rendered_html:
+        return False, set()
+
+    current_product_keys = _page_product_keys(
+        self,
+        rendered_html,
+        page_url,
+    )
+    if not current_product_keys:
+        return False, set()
+
+    new_product_keys = current_product_keys - seen_product_keys
+    if not new_product_keys:
+        return False, set()
+
+    self._cache_category_html(page_url, rendered_html)
+    return True, new_product_keys
+
+
+def _jsf_category_pages_with_probe(  # noqa: PLR0912
     self: CategoryScraper,
     category_url: str,
     category_id: int,
@@ -328,34 +362,18 @@ def _jsf_category_pages_with_probe(
         self._cache_category_html(page_url, rendered_html)
         pages.append(page_url)
 
-    # A trusted multi-page range needs only one boundary probe. When the
-    # range is unknown/single-page, keep the bounded recovery loop because
-    # both the visible pagination and the expected count may be incomplete.
     if known_pages > 1:
-        page_number = known_pages + 1
-        page_url = self._jsf_page_url(category_url, page_number)
-        _, _, rendered_html = _probe_jsf_page(
+        boundary_page = known_pages + 1
+        has_new_products, new_product_keys = _probe_boundary_page(
             self,
             category_url,
             category_id,
-            page_number,
+            boundary_page,
+            seen_product_keys,
         )
-        if rendered_html:
-            current_product_keys = _page_product_keys(
-                self,
-                rendered_html,
-                page_url,
-            )
-            if current_product_keys:
-                new_product_keys = current_product_keys - seen_product_keys
-                if new_product_keys:
-                    seen_product_keys.update(current_product_keys)
-                    self._cache_category_html(page_url, rendered_html)
-                    pages.append(page_url)
-                else:
-                    raise RuntimeError(
-                        f"Repeated JSF pagination page {page_number} for {category_url}"
-                    )
+        if has_new_products:
+            seen_product_keys.update(new_product_keys)
+            pages.append(self._jsf_page_url(category_url, boundary_page))
         return pages
 
     for offset in range(min(self.MAX_HIDDEN_PAGE_PROBES, 5)):

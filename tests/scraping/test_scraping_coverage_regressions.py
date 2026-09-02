@@ -110,9 +110,9 @@ def test_facundo_jsf_pagination_payload_preserves_browser_query_state():
 
     assert values["defaults[paged]"] == "1"
     assert values["props[page]"] == "1"
-    assert values["props[found_posts]"] == "50"
-    assert values["props[max_num_pages]"] == "2"
     assert values["paged"] == "2"
+    assert "props[found_posts]" not in values
+    assert "props[max_num_pages]" not in values
 
 
 def test_facundo_jsf_payload_uses_live_querydesk_signature_and_defaults():
@@ -176,8 +176,11 @@ def test_facundo_jsf_payload_uses_live_querydesk_signature_and_defaults():
     assert values["defaults[disable_query_merge]"] == "true"
     assert values["defaults[is_archive_main_query]"] == "true"
     assert values["paged"] == "2"
-    assert values["props[found_posts]"] == "82"
-    assert values["props[max_num_pages]"] == "4"
+    assert "props[found_posts]" not in values
+    assert "props[max_num_pages]" not in values
+
+    with category_pagination_patch._JSF_STATE_LOCK:
+        assert category_pagination_patch._JSF_QUERY_STATE[category_id] == (82, 4)
 
 
 def test_facundo_jsf_pagination_does_not_treat_max_num_pages_as_hard_ceiling():

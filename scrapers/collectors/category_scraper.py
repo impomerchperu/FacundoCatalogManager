@@ -371,8 +371,7 @@ class CategoryScraper:
 
     @staticmethod
     def _jsf_page_url(category_url: str, page: int) -> str:
-        base_url = category_url if category_url.endswith("/") else f"{category_url}/"
-        return f"{base_url}?product-page={page}"
+        return f"{category_url.rstrip('/')}?product-page={page}"
 
     @staticmethod
     def _fallback_page_url(category_url: str, page: int) -> str:
@@ -393,21 +392,32 @@ class CategoryScraper:
 
     @staticmethod
     def _page_number(url: str) -> int | None:
-        match = re.search(r"[?&](?:product-page|paged)=(\d+)", url or "", flags=re.IGNORECASE)
-        if match:
-            return int(match.group(1))
-        match = re.search(r"/page/(\d+)(?:/|$)", url or "", flags=re.IGNORECASE)
-        return int(match.group(1)) if match else None
+        for pattern in (r"[?&](?:product-page|paged)=(\d+)", r"/page/(\d+)(?:/|$)"):
+            match = re.search(pattern, url or "", flags=re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        return None
 
-    @staticmethod
-    def _fallback_pagination_links(category_url: str, html: str) -> list[str]:
-        soup = BeautifulSoup(html or "", "html.parser")
-        links: list[str] = []
-        for anchor in soup.select("a[href]"):
-            href = anchor.get("href")
-            if not isinstance(href, str):
+    def _fallback_pagination_links(self, category_url: str, html: str) -> list[str]:
+        soup = self._parse(html)
+        links: dict[int, str] = {}
+        selector = (
+            "a.page-numbers, nav.woocommerce-pagination a, "
+            "a[href*='product-page='], a[href*='paged='], a[href*='page/'], "
+            ".jet-filters-pagination__item[data-value]"
+        )
+        for link in soup.select(selector):
+            href = link.get("href")
+            if isinstance(href, str) and href:
+                absolute_url = urljoin(category_url, href)
+                page_number = self._page_number(absolute_url)
+            else:
+                value = link.get("data-value")
+                if not isinstance(value, str) or not value.isdigit():
+                    continue
+                page_number = int(value)
+                absolute_url = self._fallback_page_url(category_url, page_number)
+            if page_number is None or page_number <= 1:
                 continue
-            absolute = urljoin(category_url, href)
-            if CategoryScraper._page_number(absolute) is not None:
-                links.append(absolute)
-        return list(dict.fromkeys(links))
+            links.setdefault(page_number, absolute_url)
+        return [links[number] for number in sorted(links)]

@@ -33,14 +33,46 @@ class SyncResult:
     duplicate_occurrences: int = 0
     category_summary: list[dict] = field(default_factory=list)
     multiple_category_products: list[dict] = field(default_factory=list)
-    products_created: int = 0
-    products_updated: int = 0
-    products_unchanged: int = 0
-    products_deleted: int = 0
     images_processed: int = 0
     images_downloaded: int = 0
     images_failed: int = 0
     errors: list[str] = field(default_factory=list)
+
+    @property
+    def products_created(self) -> int:
+        """Alias compatible con el contador canónico ``created``."""
+        return self.created
+
+    @products_created.setter
+    def products_created(self, value: int) -> None:
+        self.created = int(value)
+
+    @property
+    def products_updated(self) -> int:
+        """Alias compatible con el contador canónico ``updated``."""
+        return self.updated
+
+    @products_updated.setter
+    def products_updated(self, value: int) -> None:
+        self.updated = int(value)
+
+    @property
+    def products_unchanged(self) -> int:
+        """Alias compatible con el contador canónico ``unchanged``."""
+        return self.unchanged
+
+    @products_unchanged.setter
+    def products_unchanged(self, value: int) -> None:
+        self.unchanged = int(value)
+
+    @property
+    def products_deleted(self) -> int:
+        """Alias compatible con el contador canónico ``deleted``."""
+        return self.deleted
+
+    @products_deleted.setter
+    def products_deleted(self, value: int) -> None:
+        self.deleted = int(value)
 
     def increment_processed(self) -> None:
         self.processed += 1

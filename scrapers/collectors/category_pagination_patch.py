@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from threading import RLock
 from urllib.parse import urljoin
@@ -17,9 +18,14 @@ _PRODUCT_URL_PATTERN = re.compile(
     r'href=["\']([^"\']*/producto/[^"\'#?]+/?)[^"\']*["\']',
     re.IGNORECASE,
 )
+_JSF_SETTINGS_PATTERN = re.compile(
+    r"var\s+JetSmartFilterSettings\s*=\s*(\{.*?\})\s*;",
+    re.DOTALL,
+)
 JSF_PAGE_RETRIES = 3
 _JSF_STATE_LOCK = RLock()
 _JSF_QUERY_STATE: dict[int, tuple[int, int]] = {}
+_JSF_REQUEST_STATE: dict[int, dict[str, object]] = {}
 
 
 def pages_required(expected_count: int, products_per_page: int = 25) -> int:
@@ -79,13 +85,100 @@ def _facundo_direct_pages(
     return pages, len(product_urls)
 
 
+def _remember_jsf_settings(category_id: int, category_html: str) -> None:
+    """Remember the live querydesk settings emitted by Facundo's page."""
+    match = _JSF_SETTINGS_PATTERN.search(category_html or "")
+    if not match:
+        return
+
+    try:
+        settings = json.loads(match.group(1))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return
+
+    try:
+        query = settings["queries"]["bricks-query-loop"]["querydesk"]
+        request_settings = settings["settings"]["bricks-query-loop"]["querydesk"]
+    except (KeyError, TypeError):
+        return
+
+    if not isinstance(query, dict) or not isinstance(request_settings, dict):
+        return
+
+    with _JSF_STATE_LOCK:
+        _JSF_REQUEST_STATE[category_id] = {
+            "query": dict(query),
+            "settings": dict(request_settings),
+        }
+
+    props = settings.get("props", {})
+    try:
+        query_props = props["bricks-query-loop"]["querydesk"]
+    except (KeyError, TypeError):
+        query_props = {}
+    if isinstance(query_props, dict):
+        _remember_jsf_metadata(
+            category_id,
+            CategoryScraper._to_int(query_props.get("found_posts")),
+            CategoryScraper._to_int(query_props.get("max_num_pages")),
+        )
+
+
+def _remember_jsf_metadata(category_id: int, found_posts: int, max_num_pages: int) -> None:
+    if found_posts <= 0 and max_num_pages <= 0:
+        return
+    with _JSF_STATE_LOCK:
+        _JSF_QUERY_STATE[category_id] = (found_posts, max_num_pages)
+
+
 def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[str, str]]:
-    """Build the JSF request shape captured from the live Facundo catalog."""
+    """Build a JSF request from the live querydesk configuration."""
     with _JSF_STATE_LOCK:
         found_posts, max_num_pages = _JSF_QUERY_STATE.get(category_id, (0, 0))
+        request_state = dict(_JSF_REQUEST_STATE.get(category_id, {}))
 
     payload = _ORIGINAL_JSF_PAYLOAD(category_id, 1)
     values = dict(payload)
+    query = request_state.get("query")
+    settings = request_state.get("settings")
+
+    if isinstance(query, dict):
+        post_type = query.get("post_type")
+        if isinstance(post_type, list) and post_type:
+            values["defaults[post_type][]"] = str(post_type[0])
+        orderby = query.get("orderby")
+        if isinstance(orderby, dict):
+            menu_order = orderby.get("menu_order")
+            if menu_order:
+                values["defaults[orderby][menu_order]"] = str(menu_order)
+        for key, value in (
+            ("posts_per_page", query.get("posts_per_page")),
+            ("no_results_text", query.get("no_results_text")),
+            ("disable_query_merge", query.get("disable_query_merge")),
+            ("is_archive_main_query", query.get("is_archive_main_query")),
+            ("post_status", query.get("post_status")),
+        ):
+            if value is not None:
+                if isinstance(value, bool):
+                    values[f"defaults[{key}]"] = str(value).lower()
+                else:
+                    values[f"defaults[{key}]"] = str(value)
+
+    if isinstance(settings, dict):
+        filtered_post_id = settings.get("filtered_post_id")
+        element_id = settings.get("element_id")
+        archive_query = settings.get("is_archive_main_query")
+        signature = settings.get("jsf_signature")
+        if filtered_post_id is not None:
+            values["query[_tax_query_product_cat]"] = str(filtered_post_id)
+            values["settings[filtered_post_id]"] = str(filtered_post_id)
+        if element_id:
+            values["settings[element_id]"] = str(element_id)
+        if archive_query is not None:
+            values["settings[is_archive_main_query]"] = str(archive_query).lower()
+        if signature:
+            values["settings[jsf_signature]"] = str(signature)
+
     values["defaults[paged]"] = "1"
     values["props[page]"] = "1"
     if found_posts > 0:
@@ -99,17 +192,13 @@ def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[s
     for key, value in payload:
         ordered.append((key, values.get(key, value)))
         seen.add(key)
-    for key in ("props[found_posts]", "props[max_num_pages]"):
+    for key in (
+        "props[found_posts]",
+        "props[max_num_pages]",
+    ):
         if key in values and key not in seen and values[key] != "0":
             ordered.insert(len(ordered) - 2, (key, values[key]))
     return ordered
-
-
-def _remember_jsf_metadata(category_id: int, found_posts: int, max_num_pages: int) -> None:
-    if found_posts <= 0 and max_num_pages <= 0:
-        return
-    with _JSF_STATE_LOCK:
-        _JSF_QUERY_STATE[category_id] = (found_posts, max_num_pages)
 
 
 def _retry_jsf_page(
@@ -179,6 +268,7 @@ def _jsf_category_pages_with_probe(
     category_html: str = "",
 ) -> list[str]:
     """Walk all visible JSF pages, then probe beyond the visible range."""
+    _remember_jsf_settings(category_id, category_html)
     found_posts, declared_max, first_html = self._fetch_jsf_page(
         category_url,
         category_id,

@@ -5,9 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 from .category_scraper import CategoryScraper
+from .resilient_category_scraper import ResilientCategoryScraper
 
 _PATCHED = False
 _ORIGINAL_GET_CATEGORY_PAGES = CategoryScraper.get_category_pages
+_ORIGINAL_RESILIENT_GET_CATEGORY_PAGES = ResilientCategoryScraper.get_category_pages
 
 
 def _cached_category_html(scraper: CategoryScraper, category_url: str) -> str:
@@ -104,12 +106,28 @@ def _get_category_pages_with_recovery(
     return _recover_missing_pages(self, category_url, expected_count, list(pages))
 
 
+def _get_resilient_category_pages_with_recovery(
+    self: ResilientCategoryScraper,
+    category_url: str,
+    expected_count: int = 0,
+) -> list[str]:
+    pages = _ORIGINAL_RESILIENT_GET_CATEGORY_PAGES(
+        self,
+        category_url,
+        expected_count=expected_count,
+    )
+    return _recover_missing_pages(self, category_url, expected_count, list(pages))
+
+
 def activate() -> None:
     """Install page recovery once without changing card extraction."""
     global _PATCHED
     if _PATCHED:
         return
     CategoryScraper.get_category_pages = _get_category_pages_with_recovery
+    ResilientCategoryScraper.get_category_pages = (
+        _get_resilient_category_pages_with_recovery
+    )
     _PATCHED = True
 
 

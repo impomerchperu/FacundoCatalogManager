@@ -86,9 +86,9 @@ def test_category_scraper_uses_found_posts_when_max_num_pages_missing():
     )
     responses = {
         category_url: '<body class="tax-product_cat term-127"></body>',
-        "ajax:1": '{"found_posts":51,"rendered_content":"<div>page1</div>"}',
-        "ajax:2": '{"found_posts":51,"rendered_content":"<div>page2</div>"}',
-        "ajax:3": '{"found_posts":51,"rendered_content":"<div>page3</div>"}',
+        "ajax:1": '{"found_posts":51,"rendered_content":"<div><a href=\\"https://stock.importacionesfacundo.com/producto/fb-001/\\">FB-001</a></div>"}',
+        "ajax:2": '{"found_posts":51,"rendered_content":"<div><a href=\\"https://stock.importacionesfacundo.com/producto/fb-026/\\">FB-026</a></div>"}',
+        "ajax:3": '{"found_posts":51,"rendered_content":"<div><a href=\\"https://stock.importacionesfacundo.com/producto/fb-051/\\">FB-051</a></div>"}',
         "ajax:4": "",
     }
     browser = FakeBrowser(responses)
@@ -140,19 +140,19 @@ def test_category_scraper_uses_expected_count_to_cover_all_pages():
         category_url: '<body class="tax-product_cat term-127"></body>',
         "ajax:1": (
             '{"found_posts":25,"max_num_pages":1,'
-            '"rendered_content":"<div>page1</div>"}'
+            '"rendered_content":"<div><a href=\\"https://stock.importacionesfacundo.com/producto/fb-001/\\">FB-001</a></div>"}'
         ),
         "ajax:2": (
             '{"found_posts":25,"max_num_pages":1,'
-            '"rendered_content":"<div>page2</div>"}'
+            '"rendered_content":"<div><a href=\\"https://stock.importacionesfacundo.com/producto/fb-026/\\">FB-026</a></div>"}'
         ),
         "ajax:3": (
             '{"found_posts":25,"max_num_pages":1,'
-            '"rendered_content":"<div>page3</div>"}'
+            '"rendered_content":"<div><a href=\\"https://stock.importacionesfacundo.com/producto/fb-051/\\">FB-051</a></div>"}'
         ),
         "ajax:4": (
             '{"found_posts":25,"max_num_pages":1,'
-            '"rendered_content":"<div>page4</div>"}'
+            '"rendered_content":"<div><a href=\\"https://stock.importacionesfacundo.com/producto/fb-076/\\">FB-076</a></div>"}'
         ),
         "ajax:5": "",
     }

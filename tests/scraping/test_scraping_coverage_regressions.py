@@ -83,7 +83,9 @@ def test_facundo_get_category_pages_does_not_replace_jsf_with_public_fallback():
     scraper._fetch_jsf_page = fetch
 
     def unexpected_public_fallback(*_args, **_kwargs):
-        raise AssertionError("La paginación pública no debe ser la ruta primaria de Facundo")
+        raise AssertionError(
+            "La paginación pública no debe ser la ruta primaria de Facundo"
+        )
 
     scraper._fallback_category_pages = unexpected_public_fallback
 
@@ -111,6 +113,71 @@ def test_facundo_jsf_pagination_payload_preserves_browser_query_state():
     assert values["props[found_posts]"] == "50"
     assert values["props[max_num_pages]"] == "2"
     assert values["paged"] == "2"
+
+
+def test_facundo_jsf_payload_uses_live_querydesk_signature_and_defaults():
+    category_id = 52
+    category_html = '''
+    <script>
+    var JetSmartFilterSettings = {
+      "queries": {
+        "bricks-query-loop": {
+          "querydesk": {
+            "post_type": ["product"],
+            "orderby": {"menu_order": "ASC"},
+            "posts_per_page": 25,
+            "no_results_text": "No existen productos",
+            "disable_query_merge": true,
+            "is_archive_main_query": true,
+            "post_status": "publish",
+            "paged": 1
+          }
+        }
+      },
+      "settings": {
+        "bricks-query-loop": {
+          "querydesk": {
+            "filtered_post_id": 52,
+            "element_id": "95dc8a",
+            "is_archive_main_query": true,
+            "jsf_signature": "e38d7940b2a58c75f7d5757e293f7dd0"
+          }
+        }
+      },
+      "props": {
+        "bricks-query-loop": {
+          "querydesk": {
+            "found_posts": 82,
+            "max_num_pages": 4,
+            "page": 1
+          }
+        }
+      }
+    };
+    </script>
+    '''
+
+    category_pagination_patch._remember_jsf_settings(
+        category_id,
+        category_html,
+    )
+
+    payload = category_pagination_patch._browser_compatible_jsf_payload(
+        category_id,
+        2,
+    )
+    values = dict(payload)
+
+    assert values["query[_tax_query_product_cat]"] == "52"
+    assert values["settings[element_id]"] == "95dc8a"
+    assert values["settings[jsf_signature]"] == "e38d7940b2a58c75f7d5757e293f7dd0"
+    assert values["defaults[posts_per_page]"] == "25"
+    assert values["defaults[post_status]"] == "publish"
+    assert values["defaults[disable_query_merge]"] == "true"
+    assert values["defaults[is_archive_main_query]"] == "true"
+    assert values["paged"] == "2"
+    assert values["props[found_posts]"] == "82"
+    assert values["props[max_num_pages]"] == "4"
 
 
 def test_facundo_jsf_pagination_does_not_treat_max_num_pages_as_hard_ceiling():

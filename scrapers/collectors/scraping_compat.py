@@ -1,5 +1,7 @@
 """Runtime compatibility fixes for the Facundo catalog scraper."""
 
+from bs4 import BeautifulSoup
+
 from scrapers.extractors.product_extractor import ProductExtractor
 
 from .category_scraper import CategoryScraper
@@ -15,9 +17,17 @@ def _normalize_code_candidate(cls, text: str) -> str:
     return candidate.upper()
 
 
+def _parse_with_lxml(self: CategoryScraper, html: str):
+    """Parse Facundo HTML with lxml so malformed markup preserves product cards."""
+    if self.parser and hasattr(self.parser, "parse"):
+        return self.parser.parse(html)
+    return BeautifulSoup(html, "lxml")
+
+
 def activate() -> None:
     """Install compatibility fixes without replacing category pagination."""
     ProductExtractor._normalize_code_candidate = classmethod(_normalize_code_candidate)
+    CategoryScraper._parse = _parse_with_lxml
 
 
 activate()

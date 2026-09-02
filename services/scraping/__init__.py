@@ -1,4 +1,4 @@
-from . import category_coverage_patch as _category_coverage_patch
+from . import category_coverage_patch as _category_coverage_patch  # noqa: F401
 from .catalog_sync_service import CatalogSyncService
 from .category_pagination_service import CategoryPaginationService
 from .category_product_scraping_service import (

@@ -9,10 +9,12 @@ from .category_scraper import CategoryScraper
 
 _PATCHED = False
 _ORIGINAL_GET_CATEGORY_PAGES = CategoryScraper.get_category_pages
+_ORIGINAL_FETCH_JSF_PAGE = CategoryScraper._fetch_jsf_page
 _PRODUCT_URL_PATTERN = re.compile(
     r'href=["\']([^"\']*/producto/[^"\'#?]+/?)[^"\']*["\']',
     re.IGNORECASE,
 )
+JSF_PAGE_RETRIES = 3
 
 
 def pages_required(expected_count: int, products_per_page: int = 25) -> int:
@@ -59,6 +61,32 @@ def _facundo_direct_pages(
             product_urls.update(_direct_product_urls(html, page_url))
 
     return pages, len(product_urls)
+
+
+def _retry_jsf_page(
+    self: CategoryScraper,
+    category_url: str,
+    category_id: int,
+    page: int,
+):
+    """Retry transient empty/failed JSF pages before pagination gives up."""
+    last_error: Exception | None = None
+    for _ in range(JSF_PAGE_RETRIES):
+        try:
+            result = _ORIGINAL_FETCH_JSF_PAGE(
+                self,
+                category_url,
+                category_id,
+                page,
+            )
+        except (RuntimeError, TypeError, ValueError) as error:
+            last_error = error
+            continue
+        if result[2]:
+            return result
+    if last_error is not None:
+        raise last_error
+    return result
 
 
 def _facundo_jsf_pages(
@@ -126,10 +154,12 @@ def activate() -> None:
     global _PATCHED
     if not _PATCHED:
         CategoryScraper._original_get_category_pages = _ORIGINAL_GET_CATEGORY_PAGES
+        CategoryScraper._original_fetch_jsf_page = _ORIGINAL_FETCH_JSF_PAGE
+        CategoryScraper._fetch_jsf_page = _retry_jsf_page
         CategoryScraper.get_category_pages = _get_category_pages
         _PATCHED = True
 
 
 activate()
 
-__all__ = ["CategoryScraper", "activate", "pages_required"]
+__all__ = ["CategoryScraper", "JSF_PAGE_RETRIES", "activate", "pages_required"]

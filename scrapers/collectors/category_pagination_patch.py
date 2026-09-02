@@ -70,7 +70,23 @@ def _retry_jsf_page(
     page: int,
 ):
     """Retry transient empty/failed JSF pages before pagination gives up."""
+    with self._jsf_cache_lock:
+        cached_metadata = self._jsf_metadata_cache.get(category_url)
+
+    if cached_metadata is not None:
+        found_posts, declared_max_num_pages = cached_metadata
+        published_pages = self._required_page_count(found_posts)
+        last_expected_page = max(declared_max_num_pages, published_pages)
+        if last_expected_page > 0 and page > last_expected_page:
+            return _ORIGINAL_FETCH_JSF_PAGE(
+                self,
+                category_url,
+                category_id,
+                page,
+            )
+
     last_error: Exception | None = None
+    result = (0, 0, "")
     for _ in range(JSF_PAGE_RETRIES):
         try:
             result = _ORIGINAL_FETCH_JSF_PAGE(
@@ -162,4 +178,4 @@ def activate() -> None:
 
 activate()
 
-__all__ = ["CategoryScraper", "JSF_PAGE_RETRIES", "activate", "pages_required"]
+__all__ = ["JSF_PAGE_RETRIES", "CategoryScraper", "activate", "pages_required"]

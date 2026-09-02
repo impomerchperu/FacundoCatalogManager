@@ -137,4 +137,4 @@ def activate() -> None:
 
 activate()
 
-__all__ = ["ProductExtractor", "ProductCollectionScraper", "activate"]
+__all__ = ["ProductCollectionScraper", "ProductExtractor", "activate"]

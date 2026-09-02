@@ -70,7 +70,7 @@ def test_visible_jetsmartfilters_pagination_is_honored():
     assert calls == [1, 2, 3, 4, 5]
     assert result == [
         category_url,
-        f"{category_url}?product-page=2",
-        f"{category_url}?product-page=3",
-        f"{category_url}?product-page=4",
+        f"{category_url.rstrip('/')}?product-page=2",
+        f"{category_url.rstrip('/')}?product-page=3",
+        f"{category_url.rstrip('/')}?product-page=4",
     ]

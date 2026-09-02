@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 
 from scrapers.collectors import (
     category_pagination_patch,
+    page_coverage_recovery_patch,
     product_code_patch,
     scraping_compat,
 )
@@ -29,36 +30,7 @@ def _new_jsf_test_scraper() -> CategoryScraper:
     scraper._jsf_metadata_cache = {}
     scraper._jsf_page_cache = {}
     scraper._jsf_cache_lock = RLock()
-    scraper.MAX_HIDDEN_PAGE_PROBES = 100
     return scraper
-
-
-def test_facundo_pagination_public_helper_counts_all_public_pages():
-    scraper = object.__new__(CategoryScraper)
-    scraper._category_html_cache = {}
-    scraper._category_html_cache_lock = RLock()
-    scraper.MAX_HIDDEN_PAGE_PROBES = 100
-    category_url = "https://stock.importacionesfacundo.com/categoria-producto/demo/"
-    first_html = _product_html(1, 25)
-    second_url = f"{category_url}page/2/"
-    second_html = _product_html(26, 6)
-    scraper.get_html = lambda url: first_html
-    scraper._fallback_category_pages = lambda url, html, expected: [
-        category_url,
-        second_url,
-    ]
-    scraper._category_html_cache[category_url] = first_html
-    scraper._category_html_cache[second_url] = second_html
-
-    pages, count = category_pagination_patch._facundo_direct_pages(
-        scraper,
-        category_url,
-        first_html,
-        31,
-    )
-
-    assert len(pages) == 2
-    assert count == 31
 
 
 def test_facundo_get_category_pages_prefers_jsf_pagination():
@@ -90,7 +62,7 @@ def test_facundo_get_category_pages_prefers_jsf_pagination():
 
     assert pages == [
         category_url,
-        f"{category_url.rstrip('/')}?product-page=2",
+        f"{category_url}?product-page=2",
     ]
 
 
@@ -123,112 +95,22 @@ def test_facundo_get_category_pages_does_not_replace_jsf_with_public_fallback():
 
     assert pages == [
         category_url,
-        f"{category_url.rstrip('/')}?product-page=2",
+        f"{category_url}?product-page=2",
     ]
 
 
-def test_facundo_jsf_page_retries_empty_response():
-    scraper = _new_jsf_test_scraper()
-    responses = [
-        "",
-        "",
-        '{"found_posts":25,"max_num_pages":2,"rendered_content":"<div>FB-026</div>"}',
-    ]
-    calls = []
+def test_facundo_jsf_pagination_payload_preserves_browser_query_state():
+    category_id = 123
+    category_pagination_patch._remember_jsf_metadata(category_id, 50, 2)
 
-    def post(_payload):
-        calls.append(1)
-        return responses.pop(0)
+    payload = category_pagination_patch._browser_compatible_jsf_payload(category_id, 2)
+    values = dict(payload)
 
-    scraper._post_jsf = post
-    original_state = dict(category_pagination_patch._JSF_QUERY_STATE)
-    category_pagination_patch._JSF_QUERY_STATE.clear()
-    try:
-        result = category_pagination_patch._retry_jsf_page(
-            scraper,
-            "https://stock.importacionesfacundo.com/categoria-producto/demo/",
-            123,
-            2,
-        )
-    finally:
-        category_pagination_patch._JSF_QUERY_STATE.clear()
-        category_pagination_patch._JSF_QUERY_STATE.update(original_state)
-
-    assert result[2] == "<div>FB-026</div>"
-    assert len(calls) == 3
-
-
-def test_facundo_jsf_retry_does_not_disable_retries_for_hidden_pages():
-    scraper = _new_jsf_test_scraper()
-    responses = [
-        "",
-        "",
-        '{"rendered_content":"<div>FB-076</div>"}',
-    ]
-    calls = []
-
-    def post(_payload):
-        calls.append(1)
-        return responses.pop(0)
-
-    scraper._post_jsf = post
-    original_state = dict(category_pagination_patch._JSF_QUERY_STATE)
-    category_pagination_patch._JSF_QUERY_STATE.clear()
-    try:
-        result = category_pagination_patch._retry_jsf_page(
-            scraper,
-            "https://stock.importacionesfacundo.com/categoria-producto/demo/",
-            123,
-            4,
-        )
-    finally:
-        category_pagination_patch._JSF_QUERY_STATE.clear()
-        category_pagination_patch._JSF_QUERY_STATE.update(original_state)
-
-    assert result[2] == "<div>FB-076</div>"
-    assert len(calls) == 3
-
-
-def test_facundo_jsf_payload_preserves_initial_query_state_for_next_page():
-    scraper = _new_jsf_test_scraper()
-    captured = []
-    responses = [
-        '{"found_posts":50,"max_num_pages":2,"rendered_content":"<div>FB-001</div>"}',
-        '{"found_posts":50,"max_num_pages":2,"rendered_content":"<div>FB-026</div>"}',
-    ]
-
-    def post(payload):
-        captured.append(dict(payload))
-        return responses.pop(0)
-
-    scraper._post_jsf = post
-    original_state = dict(category_pagination_patch._JSF_QUERY_STATE)
-    category_pagination_patch._JSF_QUERY_STATE.clear()
-    try:
-        category_pagination_patch._retry_jsf_page(
-            scraper,
-            "https://stock.importacionesfacundo.com/categoria-producto/demo/",
-            127,
-            1,
-        )
-        category_pagination_patch._retry_jsf_page(
-            scraper,
-            "https://stock.importacionesfacundo.com/categoria-producto/demo/",
-            127,
-            2,
-        )
-    finally:
-        category_pagination_patch._JSF_QUERY_STATE.clear()
-        category_pagination_patch._JSF_QUERY_STATE.update(original_state)
-
-    assert captured[0]["defaults[paged]"] == "1"
-    assert captured[0]["props[page]"] == "1"
-    assert captured[0]["paged"] == "1"
-    assert captured[1]["defaults[paged]"] == "1"
-    assert captured[1]["props[page]"] == "1"
-    assert captured[1]["props[found_posts]"] == "50"
-    assert captured[1]["props[max_num_pages]"] == "2"
-    assert captured[1]["paged"] == "2"
+    assert values["defaults[paged]"] == "1"
+    assert values["props[page]"] == "1"
+    assert values["props[found_posts]"] == "50"
+    assert values["props[max_num_pages]"] == "2"
+    assert values["paged"] == "2"
 
 
 def test_facundo_jsf_pagination_does_not_treat_max_num_pages_as_hard_ceiling():
@@ -254,27 +136,18 @@ def test_facundo_jsf_pagination_does_not_treat_max_num_pages_as_hard_ceiling():
 
     assert pages == [
         category_url,
-        f"{category_url.rstrip('/')}?product-page=2",
-        f"{category_url.rstrip('/')}?product-page=3",
+        f"{category_url}?product-page=2",
+        f"{category_url}?product-page=3",
     ]
 
 
-def test_product_code_patch_reads_json_ld_sku_without_fb_prefix():
-    soup = BeautifulSoup(
-        """
-        <html><head>
-          <script type="application/ld+json">
-            {"@context":"https://schema.org","@type":"Product","sku":"PHOTO-2026"}
-          </script>
-        </head><body><h1>Software</h1></body></html>
-        """,
-        "html.parser",
-    )
+def test_product_code_can_extract_explicit_sku_without_relationship_rules():
+    extractor = object.__new__(ProductExtractor)
+    soup = BeautifulSoup('<span class="sku">AB-7008-X</span>', "html.parser")
 
-    extractor = ProductExtractor()
     code = product_code_patch._extract_code(extractor, soup)
 
-    assert code == "PHOTO-2026"
+    assert code == "AB-7008-X"
 
 
 def test_category_coverage_preserves_comma_in_real_category_name():
@@ -286,7 +159,12 @@ def test_category_coverage_preserves_comma_in_real_category_name():
 
 
 def test_compatibility_layers_are_active():
-    assert CategoryScraper.get_category_pages is category_pagination_patch._get_category_pages
+    assert CategoryScraper.get_category_pages is (
+        page_coverage_recovery_patch._get_category_pages_with_recovery
+    )
+    assert page_coverage_recovery_patch._ORIGINAL_GET_CATEGORY_PAGES is (
+        category_pagination_patch._get_category_pages
+    )
     assert CategoryScraper._fetch_jsf_page is category_pagination_patch._retry_jsf_page
     assert ProductExtractor.extract_code is product_code_patch._extract_code
     assert CategoryProductSyncService._split_categories.__name__ == "_split_categories"

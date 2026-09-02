@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from urllib.parse import urljoin
 
 from .category_scraper import CategoryScraper
 
@@ -28,11 +29,37 @@ def _safe_get_html(scraper: CategoryScraper, url: str) -> str:
         return ""
 
 
-def _product_keys(html: str) -> set[str]:
-    keys = CategoryScraper._product_keys(html)
-    if keys:
-        return keys
-    return set(_PRODUCT_URL_PATTERN.findall(html or ""))
+def _direct_product_urls(html: str, base_url: str) -> set[str]:
+    urls: set[str] = set()
+    for raw_url in _PRODUCT_URL_PATTERN.findall(html or ""):
+        absolute = urljoin(base_url.rstrip("/") + "/", raw_url)
+        normalized = absolute.rstrip("/")
+        if "/producto/" in normalized.casefold():
+            urls.add(normalized)
+    return urls
+
+
+def _facundo_direct_pages(
+    scraper: CategoryScraper,
+    category_url: str,
+    first_html: str,
+    expected_count: int,
+) -> tuple[list[str], int]:
+    """Use the public archive before falling back to the JSF provider."""
+    pages = scraper._fallback_category_pages(
+        category_url,
+        first_html,
+        expected_count,
+    )
+    product_urls: set[str] = set()
+    product_urls.update(_direct_product_urls(first_html, category_url))
+
+    for page_url in pages:
+        html = scraper._category_html_cache.get(page_url, "")
+        if html:
+            product_urls.update(_direct_product_urls(html, page_url))
+
+    return pages, len(product_urls)
 
 
 def _facundo_jsf_pages(
@@ -42,7 +69,7 @@ def _facundo_jsf_pages(
     first_html: str,
     expected_count: int,
 ) -> list[str]:
-    """Discover all JSF pages, expanding beyond incomplete metadata when needed."""
+    """Use JSF only as a recovery path when the public archive is insufficient."""
     pages = [category_url]
     scraper._cache_category_html(category_url, first_html)
 
@@ -60,18 +87,14 @@ def _facundo_jsf_pages(
         pages_required(expected_count), pages_required(found_posts), 1
     )
     metadata_pages = max(int(declared_pages or 0), expected_pages)
-    seen = _product_keys(rendered_first)
+    seen_urls = _direct_product_urls(rendered_first, category_url)
+    seen_keys = scraper._product_keys(rendered_first)
     previous_html = rendered_first
     page = 2
     hidden_probes = 0
 
     while True:
-        # First exhaust every page indicated by metadata or expected coverage.
-        within_known_range = page <= metadata_pages
-        # Then probe consecutive pages, but only while a new product-bearing page
-        # is actually returned. This handles underreported JSF metadata without
-        # making expected_count a hard ceiling.
-        if not within_known_range:
+        if page > metadata_pages:
             if hidden_probes >= scraper.MAX_HIDDEN_PAGE_PROBES:
                 break
             hidden_probes += 1
@@ -85,18 +108,20 @@ def _facundo_jsf_pages(
             break
 
         metadata_pages = max(metadata_pages, int(page_count or 0))
-        current = _product_keys(rendered_html)
-
         if not rendered_html or rendered_html == previous_html:
             break
-        # JSF can return a different wrapper around the same result set. Product
-        # identity, rather than raw HTML equality, is the terminal condition.
-        if current and not current - seen:
+
+        current_urls = _direct_product_urls(rendered_html, page_url)
+        current_keys = scraper._product_keys(rendered_html)
+        if current_urls and seen_urls and not current_urls - seen_urls:
             break
-        if not current:
+        if current_keys and seen_keys and not current_keys - seen_keys:
+            break
+        if not current_urls and not current_keys:
             break
 
-        seen.update(current)
+        seen_urls.update(current_urls)
+        seen_keys.update(current_keys)
         scraper._cache_category_html(page_url, rendered_html)
         pages.append(page_url)
         previous_html = rendered_html
@@ -106,26 +131,44 @@ def _facundo_jsf_pages(
 
 
 def _get_category_pages(
-    self: CategoryScraper, category_url: str, expected_count: int = 0
+    self: CategoryScraper,
+    category_url: str,
+    expected_count: int = 0,
 ) -> list[str]:
-    """Discover every Facundo archive page before product extraction begins."""
+    """Discover public archive pages first; use JSF only as recovery."""
     first_html = _safe_get_html(self, category_url)
     if not first_html:
         return []
 
-    category_id = self._category_id(first_html)
-    if category_id is not None and self._is_facundo_url(category_url):
-        return _facundo_jsf_pages(
+    if self._is_facundo_url(category_url):
+        direct_pages, direct_count = _facundo_direct_pages(
             self,
             category_url,
-            category_id,
             first_html,
             expected_count,
         )
+        expected = max(int(expected_count or 0), 0)
+        direct_complete = expected == 0 or direct_count >= expected
+        if len(direct_pages) > 1 or direct_complete:
+            self._cache_category_html(category_url, first_html)
+            return direct_pages
+
+        category_id = self._category_id(first_html)
+        if category_id is not None:
+            return _facundo_jsf_pages(
+                self,
+                category_url,
+                category_id,
+                first_html,
+                expected_count,
+            )
+        return direct_pages
 
     self._cache_category_html(category_url, first_html)
     return _ORIGINAL_GET_CATEGORY_PAGES(
-        self, category_url, expected_count=expected_count
+        self,
+        category_url,
+        expected_count=expected_count,
     )
 
 

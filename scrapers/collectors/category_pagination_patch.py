@@ -293,7 +293,7 @@ def _probe_boundary_page(
     return True, new_product_keys
 
 
-def _jsf_category_pages_with_probe(  # noqa: PLR0912
+def _jsf_category_pages_with_probe(
     self: CategoryScraper,
     category_url: str,
     category_id: int,

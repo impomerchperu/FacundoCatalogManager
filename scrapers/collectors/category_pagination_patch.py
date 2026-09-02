@@ -63,6 +63,35 @@ def _facundo_direct_pages(
     return pages, len(product_urls)
 
 
+def _remember_jsf_page_limit(
+    self: CategoryScraper,
+    category_url: str,
+    first_html: str,
+    expected_count: int,
+) -> None:
+    """Remember pages required by coverage before trusting JSF metadata."""
+    expected_pages = self._required_page_count(max(int(expected_count or 0), 0))
+    declared_total_pages = self._declared_total_pages(first_html)
+    declared_pagination_max_page = self._pagination_max_page(first_html)
+    configured_limit = max(
+        expected_pages,
+        declared_total_pages,
+        declared_pagination_max_page,
+    )
+
+    cache_lock = getattr(self, "_jsf_cache_lock", None)
+    page_limits = getattr(self, "_jsf_page_limits", None)
+    if page_limits is None:
+        page_limits = {}
+        self._jsf_page_limits = page_limits
+
+    if cache_lock is not None:
+        with cache_lock:
+            page_limits[category_url] = configured_limit
+    else:
+        page_limits[category_url] = configured_limit
+
+
 def _retry_jsf_page(
     self: CategoryScraper,
     category_url: str,
@@ -72,21 +101,32 @@ def _retry_jsf_page(
     """Retry transient empty/failed JSF pages before pagination gives up."""
     cache_lock = getattr(self, "_jsf_cache_lock", None)
     metadata_cache = getattr(self, "_jsf_metadata_cache", None)
+    page_limits = getattr(self, "_jsf_page_limits", {})
+
     if cache_lock is not None and metadata_cache is not None:
         with cache_lock:
             cached_metadata = metadata_cache.get(category_url)
+    elif metadata_cache is not None:
+        cached_metadata = metadata_cache.get(category_url)
+    else:
+        cached_metadata = None
 
-        if cached_metadata is not None:
-            found_posts, declared_max_num_pages = cached_metadata
-            published_pages = self._required_page_count(found_posts)
-            last_expected_page = max(declared_max_num_pages, published_pages)
-            if last_expected_page > 0 and page > last_expected_page:
-                return _ORIGINAL_FETCH_JSF_PAGE(
-                    self,
-                    category_url,
-                    category_id,
-                    page,
-                )
+    configured_limit = page_limits.get(category_url, 0)
+    if cached_metadata is not None:
+        found_posts, declared_max_num_pages = cached_metadata
+        published_pages = self._required_page_count(found_posts)
+        last_expected_page = max(
+            declared_max_num_pages,
+            published_pages,
+            configured_limit,
+        )
+        if last_expected_page > 0 and page > last_expected_page:
+            return _ORIGINAL_FETCH_JSF_PAGE(
+                self,
+                category_url,
+                category_id,
+                page,
+            )
 
     last_error: Exception | None = None
     result = (0, 0, "")
@@ -140,6 +180,12 @@ def _get_category_pages(
 
     category_id = self._category_id(first_html)
     if category_id is not None:
+        _remember_jsf_page_limit(
+            self,
+            category_url,
+            first_html,
+            expected_count,
+        )
         self._cache_category_html(category_url, first_html)
         return _facundo_jsf_pages(
             self,

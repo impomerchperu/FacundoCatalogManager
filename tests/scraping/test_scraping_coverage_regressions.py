@@ -81,23 +81,22 @@ def test_facundo_get_category_pages_prefers_jsf_pagination():
     ]
 
 
-def test_facundo_get_category_pages_uses_public_fallback_when_jsf_is_incomplete():
+def test_facundo_get_category_pages_does_not_replace_jsf_with_public_fallback():
     scraper = object.__new__(CategoryScraper)
     scraper._category_html_cache = {}
     scraper._category_html_cache_lock = RLock()
     category_url = "https://stock.importacionesfacundo.com/categoria-producto/demo/"
     first_html = _product_html(1, 25)
-    second_url = f"{category_url}page/2/"
-    second_html = _product_html(26, 25)
     scraper.get_html = lambda url: first_html
     scraper._is_facundo_url = lambda url: True
     scraper._category_id = lambda html: 123
-    scraper._original_get_category_pages = lambda url, expected_count=0: [category_url]
-    scraper._fallback_category_pages = lambda url, html, expected: [
+    scraper._original_get_category_pages = lambda url, expected_count=0: [
         category_url,
-        second_url,
     ]
-    scraper._category_html_cache[second_url] = second_html
+    scraper._fallback_category_pages = lambda *_args, **_kwargs: [
+        category_url,
+        f"{category_url}page/2/",
+    ]
 
     pages = category_pagination_patch._get_category_pages(
         scraper,
@@ -105,7 +104,34 @@ def test_facundo_get_category_pages_uses_public_fallback_when_jsf_is_incomplete(
         expected_count=50,
     )
 
-    assert pages == [category_url, second_url]
+    assert pages == [category_url]
+
+
+def test_facundo_jsf_page_retries_empty_response():
+    scraper = object.__new__(CategoryScraper)
+    calls = []
+    successful_html = _product_html(26, 25)
+
+    def fetch(_self, category_url, category_id, page):
+        calls.append(page)
+        if len(calls) < 3:
+            return 25, 2, ""
+        return 25, 2, successful_html
+
+    original = category_pagination_patch._ORIGINAL_FETCH_JSF_PAGE
+    try:
+        category_pagination_patch._ORIGINAL_FETCH_JSF_PAGE = fetch
+        result = category_pagination_patch._retry_jsf_page(
+            scraper,
+            "https://stock.importacionesfacundo.com/categoria-producto/demo/",
+            123,
+            2,
+        )
+    finally:
+        category_pagination_patch._ORIGINAL_FETCH_JSF_PAGE = original
+
+    assert result[2] == successful_html
+    assert calls == [2, 2, 2]
 
 
 def test_product_code_patch_reads_json_ld_sku_without_fb_prefix():
@@ -136,6 +162,7 @@ def test_category_coverage_preserves_comma_in_real_category_name():
 
 def test_compatibility_layers_are_active():
     assert CategoryScraper.get_category_pages is category_pagination_patch._get_category_pages
+    assert CategoryScraper._fetch_jsf_page is category_pagination_patch._retry_jsf_page
     assert ProductExtractor.extract_code is product_code_patch._extract_code
     assert CategoryProductSyncService._split_categories.__name__ == "_split_categories"
     assert hasattr(scraping_compat, "activate")

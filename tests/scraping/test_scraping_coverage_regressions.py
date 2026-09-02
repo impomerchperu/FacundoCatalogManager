@@ -79,7 +79,11 @@ def test_facundo_get_category_pages_does_not_fallback_to_jsf_after_public_pages(
     scraper._fetch_jsf_page = unexpected_jsf
     scraper._category_id = lambda html: 123
 
-    pages = scraper.get_category_pages(category_url, expected_count=31)
+    pages = category_pagination_patch._get_category_pages(
+        scraper,
+        category_url,
+        expected_count=31,
+    )
 
     assert pages == [category_url, second_url]
 
@@ -111,8 +115,7 @@ def test_category_coverage_preserves_comma_in_real_category_name():
 
 
 def test_compatibility_layers_are_active():
-    assert CategoryScraper.get_category_pages is scraping_compat._get_category_pages
+    assert CategoryScraper.get_category_pages is category_pagination_patch._get_category_pages
     assert ProductExtractor.extract_code is product_code_patch._extract_code
-    assert (
-        CategoryProductSyncService._split_categories.__name__ == "_split_categories"
-    )
+    assert CategoryProductSyncService._split_categories.__name__ == "_split_categories"
+    assert hasattr(scraping_compat, "activate")

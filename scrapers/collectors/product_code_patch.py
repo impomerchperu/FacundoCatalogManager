@@ -6,10 +6,12 @@ import json
 import re
 
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
+from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
 
 _PATCHED = False
 _CODE_PATTERN = re.compile(r"^[A-Z0-9]{1,32}(?:[-_./][A-Z0-9]+)*$", re.IGNORECASE)
+_CODE_SEPARATORS = frozenset("-_./")
 _ORIGINAL_ENRICH_FROM_DETAIL_PAGE = ProductCollectionScraper._enrich_from_detail_page
 
 
@@ -25,9 +27,22 @@ def _normalize(value: object) -> str:
         return ""
     if not any(char.isalpha() for char in candidate):
         return ""
-    if not any(char.isdigit() for char in candidate):
+    if not any(char.isdigit() or char in _CODE_SEPARATORS for char in candidate):
         return ""
     return candidate.upper()
+
+
+def _normalize_category_code(cls, text: str) -> str:
+    for token in re.split(r"\s+", str(text).strip()):
+        candidate = token.strip(".,:;()[]{}")
+        if not _CODE_PATTERN.fullmatch(candidate):
+            continue
+        if not any(char.isalpha() for char in candidate):
+            continue
+        if not any(char.isdigit() or char in _CODE_SEPARATORS for char in candidate):
+            continue
+        return candidate.upper()
+    return ""
 
 
 def _from_json(value: object) -> str:
@@ -124,17 +139,19 @@ def _enrich_with_authoritative_code(
 
 
 def activate() -> None:
-    """Patch ProductExtractor and authoritative detail-page code extraction once."""
+    """Patch SKU extraction and authoritative detail-page code handling once."""
     global _PATCHED
     if _PATCHED:
         return
+
     legacy = ProductExtractor.extract_code
     ProductExtractor._legacy_extract_code = legacy
     ProductExtractor.extract_code = _extract_code
     ProductCollectionScraper._enrich_from_detail_page = _enrich_with_authoritative_code
+    CategoryProductExtractor._normalize_code = classmethod(_normalize_category_code)
     _PATCHED = True
 
 
 activate()
 
-__all__ = ["ProductCollectionScraper", "ProductExtractor", "activate"]
+__all__ = ["CategoryProductExtractor", "ProductCollectionScraper", "ProductExtractor", "activate"]

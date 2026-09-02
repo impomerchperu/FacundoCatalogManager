@@ -1,6 +1,9 @@
+from threading import RLock
+
 from bs4 import BeautifulSoup
 
 from scrapers.collectors import category_pagination_patch, product_code_patch
+from scrapers.collectors import scraping_compat
 from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_product_sync_service import (
@@ -19,6 +22,7 @@ def _product_html(start: int, count: int) -> str:
 def test_facundo_pagination_prefers_public_archive_when_it_has_multiple_pages():
     scraper = object.__new__(CategoryScraper)
     scraper._category_html_cache = {}
+    scraper._category_html_cache_lock = RLock()
     scraper.MAX_HIDDEN_PAGE_PROBES = 100
     category_url = "https://stock.importacionesfacundo.com/categoria-producto/demo/"
     first_html = _product_html(1, 25)
@@ -51,6 +55,7 @@ def test_facundo_pagination_prefers_public_archive_when_it_has_multiple_pages():
 def test_facundo_get_category_pages_does_not_fallback_to_jsf_after_public_pages():
     scraper = object.__new__(CategoryScraper)
     scraper._category_html_cache = {}
+    scraper._category_html_cache_lock = RLock()
     scraper.MAX_HIDDEN_PAGE_PROBES = 100
     category_url = "https://stock.importacionesfacundo.com/categoria-producto/demo/"
     first_html = _product_html(1, 25)
@@ -103,10 +108,7 @@ def test_category_coverage_preserves_comma_in_real_category_name():
 
 
 def test_compatibility_layers_are_active():
-    assert (
-        CategoryScraper.get_category_pages
-        is category_pagination_patch._get_category_pages
-    )
+    assert CategoryScraper.get_category_pages is scraping_compat._get_category_pages
     assert ProductExtractor.extract_code is product_code_patch._extract_code
     assert (
         CategoryProductSyncService._split_categories.__name__ == "_split_categories"

@@ -45,7 +45,7 @@ def _facundo_direct_pages(
     first_html: str,
     expected_count: int,
 ) -> tuple[list[str], int]:
-    """Use the public archive only when it already exposes product links."""
+    """Use the public archive only when product links cover the expected count."""
     pages = scraper._fallback_category_pages(
         category_url,
         first_html,
@@ -80,7 +80,7 @@ def _get_category_pages(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Use public archive pagination when product links are present; otherwise JSF."""
+    """Use public pagination only after it proves complete; otherwise use JSF."""
     first_html = _safe_get_html(self, category_url)
     if not first_html:
         return []
@@ -102,7 +102,8 @@ def _get_category_pages(
             expected_count,
         )
         expected = max(int(expected_count or 0), 0)
-        if len(direct_pages) > 1 or expected == 0 or direct_count >= expected:
+        direct_complete = expected == 0 or direct_count >= expected
+        if direct_complete:
             self._cache_category_html(category_url, first_html)
             return direct_pages
 

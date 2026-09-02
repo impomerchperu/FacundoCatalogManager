@@ -78,7 +78,7 @@ def _get_category_pages(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Prefer JSF pagination for Facundo and retain public pagination as fallback."""
+    """Use JSF as the authoritative Facundo pagination path."""
     first_html = _safe_get_html(self, category_url)
     if not first_html:
         return []
@@ -94,17 +94,11 @@ def _get_category_pages(
     category_id = self._category_id(first_html)
     if category_id is not None:
         self._cache_category_html(category_url, first_html)
-        try:
-            jsf_pages = _facundo_jsf_pages(
-                self,
-                category_url,
-                expected_count,
-            )
-            required_pages = pages_required(expected_count)
-            if required_pages == 0 or len(jsf_pages) >= required_pages:
-                return jsf_pages
-        except (RuntimeError, TypeError, ValueError):
-            pass
+        return _facundo_jsf_pages(
+            self,
+            category_url,
+            expected_count,
+        )
 
     direct_products = _direct_product_urls(first_html, category_url)
     if direct_products:
@@ -120,17 +114,10 @@ def _get_category_pages(
             return direct_pages
 
     self._cache_category_html(category_url, first_html)
-    if category_id is None:
-        return _ORIGINAL_GET_CATEGORY_PAGES(
-            self,
-            category_url,
-            expected_count=expected_count,
-        )
-
-    return _facundo_jsf_pages(
+    return _ORIGINAL_GET_CATEGORY_PAGES(
         self,
         category_url,
-        expected_count,
+        expected_count=expected_count,
     )
 
 

@@ -64,7 +64,6 @@ def _facundo_direct_pages(
 def _facundo_jsf_pages(
     scraper: CategoryScraper,
     category_url: str,
-    category_id: int,
     expected_count: int,
 ) -> list[str]:
     """Use CategoryScraper's JSF pagination semantics for Facundo archives."""
@@ -98,7 +97,6 @@ def _get_category_pages(
             jsf_pages = _facundo_jsf_pages(
                 self,
                 category_url,
-                category_id,
                 expected_count,
             )
             required_pages = pages_required(expected_count)
@@ -132,7 +130,6 @@ def _get_category_pages(
     return _facundo_jsf_pages(
         self,
         category_url,
-        category_id,
         expected_count,
     )
 

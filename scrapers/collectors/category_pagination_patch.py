@@ -266,7 +266,7 @@ def _jsf_category_pages_with_probe(
     expected_count: int,
     category_html: str = "",
 ) -> list[str]:
-    """Walk all visible JSF pages, then probe beyond the visible range."""
+    """Walk all known JSF pages and probe only when the known range is uncertain."""
     _remember_jsf_settings(category_id, category_html)
     found_posts, declared_max, first_html = self._fetch_jsf_page(
         category_url,
@@ -328,7 +328,13 @@ def _jsf_category_pages_with_probe(
         self._cache_category_html(page_url, rendered_html)
         pages.append(page_url)
 
-    for offset in range(self.MAX_HIDDEN_PAGE_PROBES):
+    # Only probe beyond the known range when pagination is effectively
+    # unknown/single-page. A trustworthy multi-page range is already fully
+    # traversed, and probing it would add unnecessary HTTP requests.
+    if known_pages > 1 or expected_pages > 1 or published_pages > 1:
+        return pages
+
+    for offset in range(min(self.MAX_HIDDEN_PAGE_PROBES, 5)):
         page_number = known_pages + offset + 1
         page_url = self._jsf_page_url(category_url, page_number)
         _, _, rendered_html = _probe_jsf_page(

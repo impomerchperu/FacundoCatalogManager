@@ -57,13 +57,15 @@ def test_category_sync_rewrites_result_artifact_with_final_coverage(
         Category("Categoria A", "https://example.com/a/", expected_count=1),
         Category("Categoria B", "https://example.com/b/", expected_count=1),
     ]
+    catalog_sync_service = CatalogSyncService(
+        SyncRepository(), ProductDiffService()
+    )
+    catalog_sync_service.result_writer = scraping_result_writer.ScrapingResultWriter()
     service = CategoryProductSyncService(
         SimpleNamespace(scraper=FakeScraper()),
         persistence_service=SimpleNamespace(),
         mapper=IdentityMapper(),
-        catalog_sync_service=CatalogSyncService(
-            SyncRepository(), ProductDiffService()
-        ),
+        catalog_sync_service=catalog_sync_service,
         category_workers=1,
     )
 

@@ -8,16 +8,16 @@ class SharedProductCategoryScraper:
     def __init__(self) -> None:
         self.detail_requests: list[str] = []
         self.html_override: str | None = None
+        self.detail_html_override: str | None = None
 
     def get_category_pages(self, url: str) -> list[str]:
         return [url]
 
     def get_html(self, url: str) -> str:
-        if self.html_override is not None:
-            return self.html_override
-
         if "/producto/" in url:
             self.detail_requests.append(url)
+            if self.detail_html_override is not None:
+                return self.detail_html_override
             return """
             <html>
                 <h1>Producto compartido</h1>
@@ -25,6 +25,9 @@ class SharedProductCategoryScraper:
                 <div>Colores: Rojo</div>
             </html>
             """
+
+        if self.html_override is not None:
+            return self.html_override
 
         return """
         <html>
@@ -313,3 +316,55 @@ def test_detail_reason_metrics_classify_missing_stock():
     assert metrics["detail_reason_counts"] == {
         "requested_missing_stock": 1,
     }
+
+
+def test_detail_enrichment_merges_missing_fields_and_prices():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+
+    category_scraper.html_override = """
+    <html>
+        <article>
+            <a href="/producto/producto-detalle/">
+                <h2 class="brxe-f31760">Producto detalle</h2>
+            </a>
+            <p class="brxe-a26f34">FB-1240</p>
+        </article>
+    </html>
+    """
+    category_scraper.detail_html_override = """
+    <html>
+        <h1>Producto detalle completo</h1>
+        <p class="brxe-heading">FB-1240</p>
+        <div class="product-description">Detalle completo del producto.</div>
+        <img class="woocommerce-product-gallery" src="producto-detalle.jpg">
+        <div class="content-precio">
+            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+        </div>
+        Stock Disponible 33
+    </html>
+    """
+
+    result = scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    assert len(result) == 1
+    assert result[0].code == "FB-1240"
+    assert result[0].description == "Detalle completo del producto."
+    assert result[0].price_sample == 8.0
+    assert result[0].price_hundred == 700.0
+    assert result[0].price_thousand == 6500.0
+    assert result[0].stock == 33
+    assert result[0].url == "https://example.com/producto/producto-detalle/"

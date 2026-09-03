@@ -41,14 +41,27 @@ class PriceExtractor:
             lambda tag: tag.name in ["h3", "h4"]
             and label_normalized in tag.get_text(" ", strip=True).casefold()
         )
-        if heading is None:
-            return 0.0
+        if heading is not None:
+            price = heading.find_next("h4")
+            if price is not None:
+                parsed = self._parse_price(price.get_text(" ", strip=True))
+                if parsed is not None:
+                    return parsed
 
-        price = heading.find_next("h4")
-        if price is None:
-            return 0.0
+        return self._extract_labeled_price_from_text(soup, label)
 
-        return self._parse_price(price.get_text(" ", strip=True)) or 0.0
+    def _extract_labeled_price_from_text(self, soup, label):
+        """Recupera el importe aunque la plantilla no conserve clases CSS."""
+        text = " ".join(soup.stripped_strings)
+        pattern = re.compile(
+            rf"{re.escape(label)}\s*[:\-]?\s*"
+            rf"(?:S/|US\$|USD|\$)?\s*([\d][\d,.]*)",
+            re.IGNORECASE,
+        )
+        match = pattern.search(text)
+        if match is None:
+            return 0.0
+        return self._parse_price(match.group(1)) or 0.0
 
     @staticmethod
     def _parse_price(text):

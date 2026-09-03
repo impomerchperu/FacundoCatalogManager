@@ -56,3 +56,26 @@ def test_price_extractor_keeps_legacy_heading_structure():
     soup = BeautifulSoup(html, "lxml")
 
     assert PriceExtractor().extract_sample(soup) == 6.5
+
+
+def test_price_extractor_recovers_prices_without_price_classes():
+    html = """
+    <article>
+        <h3>Precio Muestra</h3>
+        <div>S/ 8.00</div>
+        <span>Menos de 50 unidades</span>
+        <h3>Precio Ciento</h3>
+        <div>S/ 670.00</div>
+        <span>A partir de 50 unidades</span>
+        <h3>Precio Millar</h3>
+        <div>S/ 6500.00</div>
+        <span>A partir de 500 unidades</span>
+    </article>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    extractor = PriceExtractor()
+
+    assert extractor.extract_sample(soup) == 8.0
+    assert extractor.extract_hundred(soup) == 670.0
+    assert extractor.extract_thousand(soup) == 6500.0

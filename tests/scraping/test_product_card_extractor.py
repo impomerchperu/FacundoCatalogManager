@@ -3,7 +3,34 @@ from bs4 import BeautifulSoup
 from scrapers.extractors.product_card_extractor import ProductCardExtractor
 
 
-def test_prefers_product_table_rows_over_limited_visual_cards():
+def test_prefers_price_bearing_visual_cards_over_product_table():
+    html = """
+    <div class="jsfb-filterable">
+        <a href="/producto/jarro/"><h2>Jarro Mug</h2></a>
+        <div class="content-precio">
+            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Ciento</h3><h4>S/ 670.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+        </div>
+    </div>
+    <table><tbody>
+        <tr><td><a href="/producto/jarro/">Jarro Mug</a></td></tr>
+    </tbody></table>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    cards = ProductCardExtractor().extract(soup)
+
+    assert len(cards) == 1
+    assert cards[0].get("class") == ["jsfb-filterable"]
+    assert cards[0].select_one(".content-precio") is not None
+
+
+def test_prefers_product_table_when_visual_cards_have_no_labeled_prices():
     html = """
     <div class="jsfb-filterable">
         <h2>Producto visual limitado</h2>

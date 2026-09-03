@@ -1,6 +1,10 @@
 from typing import ClassVar
 
 from models.scraping.sync_result import SyncResult
+from services.scraping.category_name_normalizer import (
+    merge_category_names,
+    split_category_names,
+)
 
 
 class CatalogSyncService:
@@ -74,6 +78,9 @@ class CatalogSyncService:
             if not code:
                 continue
             product.code = code
+            product.category = self._merge_categories(
+                getattr(product, "category", "")
+            )
             prepared.append(product)
         consolidated = self.consolidate_products(prepared)
         result.products_expected = max(int(expected_products or 0), 0)
@@ -200,6 +207,9 @@ class CatalogSyncService:
             if not code:
                 continue
             product.code = code
+            product.category = cls._merge_categories(
+                getattr(product, "category", "")
+            )
             existing = consolidated.get(code.casefold())
             if existing is None:
                 consolidated[code.casefold()] = product
@@ -244,7 +254,7 @@ class CatalogSyncService:
             if not code:
                 continue
             categories = categories_by_code.setdefault(code.casefold(), set())
-            for category in str(getattr(product, "category", "") or "").split(","):
+            for category in split_category_names(getattr(product, "category", "")):
                 normalized = category.strip().casefold()
                 if normalized:
                     categories.add(normalized)
@@ -254,15 +264,7 @@ class CatalogSyncService:
 
     @staticmethod
     def _merge_categories(*categories) -> str:
-        merged, seen = [], set()
-        for value in categories:
-            for category in str(value or "").split(","):
-                normalized = category.strip()
-                key = normalized.casefold()
-                if normalized and key not in seen:
-                    seen.add(key)
-                    merged.append(normalized)
-        return ", ".join(merged)
+        return merge_category_names(*categories)
 
     @staticmethod
     def _value(obj, field):

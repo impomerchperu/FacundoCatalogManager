@@ -240,6 +240,9 @@ class ProductCollectionScraper:
             browser.enable_thread_sessions()
 
         results = list(products)
+        with self._detail_cache_lock:
+            preexisting_cache_keys = set(self._detail_cache)
+        counted_cache_hits: set[str] = set()
         futures: list[tuple[int, Future[Any]]] = []
         for index, (card, page_url, product) in enumerate(products):
             skip_reason = self._detail_skip_reason(card, product)
@@ -249,6 +252,16 @@ class ProductCollectionScraper:
                     self._detail_skipped += 1
                     self._record_detail_reason(f"skipped_{skip_reason}")
                 continue
+
+            detail_url = self._card_detail_url(card, page_url, product)
+            detail_key = self._detail_cache_key(card, product, detail_url)
+            if (
+                detail_key in preexisting_cache_keys
+                and detail_key not in counted_cache_hits
+            ):
+                counted_cache_hits.add(detail_key)
+                with self._detail_cache_lock:
+                    self._detail_cache_hits += 1
 
             request_reason = self._detail_request_reason(card, product)
             with self._detail_metrics_lock:
@@ -399,7 +412,7 @@ class ProductCollectionScraper:
             return self.product_extractor(card, url=url, category=category)
         return self.product_extractor.extract(card, url=url, category=category)
 
-    def _enrich_from_detail_page(
+    def _enrich_from_detail_page(  # noqa: PLR0912
         self,
         card: Any,
         page_url: str,
@@ -476,9 +489,7 @@ class ProductCollectionScraper:
     ) -> Any | None:
         with self._detail_cache_lock:
             future = self._detail_cache.get(cache_key)
-            if future is not None:
-                self._detail_cache_hits += 1
-            else:
+            if future is None:
                 self._detail_requests += 1
                 future = self._detail_fetch_executor.submit(
                     self._fetch_detail_product,

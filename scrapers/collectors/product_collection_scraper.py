@@ -421,6 +421,21 @@ class ProductCollectionScraper:
         )
         if detailed_product is None:
             return product
+
+        product.url = detail_url
+
+        for field in ("code", "name", "description", "image_url"):
+            current = str(getattr(product, field, "") or "").strip()
+            detail_value = getattr(detailed_product, field, "")
+            if not current and str(detail_value or "").strip():
+                setattr(product, field, detail_value)
+
+        for field in self._PRICE_FIELDS:
+            current = float(getattr(product, field, 0.0) or 0.0)
+            detail_value = float(getattr(detailed_product, field, 0.0) or 0.0)
+            if current <= 0 and detail_value > 0:
+                setattr(product, field, detail_value)
+
         detail_color_stock = dict(getattr(detailed_product, "color_stock", {}))
         card_stock_values = self._stock_values(card)
         if detail_color_stock:
@@ -433,10 +448,13 @@ class ProductCollectionScraper:
                 product.stock = sum(detail_color_stock.values())
             elif not card_stock_values:
                 product.color_stock = {}
-            product.url = detail_url
             return product
-        if product.color_stock:
-            product.url = detail_url
+
+        if not card_stock_values:
+            detail_stock = int(getattr(detailed_product, "stock", 0) or 0)
+            if getattr(product, "stock", 0) <= 0 and detail_stock > 0:
+                product.stock = detail_stock
+
         return product
 
     @staticmethod

@@ -54,7 +54,6 @@ def test_detail_reason_metrics_identify_parser_missed_sample_price():
 
 def test_missing_price_is_requested_even_without_price_label_on_card():
     metrics = _run_missing_price_case(
-        "<h3>Precio Ciento</h3><h4>S/ 700.00</h4>"
         "<h3>Precio Por Caja</h3><h4>S/ 650.00</h4>"
     )
 

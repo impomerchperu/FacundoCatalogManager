@@ -1,7 +1,6 @@
 from typing import ClassVar
 
 from models.scraping.sync_result import SyncResult
-from services.scraping.scraping_result_writer import ScrapingResultWriter
 
 
 class CatalogSyncService:
@@ -29,7 +28,6 @@ class CatalogSyncService:
         self.repository = repository
         self.diff_service = diff_service
         self.last_sync_result = SyncResult()
-        self.result_writer = ScrapingResultWriter()
 
     @staticmethod
     def _normalize_code(value) -> str:
@@ -150,9 +148,6 @@ class CatalogSyncService:
             self._remove_missing_products(scraped_codes, result)
         result.finish()
         self.last_sync_result = result
-
-        if result.products_expected > 0 or result.expected_category_occurrences > 0:
-            self.result_writer.write(result, scraped_codes)
         return result
 
     def sync_full_catalog(

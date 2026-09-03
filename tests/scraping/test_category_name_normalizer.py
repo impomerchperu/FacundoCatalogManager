@@ -1,6 +1,11 @@
 from types import SimpleNamespace
 
-from services.scraping.category_name_normalizer import normalize_category_name
+from services.scraping.category_name_normalizer import (
+    canonical_category_name,
+    merge_category_names,
+    normalize_category_name,
+    split_category_names,
+)
 from services.scraping.category_product_sync_service import CategoryProductSyncService
 
 
@@ -39,3 +44,28 @@ def test_category_coverage_uses_normalized_key_but_preserves_display_name():
             "unique_products": 1,
         }
     ]
+
+
+def test_canonical_category_name_merges_cocina_variants():
+    assert canonical_category_name("Cocina") == "Cocina, Mesa y Hogar"
+    assert canonical_category_name("Mesa") == "Cocina, Mesa y Hogar"
+    assert canonical_category_name("Hogar") == "Cocina, Mesa y Hogar"
+    assert (
+        canonical_category_name("Cocina, Mesa y Hogar")
+        == "Cocina, Mesa y Hogar"
+    )
+
+
+def test_split_category_names_does_not_split_canonical_cocina_category():
+    assert split_category_names("Cocina, Mesa y Hogar") == [
+        "Cocina, Mesa y Hogar"
+    ]
+
+
+def test_merge_category_names_deduplicates_and_preserves_multi_categories():
+    assert merge_category_names(
+        "Cocina",
+        "Cocina, Mesa y Hogar",
+        "Artículos de Escritorio",
+        "Articulos de Escritorio",
+    ) == "Cocina, Mesa y Hogar, Artículos de Escritorio"

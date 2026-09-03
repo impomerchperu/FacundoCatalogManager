@@ -97,7 +97,7 @@ def test_detail_cache_is_cleared_between_full_runs():
     assert metrics["detail_cache_size"] == 1
 
 
-def test_complete_card_color_stock_skips_detail_request():
+def test_complete_card_color_stock_requests_detail_when_prices_are_missing():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(
         category_scraper,
@@ -129,15 +129,22 @@ def test_complete_card_color_stock_skips_detail_request():
     )
 
     assert len(result) == 1
-    assert category_scraper.detail_requests == []
+    assert category_scraper.detail_requests == [
+        "https://example.com/producto/producto-con-colores/"
+    ]
     assert result[0].url == "https://example.com/producto/producto-con-colores/"
     assert result[0].color_stock == {"Rojo": 10, "Azul": 20}
     assert result[0].stock == 30
 
     metrics = scraper.get_detail_metrics()
-    assert metrics["detail_requests"] == 0
-    assert metrics["detail_skipped"] == 1
-    assert metrics["detail_reason_counts"] == {"skipped_complete_color_stock": 1}
+    assert metrics["detail_requests"] == 1
+    assert metrics["detail_skipped"] == 0
+    assert metrics["detail_reason_counts"] == {
+        "requested_missing_prices": 1,
+        "requested_missing_sample": 1,
+        "requested_missing_hundred": 1,
+        "requested_missing_thousand": 1,
+    }
 
 
 def test_complete_single_stock_card_skips_detail_when_all_fields_are_present():

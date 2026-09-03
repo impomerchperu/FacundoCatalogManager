@@ -50,6 +50,9 @@ from services.scraping.scraped_product_persistence_service import (
 from services.scraping.scraping_config import (
     ScrapingConfig,
 )
+from services.scraping.scraping_result_writer import (
+    ScrapingResultWriter,
+)
 from services.scraping.scraping_runner import (
     ScrapingRunner,
 )
@@ -103,6 +106,7 @@ class ScrapingFactory:
             product_repository,
             ProductDiffService(),
         )
+        catalog_sync_service.result_writer = ScrapingResultWriter()
         mapper = ScrapedProductMapper()
 
         history_repository = ScrapingHistoryRepository(db)

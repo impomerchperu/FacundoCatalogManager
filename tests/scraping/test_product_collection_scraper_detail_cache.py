@@ -140,10 +140,7 @@ def test_complete_card_color_stock_requests_detail_when_prices_are_missing():
     assert metrics["detail_requests"] == 1
     assert metrics["detail_skipped"] == 0
     assert metrics["detail_reason_counts"] == {
-        "requested_missing_prices": 1,
-        "requested_missing_sample": 1,
-        "requested_missing_hundred": 1,
-        "requested_missing_thousand": 1,
+        "requested_multiple_labeled_stock": 1,
     }
 
 

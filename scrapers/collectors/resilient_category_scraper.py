@@ -103,6 +103,8 @@ class ResilientCategoryScraper(CategoryScraper):
 
     def _refresh_category_html_for_fallback(self, category_url: str) -> str:
         """Actualiza el HTML por GET antes de abandonar la vía JSF."""
+        with self._category_html_cache_lock:
+            self._category_html_cache.pop(category_url, None)
         try:
             html = self.get_html(category_url)
         except requests.RequestException:

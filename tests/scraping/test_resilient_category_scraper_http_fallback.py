@@ -4,7 +4,6 @@ import requests
 
 from scrapers.collectors.resilient_category_scraper import ResilientCategoryScraper
 
-
 CATEGORY_URL = "https://stock.importacionesfacundo.com/categoria-producto/enmicadoras-laminadoras/"
 SHELL_HTML = """
 <html>

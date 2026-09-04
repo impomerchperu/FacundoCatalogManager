@@ -85,9 +85,31 @@ class ResilientCategoryScraper(CategoryScraper):
                 "JetSmartFilters no devolvió contenido para la categoría"
             )
 
+        fallback_html = self._refresh_category_html_for_fallback(category_url)
+        if fallback_html:
+            fallback_products = self._product_keys_without_taxonomy_markers(
+                fallback_html
+            )
+            if fallback_products:
+                return self._fallback_category_pages(
+                    category_url,
+                    fallback_html,
+                    expected_count,
+                )
+
         if last_error is not None:
             raise last_error
         raise RuntimeError("JetSmartFilters no devolvió contenido para la categoría")
+
+    def _refresh_category_html_for_fallback(self, category_url: str) -> str:
+        """Actualiza el HTML por GET antes de abandonar la vía JSF."""
+        try:
+            html = self.get_html(category_url)
+        except requests.RequestException:
+            return ""
+        if html:
+            self._cache_category_html(category_url, html)
+        return html
 
     def _is_empty_jsf_result(
         self,

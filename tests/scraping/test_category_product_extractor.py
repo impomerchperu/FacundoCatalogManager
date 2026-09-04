@@ -134,6 +134,7 @@ def test_category_product_extractor_prefers_real_title_over_package_label():
 
     assert product.code == "GP-2025"
     assert product.name == "Sobre Manila Pago 11 x 18 cm - 75 grs"
+    assert product.price == 8.0
     assert product.price_sample == 8.0
     assert product.price_hundred == 16.0
     assert product.price_thousand == 152.0

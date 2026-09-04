@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import requests
+
 from .category_scraper import CategoryScraper
 from .resilient_category_scraper import ResilientCategoryScraper
 
@@ -78,6 +80,9 @@ def _recover_missing_pages(
         for _ in range(2):
             try:
                 _, _, rendered_html = fetcher(category_url, category_id, page)
+            except requests.exceptions.HTTPError:
+                rendered_html = ""
+                break
             except (RuntimeError, TypeError, ValueError):
                 rendered_html = ""
             if rendered_html:

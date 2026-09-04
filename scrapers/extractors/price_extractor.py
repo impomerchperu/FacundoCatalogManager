@@ -48,7 +48,58 @@ class PriceExtractor:
                 if parsed is not None:
                     return parsed
 
+        table_price = self._extract_table_row_price(soup, label_normalized)
+        if table_price is not None:
+            return table_price
+
         return self._extract_labeled_price_from_text(soup, label)
+
+    def _extract_table_row_price(self, soup, label_normalized):
+        """Recupera precios de filas Bricks cuando no existen bloques etiquetados."""
+        if getattr(soup, "name", "") != "tr":
+            return None
+
+        cells = soup.find_all("td", recursive=False)
+        if len(cells) < 3:
+            return None
+
+        price_cells = []
+        for cell in cells:
+            heading = cell.find(["h3", "h4"])
+            if heading is None:
+                continue
+            value = self._parse_price(heading.get_text(" ", strip=True))
+            if value is None:
+                continue
+            text = " ".join(cell.stripped_strings).casefold()
+            price_cells.append((text, value))
+
+        if len(price_cells) < 3:
+            return None
+
+        sample_index = next(
+            (
+                index
+                for index, (text, _) in enumerate(price_cells)
+                if "menos de" in text
+            ),
+            None,
+        )
+        if sample_index is None:
+            return None
+
+        if label_normalized == "precio muestra":
+            return price_cells[sample_index][1]
+
+        remaining = price_cells[sample_index + 1 :]
+        if len(remaining) < 2:
+            return None
+
+        if label_normalized == "precio ciento":
+            return remaining[0][1]
+        if label_normalized == "precio millar":
+            return remaining[1][1]
+        return None
 
     def _extract_labeled_price_from_text(self, soup, label):
         """Recupera el importe aunque la plantilla no conserve clases CSS."""

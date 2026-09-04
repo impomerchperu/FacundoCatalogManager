@@ -113,7 +113,7 @@ def test_category_product_extractor_prefers_real_title_over_package_label():
     <article>
         <p class="brxe-a26f34">GP-2025</p>
         <h3 class="brxe-heading">(1000) Paq.</h3>
-        <h2 class="brxe-f31760">Sobre Manila Pago 11 x 18 cm – 75 grs</h2>
+        <h2 class="brxe-f31760">Sobre Manila Pago 11 x 18 cm - 75 grs</h2>
         <div class="content-precio">
             <h3>Precio Muestra</h3>
             <h4>S/ 8.00</h4>
@@ -133,7 +133,7 @@ def test_category_product_extractor_prefers_real_title_over_package_label():
     product = CategoryProductExtractor().extract(card)
 
     assert product.code == "GP-2025"
-    assert product.name == "Sobre Manila Pago 11 x 18 cm – 75 grs"
+    assert product.name == "Sobre Manila Pago 11 x 18 cm - 75 grs"
     assert product.price_sample == 8.0
     assert product.price_hundred == 16.0
     assert product.price_thousand == 152.0

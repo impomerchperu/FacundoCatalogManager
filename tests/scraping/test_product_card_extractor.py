@@ -73,7 +73,7 @@ def test_prefers_product_table_when_visual_cards_have_no_labeled_prices():
     )
 
 
-def test_prefers_product_table_when_visual_cards_are_mixed_with_missing_prices():
+def test_prefers_visual_cards_when_mixed_with_missing_prices():
     html = """
     <div class="jsfb-filterable">
         <a href="/producto/con-precio/"><h2>Producto con precio</h2></a>

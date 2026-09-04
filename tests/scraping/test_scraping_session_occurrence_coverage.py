@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
-from services.scraping.scraping_session import ScrapingSession
 from models.scraping.sync_result import SyncResult
+from services.scraping.scraping_session import ScrapingSession
 
 
 def test_session_keeps_category_occurrences_after_catalog_consolidation():

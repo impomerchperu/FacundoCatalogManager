@@ -35,6 +35,10 @@ def test_jetsmartfilters_uses_resolved_archive_category_id():
                 '{"pagination":{"found_posts":25,"max_num_pages":1},'
                 '"rendered_content":"<table><tbody><tr><td>FB-001</td></tr></tbody></table>"}'
             ),
+            "ajax:2": (
+                '{"pagination":{"found_posts":25,"max_num_pages":1},'
+                '"rendered_content":""}'
+            ),
         }
     )
     scraper = CategoryScraper(browser)

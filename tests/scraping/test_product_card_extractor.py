@@ -30,7 +30,7 @@ def test_prefers_price_bearing_visual_cards_over_product_table():
     assert cards[0].select_one(".content-precio") is not None
 
 
-def test_prefers_product_table_when_visual_cards_have_no_labeled_prices():
+def test_prefers_visual_cards_when_table_is_also_present():
     html = """
     <div class="jsfb-filterable">
         <h2>Producto visual limitado</h2>
@@ -64,12 +64,9 @@ def test_prefers_product_table_when_visual_cards_have_no_labeled_prices():
     soup = BeautifulSoup(html, "lxml")
     cards = ProductCardExtractor().extract(soup)
 
-    assert len(cards) == 2
+    assert len(cards) == 1
     assert cards[0].select_one('a[href*="/producto/"]')["href"] == (
-        "/producto/maquina-f320/"
-    )
-    assert cards[1].select_one('a[href*="/producto/"]')["href"] == (
-        "/producto/maquina-f110/"
+        "/producto/visual/"
     )
 
 

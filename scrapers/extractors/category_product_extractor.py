@@ -23,6 +23,7 @@ class CategoryProductExtractor:
         if color_stock and len(color_stock) == len(stock_values):
             total_stock = sum(color_stock.values())
 
+        price_sample = self.price_extractor.extract_sample(card)
         return ScrapedProduct(
             source=self.SOURCE,
             url=url or self._url(card),
@@ -31,7 +32,8 @@ class CategoryProductExtractor:
             category=category,
             description=self._description(card),
             stock=total_stock,
-            price_sample=self.price_extractor.extract_sample(card),
+            price=price_sample,
+            price_sample=price_sample,
             price_hundred=self.price_extractor.extract_hundred(card),
             price_thousand=self.price_extractor.extract_thousand(card),
             color_stock=color_stock,

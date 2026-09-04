@@ -146,3 +146,4 @@ class PriceExtractor:
 
     def extract_thousand(self, soup):
         return self._extract_price_block(soup, "Precio Millar")
+

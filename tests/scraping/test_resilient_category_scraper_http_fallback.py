@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from scrapers.collectors.resilient_category_scraper import ResilientCategoryScraper
-
 import requests
+
+from scrapers.collectors.resilient_category_scraper import ResilientCategoryScraper
 
 
 CATEGORY_URL = "https://stock.importacionesfacundo.com/categoria-producto/enmicadoras-laminadoras/"

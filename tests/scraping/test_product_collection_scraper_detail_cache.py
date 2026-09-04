@@ -367,6 +367,7 @@ def test_detail_enrichment_merges_missing_fields_and_prices():
     assert len(result) == 1
     assert result[0].code == "FB-1240"
     assert result[0].description == "Detalle completo del producto."
+    assert result[0].price == 8.0
     assert result[0].price_sample == 8.0
     assert result[0].price_hundred == 700.0
     assert result[0].price_thousand == 6500.0

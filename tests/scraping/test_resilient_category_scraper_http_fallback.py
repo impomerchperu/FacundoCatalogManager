@@ -6,6 +6,13 @@ from scrapers.collectors.resilient_category_scraper import ResilientCategoryScra
 
 
 CATEGORY_URL = "https://stock.importacionesfacundo.com/categoria-producto/enmicadoras-laminadoras/"
+SHELL_HTML = """
+<html>
+  <body class="archive tax-product_cat term-123">
+    <div id="products-shell"></div>
+  </body>
+</html>
+"""
 CATEGORY_HTML = """
 <html>
   <body class="archive tax-product_cat term-123">
@@ -27,7 +34,7 @@ class FailingJsfBrowser:
     def get(self, url: str):
         del url
         self.get_calls += 1
-        return CATEGORY_HTML
+        return SHELL_HTML if self.get_calls == 1 else CATEGORY_HTML
 
     def post(self, url: str, data=None):
         del url, data
@@ -38,7 +45,7 @@ class FailingJsfBrowser:
         raise requests.HTTPError(response=response)
 
 
-def test_jsf_http_error_falls_back_to_category_html():
+def test_jsf_http_error_falls_back_to_fresh_category_html():
     browser = FailingJsfBrowser()
     scraper = ResilientCategoryScraper(browser=browser)
 
@@ -48,5 +55,5 @@ def test_jsf_http_error_falls_back_to_category_html():
         CATEGORY_URL,
         f"{CATEGORY_URL}page/2/",
     ]
-    assert browser.get_calls >= 2
+    assert browser.get_calls == 2
     assert browser.post_calls >= 1

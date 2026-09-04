@@ -128,7 +128,7 @@ class ScrapingSession:
         sync_service = self.runner.scraping_service
         sync_result = getattr(sync_service, "last_sync_result", None)
         catalog_sync = getattr(sync_service, "catalog_sync_service", None)
-        coverage_result = getattr(catalog_sync, "last_sync_result", None)
+        catalog_result = getattr(catalog_sync, "last_sync_result", None)
 
         if sync_result is None:
             self.result.processed = len(self.result.products)
@@ -146,30 +146,45 @@ class ScrapingSession:
         self.result.changes = list(sync_result.changes)
         self.result.errors.extend(sync_result.errors)
 
-        if coverage_result is not None:
-            self.result.products_expected = coverage_result.products_expected
-            self.result.products_found = coverage_result.products_found
-            self.result.products_unique = coverage_result.products_unique
-            self.result.products_multiple_categories = (
-                coverage_result.products_multiple_categories
+        # CategoryProductSyncService preserves occurrence-based coverage in its
+        # own result after catalog consolidation. The catalog result only sees
+        # the deduplicated product set, so it cannot be the source of truth for
+        # category occurrence coverage when a full category sync is running.
+        coverage_result = sync_result
+        if (
+            getattr(coverage_result, "expected_category_occurrences", 0) <= 0
+            and catalog_result is not None
+        ):
+            coverage_result = catalog_result
+
+        self.result.products_expected = getattr(
+            coverage_result, "products_expected", 0
+        )
+        self.result.products_found = getattr(
+            coverage_result, "products_found", len(self.result.products)
+        )
+        self.result.products_unique = getattr(
+            coverage_result, "products_unique", len(self.result.products)
+        )
+        self.result.products_multiple_categories = getattr(
+            coverage_result, "products_multiple_categories", 0
+        )
+        self.result.duplicate_occurrences = getattr(
+            coverage_result, "duplicate_occurrences", 0
+        )
+        self.result.category_summary = list(
+            getattr(coverage_result, "category_summary", [])
+        )
+        self.result.multiple_category_products = list(
+            getattr(coverage_result, "multiple_category_products", [])
+        )
+        if not coverage_result.coverage_complete:
+            self.result.errors.append(
+                "Cobertura del catálogo incompleta: "
+                f"esperados={coverage_result.expected_category_occurrences}, "
+                f"encontrados={coverage_result.products_found}, "
+                f"brecha={coverage_result.category_occurrence_gap}."
             )
-            self.result.duplicate_occurrences = coverage_result.duplicate_occurrences
-            self.result.category_summary = list(
-                getattr(coverage_result, "category_summary", [])
-            )
-            self.result.multiple_category_products = list(
-                getattr(coverage_result, "multiple_category_products", [])
-            )
-            if not coverage_result.coverage_complete:
-                self.result.errors.append(
-                    "Cobertura del catálogo incompleta: "
-                    f"esperados={coverage_result.expected_category_occurrences}, "
-                    f"encontrados={coverage_result.products_found}, "
-                    f"brecha={coverage_result.category_occurrence_gap}."
-                )
-        else:
-            self.result.products_found = len(self.result.products)
-            self.result.products_unique = len(self.result.products)
 
     def _save_history(self):
         if self.history_repository is None:

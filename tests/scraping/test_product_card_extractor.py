@@ -68,11 +68,20 @@ def test_uses_product_table_when_visual_cards_do_not_have_all_prices():
     )
 
 
-def test_prefers_visual_cards_when_table_is_also_present():
+def test_uses_complete_visual_cards_when_table_is_also_present():
     html = """
     <div class="jsfb-filterable">
-        <h2>Producto visual limitado</h2>
+        <h2>Producto visual completo</h2>
         <a href="/producto/visual/"><img src="visual.jpg"></a>
+        <div class="content-precio">
+            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+        </div>
     </div>
     <table>
         <thead>
@@ -102,14 +111,11 @@ def test_prefers_visual_cards_when_table_is_also_present():
     soup = BeautifulSoup(html, "lxml")
     cards = ProductCardExtractor().extract(soup)
 
-    assert len(cards) == 2
-    assert [card.select_one('a[href*="/producto/"]')["href"] for card in cards] == [
-        "/producto/maquina-f320/",
-        "/producto/maquina-f110/",
-    ]
+    assert len(cards) == 1
+    assert cards[0].get("class") == ["jsfb-filterable"]
 
 
-def test_prefers_visual_cards_when_mixed_with_missing_prices():
+def test_uses_product_table_when_any_visual_card_is_missing_price():
     html = """
     <div class="jsfb-filterable">
         <a href="/producto/con-precio/"><h2>Producto con precio</h2></a>
@@ -136,6 +142,7 @@ def test_prefers_visual_cards_when_mixed_with_missing_prices():
     cards = ProductCardExtractor().extract(soup)
 
     assert len(cards) == 2
+    assert [card.name for card in cards] == ["tr", "tr"]
     assert [card.select_one('a[href*="/producto/"]')["href"] for card in cards] == [
         "/producto/con-precio/",
         "/producto/sin-precio/",

@@ -79,3 +79,37 @@ def test_price_extractor_recovers_prices_without_price_classes():
     assert extractor.extract_sample(soup) == 8.0
     assert extractor.extract_hundred(soup) == 670.0
     assert extractor.extract_thousand(soup) == 6500.0
+
+
+def test_price_extractor_recovers_bricks_table_row_prices():
+    html = """
+    <table>
+        <tbody>
+            <tr class="jsfb-filterable">
+                <td><span class="sku">FB-5013</span></td>
+                <td><h2>Memo Clip Cubo</h2></td>
+                <td><div class="variaciones-producto"><p>2</p></div></td>
+                <td>
+                    <h3>S/ 2.50</h3>
+                    <p>Menos de<br>50 unidades</p>
+                </td>
+                <td>
+                    <h4>S/ 180.00</h4>
+                    <p>A partir de<br>50 unidades</p>
+                </td>
+                <td>
+                    <h4>S/ 1600.00</h4>
+                    <p>A partir de<br>500 unidades</p>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    row = soup.select_one("tr")
+    extractor = PriceExtractor()
+
+    assert extractor.extract_sample(row) == 2.5
+    assert extractor.extract_hundred(row) == 180.0
+    assert extractor.extract_thousand(row) == 1600.0

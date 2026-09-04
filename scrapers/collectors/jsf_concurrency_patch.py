@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from threading import BoundedSemaphore
 
-from .category_scraper import CategoryScraper
+from scrapers.collectors.category_scraper import CategoryScraper
 
 
 # The live JetSmartFilters endpoint has returned HTTP 500 when many category

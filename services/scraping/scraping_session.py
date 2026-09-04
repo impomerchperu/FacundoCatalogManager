@@ -115,6 +115,12 @@ class ScrapingSession:
     def _persist_catalog_products(self):
         if self.catalog_repository is None:
             return
+
+        sync_service = getattr(self.runner, "scraping_service", None)
+        catalog_sync_service = getattr(sync_service, "catalog_sync_service", None)
+        if catalog_sync_service is not None:
+            return
+
         for product in self.result.products:
             self.catalog_repository.save(product)
 

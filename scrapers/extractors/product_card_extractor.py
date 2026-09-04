@@ -7,8 +7,9 @@ class ProductCardExtractor:
 
     La plantilla puede publicar dos representaciones simultáneas: tarjetas
     visuales con los bloques de precios etiquetados y una tabla de productos.
-    Priorizamos las tarjetas cuando conservan esos precios; si no, usamos la
-    tabla para mantener la cobertura completa de productos/páginas.
+    Priorizamos las tarjetas solo cuando toda la representación visual
+    conserva los precios; si está incompleta, usamos la tabla para mantener
+    los precios y la cobertura completa de productos.
     """
 
     def extract(self, soup):
@@ -32,13 +33,17 @@ class ProductCardExtractor:
 
     @staticmethod
     def _cards_have_labeled_prices(cards):
-        """Detecta la representación histórica que conserva los precios."""
+        """Detecta si todos los productos visuales conservan precios etiquetados."""
+        if not cards:
+            return False
+
         for card in cards:
             if card.select_one(".content-precio"):
-                return True
+                continue
             text = card.get_text(" ", strip=True).casefold()
             if all(label in text for label in ("precio muestra", "precio ciento")):
-                return True
+                continue
             if all(label in text for label in ("precio muestra", "precio millar")):
-                return True
-        return False
+                continue
+            return False
+        return True

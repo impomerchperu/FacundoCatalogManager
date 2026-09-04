@@ -86,6 +86,67 @@ def test_catalog_sync_consolidates_product_in_multiple_categories():
     assert stored.color_stock == {"Rojo": 5, "Azul": 7}
 
 
+def test_catalog_sync_preserves_richer_duplicate_product_fields():
+    sparse = Product("P007", "", 0)
+    sparse.description = ""
+    sparse.price_sample = 0
+    sparse.price_hundred = 0
+    sparse.price_thousand = 0
+    sparse.image_url = ""
+    sparse.image_path = ""
+    sparse.image_hash = ""
+
+    rich = Product("P007", "Producto completo", 8)
+    rich.description = "Detalle completo"
+    rich.price_sample = 8
+    rich.price_hundred = 70
+    rich.price_thousand = 600
+    rich.image_url = "https://example.com/p007.jpg"
+    rich.image_path = "images/P007.jpg"
+    rich.image_hash = "hash-p007"
+
+    consolidated = CatalogSyncService.consolidate_products([sparse, rich])
+
+    assert len(consolidated) == 1
+    stored = consolidated[0]
+    assert stored.name == "Producto completo"
+    assert stored.description == "Detalle completo"
+    assert stored.price == 8
+    assert stored.price_sample == 8
+    assert stored.price_hundred == 70
+    assert stored.price_thousand == 600
+    assert stored.image_url == "https://example.com/p007.jpg"
+    assert stored.image_path == "images/P007.jpg"
+    assert stored.image_hash == "hash-p007"
+
+
+def test_catalog_sync_does_not_overwrite_richer_duplicate_product_fields():
+    rich = Product("P008", "Producto completo", 8)
+    rich.description = "Detalle completo"
+    rich.price_sample = 8
+    rich.price_hundred = 70
+    rich.price_thousand = 600
+    rich.image_url = "https://example.com/p008.jpg"
+
+    sparse = Product("P008", "", 0)
+    sparse.description = ""
+    sparse.price_sample = 0
+    sparse.price_hundred = 0
+    sparse.price_thousand = 0
+    sparse.image_url = ""
+
+    consolidated = CatalogSyncService.consolidate_products([rich, sparse])
+
+    stored = consolidated[0]
+    assert stored.name == "Producto completo"
+    assert stored.description == "Detalle completo"
+    assert stored.price == 8
+    assert stored.price_sample == 8
+    assert stored.price_hundred == 70
+    assert stored.price_thousand == 600
+    assert stored.image_url == "https://example.com/p008.jpg"
+
+
 def test_catalog_sync_reports_duplicate_occurrences_across_multiple_categories():
     repository = SyncRepository()
     service = CatalogSyncService(repository, ProductDiffService())

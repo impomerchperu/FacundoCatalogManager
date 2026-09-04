@@ -5,6 +5,8 @@ from __future__ import annotations
 from threading import BoundedSemaphore
 
 from scrapers.collectors.category_scraper import CategoryScraper
+
+
 # The live JetSmartFilters endpoint has returned HTTP 500 when many category
 # workers hit admin-ajax.php simultaneously. Keep category workers unchanged
 # and throttle only this fragile endpoint so detail HTTP concurrency is intact.

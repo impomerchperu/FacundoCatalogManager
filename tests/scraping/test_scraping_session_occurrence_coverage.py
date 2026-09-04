@@ -67,3 +67,42 @@ def test_session_falls_back_to_catalog_result_without_occurrence_metrics():
     assert session.result.products_found == 10
     assert session.result.products_unique == 10
     assert session.result.errors == []
+
+
+def test_error_artifact_is_marked_failed_after_rollback():
+    writer = SimpleNamespace(calls=[])
+    writer.write = lambda result, codes: writer.calls.append((result, codes))
+    catalog_result = SyncResult(
+        processed=525,
+        unchanged=525,
+        expected_category_occurrences=529,
+        products_found=525,
+        products_unique=525,
+    )
+    runner = SimpleNamespace(
+        scraping_service=SimpleNamespace(
+            last_sync_result=SyncResult(
+                processed=525,
+                unchanged=525,
+                expected_category_occurrences=529,
+                products_found=529,
+                products_unique=525,
+            ),
+            catalog_sync_service=SimpleNamespace(
+                last_sync_result=catalog_result,
+                result_writer=writer,
+            ),
+        )
+    )
+    session = ScrapingSession(runner)
+    session.result.products = [SimpleNamespace(code=" FB-1504 ")]
+    session.result.errors = ["Cobertura del catálogo incompleta"]
+    session.result.finished_at = catalog_result.finished_at
+
+    session._write_error_result_artifact()
+
+    assert len(writer.calls) == 1
+    result, codes = writer.calls[0]
+    assert result.success is False
+    assert result.errors == ["Cobertura del catálogo incompleta"]
+    assert codes == {"fb-1504"}

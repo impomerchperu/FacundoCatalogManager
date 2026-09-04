@@ -30,6 +30,44 @@ def test_prefers_price_bearing_visual_cards_over_product_table():
     assert cards[0].select_one(".content-precio") is not None
 
 
+def test_uses_product_table_when_visual_cards_do_not_have_all_prices():
+    html = """
+    <div class="jsfb-filterable">
+        <a href="/producto/visual/"><h2>Producto visual</h2></a>
+        <div class="content-precio">
+            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+        </div>
+    </div>
+    <table>
+        <thead>
+            <tr><th>Código</th><th>Producto(s)</th><th>Muestra</th><th>Ciento</th><th>Millar</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>F320</td>
+                <td>
+                    <a href="/producto/maquina-f320/">
+                        <h2>Maquina F320</h2>
+                    </a>
+                </td>
+                <td><h3>S/ 10.00</h3><p>Menos de 50 unidades</p></td>
+                <td><h4>S/ 900.00</h4><p>A partir de 50 unidades</p></td>
+                <td><h4>S/ 8500.00</h4><p>A partir de 500 unidades</p></td>
+            </tr>
+        </tbody>
+    </table>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    cards = ProductCardExtractor().extract(soup)
+
+    assert len(cards) == 1
+    assert cards[0].name == "tr"
+    assert cards[0].select_one('a[href*="/producto/"]')["href"] == (
+        "/producto/maquina-f320/"
+    )
+
+
 def test_prefers_visual_cards_when_table_is_also_present():
     html = """
     <div class="jsfb-filterable">
@@ -64,10 +102,11 @@ def test_prefers_visual_cards_when_table_is_also_present():
     soup = BeautifulSoup(html, "lxml")
     cards = ProductCardExtractor().extract(soup)
 
-    assert len(cards) == 1
-    assert cards[0].select_one('a[href*="/producto/"]')["href"] == (
-        "/producto/visual/"
-    )
+    assert len(cards) == 2
+    assert [card.select_one('a[href*="/producto/"]')["href"] for card in cards] == [
+        "/producto/maquina-f320/",
+        "/producto/maquina-f110/",
+    ]
 
 
 def test_prefers_visual_cards_when_mixed_with_missing_prices():

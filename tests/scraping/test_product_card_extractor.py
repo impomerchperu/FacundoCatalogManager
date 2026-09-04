@@ -73,6 +73,39 @@ def test_prefers_product_table_when_visual_cards_have_no_labeled_prices():
     )
 
 
+def test_prefers_product_table_when_visual_cards_are_mixed_with_missing_prices():
+    html = """
+    <div class="jsfb-filterable">
+        <a href="/producto/con-precio/"><h2>Producto con precio</h2></a>
+        <div class="content-precio">
+            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+        </div>
+    </div>
+    <div class="jsfb-filterable">
+        <a href="/producto/sin-precio/"><h2>Producto sin precio</h2></a>
+    </div>
+    <table>
+        <tbody>
+            <tr>
+                <td><a href="/producto/con-precio/">Producto con precio</a></td>
+            </tr>
+            <tr>
+                <td><a href="/producto/sin-precio/">Producto sin precio</a></td>
+            </tr>
+        </tbody>
+    </table>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    cards = ProductCardExtractor().extract(soup)
+
+    assert len(cards) == 2
+    assert [card.select_one('a[href*="/producto/"]')["href"] for card in cards] == [
+        "/producto/con-precio/",
+        "/producto/sin-precio/",
+    ]
+
+
 def test_falls_back_to_visual_cards_when_product_table_is_absent():
     html = """
     <div class="jsfb-filterable">

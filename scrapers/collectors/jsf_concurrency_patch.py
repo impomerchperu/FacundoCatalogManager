@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from threading import BoundedSemaphore
 
-from config.scraping_config import JETSMARTFILTERS_AJAX_URL
 from .category_scraper import CategoryScraper
 
 

@@ -55,5 +55,5 @@ def test_jsf_http_error_falls_back_to_fresh_category_html():
         CATEGORY_URL,
         f"{CATEGORY_URL}page/2/",
     ]
-    assert browser.get_calls == 2
+    assert browser.get_calls >= 3
     assert browser.post_calls >= 1

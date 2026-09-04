@@ -92,6 +92,7 @@ class ScrapingSession:
                     db.rollback()
                     transaction_started = False
                 self.result.finished_at = datetime.now(timezone.utc)
+                self._write_error_result_artifact()
                 self._save_history()
                 return self.result
 
@@ -108,9 +109,28 @@ class ScrapingSession:
                 transaction_started = False
             self.result.errors.append(str(error))
             self.result.finished_at = datetime.now(timezone.utc)
+            self._write_error_result_artifact()
             self._save_history()
 
         return self.result
+
+    def _write_error_result_artifact(self):
+        sync_service = getattr(self.runner, "scraping_service", None)
+        catalog_sync = getattr(sync_service, "catalog_sync_service", None)
+        writer = getattr(catalog_sync, "result_writer", None)
+        result = getattr(catalog_sync, "last_sync_result", None)
+        if writer is None or result is None:
+            return
+
+        result.errors = list(dict.fromkeys([*result.errors, *self.result.errors]))
+        result.finished_at = self.result.finished_at
+        result.success = False
+        codes = {
+            str(getattr(product, "code", "")).strip().upper().casefold()
+            for product in self.result.products
+            if str(getattr(product, "code", "")).strip()
+        }
+        writer.write(result, codes)
 
     def _persist_catalog_products(self):
         if self.catalog_repository is None:

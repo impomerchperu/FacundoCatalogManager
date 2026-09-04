@@ -88,9 +88,22 @@ class CategoryProductExtractor:
         return ""
 
     def _name(self, soup):
-        element = soup.select_one(
-            "h2.brxe-f31760, h2.brxe-heading, h2, h3",
+        """Extrae el título real antes de los encabezados de presentación."""
+        selectors = (
+            "h2.brxe-f31760",
+            "h2.brxe-heading",
+            "h2",
         )
+        for selector in selectors:
+            element = soup.select_one(selector)
+            if element:
+                name = element.get_text(" ", strip=True)
+                if name:
+                    return name
+
+        # Some legacy cards expose only an h3. Keep that fallback for
+        # compatibility, but never prefer it when an h2 title is available.
+        element = soup.select_one("h3.brxe-heading, h3")
         return element.get_text(" ", strip=True) if element else ""
 
     def _description(self, soup):

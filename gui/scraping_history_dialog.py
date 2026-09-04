@@ -146,7 +146,7 @@ class ScrapingHistoryDialog(QDialog):
         if isinstance(history_id, int):
             self._show_history_details(history_id)
 
-    def _show_history_details(self, history_id: int) -> None:
+    def _show_history_details(self, history_id: int) -> None:  # noqa: PLR0912
         history = self.repository.get_by_id(history_id)
         if history is None:
             return

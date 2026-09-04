@@ -236,15 +236,39 @@ class CatalogSyncService:
                     color_stock.get(normalized_color, 0), normalized_stock
                 )
             existing.color_stock = color_stock
-            if not getattr(existing, "description", "") and getattr(
-                product, "description", ""
-            ):
-                existing.description = product.description
-            if not getattr(existing, "image_url", "") and getattr(
-                product, "image_url", ""
-            ):
-                existing.image_url = product.image_url
+            cls._merge_missing_scalar_fields(existing, product)
         return list(consolidated.values())
+
+    @staticmethod
+    def _merge_missing_scalar_fields(existing, product) -> None:
+        """Completa campos vacíos con una ocurrencia duplicada más rica."""
+        text_fields = (
+            "name",
+            "description",
+            "image_url",
+            "image_path",
+            "image_hash",
+        )
+        for field in text_fields:
+            current = getattr(existing, field, "")
+            candidate = getattr(product, field, "")
+            if not str(current or "").strip() and str(candidate or "").strip():
+                setattr(existing, field, candidate)
+
+        price_fields = (
+            "price",
+            "price_sample",
+            "price_hundred",
+            "price_thousand",
+        )
+        for field in price_fields:
+            try:
+                current = float(getattr(existing, field, 0.0) or 0.0)
+                candidate = float(getattr(product, field, 0.0) or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if current <= 0.0 < candidate:
+                setattr(existing, field, candidate)
 
     @classmethod
     def _count_multi_category_products(cls, products) -> int:

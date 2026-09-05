@@ -247,6 +247,29 @@ def _retry_jsf_page(
     return result
 
 
+def _walk_jsf_page(
+    self: CategoryScraper,
+    category_url: str,
+    category_id: int,
+    page: int,
+):
+    """Fetch one pagination page with exactly one empty-page retry policy."""
+    fetcher = _ORIGINAL_FETCH_JSF_PAGE.__get__(self, CategoryScraper)
+    last_error: Exception | None = None
+    result = (0, 0, "")
+    for _ in range(JSF_PAGE_RETRIES):
+        try:
+            result = fetcher(category_url, category_id, page)
+        except (RuntimeError, TypeError, ValueError) as error:
+            last_error = error
+            continue
+        if result[2]:
+            return result
+    if last_error is not None and not result[2]:
+        raise last_error
+    return result
+
+
 def _probe_jsf_page(
     self: CategoryScraper,
     category_url: str,
@@ -303,7 +326,8 @@ def _jsf_category_pages_with_probe(
 ) -> list[str]:
     """Walk known JSF pages and validate the boundary without over-probing."""
     _remember_jsf_settings(category_id, category_html)
-    found_posts, declared_max, first_html = self._fetch_jsf_page_with_empty_retries(
+    found_posts, declared_max, first_html = _walk_jsf_page(
+        self,
         category_url,
         category_id,
         1,
@@ -336,7 +360,8 @@ def _jsf_category_pages_with_probe(
 
     for page_number in range(2, known_pages + 1):
         page_url = self._jsf_page_url(category_url, page_number)
-        _, _, rendered_html = self._fetch_jsf_page_with_empty_retries(
+        _, _, rendered_html = _walk_jsf_page(
+            self,
             category_url,
             category_id,
             page_number,

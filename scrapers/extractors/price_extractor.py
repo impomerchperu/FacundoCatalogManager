@@ -10,6 +10,7 @@ class PriceExtractor:
         "Precio Ciento",
         "Precio Millar",
         "Precio Caja",
+        "Precio Por Caja",
     )
 
     def _extract_price_block(self, soup, label):
@@ -130,6 +131,8 @@ class PriceExtractor:
             "precio muestra": r"\bmenos de\s+\d+\s+unidades?\b",
             "precio ciento": r"\ba partir(?: de)?\s+50\s+unidades?\b",
             "precio millar": r"\ba partir(?: de)?\s+500\s+unidades?\b",
+            "precio caja": r"\ba partir(?: de)?\s+\d+\s+unidades?\b",
+            "precio por caja": r"\ba partir(?: de)?\s+\d+\s+unidades?\b",
         }
         pattern = matchers.get(label_normalized)
         if pattern is not None:
@@ -140,6 +143,8 @@ class PriceExtractor:
         positions = {
             "precio muestra": 0,
             "precio ciento": 1,
+            "precio caja": 1,
+            "precio por caja": 1,
             "precio millar": 2,
         }
         position = positions.get(label_normalized)
@@ -191,7 +196,10 @@ class PriceExtractor:
         price = self._extract_price_block(soup, "Precio Ciento")
         if price:
             return price
-        return self._extract_price_block(soup, "Precio Caja")
+        price = self._extract_price_block(soup, "Precio Caja")
+        if price:
+            return price
+        return self._extract_price_block(soup, "Precio Por Caja")
 
     def extract_thousand(self, soup):
         return self._extract_price_block(soup, "Precio Millar")

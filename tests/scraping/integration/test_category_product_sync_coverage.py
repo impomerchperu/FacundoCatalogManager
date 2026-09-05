@@ -42,8 +42,12 @@ class FakeCatalogSyncService:
 
     @staticmethod
     def sync(
-        products, expected_products=0, expected_category_occurrences=0
+        products,
+        prune_missing=False,
+        expected_products=0,
+        expected_category_occurrences=0,
     ):
+        del prune_missing
         result = SyncResult()
         result.products_expected = expected_products
         result.expected_category_occurrences = expected_category_occurrences
@@ -72,10 +76,9 @@ def test_category_sync_uses_raw_occurrences_for_coverage():
         persistence_service=SimpleNamespace(),
         mapper=IdentityMapper(),
         catalog_sync_service=catalog_sync_service,
-        category_workers=1,
     )
 
-    service.sync_categories(categories, expected_products=1)
+    service.sync_categories(categories)
 
     result = service.last_sync_result
     assert result.products_found == 2
@@ -99,10 +102,9 @@ def test_category_sync_fails_when_category_coverage_is_incomplete():
         persistence_service=SimpleNamespace(),
         mapper=IdentityMapper(),
         catalog_sync_service=FakeCatalogSyncService(),
-        category_workers=1,
     )
 
-    service.sync_categories(categories, expected_products=1)
+    service.sync_categories(categories)
 
     result = service.last_sync_result
     assert result.expected_category_occurrences == 2

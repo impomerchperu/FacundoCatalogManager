@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import traceback
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, cast
@@ -100,12 +101,16 @@ class CategoryProductSyncService:
         coverage_products = self._consolidate_for_coverage(raw_products)
         self._attach_category_coverage(raw_products, coverage_products, categories)
 
+        full_mode = getattr(self, "_scraping_mode", "directed") == "full"
         complete, reason = self._full_sync_prune_guard(
             raw_products,
             len(categories),
             expected_category_occurrences=expected_category_occurrences,
-            expected_products=0,
+            expected_products=len(coverage_products) if full_mode else 0,
         )
+        if not full_mode:
+            reason = "directed_mode"
+            complete = False
         _log_timing(
             "SCRAPING TIMING | stage=coverage_incomplete | reason=%s | products=%d | "
             "categories=%d | expected_category_occurrences=%d",
@@ -117,9 +122,9 @@ class CategoryProductSyncService:
 
         self.sync_products(
             raw_products,
-            full_sync=bool(categories),
+            full_sync=full_mode,
             allow_prune=complete,
-            expected_products=0,
+            expected_products=len(coverage_products) if full_mode else 0,
             expected_category_occurrences=expected_category_occurrences,
         )
         self._attach_category_coverage(

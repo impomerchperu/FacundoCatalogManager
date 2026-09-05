@@ -12,7 +12,8 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
 
     def sync_categories(self, categories, progress_callback=None):
         products = super().sync_categories(categories, progress_callback)
-        self._persist_normalized(categories, products, mode="full")
+        mode = getattr(self, "_scraping_mode", "directed")
+        self._persist_normalized(categories, products, mode=mode)
         return products
 
     def sync_category(self, category_url, category=""):

@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from controllers.product_controller import ProductController
+from exporters.csv_exporter import CSVExporter
 from exporters.excel_exporter import ExcelExporter
 from exporters.pdf_exporter import PDFExporter
 from gui.product_dialog import ProductDialog
@@ -109,6 +110,7 @@ class MainWindow(QMainWindow):
             ("Eliminar", self.delete_product),
             ("Exportar Excel", self.export_excel),
             ("Exportar PDF", self.export_pdf),
+            ("Exportar CSV", self.export_csv),
             ("Actualizar catálogo", self.open_scraping),
             ("Historial", self.open_scraping_history),
         ]
@@ -601,6 +603,16 @@ class MainWindow(QMainWindow):
         )
         if filename:
             PDFExporter.export(self.controller.get_products(), filename)
+
+    def export_csv(self) -> None:
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Guardar CSV",
+            "catalogo.csv",
+            "CSV (*.csv)",
+        )
+        if filename:
+            CSVExporter.export(self.controller.get_products(), filename)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

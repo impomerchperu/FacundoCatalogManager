@@ -57,9 +57,7 @@ def _page_product_keys(
     base_url: str,
 ) -> set[str]:
     """Return stable product identifiers from URLs/SKUs or page content."""
-    urls = _direct_product_urls(html, base_url)
-    legacy = self._product_keys(html)
-    return urls | legacy
+    return _direct_product_urls(html, base_url) | self._product_keys(html)
 
 
 def _facundo_direct_pages(
@@ -74,7 +72,7 @@ def _facundo_direct_pages(
         first_html,
         expected_count,
     )
-    product_urls: set[str] = set(_direct_product_urls(first_html, category_url))
+    product_urls: set[str] = _direct_product_urls(first_html, category_url)
     for page_url in pages[1:]:
         html = scraper._category_html_cache.get(page_url, "")
         if html:
@@ -86,6 +84,8 @@ def _remember_jsf_settings(category_id: int, category_html: str) -> None:
     """Remember the live querydesk settings emitted by Facundo's page."""
     match = _JSF_SETTINGS_PATTERN.search(category_html or "")
     if not match:
+        with _JSF_STATE_LOCK:
+            _JSF_REQUEST_STATE.pop(category_id, None)
         return
     try:
         settings = json.loads(match.group(1))
@@ -148,10 +148,7 @@ def _apply_live_query_defaults(values: dict[str, str], query: object) -> None:
         value = query.get(key)
         if value is None:
             continue
-        if isinstance(value, bool):
-            values[f"defaults[{key}]"] = str(value).lower()
-        else:
-            values[f"defaults[{key}]"] = str(value)
+        values[f"defaults[{key}]"] = str(value).lower() if isinstance(value, bool) else str(value)
 
 
 def _apply_live_request_settings(values: dict[str, str], settings: object) -> None:
@@ -176,12 +173,11 @@ def _browser_compatible_jsf_payload(
     category_id: int,
     page: int,
 ) -> list[tuple[str, str]]:
-    """Build a JSF payload, preserving the canonical request when no live state exists."""
+    """Build a JSF payload compatible with the live browser request state."""
     with _JSF_STATE_LOCK:
         request_state = dict(_JSF_REQUEST_STATE.get(category_id, {}))
     if not request_state:
         return _ORIGINAL_JSF_PAYLOAD(category_id, page)
-
     payload = _ORIGINAL_JSF_PAYLOAD(category_id, 1)
     values = dict(payload)
     _apply_live_query_defaults(values, request_state.get("query"))
@@ -196,19 +192,58 @@ def _browser_compatible_jsf_payload(
     ]
 
 
-def _retry_jsf_page(
+def _fetch_jsf_page_canonical(
     self: CategoryScraper,
     category_url: str,
     category_id: int,
     page: int,
 ):
-    """Retry transient JSF responses while using the canonical fetch path."""
+    fetcher = _ORIGINAL_FETCH_JSF_PAGE.__get__(self, CategoryScraper)
+    return fetcher(category_url, category_id, page)
+
+
+def _fetch_jsf_page_compatible(
+    self: CategoryScraper,
+    category_url: str,
+    category_id: int,
+    page: int,
+):
+    response_text = self._post_jsf(
+        _browser_compatible_jsf_payload(category_id, page)
+    )
+    found_posts, max_num_pages, rendered_html = self._parse_jsf_response(
+        response_text
+    )
+    if found_posts > 0 or max_num_pages > 0:
+        with self._jsf_cache_lock:
+            self._jsf_metadata_cache[category_url] = (
+                found_posts,
+                max_num_pages,
+            )
+    if rendered_html:
+        with self._jsf_cache_lock:
+            self._jsf_page_cache[(category_url, page)] = rendered_html
+    return found_posts, max_num_pages, rendered_html
+
+
+def _retry_jsf_page(
+    self: CategoryScraper,
+    category_url: str,
+    category_id: int,
+    page: int,
+    compatible_payload: bool = False,
+):
+    """Retry a JSF page without stacking independent pagination layers."""
     last_error: Exception | None = None
     result = (0, 0, "")
-    fetcher = _ORIGINAL_FETCH_JSF_PAGE.__get__(self, CategoryScraper)
+    fetcher = (
+        _fetch_jsf_page_compatible
+        if compatible_payload
+        else _fetch_jsf_page_canonical
+    )
     for _ in range(JSF_PAGE_RETRIES):
         try:
-            result = fetcher(category_url, category_id, page)
+            result = fetcher(self, category_url, category_id, page)
         except (RuntimeError, TypeError, ValueError) as error:
             last_error = error
             continue
@@ -224,9 +259,15 @@ def _walk_jsf_page(
     category_url: str,
     category_id: int,
     page: int,
+    compatible_payload: bool = False,
 ):
-    """Fetch one pagination page with exactly three total attempts."""
-    return _retry_jsf_page(self, category_url, category_id, page)
+    return _retry_jsf_page(
+        self,
+        category_url,
+        category_id,
+        page,
+        compatible_payload=compatible_payload,
+    )
 
 
 def _probe_jsf_page(
@@ -235,9 +276,8 @@ def _probe_jsf_page(
     category_id: int,
     page: int,
 ):
-    """Probe a page once without adding retry layers."""
-    fetcher = _ORIGINAL_FETCH_JSF_PAGE.__get__(self, CategoryScraper)
-    return fetcher(category_url, category_id, page)
+    """Probe a page once without adding another retry layer."""
+    return _fetch_jsf_page_canonical(self, category_url, category_id, page)
 
 
 def _probe_boundary_page(
@@ -302,6 +342,7 @@ def _jsf_category_pages_with_probe(
     pages = [category_url]
     seen_product_keys = _page_product_keys(self, first_html, category_url)
     self._cache_category_html(category_url, category_html)
+    use_compatible_payload = declared_max <= 0 and found_posts > 0
 
     for page_number in range(2, known_pages + 1):
         page_url = self._jsf_page_url(category_url, page_number)
@@ -310,6 +351,7 @@ def _jsf_category_pages_with_probe(
             category_url,
             category_id,
             page_number,
+            compatible_payload=use_compatible_payload,
         )
         if not rendered_html:
             raise RuntimeError(

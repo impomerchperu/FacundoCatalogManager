@@ -1,5 +1,8 @@
 from database.db_manager import DBManager
 from repositories.product_repository import ProductRepository
+from repositories.scraping.normalized_scraping_repository import (
+    NormalizedScrapingRepository,
+)
 from repositories.scraping.scraped_product_repository import (
     ScrapedProductRepository,
 )
@@ -29,8 +32,8 @@ from services.scraping.catalog_sync_service import (
 from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,
 )
-from services.scraping.category_product_sync_service import (
-    CategoryProductSyncService,
+from services.scraping.normalized_category_product_sync_service import (
+    NormalizedCategoryProductSyncService,
 )
 from services.scraping.category_service import (
     CategoryService,
@@ -59,35 +62,7 @@ from services.scraping.scraping_runner import (
 
 
 class ScrapingFactory:
-    """
-    Construye el pipeline completo de scraping.
-
-        Web
-         |
-         v
-    CategoryService
-         |
-         v
-    CategoryProductScrapingService
-         |
-         v
-    ScrapedProduct
-         |
-         v
-    ImageSyncAdapter
-         |
-         v
-    ScrapedProductMapper
-         |
-         v
-    Product
-         |
-         v
-    CatalogSyncService
-         |
-         v
-    SQLite
-    """
+    """Construye el pipeline completo de scraping."""
 
     @staticmethod
     def create_runner(
@@ -107,6 +82,7 @@ class ScrapingFactory:
             ProductDiffService(),
         )
         catalog_sync_service.result_writer = ScrapingResultWriter()
+        normalized_repository = NormalizedScrapingRepository(db)
         mapper = ScrapedProductMapper()
 
         history_repository = ScrapingHistoryRepository(db)
@@ -137,12 +113,13 @@ class ScrapingFactory:
             collection_scraper,
         )
 
-        sync_service = CategoryProductSyncService(
+        sync_service = NormalizedCategoryProductSyncService(
             product_scraping_service,
             scraped_persistence,
             mapper,
             catalog_sync_service,
             image_sync_adapter,
+            normalized_repository=normalized_repository,
         )
 
         return ScrapingRunner(

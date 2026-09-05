@@ -20,7 +20,13 @@ class MutatingCatalogSync:
         return [products[0]]
 
     @staticmethod
-    def sync(products, expected_products=0, expected_category_occurrences=0):
+    def sync(
+        products,
+        prune_missing=False,
+        expected_products=0,
+        expected_category_occurrences=0,
+    ):
+        del prune_missing
         result = SyncResult(
             products_expected=expected_products,
             expected_category_occurrences=expected_category_occurrences,
@@ -59,10 +65,9 @@ def test_raw_category_coverage_is_isolated_from_mutating_consolidation():
         persistence_service=SimpleNamespace(),
         mapper=IdentityMapper(),
         catalog_sync_service=MutatingCatalogSync(),
-        category_workers=1,
     )
 
-    service.sync_categories(categories, expected_products=1)
+    service.sync_categories(categories)
 
     result = service.last_sync_result
     assert result.products_found == 2

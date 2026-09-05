@@ -176,9 +176,12 @@ def _browser_compatible_jsf_payload(
     category_id: int,
     page: int,
 ) -> list[tuple[str, str]]:
-    """Build the smallest JSF request compatible with the live querydesk state."""
+    """Build a JSF payload, preserving the canonical request when no live state exists."""
     with _JSF_STATE_LOCK:
         request_state = dict(_JSF_REQUEST_STATE.get(category_id, {}))
+    if not request_state:
+        return _ORIGINAL_JSF_PAYLOAD(category_id, page)
+
     payload = _ORIGINAL_JSF_PAYLOAD(category_id, 1)
     values = dict(payload)
     _apply_live_query_defaults(values, request_state.get("query"))
@@ -428,30 +431,3 @@ def _get_category_pages(
             first_html,
             expected_count,
         )
-        expected = max(int(expected_count or 0), 0)
-        if expected == 0 or direct_count >= expected:
-            self._cache_category_html(category_url, first_html)
-            return direct_pages
-    self._cache_category_html(category_url, first_html)
-    return _ORIGINAL_GET_CATEGORY_PAGES(
-        self,
-        category_url,
-        expected_count=expected_count,
-    )
-
-
-def activate() -> None:
-    """Install the compatibility behavior once for the collectors package."""
-    global _PATCHED
-    if not _PATCHED:
-        CategoryScraper._original_get_category_pages = _ORIGINAL_GET_CATEGORY_PAGES
-        CategoryScraper._original_fetch_jsf_page = _ORIGINAL_FETCH_JSF_PAGE
-        CategoryScraper._fetch_jsf_page = _retry_jsf_page
-        CategoryScraper._jet_smart_filters_payload = staticmethod(
-            _browser_compatible_jsf_payload
-        )
-        CategoryScraper.get_category_pages = _get_category_pages
-        _PATCHED = True
-
-
-activate()

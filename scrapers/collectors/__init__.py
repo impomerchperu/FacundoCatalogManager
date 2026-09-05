@@ -6,7 +6,6 @@
 # recovery, price-detail, and JetSmartFilters concurrency behaviors.
 from . import category_pagination_patch as _category_pagination_patch
 from . import jsf_concurrency_patch as _jsf_concurrency_patch
-from . import jsf_first_page_recovery_patch as _jsf_first_page_recovery_patch
 from . import missing_code_recovery_patch as _missing_code_recovery_patch
 from . import page_coverage_recovery_patch as _page_coverage_recovery_patch
 from . import page_metrics_patch as _page_metrics_patch
@@ -17,7 +16,6 @@ from . import scraping_compat as _scraping_compat
 __all__ = [
     "_category_pagination_patch",
     "_jsf_concurrency_patch",
-    "_jsf_first_page_recovery_patch",
     "_missing_code_recovery_patch",
     "_page_coverage_recovery_patch",
     "_page_metrics_patch",

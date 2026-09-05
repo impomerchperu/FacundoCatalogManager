@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from repositories.scraping.normalized_scraping_repository import (
-    NormalizedScrapingRepository,
-)
 from services.scraping.category_product_sync_service import (
     CategoryProductSyncService,
 )

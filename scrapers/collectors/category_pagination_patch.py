@@ -49,7 +49,9 @@ def _direct_product_urls(html: str, base_url: str) -> set[str]:
     return urls
 
 
-def _page_product_keys(self: CategoryScraper, html: str, base_url: str) -> set[str]:
+def _page_product_keys(
+    self: CategoryScraper, html: str, base_url: str
+) -> set[str]:
     """Return stable product identifiers from URLs/SKUs or page content."""
     return _direct_product_urls(html, base_url) | self._product_keys(html)
 
@@ -155,7 +157,9 @@ def _apply_live_request_settings(values: dict[str, str], settings: object) -> No
         values["settings[jsf_signature]"] = str(signature)
 
 
-def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[str, str]]:
+def _browser_compatible_jsf_payload(
+    category_id: int, page: int
+) -> list[tuple[str, str]]:
     """Build the smallest JSF request compatible with the live querydesk state."""
     with _JSF_STATE_LOCK:
         request_state = dict(_JSF_REQUEST_STATE.get(category_id, {}))
@@ -173,7 +177,9 @@ def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[s
     ]
 
 
-def _retry_jsf_page(self: CategoryScraper, category_url: str, category_id: int, page: int):
+def _retry_jsf_page(
+    self: CategoryScraper, category_url: str, category_id: int, page: int
+):
     """Retry transport errors and empty JSF responses up to three total attempts."""
     last_error: Exception | None = None
     result = (0, 0, "")
@@ -213,7 +219,9 @@ def _retry_jsf_page(self: CategoryScraper, category_url: str, category_id: int, 
     return result
 
 
-def _walk_jsf_page(self: CategoryScraper, category_url: str, category_id: int, page: int):
+def _walk_jsf_page(
+    self: CategoryScraper, category_url: str, category_id: int, page: int
+):
     """Fetch one pagination page with exactly three total attempts."""
     fetcher = _ORIGINAL_FETCH_JSF_PAGE.__get__(self, CategoryScraper)
     last_error: Exception | None = None
@@ -231,7 +239,9 @@ def _walk_jsf_page(self: CategoryScraper, category_url: str, category_id: int, p
     return result
 
 
-def _probe_jsf_page(self: CategoryScraper, category_url: str, category_id: int, page: int):
+def _probe_jsf_page(
+    self: CategoryScraper, category_url: str, category_id: int, page: int
+):
     """Probe a page once without adding retry layers."""
     fetcher = self._fetch_jsf_page
     if getattr(fetcher, "__func__", None) is _retry_jsf_page:
@@ -269,7 +279,7 @@ def _jsf_category_pages_with_probe(
 ) -> list[str]:
     """Walk known JSF pages and validate the boundary without over-probing."""
     _remember_jsf_settings(category_id, category_html)
-    found_posts, declared_max, first_html = _retry_jsf_page(
+    found_posts, declared_max, first_html = _walk_jsf_page(
         self, category_url, category_id, 1
     )
     if not first_html:
@@ -403,4 +413,4 @@ def activate() -> None:
 
 activate()
 
-__all__ = ["activate", "pages_required"]
+__all__ = ["JSF_PAGE_RETRIES", "activate", "pages_required"]

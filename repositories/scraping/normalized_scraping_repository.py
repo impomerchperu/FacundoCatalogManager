@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from database.db_manager import DBManager
+from services.scraping.category_name_normalizer import split_category_names
 
 
 class NormalizedScrapingRepository:
@@ -38,7 +39,13 @@ class NormalizedScrapingRepository:
                 last_scraped_at=excluded.last_scraped_at,
                 updated_at=excluded.updated_at
             """,
-            (str(name or "").strip(), canonical_url, max(int(expected_count or 0), 0), now, now),
+            (
+                str(name or "").strip(),
+                canonical_url,
+                max(int(expected_count or 0), 0),
+                now,
+                now,
+            ),
         )
         row = self.db.fetch_one(
             "SELECT id FROM categories WHERE canonical_url=?",
@@ -79,11 +86,16 @@ class NormalizedScrapingRepository:
         actual_category_occurrences: int,
         message: str = "",
     ) -> None:
-        expected = max(int(getattr(result, "expected_category_occurrences", 0) or 0), 0)
+        expected = max(
+            int(getattr(result, "expected_category_occurrences", 0) or 0),
+            0,
+        )
         actual = max(int(actual_category_occurrences or 0), 0)
         gap = max(expected - actual, 0)
         errors = len(getattr(result, "errors", []) or [])
-        coverage_complete = bool(expected <= 0 or (actual >= expected and errors == 0))
+        coverage_complete = bool(
+            expected <= 0 or (actual >= expected and errors == 0)
+        )
         status = "SUCCESS" if not errors else "ERROR"
         self.db.execute_query(
             """
@@ -117,7 +129,13 @@ class NormalizedScrapingRepository:
             ),
         )
 
-    def persist_occurrences(self, run_id: int, categories, products, product_repository) -> int:
+    def persist_occurrences(
+        self,
+        run_id: int,
+        categories,
+        products,
+        product_repository,
+    ) -> int:
         category_ids = {
             str(getattr(category, "name", "")).strip().casefold(): self.upsert_category(
                 getattr(category, "name", ""),
@@ -137,8 +155,7 @@ class NormalizedScrapingRepository:
             product_id = getattr(product_record, "product_id", None)
             product_categories = {
                 item.strip().casefold()
-                for item in str(getattr(product, "category", "")).split(",")
-                if item.strip()
+                for item in split_category_names(getattr(product, "category", ""))
             }
             for category_name, category_id in category_ids.items():
                 if category_name not in product_categories:

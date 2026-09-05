@@ -56,6 +56,9 @@ class ScrapingHistoryRepository:
         )
         history.history_id = int(cursor.lastrowid)
 
+        if changes:
+            self._assert_history_exists(history.history_id)
+
         product_map = {
             str(getattr(product, "code", "")): product
             for product in (products or [])
@@ -94,7 +97,19 @@ class ScrapingHistoryRepository:
                 )
         return history.history_id
 
+    def _assert_history_exists(self, history_id: int) -> None:
+        parent = self.db.fetch_one(
+            "SELECT id FROM scraping_history WHERE id = ?",
+            (history_id,),
+        )
+        if parent is None:
+            raise RuntimeError(
+                "No existe el historial padre para registrar cambios: "
+                f"history_id={history_id}."
+            )
+
     def _insert_change(self, history_id, change_type, code, name, field, label, old_value, new_value):
+        self._assert_history_exists(history_id)
         self.db.execute_query(
             """
             INSERT INTO download_changes (

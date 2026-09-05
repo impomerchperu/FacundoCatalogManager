@@ -8,7 +8,7 @@ from scrapers.collectors.category_scraper import CategoryScraper
 class ResilientCategoryScraper(CategoryScraper):
     """Preserva el flujo JSF y recupera categorías ante fallos transitorios."""
 
-    EMPTY_JSF_RETRIES = 2
+    EMPTY_JSF_RETRIES = 1
 
     def get_category_pages(
         self, category_url: str, expected_count: int = 0

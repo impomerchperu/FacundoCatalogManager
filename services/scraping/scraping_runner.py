@@ -73,7 +73,19 @@ class ScrapingRunner:
                 None,
             )
             if callable(sync_categories):
-                return sync_categories(categories, progress_callback)
+                pipeline_total = max(len(categories) * 2, 1)
+
+                def pipeline_progress(current, _total):
+                    if progress_callback:
+                        progress_callback(
+                            min(max(int(current), 0), len(categories)),
+                            pipeline_total,
+                        )
+
+                result = sync_categories(categories, pipeline_progress)
+                if progress_callback:
+                    progress_callback(pipeline_total, pipeline_total)
+                return result
 
             results = []
             total = len(categories)

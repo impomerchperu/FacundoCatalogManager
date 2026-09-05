@@ -303,7 +303,7 @@ def _jsf_category_pages_with_probe(
 ) -> list[str]:
     """Walk known JSF pages and validate the boundary without over-probing."""
     _remember_jsf_settings(category_id, category_html)
-    found_posts, declared_max, first_html = self._fetch_jsf_page(
+    found_posts, declared_max, first_html = self._fetch_jsf_page_with_empty_retries(
         category_url,
         category_id,
         1,
@@ -336,7 +336,7 @@ def _jsf_category_pages_with_probe(
 
     for page_number in range(2, known_pages + 1):
         page_url = self._jsf_page_url(category_url, page_number)
-        _, _, rendered_html = self._fetch_jsf_page(
+        _, _, rendered_html = self._fetch_jsf_page_with_empty_retries(
             category_url,
             category_id,
             page_number,

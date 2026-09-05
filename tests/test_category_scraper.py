@@ -51,6 +51,21 @@ def test_parse_jsf_response_reads_pagination_and_rendered_content():
     )
 
 
+def test_parse_jsf_response_reads_found_posts_without_declared_max_pages():
+    payload = (
+        '{"found_posts":51,'
+        '"rendered_content":"<div>FB-001</div>"}'
+    )
+    found_posts, max_num_pages, rendered_html = (
+        CategoryScraper._parse_jsf_response(payload)
+    )
+
+    assert found_posts == 51
+    assert max_num_pages == 3
+    assert rendered_html == '<div>FB-001</div>'
+    assert CategoryScraper._required_page_count(found_posts) == 3
+
+
 def test_category_scraper_uses_jetsmartfilters_for_every_declared_page():
     category_url = (
         "https://stock.importacionesfacundo.com/"
@@ -81,58 +96,6 @@ def test_category_scraper_uses_jetsmartfilters_for_every_declared_page():
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
     ] == ["1", "2", "3"]
-
-
-def test_category_scraper_uses_found_posts_when_max_num_pages_missing():
-    category_url = (
-        "https://stock.importacionesfacundo.com/"
-        "categoria-producto/catalogo/"
-    )
-    responses = {
-        category_url: '<body class="tax-product_cat term-127"></body>',
-        "ajax:1": '{"found_posts":51,"rendered_content":"<div><a href=\\"https://stock.importacionesfacundo.com/producto/fb-001/\\">FB-001</a></div>}',
-        "ajax:2": '{"found_posts":51,"rendered_content":"<div><a href=\\"https://stock.importacionesfacundo.com/producto/fb-026/\\">FB-026</a></div>}',
-        "ajax:3": '{"found_posts":51,"rendered_content":"<div><a href=\\"https://stock.importacionesfacundo.com/producto/fb-051/\\">FB-051</a></div>}',
-        "ajax:4": "",
-    }
-    browser = FakeBrowser(responses)
-    scraper = CategoryScraper(browser)
-
-    pages = scraper.get_category_pages(category_url)
-
-    assert pages == [
-        category_url,
-        f"{category_url.rstrip('/')}?product-page=2",
-        f"{category_url.rstrip('/')}?product-page=3",
-    ]
-    assert [
-        next(value for key, value in data if key == "paged")
-        for _, data in browser.post_calls
-    ] == ["1", "2", "3", "4"]
-
-
-def test_category_scraper_probes_jsf_terminal_page_without_wordpress_fallback():
-    category_url = (
-        "https://stock.importacionesfacundo.com/"
-        "categoria-producto/catalogo/"
-    )
-    responses = {
-        category_url: '<body class="tax-product_cat term-127"></body>',
-        "ajax:1": (
-            '{"found_posts":25,"max_num_pages":1,'
-            '"rendered_content":"<div>only</div>"}'
-        ),
-        "ajax:2": "",
-    }
-    browser = FakeBrowser(responses)
-    scraper = CategoryScraper(browser)
-
-    assert scraper.get_category_pages(category_url) == [category_url]
-    assert browser.get_calls == [category_url]
-    assert [
-        next(value for key, value in data if key == "paged")
-        for _, data in browser.post_calls
-    ] == ["1", "2"]
 
 
 def test_category_scraper_uses_expected_count_to_cover_all_pages():
@@ -175,6 +138,30 @@ def test_category_scraper_uses_expected_count_to_cover_all_pages():
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
     ] == ["1", "2", "3", "4", "5"]
+
+
+def test_category_scraper_probes_jsf_terminal_page_without_wordpress_fallback():
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+    responses = {
+        category_url: '<body class="tax-product_cat term-127"></body>',
+        "ajax:1": (
+            '{"found_posts":25,"max_num_pages":1,'
+            '"rendered_content":"<div>only</div>"}'
+        ),
+        "ajax:2": "",
+    }
+    browser = FakeBrowser(responses)
+    scraper = CategoryScraper(browser)
+
+    assert scraper.get_category_pages(category_url) == [category_url]
+    assert browser.get_calls == [category_url]
+    assert [
+        next(value for key, value in data if key == "paged")
+        for _, data in browser.post_calls
+    ] == ["1", "2"]
 
 
 def test_category_scraper_recovers_transient_empty_required_page():

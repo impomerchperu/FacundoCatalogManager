@@ -16,7 +16,10 @@ class FakeBrowser:
         page = next(value for key, value in data if key == "paged")
         response = self.responses[f"ajax:{page}"]
         if isinstance(response, list):
-            response = response.pop(0)
+            if len(response) > 1:
+                response = response.pop(0)
+            else:
+                response = response[0]
         if isinstance(response, Exception):
             raise response
         return response
@@ -78,7 +81,7 @@ def test_category_scraper_uses_jetsmartfilters_for_every_declared_page():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3", "3"]
+    ] == ["1", "2", "3"]
 
 
 def test_category_scraper_uses_found_posts_when_max_num_pages_missing():
@@ -106,7 +109,7 @@ def test_category_scraper_uses_found_posts_when_max_num_pages_missing():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3", "4", "4"]
+    ] == ["1", "2", "3", "4"]
 
 
 def test_category_scraper_probes_jsf_terminal_page_without_wordpress_fallback():
@@ -191,6 +194,7 @@ def test_category_scraper_recovers_transient_empty_required_page():
             '{"found_posts":31,"max_num_pages":2,'
             '"rendered_content":"<div>FB-026 FB-027 FB-031</div>"}',
         ],
+        "ajax:3": "",
     }
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(browser)
@@ -204,7 +208,7 @@ def test_category_scraper_recovers_transient_empty_required_page():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "2"]
+    ] == ["1", "2", "2", "3"]
 
 
 def test_category_scraper_stops_after_empty_page_retry_exhaustion():
@@ -272,7 +276,7 @@ def test_category_scraper_continues_real_products_past_underreported_jsf_pages()
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3", "4", "4"]
+    ] == ["1", "2", "3", "4"]
 
 
 def test_category_scraper_continues_real_products_when_jsf_reports_one_page():
@@ -315,4 +319,4 @@ def test_category_scraper_continues_real_products_when_jsf_reports_one_page():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3", "4", "4"]
+    ] == ["1", "2", "3", "4"]

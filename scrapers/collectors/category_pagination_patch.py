@@ -96,7 +96,7 @@ def _remember_jsf_settings(category_id: int, category_html: str) -> None:
         return
 
     try:
-        query = settings["queries"]["bricks-query-loop"]["querydesk"]
+        query = settings["queries"]["bricks-query-loop"]["querydesk"]["query"]
         request_settings = settings["settings"]["bricks-query-loop"]["querydesk"]
     except (KeyError, TypeError):
         return
@@ -205,7 +205,7 @@ def _retry_jsf_page(
     category_id: int,
     page: int,
 ):
-    """Retry transient JSF responses and preserve the browser's pagination state."""
+    """Retry transport errors, but leave empty valid JSF responses to resilience."""
     last_error: Exception | None = None
     result = (0, 0, "")
     for _ in range(JSF_PAGE_RETRIES):
@@ -239,6 +239,8 @@ def _retry_jsf_page(
             last_error = error
             continue
         if result[2]:
+            return result
+        if result[0] > 0 or result[1] > 0:
             return result
     if last_error is not None:
         raise last_error
@@ -468,4 +470,4 @@ def activate() -> None:
 
 activate()
 
-__all__ = ["JSF_PAGE_RETRIES", "CategoryScraper", "activate", "pages_required"]
+__all__ = ["activate", "pages_required"]

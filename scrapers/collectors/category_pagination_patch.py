@@ -14,10 +14,12 @@ _ORIGINAL_GET_CATEGORY_PAGES = CategoryScraper.get_category_pages
 _ORIGINAL_FETCH_JSF_PAGE = CategoryScraper._fetch_jsf_page
 _ORIGINAL_JSF_PAYLOAD = CategoryScraper._jet_smart_filters_payload
 _PRODUCT_URL_PATTERN = re.compile(
-    r'href=["\']([^"\']*/producto/[^"\'#?]+/?)[^"\']*["\']', re.IGNORECASE
+    r'href=["\']([^"\']*/producto/[^"\'#?]+/?)[^"\']*["\']',
+    re.IGNORECASE,
 )
 _JSF_SETTINGS_PATTERN = re.compile(
-    r"var\s+JetSmartFilterSettings\s*=\s*(\{.*?\})\s*;", re.DOTALL
+    r"var\s+JetSmartFilterSettings\s*=\s*(\{.*?\})\s*;",
+    re.DOTALL,
 )
 JSF_PAGE_RETRIES = 3
 _JSF_STATE_LOCK = RLock()
@@ -55,7 +57,9 @@ def _page_product_keys(
     base_url: str,
 ) -> set[str]:
     """Return stable product identifiers from URLs/SKUs or page content."""
-    return _direct_product_urls(html, base_url) | self._product_keys(html)
+    urls = _direct_product_urls(html, base_url)
+    legacy = self._product_keys(html)
+    return urls | legacy
 
 
 def _facundo_direct_pages(
@@ -65,12 +69,18 @@ def _facundo_direct_pages(
     expected_count: int,
 ) -> tuple[list[str], int]:
     """Collect public archive pages as a compatibility fallback."""
-    pages = scraper._fallback_category_pages(category_url, first_html, expected_count)
+    pages = scraper._fallback_category_pages(
+        category_url,
+        first_html,
+        expected_count,
+    )
     product_urls: set[str] = set(_direct_product_urls(first_html, category_url))
+
     for page_url in pages[1:]:
         html = scraper._category_html_cache.get(page_url, "")
         if html:
             product_urls.update(_direct_product_urls(html, page_url))
+
     return pages, len(product_urls)
 
 
@@ -79,22 +89,27 @@ def _remember_jsf_settings(category_id: int, category_html: str) -> None:
     match = _JSF_SETTINGS_PATTERN.search(category_html or "")
     if not match:
         return
+
     try:
         settings = json.loads(match.group(1))
     except (TypeError, ValueError, json.JSONDecodeError):
         return
+
     try:
-        query = settings["queries"]["bricks-query-loop"]["querydesk"]["query"]
+        query = settings["queries"]["bricks-query-loop"]["querydesk"]
         request_settings = settings["settings"]["bricks-query-loop"]["querydesk"]
     except (KeyError, TypeError):
         return
+
     if not isinstance(query, dict) or not isinstance(request_settings, dict):
         return
+
     with _JSF_STATE_LOCK:
         _JSF_REQUEST_STATE[category_id] = {
             "query": dict(query),
             "settings": dict(request_settings),
         }
+
     props = settings.get("props", {})
     try:
         query_props = props["bricks-query-loop"]["querydesk"]
@@ -122,12 +137,17 @@ def _remember_jsf_metadata(
 def _apply_live_query_defaults(values: dict[str, str], query: object) -> None:
     if not isinstance(query, dict):
         return
+
     post_type = query.get("post_type")
     if isinstance(post_type, list) and post_type:
         values["defaults[post_type][]"] = str(post_type[0])
+
     orderby = query.get("orderby")
-    if isinstance(orderby, dict) and orderby.get("menu_order"):
-        values["defaults[orderby][menu_order]"] = str(orderby["menu_order"])
+    if isinstance(orderby, dict):
+        menu_order = orderby.get("menu_order")
+        if menu_order:
+            values["defaults[orderby][menu_order]"] = str(menu_order)
+
     for key in (
         "posts_per_page",
         "no_results_text",
@@ -138,18 +158,21 @@ def _apply_live_query_defaults(values: dict[str, str], query: object) -> None:
         value = query.get(key)
         if value is None:
             continue
-        values[f"defaults[{key}]"] = (
-            str(value).lower() if isinstance(value, bool) else str(value)
-        )
+        if isinstance(value, bool):
+            values[f"defaults[{key}]"] = str(value).lower()
+        else:
+            values[f"defaults[{key}]"] = str(value)
 
 
 def _apply_live_request_settings(values: dict[str, str], settings: object) -> None:
     if not isinstance(settings, dict):
         return
+
     filtered_post_id = settings.get("filtered_post_id")
     element_id = settings.get("element_id")
     archive_query = settings.get("is_archive_main_query")
     signature = settings.get("jsf_signature")
+
     if filtered_post_id is not None:
         values["query[_tax_query_product_cat]"] = str(filtered_post_id)
         values["settings[filtered_post_id]"] = str(filtered_post_id)
@@ -168,6 +191,7 @@ def _browser_compatible_jsf_payload(
     """Build the smallest JSF request compatible with the live querydesk state."""
     with _JSF_STATE_LOCK:
         request_state = dict(_JSF_REQUEST_STATE.get(category_id, {}))
+
     payload = _ORIGINAL_JSF_PAYLOAD(category_id, 1)
     values = dict(payload)
     _apply_live_query_defaults(values, request_state.get("query"))
@@ -191,10 +215,33 @@ def _retry_jsf_page(
     """Retry transient JSF responses and require rendered product content."""
     last_error: Exception | None = None
     result = (0, 0, "")
-    fetcher = _ORIGINAL_FETCH_JSF_PAGE.__get__(self, CategoryScraper)
     for _ in range(JSF_PAGE_RETRIES):
         try:
-            result = fetcher(category_url, category_id, page)
+            cache_key = (category_url, page)
+            with self._jsf_cache_lock:
+                cached_html = self._jsf_page_cache.get(cache_key)
+                cached_metadata = self._jsf_metadata_cache.get(category_url)
+            if cached_html is not None:
+                found_posts, max_num_pages = cached_metadata or (0, 0)
+                return found_posts, max_num_pages, cached_html
+
+            response_text = self._post_jsf(
+                _browser_compatible_jsf_payload(category_id, page)
+            )
+            found_posts, max_num_pages, rendered_html = self._parse_jsf_response(
+                response_text
+            )
+            _remember_jsf_metadata(category_id, found_posts, max_num_pages)
+            if found_posts > 0 or max_num_pages > 0:
+                with self._jsf_cache_lock:
+                    self._jsf_metadata_cache[category_url] = (
+                        found_posts,
+                        max_num_pages,
+                    )
+            if rendered_html:
+                with self._jsf_cache_lock:
+                    self._jsf_page_cache[cache_key] = rendered_html
+            result = (found_posts, max_num_pages, rendered_html)
         except (RuntimeError, TypeError, ValueError) as error:
             last_error = error
             continue
@@ -264,6 +311,7 @@ def _jsf_category_pages_with_probe(
     )
     if not first_html:
         return [category_url]
+
     expected_pages = self._required_page_count(expected_count)
     published_pages = self._required_page_count(found_posts)
     response_html_pages = max(
@@ -282,9 +330,11 @@ def _jsf_category_pages_with_probe(
         category_html_pages,
         1,
     )
+
     pages = [category_url]
     seen_product_keys = _page_product_keys(self, first_html, category_url)
     self._cache_category_html(category_url, category_html)
+
     for page_number in range(2, known_pages + 1):
         page_url = self._jsf_page_url(category_url, page_number)
         _, _, rendered_html = _walk_jsf_page(
@@ -297,7 +347,11 @@ def _jsf_category_pages_with_probe(
             raise RuntimeError(
                 f"Empty JSF pagination page {page_number} for {category_url}"
             )
-        current_product_keys = _page_product_keys(self, rendered_html, page_url)
+        current_product_keys = _page_product_keys(
+            self,
+            rendered_html,
+            page_url,
+        )
         if not current_product_keys:
             raise RuntimeError(
                 f"No products found on JSF pagination page {page_number} for {category_url}"
@@ -310,6 +364,7 @@ def _jsf_category_pages_with_probe(
         seen_product_keys.update(current_product_keys)
         self._cache_category_html(page_url, rendered_html)
         pages.append(page_url)
+
     if known_pages > 1:
         boundary_page = known_pages + 1
         has_new_products, new_product_keys = _probe_boundary_page(
@@ -323,6 +378,7 @@ def _jsf_category_pages_with_probe(
             seen_product_keys.update(new_product_keys)
             pages.append(self._jsf_page_url(category_url, boundary_page))
         return pages
+
     for offset in range(min(self.MAX_HIDDEN_PAGE_PROBES, 5)):
         page_number = known_pages + offset + 1
         page_url = self._jsf_page_url(category_url, page_number)
@@ -334,7 +390,11 @@ def _jsf_category_pages_with_probe(
         )
         if not rendered_html:
             break
-        current_product_keys = _page_product_keys(self, rendered_html, page_url)
+        current_product_keys = _page_product_keys(
+            self,
+            rendered_html,
+            page_url,
+        )
         if not current_product_keys:
             break
         new_product_keys = current_product_keys - seen_product_keys
@@ -343,6 +403,7 @@ def _jsf_category_pages_with_probe(
         seen_product_keys.update(current_product_keys)
         self._cache_category_html(page_url, rendered_html)
         pages.append(page_url)
+
     return pages
 
 
@@ -362,6 +423,7 @@ def _get_category_pages(
             category_url,
             expected_count=expected_count,
         )
+
     category_id = self._category_id(first_html)
     if category_id is not None:
         self._cache_category_html(category_url, first_html)
@@ -372,6 +434,7 @@ def _get_category_pages(
             expected_count,
             category_html=first_html,
         )
+
     direct_products = _direct_product_urls(first_html, category_url)
     if direct_products:
         direct_pages, direct_count = _facundo_direct_pages(
@@ -384,6 +447,7 @@ def _get_category_pages(
         if expected == 0 or direct_count >= expected:
             self._cache_category_html(category_url, first_html)
             return direct_pages
+
     self._cache_category_html(category_url, first_html)
     return _ORIGINAL_GET_CATEGORY_PAGES(
         self,
@@ -407,5 +471,3 @@ def activate() -> None:
 
 
 activate()
-
-__all__ = ["JSF_PAGE_RETRIES", "activate", "pages_required"]

@@ -234,7 +234,7 @@ def _retry_jsf_page(
         except (RuntimeError, TypeError, ValueError) as error:
             last_error = error
             continue
-        if result[2] or result[0] > 0 or result[1] > 0:
+        if result[2]:
             return result
     if last_error is not None:
         raise last_error
@@ -355,45 +355,17 @@ def _jsf_category_pages_with_probe(
         self._cache_category_html(page_url, rendered_html)
         pages.append(page_url)
 
-    if known_pages > 1:
-        boundary_page = known_pages + 1
-        has_new_products, new_product_keys = _probe_boundary_page(
-            self,
-            category_url,
-            category_id,
-            boundary_page,
-            seen_product_keys,
-        )
-        if has_new_products:
-            seen_product_keys.update(new_product_keys)
-            pages.append(self._jsf_page_url(category_url, boundary_page))
-        return pages
-
-    for offset in range(min(self.MAX_HIDDEN_PAGE_PROBES, 5)):
-        page_number = known_pages + offset + 1
-        page_url = self._jsf_page_url(category_url, page_number)
-        _, _, rendered_html = _probe_jsf_page(
-            self,
-            category_url,
-            category_id,
-            page_number,
-        )
-        if not rendered_html:
-            break
-        current_product_keys = _page_product_keys(
-            self,
-            rendered_html,
-            page_url,
-        )
-        if not current_product_keys:
-            break
-        new_product_keys = current_product_keys - seen_product_keys
-        if not new_product_keys:
-            break
-        seen_product_keys.update(current_product_keys)
-        self._cache_category_html(page_url, rendered_html)
-        pages.append(page_url)
-
+    boundary_page = known_pages + 1
+    has_new_products, new_product_keys = _probe_boundary_page(
+        self,
+        category_url,
+        category_id,
+        boundary_page,
+        seen_product_keys,
+    )
+    if has_new_products:
+        seen_product_keys.update(new_product_keys)
+        pages.append(self._jsf_page_url(category_url, boundary_page))
     return pages
 
 
@@ -431,3 +403,24 @@ def _get_category_pages(
             first_html,
             expected_count,
         )
+        if direct_count >= len(direct_products):
+            return direct_pages
+    return _ORIGINAL_GET_CATEGORY_PAGES(
+        self,
+        category_url,
+        expected_count=expected_count,
+    )
+
+
+def activate() -> None:
+    """Install the pagination compatibility patch once."""
+    global _PATCHED
+    if _PATCHED:
+        return
+    CategoryScraper.get_category_pages = _get_category_pages
+    _PATCHED = True
+
+
+activate()
+
+__all__ = ["JSF_PAGE_RETRIES", "activate", "pages_required"]

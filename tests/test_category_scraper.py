@@ -1,3 +1,5 @@
+import pytest
+
 from scrapers.collectors.category_scraper import CategoryScraper
 
 
@@ -227,13 +229,13 @@ def test_category_scraper_stops_after_empty_page_retry_exhaustion():
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(browser)
 
-    pages = scraper.get_category_pages(category_url, expected_count=61)
+    with pytest.raises(RuntimeError, match="Empty JSF pagination page 2"):
+        scraper.get_category_pages(category_url, expected_count=61)
 
-    assert pages == [category_url]
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "2"]
+    ] == ["1", "2", "2", "2"]
 
 
 def test_category_scraper_continues_real_products_past_underreported_jsf_pages():

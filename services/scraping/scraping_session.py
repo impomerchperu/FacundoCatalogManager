@@ -62,16 +62,13 @@ class ScrapingSession:
         self.result = ScrapingSessionResult(started_at=datetime.now(timezone.utc))
         db = getattr(self.history_repository, "db", None)
         transaction_started = False
-
         try:
             if db is not None:
                 db.begin()
                 transaction_started = True
-
             products = operation()
             self.result.products = products or []
             self._extract_sync_result()
-
             if not self.result.counts_are_consistent:
                 self.result.errors.append(
                     "Inconsistencia en el resumen de sincronización: "
@@ -79,7 +76,6 @@ class ScrapingSession:
                     f"clasificados={self.result.classified_total}, "
                     f"únicos={self.result.products_unique}."
                 )
-
             if self.result.errors and not self._only_coverage_error():
                 self._rollback_transaction(db, transaction_started)
                 transaction_started = False
@@ -87,16 +83,11 @@ class ScrapingSession:
                 self._write_error_result_artifact()
                 self._save_history_in_clean_transaction(db)
                 return self.result
-
-            if self.result.finished_at is None:
-                self.result.finished_at = datetime.now(timezone.utc)
-
-            # El catálogo y el historial son transacciones distintas. Un fallo
-            # del historial nunca debe deshacer productos ya aplicados.
+            self._persist_catalog_products()
+            self.result.finished_at = datetime.now(timezone.utc)
             if db is not None and transaction_started:
                 db.commit()
                 transaction_started = False
-
             try:
                 self._save_history_in_clean_transaction(db)
             except Exception as history_error:  # noqa: BLE001
@@ -105,7 +96,6 @@ class ScrapingSession:
                     "los cambios del catálogo ya fueron aplicados: "
                     f"{history_error}"
                 )
-
         except Exception as error:  # noqa: BLE001
             self._rollback_transaction(db, transaction_started)
             transaction_started = False
@@ -118,7 +108,6 @@ class ScrapingSession:
                 self.result.errors.append(
                     f"No se pudo registrar el historial del error: {history_error}"
                 )
-
         return self.result
 
     def _only_coverage_error(self):
@@ -199,22 +188,12 @@ class ScrapingSession:
         ):
             coverage_result = catalog_result
         self.result.products_expected = getattr(coverage_result, "products_expected", 0)
-        self.result.products_found = getattr(
-            coverage_result, "products_found", len(self.result.products)
-        )
-        self.result.products_unique = getattr(
-            coverage_result, "products_unique", len(self.result.products)
-        )
-        self.result.products_multiple_categories = getattr(
-            coverage_result, "products_multiple_categories", 0
-        )
-        self.result.duplicate_occurrences = getattr(
-            coverage_result, "duplicate_occurrences", 0
-        )
+        self.result.products_found = getattr(coverage_result, "products_found", len(self.result.products))
+        self.result.products_unique = getattr(coverage_result, "products_unique", len(self.result.products))
+        self.result.products_multiple_categories = getattr(coverage_result, "products_multiple_categories", 0)
+        self.result.duplicate_occurrences = getattr(coverage_result, "duplicate_occurrences", 0)
         self.result.category_summary = list(getattr(coverage_result, "category_summary", []))
-        self.result.multiple_category_products = list(
-            getattr(coverage_result, "multiple_category_products", [])
-        )
+        self.result.multiple_category_products = list(getattr(coverage_result, "multiple_category_products", []))
         if not coverage_result.coverage_complete:
             self.result.errors.append(
                 "Cobertura del catálogo incompleta: "
@@ -255,6 +234,6 @@ class ScrapingSession:
         )
         self.result.history_id = self.history_repository.save(
             history,
-            self.result.changes if self.result.success() else [],
-            self.result.products if self.result.success() else [],
+            self.result.changes,
+            self.result.products,
         )

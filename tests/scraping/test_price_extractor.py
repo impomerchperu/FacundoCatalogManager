@@ -111,7 +111,7 @@ def test_price_extractor_maps_table_price_box_to_hundred():
         <tbody>
             <tr class="jsfb-filterable">
                 <td>21098ND</td>
-                <td><h2>Guillotina Cortadora de Papel – A4</h2></td>
+                <td><h2>Guillotina Cortadora de Papel - A4</h2></td>
                 <td>Stock 141</td>
                 <td>
                     <div>S/ 120.00</div>

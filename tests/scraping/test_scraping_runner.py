@@ -24,6 +24,36 @@ def test_scraping_runner_executes_categories():
     assert progress == [(1, 2), (2, 2)]
 
 
+def test_scraping_runner_marks_directed_mode():
+    class FakeScrapingService:
+        def sync_categories(self, categories, progress_callback=None):
+            return []
+
+    service = FakeScrapingService()
+    runner = ScrapingRunner(service)
+
+    runner.run(["cat1"])
+
+    assert service._scraping_mode == "directed"
+
+
+def test_scraping_runner_marks_full_mode_for_run_all():
+    class FakeScrapingService:
+        def sync_categories(self, categories, progress_callback=None):
+            return []
+
+    class FakeCategoryService:
+        def scrape_all(self):
+            return ["cat1", "cat2"]
+
+    service = FakeScrapingService()
+    runner = ScrapingRunner(service, category_service=FakeCategoryService())
+
+    runner.run_all()
+
+    assert service._scraping_mode == "full"
+
+
 def test_scraping_runner_logs_error_and_total_on_sync_failure(tmp_path, monkeypatch):
     timing_log = tmp_path / "scraping_timing.log"
     monkeypatch.setattr(scraping_runner, "TIMING_LOG", Path(timing_log))

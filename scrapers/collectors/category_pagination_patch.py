@@ -375,14 +375,14 @@ def _get_category_pages(
         )
     direct_products = _direct_product_urls(first_html, category_url)
     if direct_products:
-        direct_pages, direct_count = _facundo_direct_pages(
+        pages, product_count = _facundo_direct_pages(
             self,
             category_url,
             first_html,
             expected_count,
         )
-        if direct_count >= len(direct_products):
-            return direct_pages
+        if product_count >= len(direct_products):
+            return pages
     return _ORIGINAL_GET_CATEGORY_PAGES(
         self,
         category_url,

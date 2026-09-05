@@ -41,6 +41,8 @@ class ScrapingRunner:
         self,
         categories: list[Category] | None = None,
         progress_callback=None,
+        *,
+        full_catalog=False,
     ):
         """Ejecuta scraping sobre las categorías recibidas."""
         if categories is None:
@@ -59,6 +61,10 @@ class ScrapingRunner:
         )
         if callable(reset_sync_result):
             reset_sync_result()
+
+        self.scraping_service._scraping_mode = (
+            "full" if full_catalog else "directed"
+        )
 
         try:
             sync_categories = getattr(
@@ -122,4 +128,8 @@ class ScrapingRunner:
             time.perf_counter() - started,
         )
 
-        return self.run(categories, progress_callback)
+        return self.run(
+            categories,
+            progress_callback,
+            full_catalog=True,
+        )

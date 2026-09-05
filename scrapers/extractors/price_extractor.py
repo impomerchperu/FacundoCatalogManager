@@ -9,6 +9,7 @@ class PriceExtractor:
         "Precio Muestra",
         "Precio Ciento",
         "Precio Millar",
+        "Precio Caja",
     )
 
     def _extract_price_block(self, soup, label):
@@ -112,31 +113,38 @@ class PriceExtractor:
         return None
 
     def _table_price_cells(self, cells):
-        """Extrae importe y texto de umbral desde las celdas de precio."""
+        """Extrae importes de las columnas de precios de la tabla."""
         price_cells = []
         for cell in cells:
             text = " ".join(cell.stripped_strings)
-            if not re.search(r"\b(?:menos de|a partir de)\b", text.casefold()):
-                continue
             value = self._price_from_text(text)
-            if value is not None:
-                price_cells.append((text.casefold(), value))
+            if value is None:
+                continue
+            price_cells.append((text.casefold(), value))
         return price_cells
 
     @staticmethod
     def _match_table_price(price_cells, label_normalized):
         """Selecciona el importe correspondiente al nivel solicitado."""
         matchers = {
-            "precio muestra": r"\bmenos de\s+50\s+unidades\b",
-            "precio ciento": r"\ba partir de\s+50\s+unidades\b",
-            "precio millar": r"\ba partir de\s+500\s+unidades\b",
+            "precio muestra": r"\bmenos de\s+\d+\s+unidades?\b",
+            "precio ciento": r"\ba partir(?: de)?\s+50\s+unidades?\b",
+            "precio millar": r"\ba partir(?: de)?\s+500\s+unidades?\b",
         }
         pattern = matchers.get(label_normalized)
-        if pattern is None:
-            return None
-        for text, value in price_cells:
-            if re.search(pattern, text):
-                return value
+        if pattern is not None:
+            for text, value in price_cells:
+                if re.search(pattern, text):
+                    return value
+
+        positions = {
+            "precio muestra": 0,
+            "precio ciento": 1,
+            "precio millar": 2,
+        }
+        position = positions.get(label_normalized)
+        if position is not None and position < len(price_cells):
+            return price_cells[position][1]
         return None
 
     def _extract_labeled_price_from_text(self, soup, label):
@@ -180,7 +188,10 @@ class PriceExtractor:
         return self._extract_price_block(soup, "Precio Muestra")
 
     def extract_hundred(self, soup):
-        return self._extract_price_block(soup, "Precio Ciento")
+        price = self._extract_price_block(soup, "Precio Ciento")
+        if price:
+            return price
+        return self._extract_price_block(soup, "Precio Caja")
 
     def extract_thousand(self, soup):
         return self._extract_price_block(soup, "Precio Millar")

@@ -42,9 +42,15 @@ class PriceExtractor:
             and label_normalized in tag.get_text(" ", strip=True).casefold()
         )
         if heading is not None:
-            price = heading.find_next("h4")
-            if price is not None:
-                parsed = self._parse_price(price.get_text(" ", strip=True))
+            for element in heading.find_all_next(["h3", "h4", "div", "span"]):
+                text = element.get_text(" ", strip=True)
+                if any(
+                    other.casefold() in text.casefold()
+                    for other in ("Precio Muestra", "Precio Ciento", "Precio Millar")
+                    if other.casefold() != label_normalized
+                ):
+                    break
+                parsed = self._parse_price(text)
                 if parsed is not None:
                     return parsed
 
@@ -55,50 +61,47 @@ class PriceExtractor:
         return self._extract_labeled_price_from_text(soup, label)
 
     def _extract_table_row_price(self, soup, label_normalized):
-        """Recupera precios de filas Bricks cuando no existen bloques etiquetados."""
-        if getattr(soup, "name", "") != "tr":
-            return None
+        """Recupera precios de filas Bricks aunque cambie el markup de las celdas."""
+        rows = []
+        if getattr(soup, "name", "") == "tr":
+            rows.append(soup)
+        rows.extend(soup.select("tr.jsfb-filterable"))
+        if not rows:
+            rows.extend(soup.select("table tbody tr"))
 
-        cells = soup.find_all("td", recursive=False)
-        if len(cells) < 3:
-            return None
-
-        price_cells = []
-        for cell in cells:
-            heading = cell.find(["h3", "h4"])
-            if heading is None:
+        for row in rows:
+            cells = row.find_all("td", recursive=False)
+            if len(cells) < 3:
                 continue
-            value = self._parse_price(heading.get_text(" ", strip=True))
-            if value is None:
+
+            price_cells = []
+            for cell in cells:
+                text = " ".join(cell.stripped_strings)
+                lower_text = text.casefold()
+                if not re.search(r"\b(?:menos de|a partir de)\b", lower_text):
+                    continue
+                value = self._parse_price(text)
+                if value is None:
+                    continue
+                price_cells.append((lower_text, value))
+
+            if label_normalized == "precio muestra":
+                for text, value in price_cells:
+                    if "menos de" in text:
+                        return value
                 continue
-            text = " ".join(cell.stripped_strings).casefold()
-            price_cells.append((text, value))
 
-        if len(price_cells) < 3:
-            return None
+            if label_normalized == "precio ciento":
+                for text, value in price_cells:
+                    if "a partir de" in text and "50" in text:
+                        return value
+                continue
 
-        sample_index = next(
-            (
-                index
-                for index, (text, _) in enumerate(price_cells)
-                if "menos de" in text
-            ),
-            None,
-        )
-        if sample_index is None:
-            return None
+            if label_normalized == "precio millar":
+                for text, value in price_cells:
+                    if "a partir de" in text and "500" in text:
+                        return value
 
-        if label_normalized == "precio muestra":
-            return price_cells[sample_index][1]
-
-        remaining = price_cells[sample_index + 1 :]
-        if len(remaining) < 2:
-            return None
-
-        if label_normalized == "precio ciento":
-            return remaining[0][1]
-        if label_normalized == "precio millar":
-            return remaining[1][1]
         return None
 
     def _extract_labeled_price_from_text(self, soup, label):
@@ -146,4 +149,3 @@ class PriceExtractor:
 
     def extract_thousand(self, soup):
         return self._extract_price_block(soup, "Precio Millar")
-

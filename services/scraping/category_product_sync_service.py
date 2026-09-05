@@ -135,6 +135,7 @@ class CategoryProductSyncService:
             dict.fromkeys(self.last_sync_result.errors)
         )
         self.last_sync_result.finish()
+        self._write_final_result_artifact(raw_products)
         _log_timing(
             "SCRAPING TIMING | stage=sync_categories_total | categories=%d | "
             "products=%d | seconds=%.3f",
@@ -333,11 +334,11 @@ class CategoryProductSyncService:
         self.last_sync_result.category_summary = category_summary
         self.last_sync_result.multiple_category_products = multiple
         self.last_sync_result.products_multiple_categories = len(multiple)
-        self.last_sync_result.products_found = len(products)
+        self.last_sync_result.products_found = len(raw_products)
         self.last_sync_result.products_unique = len(
             {
                 str(getattr(product, "code", "")).strip()
-                for product in products
+                for product in raw_products
                 if str(getattr(product, "code", "")).strip()
             }
         )

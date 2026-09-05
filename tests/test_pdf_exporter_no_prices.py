@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from models.product import Product
 from exporters.pdf_exporter import PDFExporter
+from models.product import Product
 
 
 def test_pdf_exporter_does_not_include_price_column(tmp_path, monkeypatch):

@@ -22,6 +22,7 @@ class CategoryScraper:
 
     PRODUCTS_PER_PAGE = 25
     MAX_HIDDEN_PAGE_PROBES = 100
+    JSF_EMPTY_PAGE_RETRIES = 1
 
     def __init__(self, browser: Any, parser: Any = None, category_extractor: Any = None, product_block_extractor: Any = None) -> None:
         self.parser = parser
@@ -122,7 +123,11 @@ class CategoryScraper:
         completed_declared_range = True
         for page_number in range(2, max_num_pages + 1):
             page_url = self._jsf_page_url(category_url, page_number)
-            _, _, rendered_html = self._fetch_jsf_page(category_url, category_id, page_number)
+            _, _, rendered_html = self._fetch_jsf_page_with_empty_retries(
+                category_url,
+                category_id,
+                page_number,
+            )
             if not rendered_html:
                 completed_declared_range = False
                 break
@@ -163,6 +168,16 @@ class CategoryScraper:
                     pages.append(sentinel_url)
 
         return pages
+
+    def _fetch_jsf_page_with_empty_retries(self, category_url: str, category_id: int, page: int) -> tuple[int, int, str]:
+        result = self._fetch_jsf_page(category_url, category_id, page)
+        if result[2]:
+            return result
+        for _ in range(self.JSF_EMPTY_PAGE_RETRIES):
+            result = self._fetch_jsf_page(category_url, category_id, page)
+            if result[2]:
+                break
+        return result
 
     def _fetch_category_page_html(self, category_url: str, category_id: int, page: int, page_url: str) -> str:
         if self._is_facundo_url(category_url):

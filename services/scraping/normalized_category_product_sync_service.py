@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from services.scraping.category_product_sync_service import CategoryProductSyncService
 from repositories.scraping.normalized_scraping_repository import (
     NormalizedScrapingRepository,
+)
+from services.scraping.category_product_sync_service import (
+    CategoryProductSyncService,
 )
 
 
@@ -14,32 +16,27 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         self.normalized_repository = normalized_repository
 
     def sync_categories(self, categories, progress_callback=None):
-        result = super().sync_categories(categories, progress_callback)
-        self._persist_normalized(categories, result, mode="full")
-        return result
+        products = super().sync_categories(categories, progress_callback)
+        self._persist_normalized(categories, products, mode="full")
+        return products
 
     def sync_category(self, category_url, category=""):
-        result = super().sync_category(category_url, category)
-        self._persist_normalized(
-            [
-                type(
-                    "ScrapedCategory",
-                    (),
-                    {
-                        "name": category,
-                        "url": category_url,
-                        "expected_count": 0,
-                    },
-                )()
-            ],
-            result,
-            mode="directed",
-        )
-        return result
+        products = super().sync_category(category_url, category)
+        category_object = type(
+            "ScrapedCategory",
+            (),
+            {
+                "name": category,
+                "url": category_url,
+                "expected_count": 0,
+            },
+        )()
+        self._persist_normalized([category_object], products, mode="directed")
+        return products
 
     def _persist_normalized(self, categories, products, *, mode: str) -> None:
         repository = self.normalized_repository
-        if repository is None:
+        if repository is None or self.catalog_sync_service is None:
             return
 
         result = self.last_sync_result

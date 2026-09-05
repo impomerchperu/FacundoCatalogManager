@@ -10,6 +10,11 @@ class PriceExtractor:
         "ciento": "hundred",
         "millar": "thousand",
     }
+    _PRICE_LABELS: ClassVar[tuple[str, ...]] = (
+        "Precio Muestra",
+        "Precio Ciento",
+        "Precio Millar",
+    )
 
     def _extract_price_block(self, soup, label):
         """Extrae un precio a partir de un bloque etiquetado."""
@@ -44,11 +49,7 @@ class PriceExtractor:
         if heading is not None:
             for element in heading.find_all_next(["h3", "h4", "div", "span"]):
                 text = element.get_text(" ", strip=True)
-                if any(
-                    other.casefold() in text.casefold()
-                    for other in ("Precio Muestra", "Precio Ciento", "Precio Millar")
-                    if other.casefold() != label_normalized
-                ):
+                if self._contains_other_price_label(text, label_normalized):
                     break
                 parsed = self._parse_price(text)
                 if parsed is not None:
@@ -60,48 +61,63 @@ class PriceExtractor:
 
         return self._extract_labeled_price_from_text(soup, label)
 
-    def _extract_table_row_price(self, soup, label_normalized):
-        """Recupera precios de filas Bricks aunque cambie el markup de las celdas."""
+    @classmethod
+    def _contains_other_price_label(cls, text, current_label):
+        normalized = text.casefold()
+        return any(
+            label.casefold() != current_label and label.casefold() in normalized
+            for label in cls._PRICE_LABELS
+        )
+
+    @staticmethod
+    def _table_rows(soup):
+        """Obtiene las filas de tabla relevantes para la tarjeta."""
         rows = []
         if getattr(soup, "name", "") == "tr":
             rows.append(soup)
         rows.extend(soup.select("tr.jsfb-filterable"))
         if not rows:
             rows.extend(soup.select("table tbody tr"))
+        return rows
 
-        for row in rows:
+    def _extract_table_row_price(self, soup, label_normalized):
+        """Recupera precios de filas Bricks aunque cambie el markup de las celdas."""
+        for row in self._table_rows(soup):
             cells = row.find_all("td", recursive=False)
             if len(cells) < 3:
                 continue
+            price_cells = self._table_price_cells(cells)
+            price = self._match_table_price(price_cells, label_normalized)
+            if price is not None:
+                return price
+        return None
 
-            price_cells = []
-            for cell in cells:
-                text = " ".join(cell.stripped_strings)
-                lower_text = text.casefold()
-                if not re.search(r"\b(?:menos de|a partir de)\b", lower_text):
-                    continue
-                value = self._parse_price(text)
-                if value is None:
-                    continue
-                price_cells.append((lower_text, value))
-
-            if label_normalized == "precio muestra":
-                for text, value in price_cells:
-                    if "menos de" in text:
-                        return value
+    def _table_price_cells(self, cells):
+        """Extrae importe y texto de umbral desde las celdas de precio."""
+        price_cells = []
+        for cell in cells:
+            text = " ".join(cell.stripped_strings)
+            if not re.search(r"\b(?:menos de|a partir de)\b", text.casefold()):
                 continue
+            value = self._parse_price(text)
+            if value is not None:
+                price_cells.append((text.casefold(), value))
+        return price_cells
 
-            if label_normalized == "precio ciento":
-                for text, value in price_cells:
-                    if "a partir de" in text and "50" in text:
-                        return value
-                continue
-
-            if label_normalized == "precio millar":
-                for text, value in price_cells:
-                    if "a partir de" in text and "500" in text:
-                        return value
-
+    @staticmethod
+    def _match_table_price(price_cells, label_normalized):
+        """Selecciona el importe correspondiente al nivel solicitado."""
+        matchers = {
+            "precio muestra": lambda text: "menos de" in text,
+            "precio ciento": lambda text: "a partir de" in text and "50" in text,
+            "precio millar": lambda text: "a partir de" in text and "500" in text,
+        }
+        matcher = matchers.get(label_normalized)
+        if matcher is None:
+            return None
+        for text, value in price_cells:
+            if matcher(text):
+                return value
         return None
 
     def _extract_labeled_price_from_text(self, soup, label):

@@ -20,13 +20,9 @@ class PDFExporter:
         doc = SimpleDocTemplate(filename, pagesize=A4)
 
         elements: list[Any] = []
-
         styles = getSampleStyleSheet()
 
-        title = Paragraph("Catálogo de Productos", styles["Title"])
-
-        elements.append(title)
-
+        elements.append(Paragraph("Catálogo de Productos", styles["Title"]))
         elements.append(Spacer(1, 20))
 
         data: list[list[Any]] = [
@@ -35,17 +31,16 @@ class PDFExporter:
                 "Código",
                 "Nombre",
                 "Categoría",
-                "Precio",
                 "Stock",
             ]
         ]
 
         for product in products:
             image: Any = ""
-
-            if product.image_path and os.path.exists(product.image_path):
+            image_path = getattr(product, "image_path", "")
+            if image_path and os.path.exists(image_path):
                 image = Image(
-                    product.image_path,
+                    image_path,
                     width=1.5 * cm,
                     height=1.5 * cm,
                 )
@@ -56,13 +51,11 @@ class PDFExporter:
                     product.code,
                     product.name,
                     product.category,
-                    str(product.price),
                     str(product.stock),
                 ]
             )
 
         table = Table(data)
-
         table.setStyle(
             TableStyle(
                 [
@@ -71,7 +64,5 @@ class PDFExporter:
                 ]
             )
         )
-
         elements.append(table)
-
         doc.build(elements)

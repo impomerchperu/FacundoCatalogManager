@@ -67,3 +67,50 @@ def test_extract_categories_keeps_each_category_product_count_isolated():
     categories = CategoryExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert [category.expected_count for category in categories] == [61, 31]
+
+
+def test_extract_categories_deduplicates_same_category_url_variants():
+    html = """
+    <section>
+        <h2>Nuestras Categorías</h2>
+        <div>
+            <div>
+                <h3>Insumos de Sublimación</h3>
+                <div>Producto(s) 61</div>
+                <a href="https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/">
+                    Ver Categoría
+                </a>
+            </div>
+            <div>
+                <h3>Insumos de Sublimación</h3>
+                <div>Producto(s) 61</div>
+                <a href="/categoria-producto/insumos-de-sublimacion/?view=mobile">
+                    Ver Categoría
+                </a>
+            </div>
+            <div>
+                <h3>Insumos de Sublimación</h3>
+                <div>Producto(s) 61</div>
+                <a href="/categoria-producto/insumos-de-sublimacion">
+                    Ver Categoría
+                </a>
+            </div>
+            <div>
+                <h3>Jarros Mug</h3>
+                <div>Producto(s) 19</div>
+                <a href="/categoria-producto/jarros-mug/">
+                    Ver Categoría
+                </a>
+            </div>
+        </div>
+    </section>
+    """
+
+    categories = CategoryExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert len(categories) == 2
+    assert [category.name for category in categories] == [
+        "Insumos de Sublimación",
+        "Jarros Mug",
+    ]
+    assert [category.expected_count for category in categories] == [61, 19]

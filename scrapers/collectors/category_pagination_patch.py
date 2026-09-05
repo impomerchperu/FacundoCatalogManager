@@ -75,12 +75,10 @@ def _facundo_direct_pages(
         expected_count,
     )
     product_urls: set[str] = set(_direct_product_urls(first_html, category_url))
-
     for page_url in pages[1:]:
         html = scraper._category_html_cache.get(page_url, "")
         if html:
             product_urls.update(_direct_product_urls(html, page_url))
-
     return pages, len(product_urls)
 
 
@@ -89,27 +87,22 @@ def _remember_jsf_settings(category_id: int, category_html: str) -> None:
     match = _JSF_SETTINGS_PATTERN.search(category_html or "")
     if not match:
         return
-
     try:
         settings = json.loads(match.group(1))
     except (TypeError, ValueError, json.JSONDecodeError):
         return
-
     try:
         query = settings["queries"]["bricks-query-loop"]["querydesk"]
         request_settings = settings["settings"]["bricks-query-loop"]["querydesk"]
     except (KeyError, TypeError):
         return
-
     if not isinstance(query, dict) or not isinstance(request_settings, dict):
         return
-
     with _JSF_STATE_LOCK:
         _JSF_REQUEST_STATE[category_id] = {
             "query": dict(query),
             "settings": dict(request_settings),
         }
-
     props = settings.get("props", {})
     try:
         query_props = props["bricks-query-loop"]["querydesk"]
@@ -137,17 +130,14 @@ def _remember_jsf_metadata(
 def _apply_live_query_defaults(values: dict[str, str], query: object) -> None:
     if not isinstance(query, dict):
         return
-
     post_type = query.get("post_type")
     if isinstance(post_type, list) and post_type:
         values["defaults[post_type][]"] = str(post_type[0])
-
     orderby = query.get("orderby")
     if isinstance(orderby, dict):
         menu_order = orderby.get("menu_order")
         if menu_order:
             values["defaults[orderby][menu_order]"] = str(menu_order)
-
     for key in (
         "posts_per_page",
         "no_results_text",
@@ -167,12 +157,10 @@ def _apply_live_query_defaults(values: dict[str, str], query: object) -> None:
 def _apply_live_request_settings(values: dict[str, str], settings: object) -> None:
     if not isinstance(settings, dict):
         return
-
     filtered_post_id = settings.get("filtered_post_id")
     element_id = settings.get("element_id")
     archive_query = settings.get("is_archive_main_query")
     signature = settings.get("jsf_signature")
-
     if filtered_post_id is not None:
         values["query[_tax_query_product_cat]"] = str(filtered_post_id)
         values["settings[filtered_post_id]"] = str(filtered_post_id)
@@ -191,7 +179,6 @@ def _browser_compatible_jsf_payload(
     """Build the smallest JSF request compatible with the live querydesk state."""
     with _JSF_STATE_LOCK:
         request_state = dict(_JSF_REQUEST_STATE.get(category_id, {}))
-
     payload = _ORIGINAL_JSF_PAYLOAD(category_id, 1)
     values = dict(payload)
     _apply_live_query_defaults(values, request_state.get("query"))
@@ -224,7 +211,6 @@ def _retry_jsf_page(
             if cached_html is not None:
                 found_posts, max_num_pages = cached_metadata or (0, 0)
                 return found_posts, max_num_pages, cached_html
-
             response_text = self._post_jsf(
                 _browser_compatible_jsf_payload(category_id, page)
             )
@@ -245,7 +231,7 @@ def _retry_jsf_page(
         except (RuntimeError, TypeError, ValueError) as error:
             last_error = error
             continue
-        if result[2]:
+        if result[2] or result[0] > 0 or result[1] > 0:
             return result
     if last_error is not None:
         raise last_error
@@ -309,8 +295,6 @@ def _jsf_category_pages_with_probe(
         category_id,
         1,
     )
-    if not first_html:
-        return [category_url]
 
     expected_pages = self._required_page_count(expected_count)
     published_pages = self._required_page_count(found_posts)
@@ -330,6 +314,9 @@ def _jsf_category_pages_with_probe(
         category_html_pages,
         1,
     )
+
+    if not first_html and known_pages <= 1:
+        return [category_url]
 
     pages = [category_url]
     seen_product_keys = _page_product_keys(self, first_html, category_url)
@@ -423,7 +410,6 @@ def _get_category_pages(
             category_url,
             expected_count=expected_count,
         )
-
     category_id = self._category_id(first_html)
     if category_id is not None:
         self._cache_category_html(category_url, first_html)
@@ -434,7 +420,6 @@ def _get_category_pages(
             expected_count,
             category_html=first_html,
         )
-
     direct_products = _direct_product_urls(first_html, category_url)
     if direct_products:
         direct_pages, direct_count = _facundo_direct_pages(
@@ -447,7 +432,6 @@ def _get_category_pages(
         if expected == 0 or direct_count >= expected:
             self._cache_category_html(category_url, first_html)
             return direct_pages
-
     self._cache_category_html(category_url, first_html)
     return _ORIGINAL_GET_CATEGORY_PAGES(
         self,

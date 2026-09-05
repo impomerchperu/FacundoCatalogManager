@@ -12,6 +12,7 @@ from . import page_metrics_patch as _page_metrics_patch
 from . import price_detail_recovery_patch as _price_detail_recovery_patch
 from . import product_code_patch as _product_code_patch
 from . import scraping_compat as _scraping_compat
+from . import jsf_first_page_recovery_patch as _jsf_first_page_recovery_patch
 
 __all__ = [
     "_category_pagination_patch",
@@ -22,4 +23,5 @@ __all__ = [
     "_price_detail_recovery_patch",
     "_product_code_patch",
     "_scraping_compat",
+    "_jsf_first_page_recovery_patch",
 ]

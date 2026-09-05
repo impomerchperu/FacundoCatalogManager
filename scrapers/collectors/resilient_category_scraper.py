@@ -67,21 +67,16 @@ class ResilientCategoryScraper(CategoryScraper):
         category_html: str,
         expected_count: int,
     ) -> list[str]:
-        last_error: RuntimeError | requests.exceptions.HTTPError | None = None
         for _ in range(self.EMPTY_JSF_RETRIES):
             self._cache_category_html(category_url, category_html)
             try:
                 pages = super().get_category_pages(category_url, expected_count)
             except (RuntimeError, requests.exceptions.HTTPError) as error:
                 self._raise_if_not_retryable(error)
-                last_error = error
                 continue
 
             if not self._is_empty_jsf_result(category_url, category_html, pages):
                 return pages
-            last_error = RuntimeError(
-                "JetSmartFilters no devolvió contenido para la categoría"
-            )
 
         fallback_html = self._refresh_category_html_for_fallback(category_url)
         if fallback_html:
@@ -95,10 +90,9 @@ class ResilientCategoryScraper(CategoryScraper):
                     expected_count,
                 )
 
-        # Do not abort the complete catalog run because one category cannot be
-        # rendered by JetSmartFilters. Returning no pages preserves the category
-        # coverage gap, which blocks full-catalog prune and marks the SyncResult
-        # as incomplete, while allowing the remaining categories to finish.
+        # One category may be unavailable even after recovery attempts. Return
+        # no pages so the full run can continue and coverage/pruning guards can
+        # correctly mark the run as incomplete.
         return []
 
     def _refresh_category_html_for_fallback(self, category_url: str) -> str:

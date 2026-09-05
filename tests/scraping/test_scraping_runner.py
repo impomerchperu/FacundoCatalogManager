@@ -54,6 +54,26 @@ def test_scraping_runner_marks_full_mode_for_run_all():
     assert service._scraping_mode == "full"
 
 
+def test_scraping_runner_scales_sync_categories_progress_to_full_pipeline():
+    progress = []
+
+    class FakeScrapingService:
+        def sync_categories(self, categories, progress_callback=None):
+            assert progress_callback is not None
+            progress_callback(1, len(categories))
+            progress_callback(2, len(categories))
+            return []
+
+    runner = ScrapingRunner(FakeScrapingService())
+
+    runner.run(
+        ["cat1", "cat2"],
+        progress_callback=lambda current, total: progress.append((current, total)),
+    )
+
+    assert progress == [(1, 4), (2, 4), (4, 4)]
+
+
 def test_scraping_runner_logs_error_and_total_on_sync_failure(tmp_path, monkeypatch):
     timing_log = tmp_path / "scraping_timing.log"
     monkeypatch.setattr(scraping_runner, "TIMING_LOG", Path(timing_log))

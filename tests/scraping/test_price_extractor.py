@@ -147,3 +147,37 @@ def test_price_extractor_recovers_table_prices_from_flexible_cell_markup():
     assert extractor.extract_sample(row) == 8.0
     assert extractor.extract_hundred(row) == 670.0
     assert extractor.extract_thousand(row) == 6500.0
+
+
+def test_price_extractor_uses_currency_value_before_threshold():
+    html = """
+    <table>
+        <tbody>
+            <tr class="jsfb-filterable">
+                <td>FB-5015</td>
+                <td><h2>Producto de prueba</h2></td>
+                <td>Stock 10</td>
+                <td>
+                    <span>Menos de 50 unidades</span>
+                    <div>S/ 8.00</div>
+                </td>
+                <td>
+                    <span>A partir de 50 unidades</span>
+                    <div>S/ 670.00</div>
+                </td>
+                <td>
+                    <span>A partir de 500 unidades</span>
+                    <div>S/ 6500.00</div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    row = soup.select_one("tr")
+    extractor = PriceExtractor()
+
+    assert extractor.extract_sample(row) == 8.0
+    assert extractor.extract_hundred(row) == 670.0
+    assert extractor.extract_thousand(row) == 6500.0

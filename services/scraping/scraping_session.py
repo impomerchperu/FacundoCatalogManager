@@ -88,12 +88,11 @@ class ScrapingSession:
                 self._persist_catalog_products()
 
             if self.result.errors:
-                if db is not None and transaction_started:
-                    db.rollback()
-                    transaction_started = False
+                self._rollback_transaction(db, transaction_started)
+                transaction_started = False
                 self.result.finished_at = datetime.now(timezone.utc)
                 self._write_error_result_artifact()
-                self._save_history()
+                self._save_history_in_clean_transaction(db)
                 return self.result
 
             self.result.finished_at = datetime.now(timezone.utc)
@@ -104,15 +103,32 @@ class ScrapingSession:
                 transaction_started = False
 
         except Exception as error:  # noqa: BLE001
-            if db is not None and transaction_started:
-                db.rollback()
-                transaction_started = False
+            self._rollback_transaction(db, transaction_started)
+            transaction_started = False
             self.result.errors.append(str(error))
             self.result.finished_at = datetime.now(timezone.utc)
             self._write_error_result_artifact()
-            self._save_history()
+            self._save_history_in_clean_transaction(db)
 
         return self.result
+
+    @staticmethod
+    def _rollback_transaction(db, transaction_started):
+        if db is not None and transaction_started:
+            db.rollback()
+
+    def _save_history_in_clean_transaction(self, db):
+        if db is None:
+            self._save_history()
+            return
+
+        try:
+            db.begin()
+            self._save_history()
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
     def _write_error_result_artifact(self):
         sync_service = getattr(self.runner, "scraping_service", None)

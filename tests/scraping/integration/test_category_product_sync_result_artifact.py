@@ -66,10 +66,9 @@ def test_category_sync_rewrites_result_artifact_with_final_coverage(
         persistence_service=SimpleNamespace(),
         mapper=IdentityMapper(),
         catalog_sync_service=catalog_sync_service,
-        category_workers=1,
     )
 
-    service.sync_categories(categories, expected_products=1)
+    service.sync_categories(categories)
 
     payload = json.loads(result_path.read_text(encoding="utf-8"))
     assert payload["products_found"] == 2

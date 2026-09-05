@@ -13,9 +13,9 @@ DEFAULT_HEADERS = {
 }
 
 
-REQUEST_TIMEOUT = 15
+REQUEST_TIMEOUT = 10
 
-MAX_RETRIES = 3
+MAX_RETRIES = 2
 
 # Detail workers may prepare several categories concurrently, while Browser
 # applies a shared HTTP semaphore so category and detail traffic remain

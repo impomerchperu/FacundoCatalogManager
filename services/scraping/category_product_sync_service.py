@@ -160,7 +160,7 @@ class CategoryProductSyncService:
                 self.catalog_sync_service, "consolidate_products", None
             )
             if callable(consolidate):
-                products = cast(list[Any], consolidate(list(products)))
+                products = cast(list[Any], consolidate(deepcopy(products)))
             _log_timing(
                 "SCRAPING TIMING | stage=consolidation | products=%d | seconds=%.3f",
                 len(products),
@@ -531,3 +531,4 @@ class CategoryProductSyncService:
         if occurrence_gap:
             return False, f"category_coverage_gap:{occurrence_gap}"
         return True, "complete"
+

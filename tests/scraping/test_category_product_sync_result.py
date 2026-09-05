@@ -110,3 +110,70 @@ def test_full_sync_with_complete_coverage_uses_pruning_path():
         catalog_sync_service.full_sync_calls[0]["expected_category_occurrences"]
         == 2
     )
+
+
+def test_prune_guard_rejects_missing_expected_category_occurrences():
+    service, _ = _build_sync_service()
+
+    complete, reason = service._full_sync_prune_guard(
+        ["producto-1"],
+        category_count=1,
+        expected_category_occurrences=0,
+        expected_products=1,
+    )
+
+    assert complete is False
+    assert reason == "no_expected_category_occurrences"
+
+
+def test_prune_guard_rejects_category_undercoverage_even_when_total_matches():
+    service, _ = _build_sync_service()
+    service.last_sync_result.category_summary = [
+        {
+            "category": "Categoría A",
+            "expected": 3,
+            "products": 2,
+            "unique_products": 2,
+            "gap": 1,
+        },
+        {
+            "category": "Categoría B",
+            "expected": 2,
+            "products": 3,
+            "unique_products": 3,
+            "gap": 0,
+        },
+    ]
+
+    complete, reason = service._full_sync_prune_guard(
+        ["producto-1", "producto-2", "producto-3", "producto-4", "producto-5"],
+        category_count=2,
+        expected_category_occurrences=5,
+        expected_products=5,
+    )
+
+    assert complete is False
+    assert reason == "category_coverage_gap:Categoría A"
+
+
+def test_prune_guard_rejects_duplicate_category_occurrences():
+    service, _ = _build_sync_service()
+    service.last_sync_result.category_summary = [
+        {
+            "category": "Categoría",
+            "expected": 2,
+            "products": 3,
+            "unique_products": 2,
+            "gap": 0,
+        }
+    ]
+
+    complete, reason = service._full_sync_prune_guard(
+        ["producto-1", "producto-2", "producto-3"],
+        category_count=1,
+        expected_category_occurrences=2,
+        expected_products=2,
+    )
+
+    assert complete is False
+    assert reason == "category_coverage_gap:Categoría"

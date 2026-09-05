@@ -53,7 +53,7 @@ class SyncResult:
         return self.updated
 
     @products_updated.setter
-    def products_updated(self, value: int) -> None
+    def products_updated(self, value: int) -> None:
         self.updated = int(value)
 
     @property

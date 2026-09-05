@@ -135,6 +135,7 @@ class NormalizedScrapingRepository:
         categories,
         products,
         product_repository,
+        occurrence_metadata=None,
     ) -> int:
         category_ids = {
             str(getattr(category, "name", "")).strip().casefold(): self.upsert_category(
@@ -144,6 +145,7 @@ class NormalizedScrapingRepository:
             )
             for category in categories
         }
+        metadata = occurrence_metadata or {}
         now = self._now()
         occurrences = 0
         seen = set()
@@ -174,15 +176,21 @@ class NormalizedScrapingRepository:
                     """,
                     (product_id, category_id, now, now),
                 )
+                page_number, position = metadata.get(
+                    (category_name, code.casefold()),
+                    (0, 0),
+                )
                 self.db.execute_query(
                     """
                     INSERT INTO scraping_product_occurrences
                         (run_id, category_id, product_id, code, product_url,
                          page_number, position, name, discovered_at)
-                    VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(run_id, category_id, code) DO UPDATE SET
                         product_id=excluded.product_id,
                         product_url=excluded.product_url,
+                        page_number=excluded.page_number,
+                        position=excluded.position,
                         name=excluded.name,
                         discovered_at=excluded.discovered_at
                     """,
@@ -192,6 +200,8 @@ class NormalizedScrapingRepository:
                         product_id,
                         code,
                         str(getattr(product, "url", "") or ""),
+                        max(int(page_number or 0), 0),
+                        max(int(position or 0), 0),
                         str(getattr(product, "name", "") or ""),
                         now,
                     ),

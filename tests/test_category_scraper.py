@@ -15,6 +15,8 @@ class FakeBrowser:
         self.post_calls.append((url, data))
         page = next(value for key, value in data if key == "paged")
         response = self.responses[f"ajax:{page}"]
+        if isinstance(response, list):
+            response = response.pop(0)
         if isinstance(response, Exception):
             raise response
         return response
@@ -76,7 +78,7 @@ def test_category_scraper_uses_jetsmartfilters_for_every_declared_page():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3"]
+    ] == ["1", "2", "3", "3"]
 
 
 def test_category_scraper_uses_found_posts_when_max_num_pages_missing():
@@ -104,7 +106,7 @@ def test_category_scraper_uses_found_posts_when_max_num_pages_missing():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3", "4"]
+    ] == ["1", "2", "3", "4", "4"]
 
 
 def test_category_scraper_probes_jsf_terminal_page_without_wordpress_fallback():
@@ -173,6 +175,63 @@ def test_category_scraper_uses_expected_count_to_cover_all_pages():
     ] == ["1", "2", "3", "4", "5"]
 
 
+def test_category_scraper_recovers_transient_empty_required_page():
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+    responses = {
+        category_url: '<body class="tax-product_cat term-127"></body>',
+        "ajax:1": (
+            '{"found_posts":31,"max_num_pages":2,'
+            '"rendered_content":"<div>FB-001</div>"}'
+        ),
+        "ajax:2": [
+            "",
+            '{"found_posts":31,"max_num_pages":2,'
+            '"rendered_content":"<div>FB-026 FB-027 FB-031</div>"}',
+        ],
+    }
+    browser = FakeBrowser(responses)
+    scraper = CategoryScraper(browser)
+
+    pages = scraper.get_category_pages(category_url, expected_count=31)
+
+    assert pages == [
+        category_url,
+        f"{category_url.rstrip('/')}?product-page=2",
+    ]
+    assert [
+        next(value for key, value in data if key == "paged")
+        for _, data in browser.post_calls
+    ] == ["1", "2", "2"]
+
+
+def test_category_scraper_stops_after_empty_page_retry_exhaustion():
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+    responses = {
+        category_url: '<body class="tax-product_cat term-127"></body>',
+        "ajax:1": (
+            '{"found_posts":61,"max_num_pages":3,'
+            '"rendered_content":"<div>FB-001</div>"}'
+        ),
+        "ajax:2": ["", ""],
+    }
+    browser = FakeBrowser(responses)
+    scraper = CategoryScraper(browser)
+
+    pages = scraper.get_category_pages(category_url, expected_count=61)
+
+    assert pages == [category_url]
+    assert [
+        next(value for key, value in data if key == "paged")
+        for _, data in browser.post_calls
+    ] == ["1", "2", "2"]
+
+
 def test_category_scraper_continues_real_products_past_underreported_jsf_pages():
     category_url = (
         "https://stock.importacionesfacundo.com/"
@@ -213,7 +272,7 @@ def test_category_scraper_continues_real_products_past_underreported_jsf_pages()
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3", "4"]
+    ] == ["1", "2", "3", "4", "4"]
 
 
 def test_category_scraper_continues_real_products_when_jsf_reports_one_page():
@@ -256,4 +315,4 @@ def test_category_scraper_continues_real_products_when_jsf_reports_one_page():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3", "4"]
+    ] == ["1", "2", "3", "4", "4"]

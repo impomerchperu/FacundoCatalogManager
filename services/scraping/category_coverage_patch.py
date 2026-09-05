@@ -1,7 +1,5 @@
 """Legacy compatibility hook for category coverage behavior."""
 
-from __future__ import annotations
-
 
 _PATCHED = False
 

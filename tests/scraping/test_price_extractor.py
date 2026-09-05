@@ -235,3 +235,27 @@ def test_price_extractor_uses_currency_value_before_threshold():
     assert extractor.extract_sample(row) == 8.0
     assert extractor.extract_hundred(row) == 670.0
     assert extractor.extract_thousand(row) == 6500.0
+
+
+def test_price_extractor_maps_precio_por_caja_to_hundred():
+    html = """
+    <article>
+        <div class="content-precio">
+            <h3>Precio Muestra</h3>
+            <h4>S/ 4.00</h4>
+            <p>Menos de 48 unidades c/u</p>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Por Caja</h3>
+            <h4>S/ 3.30</h4>
+            <p>A partir de 48 unidades c/u</p>
+        </div>
+    </article>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    extractor = PriceExtractor()
+
+    assert extractor.extract_sample(soup) == 4.0
+    assert extractor.extract_hundred(soup) == 3.3
+    assert extractor.extract_thousand(soup) == 0.0

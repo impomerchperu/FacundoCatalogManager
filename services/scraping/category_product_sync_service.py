@@ -487,6 +487,8 @@ class CategoryProductSyncService:
     ):
         if category_count <= 0:
             return False, "no_categories"
+        if expected_category_occurrences <= 0:
+            return False, "no_expected_category_occurrences"
         missing = sum(
             1 for product in products if not str(getattr(product, "code", "")).strip()
         )
@@ -511,8 +513,20 @@ class CategoryProductSyncService:
             if len(unique_codes) < expected_unique:
                 return False, f"unique_coverage_gap:{expected_unique - len(unique_codes)}"
 
-        if expected_category_occurrences > 0:
-            occurrence_gap = max(expected_category_occurrences - len(products), 0)
-            if occurrence_gap:
-                return False, f"category_coverage_gap:{occurrence_gap}"
+        category_summary = getattr(self.last_sync_result, "category_summary", [])
+        for row in category_summary:
+            expected = max(int(row.get("expected", 0) or 0), 0)
+            if expected <= 0:
+                continue
+            products_found = int(row.get("products", 0) or 0)
+            unique_found = int(row.get("unique_products", 0) or 0)
+            if products_found != expected or unique_found != expected:
+                return (
+                    False,
+                    f"category_coverage_gap:{row.get('category', '')}",
+                )
+
+        occurrence_gap = max(expected_category_occurrences - len(products), 0)
+        if occurrence_gap:
+            return False, f"category_coverage_gap:{occurrence_gap}"
         return True, "complete"

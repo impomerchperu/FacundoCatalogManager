@@ -5,11 +5,6 @@ from typing import ClassVar
 class PriceExtractor:
     """Extrae los tres precios de las tarjetas de producto."""
 
-    _FIELDS: ClassVar[dict[str, str]] = {
-        "muestra": "sample",
-        "ciento": "hundred",
-        "millar": "thousand",
-    }
     _PRICE_LABELS: ClassVar[tuple[str, ...]] = (
         "Precio Muestra",
         "Precio Ciento",
@@ -17,49 +12,54 @@ class PriceExtractor:
     )
 
     def _extract_price_block(self, soup, label):
-        """Extrae un precio a partir de un bloque etiquetado."""
-        blocks = soup.select(".content-precio")
+        """Extrae el precio manteniendo la estrategia histórica del scraper."""
         label_normalized = label.casefold()
-
-        for block in blocks:
-            title = block.find(["h3", "h4"])
-            if title is None:
-                continue
-
-            title_text = " ".join(title.get_text(" ", strip=True).split())
-            if label_normalized not in title_text.casefold():
-                continue
-
-            value = block.find_all(["h3", "h4"])
-            for element in reversed(value):
-                if element is title:
-                    continue
-                price = self._parse_price(element.get_text(" ", strip=True))
-                if price is not None:
-                    return price
-
-            price = self._parse_price(block.get_text(" ", strip=True))
-            if price is not None:
-                return price
 
         heading = soup.find(
             lambda tag: tag.name in ["h3", "h4"]
             and label_normalized in tag.get_text(" ", strip=True).casefold()
         )
         if heading is not None:
-            for element in heading.find_all_next(["h3", "h4", "div", "span"]):
-                text = element.get_text(" ", strip=True)
-                if self._contains_other_price_label(text, label_normalized):
-                    break
-                parsed = self._parse_price(text)
-                if parsed is not None:
-                    return parsed
+            price = self._next_labeled_price(heading, label_normalized)
+            if price is not None:
+                return price
+
+        blocks = soup.select(".content-precio")
+        for block in blocks:
+            title = block.find(["h3", "h4"])
+            if title is None:
+                continue
+            title_text = " ".join(title.get_text(" ", strip=True).split())
+            if label_normalized not in title_text.casefold():
+                continue
+            price = self._price_from_elements(block.find_all(["h3", "h4"]))
+            if price is not None:
+                return price
+            price = self._price_from_text(block.get_text(" ", strip=True))
+            if price is not None:
+                return price
 
         table_price = self._extract_table_row_price(soup, label_normalized)
         if table_price is not None:
             return table_price
 
         return self._extract_labeled_price_from_text(soup, label)
+
+    def _next_labeled_price(self, heading, label_normalized):
+        """Busca el valor siguiente sin saltar al siguiente nivel de precio."""
+        for element in heading.find_all_next(["h3", "h4", "div", "span"]):
+            text = " ".join(element.get_text(" ", strip=True).split())
+            if self._contains_other_price_label(text, label_normalized):
+                break
+            if element.name in ["h3", "h4"]:
+                price = self._parse_price(element.get_text(" ", strip=True))
+                if price is not None:
+                    return price
+            if element.name in ["div", "span"]:
+                price = self._price_from_text(text)
+                if price is not None:
+                    return price
+        return None
 
     @classmethod
     def _contains_other_price_label(cls, text, current_label):
@@ -68,6 +68,25 @@ class PriceExtractor:
             label.casefold() != current_label and label.casefold() in normalized
             for label in cls._PRICE_LABELS
         )
+
+    @staticmethod
+    def _price_from_elements(elements):
+        for element in reversed(elements):
+            price = PriceExtractor._parse_price(element.get_text(" ", strip=True))
+            if price is not None:
+                return price
+        return None
+
+    @staticmethod
+    def _price_from_text(text):
+        matches = re.findall(
+            r"(?:S/|US\$|USD|\$)\s*([\d][\d,.]*)",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if matches:
+            return PriceExtractor._parse_price(matches[-1])
+        return None
 
     @staticmethod
     def _table_rows(soup):
@@ -99,7 +118,7 @@ class PriceExtractor:
             text = " ".join(cell.stripped_strings)
             if not re.search(r"\b(?:menos de|a partir de)\b", text.casefold()):
                 continue
-            value = self._parse_price(text)
+            value = self._price_from_text(text)
             if value is not None:
                 price_cells.append((text.casefold(), value))
         return price_cells
@@ -108,15 +127,15 @@ class PriceExtractor:
     def _match_table_price(price_cells, label_normalized):
         """Selecciona el importe correspondiente al nivel solicitado."""
         matchers = {
-            "precio muestra": lambda text: "menos de" in text,
-            "precio ciento": lambda text: "a partir de" in text and "50" in text,
-            "precio millar": lambda text: "a partir de" in text and "500" in text,
+            "precio muestra": r"\bmenos de\s+50\s+unidades\b",
+            "precio ciento": r"\ba partir de\s+50\s+unidades\b",
+            "precio millar": r"\ba partir de\s+500\s+unidades\b",
         }
-        matcher = matchers.get(label_normalized)
-        if matcher is None:
+        pattern = matchers.get(label_normalized)
+        if pattern is None:
             return None
         for text, value in price_cells:
-            if matcher(text):
+            if re.search(pattern, text):
                 return value
         return None
 

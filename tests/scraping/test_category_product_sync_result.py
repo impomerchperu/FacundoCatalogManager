@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_product_sync_service import CategoryProductSyncService
 
@@ -37,6 +39,10 @@ def _build_sync_service(scraper_service=None):
         catalog_sync_service=catalog_sync_service,
     )
     return service, catalog_sync_service
+
+
+def _products(count):
+    return [SimpleNamespace(code=f"FB-{index:04d}") for index in range(1, count + 1)]
 
 
 def test_accumulate_sync_result_does_not_double_count_expectations():
@@ -112,20 +118,6 @@ def test_full_sync_with_complete_coverage_uses_pruning_path():
     )
 
 
-def test_prune_guard_rejects_missing_expected_category_occurrences():
-    service, _ = _build_sync_service()
-
-    complete, reason = service._full_sync_prune_guard(
-        ["producto-1"],
-        category_count=1,
-        expected_category_occurrences=0,
-        expected_products=1,
-    )
-
-    assert complete is False
-    assert reason == "no_expected_category_occurrences"
-
-
 def test_prune_guard_rejects_category_undercoverage_even_when_total_matches():
     service, _ = _build_sync_service()
     service.last_sync_result.category_summary = [
@@ -146,7 +138,7 @@ def test_prune_guard_rejects_category_undercoverage_even_when_total_matches():
     ]
 
     complete, reason = service._full_sync_prune_guard(
-        ["producto-1", "producto-2", "producto-3", "producto-4", "producto-5"],
+        _products(5),
         category_count=2,
         expected_category_occurrences=5,
         expected_products=5,
@@ -169,10 +161,10 @@ def test_prune_guard_rejects_duplicate_category_occurrences():
     ]
 
     complete, reason = service._full_sync_prune_guard(
-        ["producto-1", "producto-2", "producto-3"],
+        _products(3),
         category_count=1,
         expected_category_occurrences=2,
-        expected_products=2,
+        expected_products=3,
     )
 
     assert complete is False

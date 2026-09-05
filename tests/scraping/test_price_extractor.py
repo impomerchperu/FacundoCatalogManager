@@ -81,6 +81,60 @@ def test_price_extractor_recovers_prices_without_price_classes():
     assert extractor.extract_thousand(soup) == 6500.0
 
 
+def test_price_extractor_maps_price_box_to_hundred():
+    html = """
+    <article>
+        <div class="content-precio">
+            <h3>Precio Muestra</h3>
+            <h4>S/ 120.00</h4>
+            <p>A partir 01 unidad.</p>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Caja</h3>
+            <h4>S/ 81.00</h4>
+            <p>A partir de 10 unidades</p>
+        </div>
+    </article>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    extractor = PriceExtractor()
+
+    assert extractor.extract_sample(soup) == 120.0
+    assert extractor.extract_hundred(soup) == 81.0
+    assert extractor.extract_thousand(soup) == 0.0
+
+
+def test_price_extractor_maps_table_price_box_to_hundred():
+    html = """
+    <table>
+        <tbody>
+            <tr class="jsfb-filterable">
+                <td>21098ND</td>
+                <td><h2>Guillotina Cortadora de Papel – A4</h2></td>
+                <td>Stock 141</td>
+                <td>
+                    <div>S/ 120.00</div>
+                    <span>A partir 01 unidad.</span>
+                </td>
+                <td>
+                    <div>S/ 81.00</div>
+                    <span>A partir de 10 unidades</span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    row = soup.select_one("tr")
+    extractor = PriceExtractor()
+
+    assert extractor.extract_sample(row) == 120.0
+    assert extractor.extract_hundred(row) == 81.0
+    assert extractor.extract_thousand(row) == 0.0
+
+
 def test_price_extractor_recovers_bricks_table_row_prices():
     html = """
     <table>

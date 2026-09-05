@@ -1,4 +1,3 @@
-import pytest
 import requests
 
 from scrapers.collectors.resilient_category_scraper import (
@@ -46,7 +45,7 @@ def test_resilient_scraper_falls_back_to_server_rendered_category():
     assert scraper.get_category_pages(category_url) == [category_url]
 
 
-def test_resilient_scraper_retries_empty_jsf_before_raising():
+def test_resilient_scraper_returns_empty_after_one_empty_jsf_retry():
     category_url = (
         "https://stock.importacionesfacundo.com/"
         "categoria-producto/enmicadoras-laminadoras/"
@@ -61,10 +60,8 @@ def test_resilient_scraper_retries_empty_jsf_before_raising():
     browser = FakeBrowser(responses)
     scraper = ResilientCategoryScraper(browser)
 
-    with pytest.raises(RuntimeError, match="no devolvió contenido"):
-        scraper.get_category_pages(category_url)
-
-    assert len(browser.post_calls) == 3
+    assert scraper.get_category_pages(category_url) == []
+    assert len(browser.post_calls) == 2
 
 
 def test_resilient_scraper_falls_back_after_retryable_jsf_http_error():

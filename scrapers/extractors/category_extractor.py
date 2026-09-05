@@ -1,4 +1,5 @@
 import re
+from urllib.parse import unquote, urlsplit
 
 from models.scraping.category import Category
 from scrapers.selectors import category_selectors
@@ -19,6 +20,10 @@ class CategoryExtractor:
             if not url or "nuevos-productos" in url:
                 continue
 
+            category_key = self._category_key(url)
+            if not category_key:
+                continue
+
             name = self._extract_name(link, url)
             expected_count = self._extract_expected_count(link, name)
             category = Category(
@@ -26,22 +31,22 @@ class CategoryExtractor:
                 url=url,
                 expected_count=expected_count,
             )
-            previous = categories_by_url.get(url)
+            previous = categories_by_url.get(category_key)
             if previous is None:
-                categories_by_url[url] = category
+                categories_by_url[category_key] = category
                 continue
 
             if (
                 category.expected_count > previous.expected_count
                 or self._is_better_name(category.name, previous.name)
             ):
-                categories_by_url[url] = Category(
+                categories_by_url[category_key] = Category(
                     name=(
                         category.name
                         if self._is_better_name(category.name, previous.name)
                         else previous.name
                     ),
-                    url=url,
+                    url=previous.url,
                     expected_count=max(
                         previous.expected_count,
                         category.expected_count,
@@ -80,6 +85,15 @@ class CategoryExtractor:
                 return category_links
 
         return []
+
+    @staticmethod
+    def _category_key(url: str) -> str:
+        """Genera una identidad estable para una categoría de la tienda."""
+        parsed = urlsplit(str(url).strip())
+        path = unquote(parsed.path or "").rstrip("/").casefold()
+        if not path:
+            return ""
+        return path
 
     @staticmethod
     def _is_better_name(candidate: str, current: str) -> bool:

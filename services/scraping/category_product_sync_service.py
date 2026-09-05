@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import time
-import traceback
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, cast

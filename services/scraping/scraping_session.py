@@ -53,17 +53,13 @@ class ScrapingSession:
         self.result = ScrapingSessionResult()
 
     def execute(self, categories=None, progress_callback=None):
-        return self._execute(
-            lambda: self.runner.run(categories or [], progress_callback),
-        )
+        return self._execute(lambda: self.runner.run(categories or [], progress_callback))
 
     def execute_all(self, progress_callback=None):
         return self._execute(lambda: self.runner.run_all(progress_callback))
 
     def _execute(self, operation):
-        self.result = ScrapingSessionResult(
-            started_at=datetime.now(timezone.utc),
-        )
+        self.result = ScrapingSessionResult(started_at=datetime.now(timezone.utc))
         db = getattr(self.history_repository, "db", None)
         transaction_started = False
 
@@ -84,10 +80,7 @@ class ScrapingSession:
                     f"únicos={self.result.products_unique}."
                 )
 
-            if not self.result.errors:
-                self._persist_catalog_products()
-
-            if self.result.errors:
+            if self.result.errors and not self._only_coverage_error():
                 self._rollback_transaction(db, transaction_started)
                 transaction_started = False
                 self.result.finished_at = datetime.now(timezone.utc)
@@ -95,12 +88,23 @@ class ScrapingSession:
                 self._save_history_in_clean_transaction(db)
                 return self.result
 
-            self.result.finished_at = datetime.now(timezone.utc)
-            self._save_history()
+            if self.result.finished_at is None:
+                self.result.finished_at = datetime.now(timezone.utc)
 
+            # El catálogo y el historial son transacciones distintas. Un fallo
+            # del historial nunca debe deshacer productos ya aplicados.
             if db is not None and transaction_started:
                 db.commit()
                 transaction_started = False
+
+            try:
+                self._save_history_in_clean_transaction(db)
+            except Exception as history_error:  # noqa: BLE001
+                self.result.errors.append(
+                    "No se pudo registrar el historial de cambios; "
+                    "los cambios del catálogo ya fueron aplicados: "
+                    f"{history_error}"
+                )
 
         except Exception as error:  # noqa: BLE001
             self._rollback_transaction(db, transaction_started)
@@ -108,9 +112,22 @@ class ScrapingSession:
             self.result.errors.append(str(error))
             self.result.finished_at = datetime.now(timezone.utc)
             self._write_error_result_artifact()
-            self._save_history_in_clean_transaction(db)
+            try:
+                self._save_history_in_clean_transaction(db)
+            except Exception as history_error:  # noqa: BLE001
+                self.result.errors.append(
+                    f"No se pudo registrar el historial del error: {history_error}"
+                )
 
         return self.result
+
+    def _only_coverage_error(self):
+        coverage_errors = [
+            error
+            for error in self.result.errors
+            if str(error).startswith("Cobertura del catálogo incompleta:")
+        ]
+        return bool(coverage_errors) and len(coverage_errors) == len(self.result.errors)
 
     @staticmethod
     def _rollback_transaction(db, transaction_started):
@@ -121,7 +138,6 @@ class ScrapingSession:
         if db is None:
             self._save_history()
             return
-
         try:
             db.begin()
             self._save_history()
@@ -137,7 +153,6 @@ class ScrapingSession:
         result = getattr(catalog_sync, "last_sync_result", None)
         if writer is None or result is None:
             return
-
         result.errors = list(dict.fromkeys([*result.errors, *self.result.errors]))
         result.finished_at = self.result.finished_at
         result.success = False
@@ -151,12 +166,10 @@ class ScrapingSession:
     def _persist_catalog_products(self):
         if self.catalog_repository is None:
             return
-
         sync_service = getattr(self.runner, "scraping_service", None)
         catalog_sync_service = getattr(sync_service, "catalog_sync_service", None)
         if catalog_sync_service is not None:
             return
-
         for product in self.result.products:
             self.catalog_repository.save(product)
 
@@ -165,14 +178,12 @@ class ScrapingSession:
         sync_result = getattr(sync_service, "last_sync_result", None)
         catalog_sync = getattr(sync_service, "catalog_sync_service", None)
         catalog_result = getattr(catalog_sync, "last_sync_result", None)
-
         if sync_result is None:
             self.result.processed = len(self.result.products)
             self.result.products_expected = 0
             self.result.products_found = self.result.processed
             self.result.products_unique = self.result.processed
             return
-
         self.result.processed = sync_result.processed
         self.result.created = sync_result.created
         self.result.updated = sync_result.updated
@@ -181,21 +192,13 @@ class ScrapingSession:
         self.result.generated = sync_result.generated
         self.result.changes = list(sync_result.changes)
         self.result.errors.extend(sync_result.errors)
-
-        # CategoryProductSyncService preserves occurrence-based coverage in its
-        # own result after catalog consolidation. The catalog result only sees
-        # the deduplicated product set, so it cannot be the source of truth for
-        # category occurrence coverage when a full category sync is running.
         coverage_result = sync_result
         if (
             getattr(coverage_result, "expected_category_occurrences", 0) <= 0
             and catalog_result is not None
         ):
             coverage_result = catalog_result
-
-        self.result.products_expected = getattr(
-            coverage_result, "products_expected", 0
-        )
+        self.result.products_expected = getattr(coverage_result, "products_expected", 0)
         self.result.products_found = getattr(
             coverage_result, "products_found", len(self.result.products)
         )
@@ -208,9 +211,7 @@ class ScrapingSession:
         self.result.duplicate_occurrences = getattr(
             coverage_result, "duplicate_occurrences", 0
         )
-        self.result.category_summary = list(
-            getattr(coverage_result, "category_summary", [])
-        )
+        self.result.category_summary = list(getattr(coverage_result, "category_summary", []))
         self.result.multiple_category_products = list(
             getattr(coverage_result, "multiple_category_products", [])
         )
@@ -227,13 +228,11 @@ class ScrapingSession:
             return
         if self.result.started_at is None or self.result.finished_at is None:
             return
-
         message = (
             "Descarga completada y cambios aplicados automáticamente."
             if self.result.success()
-            else "Descarga finalizada con errores; cambios revertidos."
+            else "Descarga finalizada con advertencias; cambios detectados aplicados."
         )
-
         history = ScrapingHistory(
             started_at=self.result.started_at,
             finished_at=self.result.finished_at,
@@ -254,7 +253,6 @@ class ScrapingSession:
             status=self.result.status(),
             message=message,
         )
-
         self.result.history_id = self.history_repository.save(
             history,
             self.result.changes if self.result.success() else [],

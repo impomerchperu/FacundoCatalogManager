@@ -244,8 +244,6 @@ class CategoryProductSyncService:
             "unchanged",
             "deleted",
             "generated",
-            "products_expected",
-            "expected_category_occurrences",
             "products_found",
             "products_unique",
             "products_multiple_categories",
@@ -257,6 +255,14 @@ class CategoryProductSyncService:
                 getattr(self.last_sync_result, field, 0)
                 + getattr(result, field, 0),
             )
+        self.last_sync_result.products_expected = max(
+            getattr(self.last_sync_result, "products_expected", 0),
+            getattr(result, "products_expected", 0),
+        )
+        self.last_sync_result.expected_category_occurrences = max(
+            getattr(self.last_sync_result, "expected_category_occurrences", 0),
+            getattr(result, "expected_category_occurrences", 0),
+        )
         self.last_sync_result.missing_code = (
             getattr(self.last_sync_result, "missing_code", 0)
             + getattr(result, "missing_code", 0)

@@ -86,3 +86,52 @@ def test_normalized_repository_persists_run_relations_and_occurrences():
     assert category["canonical_url"] == "https://example.test/categoria-a"
 
     db.close()
+
+
+def test_normalized_repository_matches_canonical_category_aliases():
+    db = DBManager(":memory:")
+    product_repository = ProductRepository(db)
+    product_repository.save(
+        Product(
+            code="FB-2000",
+            name="Producto cocina",
+            category="Cocina, Mesa y Hogar",
+        )
+    )
+
+    repository = NormalizedScrapingRepository(db)
+    categories = [
+        Category(
+            name="Cocina",
+            url="https://example.test/cocina/",
+            expected_count=1,
+        )
+    ]
+    products = [
+        Product(
+            code="FB-2000",
+            name="Producto cocina",
+            category="Cocina, Mesa y Hogar",
+        )
+    ]
+
+    run_id = repository.start_run(
+        mode="directed",
+        categories_requested=1,
+        expected_category_occurrences=1,
+    )
+    actual = repository.persist_occurrences(
+        run_id,
+        categories,
+        products,
+        product_repository,
+    )
+
+    assert actual == 1
+    assert db.fetch_one("SELECT COUNT(*) AS n FROM product_categories")["n"] == 1
+    assert (
+        db.fetch_one("SELECT COUNT(*) AS n FROM scraping_product_occurrences")["n"]
+        == 1
+    )
+
+    db.close()

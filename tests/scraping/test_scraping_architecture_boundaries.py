@@ -112,3 +112,13 @@ assert "services.scraping.full_scraping_service" not in sys.modules
         capture_output=True,
         text=True,
     )
+
+
+def test_scraping_controller_does_not_depend_on_legacy_orchestrator():
+    source = (
+        PROJECT_ROOT / "controllers" / "scraping_controller.py"
+    ).read_text(encoding="utf-8")
+
+    assert "from services.scraping.scraping_factory import ScrapingFactory" in source
+    assert "from services.scraping.scraping_session import ScrapingSession" in source
+    assert "FullScrapingService" not in source

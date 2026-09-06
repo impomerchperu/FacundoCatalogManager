@@ -151,3 +151,25 @@ def test_modern_scraping_services_do_not_import_legacy_service_modules():
                 violations.append(f"{path.name}: {token}")
 
     assert violations == []
+
+
+def test_modern_category_product_service_does_not_load_legacy_duplicate():
+    code = """
+import sys
+from services.scraping.category_product_scraping_service import (
+    CategoryProductScrapingService,
+)
+
+assert CategoryProductScrapingService.__module__ == (
+    "services.scraping.category_product_scraping_service"
+)
+assert "scrapers.services.category_product_scraping_service" not in sys.modules
+"""
+
+    subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=PROJECT_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )

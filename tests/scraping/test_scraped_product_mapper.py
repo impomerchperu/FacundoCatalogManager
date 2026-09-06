@@ -1,6 +1,8 @@
 from bs4 import BeautifulSoup
 
+from models.scraping.scraped_product import ScrapedProduct
 from scrapers.extractors.product_extractor import ProductExtractor
+from services.scraping.product_hash_service import ProductHashService
 from services.scraping.scraped_product_mapper import ScrapedProductMapper
 
 
@@ -70,3 +72,20 @@ def test_scraped_product_mapper_preserves_all_catalog_prices():
     assert product.price_hundred == 820.0
     assert product.price_thousand == 7900.0
     assert product.content_hash
+
+
+def test_scraped_product_mapper_recomputes_catalog_hash():
+    scraped = ScrapedProduct(
+        code="FB-9014",
+        name="Producto hash",
+        price=25,
+        price_sample=25,
+        stock=7,
+        content_hash="legacy-hash-must-not-be-copied",
+    )
+
+    product = ScrapedProductMapper().to_product(scraped)
+    expected = ProductHashService().generate(scraped)
+
+    assert product.content_hash == expected
+    assert product.content_hash != scraped.content_hash

@@ -133,6 +133,17 @@ class ScrapingRunner:
 
         started = time.perf_counter()
         categories = self.category_service.scrape_all()
+        category_filter = getattr(
+            self.config,
+            "is_category_enabled",
+            None,
+        )
+        if callable(category_filter):
+            categories = [
+                category
+                for category in categories
+                if category_filter(getattr(category, "name", ""))
+            ]
         _log_timing(
             "SCRAPING TIMING | stage=category_discovery | categories=%d "
             "| seconds=%.3f",

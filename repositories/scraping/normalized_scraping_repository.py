@@ -98,8 +98,14 @@ class NormalizedScrapingRepository:
         gap = max(expected - actual, 0)
         errors = len(getattr(result, "errors", []) or [])
         message_value = str(message or "")
+        error_count = max(errors, int(bool(message_value)))
         coverage_complete = bool(
-            expected <= 0 or (actual >= expected and errors == 0)
+            expected <= 0
+            or (
+                actual >= expected
+                and errors == 0
+                and not message_value
+            )
         )
         status = "SUCCESS" if not errors and not message_value else "ERROR"
         self.db.execute_query(
@@ -128,7 +134,7 @@ class NormalizedScrapingRepository:
                 int(getattr(result, "duplicate_occurrences", 0) or 0),
                 int(coverage_complete),
                 gap,
-                errors,
+                error_count,
                 message_value,
                 run_id,
             ),

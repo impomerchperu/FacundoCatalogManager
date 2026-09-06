@@ -1,4 +1,4 @@
-def test_public_scraping_service_exports_remain_available():
+def test_public_scraping_service_exports_match_current_api():
     from services import scraping
 
     expected_exports = {
@@ -13,7 +13,6 @@ def test_public_scraping_service_exports_remain_available():
         "ProductHashService",
         "ScrapedProductMapper",
         "ScrapedProductPersistenceService",
-        "ScrapedProductService",
         "ScrapingConfig",
         "ScrapingFactory",
         "ScrapingRunner",

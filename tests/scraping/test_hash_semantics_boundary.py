@@ -1,7 +1,7 @@
 from models.scraping.scraped_product import ScrapedProduct
-from services.scraping.product_hash_service import ProductHashService
 from scrapers.factories.scraped_product_factory import ScrapedProductFactory
 from scrapers.sync.content_hash import ContentHash
+from services.scraping.product_hash_service import ProductHashService
 
 
 def test_legacy_content_hash_intentionally_ignores_base_price():

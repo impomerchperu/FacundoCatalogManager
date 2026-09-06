@@ -58,6 +58,8 @@ database/*.bak
 # Imágenes descargadas
 media/
 images/
+!scrapers/images/
+!scrapers/images/**
 downloads/
 scraper_output/
 output/

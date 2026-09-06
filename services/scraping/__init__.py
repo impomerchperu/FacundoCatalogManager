@@ -4,6 +4,7 @@ Imports that wire the complete scraping factory are kept lazy so low-level
 repositories can import individual scraping helpers without circular imports.
 """
 
+from . import category_coverage_patch as _category_coverage_patch
 from .catalog_sync_service import CatalogSyncService
 from .category_pagination_service import CategoryPaginationService
 from .category_product_scraping_service import CategoryProductScrapingService
@@ -19,7 +20,6 @@ from .scraped_product_service import ScrapedProductService
 from .scraping_config import ScrapingConfig
 from .scraping_runner import ScrapingRunner
 from .scraping_session import ScrapingSession, ScrapingSessionResult
-from . import category_coverage_patch as _category_coverage_patch
 
 _category_coverage_patch.activate()
 

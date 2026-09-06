@@ -1,4 +1,6 @@
 from database.db_manager import DBManager
+from models.product import Product
+from repositories.product_repository import ProductRepository
 
 
 def test_database_connection():
@@ -150,5 +152,44 @@ def test_normalized_scraping_schema():
     assert relation["name"] == "Categoría de prueba"
     assert relation["page_number"] == 2
     assert relation["position"] == 7
+
+    db.close()
+
+
+def test_product_repository_round_trips_all_catalog_prices():
+    db = DBManager(":memory:")
+    db.initialize_database()
+    repository = ProductRepository(db)
+
+    product = Product(
+        code="PRICE001",
+        name="Producto con precios",
+        price=8.50,
+        price_sample=8.50,
+        price_hundred=770.00,
+        price_thousand=7500.00,
+    )
+
+    repository.create(product)
+    stored = repository.get_by_code("PRICE001")
+
+    assert stored is not None
+    assert stored.price == 8.50
+    assert stored.price_sample == 8.50
+    assert stored.price_hundred == 770.00
+    assert stored.price_thousand == 7500.00
+
+    product.price = 9.25
+    product.price_sample = 9.25
+    product.price_hundred = 820.00
+    product.price_thousand = 7900.00
+    repository.update(product)
+
+    updated = repository.get_by_code("PRICE001")
+    assert updated is not None
+    assert updated.price == 9.25
+    assert updated.price_sample == 9.25
+    assert updated.price_hundred == 820.00
+    assert updated.price_thousand == 7900.00
 
     db.close()

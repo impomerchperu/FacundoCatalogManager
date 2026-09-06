@@ -61,7 +61,9 @@ def test_resilient_scraper_returns_empty_after_one_empty_jsf_retry():
     scraper = ResilientCategoryScraper(browser)
 
     assert scraper.get_category_pages(category_url) == []
-    assert len(browser.post_calls) == 2
+    # The pagination layer performs three attempts per outer recovery pass;
+    # ResilientCategoryScraper performs two outer passes for an empty result.
+    assert len(browser.post_calls) == 6
 
 
 def test_resilient_scraper_falls_back_after_retryable_jsf_http_error():

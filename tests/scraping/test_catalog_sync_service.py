@@ -47,6 +47,54 @@ def test_catalog_sync_updates_product():
     assert result.counts_are_consistent
 
 
+def test_catalog_sync_preserves_existing_prices_on_partial_update():
+    repository = SyncRepository()
+    existing = Product("P010", "Producto A", 8.5)
+    existing.price_sample = 8.5
+    existing.price_hundred = 770.0
+    existing.price_thousand = 7500.0
+    repository.save(existing)
+
+    incoming = Product("P010", "Producto A actualizado", 0)
+    incoming.price_sample = 0
+    incoming.price_hundred = 0
+    incoming.price_thousand = 0
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+    stored = repository.get("P010")
+
+    assert result.updated == 1
+    assert stored.price == 8.5
+    assert stored.price_sample == 8.5
+    assert stored.price_hundred == 770.0
+    assert stored.price_thousand == 7500.0
+    assert stored.name == "Producto A actualizado"
+
+
+def test_catalog_sync_preserves_existing_prices_independently():
+    repository = SyncRepository()
+    existing = Product("P011", "Producto B", 8.5)
+    existing.price_sample = 8.5
+    existing.price_hundred = 770.0
+    existing.price_thousand = 7500.0
+    repository.save(existing)
+
+    incoming = Product("P011", "Producto B", 9.0)
+    incoming.price_sample = 9.0
+    incoming.price_hundred = 0
+    incoming.price_thousand = 8000.0
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    service.synchronize([incoming])
+    stored = repository.get("P011")
+
+    assert stored.price == 9.0
+    assert stored.price_sample == 9.0
+    assert stored.price_hundred == 770.0
+    assert stored.price_thousand == 8000.0
+
+
 def test_catalog_sync_consolidates_product_in_multiple_categories():
     repository = SyncRepository()
     service = CatalogSyncService(repository, ProductDiffService())

@@ -1,5 +1,3 @@
-from bs4 import BeautifulSoup
-
 from models.scraping.category import Category
 from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,

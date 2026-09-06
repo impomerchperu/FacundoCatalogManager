@@ -1,6 +1,5 @@
+from models.scraping.category import Category
 from types import SimpleNamespace
-
-from bs4 import BeautifulSoup
 
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 
@@ -53,9 +52,9 @@ def test_product_collection_scraper_replaces_legacy_pagination_contract():
     )
 
     products = scraper.scrape_category(
-        SimpleNamespace(
-            url="https://example.test/categoria/",
+        Category(
             name="Categoría prueba",
+            url="https://example.test/categoria/",
             expected_count=3,
         )
     )

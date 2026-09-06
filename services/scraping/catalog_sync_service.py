@@ -119,6 +119,7 @@ class CatalogSyncService:
                 self._value(existing, "category"),
                 getattr(product, "category", ""),
             )
+            self._preserve_existing_prices(existing, product)
             comparison = self.diff_service.compare(existing, product)
             if comparison["changed"]:
                 result.updated += 1
@@ -269,6 +270,23 @@ class CatalogSyncService:
                 continue
             if current <= 0.0 < candidate:
                 setattr(existing, field, candidate)
+
+    @staticmethod
+    def _preserve_existing_prices(existing, product) -> None:
+        """Evita borrar precios válidos cuando una extracción llega incompleta."""
+        for field in (
+            "price",
+            "price_sample",
+            "price_hundred",
+            "price_thousand",
+        ):
+            try:
+                current = float(CatalogSyncService._value(existing, field) or 0.0)
+                incoming = float(getattr(product, field, 0.0) or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if incoming <= 0.0 < current:
+                setattr(product, field, current)
 
     @classmethod
     def _count_multi_category_products(cls, products) -> int:

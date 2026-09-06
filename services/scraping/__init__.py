@@ -6,17 +6,14 @@ repositories can import individual scraping helpers without circular imports.
 
 from . import category_coverage_patch as _category_coverage_patch
 from .catalog_sync_service import CatalogSyncService
-from .category_pagination_service import CategoryPaginationService
 from .category_product_scraping_service import CategoryProductScrapingService
 from .category_product_sync_service import CategoryProductSyncService
 from .category_service import CategoryService
-from .full_scraping_service import FullScrapingService
 from .image_sync_adapter import ImageSyncAdapter
 from .product_diff_service import ProductDiffService
 from .product_hash_service import ProductHashService
 from .scraped_product_mapper import ScrapedProductMapper
 from .scraped_product_persistence_service import ScrapedProductPersistenceService
-from .scraped_product_service import ScrapedProductService
 from .scraping_config import ScrapingConfig
 from .scraping_runner import ScrapingRunner
 from .scraping_session import ScrapingSession, ScrapingSessionResult
@@ -45,9 +42,22 @@ __all__ = [
 
 
 def __getattr__(name: str):
-    """Load the factory only when it is explicitly requested."""
-    if name == "ScrapingFactory":
-        from .scraping_factory import ScrapingFactory
+    """Load compatibility and factory exports only when requested."""
+    lazy_imports = {
+        "CategoryPaginationService": ".category_pagination_service",
+        "FullScrapingService": ".full_scraping_service",
+        "ScrapedProductService": ".scraped_product_service",
+        "ScrapingFactory": ".scraping_factory",
+    }
 
-        return ScrapingFactory
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name = lazy_imports.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    module = __import__(
+        f"{__name__}{module_name}",
+        fromlist=[name],
+    )
+    value = getattr(module, name)
+    globals()[name] = value
+    return value

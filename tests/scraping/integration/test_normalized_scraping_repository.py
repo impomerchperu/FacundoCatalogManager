@@ -110,3 +110,45 @@ def test_normalized_repository_finish_run_matches_sync_result_summary(tmp_path):
     assert row["coverage_complete"] == 1
     assert row["coverage_gap"] == 0
     assert row["error_count"] == 0
+
+
+def test_normalized_repository_marks_message_as_error(tmp_path):
+    db = DBManager(str(tmp_path / "catalog.db"))
+    repository = NormalizedScrapingRepository(db)
+    result = SyncResult(
+        expected_category_occurrences=1,
+        products_found=1,
+        products_unique=1,
+        created=1,
+        errors=[],
+    )
+    run_id = repository.start_run(
+        mode="directed",
+        categories_requested=1,
+        expected_category_occurrences=1,
+    )
+
+    repository.finish_run(
+        run_id,
+        result=result,
+        actual_category_occurrences=0,
+        message="normalized persistence error: fallo controlado",
+    )
+
+    row = db.fetch_one(
+        """
+        SELECT status, finished_at, actual_category_occurrences,
+               coverage_complete, coverage_gap, error_count, message
+        FROM scraping_runs
+        WHERE id = ?
+        """,
+        (run_id,),
+    )
+
+    assert row["status"] == "ERROR"
+    assert row["finished_at"]
+    assert row["actual_category_occurrences"] == 0
+    assert row["coverage_complete"] == 0
+    assert row["coverage_gap"] == 1
+    assert row["error_count"] == 0
+    assert row["message"] == "normalized persistence error: fallo controlado"

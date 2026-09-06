@@ -1,5 +1,5 @@
 def test_public_scraping_service_exports_remain_available():
-    import services.scraping as scraping
+    from services import scraping
 
     expected_exports = {
         "CatalogSyncService",

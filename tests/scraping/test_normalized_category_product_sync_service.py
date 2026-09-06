@@ -79,3 +79,46 @@ def test_normalized_sync_categories_uses_full_mode_when_runner_marks_full():
     )
 
     assert repository.modes == ["full"]
+
+
+def test_occurrence_metadata_uses_normalized_category_keys_and_preserves_multi_category_products():
+    repository = FakeNormalizedRepository()
+    service = _build_service(repository)
+
+    class Scraper:
+        def get_page_metrics(self):
+            return {
+                "https://example.test/cocina/": {
+                    "pages": [
+                        {"page": 1, "unique_products": 1},
+                    ]
+                },
+                "https://example.test/oficina/": {
+                    "pages": [
+                        {"page": 2, "unique_products": 1},
+                    ]
+                },
+            }
+
+    service.scraper_service.scraper = Scraper()
+    categories = [
+        Category(name="Cocina", url="https://example.test/cocina/"),
+        Category(name="Oficina", url="https://example.test/oficina/"),
+    ]
+    products = [
+        type(
+            "Product",
+            (),
+            {
+                "code": "FB-1000",
+                "category": "Cocina, Oficina",
+            },
+        )()
+    ]
+
+    metadata = service._build_occurrence_metadata(categories, products)
+
+    assert metadata == {
+        ("cocina mesa hogar", "fb-1000"): (1, 1),
+        ("oficina", "fb-1000"): (2, 1),
+    }

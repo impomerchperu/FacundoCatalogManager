@@ -125,7 +125,7 @@ def test_facundo_get_category_pages_does_not_replace_jsf_with_public_fallback():
     ]
 
 
-def test_facundo_jsf_pagination_payload_preserves_browser_query_state():
+def test_facundo_jsf_pagination_payload_uses_canonical_defaults_without_browser_state():
     category_id = 123
     with category_pagination_patch._JSF_STATE_LOCK:
         category_pagination_patch._JSF_REQUEST_STATE.pop(category_id, None)
@@ -135,8 +135,8 @@ def test_facundo_jsf_pagination_payload_preserves_browser_query_state():
     payload = category_pagination_patch._browser_compatible_jsf_payload(category_id, 2)
     values = dict(payload)
 
-    assert values["defaults[paged]"] == "1"
-    assert values["props[page]"] == "1"
+    assert values["defaults[paged]"] == "2"
+    assert values["props[page]"] == "2"
     assert values["paged"] == "2"
     assert "props[found_posts]" not in values
     assert "props[max_num_pages]" not in values
@@ -248,6 +248,14 @@ def test_product_code_can_extract_explicit_sku_without_relationship_rules():
     code = product_code_patch._extract_code(extractor, soup)
 
     assert code == "AB-7008-X"
+
+
+def test_category_coverage_preserves_comma_in_real_category_name():
+    service = object.__new__(CategoryProductSyncService)
+
+    assert service._split_categories("Cocina, Mesa y Hogar") == [
+        "Cocina, Mesa y Hogar"
+    ]
 
 
 def test_compatibility_layers_are_active():

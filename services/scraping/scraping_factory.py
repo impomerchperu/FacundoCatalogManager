@@ -73,7 +73,10 @@ class ScrapingFactory:
             else None
         )
 
-        browser = Browser()
+        browser = Browser(
+            request_timeout=config.request_timeout,
+            max_retries=config.max_retries,
+        )
         category_scraper = ResilientCategoryScraper(
             browser=browser,
             category_extractor=CategoryExtractor(),

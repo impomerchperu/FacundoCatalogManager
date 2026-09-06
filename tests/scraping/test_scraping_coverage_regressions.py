@@ -12,6 +12,7 @@ from scrapers.collectors import (
 )
 from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.extractors.product_extractor import ProductExtractor
+from services.scraping.category_product_sync_service import CategoryProductSyncService
 
 
 def _product_html(start: int, count: int) -> str:

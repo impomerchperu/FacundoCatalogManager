@@ -22,6 +22,15 @@ def test_canonical_scraping_factory_does_not_depend_on_legacy_pipeline():
     assert not any(token in source for token in forbidden_imports)
 
 
+def test_canonical_scraping_factory_uses_modern_product_scraping_service():
+    source = (
+        PROJECT_ROOT / "services" / "scraping" / "scraping_factory.py"
+    ).read_text(encoding="utf-8")
+
+    assert "from services.scraping.category_product_scraping_service import" in source
+    assert "scrapers.services.category_product_scraping_service" not in source
+
+
 def test_compatibility_factories_delegate_to_canonical_factory():
     factories = (
         PROJECT_ROOT / "factories" / "scraping_factory.py",

@@ -29,6 +29,8 @@ def test_canonical_scraping_factory_does_not_use_legacy_sync_engine():
 
     forbidden_imports = (
         "scrapers.sync.sync_engine",
+        "scrapers.sync.product_comparator",
+        "scrapers.sync.sync_result",
         "repositories.scraping.sync_repository",
     )
 
@@ -186,6 +188,16 @@ def test_removed_legacy_parser_modules_stay_absent():
     assert not product_scraper.exists()
 
 
+def test_removed_legacy_sync_modules_stay_absent():
+    removed_paths = (
+        PROJECT_ROOT / "scrapers" / "sync" / "sync_engine.py",
+        PROJECT_ROOT / "scrapers" / "sync" / "product_comparator.py",
+        PROJECT_ROOT / "scrapers" / "sync" / "sync_result.py",
+    )
+
+    assert all(not path.exists() for path in removed_paths)
+
+
 def test_production_roots_do_not_import_legacy_scraping_services():
     production_roots = (
         PROJECT_ROOT / "app.py",
@@ -208,6 +220,9 @@ def test_production_roots_do_not_import_legacy_scraping_services():
         "scrapers.services.category_product_scraping_service",
         "scrapers.parser",
         "scrapers.product_scraper",
+        "scrapers.sync.sync_engine",
+        "scrapers.sync.product_comparator",
+        "scrapers.sync.sync_result",
     )
 
     violations = []

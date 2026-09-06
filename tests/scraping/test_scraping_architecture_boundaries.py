@@ -122,3 +122,32 @@ def test_scraping_controller_does_not_depend_on_legacy_orchestrator():
     assert "from services.scraping.scraping_factory import ScrapingFactory" in source
     assert "from services.scraping.scraping_session import ScrapingSession" in source
     assert "FullScrapingService" not in source
+
+
+def test_modern_scraping_services_do_not_import_legacy_service_modules():
+    services_dir = PROJECT_ROOT / "services" / "scraping"
+    allowed_legacy_files = {
+        "__init__.py",
+        "category_pagination_service.py",
+        "category_scraping_service.py",
+        "full_scraping_service.py",
+        "scraped_product_service.py",
+    }
+    forbidden_imports = (
+        "services.scraping.category_pagination_service",
+        "services.scraping.category_scraping_service",
+        "services.scraping.scraped_product_service",
+        "services.scraping.full_scraping_service",
+    )
+
+    violations = []
+    for path in services_dir.glob("*.py"):
+        if path.name in allowed_legacy_files:
+            continue
+
+        source = path.read_text(encoding="utf-8")
+        for token in forbidden_imports:
+            if token in source:
+                violations.append(f"{path.name}: {token}")
+
+    assert violations == []

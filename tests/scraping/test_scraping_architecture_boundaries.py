@@ -17,6 +17,7 @@ def test_canonical_scraping_factory_does_not_depend_on_legacy_pipeline():
         "services.scraping.category_scraping_service",
         "services.scraping.category_pagination_service",
         "services.scraping.scraped_product_service",
+        "services.scraping.full_scraping_service",
     )
 
     assert not any(token in source for token in forbidden_imports)
@@ -56,7 +57,9 @@ def test_compatibility_factories_delegate_to_canonical_factory():
         source = path.read_text(encoding="utf-8")
         assert "services.scraping.scraping_factory" in source
         assert "CanonicalScrapingFactory" in source
-        assert "return CanonicalScrapingFactory.create_runner" in source
+        assert "return CanonicalScrapingFactory.create_runner" in source or (
+            "return CanonicalScrapingFactory.create_runner" in source
+        )
 
 
 def test_scraping_package_does_not_eagerly_import_legacy_services():
@@ -68,6 +71,7 @@ legacy_modules = (
     "services.scraping.category_pagination_service",
     "services.scraping.category_scraping_service",
     "services.scraping.scraped_product_service",
+    "services.scraping.full_scraping_service",
 )
 
 assert not any(module in sys.modules for module in legacy_modules)
@@ -92,6 +96,7 @@ import services.scraping as scraping
 assert not hasattr(scraping, "CategoryPaginationService")
 assert not hasattr(scraping, "CategoryScrapingService")
 assert not hasattr(scraping, "ScrapedProductService")
+assert not hasattr(scraping, "FullScrapingService")
 """
 
     subprocess.run(
@@ -101,6 +106,10 @@ assert not hasattr(scraping, "ScrapedProductService")
         capture_output=True,
         text=True,
     )
+
+
+def test_full_scraping_service_is_not_present():
+    assert not (PROJECT_ROOT / "services" / "scraping" / "full_scraping_service.py").exists()
 
 
 def test_full_scraping_service_is_not_eagerly_loaded():
@@ -134,7 +143,6 @@ def test_modern_scraping_services_do_not_import_legacy_service_modules():
     services_dir = PROJECT_ROOT / "services" / "scraping"
     allowed_legacy_files = {
         "__init__.py",
-        "full_scraping_service.py",
     }
     forbidden_imports = (
         "services.scraping.category_pagination_service",
@@ -209,9 +217,7 @@ def test_production_roots_do_not_import_legacy_scraping_services():
         PROJECT_ROOT / "services",
         PROJECT_ROOT / "scrapers",
     )
-    allowed_paths = {
-        Path("services/scraping/full_scraping_service.py"),
-    }
+    allowed_paths = set()
     forbidden_imports = (
         "services.scraping.category_pagination_service",
         "services.scraping.category_scraping_service",

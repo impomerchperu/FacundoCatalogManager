@@ -125,13 +125,14 @@ class CategoryProductSyncService:
             expected_category_occurrences,
         )
 
-        self.sync_products(
+        synced_products = self.sync_products(
             raw_products,
             full_sync=full_mode,
             allow_prune=complete,
             expected_products=len(coverage_products) if full_mode else 0,
             expected_category_occurrences=expected_category_occurrences,
         )
+        self._propagate_synced_fields(raw_products, synced_products)
         self._attach_category_coverage(
             raw_products,
             self._consolidate_for_coverage(raw_products),
@@ -246,6 +247,27 @@ class CategoryProductSyncService:
             time.perf_counter() - total_started,
         )
         return result
+
+    @staticmethod
+    def _propagate_synced_fields(raw_products, synced_products):
+        """Devuelve al objeto scrapeado los campos enriquecidos durante sync."""
+        synced_by_code = {}
+        for product in synced_products or []:
+            code = str(getattr(product, "code", "")).strip()
+            if code:
+                synced_by_code[code.casefold()] = product
+
+        for raw_product in raw_products or []:
+            code = str(getattr(raw_product, "code", "")).strip()
+            if not code:
+                continue
+            synced_product = synced_by_code.get(code.casefold())
+            if synced_product is None:
+                continue
+            for field in ("image_path", "image_hash", "content_hash"):
+                value = getattr(synced_product, field, "")
+                if value:
+                    setattr(raw_product, field, value)
 
     def _accumulate_sync_result(self, result):
         for field in (

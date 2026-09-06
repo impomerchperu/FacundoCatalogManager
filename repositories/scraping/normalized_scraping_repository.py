@@ -3,7 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from database.db_manager import DBManager
-from services.scraping.category_name_normalizer import split_category_names
+from services.scraping.category_name_normalizer import (
+    normalize_category_name,
+    split_category_names,
+)
 
 
 class NormalizedScrapingRepository:
@@ -138,12 +141,13 @@ class NormalizedScrapingRepository:
         occurrence_metadata=None,
     ) -> int:
         category_ids = {
-            str(getattr(category, "name", "")).strip().casefold(): self.upsert_category(
+            normalize_category_name(getattr(category, "name", "")): self.upsert_category(
                 getattr(category, "name", ""),
                 getattr(category, "url", ""),
                 getattr(category, "expected_count", 0),
             )
             for category in categories
+            if normalize_category_name(getattr(category, "name", ""))
         }
         metadata = occurrence_metadata or {}
         now = self._now()
@@ -156,8 +160,9 @@ class NormalizedScrapingRepository:
             product_record = product_repository.get(code)
             product_id = getattr(product_record, "product_id", None)
             product_categories = {
-                item.strip().casefold()
+                normalized
                 for item in split_category_names(getattr(product, "category", ""))
+                if (normalized := normalize_category_name(item))
             }
             for category_name, category_id in category_ids.items():
                 if category_name not in product_categories:

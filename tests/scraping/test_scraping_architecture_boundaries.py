@@ -57,9 +57,7 @@ def test_compatibility_factories_delegate_to_canonical_factory():
         source = path.read_text(encoding="utf-8")
         assert "services.scraping.scraping_factory" in source
         assert "CanonicalScrapingFactory" in source
-        assert "return CanonicalScrapingFactory.create_runner" in source or (
-            "return CanonicalScrapingFactory.create_runner" in source
-        )
+        assert "return CanonicalScrapingFactory.create_runner" in source
 
 
 def test_scraping_package_does_not_eagerly_import_legacy_services():
@@ -206,6 +204,12 @@ def test_removed_legacy_sync_modules_stay_absent():
     assert all(not path.exists() for path in removed_paths)
 
 
+def test_removed_legacy_sync_repository_stays_absent():
+    assert not (
+        PROJECT_ROOT / "repositories" / "scraping" / "sync_repository.py"
+    ).exists()
+
+
 def test_production_roots_do_not_import_legacy_scraping_services():
     production_roots = (
         PROJECT_ROOT / "app.py",
@@ -223,6 +227,7 @@ def test_production_roots_do_not_import_legacy_scraping_services():
         "services.scraping.category_scraping_service",
         "services.scraping.full_scraping_service",
         "services.scraping.scraped_product_service",
+        "repositories.scraping.sync_repository",
         "scrapers.services.category_product_scraping_service",
         "scrapers.parser",
         "scrapers.product_scraper",

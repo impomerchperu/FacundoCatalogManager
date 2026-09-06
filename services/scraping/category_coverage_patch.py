@@ -13,6 +13,14 @@ from services.scraping.category_product_sync_service import CategoryProductSyncS
 _PATCHED = False
 
 
+def _product_category_keys(product: Any) -> set[str]:
+    return {
+        normalize_category_name(category)
+        for category in split_category_names(str(getattr(product, "category", "")))
+        if normalize_category_name(category)
+    }
+
+
 def _attach_category_coverage(
     self: CategoryProductSyncService,
     raw_products: list[Any],
@@ -31,9 +39,7 @@ def _attach_category_coverage(
         category_products = [
             product
             for product in raw_products
-            if comparison_key
-            and comparison_key
-            == normalize_category_name(str(getattr(product, "category", "")))
+            if comparison_key and comparison_key in _product_category_keys(product)
         ]
         unique = {
             str(getattr(product, "code", "")).strip().casefold()

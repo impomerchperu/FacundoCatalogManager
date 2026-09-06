@@ -56,3 +56,20 @@ assert not any(module in sys.modules for module in legacy_modules)
         capture_output=True,
         text=True,
     )
+
+
+def test_legacy_services_remain_available_through_public_package_api():
+    code = """
+from services.scraping import CategoryPaginationService, ScrapedProductService
+
+assert CategoryPaginationService.__name__ == "CategoryPaginationService"
+assert ScrapedProductService.__name__ == "ScrapedProductService"
+"""
+
+    subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=PROJECT_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )

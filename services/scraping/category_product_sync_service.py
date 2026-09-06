@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from models.scraping.sync_result import SyncResult
+from services.scraping.category_name_normalizer import split_category_names
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TIMING_LOG = PROJECT_ROOT / "data" / "scraping_timing.log"
@@ -38,6 +39,11 @@ class CategoryProductSyncService:
 
     def reset_sync_result(self):
         self.last_sync_result = SyncResult()
+
+    @staticmethod
+    def _split_categories(value: object) -> list[str]:
+        """Mantiene la API histórica delegando en el normalizador canónico."""
+        return split_category_names(value)
 
     def sync_category(self, category_url, category=""):
         started = time.perf_counter()
@@ -531,4 +537,3 @@ class CategoryProductSyncService:
         if occurrence_gap:
             return False, f"category_coverage_gap:{occurrence_gap}"
         return True, "complete"
-

@@ -5,7 +5,7 @@ from scrapers.collectors.category_scraper import CategoryScraper
 
 
 def _new_scraper() -> CategoryScraper:
-    scraper = object.__new__(CategoryScraper)
+    scraper = CategoryScraper(browser=object())
     scraper._category_html_cache = {}
     scraper._category_html_cache_lock = RLock()
     scraper._jsf_metadata_cache = {}

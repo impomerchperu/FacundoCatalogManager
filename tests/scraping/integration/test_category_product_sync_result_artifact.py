@@ -2,11 +2,11 @@ import json
 from types import SimpleNamespace
 
 from models.scraping.category import Category
-from repositories.scraping.sync_repository import SyncRepository
 from services.scraping import scraping_result_writer
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.category_product_sync_service import CategoryProductSyncService
 from services.scraping.product_diff_service import ProductDiffService
+from tests.scraping.catalog_sync_test_doubles import InMemoryCatalogRepository
 
 
 class Product:
@@ -58,7 +58,7 @@ def test_category_sync_rewrites_result_artifact_with_final_coverage(
         Category("Categoria B", "https://example.com/b/", expected_count=1),
     ]
     catalog_sync_service = CatalogSyncService(
-        SyncRepository(), ProductDiffService()
+        InMemoryCatalogRepository(), ProductDiffService()
     )
     catalog_sync_service.result_writer = scraping_result_writer.ScrapingResultWriter()
     service = CategoryProductSyncService(

@@ -80,12 +80,14 @@ assert not any(module in sys.modules for module in legacy_modules)
     )
 
 
-def test_legacy_services_remain_available_through_public_package_api():
+def test_compatibility_package_exports_remain_intentional():
     code = """
-from services.scraping import CategoryPaginationService, ScrapedProductService
+from services.scraping import CategoryPaginationService
 
 assert CategoryPaginationService.__name__ == "CategoryPaginationService"
-assert ScrapedProductService.__name__ == "ScrapedProductService"
+
+import services.scraping as scraping
+assert not hasattr(scraping, "ScrapedProductService")
 """
 
     subprocess.run(
@@ -131,7 +133,6 @@ def test_modern_scraping_services_do_not_import_legacy_service_modules():
         "category_pagination_service.py",
         "category_scraping_service.py",
         "full_scraping_service.py",
-        "scraped_product_service.py",
     }
     forbidden_imports = (
         "services.scraping.category_pagination_service",
@@ -190,8 +191,6 @@ def test_production_roots_do_not_import_legacy_scraping_services():
         Path("services/scraping/category_pagination_service.py"),
         Path("services/scraping/category_scraping_service.py"),
         Path("services/scraping/full_scraping_service.py"),
-        Path("services/scraping/scraped_product_service.py"),
-        Path("scrapers/services/category_product_scraping_service.py"),
     }
     forbidden_imports = (
         "services.scraping.category_pagination_service",

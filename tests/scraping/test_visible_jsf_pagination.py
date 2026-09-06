@@ -1,3 +1,4 @@
+import json
 from threading import RLock
 
 from scrapers.collectors import category_pagination_patch
@@ -43,11 +44,11 @@ def test_visible_jetsmartfilters_pagination_is_honored():
     """
     category_html = _products(1, 25) + visible_pagination
     pages = {
-        1: (100, 1, _products(1, 25)),
-        2: (100, 1, _products(26, 25)),
-        3: (100, 1, _products(51, 25)),
-        4: (100, 1, _products(76, 25)),
-        5: (100, 1, ""),
+        1: _products(1, 25),
+        2: _products(26, 25),
+        3: _products(51, 25),
+        4: _products(76, 25),
+        5: "",
     }
     calls = []
 
@@ -55,11 +56,22 @@ def test_visible_jetsmartfilters_pagination_is_honored():
     scraper._is_facundo_url = lambda _url: True
     scraper._category_id = lambda _html: 123
 
-    def fetch(_url, _category_id, page):
+    def post(_payload):
+        page = next(
+            int(value)
+            for key, value in _payload
+            if key in {"defaults[paged]", "props[page]", "paged"}
+        )
         calls.append(page)
-        return pages[page]
+        return json.dumps(
+            {
+                "found_posts": 100,
+                "max_num_pages": 1,
+                "rendered_content": pages[page],
+            }
+        )
 
-    scraper._fetch_jsf_page = fetch
+    scraper._post_jsf = post
 
     result = category_pagination_patch._get_category_pages(
         scraper,

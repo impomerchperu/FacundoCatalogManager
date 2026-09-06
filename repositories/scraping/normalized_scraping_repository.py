@@ -97,10 +97,11 @@ class NormalizedScrapingRepository:
         actual = max(int(actual_category_occurrences or 0), 0)
         gap = max(expected - actual, 0)
         errors = len(getattr(result, "errors", []) or [])
+        message_value = str(message or "")
         coverage_complete = bool(
             expected <= 0 or (actual >= expected and errors == 0)
         )
-        status = "SUCCESS" if not errors else "ERROR"
+        status = "SUCCESS" if not errors and not message_value else "ERROR"
         self.db.execute_query(
             """
             UPDATE scraping_runs
@@ -128,7 +129,7 @@ class NormalizedScrapingRepository:
                 int(coverage_complete),
                 gap,
                 errors,
-                str(message or ""),
+                message_value,
                 run_id,
             ),
         )

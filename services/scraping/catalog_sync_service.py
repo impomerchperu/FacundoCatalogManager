@@ -5,6 +5,7 @@ from services.scraping.category_name_normalizer import (
     merge_category_names,
     split_category_names,
 )
+from services.scraping.product_hash_service import ProductHashService
 
 
 class CatalogSyncService:
@@ -32,6 +33,7 @@ class CatalogSyncService:
         self.repository = repository
         self.diff_service = diff_service
         self.last_sync_result = SyncResult()
+        self.hash_service = ProductHashService()
 
     @staticmethod
     def _normalize_code(value) -> str:
@@ -120,6 +122,7 @@ class CatalogSyncService:
                 getattr(product, "category", ""),
             )
             self._preserve_existing_prices(existing, product)
+            product.content_hash = self.hash_service.generate(product)
             comparison = self.diff_service.compare(existing, product)
             if comparison["changed"]:
                 result.updated += 1

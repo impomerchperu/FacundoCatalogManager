@@ -12,7 +12,7 @@ from config.scraping_config import (
 
 
 class Browser:
-    def __init__(self, session=None):
+    def __init__(self, session=None, request_timeout=None, max_retries=None):
         self.session = session
         self._thread_local = threading.local()
         self._http_semaphore = threading.BoundedSemaphore(SCRAPING_HTTP_WORKERS)
@@ -21,8 +21,17 @@ class Browser:
             self.session = requests.Session()
 
         self.headers = DEFAULT_HEADERS
-        self.timeout = REQUEST_TIMEOUT
-        self.max_retries = MAX_RETRIES
+        self.timeout = (
+            REQUEST_TIMEOUT if request_timeout is None else int(request_timeout)
+        )
+        self.max_retries = (
+            MAX_RETRIES if max_retries is None else int(max_retries)
+        )
+
+        if self.timeout <= 0:
+            raise ValueError("request_timeout debe ser mayor que cero.")
+        if self.max_retries <= 0:
+            raise ValueError("max_retries debe ser mayor que cero.")
 
         self._metrics_lock = threading.Lock()
         self._http_requests = 0

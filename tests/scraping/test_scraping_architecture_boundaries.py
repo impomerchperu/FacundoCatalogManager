@@ -17,6 +17,7 @@ def test_canonical_scraping_factory_does_not_depend_on_legacy_pipeline():
         "services.scraping.category_scraping_service",
         "services.scraping.category_pagination_service",
         "services.scraping.scraped_product_service",
+        "services.scraping.full_scraping_service",
     )
 
     assert not any(token in source for token in forbidden_imports)
@@ -53,6 +54,7 @@ legacy_modules = (
     "services.scraping.category_pagination_service",
     "services.scraping.category_scraping_service",
     "services.scraping.scraped_product_service",
+    "services.scraping.full_scraping_service",
 )
 
 assert not any(module in sys.modules for module in legacy_modules)
@@ -73,6 +75,22 @@ from services.scraping import CategoryPaginationService, ScrapedProductService
 
 assert CategoryPaginationService.__name__ == "CategoryPaginationService"
 assert ScrapedProductService.__name__ == "ScrapedProductService"
+"""
+
+    subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=PROJECT_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_full_scraping_service_remains_available_through_public_package_api():
+    code = """
+from services.scraping import FullScrapingService
+
+assert FullScrapingService.__name__ == "FullScrapingService"
 """
 
     subprocess.run(

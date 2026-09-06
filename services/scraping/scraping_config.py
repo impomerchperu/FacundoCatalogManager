@@ -39,6 +39,12 @@ class ScrapingConfig:
         default_factory=list,
     )
 
+    def __post_init__(self) -> None:
+        if self.request_timeout <= 0:
+            raise ValueError("request_timeout debe ser mayor que cero.")
+        if self.max_retries <= 0:
+            raise ValueError("max_retries debe ser mayor que cero.")
+
     def is_category_enabled(
         self,
         category: str,

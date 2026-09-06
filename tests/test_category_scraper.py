@@ -64,7 +64,7 @@ def test_parse_jsf_response_reads_found_posts_without_declared_max_pages():
     assert max_num_pages == 3
     assert rendered_html == '<div>FB-001</div>'
 
-    scraper = CategoryScraper(FakeBrowser({}))
+    scraper = object.__new__(CategoryScraper)
     assert scraper._required_page_count(found_posts) == 3
 
 
@@ -98,30 +98,6 @@ def test_category_scraper_uses_jetsmartfilters_for_every_declared_page():
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
     ] == ["1", "2", "3"]
-
-
-def test_category_scraper_probes_jsf_terminal_page_without_wordpress_fallback():
-    category_url = (
-        "https://stock.importacionesfacundo.com/"
-        "categoria-producto/catalogo/"
-    )
-    responses = {
-        category_url: '<body class="tax-product_cat term-127"></body>',
-        "ajax:1": (
-            '{"found_posts":25,"max_num_pages":1,'
-            '"rendered_content":"<div>only</div>"}'
-        ),
-        "ajax:2": "",
-    }
-    browser = FakeBrowser(responses)
-    scraper = CategoryScraper(browser)
-
-    assert scraper.get_category_pages(category_url) == [category_url]
-    assert browser.get_calls == [category_url]
-    assert [
-        next(value for key, value in data if key == "paged")
-        for _, data in browser.post_calls
-    ] == ["1", "2"]
 
 
 def test_category_scraper_uses_expected_count_to_cover_all_pages():

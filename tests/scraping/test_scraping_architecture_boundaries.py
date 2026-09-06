@@ -17,7 +17,19 @@ def test_canonical_scraping_factory_does_not_depend_on_legacy_pipeline():
         "services.scraping.category_scraping_service",
         "services.scraping.category_pagination_service",
         "services.scraping.scraped_product_service",
-        "services.scraping.full_scraping_service",
+    )
+
+    assert not any(token in source for token in forbidden_imports)
+
+
+def test_canonical_scraping_factory_does_not_use_legacy_sync_engine():
+    source = (
+        PROJECT_ROOT / "services" / "scraping" / "scraping_factory.py"
+    ).read_text(encoding="utf-8")
+
+    forbidden_imports = (
+        "scrapers.sync.sync_engine",
+        "repositories.scraping.sync_repository",
     )
 
     assert not any(token in source for token in forbidden_imports)
@@ -54,7 +66,6 @@ legacy_modules = (
     "services.scraping.category_pagination_service",
     "services.scraping.category_scraping_service",
     "services.scraping.scraped_product_service",
-    "services.scraping.full_scraping_service",
 )
 
 assert not any(module in sys.modules for module in legacy_modules)
@@ -86,11 +97,12 @@ assert ScrapedProductService.__name__ == "ScrapedProductService"
     )
 
 
-def test_full_scraping_service_remains_available_through_public_package_api():
+def test_full_scraping_service_is_not_eagerly_loaded():
     code = """
-from services.scraping import FullScrapingService
+import sys
+import services.scraping
 
-assert FullScrapingService.__name__ == "FullScrapingService"
+assert "services.scraping.full_scraping_service" not in sys.modules
 """
 
     subprocess.run(

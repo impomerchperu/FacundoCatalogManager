@@ -6,7 +6,6 @@ def test_public_scraping_service_exports_match_current_api():
         "CategoryProductScrapingService",
         "CategoryProductSyncService",
         "CategoryService",
-        "FullScrapingService",
         "ImageSyncAdapter",
         "ProductDiffService",
         "ProductHashService",

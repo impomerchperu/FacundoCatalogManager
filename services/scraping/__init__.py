@@ -22,7 +22,6 @@ _category_coverage_patch.activate()
 
 __all__ = [
     "CatalogSyncService",
-    "CategoryPaginationService",
     "CategoryProductScrapingService",
     "CategoryProductSyncService",
     "CategoryService",
@@ -43,7 +42,6 @@ __all__ = [
 def __getattr__(name: str):
     """Load compatibility and factory exports only when requested."""
     lazy_imports = {
-        "CategoryPaginationService": ".category_pagination_service",
         "FullScrapingService": ".full_scraping_service",
         "ScrapingFactory": ".scraping_factory",
     }

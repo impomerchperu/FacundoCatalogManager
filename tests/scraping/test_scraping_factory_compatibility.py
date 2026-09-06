@@ -1,5 +1,9 @@
-from factories.scraping_factory import ScrapingFactory as ApplicationScrapingFactory
-from scrapers.factories.scraping_factory import ScrapingFactory as ScraperScrapingFactory
+from factories.scraping_factory import (
+    ScrapingFactory as ApplicationScrapingFactory,
+)
+from scrapers.factories.scraping_factory import (
+    ScrapingFactory as ScraperScrapingFactory,
+)
 
 
 class FakeCanonicalFactory:

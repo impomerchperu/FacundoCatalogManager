@@ -36,7 +36,11 @@ def test_prune_guard_blocks_missing_product_codes():
         ScrapedProduct(code="", name="Sin código"),
     ]
 
-    allowed, reason = service._full_sync_prune_guard(products, 24)
+    allowed, reason = service._full_sync_prune_guard(
+        products,
+        24,
+        expected_category_occurrences=2,
+    )
 
     assert allowed is False
     assert reason == "missing_codes:1"
@@ -46,7 +50,11 @@ def test_prune_guard_blocks_terminal_http_errors():
     service = build_service(terminal_errors=1)
     products = [ScrapedProduct(code="P001", name="Completo")]
 
-    allowed, reason = service._full_sync_prune_guard(products, 24)
+    allowed, reason = service._full_sync_prune_guard(
+        products,
+        24,
+        expected_category_occurrences=1,
+    )
 
     assert allowed is False
     assert reason == "terminal_http_errors:1"
@@ -76,7 +84,11 @@ def test_prune_guard_allows_complete_extraction():
         ScrapedProduct(code="P002", name="Dos"),
     ]
 
-    allowed, reason = service._full_sync_prune_guard(products, 24)
+    allowed, reason = service._full_sync_prune_guard(
+        products,
+        24,
+        expected_category_occurrences=2,
+    )
 
     assert allowed is True
     assert reason == "complete"

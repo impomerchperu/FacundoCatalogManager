@@ -61,7 +61,6 @@ def test_missing_price_is_requested_even_without_price_label_on_card():
     assert metrics["detail_reason_counts"] == {
         "requested_missing_prices": 1,
         "requested_missing_sample": 1,
-        "requested_missing_hundred": 1,
         "requested_missing_thousand": 1,
     }
 

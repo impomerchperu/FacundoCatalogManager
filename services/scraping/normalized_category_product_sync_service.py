@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from services.scraping.category_name_normalizer import (
+    canonical_category_name,
     normalize_category_name,
     split_category_names,
 )
@@ -92,7 +93,7 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
 
         metadata = {}
         for category in categories:
-            category_name = str(getattr(category, "name", "")).strip()
+            category_name = canonical_category_name(getattr(category, "name", ""))
             category_key = normalize_category_name(category_name)
             category_url = self._canonical_url(getattr(category, "url", ""))
             metrics = self._find_category_metrics(page_metrics, category_url)

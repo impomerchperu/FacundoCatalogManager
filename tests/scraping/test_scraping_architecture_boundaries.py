@@ -177,12 +177,13 @@ assert "scrapers.services.category_product_scraping_service" not in sys.modules
 
 
 def test_removed_legacy_parser_modules_stay_absent():
-    removed_paths = (
-        PROJECT_ROOT / "scrapers" / "parser",
-        PROJECT_ROOT / "scrapers" / "product_scraper.py",
-    )
+    parser_dir = PROJECT_ROOT / "scrapers" / "parser"
+    product_scraper = PROJECT_ROOT / "scrapers" / "product_scraper.py"
 
-    assert all(not path.exists() for path in removed_paths)
+    parser_modules = tuple(parser_dir.glob("*.py")) if parser_dir.exists() else ()
+
+    assert parser_modules == ()
+    assert not product_scraper.exists()
 
 
 def test_production_roots_do_not_import_legacy_scraping_services():

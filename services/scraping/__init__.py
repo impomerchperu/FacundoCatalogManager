@@ -32,7 +32,6 @@ __all__ = [
     "ProductHashService",
     "ScrapedProductMapper",
     "ScrapedProductPersistenceService",
-    "ScrapedProductService",
     "ScrapingConfig",
     "ScrapingFactory",
     "ScrapingRunner",
@@ -46,7 +45,6 @@ def __getattr__(name: str):
     lazy_imports = {
         "CategoryPaginationService": ".category_pagination_service",
         "FullScrapingService": ".full_scraping_service",
-        "ScrapedProductService": ".scraped_product_service",
         "ScrapingFactory": ".scraping_factory",
     }
 

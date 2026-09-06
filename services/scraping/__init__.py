@@ -19,6 +19,9 @@ from .scraped_product_service import ScrapedProductService
 from .scraping_config import ScrapingConfig
 from .scraping_runner import ScrapingRunner
 from .scraping_session import ScrapingSession, ScrapingSessionResult
+from . import category_coverage_patch as _category_coverage_patch
+
+_category_coverage_patch.activate()
 
 __all__ = [
     "CatalogSyncService",

@@ -1,6 +1,6 @@
-from models.scraping.category import Category
 from types import SimpleNamespace
 
+from models.scraping.category import Category
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 
 

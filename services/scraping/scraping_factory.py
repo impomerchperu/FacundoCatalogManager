@@ -22,6 +22,9 @@ from scrapers.extractors.category_product_extractor import (
 )
 from scrapers.extractors.product_card_extractor import ProductCardExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
+from scrapers.images.image_downloader import ImageDownloader
+from scrapers.images.safe_image_manager import SafeImageManager
+from scrapers.sync.image_sync import ImageSync
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,
@@ -67,11 +70,15 @@ class ScrapingFactory:
 
         history_repository = ScrapingHistoryRepository(db)
 
-        image_sync_adapter = (
-            ImageSyncAdapter()
-            if config.download_images
-            else None
-        )
+        image_sync_adapter = None
+        if config.download_images:
+            image_downloader = ImageDownloader(
+                request_timeout=config.request_timeout,
+                max_retries=config.max_retries,
+            )
+            image_manager = SafeImageManager(downloader=image_downloader)
+            image_sync = ImageSync(image_manager=image_manager)
+            image_sync_adapter = ImageSyncAdapter(image_sync=image_sync)
 
         browser = Browser(
             request_timeout=config.request_timeout,

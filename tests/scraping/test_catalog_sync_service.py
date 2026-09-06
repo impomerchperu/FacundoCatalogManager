@@ -1,6 +1,6 @@
-from repositories.scraping.sync_repository import SyncRepository
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.product_diff_service import ProductDiffService
+from tests.scraping.catalog_sync_test_doubles import InMemoryCatalogRepository
 
 
 class Product:
@@ -24,7 +24,7 @@ class Product:
 
 
 def test_catalog_sync_creates_new_product():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     service = CatalogSyncService(repository, ProductDiffService())
 
     result = service.synchronize([Product("P001", "Producto A", 10)])
@@ -36,7 +36,7 @@ def test_catalog_sync_creates_new_product():
 
 
 def test_catalog_sync_updates_product():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     repository.save(Product("P001", "Producto A", 10))
 
     service = CatalogSyncService(repository, ProductDiffService())
@@ -48,7 +48,7 @@ def test_catalog_sync_updates_product():
 
 
 def test_catalog_sync_preserves_existing_prices_on_partial_update():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     existing = Product("P010", "Producto A", 8.5)
     existing.price_sample = 8.5
     existing.price_hundred = 770.0
@@ -73,7 +73,7 @@ def test_catalog_sync_preserves_existing_prices_on_partial_update():
 
 
 def test_catalog_sync_preserves_existing_prices_independently():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     existing = Product("P011", "Producto B", 8.5)
     existing.price_sample = 8.5
     existing.price_hundred = 770.0
@@ -96,7 +96,7 @@ def test_catalog_sync_preserves_existing_prices_independently():
 
 
 def test_catalog_sync_consolidates_product_in_multiple_categories():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     service = CatalogSyncService(repository, ProductDiffService())
 
     products = [
@@ -196,7 +196,7 @@ def test_catalog_sync_does_not_overwrite_richer_duplicate_product_fields():
 
 
 def test_catalog_sync_reports_duplicate_occurrences_across_multiple_categories():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     service = CatalogSyncService(repository, ProductDiffService())
 
     products = [
@@ -218,7 +218,7 @@ def test_catalog_sync_reports_duplicate_occurrences_across_multiple_categories()
 
 
 def test_catalog_sync_preserves_categories_across_separate_category_syncs():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     service = CatalogSyncService(repository, ProductDiffService())
 
     first = service.synchronize([
@@ -243,7 +243,7 @@ def test_catalog_sync_preserves_categories_across_separate_category_syncs():
 
 
 def test_catalog_sync_does_not_duplicate_existing_category():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     service = CatalogSyncService(repository, ProductDiffService())
 
     service.synchronize([Product("P004", "Producto", 10, category="Jarros")])
@@ -260,7 +260,7 @@ def test_catalog_sync_does_not_duplicate_existing_category():
 
 
 def test_catalog_sync_does_not_create_local_code_when_missing():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     service = CatalogSyncService(repository, ProductDiffService())
     product = Product(
         "",
@@ -282,7 +282,7 @@ def test_catalog_sync_does_not_create_local_code_when_missing():
 
 
 def test_catalog_sync_prunes_every_unmatched_local_code_after_complete_coverage():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     repository.save(Product("AUTO-OLD-12.50-35.00", "Producto provisional", 12.50))
     repository.save(Product("OLD-LEGACY-999", "Otro legado", 99))
     repository.save(Product("KEEP001", "Producto vigente", 20))
@@ -308,7 +308,7 @@ def test_catalog_sync_prunes_every_unmatched_local_code_after_complete_coverage(
 
 
 def test_catalog_sync_keeps_unmatched_local_codes_when_coverage_is_incomplete():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     repository.save(Product("OLD001", "Producto antiguo", 10))
     repository.save(Product("KEEP001", "Producto vigente", 20))
 

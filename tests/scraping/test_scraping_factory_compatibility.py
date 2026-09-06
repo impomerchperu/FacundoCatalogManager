@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from factories.scraping_factory import (
     ScrapingFactory as ApplicationScrapingFactory,
 )
@@ -7,7 +9,7 @@ from scrapers.factories.scraping_factory import (
 
 
 class FakeCanonicalFactory:
-    calls = []
+    calls: ClassVar[list[object | None]] = []
 
     @staticmethod
     def create_runner(config=None):

@@ -25,7 +25,6 @@ __all__ = [
     "CategoryProductScrapingService",
     "CategoryProductSyncService",
     "CategoryService",
-    "FullScrapingService",
     "ImageSyncAdapter",
     "ProductDiffService",
     "ProductHashService",
@@ -40,18 +39,12 @@ __all__ = [
 
 
 def __getattr__(name: str):
-    """Load compatibility and factory exports only when requested."""
-    lazy_imports = {
-        "FullScrapingService": ".full_scraping_service",
-        "ScrapingFactory": ".scraping_factory",
-    }
-
-    module_name = lazy_imports.get(name)
-    if module_name is None:
+    """Load the factory export only when requested."""
+    if name != "ScrapingFactory":
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
     module = __import__(
-        f"{__name__}{module_name}",
+        f"{__name__}.scraping_factory",
         fromlist=[name],
     )
     value = getattr(module, name)

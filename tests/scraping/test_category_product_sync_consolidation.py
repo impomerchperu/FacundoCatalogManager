@@ -48,7 +48,14 @@ class FakeCatalogSync:
     def consolidate_products(self, products):
         return CatalogSyncService.consolidate_products(products)
 
-    def sync(self, products, expected_products=0, expected_category_occurrences=0):
+    def sync(
+        self,
+        products,
+        prune_missing=False,
+        expected_products=0,
+        expected_category_occurrences=0,
+    ):
+        del prune_missing
         self.received = list(products)
         result = SyncResult()
         result.processed = len(self.received)

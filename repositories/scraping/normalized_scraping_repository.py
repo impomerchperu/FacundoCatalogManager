@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from database.db_manager import DBManager
 from services.scraping.category_name_normalizer import (
+    canonical_category_name,
     normalize_category_name,
     split_category_names,
 )
@@ -140,15 +141,18 @@ class NormalizedScrapingRepository:
         product_repository,
         occurrence_metadata=None,
     ) -> int:
-        category_ids = {
-            normalize_category_name(getattr(category, "name", "")): self.upsert_category(
+        category_ids = {}
+        for category in categories:
+            category_name = canonical_category_name(getattr(category, "name", ""))
+            category_key = normalize_category_name(category_name)
+            if not category_key:
+                continue
+            category_ids[category_key] = self.upsert_category(
                 getattr(category, "name", ""),
                 getattr(category, "url", ""),
                 getattr(category, "expected_count", 0),
             )
-            for category in categories
-            if normalize_category_name(getattr(category, "name", ""))
-        }
+
         metadata = occurrence_metadata or {}
         now = self._now()
         occurrences = 0

@@ -1,6 +1,6 @@
-from repositories.scraping.sync_repository import SyncRepository
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.product_diff_service import ProductDiffService
+from tests.scraping.catalog_sync_test_doubles import InMemoryCatalogRepository
 
 
 class Product:
@@ -15,7 +15,9 @@ class Product:
 
 
 def test_catalog_sync_uses_unique_product_count_for_identity_only():
-    service = CatalogSyncService(SyncRepository(), ProductDiffService())
+    service = CatalogSyncService(
+        InMemoryCatalogRepository(), ProductDiffService()
+    )
 
     result = service.sync(
         [
@@ -39,7 +41,9 @@ def test_catalog_sync_uses_unique_product_count_for_identity_only():
 
 
 def test_catalog_sync_can_complete_category_coverage_without_unique_target():
-    service = CatalogSyncService(SyncRepository(), ProductDiffService())
+    service = CatalogSyncService(
+        InMemoryCatalogRepository(), ProductDiffService()
+    )
 
     result = service.sync_full_catalog(
         [Product("P001", "Producto 1", "Jarros")],

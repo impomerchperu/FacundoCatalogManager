@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from services.scraping.category_name_normalizer import (
+    normalize_category_name,
+    split_category_names,
+)
 from services.scraping.category_product_sync_service import CategoryProductSyncService
 
 
@@ -74,22 +78,28 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         if not page_metrics:
             return {}
 
-        products_by_category = {}
+        products_by_category: dict[str, list[str]] = {}
         for product in products:
-            category_name = str(getattr(product, "category", "")).strip().casefold()
             code = str(getattr(product, "code", "")).strip().casefold()
-            if category_name and code:
-                products_by_category.setdefault(category_name, []).append(code)
+            if not code:
+                continue
+            for category_name in split_category_names(
+                getattr(product, "category", "")
+            ):
+                category_key = normalize_category_name(category_name)
+                if category_key:
+                    products_by_category.setdefault(category_key, []).append(code)
 
         metadata = {}
         for category in categories:
-            category_name = str(getattr(category, "name", "")).strip().casefold()
+            category_name = str(getattr(category, "name", "")).strip()
+            category_key = normalize_category_name(category_name)
             category_url = self._canonical_url(getattr(category, "url", ""))
             metrics = self._find_category_metrics(page_metrics, category_url)
-            if not metrics:
+            if not metrics or not category_key:
                 continue
 
-            codes = products_by_category.get(category_name, [])
+            codes = products_by_category.get(category_key, [])
             code_index = 0
             for page in metrics.get("pages", []):
                 page_number = max(int(page.get("page", 0) or 0), 0)
@@ -97,7 +107,7 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
                 for position in range(1, unique_count + 1):
                     if code_index >= len(codes):
                         break
-                    metadata[(category_name, codes[code_index])] = (
+                    metadata[(category_key, codes[code_index])] = (
                         page_number,
                         position,
                     )

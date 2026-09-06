@@ -3,7 +3,6 @@ def test_public_scraping_service_exports_match_current_api():
 
     expected_exports = {
         "CatalogSyncService",
-        "CategoryPaginationService",
         "CategoryProductScrapingService",
         "CategoryProductSyncService",
         "CategoryService",

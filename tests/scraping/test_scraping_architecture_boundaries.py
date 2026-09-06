@@ -173,3 +173,45 @@ assert "scrapers.services.category_product_scraping_service" not in sys.modules
         capture_output=True,
         text=True,
     )
+
+
+def test_production_roots_do_not_import_legacy_scraping_services():
+    production_roots = (
+        PROJECT_ROOT / "app.py",
+        PROJECT_ROOT / "controllers",
+        PROJECT_ROOT / "factories",
+        PROJECT_ROOT / "gui",
+        PROJECT_ROOT / "models",
+        PROJECT_ROOT / "repositories",
+        PROJECT_ROOT / "services",
+        PROJECT_ROOT / "scrapers",
+    )
+    allowed_paths = {
+        Path("services/scraping/category_pagination_service.py"),
+        Path("services/scraping/category_scraping_service.py"),
+        Path("services/scraping/full_scraping_service.py"),
+        Path("services/scraping/scraped_product_service.py"),
+        Path("scrapers/services/category_product_scraping_service.py"),
+    }
+    forbidden_imports = (
+        "services.scraping.category_pagination_service",
+        "services.scraping.category_scraping_service",
+        "services.scraping.full_scraping_service",
+        "services.scraping.scraped_product_service",
+        "scrapers.services.category_product_scraping_service",
+    )
+
+    violations = []
+    for root in production_roots:
+        paths = [root] if root.is_file() else root.rglob("*.py")
+        for path in paths:
+            relative_path = path.relative_to(PROJECT_ROOT)
+            if relative_path in allowed_paths:
+                continue
+
+            source = path.read_text(encoding="utf-8")
+            for token in forbidden_imports:
+                if token in source:
+                    violations.append(f"{relative_path}: {token}")
+
+    assert violations == []

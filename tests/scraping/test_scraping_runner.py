@@ -2,7 +2,9 @@ from pathlib import Path
 
 import pytest
 
+from models.scraping.category import Category
 from services.scraping import scraping_runner
+from services.scraping.scraping_config import ScrapingConfig
 from services.scraping.scraping_runner import ScrapingRunner
 
 
@@ -52,6 +54,35 @@ def test_scraping_runner_marks_full_mode_for_run_all():
     runner.run_all()
 
     assert service._scraping_mode == "full"
+
+
+def test_scraping_runner_filters_enabled_categories_for_run_all():
+    captured = {}
+
+    class FakeScrapingService:
+        def sync_categories(self, categories, progress_callback=None):
+            captured["categories"] = categories
+            return []
+
+    class FakeCategoryService:
+        def scrape_all(self):
+            return [
+                Category("Cat A", "https://example.test/a"),
+                Category("Cat B", "https://example.test/b"),
+            ]
+
+    config = ScrapingConfig(enabled_categories=["Cat B"])
+    runner = ScrapingRunner(
+        FakeScrapingService(),
+        config=config,
+        category_service=FakeCategoryService(),
+    )
+
+    runner.run_all()
+
+    assert captured["categories"] == [
+        Category("Cat B", "https://example.test/b"),
+    ]
 
 
 def test_scraping_runner_scales_sync_categories_progress_to_full_pipeline():

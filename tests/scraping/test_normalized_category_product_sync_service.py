@@ -119,6 +119,6 @@ def test_occurrence_metadata_uses_normalized_category_keys_and_preserves_multi_c
     metadata = service._build_occurrence_metadata(categories, products)
 
     assert metadata == {
-        ("cocina mesa hogar", "fb-1000"): (1, 1),
+        ("cocina mesa y hogar", "fb-1000"): (1, 1),
         ("oficina", "fb-1000"): (2, 1),
     }

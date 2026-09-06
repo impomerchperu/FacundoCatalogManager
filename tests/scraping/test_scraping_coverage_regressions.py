@@ -81,7 +81,7 @@ def test_facundo_get_category_pages_prefers_jsf_pagination():
         expected_count=31,
     )
 
-    assert calls == [1, 2]
+    assert calls == [1, 2, 3]
     assert pages == [
         category_url,
         f"{category_url.rstrip('/')}?product-page=2",
@@ -118,7 +118,7 @@ def test_facundo_get_category_pages_does_not_replace_jsf_with_public_fallback():
         expected_count=50,
     )
 
-    assert calls == [1, 2]
+    assert calls == [1, 2, 3]
     assert pages == [
         category_url,
         f"{category_url.rstrip('/')}?product-page=2",

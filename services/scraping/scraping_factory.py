@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from database.db_manager import DBManager
 from repositories.product_repository import ProductRepository
 from repositories.scraping.normalized_scraping_repository import (
@@ -72,7 +74,12 @@ class ScrapingFactory:
 
         image_sync_adapter = None
         if config.download_images:
+            image_output_dir = Path(config.images_folder)
+            if image_output_dir.name.casefold() != "products":
+                image_output_dir /= "products"
+
             image_downloader = ImageDownloader(
+                output_dir=image_output_dir,
                 request_timeout=config.request_timeout,
                 max_retries=config.max_retries,
             )

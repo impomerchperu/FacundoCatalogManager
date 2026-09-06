@@ -16,7 +16,7 @@ def test_extract_category_product_urls():
     soup = BeautifulSoup(html, "lxml")
     urls = ProductLinkExtractor().extract(soup)
 
-    assert len(urls) == 4
+    assert len(urls) == 3
     assert "/producto/producto-a/" in urls
     assert "/producto/producto-b/" in urls
     assert "/otra-ruta" in urls

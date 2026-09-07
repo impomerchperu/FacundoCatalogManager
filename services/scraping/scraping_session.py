@@ -108,7 +108,28 @@ class ScrapingSession:
                 self.result.errors.append(
                     f"No se pudo registrar el historial del error: {history_error}"
                 )
+        finally:
+            self._close_scraping_resources()
         return self.result
+
+    def _close_scraping_resources(self):
+        """Cierra los pools internos del scraper al terminar cada ejecución."""
+        sync_service = getattr(self.runner, "scraping_service", None)
+        scraping_service = getattr(sync_service, "scraper_service", None)
+        scraper = getattr(scraping_service, "scraper", None)
+        if scraper is None:
+            return
+
+        seen: set[int] = set()
+        for attribute in ("_detail_executor", "_detail_fetch_executor"):
+            executor = getattr(scraper, attribute, None)
+            if executor is None or id(executor) in seen:
+                continue
+            seen.add(id(executor))
+            try:
+                executor.shutdown(wait=True, cancel_futures=True)
+            except RuntimeError:
+                continue
 
     def _only_coverage_error(self):
         coverage_errors = [

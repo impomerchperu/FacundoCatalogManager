@@ -107,7 +107,7 @@ class NormalizedScrapingRepository:
                 and not message_value
             )
         )
-        status = "SUCCESS" if not errors and not message_value else "ERROR"
+        status = "SUCCESS" if coverage_complete and not errors and not message_value else "ERROR"
         self.db.execute_query(
             """
             UPDATE scraping_runs
@@ -209,8 +209,8 @@ class NormalizedScrapingRepository:
                         position=excluded.position,
                         name=excluded.name,
                         discovered_at=excluded.discovered_at
-                    """,
-                    (
+                    """
+                    ,(
                         run_id,
                         category_id,
                         product_id,

@@ -112,6 +112,45 @@ def test_normalized_repository_finish_run_matches_sync_result_summary(tmp_path):
     assert row["error_count"] == 0
 
 
+def test_normalized_repository_marks_incomplete_coverage_as_error(tmp_path):
+    db = DBManager(str(tmp_path / "catalog.db"))
+    repository = NormalizedScrapingRepository(db)
+    result = SyncResult(
+        expected_category_occurrences=5,
+        products_found=4,
+        products_unique=4,
+        created=4,
+        errors=[],
+    )
+    run_id = repository.start_run(
+        mode="directed",
+        categories_requested=1,
+        expected_category_occurrences=5,
+    )
+
+    repository.finish_run(
+        run_id,
+        result=result,
+        actual_category_occurrences=4,
+    )
+
+    row = db.fetch_one(
+        """
+        SELECT status, actual_category_occurrences, coverage_complete,
+               coverage_gap, error_count
+        FROM scraping_runs
+        WHERE id = ?
+        """,
+        (run_id,),
+    )
+
+    assert row["status"] == "ERROR"
+    assert row["actual_category_occurrences"] == 4
+    assert row["coverage_complete"] == 0
+    assert row["coverage_gap"] == 1
+    assert row["error_count"] == 0
+
+
 def test_normalized_repository_marks_message_as_error(tmp_path):
     db = DBManager(str(tmp_path / "catalog.db"))
     repository = NormalizedScrapingRepository(db)

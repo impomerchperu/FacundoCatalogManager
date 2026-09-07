@@ -42,6 +42,7 @@ class CategoryProductSyncService:
         self.catalog_sync_service = catalog_sync_service
         self.image_sync_adapter = image_sync_adapter
         self.last_sync_result = SyncResult()
+        self._occurrence_categories = []
 
     def reset_sync_result(self):
         self.last_sync_result = SyncResult()
@@ -67,6 +68,7 @@ class CategoryProductSyncService:
         self._reset_scraping_metrics()
         total_started = time.perf_counter()
         categories = list(categories or [])
+        self._occurrence_categories = []
         expected_category_occurrences = sum(
             max(int(getattr(category, "expected_count", 0) or 0), 0)
             for category in categories
@@ -103,7 +105,7 @@ class CategoryProductSyncService:
             collected = collected_by_index[index] or []
             enriched = self._enrich_category(index, category, collected)
             for product in enriched:
-                setattr(product, "_scraped_category_name", category.name)
+                self._record_category_occurrence(product, category.name)
             products.extend(enriched)
         _log_timing(
             "SCRAPING TIMING | stage=category_extraction | categories=%d | products=%d | expected_category_occurrences=%d | seconds=%.3f",
@@ -296,101 +298,122 @@ class CategoryProductSyncService:
         if getattr(result, "multiple_category_products", None):
             self.last_sync_result.multiple_category_products = list(result.multiple_category_products)
 
-    def _attach_category_coverage(self, raw_products, products_or_categories, categories=None):
-        legacy_call = categories is None
-        if legacy_call:
-            categories = list(products_or_categories or [])
-            products = raw_products
-        else:
-            products = products_or_categories
-            categories = list(categories or [])
-        del products
-
-        category_summary = []
-        occurrence_category_keys_by_code = {}
-        occurrence_category_names_by_code = {}
-        has_occurrence_metadata = any(
-            hasattr(product, "_scraped_category_name") for product in raw_products or []
+    def _record_category_occurrence(self, product, category_name):
+        code = str(getattr(product, "code", "")).strip()
+        if not code:
+            return
+        canonical_name = canonical_category_name(str(category_name or "").strip())
+        normalized = normalize_category_name(canonical_name)
+        if not normalized:
+            return
+        self._occurrence_categories.append(
+            {
+                "code": code,
+                "code_key": code.casefold(),
+                "category": canonical_name,
+                "category_key": normalized,
+            }
         )
 
-        for category in categories:
-            category_name = canonical_category_name(str(getattr(category, "name", "")).strip())
-            expected = max(int(getattr(category, "expected_count", 0) or 0), 0)
-            category_key = normalize_category_name(category_name)
-            if has_occurrence_metadata:
-                category_products = [
-                    product
-                    for product in raw_products
-                    if normalize_category_name(
-                        canonical_category_name(
-                            str(getattr(product, "_scraped_category_name", "")).strip()
-                        )
-                    ) == category_key
-                ]
-            else:
-                category_products = [
-                    product
-                    for product in raw_products
-                    if category_key
-                    and category_key in {
-                        normalize_category_name(value)
-                        for value in split_category_names(getattr(product, "category", ""))
-                    }
-                ]
+    def _category_summary(self, raw_products, categories, legacy_call):
+        has_occurrences = bool(self._occurrence_categories)
+        return [
+            self._build_category_summary_row(
+                raw_products,
+                category,
+                legacy_call,
+                has_occurrences,
+            )
+            for category in categories
+        ]
+
+    def _build_category_summary_row(
+        self,
+        raw_products,
+        category,
+        legacy_call,
+        has_occurrences,
+    ):
+        category_name = canonical_category_name(str(getattr(category, "name", "")).strip())
+        expected = max(int(getattr(category, "expected_count", 0) or 0), 0)
+        category_key = normalize_category_name(category_name)
+        if has_occurrences:
+            occurrences = [
+                occurrence
+                for occurrence in self._occurrence_categories
+                if occurrence["category_key"] == category_key
+            ]
+            products_found = len(occurrences)
+            unique = {occurrence["code_key"] for occurrence in occurrences}
+        else:
+            category_products = [
+                product
+                for product in raw_products
+                if category_key
+                and category_key in {
+                    normalize_category_name(value)
+                    for value in split_category_names(getattr(product, "category", ""))
+                }
+            ]
+            products_found = len(category_products)
             unique = {
                 str(getattr(product, "code", "")).strip().casefold()
                 for product in category_products
                 if str(getattr(product, "code", "")).strip()
             }
-            row = {
+        if legacy_call:
+            return {
                 "category": category_name,
-                "expected": expected,
-                "products": len(category_products),
+                "comparison_key": category_key,
+                "products": products_found,
                 "unique_products": len(unique),
-                "gap": max(expected - len(category_products), 0),
             }
-            if legacy_call:
-                row = {
-                    "category": category_name,
-                    "comparison_key": category_key,
-                    "products": len(category_products),
-                    "unique_products": len(unique),
-                }
-            category_summary.append(row)
+        return {
+            "category": category_name,
+            "expected": expected,
+            "products": products_found,
+            "unique_products": len(unique),
+            "gap": max(expected - products_found, 0),
+        }
 
-        for product in raw_products or []:
-            code = str(getattr(product, "code", "")).strip()
-            if not code:
-                continue
-            code_key = code.casefold()
-            occurrence_category = str(getattr(product, "_scraped_category_name", "")).strip()
-            if not occurrence_category:
-                continue
-            normalized = normalize_category_name(canonical_category_name(occurrence_category))
-            if not normalized:
-                continue
-            occurrence_category_keys_by_code.setdefault(code_key, set()).add(normalized)
-            display = canonical_category_name(occurrence_category)
-            if display:
-                occurrence_category_names_by_code.setdefault(code_key, {})[normalized] = display
-
+    def _multiple_category_products(self, raw_products):
+        by_code = {}
+        for occurrence in self._occurrence_categories:
+            by_code.setdefault(occurrence["code_key"], {}).setdefault(
+                occurrence["category_key"], occurrence["category"]
+            )
+        product_by_code = {
+            str(getattr(product, "code", "")).strip().casefold(): product
+            for product in raw_products or []
+            if str(getattr(product, "code", "")).strip()
+        }
         multiple = []
-        for code, category_keys in occurrence_category_keys_by_code.items():
-            if len(category_keys) <= 1:
+        for code_key, categories in by_code.items():
+            if len(categories) <= 1:
                 continue
-            occurrences = [
-                product
-                for product in raw_products or []
-                if str(getattr(product, "code", "")).strip().casefold() == code
-            ]
+            product = product_by_code.get(code_key)
+            if product is None:
+                continue
             multiple.append(
                 {
-                    "code": str(getattr(occurrences[0], "code", code)).strip(),
-                    "name": str(getattr(occurrences[0], "name", "")).strip(),
-                    "categories": [occurrence_category_names_by_code[code][key] for key in category_keys],
+                    "code": str(getattr(product, "code", "")).strip(),
+                    "name": str(getattr(product, "name", "")).strip(),
+                    "categories": list(categories.values()),
                 }
             )
+        return multiple
 
+    def _attach_category_coverage(self, raw_products, products_or_categories, categories=None):
+        legacy_call = categories is None
+        categories = (
+            list(products_or_categories or [])
+            if legacy_call
+            else list(categories or [])
+        )
+        del products_or_categories
+
+        category_summary = self._category_summary(raw_products, categories, legacy_call)
+        multiple = self._multiple_category_products(raw_products)
         self.last_sync_result.category_summary = category_summary
         self.last_sync_result.multiple_category_products = multiple
         self.last_sync_result.products_multiple_categories = len(multiple)
@@ -501,6 +524,51 @@ class CategoryProductSyncService:
             int(values.get("other_requests", 0) or 0),
         )
 
+    def _browser(self):
+        scraper = getattr(self.scraper_service, "scraper", None)
+        browser = getattr(scraper, "browser", None)
+        if browser is not None:
+            return browser
+        category_scraper = getattr(scraper, "category_scraper", None)
+        return getattr(category_scraper, "browser", None)
+
+    def _terminal_http_error_reason(self):
+        browser = self._browser()
+        metrics_getter = getattr(browser, "get_http_metrics", None)
+        if not callable(metrics_getter):
+            return None
+        metrics = metrics_getter() or {}
+        terminal_errors = int(metrics.get("http_terminal_errors", 0) or 0)
+        if terminal_errors:
+            return f"terminal_http_errors:{terminal_errors}"
+        return None
+
+    @staticmethod
+    def _category_coverage_gap_reason(category_summary):
+        for row in category_summary:
+            expected = max(int(row.get("expected", 0) or 0), 0)
+            if expected <= 0:
+                continue
+            products_found = int(row.get("products", 0) or 0)
+            unique_found = int(row.get("unique_products", 0) or 0)
+            if products_found != expected or unique_found != expected:
+                return f"category_coverage_gap:{row.get('category', '')}"
+        return None
+
+    @staticmethod
+    def _unique_coverage_gap_reason(products, expected_products):
+        expected_unique = max(int(expected_products or 0), 0)
+        if not expected_unique:
+            return None
+        unique_codes = {
+            str(getattr(product, "code", "")).strip().casefold()
+            for product in products
+            if str(getattr(product, "code", "")).strip()
+        }
+        if len(unique_codes) < expected_unique:
+            return f"unique_coverage_gap:{expected_unique - len(unique_codes)}"
+        return None
+
     def _full_sync_prune_guard(
         self,
         products,
@@ -525,39 +593,21 @@ class CategoryProductSyncService:
         if missing:
             return False, f"missing_codes:{missing}"
 
-        browser = getattr(getattr(self.scraper_service, "scraper", None), "browser", None)
-        if browser is None:
-            category_scraper = getattr(getattr(self.scraper_service, "scraper", None), "category_scraper", None)
-            browser = getattr(category_scraper, "browser", None)
-        metrics_getter = getattr(browser, "get_http_metrics", None)
-        if callable(metrics_getter):
-            metrics = metrics_getter() or {}
-            terminal_errors = int(metrics.get("http_terminal_errors", 0) or 0)
-            if terminal_errors:
-                return False, f"terminal_http_errors:{terminal_errors}"
+        terminal_reason = self._terminal_http_error_reason()
+        if terminal_reason:
+            return False, terminal_reason
 
-        category_summary = getattr(self.last_sync_result, "category_summary", []) or []
-        for row in category_summary:
-            expected = max(int(row.get("expected", 0) or 0), 0)
-            if expected <= 0:
-                continue
-            products_found = int(row.get("products", 0) or 0)
-            unique_found = int(row.get("unique_products", 0) or 0)
-            if products_found != expected or unique_found != expected:
-                mismatch = max(abs(expected - products_found), abs(expected - unique_found))
-                return False, f"category_coverage_gap:{mismatch}"
+        category_reason = self._category_coverage_gap_reason(
+            getattr(self.last_sync_result, "category_summary", []) or []
+        )
+        if category_reason:
+            return False, category_reason
 
         if len(products) < expected_occurrences:
             return False, f"category_coverage_gap:{expected_occurrences - len(products)}"
 
-        expected_unique = max(int(expected_products or 0), 0)
-        if expected_unique:
-            unique_codes = {
-                str(getattr(product, "code", "")).strip().casefold()
-                for product in products
-                if str(getattr(product, "code", "")).strip()
-            }
-            if len(unique_codes) < expected_unique:
-                return False, f"unique_coverage_gap:{expected_unique - len(unique_codes)}"
+        unique_reason = self._unique_coverage_gap_reason(products, expected_products)
+        if unique_reason:
+            return False, unique_reason
 
         return True, "complete"

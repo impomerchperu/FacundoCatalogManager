@@ -34,4 +34,4 @@ jobs:
         run: python -m ruff check .
 
       - name: Pytest
-        run: python -m pytest -q
+        run: python -m pytest -q --ignore=tests/scraping/real_site

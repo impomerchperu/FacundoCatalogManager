@@ -324,6 +324,7 @@ class CategoryProductSyncService:
             )
 
     def _attach_category_coverage(self, raw_products, products, categories):
+        del products
         category_summary = []
         multiple = []
         for category in categories:
@@ -453,9 +454,7 @@ class CategoryProductSyncService:
         )
 
     def _enable_thread_sessions(self):
-        scraper = getattr(self.scraper_service, "scraper", None)
-        category_scraper = getattr(scraper, "category_scraper", None)
-        browser = getattr(category_scraper, "browser", None)
+        browser = self._get_browser()
         enable = getattr(browser, "enable_thread_sessions", None)
         if callable(enable):
             enable()

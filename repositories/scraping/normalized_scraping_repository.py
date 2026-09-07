@@ -31,6 +31,7 @@ class NormalizedScrapingRepository:
         canonical_url = self._canonical_url(url)
         if not canonical_url:
             raise ValueError("La categoría requiere una URL canónica.")
+        canonical_name = canonical_category_name(str(name or "").strip())
         now = self._now()
         self.db.execute_query(
             """
@@ -44,7 +45,7 @@ class NormalizedScrapingRepository:
                 updated_at=excluded.updated_at
             """,
             (
-                str(name or "").strip(),
+                canonical_name,
                 canonical_url,
                 max(int(expected_count or 0), 0),
                 now,

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import ClassVar
 
 import requests
 
@@ -7,7 +8,7 @@ from scrapers.images.image_downloader import ImageDownloader
 
 class FakeResponse:
     content = b"image-data"
-    headers = {"Content-Type": "image/jpeg"}
+    headers: ClassVar[dict[str, str]] = {"Content-Type": "image/jpeg"}
 
     def raise_for_status(self):
         return None

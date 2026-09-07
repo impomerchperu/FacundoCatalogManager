@@ -4,14 +4,13 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from scrapers.parser import Parser
-
 from models.scraping.category import Category
 from scrapers.browser import Browser
 from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.collectors.product_collection_scraper import (
     ProductCollectionScraper,
 )
+from scrapers.parser import Parser
 
 CATEGORY_URL = "https://stock.importacionesfacundo.com/categoria-producto/jarros-mug/"
 

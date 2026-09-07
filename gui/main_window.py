@@ -1,7 +1,3 @@
-from datetime import datetime
-from typing import ClassVar
-from zoneinfo import ZoneInfo
-
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
@@ -31,12 +27,6 @@ from models.product import Product
 
 class MainWindow(QMainWindow):
     """Ventana principal del catálogo."""
-
-    SCRAPING_SCHEDULE: ClassVar[set[tuple[int, int, int]]] = {
-        (0, 12, 0), (0, 22, 0), (1, 12, 0), (1, 22, 0),
-        (2, 12, 0), (2, 22, 0), (3, 12, 0), (3, 22, 0),
-        (4, 12, 0), (4, 22, 0), (5, 12, 0), (5, 22, 0),
-    }
 
     ACTIVE_BUTTON_STYLE = """
         QPushButton:checked {
@@ -68,7 +58,6 @@ class MainWindow(QMainWindow):
         self.categories_visible = False
         self.scraping_dialog: ScrapingDialog | None = None
         self.history_dialog: ScrapingHistoryDialog | None = None
-        self.last_scheduled_scraping: tuple[int, int, int] | None = None
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -130,7 +119,6 @@ class MainWindow(QMainWindow):
         # disponible inmediatamente y la base catalog.db sigue siendo la única
         # fuente de datos del catálogo.
         QTimer.singleShot(0, self._load_initial_catalog)
-        self.start_scraping_scheduler()
 
     def _load_initial_catalog(self) -> None:
         """Carga el catálogo persistido después de mostrar la ventana."""
@@ -509,30 +497,6 @@ class MainWindow(QMainWindow):
         thread = self.scraping_dialog.scraping_thread
         return bool(thread is not None and thread.isRunning())
 
-    def start_scraping_scheduler(self) -> None:
-        self.scraping_scheduler = QTimer(self)
-        self.scraping_scheduler.setInterval(30_000)
-        self.scraping_scheduler.timeout.connect(self.check_scraping_schedule)
-        self.scraping_scheduler.start()
-        self.check_scraping_schedule()
-
-    def check_scraping_schedule(self) -> None:
-        now = datetime.now(ZoneInfo("America/Lima")).replace(
-            second=0,
-            microsecond=0,
-        )
-        schedule_key = (now.weekday(), now.hour, now.minute)
-        if schedule_key not in self.SCRAPING_SCHEDULE:
-            return
-        if self.last_scheduled_scraping == schedule_key:
-            return
-        self.last_scheduled_scraping = schedule_key
-        if self.is_scraping_running():
-            return
-        self.open_scraping()
-        if self.scraping_dialog is not None:
-            QTimer.singleShot(0, self.scraping_dialog.start_scraping)
-
     def update_product_counter(self, filtered_count: int | None = None) -> None:
         total = len(self.all_products)
         visible = total if filtered_count is None else filtered_count
@@ -620,8 +584,6 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(0, self._reflow_category_buttons)
 
     def closeEvent(self, event) -> None:
-        if hasattr(self, "scraping_scheduler"):
-            self.scraping_scheduler.stop()
         if self.scraping_dialog is not None:
             self.scraping_dialog.close()
         if self.history_dialog is not None:

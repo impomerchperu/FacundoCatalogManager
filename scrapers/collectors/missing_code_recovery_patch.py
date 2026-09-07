@@ -73,11 +73,10 @@ def _full_sync_prune_guard(
 ):
     _recover_missing_codes(self, products)
     return _ORIGINAL_FULL_SYNC_PRUNE_GUARD(
-        self,
         products,
         category_count,
-        expected_category_occurrences,
-        expected_products,
+        expected_category_occurrences=expected_category_occurrences,
+        expected_products=expected_products,
     )
 
 

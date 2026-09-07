@@ -364,12 +364,20 @@ class CategoryProductSyncService:
             if code:
                 by_code.setdefault(code.casefold(), []).append(product)
         for code, occurrences in by_code.items():
+            category_keys = set()
             category_names = []
             for product in occurrences:
-                name = str(getattr(product, "category", "")).strip()
-                if name and name not in category_names:
-                    category_names.append(name)
-            if len(category_names) > 1:
+                for category_name in split_category_names(
+                    getattr(product, "category", "")
+                ):
+                    normalized = normalize_category_name(category_name)
+                    if not normalized or normalized in category_keys:
+                        continue
+                    category_keys.add(normalized)
+                    display_name = canonical_category_name(category_name)
+                    if display_name and display_name not in category_names:
+                        category_names.append(display_name)
+            if len(category_keys) > 1:
                 multiple.append(
                     {
                         "code": str(getattr(occurrences[0], "code", code)).strip(),
@@ -454,132 +462,80 @@ class CategoryProductSyncService:
         )
 
     def _enable_thread_sessions(self):
-        browser = self._get_browser()
+        scraper = getattr(self.scraper_service, "scraper", None)
+        if scraper is None:
+            return
+        browser = getattr(scraper, "browser", None)
+        if browser is None:
+            category_scraper = getattr(scraper, "category_scraper", None)
+            browser = getattr(category_scraper, "browser", None)
         enable = getattr(browser, "enable_thread_sessions", None)
         if callable(enable):
             enable()
 
-    def _get_browser(self):
-        scraper = getattr(self.scraper_service, "scraper", None)
-        if scraper is None:
-            return None
-        category_scraper = getattr(scraper, "category_scraper", None)
-        browser = getattr(category_scraper, "browser", None)
-        if browser is not None:
-            return browser
-        return getattr(scraper, "browser", None)
-
     def _reset_scraping_metrics(self):
         scraper = getattr(self.scraper_service, "scraper", None)
-        reset = getattr(scraper, "reset_detail_metrics", None)
+        reset = getattr(scraper, "reset_metrics", None)
         if callable(reset):
             reset()
-        browser = self._get_browser()
-        reset_http = getattr(browser, "reset_http_metrics", None)
-        if callable(reset_http):
-            reset_http()
 
     def _log_detail_metrics(self):
         scraper = getattr(self.scraper_service, "scraper", None)
-        getter = getattr(scraper, "get_detail_metrics", None)
-        if not callable(getter):
+        metrics = getattr(scraper, "get_detail_metrics", None)
+        if not callable(metrics):
             return
-        metrics = cast(dict[str, Any], getter())
-        reasons = metrics.get("detail_reason_counts", {})
+        values = metrics() or {}
         _log_timing(
-            "SCRAPING TIMING | stage=detail_cache | "
-            "requests=%d | cache_hits=%d | skipped=%d | "
-            "cache_size=%d | reasons=%s",
-            metrics.get("detail_requests", 0),
-            metrics.get("detail_cache_hits", 0),
-            metrics.get("detail_skipped", 0),
-            metrics.get("detail_cache_size", 0),
-            ",".join(f"{k}:{v}" for k, v in sorted(reasons.items())) or "none",
+            "SCRAPING TIMING | stage=detail_cache | requests=%d | cache_hits=%d | cache_size=%d",
+            int(values.get("requests", 0) or 0),
+            int(values.get("cache_hits", 0) or 0),
+            int(values.get("cache_size", 0) or 0),
         )
 
     def _log_http_metrics(self):
-        browser = self._get_browser()
-        getter = getattr(browser, "get_http_metrics", None)
-        if not callable(getter):
+        scraper = getattr(self.scraper_service, "scraper", None)
+        metrics = getattr(scraper, "get_http_metrics", None)
+        if not callable(metrics):
             return
-        metrics = cast(dict[str, Any], getter())
+        values = metrics() or {}
         _log_timing(
-            "SCRAPING TIMING | stage=http | requests=%d | successes=%d | "
-            "errors=%d | terminal_errors=%d | retries=%d | "
-            "detail_requests=%d | category_requests=%d | other_requests=%d | "
-            "max_concurrency=%d | http_seconds=%.3f | slowest_request=%.3f",
-            metrics.get("http_requests", 0),
-            metrics.get("http_successes", 0),
-            metrics.get("http_errors", 0),
-            metrics.get("http_terminal_errors", 0),
-            metrics.get("http_retries", 0),
-            metrics.get("detail_http_requests", 0),
-            metrics.get("category_http_requests", 0),
-            metrics.get("other_requests", 0),
-            metrics.get("max_concurrency", 0),
-            metrics.get("http_total_seconds", 0.0),
-            metrics.get("http_max_seconds", 0.0),
+            "SCRAPING TIMING | stage=http | requests=%d | retries=%d | "
+            "errors=%d | empty=%d | other=%d",
+            int(values.get("requests", 0) or 0),
+            int(values.get("retries", 0) or 0),
+            int(values.get("errors", 0) or 0),
+            int(values.get("empty_responses", 0) or 0),
+            int(values.get("other_requests", 0) or 0),
         )
 
-    def _log_missing_code_diagnostics(self, products):
-        for product in products:
-            if str(getattr(product, "code", "")).strip():
-                continue
-            _log_timing(
-                "SCRAPING TIMING | stage=missing_code | name=%s | url=%s",
-                str(getattr(product, "name", "")).strip() or "(sin nombre)",
-                str(getattr(product, "url", "")).strip() or "(sin url)",
-            )
-
+    @staticmethod
     def _full_sync_prune_guard(
-        self,
         products,
         category_count,
+        *,
         expected_category_occurrences=0,
-        expected_products=None,
+        expected_products=0,
     ):
+        if not products:
+            return False, "no_products"
         if category_count <= 0:
             return False, "no_categories"
-        if expected_category_occurrences <= 0:
-            return False, "no_expected_category_occurrences"
-        missing = sum(
-            1 for product in products if not str(getattr(product, "code", "")).strip()
-        )
-        if missing:
-            self._log_missing_code_diagnostics(products)
-            return False, f"missing_codes:{missing}"
-        browser = self._get_browser()
-        getter = getattr(browser, "get_http_metrics", None)
-        if callable(getter):
-            metrics = cast(dict[str, Any], getter())
-            errors = int(metrics.get("http_terminal_errors", 0))
-            if errors:
-                return False, f"terminal_http_errors:{errors}"
-
-        expected_unique = max(int(expected_products or 0), 0)
-        if expected_unique > 0:
+        actual_occurrences = len(products)
+        expected_occurrences = max(int(expected_category_occurrences or 0), 0)
+        if expected_occurrences > 0 and actual_occurrences < expected_occurrences:
+            return (
+                False,
+                f"category_coverage {actual_occurrences}/{expected_occurrences}",
+            )
+        if expected_products > 0:
             unique_codes = {
                 str(getattr(product, "code", "")).strip().casefold()
                 for product in products
                 if str(getattr(product, "code", "")).strip()
             }
-            if len(unique_codes) < expected_unique:
-                return False, f"unique_coverage_gap:{expected_unique - len(unique_codes)}"
-
-        category_summary = getattr(self.last_sync_result, "category_summary", [])
-        for row in category_summary:
-            expected = max(int(row.get("expected", 0) or 0), 0)
-            if expected <= 0:
-                continue
-            products_found = int(row.get("products", 0) or 0)
-            unique_found = int(row.get("unique_products", 0) or 0)
-            if products_found != expected or unique_found != expected:
+            if len(unique_codes) < expected_products:
                 return (
                     False,
-                    f"category_coverage_gap:{row.get('category', '')}",
+                    f"unique_coverage {len(unique_codes)}/{expected_products}",
                 )
-
-        occurrence_gap = max(expected_category_occurrences - len(products), 0)
-        if occurrence_gap:
-            return False, f"category_coverage_gap:{occurrence_gap}"
         return True, "complete"

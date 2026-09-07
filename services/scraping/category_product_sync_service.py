@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import Any, cast
 
 from models.scraping.sync_result import SyncResult
-from services.scraping.category_name_normalizer import split_category_names
+from services.scraping.category_name_normalizer import (
+    canonical_category_name,
+    normalize_category_name,
+    split_category_names,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TIMING_LOG = PROJECT_ROOT / "data" / "scraping_timing.log"
@@ -309,16 +313,27 @@ class CategoryProductSyncService:
                 result.multiple_category_products
             )
 
+    @staticmethod
+    def _product_category_keys(product):
+        return {
+            normalize_category_name(canonical_category_name(category))
+            for category in split_category_names(getattr(product, "category", ""))
+            if normalize_category_name(canonical_category_name(category))
+        }
+
     def _attach_category_coverage(self, raw_products, products, categories):
+        del products
         category_summary = []
         multiple = []
         for category in categories:
             category_name = str(getattr(category, "name", "")).strip()
+            category_key = normalize_category_name(
+                canonical_category_name(category_name)
+            )
             category_products = [
                 product
                 for product in raw_products
-                if category_name.casefold()
-                in str(getattr(product, "category", "")).casefold()
+                if category_key and category_key in self._product_category_keys(product)
             ]
             unique = {
                 str(getattr(product, "code", "")).strip().casefold()

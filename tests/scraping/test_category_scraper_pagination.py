@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 from models.scraping.category import Category
@@ -101,3 +102,36 @@ def test_product_collection_deduplicates_same_product_returned_by_page_variants(
     ))
 
     assert [product.code for _, _, product in products] == ["P1", "P2"]
+
+
+def test_category_scraper_exposes_jsf_rendered_page_through_get_html():
+    category_url = "https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/"
+    page_two = f"{category_url}?product-page=2"
+    browser = FakeBrowser({
+        category_url: '<body class="term-123"></body>',
+    })
+    scraper = CategoryScraper(browser)
+
+    def fake_post_jsf(payload):
+        page = next(value for key, value in payload if key == "paged")
+        rendered = (
+            '<article>FB-1000 producto-1</article>'
+            if page == "1"
+            else '<article>FB-1001 producto-2</article>'
+        )
+        return json.dumps({
+            "data": {
+                "found_posts": 50,
+                "max_num_pages": 2,
+                "rendered_content": rendered,
+            }
+        })
+
+    scraper._post_jsf = fake_post_jsf
+
+    pages = scraper.get_category_pages(category_url, expected_count=50)
+
+    assert pages == [category_url, page_two]
+    assert scraper.get_html(page_two) == (
+        '<article>FB-1001 producto-2</article>'
+    )

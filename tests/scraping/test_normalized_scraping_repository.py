@@ -135,3 +135,38 @@ def test_normalized_repository_matches_canonical_category_aliases():
     )
 
     db.close()
+
+
+def test_normalized_repository_does_not_hide_a_category_gap_with_global_overage():
+    db = DBManager(":memory:")
+    repository = NormalizedScrapingRepository(db)
+    result = SyncResult(
+        expected_category_occurrences=20,
+        products_found=20,
+        products_unique=20,
+        unchanged=20,
+        category_summary=[
+            {"category": "Categoría A", "expected": 10, "products": 9, "gap": 1},
+            {"category": "Categoría B", "expected": 10, "products": 11, "gap": 0},
+        ],
+    )
+
+    run_id = repository.start_run(
+        mode="full",
+        categories_requested=2,
+        expected_category_occurrences=20,
+    )
+    repository.finish_run(
+        run_id,
+        result=result,
+        actual_category_occurrences=20,
+    )
+
+    run = db.fetch_one("SELECT * FROM scraping_runs WHERE id=?", (run_id,))
+
+    assert run["actual_category_occurrences"] == 20
+    assert run["coverage_gap"] == 0
+    assert run["coverage_complete"] == 0
+    assert run["status"] == "ERROR"
+
+    db.close()

@@ -138,8 +138,9 @@ class ScrapingDialog(QDialog):
         self.pending_result = result
         self.progress.setValue(100)
         self.elapsed_clock.stop()
+        state = "completada" if result.success() else "finalizada con advertencias"
         self.status_label.setText(
-            f"Actualización finalizada • 100% • {self._format_elapsed()}",
+            f"Actualización {state} • 100% • {self._format_elapsed()}",
         )
         self.finished_success.emit()
 
@@ -186,7 +187,7 @@ class ScrapingDialog(QDialog):
         unique = result.products_unique
         multi = result.products_multiple_categories
         gap = result.category_occurrence_gap
-        errors = len(result.errors) + len(result.failures)
+        errors = len(result.errors)
         QMessageBox.information(
             self,
             "Resumen actualización",
@@ -239,7 +240,7 @@ class ScrapingDialog(QDialog):
             f"Múltiples categorías: {result.products_multiple_categories}    "
             f"Brecha: {result.category_occurrence_gap}    "
             f"Conteos: {'OK' if result.counts_are_consistent else 'ERROR'}    "
-            f"Errores: {len(result.errors) + len(result.failures)}",
+            f"Errores: {len(result.errors)}",
         )
         summary.setStyleSheet("font-weight: bold;")
         layout.addWidget(summary)

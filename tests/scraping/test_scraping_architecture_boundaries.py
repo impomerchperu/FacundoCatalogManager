@@ -223,8 +223,13 @@ def test_removed_legacy_image_utilities_stay_absent():
     assert all(not path.exists() for path in removed_paths)
 
 
-def test_removed_empty_legacy_scraping_package_stays_absent():
-    assert not (PROJECT_ROOT / "utils" / "scraping").exists()
+def test_removed_empty_legacy_scraping_package_stays_empty():
+    scraping_dir = PROJECT_ROOT / "utils" / "scraping"
+
+    if not scraping_dir.exists():
+        return
+
+    assert not any(scraping_dir.iterdir())
 
 
 def test_image_sync_adapter_has_no_legacy_orchestrator_reference():

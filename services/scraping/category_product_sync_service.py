@@ -73,9 +73,7 @@ class CategoryProductSyncService:
         )
         self.last_sync_result = SyncResult()
         self.last_sync_result.products_expected = 0
-        self.last_sync_result.expected_category_occurrences = (
-            expected_category_occurrences
-        )
+        self.last_sync_result.expected_category_occurrences = expected_category_occurrences
 
         collected_by_index = [None] * len(categories)
         started = time.perf_counter()
@@ -92,8 +90,7 @@ class CategoryProductSyncService:
                     if progress_callback:
                         progress_callback(index + 1, len(categories))
         _log_timing(
-            "SCRAPING TIMING | stage=category_listing | categories=%d | products=%d | "
-            "expected_category_occurrences=%d | seconds=%.3f",
+            "SCRAPING TIMING | stage=category_listing | categories=%d | products=%d | expected_category_occurrences=%d | seconds=%.3f",
             len(categories),
             sum(len(items or []) for items in collected_by_index),
             expected_category_occurrences,
@@ -104,10 +101,12 @@ class CategoryProductSyncService:
         products = []
         for index, category in enumerate(categories):
             collected = collected_by_index[index] or []
-            products.extend(self._enrich_category(index, category, collected))
+            enriched = self._enrich_category(index, category, collected)
+            for product in enriched:
+                setattr(product, "_scraped_category_name", category.name)
+            products.extend(enriched)
         _log_timing(
-            "SCRAPING TIMING | stage=category_extraction | categories=%d | products=%d | "
-            "expected_category_occurrences=%d | seconds=%.3f",
+            "SCRAPING TIMING | stage=category_extraction | categories=%d | products=%d | expected_category_occurrences=%d | seconds=%.3f",
             len(categories),
             len(products),
             expected_category_occurrences,
@@ -131,8 +130,7 @@ class CategoryProductSyncService:
             reason = "directed_mode"
             complete = False
         _log_timing(
-            "SCRAPING TIMING | stage=coverage_incomplete | reason=%s | products=%d | "
-            "categories=%d | expected_category_occurrences=%d",
+            "SCRAPING TIMING | stage=coverage_incomplete | reason=%s | products=%d | categories=%d | expected_category_occurrences=%d",
             reason,
             len(raw_products),
             len(categories),
@@ -152,14 +150,11 @@ class CategoryProductSyncService:
             self._consolidate_for_coverage(raw_products),
             categories,
         )
-        self.last_sync_result.errors = list(
-            dict.fromkeys(self.last_sync_result.errors)
-        )
+        self.last_sync_result.errors = list(dict.fromkeys(self.last_sync_result.errors))
         self.last_sync_result.finish()
         self._write_final_result_artifact(raw_products)
         _log_timing(
-            "SCRAPING TIMING | stage=sync_categories_total | categories=%d | "
-            "products=%d | seconds=%.3f",
+            "SCRAPING TIMING | stage=sync_categories_total | categories=%d | products=%d | seconds=%.3f",
             len(categories),
             len(raw_products),
             time.perf_counter() - total_started,
@@ -177,9 +172,7 @@ class CategoryProductSyncService:
         total_started = time.perf_counter()
         if self.mapper and self.catalog_sync_service:
             started = time.perf_counter()
-            consolidate = getattr(
-                self.catalog_sync_service, "consolidate_products", None
-            )
+            consolidate = getattr(self.catalog_sync_service, "consolidate_products", None)
             if callable(consolidate):
                 products = cast(list[Any], consolidate(deepcopy(products)))
             _log_timing(
@@ -189,9 +182,7 @@ class CategoryProductSyncService:
             )
             if self.image_sync_adapter:
                 started = time.perf_counter()
-                products = cast(
-                    list[Any], self.image_sync_adapter.sync_products(products)
-                )
+                products = cast(list[Any], self.image_sync_adapter.sync_products(products))
                 _log_timing(
                     "SCRAPING TIMING | stage=images | products=%d | seconds=%.3f",
                     len(products),
@@ -227,16 +218,12 @@ class CategoryProductSyncService:
                     ),
                 )
             _log_timing(
-                "SCRAPING TIMING | stage=catalog_sync | products=%d | seconds=%.3f | "
-                "prune=%s | expected_unique=%s | expected_category_occurrences=%s | "
-                "unique=%d | gap=%d",
+                "SCRAPING TIMING | stage=catalog_sync | products=%d | seconds=%.3f | prune=%s | expected_unique=%s | expected_category_occurrences=%s | unique=%d | gap=%d",
                 len(mapped_products),
                 time.perf_counter() - started,
                 str(use_prune).lower(),
                 expected_products if expected_products else "unknown",
-                expected_category_occurrences
-                if expected_category_occurrences
-                else "unknown",
+                expected_category_occurrences if expected_category_occurrences else "unknown",
                 result.products_unique,
                 result.coverage_gap,
             )
@@ -270,7 +257,6 @@ class CategoryProductSyncService:
             code = str(getattr(product, "code", "")).strip()
             if code:
                 synced_by_code[code.casefold()] = product
-
         for raw_product in raw_products or []:
             code = str(getattr(raw_product, "code", "")).strip()
             if not code:
@@ -285,22 +271,14 @@ class CategoryProductSyncService:
 
     def _accumulate_sync_result(self, result):
         for field in (
-            "processed",
-            "created",
-            "updated",
-            "unchanged",
-            "deleted",
-            "generated",
-            "products_found",
-            "products_unique",
-            "products_multiple_categories",
+            "processed", "created", "updated", "unchanged", "deleted", "generated",
+            "products_found", "products_unique", "products_multiple_categories",
             "duplicate_occurrences",
         ):
             setattr(
                 self.last_sync_result,
                 field,
-                getattr(self.last_sync_result, field, 0)
-                + getattr(result, field, 0),
+                getattr(self.last_sync_result, field, 0) + getattr(result, field, 0),
             )
         self.last_sync_result.products_expected = max(
             getattr(self.last_sync_result, "products_expected", 0),
@@ -310,110 +288,130 @@ class CategoryProductSyncService:
             getattr(self.last_sync_result, "expected_category_occurrences", 0),
             getattr(result, "expected_category_occurrences", 0),
         )
-        self.last_sync_result.missing_code = (
-            getattr(self.last_sync_result, "missing_code", 0)
-            + getattr(result, "missing_code", 0)
-        )
+        self.last_sync_result.missing_code += getattr(result, "missing_code", 0)
         self.last_sync_result.errors.extend(getattr(result, "errors", []))
         self.last_sync_result.changes.extend(getattr(result, "changes", []))
         if getattr(result, "category_summary", None):
             self.last_sync_result.category_summary = list(result.category_summary)
         if getattr(result, "multiple_category_products", None):
-            self.last_sync_result.multiple_category_products = list(
-                result.multiple_category_products
-            )
+            self.last_sync_result.multiple_category_products = list(result.multiple_category_products)
 
-    def _attach_category_coverage(self, raw_products, products, categories):
+    def _attach_category_coverage(self, raw_products, products_or_categories, categories=None):
+        legacy_call = categories is None
+        if legacy_call:
+            categories = list(products_or_categories or [])
+            products = raw_products
+        else:
+            products = products_or_categories
+            categories = list(categories or [])
         del products
+
         category_summary = []
-        multiple = []
+        occurrence_category_keys_by_code = {}
+        occurrence_category_names_by_code = {}
+        has_occurrence_metadata = any(
+            hasattr(product, "_scraped_category_name") for product in raw_products or []
+        )
+
         for category in categories:
-            category_name = canonical_category_name(
-                str(getattr(category, "name", "")).strip()
-            )
+            category_name = canonical_category_name(str(getattr(category, "name", "")).strip())
             expected = max(int(getattr(category, "expected_count", 0) or 0), 0)
             category_key = normalize_category_name(category_name)
-            category_products = [
-                product
-                for product in raw_products
-                if category_key
-                and category_key in {
-                    normalize_category_name(value)
-                    for value in split_category_names(
-                        getattr(product, "category", "")
-                    )
-                }
-            ]
+            if has_occurrence_metadata:
+                category_products = [
+                    product
+                    for product in raw_products
+                    if normalize_category_name(
+                        canonical_category_name(
+                            str(getattr(product, "_scraped_category_name", "")).strip()
+                        )
+                    ) == category_key
+                ]
+            else:
+                category_products = [
+                    product
+                    for product in raw_products
+                    if category_key
+                    and category_key in {
+                        normalize_category_name(value)
+                        for value in split_category_names(getattr(product, "category", ""))
+                    }
+                ]
             unique = {
                 str(getattr(product, "code", "")).strip().casefold()
                 for product in category_products
                 if str(getattr(product, "code", "")).strip()
             }
-            category_summary.append(
-                {
+            row = {
+                "category": category_name,
+                "expected": expected,
+                "products": len(category_products),
+                "unique_products": len(unique),
+                "gap": max(expected - len(category_products), 0),
+            }
+            if legacy_call:
+                row = {
                     "category": category_name,
-                    "expected": expected,
+                    "comparison_key": category_key,
                     "products": len(category_products),
                     "unique_products": len(unique),
-                    "gap": max(expected - len(category_products), 0),
+                }
+            category_summary.append(row)
+
+        for product in raw_products or []:
+            code = str(getattr(product, "code", "")).strip()
+            if not code:
+                continue
+            code_key = code.casefold()
+            occurrence_category = str(getattr(product, "_scraped_category_name", "")).strip()
+            if not occurrence_category:
+                continue
+            normalized = normalize_category_name(canonical_category_name(occurrence_category))
+            if not normalized:
+                continue
+            occurrence_category_keys_by_code.setdefault(code_key, set()).add(normalized)
+            display = canonical_category_name(occurrence_category)
+            if display:
+                occurrence_category_names_by_code.setdefault(code_key, {})[normalized] = display
+
+        multiple = []
+        for code, category_keys in occurrence_category_keys_by_code.items():
+            if len(category_keys) <= 1:
+                continue
+            occurrences = [
+                product
+                for product in raw_products or []
+                if str(getattr(product, "code", "")).strip().casefold() == code
+            ]
+            multiple.append(
+                {
+                    "code": str(getattr(occurrences[0], "code", code)).strip(),
+                    "name": str(getattr(occurrences[0], "name", "")).strip(),
+                    "categories": [occurrence_category_names_by_code[code][key] for key in category_keys],
                 }
             )
-        by_code = {}
-        for product in raw_products:
-            code = str(getattr(product, "code", "")).strip()
-            if code:
-                by_code.setdefault(code.casefold(), []).append(product)
-        for code, occurrences in by_code.items():
-            category_keys = set()
-            category_names = []
-            for product in occurrences:
-                for category_name in split_category_names(
-                    getattr(product, "category", "")
-                ):
-                    normalized = normalize_category_name(category_name)
-                    if not normalized or normalized in category_keys:
-                        continue
-                    category_keys.add(normalized)
-                    display_name = canonical_category_name(category_name)
-                    if display_name and display_name not in category_names:
-                        category_names.append(display_name)
-            if len(category_keys) > 1:
-                multiple.append(
-                    {
-                        "code": str(getattr(occurrences[0], "code", code)).strip(),
-                        "name": str(getattr(occurrences[0], "name", "")).strip(),
-                        "categories": category_names,
-                    }
-                )
+
         self.last_sync_result.category_summary = category_summary
         self.last_sync_result.multiple_category_products = multiple
         self.last_sync_result.products_multiple_categories = len(multiple)
-        self.last_sync_result.products_found = len(raw_products)
-        self.last_sync_result.products_unique = len(
-            {
-                str(getattr(product, "code", "")).strip()
-                for product in raw_products
-                if str(getattr(product, "code", "")).strip()
-            }
-        )
+        self.last_sync_result.products_found = len(raw_products or [])
+        self.last_sync_result.products_unique = len({
+            str(getattr(product, "code", "")).strip().casefold()
+            for product in raw_products or []
+            if str(getattr(product, "code", "")).strip()
+        })
         self.last_sync_result.duplicate_occurrences = max(
-            self.last_sync_result.products_found
-            - self.last_sync_result.products_unique,
+            self.last_sync_result.products_found - self.last_sync_result.products_unique,
             0,
         )
         for row in self.last_sync_result.category_summary:
             _log_timing(
-                "SCRAPING TIMING | stage=category_coverage | "
-                "category=%s | products=%d | unique=%d",
-                row["category"],
-                row["products"],
-                row["unique_products"],
+                "SCRAPING TIMING | stage=category_coverage | category=%s | products=%d | unique=%d",
+                row["category"], row["products"], row["unique_products"],
             )
         _log_timing(
-            "SCRAPING TIMING | stage=multi_category_coverage | "
-            "products=%d | categories=%d",
-            len(multiple),
-            len(self.last_sync_result.category_summary),
+            "SCRAPING TIMING | stage=multi_category_coverage | products=%d | categories=%d",
+            len(multiple), len(self.last_sync_result.category_summary),
         )
 
     def _write_final_result_artifact(self, raw_products):
@@ -430,9 +428,7 @@ class CategoryProductSyncService:
 
     def _consolidate_for_coverage(self, products) -> list[Any]:
         if self.catalog_sync_service:
-            consolidate = getattr(
-                self.catalog_sync_service, "consolidate_products", None
-            )
+            consolidate = getattr(self.catalog_sync_service, "consolidate_products", None)
             if callable(consolidate):
                 return cast(list[Any], consolidate(deepcopy(products)))
         return list(products)
@@ -444,8 +440,7 @@ class CategoryProductSyncService:
         if callable(collect):
             return collect(category)
         return self.scraper_service.scrape_category(
-            category.url,
-            category.name,
+            category.url, category.name,
             expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),
         )
 
@@ -456,8 +451,7 @@ class CategoryProductSyncService:
         if callable(enrich):
             return enrich(collected, category.name)
         return self.scraper_service.scrape_category(
-            category.url,
-            category.name,
+            category.url, category.name,
             expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),
         )
 
@@ -499,8 +493,7 @@ class CategoryProductSyncService:
             return
         values = metrics() or {}
         _log_timing(
-            "SCRAPING TIMING | stage=http | requests=%d | retries=%d | "
-            "errors=%d | empty=%d | other=%d",
+            "SCRAPING TIMING | stage=http | requests=%d | retries=%d | errors=%d | empty=%d | other=%d",
             int(values.get("requests", 0) or 0),
             int(values.get("retries", 0) or 0),
             int(values.get("errors", 0) or 0),
@@ -508,34 +501,63 @@ class CategoryProductSyncService:
             int(values.get("other_requests", 0) or 0),
         )
 
-    @staticmethod
     def _full_sync_prune_guard(
+        self,
         products,
         category_count,
         *,
         expected_category_occurrences=0,
-        expected_products=0,
+        expected_products=None,
     ):
         if not products:
             return False, "no_products"
         if category_count <= 0:
             return False, "no_categories"
-        actual_occurrences = len(products)
+
         expected_occurrences = max(int(expected_category_occurrences or 0), 0)
-        if expected_occurrences > 0 and actual_occurrences < expected_occurrences:
-            return (
-                False,
-                f"category_coverage {actual_occurrences}/{expected_occurrences}",
-            )
-        if expected_products > 0:
+        if expected_occurrences <= 0:
+            return False, "no_expected_category_occurrences"
+
+        missing = sum(
+            1 for product in products
+            if not str(getattr(product, "code", "") or "").strip()
+        )
+        if missing:
+            return False, f"missing_codes:{missing}"
+
+        browser = getattr(getattr(self.scraper_service, "scraper", None), "browser", None)
+        if browser is None:
+            category_scraper = getattr(getattr(self.scraper_service, "scraper", None), "category_scraper", None)
+            browser = getattr(category_scraper, "browser", None)
+        metrics_getter = getattr(browser, "get_http_metrics", None)
+        if callable(metrics_getter):
+            metrics = metrics_getter() or {}
+            terminal_errors = int(metrics.get("http_terminal_errors", 0) or 0)
+            if terminal_errors:
+                return False, f"terminal_http_errors:{terminal_errors}"
+
+        category_summary = getattr(self.last_sync_result, "category_summary", []) or []
+        for row in category_summary:
+            expected = max(int(row.get("expected", 0) or 0), 0)
+            if expected <= 0:
+                continue
+            products_found = int(row.get("products", 0) or 0)
+            unique_found = int(row.get("unique_products", 0) or 0)
+            if products_found != expected or unique_found != expected:
+                mismatch = max(abs(expected - products_found), abs(expected - unique_found))
+                return False, f"category_coverage_gap:{mismatch}"
+
+        if len(products) < expected_occurrences:
+            return False, f"category_coverage_gap:{expected_occurrences - len(products)}"
+
+        expected_unique = max(int(expected_products or 0), 0)
+        if expected_unique:
             unique_codes = {
                 str(getattr(product, "code", "")).strip().casefold()
                 for product in products
                 if str(getattr(product, "code", "")).strip()
             }
-            if len(unique_codes) < expected_products:
-                return (
-                    False,
-                    f"unique_coverage {len(unique_codes)}/{expected_products}",
-                )
+            if len(unique_codes) < expected_unique:
+                return False, f"unique_coverage_gap:{expected_unique - len(unique_codes)}"
+
         return True, "complete"

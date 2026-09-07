@@ -52,6 +52,8 @@ def _recover_missing_pages(
     if not category_html:
         try:
             category_html = scraper.get_html(category_url)
+        except requests.exceptions.RequestException:
+            return pages
         except (AttributeError, RuntimeError, TypeError, ValueError):
             return pages
 
@@ -80,7 +82,7 @@ def _recover_missing_pages(
         for _ in range(2):
             try:
                 _, _, rendered_html = fetcher(category_url, category_id, page)
-            except requests.exceptions.HTTPError:
+            except requests.exceptions.RequestException:
                 rendered_html = ""
                 break
             except (RuntimeError, TypeError, ValueError):
@@ -101,11 +103,14 @@ def _get_category_pages_with_recovery(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    pages = _ORIGINAL_GET_CATEGORY_PAGES(
-        self,
-        category_url,
-        expected_count=expected_count,
-    )
+    try:
+        pages = _ORIGINAL_GET_CATEGORY_PAGES(
+            self,
+            category_url,
+            expected_count=expected_count,
+        )
+    except requests.exceptions.RequestException:
+        pages = []
     return _recover_missing_pages(self, category_url, expected_count, list(pages))
 
 
@@ -114,11 +119,14 @@ def _get_resilient_category_pages_with_recovery(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    pages = _ORIGINAL_RESILIENT_GET_CATEGORY_PAGES(
-        self,
-        category_url,
-        expected_count=expected_count,
-    )
+    try:
+        pages = _ORIGINAL_RESILIENT_GET_CATEGORY_PAGES(
+            self,
+            category_url,
+            expected_count=expected_count,
+        )
+    except requests.exceptions.RequestException:
+        pages = []
     return _recover_missing_pages(self, category_url, expected_count, list(pages))
 
 

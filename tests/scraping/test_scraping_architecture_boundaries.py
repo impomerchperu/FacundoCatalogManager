@@ -223,6 +223,10 @@ def test_removed_legacy_image_utilities_stay_absent():
     assert all(not path.exists() for path in removed_paths)
 
 
+def test_removed_legacy_image_storage_utility_stays_absent():
+    assert not (PROJECT_ROOT / "utils" / "image_storage.py").exists()
+
+
 def test_removed_empty_legacy_scraping_package_stays_empty():
     scraping_dir = PROJECT_ROOT / "utils" / "scraping"
 
@@ -275,6 +279,7 @@ def test_production_roots_do_not_import_legacy_scraping_services():
         "scrapers.images.image_manager",
         "utils.scraping.image_downloader",
         "utils.scraping.image_validator",
+        "utils.image_storage",
     )
 
     violations = []

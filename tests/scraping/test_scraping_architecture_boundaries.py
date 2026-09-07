@@ -229,7 +229,14 @@ def test_removed_empty_legacy_scraping_package_stays_empty():
     if not scraping_dir.exists():
         return
 
-    assert not any(scraping_dir.iterdir())
+    ignored_entries = {"__pycache__"}
+    remaining_entries = [
+        path
+        for path in scraping_dir.iterdir()
+        if path.name not in ignored_entries
+    ]
+
+    assert remaining_entries == []
 
 
 def test_image_sync_adapter_has_no_legacy_orchestrator_reference():

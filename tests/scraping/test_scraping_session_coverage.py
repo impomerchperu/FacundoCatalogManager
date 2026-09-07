@@ -16,8 +16,10 @@ def _runner_with_coverage(
         unchanged=products_unique,
         deleted=0,
         generated=0,
+        missing_code=0,
         changes=[],
         errors=[],
+        categories_processed=24,
     )
     coverage_result = SimpleNamespace(
         products_expected=products_unique,
@@ -36,6 +38,7 @@ def _runner_with_coverage(
         category_summary=[],
         multiple_category_products=[],
         coverage_complete=coverage_complete,
+        categories_processed=24,
         expected_category_occurrences=(
             products_found if coverage_complete and products_found is not None else 1
         ),
@@ -60,6 +63,10 @@ def test_session_fails_when_catalog_coverage_is_incomplete():
     assert result.status() == "ERROR"
     assert result.products_expected == 1
     assert result.products_found == 0
+    assert result.expected_category_occurrences == 1
+    assert result.category_occurrence_gap == 1
+    assert result.coverage_complete is False
+    assert result.categories_processed == 24
     assert result.errors == [
         "Cobertura del catálogo incompleta: esperados=1, encontrados=0, brecha=1."
     ]
@@ -72,6 +79,10 @@ def test_session_succeeds_when_catalog_coverage_is_complete():
 
     assert result.success() is True
     assert result.status() == "SUCCESS"
+    assert result.coverage_complete is True
+    assert result.expected_category_occurrences == 1
+    assert result.category_occurrence_gap == 0
+    assert result.categories_processed == 24
     assert result.errors == []
 
 
@@ -91,5 +102,7 @@ def test_session_accepts_duplicate_category_occurrences():
     assert result.products_found == 383
     assert result.products_unique == 357
     assert result.duplicate_occurrences == 26
+    assert result.expected_category_occurrences == 383
+    assert result.category_occurrence_gap == 0
     assert result.classified_total == 357
     assert result.counts_are_consistent is True

@@ -77,6 +77,10 @@ generated/
 *.tmp
 *.cache
 
+# Artefactos generados por la ejecución del scraper
+data/scraping_result.json
+data/scraping_timing.log
+
 
 # ==========================================================
 # LOGS

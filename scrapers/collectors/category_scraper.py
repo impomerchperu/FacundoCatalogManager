@@ -276,6 +276,7 @@ class CategoryScraper:
         if rendered_html:
             with self._jsf_cache_lock:
                 self._jsf_page_cache[cache_key] = rendered_html
+            self._cache_category_html(self._jsf_page_url(category_url, page), rendered_html)
         return found_posts, max_num_pages, rendered_html
 
     def _post_jsf(self, payload: list[tuple[str, str]]) -> str:

@@ -8,6 +8,7 @@ from .category_scraper import CategoryScraper
 from .resilient_category_scraper import ResilientCategoryScraper
 
 _PATCHED = False
+_ORIGINAL_GET_HTML = CategoryScraper.get_html
 _ORIGINAL_GET_CATEGORY_PAGES = CategoryScraper.get_category_pages
 _ORIGINAL_RESILIENT_GET_CATEGORY_PAGES = ResilientCategoryScraper.get_category_pages
 
@@ -98,6 +99,16 @@ def _recover_missing_pages(
     return recovered
 
 
+def _get_html_with_recovery(
+    self: CategoryScraper,
+    url: str,
+) -> str:
+    try:
+        return _ORIGINAL_GET_HTML(self, url)
+    except requests.exceptions.RequestException:
+        return ""
+
+
 def _get_category_pages_with_recovery(
     self: CategoryScraper,
     category_url: str,
@@ -135,6 +146,7 @@ def activate() -> None:
     global _PATCHED
     if _PATCHED:
         return
+    CategoryScraper.get_html = _get_html_with_recovery
     CategoryScraper.get_category_pages = _get_category_pages_with_recovery
     ResilientCategoryScraper.get_category_pages = (
         _get_resilient_category_pages_with_recovery

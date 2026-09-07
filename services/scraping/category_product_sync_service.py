@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, cast
 
+from config.scraping_config import SCRAPING_CATEGORY_WORKERS
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_name_normalizer import (
     canonical_category_name,
@@ -77,10 +79,18 @@ class CategoryProductSyncService:
 
         collected_by_index = [None] * len(categories)
         started = time.perf_counter()
-        for index, category in enumerate(categories):
-            collected_by_index[index] = self._collect_category(index, category)
-            if progress_callback:
-                progress_callback(index + 1, len(categories))
+        self._enable_thread_sessions()
+        if categories:
+            worker_count = min(SCRAPING_CATEGORY_WORKERS, len(categories))
+            with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                futures = {
+                    executor.submit(self._collect_category, index, category): index
+                    for index, category in enumerate(categories)
+                }
+                for future, index in futures.items():
+                    collected_by_index[index] = future.result()
+                    if progress_callback:
+                        progress_callback(index + 1, len(categories))
         _log_timing(
             "SCRAPING TIMING | stage=category_listing | categories=%d | products=%d | "
             "expected_category_occurrences=%d | seconds=%.3f",
@@ -313,27 +323,25 @@ class CategoryProductSyncService:
                 result.multiple_category_products
             )
 
-    @staticmethod
-    def _product_category_keys(product):
-        return {
-            normalize_category_name(canonical_category_name(category))
-            for category in split_category_names(getattr(product, "category", ""))
-            if normalize_category_name(canonical_category_name(category))
-        }
-
     def _attach_category_coverage(self, raw_products, products, categories):
-        del products
         category_summary = []
         multiple = []
         for category in categories:
-            category_name = str(getattr(category, "name", "")).strip()
-            category_key = normalize_category_name(
-                canonical_category_name(category_name)
+            category_name = canonical_category_name(
+                str(getattr(category, "name", "")).strip()
             )
+            expected = max(int(getattr(category, "expected_count", 0) or 0), 0)
+            category_key = normalize_category_name(category_name)
             category_products = [
                 product
                 for product in raw_products
-                if category_key and category_key in self._product_category_keys(product)
+                if category_key
+                and category_key in {
+                    normalize_category_name(value)
+                    for value in split_category_names(
+                        getattr(product, "category", "")
+                    )
+                }
             ]
             unique = {
                 str(getattr(product, "code", "")).strip().casefold()
@@ -343,16 +351,10 @@ class CategoryProductSyncService:
             category_summary.append(
                 {
                     "category": category_name,
-                    "expected": max(
-                        int(getattr(category, "expected_count", 0) or 0), 0
-                    ),
+                    "expected": expected,
                     "products": len(category_products),
                     "unique_products": len(unique),
-                    "gap": max(
-                        max(int(getattr(category, "expected_count", 0) or 0), 0)
-                        - len(category_products),
-                        0,
-                    ),
+                    "gap": max(expected - len(category_products), 0),
                 }
             )
         by_code = {}
@@ -449,6 +451,14 @@ class CategoryProductSyncService:
             category.name,
             expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),
         )
+
+    def _enable_thread_sessions(self):
+        scraper = getattr(self.scraper_service, "scraper", None)
+        category_scraper = getattr(scraper, "category_scraper", None)
+        browser = getattr(category_scraper, "browser", None)
+        enable = getattr(browser, "enable_thread_sessions", None)
+        if callable(enable):
+            enable()
 
     def _get_browser(self):
         scraper = getattr(self.scraper_service, "scraper", None)

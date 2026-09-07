@@ -70,7 +70,7 @@ def test_persist_occurrences_rejects_missing_master_product():
 
     with pytest.raises(
         RuntimeError,
-        match="No existe el producto maestro.*MISSING-001",
+        match=r"No existe el producto maestro.*MISSING-001",
     ):
         repository.persist_occurrences(
             run_id,

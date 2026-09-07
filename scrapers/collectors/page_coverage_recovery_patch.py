@@ -40,6 +40,31 @@ def _page_url(scraper: CategoryScraper, category_url: str, page: int) -> str:
     return f"{category_url.rstrip('/')}?product-page={page}"
 
 
+def _recover_category_html(
+    scraper: CategoryScraper,
+    category_url: str,
+    pages: list[str],
+) -> str:
+    category_html = _cached_category_html(scraper, category_url)
+    if category_html:
+        return category_html
+    try:
+        return scraper.get_html(category_url)
+    except (requests.exceptions.RequestException, AttributeError, RuntimeError, TypeError, ValueError):
+        return ""
+
+
+def _fetch_recovery_page(fetcher, category_url: str, category_id: int, page: int) -> str:
+    for _ in range(2):
+        try:
+            _, _, rendered_html = fetcher(category_url, category_id, page)
+        except (requests.exceptions.RequestException, RuntimeError, TypeError, ValueError):
+            return ""
+        if rendered_html:
+            return rendered_html
+    return ""
+
+
 def _recover_missing_pages(
     scraper: CategoryScraper,
     category_url: str,
@@ -49,14 +74,9 @@ def _recover_missing_pages(
     if not scraper._is_facundo_url(category_url):
         return pages
 
-    category_html = _cached_category_html(scraper, category_url)
+    category_html = _recover_category_html(scraper, category_url, pages)
     if not category_html:
-        try:
-            category_html = scraper.get_html(category_url)
-        except requests.exceptions.RequestException:
-            return pages
-        except (AttributeError, RuntimeError, TypeError, ValueError):
-            return pages
+        return pages
 
     required_pages = _required_page_count(category_html, expected_count)
     if len(pages) >= required_pages:
@@ -79,17 +99,12 @@ def _recover_missing_pages(
         if page in existing_numbers:
             continue
         page_url = _page_url(scraper, category_url, page)
-        rendered_html = ""
-        for _ in range(2):
-            try:
-                _, _, rendered_html = fetcher(category_url, category_id, page)
-            except requests.exceptions.RequestException:
-                rendered_html = ""
-                break
-            except (RuntimeError, TypeError, ValueError):
-                rendered_html = ""
-            if rendered_html:
-                break
+        rendered_html = _fetch_recovery_page(
+            fetcher,
+            category_url,
+            category_id,
+            page,
+        )
         if not rendered_html:
             break
         cache_html(page_url, rendered_html)

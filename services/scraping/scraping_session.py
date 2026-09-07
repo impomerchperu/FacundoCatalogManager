@@ -16,11 +16,16 @@ class ScrapingSessionResult:
     unchanged: int = 0
     deleted: int = 0
     generated: int = 0
+    missing_code: int = 0
+    categories_processed: int = 0
     products_expected: int = 0
+    expected_category_occurrences: int = 0
     products_found: int = 0
     products_unique: int = 0
     products_multiple_categories: int = 0
     duplicate_occurrences: int = 0
+    category_occurrence_gap: int = 0
+    coverage_complete: bool = True
     category_summary: list[dict] = field(default_factory=list)
     multiple_category_products: list[dict] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
@@ -37,7 +42,7 @@ class ScrapingSessionResult:
         return self.classified_total == self.products_unique
 
     def success(self) -> bool:
-        return not self.errors
+        return self.coverage_complete and not self.errors
 
     def status(self) -> str:
         return "SUCCESS" if self.success() else "ERROR"
@@ -200,6 +205,7 @@ class ScrapingSession:
         self.result.unchanged = sync_result.unchanged
         self.result.deleted = sync_result.deleted
         self.result.generated = sync_result.generated
+        self.result.missing_code = getattr(sync_result, "missing_code", 0)
         self.result.changes = list(sync_result.changes)
         self.result.errors.extend(sync_result.errors)
         coverage_result = sync_result
@@ -208,19 +214,60 @@ class ScrapingSession:
             and catalog_result is not None
         ):
             coverage_result = catalog_result
+        self.result.categories_processed = getattr(
+            coverage_result,
+            "categories_processed",
+            getattr(sync_result, "categories_processed", 0),
+        )
         self.result.products_expected = getattr(coverage_result, "products_expected", 0)
-        self.result.products_found = getattr(coverage_result, "products_found", len(self.result.products))
-        self.result.products_unique = getattr(coverage_result, "products_unique", len(self.result.products))
-        self.result.products_multiple_categories = getattr(coverage_result, "products_multiple_categories", 0)
-        self.result.duplicate_occurrences = getattr(coverage_result, "duplicate_occurrences", 0)
-        self.result.category_summary = list(getattr(coverage_result, "category_summary", []))
-        self.result.multiple_category_products = list(getattr(coverage_result, "multiple_category_products", []))
-        if not coverage_result.coverage_complete:
+        self.result.expected_category_occurrences = getattr(
+            coverage_result,
+            "expected_category_occurrences",
+            0,
+        )
+        self.result.products_found = getattr(
+            coverage_result,
+            "products_found",
+            len(self.result.products),
+        )
+        self.result.products_unique = getattr(
+            coverage_result,
+            "products_unique",
+            len(self.result.products),
+        )
+        self.result.products_multiple_categories = getattr(
+            coverage_result,
+            "products_multiple_categories",
+            0,
+        )
+        self.result.duplicate_occurrences = getattr(
+            coverage_result,
+            "duplicate_occurrences",
+            0,
+        )
+        self.result.category_occurrence_gap = getattr(
+            coverage_result,
+            "category_occurrence_gap",
+            max(
+                self.result.expected_category_occurrences - self.result.products_found,
+                0,
+            ),
+        )
+        self.result.coverage_complete = bool(
+            getattr(coverage_result, "coverage_complete", True),
+        )
+        self.result.category_summary = list(
+            getattr(coverage_result, "category_summary", []),
+        )
+        self.result.multiple_category_products = list(
+            getattr(coverage_result, "multiple_category_products", []),
+        )
+        if not self.result.coverage_complete:
             self.result.errors.append(
                 "Cobertura del catálogo incompleta: "
-                f"esperados={coverage_result.expected_category_occurrences}, "
-                f"encontrados={coverage_result.products_found}, "
-                f"brecha={coverage_result.category_occurrence_gap}."
+                f"esperados={self.result.expected_category_occurrences}, "
+                f"encontrados={self.result.products_found}, "
+                f"brecha={self.result.category_occurrence_gap}."
             )
 
     def _save_history(self):

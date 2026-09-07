@@ -55,12 +55,22 @@ def test_jsf_recovery_timeout_does_not_abort_remaining_pages(monkeypatch):
 
     scraper = FakeCategoryScraper()
 
-    monkeypatch.setattr(patch, "_cached_category_html", lambda *_: "<html></html>")
-    monkeypatch.setattr(patch.CategoryScraper, "_pagination_max_page", staticmethod(lambda _: 3))
+    monkeypatch.setattr(
+        patch,
+        "_cached_category_html",
+        lambda *_: "<html></html>",
+    )
+    monkeypatch.setattr(
+        patch.CategoryScraper,
+        "_pagination_max_page",
+        staticmethod(lambda _: 3),
+    )
     monkeypatch.setattr(
         patch,
         "_ORIGINAL_RESILIENT_GET_CATEGORY_PAGES",
-        lambda *args, **kwargs: ["https://stock.importacionesfacundo.com/categoria-producto/test/"],
+        lambda *args, **kwargs: [
+            "https://stock.importacionesfacundo.com/categoria-producto/test/"
+        ],
     )
 
     def raise_timeout(*args, **kwargs):

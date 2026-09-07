@@ -376,20 +376,37 @@ class CategoryProductSyncService:
             "gap": max(expected - products_found, 0),
         }
 
-    def _multiple_category_products(self, raw_products):
+    def _multiple_category_products(self, raw_products, categories=None):
         by_code = {}
         for occurrence in self._occurrence_categories:
             by_code.setdefault(occurrence["code_key"], {}).setdefault(
                 occurrence["category_key"], occurrence["category"]
             )
+        if not by_code and categories:
+            requested = {
+                normalize_category_name(canonical_category_name(getattr(category, "name", "")))
+                for category in categories
+            }
+            for product in raw_products or []:
+                code_key = str(getattr(product, "code", "")).strip().casefold()
+                if not code_key:
+                    continue
+                category_map = by_code.setdefault(code_key, {})
+                for value in split_category_names(getattr(product, "category", "")):
+                    category_name = canonical_category_name(value)
+                    category_key = normalize_category_name(category_name)
+                    if category_key in requested:
+                        category_map.setdefault(category_key, category_name)
+                if len(category_map) <= 1:
+                    by_code.pop(code_key, None)
         product_by_code = {
             str(getattr(product, "code", "")).strip().casefold(): product
             for product in raw_products or []
             if str(getattr(product, "code", "")).strip()
         }
         multiple = []
-        for code_key, categories in by_code.items():
-            if len(categories) <= 1:
+        for code_key, categories_by_key in by_code.items():
+            if len(categories_by_key) <= 1:
                 continue
             product = product_by_code.get(code_key)
             if product is None:
@@ -398,7 +415,7 @@ class CategoryProductSyncService:
                 {
                     "code": str(getattr(product, "code", "")).strip(),
                     "name": str(getattr(product, "name", "")).strip(),
-                    "categories": list(categories.values()),
+                    "categories": list(categories_by_key.values()),
                 }
             )
         return multiple
@@ -413,7 +430,10 @@ class CategoryProductSyncService:
         del products_or_categories
 
         category_summary = self._category_summary(raw_products, categories, legacy_call)
-        multiple = self._multiple_category_products(raw_products)
+        multiple = self._multiple_category_products(
+            raw_products,
+            None if legacy_call else categories,
+        )
         self.last_sync_result.category_summary = category_summary
         self.last_sync_result.multiple_category_products = multiple
         self.last_sync_result.products_multiple_categories = len(multiple)

@@ -43,6 +43,19 @@ def test_full_catalog_scraper_real_site():
         max(int(category.expected_count or 0), 0)
         for category in categories
     )
+    if expected_total != EXPECTED_CATEGORY_OCCURRENCES:
+        print("=" * 80)
+        print("DESVIACIÓN DEL BASELINE DE APARICIONES")
+        print("ESPERADO:", EXPECTED_CATEGORY_OCCURRENCES)
+        print("OBTENIDO:", expected_total)
+        print("DIFERENCIA:", expected_total - EXPECTED_CATEGORY_OCCURRENCES)
+        for index, category in enumerate(categories, start=1):
+            print(
+                f"[{index:02d}/{len(categories):02d}] "
+                f"{category.name}: expected={category.expected_count}"
+            )
+        print("DURACIÓN DESCUBRIMIENTO:", f"{perf_counter() - started:.2f}s")
+        print("=" * 80)
     assert expected_total == EXPECTED_CATEGORY_OCCURRENCES
 
     products = []

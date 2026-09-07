@@ -106,7 +106,7 @@ def test_product_collection_deduplicates_same_product_returned_by_page_variants(
 
 def test_category_scraper_exposes_jsf_rendered_page_through_get_html():
     category_url = "https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/"
-    page_two = f"{category_url}?product-page=2"
+    page_two = f"{category_url.rstrip('/')}?product-page=2"
     browser = FakeBrowser({
         category_url: '<body class="term-123"></body>',
     })

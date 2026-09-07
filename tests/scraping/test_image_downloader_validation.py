@@ -1,31 +1,51 @@
-from utils.scraping.image_downloader import ImageDownloader
+from pathlib import Path
+
+import requests
+
+from scrapers.images.image_downloader import ImageDownloader
 
 
-def test_image_downloader_ignores_empty_url(tmp_path):
+class FakeResponse:
+    content = b"image-data"
+    headers = {"Content-Type": "image/jpeg"}
 
-    class FakeDownloader:
-        def get(self, url):
-            return b"data"
-
-    downloader = ImageDownloader(tmp_path)
-
-    result = downloader.download("P002", "", FakeDownloader())
-
-    assert result is None
+    def raise_for_status(self):
+        return None
 
 
-def test_image_downloader_does_not_download_existing_file(tmp_path):
+def test_image_downloader_saves_image_with_canonical_code_name(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(requests, "get", lambda *args, **kwargs: FakeResponse())
 
-    file = tmp_path / "P003.jpg"
+    downloader = ImageDownloader(
+        output_dir=tmp_path,
+        request_timeout=5,
+        max_retries=1,
+    )
 
-    file.write_bytes(b"existing")
+    result = downloader.download("P002", "http://image.example/product")
 
-    class FakeDownloader:
-        def get(self, url):
-            raise RuntimeError("Should not download")
+    expected = Path(tmp_path) / "P002.jpg"
+    assert result == expected.as_posix()
+    assert expected.read_bytes() == b"image-data"
 
-    downloader = ImageDownloader(tmp_path)
 
-    result = downloader.download("P003", "http://image.jpg", FakeDownloader())
+def test_image_downloader_sanitizes_code_before_writing_file(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(requests, "get", lambda *args, **kwargs: FakeResponse())
 
-    assert result == str(file)
+    downloader = ImageDownloader(
+        output_dir=tmp_path,
+        request_timeout=5,
+        max_retries=1,
+    )
+
+    result = downloader.download("P 003/TEST", "http://image.example/product")
+
+    expected = Path(tmp_path) / "P_003_TEST.jpg"
+    assert result == expected.as_posix()
+    assert expected.exists()

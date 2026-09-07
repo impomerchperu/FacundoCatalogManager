@@ -3,6 +3,7 @@ from urllib.parse import unquote, urlsplit
 
 from models.scraping.category import Category
 from scrapers.selectors import category_selectors
+from services.scraping.category_name_normalizer import normalize_category_name
 
 _COUNT_PATTERN = re.compile(r"Producto\(s\)\s*(\d+)", re.IGNORECASE)
 _HEADING_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6"]
@@ -125,6 +126,10 @@ class CategoryExtractor:
     @staticmethod
     def _extract_expected_count(link, category_name: str) -> int:
         """Busca el conteo dentro del mismo bloque visual de la categoría."""
+        category_key = normalize_category_name(category_name)
+        if not category_key:
+            return 0
+
         current = link
         while current is not None:
             current = getattr(current, "parent", None)
@@ -133,10 +138,12 @@ class CategoryExtractor:
 
             headings = current.find_all(_HEADING_TAGS)
             heading_names = {
-                heading.get_text(" ", strip=True).casefold()
+                normalize_category_name(
+                    heading.get_text(" ", strip=True)
+                )
                 for heading in headings
             }
-            if category_name.casefold() not in heading_names:
+            if category_key not in heading_names:
                 continue
 
             matches = [

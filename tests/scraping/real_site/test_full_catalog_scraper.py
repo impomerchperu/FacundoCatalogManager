@@ -14,8 +14,10 @@ from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_service import CategoryService
 
 EXPECTED_CATEGORIES = 24
-EXPECTED_CATEGORY_OCCURRENCES = 529
-EXPECTED_UNIQUE_PRODUCTS = 525
+# The live catalog now publishes one additional category occurrence:
+# Artículos de Oficina increased from 12 to 13.
+EXPECTED_CATEGORY_OCCURRENCES = 530
+EXPECTED_UNIQUE_PRODUCTS = 526
 EXPECTED_MULTI_CATEGORY_PRODUCTS = 4
 
 

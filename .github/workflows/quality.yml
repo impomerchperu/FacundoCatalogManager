@@ -6,7 +6,7 @@ on:
       - feature/scraping-performance-recovery
   pull_request:
     branches:
-      - feature/scraping-performance-recovery
+      - main
 
 jobs:
   test:

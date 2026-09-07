@@ -106,13 +106,12 @@ class NormalizedScrapingRepository:
         )
         result_coverage_complete = getattr(result, "coverage_complete", None)
         coverage_complete = bool(
-            expected <= 0
-            or (
-                actual >= expected
-                and not has_category_gap
-                and errors == 0
-                and not message_value
-                and result_coverage_complete is not False
+            result_coverage_complete is not False
+            and errors == 0
+            and not message_value
+            and (
+                expected <= 0
+                or (actual >= expected and not has_category_gap)
             )
         )
         error_count = max(errors, int(bool(message_value)))
@@ -179,6 +178,11 @@ class NormalizedScrapingRepository:
                 continue
             product_record = product_repository.get(code)
             product_id = getattr(product_record, "product_id", None)
+            if product_id is None:
+                raise RuntimeError(
+                    "No existe el producto maestro para registrar la ocurrencia: "
+                    f"code={code}."
+                )
             product_categories = {
                 normalized
                 for item in split_category_names(getattr(product, "category", ""))

@@ -18,6 +18,7 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
     def sync_categories(self, categories, progress_callback=None):
         products = super().sync_categories(categories, progress_callback)
         mode = getattr(self, "_scraping_mode", "directed")
+        self._align_multiple_category_result(categories, products)
         self._persist_normalized(categories, products, mode=mode)
         return products
 
@@ -30,6 +31,41 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         )()
         self._persist_normalized([category_object], products, mode="directed")
         return products
+
+    def _align_multiple_category_result(self, categories, products):
+        requested = {
+            normalize_category_name(canonical_category_name(getattr(category, "name", "")))
+            for category in categories
+        }
+        requested.discard("")
+        by_code = {}
+        product_by_code = {}
+        for product in products or []:
+            code = str(getattr(product, "code", "")).strip()
+            code_key = code.casefold()
+            if not code_key:
+                continue
+            product_by_code[code_key] = product
+            category_map = by_code.setdefault(code_key, {})
+            for value in split_category_names(getattr(product, "category", "")):
+                category_name = canonical_category_name(value)
+                category_key = normalize_category_name(category_name)
+                if category_key in requested:
+                    category_map.setdefault(category_key, category_name)
+        multiple = []
+        for code_key, category_map in by_code.items():
+            if len(category_map) <= 1:
+                continue
+            product = product_by_code[code_key]
+            multiple.append(
+                {
+                    "code": str(getattr(product, "code", "")).strip(),
+                    "name": str(getattr(product, "name", "")).strip(),
+                    "categories": list(category_map.values()),
+                }
+            )
+        self.last_sync_result.multiple_category_products = multiple
+        self.last_sync_result.products_multiple_categories = len(multiple)
 
     def _persist_normalized(self, categories, products, *, mode: str) -> None:
         repository = self.normalized_repository

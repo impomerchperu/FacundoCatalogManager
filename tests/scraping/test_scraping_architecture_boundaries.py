@@ -214,6 +214,15 @@ def test_removed_legacy_image_manager_stays_absent():
     assert not (PROJECT_ROOT / "scrapers" / "images" / "image_manager.py").exists()
 
 
+def test_removed_legacy_image_utilities_stay_absent():
+    removed_paths = (
+        PROJECT_ROOT / "utils" / "scraping" / "image_downloader.py",
+        PROJECT_ROOT / "utils" / "scraping" / "image_validator.py",
+    )
+
+    assert all(not path.exists() for path in removed_paths)
+
+
 def test_image_sync_adapter_has_no_legacy_orchestrator_reference():
     source = (
         PROJECT_ROOT / "services" / "scraping" / "image_sync_adapter.py"
@@ -248,6 +257,8 @@ def test_production_roots_do_not_import_legacy_scraping_services():
         "scrapers.sync.product_comparator",
         "scrapers.sync.sync_result",
         "scrapers.images.image_manager",
+        "utils.scraping.image_downloader",
+        "utils.scraping.image_validator",
     )
 
     violations = []

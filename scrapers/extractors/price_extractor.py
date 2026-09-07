@@ -182,7 +182,10 @@ class PriceExtractor:
             else:
                 raw = raw.replace(",", "")
         elif "," in raw:
-            raw = raw.replace(",", ".")
+            if re.fullmatch(r"\d{1,3}(?:,\d{3})+", raw):
+                raw = raw.replace(",", "")
+            else:
+                raw = raw.replace(",", ".")
 
         try:
             return float(raw)

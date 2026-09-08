@@ -184,12 +184,12 @@ def _browser_compatible_jsf_payload(
         request_state = dict(_JSF_REQUEST_STATE.get(category_id, {}))
     if not request_state:
         return _ORIGINAL_JSF_PAYLOAD(category_id, page)
-    payload = _ORIGINAL_JSF_PAYLOAD(category_id, 1)
+    payload = _ORIGINAL_JSF_PAYLOAD(category_id, page)
     values = dict(payload)
     _apply_live_query_defaults(values, request_state.get("query"))
     _apply_live_request_settings(values, request_state.get("settings"))
-    values["defaults[paged]"] = "1"
-    values["props[page]"] = "1"
+    values["defaults[paged]"] = str(page)
+    values["props[page]"] = str(page)
     values["paged"] = str(page)
     return [
         (key, values.get(key, value))

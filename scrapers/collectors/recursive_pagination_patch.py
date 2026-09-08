@@ -6,6 +6,49 @@ from . import category_pagination_patch as _category_pagination_patch
 from .category_scraper import CategoryScraper
 
 
+def _candidate_page_urls(
+    scraper: CategoryScraper,
+    category_url: str,
+    page_number: int,
+    discovered_by_number: dict[int, str],
+) -> list[str]:
+    candidates: list[str] = []
+    discovered_url = discovered_by_number.get(page_number)
+    if discovered_url:
+        candidates.append(discovered_url)
+    for candidate in _category_pagination_patch._page_variants(category_url, page_number):
+        if candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
+
+
+def _try_public_page(
+    scraper: CategoryScraper,
+    category_url: str,
+    page_number: int,
+    candidates: list[str],
+    seen: set[str],
+    discovered_by_number: dict[int, str],
+) -> bool:
+    for page_url in candidates:
+        html = _category_pagination_patch._safe_get_html(scraper, page_url)
+        if not html:
+            continue
+        current = _category_pagination_patch._page_product_keys(scraper, html, page_url)
+        new_keys = current - seen
+        if not current or not new_keys:
+            continue
+        seen.update(current)
+        scraper._cache_category_html(page_url, html)
+        discovered = scraper._fallback_pagination_links(category_url, html)
+        for url in discovered:
+            number = scraper._page_number(url)
+            if number is not None and number > 1:
+                discovered_by_number.setdefault(number, url)
+        return True
+    return False
+
+
 def _collect_direct_pages(
     scraper: CategoryScraper,
     category_url: str,
@@ -41,63 +84,38 @@ def _collect_direct_pages(
 
     page_number = 2
     while page_number <= declared_pages:
-        candidates = []
-        discovered_url = discovered_by_number.get(page_number)
-        if discovered_url:
-            candidates.append(discovered_url)
-
-        for candidate in _category_pagination_patch._page_variants(
+        candidates = _candidate_page_urls(
+            scraper,
             category_url,
             page_number,
+            discovered_by_number,
+        )
+        if _try_public_page(
+            scraper,
+            category_url,
+            page_number,
+            candidates,
+            seen,
+            discovered_by_number,
         ):
-            if candidate not in candidates:
-                candidates.append(candidate)
-
-        accepted = False
-        for page_url in candidates:
-            html = _category_pagination_patch._safe_get_html(scraper, page_url)
-            if not html:
-                continue
-
-            current = _category_pagination_patch._page_product_keys(
-                scraper,
-                html,
-                page_url,
+            pages.append(
+                discovered_by_number.get(
+                    page_number,
+                    _category_pagination_patch._page_variants(
+                        category_url,
+                        page_number,
+                    )[0],
+                )
             )
-            if not current:
-                continue
-
-            new_keys = current - seen
-            if not new_keys:
-                continue
-
-            seen.update(current)
-            scraper._cache_category_html(page_url, html)
-            pages.append(page_url)
-            accepted = True
-
-            discovered = scraper._fallback_pagination_links(
-                category_url,
-                html,
-            )
-            for url in discovered:
-                number = scraper._page_number(url)
-                if number is None or number <= 1:
-                    continue
-                discovered_by_number.setdefault(number, url)
-
             declared_pages = max(
                 declared_pages,
                 max(discovered_by_number, default=0),
             )
-            break
-
-        if not accepted:
+        else:
             raise RuntimeError(
                 f"No unique products found on public pagination page "
                 f"{page_number} for {category_url}"
             )
-
         page_number += 1
 
     return pages, seen

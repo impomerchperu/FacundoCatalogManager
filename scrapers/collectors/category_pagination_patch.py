@@ -56,8 +56,11 @@ def _page_product_keys(
     html: str,
     base_url: str,
 ) -> set[str]:
-    """Return stable product identifiers from URLs/SKUs or page content."""
-    return _direct_product_urls(html, base_url) | self._product_keys(html)
+    """Return stable product identifiers, preferring real product URLs."""
+    product_urls = _direct_product_urls(html, base_url)
+    if product_urls:
+        return product_urls
+    return self._product_keys(html)
 
 
 def _facundo_direct_pages(

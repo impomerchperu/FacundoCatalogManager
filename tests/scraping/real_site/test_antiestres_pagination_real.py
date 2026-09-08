@@ -1,5 +1,5 @@
-from time import perf_counter
 import unicodedata
+from time import perf_counter
 
 import pytest
 

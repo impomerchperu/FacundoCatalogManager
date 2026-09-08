@@ -164,19 +164,23 @@ def _apply_live_request_settings(values: dict[str, str], settings: object) -> No
 
 
 def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[str, str]]:
-    """Build a JSF payload compatible with the live browser request state."""
+    """Build a browser-compatible JSF payload from the live page-one state."""
     with _JSF_STATE_LOCK:
         request_state = dict(_JSF_REQUEST_STATE.get(category_id, {}))
-    if not request_state:
-        return _ORIGINAL_JSF_PAYLOAD(category_id, page)
-    payload = _ORIGINAL_JSF_PAYLOAD(category_id, page)
+
+    payload = _ORIGINAL_JSF_PAYLOAD(category_id, 1)
     values = dict(payload)
     _apply_live_query_defaults(values, request_state.get("query"))
     _apply_live_request_settings(values, request_state.get("settings"))
     values["defaults[paged]"] = str(page)
     values["props[page]"] = str(page)
     values["paged"] = str(page)
-    return [(key, values.get(key, value)) for key, value in payload]
+
+    return [
+        (key, values.get(key, value))
+        for key, value in payload
+        if key != "indexing_filters[]"
+    ]
 
 
 def _fetch_jsf_page_direct(
@@ -380,28 +384,12 @@ def _get_category_pages(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Prefer real public pagination; use JSF only when public coverage is insufficient."""
+    """Use authoritative JSF pagination for Facundo with validated public fallback."""
     first_html = _safe_get_html(self, category_url)
     if not first_html:
         return []
 
-    pages = [category_url]
-    seen: set[str] = set()
-    try:
-        pages, seen = _collect_direct_pages(
-            self,
-            category_url,
-            first_html,
-            expected_count,
-        )
-    except RuntimeError:
-        pages = [category_url]
-
-    target = max(int(expected_count or 0), 0)
-
     if not self._is_facundo_url(category_url):
-        if target > 0 and len(seen) >= target:
-            return pages
         self._cache_category_html(category_url, first_html)
         return _ORIGINAL_GET_CATEGORY_PAGES(
             self,
@@ -410,19 +398,38 @@ def _get_category_pages(
         )
 
     category_id = self._category_id(first_html)
-    if category_id is None:
-        return pages
+    if category_id is not None:
+        self._cache_category_html(category_url, first_html)
+        return _jsf_category_pages_with_probe(
+            self,
+            category_url,
+            category_id,
+            expected_count,
+            category_html=first_html,
+        )
 
-    if target > 0 and len(seen) >= target:
-        return pages
+    direct_products = _direct_product_urls(first_html, category_url)
+    if direct_products:
+        try:
+            pages, seen = _collect_direct_pages(
+                self,
+                category_url,
+                first_html,
+                expected_count,
+            )
+        except RuntimeError:
+            pages, seen = [category_url], direct_products
+
+        target = max(int(expected_count or 0), 0)
+        if target == 0 or len(seen) >= target:
+            self._cache_category_html(category_url, first_html)
+            return pages
 
     self._cache_category_html(category_url, first_html)
-    return _jsf_category_pages_with_probe(
+    return _ORIGINAL_GET_CATEGORY_PAGES(
         self,
         category_url,
-        category_id,
-        expected_count,
-        category_html=first_html,
+        expected_count=expected_count,
     )
 
 

@@ -26,7 +26,7 @@ class ResilientCategoryScraper(CategoryScraper):
 
         product_keys = self._product_keys_without_taxonomy_markers(category_html)
         if product_keys:
-            return self._fallback_category_pages(
+            return self._fallback_pages_or_category(
                 category_url,
                 category_html,
                 expected_count,
@@ -50,7 +50,7 @@ class ResilientCategoryScraper(CategoryScraper):
             self._raise_if_not_retryable(error)
             product_keys = self._product_keys_without_taxonomy_markers(category_html)
             if product_keys:
-                return self._fallback_category_pages(
+                return self._fallback_pages_or_category(
                     category_url,
                     category_html,
                     expected_count,
@@ -60,13 +60,26 @@ class ResilientCategoryScraper(CategoryScraper):
         if self._is_empty_jsf_result(category_url, category_html, pages):
             product_keys = self._product_keys_without_taxonomy_markers(category_html)
             if product_keys:
-                return self._fallback_category_pages(
+                return self._fallback_pages_or_category(
                     category_url,
                     category_html,
                     expected_count,
                 )
             return None
         return pages
+
+    def _fallback_pages_or_category(
+        self,
+        category_url: str,
+        category_html: str,
+        expected_count: int,
+    ) -> list[str]:
+        pages = self._fallback_category_pages(
+            category_url,
+            category_html,
+            expected_count,
+        )
+        return pages or [category_url]
 
     def _retry_empty_jsf_result(
         self,
@@ -91,7 +104,7 @@ class ResilientCategoryScraper(CategoryScraper):
                 fallback_html,
             )
             if fallback_products:
-                return self._fallback_category_pages(
+                return self._fallback_pages_or_category(
                     category_url,
                     fallback_html,
                     expected_count,

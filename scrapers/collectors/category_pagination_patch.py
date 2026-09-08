@@ -59,11 +59,11 @@ def _page_product_keys(
     html: str,
     base_url: str,
 ) -> set[str]:
-    """Prefer actual product URLs; fall back to explicit code-like keys."""
-    product_urls = _direct_product_urls(html, base_url)
-    if product_urls:
-        return product_urls
-    return self._product_keys(html)
+    """Prefer explicit product codes; use URLs only when codes are absent."""
+    code_keys = self._product_keys(html)
+    if code_keys:
+        return code_keys
+    return _direct_product_urls(html, base_url)
 
 
 def _page_variants(category_url: str, page: int) -> list[str]:
@@ -296,7 +296,8 @@ def _collect_direct_pages(
 
         if not accepted:
             raise RuntimeError(
-                f"No unique products found on public pagination page {page_number} for {category_url}"
+                f"No unique products found on public pagination page "
+                f"{page_number} for {category_url}"
             )
 
     return pages, seen

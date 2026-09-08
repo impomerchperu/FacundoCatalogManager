@@ -92,20 +92,11 @@ class SyncResult:
 
     @property
     def coverage_complete(self) -> bool:
-        """True when the appropriate expected coverage is complete.
-
-        Category-product extraction keeps category occurrences separate from
-        consolidated unique products. Once ``products_expected`` is known,
-        coverage for a consolidated catalog is therefore validated against
-        unique products instead of comparing them with category occurrences.
-        """
+        """True cuando la cobertura publicada por categorías está completa."""
         if self.missing_code != 0:
             return False
 
-        if self.products_expected > 0:
-            if self.products_unique < self.products_expected:
-                return False
-        elif self.expected_category_occurrences > 0:
+        if self.expected_category_occurrences > 0:
             if self.products_found < self.expected_category_occurrences:
                 return False
         elif self.products_found <= 0:

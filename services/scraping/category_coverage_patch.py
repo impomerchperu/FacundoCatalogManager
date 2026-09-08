@@ -30,6 +30,7 @@ def _attach_category_coverage(
     """Compare category coverage by normalized key while preserving display text."""
     legacy_call = categories is None
     categories = products_or_categories if legacy_call else categories
+    self.last_sync_result.categories_processed = len(categories or [])
 
     category_summary = []
     multiple = []

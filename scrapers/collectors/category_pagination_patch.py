@@ -67,12 +67,12 @@ def _page_product_keys(
 
 
 def _page_variants(category_url: str, page: int) -> list[str]:
-    """Return public pagination variants in the least invasive order."""
-    base = category_url.rstrip("/")
+    """Return public pagination variants while preserving the archive slash."""
+    archive_url = category_url.split("?", 1)[0].rstrip("/")
     return [
-        f"{base}/page/{page}/",
-        f"{base}?product-page={page}",
-        f"{base}?paged={page}",
+        f"{archive_url}/page/{page}/",
+        f"{archive_url}/?product-page={page}",
+        f"{archive_url}/?paged={page}",
     ]
 
 
@@ -379,11 +379,13 @@ def _get_category_pages(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Prefer real public pagination; use JSF only when it actually renders unique pages."""
+    """Prefer real public pagination; use JSF only when public coverage is insufficient."""
     first_html = _safe_get_html(self, category_url)
     if not first_html:
         return []
 
+    pages = [category_url]
+    seen: set[str] = set()
     try:
         pages, seen = _collect_direct_pages(
             self,
@@ -391,13 +393,15 @@ def _get_category_pages(
             first_html,
             expected_count,
         )
-        target = max(int(expected_count or 0), 0)
-        if target <= 0 or len(seen) >= target:
-            return pages
     except RuntimeError:
         pages = [category_url]
 
+    target = max(int(expected_count or 0), 0)
+    has_product_data = bool(seen)
+
     if not self._is_facundo_url(category_url):
+        if target <= 0 or len(seen) >= target or has_product_data:
+            return pages
         self._cache_category_html(category_url, first_html)
         return _ORIGINAL_GET_CATEGORY_PAGES(
             self,
@@ -409,20 +413,19 @@ def _get_category_pages(
     if category_id is None:
         return pages
 
-    self._cache_category_html(category_url, first_html)
-    try:
-        return _jsf_category_pages_with_probe(
-            self,
-            category_url,
-            category_id,
-            expected_count,
-            category_html=first_html,
-        )
-    except RuntimeError:
-        # Preserve a usable public page list; higher-level coverage checks decide
-        # whether the category is incomplete instead of silently duplicating data.
+    if target <= 0 and has_product_data:
+        return pages
+    if target > 0 and len(seen) >= target:
         return pages
 
+    self._cache_category_html(category_url, first_html)
+    return _jsf_category_pages_with_probe(
+        self,
+        category_url,
+        category_id,
+        expected_count,
+        category_html=first_html,
+    )
 
 
 def activate() -> None:

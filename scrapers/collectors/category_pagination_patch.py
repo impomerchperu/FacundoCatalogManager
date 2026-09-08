@@ -26,7 +26,7 @@ _JSF_REQUEST_STATE: dict[int, dict[str, object]] = {}
 
 
 def pages_required(expected_count: int, products_per_page: int = 25) -> int:
-    """Return a coverage estimate; it is never a hard pagination ceiling."""
+    """Return the minimum number of pages required for a coverage target."""
     count = max(int(expected_count or 0), 0)
     per_page = max(int(products_per_page or 25), 1)
     return 0 if count == 0 else (count + per_page - 1) // per_page
@@ -40,7 +40,7 @@ def _safe_get_html(scraper: CategoryScraper, url: str) -> str:
 
 
 def _direct_product_urls(html: str, base_url: str) -> set[str]:
-    """Extract product URLs exactly as the collection scraper does."""
+    """Extract normalized product URLs from category HTML."""
     soup = BeautifulSoup(html or "", "html.parser")
     urls: set[str] = set()
     for link in soup.select('a[href*="/producto/"]'):
@@ -59,35 +59,25 @@ def _page_product_keys(
     html: str,
     base_url: str,
 ) -> set[str]:
-    """Return stable product identifiers, preferring real product URLs."""
+    """Prefer actual product URLs; fall back to explicit code-like keys."""
     product_urls = _direct_product_urls(html, base_url)
     if product_urls:
         return product_urls
     return self._product_keys(html)
 
 
-def _facundo_direct_pages(
-    scraper: CategoryScraper,
-    category_url: str,
-    first_html: str,
-    expected_count: int,
-) -> tuple[list[str], int]:
-    """Collect public archive pages as a compatibility fallback."""
-    pages = scraper._fallback_category_pages(
-        category_url,
-        first_html,
-        expected_count,
-    )
-    product_urls: set[str] = _direct_product_urls(first_html, category_url)
-    for page_url in pages[1:]:
-        html = scraper._category_html_cache.get(page_url, "")
-        if html:
-            product_urls.update(_direct_product_urls(html, page_url))
-    return pages, len(product_urls)
+def _page_variants(category_url: str, page: int) -> list[str]:
+    """Return public pagination variants in the least invasive order."""
+    base = category_url.rstrip("/")
+    return [
+        f"{base}/page/{page}/",
+        f"{base}?product-page={page}",
+        f"{base}?paged={page}",
+    ]
 
 
 def _remember_jsf_settings(category_id: int, category_html: str) -> None:
-    """Remember the live querydesk settings emitted by Facundo's page."""
+    """Remember live querydesk settings emitted by Facundo's page."""
     match = _JSF_SETTINGS_PATTERN.search(category_html or "")
     if not match:
         with _JSF_STATE_LOCK:
@@ -122,11 +112,7 @@ def _remember_jsf_settings(category_id: int, category_html: str) -> None:
         )
 
 
-def _remember_jsf_metadata(
-    category_id: int,
-    found_posts: int,
-    max_num_pages: int,
-) -> None:
+def _remember_jsf_metadata(category_id: int, found_posts: int, max_num_pages: int) -> None:
     if found_posts <= 0 and max_num_pages <= 0:
         return
     with _JSF_STATE_LOCK:
@@ -177,10 +163,7 @@ def _apply_live_request_settings(values: dict[str, str], settings: object) -> No
         values["settings[jsf_signature]"] = str(signature)
 
 
-def _browser_compatible_jsf_payload(
-    category_id: int,
-    page: int,
-) -> list[tuple[str, str]]:
+def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[str, str]]:
     """Build a JSF payload compatible with the live browser request state."""
     with _JSF_STATE_LOCK:
         request_state = dict(_JSF_REQUEST_STATE.get(category_id, {}))
@@ -193,10 +176,7 @@ def _browser_compatible_jsf_payload(
     values["defaults[paged]"] = str(page)
     values["props[page]"] = str(page)
     values["paged"] = str(page)
-    return [
-        (key, values.get(key, value))
-        for key, value in payload
-    ]
+    return [(key, values.get(key, value)) for key, value in payload]
 
 
 def _fetch_jsf_page_direct(
@@ -205,42 +185,23 @@ def _fetch_jsf_page_direct(
     category_id: int,
     page: int,
 ):
-    """Fetch one JSF page directly, without entering the CategoryScraper cache path."""
-    response_text = self._post_jsf(
-        _browser_compatible_jsf_payload(category_id, page)
-    )
-    found_posts, max_num_pages, rendered_html = self._parse_jsf_response(
-        response_text
-    )
+    response_text = self._post_jsf(_browser_compatible_jsf_payload(category_id, page))
+    found_posts, max_num_pages, rendered_html = self._parse_jsf_response(response_text)
     if found_posts > 0 or max_num_pages > 0:
         with self._jsf_cache_lock:
-            self._jsf_metadata_cache[category_url] = (
-                found_posts,
-                max_num_pages,
-            )
+            self._jsf_metadata_cache[category_url] = (found_posts, max_num_pages)
     if rendered_html:
         with self._jsf_cache_lock:
             self._jsf_page_cache[(category_url, page)] = rendered_html
     return found_posts, max_num_pages, rendered_html
 
 
-def _retry_jsf_page(
-    self: CategoryScraper,
-    category_url: str,
-    category_id: int,
-    page: int,
-):
-    """Retry transient JSF responses without stacking independent fetch/cache layers."""
+def _retry_jsf_page(self: CategoryScraper, category_url: str, category_id: int, page: int):
     last_error: Exception | None = None
     result = (0, 0, "")
     for _ in range(JSF_PAGE_RETRIES):
         try:
-            result = _fetch_jsf_page_direct(
-                self,
-                category_url,
-                category_id,
-                page,
-            )
+            result = _fetch_jsf_page_direct(self, category_url, category_id, page)
         except (RuntimeError, TypeError, ValueError) as error:
             last_error = error
             continue
@@ -251,23 +212,11 @@ def _retry_jsf_page(
     return result
 
 
-def _walk_jsf_page(
-    self: CategoryScraper,
-    category_url: str,
-    category_id: int,
-    page: int,
-):
-    """Fetch one pagination page with exactly three total attempts."""
+def _walk_jsf_page(self: CategoryScraper, category_url: str, category_id: int, page: int):
     return _retry_jsf_page(self, category_url, category_id, page)
 
 
-def _probe_jsf_page(
-    self: CategoryScraper,
-    category_url: str,
-    category_id: int,
-    page: int,
-):
-    """Probe a page once without adding another retry layer."""
+def _probe_jsf_page(self: CategoryScraper, category_url: str, category_id: int, page: int):
     fetcher = _ORIGINAL_FETCH_JSF_PAGE.__get__(self, CategoryScraper)
     return fetcher(category_url, category_id, page)
 
@@ -293,6 +242,66 @@ def _probe_boundary_page(
     return True, new_product_keys
 
 
+def _collect_direct_pages(
+    scraper: CategoryScraper,
+    category_url: str,
+    first_html: str,
+    expected_count: int,
+) -> tuple[list[str], set[str]]:
+    """Collect real public page links and validate their product sets."""
+    expected_pages = pages_required(expected_count, scraper.PRODUCTS_PER_PAGE)
+    initial_keys = _page_product_keys(scraper, first_html, category_url)
+    pages = [category_url]
+    seen = set(initial_keys)
+
+    discovered = scraper._fallback_pagination_links(category_url, first_html)
+    discovered_by_number: dict[int, str] = {}
+    for url in discovered:
+        number = scraper._page_number(url)
+        if number is not None and number > 1:
+            discovered_by_number.setdefault(number, url)
+
+    declared_pages = max(
+        scraper._declared_total_pages(first_html),
+        scraper._pagination_max_page(first_html),
+        max(discovered_by_number, default=0),
+        expected_pages,
+    )
+
+    for page_number in range(2, declared_pages + 1):
+        candidates = []
+        discovered_url = discovered_by_number.get(page_number)
+        if discovered_url:
+            candidates.append(discovered_url)
+        for candidate in _page_variants(category_url, page_number):
+            if candidate not in candidates:
+                candidates.append(candidate)
+
+        accepted = False
+        for page_url in candidates:
+            html = _safe_get_html(scraper, page_url)
+            if not html:
+                continue
+            current = _page_product_keys(scraper, html, page_url)
+            if not current:
+                continue
+            new_keys = current - seen
+            if not new_keys:
+                continue
+            seen.update(current)
+            scraper._cache_category_html(page_url, html)
+            pages.append(page_url)
+            accepted = True
+            break
+
+        if not accepted:
+            raise RuntimeError(
+                f"No unique products found on public pagination page {page_number} for {category_url}"
+            )
+
+    return pages, seen
+
+
 def _jsf_category_pages_with_probe(
     self: CategoryScraper,
     category_url: str,
@@ -300,14 +309,9 @@ def _jsf_category_pages_with_probe(
     expected_count: int,
     category_html: str = "",
 ) -> list[str]:
-    """Walk known JSF pages and validate the boundary without over-probing."""
+    """Use JSF only as an authoritative source when public pagination cannot cover the target."""
     _remember_jsf_settings(category_id, category_html)
-    found_posts, declared_max, first_html = _retry_jsf_page(
-        self,
-        category_url,
-        category_id,
-        1,
-    )
+    found_posts, declared_max, first_html = _retry_jsf_page(self, category_url, category_id, 1)
 
     expected_pages = self._required_page_count(expected_count)
     published_pages = self._required_page_count(found_posts)
@@ -337,21 +341,12 @@ def _jsf_category_pages_with_probe(
 
     for page_number in range(2, known_pages + 1):
         page_url = self._jsf_page_url(category_url, page_number)
-        _, _, rendered_html = _walk_jsf_page(
-            self,
-            category_url,
-            category_id,
-            page_number,
-        )
+        _, _, rendered_html = _walk_jsf_page(self, category_url, category_id, page_number)
         if not rendered_html:
             raise RuntimeError(
                 f"Empty JSF pagination page {page_number} for {category_url}"
             )
-        current_product_keys = _page_product_keys(
-            self,
-            rendered_html,
-            page_url,
-        )
+        current_product_keys = _page_product_keys(self, rendered_html, page_url)
         if not current_product_keys:
             raise RuntimeError(
                 f"No products found on JSF pagination page {page_number} for {category_url}"
@@ -384,10 +379,24 @@ def _get_category_pages(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Use authoritative JSF pagination for Facundo and public fallback elsewhere."""
+    """Prefer real public pagination; use JSF only when it actually renders unique pages."""
     first_html = _safe_get_html(self, category_url)
     if not first_html:
         return []
+
+    try:
+        pages, seen = _collect_direct_pages(
+            self,
+            category_url,
+            first_html,
+            expected_count,
+        )
+        target = max(int(expected_count or 0), 0)
+        if target <= 0 or len(seen) >= target:
+            return pages
+    except RuntimeError:
+        pages = [category_url]
+
     if not self._is_facundo_url(category_url):
         self._cache_category_html(category_url, first_html)
         return _ORIGINAL_GET_CATEGORY_PAGES(
@@ -395,9 +404,13 @@ def _get_category_pages(
             category_url,
             expected_count=expected_count,
         )
+
     category_id = self._category_id(first_html)
-    if category_id is not None:
-        self._cache_category_html(category_url, first_html)
+    if category_id is None:
+        return pages
+
+    self._cache_category_html(category_url, first_html)
+    try:
         return _jsf_category_pages_with_probe(
             self,
             category_url,
@@ -405,21 +418,11 @@ def _get_category_pages(
             expected_count,
             category_html=first_html,
         )
-    direct_products = _direct_product_urls(first_html, category_url)
-    if direct_products:
-        pages, product_count = _facundo_direct_pages(
-            self,
-            category_url,
-            first_html,
-            expected_count,
-        )
-        if product_count >= len(direct_products):
-            return pages
-    return _ORIGINAL_GET_CATEGORY_PAGES(
-        self,
-        category_url,
-        expected_count=expected_count,
-    )
+    except RuntimeError:
+        # Preserve a usable public page list; higher-level coverage checks decide
+        # whether the category is incomplete instead of silently duplicating data.
+        return pages
+
 
 
 def activate() -> None:

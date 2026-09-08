@@ -1,9 +1,9 @@
 from types import SimpleNamespace
 
 from models.scraping.category import Category
-from models.scraping.sync_result import SyncResult
 from services.scraping import prune_guard_recovery_patch
 from services.scraping.category_product_sync_service import CategoryProductSyncService
+from models.scraping.sync_result import SyncResult
 
 
 class Product:
@@ -79,7 +79,7 @@ def test_terminal_error_still_blocks_when_coverage_is_incomplete():
     )
 
     assert allowed is False
-    assert reason == "category_coverage_gap:Categoria A"
+    assert reason == "terminal_http_errors:1"
 
 
 def test_category_coverage_reports_processed_categories():

@@ -7,16 +7,14 @@ import re
 from threading import RLock
 from urllib.parse import urljoin
 
+from bs4 import BeautifulSoup
+
 from .category_scraper import CategoryScraper
 
 _PATCHED = False
 _ORIGINAL_GET_CATEGORY_PAGES = CategoryScraper.get_category_pages
 _ORIGINAL_FETCH_JSF_PAGE = CategoryScraper._fetch_jsf_page
 _ORIGINAL_JSF_PAYLOAD = CategoryScraper._jet_smart_filters_payload
-_PRODUCT_URL_PATTERN = re.compile(
-    r'href=["\']([^"\']*/producto/[^"\'#?]+/?)[^"\']*["\']',
-    re.IGNORECASE,
-)
 _JSF_SETTINGS_PATTERN = re.compile(
     r"var\s+JetSmartFilterSettings\s*=\s*(\{.*?\})\s*;",
     re.DOTALL,
@@ -42,12 +40,17 @@ def _safe_get_html(scraper: CategoryScraper, url: str) -> str:
 
 
 def _direct_product_urls(html: str, base_url: str) -> set[str]:
+    """Extract product URLs exactly as the collection scraper does."""
+    soup = BeautifulSoup(html or "", "html.parser")
     urls: set[str] = set()
-    for raw_url in _PRODUCT_URL_PATTERN.findall(html or ""):
-        absolute = urljoin(base_url.rstrip("/") + "/", raw_url)
-        normalized = absolute.rstrip("/")
-        if "/producto/" in normalized.casefold():
-            urls.add(normalized.casefold())
+    for link in soup.select('a[href*="/producto/"]'):
+        href = link.get("href")
+        if not isinstance(href, str) or not href.strip():
+            continue
+        absolute = urljoin(base_url, href.strip())
+        normalized = absolute.rstrip("/").casefold()
+        if "/producto/" in normalized:
+            urls.add(normalized)
     return urls
 
 

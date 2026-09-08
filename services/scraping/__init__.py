@@ -5,6 +5,7 @@ repositories can import individual scraping helpers without circular imports.
 """
 
 from . import category_coverage_patch as _category_coverage_patch
+from . import prune_guard_recovery_patch as _prune_guard_recovery_patch
 from .catalog_sync_service import CatalogSyncService
 from .category_product_scraping_service import CategoryProductScrapingService
 from .category_product_sync_service import CategoryProductSyncService
@@ -19,6 +20,7 @@ from .scraping_runner import ScrapingRunner
 from .scraping_session import ScrapingSession, ScrapingSessionResult
 
 _category_coverage_patch.activate()
+_prune_guard_recovery_patch.activate()
 
 __all__ = [
     "CatalogSyncService",

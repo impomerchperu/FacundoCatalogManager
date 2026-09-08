@@ -43,7 +43,7 @@ class NormalizedScrapingRepository:
                 expected_count=excluded.expected_count,
                 last_scraped_at=excluded.last_scraped_at,
                 updated_at=excluded.updated_at
-            """,
+            """ ,
             (
                 canonical_name,
                 canonical_url,
@@ -105,15 +105,14 @@ class NormalizedScrapingRepository:
             max(int(row.get("gap", 0) or 0), 0) > 0
             for row in category_summary
         )
-        result_coverage_complete = getattr(result, "coverage_complete", None)
         coverage_complete = bool(
-            result_coverage_complete is not False
-            and missing_code == 0
+            missing_code == 0
             and errors == 0
             and not message_value
             and (
-                expected <= 0
-                or (actual >= expected and not has_category_gap)
+                expected > 0
+                and actual >= expected
+                and not has_category_gap
             )
         )
         error_count = max(errors, int(bool(message_value)))

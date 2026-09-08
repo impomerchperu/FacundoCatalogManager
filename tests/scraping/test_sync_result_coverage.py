@@ -7,6 +7,15 @@ def test_coverage_is_complete_when_category_occurrences_are_met():
         products_found=5,
         products_unique=4,
         products_expected=5,
+        category_summary=[
+            {
+                "category": "Categoria A",
+                "expected": 5,
+                "products": 5,
+                "unique_products": 4,
+                "gap": 0,
+            },
+        ],
     )
 
     assert result.category_occurrence_gap == 0
@@ -20,6 +29,15 @@ def test_unique_count_does_not_override_complete_category_coverage():
         products_found=5,
         products_unique=4,
         products_expected=999,
+        category_summary=[
+            {
+                "category": "Categoria A",
+                "expected": 5,
+                "products": 5,
+                "unique_products": 4,
+                "gap": 0,
+            },
+        ],
     )
 
     assert result.category_occurrence_gap == 0
@@ -33,6 +51,15 @@ def test_coverage_is_incomplete_when_category_occurrences_are_missing():
         products_found=4,
         products_unique=4,
         products_expected=4,
+        category_summary=[
+            {
+                "category": "Categoria A",
+                "expected": 5,
+                "products": 4,
+                "unique_products": 4,
+                "gap": 1,
+            },
+        ],
     )
 
     assert result.category_occurrence_gap == 1
@@ -97,6 +124,15 @@ def test_finish_fails_when_category_coverage_is_incomplete():
         products_unique=15,
         updated=10,
         unchanged=5,
+        category_summary=[
+            {
+                "category": "Categoria A",
+                "expected": 20,
+                "products": 17,
+                "unique_products": 15,
+                "gap": 3,
+            },
+        ],
     )
 
     result.finish()
@@ -111,6 +147,15 @@ def test_finish_succeeds_when_category_coverage_is_complete():
         products_found=20,
         products_unique=18,
         unchanged=18,
+        category_summary=[
+            {
+                "category": "Categoria A",
+                "expected": 20,
+                "products": 20,
+                "unique_products": 18,
+                "gap": 0,
+            },
+        ],
     )
 
     result.finish()

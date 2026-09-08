@@ -2,8 +2,8 @@ from types import SimpleNamespace
 
 from models.scraping.category import Category
 from models.scraping.sync_result import SyncResult
-from services.scraping.category_product_sync_service import CategoryProductSyncService
 from services.scraping import prune_guard_recovery_patch
+from services.scraping.category_product_sync_service import CategoryProductSyncService
 
 
 class Product:
@@ -95,3 +95,25 @@ def test_category_coverage_reports_processed_categories():
     service._attach_category_coverage([], [], categories)
 
     assert service.last_sync_result.categories_processed == 2
+
+
+def test_consolidated_result_uses_unique_products_for_coverage():
+    result = SyncResult(
+        products_expected=526,
+        expected_category_occurrences=530,
+        products_found=526,
+        products_unique=526,
+    )
+
+    assert result.coverage_complete is True
+
+
+def test_consolidated_result_rejects_missing_unique_products():
+    result = SyncResult(
+        products_expected=526,
+        expected_category_occurrences=530,
+        products_found=525,
+        products_unique=525,
+    )
+
+    assert result.coverage_complete is False

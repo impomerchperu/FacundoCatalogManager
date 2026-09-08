@@ -31,6 +31,22 @@ def test_category_scraper_discovers_real_woocommerce_page_variant_from_expected_
     assert pages == [url, page_two]
 
 
+def test_category_scraper_tries_public_query_variant_when_wordpress_page_repeats():
+    url = "https://stock.importacionesfacundo.com/categoria-producto/antiestres/"
+    page_two = f"{url}?product-page=2"
+    browser = FakeBrowser({
+        url: '<article><a href="/producto/p1/"></a></article>',
+        f"{url}page/2/": '<article><a href="/producto/p1/"></a></article>',
+        page_two: '<article><a href="/producto/p2/"></a></article>',
+    })
+    scraper = CategoryScraper(browser)
+    scraper.PRODUCTS_PER_PAGE = 1
+
+    pages = scraper.get_category_pages(url, expected_count=2)
+
+    assert pages == [url, page_two]
+
+
 def test_category_scraper_respects_explicit_pagination_href():
     url = "https://example.test/categoria-producto/antiestres/"
     page_two = f"{url}?product-page=2"

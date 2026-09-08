@@ -59,11 +59,11 @@ def _page_product_keys(
     html: str,
     base_url: str,
 ) -> set[str]:
-    """Prefer explicit product codes; use URLs only when codes are absent."""
-    code_keys = self._product_keys(html)
-    if code_keys:
-        return code_keys
-    return _direct_product_urls(html, base_url)
+    """Prefer real product URLs; fall back to explicit product-code keys."""
+    product_urls = _direct_product_urls(html, base_url)
+    if product_urls:
+        return product_urls
+    return self._product_keys(html)
 
 
 def _page_variants(category_url: str, page: int) -> list[str]:

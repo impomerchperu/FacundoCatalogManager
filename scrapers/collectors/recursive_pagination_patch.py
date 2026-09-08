@@ -109,68 +109,6 @@ def _collect_direct_pages(
     return pages, seen
 
 
-def _get_category_pages(
-    self: CategoryScraper,
-    category_url: str,
-    expected_count: int = 0,
-) -> list[str]:
-    """Preserve public fallback behavior while extending Facundo recovery."""
-    first_html = _category_pagination_patch._safe_get_html(self, category_url)
-    if not first_html:
-        return []
-
-    pages = [category_url]
-    seen: set[str] = set()
-    try:
-        pages, seen = _collect_direct_pages(
-            self,
-            category_url,
-            first_html,
-            expected_count,
-        )
-    except RuntimeError:
-        pages = [category_url]
-
-    target = max(int(expected_count or 0), 0)
-    has_product_data = bool(seen)
-
-    if not self._is_facundo_url(category_url):
-        if target <= 0:
-            self._cache_category_html(category_url, first_html)
-            return self._fallback_category_pages(
-                category_url,
-                first_html,
-                expected_count,
-            )
-        if len(seen) >= target:
-            return pages
-        self._cache_category_html(category_url, first_html)
-        return _category_pagination_patch._ORIGINAL_GET_CATEGORY_PAGES(
-            self,
-            category_url,
-            expected_count=expected_count,
-        )
-
-    category_id = self._category_id(first_html)
-    if category_id is None:
-        return pages
-
-    if target > 0 and len(seen) >= target:
-        return pages
-    if target <= 0 and has_product_data:
-        self._cache_category_html(category_url, first_html)
-    else:
-        self._cache_category_html(category_url, first_html)
-    return _category_pagination_patch._jsf_category_pages_with_probe(
-        self,
-        category_url,
-        category_id,
-        expected_count,
-        category_html=first_html,
-    )
-
-
 _category_pagination_patch._collect_direct_pages = _collect_direct_pages
-_category_pagination_patch.CategoryScraper.get_category_pages = _get_category_pages
 
 __all__ = ["_collect_direct_pages"]

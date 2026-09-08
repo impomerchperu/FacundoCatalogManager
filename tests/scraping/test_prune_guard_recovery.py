@@ -1,9 +1,9 @@
 from types import SimpleNamespace
 
 from models.scraping.category import Category
+from models.scraping.sync_result import SyncResult
 from services.scraping import prune_guard_recovery_patch
 from services.scraping.category_product_sync_service import CategoryProductSyncService
-from models.scraping.sync_result import SyncResult
 
 
 class Product:

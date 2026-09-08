@@ -397,7 +397,6 @@ def _get_category_pages(
         pages = [category_url]
 
     target = max(int(expected_count or 0), 0)
-    has_product_data = bool(seen)
 
     if not self._is_facundo_url(category_url):
         if target > 0 and len(seen) >= target:
@@ -414,9 +413,6 @@ def _get_category_pages(
         return pages
 
     if target > 0 and len(seen) >= target:
-        return pages
-
-    if not has_product_data and target <= 0:
         return pages
 
     self._cache_category_html(category_url, first_html)

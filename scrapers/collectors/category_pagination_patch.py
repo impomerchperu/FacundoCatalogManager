@@ -154,7 +154,9 @@ def _apply_live_query_defaults(values: dict[str, str], query: object) -> None:
         value = query.get(key)
         if value is None:
             continue
-        values[f"defaults[{key}]"] = str(value).lower() if isinstance(value, bool) else str(value)
+        values[f"defaults[{key}]"] = (
+            str(value).lower() if isinstance(value, bool) else str(value)
+        )
 
 
 def _apply_live_request_settings(values: dict[str, str], settings: object) -> None:
@@ -194,7 +196,6 @@ def _browser_compatible_jsf_payload(
     return [
         (key, values.get(key, value))
         for key, value in payload
-        if key != "indexing_filters[]"
     ]
 
 

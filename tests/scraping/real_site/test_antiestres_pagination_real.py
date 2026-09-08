@@ -1,3 +1,4 @@
+import json
 import unicodedata
 from time import perf_counter
 
@@ -26,6 +27,20 @@ def _normalize(value: str) -> str:
     )
 
 
+def _rendered_content(payload: str) -> str:
+    try:
+        data = json.loads(payload)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    data_section = data.get("data")
+    if not isinstance(data_section, dict):
+        return ""
+    rendered = data_section.get("rendered_content")
+    return rendered if isinstance(rendered, str) else ""
+
+
 @pytest.mark.real_site
 def test_antiestres_pagination_real_site():
     """Validate live JSF pagination and expose page/request identity."""
@@ -43,23 +58,30 @@ def test_antiestres_pagination_real_site():
         ProductExtractor(),
     )
 
-    captured_requests: list[dict[str, str]] = []
+    captured_requests: list[dict[str, object]] = []
     original_post_jsf = category_scraper._post_jsf
 
     def capture_jsf(payload):
         values = dict(payload)
         result = original_post_jsf(payload)
         page = values.get("paged", "")
-        props_page = values.get("props[page]", "")
-        defaults_page = values.get("defaults[paged]", "")
-        category_id = values.get("query[_tax_query_product_cat]", "")
+        rendered = _rendered_content(result)
         captured_requests.append(
             {
                 "paged": page,
-                "props_page": props_page,
-                "defaults_paged": defaults_page,
-                "category_id": category_id,
-                "html_len": str(len(result)),
+                "props_page": values.get("props[page]", ""),
+                "defaults_paged": values.get("defaults[paged]", ""),
+                "category_id": values.get("query[_tax_query_product_cat]", ""),
+                "orderby_menu_order": values.get(
+                    "defaults[orderby][menu_order]", ""
+                ),
+                "has_indexing_filters": "indexing_filters[]" in values,
+                "rendered_html_len": len(rendered),
+                "rendered_product_urls": sorted(
+                    _direct_product_urls(rendered, category.url)
+                )
+                if "category" in locals()
+                else [],
             }
         )
         return result
@@ -90,23 +112,26 @@ def test_antiestres_pagination_real_site():
     print("CATEGORÍA:", category.name)
     print("ESPERADOS:", EXPECTED_PRODUCTS)
     print("PÁGINAS DEVUELTAS:", len(pages), pages)
-    print(
-        "REQUESTS JSF:",
-        captured_requests,
-    )
+    print("REQUESTS JSF:", captured_requests)
     for index, urls in enumerate(page_url_sets, start=1):
         print(
-            f"PÁGINA {index}: URLS={len(urls)} "
+            f"PÁGINA FALLBACK {index}: URLS={len(urls)} "
             f"MUESTRA={sorted(urls)[:5]}"
         )
-    if len(page_url_sets) >= 2:
+    jsf_page_groups = {
+        str(request["paged"]): set(request["rendered_product_urls"])
+        for request in captured_requests
+        if request.get("paged") in {"1", "2"}
+        and request.get("rendered_product_urls")
+    }
+    if "1" in jsf_page_groups and "2" in jsf_page_groups:
         print(
-            "URLS COMUNES P1/P2:",
-            len(page_url_sets[0] & page_url_sets[1]),
+            "URLS JSF COMUNES P1/P2:",
+            len(jsf_page_groups["1"] & jsf_page_groups["2"]),
         )
         print(
-            "URLS NUEVAS P2:",
-            len(page_url_sets[1] - page_url_sets[0]),
+            "URLS JSF NUEVAS P2:",
+            len(jsf_page_groups["2"] - jsf_page_groups["1"]),
         )
 
     products = collection.scrape_category(category)

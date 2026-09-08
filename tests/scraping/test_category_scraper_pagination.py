@@ -1,6 +1,8 @@
 import json
 from types import SimpleNamespace
 
+import pytest
+
 from models.scraping.category import Category
 from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
@@ -135,3 +137,37 @@ def test_category_scraper_exposes_jsf_rendered_page_through_get_html():
     assert scraper.get_html(page_two) == (
         '<article>FB-1001 producto-2</article>'
     )
+
+
+def test_category_pagination_raises_when_jsf_repeats_product_urls():
+    category_url = "https://stock.importacionesfacundo.com/categoria-producto/articulos-de-antiestres/"
+    browser = FakeBrowser({
+        category_url: '<body class="term-123"></body>',
+    })
+    scraper = CategoryScraper(browser)
+    calls = {"count": 0}
+
+    def fake_post_jsf(payload):
+        page = next(value for key, value in payload if key == "paged")
+        calls["count"] += 1
+        if page == "1":
+            rendered = '<article><a href="/producto/p1/"></a></article>'
+        else:
+            rendered = (
+                '<article><a href="/producto/p1/"></a></article>'
+                '<script>FB-UNRELATED-999</script>'
+            )
+        return json.dumps({
+            "data": {
+                "found_posts": 50,
+                "max_num_pages": 2,
+                "rendered_content": rendered,
+            }
+        })
+
+    scraper._post_jsf = fake_post_jsf
+
+    with pytest.raises(RuntimeError, match="Repeated JSF pagination page 2"):
+        scraper.get_category_pages(category_url, expected_count=50)
+
+    assert calls["count"] == 4

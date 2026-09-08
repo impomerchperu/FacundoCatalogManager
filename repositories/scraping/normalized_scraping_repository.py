@@ -104,10 +104,12 @@ class NormalizedScrapingRepository:
             max(int(row.get("gap", 0) or 0), 0) > 0
             for row in category_summary
         )
-        result_coverage_complete = getattr(result, "coverage_complete", None)
+        # El historial normalizado representa la cobertura publicada por
+        # categorías. Los productos únicos son una métrica independiente:
+        # un mismo producto puede aparecer en varias categorías sin invalidar
+        # la cobertura de ocurrencias.
         coverage_complete = bool(
-            result_coverage_complete is not False
-            and errors == 0
+            errors == 0
             and not message_value
             and (
                 expected <= 0

@@ -50,7 +50,13 @@ def _recover_category_html(
         return category_html
     try:
         return scraper.get_html(category_url)
-    except (requests.exceptions.RequestException, AttributeError, RuntimeError, TypeError, ValueError):
+    except (
+        requests.exceptions.RequestException,
+        AttributeError,
+        RuntimeError,
+        TypeError,
+        ValueError,
+    ):
         return ""
 
 
@@ -58,7 +64,12 @@ def _fetch_recovery_page(fetcher, category_url: str, category_id: int, page: int
     for _ in range(2):
         try:
             _, _, rendered_html = fetcher(category_url, category_id, page)
-        except (requests.exceptions.RequestException, RuntimeError, TypeError, ValueError):
+        except (
+            requests.exceptions.RequestException,
+            RuntimeError,
+            TypeError,
+            ValueError,
+        ):
             return ""
         if rendered_html:
             return rendered_html
@@ -136,6 +147,8 @@ def _get_category_pages_with_recovery(
             expected_count=expected_count,
         )
     except requests.exceptions.RequestException:
+        if isinstance(self, ResilientCategoryScraper):
+            raise
         pages = []
     return _recover_missing_pages(self, category_url, expected_count, list(pages))
 

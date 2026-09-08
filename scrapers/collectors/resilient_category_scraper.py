@@ -113,7 +113,21 @@ class ResilientCategoryScraper(CategoryScraper):
             self._cache_category_html(category_url, category_html)
             try:
                 pages = super().get_category_pages(category_url, expected_count)
-            except (RuntimeError, requests.exceptions.HTTPError) as error:
+            except requests.exceptions.HTTPError as error:
+                self._raise_if_not_retryable(error)
+                fallback_html = self._refresh_category_html_for_fallback(category_url)
+                if fallback_html:
+                    fallback_products = self._product_keys_without_taxonomy_markers(
+                        fallback_html,
+                    )
+                    if fallback_products:
+                        return self._fallback_pages_or_category(
+                            category_url,
+                            fallback_html,
+                            expected_count,
+                        )
+                continue
+            except RuntimeError as error:
                 self._raise_if_not_retryable(error)
                 continue
 

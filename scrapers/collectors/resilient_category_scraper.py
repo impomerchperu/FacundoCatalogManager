@@ -84,6 +84,13 @@ class ResilientCategoryScraper(CategoryScraper):
         product_keys = self._product_keys_without_taxonomy_markers(category_html)
         if not product_keys:
             return None
+        if expected_count <= 0:
+            self._cache_category_html(category_url, category_html)
+            return self._fallback_pages_or_category(
+                category_url,
+                category_html,
+                expected_count,
+            )
         return self._fallback_pages_or_category(
             category_url,
             category_html,

@@ -21,10 +21,16 @@ class ResilientCategoryScraper(CategoryScraper):
             category_html,
             expected_count,
         )
+        product_keys = self._product_keys_without_taxonomy_markers(category_html)
+        if product_keys and pages == []:
+            return self._fallback_after_jsf_failure(
+                category_url,
+                category_html,
+                expected_count,
+            ) or [category_url]
         if pages is not None:
             return pages
 
-        product_keys = self._product_keys_without_taxonomy_markers(category_html)
         if product_keys:
             return self._fallback_pages_or_category(
                 category_url,

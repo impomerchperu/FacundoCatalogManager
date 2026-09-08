@@ -2,6 +2,9 @@ import re
 
 import requests
 
+from scrapers.collectors.category_pagination_patch import (
+    _collect_direct_pages,
+)
 from scrapers.collectors.category_scraper import CategoryScraper
 
 
@@ -96,6 +99,19 @@ class ResilientCategoryScraper(CategoryScraper):
         category_html: str,
         expected_count: int,
     ) -> list[str]:
+        """Recover public pages while rejecting repeated product sets."""
+        if self._is_facundo_url(category_url):
+            try:
+                pages, _ = _collect_direct_pages(
+                    self,
+                    category_url,
+                    category_html,
+                    expected_count,
+                )
+            except (RuntimeError, TypeError, ValueError):
+                return [category_url]
+            return pages or [category_url]
+
         pages = self._fallback_category_pages(
             category_url,
             category_html,

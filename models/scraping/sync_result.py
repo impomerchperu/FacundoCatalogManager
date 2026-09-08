@@ -92,20 +92,32 @@ class SyncResult:
 
     @property
     def coverage_complete(self) -> bool:
-        """True cuando la cobertura publicada por categorías está completa."""
+        """True when the result has complete coverage for its known scope.
+
+        A populated category summary represents raw category occurrences, so
+        its per-category coverage is authoritative. Without that summary, the
+        result is treated as consolidated catalog data and ``products_expected``
+        is therefore validated against unique products.
+        """
         if self.missing_code != 0:
             return False
 
-        if self.expected_category_occurrences > 0:
-            if self.products_found < self.expected_category_occurrences:
-                return False
-        elif self.products_found <= 0:
-            return False
+        if self.category_summary:
+            if self.expected_category_occurrences > 0:
+                if self.products_found < self.expected_category_occurrences:
+                    return False
+            return not any(
+                max(int(row.get("gap", 0) or 0), 0) > 0
+                for row in self.category_summary
+            )
 
-        return not any(
-            max(int(row.get("gap", 0) or 0), 0) > 0
-            for row in self.category_summary
-        )
+        if self.products_expected > 0:
+            return self.products_unique >= self.products_expected
+
+        if self.expected_category_occurrences > 0:
+            return self.products_found >= self.expected_category_occurrences
+
+        return self.products_found > 0
 
     @property
     def category_occurrence_gap(self) -> int:

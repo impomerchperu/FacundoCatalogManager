@@ -78,10 +78,8 @@ def test_antiestres_pagination_real_site():
                 "has_indexing_filters": "indexing_filters[]" in values,
                 "rendered_html_len": len(rendered),
                 "rendered_product_urls": sorted(
-                    _direct_product_urls(rendered, category.url)
-                )
-                if "category" in locals()
-                else [],
+                    _direct_product_urls(rendered, STORE_URL)
+                ),
             }
         )
         return result

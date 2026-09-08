@@ -115,18 +115,10 @@ class ResilientCategoryScraper(CategoryScraper):
                 pages = super().get_category_pages(category_url, expected_count)
             except requests.exceptions.HTTPError as error:
                 self._raise_if_not_retryable(error)
-                fallback_html = self._refresh_category_html_for_fallback(category_url)
-                if fallback_html:
-                    fallback_products = self._product_keys_without_taxonomy_markers(
-                        fallback_html,
-                    )
-                    if fallback_products:
-                        return self._fallback_pages_or_category(
-                            category_url,
-                            fallback_html,
-                            expected_count,
-                        )
-                continue
+                return self._refresh_and_fallback(
+                    category_url,
+                    expected_count,
+                )
             except RuntimeError as error:
                 self._raise_if_not_retryable(error)
                 continue
@@ -150,6 +142,23 @@ class ResilientCategoryScraper(CategoryScraper):
         # no pages so the full run can continue and coverage/pruning guards can
         # correctly mark the run as incomplete.
         return []
+
+    def _refresh_and_fallback(
+        self,
+        category_url: str,
+        expected_count: int,
+    ) -> list[str]:
+        """Hace un GET fresco y conserva la paginación pública disponible."""
+        fallback_html = self._refresh_category_html_for_fallback(category_url)
+        if not fallback_html:
+            return []
+        if not self._product_keys_without_taxonomy_markers(fallback_html):
+            return []
+        return self._fallback_pages_or_category(
+            category_url,
+            fallback_html,
+            expected_count,
+        )
 
     def _refresh_category_html_for_fallback(self, category_url: str) -> str:
         """Actualiza el HTML por GET antes de abandonar la vía JSF."""

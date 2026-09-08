@@ -96,7 +96,7 @@ class ResilientCategoryScraper(CategoryScraper):
         category_html: str,
         expected_count: int,
     ) -> list[str]:
-        """Recover public pages while rejecting repeated product sets."""
+        """Recover public pages while validating known coverage strictly."""
         if self._is_facundo_url(category_url):
             if expected_count <= 0:
                 pages = self._fallback_category_pages(

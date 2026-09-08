@@ -170,4 +170,4 @@ def test_category_pagination_raises_when_jsf_repeats_product_urls():
     with pytest.raises(RuntimeError, match="Repeated JSF pagination page 2"):
         scraper.get_category_pages(category_url, expected_count=50)
 
-    assert calls["count"] == 4
+    assert calls["count"] == 2

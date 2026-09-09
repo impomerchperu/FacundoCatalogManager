@@ -1,6 +1,8 @@
 import os
 import sqlite3
 
+from services.scraping.category_name_normalizer import merge_category_names
+
 
 class DBManager:
     """Gestiona SQLite con inicialización, migraciones y persistencia segura."""
@@ -50,10 +52,24 @@ class DBManager:
         self._remove_legacy_colors_column("products")
         self._remove_legacy_colors_column("scraped_products")
         self._migrate_download_changes()
+        self._normalize_existing_product_categories()
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_scraping_history_finished_at "
             "ON scraping_history(finished_at)"
         )
+
+    def _normalize_existing_product_categories(self) -> None:
+        """Consolida variantes históricas sin alterar las relaciones normalizadas."""
+        rows = self.fetch_all("SELECT id, category FROM products")
+        for row in rows:
+            current = str(row["category"] or "")
+            canonical = merge_category_names(current)
+            if canonical == current:
+                continue
+            self.connection.execute(
+                "UPDATE products SET category=? WHERE id=?",
+                (canonical, row["id"]),
+            )
 
     def _remove_legacy_colors_column(self, table_name: str) -> None:
         columns = self.fetch_all(f"PRAGMA table_info({table_name})")

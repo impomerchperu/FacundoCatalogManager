@@ -36,16 +36,18 @@ class ScrapingHistoryRepository:
             """
             INSERT INTO scraping_history (
                 started_at, finished_at, processed, created, updated,
-                unchanged, deleted, generated, products_expected, products_found,
-                products_unique, products_multiple_categories, duplicate_occurrences,
+                unchanged, deleted, generated, categories_processed,
+                products_expected, products_found, products_unique,
+                products_multiple_categories, duplicate_occurrences,
                 category_summary, multiple_category_products,
                 errors, status, message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 history.started_at.isoformat(), history.finished_at.isoformat(),
                 history.processed, history.created, history.updated,
                 history.unchanged, history.deleted, history.generated,
+                history.categories_processed,
                 history.products_expected, history.products_found,
                 history.products_unique, history.products_multiple_categories,
                 history.duplicate_occurrences,
@@ -128,10 +130,10 @@ class ScrapingHistoryRepository:
             """
             SELECT id, started_at, finished_at, processed, created,
                    updated, unchanged, deleted, generated,
-                   products_expected, products_found, products_unique,
-                   products_multiple_categories, duplicate_occurrences,
-                   category_summary, multiple_category_products,
-                   errors, status, message
+                   categories_processed, products_expected, products_found,
+                   products_unique, products_multiple_categories,
+                   duplicate_occurrences, category_summary,
+                   multiple_category_products, errors, status, message
             FROM scraping_history ORDER BY id DESC LIMIT ?
             """,
             (limit,),
@@ -143,10 +145,10 @@ class ScrapingHistoryRepository:
             """
             SELECT id, started_at, finished_at, processed, created,
                    updated, unchanged, deleted, generated,
-                   products_expected, products_found, products_unique,
-                   products_multiple_categories, duplicate_occurrences,
-                   category_summary, multiple_category_products,
-                   errors, status, message
+                   categories_processed, products_expected, products_found,
+                   products_unique, products_multiple_categories,
+                   duplicate_occurrences, category_summary,
+                   multiple_category_products, errors, status, message
             FROM scraping_history WHERE id = ?
             """,
             (history_id,),
@@ -202,6 +204,7 @@ class ScrapingHistoryRepository:
             finished_at=datetime.fromisoformat(row["finished_at"]),
             processed=row["processed"], created=row["created"], updated=row["updated"],
             unchanged=row["unchanged"], deleted=row["deleted"], generated=row["generated"],
+            categories_processed=row["categories_processed"],
             products_expected=row["products_expected"], products_found=row["products_found"],
             products_unique=row["products_unique"],
             products_multiple_categories=row["products_multiple_categories"],

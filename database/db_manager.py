@@ -37,6 +37,7 @@ class DBManager:
         for column, definition in (
             ("deleted", "INTEGER DEFAULT 0"),
             ("generated", "INTEGER DEFAULT 0"),
+            ("categories_processed", "INTEGER DEFAULT 0"),
             ("products_expected", "INTEGER DEFAULT 0"),
             ("products_found", "INTEGER DEFAULT 0"),
             ("products_unique", "INTEGER DEFAULT 0"),

@@ -93,12 +93,7 @@ class CatalogBootstrapService:
         )
 
     def reconcile_latest_successful_run(self) -> int:
-        """Reconstruye relaciones a partir de un FULL exitoso de forma explícita.
-
-        Este método no se ejecuta al arrancar la aplicación. Se conserva como
-        operación explícita para diagnosticar o reparar relaciones normalizadas.
-        La GUI sigue utilizando siempre ``products`` como fuente persistente.
-        """
+        """Reconstruye relaciones a partir de un FULL exitoso de forma explícita."""
         run = self.db.fetch_one(
             """
             SELECT id
@@ -127,6 +122,19 @@ class CatalogBootstrapService:
         self.db.begin()
         try:
             self.db.execute_query("DELETE FROM product_categories")
+            self.db.execute_query(
+                """
+                DELETE FROM products
+                WHERE id NOT IN (
+                    SELECT DISTINCT p.id
+                    FROM products p
+                    JOIN scraping_product_occurrences o
+                      ON UPPER(TRIM(o.code)) = UPPER(TRIM(p.code))
+                    WHERE o.run_id = ?
+                )
+                """,
+                (run_id,),
+            )
             self.db.execute_query(
                 """
                 INSERT INTO product_categories
@@ -167,14 +175,7 @@ class CatalogBootstrapService:
         return self.product_count()
 
     def restore_from_change_history(self) -> int:
-        """Aplica acumulativamente todos los cambios históricos sobre catalog.db.
-
-        No sustituye el catálogo por una instantánea de un scraping. Parte del
-        estado local existente y reproduce los cambios históricos en orden,
-        incluyendo altas, modificaciones y bajas. De esta forma una reparación
-        conserva campos que alguna versión antigua no haya registrado y deja la
-        base preparada para que los próximos scrapings continúen actualizándola.
-        """
+        """Aplica acumulativamente todos los cambios históricos sobre catalog.db."""
         changes = self.db.fetch_all(
             """
             SELECT history_id, id, change_type, code, product_name,
@@ -209,7 +210,7 @@ class CatalogBootstrapService:
                 continue
 
             item_type = str(change["change_type"] or "").strip().upper()
-            if item_type in {"DELETED"}:
+            if item_type == "DELETED":
                 deleted_codes.add(code)
                 products.pop(code, None)
                 continue

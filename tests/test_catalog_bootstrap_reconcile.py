@@ -82,9 +82,11 @@ def test_reconcile_latest_successful_run_prunes_and_rebuilds_relations():
         [("A", "Producto A"), ("B", "Producto B"), ("STALE", "Fuera")],
     )
     db.executemany(
-        "INSERT INTO scraping_product_occurrences
-         (run_id, category_id, code, product_url, discovered_at)
-         VALUES (?, ?, ?, '', 'now')",
+        """
+        INSERT INTO scraping_product_occurrences
+            (run_id, category_id, code, product_url, discovered_at)
+        VALUES (?, ?, ?, '', 'now')
+        """,
         [
             (run_id, category_ids[0], "A"),
             (run_id, category_ids[0], "B"),

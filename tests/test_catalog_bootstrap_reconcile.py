@@ -140,9 +140,7 @@ def test_reconcile_latest_successful_run_prunes_and_rebuilds_relations():
         """,
         (run_id,),
     ).fetchone()[0] == 3
-    assert connection.execute(
-        "SELECT code FROM products ORDER BY code"
-    ).fetchall() == [
-        ("A",),
-        ("B",),
-    ]
+    assert [
+        row["code"]
+        for row in connection.execute("SELECT code FROM products ORDER BY code")
+    ] == ["A", "B"]

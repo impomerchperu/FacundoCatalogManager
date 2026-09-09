@@ -23,7 +23,10 @@ class DBManager:
         self.connection.commit()
 
     def initialize_database(self):
-        schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
+        schema_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "schema.sql",
+        )
         if os.path.exists(schema_path):
             with open(schema_path, "r", encoding="utf-8") as file:
                 self.connection.executescript(file.read())
@@ -57,7 +60,7 @@ class DBManager:
         )
 
     def _normalize_existing_product_categories(self) -> None:
-        """Consolida variantes históricas sin alterar las relaciones normalizadas."""
+        """Consolida variantes históricas sin alterar relaciones normalizadas."""
         from services.scraping.category_name_normalizer import merge_category_names
 
         rows = self.fetch_all("SELECT id, category FROM products")
@@ -78,19 +81,23 @@ class DBManager:
         self.connection.execute(f"ALTER TABLE {table_name} DROP COLUMN colors")
 
     def _migrate_download_changes(self):
-        """Garantiza la FK de download_changes preservando registros antiguos."""
+        """Garantiza la FK y conserva cualquier detalle histórico existente."""
         if not self._table_exists("download_changes"):
             self._create_download_changes_table()
             self._create_download_changes_indexes()
+            self._restore_legacy_download_changes()
             return
 
         foreign_keys = self.fetch_all("PRAGMA foreign_key_list(download_changes)")
         references_scraping_history = any(
-            row["table"] == "scraping_history" and row["from"] == "history_id" and row["to"] == "id"
+            row["table"] == "scraping_history"
+            and row["from"] == "history_id"
+            and row["to"] == "id"
             for row in foreign_keys
         )
         if references_scraping_history:
             self._create_download_changes_indexes()
+            self._restore_legacy_download_changes()
             return
 
         self._backup_legacy_download_changes()
@@ -102,9 +109,13 @@ class DBManager:
         legacy_table = "download_changes_legacy"
         if self._table_exists(legacy_table):
             return
-        self.connection.execute("DROP INDEX IF EXISTS idx_download_changes_history_id")
+        self.connection.execute(
+            "DROP INDEX IF EXISTS idx_download_changes_history_id"
+        )
         self.connection.execute("DROP INDEX IF EXISTS idx_download_changes_code")
-        self.connection.execute("ALTER TABLE download_changes RENAME TO download_changes_legacy")
+        self.connection.execute(
+            "ALTER TABLE download_changes RENAME TO download_changes_legacy"
+        )
 
     def _restore_legacy_download_changes(self):
         legacy_table = "download_changes_legacy"
@@ -148,6 +159,18 @@ class DBManager:
             FROM {legacy_table} AS legacy
             JOIN scraping_history AS history
               ON history.id = legacy.history_id
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM download_changes current
+                WHERE current.history_id = legacy.history_id
+                  AND current.change_type = legacy.change_type
+                  AND current.code = legacy.code
+                  AND current.product_name = legacy.product_name
+                  AND current.field_name IS legacy.field_name
+                  AND current.field_label = legacy.field_label
+                  AND current.old_value IS legacy.old_value
+                  AND current.new_value IS legacy.new_value
+            )
             """
         )
 
@@ -164,22 +187,36 @@ class DBManager:
                 field_label TEXT NOT NULL,
                 old_value TEXT,
                 new_value TEXT,
-                FOREIGN KEY (history_id) REFERENCES scraping_history(id) ON DELETE CASCADE
+                FOREIGN KEY (history_id)
+                    REFERENCES scraping_history(id)
+                    ON DELETE CASCADE
             )
             """
         )
 
     def _create_download_changes_indexes(self):
-        self.connection.execute("CREATE INDEX IF NOT EXISTS idx_download_changes_history_id ON download_changes(history_id)")
-        self.connection.execute("CREATE INDEX IF NOT EXISTS idx_download_changes_code ON download_changes(code)")
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_download_changes_history_id "
+            "ON download_changes(history_id)"
+        )
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_download_changes_code "
+            "ON download_changes(code)"
+        )
 
     def _table_exists(self, table_name: str) -> bool:
         row = self.connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table_name,)
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+            (table_name,),
         ).fetchone()
         return row is not None
 
-    def _add_column_if_missing(self, table_name: str, column_name: str, column_definition: str) -> None:
+    def _add_column_if_missing(
+        self,
+        table_name: str,
+        column_name: str,
+        column_definition: str,
+    ) -> None:
         columns = self.fetch_all(f"PRAGMA table_info({table_name})")
         if column_name in {row["name"] for row in columns}:
             return

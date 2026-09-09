@@ -18,6 +18,10 @@ _CANONICAL_CATEGORIES = {
     "cocina mesa y hogar": "Cocina, Mesa y Hogar",
     "cocina mesa hogar": "Cocina, Mesa y Hogar",
     "mesa y hogar": "Cocina, Mesa y Hogar",
+    "articulos antiestres": "Artículos Antiestrés",
+    "articulos de antiestres": "Artículos Antiestrés",
+    "articulos antiesres": "Artículos Antiestrés",
+    "articulos de antiesres": "Artículos Antiestrés",
 }
 
 

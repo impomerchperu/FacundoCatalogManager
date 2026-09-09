@@ -7,7 +7,7 @@ from database.db_manager import DBManager
 
 
 class CatalogBootstrapService:
-    """Gestiona la recuperación local del catálogo persistente."""
+    """Gestiona la recuperación y consistencia local del catálogo."""
 
     PRODUCT_FIELDS: ClassVar[set[str]] = {
         "name",
@@ -56,6 +56,99 @@ class CatalogBootstrapService:
             """,
             ("initialized", "1"),
         )
+
+    def reconcile_latest_successful_run(self) -> int:
+        """Alinea el catálogo maestro con el último scraping FULL exitoso.
+
+        Usa exclusivamente datos locales ya persistidos por el scraper. No
+        realiza peticiones web. Conserva los datos actuales de los productos
+        que pertenecen al último run, elimina productos que quedaron fuera y
+        reconstruye sus relaciones normalizadas y referencias de ocurrencia.
+        """
+        run = self.db.fetch_one(
+            """
+            SELECT id
+            FROM scraping_runs
+            WHERE mode='full'
+              AND status='SUCCESS'
+              AND coverage_complete=1
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        )
+        if run is None:
+            return 0
+
+        run_id = int(run["id"])
+        expected = int(
+            self.db.fetch_one(
+                "SELECT COUNT(DISTINCT code) AS total FROM scraping_product_occurrences WHERE run_id=?",
+                (run_id,),
+            )["total"]
+        )
+        if expected <= 0:
+            return 0
+
+        self.db.begin()
+        try:
+            self.db.execute_query(
+                "DELETE FROM product_categories"
+            )
+            self.db.execute_query(
+                """
+                DELETE FROM products
+                WHERE id NOT IN (
+                    SELECT DISTINCT p.id
+                    FROM products p
+                    JOIN scraping_product_occurrences o
+                      ON UPPER(TRIM(o.code)) = UPPER(TRIM(p.code))
+                    WHERE o.run_id = ?
+                )
+                """,
+                (run_id,),
+            )
+
+            self.db.execute_query(
+                """
+                INSERT INTO product_categories
+                    (product_id, category_id, first_seen_at, last_seen_at)
+                SELECT DISTINCT
+                    p.id,
+                    o.category_id,
+                    MIN(o.discovered_at),
+                    MAX(o.discovered_at)
+                FROM scraping_product_occurrences o
+                JOIN products p
+                  ON UPPER(TRIM(p.code)) = UPPER(TRIM(o.code))
+                WHERE o.run_id = ?
+                GROUP BY p.id, o.category_id
+                ON CONFLICT(product_id, category_id) DO UPDATE SET
+                    last_seen_at=excluded.last_seen_at
+                """,
+                (run_id,),
+            )
+
+            self.db.execute_query(
+                """
+                UPDATE scraping_product_occurrences
+                SET product_id = (
+                    SELECT p.id
+                    FROM products p
+                    WHERE UPPER(TRIM(p.code)) = UPPER(TRIM(scraping_product_occurrences.code))
+                    LIMIT 1
+                )
+                WHERE run_id = ?
+                """,
+                (run_id,),
+            )
+
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
+        self.mark_initialized()
+        return self.product_count()
 
     def restore_from_change_history(self) -> int:
         """Reconstruye el catálogo local usando el historial ya descargado.
@@ -182,9 +275,6 @@ class CatalogBootstrapService:
         return result
 
     def bootstrap(self):
-        """Mantiene compatibilidad con el servicio anterior sin hacer scraping."""
-        if self.is_ready():
-            return None
-
-        restored = self.restore_from_change_history()
-        return restored if restored else None
+        """Alinea el catálogo al último scraping completo exitoso."""
+        reconciled = self.reconcile_latest_successful_run()
+        return reconciled if reconciled else None

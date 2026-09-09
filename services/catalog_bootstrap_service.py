@@ -58,13 +58,7 @@ class CatalogBootstrapService:
         )
 
     def reconcile_latest_successful_run(self) -> int:
-        """Alinea el catálogo maestro con el último scraping FULL exitoso.
-
-        Usa exclusivamente datos locales ya persistidos por el scraper. No
-        realiza peticiones web. Conserva los datos actuales de los productos
-        que pertenecen al último run, elimina productos que quedaron fuera y
-        reconstruye sus relaciones normalizadas y referencias de ocurrencia.
-        """
+        """Alinea el catálogo maestro con el último scraping FULL exitoso."""
         run = self.db.fetch_one(
             """
             SELECT id
@@ -91,9 +85,7 @@ class CatalogBootstrapService:
 
         self.db.begin()
         try:
-            self.db.execute_query(
-                "DELETE FROM product_categories"
-            )
+            self.db.execute_query("DELETE FROM product_categories")
             self.db.execute_query(
                 """
                 DELETE FROM products
@@ -151,32 +143,32 @@ class CatalogBootstrapService:
         return self.product_count()
 
     def restore_from_change_history(self) -> int:
-        """Reconstruye el catálogo local usando el historial ya descargado.
-
-        Esta operación solo se usa como recuperación cuando ``products`` está
-        vacío. No realiza ninguna petición web y por tanto no retrasa ni hace
-        depender el arranque de la aplicación del scraper.
-        """
-        if self.product_count() > 0:
-            return 0
-
+        """Reconstruye el catálogo local desde el historial persistido."""
         changes = self.db.fetch_all(
             """
-            SELECT id, change_type, code, product_name, field_name, new_value
+            SELECT id, history_id, change_type, code, product_name, field_name, new_value
             FROM download_changes
             WHERE code IS NOT NULL AND TRIM(code) <> ''
-            ORDER BY id ASC
+            ORDER BY history_id ASC, id ASC
             """
         )
         if not changes:
             return 0
 
         products: dict[str, dict[str, object]] = {}
+        deleted_codes: set[str] = set()
         for change in changes:
-            code = str(change["code"]).strip()
+            code = str(change["code"]).strip().upper()
             if not code:
                 continue
 
+            item_type = str(change["change_type"] or "").strip().upper()
+            if item_type == "DELETED":
+                deleted_codes.add(code)
+                products.pop(code, None)
+                continue
+
+            deleted_codes.discard(code)
             product = products.setdefault(
                 code,
                 {
@@ -203,17 +195,23 @@ class CatalogBootstrapService:
             field = change["field_name"]
             if field not in self.PRODUCT_FIELDS:
                 continue
-
             product[field] = self._convert_field(field, change["new_value"])
 
+        for code in deleted_codes:
+            products.pop(code, None)
+        products = {
+            code: product
+            for code, product in products.items()
+            if str(product.get("name", "")).strip()
+        }
         if not products:
             return 0
 
         self.db.begin()
         try:
+            self.db.execute_query("DELETE FROM product_categories")
+            self.db.execute_query("DELETE FROM products")
             for product in products.values():
-                if not product["name"]:
-                    continue
                 fields = (
                     "code",
                     "name",
@@ -232,8 +230,7 @@ class CatalogBootstrapService:
                 )
                 placeholders = ", ".join("?" for _ in fields)
                 self.db.execute_query(
-                    f"INSERT INTO products ({', '.join(fields)}) "
-                    f"VALUES ({placeholders})",
+                    f"INSERT INTO products ({', '.join(fields)}) VALUES ({placeholders})",
                     tuple(product[field] for field in fields),
                 )
             self.db.commit()
@@ -274,7 +271,9 @@ class CatalogBootstrapService:
 
         return result
 
-    def bootstrap(self):
-        """Alinea el catálogo al último scraping completo exitoso."""
+    def bootstrap(self) -> int:
+        """Alinea el catálogo al último scraping completo o al historial local."""
         reconciled = self.reconcile_latest_successful_run()
-        return reconciled if reconciled else None
+        if reconciled:
+            return reconciled
+        return self.restore_from_change_history()

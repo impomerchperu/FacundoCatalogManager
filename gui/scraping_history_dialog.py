@@ -79,6 +79,10 @@ class ScrapingHistoryDialog(QDialog):
             self._set_item(row, 4, str(record.unchanged))
             self._set_item(row, 5, str(record.deleted))
             category_summary = getattr(record, "category_summary", []) or []
+            categories_processed = max(
+                int(getattr(record, "categories_processed", 0) or 0),
+                len(category_summary),
+            )
             category_lines = "\n".join(
                 f"• {item.get('category', '')}: {item.get('products', 0)}"
                 for item in category_summary
@@ -86,7 +90,7 @@ class ScrapingHistoryDialog(QDialog):
             coverage_text = (
                 f"E:{record.products_expected} F:{record.products_found} "
                 f"U:{record.products_unique} M:{record.products_multiple_categories} "
-                f"D:{record.duplicate_occurrences} C:{len(category_summary)}"
+                f"D:{record.duplicate_occurrences} C:{categories_processed}"
             )
             coverage_item = QTableWidgetItem(coverage_text)
             coverage_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -166,15 +170,17 @@ class ScrapingHistoryDialog(QDialog):
         layout = QVBoxLayout(dialog)
         applied_at = self._parse_datetime(history.finished_at)
         summary = QLabel(
-            f"Aplicado: {self._format_datetime(applied_at)}    Procesados: {history.processed}    "
-            f"Nuevos: {history.created}    Actualizados: {history.updated}    "
-            f"Sin cambios: {history.unchanged}    Eliminados: {history.deleted}"
+            f"Aplicado: {self._format_datetime(applied_at)}    Categorías: {history.categories_processed}    "
+            f"Procesados: {history.processed}    Nuevos: {history.created}    "
+            f"Actualizados: {history.updated}    Sin cambios: {history.unchanged}    "
+            f"Eliminados: {history.deleted}"
         )
         summary.setStyleSheet("font-weight: bold; padding: 4px;")
         layout.addWidget(summary)
         expected_gap = max(history.products_expected - history.products_found, 0)
         coverage = QLabel(
             "COBERTURA DEL SCRAPING    "
+            f"Categorías: {history.categories_processed}    |    "
             f"Esperados en categorías: {history.products_expected}    |    "
             f"Encontrados: {history.products_found}    |    "
             f"Únicos: {history.products_unique}    |    "
@@ -205,7 +211,7 @@ class ScrapingHistoryDialog(QDialog):
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        category_title = QLabel(f"PRODUCTOS POR CATEGORÍA ({len(category_summary)} categorías)")
+        category_title = QLabel(f"PRODUCTOS POR CATEGORÍA ({history.categories_processed} categorías)")
         category_title.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         layout.addWidget(category_title)
         layout.addWidget(category_table)
@@ -258,60 +264,3 @@ class ScrapingHistoryDialog(QDialog):
         for column in (2, 3, 4, 5):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
         table.setRowCount(max(len(changes), 1))
-        for row, change in enumerate(changes):
-            change_type = {"NEW": "NUEVO", "UPDATED": "ACTUALIZADO", "DELETED": "ELIMINADO", "CODE_GENERATED": "CÓDIGO GENERADO", "MISSING_CODE": "SIN CÓDIGO"}.get(change["type"], change["type"])
-            values = [change_type, str(change["code"]), str(change["name"]), str(change["label"]), self._format_change_value(change["old"]), self._format_change_value(change["new"])]
-            for column, value in enumerate(values):
-                item = QTableWidgetItem(value)
-                if change["type"] in {"CODE_GENERATED", "MISSING_CODE"}:
-                    item.setBackground(QColor("#fff3cd"))
-                    item.setForeground(QColor("#664d03"))
-                    item.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-                elif change["type"] == "DELETED":
-                    item.setBackground(QColor("#f8d7da"))
-                    item.setForeground(QColor("#842029"))
-                table.setItem(row, column, item)
-        if not changes:
-            table.setItem(0, 0, QTableWidgetItem("—"))
-            table.setItem(0, 3, QTableWidgetItem("Sin cambios registrados"))
-        table.resizeRowsToContents()
-        layout.addWidget(table)
-        close_button = QPushButton("Cerrar")
-        close_button.clicked.connect(dialog.close)
-        layout.addWidget(close_button)
-        dialog.show()
-        dialog.raise_()
-        dialog.activateWindow()
-
-    @staticmethod
-    def _format_change_value(value) -> str:
-        if value is None:
-            return "—"
-        if isinstance(value, float):
-            return f"{value:,.2f}"
-        if isinstance(value, (dict, list)):
-            return json.dumps(value, ensure_ascii=False, sort_keys=True)
-        return str(value)
-
-    def _set_item(self, row: int, column: int, value: str, history_id=None) -> None:
-        item = QTableWidgetItem(value)
-        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        if history_id is not None:
-            item.setData(Qt.ItemDataRole.UserRole, history_id)
-        self.table.setItem(row, column, item)
-
-    @staticmethod
-    def _parse_datetime(value) -> datetime:
-        if isinstance(value, datetime):
-            return value
-        return datetime.fromisoformat(str(value))
-
-    @staticmethod
-    def _format_datetime(value: datetime) -> str:
-        return value.astimezone().strftime("%d/%m/%Y %H:%M:%S")
-
-    def closeEvent(self, event) -> None:
-        if self.detail_dialog is not None:
-            self.detail_dialog.close()
-        self.db.close()
-        super().closeEvent(event)

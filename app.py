@@ -8,9 +8,10 @@ from services.catalog_bootstrap_service import CatalogBootstrapService
 
 app = QApplication(sys.argv)
 
-# La GUI arranca desde la mejor fuente local disponible:
-# 1) último scraping FULL exitoso con cobertura completa;
-# 2) historial persistido de cambios, si no existe un run completo utilizable.
+# La base de datos local es la fuente permanente del catálogo.
+# La recuperación histórica solo se ejecuta una vez como reparación de una
+# instalación existente; después, cada scraping actualiza la misma catalog.db
+# y la GUI simplemente carga ese catálogo persistido.
 db = DBManager()
 try:
     CatalogBootstrapService(db=db).bootstrap()

@@ -578,7 +578,7 @@ class MainWindow(QMainWindow):
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Guardar CSV",
-            "CSV (*.csv)",
+            "catalogo.csv",
             "CSV (*.csv)",
         )
         if filename:

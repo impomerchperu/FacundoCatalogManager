@@ -54,12 +54,16 @@ def test_sync_categories_contains_category_request_exception():
         def enrich_category_products(self, products, category_name):
             return [item[2] for item in products]
 
+    class FakeScrapingService:
+        def __init__(self):
+            self.scraper = FakeScraper()
+
     class FakePersistence:
         def save_products(self, products):
             return products
 
     service = CategoryProductSyncService(
-        FakeScraper(),
+        FakeScrapingService(),
         FakePersistence(),
     )
 

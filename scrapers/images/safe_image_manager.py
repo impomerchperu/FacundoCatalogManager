@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 from pathlib import Path
+
+import requests
 
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_repository import ImageRepository
@@ -36,7 +36,7 @@ class SafeImageManager:
                 "image_path": path,
                 "image_hash": ImageDownloader.hash_file(image_path),
             }
-        except (OSError, ValueError, RuntimeError) as error:
+        except (OSError, ValueError, RuntimeError, requests.exceptions.RequestException) as error:
             return self._error_result(str(error) or "Download failed")
 
     @staticmethod

@@ -36,7 +36,12 @@ class SafeImageManager:
                 "image_path": path,
                 "image_hash": ImageDownloader.hash_file(image_path),
             }
-        except (OSError, ValueError, RuntimeError, requests.exceptions.RequestException) as error:
+        except (
+            OSError,
+            ValueError,
+            RuntimeError,
+            requests.exceptions.RequestException,
+        ) as error:
             return self._error_result(str(error) or "Download failed")
 
     @staticmethod

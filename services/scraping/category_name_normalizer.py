@@ -9,26 +9,49 @@ _COMPARISON_STOPWORDS = {"de"}
 _LOSSY_MOJIBAKE_REPLACEMENTS = {
     "Ãculos": "ículos",
     "Ã©": "é",
+    "Sublimaci?n": "Sublimación",
+    "sublimaci?n": "sublimación",
 }
+
+# The normalized category table is the authoritative display vocabulary.
+# Comparison keys are generated from these names so case, accents and the
+# optional word "de" cannot create duplicate GUI categories.
+_CANONICAL_CATEGORY_NAMES = (
+    "Artículos Antiestrés",
+    "Artículos de Escritorio",
+    "Artículos de Oficina",
+    "Artículos de Playa",
+    "Artículos Personales",
+    "Bolsas / Mochilas",
+    "Cocina, Mesa y Hogar",
+    "Enmicadoras / Laminadoras",
+    "Estuches",
+    "Impresoras y Consumible Fotográficas Térmicas",
+    "Insumos de Sublimación",
+    "Jarros Mug",
+    "Kits de Herramientas",
+    "Lapiceros Ecologicos",
+    "Lapiceros Metálicos",
+    "Llaveros y Accesorios",
+    "Máquinas de Sublimación",
+    "Micas para Enmicados",
+    "Papelería Grafipapel",
+    "Papeles Fotográficos",
+    "Plotters de Corte",
+    "Porta Tacos Post-It",
+    "Resaltadores Publicitarios",
+    "Tecnologia y Accesorios",
+)
 
 _CANONICAL_CATEGORIES = {
     "cocina": "Cocina, Mesa y Hogar",
     "mesa": "Cocina, Mesa y Hogar",
     "hogar": "Cocina, Mesa y Hogar",
-    "cocina mesa y hogar": "Cocina, Mesa y Hogar",
-    "cocina mesa hogar": "Cocina, Mesa y Hogar",
-    "mesa y hogar": "Cocina, Mesa y Hogar",
-    "articulos antiestres": "Artículos Antiestrés",
-    "articulos de antiestres": "Artículos Antiestrés",
+    "papeles fotograficos koala paper": "Papeles Fotográficos",
     "articulos antiesres": "Artículos Antiestrés",
     "articulos de antiesres": "Artículos Antiestrés",
-    "articulos de antistres": "Artículos Antiestrés",
     "articulos antistres": "Artículos Antiestrés",
-    "articulos de antiestrés": "Artículos Antiestrés",
-    "articulos antiestrés": "Artículos Antiestrés",
-    "artículos de antiestres": "Artículos Antiestrés",
-    "artículos antiesres": "Artículos Antiestrés",
-    "artículos de antiesres": "Artículos Antiestrés",
+    "articulos de antistres": "Artículos Antiestrés",
 }
 
 
@@ -63,13 +86,22 @@ def normalize_category_name(value: object) -> str:
     return " ".join(tokens)
 
 
+_CANONICAL_CATEGORY_KEYS = {
+    normalize_category_name(name): name
+    for name in _CANONICAL_CATEGORY_NAMES
+}
+
+
 def canonical_category_name(value: object) -> str:
     """Return the canonical display name for a catalog category."""
     if not isinstance(value, str):
         return ""
     repaired = _repair_text(value)
     key = normalize_category_name(repaired)
-    return _CANONICAL_CATEGORIES.get(key, repaired.strip())
+    return _CANONICAL_CATEGORIES.get(
+        key,
+        _CANONICAL_CATEGORY_KEYS.get(key, repaired.strip()),
+    )
 
 
 def split_category_names(value: object) -> list[str]:

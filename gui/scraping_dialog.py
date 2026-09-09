@@ -135,6 +135,7 @@ class ScrapingDialog(QDialog):
         )
 
     def scraping_finished(self, result) -> None:
+        """Recibe el resultado del worker; la actualización de la GUI se difiere."""
         self.pending_result = result
         self.progress.setValue(100)
         self.elapsed_clock.stop()
@@ -142,7 +143,6 @@ class ScrapingDialog(QDialog):
         self.status_label.setText(
             f"Actualización {state} • 100% • {self._format_elapsed()}",
         )
-        self.finished_success.emit()
 
     def scraping_error(self, message: str) -> None:
         self.pending_error = message
@@ -175,6 +175,8 @@ class ScrapingDialog(QDialog):
         if result is not None:
             self.details_button.setEnabled(True)
             self.show_result(result)
+            if result.success():
+                self.finished_success.emit()
 
         self.start_button.setEnabled(True)
 

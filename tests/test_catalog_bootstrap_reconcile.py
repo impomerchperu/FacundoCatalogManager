@@ -3,6 +3,32 @@ import sqlite3
 from services.catalog_bootstrap_service import CatalogBootstrapService
 
 
+class SQLiteDBAdapter:
+    """Adapta sqlite3.Connection a la interfaz mínima esperada por el servicio."""
+
+    def __init__(self, connection):
+        self.connection = connection
+        self.connection.row_factory = sqlite3.Row
+
+    def fetch_one(self, query, params=()):
+        return self.connection.execute(query, params).fetchone()
+
+    def fetch_all(self, query, params=()):
+        return self.connection.execute(query, params).fetchall()
+
+    def execute_query(self, query, params=()):
+        return self.connection.execute(query, params)
+
+    def begin(self):
+        self.connection.execute("BEGIN")
+
+    def commit(self):
+        self.connection.commit()
+
+    def rollback(self):
+        self.connection.rollback()
+
+
 def _create_schema(db):
     db.executescript(
         """
@@ -63,25 +89,29 @@ def _create_schema(db):
 
 
 def test_reconcile_latest_successful_run_prunes_and_rebuilds_relations():
-    db = sqlite3.connect(":memory:")
-    db.row_factory = sqlite3.Row
-    db.execute("PRAGMA foreign_keys=ON")
-    _create_schema(db)
+    connection = sqlite3.connect(":memory:")
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys=ON")
+    _create_schema(connection)
+    db = SQLiteDBAdapter(connection)
 
-    db.execute(
+    connection.execute(
         "INSERT INTO scraping_runs (mode, status, coverage_complete) VALUES ('full', 'SUCCESS', 1)"
     )
-    run_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
-    db.executemany(
+    run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
+    connection.executemany(
         "INSERT INTO categories (name, canonical_url) VALUES (?, ?)",
         [("Cat A", "a"), ("Cat B", "b")],
     )
-    category_ids = [row[0] for row in db.execute("SELECT id FROM categories ORDER BY id")]
-    db.executemany(
+    category_ids = [
+        row[0]
+        for row in connection.execute("SELECT id FROM categories ORDER BY id")
+    ]
+    connection.executemany(
         "INSERT INTO products (code, name) VALUES (?, ?)",
         [("A", "Producto A"), ("B", "Producto B"), ("STALE", "Fuera")],
     )
-    db.executemany(
+    connection.executemany(
         """
         INSERT INTO scraping_product_occurrences
             (run_id, category_id, code, product_url, discovered_at)
@@ -93,18 +123,24 @@ def test_reconcile_latest_successful_run_prunes_and_rebuilds_relations():
             (run_id, category_ids[1], "B"),
         ],
     )
-    db.commit()
+    connection.commit()
 
     service = CatalogBootstrapService(db=db)
     assert service.reconcile_latest_successful_run() == 2
 
-    assert db.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 2
-    assert db.execute("SELECT COUNT(*) FROM product_categories").fetchone()[0] == 3
-    assert db.execute(
-        "SELECT COUNT(*) FROM scraping_product_occurrences WHERE run_id=? AND product_id IS NOT NULL",
+    assert connection.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 2
+    assert connection.execute(
+        "SELECT COUNT(*) FROM product_categories"
+    ).fetchone()[0] == 3
+    assert connection.execute(
+        """
+        SELECT COUNT(*)
+        FROM scraping_product_occurrences
+        WHERE run_id=? AND product_id IS NOT NULL
+        """,
         (run_id,),
     ).fetchone()[0] == 3
-    assert db.execute(
+    assert connection.execute(
         "SELECT code FROM products ORDER BY code"
     ).fetchall() == [
         ("A",),

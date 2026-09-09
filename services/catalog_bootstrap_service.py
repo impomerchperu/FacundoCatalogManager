@@ -7,8 +7,9 @@ from database.db_manager import DBManager
 
 
 class CatalogBootstrapService:
-    """Gestiona la recuperación y consistencia local del catálogo."""
+    """Gestiona la reparación histórica de la base local, sin hacer scraping."""
 
+    HISTORY_RECOVERY_KEY = "history_recovery_applied"
     PRODUCT_FIELDS: ClassVar[set[str]] = {
         "name",
         "category",
@@ -24,6 +25,23 @@ class CatalogBootstrapService:
         "image_hash",
         "content_hash",
     }
+
+    PRODUCT_COLUMNS: ClassVar[tuple[str, ...]] = (
+        "code",
+        "name",
+        "category",
+        "description",
+        "price",
+        "price_sample",
+        "price_hundred",
+        "price_thousand",
+        "stock",
+        "color_stock",
+        "image_url",
+        "image_path",
+        "image_hash",
+        "content_hash",
+    )
 
     def __init__(
         self,
@@ -57,8 +75,30 @@ class CatalogBootstrapService:
             ("initialized", "1"),
         )
 
+    def _history_recovery_applied(self) -> bool:
+        row = self.db.fetch_one(
+            "SELECT value FROM catalog_metadata WHERE key=?",
+            (self.HISTORY_RECOVERY_KEY,),
+        )
+        return bool(row and row["value"] == "1")
+
+    def _mark_history_recovery_applied(self) -> None:
+        self.db.execute_query(
+            """
+            INSERT INTO catalog_metadata (key, value)
+            VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value
+            """,
+            (self.HISTORY_RECOVERY_KEY, "1"),
+        )
+
     def reconcile_latest_successful_run(self) -> int:
-        """Alinea el catálogo maestro con el último scraping FULL exitoso."""
+        """Reconstruye relaciones a partir de un FULL exitoso de forma explícita.
+
+        Este método no se ejecuta al arrancar la aplicación. Se conserva como
+        operación explícita para diagnosticar o reparar relaciones normalizadas.
+        La GUI sigue utilizando siempre ``products`` como fuente persistente.
+        """
         run = self.db.fetch_one(
             """
             SELECT id
@@ -76,7 +116,8 @@ class CatalogBootstrapService:
         run_id = int(run["id"])
         expected = int(
             self.db.fetch_one(
-                "SELECT COUNT(DISTINCT code) AS total FROM scraping_product_occurrences WHERE run_id=?",
+                "SELECT COUNT(DISTINCT code) AS total "
+                "FROM scraping_product_occurrences WHERE run_id=?",
                 (run_id,),
             )["total"]
         )
@@ -86,20 +127,6 @@ class CatalogBootstrapService:
         self.db.begin()
         try:
             self.db.execute_query("DELETE FROM product_categories")
-            self.db.execute_query(
-                """
-                DELETE FROM products
-                WHERE id NOT IN (
-                    SELECT DISTINCT p.id
-                    FROM products p
-                    JOIN scraping_product_occurrences o
-                      ON UPPER(TRIM(o.code)) = UPPER(TRIM(p.code))
-                    WHERE o.run_id = ?
-                )
-                """,
-                (run_id,),
-            )
-
             self.db.execute_query(
                 """
                 INSERT INTO product_categories
@@ -119,76 +146,78 @@ class CatalogBootstrapService:
                 """,
                 (run_id,),
             )
-
             self.db.execute_query(
                 """
                 UPDATE scraping_product_occurrences
                 SET product_id = (
                     SELECT p.id
                     FROM products p
-                    WHERE UPPER(TRIM(p.code)) = UPPER(TRIM(scraping_product_occurrences.code))
+                    WHERE UPPER(TRIM(p.code)) =
+                          UPPER(TRIM(scraping_product_occurrences.code))
                     LIMIT 1
                 )
                 WHERE run_id = ?
                 """,
                 (run_id,),
             )
-
             self.db.commit()
         except Exception:
             self.db.rollback()
             raise
-
-        self.mark_initialized()
         return self.product_count()
 
     def restore_from_change_history(self) -> int:
-        """Reconstruye el catálogo local desde el historial persistido."""
+        """Aplica acumulativamente todos los cambios históricos sobre catalog.db.
+
+        No sustituye el catálogo por una instantánea de un scraping. Parte del
+        estado local existente y reproduce los cambios históricos en orden,
+        incluyendo altas, modificaciones y bajas. De esta forma una reparación
+        conserva campos que alguna versión antigua no haya registrado y deja la
+        base preparada para que los próximos scrapings continúen actualizándola.
+        """
         changes = self.db.fetch_all(
             """
-            SELECT id, history_id, change_type, code, product_name, field_name, new_value
+            SELECT history_id, id, change_type, code, product_name,
+                   field_name, new_value
             FROM download_changes
             WHERE code IS NOT NULL AND TRIM(code) <> ''
             ORDER BY history_id ASC, id ASC
             """
         )
         if not changes:
-            return 0
+            return self.product_count()
 
         products: dict[str, dict[str, object]] = {}
+        existing_rows = self.db.fetch_all(
+            """
+            SELECT code, name, category, description, price, price_sample,
+                   price_hundred, price_thousand, stock, color_stock,
+                   image_url, image_path, image_hash, content_hash
+            FROM products
+            """
+        )
+        for row in existing_rows:
+            code = self._normalize_code(row["code"])
+            if not code:
+                continue
+            products[code] = {field: row[field] for field in self.PRODUCT_COLUMNS}
+
         deleted_codes: set[str] = set()
         for change in changes:
-            code = str(change["code"]).strip().upper()
+            code = self._normalize_code(change["code"])
             if not code:
                 continue
 
             item_type = str(change["change_type"] or "").strip().upper()
-            if item_type == "DELETED":
+            if item_type in {"DELETED"}:
                 deleted_codes.add(code)
                 products.pop(code, None)
                 continue
+            if item_type == "MISSING_CODE":
+                continue
 
             deleted_codes.discard(code)
-            product = products.setdefault(
-                code,
-                {
-                    "code": code,
-                    "name": str(change["product_name"] or "").strip(),
-                    "category": "",
-                    "description": "",
-                    "price": 0.0,
-                    "price_sample": 0.0,
-                    "price_hundred": 0.0,
-                    "price_thousand": 0.0,
-                    "stock": 0,
-                    "color_stock": "{}",
-                    "image_url": "",
-                    "image_path": "",
-                    "image_hash": "",
-                    "content_hash": "",
-                },
-            )
-
+            product = products.setdefault(code, self._empty_product(code))
             if change["product_name"]:
                 product["name"] = str(change["product_name"]).strip()
 
@@ -199,39 +228,34 @@ class CatalogBootstrapService:
 
         for code in deleted_codes:
             products.pop(code, None)
+
         products = {
             code: product
             for code, product in products.items()
             if str(product.get("name", "")).strip()
         }
-        if not products:
-            return 0
 
         self.db.begin()
         try:
-            self.db.execute_query("DELETE FROM product_categories")
-            self.db.execute_query("DELETE FROM products")
-            for product in products.values():
-                fields = (
-                    "code",
-                    "name",
-                    "category",
-                    "description",
-                    "price",
-                    "price_sample",
-                    "price_hundred",
-                    "price_thousand",
-                    "stock",
-                    "color_stock",
-                    "image_url",
-                    "image_path",
-                    "image_hash",
-                    "content_hash",
-                )
-                placeholders = ", ".join("?" for _ in fields)
+            for code in deleted_codes:
                 self.db.execute_query(
-                    f"INSERT INTO products ({', '.join(fields)}) VALUES ({placeholders})",
-                    tuple(product[field] for field in fields),
+                    "DELETE FROM products WHERE UPPER(TRIM(code)) = ?",
+                    (code,),
+                )
+
+            for product in products.values():
+                placeholders = ", ".join("?" for _ in self.PRODUCT_COLUMNS)
+                update_fields = ", ".join(
+                    f"{field}=excluded.{field}"
+                    for field in self.PRODUCT_COLUMNS[1:]
+                )
+                self.db.execute_query(
+                    f"""
+                    INSERT INTO products ({', '.join(self.PRODUCT_COLUMNS)})
+                    VALUES ({placeholders})
+                    ON CONFLICT(code) DO UPDATE SET {update_fields}
+                    """,
+                    tuple(product[field] for field in self.PRODUCT_COLUMNS),
                 )
             self.db.commit()
         except Exception:
@@ -241,8 +265,44 @@ class CatalogBootstrapService:
         restored = self.product_count()
         if restored:
             self.mark_initialized()
+            self._mark_history_recovery_applied()
             self.db.commit()
         return restored
+
+    def bootstrap(self) -> int:
+        """Repara una instalación una sola vez; luego deja intacta catalog.db."""
+        if self._history_recovery_applied():
+            return self.product_count()
+
+        restored = self.restore_from_change_history()
+        if restored or self.product_count() > 0:
+            self._mark_history_recovery_applied()
+            self.mark_initialized()
+            self.db.commit()
+        return restored
+
+    @staticmethod
+    def _normalize_code(value) -> str:
+        return str(value or "").strip().upper()
+
+    @staticmethod
+    def _empty_product(code: str) -> dict[str, object]:
+        return {
+            "code": code,
+            "name": "",
+            "category": "",
+            "description": "",
+            "price": 0.0,
+            "price_sample": 0.0,
+            "price_hundred": 0.0,
+            "price_thousand": 0.0,
+            "stock": 0,
+            "color_stock": "{}",
+            "image_url": "",
+            "image_path": "",
+            "image_hash": "",
+            "content_hash": "",
+        }
 
     @staticmethod
     def _convert_field(field: str, value):
@@ -259,21 +319,11 @@ class CatalogBootstrapService:
 
         try:
             if field in {"price", "price_sample", "price_hundred", "price_thousand"}:
-                result = float(value)
-            elif field == "stock":
-                result = int(float(value))
-            elif field == "color_stock":
-                result = json.dumps(json.loads(str(value)), ensure_ascii=False)
-            else:
-                result = str(value)
+                return float(value)
+            if field == "stock":
+                return int(float(value))
+            if field == "color_stock":
+                return json.dumps(json.loads(str(value)), ensure_ascii=False)
+            return str(value)
         except (TypeError, ValueError, json.JSONDecodeError):
-            result = defaults.get(field, "")
-
-        return result
-
-    def bootstrap(self) -> int:
-        """Alinea el catálogo al último scraping completo o al historial local."""
-        reconciled = self.reconcile_latest_successful_run()
-        if reconciled:
-            return reconciled
-        return self.restore_from_change_history()
+            return defaults.get(field, "")

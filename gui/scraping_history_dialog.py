@@ -1,9 +1,7 @@
-import json
 import sqlite3
-from datetime import datetime
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -150,7 +148,7 @@ class ScrapingHistoryDialog(QDialog):
         if isinstance(history_id, int):
             self._show_history_details(history_id)
 
-    def _show_history_details(self, history_id: int) -> None:  # noqa: PLR0912
+    def _show_history_details(self, history_id: int) -> None:
         history = self.repository.get_by_id(history_id)
         if history is None:
             return

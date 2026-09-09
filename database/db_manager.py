@@ -1,8 +1,6 @@
 import os
 import sqlite3
 
-from services.scraping.category_name_normalizer import merge_category_names
-
 
 class DBManager:
     """Gestiona SQLite con inicialización, migraciones y persistencia segura."""
@@ -60,6 +58,8 @@ class DBManager:
 
     def _normalize_existing_product_categories(self) -> None:
         """Consolida variantes históricas sin alterar las relaciones normalizadas."""
+        from services.scraping.category_name_normalizer import merge_category_names
+
         rows = self.fetch_all("SELECT id, category FROM products")
         for row in rows:
             current = str(row["category"] or "")

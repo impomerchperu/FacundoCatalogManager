@@ -469,6 +469,7 @@ class MainWindow(QMainWindow):
 
     def open_scraping_history(self) -> None:
         if self.history_dialog is not None:
+            self.history_dialog.load_history()
             if self.history_dialog.isMinimized():
                 self.history_dialog.showNormal()
             self.history_dialog.raise_()
@@ -486,6 +487,8 @@ class MainWindow(QMainWindow):
 
     def scraping_finished(self) -> None:
         self.refresh_catalog()
+        if self.history_dialog is not None:
+            self.history_dialog.load_history()
         if self.scraping_dialog is not None:
             self.scraping_dialog.setWindowTitle("Actualización completada")
             self.scraping_dialog.raise_()
@@ -575,7 +578,7 @@ class MainWindow(QMainWindow):
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Guardar CSV",
-            "catalogo.csv",
+            "CSV (*.csv)",
             "CSV (*.csv)",
         )
         if filename:

@@ -269,3 +269,36 @@ def test_restore_from_change_history_preserves_latest_update_after_multiple_runs
         "SELECT code, name, stock FROM products"
     ).fetchone()
     assert (row["code"], row["name"], row["stock"]) == ("A", "Producto A", 11)
+
+
+def test_bootstrap_repairs_once_then_leaves_persistent_catalog_untouched():
+    connection = _new_connection()
+    db = SQLiteDBAdapter(connection)
+    connection.execute(
+        "INSERT INTO scraping_history (started_at, finished_at, status) "
+        "VALUES ('2026-09-09T01:00:00+00:00', '2026-09-09T01:01:00+00:00', 'SUCCESS')"
+    )
+    history_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
+    connection.execute(
+        """
+        INSERT INTO download_changes (
+            history_id, change_type, code, product_name,
+            field_name, field_label, old_value, new_value
+        ) VALUES (?, 'NEW', 'A', 'Producto A', 'stock', 'Stock', NULL, '3')
+        """,
+        (history_id,),
+    )
+    connection.commit()
+
+    service = CatalogBootstrapService(db=db)
+    assert service.bootstrap() == 1
+    connection.execute("UPDATE products SET stock=99 WHERE code='A'")
+    connection.commit()
+
+    assert service.bootstrap() == 1
+    row = connection.execute("SELECT stock FROM products WHERE code='A'").fetchone()
+    assert row["stock"] == 99
+    assert connection.execute(
+        "SELECT value FROM catalog_metadata WHERE key=?",
+        (CatalogBootstrapService.HISTORY_RECOVERY_KEY,),
+    ).fetchone()[0] == "1"

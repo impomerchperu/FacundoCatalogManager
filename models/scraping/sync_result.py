@@ -103,9 +103,11 @@ class SyncResult:
             return False
 
         if self.category_summary:
-            if self.expected_category_occurrences > 0:
-                if self.products_found < self.expected_category_occurrences:
-                    return False
+            if (
+                self.expected_category_occurrences > 0
+                and self.products_found < self.expected_category_occurrences
+            ):
+                return False
             return not any(
                 max(int(row.get("gap", 0) or 0), 0) > 0
                 for row in self.category_summary

@@ -8,11 +8,12 @@ from services.catalog_bootstrap_service import CatalogBootstrapService
 
 app = QApplication(sys.argv)
 
-# La GUI arranca desde el último scraping completo exitoso ya persistido.
-# Esta reconciliación es local, idempotente y no realiza peticiones web.
+# La GUI arranca desde la mejor fuente local disponible:
+# 1) último scraping FULL exitoso con cobertura completa;
+# 2) historial persistido de cambios, si no existe un run completo utilizable.
 db = DBManager()
 try:
-    CatalogBootstrapService(db=db).reconcile_latest_successful_run()
+    CatalogBootstrapService(db=db).bootstrap()
 finally:
     db.close()
 

@@ -83,16 +83,55 @@ def _create_schema(db):
             FOREIGN KEY (category_id) REFERENCES categories(id),
             FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
         );
+        CREATE TABLE scraping_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            started_at TEXT NOT NULL,
+            finished_at TEXT NOT NULL,
+            processed INTEGER DEFAULT 0,
+            created INTEGER DEFAULT 0,
+            updated INTEGER DEFAULT 0,
+            unchanged INTEGER DEFAULT 0,
+            deleted INTEGER DEFAULT 0,
+            generated INTEGER DEFAULT 0,
+            categories_processed INTEGER DEFAULT 0,
+            products_expected INTEGER DEFAULT 0,
+            products_found INTEGER DEFAULT 0,
+            products_unique INTEGER DEFAULT 0,
+            products_multiple_categories INTEGER DEFAULT 0,
+            duplicate_occurrences INTEGER DEFAULT 0,
+            category_summary TEXT DEFAULT '[]',
+            multiple_category_products TEXT DEFAULT '[]',
+            errors INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'SUCCESS',
+            message TEXT DEFAULT ''
+        );
+        CREATE TABLE download_changes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            history_id INTEGER NOT NULL,
+            change_type TEXT NOT NULL,
+            code TEXT NOT NULL,
+            product_name TEXT NOT NULL,
+            field_name TEXT,
+            field_label TEXT NOT NULL,
+            old_value TEXT,
+            new_value TEXT,
+            FOREIGN KEY (history_id) REFERENCES scraping_history(id) ON DELETE CASCADE
+        );
         CREATE TABLE catalog_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
         """
     )
 
 
-def test_reconcile_latest_successful_run_prunes_and_rebuilds_relations():
+def _new_connection():
     connection = sqlite3.connect(":memory:")
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys=ON")
     _create_schema(connection)
+    return connection
+
+
+def test_reconcile_latest_successful_run_prunes_and_rebuilds_relations():
+    connection = _new_connection()
     db = SQLiteDBAdapter(connection)
 
     connection.execute(
@@ -144,3 +183,89 @@ def test_reconcile_latest_successful_run_prunes_and_rebuilds_relations():
         row["code"]
         for row in connection.execute("SELECT code FROM products ORDER BY code")
     ] == ["A", "B"]
+
+
+def test_bootstrap_restores_latest_state_from_change_history_when_full_run_is_unusable():
+    connection = _new_connection()
+    db = SQLiteDBAdapter(connection)
+
+    connection.execute("INSERT INTO products (code, name, stock) VALUES ('STALE', 'Viejo', 1)")
+    connection.execute(
+        """
+        INSERT INTO scraping_history (
+            started_at, finished_at, processed, created, updated, unchanged,
+            deleted, generated, status, message
+        ) VALUES ('2026-09-09T01:00:00+00:00', '2026-09-09T01:01:00+00:00',
+                  2, 1, 1, 0, 1, 0, 'ERROR', 'Cobertura incompleta')
+        """
+    )
+    history_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
+    connection.executemany(
+        """
+        INSERT INTO download_changes (
+            history_id, change_type, code, product_name,
+            field_name, field_label, old_value, new_value
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (history_id, "NEW", "A", "Producto A", "name", "Nombre", None, "Producto A"),
+            (history_id, "NEW", "A", "Producto A", "stock", "Stock", None, "7"),
+            (history_id, "UPDATED", "B", "Producto B", "name", "Nombre", "Anterior", "Producto B"),
+            (history_id, "UPDATED", "B", "Producto B", "stock", "Stock", "2", "9"),
+            (history_id, "DELETED", "STALE", "Viejo", None, "Producto eliminado", "Presente", "Ausente"),
+        ],
+    )
+    connection.commit()
+
+    service = CatalogBootstrapService(db=db)
+    assert service.bootstrap() == 2
+
+    rows = connection.execute(
+        "SELECT code, name, stock FROM products ORDER BY code"
+    ).fetchall()
+    assert [(row["code"], row["name"], row["stock"]) for row in rows] == [
+        ("A", "Producto A", 7),
+        ("B", "Producto B", 9),
+    ]
+
+
+def test_restore_from_change_history_preserves_latest_update_after_multiple_runs():
+    connection = _new_connection()
+    db = SQLiteDBAdapter(connection)
+
+    connection.executemany(
+        """
+        INSERT INTO scraping_history (
+            started_at, finished_at, status
+        ) VALUES (?, ?, 'SUCCESS')
+        """,
+        [
+            ("2026-09-08T01:00:00+00:00", "2026-09-08T01:01:00+00:00"),
+            ("2026-09-09T01:00:00+00:00", "2026-09-09T01:01:00+00:00"),
+        ],
+    )
+    first_run, second_run = [
+        row["id"]
+        for row in connection.execute("SELECT id FROM scraping_history ORDER BY id")
+    ]
+    connection.executemany(
+        """
+        INSERT INTO download_changes (
+            history_id, change_type, code, product_name,
+            field_name, field_label, old_value, new_value
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (first_run, "NEW", "A", "Producto A", "name", "Nombre", None, "Producto A"),
+            (first_run, "NEW", "A", "Producto A", "stock", "Stock", None, "3"),
+            (second_run, "UPDATED", "A", "Producto A", "stock", "Stock", "3", "11"),
+        ],
+    )
+    connection.commit()
+
+    service = CatalogBootstrapService(db=db)
+    assert service.restore_from_change_history() == 1
+    row = connection.execute(
+        "SELECT code, name, stock FROM products"
+    ).fetchone()
+    assert (row["code"], row["name"], row["stock"]) == ("A", "Producto A", 11)

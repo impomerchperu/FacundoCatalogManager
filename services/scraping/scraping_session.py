@@ -289,6 +289,7 @@ class ScrapingSession:
             unchanged=self.result.unchanged,
             deleted=self.result.deleted,
             generated=self.result.generated,
+            categories_processed=self.result.categories_processed,
             products_expected=self.result.products_expected,
             products_found=self.result.products_found,
             products_unique=self.result.products_unique,

@@ -1,6 +1,6 @@
 import sqlite3
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
@@ -30,7 +30,13 @@ class ScrapingHistoryDialog(QDialog):
         self.setWindowTitle("Historial de descargas")
         self.resize(1450, 620)
         self._build_ui()
-        self.load_history()
+        QTimer.singleShot(0, self.load_history)
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self.raise_()
+        self.activateWindow()
+        QTimer.singleShot(0, self.load_history)
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -64,8 +70,14 @@ class ScrapingHistoryDialog(QDialog):
     def load_history(self) -> None:
         try:
             history = self.repository.get_latest(limit=100)
-        except sqlite3.Error as error:
-            QMessageBox.critical(self, "Error", f"No fue posible cargar el historial.\n\n{error}")
+        except (sqlite3.Error, TypeError, ValueError, KeyError) as error:
+            self.table.setRowCount(1)
+            self.table.setItem(
+                0,
+                0,
+                QTableWidgetItem("No se pudo cargar el historial"),
+            )
+            self.table.setItem(0, 1, QTableWidgetItem(str(error)))
             return
         self.table.setRowCount(len(history))
         for row, record in enumerate(history):
@@ -333,8 +345,7 @@ class ScrapingHistoryDialog(QDialog):
         if user_data is not None:
             item.setData(Qt.ItemDataRole.UserRole, user_data)
         item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        return_value = item
-        return_value.setToolTip(text)
+        item.setToolTip(text)
         ScrapingHistoryDialog._set_table_item(row, column, item)
 
     def _set_table_item(self, row: int, column: int, item: QTableWidgetItem) -> None:

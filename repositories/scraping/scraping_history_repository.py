@@ -125,7 +125,15 @@ class ScrapingHistoryRepository:
     def get_all(self):
         return self.get_latest(limit=1000)
 
+    def _reset_read_transaction(self) -> None:
+        """Descarta cualquier snapshot de lectura previo antes de consultar."""
+        connection = getattr(self.db, "connection", None)
+        if connection is None:
+            return
+        connection.rollback()
+
     def get_latest(self, limit: int = 100):
+        self._reset_read_transaction()
         rows = self.db.fetch_all(
             """
             SELECT id, started_at, finished_at, processed, created,
@@ -141,6 +149,7 @@ class ScrapingHistoryRepository:
         return [self._map_row(row) for row in rows]
 
     def get_by_id(self, history_id: int):
+        self._reset_read_transaction()
         row = self.db.fetch_one(
             """
             SELECT id, started_at, finished_at, processed, created,
@@ -156,6 +165,7 @@ class ScrapingHistoryRepository:
         return None if row is None else self._map_row(row)
 
     def get_changes(self, history_id: int) -> list[dict]:
+        self._reset_read_transaction()
         rows = self.db.fetch_all(
             """
             SELECT change_type, code, product_name, field_name,

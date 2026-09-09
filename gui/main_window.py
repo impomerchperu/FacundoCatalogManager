@@ -23,6 +23,7 @@ from gui.product_table import ProductTable
 from gui.scraping_dialog import ScrapingDialog
 from gui.scraping_history_dialog import ScrapingHistoryDialog
 from models.product import Product
+from services.scraping.category_name_normalizer import split_category_names
 
 
 class MainWindow(QMainWindow):
@@ -274,9 +275,11 @@ class MainWindow(QMainWindow):
     @staticmethod
     def _product_categories(product: Product) -> set[str]:
         return {
-            category.strip()
-            for category in str(product.category).split(",")
-            if category.strip()
+            category
+            for category in (
+                split_category_names(getattr(product, "category", ""))
+            )
+            if category
         }
 
     def rebuild_category_filters(self) -> None:

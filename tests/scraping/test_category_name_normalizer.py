@@ -56,6 +56,46 @@ def test_canonical_category_name_merges_cocina_variants():
     )
 
 
+def test_canonical_category_name_covers_observed_product_variants():
+    expected = {
+        "Articulos De Antiestres": "Artículos Antiestrés",
+        "Articulos antiesres": "Artículos Antiestrés",
+        "Articulos De Escritorio": "Artículos de Escritorio",
+        "Articulos De Oficina": "Artículos de Oficina",
+        "Articulos De Playa": "Artículos de Playa",
+        "Articulos Personales": "Artículos Personales",
+        "Bolsas Mochilas": "Bolsas / Mochilas",
+        "Cocina Mesa Y Hogar": "Cocina, Mesa y Hogar",
+        "Enmicadoras Laminadoras": "Enmicadoras / Laminadoras",
+        "Impresoras Y Consumible Fotograficas Termicas": (
+            "Impresoras y Consumible Fotográficas Térmicas"
+        ),
+        "Insumos De Sublimacion": "Insumos de Sublimación",
+        "Insumos de Sublimaci?n": "Insumos de Sublimación",
+        "Lapiceros Metalicos": "Lapiceros Metálicos",
+        "Llaveros Y Accesorios": "Llaveros y Accesorios",
+        "Maquinas De Sublimacion": "Máquinas de Sublimación",
+        "Micas Para Enmicados": "Micas para Enmicados",
+        "Papeleria Grafipapel": "Papelería Grafipapel",
+        "Papeles Fotograficos Koala Paper": "Papeles Fotográficos",
+        "Plotters De Corte": "Plotters de Corte",
+        "Porta Tacos Post It": "Porta Tacos Post-It",
+        "Tecnologia Y Accesorios": "Tecnologia y Accesorios",
+    }
+
+    for raw, canonical in expected.items():
+        assert canonical_category_name(raw) == canonical
+
+
+def test_split_category_names_deduplicates_aliases():
+    assert split_category_names(
+        "Papeles Fotograficos Koala Paper, Papeles Fotográficos"
+    ) == ["Papeles Fotográficos"]
+    assert split_category_names(
+        "Articulos De Playa, Articulos De Antiestres"
+    ) == ["Artículos de Playa", "Artículos Antiestrés"]
+
+
 def test_split_category_names_does_not_split_canonical_cocina_category():
     assert split_category_names("Cocina, Mesa y Hogar") == [
         "Cocina, Mesa y Hogar"

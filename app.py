@@ -8,12 +8,11 @@ from services.catalog_bootstrap_service import CatalogBootstrapService
 
 app = QApplication(sys.argv)
 
-# La GUI nunca depende del scraper para arrancar. Si una base existente perdió
-# la tabla products pero conserva el historial de cambios descargados, se
-# reconstruye localmente una sola vez antes de mostrar la ventana.
+# La GUI arranca desde el último scraping completo exitoso ya persistido.
+# Esta reconciliación es local, idempotente y no realiza peticiones web.
 db = DBManager()
 try:
-    CatalogBootstrapService(db=db).restore_from_change_history()
+    CatalogBootstrapService(db=db).reconcile_latest_successful_run()
 finally:
     db.close()
 

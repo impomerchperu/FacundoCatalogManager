@@ -78,10 +78,12 @@ class DBManager:
         self.connection.execute(f"ALTER TABLE {table_name} DROP COLUMN colors")
 
     def _migrate_download_changes(self):
+        """Garantiza la FK de download_changes preservando registros antiguos."""
         if not self._table_exists("download_changes"):
             self._create_download_changes_table()
             self._create_download_changes_indexes()
             return
+
         foreign_keys = self.fetch_all("PRAGMA foreign_key_list(download_changes)")
         references_scraping_history = any(
             row["table"] == "scraping_history" and row["from"] == "history_id" and row["to"] == "id"
@@ -90,9 +92,11 @@ class DBManager:
         if references_scraping_history:
             self._create_download_changes_indexes()
             return
+
         self._backup_legacy_download_changes()
         self._create_download_changes_table()
         self._create_download_changes_indexes()
+        self._restore_legacy_download_changes()
 
     def _backup_legacy_download_changes(self):
         legacy_table = "download_changes_legacy"
@@ -101,6 +105,51 @@ class DBManager:
         self.connection.execute("DROP INDEX IF EXISTS idx_download_changes_history_id")
         self.connection.execute("DROP INDEX IF EXISTS idx_download_changes_code")
         self.connection.execute("ALTER TABLE download_changes RENAME TO download_changes_legacy")
+
+    def _restore_legacy_download_changes(self):
+        legacy_table = "download_changes_legacy"
+        if not self._table_exists(legacy_table):
+            return
+
+        columns = {
+            row["name"]
+            for row in self.connection.execute(
+                f"PRAGMA table_info({legacy_table})"
+            ).fetchall()
+        }
+        required = {
+            "history_id",
+            "change_type",
+            "code",
+            "product_name",
+            "field_name",
+            "field_label",
+            "old_value",
+            "new_value",
+        }
+        if not required.issubset(columns):
+            return
+
+        self.connection.execute(
+            f"""
+            INSERT INTO download_changes (
+                history_id, change_type, code, product_name,
+                field_name, field_label, old_value, new_value
+            )
+            SELECT
+                legacy.history_id,
+                legacy.change_type,
+                legacy.code,
+                legacy.product_name,
+                legacy.field_name,
+                legacy.field_label,
+                legacy.old_value,
+                legacy.new_value
+            FROM {legacy_table} AS legacy
+            JOIN scraping_history AS history
+              ON history.id = legacy.history_id
+            """
+        )
 
     def _create_download_changes_table(self):
         self.connection.execute(

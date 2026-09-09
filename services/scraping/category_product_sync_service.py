@@ -6,6 +6,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, cast
 
+import requests
+
 from config.scraping_config import SCRAPING_CATEGORY_WORKERS
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_name_normalizer import (
@@ -88,7 +90,26 @@ class CategoryProductSyncService:
                     for index, category in enumerate(categories)
                 }
                 for future, index in futures.items():
-                    collected_by_index[index] = future.result()
+                    category = categories[index]
+                    try:
+                        collected_by_index[index] = future.result()
+                    except requests.exceptions.RequestException as error:
+                        collected_by_index[index] = []
+                        category_name = str(
+                            getattr(category, "name", "")
+                        ).strip() or "(sin nombre)"
+                        message = (
+                            f"Error de red en categoría '{category_name}': "
+                            f"{error}"
+                        )
+                        self.last_sync_result.errors.append(message)
+                        _log_timing(
+                            "SCRAPING TIMING | stage=category_error | category=%s | "
+                            "error_type=%s | error=%s",
+                            category_name,
+                            type(error).__name__,
+                            str(error),
+                        )
                     if progress_callback:
                         progress_callback(index + 1, len(categories))
         _log_timing(

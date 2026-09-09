@@ -22,6 +22,13 @@ _CANONICAL_CATEGORIES = {
     "articulos de antiestres": "Artículos Antiestrés",
     "articulos antiesres": "Artículos Antiestrés",
     "articulos de antiesres": "Artículos Antiestrés",
+    "articulos de antistres": "Artículos Antiestrés",
+    "articulos antistres": "Artículos Antiestrés",
+    "articulos de antiestrés": "Artículos Antiestrés",
+    "articulos antiestrés": "Artículos Antiestrés",
+    "artículos de antiestres": "Artículos Antiestrés",
+    "artículos antiesres": "Artículos Antiestrés",
+    "artículos de antiesres": "Artículos Antiestrés",
 }
 
 

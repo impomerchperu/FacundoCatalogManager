@@ -84,6 +84,7 @@ class ScrapingHistoryDialog(QDialog):
             category_lines = "\n".join(
                 f"• {item.get('category', '')}: {item.get('products', 0)}"
                 for item in category_summary
+                if isinstance(item, dict)
             ) or "Sin desglose por categoría"
             coverage_text = (
                 f"E:{record.products_expected} F:{record.products_found} "
@@ -102,7 +103,10 @@ class ScrapingHistoryDialog(QDialog):
             self._set_detail_button(row, record.history_id)
             self.table.setRowHeight(row, 44)
         self.table.resizeColumnsToContents()
-        for column, width in {0: 165, 1: 85, 2: 75, 3: 95, 4: 95, 5: 85, 6: 250, 7: 70, 8: 95, 9: 110}.items():
+        for column, width in {
+            0: 165, 1: 85, 2: 75, 3: 95, 4: 95,
+            5: 85, 6: 250, 7: 70, 8: 95, 9: 110,
+        }.items():
             self.table.setColumnWidth(column, width)
 
     def _set_detail_button(self, row: int, history_id: int | None) -> None:
@@ -149,14 +153,31 @@ class ScrapingHistoryDialog(QDialog):
             self._show_history_details(history_id)
 
     def _show_history_details(self, history_id: int) -> None:
-        history = self.repository.get_by_id(history_id)
-        if history is None:
-            return
         try:
+            history = self.repository.get_by_id(history_id)
+            if history is None:
+                QMessageBox.warning(
+                    self,
+                    "Detalle de descarga",
+                    f"No existe el registro de historial #{history_id}.",
+                )
+                return
             changes = self.repository.get_changes(history_id)
         except sqlite3.Error as error:
-            QMessageBox.critical(self, "Detalle de descarga", f"No fue posible obtener los cambios.\n\n{error}")
+            QMessageBox.critical(
+                self,
+                "Detalle de descarga",
+                f"No fue posible obtener el detalle.\n\n{error}",
+            )
             return
+        except (TypeError, ValueError, KeyError) as error:
+            QMessageBox.critical(
+                self,
+                "Detalle de descarga",
+                f"El registro de historial contiene datos no válidos.\n\n{error}",
+            )
+            return
+
         if self.detail_dialog is not None:
             self.detail_dialog.close()
         dialog = QDialog(self)
@@ -187,7 +208,10 @@ class ScrapingHistoryDialog(QDialog):
             f"Brecha: {expected_gap}"
         )
         coverage.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        coverage.setStyleSheet("background:#fff3cd; color:#664d03; border:1px solid #ffda6a; border-radius:5px; padding:8px;")
+        coverage.setStyleSheet(
+            "background:#fff3cd; color:#664d03; border:1px solid #ffda6a; "
+            "border-radius:5px; padding:8px;"
+        )
         layout.addWidget(coverage)
 
         category_summary = getattr(history, "category_summary", []) or []
@@ -196,8 +220,9 @@ class ScrapingHistoryDialog(QDialog):
         category_table.setHorizontalHeaderLabels(["Categoría", "Productos", "Productos únicos"])
         category_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         category_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        category_table.setRowCount(len(category_summary))
-        for row, item in enumerate(category_summary):
+        valid_categories = [item for item in category_summary if isinstance(item, dict)]
+        category_table.setRowCount(len(valid_categories))
+        for row, item in enumerate(valid_categories):
             values = [
                 str(item.get("category", "")),
                 str(item.get("products", 0)),
@@ -209,13 +234,14 @@ class ScrapingHistoryDialog(QDialog):
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        category_title = QLabel(f"PRODUCTOS POR CATEGORÍA ({history.categories_processed} categorías)")
+        category_title = QLabel(f"PRODUCTOS POR CATEGORÍA ({len(valid_categories)} categorías)")
         category_title.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         layout.addWidget(category_title)
         layout.addWidget(category_table)
 
         multiple = getattr(history, "multiple_category_products", []) or []
-        multiple_title = QLabel(f"PRODUCTOS EN MÚLTIPLES CATEGORÍAS ({len(multiple)})")
+        valid_multiple = [item for item in multiple if isinstance(item, dict)]
+        multiple_title = QLabel(f"PRODUCTOS EN MÚLTIPLES CATEGORÍAS ({len(valid_multiple)})")
         multiple_title.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         layout.addWidget(multiple_title)
         multiple_table = QTableWidget()
@@ -223,12 +249,13 @@ class ScrapingHistoryDialog(QDialog):
         multiple_table.setHorizontalHeaderLabels(["Código", "Producto", "Categorías"])
         multiple_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         multiple_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        multiple_table.setRowCount(len(multiple))
-        for row, item in enumerate(multiple):
+        multiple_table.setRowCount(len(valid_multiple))
+        for row, item in enumerate(valid_multiple):
+            categories = item.get("categories", []) or []
             values = [
                 str(item.get("code", "")),
                 str(item.get("name", "")),
-                ", ".join(item.get("categories", []) or []),
+                ", ".join(str(category) for category in categories),
             ]
             for column, value in enumerate(values):
                 multiple_table.setItem(row, column, QTableWidgetItem(value))
@@ -250,6 +277,9 @@ class ScrapingHistoryDialog(QDialog):
         relation_label.setStyleSheet("padding: 2px 4px; font-style: italic;")
         layout.addWidget(relation_label)
 
+        changes_title = QLabel(f"CAMBIOS DETECTADOS ({len(changes)})")
+        changes_title.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        layout.addWidget(changes_title)
         table = QTableWidget()
         table.setColumnCount(6)
         table.setHorizontalHeaderLabels(["Tipo", "Código", "Producto", "Campo", "Anterior", "Nuevo"])
@@ -262,3 +292,70 @@ class ScrapingHistoryDialog(QDialog):
         for column in (2, 3, 4, 5):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
         table.setRowCount(max(len(changes), 1))
+        if changes:
+            for row, change in enumerate(changes):
+                values = [
+                    str(change.get("type", "")),
+                    str(change.get("code", "")),
+                    str(change.get("name", "")),
+                    str(change.get("label", change.get("field", ""))),
+                    self._display_value(change.get("old")),
+                    self._display_value(change.get("new")),
+                ]
+                for column, value in enumerate(values):
+                    table.setItem(row, column, QTableWidgetItem(value))
+        else:
+            table.setItem(0, 0, QTableWidgetItem("Sin cambios de campos registrados"))
+        layout.addWidget(table)
+
+        close_layout = QHBoxLayout()
+        close_layout.addStretch()
+        close_button = QPushButton("Cerrar")
+        close_button.clicked.connect(dialog.close)
+        close_layout.addWidget(close_button)
+        layout.addLayout(close_layout)
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    @staticmethod
+    def _display_value(value) -> str:
+        if isinstance(value, (dict, list)):
+            import json
+            return json.dumps(value, ensure_ascii=False, sort_keys=True)
+        if value is None:
+            return "—"
+        return str(value)
+
+    @staticmethod
+    def _set_item(row: int, column: int, text: str, user_data=None) -> None:
+        item = QTableWidgetItem(text)
+        if user_data is not None:
+            item.setData(Qt.ItemDataRole.UserRole, user_data)
+        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        return_value = item
+        return_value.setToolTip(text)
+        ScrapingHistoryDialog._set_table_item(row, column, item)
+
+    def _set_table_item(self, row: int, column: int, item: QTableWidgetItem) -> None:
+        self.table.setItem(row, column, item)
+
+    @staticmethod
+    def _parse_datetime(value):
+        return value
+
+    @staticmethod
+    def _format_datetime(value) -> str:
+        if value is None:
+            return ""
+        try:
+            return value.strftime("%d/%m/%Y %H:%M:%S")
+        except AttributeError:
+            return str(value)
+
+    def closeEvent(self, event) -> None:
+        if self.detail_dialog is not None:
+            self.detail_dialog.close()
+            self.detail_dialog = None
+        self.db.close()
+        super().closeEvent(event)

@@ -12,35 +12,14 @@ class CatalogBootstrapService:
     HISTORY_RECOVERY_KEY = "history_recovery_applied"
 
     PRODUCT_FIELDS: ClassVar[set[str]] = {
-        "name",
-        "category",
-        "description",
-        "price",
-        "price_sample",
-        "price_hundred",
-        "price_thousand",
-        "stock",
-        "color_stock",
-        "image_url",
-        "image_path",
-        "image_hash",
-        "content_hash",
+        "name", "category", "description", "price", "price_sample",
+        "price_hundred", "price_thousand", "stock", "color_stock",
+        "image_url", "image_path", "image_hash", "content_hash",
     }
     PRODUCT_COLUMNS: ClassVar[tuple[str, ...]] = (
-        "code",
-        "name",
-        "category",
-        "description",
-        "price",
-        "price_sample",
-        "price_hundred",
-        "price_thousand",
-        "stock",
-        "color_stock",
-        "image_url",
-        "image_path",
-        "image_hash",
-        "content_hash",
+        "code", "name", "category", "description", "price", "price_sample",
+        "price_hundred", "price_thousand", "stock", "color_stock", "image_url",
+        "image_path", "image_hash", "content_hash",
     )
 
     def __init__(
@@ -53,8 +32,7 @@ class CatalogBootstrapService:
 
     def is_initialized(self) -> bool:
         row = self.db.fetch_all(
-            "SELECT value FROM catalog_metadata WHERE key=?",
-            ("initialized",),
+            "SELECT value FROM catalog_metadata WHERE key=?", ("initialized",)
         )
         return bool(row and row[0]["value"] == "1")
 
@@ -106,7 +84,7 @@ class CatalogBootstrapService:
         )
 
     def reconcile_latest_successful_run(self) -> int:
-        """Reconstruye un catálogo vacío desde la última ejecución FULL válida."""
+        """Reconstruye un catálogo desde la última ejecución FULL válida."""
         run = self._find_latest_successful_full_run()
         if run is None:
             return 0
@@ -168,11 +146,7 @@ class CatalogBootstrapService:
                 """
                 INSERT INTO product_categories
                     (product_id, category_id, first_seen_at, last_seen_at)
-                SELECT
-                    product_id,
-                    category_id,
-                    MIN(discovered_at),
-                    MAX(discovered_at)
+                SELECT product_id, category_id, MIN(discovered_at), MAX(discovered_at)
                 FROM scraping_product_occurrences
                 WHERE run_id=?
                 GROUP BY product_id, category_id
@@ -242,6 +216,9 @@ class CatalogBootstrapService:
 
     def restore_from_change_history(self) -> int:
         """Reconstruye un catálogo vacío usando únicamente cambios persistidos."""
+        if self.product_count() > 0:
+            return 0
+
         changes = self.db.fetch_all(
             """
             SELECT history_id, id, change_type, code, product_name,
@@ -252,23 +229,9 @@ class CatalogBootstrapService:
             """
         )
         if not changes:
-            return self.product_count()
+            return 0
 
         products: dict[str, dict[str, object]] = {}
-        for row in self.db.fetch_all(
-            """
-            SELECT code, name, category, description, price, price_sample,
-                   price_hundred, price_thousand, stock, color_stock,
-                   image_url, image_path, image_hash, content_hash
-            FROM products
-            """
-        ):
-            code = self._normalize_code(row["code"])
-            if code:
-                products[code] = {
-                    field: row[field] for field in self.PRODUCT_COLUMNS
-                }
-
         deleted_codes: set[str] = set()
         for change in changes:
             code = self._normalize_code(change["code"])
@@ -300,8 +263,7 @@ class CatalogBootstrapService:
         try:
             for code in deleted_codes:
                 self.db.execute_query(
-                    "DELETE FROM products WHERE UPPER(TRIM(code))=?",
-                    (code,),
+                    "DELETE FROM products WHERE UPPER(TRIM(code))=?", (code,)
                 )
 
             for product in products.values():
@@ -311,10 +273,11 @@ class CatalogBootstrapService:
                 )
                 self.db.execute_query(
                     f"INSERT INTO products ({', '.join(self.PRODUCT_COLUMNS)}) "
-                    f"VALUES ({placeholders}) "
-                    f"ON CONFLICT(code) DO UPDATE SET {updates}",
+                    f"VALUES ({placeholders}) ON CONFLICT(code) DO UPDATE SET {updates}",
                     tuple(product[field] for field in self.PRODUCT_COLUMNS),
                 )
+            self.mark_initialized()
+            self._mark_history_recovery_applied()
             self.db.commit()
         except Exception:
             self.db.rollback()
@@ -322,20 +285,20 @@ class CatalogBootstrapService:
 
         return self.product_count()
 
-    def bootstrap(self) -> int:
+    def bootstrap(self) -> int | None:
         """Solo repara una instalación vacía; jamás reemplaza un catálogo existente."""
         if self.product_count() > 0 or self.is_initialized():
-            return self.product_count()
+            return None
 
         restored = self.reconcile_latest_successful_run()
         if restored <= 0:
             restored = self.restore_from_change_history()
-
         if restored > 0:
             self.mark_initialized()
             self._mark_history_recovery_applied()
             self.db.commit()
-        return restored
+            return restored
+        return None
 
     @staticmethod
     def _normalize_code(value) -> str:
@@ -344,31 +307,18 @@ class CatalogBootstrapService:
     @staticmethod
     def _empty_product(code: str) -> dict[str, object]:
         return {
-            "code": code,
-            "name": "",
-            "category": "",
-            "description": "",
-            "price": 0.0,
-            "price_sample": 0.0,
-            "price_hundred": 0.0,
-            "price_thousand": 0.0,
-            "stock": 0,
-            "color_stock": "{}",
-            "image_url": "",
-            "image_path": "",
-            "image_hash": "",
+            "code": code, "name": "", "category": "", "description": "",
+            "price": 0.0, "price_sample": 0.0, "price_hundred": 0.0,
+            "price_thousand": 0.0, "stock": 0, "color_stock": "{}",
+            "image_url": "", "image_path": "", "image_hash": "",
             "content_hash": "",
         }
 
     @staticmethod
     def _convert_field(field: str, value):
         defaults = {
-            "stock": 0,
-            "price": 0.0,
-            "price_sample": 0.0,
-            "price_hundred": 0.0,
-            "price_thousand": 0.0,
-            "color_stock": "{}",
+            "stock": 0, "price": 0.0, "price_sample": 0.0,
+            "price_hundred": 0.0, "price_thousand": 0.0, "color_stock": "{}",
         }
         if value is None:
             value = defaults.get(field, "")

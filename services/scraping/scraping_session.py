@@ -88,7 +88,10 @@ class ScrapingSession:
                 self._write_error_result_artifact()
                 self._save_history_in_clean_transaction(db)
                 return self.result
-            self._persist_catalog_products()
+
+            if not self.result.errors:
+                self._persist_catalog_products()
+
             self.result.finished_at = datetime.now(timezone.utc)
             if db is not None and transaction_started:
                 db.commit()
@@ -278,7 +281,12 @@ class ScrapingSession:
         message = (
             "Descarga completada y cambios aplicados automáticamente."
             if self.result.success()
-            else "Descarga finalizada con advertencias; cambios detectados aplicados."
+            else (
+                "Descarga finalizada con cobertura incompleta; "
+                "cambios del catálogo no aplicados."
+                if self._only_coverage_error()
+                else "Descarga finalizada con errores; cambios del catálogo no aplicados."
+            )
         )
         history = ScrapingHistory(
             started_at=self.result.started_at,

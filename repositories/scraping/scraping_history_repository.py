@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import ClassVar
 
 from models.scraping.scraping_history import ScrapingHistory
@@ -216,3 +217,34 @@ class ScrapingHistoryRepository:
             return json.loads(value)
         except (TypeError, json.JSONDecodeError):
             return value
+
+    @staticmethod
+    def _map_row(row) -> ScrapingHistory:
+        return ScrapingHistory(
+            history_id=row["id"],
+            started_at=datetime.fromisoformat(row["started_at"]),
+            finished_at=datetime.fromisoformat(row["finished_at"]),
+            processed=row["processed"],
+            created=row["created"],
+            updated=row["updated"],
+            unchanged=row["unchanged"],
+            deleted=row["deleted"],
+            generated=row["generated"],
+            categories_processed=row["categories_processed"],
+            products_expected=row["products_expected"],
+            products_found=row["products_found"],
+            products_unique=row["products_unique"],
+            products_multiple_categories=row["products_multiple_categories"],
+            duplicate_occurrences=row["duplicate_occurrences"],
+            category_summary=ScrapingHistoryRepository._deserialize(
+                row["category_summary"],
+            ) or [],
+            multiple_category_products=(
+                ScrapingHistoryRepository._deserialize(
+                    row["multiple_category_products"],
+                ) or []
+            ),
+            errors=row["errors"],
+            status=row["status"],
+            message=row["message"],
+        )

@@ -216,6 +216,8 @@ def test_bootstrap_restores_latest_state_from_change_history_when_full_run_is_un
         ],
     )
     connection.commit()
+    connection.execute("DELETE FROM products")
+    connection.commit()
 
     service = CatalogBootstrapService(db=db)
     assert service.bootstrap() == 2

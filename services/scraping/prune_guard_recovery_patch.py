@@ -1,9 +1,10 @@
 """Allow pruning after terminal HTTP errors are fully recovered.
 
 A terminal HTTP error is only a pruning blocker while final category coverage
-is still incomplete. Once every expected category occurrence is present, the
-error was recovered without a coverage loss and must not prevent full sync
-cleanup.
+is still incomplete. The scraper can report a terminal HTTP error from an
+intermediate request and still recover every expected product occurrence.
+In that case the final coverage, not the transient request metric, decides
+whether a FULL catalog sync may prune.
 """
 
 from services.scraping.category_product_sync_service import CategoryProductSyncService
@@ -14,9 +15,35 @@ _ORIGINAL_TERMINAL_HTTP_ERROR_REASON = (
 )
 
 
+def _has_complete_category_coverage(self) -> bool:
+    result = self.last_sync_result
+    expected = max(
+        int(getattr(result, "expected_category_occurrences", 0) or 0),
+        0,
+    )
+    if expected <= 0:
+        return False
+    if int(getattr(result, "products_found", 0) or 0) < expected:
+        return False
+
+    summary = getattr(result, "category_summary", None) or []
+    if not summary:
+        return False
+
+    for row in summary:
+        row_expected = max(int(row.get("expected", 0) or 0), 0)
+        if row_expected <= 0:
+            continue
+        if int(row.get("products", 0) or 0) != row_expected:
+            return False
+        if int(row.get("unique_products", 0) or 0) != row_expected:
+            return False
+    return True
+
+
 def _terminal_http_error_reason(self: CategoryProductSyncService):
-    """Ignore recovered terminal errors once the final coverage is complete."""
-    if getattr(self.last_sync_result, "coverage_complete", False):
+    """Ignore terminal request errors when the final category coverage is complete."""
+    if self._has_complete_category_coverage():
         return None
     return _ORIGINAL_TERMINAL_HTTP_ERROR_REASON(self)
 
@@ -26,6 +53,7 @@ def activate() -> None:
     global _PATCHED
     if _PATCHED:
         return
+    CategoryProductSyncService._has_complete_category_coverage = _has_complete_category_coverage
     CategoryProductSyncService._terminal_http_error_reason = _terminal_http_error_reason
     _PATCHED = True
 

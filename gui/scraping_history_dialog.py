@@ -69,7 +69,7 @@ class ScrapingHistoryDialog(QDialog):
 
     def load_history(self) -> None:
         try:
-            history = self.repository.get_latest(limit=100)
+            history = self.repository.get_all()
         except (sqlite3.Error, TypeError, ValueError, KeyError) as error:
             self.table.setRowCount(1)
             self.table.setItem(

@@ -81,6 +81,34 @@ def test_normalized_sync_categories_uses_full_mode_when_runner_marks_full():
     assert repository.modes == ["full"]
 
 
+def test_full_mode_skips_normalized_persistence_when_coverage_is_incomplete():
+    repository = FakeNormalizedRepository()
+    service = _build_service(repository)
+    service._scraping_mode = "full"
+    service.last_sync_result = SyncResult(
+        expected_category_occurrences=10,
+        products_found=8,
+        products_unique=8,
+    )
+    service.last_sync_result.category_summary = [
+        {
+            "category": "Categoría A",
+            "expected": 10,
+            "products": 8,
+            "unique_products": 8,
+            "gap": 2,
+        }
+    ]
+
+    service._persist_normalized(
+        [Category(name="Categoría A", url="https://example.test/a", expected_count=10)],
+        [type("Product", (), {"code": "FB-001"})()],
+        mode="full",
+    )
+
+    assert repository.modes == []
+
+
 def test_occurrence_metadata_uses_normalized_category_keys_and_preserves_multi_category_products():
     repository = FakeNormalizedRepository()
     service = _build_service(repository)

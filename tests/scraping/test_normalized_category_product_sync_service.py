@@ -71,10 +71,24 @@ def test_normalized_sync_categories_uses_full_mode_when_runner_marks_full():
     repository = FakeNormalizedRepository()
     service = _build_service(repository)
     service._scraping_mode = "full"
+    service.last_sync_result = SyncResult(
+        expected_category_occurrences=1,
+        products_found=1,
+        products_unique=1,
+    )
+    service.last_sync_result.category_summary = [
+        {
+            "category": "Categoría A",
+            "expected": 1,
+            "products": 1,
+            "unique_products": 1,
+            "gap": 0,
+        }
+    ]
 
     service._persist_normalized(
-        [Category(name="Categoría A", url="https://example.test/a")],
-        [],
+        [Category(name="Categoría A", url="https://example.test/a", expected_count=1)],
+        [type("Product", (), {"code": "FB-001"})()],
         mode=service._scraping_mode,
     )
 

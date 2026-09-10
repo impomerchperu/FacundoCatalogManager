@@ -82,14 +82,42 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         self.last_sync_result.multiple_category_products = multiple
         self.last_sync_result.products_multiple_categories = len(multiple)
 
-    def _ensure_full_catalog_masters(self, products) -> None:
-        """Garantiza la FK maestra antes de persistir ocurrencias de un FULL válido."""
+    def _full_coverage_ready(self, products) -> bool:
+        """Autoriza maestros extra solo con cobertura FULL explícitamente completa."""
         result = self.last_sync_result
         if (
             getattr(self, "_scraping_mode", "directed") != "full"
-            or not getattr(result, "coverage_complete", False)
+            or getattr(result, "missing_code", 0)
             or getattr(result, "errors", None)
+            or getattr(result, "failures", None)
         ):
+            return False
+
+        expected_occurrences = max(
+            int(getattr(result, "expected_category_occurrences", 0) or 0),
+            0,
+        )
+        actual_occurrences = len(products or [])
+        if expected_occurrences <= 0 or actual_occurrences < expected_occurrences:
+            return False
+
+        summary = getattr(result, "category_summary", []) or []
+        if not summary:
+            return False
+        for row in summary:
+            expected = max(int(row.get("expected", 0) or 0), 0)
+            if expected <= 0:
+                continue
+            products_found = int(row.get("products", 0) or 0)
+            unique_found = int(row.get("unique_products", 0) or 0)
+            if products_found != expected or unique_found != expected:
+                return False
+
+        return True
+
+    def _ensure_full_catalog_masters(self, products) -> None:
+        """Garantiza la FK maestra antes de persistir ocurrencias de un FULL válido."""
+        if not self._full_coverage_ready(products):
             return
 
         product_repository = self.catalog_sync_service.repository

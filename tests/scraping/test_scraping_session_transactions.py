@@ -48,7 +48,7 @@ class IncompleteRunner:
                 processed=len(products),
                 created=0,
                 updated=0,
-                unchanged=0,
+                unchanged=len(products),
                 deleted=0,
                 generated=0,
                 missing_code=0,
@@ -60,6 +60,8 @@ class IncompleteRunner:
                 categories_processed=24,
                 expected_category_occurrences=10,
                 products_expected=9,
+                products_found=len(products),
+                products_unique=len(products),
             ),
             catalog_sync_service=None,
         )

@@ -31,19 +31,57 @@ def _coverage_guard_with_state(
         expected_category_occurrences=expected_category_occurrences,
         expected_products=expected_products,
     )
-
-    # The guard runs before the final SyncResult is finished. A recovered
-    # terminal HTTP error may therefore be visible to the low-level guard even
-    # though the collected products already prove complete final coverage.
-    final_coverage_complete = bool(
-        getattr(self.last_sync_result, "coverage_complete", False)
-    )
-    if not complete and final_coverage_complete:
-        complete, reason = True, "complete"
-
     self._full_sync_coverage_validated = bool(complete)
     self._full_sync_coverage_reason = str(reason or "unknown")
     return complete, reason
+
+
+def _demonstrates_complete_coverage(
+    self,
+    products,
+    *,
+    expected_products=0,
+    expected_category_occurrences=0,
+) -> bool:
+    """Verify final collected coverage independently of transient HTTP errors."""
+    raw_products = list(products or [])
+    if not raw_products:
+        return False
+
+    if any(not str(getattr(product, "code", "") or "").strip() for product in raw_products):
+        return False
+
+    expected_occurrences = max(int(expected_category_occurrences or 0), 0)
+    if expected_occurrences <= 0 or len(raw_products) < expected_occurrences:
+        return False
+
+    summary = getattr(self.last_sync_result, "category_summary", []) or []
+    if summary:
+        for row in summary:
+            expected = max(int(row.get("expected", 0) or 0), 0)
+            if expected <= 0:
+                continue
+            products_found = int(row.get("products", 0) or 0)
+            unique_found = int(row.get("unique_products", 0) or 0)
+            if products_found != expected or unique_found != expected:
+                return False
+    else:
+        actual_occurrences = int(
+            getattr(self.last_sync_result, "products_found", len(raw_products)) or 0
+        )
+        if actual_occurrences < expected_occurrences:
+            return False
+
+    if expected_products:
+        unique_codes = {
+            str(getattr(product, "code", "")).strip().casefold()
+            for product in raw_products
+            if str(getattr(product, "code", "")).strip()
+        }
+        if len(unique_codes) < max(int(expected_products), 0):
+            return False
+
+    return True
 
 
 def _sync_products_with_safety(
@@ -56,10 +94,13 @@ def _sync_products_with_safety(
 ):
     coverage_validated = getattr(self, "_full_sync_coverage_validated", None)
     if full_sync and coverage_validated is False:
-        final_coverage_complete = bool(
-            getattr(self.last_sync_result, "coverage_complete", False)
+        recovered = _demonstrates_complete_coverage(
+            self,
+            products,
+            expected_products=expected_products,
+            expected_category_occurrences=expected_category_occurrences,
         )
-        if not final_coverage_complete:
+        if not recovered:
             reason = str(
                 getattr(self, "_full_sync_coverage_reason", "unknown") or "unknown"
             )
@@ -68,6 +109,9 @@ def _sync_products_with_safety(
                 f"sincronización FULL omitida por seguridad ({reason})."
             )
             return list(products or [])
+        allow_prune = True
+        self._full_sync_coverage_validated = True
+        self._full_sync_coverage_reason = "complete"
 
     return _ORIGINAL_SYNC_PRODUCTS(
         self,

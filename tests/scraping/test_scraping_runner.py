@@ -56,12 +56,13 @@ def test_scraping_runner_marks_full_mode_for_run_all():
     assert service._scraping_mode == "full"
 
 
-def test_scraping_runner_filters_enabled_categories_for_run_all():
+def test_scraping_runner_filters_enabled_categories_for_run_all_without_full_prune():
     captured = {}
 
     class FakeScrapingService:
         def sync_categories(self, categories, progress_callback=None):
             captured["categories"] = categories
+            captured["mode"] = self._scraping_mode
             return []
 
     class FakeCategoryService:
@@ -72,8 +73,9 @@ def test_scraping_runner_filters_enabled_categories_for_run_all():
             ]
 
     config = ScrapingConfig(enabled_categories=["Cat B"])
+    service = FakeScrapingService()
     runner = ScrapingRunner(
-        FakeScrapingService(),
+        service,
         config=config,
         category_service=FakeCategoryService(),
     )
@@ -83,6 +85,7 @@ def test_scraping_runner_filters_enabled_categories_for_run_all():
     assert captured["categories"] == [
         Category("Cat B", "https://example.test/b"),
     ]
+    assert captured["mode"] == "directed"
 
 
 def test_scraping_runner_scales_sync_categories_progress_to_full_pipeline():

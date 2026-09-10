@@ -32,6 +32,61 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         self._persist_normalized([category_object], products, mode="directed")
         return products
 
+    def _historical_full_floor(self):
+        repository = self.normalized_repository
+        db = getattr(repository, "db", None)
+        if db is None:
+            return 0, 0
+        try:
+            row = db.fetch_one(
+                """
+                SELECT MAX(products_unique) AS unique_products,
+                       MAX(actual_category_occurrences) AS occurrences
+                FROM scraping_runs
+                WHERE mode='full'
+                  AND status='SUCCESS'
+                  AND coverage_complete=1
+                """
+            )
+        except Exception:
+            return 0, 0
+        if row is None:
+            return 0, 0
+        return (
+            max(int(row["unique_products"] or 0), 0),
+            max(int(row["occurrences"] or 0), 0),
+        )
+
+    def _full_sync_prune_guard(
+        self,
+        products,
+        category_count,
+        *,
+        expected_category_occurrences=0,
+        expected_products=None,
+    ):
+        complete, reason = super()._full_sync_prune_guard(
+            products,
+            category_count,
+            expected_category_occurrences=expected_category_occurrences,
+            expected_products=expected_products,
+        )
+        if not complete:
+            return complete, reason
+
+        floor_unique, floor_occurrences = self._historical_full_floor()
+        incoming_unique = len({
+            str(getattr(product, "code", "")).strip().casefold()
+            for product in products
+            if str(getattr(product, "code", "")).strip()
+        })
+        incoming_occurrences = len(products or [])
+        if floor_unique and incoming_unique < floor_unique:
+            return False, f"historical_unique_regression:{floor_unique - incoming_unique}"
+        if floor_occurrences and incoming_occurrences < floor_occurrences:
+            return False, f"historical_occurrence_regression:{floor_occurrences - incoming_occurrences}"
+        return True, "complete"
+
     def _align_multiple_category_result(self, categories, products):
         requested = {
             normalize_category_name(canonical_category_name(getattr(category, "name", "")))

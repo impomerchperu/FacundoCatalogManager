@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+from scrapers.collectors import full_sync_safety_patch  # noqa: F401
 from database.db_manager import DBManager
 from models.product import Product
 from models.scraping.category import Category

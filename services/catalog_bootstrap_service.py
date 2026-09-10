@@ -124,9 +124,9 @@ class CatalogBootstrapService:
         if total_occurrences <= 0:
             return 0
 
-        self._restore_missing_products_from_legacy_sources(run_id)
         self.db.begin()
         try:
+            self._restore_missing_products_from_legacy_sources(run_id)
             self.db.execute_query(
                 """
                 UPDATE scraping_product_occurrences

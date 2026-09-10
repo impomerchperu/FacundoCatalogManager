@@ -35,12 +35,25 @@ class FakeNormalizedRepository:
         return None
 
 
+class FakeProductRepository:
+    def __init__(self):
+        self.saved = []
+
+    @staticmethod
+    def get(code):
+        return None
+
+    def save(self, product):
+        self.saved.append(product)
+        return product
+
+
 def _build_service(repository):
     class ScraperService:
         scraper = None
 
     class CatalogSyncService:
-        repository = object()
+        repository = FakeProductRepository()
 
     service = NormalizedCategoryProductSyncService(
         ScraperService(),

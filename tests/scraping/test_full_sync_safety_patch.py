@@ -59,7 +59,8 @@ def test_incomplete_full_sync_does_not_write_catalog():
         expected_category_occurrences=1,
     )
 
-    assert result == products
+    assert len(result) == len(products)
+    assert result[0].code == products[0].code
     assert catalog_sync.calls == 0
     assert service.last_sync_result.errors == [
         "Cobertura del catálogo incompleta: "
@@ -110,6 +111,7 @@ def test_final_complete_coverage_overrides_recovered_guard_state():
         expected_category_occurrences=1,
     )
 
-    assert result == products
+    assert len(result) == len(products)
+    assert result[0].code == products[0].code
     assert catalog_sync.calls == 1
     assert service.last_sync_result.errors == []

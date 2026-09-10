@@ -56,6 +56,7 @@ class IncompleteRunner:
                 errors=[
                     "Cobertura del catálogo incompleta: sincronización FULL omitida por seguridad (terminal_http_errors:1)."
                 ],
+                coverage_complete=False,
                 categories_processed=24,
                 expected_category_occurrences=10,
                 products_expected=9,
@@ -107,6 +108,7 @@ def test_incomplete_coverage_never_persists_products_to_catalog_repository():
     assert result.history_id == 17
     assert history_repository.saved[0][1] == []
     assert history_repository.saved[0][0].message == (
-        "Descarga finalizada con cobertura incompleta; cambios del catálogo no aplicados."
+        "Descarga finalizada con cobertura incompleta; "
+        "cambios del catálogo no aplicados."
     )
     assert db.operations == ["begin", "commit", "begin", "commit"]

@@ -7,26 +7,40 @@ from database.db_manager import DBManager
 
 
 class CatalogBootstrapService:
-    """Repara una instalación existente sin volver a scrapear el sitio."""
+    """Repara instalaciones existentes sin sobrescribir un catálogo ya persistido."""
 
     HISTORY_RECOVERY_KEY = "history_recovery_applied"
-    HISTORY_RECOVERY_VERSION = "530-526-4-v2"
-    REFERENCE_CATEGORIES = 24
-    REFERENCE_OCCURRENCES = 530
-    REFERENCE_PRODUCTS_FOUND = 530
-    REFERENCE_PRODUCTS_UNIQUE = 526
-    REFERENCE_MULTI_CATEGORY_PRODUCTS = 4
-    REFERENCE_DUPLICATE_OCCURRENCES = 4
 
     PRODUCT_FIELDS: ClassVar[set[str]] = {
-        "name", "category", "description", "price", "price_sample",
-        "price_hundred", "price_thousand", "stock", "color_stock",
-        "image_url", "image_path", "image_hash", "content_hash",
+        "name",
+        "category",
+        "description",
+        "price",
+        "price_sample",
+        "price_hundred",
+        "price_thousand",
+        "stock",
+        "color_stock",
+        "image_url",
+        "image_path",
+        "image_hash",
+        "content_hash",
     }
     PRODUCT_COLUMNS: ClassVar[tuple[str, ...]] = (
-        "code", "name", "category", "description", "price", "price_sample",
-        "price_hundred", "price_thousand", "stock", "color_stock", "image_url",
-        "image_path", "image_hash", "content_hash",
+        "code",
+        "name",
+        "category",
+        "description",
+        "price",
+        "price_sample",
+        "price_hundred",
+        "price_thousand",
+        "stock",
+        "color_stock",
+        "image_url",
+        "image_path",
+        "image_hash",
+        "content_hash",
     )
 
     def __init__(
@@ -39,7 +53,8 @@ class CatalogBootstrapService:
 
     def is_initialized(self) -> bool:
         row = self.db.fetch_all(
-            "SELECT value FROM catalog_metadata WHERE key=?", ("initialized",)
+            "SELECT value FROM catalog_metadata WHERE key=?",
+            ("initialized",),
         )
         return bool(row and row[0]["value"] == "1")
 
@@ -65,7 +80,7 @@ class CatalogBootstrapService:
             "SELECT value FROM catalog_metadata WHERE key=?",
             (self.HISTORY_RECOVERY_KEY,),
         )
-        return bool(row and row["value"] == self.HISTORY_RECOVERY_VERSION)
+        return bool(row and row["value"] == "1")
 
     def _mark_history_recovery_applied(self) -> None:
         self.db.execute_query(
@@ -74,62 +89,35 @@ class CatalogBootstrapService:
             VALUES (?, ?)
             ON CONFLICT(key) DO UPDATE SET value=excluded.value
             """,
-            (self.HISTORY_RECOVERY_KEY, self.HISTORY_RECOVERY_VERSION),
+            (self.HISTORY_RECOVERY_KEY, "1"),
         )
 
-    def _scraping_run_columns(self) -> set[str]:
-        return {row["name"] for row in self.db.fetch_all("PRAGMA table_info(scraping_runs)")}
-
-    def _find_reference_full_run(self):
-        columns = self._scraping_run_columns()
-        required = {
-            "categories_requested", "expected_category_occurrences",
-            "actual_category_occurrences", "products_found", "products_unique",
-            "products_multiple_categories", "duplicate_occurrences",
-        }
-        if required.issubset(columns):
-            return self.db.fetch_one(
-                """
-                SELECT id
-                FROM scraping_runs
-                WHERE mode='full'
-                  AND status='SUCCESS'
-                  AND coverage_complete=1
-                  AND categories_requested=?
-                  AND expected_category_occurrences=?
-                  AND actual_category_occurrences=?
-                  AND products_found=?
-                  AND products_unique=?
-                  AND products_multiple_categories=?
-                  AND duplicate_occurrences=?
-                ORDER BY id DESC
-                LIMIT 1
-                """,
-                (
-                    self.REFERENCE_CATEGORIES, self.REFERENCE_OCCURRENCES,
-                    self.REFERENCE_OCCURRENCES, self.REFERENCE_PRODUCTS_FOUND,
-                    self.REFERENCE_PRODUCTS_UNIQUE, self.REFERENCE_MULTI_CATEGORY_PRODUCTS,
-                    self.REFERENCE_DUPLICATE_OCCURRENCES,
-                ),
-            )
+    def _find_latest_successful_full_run(self):
         return self.db.fetch_one(
             """
             SELECT id
             FROM scraping_runs
-            WHERE mode='full' AND status='SUCCESS' AND coverage_complete=1
+            WHERE mode='full'
+              AND status='SUCCESS'
+              AND coverage_complete=1
             ORDER BY id DESC
             LIMIT 1
             """
         )
 
     def reconcile_latest_successful_run(self) -> int:
-        """Reconstruye el catálogo y relaciones desde una ejecución FULL válida."""
-        run = self._find_reference_full_run()
+        """Reconstruye un catálogo vacío desde la última ejecución FULL válida."""
+        run = self._find_latest_successful_full_run()
         if run is None:
             return 0
+
         run_id = int(run["id"])
         occurrence_count = self.db.fetch_one(
-            "SELECT COUNT(*) AS total FROM scraping_product_occurrences WHERE run_id=?",
+            """
+            SELECT COUNT(*) AS total
+            FROM scraping_product_occurrences
+            WHERE run_id=?
+            """,
             (run_id,),
         )
         total_occurrences = int(occurrence_count["total"] or 0) if occurrence_count else 0
@@ -143,7 +131,8 @@ class CatalogBootstrapService:
                 """
                 UPDATE scraping_product_occurrences
                 SET product_id=(
-                    SELECT p.id FROM products p
+                    SELECT p.id
+                    FROM products p
                     WHERE UPPER(TRIM(p.code))=UPPER(TRIM(scraping_product_occurrences.code))
                     LIMIT 1
                 )
@@ -152,26 +141,43 @@ class CatalogBootstrapService:
                 (run_id,),
             )
             missing = self.db.fetch_one(
-                "SELECT COUNT(*) AS total FROM scraping_product_occurrences WHERE run_id=? AND product_id IS NULL",
+                """
+                SELECT COUNT(*) AS total
+                FROM scraping_product_occurrences
+                WHERE run_id=? AND product_id IS NULL
+                """,
                 (run_id,),
             )
             if missing is None or int(missing["total"] or 0) != 0:
                 self.db.rollback()
                 return 0
+
             self.db.execute_query("DELETE FROM product_categories")
             self.db.execute_query(
-                "DELETE FROM products WHERE id NOT IN (SELECT DISTINCT product_id FROM scraping_product_occurrences WHERE run_id=?)",
+                """
+                DELETE FROM products
+                WHERE id NOT IN (
+                    SELECT DISTINCT product_id
+                    FROM scraping_product_occurrences
+                    WHERE run_id=?
+                )
+                """,
                 (run_id,),
             )
             self.db.execute_query(
                 """
                 INSERT INTO product_categories
                     (product_id, category_id, first_seen_at, last_seen_at)
-                SELECT product_id, category_id, MIN(discovered_at), MAX(discovered_at)
+                SELECT
+                    product_id,
+                    category_id,
+                    MIN(discovered_at),
+                    MAX(discovered_at)
                 FROM scraping_product_occurrences
                 WHERE run_id=?
                 GROUP BY product_id, category_id
-                ON CONFLICT(product_id, category_id) DO UPDATE SET last_seen_at=excluded.last_seen_at
+                ON CONFLICT(product_id, category_id) DO UPDATE SET
+                    last_seen_at=excluded.last_seen_at
                 """,
                 (run_id,),
             )
@@ -189,7 +195,8 @@ class CatalogBootstrapService:
             """
             SELECT DISTINCT UPPER(TRIM(o.code)) AS code
             FROM scraping_product_occurrences o
-            LEFT JOIN products p ON UPPER(TRIM(p.code))=UPPER(TRIM(o.code))
+            LEFT JOIN products p
+              ON UPPER(TRIM(p.code))=UPPER(TRIM(o.code))
             WHERE o.run_id=? AND p.id IS NULL
             """,
             (run_id,),
@@ -205,7 +212,8 @@ class CatalogBootstrapService:
                        image_url, image_path, image_hash, content_hash
                 FROM scraped_products
                 WHERE UPPER(TRIM(code))=?
-                ORDER BY id DESC LIMIT 1
+                ORDER BY id DESC
+                LIMIT 1
                 """,
                 (code,),
             )
@@ -217,23 +225,27 @@ class CatalogBootstrapService:
                            image_url, image_path, image_hash, content_hash
                     FROM sync_records
                     WHERE UPPER(TRIM(code))=?
-                    ORDER BY updated_at DESC LIMIT 1
+                    ORDER BY updated_at DESC
+                    LIMIT 1
                     """,
                     (code,),
                 )
             if legacy is None:
                 continue
+
             placeholders = ", ".join("?" for _ in self.PRODUCT_COLUMNS)
             self.db.execute_query(
-                f"INSERT OR IGNORE INTO products ({', '.join(self.PRODUCT_COLUMNS)}) VALUES ({placeholders})",
+                f"INSERT OR IGNORE INTO products ({', '.join(self.PRODUCT_COLUMNS)}) "
+                f"VALUES ({placeholders})",
                 tuple(legacy[column] for column in self.PRODUCT_COLUMNS),
             )
 
     def restore_from_change_history(self) -> int:
-        """Aplica cambios históricos sin borrar las tablas de historial."""
+        """Reconstruye un catálogo vacío usando únicamente cambios persistidos."""
         changes = self.db.fetch_all(
             """
-            SELECT history_id, id, change_type, code, product_name, field_name, new_value
+            SELECT history_id, id, change_type, code, product_name,
+                   field_name, new_value
             FROM download_changes
             WHERE code IS NOT NULL AND TRIM(code) <> ''
             ORDER BY history_id ASC, id ASC
@@ -241,6 +253,7 @@ class CatalogBootstrapService:
         )
         if not changes:
             return self.product_count()
+
         products: dict[str, dict[str, object]] = {}
         for row in self.db.fetch_all(
             """
@@ -252,7 +265,10 @@ class CatalogBootstrapService:
         ):
             code = self._normalize_code(row["code"])
             if code:
-                products[code] = {field: row[field] for field in self.PRODUCT_COLUMNS}
+                products[code] = {
+                    field: row[field] for field in self.PRODUCT_COLUMNS
+                }
+
         deleted_codes: set[str] = set()
         for change in changes:
             code = self._normalize_code(change["code"])
@@ -265,6 +281,7 @@ class CatalogBootstrapService:
                 continue
             if item_type in {"MISSING_CODE", "CODE_GENERATED"}:
                 continue
+
             deleted_codes.discard(code)
             product = products.setdefault(code, self._empty_product(code))
             if change["product_name"]:
@@ -272,41 +289,49 @@ class CatalogBootstrapService:
             field = change["field_name"]
             if field in self.PRODUCT_FIELDS:
                 product[field] = self._convert_field(field, change["new_value"])
+
         products = {
-            code: product for code, product in products.items()
+            code: product
+            for code, product in products.items()
             if str(product.get("name", "")).strip()
         }
+
         self.db.begin()
         try:
             for code in deleted_codes:
-                self.db.execute_query("DELETE FROM products WHERE UPPER(TRIM(code))=?", (code,))
+                self.db.execute_query(
+                    "DELETE FROM products WHERE UPPER(TRIM(code))=?",
+                    (code,),
+                )
+
             for product in products.values():
                 placeholders = ", ".join("?" for _ in self.PRODUCT_COLUMNS)
-                updates = ", ".join(f"{field}=excluded.{field}" for field in self.PRODUCT_COLUMNS[1:])
+                updates = ", ".join(
+                    f"{field}=excluded.{field}" for field in self.PRODUCT_COLUMNS[1:]
+                )
                 self.db.execute_query(
-                    f"INSERT INTO products ({', '.join(self.PRODUCT_COLUMNS)}) VALUES ({placeholders}) ON CONFLICT(code) DO UPDATE SET {updates}",
+                    f"INSERT INTO products ({', '.join(self.PRODUCT_COLUMNS)}) "
+                    f"VALUES ({placeholders}) "
+                    f"ON CONFLICT(code) DO UPDATE SET {updates}",
                     tuple(product[field] for field in self.PRODUCT_COLUMNS),
                 )
             self.db.commit()
         except Exception:
             self.db.rollback()
             raise
+
         return self.product_count()
 
     def bootstrap(self) -> int:
-        """Recupera la última FULL validada si el catálogo quedó por debajo de ella."""
-        reference = self._find_reference_full_run()
-        if reference is not None and self.product_count() < self.REFERENCE_PRODUCTS_UNIQUE:
-            restored = self.reconcile_latest_successful_run()
-            if restored >= self.REFERENCE_PRODUCTS_UNIQUE:
-                self.mark_initialized()
-                self._mark_history_recovery_applied()
-                self.db.commit()
-                return restored
-        if self._history_recovery_applied():
+        """Solo repara una instalación vacía; jamás reemplaza un catálogo existente."""
+        if self.product_count() > 0 or self.is_initialized():
             return self.product_count()
-        restored = self.restore_from_change_history()
-        if restored or self.product_count() > 0:
+
+        restored = self.reconcile_latest_successful_run()
+        if restored <= 0:
+            restored = self.restore_from_change_history()
+
+        if restored > 0:
             self.mark_initialized()
             self._mark_history_recovery_applied()
             self.db.commit()
@@ -319,20 +344,35 @@ class CatalogBootstrapService:
     @staticmethod
     def _empty_product(code: str) -> dict[str, object]:
         return {
-            "code": code, "name": "", "category": "", "description": "",
-            "price": 0.0, "price_sample": 0.0, "price_hundred": 0.0,
-            "price_thousand": 0.0, "stock": 0, "color_stock": "{}",
-            "image_url": "", "image_path": "", "image_hash": "", "content_hash": "",
+            "code": code,
+            "name": "",
+            "category": "",
+            "description": "",
+            "price": 0.0,
+            "price_sample": 0.0,
+            "price_hundred": 0.0,
+            "price_thousand": 0.0,
+            "stock": 0,
+            "color_stock": "{}",
+            "image_url": "",
+            "image_path": "",
+            "image_hash": "",
+            "content_hash": "",
         }
 
     @staticmethod
     def _convert_field(field: str, value):
         defaults = {
-            "stock": 0, "price": 0.0, "price_sample": 0.0,
-            "price_hundred": 0.0, "price_thousand": 0.0, "color_stock": "{}",
+            "stock": 0,
+            "price": 0.0,
+            "price_sample": 0.0,
+            "price_hundred": 0.0,
+            "price_thousand": 0.0,
+            "color_stock": "{}",
         }
         if value is None:
             value = defaults.get(field, "")
+
         try:
             if field in {"price", "price_sample", "price_hundred", "price_thousand"}:
                 return float(value)

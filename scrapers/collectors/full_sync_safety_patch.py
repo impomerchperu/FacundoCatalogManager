@@ -31,6 +31,16 @@ def _coverage_guard_with_state(
         expected_category_occurrences=expected_category_occurrences,
         expected_products=expected_products,
     )
+
+    # The guard runs before the final SyncResult is finished. A recovered
+    # terminal HTTP error may therefore be visible to the low-level guard even
+    # though the collected products already prove complete final coverage.
+    final_coverage_complete = bool(
+        getattr(self.last_sync_result, "coverage_complete", False)
+    )
+    if not complete and final_coverage_complete:
+        complete, reason = True, "complete"
+
     self._full_sync_coverage_validated = bool(complete)
     self._full_sync_coverage_reason = str(reason or "unknown")
     return complete, reason
@@ -46,14 +56,18 @@ def _sync_products_with_safety(
 ):
     coverage_validated = getattr(self, "_full_sync_coverage_validated", None)
     if full_sync and coverage_validated is False:
-        reason = str(
-            getattr(self, "_full_sync_coverage_reason", "unknown") or "unknown"
+        final_coverage_complete = bool(
+            getattr(self.last_sync_result, "coverage_complete", False)
         )
-        self.last_sync_result.errors.append(
-            "Cobertura del catálogo incompleta: "
-            f"sincronización FULL omitida por seguridad ({reason})."
-        )
-        return list(products or [])
+        if not final_coverage_complete:
+            reason = str(
+                getattr(self, "_full_sync_coverage_reason", "unknown") or "unknown"
+            )
+            self.last_sync_result.errors.append(
+                "Cobertura del catálogo incompleta: "
+                f"sincronización FULL omitida por seguridad ({reason})."
+            )
+            return list(products or [])
 
     return _ORIGINAL_SYNC_PRODUCTS(
         self,

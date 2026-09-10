@@ -60,24 +60,6 @@ class NormalizedScrapingRepository:
             raise RuntimeError("No se pudo obtener la categoría normalizada.")
         return int(row["id"])
 
-    def _historical_full_floor(self):
-        row = self.db.fetch_one(
-            """
-            SELECT MAX(products_unique) AS unique_products,
-                   MAX(actual_category_occurrences) AS occurrences
-            FROM scraping_runs
-            WHERE mode='full'
-              AND status='SUCCESS'
-              AND coverage_complete=1
-            """
-        )
-        if row is None:
-            return 0, 0
-        return (
-            max(int(row["unique_products"] or 0), 0),
-            max(int(row["occurrences"] or 0), 0),
-        )
-
     def start_run(
         self,
         *,
@@ -85,10 +67,6 @@ class NormalizedScrapingRepository:
         categories_requested: int,
         expected_category_occurrences: int,
     ) -> int:
-        expected = max(int(expected_category_occurrences or 0), 0)
-        if str(mode or "directed") == "full":
-            _, floor_occurrences = self._historical_full_floor()
-            expected = max(expected, floor_occurrences)
         cursor = self.db.execute_query(
             """
             INSERT INTO scraping_runs
@@ -100,7 +78,7 @@ class NormalizedScrapingRepository:
                 self._now(),
                 str(mode or "directed"),
                 max(int(categories_requested or 0), 0),
-                expected,
+                max(int(expected_category_occurrences or 0), 0),
             ),
         )
         return int(cursor.lastrowid)
@@ -127,34 +105,16 @@ class NormalizedScrapingRepository:
             max(int(row.get("gap", 0) or 0), 0) > 0
             for row in category_summary
         )
-        historical_unique, historical_occurrences = self._historical_full_floor()
-        actual_unique = max(int(getattr(result, "products_unique", 0) or 0), 0)
-        historical_regression = bool(
-            str(self.db.fetch_one("SELECT mode FROM scraping_runs WHERE id=?", (run_id,))["mode"] or "") == "full"
-            and (
-                (historical_unique > 0 and actual_unique < historical_unique)
-                or (historical_occurrences > 0 and actual < historical_occurrences)
-            )
-        )
         coverage_complete = bool(
             missing_code == 0
             and errors == 0
             and not message_value
-            and not historical_regression
-            and (
-                expected > 0
-                and actual >= expected
-                and not has_category_gap
-            )
+            and expected > 0
+            and actual >= expected
+            and not has_category_gap
         )
-        error_count = max(errors, int(bool(message_value)), int(historical_regression))
+        error_count = max(errors, int(bool(message_value)))
         status = "SUCCESS" if coverage_complete else "ERROR"
-        persisted_message = message_value
-        if historical_regression:
-            persisted_message = (
-                f"Cobertura inferior al último FULL válido: "
-                f"{historical_unique} únicos / {historical_occurrences} ocurrencias."
-            )
         self.db.execute_query(
             """
             UPDATE scraping_runs
@@ -176,13 +136,13 @@ class NormalizedScrapingRepository:
                 status,
                 actual,
                 int(getattr(result, "products_found", 0) or 0),
-                actual_unique,
+                int(getattr(result, "products_unique", 0) or 0),
                 int(getattr(result, "products_multiple_categories", 0) or 0),
                 int(getattr(result, "duplicate_occurrences", 0) or 0),
                 int(coverage_complete),
                 gap,
                 error_count,
-                persisted_message,
+                message_value,
                 run_id,
             ),
         )

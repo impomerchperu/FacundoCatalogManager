@@ -1,5 +1,4 @@
 import json
-from datetime import datetime
 from typing import ClassVar
 
 from models.scraping.scraping_history import ScrapingHistory

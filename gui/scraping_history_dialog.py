@@ -47,9 +47,10 @@ class ScrapingHistoryDialog(QDialog):
         layout.addWidget(title)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(12)
+        self.table.setColumnCount(13)
         self.table.setHorizontalHeaderLabels(
             [
+                "ID",
                 "Fecha de descarga",
                 "Duración",
                 "Procesados",
@@ -64,6 +65,7 @@ class ScrapingHistoryDialog(QDialog):
                 "Detalle",
             ],
         )
+        self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -102,46 +104,47 @@ class ScrapingHistoryDialog(QDialog):
             finished_at = self._parse_datetime(record.finished_at)
             duration = self._format_duration(started_at, finished_at)
 
+            self._set_item(row, 0, str(record.history_id), record.history_id)
             self._set_item(
                 row,
-                0,
+                1,
                 self._format_datetime(started_at),
-                record.history_id,
             )
-            self._set_item(row, 1, duration)
-            self._set_item(row, 2, str(record.processed))
-            self._set_item(row, 3, str(record.created))
-            self._set_item(row, 4, str(record.updated))
-            self._set_item(row, 5, str(record.unchanged))
-            self._set_item(row, 6, str(record.deleted))
+            self._set_item(row, 2, duration)
+            self._set_item(row, 3, str(record.processed))
+            self._set_item(row, 4, str(record.created))
+            self._set_item(row, 5, str(record.updated))
+            self._set_item(row, 6, str(record.unchanged))
+            self._set_item(row, 7, str(record.deleted))
 
             coverage_item = QTableWidgetItem(
                 self._coverage_text(record),
             )
             coverage_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             coverage_item.setToolTip(self._coverage_tooltip(record))
-            self.table.setItem(row, 7, coverage_item)
+            self.table.setItem(row, 8, coverage_item)
 
-            self._set_item(row, 8, str(record.errors))
-            self._set_status_item(row, 9, record)
-            self._set_application_item(row, 10, record)
+            self._set_item(row, 9, str(record.errors))
+            self._set_status_item(row, 10, record)
+            self._set_application_item(row, 11, record)
             self._set_detail_button(row, record.history_id)
             self.table.setRowHeight(row, 44)
 
         self.table.resizeColumnsToContents()
         widths = {
-            0: 165,
-            1: 90,
-            2: 80,
-            3: 70,
-            4: 95,
-            5: 90,
-            6: 85,
-            7: 250,
-            8: 65,
-            9: 85,
-            10: 175,
-            11: 110,
+            0: 70,
+            1: 165,
+            2: 90,
+            3: 80,
+            4: 70,
+            5: 95,
+            6: 90,
+            7: 85,
+            8: 250,
+            9: 65,
+            10: 85,
+            11: 175,
+            12: 110,
         }
         for column, width in widths.items():
             self.table.setColumnWidth(column, width)
@@ -220,7 +223,7 @@ class ScrapingHistoryDialog(QDialog):
         button.setProperty("history_id", history_id)
         button.clicked.connect(self.show_row_details)
         layout.addWidget(button)
-        self.table.setCellWidget(row, 11, container)
+        self.table.setCellWidget(row, 12, container)
 
     def show_row_details(self) -> None:
         button = self.sender()
@@ -280,6 +283,7 @@ class ScrapingHistoryDialog(QDialog):
         duration = self._format_duration(started_at, finished_at)
 
         summary = QLabel(
+            f"ID: {history.history_id}    "
             f"Inicio: {self._format_datetime(started_at)}    "
             f"Fin/aplicación: {self._format_datetime(finished_at)}    "
             f"Duración: {duration}\n"

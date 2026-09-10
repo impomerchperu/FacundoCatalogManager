@@ -164,12 +164,8 @@ def test_recovery_uses_the_latest_successful_run_without_a_historical_count_floo
     connection = _db()
     db = SQLiteDBAdapter(connection)
 
-    older_run = _insert_successful_run(
-        connection, "OLD", 1, "Producto antiguo"
-    )
-    newer_run = _insert_successful_run(
-        connection, "CURRENT", 2, "Producto actual"
-    )
+    older_run = _insert_successful_run(connection, "OLD", 1, "Producto antiguo")
+    newer_run = _insert_successful_run(connection, "CURRENT", 2, "Producto actual")
     assert newer_run > older_run
 
     connection.execute("DELETE FROM products")
@@ -209,7 +205,7 @@ def test_bootstrap_never_replaces_a_nonempty_catalog_with_another_successful_run
     connection.commit()
 
     service = CatalogBootstrapService(db=db)
-    assert service.bootstrap() == 1
+    assert service.bootstrap() is None
     row = connection.execute(
         "SELECT code, name, stock FROM products"
     ).fetchone()

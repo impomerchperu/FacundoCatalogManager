@@ -82,11 +82,32 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         self.last_sync_result.multiple_category_products = multiple
         self.last_sync_result.products_multiple_categories = len(multiple)
 
+    def _ensure_full_catalog_masters(self, products) -> None:
+        """Garantiza la FK maestra antes de persistir ocurrencias de un FULL válido."""
+        result = self.last_sync_result
+        if (
+            getattr(self, "_scraping_mode", "directed") != "full"
+            or not getattr(result, "coverage_complete", False)
+            or getattr(result, "errors", None)
+        ):
+            return
+
+        product_repository = self.catalog_sync_service.repository
+        seen = set()
+        for product in products or []:
+            code = str(getattr(product, "code", "")).strip().upper()
+            if not code or code.casefold() in seen:
+                continue
+            seen.add(code.casefold())
+            if product_repository.get(code) is None:
+                product_repository.save(product)
+
     def _persist_normalized(self, categories, products, *, mode: str) -> None:
         repository = self.normalized_repository
         if repository is None or self.catalog_sync_service is None:
             return
 
+        self._ensure_full_catalog_masters(products)
         result = self.last_sync_result
         run_id = repository.start_run(
             mode=mode,

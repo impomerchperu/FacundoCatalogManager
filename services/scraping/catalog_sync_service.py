@@ -57,23 +57,7 @@ class CatalogSyncService:
             for p in raw_products
             if not self._normalize_code(getattr(p, "code", ""))
         ]
-        for product in missing_code_products:
-            result.missing_code += 1
-            result.changes.append(
-                {
-                    "type": "MISSING_CODE",
-                    "code": "",
-                    "name": str(getattr(product, "name", "")).strip(),
-                    "changes": [
-                        {
-                            "field": "code",
-                            "label": "Código no encontrado",
-                            "old": "Sin código",
-                            "new": "Ignorado",
-                        }
-                    ],
-                }
-            )
+        result.missing_code = len(missing_code_products)
         prepared = []
         for product in raw_products:
             code = self._normalize_code(getattr(product, "code", ""))

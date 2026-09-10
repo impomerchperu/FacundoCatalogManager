@@ -125,7 +125,7 @@ def test_reference_run_wins_over_a_later_529_525_successful_run():
     connection = _db()
     db = SQLiteDBAdapter(connection)
 
-    old_run = _insert_run(
+    reference_run = _insert_run(
         connection,
         products_found=530,
         products_unique=526,
@@ -150,20 +150,22 @@ def test_reference_run_wins_over_a_later_529_525_successful_run():
                 (run_id, category_id, product_id, code, discovered_at)
             VALUES (?, ?, ?, ?, 'now')
             """,
-            (old_run, index + 1, product_id, f'C{index:03d}'),
+            (reference_run, index + 1, product_id, f"C{index:03d}"),
         )
     # El segundo run es deliberadamente el más reciente, pero no coincide
     # con la referencia histórica 530/526/4.
     connection.execute(
-        "INSERT INTO scraping_product_occurrences
+        """
+        INSERT INTO scraping_product_occurrences
             (run_id, category_id, product_id, code, discovered_at)
-         VALUES (?, 1, ?, 'KEEP', 'now')",
+        VALUES (?, 1, ?, 'KEEP', 'now')
+        """,
         (later_run, product_id),
     )
     connection.commit()
 
     service = CatalogBootstrapService(db=db)
-    assert service._find_reference_full_run()["id"] == old_run
+    assert service._find_reference_full_run()["id"] == reference_run
 
 
 def test_bootstrap_does_not_repeat_reference_recovery_after_version_is_marked():

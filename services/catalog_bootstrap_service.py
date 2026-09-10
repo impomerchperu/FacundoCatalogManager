@@ -7,9 +7,18 @@ from database.db_manager import DBManager
 
 
 class CatalogBootstrapService:
-    """Gestiona la reparación histórica de la base local, sin hacer scraping."""
+    """Repara una instalación existente sin volver a scrapear el sitio."""
 
     HISTORY_RECOVERY_KEY = "history_recovery_applied"
+    HISTORY_RECOVERY_VERSION = "530-526-4-v1"
+
+    REFERENCE_CATEGORIES = 24
+    REFERENCE_OCCURRENCES = 530
+    REFERENCE_PRODUCTS_FOUND = 530
+    REFERENCE_PRODUCTS_UNIQUE = 526
+    REFERENCE_MULTI_CATEGORY_PRODUCTS = 4
+    REFERENCE_DUPLICATE_OCCURRENCES = 4
+
     PRODUCT_FIELDS: ClassVar[set[str]] = {
         "name",
         "category",
@@ -80,7 +89,7 @@ class CatalogBootstrapService:
             "SELECT value FROM catalog_metadata WHERE key=?",
             (self.HISTORY_RECOVERY_KEY,),
         )
-        return bool(row and row["value"] == "1")
+        return bool(row and row["value"] == self.HISTORY_RECOVERY_VERSION)
 
     def _mark_history_recovery_applied(self) -> None:
         self.db.execute_query(
@@ -89,34 +98,54 @@ class CatalogBootstrapService:
             VALUES (?, ?)
             ON CONFLICT(key) DO UPDATE SET value=excluded.value
             """,
-            (self.HISTORY_RECOVERY_KEY, "1"),
+            (self.HISTORY_RECOVERY_KEY, self.HISTORY_RECOVERY_VERSION),
         )
 
-    def reconcile_latest_successful_run(self) -> int:
-        """Reconstruye relaciones a partir de un FULL exitoso de forma explícita."""
-        run = self.db.fetch_one(
+    def _find_reference_full_run(self):
+        return self.db.fetch_one(
             """
             SELECT id
             FROM scraping_runs
             WHERE mode='full'
               AND status='SUCCESS'
               AND coverage_complete=1
+              AND categories_requested=?
+              AND expected_category_occurrences=?
+              AND actual_category_occurrences=?
+              AND products_found=?
+              AND products_unique=?
+              AND products_multiple_categories=?
+              AND duplicate_occurrences=?
             ORDER BY id DESC
             LIMIT 1
-            """
+            """,
+            (
+                self.REFERENCE_CATEGORIES,
+                self.REFERENCE_OCCURRENCES,
+                self.REFERENCE_OCCURRENCES,
+                self.REFERENCE_PRODUCTS_FOUND,
+                self.REFERENCE_PRODUCTS_UNIQUE,
+                self.REFERENCE_MULTI_CATEGORY_PRODUCTS,
+                self.REFERENCE_DUPLICATE_OCCURRENCES,
+            ),
         )
+
+    def reconcile_reference_run(self) -> int:
+        """Restaura el catálogo a la ejecución histórica validada 530/526/4."""
+        run = self._find_reference_full_run()
         if run is None:
             return 0
 
         run_id = int(run["id"])
-        expected = int(
-            self.db.fetch_one(
-                "SELECT COUNT(DISTINCT code) AS total "
-                "FROM scraping_product_occurrences WHERE run_id=?",
-                (run_id,),
-            )["total"]
+        occurrence_count = self.db.fetch_one(
+            """
+            SELECT COUNT(*) AS total
+            FROM scraping_product_occurrences
+            WHERE run_id=?
+            """,
+            (run_id,),
         )
-        if expected <= 0:
+        if occurrence_count is None or int(occurrence_count["total"] or 0) != self.REFERENCE_OCCURRENCES:
             return 0
 
         self.db.begin()
@@ -125,32 +154,11 @@ class CatalogBootstrapService:
             self.db.execute_query(
                 """
                 DELETE FROM products
-                WHERE id NOT IN (
-                    SELECT DISTINCT p.id
-                    FROM products p
-                    JOIN scraping_product_occurrences o
-                      ON UPPER(TRIM(o.code)) = UPPER(TRIM(p.code))
-                    WHERE o.run_id = ?
+                WHERE UPPER(TRIM(code)) NOT IN (
+                    SELECT DISTINCT UPPER(TRIM(code))
+                    FROM scraping_product_occurrences
+                    WHERE run_id=?
                 )
-                """,
-                (run_id,),
-            )
-            self.db.execute_query(
-                """
-                INSERT INTO product_categories
-                    (product_id, category_id, first_seen_at, last_seen_at)
-                SELECT DISTINCT
-                    p.id,
-                    o.category_id,
-                    MIN(o.discovered_at),
-                    MAX(o.discovered_at)
-                FROM scraping_product_occurrences o
-                JOIN products p
-                  ON UPPER(TRIM(p.code)) = UPPER(TRIM(o.code))
-                WHERE o.run_id = ?
-                GROUP BY p.id, o.category_id
-                ON CONFLICT(product_id, category_id) DO UPDATE SET
-                    last_seen_at=excluded.last_seen_at
                 """,
                 (run_id,),
             )
@@ -164,7 +172,36 @@ class CatalogBootstrapService:
                           UPPER(TRIM(scraping_product_occurrences.code))
                     LIMIT 1
                 )
-                WHERE run_id = ?
+                WHERE run_id=?
+                """,
+                (run_id,),
+            )
+            missing_product_ids = self.db.fetch_one(
+                """
+                SELECT COUNT(*) AS total
+                FROM scraping_product_occurrences
+                WHERE run_id=? AND product_id IS NULL
+                """,
+                (run_id,),
+            )
+            if missing_product_ids is None or int(missing_product_ids["total"] or 0) != 0:
+                self.db.rollback()
+                return 0
+
+            self.db.execute_query(
+                """
+                INSERT INTO product_categories
+                    (product_id, category_id, first_seen_at, last_seen_at)
+                SELECT
+                    product_id,
+                    category_id,
+                    MIN(discovered_at),
+                    MAX(discovered_at)
+                FROM scraping_product_occurrences
+                WHERE run_id=?
+                GROUP BY product_id, category_id
+                ON CONFLICT(product_id, category_id) DO UPDATE SET
+                    last_seen_at=excluded.last_seen_at
                 """,
                 (run_id,),
             )
@@ -175,7 +212,7 @@ class CatalogBootstrapService:
         return self.product_count()
 
     def restore_from_change_history(self) -> int:
-        """Aplica acumulativamente todos los cambios históricos sobre catalog.db."""
+        """Aplica acumulativamente los cambios históricos cuando no existe run de referencia."""
         changes = self.db.fetch_all(
             """
             SELECT history_id, id, change_type, code, product_name,
@@ -214,7 +251,7 @@ class CatalogBootstrapService:
                 deleted_codes.add(code)
                 products.pop(code, None)
                 continue
-            if item_type == "MISSING_CODE":
+            if item_type in {"MISSING_CODE", "CODE_GENERATED"}:
                 continue
 
             deleted_codes.discard(code)
@@ -271,9 +308,16 @@ class CatalogBootstrapService:
         return restored
 
     def bootstrap(self) -> int:
-        """Repara una instalación una sola vez; luego deja intacta catalog.db."""
+        """Ejecuta la reparación de referencia una sola vez."""
         if self._history_recovery_applied():
             return self.product_count()
+
+        restored = self.reconcile_reference_run()
+        if restored == self.REFERENCE_PRODUCTS_UNIQUE:
+            self._mark_history_recovery_applied()
+            self.mark_initialized()
+            self.db.commit()
+            return restored
 
         restored = self.restore_from_change_history()
         if restored or self.product_count() > 0:

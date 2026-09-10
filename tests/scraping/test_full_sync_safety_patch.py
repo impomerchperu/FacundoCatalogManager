@@ -115,3 +115,37 @@ def test_final_complete_coverage_overrides_recovered_guard_state():
     assert result[0].code == products[0].code
     assert catalog_sync.calls == 1
     assert service.last_sync_result.errors == []
+
+
+def test_terminal_http_error_is_ignored_when_category_coverage_is_complete():
+    class Browser:
+        @staticmethod
+        def get_http_metrics():
+            return {"http_terminal_errors": 1}
+
+    class Scraper:
+        browser = Browser()
+
+    class ScraperService:
+        scraper = Scraper()
+
+    service = CategoryProductSyncService(
+        scraper_service=ScraperService(),
+        persistence_service=object(),
+    )
+    service.last_sync_result = SyncResult(
+        expected_category_occurrences=2,
+        products_found=2,
+        products_unique=2,
+    )
+    service.last_sync_result.category_summary = [
+        {
+            "category": "Categoria",
+            "expected": 2,
+            "products": 2,
+            "unique_products": 2,
+            "gap": 0,
+        }
+    ]
+
+    assert service._terminal_http_error_reason() is None

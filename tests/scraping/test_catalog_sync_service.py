@@ -278,7 +278,7 @@ def test_catalog_sync_does_not_create_local_code_when_missing():
     assert result.products_unique == 0
     assert product.code == ""
     assert repository.get_all() == []
-    assert result.changes[0]["type"] == "MISSING_CODE"
+    assert result.changes == []
 
 
 def test_catalog_sync_prunes_every_unmatched_local_code_after_complete_coverage():

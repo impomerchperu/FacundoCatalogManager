@@ -21,39 +21,69 @@ def _product_category_keys(product: Any) -> set[str]:
     }
 
 
+def _category_occurrences_by_key(self: CategoryProductSyncService):
+    """Recupera las ocurrencias asociadas a la categoría que realmente las descubrió."""
+    occurrences = getattr(self, "_occurrence_categories", []) or []
+    by_category: dict[str, list[str]] = {}
+    for occurrence in occurrences:
+        category_key = str(occurrence.get("category_key", "") or "")
+        code_key = str(occurrence.get("code_key", "") or "")
+        if category_key and code_key:
+            by_category.setdefault(category_key, []).append(code_key)
+    return by_category
+
+
 def _attach_category_coverage(
     self: CategoryProductSyncService,
     raw_products: list[Any],
     products_or_categories: list[Any],
     categories: list[Any] | None = None,
 ) -> None:
-    """Compare category coverage by normalized key while preserving display text."""
+    """Compare coverage with source occurrences while preserving display text."""
     legacy_call = categories is None
     categories = products_or_categories if legacy_call else categories
     self.last_sync_result.categories_processed = len(categories or [])
+
+    occurrences_by_category = _category_occurrences_by_key(self)
+    has_source_occurrences = bool(occurrences_by_category) and not legacy_call
+    products_by_code = {
+        str(getattr(product, "code", "")).strip().casefold(): product
+        for product in raw_products
+        if str(getattr(product, "code", "")).strip()
+    }
 
     category_summary = []
     multiple = []
     for category in categories or []:
         category_name = str(getattr(category, "name", "")).strip()
         comparison_key = normalize_category_name(category_name)
-        category_products = [
-            product
-            for product in raw_products
-            if comparison_key and comparison_key in _product_category_keys(product)
-        ]
-        unique = {
-            str(getattr(product, "code", "")).strip().casefold()
-            for product in category_products
-            if str(getattr(product, "code", "")).strip()
-        }
+        if has_source_occurrences:
+            occurrence_codes = occurrences_by_category.get(comparison_key, [])
+            unique = set(occurrence_codes)
+            products_found = len(occurrence_codes)
+            unique_found = len(unique)
+        else:
+            category_products = [
+                product
+                for product in raw_products
+                if comparison_key and comparison_key in _product_category_keys(product)
+            ]
+            unique_found = len(
+                {
+                    str(getattr(product, "code", "")).strip().casefold()
+                    for product in category_products
+                    if str(getattr(product, "code", "")).strip()
+                }
+            )
+            products_found = len(category_products)
+
         if legacy_call:
             category_summary.append(
                 {
                     "category": category_name,
                     "comparison_key": comparison_key,
-                    "products": len(category_products),
-                    "unique_products": len(unique),
+                    "products": products_found,
+                    "unique_products": unique_found,
                 }
             )
         else:
@@ -63,9 +93,9 @@ def _attach_category_coverage(
                     "category": category_name,
                     "comparison_key": comparison_key,
                     "expected": expected,
-                    "products": len(category_products),
-                    "unique_products": len(unique),
-                    "gap": max(expected - len(category_products), 0),
+                    "products": products_found,
+                    "unique_products": unique_found,
+                    "gap": max(expected - products_found, 0),
                 }
             )
 
@@ -93,13 +123,7 @@ def _attach_category_coverage(
     self.last_sync_result.multiple_category_products = multiple
     self.last_sync_result.products_multiple_categories = len(multiple)
     self.last_sync_result.products_found = len(raw_products)
-    self.last_sync_result.products_unique = len(
-        {
-            str(getattr(product, "code", "")).strip()
-            for product in raw_products
-            if str(getattr(product, "code", "")).strip()
-        }
-    )
+    self.last_sync_result.products_unique = len(products_by_code)
     self.last_sync_result.duplicate_occurrences = max(
         self.last_sync_result.products_found - self.last_sync_result.products_unique,
         0,

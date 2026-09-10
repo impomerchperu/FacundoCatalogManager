@@ -127,12 +127,13 @@ class ScrapingRunner:
             )
 
     def run_all(self, progress_callback=None):
-        """Obtiene categorías automáticamente y ejecuta el scraping completo."""
+        """Obtiene categorías automáticamente y ejecuta FULL solo con cobertura total."""
         if self.category_service is None:
             return []
 
         started = time.perf_counter()
-        categories = self.category_service.scrape_all()
+        discovered_categories = list(self.category_service.scrape_all() or [])
+        categories = discovered_categories
         category_filter = getattr(
             self.config,
             "is_category_enabled",
@@ -141,7 +142,7 @@ class ScrapingRunner:
         if callable(category_filter):
             categories = [
                 category
-                for category in categories
+                for category in discovered_categories
                 if category_filter(getattr(category, "name", ""))
             ]
         _log_timing(
@@ -151,8 +152,17 @@ class ScrapingRunner:
             time.perf_counter() - started,
         )
 
+        full_catalog = len(categories) == len(discovered_categories)
+        if not full_catalog:
+            _log_timing(
+                "SCRAPING TIMING | stage=category_filter | "
+                "discovered=%d | selected=%d | mode=directed",
+                len(discovered_categories),
+                len(categories),
+            )
+
         return self.run(
             categories,
             progress_callback,
-            full_catalog=True,
+            full_catalog=full_catalog,
         )

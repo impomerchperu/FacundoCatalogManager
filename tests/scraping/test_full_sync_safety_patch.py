@@ -85,3 +85,31 @@ def test_complete_full_sync_still_writes_catalog_without_prune():
     assert len(result) == len(products)
     assert result[0].code == products[0].code
     assert catalog_sync.calls == 1
+
+
+def test_final_complete_coverage_overrides_recovered_guard_state():
+    catalog_sync = RecordingCatalogSync()
+    service = _service(catalog_sync)
+    service._full_sync_coverage_validated = False
+    service._full_sync_coverage_reason = "terminal_http_errors:1"
+    service.last_sync_result = SyncResult(
+        processed=1,
+        unchanged=1,
+        products_expected=1,
+        products_found=1,
+        products_unique=1,
+    )
+    service.last_sync_result.finish()
+
+    products = [Product()]
+    result = service.sync_products(
+        products,
+        full_sync=True,
+        allow_prune=False,
+        expected_products=1,
+        expected_category_occurrences=1,
+    )
+
+    assert result == products
+    assert catalog_sync.calls == 1
+    assert service.last_sync_result.errors == []

@@ -123,7 +123,19 @@ class ScrapingHistoryRepository:
         )
 
     def get_all(self):
-        return self.get_latest(limit=1000)
+        self._reset_read_transaction()
+        rows = self.db.fetch_all(
+            """
+            SELECT id, started_at, finished_at, processed, created,
+                   updated, unchanged, deleted, generated,
+                   categories_processed, products_expected, products_found,
+                   products_unique, products_multiple_categories,
+                   duplicate_occurrences, category_summary,
+                   multiple_category_products, errors, status, message
+            FROM scraping_history ORDER BY id DESC
+            """
+        )
+        return [self._map_row(row) for row in rows]
 
     def _reset_read_transaction(self) -> None:
         """Descarta cualquier snapshot de lectura previo antes de consultar."""

@@ -443,14 +443,13 @@ class ScrapingHistoryDialog(QDialog):
             return "—"
         return str(value)
 
-    @staticmethod
-    def _set_item(row: int, column: int, text: str, user_data=None) -> None:
+    def _set_item(self, row: int, column: int, text: str, user_data=None) -> None:
         item = QTableWidgetItem(text)
         item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         if user_data is not None:
             item.setData(Qt.ItemDataRole.UserRole, user_data)
         item.setToolTip(text)
-        ScrapingHistoryDialog._set_table_item(row, column, item)
+        self._set_table_item(row, column, item)
 
     def _set_table_item(self, row: int, column: int, item: QTableWidgetItem) -> None:
         self.table.setItem(row, column, item)

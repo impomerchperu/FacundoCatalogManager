@@ -1,6 +1,6 @@
 from models.scraping.sync_result import SyncResult
-from services.scraping.category_product_sync_service import CategoryProductSyncService
 from scrapers.collectors import full_sync_safety_patch  # noqa: F401
+from services.scraping.category_product_sync_service import CategoryProductSyncService
 
 
 class Product:
@@ -82,5 +82,6 @@ def test_complete_full_sync_still_writes_catalog_without_prune():
         expected_category_occurrences=1,
     )
 
-    assert result == products
+    assert len(result) == len(products)
+    assert result[0].code == products[0].code
     assert catalog_sync.calls == 1

@@ -146,6 +146,10 @@ def _insert_successful_run(connection, code, category_id, name):
     )
     product_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
     connection.execute(
+        "INSERT INTO scraped_products (code, name) VALUES (?, ?)",
+        (code, name),
+    )
+    connection.execute(
         """
         INSERT INTO scraping_product_occurrences
             (run_id, category_id, product_id, code, discovered_at)

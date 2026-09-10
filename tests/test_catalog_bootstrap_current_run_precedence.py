@@ -205,7 +205,7 @@ def test_bootstrap_never_replaces_a_nonempty_catalog_with_another_successful_run
     connection.commit()
 
     service = CatalogBootstrapService(db=db)
-    assert service.bootstrap() is None
+    assert service.bootstrap() == 1
     row = connection.execute(
         "SELECT code, name, stock FROM products"
     ).fetchone()

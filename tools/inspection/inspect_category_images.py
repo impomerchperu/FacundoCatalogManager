@@ -30,36 +30,18 @@ print("=" * 80)
 
 
 for block in blocks[:5]:
-
     print()
     print("PRODUCTO")
     print("-" * 80)
 
-    print(
-        block.get_text(
-            " ",
-            strip=True,
-        )[:100]
-    )
+    print(block.get_text(" ", strip=True)[:100])
 
     print()
     print("IMÁGENES")
 
     for img in block.find_all("img"):
-
-        print(
-            "src:",
-            img.get("src"),
-        )
-
-        print(
-            "data-src:",
-            img.get("data-src"),
-        )
-
-        print(
-            "data-lazy:",
-            img.get("data-lazy-src"),
-        )
-
+        print("src:", img.get("src"))
+        print("data-src:", img.get("data-src"))
+        print("data-lazy:", img.get("data-lazy-src"))
         print("-" * 40)
+

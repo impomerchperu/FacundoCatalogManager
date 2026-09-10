@@ -83,7 +83,7 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         self.last_sync_result.products_multiple_categories = len(multiple)
 
     def _full_coverage_ready(self, products) -> bool:
-        """Autoriza maestros extra solo con cobertura FULL explícitamente completa."""
+        """Autoriza maestros y ocurrencias solo con cobertura FULL explícitamente completa."""
         result = self.last_sync_result
         if (
             getattr(self, "_scraping_mode", "directed") != "full"
@@ -133,6 +133,9 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
     def _persist_normalized(self, categories, products, *, mode: str) -> None:
         repository = self.normalized_repository
         if repository is None or self.catalog_sync_service is None:
+            return
+
+        if mode == "full" and not self._full_coverage_ready(products):
             return
 
         self._ensure_full_catalog_masters(products)

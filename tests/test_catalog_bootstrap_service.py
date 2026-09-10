@@ -76,7 +76,7 @@ def test_bootstrap_never_starts_web_scraping(tmp_path):
     db = DBManager(str(tmp_path / "catalog.db"))
     service = CatalogBootstrapService(db=db)
 
-    assert service.bootstrap() is None
+    assert service.bootstrap() == 0
     assert service.product_count() == 0
 
     db.close()

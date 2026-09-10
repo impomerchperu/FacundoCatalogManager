@@ -132,7 +132,7 @@ class ScrapingHistoryRepository:
                    products_unique, products_multiple_categories,
                    duplicate_occurrences, category_summary,
                    multiple_category_products, errors, status, message
-            FROM scraping_history ORDER BY id ASC
+            FROM scraping_history ORDER BY id DESC
             """
         )
         return [self._map_row(row) for row in rows]
@@ -224,27 +224,16 @@ class ScrapingHistoryRepository:
             history_id=row["id"],
             started_at=datetime.fromisoformat(row["started_at"]),
             finished_at=datetime.fromisoformat(row["finished_at"]),
-            processed=row["processed"],
-            created=row["created"],
-            updated=row["updated"],
-            unchanged=row["unchanged"],
-            deleted=row["deleted"],
-            generated=row["generated"],
+            processed=row["processed"], created=row["created"], updated=row["updated"],
+            unchanged=row["unchanged"], deleted=row["deleted"], generated=row["generated"],
             categories_processed=row["categories_processed"],
-            products_expected=row["products_expected"],
-            products_found=row["products_found"],
+            products_expected=row["products_expected"], products_found=row["products_found"],
             products_unique=row["products_unique"],
             products_multiple_categories=row["products_multiple_categories"],
             duplicate_occurrences=row["duplicate_occurrences"],
-            category_summary=ScrapingHistoryRepository._deserialize(
-                row["category_summary"],
-            ) or [],
+            category_summary=ScrapingHistoryRepository._deserialize(row["category_summary"]) or [],
             multiple_category_products=(
-                ScrapingHistoryRepository._deserialize(
-                    row["multiple_category_products"],
-                ) or []
+                ScrapingHistoryRepository._deserialize(row["multiple_category_products"]) or []
             ),
-            errors=row["errors"],
-            status=row["status"],
-            message=row["message"],
+            errors=row["errors"], status=row["status"], message=row["message"],
         )

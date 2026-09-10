@@ -44,7 +44,6 @@ def _sync_products_with_safety(
     expected_products=0,
     expected_category_occurrences=0,
 ):
-    del allow_prune
     coverage_validated = getattr(self, "_full_sync_coverage_validated", None)
     if full_sync and coverage_validated is False:
         reason = str(
@@ -60,7 +59,7 @@ def _sync_products_with_safety(
         self,
         products,
         full_sync=full_sync,
-        allow_prune=True,
+        allow_prune=allow_prune,
         expected_products=expected_products,
         expected_category_occurrences=expected_category_occurrences,
     )

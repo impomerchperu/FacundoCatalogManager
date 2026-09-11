@@ -17,11 +17,12 @@ def _retry_jsf_page(
     category_id: int,
     page: int,
 ):
-    """Retry transport-level JSF failures before declaring a page unavailable."""
+    """Retry transport and empty-content JSF failures before giving up."""
     last_error: requests.exceptions.RequestException | None = None
+    last_result = (0, 0, "")
     for _ in range(_category_pagination_patch.JSF_PAGE_RETRIES):
         try:
-            return _category_pagination_patch._fetch_jsf_page_direct(
+            result = _category_pagination_patch._fetch_jsf_page_direct(
                 self,
                 category_url,
                 category_id,
@@ -31,9 +32,13 @@ def _retry_jsf_page(
             last_error = error
             continue
 
-    if last_error is not None:
+        last_result = result
+        if result[2]:
+            return result
+
+    if last_error is not None and not last_result[2]:
         raise last_error
-    return _ORIGINAL_RETRY_JSF_PAGE(self, category_url, category_id, page)
+    return last_result
 
 
 def activate() -> None:

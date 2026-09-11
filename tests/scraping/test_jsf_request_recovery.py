@@ -2,8 +2,7 @@ import json
 
 import requests
 
-from scrapers.collectors import category_pagination_patch
-from scrapers.collectors import jsf_request_recovery_patch
+from scrapers.collectors import category_pagination_patch, jsf_request_recovery_patch
 from scrapers.collectors.category_scraper import CategoryScraper
 
 

@@ -7,6 +7,7 @@
 from . import category_pagination_patch as _category_pagination_patch
 from . import full_sync_safety_patch as _full_sync_safety_patch
 from . import jsf_concurrency_patch as _jsf_concurrency_patch
+from . import jsf_request_recovery_patch as _jsf_request_recovery_patch
 from . import missing_code_recovery_patch as _missing_code_recovery_patch
 from . import page_coverage_recovery_patch as _page_coverage_recovery_patch
 from . import page_metrics_patch as _page_metrics_patch
@@ -19,6 +20,7 @@ __all__ = [
     "_category_pagination_patch",
     "_full_sync_safety_patch",
     "_jsf_concurrency_patch",
+    "_jsf_request_recovery_patch",
     "_missing_code_recovery_patch",
     "_page_coverage_recovery_patch",
     "_page_metrics_patch",

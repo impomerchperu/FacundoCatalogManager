@@ -81,7 +81,10 @@ class NormalizedScrapingRepository:
                 max(int(expected_category_occurrences or 0), 0),
             ),
         )
-        return int(cursor.lastrowid)
+        lastrowid = cursor.lastrowid
+        if lastrowid is None:
+            raise RuntimeError("No se pudo obtener el identificador de la ejecución.")
+        return int(lastrowid)
 
     def finish_run(
         self,

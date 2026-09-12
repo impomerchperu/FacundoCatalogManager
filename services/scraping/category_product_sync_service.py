@@ -121,10 +121,25 @@ class CategoryProductSyncService:
         )
 
         started = time.perf_counter()
+        enriched_by_index: list[list[Any] | None] = [None] * len(categories)
+        if categories:
+            worker_count = min(SCRAPING_CATEGORY_WORKERS, len(categories))
+            with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                futures = {
+                    executor.submit(
+                        self._enrich_category,
+                        index,
+                        category,
+                        collected_by_index[index],
+                    ): index
+                    for index, category in enumerate(categories)
+                }
+                for future, index in futures.items():
+                    enriched_by_index[index] = cast(list[Any], future.result())
+
         products = []
         for index, category in enumerate(categories):
-            collected = collected_by_index[index]
-            enriched = cast(list[Any], self._enrich_category(index, category, collected))
+            enriched = enriched_by_index[index] or []
             for product in enriched:
                 self._record_category_occurrence(product, category.name)
             products.extend(enriched)

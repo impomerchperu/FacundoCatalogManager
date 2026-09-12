@@ -15,7 +15,7 @@ DEFAULT_HEADERS = {
 
 REQUEST_TIMEOUT = 10
 
-MAX_RETRIES = 2
+MAX_RETRIES = 3
 
 # Use lxml for the large number of HTML parses performed during catalog
 # extraction. category_scraper.py keeps a html.parser fallback for portability.

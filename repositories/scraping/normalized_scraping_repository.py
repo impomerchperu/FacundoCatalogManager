@@ -208,6 +208,10 @@ class NormalizedScrapingRepository:
                     (category_name, code.casefold()),
                     (0, 0),
                 )
+                if page_number is None:
+                    page_number = 0
+                if position is None:
+                    position = 0
                 self.db.execute_query(
                     """
                     INSERT INTO scraping_product_occurrences
@@ -228,8 +232,8 @@ class NormalizedScrapingRepository:
                         product_id,
                         code,
                         str(getattr(product, "url", "") or ""),
-                        max(int(page_number or 0), 0),
-                        max(int(position or 0), 0),
+                        max(int(page_number), 0),
+                        max(int(position), 0),
                         str(getattr(product, "name", "") or ""),
                         now,
                     ),

@@ -1,6 +1,7 @@
 import contextlib
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from typing import Any
 from urllib.parse import urljoin
@@ -24,6 +25,7 @@ class CategoryScraper:
     PRODUCTS_PER_PAGE = 25
     MAX_HIDDEN_PAGE_PROBES = 100
     JSF_EMPTY_PAGE_RETRIES = 1
+    JSF_PAGE_WORKERS = 2
 
     def __init__(self, browser: Any, parser: Any = None, category_extractor: Any = None, product_block_extractor: Any = None) -> None:
         self.parser = parser
@@ -125,28 +127,37 @@ class CategoryScraper:
             self._cache_category_html(category_url, first_html)
 
         completed_declared_range = True
-        for page_number in range(2, max_num_pages + 1):
-            page_url = self._jsf_page_url(category_url, page_number)
-            _, _, rendered_html = self._fetch_jsf_page_with_empty_retries(
-                category_url,
-                category_id,
-                page_number,
-            )
-            if not rendered_html:
-                completed_declared_range = False
-                break
-            current_product_keys = self._product_keys(rendered_html)
-            if current_product_keys and not current_product_keys - seen_product_keys:
-                raise RuntimeError(
-                    f"Repeated JSF pagination page {page_number} for {category_url}"
-                )
-            if not current_product_keys and rendered_html == first_html:
-                raise RuntimeError(
-                    f"Repeated JSF pagination page {page_number} for {category_url}"
-                )
-            seen_product_keys.update(current_product_keys)
-            self._cache_category_html(page_url, rendered_html)
-            pages.append(page_url)
+        pending_pages = list(range(2, max_num_pages + 1))
+        if pending_pages:
+            worker_count = min(self.JSF_PAGE_WORKERS, len(pending_pages))
+            with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                futures = {
+                    page_number: executor.submit(
+                        self._fetch_jsf_page_with_empty_retries,
+                        category_url,
+                        category_id,
+                        page_number,
+                    )
+                    for page_number in pending_pages
+                }
+                for page_number in pending_pages:
+                    page_url = self._jsf_page_url(category_url, page_number)
+                    _, _, rendered_html = futures[page_number].result()
+                    if not rendered_html:
+                        completed_declared_range = False
+                        break
+                    current_product_keys = self._product_keys(rendered_html)
+                    if current_product_keys and not current_product_keys - seen_product_keys:
+                        raise RuntimeError(
+                            f"Repeated JSF pagination page {page_number} for {category_url}"
+                        )
+                    if not current_product_keys and rendered_html == first_html:
+                        raise RuntimeError(
+                            f"Repeated JSF pagination page {page_number} for {category_url}"
+                        )
+                    seen_product_keys.update(current_product_keys)
+                    self._cache_category_html(page_url, rendered_html)
+                    pages.append(page_url)
 
         underreported_metadata = (
             declared_max_num_pages > 0

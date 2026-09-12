@@ -40,8 +40,9 @@ class ProductExtractor:
         self._extracted_codes = {}
 
     def extract(self, soup, url="", category=""):
-        color_stock = self.extract_color_stock(soup)
-        stock = self.stock_extractor.extract(soup)
+        text = soup.get_text(" ", strip=True)
+        color_stock = self.extract_color_stock(soup, text=text)
+        stock = self.stock_extractor.extract(soup, text=text)
         if color_stock:
             stock = sum(color_stock.values())
         code = self.extract_code(soup)
@@ -166,7 +167,7 @@ class ProductExtractor:
                     continue
         return 0.0
 
-    def extract_color_stock(self, soup) -> dict[str, int]:
+    def extract_color_stock(self, soup, text: str | None = None) -> dict[str, int]:
         """Extrae exclusivamente el stock asociado a cada color visible."""
         color_stock: dict[str, int] = {}
         color_labels: dict[str, str] = {}
@@ -175,7 +176,7 @@ class ProductExtractor:
         self._collect_color_labels(soup, color_labels)
 
         explicit_colors = self._extract_text_colors(soup)
-        visible_stock = self._extract_visible_stock_values(soup)
+        visible_stock = self._extract_visible_stock_values(soup, text=text)
         if explicit_colors:
             for color in explicit_colors:
                 add_color(color)
@@ -373,9 +374,13 @@ class ProductExtractor:
         return colors
 
     @staticmethod
-    def _extract_visible_stock_values(soup) -> list[int]:
+    def _extract_visible_stock_values(
+        soup,
+        text: str | None = None,
+    ) -> list[int]:
         """Extrae la secuencia de existencias tras 'Stock Disponible'."""
-        text = soup.get_text(" ", strip=True)
+        if text is None:
+            text = soup.get_text(" ", strip=True)
         match = re.search(
             r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
             text,

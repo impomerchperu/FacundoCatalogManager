@@ -1,4 +1,4 @@
-"""Safe fast path for categories whose first HTML is a complete single page."""
+"""Safe fast path that reuses the fetched archive HTML as JSF page one."""
 
 from __future__ import annotations
 
@@ -9,40 +9,41 @@ _PATCHED = False
 _ORIGINAL_JSF_CATEGORY_PAGES = _pagination._jsf_category_pages_with_probe
 
 
-def _single_page_html_is_complete(
+def _archive_first_page_is_complete(
     scraper: CategoryScraper,
     category_html: str,
     expected_count: int,
-) -> bool:
-    """Use the archive HTML only when it exactly matches a single-page target."""
+) -> tuple[bool, set[str]]:
+    """Accept public page one only when its product count matches the target."""
     expected = max(int(expected_count or 0), 0)
-    if expected <= 0 or expected > scraper.PRODUCTS_PER_PAGE:
-        return False
-
-    declared_pages = max(
-        scraper._declared_total_pages(category_html),
-        scraper._pagination_max_page(category_html),
-    )
-    if declared_pages > 1:
-        return False
+    if expected <= 0:
+        return False, set()
 
     product_keys = _pagination._page_product_keys(
         scraper,
         category_html,
         category_html,
     )
-    return len(product_keys) == expected
+    expected_first_page = min(expected, scraper.PRODUCTS_PER_PAGE)
+    if len(product_keys) != expected_first_page:
+        return False, product_keys
+    return True, product_keys
 
 
-def _jsf_category_pages_single_page_fastpath(
+def _jsf_category_pages_archive_first_page_fastpath(
     self: CategoryScraper,
     category_url: str,
     category_id: int,
     expected_count: int,
     category_html: str = "",
 ) -> list[str]:
-    """Skip redundant JSF page-one retrieval only for an exact single-page match."""
-    if not _single_page_html_is_complete(self, category_html, expected_count):
+    """Skip redundant JSF page-one retrieval when the public page is complete."""
+    usable, seen_product_keys = _archive_first_page_is_complete(
+        self,
+        category_html,
+        expected_count,
+    )
+    if not usable:
         return _ORIGINAL_JSF_CATEGORY_PAGES(
             self,
             category_url,
@@ -53,16 +54,48 @@ def _jsf_category_pages_single_page_fastpath(
 
     _pagination._remember_jsf_settings(category_id, category_html)
     pages = [category_url]
-    seen_product_keys = _pagination._page_product_keys(
-        self,
-        category_html,
-        category_url,
-    )
     self._cache_category_html(category_url, category_html)
 
-    # Preserve the existing boundary probe: a hidden second page must still
-    # be detected before this category is considered complete.
-    boundary_page = 2
+    expected_pages = self._required_page_count(expected_count)
+    declared_pages = max(
+        self._declared_total_pages(category_html),
+        self._pagination_max_page(category_html),
+    )
+    known_pages = max(declared_pages, expected_pages, 1)
+
+    for page_number in range(2, known_pages + 1):
+        page_url = self._jsf_page_url(category_url, page_number)
+        _, _, rendered_html = _pagination._walk_jsf_page(
+            self,
+            category_url,
+            category_id,
+            page_number,
+        )
+        if not rendered_html:
+            raise RuntimeError(
+                f"Empty JSF pagination page {page_number} for {category_url}"
+            )
+        current_product_keys = _pagination._page_product_keys(
+            self,
+            rendered_html,
+            page_url,
+        )
+        if not current_product_keys:
+            raise RuntimeError(
+                f"No products found on JSF pagination page {page_number} for {category_url}"
+            )
+        new_product_keys = current_product_keys - seen_product_keys
+        if not new_product_keys:
+            raise RuntimeError(
+                f"Repeated JSF pagination page {page_number} for {category_url}"
+            )
+        seen_product_keys.update(current_product_keys)
+        self._cache_category_html(page_url, rendered_html)
+        pages.append(page_url)
+
+    # Preserve the existing boundary probe so an underreported or hidden page
+    # beyond the declared/expected range is still detected.
+    boundary_page = known_pages + 1
     has_new_products, new_product_keys = _pagination._probe_boundary_page(
         self,
         category_url,
@@ -77,11 +110,11 @@ def _jsf_category_pages_single_page_fastpath(
 
 
 def activate() -> None:
-    """Install the single-page fast path once."""
+    """Install the archive-first-page fast path once."""
     global _PATCHED
     if _PATCHED:
         return
-    _pagination._jsf_category_pages_with_probe = _jsf_category_pages_single_page_fastpath
+    _pagination._jsf_category_pages_with_probe = _jsf_category_pages_archive_first_page_fastpath
     _PATCHED = True
 
 

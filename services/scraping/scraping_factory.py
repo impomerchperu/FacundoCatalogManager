@@ -66,7 +66,7 @@ class ScrapingFactory:
             product_repository,
             ProductDiffService(),
         )
-        catalog_sync_service.result_writer = ScrapingResultWriter()
+        setattr(catalog_sync_service, "result_writer", ScrapingResultWriter())
         normalized_repository = NormalizedScrapingRepository(db)
         mapper = ScrapedProductMapper()
 

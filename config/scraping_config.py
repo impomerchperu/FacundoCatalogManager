@@ -3,19 +3,25 @@ BASE_URL = "https://stock.importacionesfacundo.com"
 STORE_URL = f"{BASE_URL}/tienda/"
 
 
-DEFAULT_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 "
-        "(Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 "
-        "Chrome/120 Safari/537.36"
-    )
-}
+DEFAULT_HEADERS = (
+    {
+        "User-Agent": (
+            "Mozilla/5.0 "
+            "(Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 "
+            "Chrome/120 Safari/537.36"
+        )
+    }
+)
 
 
 REQUEST_TIMEOUT = 10
 
 MAX_RETRIES = 2
+
+# Use lxml for the large number of HTML parses performed during catalog
+# extraction. category_scraper.py keeps a html.parser fallback for portability.
+SCRAPING_HTML_PARSER = "lxml"
 
 # Detail workers may prepare several categories concurrently, while Browser
 # applies a shared HTTP semaphore so category and detail traffic remain

@@ -15,7 +15,7 @@ _ORIGINAL_TERMINAL_HTTP_ERROR_REASON = (
 )
 
 
-def _has_complete_category_coverage(self) -> bool:
+def _has_complete_category_coverage(self: CategoryProductSyncService) -> bool:
     result = self.last_sync_result
     expected = max(
         int(getattr(result, "expected_category_occurrences", 0) or 0),
@@ -43,7 +43,7 @@ def _has_complete_category_coverage(self) -> bool:
 
 def _terminal_http_error_reason(self: CategoryProductSyncService):
     """Ignore terminal request errors when the final category coverage is complete."""
-    if self._has_complete_category_coverage():
+    if _has_complete_category_coverage(self):
         return None
     return _ORIGINAL_TERMINAL_HTTP_ERROR_REASON(self)
 
@@ -53,8 +53,16 @@ def activate() -> None:
     global _PATCHED
     if _PATCHED:
         return
-    CategoryProductSyncService._has_complete_category_coverage = _has_complete_category_coverage
-    CategoryProductSyncService._terminal_http_error_reason = _terminal_http_error_reason
+    setattr(
+        CategoryProductSyncService,
+        "_has_complete_category_coverage",
+        _has_complete_category_coverage,
+    )
+    setattr(
+        CategoryProductSyncService,
+        "_terminal_http_error_reason",
+        _terminal_http_error_reason,
+    )
     _PATCHED = True
 
 

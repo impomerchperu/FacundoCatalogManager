@@ -14,11 +14,12 @@ class StockExtractor:
         "Stock",
     ]
 
-    def extract(self, soup) -> int:
-        text = soup.get_text(
-            " ",
-            strip=True,
-        )
+    def extract(self, soup, text: str | None = None) -> int:
+        if text is None:
+            text = soup.get_text(
+                " ",
+                strip=True,
+            )
 
         for marker in self.MARKERS:
             values = self._extract_numbers_after_marker(

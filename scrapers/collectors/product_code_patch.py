@@ -13,6 +13,7 @@ _PATCHED = False
 _CODE_PATTERN = re.compile(r"^[A-Z0-9]{1,32}(?:[-_./][A-Z0-9]+)*$", re.IGNORECASE)
 _CODE_SEPARATORS = frozenset("-_./")
 _ORIGINAL_ENRICH_FROM_DETAIL_PAGE = ProductCollectionScraper._enrich_from_detail_page
+_ORIGINAL_EXTRACT_CODE = ProductExtractor.extract_code
 
 
 def _normalize(value: object) -> str:
@@ -98,7 +99,7 @@ def _extract_code(self: ProductExtractor, soup) -> str:
             return code
 
     # Preserve the existing extractor as a final compatibility fallback.
-    return self._legacy_extract_code(soup)
+    return _ORIGINAL_EXTRACT_CODE(self, soup)
 
 
 def _enrich_with_authoritative_code(
@@ -144,11 +145,18 @@ def activate() -> None:
     if _PATCHED:
         return
 
-    legacy = ProductExtractor.extract_code
-    ProductExtractor._legacy_extract_code = legacy
-    ProductExtractor.extract_code = _extract_code
-    ProductCollectionScraper._enrich_from_detail_page = _enrich_with_authoritative_code
-    CategoryProductExtractor._normalize_code = classmethod(_normalize_category_code)
+    setattr(ProductExtractor, "_legacy_extract_code", _ORIGINAL_EXTRACT_CODE)
+    setattr(ProductExtractor, "extract_code", _extract_code)
+    setattr(
+        ProductCollectionScraper,
+        "_enrich_from_detail_page",
+        _enrich_with_authoritative_code,
+    )
+    setattr(
+        CategoryProductExtractor,
+        "_normalize_code",
+        classmethod(_normalize_category_code),
+    )
     _PATCHED = True
 
 

@@ -2,11 +2,9 @@
 
 # Apply compatibility layers whenever the collectors package is imported.
 # They preserve the existing architecture while overriding only the defective
-# category pagination, category page-one request, WooCommerce code-discovery,
-# page-audit, coverage recovery, price-detail, and JetSmartFilters concurrency
-# behaviors.
+# category pagination, WooCommerce code-discovery, page-audit, coverage
+# recovery, price-detail, and JetSmartFilters concurrency behaviors.
 from . import category_pagination_patch as _category_pagination_patch
-from . import category_page_fastpath_patch as _category_page_fastpath_patch
 from . import full_sync_safety_patch as _full_sync_safety_patch
 from . import jsf_concurrency_patch as _jsf_concurrency_patch
 from . import jsf_request_recovery_patch as _jsf_request_recovery_patch
@@ -20,7 +18,6 @@ from . import scraping_compat as _scraping_compat
 
 __all__ = [
     "_category_pagination_patch",
-    "_category_page_fastpath_patch",
     "_full_sync_safety_patch",
     "_jsf_concurrency_patch",
     "_jsf_request_recovery_patch",

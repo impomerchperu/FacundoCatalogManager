@@ -544,10 +544,11 @@ class CategoryProductSyncService:
             return
         values = cast(dict[str, Any], metrics() or {})
         _log_timing(
-            "SCRAPING TIMING | stage=detail_cache | requests=%d | cache_hits=%d | cache_size=%d",
-            int(values.get("requests", 0) or 0),
-            int(values.get("cache_hits", 0) or 0),
-            int(values.get("cache_size", 0) or 0),
+            "SCRAPING TIMING | stage=detail_cache | requests=%d | cache_hits=%d | cache_size=%d | skipped=%d",
+            int(values.get("detail_requests", 0) or 0),
+            int(values.get("detail_cache_hits", 0) or 0),
+            int(values.get("detail_cache_size", 0) or 0),
+            int(values.get("detail_skipped", 0) or 0),
         )
 
     def _log_http_metrics(self):
@@ -557,12 +558,17 @@ class CategoryProductSyncService:
             return
         values = cast(dict[str, Any], metrics() or {})
         _log_timing(
-            "SCRAPING TIMING | stage=http | requests=%d | retries=%d | errors=%d | empty=%d | other=%d",
-            int(values.get("requests", 0) or 0),
-            int(values.get("retries", 0) or 0),
-            int(values.get("errors", 0) or 0),
-            int(values.get("empty_responses", 0) or 0),
-            int(values.get("other_requests", 0) or 0),
+            "SCRAPING TIMING | stage=http | requests=%d | category=%d | detail=%d | other=%d | retries=%d | errors=%d | terminal=%d | total_seconds=%.3f | max_seconds=%.3f | max_concurrency=%d",
+            int(values.get("http_requests", 0) or 0),
+            int(values.get("category_http_requests", 0) or 0),
+            int(values.get("detail_http_requests", 0) or 0),
+            int(values.get("other_http_requests", 0) or 0),
+            int(values.get("http_retries", 0) or 0),
+            int(values.get("http_errors", 0) or 0),
+            int(values.get("http_terminal_errors", 0) or 0),
+            float(values.get("http_total_seconds", 0.0) or 0.0),
+            float(values.get("http_max_seconds", 0.0) or 0.0),
+            int(values.get("http_max_in_flight", 0) or 0),
         )
 
     def _browser(self):

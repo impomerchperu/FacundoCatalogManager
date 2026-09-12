@@ -4,6 +4,8 @@ Imports that wire the complete scraping factory are kept lazy so low-level
 repositories can import individual scraping helpers without circular imports.
 """
 
+from typing import TYPE_CHECKING
+
 from . import category_coverage_patch as _category_coverage_patch
 from . import prune_guard_recovery_patch as _prune_guard_recovery_patch
 from .catalog_sync_service import CatalogSyncService
@@ -18,6 +20,9 @@ from .scraped_product_persistence_service import ScrapedProductPersistenceServic
 from .scraping_config import ScrapingConfig
 from .scraping_runner import ScrapingRunner
 from .scraping_session import ScrapingSession, ScrapingSessionResult
+
+if TYPE_CHECKING:
+    from .scraping_factory import ScrapingFactory
 
 _category_coverage_patch.activate()
 _prune_guard_recovery_patch.activate()

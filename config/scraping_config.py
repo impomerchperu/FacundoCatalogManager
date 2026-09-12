@@ -26,10 +26,10 @@ SCRAPING_HTML_PARSER = "lxml"
 # bounded independently.
 SCRAPING_MAX_WORKERS = 20
 
-# Keep category HTTP concurrency below the validated 16-worker setting. The
-# lower budget reduces source-site contention while preserving category
-# parallelism and page-coverage recovery.
-SCRAPING_CATEGORY_WORKERS = 8
+# Restore the previously validated category concurrency. The 8-worker tuning
+# increased the category phase on the live catalog; 16 workers is the
+# performance baseline that previously reached the correct FULL coverage.
+SCRAPING_CATEGORY_WORKERS = 16
 
 # The detail pipeline is the dominant network workload. Keep its HTTP budget
 # above the category executor so detail workers can overlap across categories

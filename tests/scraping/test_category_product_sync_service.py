@@ -200,3 +200,44 @@ def test_sync_categories_recovers_failed_categories_concurrently():
         "Categoria B": 2,
     }
     assert service.last_sync_result.errors == []
+
+
+def test_sync_categories_keeps_error_when_category_recovery_fails():
+    class FakeScraper:
+        def __init__(self):
+            self.attempts = {}
+
+        def collect_category(self, category):
+            attempts = self.attempts.get(category.name, 0) + 1
+            self.attempts[category.name] = attempts
+            raise requests.exceptions.ReadTimeout(
+                f"timed out attempt {attempts}"
+            )
+
+        def enrich_category_products(self, products, category_name):
+            return []
+
+    class FakeScrapingService:
+        def __init__(self):
+            self.scraper = FakeScraper()
+
+    class FakePersistence:
+        def save_products(self, products):
+            return products
+
+    scraping_service = FakeScrapingService()
+    service = CategoryProductSyncService(
+        scraping_service,
+        FakePersistence(),
+    )
+
+    result = service.sync_categories(
+        [Category("Categoria persistente", "https://example.com/fail", 1)]
+    )
+
+    assert result == []
+    assert scraping_service.scraper.attempts["Categoria persistente"] == 2
+    assert service.last_sync_result.errors == [
+        "Error de red en categoría 'Categoria persistente': timed out attempt 1",
+        "Reintento fallido en categoría 'Categoria persistente': timed out attempt 2",
+    ]

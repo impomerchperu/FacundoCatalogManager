@@ -298,10 +298,10 @@ class ProductCollectionScraper:
 
     @classmethod
     def _detail_skip_reason(cls, card: Any, product: Any) -> str | None:
-        if cls._has_complete_card_color_stock(card, product):
+        stock_values = cls._stock_values(card)
+        if cls._has_complete_card_color_stock(card, product, stock_values):
             return "complete_color_stock"
 
-        stock_values = cls._stock_values(card)
         if len(stock_values) != 1:
             return None
 
@@ -368,11 +368,16 @@ class ProductCollectionScraper:
         )
 
     @staticmethod
-    def _has_complete_card_color_stock(card: Any, product: Any) -> bool:
+    def _has_complete_card_color_stock(
+        card: Any,
+        product: Any,
+        stock_values: list[int] | None = None,
+    ) -> bool:
         color_stock = dict(getattr(product, "color_stock", {}) or {})
         if not color_stock:
             return False
-        stock_values = ProductCollectionScraper._stock_values(card)
+        if stock_values is None:
+            stock_values = ProductCollectionScraper._stock_values(card)
         if len(color_stock) != len(stock_values) or not stock_values:
             return False
         variation = card.select_one(".variaciones-producto")

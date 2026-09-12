@@ -189,7 +189,7 @@ class ProductExtractor:
         self._extract_select_color_stock(soup, add_color)
         self._extract_element_color_stock(soup, add_color)
         self._extract_variation_color_stock(soup, add_color, color_labels)
-        self._apply_visible_color_stock(soup, color_stock)
+        self._apply_visible_color_stock(visible_stock, color_stock)
         return color_stock
 
     @staticmethod
@@ -304,8 +304,7 @@ class ProductExtractor:
                 )
 
     @staticmethod
-    def _apply_visible_color_stock(soup, color_stock) -> None:
-        visible_stock = ProductExtractor._extract_visible_stock_values(soup)
+    def _apply_visible_color_stock(visible_stock, color_stock) -> None:
         color_names = list(color_stock)
         if len(visible_stock) != len(color_names) or not color_names:
             return

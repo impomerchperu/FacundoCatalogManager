@@ -6,14 +6,14 @@ from tests.scraping.catalog_sync_test_doubles import InMemoryCatalogRepository
 class Product:
     def __init__(
         self,
-        code,
-        name,
-        price,
-        category="",
-        colors=None,
-        color_stock=None,
-        url="",
-    ):
+        code: str,
+        name: str,
+        price: float,
+        category: str = "",
+        colors: list[str] | None = None,
+        color_stock: dict[str, int] | None = None,
+        url: str = "",
+    ) -> None:
         self.code = code
         self.name = name
         self.price = price
@@ -21,6 +21,15 @@ class Product:
         self.colors = list(colors or [])
         self.color_stock = dict(color_stock or {})
         self.url = url
+
+        self.description = ""
+        self.price_sample = 0.0
+        self.price_hundred = 0.0
+        self.price_thousand = 0.0
+        self.image_url = ""
+        self.image_path = ""
+        self.image_hash = ""
+        self.content_hash = ""
 
 
 def test_catalog_sync_creates_new_product():

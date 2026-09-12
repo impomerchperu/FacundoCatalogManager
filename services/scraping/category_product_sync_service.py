@@ -124,7 +124,7 @@ class CategoryProductSyncService:
         products = []
         for index, category in enumerate(categories):
             collected = collected_by_index[index]
-            enriched = self._enrich_category(index, category, collected)
+            enriched = cast(list[Any], self._enrich_category(index, category, collected))
             for product in enriched:
                 self._record_category_occurrence(product, category.name)
             products.extend(enriched)
@@ -508,15 +508,19 @@ class CategoryProductSyncService:
             expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),
         )
 
-    def _enrich_category(self, index, category, collected):
+    def _enrich_category(self, index, category, collected) -> list[Any]:
         del index
         scraper = getattr(self.scraper_service, "scraper", None)
         enrich = getattr(scraper, "enrich_category_products", None)
         if callable(enrich):
-            return enrich(collected, category.name)
-        return self.scraper_service.scrape_category(
-            category.url, category.name,
-            expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),
+            return cast(list[Any], enrich(collected, category.name))
+        return cast(
+            list[Any],
+            self.scraper_service.scrape_category(
+                category.url,
+                category.name,
+                expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),
+            ),
         )
 
     def _enable_thread_sessions(self):
@@ -542,7 +546,7 @@ class CategoryProductSyncService:
         metrics = getattr(scraper, "get_detail_metrics", None)
         if not callable(metrics):
             return
-        values: dict[str, Any] = cast(dict[str, Any], metrics() or {})
+        values = metrics() or {}
         _log_timing(
             "SCRAPING TIMING | stage=detail_cache | requests=%d | cache_hits=%d | cache_size=%d",
             int(values.get("requests", 0) or 0),
@@ -555,7 +559,7 @@ class CategoryProductSyncService:
         metrics = getattr(scraper, "get_http_metrics", None)
         if not callable(metrics):
             return
-        values: dict[str, Any] = cast(dict[str, Any], metrics() or {})
+        values = metrics() or {}
         _log_timing(
             "SCRAPING TIMING | stage=http | requests=%d | retries=%d | errors=%d | empty=%d | other=%d",
             int(values.get("requests", 0) or 0),
@@ -578,7 +582,7 @@ class CategoryProductSyncService:
         metrics_getter = getattr(browser, "get_http_metrics", None)
         if not callable(metrics_getter):
             return None
-        metrics: dict[str, Any] = cast(dict[str, Any], metrics_getter() or {})
+        metrics = metrics_getter() or {}
         terminal_errors = int(metrics.get("http_terminal_errors", 0) or 0)
         if terminal_errors:
             return f"terminal_http_errors:{terminal_errors}"
@@ -617,7 +621,7 @@ class CategoryProductSyncService:
         *,
         expected_category_occurrences=0,
         expected_products=None,
-    ) -> tuple[bool, str]:
+    ):
         if not products:
             return False, "no_products"
         if category_count <= 0:

@@ -242,7 +242,7 @@ class ProductCollectionScraper:
         with self._detail_cache_lock:
             preexisting_cache_keys = set(self._detail_cache)
         counted_cache_hits: set[str] = set()
-        futures: list[tuple[int, Any, str, Any, str, Future[Any]]] = []
+        futures: list[tuple[int, Any, str, Any, str, str, Future[Any]]] = []
         for index, (card, page_url, product) in enumerate(products):
             skip_reason = self._detail_skip_reason(card, product)
             if skip_reason is not None:
@@ -281,10 +281,10 @@ class ProductCollectionScraper:
                 category_name,
             )
             futures.append(
-                (index, card, page_url, product, detail_url, future)
+                (index, card, page_url, product, detail_key, detail_url, future)
             )
 
-        for index, card, page_url, product, detail_url, future in futures:
+        for index, card, page_url, product, detail_key, detail_url, future in futures:
             detailed_product = self._resolve_detailed_product(detail_key, future)
             results[index] = (
                 products[index][0],
@@ -477,7 +477,7 @@ class ProductCollectionScraper:
             if current <= 0 and detail_value > 0:
                 setattr(product, field, detail_value)
 
-        detail_color_stock = dict(getattr(detailed_product, "color_stock", {}))
+        detail_color_stock = dict(getattr(detailed_product, "color_stock", {}) or {})
         card_stock_values = ProductCollectionScraper._stock_values(card)
         if detail_color_stock:
             colors = list(detail_color_stock)

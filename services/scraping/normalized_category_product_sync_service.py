@@ -120,7 +120,10 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         if not self._full_coverage_ready(products):
             return
 
-        product_repository = self.catalog_sync_service.repository
+        catalog_sync_service = self.catalog_sync_service
+        if catalog_sync_service is None:
+            return
+        product_repository = catalog_sync_service.repository
         seen = set()
         for product in products or []:
             code = str(getattr(product, "code", "")).strip().upper()
@@ -132,7 +135,8 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
 
     def _persist_normalized(self, categories, products, *, mode: str) -> None:
         repository = self.normalized_repository
-        if repository is None or self.catalog_sync_service is None:
+        catalog_sync_service = self.catalog_sync_service
+        if repository is None or catalog_sync_service is None:
             return
 
         if mode == "full" and not self._full_coverage_ready(products):
@@ -152,7 +156,7 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
                 run_id,
                 categories,
                 products,
-                self.catalog_sync_service.repository,
+                catalog_sync_service.repository,
                 occurrence_metadata=self._build_occurrence_metadata(
                     categories, products
                 ),

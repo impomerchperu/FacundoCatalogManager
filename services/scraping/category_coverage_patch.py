@@ -130,9 +130,8 @@ def _attach_category_coverage(
     )
 
 
-def _split_categories(self: CategoryProductSyncService, value: object) -> list[str]:
+def _split_categories(value: object) -> list[str]:
     """Preserve canonical category names while supporting the legacy helper API."""
-    del self
     return split_category_names(value)
 
 
@@ -141,8 +140,16 @@ def activate() -> None:
     global _PATCHED
     if _PATCHED:
         return
-    CategoryProductSyncService._attach_category_coverage = _attach_category_coverage
-    CategoryProductSyncService._split_categories = _split_categories
+    setattr(
+        CategoryProductSyncService,
+        "_attach_category_coverage",
+        _attach_category_coverage,
+    )
+    setattr(
+        CategoryProductSyncService,
+        "_split_categories",
+        staticmethod(_split_categories),
+    )
     _PATCHED = True
 
 

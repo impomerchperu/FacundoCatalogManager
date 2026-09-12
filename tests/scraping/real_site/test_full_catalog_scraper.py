@@ -14,9 +14,9 @@ from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_service import CategoryService
 
 EXPECTED_CATEGORIES = 24
-# The live catalog baseline captured by the project before this coverage pass.
-EXPECTED_CATEGORY_OCCURRENCES = 530
-EXPECTED_UNIQUE_PRODUCTS = 526
+# Live catalog snapshot verified during the current full-site coverage run.
+EXPECTED_CATEGORY_OCCURRENCES = 534
+EXPECTED_UNIQUE_PRODUCTS = 530
 EXPECTED_MULTI_CATEGORY_PRODUCTS = 4
 PRODUCTS_PER_PAGE = 25
 

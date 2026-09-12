@@ -25,7 +25,7 @@ class CategoryScraper:
     PRODUCTS_PER_PAGE = 25
     MAX_HIDDEN_PAGE_PROBES = 100
     JSF_EMPTY_PAGE_RETRIES = 1
-    JSF_PAGE_WORKERS = 4
+    JSF_PAGE_WORKERS = 2
 
     def __init__(self, browser: Any, parser: Any = None, category_extractor: Any = None, product_block_extractor: Any = None) -> None:
         self.parser = parser
@@ -343,7 +343,7 @@ class CategoryScraper:
         if found_posts == 0:
             found_posts = CategoryScraper._first_int(payload, (r'\"found_posts\"\s*:\s*(\d+)', r"found_posts\s*[:=]\s*(\d+)"))
         if max_num_pages == 0:
-            max_num_pages = CategoryScraper._first_int(payload, (r'\"max_num_pages\"\s*[:=]\s*(\d+)', r"max_num_pages\s*[:=]\s*(\d+)"))
+            max_num_pages = CategoryScraper._first_int(payload, (r'\"max_num_pages\"\s*:\s*(\d+)', r"max_num_pages\s*[:=]\s*(\d+)"))
         if max_num_pages == 0 and found_posts > 0:
             max_num_pages = (found_posts + CategoryScraper.PRODUCTS_PER_PAGE - 1) // CategoryScraper.PRODUCTS_PER_PAGE
         return found_posts, max_num_pages, rendered_html

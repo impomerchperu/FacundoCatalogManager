@@ -47,7 +47,6 @@ class ProductCollectionScraper:
         self._detail_metrics_lock = Lock()
         self._page_metrics: dict[str, dict[str, Any]] = {}
         self._page_metrics_lock = Lock()
-        self._detail_executor = ThreadPoolExecutor(max_workers=self.max_workers)
         self._detail_fetch_executor = ThreadPoolExecutor(max_workers=self.max_workers)
 
     def scrape_category(self, category: Any) -> list[Any]:
@@ -243,7 +242,7 @@ class ProductCollectionScraper:
         with self._detail_cache_lock:
             preexisting_cache_keys = set(self._detail_cache)
         counted_cache_hits: set[str] = set()
-        futures: list[tuple[int, Future[Any]]] = []
+        futures: list[tuple[int, Any, str, Any, str, Future[Any]]] = []
         for index, (card, page_url, product) in enumerate(products):
             skip_reason = self._detail_skip_reason(card, product)
             if skip_reason is not None:
@@ -275,21 +274,29 @@ class ProductCollectionScraper:
                         self._record_detail_reason(
                             f"requested_missing_{field.removeprefix('price_')}"
                         )
+
+            future = self._schedule_detailed_product(
+                detail_key,
+                detail_url,
+                category_name,
+            )
             futures.append(
-                (
-                    index,
-                    self._detail_executor.submit(
-                        self._enrich_from_detail_page,
-                        card,
-                        page_url,
-                        product,
-                        category_name,
-                    ),
-                )
+                (index, card, page_url, product, detail_url, future)
             )
 
-        for index, future in futures:
-            results[index] = (products[index][0], products[index][1], future.result())
+        for index, card, page_url, product, detail_url, future in futures:
+            detailed_product = self._resolve_detailed_product(detail_key, future)
+            results[index] = (
+                products[index][0],
+                products[index][1],
+                self._merge_detailed_product(
+                    card,
+                    page_url,
+                    product,
+                    detail_url,
+                    detailed_product,
+                ),
+            )
 
         return [
             product if not isinstance(product, tuple) else product[2]
@@ -437,6 +444,22 @@ class ProductCollectionScraper:
             detail_url,
             category_name,
         )
+        return self._merge_detailed_product(
+            card,
+            page_url,
+            product,
+            detail_url,
+            detailed_product,
+        )
+
+    @staticmethod
+    def _merge_detailed_product(
+        card: Any,
+        page_url: str,
+        product: Any,
+        detail_url: str,
+        detailed_product: Any | None,
+    ) -> Any:
         if detailed_product is None:
             return product
 
@@ -448,14 +471,14 @@ class ProductCollectionScraper:
             if not current and str(detail_value or "").strip():
                 setattr(product, field, detail_value)
 
-        for field in self._PRICE_FIELDS:
+        for field in ProductCollectionScraper._PRICE_FIELDS:
             current = float(getattr(product, field, 0.0) or 0.0)
             detail_value = float(getattr(detailed_product, field, 0.0) or 0.0)
             if current <= 0 and detail_value > 0:
                 setattr(product, field, detail_value)
 
         detail_color_stock = dict(getattr(detailed_product, "color_stock", {}))
-        card_stock_values = self._stock_values(card)
+        card_stock_values = ProductCollectionScraper._stock_values(card)
         if detail_color_stock:
             colors = list(detail_color_stock)
             if len(card_stock_values) == len(colors):
@@ -486,12 +509,12 @@ class ProductCollectionScraper:
             card_text = ""
         return f"url:{detail_url.casefold()}|card:{card_text}"
 
-    def _get_detailed_product(
+    def _schedule_detailed_product(
         self,
         cache_key: str,
         detail_url: str,
         category_name: str,
-    ) -> Any | None:
+    ) -> Future[Any]:
         with self._detail_cache_lock:
             future = self._detail_cache.get(cache_key)
             if future is None:
@@ -502,6 +525,13 @@ class ProductCollectionScraper:
                     category_name,
                 )
                 self._detail_cache[cache_key] = future
+            return future
+
+    def _resolve_detailed_product(
+        self,
+        cache_key: str,
+        future: Future[Any],
+    ) -> Any | None:
         try:
             return future.result()
         except (AttributeError, RuntimeError, TypeError, ValueError):
@@ -509,6 +539,19 @@ class ProductCollectionScraper:
                 if self._detail_cache.get(cache_key) is future:
                     self._detail_cache.pop(cache_key, None)
             return None
+
+    def _get_detailed_product(
+        self,
+        cache_key: str,
+        detail_url: str,
+        category_name: str,
+    ) -> Any | None:
+        future = self._schedule_detailed_product(
+            cache_key,
+            detail_url,
+            category_name,
+        )
+        return self._resolve_detailed_product(cache_key, future)
 
     def _fetch_detail_product(self, detail_url: str, category_name: str) -> Any | None:
         html = self.category_scraper.get_html(detail_url)

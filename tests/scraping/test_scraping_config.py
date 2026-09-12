@@ -15,6 +15,6 @@ def test_scraping_configuration():
     assert "User-Agent" in DEFAULT_HEADERS
     assert REQUEST_TIMEOUT > 0
     assert MAX_RETRIES > 0
-    assert SCRAPING_CATEGORY_WORKERS == 16
+    assert SCRAPING_CATEGORY_WORKERS == 8
     assert SCRAPING_HTTP_WORKERS == 32
     assert SCRAPING_HTTP_WORKERS >= SCRAPING_CATEGORY_WORKERS

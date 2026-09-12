@@ -379,11 +379,12 @@ class ProductExtractor:
         text: str | None = None,
     ) -> list[int]:
         """Extrae la secuencia de existencias tras 'Stock Disponible'."""
-        if text is None:
-            text = soup.get_text(" ", strip=True)
+        extracted_text: str = (
+            text if isinstance(text, str) else soup.get_text(" ", strip=True)
+        )
         match = re.search(
             r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
-            text,
+            extracted_text,
             flags=re.IGNORECASE,
         )
         if match is None:

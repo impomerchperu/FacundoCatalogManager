@@ -118,37 +118,48 @@ class CategoryProductSyncService:
         if failed_category_errors:
             recovery_started = time.perf_counter()
             recovered = 0
-            for index, original_error in failed_category_errors.items():
-                category = categories[index]
-                category_name = str(getattr(category, "name", "")).strip() or "(sin nombre)"
-                try:
-                    collected_by_index[index] = cast(
-                        list[Any],
-                        self._collect_category(index, category),
-                    )
-                except requests.exceptions.RequestException as error:
-                    _log_timing(
-                        "SCRAPING TIMING | stage=category_recovery_error | category=%s | "
-                        "error_type=%s | error=%s",
-                        category_name,
-                        type(error).__name__,
-                        str(error),
-                    )
-                    self.last_sync_result.errors.append(
-                        f"Reintento fallido en categoría '{category_name}': {error}"
-                    )
-                else:
-                    recovered += 1
-                    self.last_sync_result.errors = [
-                        message
-                        for message in self.last_sync_result.errors
-                        if message != original_error
-                    ]
-                    _log_timing(
-                        "SCRAPING TIMING | stage=category_recovered | category=%s | products=%d",
-                        category_name,
-                        len(collected_by_index[index]),
-                    )
+            recovery_worker_count = min(
+                SCRAPING_CATEGORY_WORKERS,
+                len(failed_category_errors),
+            )
+            with ThreadPoolExecutor(max_workers=recovery_worker_count) as executor:
+                futures = {
+                    executor.submit(
+                        self._collect_category,
+                        index,
+                        categories[index],
+                    ): index
+                    for index in failed_category_errors
+                }
+                for future, index in futures.items():
+                    category = categories[index]
+                    original_error = failed_category_errors[index]
+                    category_name = str(getattr(category, "name", "")).strip() or "(sin nombre)"
+                    try:
+                        collected_by_index[index] = cast(list[Any], future.result())
+                    except requests.exceptions.RequestException as error:
+                        _log_timing(
+                            "SCRAPING TIMING | stage=category_recovery_error | category=%s | "
+                            "error_type=%s | error=%s",
+                            category_name,
+                            type(error).__name__,
+                            str(error),
+                        )
+                        self.last_sync_result.errors.append(
+                            f"Reintento fallido en categoría '{category_name}': {error}"
+                        )
+                    else:
+                        recovered += 1
+                        self.last_sync_result.errors = [
+                            message
+                            for message in self.last_sync_result.errors
+                            if message != original_error
+                        ]
+                        _log_timing(
+                            "SCRAPING TIMING | stage=category_recovered | category=%s | products=%d",
+                            category_name,
+                            len(collected_by_index[index]),
+                        )
             _log_timing(
                 "SCRAPING TIMING | stage=category_recovery | attempted=%d | recovered=%d | seconds=%.3f",
                 len(failed_category_errors),

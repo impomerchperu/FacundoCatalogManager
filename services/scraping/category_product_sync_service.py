@@ -508,19 +508,15 @@ class CategoryProductSyncService:
             expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),
         )
 
-    def _enrich_category(self, index, category, collected) -> list[Any]:
+    def _enrich_category(self, index, category, collected):
         del index
         scraper = getattr(self.scraper_service, "scraper", None)
         enrich = getattr(scraper, "enrich_category_products", None)
         if callable(enrich):
-            return cast(list[Any], enrich(collected, category.name))
-        return cast(
-            list[Any],
-            self.scraper_service.scrape_category(
-                category.url,
-                category.name,
-                expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),
-            ),
+            return enrich(collected, category.name)
+        return self.scraper_service.scrape_category(
+            category.url, category.name,
+            expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),
         )
 
     def _enable_thread_sessions(self):
@@ -546,7 +542,7 @@ class CategoryProductSyncService:
         metrics = getattr(scraper, "get_detail_metrics", None)
         if not callable(metrics):
             return
-        values = metrics() or {}
+        values = cast(dict[str, Any], metrics() or {})
         _log_timing(
             "SCRAPING TIMING | stage=detail_cache | requests=%d | cache_hits=%d | cache_size=%d",
             int(values.get("requests", 0) or 0),
@@ -559,7 +555,7 @@ class CategoryProductSyncService:
         metrics = getattr(scraper, "get_http_metrics", None)
         if not callable(metrics):
             return
-        values = metrics() or {}
+        values = cast(dict[str, Any], metrics() or {})
         _log_timing(
             "SCRAPING TIMING | stage=http | requests=%d | retries=%d | errors=%d | empty=%d | other=%d",
             int(values.get("requests", 0) or 0),
@@ -582,7 +578,7 @@ class CategoryProductSyncService:
         metrics_getter = getattr(browser, "get_http_metrics", None)
         if not callable(metrics_getter):
             return None
-        metrics = metrics_getter() or {}
+        metrics = cast(dict[str, Any], metrics_getter() or {})
         terminal_errors = int(metrics.get("http_terminal_errors", 0) or 0)
         if terminal_errors:
             return f"terminal_http_errors:{terminal_errors}"
@@ -590,7 +586,7 @@ class CategoryProductSyncService:
 
     @staticmethod
     def _category_coverage_gap_reason(category_summary):
-        for row in category_summary:
+        for row in cast(list[dict[str, Any]], category_summary):
             expected = max(int(row.get("expected", 0) or 0), 0)
             if expected <= 0:
                 continue

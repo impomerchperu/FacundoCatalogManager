@@ -72,6 +72,7 @@ def test_catalog_sync_preserves_existing_prices_on_partial_update():
     service = CatalogSyncService(repository, ProductDiffService())
     result = service.synchronize([incoming])
     stored = repository.get("P010")
+    assert stored is not None
 
     assert result.updated == 1
     assert stored.price == 8.5
@@ -97,6 +98,7 @@ def test_catalog_sync_preserves_existing_prices_independently():
     service = CatalogSyncService(repository, ProductDiffService())
     service.synchronize([incoming])
     stored = repository.get("P011")
+    assert stored is not None
 
     assert stored.price == 9.0
     assert stored.price_sample == 9.0
@@ -129,6 +131,7 @@ def test_catalog_sync_consolidates_product_in_multiple_categories():
 
     result = service.synchronize(products)
     stored = repository.get("P002")
+    assert stored is not None
 
     assert result.created == 1
     assert result.processed == 2
@@ -243,6 +246,7 @@ def test_catalog_sync_preserves_categories_across_separate_category_syncs():
     ])
 
     stored = repository.get("P003")
+    assert stored is not None
 
     assert first.created == 1
     assert first.counts_are_consistent
@@ -261,6 +265,7 @@ def test_catalog_sync_does_not_duplicate_existing_category():
     ])
 
     stored = repository.get("P004")
+    assert stored is not None
 
     assert result.unchanged == 1
     assert result.updated == 0

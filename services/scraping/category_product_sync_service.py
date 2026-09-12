@@ -80,6 +80,7 @@ class CategoryProductSyncService:
         self.last_sync_result.expected_category_occurrences = expected_category_occurrences
 
         collected_by_index: list[list[Any]] = [[] for _ in categories]
+        failed_category_errors: dict[int, str] = {}
         started = time.perf_counter()
         self._enable_thread_sessions()
         if categories:
@@ -102,6 +103,7 @@ class CategoryProductSyncService:
                             f"Error de red en categoría '{category_name}': "
                             f"{error}"
                         )
+                        failed_category_errors[index] = message
                         self.last_sync_result.errors.append(message)
                         _log_timing(
                             "SCRAPING TIMING | stage=category_error | category=%s | "
@@ -112,6 +114,48 @@ class CategoryProductSyncService:
                         )
                     if progress_callback:
                         progress_callback(index + 1, len(categories))
+
+        if failed_category_errors:
+            recovery_started = time.perf_counter()
+            recovered = 0
+            for index, original_error in failed_category_errors.items():
+                category = categories[index]
+                category_name = str(getattr(category, "name", "")).strip() or "(sin nombre)"
+                try:
+                    collected_by_index[index] = cast(
+                        list[Any],
+                        self._collect_category(index, category),
+                    )
+                except requests.exceptions.RequestException as error:
+                    _log_timing(
+                        "SCRAPING TIMING | stage=category_recovery_error | category=%s | "
+                        "error_type=%s | error=%s",
+                        category_name,
+                        type(error).__name__,
+                        str(error),
+                    )
+                    self.last_sync_result.errors.append(
+                        f"Reintento fallido en categoría '{category_name}': {error}"
+                    )
+                else:
+                    recovered += 1
+                    self.last_sync_result.errors = [
+                        message
+                        for message in self.last_sync_result.errors
+                        if message != original_error
+                    ]
+                    _log_timing(
+                        "SCRAPING TIMING | stage=category_recovered | category=%s | products=%d",
+                        category_name,
+                        len(collected_by_index[index]),
+                    )
+            _log_timing(
+                "SCRAPING TIMING | stage=category_recovery | attempted=%d | recovered=%d | seconds=%.3f",
+                len(failed_category_errors),
+                recovered,
+                time.perf_counter() - recovery_started,
+            )
+
         _log_timing(
             "SCRAPING TIMING | stage=category_listing | categories=%d | products=%d | expected_category_occurrences=%d | seconds=%.3f",
             len(categories),

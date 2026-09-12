@@ -37,17 +37,20 @@ class ProductExtractor:
     def __init__(self):
         self.price_extractor = PriceExtractor()
         self.stock_extractor = StockExtractor()
+        self._extracted_codes = {}
 
     def extract(self, soup, url="", category=""):
         color_stock = self.extract_color_stock(soup)
         stock = self.stock_extractor.extract(soup)
         if color_stock:
             stock = sum(color_stock.values())
+        code = self.extract_code(soup)
+        self._extracted_codes[id(soup)] = code
 
         return ScrapedProductFactory.create(
             source=self.SOURCE,
             url=url,
-            code=self.extract_code(soup),
+            code=code,
             name=self.extract_name(soup),
             category=category,
             description=self.extract_description(soup),
@@ -486,7 +489,9 @@ class ProductExtractor:
         return None
 
     def extract_image(self, soup):
-        code = self.extract_code(soup)
+        code = self._extracted_codes.pop(id(soup), None)
+        if code is None:
+            code = self.extract_code(soup)
         candidates = []
         for img in soup.find_all("img"):
             url = (

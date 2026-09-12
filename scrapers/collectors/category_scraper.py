@@ -6,7 +6,7 @@ from typing import Any
 from urllib.parse import urljoin
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, FeatureNotFound
 
 from config.scraping_config import (
     DEFAULT_HEADERS,
@@ -14,6 +14,7 @@ from config.scraping_config import (
     JETSMARTFILTERS_ELEMENT_ID,
     JETSMARTFILTERS_INDEXING_FILTERS,
     JETSMARTFILTERS_SIGNATURE,
+    SCRAPING_HTML_PARSER,
 )
 
 
@@ -68,7 +69,10 @@ class CategoryScraper:
     def _parse(self, html: str) -> Any:
         if self.parser and hasattr(self.parser, "parse"):
             return self.parser.parse(html)
-        return BeautifulSoup(html, "html.parser")
+        try:
+            return BeautifulSoup(html, SCRAPING_HTML_PARSER)
+        except FeatureNotFound:
+            return BeautifulSoup(html, "html.parser")
 
     def scrape(self, url: str) -> Any:
         html = self.get_html(url)

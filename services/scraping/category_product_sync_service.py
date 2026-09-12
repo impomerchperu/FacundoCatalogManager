@@ -622,8 +622,8 @@ class CategoryProductSyncService:
         )
 
     def _log_http_metrics(self):
-        scraper = getattr(self.scraper_service, "scraper", None)
-        metrics = getattr(scraper, "get_http_metrics", None)
+        browser = self._browser()
+        metrics = getattr(browser, "get_http_metrics", None)
         if not callable(metrics):
             return
         values = cast(dict[str, Any], metrics() or {})

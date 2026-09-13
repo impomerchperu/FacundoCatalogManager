@@ -349,9 +349,24 @@ def _jsf_category_pages_with_probe(
     expected_count: int,
     category_html: str = "",
 ) -> list[str]:
-    """Use JSF only as an authoritative source when public pagination cannot cover the target."""
+    """Use authoritative JSF pagination for Facundo with validated public fallback."""
     _remember_jsf_settings(category_id, category_html)
-    found_posts, declared_max, first_html = _retry_jsf_page(self, category_url, category_id, 1)
+
+    expected = max(int(expected_count or 0), 0)
+    archive_product_keys = _page_product_keys(self, category_html, category_url)
+    reuse_archive_first_page = (
+        expected > 0 and len(archive_product_keys) == min(expected, self.PRODUCTS_PER_PAGE)
+    )
+
+    if reuse_archive_first_page:
+        found_posts, declared_max, first_html = 0, 0, category_html
+    else:
+        found_posts, declared_max, first_html = _retry_jsf_page(
+            self,
+            category_url,
+            category_id,
+            1,
+        )
 
     expected_pages = self._required_page_count(expected_count)
     published_pages = self._required_page_count(found_posts)

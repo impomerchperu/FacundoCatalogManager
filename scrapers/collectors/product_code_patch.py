@@ -98,7 +98,6 @@ def _extract_code(self: ProductExtractor, soup) -> str:
         if code:
             return code
 
-    # Preserve the existing extractor as a final compatibility fallback.
     return _ORIGINAL_EXTRACT_CODE(self, soup)
 
 
@@ -145,10 +144,10 @@ def activate() -> None:
     if _PATCHED:
         return
 
-    ProductExtractor._legacy_extract_code = _ORIGINAL_EXTRACT_CODE
+    ProductExtractor._legacy_extract_code = _ORIGINAL_EXTRACT_CODE  # pyright: ignore[reportAttributeAccessIssue]
     ProductExtractor.extract_code = _extract_code
     ProductCollectionScraper._enrich_from_detail_page = _enrich_with_authoritative_code
-    CategoryProductExtractor._normalize_code = classmethod(_normalize_category_code)
+    CategoryProductExtractor._normalize_code = classmethod(_normalize_category_code)  # pyright: ignore[reportAttributeAccessIssue]
     _PATCHED = True
 
 

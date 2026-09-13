@@ -6,7 +6,6 @@ from bs4 import BeautifulSoup
 from scrapers.collectors import (
     category_pagination_patch,
     jsf_concurrency_patch,
-    page_coverage_recovery_patch,
     product_code_patch,
     scraping_compat,
 )
@@ -82,8 +81,6 @@ def test_facundo_get_category_pages_prefers_jsf_pagination():
         expected_count=31,
     )
 
-    # The archive HTML is already validated as JSF page 1; page 1 must not
-    # be requested a second time through the JSF endpoint.
     assert calls == [2, 3]
     assert pages == [
         category_url,
@@ -121,8 +118,6 @@ def test_facundo_get_category_pages_does_not_replace_jsf_with_public_fallback():
         expected_count=50,
     )
 
-    # The archive HTML is already validated as JSF page 1; page 1 must not
-    # be requested a second time through the JSF endpoint.
     assert calls == [2, 3]
     assert pages == [
         category_url,
@@ -263,11 +258,8 @@ def test_category_coverage_preserves_comma_in_real_category_name():
     ]
 
 
-def test_compatibility_layers_are_active():
-    assert CategoryScraper.get_category_pages is (
-        page_coverage_recovery_patch._get_category_pages_with_recovery
-    )
-    assert page_coverage_recovery_patch._ORIGINAL_GET_CATEGORY_PAGES is (
+def test_compatibility_layers_are_explicit_not_implicitly_active():
+    assert CategoryScraper.get_category_pages is not (
         category_pagination_patch._get_category_pages
     )
     assert CategoryScraper._post_jsf is jsf_concurrency_patch._post_jsf

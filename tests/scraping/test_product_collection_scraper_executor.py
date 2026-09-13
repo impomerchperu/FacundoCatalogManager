@@ -51,3 +51,17 @@ def test_detail_enrichment_does_not_nest_waiting_futures_in_same_executor():
     assert products[0].color_stock == {"Rojo": 10}
     assert products[0].stock == 10
     assert scraper.get_detail_metrics()["detail_requests"] == 1
+    scraper.close()
+    scraper.close()
+
+
+def test_product_collection_close_is_safe_after_construction():
+    scraper = ProductCollectionScraper(
+        SingleProductCategoryScraper(),
+        card_extractor=lambda soup: [],
+        product_extractor=lambda card, url, category: SimpleNamespace(),
+        max_workers=1,
+    )
+
+    scraper.close()
+    scraper.close()

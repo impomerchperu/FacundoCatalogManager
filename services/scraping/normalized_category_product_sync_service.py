@@ -32,21 +32,6 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         self._persist_normalized([category_object], products, mode="directed")
         return products
 
-    def _full_sync_prune_guard(
-        self,
-        products,
-        category_count,
-        *,
-        expected_category_occurrences=0,
-        expected_products=None,
-    ):
-        return super()._full_sync_prune_guard(
-            products,
-            category_count,
-            expected_category_occurrences=expected_category_occurrences,
-            expected_products=expected_products,
-        )
-
     def _align_multiple_category_result(self, categories, products):
         requested = {
             normalize_category_name(canonical_category_name(getattr(category, "name", "")))

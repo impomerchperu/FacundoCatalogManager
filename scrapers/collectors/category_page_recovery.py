@@ -12,7 +12,8 @@ def recover_missing_category_pages(
     required_pages: int,
 ) -> list[str]:
     """Recover pages missing from a category pagination result."""
-    if not scraper._is_facundo_url(category_url):
+    is_facundo = getattr(scraper, "_is_facundo_url", None)
+    if callable(is_facundo) and not is_facundo(category_url):
         return pages
 
     category_html = scraper.get_html(category_url)

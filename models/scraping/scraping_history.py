@@ -8,7 +8,6 @@ class ScrapingHistory:
 
     started_at: datetime
     finished_at: datetime
-    applied_at: datetime | None = None
     processed: int = 0
     created: int = 0
     updated: int = 0
@@ -27,3 +26,4 @@ class ScrapingHistory:
     status: str = "SUCCESS"
     message: str = ""
     history_id: int | None = None
+    applied_at: datetime | None = None

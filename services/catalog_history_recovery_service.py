@@ -42,7 +42,7 @@ class CatalogHistoryRecoveryService:
     def __init__(self, db: DBManager) -> None:
         self.db = db
 
-    def restore(self, *, manage_transaction: bool = True) -> int:  # noqa: PLR0912
+    def restore(self, *, manage_transaction: bool = True) -> int:
         """Reconstruye un catálogo vacío usando únicamente cambios de historiales exitosos."""
         if self._product_count() > 0:
             return 0

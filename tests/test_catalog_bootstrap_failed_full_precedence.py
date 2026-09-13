@@ -160,12 +160,6 @@ def test_newer_failed_full_run_does_not_replace_older_successful_run():
     )
 
     connection.commit()
-    connection.execute("DELETE FROM products")
-    connection.execute(
-        "UPDATE scraping_product_occurrences SET product_id=NULL WHERE run_id IN (?, ?)",
-        (successful_run, failed_run),
-    )
-    connection.commit()
 
     service = CatalogBootstrapService(db=db)
     assert service.reconcile_latest_successful_run() == 1

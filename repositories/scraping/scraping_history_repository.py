@@ -31,20 +31,29 @@ class ScrapingHistoryRepository:
         changes: list[dict] | None = None,
         products: list | None = None,
     ) -> int:
-        """Guarda una descarga ya aplicada y sus cambios."""
+        """Guarda una descarga y persiste si quedó aplicada al catálogo."""
+        if history.status == "SUCCESS":
+            applied_at = history.applied_at or history.finished_at
+            self.db.execute_query(
+                "UPDATE scraping_history SET applied_at = NULL WHERE applied_at IS NOT NULL"
+            )
+        else:
+            applied_at = None
+
         cursor = self.db.execute_query(
             """
             INSERT INTO scraping_history (
-                started_at, finished_at, processed, created, updated,
+                started_at, finished_at, applied_at, processed, created, updated,
                 unchanged, deleted, generated, categories_processed,
                 products_expected, products_found, products_unique,
                 products_multiple_categories, duplicate_occurrences,
                 category_summary, multiple_category_products,
                 errors, status, message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 history.started_at.isoformat(), history.finished_at.isoformat(),
+                applied_at.isoformat() if applied_at is not None else None,
                 history.processed, history.created, history.updated,
                 history.unchanged, history.deleted, history.generated,
                 history.categories_processed,
@@ -57,6 +66,7 @@ class ScrapingHistoryRepository:
             ),
         )
         history.history_id = int(cursor.lastrowid)
+        history.applied_at = applied_at
 
         if changes:
             self._assert_history_exists(history.history_id)
@@ -126,7 +136,7 @@ class ScrapingHistoryRepository:
         self._reset_read_transaction()
         rows = self.db.fetch_all(
             """
-            SELECT id, started_at, finished_at, processed, created,
+            SELECT id, started_at, finished_at, applied_at, processed, created,
                    updated, unchanged, deleted, generated,
                    categories_processed, products_expected, products_found,
                    products_unique, products_multiple_categories,
@@ -137,18 +147,29 @@ class ScrapingHistoryRepository:
         )
         return [self._map_row(row) for row in rows]
 
-    def _reset_read_transaction(self) -> None:
-        """Descarta cualquier snapshot de lectura previo antes de consultar."""
-        connection = getattr(self.db, "connection", None)
-        if connection is None:
-            return
-        connection.rollback()
+    def get_currently_applied(self):
+        self._reset_read_transaction()
+        row = self.db.fetch_one(
+            """
+            SELECT id, started_at, finished_at, applied_at, processed, created,
+                   updated, unchanged, deleted, generated,
+                   categories_processed, products_expected, products_found,
+                   products_unique, products_multiple_categories,
+                   duplicate_occurrences, category_summary,
+                   multiple_category_products, errors, status, message
+            FROM scraping_history
+            WHERE applied_at IS NOT NULL
+            ORDER BY applied_at DESC, id DESC
+            LIMIT 1
+            """
+        )
+        return None if row is None else self._map_row(row)
 
     def get_latest(self, limit: int = 100):
         self._reset_read_transaction()
         rows = self.db.fetch_all(
             """
-            SELECT id, started_at, finished_at, processed, created,
+            SELECT id, started_at, finished_at, applied_at, processed, created,
                    updated, unchanged, deleted, generated,
                    categories_processed, products_expected, products_found,
                    products_unique, products_multiple_categories,
@@ -164,7 +185,7 @@ class ScrapingHistoryRepository:
         self._reset_read_transaction()
         row = self.db.fetch_one(
             """
-            SELECT id, started_at, finished_at, processed, created,
+            SELECT id, started_at, finished_at, applied_at, processed, created,
                    updated, unchanged, deleted, generated,
                    categories_processed, products_expected, products_found,
                    products_unique, products_multiple_categories,
@@ -220,10 +241,12 @@ class ScrapingHistoryRepository:
 
     @staticmethod
     def _map_row(row) -> ScrapingHistory:
+        applied_at = row["applied_at"]
         return ScrapingHistory(
             history_id=row["id"],
             started_at=datetime.fromisoformat(row["started_at"]),
             finished_at=datetime.fromisoformat(row["finished_at"]),
+            applied_at=(datetime.fromisoformat(applied_at) if applied_at else None),
             processed=row["processed"], created=row["created"], updated=row["updated"],
             unchanged=row["unchanged"], deleted=row["deleted"], generated=row["generated"],
             categories_processed=row["categories_processed"],

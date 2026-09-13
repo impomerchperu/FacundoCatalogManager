@@ -1,9 +1,9 @@
 import contextlib
-import json
 import re
 from typing import ClassVar
 from urllib.parse import urljoin
 
+from scrapers.extractors.code_utils import extract_code_from_soup, normalize_code
 from scrapers.extractors.price_extractor import PriceExtractor
 from scrapers.extractors.stock_extractor import StockExtractor
 from scrapers.factories.scraped_product_factory import ScrapedProductFactory
@@ -15,7 +15,6 @@ class ProductExtractor:
 
     SOURCE = "importacionesfacundo"
     BASE_URL = "https://stock.importacionesfacundo.com"
-    _CODE_PATTERN = re.compile(r"^[A-Z0-9]{1,16}(?:-[A-Z0-9]+)*$", re.IGNORECASE)
 
     _IGNORED_COLOR_TAGS = (
         "select",
@@ -67,14 +66,7 @@ class ProductExtractor:
     @classmethod
     def _normalize_code_candidate(cls, text: str) -> str:
         """Valida un código completo sin asumir un prefijo concreto."""
-        candidate = str(text).strip().strip(".,:;()[]{}")
-        if not cls._CODE_PATTERN.fullmatch(candidate):
-            return ""
-        if not any(char.isalpha() for char in candidate):
-            return ""
-        if not any(char.isdigit() for char in candidate):
-            return ""
-        return candidate.upper()
+        return normalize_code(text)
 
     @classmethod
     def _find_code_token(cls, text: str) -> str:
@@ -86,6 +78,14 @@ class ProductExtractor:
         return ""
 
     def extract_code(self, soup):
+        return extract_code_from_soup(
+            soup,
+            fallback=ProductExtractor._extract_code_from_marked_text,
+            extractor=self,
+        )
+
+    @classmethod
+    def _extract_code_from_marked_text(cls, self, soup) -> str:
         selectors = [
             "p.brxe-heading",
             "span.sku",
@@ -329,7 +329,6 @@ class ProductExtractor:
 
     @classmethod
     def _extract_text_colors(cls, soup) -> list[str]:
-        """Extrae listas explícitas y enlaces bajo el encabezado 'Colores'."""
         pattern = re.compile(
             r"\bcolores?\s*[:|\-]\s*(.+?)(?="
             r"\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
@@ -374,14 +373,8 @@ class ProductExtractor:
         return colors
 
     @staticmethod
-    def _extract_visible_stock_values(
-        soup,
-        text: str | None = None,
-    ) -> list[int]:
-        """Extrae la secuencia de existencias tras 'Stock Disponible'."""
-        extracted_text: str = (
-            text if isinstance(text, str) else soup.get_text(" ", strip=True)
-        )
+    def _extract_visible_stock_values(soup, text: str | None = None) -> list[int]:
+        extracted_text = text if isinstance(text, str) else soup.get_text(" ", strip=True)
         match = re.search(
             r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
             extracted_text,
@@ -389,7 +382,6 @@ class ProductExtractor:
         )
         if match is None:
             return []
-
         values: list[int] = []
         for raw_value in re.findall(r"\d[\d,.]*", match.group(1)):
             try:
@@ -398,13 +390,7 @@ class ProductExtractor:
                 continue
         return values
 
-    def _extract_variation_colors(
-        self,
-        value,
-        add_color,
-        color_labels: dict[str, str] | None = None,
-        inherited_stock: int | None = None,
-    ) -> None:
+    def _extract_variation_colors(self, value, add_color, color_labels, inherited_stock=None) -> None:
         if isinstance(value, dict):
             stock = self._variation_stock(value)
             if stock is None:
@@ -413,31 +399,15 @@ class ProductExtractor:
             if color_name:
                 add_color(color_name, stock)
             for item in value.values():
-                self._extract_variation_colors(
-                    item,
-                    add_color,
-                    color_labels,
-                    stock,
-                )
+                self._extract_variation_colors(item, add_color, color_labels, stock)
             return
         if isinstance(value, list):
             for item in value:
-                self._extract_variation_colors(
-                    item,
-                    add_color,
-                    color_labels,
-                    inherited_stock,
-                )
+                self._extract_variation_colors(item, add_color, color_labels, inherited_stock)
 
     @staticmethod
     def _variation_stock(value: dict) -> int | None:
-        stock_keys = {
-            "max_qty",
-            "max_quantity",
-            "stock",
-            "quantity",
-            "stock_quantity",
-        }
+        stock_keys = {"max_qty", "max_quantity", "stock", "quantity", "stock_quantity"}
         for key, item in value.items():
             if str(key).casefold() not in stock_keys:
                 continue
@@ -446,22 +416,13 @@ class ProductExtractor:
         return None
 
     @staticmethod
-    def _variation_color(
-        value: dict,
-        color_labels: dict[str, str] | None = None,
-    ) -> str:
+    def _variation_color(value: dict, color_labels: dict[str, str] | None = None) -> str:
         for key, item in value.items():
             key_text = str(key).casefold()
-            if isinstance(item, str) and (
-                "color" in key_text or "colour" in key_text
-            ):
-                color_name = item
+            if isinstance(item, str) and ("color" in key_text or "colour" in key_text):
                 if color_labels:
-                    color_name = color_labels.get(
-                        color_name.casefold(),
-                        color_name,
-                    )
-                return color_name
+                    return color_labels.get(item.casefold(), item)
+                return item
             if isinstance(item, dict):
                 nested = ProductExtractor._variation_color(item, color_labels)
                 if nested:
@@ -471,20 +432,15 @@ class ProductExtractor:
     @staticmethod
     def _json_payloads(raw: str):
         try:
+            import json
             parsed = json.loads(raw)
-        except (json.JSONDecodeError, TypeError):
+        except (ValueError, TypeError):
             return []
-        else:
-            return [parsed]
+        return [parsed]
 
     @staticmethod
     def _stock_from_tag(element) -> int | None:
-        for key in (
-            "data-stock",
-            "data-quantity",
-            "data-max-qty",
-            "data-max_quantity",
-        ):
+        for key in ("data-stock", "data-quantity", "data-max-qty", "data-max_quantity"):
             value = element.get(key)
             if value is not None:
                 try:
@@ -499,18 +455,12 @@ class ProductExtractor:
             code = self.extract_code(soup)
         candidates = []
         for img in soup.find_all("img"):
-            url = (
-                img.get("data-src")
-                or img.get("data-lazy-src")
-                or img.get("src")
-                or ""
-            )
+            url = img.get("data-src") or img.get("data-lazy-src") or img.get("src") or ""
             if not url or url.startswith("data:image"):
                 continue
             if "Logo" in url or "Proximo" in url:
                 continue
             candidates.append(self._normalize_image_url(url))
-
         if not candidates:
             return ""
         if code:

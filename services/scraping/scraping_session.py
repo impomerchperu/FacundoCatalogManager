@@ -81,7 +81,7 @@ class ScrapingSession:
                     f"clasificados={self.result.classified_total}, "
                     f"únicos={self.result.products_unique}."
                 )
-            if self.result.errors and not self._only_coverage_error():
+            if self.result.errors:
                 self._rollback_transaction(db, transaction_started)
                 transaction_started = False
                 self.result.finished_at = datetime.now(timezone.utc)
@@ -89,8 +89,7 @@ class ScrapingSession:
                 self._save_history_in_clean_transaction(db)
                 return self.result
 
-            if not self.result.errors:
-                self._persist_catalog_products()
+            self._persist_catalog_products()
 
             self.result.finished_at = datetime.now(timezone.utc)
             if db is not None and transaction_started:

@@ -54,6 +54,16 @@ class CategoryProductSyncService:
         """Mantiene la API histórica delegando en el normalizador canónico."""
         return split_category_names(value)
 
+    @staticmethod
+    def _product_category_keys(product: Any) -> set[str]:
+        return {
+            normalize_category_name(category)
+            for category in split_category_names(
+                str(getattr(product, "category", ""))
+            )
+            if normalize_category_name(category)
+        }
+
     def sync_category(self, category_url, category=""):
         started = time.perf_counter()
         result = self.scraper_service.scrape_category(category_url, category)
@@ -441,9 +451,7 @@ class CategoryProductSyncService:
                 product
                 for product in raw_products
                 if str(getattr(product, "category", "")).strip()
-                and normalize_category_name(
-                    canonical_category_name(str(getattr(product, "category", "")).strip())
-                ) == category_key
+                and category_key in self._product_category_keys(product)
             ]
             products_found = len(category_products)
             unique = {
@@ -482,10 +490,11 @@ class CategoryProductSyncService:
                 if not code_key:
                     continue
                 raw_category = str(getattr(product, "category", "")).strip()
-                category_key = normalize_category_name(canonical_category_name(raw_category))
-                if category_key not in requested:
-                    continue
-                by_code.setdefault(code_key, {}).setdefault(category_key, canonical_category_name(raw_category))
+                for category_name in split_category_names(raw_category):
+                    category_key = normalize_category_name(category_name)
+                    if category_key not in requested:
+                        continue
+                    by_code.setdefault(code_key, {}).setdefault(category_key, category_name)
 
         product_by_code = {
             str(getattr(product, "code", "")).strip().casefold(): product

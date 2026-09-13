@@ -17,7 +17,6 @@ def test_full_sync_prune_guard_recovers_before_safety_decisions(monkeypatch):
 
     def fake_terminal_reason():
         calls.append(("terminal",))
-        return None
 
     monkeypatch.setattr(service, "_recover_missing_codes", fake_recover)
     monkeypatch.setattr(service, "_terminal_http_error_reason", fake_terminal_reason)

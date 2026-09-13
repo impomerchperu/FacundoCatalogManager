@@ -51,8 +51,6 @@ def activate() -> None:
     _PATCHED = True
 
 
-activate()
-
 assert _engine.get_category_pages is _engine_get_category_pages
 
 __all__ = [

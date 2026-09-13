@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import json
-
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.code_utils import (
-    find_code_in_json,
+    extract_code_from_soup,
     normalize_code,
     normalize_code_token,
 )
@@ -27,44 +25,13 @@ def _normalize_category_code(cls, text: str) -> str:
 
 
 def _from_json(value: object) -> str:
+    from scrapers.extractors.code_utils import find_code_in_json
+
     return find_code_in_json(value)
 
 
 def _extract_code(self: ProductExtractor, soup) -> str:
-    selectors = (
-        "span.sku",
-        ".sku_wrapper .sku",
-        ".product_meta .sku",
-        "[itemprop='sku']",
-        "[data-sku]",
-        "[sku]",
-    )
-    for selector in selectors:
-        for element in soup.select(selector):
-            values = (
-                element.get("sku"),
-                element.get("data-sku"),
-                element.get("content"),
-                element.get_text(" ", strip=True),
-            )
-            for value in values:
-                code = _normalize(value)
-                if code:
-                    return code
-
-    for script in soup.select("script[type='application/ld+json']"):
-        raw = script.string or script.get_text(" ", strip=True)
-        if not raw:
-            continue
-        try:
-            payload = json.loads(raw)
-        except (json.JSONDecodeError, TypeError):
-            continue
-        code = _from_json(payload)
-        if code:
-            return code
-
-    return _ORIGINAL_EXTRACT_CODE(self, soup)
+    return extract_code_from_soup(soup, fallback=_ORIGINAL_EXTRACT_CODE, extractor=self)
 
 
 def _enrich_with_authoritative_code(

@@ -21,9 +21,9 @@ MAX_RETRIES = 3
 # extraction. category_scraper.py keeps a html.parser fallback for portability.
 SCRAPING_HTML_PARSER = "lxml"
 
-# Detail enrichment is an I/O-bound workload. Keep the detail executor at the
-# validated 32-worker level; Browser applies a lower shared HTTP budget so
-# category-page requests and detail requests do not saturate the origin server.
+# Detail enrichment is an I/O-bound workload. Keep the detail worker pool
+# larger than the shared HTTP budget so local task scheduling does not
+# artificially serialize detail requests.
 SCRAPING_MAX_WORKERS = 32
 
 # Restore the previously validated category concurrency. The 8-worker tuning
@@ -31,11 +31,11 @@ SCRAPING_MAX_WORKERS = 32
 # performance baseline that previously reached the correct FULL coverage.
 SCRAPING_CATEGORY_WORKERS = 16
 
-# The live site starts returning timeouts/errors when all 32 shared HTTP slots
-# are occupied concurrently. A 24-request budget preserves substantial
-# parallelism while leaving headroom for category and detail traffic to share
-# the same origin without the saturation observed at 32.
-SCRAPING_HTTP_WORKERS = 24
+# 32 HTTP slots saturated the live site and produced terminal timeouts during
+# a FULL run. 24 recovered complete coverage; 28 is the next controlled point
+# between stability and throughput and must still satisfy the FULL coverage
+# gate before being treated as the production baseline.
+SCRAPING_HTTP_WORKERS = 28
 
 # JetSmartFilters/Bricks Query Loop request metadata observed on the live catalog.
 # Keep these values centralized so the scraper can reproduce the provider query

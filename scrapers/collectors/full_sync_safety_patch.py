@@ -132,7 +132,7 @@ def activate() -> None:
         _PATCHED = True
         return
     CategoryProductSyncService.sync_categories = _sync_categories_with_safety
-    CategoryProductSyncService._full_sync_prune_guard = _coverage_guard_with_state
+    CategoryProductSyncService._full_sync_prune_guard = _coverage_guard_with_state  # pyright: ignore[reportAttributeAccessIssue]
     CategoryProductSyncService.sync_products = _sync_products_with_safety
     _PATCHED = True
 

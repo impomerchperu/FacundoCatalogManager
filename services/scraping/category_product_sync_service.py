@@ -526,6 +526,7 @@ class CategoryProductSyncService:
         )
         del products_or_categories
 
+        self.last_sync_result.categories_processed = len(categories)
         category_summary = self._category_summary(raw_products, categories, legacy_call)
         multiple = self._multiple_category_products(
             raw_products,

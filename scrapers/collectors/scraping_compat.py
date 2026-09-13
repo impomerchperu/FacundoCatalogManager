@@ -33,13 +33,9 @@ def _split_categories(value: object) -> list[str]:
 
 def activate() -> None:
     """Install compatibility fixes without replacing category pagination."""
-    setattr(ProductExtractor, "_normalize_code_candidate", classmethod(_normalize_code_candidate))
-    setattr(CategoryScraper, "_parse", _parse_with_lxml)
-    setattr(
-        CategoryProductSyncService,
-        "_split_categories",
-        staticmethod(_split_categories),
-    )
+    ProductExtractor._normalize_code_candidate = classmethod(_normalize_code_candidate)
+    CategoryScraper._parse = _parse_with_lxml
+    CategoryProductSyncService._split_categories = staticmethod(_split_categories)
 
 
 activate()

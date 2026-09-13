@@ -2,9 +2,7 @@ import re
 
 import requests
 
-from scrapers.collectors.category_pagination_patch import (
-    _collect_direct_pages,
-)
+from scrapers.collectors.category_pagination_engine import _collect_direct_pages
 from scrapers.collectors.category_scraper import CategoryScraper
 
 

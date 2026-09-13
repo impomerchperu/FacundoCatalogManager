@@ -51,19 +51,12 @@ class CatalogHistoryRecoveryService:
         if not changes:
             return 0
 
-        products, deleted_codes = self._build_product_state(changes)
-        if manage_transaction:
-            self.db.begin()
-        try:
-            self._apply_product_state(products, deleted_codes)
-            if manage_transaction:
-                self.db.commit()
-        except Exception:
-            if manage_transaction:
-                self.db.rollback()
-            raise
-
-        return self._product_count()
+        products, deleted_codes = self._build_products(changes)
+        return self._persist_recovered_catalog(
+            products,
+            deleted_codes,
+            manage_transaction=manage_transaction,
+        )
 
     def _successful_changes(self):
         return self.db.fetch_all(
@@ -79,20 +72,11 @@ class CatalogHistoryRecoveryService:
             """
         )
 
-    def _build_product_state(self, changes):
+    def _build_products(self, changes):
         products: dict[str, dict[str, object]] = {}
         deleted_codes: set[str] = set()
         for change in changes:
-            code = self._normalize_code(change["code"])
-            if not code:
-                continue
-            item_type = str(change["change_type"] or "").strip().upper()
-            if item_type == "DELETED":
-                self._mark_deleted(code, products, deleted_codes)
-                continue
-            if item_type in {"MISSING_CODE", "CODE_GENERATED"}:
-                continue
-            self._apply_change(code, change, products, deleted_codes)
+            self._apply_change(change, products, deleted_codes)
 
         products = {
             code: product
@@ -101,22 +85,19 @@ class CatalogHistoryRecoveryService:
         }
         return products, deleted_codes
 
-    @staticmethod
-    def _mark_deleted(
-        code: str,
-        products: dict[str, dict[str, object]],
-        deleted_codes: set[str],
-    ) -> None:
-        deleted_codes.add(code)
-        products.pop(code, None)
+    def _apply_change(self, change, products, deleted_codes) -> None:
+        code = self._normalize_code(change["code"])
+        if not code:
+            return
 
-    def _apply_change(
-        self,
-        code: str,
-        change,
-        products: dict[str, dict[str, object]],
-        deleted_codes: set[str],
-    ) -> None:
+        item_type = str(change["change_type"] or "").strip().upper()
+        if item_type == "DELETED":
+            deleted_codes.add(code)
+            products.pop(code, None)
+            return
+        if item_type in {"MISSING_CODE", "CODE_GENERATED"}:
+            return
+
         deleted_codes.discard(code)
         product = products.setdefault(code, self._empty_product(code))
         if change["product_name"]:
@@ -125,16 +106,34 @@ class CatalogHistoryRecoveryService:
         if field in self.PRODUCT_FIELDS:
             product[field] = self._convert_field(field, change["new_value"])
 
-    def _apply_product_state(
+    def _persist_recovered_catalog(
         self,
         products: dict[str, dict[str, object]],
         deleted_codes: set[str],
-    ) -> None:
+        *,
+        manage_transaction: bool,
+    ) -> int:
+        if manage_transaction:
+            self.db.begin()
+        try:
+            self._delete_codes(deleted_codes)
+            self._upsert_products(products)
+            if manage_transaction:
+                self.db.commit()
+        except Exception:
+            if manage_transaction:
+                self.db.rollback()
+            raise
+
+        return self._product_count()
+
+    def _delete_codes(self, deleted_codes: set[str]) -> None:
         for code in deleted_codes:
             self.db.execute_query(
                 "DELETE FROM products WHERE UPPER(TRIM(code))=?", (code,)
             )
 
+    def _upsert_products(self, products: dict[str, dict[str, object]]) -> None:
         placeholders = ", ".join("?" for _ in self.PRODUCT_COLUMNS)
         updates = ", ".join(
             f"{field}=excluded.{field}" for field in self.PRODUCT_COLUMNS[1:]

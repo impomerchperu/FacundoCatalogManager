@@ -140,16 +140,8 @@ def activate() -> None:
     global _PATCHED
     if _PATCHED:
         return
-    setattr(
-        CategoryProductSyncService,
-        "_attach_category_coverage",
-        _attach_category_coverage,
-    )
-    setattr(
-        CategoryProductSyncService,
-        "_split_categories",
-        staticmethod(_split_categories),
-    )
+    CategoryProductSyncService._attach_category_coverage = _attach_category_coverage
+    CategoryProductSyncService._split_categories = staticmethod(_split_categories)
     _PATCHED = True
 
 

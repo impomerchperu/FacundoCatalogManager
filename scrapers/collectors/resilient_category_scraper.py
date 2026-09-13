@@ -55,9 +55,8 @@ class ResilientCategoryScraper(CategoryScraper):
             pages = super().get_category_pages(category_url, expected_count)
         except (RuntimeError, requests.exceptions.HTTPError) as error:
             self._raise_if_not_retryable(error)
-            return self._fallback_after_jsf_failure(
+            return self._refresh_and_fallback(
                 category_url,
-                category_html,
                 expected_count,
             )
 
@@ -144,22 +143,7 @@ class ResilientCategoryScraper(CategoryScraper):
             if not self._is_empty_jsf_result(category_url, category_html, pages):
                 return pages
 
-        fallback_html = self._refresh_category_html_for_fallback(category_url)
-        if fallback_html:
-            fallback_products = self._product_keys_without_taxonomy_markers(
-                fallback_html,
-            )
-            if fallback_products:
-                return self._fallback_pages_or_category(
-                    category_url,
-                    fallback_html,
-                    expected_count,
-                )
-
-        # One category may be unavailable even after recovery attempts. Return
-        # no pages so the full run can continue and coverage/pruning guards can
-        # correctly mark the run as incomplete.
-        return []
+        return self._refresh_and_fallback(category_url, expected_count)
 
     def _refresh_and_fallback(
         self,

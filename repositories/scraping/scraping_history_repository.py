@@ -22,6 +22,14 @@ class ScrapingHistoryRepository:
         "image_hash": "Hash imagen", "content_hash": "Hash contenido",
     }
 
+    _HISTORY_COLUMNS = """
+        id, started_at, finished_at, applied_at, processed, created, updated,
+        unchanged, deleted, generated, categories_processed, products_expected,
+        products_found, products_unique, products_multiple_categories,
+        duplicate_occurrences, category_summary, multiple_category_products,
+        errors, status, message
+    """
+
     def __init__(self, db):
         self.db = db
 
@@ -132,51 +140,31 @@ class ScrapingHistoryRepository:
             (history_id, change_type, code, name, field, label, old_value, new_value),
         )
 
+    @classmethod
+    def _history_select(cls) -> str:
+        return f"SELECT {cls._HISTORY_COLUMNS} FROM scraping_history"
+
     def get_all(self):
         self._reset_read_transaction()
         rows = self.db.fetch_all(
-            """
-            SELECT id, started_at, finished_at, applied_at, processed, created,
-                   updated, unchanged, deleted, generated,
-                   categories_processed, products_expected, products_found,
-                   products_unique, products_multiple_categories,
-                   duplicate_occurrences, category_summary,
-                   multiple_category_products, errors, status, message
-            FROM scraping_history ORDER BY id DESC
-            """
+            f"{self._history_select()} ORDER BY id DESC"
         )
         return [self._map_row(row) for row in rows]
 
     def get_currently_applied(self):
         self._reset_read_transaction()
         row = self.db.fetch_one(
-            """
-            SELECT id, started_at, finished_at, applied_at, processed, created,
-                   updated, unchanged, deleted, generated,
-                   categories_processed, products_expected, products_found,
-                   products_unique, products_multiple_categories,
-                   duplicate_occurrences, category_summary,
-                   multiple_category_products, errors, status, message
-            FROM scraping_history
-            WHERE applied_at IS NOT NULL
-            ORDER BY applied_at DESC, id DESC
-            LIMIT 1
-            """
+            f"{self._history_select()} "
+            "WHERE applied_at IS NOT NULL "
+            "ORDER BY applied_at DESC, id DESC "
+            "LIMIT 1"
         )
         return None if row is None else self._map_row(row)
 
     def get_latest(self, limit: int = 100):
         self._reset_read_transaction()
         rows = self.db.fetch_all(
-            """
-            SELECT id, started_at, finished_at, applied_at, processed, created,
-                   updated, unchanged, deleted, generated,
-                   categories_processed, products_expected, products_found,
-                   products_unique, products_multiple_categories,
-                   duplicate_occurrences, category_summary,
-                   multiple_category_products, errors, status, message
-            FROM scraping_history ORDER BY id DESC LIMIT ?
-            """,
+            f"{self._history_select()} ORDER BY id DESC LIMIT ?",
             (limit,),
         )
         return [self._map_row(row) for row in rows]
@@ -184,15 +172,7 @@ class ScrapingHistoryRepository:
     def get_by_id(self, history_id: int):
         self._reset_read_transaction()
         row = self.db.fetch_one(
-            """
-            SELECT id, started_at, finished_at, applied_at, processed, created,
-                   updated, unchanged, deleted, generated,
-                   categories_processed, products_expected, products_found,
-                   products_unique, products_multiple_categories,
-                   duplicate_occurrences, category_summary,
-                   multiple_category_products, errors, status, message
-            FROM scraping_history WHERE id = ?
-            """,
+            f"{self._history_select()} WHERE id = ?",
             (history_id,),
         )
         return None if row is None else self._map_row(row)

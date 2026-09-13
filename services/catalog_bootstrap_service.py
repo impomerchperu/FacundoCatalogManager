@@ -75,11 +75,19 @@ class CatalogBootstrapService:
 
     def restore_from_change_history(self) -> int:
         """Compatibilidad para reconstruir desde cambios históricos exitosos."""
-        restored = self.history_recovery_service.restore()
-        if restored > 0:
-            self.mark_initialized()
-            self._mark_history_recovery_applied()
+        if self.product_count() > 0:
+            return 0
+
+        self.db.begin()
+        try:
+            restored = self.history_recovery_service.restore(manage_transaction=False)
+            if restored > 0:
+                self.mark_initialized()
+                self._mark_history_recovery_applied()
             self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
         return restored
 
     def bootstrap(self) -> int:

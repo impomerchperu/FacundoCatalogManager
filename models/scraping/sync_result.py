@@ -92,7 +92,7 @@ class SyncResult:
 
     @property
     def expected_product_category_relationships(self) -> int:
-        """Número esperado de pares producto–categoría distintos."""
+        """Número esperado de pares producto-categoría distintos."""
         if self.category_summary:
             return sum(
                 max(int(row.get("expected", 0) or 0), 0)
@@ -103,7 +103,7 @@ class SyncResult:
 
     @property
     def product_category_relationships(self) -> int:
-        """Número real de pares únicos producto–categoría observados."""
+        """Número real de pares únicos producto-categoría observados."""
         if self.category_summary:
             return sum(
                 max(int(row.get("unique_products", 0) or 0), 0)

@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 from models.scraping.category import Category
 from models.scraping.sync_result import SyncResult
-from services.scraping import prune_guard_recovery_patch
+from scrapers.collectors import full_sync_safety_patch
 from services.scraping.category_product_sync_service import CategoryProductSyncService
 
 
@@ -25,7 +25,7 @@ def make_service(terminal_errors):
 
 
 def test_recovered_terminal_error_does_not_block_complete_pruning_guard():
-    assert prune_guard_recovery_patch._PATCHED is True
+    assert full_sync_safety_patch._PATCHED is True
 
     service = make_service(terminal_errors=1)
     service.last_sync_result = SyncResult(

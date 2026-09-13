@@ -214,7 +214,7 @@ def test_removed_legacy_image_manager_stays_absent():
     assert not (PROJECT_ROOT / "scrapers" / "images" / "image_manager.py").exists()
 
 
-def test_removed_legacy_image_utilities_stay_absent():
+def test_removed_legacy_image_utilities_stays_absent():
     removed_paths = (
         PROJECT_ROOT / "utils" / "scraping" / "image_downloader.py",
         PROJECT_ROOT / "utils" / "scraping" / "image_validator.py",
@@ -300,3 +300,7 @@ def test_production_roots_do_not_import_legacy_scraping_services():
                     violations.append(f"{relative_path}: {token}")
 
     assert violations == []
+
+
+def test_obsolete_sync_history_model_stays_absent():
+    assert not (PROJECT_ROOT / "models" / "scraping" / "sync_history.py").exists()

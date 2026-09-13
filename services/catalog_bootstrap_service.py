@@ -215,17 +215,20 @@ class CatalogBootstrapService:
             )
 
     def restore_from_change_history(self) -> int:
-        """Reconstruye un catálogo vacío usando únicamente cambios persistidos."""
+        """Reconstruye un catálogo vacío usando únicamente cambios de historiales exitosos."""
         if self.product_count() > 0:
             return 0
 
         changes = self.db.fetch_all(
             """
-            SELECT history_id, id, change_type, code, product_name,
-                   field_name, new_value
-            FROM download_changes
-            WHERE code IS NOT NULL AND TRIM(code) <> ''
-            ORDER BY history_id ASC, id ASC
+            SELECT c.history_id, c.id, c.change_type, c.code, c.product_name,
+                   c.field_name, c.new_value
+            FROM download_changes c
+            INNER JOIN scraping_history h ON h.id = c.history_id
+            WHERE h.status='SUCCESS'
+              AND c.code IS NOT NULL
+              AND TRIM(c.code) <> ''
+            ORDER BY c.history_id ASC, c.id ASC
             """
         )
         if not changes:

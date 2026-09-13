@@ -1,4 +1,4 @@
-"""Compatibility layer for WooCommerce SKU/code extraction."""
+"""Compatibility layer for the retired WooCommerce code patch."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from scrapers.extractors.product_extractor import ProductExtractor
 _PATCHED = False
 _ORIGINAL_ENRICH_FROM_DETAIL_PAGE = ProductCollectionScraper._enrich_from_detail_page
 
-# Kept as a compatibility reference for older tests/importers. ProductExtractor
-# now owns the expanded SKU extraction directly; no runtime patch is needed.
+# Compatibility references for older imports/tests. The core extractors now
+# own code normalization and SKU discovery directly.
 _extract_code = ProductExtractor.extract_code
 
 
@@ -56,7 +56,7 @@ def _enrich_with_authoritative_code(
 
 
 def activate() -> None:
-    """Install only the remaining authoritative detail-code compatibility hook."""
+    """Install only the remaining compatibility hook for authoritative detail codes."""
     global _PATCHED
     if _PATCHED:
         return

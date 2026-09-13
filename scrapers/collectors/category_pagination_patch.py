@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from .category_pagination_engine import (
     JSF_PAGE_RETRIES,
+    _direct_product_urls,
     pages_required,
 )
 from .category_pagination_engine import (
@@ -42,4 +43,10 @@ def activate() -> None:
 
 activate()
 
-__all__ = ["JSF_PAGE_RETRIES", "activate", "get_category_pages", "pages_required"]
+__all__ = [
+    "JSF_PAGE_RETRIES",
+    "_direct_product_urls",
+    "activate",
+    "get_category_pages",
+    "pages_required",
+]

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from .category_pagination_engine import JSF_PAGE_RETRIES
+from .category_pagination_engine import JSF_PAGE_RETRIES, _retry_jsf_page
 
 _PATCHED = True
+
+# Historical helper retained as an alias to the canonical implementation.
+_retry_jsf_page = _retry_jsf_page
 
 
 def activate() -> None:
@@ -12,4 +15,4 @@ def activate() -> None:
     return None
 
 
-__all__ = ["JSF_PAGE_RETRIES", "activate"]
+__all__ = ["JSF_PAGE_RETRIES", "_retry_jsf_page", "activate"]

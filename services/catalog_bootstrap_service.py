@@ -289,18 +289,22 @@ class CatalogBootstrapService:
         return self.product_count()
 
     def bootstrap(self) -> int:
-        """Solo repara una instalación vacía; jamás reemplaza un catálogo existente."""
-        if self.product_count() > 0 or self.is_initialized():
-            return self.product_count()
+        """Repara instalaciones no validadas y deja intacto un catálogo ya consolidado."""
+        count = self.product_count()
+        if self.is_initialized():
+            return count
+
+        if count > 0 and self._find_latest_successful_full_run() is None:
+            return count
 
         restored = self.reconcile_latest_successful_run()
-        if restored <= 0:
+        if restored <= 0 and count == 0:
             restored = self.restore_from_change_history()
         if restored > 0:
             self.mark_initialized()
             self._mark_history_recovery_applied()
             self.db.commit()
-        return restored
+        return restored or count
 
     @staticmethod
     def _normalize_code(value) -> str:

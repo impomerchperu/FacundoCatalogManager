@@ -42,7 +42,7 @@ class CatalogHistoryRecoveryService:
     def __init__(self, db: DBManager) -> None:
         self.db = db
 
-    def restore(self) -> int:
+    def restore(self, *, manage_transaction: bool = True) -> int:
         """Reconstruye un catálogo vacío usando únicamente cambios de historiales exitosos."""
         if self._product_count() > 0:
             return 0
@@ -90,7 +90,8 @@ class CatalogHistoryRecoveryService:
             if str(product.get("name", "")).strip()
         }
 
-        self.db.begin()
+        if manage_transaction:
+            self.db.begin()
         try:
             for code in deleted_codes:
                 self.db.execute_query(
@@ -107,9 +108,11 @@ class CatalogHistoryRecoveryService:
                     f"VALUES ({placeholders}) ON CONFLICT(code) DO UPDATE SET {updates}",
                     tuple(product[field] for field in self.PRODUCT_COLUMNS),
                 )
-            self.db.commit()
+            if manage_transaction:
+                self.db.commit()
         except Exception:
-            self.db.rollback()
+            if manage_transaction:
+                self.db.rollback()
             raise
 
         return self._product_count()

@@ -3,65 +3,31 @@
 from __future__ import annotations
 
 import json
-import re
 
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 from scrapers.extractors.category_product_extractor import CategoryProductExtractor
+from scrapers.extractors.code_utils import (
+    find_code_in_json,
+    normalize_code,
+    normalize_code_token,
+)
 from scrapers.extractors.product_extractor import ProductExtractor
 
 _PATCHED = False
-_CODE_PATTERN = re.compile(r"^[A-Z0-9]{1,32}(?:[-_./][A-Z0-9]+)*$", re.IGNORECASE)
-_CODE_SEPARATORS = frozenset("-_./")
 _ORIGINAL_ENRICH_FROM_DETAIL_PAGE = ProductCollectionScraper._enrich_from_detail_page
 _ORIGINAL_EXTRACT_CODE = ProductExtractor.extract_code
 
 
 def _normalize(value: object) -> str:
-    candidate = str(value or "").strip().strip(".,:;()[]{}")
-    candidate = re.sub(
-        r"^(?:sku|c[oó]digo|cod)\s*[:#-]?\s*",
-        "",
-        candidate,
-        flags=re.IGNORECASE,
-    )
-    if not _CODE_PATTERN.fullmatch(candidate):
-        return ""
-    if not any(char.isalpha() for char in candidate):
-        return ""
-    if not any(char.isdigit() or char in _CODE_SEPARATORS for char in candidate):
-        return ""
-    return candidate.upper()
+    return normalize_code(value)
 
 
 def _normalize_category_code(cls, text: str) -> str:
-    for token in re.split(r"\s+", str(text).strip()):
-        candidate = token.strip(".,:;()[]{}")
-        if not _CODE_PATTERN.fullmatch(candidate):
-            continue
-        if not any(char.isalpha() for char in candidate):
-            continue
-        if not any(char.isdigit() or char in _CODE_SEPARATORS for char in candidate):
-            continue
-        return candidate.upper()
-    return ""
+    return normalize_code_token(text)
 
 
 def _from_json(value: object) -> str:
-    if isinstance(value, dict):
-        for key, item in value.items():
-            if str(key).casefold() == "sku":
-                code = _normalize(item)
-                if code:
-                    return code
-            code = _from_json(item)
-            if code:
-                return code
-    elif isinstance(value, list):
-        for item in value:
-            code = _from_json(item)
-            if code:
-                return code
-    return ""
+    return find_code_in_json(value)
 
 
 def _extract_code(self: ProductExtractor, soup) -> str:

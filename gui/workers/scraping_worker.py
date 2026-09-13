@@ -16,14 +16,16 @@ class ScrapingWorker(QObject):
     @Slot()
     def run(self) -> None:
         """Ejecuta el scraping completo y comunica siempre su resultado."""
+        controller = ScrapingController()
         try:
-            controller = ScrapingController()
             result = controller.run_full_scraping(
                 progress_callback=self.emit_progress,
             )
             self.finished.emit(result)
         except Exception as error:  # noqa: BLE001
             self.error.emit(str(error))
+        finally:
+            controller.close()
 
     def emit_progress(self, current: int, total: int) -> None:
         """Envía progreso hacia la interfaz."""

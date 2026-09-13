@@ -7,6 +7,7 @@ import re
 from threading import RLock
 from urllib.parse import urljoin
 
+import requests
 from bs4 import BeautifulSoup
 
 from .category_scraper import CategoryScraper
@@ -184,7 +185,7 @@ def _fetch_jsf_page_direct(
     category_url: str,
     category_id: int,
     page: int,
-):
+) -> tuple[int, int, str]:
     response_text = scraper._post_jsf(_browser_compatible_jsf_payload(category_id, page))
     found_posts, max_num_pages, rendered_html = scraper._parse_jsf_response(response_text)
     if found_posts > 0 or max_num_pages > 0:
@@ -201,18 +202,25 @@ def _retry_jsf_page(
     category_url: str,
     category_id: int,
     page: int,
-):
-    last_error: Exception | None = None
+) -> tuple[int, int, str]:
+    last_error: requests.RequestException | None = None
     result = (0, 0, "")
     for _ in range(JSF_PAGE_RETRIES):
         try:
-            result = _fetch_jsf_page_direct(scraper, category_url, category_id, page)
-        except (RuntimeError, TypeError, ValueError) as error:
+            result = _fetch_jsf_page_direct(
+                scraper,
+                category_url,
+                category_id,
+                page,
+            )
+        except requests.RequestException as error:
             last_error = error
             continue
+        except (RuntimeError, TypeError, ValueError):
+            raise
         if result[2]:
             return result
-    if last_error is not None:
+    if last_error is not None and not result[2]:
         raise last_error
     return result
 
@@ -222,7 +230,7 @@ def _walk_jsf_page(
     category_url: str,
     category_id: int,
     page: int,
-):
+) -> tuple[int, int, str]:
     return _retry_jsf_page(scraper, category_url, category_id, page)
 
 
@@ -231,9 +239,8 @@ def _probe_jsf_page(
     category_url: str,
     category_id: int,
     page: int,
-):
-    fetcher = CategoryScraper._fetch_jsf_page
-    return fetcher(scraper, category_url, category_id, page)
+) -> tuple[int, int, str]:
+    return scraper._fetch_jsf_page(category_url, category_id, page)
 
 
 def _probe_boundary_page(
@@ -350,7 +357,10 @@ def _collect_direct_pages(
                 f"{page_number} for {category_url}"
             )
         pages.append(accepted_url)
-        declared_pages = max(declared_pages, max(discovered_by_number, default=0))
+        declared_pages = max(
+            declared_pages,
+            max(discovered_by_number, default=0),
+        )
 
     return pages, seen
 
@@ -505,10 +515,8 @@ __all__ = [
     "JSF_PAGE_RETRIES",
     "_collect_direct_pages",
     "_direct_product_urls",
-    "_fetch_jsf_page_direct",
     "_jsf_category_pages_with_probe",
     "_page_product_keys",
-    "_retry_jsf_page",
     "get_category_pages",
     "pages_required",
 ]

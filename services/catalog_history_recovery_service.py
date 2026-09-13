@@ -47,7 +47,26 @@ class CatalogHistoryRecoveryService:
         if self._product_count() > 0:
             return 0
 
-        changes = self.db.fetch_all(
+        changes = self._successful_changes()
+        if not changes:
+            return 0
+
+        products, deleted_codes = self._build_product_state(changes)
+        if manage_transaction:
+            self.db.begin()
+        try:
+            self._apply_product_state(products, deleted_codes)
+            if manage_transaction:
+                self.db.commit()
+        except Exception:
+            if manage_transaction:
+                self.db.rollback()
+            raise
+
+        return self._product_count()
+
+    def _successful_changes(self):
+        return self.db.fetch_all(
             """
             SELECT c.history_id, c.id, c.change_type, c.code, c.product_name,
                    c.field_name, c.new_value
@@ -59,9 +78,8 @@ class CatalogHistoryRecoveryService:
             ORDER BY c.history_id ASC, c.id ASC
             """
         )
-        if not changes:
-            return 0
 
+    def _build_product_state(self, changes):
         products: dict[str, dict[str, object]] = {}
         deleted_codes: set[str] = set()
         for change in changes:
@@ -70,52 +88,66 @@ class CatalogHistoryRecoveryService:
                 continue
             item_type = str(change["change_type"] or "").strip().upper()
             if item_type == "DELETED":
-                deleted_codes.add(code)
-                products.pop(code, None)
+                self._mark_deleted(code, products, deleted_codes)
                 continue
             if item_type in {"MISSING_CODE", "CODE_GENERATED"}:
                 continue
-
-            deleted_codes.discard(code)
-            product = products.setdefault(code, self._empty_product(code))
-            if change["product_name"]:
-                product["name"] = str(change["product_name"]).strip()
-            field = change["field_name"]
-            if field in self.PRODUCT_FIELDS:
-                product[field] = self._convert_field(field, change["new_value"])
+            self._apply_change(code, change, products, deleted_codes)
 
         products = {
             code: product
             for code, product in products.items()
             if str(product.get("name", "")).strip()
         }
+        return products, deleted_codes
 
-        if manage_transaction:
-            self.db.begin()
-        try:
-            for code in deleted_codes:
-                self.db.execute_query(
-                    "DELETE FROM products WHERE UPPER(TRIM(code))=?", (code,)
-                )
+    @staticmethod
+    def _mark_deleted(
+        code: str,
+        products: dict[str, dict[str, object]],
+        deleted_codes: set[str],
+    ) -> None:
+        deleted_codes.add(code)
+        products.pop(code, None)
 
-            for product in products.values():
-                placeholders = ", ".join("?" for _ in self.PRODUCT_COLUMNS)
-                updates = ", ".join(
-                    f"{field}=excluded.{field}" for field in self.PRODUCT_COLUMNS[1:]
-                )
-                self.db.execute_query(
-                    f"INSERT INTO products ({', '.join(self.PRODUCT_COLUMNS)}) "
-                    f"VALUES ({placeholders}) ON CONFLICT(code) DO UPDATE SET {updates}",
-                    tuple(product[field] for field in self.PRODUCT_COLUMNS),
-                )
-            if manage_transaction:
-                self.db.commit()
-        except Exception:
-            if manage_transaction:
-                self.db.rollback()
-            raise
+    def _apply_change(
+        self,
+        code: str,
+        change,
+        products: dict[str, dict[str, object]],
+        deleted_codes: set[str],
+    ) -> None:
+        deleted_codes.discard(code)
+        product = products.setdefault(code, self._empty_product(code))
+        if change["product_name"]:
+            product["name"] = str(change["product_name"]).strip()
+        field = change["field_name"]
+        if field in self.PRODUCT_FIELDS:
+            product[field] = self._convert_field(field, change["new_value"])
 
-        return self._product_count()
+    def _apply_product_state(
+        self,
+        products: dict[str, dict[str, object]],
+        deleted_codes: set[str],
+    ) -> None:
+        for code in deleted_codes:
+            self.db.execute_query(
+                "DELETE FROM products WHERE UPPER(TRIM(code))=?", (code,)
+            )
+
+        placeholders = ", ".join("?" for _ in self.PRODUCT_COLUMNS)
+        updates = ", ".join(
+            f"{field}=excluded.{field}" for field in self.PRODUCT_COLUMNS[1:]
+        )
+        query = (
+            f"INSERT INTO products ({', '.join(self.PRODUCT_COLUMNS)}) "
+            f"VALUES ({placeholders}) ON CONFLICT(code) DO UPDATE SET {updates}"
+        )
+        for product in products.values():
+            self.db.execute_query(
+                query,
+                tuple(product[field] for field in self.PRODUCT_COLUMNS),
+            )
 
     def _product_count(self) -> int:
         row = self.db.fetch_all("SELECT COUNT(*) AS total FROM products")

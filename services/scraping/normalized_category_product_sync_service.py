@@ -6,6 +6,7 @@ from services.scraping.category_name_normalizer import (
     split_category_names,
 )
 from services.scraping.category_product_sync_service import CategoryProductSyncService
+from services.scraping.full_sync_coverage_policy import demonstrates_complete_coverage
 
 
 class NormalizedCategoryProductSyncService(CategoryProductSyncService):
@@ -78,27 +79,14 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         ):
             return False
 
-        expected_occurrences = max(
-            int(getattr(result, "expected_category_occurrences", 0) or 0),
-            0,
+        return demonstrates_complete_coverage(
+            result,
+            products,
+            expected_products=getattr(result, "products_unique", 0),
+            expected_category_occurrences=getattr(
+                result, "expected_category_occurrences", 0
+            ),
         )
-        actual_occurrences = len(products or [])
-        if expected_occurrences <= 0 or actual_occurrences < expected_occurrences:
-            return False
-
-        summary = getattr(result, "category_summary", []) or []
-        if not summary:
-            return False
-        for row in summary:
-            expected = max(int(row.get("expected", 0) or 0), 0)
-            if expected <= 0:
-                continue
-            products_found = int(row.get("products", 0) or 0)
-            unique_found = int(row.get("unique_products", 0) or 0)
-            if products_found != expected or unique_found != expected:
-                return False
-
-        return True
 
     def _ensure_full_catalog_masters(self, products) -> None:
         """Garantiza la FK maestra antes de persistir ocurrencias de un FULL válido."""

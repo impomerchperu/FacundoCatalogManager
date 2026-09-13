@@ -53,16 +53,8 @@ def activate() -> None:
     global _PATCHED
     if _PATCHED:
         return
-    setattr(
-        CategoryProductSyncService,
-        "_has_complete_category_coverage",
-        _has_complete_category_coverage,
-    )
-    setattr(
-        CategoryProductSyncService,
-        "_terminal_http_error_reason",
-        _terminal_http_error_reason,
-    )
+    CategoryProductSyncService._has_complete_category_coverage = _has_complete_category_coverage
+    CategoryProductSyncService._terminal_http_error_reason = _terminal_http_error_reason
     _PATCHED = True
 
 

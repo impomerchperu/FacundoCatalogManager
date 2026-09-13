@@ -31,11 +31,12 @@ SCRAPING_MAX_WORKERS = 32
 # performance baseline that previously reached the correct FULL coverage.
 SCRAPING_CATEGORY_WORKERS = 16
 
-# 32 HTTP slots saturated the live site and produced terminal timeouts during
-# a FULL run. 24 is the previously validated stable point that recovered
-# complete coverage; use it as the current production baseline until a higher
-# value proves the FULL coverage gate without terminal timeout loss.
-SCRAPING_HTTP_WORKERS = 24
+# ID 177 validated complete FULL coverage with 28 shared HTTP workers:
+# 24 categories, 534 occurrences, 530 unique products, 4 multi-category
+# products, 534 product-category relationships, complete coverage, and
+# zero invalidating errors. Keep this as the production baseline until a
+# new live FULL run establishes a different validated point.
+SCRAPING_HTTP_WORKERS = 28
 
 # JetSmartFilters/Bricks Query Loop request metadata observed on the live catalog.
 # Keep these values centralized so the scraper can reproduce the provider query

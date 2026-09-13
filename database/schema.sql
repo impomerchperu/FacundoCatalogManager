@@ -129,6 +129,7 @@ CREATE TABLE IF NOT EXISTS scraping_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     started_at TEXT NOT NULL,
     finished_at TEXT NOT NULL,
+    applied_at TEXT,
     processed INTEGER DEFAULT 0,
     created INTEGER DEFAULT 0,
     updated INTEGER DEFAULT 0,

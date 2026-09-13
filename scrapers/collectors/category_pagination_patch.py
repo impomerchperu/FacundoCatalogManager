@@ -6,11 +6,8 @@ This module only installs the canonical callable for legacy import paths.
 
 from __future__ import annotations
 
-from .category_pagination_engine import (
-    JSF_PAGE_RETRIES,
-    get_category_pages as _canonical_get_category_pages,
-    pages_required,
-)
+from .category_pagination_engine import JSF_PAGE_RETRIES, pages_required
+from .category_pagination_engine import get_category_pages as _canonical_get_category_pages
 from .category_scraper import CategoryScraper
 
 _PATCHED = False

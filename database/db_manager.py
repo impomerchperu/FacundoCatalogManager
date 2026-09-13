@@ -49,6 +49,7 @@ class DBManager:
             ("duplicate_occurrences", "INTEGER DEFAULT 0"),
             ("category_summary", "TEXT DEFAULT '[]'"),
             ("multiple_category_products", "TEXT DEFAULT '[]'"),
+            ("message", "TEXT DEFAULT ''"),
         ):
             self._add_column_if_missing("scraping_history", column, definition)
         self._restore_applied_history_marker()

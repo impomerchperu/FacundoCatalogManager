@@ -12,8 +12,7 @@ from services.scraping.full_sync_coverage_policy import (
     has_complete_category_coverage,
 )
 
-
-_PATCHED = False
+_PATCHED = True
 
 
 def activate() -> None:

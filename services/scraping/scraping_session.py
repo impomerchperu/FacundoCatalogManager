@@ -92,17 +92,10 @@ class ScrapingSession:
             self._persist_catalog_products()
 
             self.result.finished_at = datetime.now(timezone.utc)
+            self._save_history()
             if db is not None and transaction_started:
                 db.commit()
                 transaction_started = False
-            try:
-                self._save_history_in_clean_transaction(db)
-            except Exception as history_error:  # noqa: BLE001
-                self.result.errors.append(
-                    "No se pudo registrar el historial de cambios; "
-                    "los cambios del catálogo ya fueron aplicados: "
-                    f"{history_error}"
-                )
         except Exception as error:  # noqa: BLE001
             self._rollback_transaction(db, transaction_started)
             transaction_started = False

@@ -7,22 +7,21 @@ preserves historical helper names used by legacy callers and tests.
 from __future__ import annotations
 
 from . import category_pagination_engine as _engine
-from .category_pagination_engine import (
-    JSF_PAGE_RETRIES,
-    _JSF_QUERY_STATE,
-    _JSF_REQUEST_STATE,
-    _JSF_STATE_LOCK,
-    _browser_compatible_jsf_payload,
-    _collect_direct_pages,
-    _direct_product_urls,
-    _remember_jsf_metadata,
-    _remember_jsf_settings,
-    _retry_jsf_page,
-    pages_required,
-)
 from .category_scraper import CategoryScraper
 
+
+JSF_PAGE_RETRIES = _engine.JSF_PAGE_RETRIES
+_JSF_QUERY_STATE = _engine._JSF_QUERY_STATE
+_JSF_REQUEST_STATE = _engine._JSF_REQUEST_STATE
+_JSF_STATE_LOCK = _engine._JSF_STATE_LOCK
+_browser_compatible_jsf_payload = _engine._browser_compatible_jsf_payload
+_collect_direct_pages = _engine._collect_direct_pages
+_direct_product_urls = _engine._direct_product_urls
+_remember_jsf_metadata = _engine._remember_jsf_metadata
+_remember_jsf_settings = _engine._remember_jsf_settings
+_retry_jsf_page = _engine._retry_jsf_page
 _engine_get_category_pages = _engine.get_category_pages
+pages_required = _engine.pages_required
 
 
 # Historical private entry point retained for compatibility.

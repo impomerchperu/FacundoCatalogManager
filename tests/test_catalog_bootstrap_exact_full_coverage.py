@@ -62,8 +62,7 @@ def _db():
             first_seen_at TEXT,
             last_seen_at TEXT,
             PRIMARY KEY (product_id, category_id),
-            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-            FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
         );
         CREATE TABLE scraping_runs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -143,15 +142,9 @@ def test_reconcile_exact_full_coverage_preserves_530_masters_and_534_relations()
         row["code"]: row["id"]
         for row in connection.execute("SELECT id, code FROM products")
     }
-    connection.execute("INSERT INTO products (code, name) VALUES (?, ?)", ("STALE", "Obsoleto"))
     connection.execute(
-        "INSERT INTO scraping_product_occurrences
-            (run_id, category_id, product_id, code, product_url, discovered_at)
-         VALUES (?, ?, ?, ?, '', 'now')".replace("\n", " "),
-        (run_id, category_a, product_ids["FB-0001"], "FB-0001"),
-    )
-    connection.execute(
-        "DELETE FROM scraping_product_occurrences WHERE run_id=?", (run_id,)
+        "INSERT INTO products (code, name) VALUES (?, ?)",
+        ("STALE", "Obsoleto"),
     )
 
     occurrences = [

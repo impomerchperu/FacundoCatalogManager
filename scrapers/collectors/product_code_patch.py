@@ -11,6 +11,10 @@ from scrapers.extractors.code_utils import (
 from scrapers.extractors.product_extractor import ProductExtractor
 
 
+_ORIGINAL_ENRICH_FROM_DETAIL_PAGE = ProductCollectionScraper._enrich_from_detail_page
+_extract_code = ProductExtractor.extract_code
+
+
 def _normalize(value: object) -> str:
     return normalize_code(value)
 
@@ -21,15 +25,6 @@ def _normalize_category_code(cls, text: str) -> str:
 
 def _from_json(value: object) -> str:
     return find_code_in_json(value)
-
-
-def _extract_code(self: ProductExtractor, soup) -> str:
-    """Compatibility alias for the core extractor implementation."""
-    return extract_code_from_soup(
-        soup,
-        fallback=ProductExtractor._extract_code_from_marked_text,
-        extractor=self,
-    )
 
 
 def _enrich_with_authoritative_code(

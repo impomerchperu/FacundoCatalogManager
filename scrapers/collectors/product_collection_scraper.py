@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 
 from config.scraping_config import SCRAPING_MAX_WORKERS
 from models.scraping.category import Category
+from scrapers.extractors.code_utils import normalize_code
 
 
 class ProductCollectionScraper:
@@ -441,8 +442,11 @@ class ProductCollectionScraper:
             return product
 
         product.url = detail_url
+        detail_code = normalize_code(getattr(detailed_product, "code", ""))
+        if detail_code:
+            product.code = detail_code
 
-        for field in ("code", "name", "description", "image_url"):
+        for field in ("name", "description", "image_url"):
             current = str(getattr(product, field, "") or "").strip()
             detail_value = getattr(detailed_product, field, "")
             if not current and str(detail_value or "").strip():

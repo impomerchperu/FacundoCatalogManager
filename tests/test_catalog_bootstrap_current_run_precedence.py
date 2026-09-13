@@ -50,13 +50,20 @@ def _db():
             image_hash TEXT DEFAULT '',
             content_hash TEXT DEFAULT ''
         );
+        CREATE TABLE categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            canonical_url TEXT NOT NULL UNIQUE,
+            expected_count INTEGER DEFAULT 0
+        );
         CREATE TABLE product_categories (
             product_id INTEGER NOT NULL,
             category_id INTEGER NOT NULL,
             first_seen_at TEXT,
             last_seen_at TEXT,
             PRIMARY KEY (product_id, category_id),
-            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+            FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
         );
         CREATE TABLE scraping_runs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,12 +85,6 @@ def _db():
             FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
         );
         CREATE TABLE catalog_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-        CREATE TABLE categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            canonical_url TEXT NOT NULL UNIQUE,
-            expected_count INTEGER DEFAULT 0
-        );
         CREATE TABLE scraped_products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             code TEXT,
@@ -148,6 +149,10 @@ def _insert_successful_run(connection, code, category_id, name):
     )
     run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
     connection.execute(
+        "INSERT INTO categories (id, name, canonical_url) VALUES (?, ?, ?)",
+        (category_id, f"Categoría {category_id}", f"category-{category_id}"),
+    )
+    connection.execute(
         "INSERT INTO products (code, name) VALUES (?, ?)",
         (code, name),
     )
@@ -198,6 +203,9 @@ def test_bootstrap_does_not_replace_initialized_catalog_with_another_successful_
     )
     run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
     connection.execute(
+        "INSERT INTO categories (name, canonical_url) VALUES ('Categoría 1', 'category-1')"
+    )
+    connection.execute(
         "INSERT INTO products (code, name, stock) VALUES ('CURRENT', 'Persistente', 99)"
     )
     product_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -231,6 +239,9 @@ def test_bootstrap_repairs_populated_uninitialized_catalog_from_latest_successfu
         "INSERT INTO scraping_runs (mode, status, coverage_complete) VALUES ('full', 'SUCCESS', 1)"
     )
     run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
+    connection.execute(
+        "INSERT INTO categories (name, canonical_url) VALUES ('Categoría 1', 'category-1')"
+    )
     connection.execute(
         "INSERT INTO products (code, name, stock) VALUES ('STALE', 'Obsoleto', 1)"
     )

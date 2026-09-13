@@ -18,9 +18,9 @@ from .category_pagination_engine import (
     _remember_jsf_metadata,
     _remember_jsf_settings,
     _retry_jsf_page,
-    get_category_pages as _engine_get_category_pages,
     pages_required,
 )
+from .category_pagination_engine import get_category_pages as _engine_get_category_pages
 from .category_scraper import CategoryScraper
 
 

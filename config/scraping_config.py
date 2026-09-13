@@ -32,10 +32,10 @@ SCRAPING_MAX_WORKERS = 32
 SCRAPING_CATEGORY_WORKERS = 16
 
 # 32 HTTP slots saturated the live site and produced terminal timeouts during
-# a FULL run. 24 recovered complete coverage; 28 is the next controlled point
-# between stability and throughput and must still satisfy the FULL coverage
-# gate before being treated as the production baseline.
-SCRAPING_HTTP_WORKERS = 28
+# a FULL run. 24 is the previously validated stable point that recovered
+# complete coverage; use it as the current production baseline until a higher
+# value proves the FULL coverage gate without terminal timeout loss.
+SCRAPING_HTTP_WORKERS = 24
 
 # JetSmartFilters/Bricks Query Loop request metadata observed on the live catalog.
 # Keep these values centralized so the scraper can reproduce the provider query

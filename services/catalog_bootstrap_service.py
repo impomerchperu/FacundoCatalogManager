@@ -1,8 +1,8 @@
-import json
 from collections.abc import Callable
 
 from controllers.scraping_controller import ScrapingController
 from database.db_manager import DBManager
+from services.catalog_history_recovery_service import CatalogHistoryRecoveryService
 from services.catalog_reconciliation_service import CatalogReconciliationService
 
 
@@ -10,11 +10,6 @@ class CatalogBootstrapService:
     """Orquesta la reparación inicial sin iniciar ni ejecutar scraping web."""
 
     HISTORY_RECOVERY_KEY = "history_recovery_applied"
-    PRODUCT_FIELDS = {
-        "name", "category", "description", "price", "price_sample",
-        "price_hundred", "price_thousand", "stock", "color_stock",
-        "image_url", "image_path", "image_hash", "content_hash",
-    }
 
     def __init__(
         self,
@@ -24,6 +19,7 @@ class CatalogBootstrapService:
         self.db = db or DBManager()
         self.controller_factory = controller_factory
         self.reconciliation_service = CatalogReconciliationService(self.db)
+        self.history_recovery_service = CatalogHistoryRecoveryService(self.db)
 
     def is_initialized(self) -> bool:
         row = self.db.fetch_all(
@@ -78,83 +74,13 @@ class CatalogBootstrapService:
         return self.reconcile_latest_successful_run()
 
     def restore_from_change_history(self) -> int:
-        """Reconstruye un catálogo vacío usando únicamente cambios de historiales exitosos."""
-        if self.product_count() > 0:
-            return 0
-
-        changes = self.db.fetch_all(
-            """
-            SELECT c.history_id, c.id, c.change_type, c.code, c.product_name,
-                   c.field_name, c.new_value
-            FROM download_changes c
-            INNER JOIN scraping_history h ON h.id = c.history_id
-            WHERE h.status='SUCCESS'
-              AND c.code IS NOT NULL
-              AND TRIM(c.code) <> ''
-            ORDER BY c.history_id ASC, c.id ASC
-            """
-        )
-        if not changes:
-            return 0
-
-        products: dict[str, dict[str, object]] = {}
-        deleted_codes: set[str] = set()
-        for change in changes:
-            code = self._normalize_code(change["code"])
-            if not code:
-                continue
-            item_type = str(change["change_type"] or "").strip().upper()
-            if item_type == "DELETED":
-                deleted_codes.add(code)
-                products.pop(code, None)
-                continue
-            if item_type in {"MISSING_CODE", "CODE_GENERATED"}:
-                continue
-
-            deleted_codes.discard(code)
-            product = products.setdefault(code, self._empty_product(code))
-            if change["product_name"]:
-                product["name"] = str(change["product_name"]).strip()
-            field = change["field_name"]
-            if field in self.PRODUCT_FIELDS:
-                product[field] = self._convert_field(field, change["new_value"])
-
-        products = {
-            code: product
-            for code, product in products.items()
-            if str(product.get("name", "")).strip()
-        }
-
-        self.db.begin()
-        try:
-            for code in deleted_codes:
-                self.db.execute_query(
-                    "DELETE FROM products WHERE UPPER(TRIM(code))=?", (code,)
-                )
-
-            product_columns = (
-                "code", "name", "category", "description", "price", "price_sample",
-                "price_hundred", "price_thousand", "stock", "color_stock", "image_url",
-                "image_path", "image_hash", "content_hash",
-            )
-            for product in products.values():
-                placeholders = ", ".join("?" for _ in product_columns)
-                updates = ", ".join(
-                    f"{field}=excluded.{field}" for field in product_columns[1:]
-                )
-                self.db.execute_query(
-                    f"INSERT INTO products ({', '.join(product_columns)}) "
-                    f"VALUES ({placeholders}) ON CONFLICT(code) DO UPDATE SET {updates}",
-                    tuple(product[field] for field in product_columns),
-                )
+        """Compatibilidad para reconstruir desde cambios históricos exitosos."""
+        restored = self.history_recovery_service.restore()
+        if restored > 0:
             self.mark_initialized()
             self._mark_history_recovery_applied()
             self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
-
-        return self.product_count()
+        return restored
 
     def bootstrap(self) -> int:
         """Repara instalaciones no validadas y deja intacto un catálogo ya consolidado."""
@@ -173,37 +99,3 @@ class CatalogBootstrapService:
             self._mark_history_recovery_applied()
             self.db.commit()
         return restored or count
-
-    @staticmethod
-    def _normalize_code(value) -> str:
-        return str(value or "").strip().upper()
-
-    @staticmethod
-    def _empty_product(code: str) -> dict[str, object]:
-        return {
-            "code": code, "name": "", "category": "", "description": "",
-            "price": 0.0, "price_sample": 0.0, "price_hundred": 0.0,
-            "price_thousand": 0.0, "stock": 0, "color_stock": "{}",
-            "image_url": "", "image_path": "", "image_hash": "",
-            "content_hash": "",
-        }
-
-    @staticmethod
-    def _convert_field(field: str, value):
-        defaults = {
-            "stock": 0, "price": 0.0, "price_sample": 0.0,
-            "price_hundred": 0.0, "price_thousand": 0.0, "color_stock": "{}",
-        }
-        if value is None:
-            value = defaults.get(field, "")
-
-        try:
-            if field in {"price", "price_sample", "price_hundred", "price_thousand"}:
-                return float(value)
-            if field == "stock":
-                return int(float(value))
-            if field == "color_stock":
-                return json.dumps(json.loads(str(value)), ensure_ascii=False)
-            return str(value)
-        except (TypeError, ValueError, json.JSONDecodeError):
-            return defaults.get(field, "")

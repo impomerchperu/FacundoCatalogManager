@@ -8,16 +8,25 @@ from __future__ import annotations
 
 from .category_pagination_engine import (
     JSF_PAGE_RETRIES,
-    _collect_direct_pages,
-    _direct_product_urls,
-    _jsf_category_pages_with_probe,
-    _page_product_keys,
-    get_category_pages,
+    get_category_pages as _canonical_get_category_pages,
     pages_required,
 )
 from .category_scraper import CategoryScraper
 
 _PATCHED = False
+
+
+def get_category_pages(
+    self: CategoryScraper,
+    category_url: str,
+    expected_count: int = 0,
+) -> list[str]:
+    """Delegate the historical hook to the canonical pagination engine."""
+    return _canonical_get_category_pages(
+        self,
+        category_url,
+        expected_count=expected_count,
+    )
 
 
 def activate() -> None:
@@ -31,4 +40,4 @@ def activate() -> None:
 
 activate()
 
-__all__ = ["JSF_PAGE_RETRIES", "activate", "pages_required"]
+__all__ = ["JSF_PAGE_RETRIES", "activate", "get_category_pages", "pages_required"]

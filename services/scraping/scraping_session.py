@@ -63,6 +63,14 @@ class ScrapingSession:
     def execute_all(self, progress_callback=None):
         return self._execute(lambda: self.runner.run_all(progress_callback))
 
+    def close(self) -> None:
+        """Cierra los recursos de scraping cuando finaliza la vida de la sesión."""
+        sync_service = getattr(self.runner, "scraping_service", None)
+        scraper_service = getattr(sync_service, "scraper_service", None)
+        close_scraper = getattr(scraper_service, "close", None)
+        if callable(close_scraper):
+            close_scraper()
+
     def _execute(self, operation):
         self.result = ScrapingSessionResult(started_at=datetime.now(timezone.utc))
         db = getattr(self.history_repository, "db", None)
@@ -108,28 +116,7 @@ class ScrapingSession:
                 self.result.errors.append(
                     f"No se pudo registrar el historial del error: {history_error}"
                 )
-        finally:
-            self._close_scraping_resources()
         return self.result
-
-    def _close_scraping_resources(self):
-        """Cierra los pools internos del scraper al terminar cada ejecución."""
-        sync_service = getattr(self.runner, "scraping_service", None)
-        scraping_service = getattr(sync_service, "scraper_service", None)
-        scraper = getattr(scraping_service, "scraper", None)
-        if scraper is None:
-            return
-
-        seen: set[int] = set()
-        for attribute in ("_detail_executor", "_detail_fetch_executor"):
-            executor = getattr(scraper, attribute, None)
-            if executor is None or id(executor) in seen:
-                continue
-            seen.add(id(executor))
-            try:
-                executor.shutdown(wait=True, cancel_futures=True)
-            except RuntimeError:
-                continue
 
     def _only_coverage_error(self):
         coverage_errors = [

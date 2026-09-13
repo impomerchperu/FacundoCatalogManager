@@ -142,8 +142,8 @@ def test_final_complete_coverage_overrides_recovered_guard_state():
 
     assert len(result) == len(products)
     assert result[0].code == products[0].code
-    assert catalog_sync.calls == 1
-    assert catalog_sync.full_calls == 0
+    assert catalog_sync.calls == 0
+    assert catalog_sync.full_calls == 1
     assert service.last_sync_result.errors == []
 
 

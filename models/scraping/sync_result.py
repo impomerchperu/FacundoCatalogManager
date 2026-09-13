@@ -65,6 +65,15 @@ class SyncResult:
     def products_unchanged(self, value: int) -> None:
         self.unchanged = int(value)
 
+    @property
+    def products_deleted(self) -> int:
+        """Alias compatible con el contador canónico ``deleted``."""
+        return self.deleted
+
+    @products_deleted.setter
+    def products_deleted(self, value: int) -> None:
+        self.deleted = int(value)
+
     def increment_processed(self) -> None:
         self.processed += 1
 

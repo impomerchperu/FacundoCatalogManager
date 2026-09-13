@@ -1,33 +1,16 @@
+from PIL import Image
+
 from scrapers.images.image_validator import ImageValidator
 
-validator = ImageValidator()
+
+def test_image_validator_accepts_valid_image(tmp_path):
+    image_path = tmp_path / "sample.png"
+    Image.new("RGB", (8, 8), (255, 0, 0)).save(image_path, format="PNG")
+
+    assert ImageValidator().validate(str(image_path)) is True
 
 
-print("=" * 80)
-print("IMAGE VALIDATOR")
-print("=" * 80)
+def test_image_validator_rejects_missing_image(tmp_path):
+    missing = tmp_path / "no-existe.webp"
 
-
-valid_image = "data/images/FB-1812.webp"
-
-
-result = validator.validate(valid_image)
-
-
-print("VALID:", result)
-
-
-assert result is True
-
-
-missing = validator.validate("data/images/no-existe.webp")
-
-
-print("MISSING:", missing)
-
-
-assert missing is False
-
-
-print()
-print("OK")
+    assert ImageValidator().validate(str(missing)) is False

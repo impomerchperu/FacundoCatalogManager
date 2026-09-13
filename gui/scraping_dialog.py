@@ -121,8 +121,7 @@ class ScrapingDialog(QDialog):
         self.progress.setValue(value)
         elapsed = self._format_elapsed()
         self.status_label.setText(
-            f"Procesando categoría {current}/{total} "
-            f"• {value}% • {elapsed}",
+            f"Extracción en curso • {value}% • {elapsed}",
         )
 
     def update_elapsed_status(self) -> None:
@@ -136,13 +135,14 @@ class ScrapingDialog(QDialog):
         )
 
     def scraping_finished(self, result) -> None:
+        """Recibe el resultado del worker; la actualización de la GUI se difiere."""
         self.pending_result = result
         self.progress.setValue(100)
         self.elapsed_clock.stop()
+        state = "completada" if result.success() else "finalizada con advertencias"
         self.status_label.setText(
-            f"Actualización completada • 100% • {self._format_elapsed()}",
+            f"Actualización {state} • 100% • {self._format_elapsed()}",
         )
-        self.finished_success.emit()
 
     def scraping_error(self, message: str) -> None:
         self.pending_error = message
@@ -175,22 +175,41 @@ class ScrapingDialog(QDialog):
         if result is not None:
             self.details_button.setEnabled(True)
             self.show_result(result)
+            if result.success():
+                self.finished_success.emit()
 
         self.start_button.setEnabled(True)
 
     def show_result(self, result) -> None:
+        coverage = "OK" if result.coverage_complete else "INCOMPLETA"
         consistency = "OK" if result.counts_are_consistent else "ERROR"
+        state = "COMPLETADA" if result.success() else "INCOMPLETA / ERROR"
+        expected = result.expected_category_occurrences
+        found = result.products_found
+        unique = result.products_unique
+        multi = result.products_multiple_categories
+        gap = result.category_occurrence_gap
+        errors = len(result.errors)
         QMessageBox.information(
             self,
             "Resumen actualización",
             (
-                f"Productos procesados: {result.processed}\n\n"
+                f"Estado: {state}\n\n"
+                f"Categorías: {result.categories_processed}\n"
+                f"Apariciones esperadas por categorías: {expected}\n"
+                f"Apariciones encontradas: {found}\n"
+                f"Productos únicos: {unique}\n"
+                f"Múltiples categorías: {multi}\n"
+                f"Brecha por categorías: {gap}\n"
+                f"Códigos sin código: {result.missing_code}\n"
+                f"Cobertura: {coverage}\n"
+                f"Conteos consistentes: {consistency}\n"
+                f"Errores: {errors}\n\n"
+                f"Procesados: {result.processed}\n"
                 f"Nuevos: {result.created}\n"
                 f"Actualizados: {result.updated}\n"
                 f"Sin cambios: {result.unchanged}\n"
-                f"Total clasificado: {result.classified_total}\n"
-                f"Conteos: {consistency}\n\n"
-                f"Errores: {len(result.errors)}\n\n"
+                f"Total clasificado: {result.classified_total}\n\n"
                 "Use 'Ver detalle' para revisar los productos nuevos "
                 "y las variaciones detectadas."
             ),
@@ -215,11 +234,13 @@ class ScrapingDialog(QDialog):
         layout = QVBoxLayout(dialog)
 
         summary = QLabel(
-            f"Procesados: {result.processed}    "
-            f"Nuevos: {result.created}    "
-            f"Actualizados: {result.updated}    "
-            f"Sin cambios: {result.unchanged}    "
-            f"Total clasificado: {result.classified_total}    "
+            f"Estado: {'COMPLETADA' if result.success() else 'INCOMPLETA / ERROR'}    "
+            f"Categorías: {result.categories_processed}    "
+            f"Esperadas: {result.expected_category_occurrences}    "
+            f"Encontradas: {result.products_found}    "
+            f"Únicos: {result.products_unique}    "
+            f"Múltiples categorías: {result.products_multiple_categories}    "
+            f"Brecha: {result.category_occurrence_gap}    "
             f"Conteos: {'OK' if result.counts_are_consistent else 'ERROR'}    "
             f"Errores: {len(result.errors)}",
         )

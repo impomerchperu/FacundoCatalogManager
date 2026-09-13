@@ -1,0 +1,40 @@
+name: Quality
+
+on:
+  push:
+    branches:
+      - feature/scraping-performance-recovery
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libegl1
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Ruff
+        run: python -m ruff check .
+
+      - name: Pyright
+        run: python -m pip install pyright==1.1.411 && python -m pyright
+
+      - name: Pytest
+        run: python -m pytest -q --ignore=tests/scraping/real_site

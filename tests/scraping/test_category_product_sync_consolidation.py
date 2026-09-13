@@ -2,19 +2,20 @@ from models.scraping.category import Category
 from models.scraping.scraped_product import ScrapedProduct
 from models.scraping.sync_result import SyncResult
 from services.scraping.catalog_sync_service import CatalogSyncService
-from services.scraping.category_product_sync_service import (
-    CategoryProductSyncService,
-)
+from services.scraping.category_product_sync_service import CategoryProductSyncService
 
 
 class FakeScraper:
-    def scrape_category(self, category_url, category_name):
+    def scrape_category(self, category_url, category_name, expected_count=0):
+        del category_url, expected_count
         return [
             ScrapedProduct(
                 code="P001",
                 name="Producto compartido",
                 category=category_name,
-                color_stock={"Rojo": 5}
+                color_stock={
+                    "Rojo": 5,
+                }
                 if category_name == "Jarros"
                 else {"Azul": 7},
             ),
@@ -47,11 +48,22 @@ class FakeCatalogSync:
     def consolidate_products(self, products):
         return CatalogSyncService.consolidate_products(products)
 
-    def sync(self, products):
+    def sync(
+        self,
+        products,
+        prune_missing=False,
+        expected_products=0,
+        expected_category_occurrences=0,
+    ):
+        del prune_missing
         self.received = list(products)
         result = SyncResult()
         result.processed = len(self.received)
         result.created = len(self.received)
+        result.products_expected = expected_products
+        result.expected_category_occurrences = expected_category_occurrences
+        result.products_found = len(self.received)
+        result.products_unique = len(self.received)
         result.finish()
         return result
 
@@ -73,13 +85,14 @@ def test_sync_categories_consolidates_before_mapping_and_images():
         Category(name="Promocionales", url="/promocionales"),
     ]
 
-    products = service.sync_categories(categories)
+    raw_products = service.sync_categories(categories)
+    consolidated_products = catalog_sync.received
 
-    assert len(products) == 1
+    assert len(raw_products) == 2
     assert len(image_sync.received) == 1
-    assert len(catalog_sync.received) == 1
-    assert products[0].category == "Jarros, Promocionales"
-    assert products[0].color_stock == {"Rojo": 5, "Azul": 7}
+    assert len(consolidated_products) == 1
+    assert consolidated_products[0].category == "Jarros, Promocionales"
+    assert consolidated_products[0].color_stock == {"Rojo": 5, "Azul": 7}
     assert service.last_sync_result.processed == 1
     assert service.last_sync_result.created == 1
     assert service.last_sync_result.counts_are_consistent

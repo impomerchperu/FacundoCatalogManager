@@ -1,35 +1,19 @@
+from PIL import Image
+
 from scrapers.images.image_hash import ImageHash
 
-hasher = ImageHash()
+
+def test_image_hash_calculates_sha256_for_existing_image(tmp_path):
+    image_path = tmp_path / "sample.png"
+    Image.new("RGB", (8, 8), (255, 0, 0)).save(image_path, format="PNG")
+
+    hash_value = ImageHash().calculate(str(image_path))
+
+    assert hash_value
+    assert len(hash_value) == 64
 
 
-IMAGE = "data/images/FB-1812.webp"
+def test_image_hash_returns_empty_string_for_missing_image(tmp_path):
+    missing = tmp_path / "no-existe.webp"
 
-
-print("=" * 80)
-print("IMAGE HASH")
-print("=" * 80)
-
-
-hash_value = hasher.calculate(IMAGE)
-
-
-print("HASH:", hash_value)
-
-
-assert hash_value
-
-assert len(hash_value) == 64
-
-
-missing = hasher.calculate("data/images/no-existe.webp")
-
-
-print("MISSING:", missing)
-
-
-assert missing == ""
-
-
-print()
-print("OK")
+    assert ImageHash().calculate(str(missing)) == ""

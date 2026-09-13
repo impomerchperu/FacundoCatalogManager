@@ -5,9 +5,13 @@ from scrapers.extractors.price_extractor import PriceExtractor
 
 
 class CategoryProductExtractor:
-    """Extrae productos desde tarjetas de categoría Bricks + Jet Engine."""
+    """Extrae productos desde tarjetas y filas de tabla de categoría."""
 
     SOURCE = "importacionesfacundo"
+    _CODE_PATTERN = re.compile(
+        r"^[A-Z0-9]{1,16}(?:-[A-Z0-9]+)*$",
+        re.IGNORECASE,
+    )
 
     def __init__(self):
         self.price_extractor = PriceExtractor()
@@ -19,6 +23,7 @@ class CategoryProductExtractor:
         if color_stock and len(color_stock) == len(stock_values):
             total_stock = sum(color_stock.values())
 
+        price_sample = self.price_extractor.extract_sample(card)
         return ScrapedProduct(
             source=self.SOURCE,
             url=url or self._url(card),
@@ -27,7 +32,8 @@ class CategoryProductExtractor:
             category=category,
             description=self._description(card),
             stock=total_stock,
-            price_sample=self.price_extractor.extract_sample(card),
+            price=price_sample,
+            price_sample=price_sample,
             price_hundred=self.price_extractor.extract_hundred(card),
             price_thousand=self.price_extractor.extract_thousand(card),
             color_stock=color_stock,
@@ -38,12 +44,68 @@ class CategoryProductExtractor:
         element = soup.select_one('a[href*="/producto/"]')
         return element.get("href", "") if element else ""
 
-    def _code(self, soup):
-        element = soup.select_one("p.brxe-a26f34")
-        return element.get_text(strip=True) if element else ""
+    @classmethod
+    def _normalize_code(cls, text: str) -> str:
+        for token in re.split(r"\s+", str(text).strip()):
+            candidate = token.strip(".,:;()[]{}")
+            if not cls._CODE_PATTERN.fullmatch(candidate):
+                continue
+            if not any(char.isalpha() for char in candidate):
+                continue
+            if not any(char.isdigit() for char in candidate):
+                continue
+            return candidate.upper()
+        return ""
+
+    @classmethod
+    def _code(cls, soup):
+        """Extrae el código aunque cambie la plantilla visual del SKU."""
+        selectors = (
+            "p.brxe-a26f34",
+            "span.sku",
+            ".sku",
+            "[sku]",
+            "[data-sku]",
+            "p[class*='sku']",
+            "span[class*='sku']",
+        )
+        for selector in selectors:
+            for element in soup.select(selector):
+                text = (
+                    element.get("sku")
+                    or element.get("data-sku")
+                    or element.get_text(" ", strip=True)
+                )
+                code = cls._normalize_code(text)
+                if code:
+                    return code
+
+        name_element = soup.select_one("h2.brxe-f31760, h2.brxe-heading, h2, h3")
+        for text_node in soup.find_all(string=True):
+            if name_element is not None and text_node is name_element.string:
+                break
+            code = cls._normalize_code(text_node)
+            if code:
+                return code
+        return ""
 
     def _name(self, soup):
-        element = soup.select_one("h2.brxe-f31760")
+        """Extrae el título real antes de los encabezados de presentación."""
+        selectors = (
+            "h2.brxe-f31760",
+            "h2.brxe-heading",
+            "h2",
+        )
+        for selector in selectors:
+            element = soup.select_one(selector)
+            if element:
+                name = element.get_text(" ", strip=True)
+                if name:
+                    return name
+
+        # Some legacy cards expose only an h3. Keep that fallback for
+        # compatibility, but never prefer it when an h2 title is available.
+        element = soup.select_one("h3.brxe-heading, h3")
         return element.get_text(" ", strip=True) if element else ""
 
     def _description(self, soup):
@@ -57,9 +119,17 @@ class CategoryProductExtractor:
         """Extrae los valores de stock visibles en la tarjeta."""
         values: list[int] = []
         for value in soup.select(".variaciones-producto p"):
-            text = value.get_text(strip=True)
+            text = value.get_text(" ", strip=True)
             if text.isdigit():
                 values.append(int(text))
+                continue
+
+            match = re.match(r"^.+?\s*[:\-]\s*(\d[\d,.]*)\s*$", text)
+            if match:
+                try:
+                    values.append(int(float(match.group(1).replace(",", ""))))
+                except ValueError:
+                    continue
 
         if values:
             return values
@@ -158,9 +228,12 @@ class CategoryProductExtractor:
             text = re.sub(r"\s+", " ", str(element)).strip()
             if not text:
                 continue
-
             match = next(
-                (pattern.search(text) for pattern in patterns if pattern.search(text)),
+                (
+                    pattern.search(text)
+                    for pattern in patterns
+                    if pattern.search(text)
+                ),
                 None,
             )
             if match is None:

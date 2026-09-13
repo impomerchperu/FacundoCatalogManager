@@ -36,6 +36,18 @@ class ScrapedProduct:
 
     updated_at: str = ""
 
+    def __setattr__(self, name, value):
+        object.__setattr__(self, name, value)
+        if name != "price_sample":
+            return
+        try:
+            sample_price = float(value or 0.0)
+            current_price = float(getattr(self, "price", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            return
+        if current_price <= 0.0 and sample_price > 0.0:
+            object.__setattr__(self, "price", sample_price)
+
     def __post_init__(self):
         if not self.scraped_at:
             self.scraped_at = datetime.now(timezone.utc).isoformat()

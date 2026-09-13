@@ -15,6 +15,7 @@ class ProductExtractor:
 
     SOURCE = "importacionesfacundo"
     BASE_URL = "https://stock.importacionesfacundo.com"
+    _CODE_PATTERN = re.compile(r"^[A-Z0-9]{1,16}(?:-[A-Z0-9]+)*$", re.IGNORECASE)
 
     _IGNORED_COLOR_TAGS = (
         "select",
@@ -36,17 +37,21 @@ class ProductExtractor:
     def __init__(self):
         self.price_extractor = PriceExtractor()
         self.stock_extractor = StockExtractor()
+        self._extracted_codes = {}
 
     def extract(self, soup, url="", category=""):
-        color_stock = self.extract_color_stock(soup)
-        stock = self.stock_extractor.extract(soup)
+        text = soup.get_text(" ", strip=True)
+        color_stock = self.extract_color_stock(soup, text=text)
+        stock = self.stock_extractor.extract(soup, text=text)
         if color_stock:
             stock = sum(color_stock.values())
+        code = self.extract_code(soup)
+        self._extracted_codes[id(soup)] = code
 
         return ScrapedProductFactory.create(
             source=self.SOURCE,
             url=url,
-            code=self.extract_code(soup),
+            code=code,
             name=self.extract_name(soup),
             category=category,
             description=self.extract_description(soup),
@@ -59,14 +64,61 @@ class ProductExtractor:
             image_url=self.extract_image(soup),
         )
 
+    @classmethod
+    def _normalize_code_candidate(cls, text: str) -> str:
+        """Valida un código completo sin asumir un prefijo concreto."""
+        candidate = str(text).strip().strip(".,:;()[]{}")
+        if not cls._CODE_PATTERN.fullmatch(candidate):
+            return ""
+        if not any(char.isalpha() for char in candidate):
+            return ""
+        if not any(char.isdigit() for char in candidate):
+            return ""
+        return candidate.upper()
+
+    @classmethod
+    def _find_code_token(cls, text: str) -> str:
+        """Busca un código dentro de texto explícitamente marcado como SKU."""
+        for token in re.split(r"\s+", str(text).strip()):
+            code = cls._normalize_code_candidate(token)
+            if code:
+                return code
+        return ""
+
     def extract_code(self, soup):
-        selectors = ["p.brxe-heading", "span.sku", "[sku]"]
+        selectors = [
+            "p.brxe-heading",
+            "span.sku",
+            "[sku]",
+            "[data-sku]",
+            ".sku",
+        ]
         for selector in selectors:
-            element = soup.select_one(selector)
-            if element:
-                text = element.get_text(" ", strip=True)
-                if "FB-" in text:
-                    return text.split()[0]
+            for element in soup.select(selector):
+                text = (
+                    element.get("sku")
+                    or element.get("data-sku")
+                    or element.get_text(" ", strip=True)
+                )
+                code = self._normalize_code_candidate(str(text))
+                if code:
+                    return code
+
+        code_marker = re.compile(r"\b(?:c[oó]digo|sku|cod)\b", re.I)
+        for text_node in soup.find_all(string=code_marker):
+            parent = text_node.parent
+            if parent is None:
+                continue
+            code = self._find_code_token(parent.get_text(" ", strip=True))
+            if code:
+                return code
+
+            sibling = parent.find_next(string=True)
+            if sibling is not None:
+                code = self._find_code_token(str(sibling))
+                if code:
+                    return code
+
         return ""
 
     def extract_name(self, soup):
@@ -115,7 +167,7 @@ class ProductExtractor:
                     continue
         return 0.0
 
-    def extract_color_stock(self, soup) -> dict[str, int]:
+    def extract_color_stock(self, soup, text: str | None = None) -> dict[str, int]:
         """Extrae exclusivamente el stock asociado a cada color visible."""
         color_stock: dict[str, int] = {}
         color_labels: dict[str, str] = {}
@@ -124,7 +176,7 @@ class ProductExtractor:
         self._collect_color_labels(soup, color_labels)
 
         explicit_colors = self._extract_text_colors(soup)
-        visible_stock = self._extract_visible_stock_values(soup)
+        visible_stock = self._extract_visible_stock_values(soup, text=text)
         if explicit_colors:
             for color in explicit_colors:
                 add_color(color)
@@ -138,7 +190,7 @@ class ProductExtractor:
         self._extract_select_color_stock(soup, add_color)
         self._extract_element_color_stock(soup, add_color)
         self._extract_variation_color_stock(soup, add_color, color_labels)
-        self._apply_visible_color_stock(soup, color_stock)
+        self._apply_visible_color_stock(visible_stock, color_stock)
         return color_stock
 
     @staticmethod
@@ -253,8 +305,7 @@ class ProductExtractor:
                 )
 
     @staticmethod
-    def _apply_visible_color_stock(soup, color_stock) -> None:
-        visible_stock = ProductExtractor._extract_visible_stock_values(soup)
+    def _apply_visible_color_stock(visible_stock, color_stock) -> None:
         color_names = list(color_stock)
         if len(visible_stock) != len(color_names) or not color_names:
             return
@@ -323,12 +374,17 @@ class ProductExtractor:
         return colors
 
     @staticmethod
-    def _extract_visible_stock_values(soup) -> list[int]:
+    def _extract_visible_stock_values(
+        soup,
+        text: str | None = None,
+    ) -> list[int]:
         """Extrae la secuencia de existencias tras 'Stock Disponible'."""
-        text = soup.get_text(" ", strip=True)
+        extracted_text: str = (
+            text if isinstance(text, str) else soup.get_text(" ", strip=True)
+        )
         match = re.search(
             r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
-            text,
+            extracted_text,
             flags=re.IGNORECASE,
         )
         if match is None:
@@ -438,7 +494,9 @@ class ProductExtractor:
         return None
 
     def extract_image(self, soup):
-        code = self.extract_code(soup)
+        code = self._extracted_codes.pop(id(soup), None)
+        if code is None:
+            code = self.extract_code(soup)
         candidates = []
         for img in soup.find_all("img"):
             url = (
@@ -471,4 +529,6 @@ class ProductExtractor:
             return "https:" + url
         if url.startswith("/"):
             return urljoin(self.BASE_URL, url)
+        if not url.startswith(("http://", "https://")):
+            return urljoin(self.BASE_URL + "/", url)
         return url

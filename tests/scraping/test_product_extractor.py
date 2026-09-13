@@ -30,8 +30,41 @@ def test_product_extractor():
 
     assert result["name"] == "Producto Demo"
     assert result["price"] == 125.50
-    assert result["image_url"] == "producto.jpg"
+    assert result["image_url"] == (
+        "https://stock.importacionesfacundo.com/producto.jpg"
+    )
     assert result["description"] == "Descripción demo"
+
+
+def test_product_extractor_accepts_catalog_code_formats():
+    cases = (
+        "FB-1703-AZ",
+        "PS-1100",
+        "KO-001",
+        "SKB05X-1",
+        "PM810KB-12OZ",
+        "F320",
+        "F110",
+        "R7512",
+    )
+
+    for code in cases:
+        soup = BeautifulSoup(
+            f'<p class="brxe-heading">{code}</p>',
+            "lxml",
+        )
+        assert ProductExtractor().extract_code(soup) == code
+
+
+def test_product_extractor_does_not_use_unrelated_model_text_as_code():
+    soups = (
+        "<h2>Modelo 8274A</h2>",
+        '<p class="brxe-heading">Modelo F110</p>',
+    )
+
+    for html in soups:
+        soup = BeautifulSoup(html, "lxml")
+        assert ProductExtractor().extract_code(soup) == ""
 
 
 def test_product_extractor_maps_stock_to_visible_colors():

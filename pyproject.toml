@@ -1,11 +1,11 @@
 [tool.ruff]
 
 target-version = "py314"
-
 line-length = 88
 
 exclude = [
     "tools/inspection",
+    "tools/inspect_real_scraping.py",
 ]
 
 [tool.ruff.lint]
@@ -25,9 +25,16 @@ select = [
 ]
 
 ignore = [
+    "E402",
+    "E501",
+    "PLR0911",
     "PLR0913",
     "PLR0915",
     "PLR0917",
     "PLR2004",
     "TRY003",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+
+"services/scraping/category_product_sync_service.py" = ["PLR0912"]

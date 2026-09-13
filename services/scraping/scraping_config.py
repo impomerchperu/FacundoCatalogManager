@@ -29,13 +29,21 @@ class ScrapingConfig:
 
     save_scraped_products: bool = True
 
-    max_retries: int = 3
+    # Keep defaults aligned with the effective transport defaults so wiring the
+    # high-level configuration does not change existing runtime behavior.
+    max_retries: int = 2
 
-    request_timeout: int = 20
+    request_timeout: int = 10
 
     enabled_categories: list[str] = field(
         default_factory=list,
     )
+
+    def __post_init__(self) -> None:
+        if self.request_timeout <= 0:
+            raise ValueError("request_timeout debe ser mayor que cero.")
+        if self.max_retries <= 0:
+            raise ValueError("max_retries debe ser mayor que cero.")
 
     def is_category_enabled(
         self,

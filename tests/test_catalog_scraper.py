@@ -34,7 +34,6 @@ def test_catalog_scraper_discovers_categories_in_parallel_and_preserves_order():
                 max_active_workers = max(max_active_workers, active_workers)
             try:
                 time.sleep(0.03)
-                index = url.rsplit("/", 1)[-1]
                 return [f"{url}?product-page=1", f"{url}?product-page=2"]
             finally:
                 with lock:

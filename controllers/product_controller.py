@@ -9,7 +9,12 @@ class ProductController:
     ) -> None:
         self.service = service or ProductService()
 
+    def _refresh_read_service(self) -> None:
+        """Reabre la lectura del catálogo para recoger commits externos recientes."""
+        self.service = ProductService()
+
     def get_products(self) -> list[Product]:
+        self._refresh_read_service()
         return self.service.get_products()
 
     def create_product(

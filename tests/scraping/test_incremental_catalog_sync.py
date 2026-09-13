@@ -1,12 +1,12 @@
 from models.scraping.scraped_product import ScrapedProduct
-from repositories.scraping.sync_repository import SyncRepository
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.product_diff_service import ProductDiffService
+from tests.scraping.catalog_sync_test_doubles import InMemoryCatalogRepository
 
 
 def test_incremental_catalog_sync():
 
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
 
     service = CatalogSyncService(
         repository,

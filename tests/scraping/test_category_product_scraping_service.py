@@ -1,57 +1,56 @@
-from scrapers.parser.category_product_parser import (
-    CategoryProductParser,
-)
-from scrapers.services.category_product_scraping_service import (
+from models.scraping.category import Category
+from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,
 )
 
 
 class FakeScraper:
-    def get_category_pages(self, url):
+    def __init__(self):
+        self.categories = []
 
+    def scrape_category(self, category):
+        self.categories.append(category)
         return [
-            url,
+            type(
+                "FakeProduct",
+                (),
+                {"code": "FB-1812", "name": "Taza de Plástico"},
+            )(),
         ]
 
-    def get_product_blocks(self, url):
 
-        from bs4 import BeautifulSoup
+def test_category_product_scraping_service_forwards_category():
+    scraper = FakeScraper()
+    service = CategoryProductScrapingService(scraper)
 
-        html = """
-        <div class="jsfb-query--querymovil">
-
-            <p>FB-1812</p>
-
-            <h2>
-                Taza de Plástico
-            </h2>
-
-            <img
-            data-src="https://site.com/FB-1812.webp"
-            >
-
-        </div>
-        """
-
-        soup = BeautifulSoup(
-            html,
-            "html.parser",
-        )
-
-        return [soup.select_one(".jsfb-query--querymovil")]
-
-
-def test_category_product_scraping_service():
-
-    service = CategoryProductScrapingService(
-        FakeScraper(),
-        CategoryProductParser(),
+    category = Category(
+        name="Jarros Mug",
+        url="https://example.com/categoria",
+        expected_count=1,
     )
 
-    products = service.scrape_category("https://example.com/categoria")
+    products = service.scrape_category(
+        category.url,
+        category,
+    )
 
     assert len(products) == 1
-
     assert products[0].code == "FB-1812"
-
     assert products[0].name == "Taza de Plástico"
+    assert scraper.categories == [category]
+
+
+def test_category_product_scraping_service_builds_category_from_legacy_arguments():
+    scraper = FakeScraper()
+    service = CategoryProductScrapingService(scraper)
+
+    products = service.scrape_category(
+        "https://example.com/categoria",
+        "Jarros Mug",
+        expected_count=3,
+    )
+
+    assert len(products) == 1
+    assert scraper.categories[0].name == "Jarros Mug"
+    assert scraper.categories[0].url == "https://example.com/categoria"
+    assert scraper.categories[0].expected_count == 3

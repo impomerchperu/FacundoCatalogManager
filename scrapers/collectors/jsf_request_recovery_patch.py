@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import requests
 
-from . import category_pagination_patch as _category_pagination_patch
+from .category_pagination_engine import (
+    JSF_PAGE_RETRIES,
+    _fetch_jsf_page_direct,
+)
 from .category_scraper import CategoryScraper
 
 _PATCHED = False
-_ORIGINAL_RETRY_JSF_PAGE = _category_pagination_patch._retry_jsf_page
 
 
 def _retry_jsf_page(
@@ -20,9 +22,9 @@ def _retry_jsf_page(
     """Retry transport and empty-content JSF failures before giving up."""
     last_error: requests.exceptions.RequestException | None = None
     last_result = (0, 0, "")
-    for _ in range(_category_pagination_patch.JSF_PAGE_RETRIES):
+    for _ in range(JSF_PAGE_RETRIES):
         try:
-            result = _category_pagination_patch._fetch_jsf_page_direct(
+            result = _fetch_jsf_page_direct(
                 self,
                 category_url,
                 category_id,
@@ -46,7 +48,7 @@ def activate() -> None:
     global _PATCHED
     if _PATCHED:
         return
-    _category_pagination_patch._retry_jsf_page = _retry_jsf_page
+    CategoryScraper._retry_jsf_page = _retry_jsf_page
     _PATCHED = True
 
 

@@ -440,11 +440,10 @@ class CategoryProductSyncService:
             category_products = [
                 product
                 for product in raw_products
-                if category_key
-                and category_key in {
-                    normalize_category_name(value)
-                    for value in split_category_names(getattr(product, "category", ""))
-                }
+                if str(getattr(product, "category", "")).strip()
+                and normalize_category_name(
+                    canonical_category_name(str(getattr(product, "category", "")).strip())
+                ) == category_key
             ]
             products_found = len(category_products)
             unique = {
@@ -475,25 +474,19 @@ class CategoryProductSyncService:
             )
         if not by_code and categories:
             requested = {
-                normalize_category_name(
-                    canonical_category_name(getattr(category, "name", ""))
-                )
+                normalize_category_name(canonical_category_name(getattr(category, "name", "")))
                 for category in categories
             }
             for product in raw_products or []:
                 code_key = str(getattr(product, "code", "")).strip().casefold()
                 if not code_key:
                     continue
-                category_name = canonical_category_name(
-                    str(getattr(product, "category", "")).strip()
-                )
-                category_key = normalize_category_name(category_name)
+                raw_category = str(getattr(product, "category", "")).strip()
+                category_key = normalize_category_name(canonical_category_name(raw_category))
                 if category_key not in requested:
                     continue
-                by_code.setdefault(code_key, {}).setdefault(
-                    category_key,
-                    category_name,
-                )
+                by_code.setdefault(code_key, {}).setdefault(category_key, canonical_category_name(raw_category))
+
         product_by_code = {
             str(getattr(product, "code", "")).strip().casefold(): product
             for product in raw_products or []

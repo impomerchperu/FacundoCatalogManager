@@ -50,3 +50,9 @@ class CategoryProductScrapingService:
         return self.scraper.scrape_category(
             category,
         )
+
+    def close(self) -> None:
+        """Cierra los recursos internos del scraper de productos."""
+        close_scraper = getattr(self.scraper, "close", None)
+        if callable(close_scraper):
+            close_scraper()

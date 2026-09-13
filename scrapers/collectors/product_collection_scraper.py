@@ -461,75 +461,32 @@ class ProductCollectionScraper:
         if detail_code:
             product.code = detail_code
 
-        for field in ("name", "description", "image_url"):
-            current = str(getattr(product, field, "") or "").strip()
-            detail_value = getattr(detailed_product, field, "")
-            if not current and str(detail_value or "").strip():
-                setattr(product, field, detail_value)
-
-        for field in self._PRICE_FIELDS:
-            current = float(getattr(product, field, 0.0) or 0.0)
-            detail_value = float(getattr(detailed_product, field, 0.0) or 0.0)
-            if current <= 0 and detail_value > 0:
-                setattr(product, field, detail_value)
-
-        detail_color_stock = dict(getattr(detailed_product, "color_stock", {}))
-        card_stock_values = self._stock_values(card)
-        if detail_color_stock:
-            colors = list(detail_color_stock)
-            if len(card_stock_values) == len(colors):
-                product.color_stock = dict(zip(colors, card_stock_values, strict=True))
-                product.stock = sum(product.color_stock.values())
-            elif sum(detail_color_stock.values()) > 0:
-                product.color_stock = detail_color_stock
-                product.stock = sum(detail_color_stock.values())
-            elif not card_stock_values:
-                product.color_stock = {}
-            return product
-
-        if not card_stock_values:
-            detail_stock = int(getattr(detailed_product, "stock", 0) or 0)
-            if getattr(product, "stock", 0) <= 0 and detail_stock > 0:
-                product.stock = detail_stock
+        for field in ("name", "description", "image_url", "price_sample", "price_hundred", "price_thousand", "stock", "color_stock"):
+            value = getattr(detailed_product, field, None)
+            if value not in (None, "", {}, []):
+                setattr(product, field, value)
 
         return product
 
-    @staticmethod
-    def _detail_cache_key(card: Any, product: Any, detail_url: str) -> str:
-        product_code = str(getattr(product, "code", "")).strip()
-        if product_code:
-            return f"code:{product_code.casefold()}"
-        try:
-            card_text = " ".join(card.stripped_strings).strip().casefold()
-        except AttributeError:
-            card_text = ""
-        return f"url:{detail_url.casefold()}|card:{card_text}"
-
     def _get_detailed_product(
         self,
-        cache_key: str,
+        detail_key: str,
         detail_url: str,
         category_name: str,
-    ) -> Any | None:
+    ) -> Any:
         with self._detail_cache_lock:
-            future = self._detail_cache.get(cache_key)
+            future = self._detail_cache.get(detail_key)
             if future is None:
-                self._detail_requests += 1
                 future = self._detail_fetch_executor.submit(
-                    self._fetch_detail_product,
+                    self._fetch_and_extract_detail,
                     detail_url,
                     category_name,
                 )
-                self._detail_cache[cache_key] = future
-        try:
-            return future.result()
-        except (AttributeError, RuntimeError, TypeError, ValueError):
-            with self._detail_cache_lock:
-                if self._detail_cache.get(cache_key) is future:
-                    self._detail_cache.pop(cache_key, None)
-            return None
+                self._detail_cache[detail_key] = future
+                self._detail_requests += 1
+        return future.result()
 
-    def _fetch_detail_product(self, detail_url: str, category_name: str) -> Any | None:
+    def _fetch_and_extract_detail(self, detail_url: str, category_name: str) -> Any:
         html = self.category_scraper.get_html(detail_url)
         if not html:
             return None
@@ -539,65 +496,37 @@ class ProductCollectionScraper:
             if callable(parser)
             else BeautifulSoup(html, "html.parser")
         )
-        return self.detail_extractor.extract(
-            soup,
-            url=detail_url,
-            category=category_name,
-        )
+        extractor = self.detail_extractor
+        if callable(extractor):
+            return extractor(soup, detail_url, category_name)
+        return extractor.extract(soup, detail_url, category_name)
+
+    def _detail_cache_key(self, card: Any, product: Any, detail_url: str) -> str:
+        code = normalize_code(getattr(product, "code", ""))
+        if code:
+            return f"code:{code.casefold()}"
+        return f"url:{detail_url.casefold()}"
 
     @staticmethod
     def _stock_values(card: Any) -> list[int]:
-        values: list[int] = []
-        variation = card.select_one(".variaciones-producto")
-        if variation is not None:
-            for paragraph in variation.select("p"):
-                text = paragraph.get_text(" ", strip=True)
-                numbers = re.findall(r"\d[\d,.]*", text)
-                if numbers:
-                    try:
-                        values.append(int(float(numbers[-1].replace(",", ""))))
-                    except ValueError:
-                        continue
-        if values:
-            return values
-
-        text = card.get_text(" ", strip=True)
-        match = re.search(
-            r"stock\s+disponible\s*((?:\d[\d,.]*\s*)+)",
-            text,
-            flags=re.IGNORECASE,
-        )
-        if match is None:
-            return []
-
-        for raw_value in re.findall(r"\d[\d,.]*", match.group(1)):
+        values = []
+        for text in card.stripped_strings:
+            match = re.search(r"(?:^|\s)(\d[\d,.]*)\s*$", text)
+            if not match:
+                continue
+            value = match.group(1).replace(",", "").replace(".", "")
             try:
-                values.append(int(float(raw_value.replace(",", ""))))
+                values.append(int(value))
             except ValueError:
                 continue
         return values
 
-    def reset_detail_metrics(self) -> None:
-        with self._detail_cache_lock:
-            self._detail_cache.clear()
-            self._detail_requests = 0
-            self._detail_cache_hits = 0
-        with self._detail_metrics_lock:
-            self._detail_skipped = 0
-            self._detail_reason_counts.clear()
-
     def get_detail_metrics(self) -> dict[str, Any]:
-        with self._detail_cache_lock:
-            detail_requests = self._detail_requests
-            detail_cache_hits = self._detail_cache_hits
-            cache_size = len(self._detail_cache)
         with self._detail_metrics_lock:
-            detail_skipped = self._detail_skipped
-            detail_reason_counts = dict(self._detail_reason_counts)
-        return {
-            "detail_requests": detail_requests,
-            "detail_cache_hits": detail_cache_hits,
-            "detail_skipped": detail_skipped,
-            "detail_cache_size": cache_size,
-            "detail_reason_counts": detail_reason_counts,
-        }
+            return {
+                "detail_requests": self._detail_requests,
+                "detail_cache_hits": self._detail_cache_hits,
+                "detail_skipped": self._detail_skipped,
+                "detail_cache_size": len(self._detail_cache),
+                "detail_reason_counts": dict(self._detail_reason_counts),
+            }

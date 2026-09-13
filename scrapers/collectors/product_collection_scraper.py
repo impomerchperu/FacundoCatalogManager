@@ -50,6 +50,21 @@ class ProductCollectionScraper:
         self._page_metrics_lock = Lock()
         self._detail_executor = ThreadPoolExecutor(max_workers=self.max_workers)
         self._detail_fetch_executor = ThreadPoolExecutor(max_workers=self.max_workers)
+        self._closed = False
+
+    def close(self) -> None:
+        """Cierra los pools internos y deja el scraper en estado cerrado."""
+        if self._closed:
+            return
+
+        seen: set[int] = set()
+        for attribute in ("_detail_executor", "_detail_fetch_executor"):
+            executor = getattr(self, attribute, None)
+            if executor is None or id(executor) in seen:
+                continue
+            seen.add(id(executor))
+            executor.shutdown(wait=True, cancel_futures=True)
+        self._closed = True
 
     def scrape_category(self, category: Any) -> list[Any]:
         """Extrae todos los productos de una categoría."""

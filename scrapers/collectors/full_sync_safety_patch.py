@@ -128,9 +128,12 @@ def activate() -> None:
     global _PATCHED
     if _PATCHED:
         return
-    setattr(CategoryProductSyncService, "sync_categories", _sync_categories_with_safety)
-    setattr(CategoryProductSyncService, "_full_sync_prune_guard", _coverage_guard_with_state)
-    setattr(CategoryProductSyncService, "sync_products", _sync_products_with_safety)
+    if CategoryProductSyncService.sync_categories is _sync_categories_with_safety:
+        _PATCHED = True
+        return
+    CategoryProductSyncService.sync_categories = _sync_categories_with_safety
+    CategoryProductSyncService._full_sync_prune_guard = _coverage_guard_with_state
+    CategoryProductSyncService.sync_products = _sync_products_with_safety
     _PATCHED = True
 
 

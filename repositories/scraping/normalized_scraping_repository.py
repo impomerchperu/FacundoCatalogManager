@@ -179,6 +179,9 @@ class NormalizedScrapingRepository:
             if not code:
                 continue
             product_record = product_repository.get(code)
+            if product_record is None:
+                product_repository.save(product)
+                product_record = product_repository.get(code)
             product_id = getattr(product_record, "product_id", None)
             if product_id is None:
                 raise RuntimeError(

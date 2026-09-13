@@ -99,10 +99,10 @@ def test_category_coverage_reports_processed_categories():
 
 def test_consolidated_result_uses_unique_products_for_coverage():
     result = SyncResult(
-        products_expected=526,
-        expected_category_occurrences=530,
-        products_found=526,
-        products_unique=526,
+        products_expected=530,
+        expected_category_occurrences=534,
+        products_found=530,
+        products_unique=530,
     )
 
     assert result.coverage_complete is True
@@ -110,10 +110,10 @@ def test_consolidated_result_uses_unique_products_for_coverage():
 
 def test_consolidated_result_rejects_missing_unique_products():
     result = SyncResult(
-        products_expected=526,
-        expected_category_occurrences=530,
-        products_found=525,
-        products_unique=525,
+        products_expected=530,
+        expected_category_occurrences=534,
+        products_found=529,
+        products_unique=529,
     )
 
     assert result.coverage_complete is False

@@ -5,20 +5,15 @@ from __future__ import annotations
 from typing import Any
 
 from scrapers.extractors.product_extractor import ProductExtractor
+from services.scraping.category_product_sync_service import CategoryProductSyncService
 
 
 def _recover_one(product: Any, browser: Any, extractor: ProductExtractor) -> bool:
     """Preserve the historical single-product recovery helper API."""
-    from services.scraping.category_product_sync_service import (
-        CategoryProductSyncService,
-    )
-
-    return bool(
-        CategoryProductSyncService._recover_one_missing_code(
-            product,
-            browser,
-            extractor,
-        )
+    return CategoryProductSyncService._recover_one_missing_code(
+        product,
+        browser,
+        extractor,
     )
 
 
@@ -27,7 +22,8 @@ def _recover_missing_codes(service, products) -> int:
     recover = getattr(service, "_recover_missing_codes", None)
     if not callable(recover):
         return 0
-    return int(recover(products) or 0)
+    recovered = recover(products)
+    return recovered if isinstance(recovered, int) else 0
 
 
 def _full_sync_prune_guard(

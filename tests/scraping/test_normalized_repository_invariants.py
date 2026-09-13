@@ -42,7 +42,7 @@ def test_finish_run_rejects_incomplete_sync_when_expected_occurrences_are_zero()
     db.close()
 
 
-def test_persist_occurrences_rejects_missing_master_product():
+def test_persist_occurrences_creates_missing_master_product_before_recording_occurrence():
     db = DBManager(":memory:")
     repository = NormalizedScrapingRepository(db)
     product_repository = ProductRepository(db)
@@ -68,20 +68,19 @@ def test_persist_occurrences_rejects_missing_master_product():
         expected_category_occurrences=1,
     )
 
-    with pytest.raises(
-        RuntimeError,
-        match=r"No existe el producto maestro.*MISSING-001",
-    ):
-        repository.persist_occurrences(
-            run_id,
-            categories,
-            products,
-            product_repository,
-        )
+    actual = repository.persist_occurrences(
+        run_id,
+        categories,
+        products,
+        product_repository,
+    )
 
-    assert db.fetch_one("SELECT COUNT(*) AS n FROM product_categories")["n"] == 0
+    assert actual == 1
+    master = product_repository.get("MISSING-001")
+    assert master is not None
+    assert db.fetch_one("SELECT COUNT(*) AS n FROM product_categories")["n"] == 1
     assert (
         db.fetch_one("SELECT COUNT(*) AS n FROM scraping_product_occurrences")["n"]
-        == 0
+        == 1
     )
     db.close()

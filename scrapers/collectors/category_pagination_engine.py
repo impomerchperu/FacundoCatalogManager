@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import re
 from threading import RLock
-from typing import Any
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
@@ -52,7 +51,7 @@ def _direct_product_urls(html: str, base_url: str) -> set[str]:
 
 
 def _page_product_keys(
-    self: CategoryScraper,
+    scraper: CategoryScraper,
     html: str,
     base_url: str,
 ) -> set[str]:
@@ -60,7 +59,7 @@ def _page_product_keys(
     product_urls = _direct_product_urls(html, base_url)
     if product_urls:
         return product_urls
-    return self._product_keys(html)
+    return scraper._product_keys(html)
 
 
 def _page_variants(category_url: str, page: int) -> list[str]:
@@ -181,33 +180,33 @@ def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[s
 
 
 def _fetch_jsf_page_direct(
-    self: CategoryScraper,
+    scraper: CategoryScraper,
     category_url: str,
     category_id: int,
     page: int,
-) -> tuple[int, int, str]:
-    response_text = self._post_jsf(_browser_compatible_jsf_payload(category_id, page))
-    found_posts, max_num_pages, rendered_html = self._parse_jsf_response(response_text)
+):
+    response_text = scraper._post_jsf(_browser_compatible_jsf_payload(category_id, page))
+    found_posts, max_num_pages, rendered_html = scraper._parse_jsf_response(response_text)
     if found_posts > 0 or max_num_pages > 0:
-        with self._jsf_cache_lock:
-            self._jsf_metadata_cache[category_url] = (found_posts, max_num_pages)
+        with scraper._jsf_cache_lock:
+            scraper._jsf_metadata_cache[category_url] = (found_posts, max_num_pages)
     if rendered_html:
-        with self._jsf_cache_lock:
-            self._jsf_page_cache[(category_url, page)] = rendered_html
+        with scraper._jsf_cache_lock:
+            scraper._jsf_page_cache[(category_url, page)] = rendered_html
     return found_posts, max_num_pages, rendered_html
 
 
 def _retry_jsf_page(
-    self: CategoryScraper,
+    scraper: CategoryScraper,
     category_url: str,
     category_id: int,
     page: int,
-) -> tuple[int, int, str]:
+):
     last_error: Exception | None = None
     result = (0, 0, "")
     for _ in range(JSF_PAGE_RETRIES):
         try:
-            result = _fetch_jsf_page_direct(self, category_url, category_id, page)
+            result = _fetch_jsf_page_direct(scraper, category_url, category_id, page)
         except (RuntimeError, TypeError, ValueError) as error:
             last_error = error
             continue
@@ -219,41 +218,47 @@ def _retry_jsf_page(
 
 
 def _walk_jsf_page(
-    self: CategoryScraper,
+    scraper: CategoryScraper,
     category_url: str,
     category_id: int,
     page: int,
-) -> tuple[int, int, str]:
-    return _retry_jsf_page(self, category_url, category_id, page)
+):
+    return _retry_jsf_page(scraper, category_url, category_id, page)
 
 
 def _probe_jsf_page(
-    self: CategoryScraper,
+    scraper: CategoryScraper,
     category_url: str,
     category_id: int,
     page: int,
-) -> tuple[int, int, str]:
-    return CategoryScraper._fetch_jsf_page(self, category_url, category_id, page)
+):
+    fetcher = CategoryScraper._fetch_jsf_page
+    return fetcher(scraper, category_url, category_id, page)
 
 
 def _probe_boundary_page(
-    self: CategoryScraper,
+    scraper: CategoryScraper,
     category_url: str,
     category_id: int,
     page: int,
     seen_product_keys: set[str],
 ) -> tuple[bool, set[str]]:
-    page_url = self._jsf_page_url(category_url, page)
-    _, _, rendered_html = _probe_jsf_page(self, category_url, category_id, page)
+    page_url = scraper._jsf_page_url(category_url, page)
+    _, _, rendered_html = _probe_jsf_page(
+        scraper,
+        category_url,
+        category_id,
+        page,
+    )
     if not rendered_html:
         return False, set()
-    current_product_keys = _page_product_keys(self, rendered_html, page_url)
+    current_product_keys = _page_product_keys(scraper, rendered_html, page_url)
     if not current_product_keys:
         return False, set()
     new_product_keys = current_product_keys - seen_product_keys
     if not new_product_keys:
         return False, set()
-    self._cache_category_html(page_url, rendered_html)
+    scraper._cache_category_html(page_url, rendered_html)
     return True, new_product_keys
 
 
@@ -345,49 +350,46 @@ def _collect_direct_pages(
                 f"{page_number} for {category_url}"
             )
         pages.append(accepted_url)
-        declared_pages = max(
-            declared_pages,
-            max(discovered_by_number, default=0),
-        )
+        declared_pages = max(declared_pages, max(discovered_by_number, default=0))
 
     return pages, seen
 
 
 def _jsf_category_pages_with_probe(
-    self: CategoryScraper,
+    scraper: CategoryScraper,
     category_url: str,
     category_id: int,
     expected_count: int,
     category_html: str = "",
 ) -> list[str]:
-    """Use authoritative JSF pagination with validated boundary probing."""
+    """Use authoritative JSF pagination for Facundo with validated public fallback."""
     _remember_jsf_settings(category_id, category_html)
 
     expected = max(int(expected_count or 0), 0)
-    archive_product_keys = _page_product_keys(self, category_html, category_url)
+    archive_product_keys = _page_product_keys(scraper, category_html, category_url)
     reuse_archive_first_page = (
-        expected > 0 and len(archive_product_keys) == min(expected, self.PRODUCTS_PER_PAGE)
+        expected > 0 and len(archive_product_keys) == min(expected, scraper.PRODUCTS_PER_PAGE)
     )
 
     if reuse_archive_first_page:
         found_posts, declared_max, first_html = 0, 0, category_html
     else:
         found_posts, declared_max, first_html = _retry_jsf_page(
-            self,
+            scraper,
             category_url,
             category_id,
             1,
         )
 
-    expected_pages = self._required_page_count(expected_count)
-    published_pages = self._required_page_count(found_posts)
+    expected_pages = scraper._required_page_count(expected_count)
+    published_pages = scraper._required_page_count(found_posts)
     response_html_pages = max(
-        self._declared_total_pages(first_html),
-        self._pagination_max_page(first_html),
+        scraper._declared_total_pages(first_html),
+        scraper._pagination_max_page(first_html),
     )
     category_html_pages = max(
-        self._declared_total_pages(category_html),
-        self._pagination_max_page(category_html),
+        scraper._declared_total_pages(category_html),
+        scraper._pagination_max_page(category_html),
     )
     known_pages = max(
         declared_max,
@@ -402,17 +404,22 @@ def _jsf_category_pages_with_probe(
         return [category_url]
 
     pages = [category_url]
-    seen_product_keys = _page_product_keys(self, first_html, category_url)
-    self._cache_category_html(category_url, category_html)
+    seen_product_keys = _page_product_keys(scraper, first_html, category_url)
+    scraper._cache_category_html(category_url, category_html)
 
     for page_number in range(2, known_pages + 1):
-        page_url = self._jsf_page_url(category_url, page_number)
-        _, _, rendered_html = _walk_jsf_page(self, category_url, category_id, page_number)
+        page_url = scraper._jsf_page_url(category_url, page_number)
+        _, _, rendered_html = _walk_jsf_page(
+            scraper,
+            category_url,
+            category_id,
+            page_number,
+        )
         if not rendered_html:
             raise RuntimeError(
                 f"Empty JSF pagination page {page_number} for {category_url}"
             )
-        current_product_keys = _page_product_keys(self, rendered_html, page_url)
+        current_product_keys = _page_product_keys(scraper, rendered_html, page_url)
         if not current_product_keys:
             raise RuntimeError(
                 f"No products found on JSF pagination page {page_number} for {category_url}"
@@ -423,12 +430,12 @@ def _jsf_category_pages_with_probe(
                 f"Repeated JSF pagination page {page_number} for {category_url}"
             )
         seen_product_keys.update(current_product_keys)
-        self._cache_category_html(page_url, rendered_html)
+        scraper._cache_category_html(page_url, rendered_html)
         pages.append(page_url)
 
     boundary_page = known_pages + 1
     has_new_products, new_product_keys = _probe_boundary_page(
-        self,
+        scraper,
         category_url,
         category_id,
         boundary_page,
@@ -436,7 +443,7 @@ def _jsf_category_pages_with_probe(
     )
     if has_new_products:
         seen_product_keys.update(new_product_keys)
-        pages.append(self._jsf_page_url(category_url, boundary_page))
+        pages.append(scraper._jsf_page_url(category_url, boundary_page))
     return pages
 
 
@@ -445,7 +452,7 @@ def get_category_pages(
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
-    """Collect category pages using the canonical Facundo pagination strategy."""
+    """Use authoritative JSF pagination for Facundo with validated public fallback."""
     first_html = _safe_get_html(scraper, category_url)
     if not first_html:
         return []
@@ -498,8 +505,10 @@ __all__ = [
     "JSF_PAGE_RETRIES",
     "_collect_direct_pages",
     "_direct_product_urls",
+    "_fetch_jsf_page_direct",
     "_jsf_category_pages_with_probe",
     "_page_product_keys",
+    "_retry_jsf_page",
     "get_category_pages",
     "pages_required",
 ]

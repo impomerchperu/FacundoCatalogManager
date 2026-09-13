@@ -1,8 +1,7 @@
 """Compatibility facade for the canonical category pagination engine.
 
 The pagination implementation lives in ``category_pagination_engine``.
-This module remains import-compatible for older callers and tests while the
-remaining runtime patch layer is retired.
+This module only installs the canonical callable for legacy import paths.
 """
 
 from __future__ import annotations
@@ -16,13 +15,17 @@ from .category_pagination_engine import (
     get_category_pages,
     pages_required,
 )
+from .category_scraper import CategoryScraper
 
 _PATCHED = False
 
 
 def activate() -> None:
-    """Keep the historical activation hook without installing a monkey patch."""
+    """Install the canonical engine through the historical hook."""
     global _PATCHED
+    if _PATCHED:
+        return
+    CategoryScraper.get_category_pages = get_category_pages
     _PATCHED = True
 
 

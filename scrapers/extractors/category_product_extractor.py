@@ -1,6 +1,7 @@
 import re
 
 from models.scraping.scraped_product import ScrapedProduct
+from scrapers.extractors.code_utils import normalize_code_token
 from scrapers.extractors.price_extractor import PriceExtractor
 
 
@@ -8,10 +9,6 @@ class CategoryProductExtractor:
     """Extrae productos desde tarjetas y filas de tabla de categoría."""
 
     SOURCE = "importacionesfacundo"
-    _CODE_PATTERN = re.compile(
-        r"^[A-Z0-9]{1,16}(?:-[A-Z0-9]+)*$",
-        re.IGNORECASE,
-    )
 
     def __init__(self):
         self.price_extractor = PriceExtractor()
@@ -46,16 +43,7 @@ class CategoryProductExtractor:
 
     @classmethod
     def _normalize_code(cls, text: str) -> str:
-        for token in re.split(r"\s+", str(text).strip()):
-            candidate = token.strip(".,:;()[]{}")
-            if not cls._CODE_PATTERN.fullmatch(candidate):
-                continue
-            if not any(char.isalpha() for char in candidate):
-                continue
-            if not any(char.isdigit() for char in candidate):
-                continue
-            return candidate.upper()
-        return ""
+        return normalize_code_token(text)
 
     @classmethod
     def _code(cls, soup):
@@ -103,8 +91,6 @@ class CategoryProductExtractor:
                 if name:
                     return name
 
-        # Some legacy cards expose only an h3. Keep that fallback for
-        # compatibility, but never prefer it when an h2 title is available.
         element = soup.select_one("h3.brxe-heading, h3")
         return element.get_text(" ", strip=True) if element else ""
 

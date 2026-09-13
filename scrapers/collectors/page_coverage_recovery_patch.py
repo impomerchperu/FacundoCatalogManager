@@ -30,10 +30,18 @@ def _recover_missing_pages(
     pages: list[str],
 ) -> list[str]:
     """Recover missing JSF pages through the historical hook contract."""
+    category_html = _cached_category_html(scraper, category_url)
+    category_id = scraper._category_id(category_html)
+    if category_id is None:
+        return list(pages)
+
     required_pages = max(
-        pages_required(expected_count, getattr(scraper, "PRODUCTS_PER_PAGE", 25)),
+        pages_required(
+            expected_count,
+            getattr(scraper, "PRODUCTS_PER_PAGE", 25),
+        ),
         getattr(CategoryScraper, "_pagination_max_page", lambda _html: 0)(
-            _cached_category_html(scraper, category_url)
+            category_html
         ),
     )
     recovered = list(pages) or [category_url]
@@ -45,7 +53,7 @@ def _recover_missing_pages(
         try:
             _found, _max_pages, rendered_html = scraper._fetch_jsf_page(
                 category_url,
-                scraper._category_id(_cached_category_html(scraper, category_url)),
+                category_id,
                 page,
             )
         except requests.RequestException:
@@ -87,7 +95,7 @@ def _get_html_with_recovery(scraper: CategoryScraper, url: str) -> str:
 
 
 def _get_resilient_category_pages_with_recovery(
-    self,
+    self: CategoryScraper,
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:

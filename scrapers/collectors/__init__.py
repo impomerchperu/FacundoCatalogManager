@@ -14,7 +14,6 @@ from . import page_metrics_patch as _page_metrics_patch
 from . import price_detail_recovery_patch as _price_detail_recovery_patch
 from . import product_code_patch as _product_code_patch
 from . import recursive_pagination_patch as _recursive_pagination_patch
-from . import scraping_compat as _scraping_compat
 from . import single_page_fastpath_patch as _single_page_fastpath_patch
 
 __all__ = [
@@ -28,6 +27,5 @@ __all__ = [
     "_price_detail_recovery_patch",
     "_product_code_patch",
     "_recursive_pagination_patch",
-    "_scraping_compat",
     "_single_page_fastpath_patch",
 ]

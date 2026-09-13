@@ -7,9 +7,11 @@ from pathlib import Path
 from typing import Any, cast
 
 import requests
+from bs4 import BeautifulSoup
 
 from config.scraping_config import SCRAPING_CATEGORY_WORKERS
 from models.scraping.sync_result import SyncResult
+from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_name_normalizer import (
     canonical_category_name,
     normalize_category_name,
@@ -682,6 +684,63 @@ class CategoryProductSyncService:
         category_scraper = getattr(scraper, "category_scraper", None)
         return getattr(category_scraper, "browser", None)
 
+    def _browser_for_sku_recovery(self):
+        scraper = getattr(self.scraper_service, "scraper", None)
+        if scraper is None:
+            return None
+        browser = getattr(scraper, "browser", None)
+        if browser is not None:
+            return browser
+        category_scraper = getattr(scraper, "category_scraper", None)
+        return getattr(category_scraper, "browser", None)
+
+    @staticmethod
+    def _recover_one_missing_code(product, browser, extractor: ProductExtractor) -> bool:
+        code = str(getattr(product, "code", "") or "").strip()
+        if code:
+            return False
+
+        url = str(getattr(product, "url", "") or "").strip()
+        if "/producto/" not in url:
+            return False
+
+        try:
+            html = browser.get(url)
+        except requests.RequestException:
+            return False
+
+        if not isinstance(html, str) or not html:
+            return False
+
+        soup = BeautifulSoup(html, "lxml")
+        recovered_code = str(extractor.extract_code(soup) or "").strip()
+        if not recovered_code:
+            return False
+
+        product.code = recovered_code.upper()
+        return True
+
+    def _recover_missing_codes(self, products) -> int:
+        browser = self._browser_for_sku_recovery()
+        if browser is None:
+            return 0
+
+        missing_products = [
+            product
+            for product in products
+            if not str(getattr(product, "code", "") or "").strip()
+            and "/producto/" in str(getattr(product, "url", "") or "")
+        ]
+        if not missing_products:
+            return 0
+
+        extractor = ProductExtractor()
+        recovered = 0
+        for product in missing_products:
+            if self._recover_one_missing_code(product, browser, extractor):
+                recovered += 1
+        return recovered
+
     def _has_complete_category_coverage(self) -> bool:
         return has_complete_category_coverage(self.last_sync_result)
 
@@ -732,6 +791,7 @@ class CategoryProductSyncService:
         expected_category_occurrences=0,
         expected_products=None,
     ):
+        self._recover_missing_codes(products)
         if not products:
             result = (False, "no_products")
         elif category_count <= 0:

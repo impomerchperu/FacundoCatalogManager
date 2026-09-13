@@ -34,3 +34,7 @@ ignore = [
     "PLR2004",
     "TRY003",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+
+"services/scraping/category_product_sync_service.py" = ["PLR0912"]

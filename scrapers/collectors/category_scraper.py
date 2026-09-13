@@ -97,13 +97,9 @@ class CategoryScraper:
         return []
 
     def get_category_pages(self, category_url: str, expected_count: int = 0) -> list[str]:
-        category_html = self.get_html(category_url)
-        if not category_html:
-            return []
-        category_id = self._category_id(category_html)
-        if category_id is not None and self._is_facundo_url(category_url):
-            return self._jsf_category_pages(category_url, category_id, expected_count)
-        return self._fallback_category_pages(category_url, category_html, expected_count)
+        from .category_pagination_engine import get_category_pages as paginate_category
+
+        return paginate_category(self, category_url, expected_count=expected_count)
 
     def _jsf_category_pages(self, category_url: str, category_id: int, expected_count: int) -> list[str]:
         found_posts, declared_max_num_pages, first_html = self._fetch_jsf_page(category_url, category_id, 1)

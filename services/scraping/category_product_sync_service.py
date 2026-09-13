@@ -58,9 +58,7 @@ class CategoryProductSyncService:
     def _product_category_keys(product: Any) -> set[str]:
         return {
             normalize_category_name(category)
-            for category in split_category_names(
-                str(getattr(product, "category", ""))
-            )
+            for category in split_category_names(str(getattr(product, "category", "")))
             if normalize_category_name(category)
         }
 
@@ -490,11 +488,13 @@ class CategoryProductSyncService:
                 if not code_key:
                     continue
                 raw_category = str(getattr(product, "category", "")).strip()
-                for category_name in split_category_names(raw_category):
-                    category_key = normalize_category_name(category_name)
-                    if category_key not in requested:
-                        continue
-                    by_code.setdefault(code_key, {}).setdefault(category_key, category_name)
+                category_key = normalize_category_name(canonical_category_name(raw_category))
+                if category_key not in requested:
+                    continue
+                by_code.setdefault(code_key, {}).setdefault(
+                    category_key,
+                    canonical_category_name(raw_category),
+                )
 
         product_by_code = {
             str(getattr(product, "code", "")).strip().casefold(): product

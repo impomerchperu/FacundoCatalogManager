@@ -18,12 +18,26 @@ from .category_pagination_engine import (
     _remember_jsf_metadata,
     _remember_jsf_settings,
     _retry_jsf_page,
-    get_category_pages,
     pages_required,
 )
+from .category_pagination_engine import get_category_pages as _engine_get_category_pages
 from .category_scraper import CategoryScraper
 
+
 # Historical private entry point retained for compatibility.
+def get_category_pages(
+    self: CategoryScraper,
+    category_url: str,
+    expected_count: int = 0,
+) -> list[str]:
+    """Delegate the historical hook to the canonical pagination engine."""
+    return _engine_get_category_pages(
+        self,
+        category_url,
+        expected_count=expected_count,
+    )
+
+
 _get_category_pages = get_category_pages
 
 _PATCHED = False
@@ -40,7 +54,7 @@ def activate() -> None:
 
 activate()
 
-assert _engine.get_category_pages is get_category_pages
+assert _engine.get_category_pages is _engine_get_category_pages
 
 __all__ = [
     "JSF_PAGE_RETRIES",

@@ -1,7 +1,5 @@
-import sqlite3
+from types import SimpleNamespace
 
-from models.product import Product
-from models.scraping.scraping_history import ScrapingHistory
 from services.scraping.scraping_session import ScrapingSession
 
 
@@ -17,10 +15,6 @@ class FakeDB:
 
     def rollback(self):
         self.operations.append("rollback")
-
-    def execute_query(self, query, params=()):
-        del query, params
-        return None
 
 
 class FakeHistoryRepository:
@@ -41,61 +35,47 @@ class FakeCatalogRepository:
         self.saved.append(product)
 
 
-class IncompleteRunner:
-    def __init__(self, products):
-        self.products = products
-
-        class Service:
-            def __init__(self, result):
-                self.last_sync_result = result
-                self.catalog_sync_service = None
-                self.scraper_service = None
-
-        from models.scraping.sync_result import SyncResult
-
-        result = SyncResult(
-            processed=1,
-            unchanged=1,
-            expected_category_occurrences=2,
-            products_found=1,
-            products_unique=1,
-        )
-        result.category_summary = [
-            {
-                "category": "Categoría A",
-                "expected": 2,
-                "products": 1,
-                "unique_products": 1,
-                "gap": 1,
-            }
-        ]
-        self.scraping_service = Service(result)
-
-    def run(self, categories, progress_callback):
-        del categories, progress_callback
-        return self.products
-
-
 class FailingRunner:
-    def __init__(self):
-        from models.scraping.sync_result import SyncResult
-
-        self.scraping_service = type(
-            "Service",
-            (),
-            {
-                "last_sync_result": SyncResult(errors=["fallo controlado"]),
-                "catalog_sync_service": None,
-                "scraper_service": None,
-            },
-        )()
-
-    def run(self, categories, progress_callback):
-        del categories, progress_callback
+    def run(self, categories, progress_callback=None):
         raise RuntimeError("fallo controlado")
 
 
-def test_failure_rolls_back_catalog_transaction_and_keeps_history():
+class IncompleteRunner:
+    def __init__(self, products):
+        self.products = products
+        self.scraping_service = SimpleNamespace(
+            last_sync_result=SimpleNamespace(
+                processed=len(products),
+                created=0,
+                updated=0,
+                unchanged=len(products),
+                deleted=0,
+                generated=0,
+                missing_code=0,
+                changes=[],
+                errors=[
+                    "Cobertura del catálogo incompleta: sincronización FULL omitida por seguridad (terminal_http_errors:1)."
+                ],
+                coverage_complete=False,
+                categories_processed=24,
+                expected_category_occurrences=10,
+                products_expected=9,
+                products_found=len(products),
+                products_unique=len(products),
+            ),
+            catalog_sync_service=None,
+        )
+
+    def run(self, categories, progress_callback=None):
+        return list(self.products)
+
+
+class Product:
+    code = "TEST-001"
+    name = "Producto de prueba"
+
+
+def test_scraping_session_rolls_back_catalog_and_saves_error_history_cleanly():
     db = FakeDB()
     history_repository = FakeHistoryRepository(db)
     session = ScrapingSession(

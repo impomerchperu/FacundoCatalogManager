@@ -27,8 +27,10 @@ class SyncResult:
     categories_processed: int = 0
     products_expected: int = 0
     expected_category_occurrences: int = 0
+    expected_product_category_relationships: int = 0
     products_found: int = 0
     products_unique: int = 0
+    product_category_relationships: int = 0
     products_multiple_categories: int = 0
     duplicate_occurrences: int = 0
     category_summary: list[dict] = field(default_factory=list)
@@ -64,15 +66,6 @@ class SyncResult:
     @products_unchanged.setter
     def products_unchanged(self, value: int) -> None:
         self.unchanged = int(value)
-
-    @property
-    def products_deleted(self) -> int:
-        """Alias compatible con el contador canónico ``deleted``."""
-        return self.deleted
-
-    @products_deleted.setter
-    def products_deleted(self, value: int) -> None:
-        self.deleted = int(value)
 
     def increment_processed(self) -> None:
         self.processed += 1
@@ -125,6 +118,12 @@ class SyncResult:
     def category_occurrence_gap(self) -> int:
         return max(self.expected_category_occurrences - self.products_found, 0)
 
+    @property
+    def product_category_relationship_gap(self) -> int:
+        expected = self.expected_product_category_relationships
+        actual = self.product_category_relationships
+        return max(expected - actual, 0)
+
     def finish(self) -> None:
         self.finished_at = datetime.now(timezone.utc)
         self.success = self.coverage_complete and not self.has_errors
@@ -158,16 +157,21 @@ class SyncResult:
             "categories_processed": self.categories_processed,
             "products_expected": self.products_expected,
             "expected_category_occurrences": self.expected_category_occurrences,
+            "expected_product_category_relationships": self.expected_product_category_relationships,
             "products_found": self.products_found,
             "products_unique": self.products_unique,
+            "product_category_relationships": self.product_category_relationships,
             "products_multiple_categories": self.products_multiple_categories,
             "duplicate_occurrences": self.duplicate_occurrences,
             "category_summary": self.category_summary,
             "multiple_category_products": self.multiple_category_products,
             "coverage_gap": self.coverage_gap,
             "category_occurrence_gap": self.category_occurrence_gap,
+            "product_category_relationship_gap": self.product_category_relationship_gap,
             "reference_category_occurrences": self.expected_category_occurrences,
             "actual_category_occurrences": self.products_found,
+            "reference_product_category_relationships": self.expected_product_category_relationships,
+            "actual_product_category_relationships": self.product_category_relationships,
             "unique_products": self.products_unique,
             "multi_category_products": self.products_multiple_categories,
             "coverage_complete": self.coverage_complete,
@@ -198,12 +202,15 @@ class SyncResult:
             "Categorías": self.categories_processed,
             "Esperados únicos": self.products_expected,
             "Esperados por categorías": self.expected_category_occurrences,
+            "Esperadas relaciones producto-categoría": self.expected_product_category_relationships,
             "Encontrados": self.products_found,
             "Únicos": self.products_unique,
+            "Relaciones producto-categoría": self.product_category_relationships,
             "Múltiples categorías": self.products_multiple_categories,
             "Apariciones duplicadas": self.duplicate_occurrences,
             "Brecha cobertura": self.coverage_gap,
             "Brecha por categorías": self.category_occurrence_gap,
+            "Brecha relaciones producto-categoría": self.product_category_relationship_gap,
             "Cobertura completa": self.coverage_complete,
             "Total clasificado": self.classified_total,
             "Conteos consistentes": self.counts_are_consistent,

@@ -1,8 +1,12 @@
-"""Prevent partial FULL scrapes from mutating the catalog."""
+"""Compatibility layer for the retained FULL-sync safety policy."""
 
 from __future__ import annotations
 
 from services.scraping.category_product_sync_service import CategoryProductSyncService
+from services.scraping.full_sync_coverage_policy import (
+    demonstrates_complete_coverage,
+    has_complete_category_coverage,
+)
 
 _PATCHED = False
 _ORIGINAL_SYNC_CATEGORIES = CategoryProductSyncService.sync_categories
@@ -18,29 +22,7 @@ def _sync_categories_with_safety(self, categories, progress_callback=None):
 
 
 def _has_complete_category_coverage(self: CategoryProductSyncService) -> bool:
-    result = self.last_sync_result
-    expected = max(
-        int(getattr(result, "expected_category_occurrences", 0) or 0),
-        0,
-    )
-    if expected <= 0:
-        return False
-    if int(getattr(result, "products_found", 0) or 0) < expected:
-        return False
-
-    summary = getattr(result, "category_summary", None) or []
-    if not summary:
-        return False
-
-    for row in summary:
-        row_expected = max(int(row.get("expected", 0) or 0), 0)
-        if row_expected <= 0:
-            continue
-        if int(row.get("products", 0) or 0) != row_expected:
-            return False
-        if int(row.get("unique_products", 0) or 0) != row_expected:
-            return False
-    return True
+    return has_complete_category_coverage(self.last_sync_result)
 
 
 def _terminal_http_error_reason(self: CategoryProductSyncService):
@@ -77,45 +59,12 @@ def _demonstrates_complete_coverage(
     expected_products=0,
     expected_category_occurrences=0,
 ) -> bool:
-    """Verify final collected coverage independently of transient HTTP errors."""
-    raw_products = list(products or [])
-    if not raw_products:
-        return False
-
-    if any(not str(getattr(product, "code", "") or "").strip() for product in raw_products):
-        return False
-
-    expected_occurrences = max(int(expected_category_occurrences or 0), 0)
-    if expected_occurrences <= 0 or len(raw_products) < expected_occurrences:
-        return False
-
-    summary = getattr(self.last_sync_result, "category_summary", []) or []
-    if summary:
-        for row in summary:
-            expected = max(int(row.get("expected", 0) or 0), 0)
-            if expected <= 0:
-                continue
-            products_found = int(row.get("products", 0) or 0)
-            unique_found = int(row.get("unique_products", 0) or 0)
-            if products_found != expected or unique_found != expected:
-                return False
-    else:
-        actual_occurrences = int(
-            getattr(self.last_sync_result, "products_found", len(raw_products)) or 0
-        )
-        if actual_occurrences < expected_occurrences:
-            return False
-
-    if expected_products:
-        unique_codes = {
-            str(getattr(product, "code", "")).strip().casefold()
-            for product in raw_products
-            if str(getattr(product, "code", "")).strip()
-        }
-        if len(unique_codes) < max(int(expected_products), 0):
-            return False
-
-    return True
+    return demonstrates_complete_coverage(
+        self.last_sync_result,
+        products,
+        expected_products=expected_products,
+        expected_category_occurrences=expected_category_occurrences,
+    )
 
 
 def _sync_products_with_safety(
@@ -158,7 +107,7 @@ def _sync_products_with_safety(
 
 
 def activate() -> None:
-    """Install the consolidated FULL-sync safety layer exactly once."""
+    """Install the retained FULL-sync compatibility layer exactly once."""
     global _PATCHED
     if _PATCHED:
         return

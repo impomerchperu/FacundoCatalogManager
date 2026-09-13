@@ -6,7 +6,6 @@ repositories can import individual scraping helpers without circular imports.
 
 from typing import TYPE_CHECKING
 
-from . import prune_guard_recovery_patch as _prune_guard_recovery_patch
 from .catalog_sync_service import CatalogSyncService
 from .category_product_scraping_service import CategoryProductScrapingService
 from .category_product_sync_service import CategoryProductSyncService
@@ -22,8 +21,6 @@ from .scraping_session import ScrapingSession, ScrapingSessionResult
 
 if TYPE_CHECKING:
     from .scraping_factory import ScrapingFactory
-
-_prune_guard_recovery_patch.activate()
 
 __all__ = [
     "CatalogSyncService",

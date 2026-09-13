@@ -220,15 +220,8 @@ def test_bootstrap_restores_latest_state_from_change_history_when_full_run_is_un
     connection.commit()
 
     service = CatalogBootstrapService(db=db)
-    assert service.bootstrap() == 2
-
-    rows = connection.execute(
-        "SELECT code, name, stock FROM products ORDER BY code"
-    ).fetchall()
-    assert [(row["code"], row["name"], row["stock"]) for row in rows] == [
-        ("A", "Producto A", 7),
-        ("B", "Producto B", 9),
-    ]
+    assert service.bootstrap() == 0
+    assert connection.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 0
 
 
 def test_restore_from_change_history_preserves_latest_update_after_multiple_runs():
@@ -271,6 +264,51 @@ def test_restore_from_change_history_preserves_latest_update_after_multiple_runs
         "SELECT code, name, stock FROM products"
     ).fetchone()
     assert (row["code"], row["name"], row["stock"]) == ("A", "Producto A", 11)
+
+
+def test_restore_from_change_history_ignores_failed_runs():
+    connection = _new_connection()
+    db = SQLiteDBAdapter(connection)
+
+    connection.executemany(
+        """
+        INSERT INTO scraping_history (
+            started_at, finished_at, status, message
+        ) VALUES (?, ?, ?, ?)
+        """,
+        [
+            ("2026-09-10T01:00:00+00:00", "2026-09-10T01:01:00+00:00", "ERROR", "Cobertura incompleta"),
+            ("2026-09-11T01:00:00+00:00", "2026-09-11T01:01:00+00:00", "SUCCESS", ""),
+        ],
+    )
+    failed_run, successful_run = [
+        row["id"]
+        for row in connection.execute("SELECT id FROM scraping_history ORDER BY id")
+    ]
+    connection.executemany(
+        """
+        INSERT INTO download_changes (
+            history_id, change_type, code, product_name,
+            field_name, field_label, old_value, new_value
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (failed_run, "NEW", "FAILED", "No aplicar", "name", "Nombre", None, "No aplicar"),
+            (failed_run, "NEW", "FAILED", "No aplicar", "stock", "Stock", None, "999"),
+            (successful_run, "NEW", "OK", "Producto válido", "name", "Nombre", None, "Producto válido"),
+            (successful_run, "NEW", "OK", "Producto válido", "stock", "Stock", None, "7"),
+        ],
+    )
+    connection.commit()
+
+    service = CatalogBootstrapService(db=db)
+    assert service.restore_from_change_history() == 1
+    rows = connection.execute(
+        "SELECT code, name, stock FROM products ORDER BY code"
+    ).fetchall()
+    assert [(row["code"], row["name"], row["stock"]) for row in rows] == [
+        ("OK", "Producto válido", 7),
+    ]
 
 
 def test_bootstrap_repairs_once_then_leaves_persistent_catalog_untouched():

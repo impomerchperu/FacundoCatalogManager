@@ -18,7 +18,7 @@ def test_normalize_category_name_handles_accents_and_mojibake():
     )
 
 
-def test_category_coverage_uses_normalized_key_but_preserves_display_name():
+def test_category_coverage_uses_normalized_key_and_canonical_display_name():
     service = CategoryProductSyncService(object(), object())
     products = [
         SimpleNamespace(
@@ -38,7 +38,7 @@ def test_category_coverage_uses_normalized_key_but_preserves_display_name():
 
     assert service.last_sync_result.category_summary == [
         {
-            "category": "Articulos De Antiestres",
+            "category": "Artículos Antiestrés",
             "comparison_key": "articulos antiestres",
             "products": 1,
             "unique_products": 1,

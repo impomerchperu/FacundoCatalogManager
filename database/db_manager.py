@@ -38,6 +38,7 @@ class DBManager:
         for table in ("products", "scraped_products", "sync_records"):
             self._add_column_if_missing(table, "color_stock", "TEXT DEFAULT '{}'")
         for column, definition in (
+            ("applied_at", "TEXT"),
             ("deleted", "INTEGER DEFAULT 0"),
             ("generated", "INTEGER DEFAULT 0"),
             ("categories_processed", "INTEGER DEFAULT 0"),
@@ -50,6 +51,7 @@ class DBManager:
             ("multiple_category_products", "TEXT DEFAULT '[]'"),
         ):
             self._add_column_if_missing("scraping_history", column, definition)
+        self._restore_applied_history_marker()
         self._remove_legacy_colors_column("products")
         self._remove_legacy_colors_column("scraped_products")
         self._migrate_download_changes()
@@ -57,6 +59,21 @@ class DBManager:
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_scraping_history_finished_at "
             "ON scraping_history(finished_at)"
+        )
+
+    def _restore_applied_history_marker(self) -> None:
+        """Marca la última descarga exitosa histórica como aplicada en bases antiguas."""
+        self.connection.execute(
+            """
+            UPDATE scraping_history
+            SET applied_at = finished_at
+            WHERE id = (
+                SELECT MAX(id)
+                FROM scraping_history
+                WHERE status = 'SUCCESS'
+            )
+            AND applied_at IS NULL
+            """
         )
 
     def _normalize_existing_product_categories(self) -> None:

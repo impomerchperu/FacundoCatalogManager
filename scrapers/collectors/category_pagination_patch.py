@@ -9,7 +9,6 @@ from __future__ import annotations
 from . import category_pagination_engine as _engine
 from .category_scraper import CategoryScraper
 
-
 JSF_PAGE_RETRIES = _engine.JSF_PAGE_RETRIES
 _JSF_QUERY_STATE = _engine._JSF_QUERY_STATE
 _JSF_REQUEST_STATE = _engine._JSF_REQUEST_STATE

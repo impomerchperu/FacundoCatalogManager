@@ -53,7 +53,7 @@ def activate() -> None:
     global _PATCHED
     if _PATCHED:
         return
-    CategoryProductSyncService._has_complete_category_coverage = _has_complete_category_coverage
+    CategoryProductSyncService._has_complete_category_coverage = _has_complete_category_coverage  # pyright: ignore[reportAttributeAccessIssue]
     CategoryProductSyncService._terminal_http_error_reason = _terminal_http_error_reason
     _PATCHED = True
 

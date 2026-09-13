@@ -31,7 +31,7 @@ def activate() -> None:
     if _PATCHED:
         return
     ProductCollectionScraper._missing_price_fields = staticmethod(_missing_price_fields)
-    ProductCollectionScraper._detail_skip_reason = classmethod(_detail_skip_reason)
+    ProductCollectionScraper._detail_skip_reason = classmethod(_detail_skip_reason)  # pyright: ignore[reportAttributeAccessIssue]
     _PATCHED = True
 
 

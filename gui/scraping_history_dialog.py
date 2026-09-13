@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QBrush, QColor, QFont
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -148,12 +148,14 @@ class ScrapingHistoryDialog(QDialog):
 
     @staticmethod
     def _latest_applied_history_id(history) -> int | None:
-        successful = [
+        applied = [
             int(record.history_id)
             for record in history
-            if record.history_id is not None and record.status == "SUCCESS"
+            if record.history_id is not None
+            and record.status == "SUCCESS"
+            and getattr(record, "applied_at", None) is not None
         ]
-        return max(successful) if successful else None
+        return max(applied) if applied else None
 
     @staticmethod
     def _coverage_text(record) -> str:
@@ -214,12 +216,12 @@ class ScrapingHistoryDialog(QDialog):
             text = "No aplicable"
             tooltip = "La descarga terminó con error y no se considera aplicable."
         elif record.history_id == latest_applied_id:
-            finished_at = self._parse_datetime(record.finished_at)
-            text = f"Aplicado\n{self._format_datetime(finished_at)}"
-            tooltip = "Esta es la versión correcta actualmente aplicada al catálogo."
+            applied_at = self._parse_datetime(record.applied_at)
+            text = f"Aplicado\n{self._format_datetime(applied_at)}"
+            tooltip = "Esta versión está marcada persistentemente como la aplicada al catálogo."
         else:
             text = "No Aplicado"
-            tooltip = "Esta versión fue reemplazada por una descarga posterior aplicada."
+            tooltip = "Esta versión no es la actualmente marcada como aplicada."
 
         item = QTableWidgetItem(text)
         item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -228,8 +230,6 @@ class ScrapingHistoryDialog(QDialog):
             font = QFont(item.font())
             font.setBold(True)
             item.setFont(font)
-            from PySide6.QtGui import QBrush, QColor
-
             item.setBackground(QBrush(QColor(self.APPLIED_BACKGROUND)))
         self.table.setItem(row, column, item)
 
@@ -300,11 +300,17 @@ class ScrapingHistoryDialog(QDialog):
         started_at = self._parse_datetime(history.started_at)
         finished_at = self._parse_datetime(history.finished_at)
         duration = self._format_duration(started_at, finished_at)
+        application_text = (
+            self._format_datetime(self._parse_datetime(history.applied_at))
+            if history.applied_at is not None
+            else "No aplicada"
+        )
 
         summary = QLabel(
             f"ID: {history.history_id}    "
             f"Inicio: {self._format_datetime(started_at)}    "
-            f"Fin/aplicación: {self._format_datetime(finished_at)}    "
+            f"Fin: {self._format_datetime(finished_at)}    "
+            f"Aplicación: {application_text}    "
             f"Duración: {duration}\n"
             f"Procesados: {history.processed}    Nuevos: {history.created}    "
             f"Actualizados: {history.updated}    Sin cambios: {history.unchanged}    "

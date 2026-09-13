@@ -1,6 +1,3 @@
-from collections.abc import Callable
-
-from controllers.scraping_controller import ScrapingController
 from database.db_manager import DBManager
 from services.catalog_history_recovery_service import CatalogHistoryRecoveryService
 from services.catalog_reconciliation_service import CatalogReconciliationService
@@ -11,13 +8,8 @@ class CatalogBootstrapService:
 
     HISTORY_RECOVERY_KEY = "history_recovery_applied"
 
-    def __init__(
-        self,
-        db: DBManager | None = None,
-        controller_factory: Callable[[], ScrapingController] = ScrapingController,
-    ) -> None:
+    def __init__(self, db: DBManager | None = None) -> None:
         self.db = db or DBManager()
-        self.controller_factory = controller_factory
         self.reconciliation_service = CatalogReconciliationService(self.db)
         self.history_recovery_service = CatalogHistoryRecoveryService(self.db)
 
@@ -44,13 +36,6 @@ class CatalogBootstrapService:
             ("initialized", "1"),
         )
 
-    def _history_recovery_applied(self) -> bool:
-        row = self.db.fetch_one(
-            "SELECT value FROM catalog_metadata WHERE key=?",
-            (self.HISTORY_RECOVERY_KEY,),
-        )
-        return bool(row and row["value"] == "1")
-
     def _mark_history_recovery_applied(self) -> None:
         self.db.execute_query(
             """
@@ -68,10 +53,6 @@ class CatalogBootstrapService:
     def reconcile_latest_successful_run(self) -> int:
         """Reconstruye el catálogo desde la última ejecución FULL válida."""
         return self.reconciliation_service.reconcile_latest_successful_run()
-
-    def reconcile_reference_run(self) -> int:
-        """Alias de compatibilidad para la reconciliación del último FULL válido."""
-        return self.reconcile_latest_successful_run()
 
     def restore_from_change_history(self) -> int:
         """Compatibilidad para reconstruir desde cambios históricos exitosos."""

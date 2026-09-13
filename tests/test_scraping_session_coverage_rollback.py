@@ -76,8 +76,8 @@ def test_incomplete_scrape_rolls_back_catalog_changes_but_keeps_history():
         expected_category_occurrences=2,
         products_found=1,
         products_unique=1,
-        coverage_complete=False,
     )
+    result.coverage_complete = False
     result.category_summary = [
         {
             "category": "Categoría A",
@@ -109,8 +109,8 @@ def test_complete_scrape_commits_catalog_changes():
         expected_category_occurrences=1,
         products_found=1,
         products_unique=1,
-        coverage_complete=True,
     )
+    result.coverage_complete = True
     result.category_summary = [
         {
             "category": "Categoría A",

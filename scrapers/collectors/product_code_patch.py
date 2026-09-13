@@ -3,35 +3,19 @@
 from __future__ import annotations
 
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
-from scrapers.extractors.category_product_extractor import CategoryProductExtractor
-from scrapers.extractors.code_utils import (
-    extract_code_from_soup,
-    normalize_code,
-    normalize_code_token,
-)
+from scrapers.extractors.code_utils import normalize_code
 from scrapers.extractors.product_extractor import ProductExtractor
 
 _PATCHED = False
 _ORIGINAL_ENRICH_FROM_DETAIL_PAGE = ProductCollectionScraper._enrich_from_detail_page
-_ORIGINAL_EXTRACT_CODE = ProductExtractor.extract_code
+
+# Kept as a compatibility reference for older tests/importers. ProductExtractor
+# now owns the expanded SKU extraction directly; no runtime patch is needed.
+_extract_code = ProductExtractor.extract_code
 
 
 def _normalize(value: object) -> str:
     return normalize_code(value)
-
-
-def _normalize_category_code(cls, text: str) -> str:
-    return normalize_code_token(text)
-
-
-def _from_json(value: object) -> str:
-    from scrapers.extractors.code_utils import find_code_in_json
-
-    return find_code_in_json(value)
-
-
-def _extract_code(self: ProductExtractor, soup) -> str:
-    return extract_code_from_soup(soup, fallback=_ORIGINAL_EXTRACT_CODE, extractor=self)
 
 
 def _enrich_with_authoritative_code(
@@ -72,18 +56,14 @@ def _enrich_with_authoritative_code(
 
 
 def activate() -> None:
-    """Patch SKU extraction and authoritative detail-page code handling once."""
+    """Install only the remaining authoritative detail-code compatibility hook."""
     global _PATCHED
     if _PATCHED:
         return
-
-    ProductExtractor._legacy_extract_code = _ORIGINAL_EXTRACT_CODE  # pyright: ignore[reportAttributeAccessIssue]
-    ProductExtractor.extract_code = _extract_code
     ProductCollectionScraper._enrich_from_detail_page = _enrich_with_authoritative_code
-    CategoryProductExtractor._normalize_code = classmethod(_normalize_category_code)  # pyright: ignore[reportAttributeAccessIssue]
     _PATCHED = True
 
 
 activate()
 
-__all__ = ["CategoryProductExtractor", "ProductCollectionScraper", "ProductExtractor", "activate"]
+__all__ = ["ProductCollectionScraper", "ProductExtractor", "activate"]

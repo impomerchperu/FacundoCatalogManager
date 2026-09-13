@@ -8,12 +8,46 @@ _PATCHED = False
 _ORIGINAL_SYNC_CATEGORIES = CategoryProductSyncService.sync_categories
 _ORIGINAL_COVERAGE_GUARD = CategoryProductSyncService._full_sync_prune_guard
 _ORIGINAL_SYNC_PRODUCTS = CategoryProductSyncService.sync_products
+_ORIGINAL_TERMINAL_HTTP_ERROR_REASON = CategoryProductSyncService._terminal_http_error_reason
 
 
 def _sync_categories_with_safety(self, categories, progress_callback=None):
     self._full_sync_coverage_validated = None
     self._full_sync_coverage_reason = ""
     return _ORIGINAL_SYNC_CATEGORIES(self, categories, progress_callback)
+
+
+def _has_complete_category_coverage(self: CategoryProductSyncService) -> bool:
+    result = self.last_sync_result
+    expected = max(
+        int(getattr(result, "expected_category_occurrences", 0) or 0),
+        0,
+    )
+    if expected <= 0:
+        return False
+    if int(getattr(result, "products_found", 0) or 0) < expected:
+        return False
+
+    summary = getattr(result, "category_summary", None) or []
+    if not summary:
+        return False
+
+    for row in summary:
+        row_expected = max(int(row.get("expected", 0) or 0), 0)
+        if row_expected <= 0:
+            continue
+        if int(row.get("products", 0) or 0) != row_expected:
+            return False
+        if int(row.get("unique_products", 0) or 0) != row_expected:
+            return False
+    return True
+
+
+def _terminal_http_error_reason(self: CategoryProductSyncService):
+    """Ignore transient terminal errors when final category coverage is complete."""
+    if _has_complete_category_coverage(self):
+        return None
+    return _ORIGINAL_TERMINAL_HTTP_ERROR_REASON(self)
 
 
 def _coverage_guard_with_state(
@@ -124,7 +158,7 @@ def _sync_products_with_safety(
 
 
 def activate() -> None:
-    """Install the FULL-sync safety layer exactly once."""
+    """Install the consolidated FULL-sync safety layer exactly once."""
     global _PATCHED
     if _PATCHED:
         return
@@ -133,7 +167,9 @@ def activate() -> None:
         return
     CategoryProductSyncService.sync_categories = _sync_categories_with_safety
     CategoryProductSyncService._full_sync_prune_guard = _coverage_guard_with_state  # pyright: ignore[reportAttributeAccessIssue]
+    CategoryProductSyncService._terminal_http_error_reason = _terminal_http_error_reason
     CategoryProductSyncService.sync_products = _sync_products_with_safety
+    CategoryProductSyncService._has_complete_category_coverage = _has_complete_category_coverage  # pyright: ignore[reportAttributeAccessIssue]
     _PATCHED = True
 
 

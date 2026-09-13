@@ -27,10 +27,8 @@ class SyncResult:
     categories_processed: int = 0
     products_expected: int = 0
     expected_category_occurrences: int = 0
-    expected_product_category_relationships: int = 0
     products_found: int = 0
     products_unique: int = 0
-    product_category_relationships: int = 0
     products_multiple_categories: int = 0
     duplicate_occurrences: int = 0
     category_summary: list[dict] = field(default_factory=list)
@@ -84,6 +82,36 @@ class SyncResult:
         return self.category_occurrence_gap
 
     @property
+    def expected_product_category_relationships(self) -> int:
+        """Número esperado de pares producto–categoría distintos."""
+        if self.category_summary:
+            return sum(
+                max(int(row.get("expected", 0) or 0), 0)
+                for row in self.category_summary
+                if isinstance(row, dict)
+            )
+        return max(self.expected_category_occurrences, 0)
+
+    @property
+    def product_category_relationships(self) -> int:
+        """Número real de pares únicos producto–categoría observados."""
+        if self.category_summary:
+            return sum(
+                max(int(row.get("unique_products", 0) or 0), 0)
+                for row in self.category_summary
+                if isinstance(row, dict)
+            )
+        return max(self.products_found, 0)
+
+    @property
+    def product_category_relationship_gap(self) -> int:
+        return max(
+            self.expected_product_category_relationships
+            - self.product_category_relationships,
+            0,
+        )
+
+    @property
     def coverage_complete(self) -> bool:
         """True when the result has complete coverage for its known scope.
 
@@ -117,12 +145,6 @@ class SyncResult:
     @property
     def category_occurrence_gap(self) -> int:
         return max(self.expected_category_occurrences - self.products_found, 0)
-
-    @property
-    def product_category_relationship_gap(self) -> int:
-        expected = self.expected_product_category_relationships
-        actual = self.product_category_relationships
-        return max(expected - actual, 0)
 
     def finish(self) -> None:
         self.finished_at = datetime.now(timezone.utc)

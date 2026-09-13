@@ -1,49 +1,41 @@
-from scrapers.collectors import missing_code_recovery_patch as recovery_patch
+from types import SimpleNamespace
+
+from services.scraping.category_product_sync_service import (
+    CategoryProductSyncService,
+)
 
 
-def test_full_sync_prune_guard_recovers_before_delegating(monkeypatch):
+def test_full_sync_prune_guard_recovers_before_safety_decisions(monkeypatch):
     calls = []
 
-    def fake_recover(service, products):
-        calls.append(("recover", service, products))
+    service = CategoryProductSyncService(object(), object())
+    products = [SimpleNamespace(code="RECOVERED-001")]
+
+    def fake_recover(items):
+        calls.append(("recover", items))
         return 1
 
-    def fake_guard(
-        service,
+    def fake_terminal_reason():
+        calls.append(("terminal",))
+        return None
+
+    monkeypatch.setattr(service, "_recover_missing_codes", fake_recover)
+    monkeypatch.setattr(service, "_terminal_http_error_reason", fake_terminal_reason)
+    service.last_sync_result.category_summary = [
+        {
+            "category": "Categoria",
+            "expected": 1,
+            "products": 1,
+            "unique_products": 1,
+        }
+    ]
+
+    result = service._full_sync_prune_guard(
         products,
-        category_count,
-        *,
-        expected_category_occurrences=0,
-        expected_products=None,
-    ):
-        calls.append(
-            (
-                "guard",
-                service,
-                products,
-                category_count,
-                expected_category_occurrences,
-                expected_products,
-            )
-        )
-        return True, "complete"
-
-    monkeypatch.setattr(recovery_patch, "_recover_missing_codes", fake_recover)
-    monkeypatch.setattr(recovery_patch, "_ORIGINAL_FULL_SYNC_PRUNE_GUARD", fake_guard)
-
-    service = object()
-    products = [object()]
-
-    result = recovery_patch._full_sync_prune_guard(
-        service,
-        products,
-        24,
-        expected_category_occurrences=534,
-        expected_products=530,
+        1,
+        expected_category_occurrences=1,
+        expected_products=1,
     )
 
     assert result == (True, "complete")
-    assert calls == [
-        ("recover", service, products),
-        ("guard", service, products, 24, 534, 530),
-    ]
+    assert calls == [("recover", products), ("terminal",)]

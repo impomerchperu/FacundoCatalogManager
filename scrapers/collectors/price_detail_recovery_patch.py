@@ -30,16 +30,8 @@ def activate() -> None:
     global _PATCHED
     if _PATCHED:
         return
-    setattr(
-        ProductCollectionScraper,
-        "_missing_price_fields",
-        staticmethod(_missing_price_fields),
-    )
-    setattr(
-        ProductCollectionScraper,
-        "_detail_skip_reason",
-        classmethod(_detail_skip_reason),
-    )
+    ProductCollectionScraper._missing_price_fields = staticmethod(_missing_price_fields)
+    ProductCollectionScraper._detail_skip_reason = classmethod(_detail_skip_reason)
     _PATCHED = True
 
 

@@ -7,6 +7,7 @@ preserves historical helper names used by legacy callers and tests.
 from __future__ import annotations
 
 from . import category_pagination_engine as _engine
+from .category_pagination_engine import get_category_pages as _engine_get_category_pages
 from .category_pagination_engine import (
     JSF_PAGE_RETRIES,
     _JSF_QUERY_STATE,
@@ -20,7 +21,6 @@ from .category_pagination_engine import (
     _retry_jsf_page,
     pages_required,
 )
-from .category_pagination_engine import get_category_pages as _engine_get_category_pages
 from .category_scraper import CategoryScraper
 
 

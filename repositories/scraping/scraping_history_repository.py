@@ -216,6 +216,15 @@ class ScrapingHistoryRepository:
             for row in rows
         ]
 
+    def _reset_read_transaction(self) -> None:
+        """Descarta un snapshot de lectura previo sin romper una transacción activa."""
+        connection = getattr(self.db, "connection", None)
+        if connection is None:
+            return
+        if getattr(self.db, "_transaction_active", False):
+            return
+        connection.rollback()
+
     @staticmethod
     def _value(product, field):
         if isinstance(product, dict):

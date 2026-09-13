@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 
 CODE_PATTERN = re.compile(
@@ -57,9 +58,50 @@ def find_code_in_json(value: object) -> str:
     return ""
 
 
+def extract_code_from_soup(soup, *, fallback, extractor=None) -> str:
+    """Extract an authoritative WooCommerce SKU before using the legacy fallback."""
+    selectors = (
+        "span.sku",
+        ".sku_wrapper .sku",
+        ".product_meta .sku",
+        "[itemprop='sku']",
+        "[data-sku]",
+        "[sku]",
+    )
+    for selector in selectors:
+        for element in soup.select(selector):
+            values = (
+                element.get("sku"),
+                element.get("data-sku"),
+                element.get("content"),
+                element.get_text(" ", strip=True),
+            )
+            for value in values:
+                code = normalize_code(value)
+                if code:
+                    return code
+
+    for script in soup.select("script[type='application/ld+json']"):
+        raw = script.string or script.get_text(" ", strip=True)
+        if not raw:
+            continue
+        try:
+            payload = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        code = find_code_in_json(payload)
+        if code:
+            return code
+
+    if extractor is None:
+        return fallback(soup)
+    return fallback(extractor, soup)
+
+
 __all__ = [
     "CODE_PATTERN",
     "CODE_SEPARATORS",
+    "extract_code_from_soup",
     "find_code_in_json",
     "normalize_code",
     "normalize_code_token",

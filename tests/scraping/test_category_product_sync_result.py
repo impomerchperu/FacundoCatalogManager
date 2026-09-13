@@ -81,7 +81,7 @@ def test_directed_category_sync_never_prunes_catalog():
 
 def test_full_sync_with_incomplete_coverage_never_prunes_catalog():
     service, catalog_sync_service = _build_sync_service()
-    service._scraping_mode = "full"
+    service.__dict__["_scraping_mode"] = "full"
 
     service.sync_products(
         ["producto-1"],
@@ -99,7 +99,7 @@ def test_full_sync_with_incomplete_coverage_never_prunes_catalog():
 
 def test_full_sync_with_complete_coverage_uses_pruning_path():
     service, catalog_sync_service = _build_sync_service()
-    service._scraping_mode = "full"
+    service.__dict__["_scraping_mode"] = "full"
 
     service.sync_products(
         ["producto-1", "producto-2"],

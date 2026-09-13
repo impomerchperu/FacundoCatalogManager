@@ -475,21 +475,25 @@ class CategoryProductSyncService:
             )
         if not by_code and categories:
             requested = {
-                normalize_category_name(canonical_category_name(getattr(category, "name", "")))
+                normalize_category_name(
+                    canonical_category_name(getattr(category, "name", ""))
+                )
                 for category in categories
             }
             for product in raw_products or []:
                 code_key = str(getattr(product, "code", "")).strip().casefold()
                 if not code_key:
                     continue
-                category_map = by_code.setdefault(code_key, {})
-                for value in split_category_names(getattr(product, "category", "")):
-                    category_name = canonical_category_name(value)
-                    category_key = normalize_category_name(category_name)
-                    if category_key in requested:
-                        category_map.setdefault(category_key, category_name)
-                if len(category_map) <= 1:
-                    by_code.pop(code_key, None)
+                category_name = canonical_category_name(
+                    str(getattr(product, "category", "")).strip()
+                )
+                category_key = normalize_category_name(category_name)
+                if category_key not in requested:
+                    continue
+                by_code.setdefault(code_key, {}).setdefault(
+                    category_key,
+                    category_name,
+                )
         product_by_code = {
             str(getattr(product, "code", "")).strip().casefold(): product
             for product in raw_products or []

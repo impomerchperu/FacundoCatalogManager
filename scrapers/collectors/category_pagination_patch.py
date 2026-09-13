@@ -20,8 +20,9 @@ from .category_pagination_engine import (
     _retry_jsf_page,
     pages_required,
 )
-from .category_pagination_engine import get_category_pages as _engine_get_category_pages
 from .category_scraper import CategoryScraper
+
+_engine_get_category_pages = _engine.get_category_pages
 
 
 # Historical private entry point retained for compatibility.

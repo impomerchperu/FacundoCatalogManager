@@ -105,7 +105,7 @@ def canonical_category_name(value: object) -> str:
 
 
 def split_category_names(value: object) -> list[str]:
-    """Split multi-category values without breaking Cocina, Mesa y Hogar."""
+    """Split multi-category values without breaking canonical comma categories."""
     if not isinstance(value, str):
         return []
 
@@ -113,16 +113,22 @@ def split_category_names(value: object) -> list[str]:
     if not text:
         return []
 
-    if normalize_category_name(text) in {
-        "cocina mesa y hogar",
-        "cocina mesa hogar",
-    }:
-        return ["Cocina, Mesa y Hogar"]
+    # Protect canonical category names that themselves contain commas before
+    # treating commas as category separators. This allows values such as
+    # ``Promocionales, Cocina, Mesa y Hogar`` to become exactly two categories.
+    protected = text
+    sentinel = "\x00"
+    for category in sorted(
+        (name for name in _CANONICAL_CATEGORY_NAMES if "," in name),
+        key=len,
+        reverse=True,
+    ):
+        protected = protected.replace(category, category.replace(",", sentinel))
 
     result: list[str] = []
     seen: set[str] = set()
-    for part in text.split(","):
-        category = canonical_category_name(part)
+    for part in protected.split(","):
+        category = canonical_category_name(part.replace(sentinel, ","))
         key = normalize_category_name(category)
         if not key or key in seen:
             continue

@@ -1,26 +1,20 @@
 import json
 from collections.abc import Callable
-from typing import ClassVar
 
 from controllers.scraping_controller import ScrapingController
 from database.db_manager import DBManager
+from services.catalog_reconciliation_service import CatalogReconciliationService
 
 
 class CatalogBootstrapService:
-    """Repara instalaciones existentes sin sobrescribir un catálogo ya persistido."""
+    """Orquesta la reparación inicial sin iniciar ni ejecutar scraping web."""
 
     HISTORY_RECOVERY_KEY = "history_recovery_applied"
-
-    PRODUCT_FIELDS: ClassVar[set[str]] = {
+    PRODUCT_FIELDS = {
         "name", "category", "description", "price", "price_sample",
         "price_hundred", "price_thousand", "stock", "color_stock",
         "image_url", "image_path", "image_hash", "content_hash",
     }
-    PRODUCT_COLUMNS: ClassVar[tuple[str, ...]] = (
-        "code", "name", "category", "description", "price", "price_sample",
-        "price_hundred", "price_thousand", "stock", "color_stock", "image_url",
-        "image_path", "image_hash", "content_hash",
-    )
 
     def __init__(
         self,
@@ -29,6 +23,7 @@ class CatalogBootstrapService:
     ) -> None:
         self.db = db or DBManager()
         self.controller_factory = controller_factory
+        self.reconciliation_service = CatalogReconciliationService(self.db)
 
     def is_initialized(self) -> bool:
         row = self.db.fetch_all(
@@ -71,148 +66,16 @@ class CatalogBootstrapService:
         )
 
     def _find_latest_successful_full_run(self):
-        return self.db.fetch_one(
-            """
-            SELECT id
-            FROM scraping_runs
-            WHERE mode='full'
-              AND status='SUCCESS'
-              AND coverage_complete=1
-            ORDER BY id DESC
-            LIMIT 1
-            """
-        )
+        """Compatibilidad interna; la consulta vive en el reconciliador dedicado."""
+        return self.reconciliation_service.find_latest_successful_full_run()
 
     def reconcile_latest_successful_run(self) -> int:
-        """Reconstruye un catálogo desde la última ejecución FULL válida."""
-        run = self._find_latest_successful_full_run()
-        if run is None:
-            return 0
-
-        run_id = int(run["id"])
-        occurrence_count = self.db.fetch_one(
-            """
-            SELECT COUNT(*) AS total
-            FROM scraping_product_occurrences
-            WHERE run_id=?
-            """,
-            (run_id,),
-        )
-        total_occurrences = int(occurrence_count["total"] or 0) if occurrence_count else 0
-        if total_occurrences <= 0:
-            return 0
-
-        self.db.begin()
-        try:
-            self._restore_missing_products_from_legacy_sources(run_id)
-            self.db.execute_query(
-                """
-                UPDATE scraping_product_occurrences
-                SET product_id=(
-                    SELECT p.id
-                    FROM products p
-                    WHERE UPPER(TRIM(p.code))=UPPER(TRIM(scraping_product_occurrences.code))
-                    LIMIT 1
-                )
-                WHERE run_id=?
-                """,
-                (run_id,),
-            )
-            missing = self.db.fetch_one(
-                """
-                SELECT COUNT(*) AS total
-                FROM scraping_product_occurrences
-                WHERE run_id=? AND product_id IS NULL
-                """,
-                (run_id,),
-            )
-            if missing is None or int(missing["total"] or 0) != 0:
-                self.db.rollback()
-                return 0
-
-            self.db.execute_query("DELETE FROM product_categories")
-            self.db.execute_query(
-                """
-                DELETE FROM products
-                WHERE id NOT IN (
-                    SELECT DISTINCT product_id
-                    FROM scraping_product_occurrences
-                    WHERE run_id=?
-                )
-                """,
-                (run_id,),
-            )
-            self.db.execute_query(
-                """
-                INSERT INTO product_categories
-                    (product_id, category_id, first_seen_at, last_seen_at)
-                SELECT product_id, category_id, MIN(discovered_at), MAX(discovered_at)
-                FROM scraping_product_occurrences
-                WHERE run_id=?
-                GROUP BY product_id, category_id
-                ON CONFLICT(product_id, category_id) DO UPDATE SET
-                    last_seen_at=excluded.last_seen_at
-                """,
-                (run_id,),
-            )
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
-        return self.product_count()
+        """Reconstruye el catálogo desde la última ejecución FULL válida."""
+        return self.reconciliation_service.reconcile_latest_successful_run()
 
     def reconcile_reference_run(self) -> int:
+        """Alias de compatibilidad para la reconciliación del último FULL válido."""
         return self.reconcile_latest_successful_run()
-
-    def _restore_missing_products_from_legacy_sources(self, run_id: int) -> None:
-        missing = self.db.fetch_all(
-            """
-            SELECT DISTINCT UPPER(TRIM(o.code)) AS code
-            FROM scraping_product_occurrences o
-            LEFT JOIN products p
-              ON UPPER(TRIM(p.code))=UPPER(TRIM(o.code))
-            WHERE o.run_id=? AND p.id IS NULL
-            """,
-            (run_id,),
-        )
-        for row in missing:
-            code = self._normalize_code(row["code"])
-            if not code:
-                continue
-            legacy = self.db.fetch_one(
-                """
-                SELECT code, name, category, description, price, price_sample,
-                       price_hundred, price_thousand, stock, color_stock,
-                       image_url, image_path, image_hash, content_hash
-                FROM scraped_products
-                WHERE UPPER(TRIM(code))=?
-                ORDER BY id DESC
-                LIMIT 1
-                """,
-                (code,),
-            )
-            if legacy is None:
-                legacy = self.db.fetch_one(
-                    """
-                    SELECT code, name, category, description, price, price_sample,
-                           price_hundred, price_thousand, stock, color_stock,
-                           image_url, image_path, image_hash, content_hash
-                    FROM sync_records
-                    WHERE UPPER(TRIM(code))=?
-                    ORDER BY updated_at DESC
-                    LIMIT 1
-                    """,
-                    (code,),
-                )
-            if legacy is None:
-                continue
-
-            placeholders = ", ".join("?" for _ in self.PRODUCT_COLUMNS)
-            self.db.execute_query(
-                f"INSERT OR IGNORE INTO products ({', '.join(self.PRODUCT_COLUMNS)}) "
-                f"VALUES ({placeholders})",
-                tuple(legacy[column] for column in self.PRODUCT_COLUMNS),
-            )
 
     def restore_from_change_history(self) -> int:
         """Reconstruye un catálogo vacío usando únicamente cambios de historiales exitosos."""
@@ -269,15 +132,20 @@ class CatalogBootstrapService:
                     "DELETE FROM products WHERE UPPER(TRIM(code))=?", (code,)
                 )
 
+            product_columns = (
+                "code", "name", "category", "description", "price", "price_sample",
+                "price_hundred", "price_thousand", "stock", "color_stock", "image_url",
+                "image_path", "image_hash", "content_hash",
+            )
             for product in products.values():
-                placeholders = ", ".join("?" for _ in self.PRODUCT_COLUMNS)
+                placeholders = ", ".join("?" for _ in product_columns)
                 updates = ", ".join(
-                    f"{field}=excluded.{field}" for field in self.PRODUCT_COLUMNS[1:]
+                    f"{field}=excluded.{field}" for field in product_columns[1:]
                 )
                 self.db.execute_query(
-                    f"INSERT INTO products ({', '.join(self.PRODUCT_COLUMNS)}) "
+                    f"INSERT INTO products ({', '.join(product_columns)}) "
                     f"VALUES ({placeholders}) ON CONFLICT(code) DO UPDATE SET {updates}",
-                    tuple(product[field] for field in self.PRODUCT_COLUMNS),
+                    tuple(product[field] for field in product_columns),
                 )
             self.mark_initialized()
             self._mark_history_recovery_applied()

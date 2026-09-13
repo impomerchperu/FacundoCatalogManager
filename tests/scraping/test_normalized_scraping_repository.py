@@ -137,6 +137,46 @@ def test_normalized_repository_matches_canonical_category_aliases():
     db.close()
 
 
+def test_normalized_repository_creates_missing_master_before_occurrence():
+    db = DBManager(":memory:")
+    product_repository = ProductRepository(db)
+    repository = NormalizedScrapingRepository(db)
+    category = Category(
+        name="Categoría A",
+        url="https://example.test/categoria-a/",
+        expected_count=1,
+    )
+    product = Product(
+        code="FB-1909",
+        name="Producto sin maestro previo",
+        category="Categoría A",
+    )
+
+    run_id = repository.start_run(
+        mode="directed",
+        categories_requested=1,
+        expected_category_occurrences=1,
+    )
+
+    actual = repository.persist_occurrences(
+        run_id,
+        [category],
+        [product],
+        product_repository,
+    )
+
+    assert actual == 1
+    master = product_repository.get("FB-1909")
+    assert master is not None
+    assert db.fetch_one("SELECT COUNT(*) AS n FROM product_categories")["n"] == 1
+    assert (
+        db.fetch_one("SELECT COUNT(*) AS n FROM scraping_product_occurrences")["n"]
+        == 1
+    )
+
+    db.close()
+
+
 def test_normalized_repository_does_not_hide_a_category_gap_with_global_overage():
     db = DBManager(":memory:")
     repository = NormalizedScrapingRepository(db)

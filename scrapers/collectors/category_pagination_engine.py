@@ -176,7 +176,6 @@ def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[s
     return [
         (key, values.get(key, value))
         for key, value in payload
-        if key != "indexing_filters[]"
     ]
 
 
@@ -376,20 +375,12 @@ def _jsf_category_pages_with_probe(
     _remember_jsf_settings(category_id, category_html)
 
     expected = max(int(expected_count or 0), 0)
-    archive_product_keys = _page_product_keys(scraper, category_html, category_url)
-    reuse_archive_first_page = (
-        expected > 0 and len(archive_product_keys) == min(expected, scraper.PRODUCTS_PER_PAGE)
+    found_posts, declared_max, first_html = _retry_jsf_page(
+        scraper,
+        category_url,
+        category_id,
+        1,
     )
-
-    if reuse_archive_first_page:
-        found_posts, declared_max, first_html = 0, 0, category_html
-    else:
-        found_posts, declared_max, first_html = _retry_jsf_page(
-            scraper,
-            category_url,
-            category_id,
-            1,
-        )
 
     expected_pages = scraper._required_page_count(expected_count)
     published_pages = scraper._required_page_count(found_posts)

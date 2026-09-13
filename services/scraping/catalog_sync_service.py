@@ -1,4 +1,6 @@
-from typing import ClassVar
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, ClassVar
 
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_name_normalizer import (
@@ -6,6 +8,9 @@ from services.scraping.category_name_normalizer import (
     split_category_names,
 )
 from services.scraping.product_hash_service import ProductHashService
+
+if TYPE_CHECKING:
+    from services.scraping.scraping_result_writer import ScrapingResultWriter
 
 
 class CatalogSyncService:
@@ -34,6 +39,7 @@ class CatalogSyncService:
         self.diff_service = diff_service
         self.last_sync_result = SyncResult()
         self.hash_service = ProductHashService()
+        self.result_writer: ScrapingResultWriter | None = None
 
     @staticmethod
     def _normalize_code(value) -> str:

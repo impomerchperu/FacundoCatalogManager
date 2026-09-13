@@ -161,11 +161,11 @@ def _apply_live_request_settings(values: dict[str, str], settings: object) -> No
 
 
 def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[str, str]]:
-    """Build a browser-compatible JSF payload from the live page-one state."""
+    """Build the browser-compatible JSF payload used successfully by the site."""
     with _JSF_STATE_LOCK:
         request_state = dict(_JSF_REQUEST_STATE.get(category_id, {}))
 
-    payload = CategoryScraper._jet_smart_filters_payload(category_id, 1)
+    payload = CategoryScraper._jet_smart_filters_payload(category_id, page)
     values = dict(payload)
     _apply_live_query_defaults(values, request_state.get("query"))
     _apply_live_request_settings(values, request_state.get("settings"))
@@ -176,6 +176,7 @@ def _browser_compatible_jsf_payload(category_id: int, page: int) -> list[tuple[s
     return [
         (key, values.get(key, value))
         for key, value in payload
+        if key != "indexing_filters[]"
     ]
 
 

@@ -120,6 +120,15 @@ def test_final_complete_coverage_overrides_recovered_guard_state():
         products_found=1,
         products_unique=1,
     )
+    service.last_sync_result.category_summary = [
+        {
+            "category": "Categoria",
+            "expected": 1,
+            "products": 1,
+            "unique_products": 1,
+            "gap": 0,
+        }
+    ]
     service.last_sync_result.finish()
 
     products = [Product()]

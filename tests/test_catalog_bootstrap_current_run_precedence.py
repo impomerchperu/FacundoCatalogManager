@@ -74,9 +74,16 @@ def _db():
             discovered_at TEXT,
             UNIQUE (run_id, category_id, code),
             FOREIGN KEY (run_id) REFERENCES scraping_runs(id),
+            FOREIGN KEY (category_id) REFERENCES categories(id),
             FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
         );
         CREATE TABLE catalog_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        CREATE TABLE categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            canonical_url TEXT NOT NULL UNIQUE,
+            expected_count INTEGER DEFAULT 0
+        );
         CREATE TABLE scraped_products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             code TEXT,
@@ -183,7 +190,7 @@ def test_recovery_uses_the_latest_successful_run_without_a_historical_count_floo
     ] == ["CURRENT"]
 
 
-def test_bootstrap_never_replaces_a_nonempty_catalog_with_another_successful_run():
+def test_bootstrap_does_not_replace_initialized_catalog_with_another_successful_run():
     connection = _db()
     db = SQLiteDBAdapter(connection)
     connection.execute(
@@ -195,12 +202,12 @@ def test_bootstrap_never_replaces_a_nonempty_catalog_with_another_successful_run
     )
     product_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
     connection.execute(
-        """
-        INSERT INTO scraping_product_occurrences
-            (run_id, category_id, product_id, code, discovered_at)
-        VALUES (?, 1, ?, 'CURRENT', 'now')
-        """,
+        "INSERT INTO scraping_product_occurrences (run_id, category_id, product_id, code, discovered_at) "
+        "VALUES (?, 1, ?, 'CURRENT', 'now')",
         (run_id, product_id),
+    )
+    connection.execute(
+        "INSERT INTO catalog_metadata (key, value) VALUES ('initialized', '1')"
     )
     connection.commit()
 
@@ -214,3 +221,42 @@ def test_bootstrap_never_replaces_a_nonempty_catalog_with_another_successful_run
         "Persistente",
         99,
     )
+
+
+def test_bootstrap_repairs_populated_uninitialized_catalog_from_latest_successful_run():
+    connection = _db()
+    db = SQLiteDBAdapter(connection)
+
+    connection.execute(
+        "INSERT INTO scraping_runs (mode, status, coverage_complete) VALUES ('full', 'SUCCESS', 1)"
+    )
+    run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
+    connection.execute(
+        "INSERT INTO products (code, name, stock) VALUES ('STALE', 'Obsoleto', 1)"
+    )
+    connection.execute(
+        "INSERT INTO products (code, name, stock) VALUES ('CURRENT', 'Producto actual', 7)"
+    )
+    current_id = connection.execute("SELECT id FROM products WHERE code='CURRENT'").fetchone()[0]
+    connection.execute(
+        "INSERT INTO scraped_products (code, name, stock) VALUES ('CURRENT', 'Producto actual', 7)"
+    )
+    connection.execute(
+        "INSERT INTO scraping_product_occurrences (run_id, category_id, product_id, code, discovered_at) "
+        "VALUES (?, 1, ?, 'CURRENT', 'now')",
+        (run_id, current_id),
+    )
+    connection.commit()
+
+    service = CatalogBootstrapService(db=db)
+    assert service.bootstrap() == 1
+    rows = connection.execute(
+        "SELECT code, name, stock FROM products ORDER BY code"
+    ).fetchall()
+    assert [(row["code"], row["name"], row["stock"]) for row in rows] == [
+        ("CURRENT", "Producto actual", 7),
+    ]
+
+    assert connection.execute(
+        "SELECT value FROM catalog_metadata WHERE key='initialized'"
+    ).fetchone()[0] == "1"

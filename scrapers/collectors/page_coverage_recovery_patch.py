@@ -118,15 +118,13 @@ def _get_resilient_category_pages_with_recovery(
 
 
 def activate() -> None:
-    """Install the historical compatibility wrapper."""
+    """Install the historical compatibility wrapper explicitly."""
     global _PATCHED
     if _PATCHED:
         return
     CategoryScraper.get_category_pages = _get_category_pages_with_recovery
     _PATCHED = True
 
-
-activate()
 
 __all__ = [
     "_ORIGINAL_GET_CATEGORY_PAGES",

@@ -72,6 +72,41 @@ def _db():
             FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
             FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
         );
+        CREATE TABLE scraped_products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT,
+            name TEXT,
+            category TEXT,
+            description TEXT,
+            price REAL DEFAULT 0,
+            price_sample REAL DEFAULT 0,
+            price_hundred REAL DEFAULT 0,
+            price_thousand REAL DEFAULT 0,
+            stock INTEGER DEFAULT 0,
+            color_stock TEXT DEFAULT '{}',
+            image_url TEXT,
+            image_path TEXT,
+            image_hash TEXT DEFAULT '',
+            content_hash TEXT DEFAULT ''
+        );
+        CREATE TABLE sync_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT,
+            name TEXT,
+            category TEXT,
+            description TEXT,
+            price REAL DEFAULT 0,
+            price_sample REAL DEFAULT 0,
+            price_hundred REAL DEFAULT 0,
+            price_thousand REAL DEFAULT 0,
+            stock INTEGER DEFAULT 0,
+            color_stock TEXT DEFAULT '{}',
+            image_url TEXT,
+            image_path TEXT,
+            image_hash TEXT DEFAULT '',
+            content_hash TEXT DEFAULT '',
+            updated_at TEXT
+        );
         """
     )
     return connection

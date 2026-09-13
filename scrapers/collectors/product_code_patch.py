@@ -1,5 +1,7 @@
 """Legacy import compatibility for retired product-code monkey patches."""
 
+# isort: skip_file
+
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.code_utils import (

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .category_page_recovery import recover_missing_category_pages
+
 _PATCHED = False
 
 

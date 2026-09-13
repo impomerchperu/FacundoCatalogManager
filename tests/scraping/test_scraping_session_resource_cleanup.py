@@ -3,46 +3,41 @@ from types import SimpleNamespace
 from services.scraping.scraping_session import ScrapingSession
 
 
-class RecordingExecutor:
+class RecordingScraperService:
     def __init__(self):
-        self.calls = []
+        self.close_calls = 0
 
-    def shutdown(self, *, wait, cancel_futures):
-        self.calls.append((wait, cancel_futures))
+    def close(self):
+        self.close_calls += 1
 
 
-def test_scraping_session_closes_detail_executors_after_error():
-    detail_executor = RecordingExecutor()
-    fetch_executor = RecordingExecutor()
-    scraper = SimpleNamespace(
-        _detail_executor=detail_executor,
-        _detail_fetch_executor=fetch_executor,
-    )
-    scraping_service = SimpleNamespace(scraper=scraper)
-    sync_service = SimpleNamespace(scraper_service=scraping_service)
+def test_scraping_session_does_not_close_resources_after_execution():
+    scraper_service = RecordingScraperService()
+    sync_service = SimpleNamespace(scraper_service=scraper_service)
     runner = SimpleNamespace(scraping_service=sync_service)
 
     session = ScrapingSession(runner)
-    result = session._execute(
-        lambda: (_ for _ in ()).throw(RuntimeError("scraping failed"))
-    )
+    result = session._execute(lambda: [])
 
-    assert result.errors == ["scraping failed"]
-    assert detail_executor.calls == [(True, True)]
-    assert fetch_executor.calls == [(True, True)]
+    assert result.errors == []
+    assert scraper_service.close_calls == 0
 
 
-def test_scraping_session_does_not_shutdown_duplicate_executor_twice():
-    executor = RecordingExecutor()
-    scraper = SimpleNamespace(
-        _detail_executor=executor,
-        _detail_fetch_executor=executor,
-    )
-    scraping_service = SimpleNamespace(scraper=scraper)
-    sync_service = SimpleNamespace(scraper_service=scraping_service)
+def test_scraping_session_closes_resources_explicitly():
+    scraper_service = RecordingScraperService()
+    sync_service = SimpleNamespace(scraper_service=scraper_service)
     runner = SimpleNamespace(scraping_service=sync_service)
 
     session = ScrapingSession(runner)
-    session._close_scraping_resources()
+    session.close()
+    session.close()
 
-    assert executor.calls == [(True, True)]
+    assert scraper_service.close_calls == 2
+
+
+def test_scraping_session_close_is_tolerant_of_missing_close_api():
+    sync_service = SimpleNamespace(scraper_service=SimpleNamespace())
+    runner = SimpleNamespace(scraping_service=sync_service)
+
+    session = ScrapingSession(runner)
+    session.close()

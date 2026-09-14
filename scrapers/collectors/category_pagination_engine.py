@@ -375,9 +375,6 @@ def _jsf_category_pages_with_probe(
         first_html = category_html
         with _JSF_STATE_LOCK:
             found_posts, declared_max = _JSF_QUERY_STATE.get(category_id, (0, 0))
-        if first_html:
-            with scraper._jsf_cache_lock:
-                scraper._jsf_page_cache[(category_url, 1)] = first_html
     else:
         found_posts, declared_max, first_html = _retry_jsf_page(
             scraper,
@@ -411,6 +408,9 @@ def _jsf_category_pages_with_probe(
     pages = [category_url]
     seen_product_keys = _page_product_keys(scraper, first_html, category_url)
     scraper._cache_category_html(category_url, category_html)
+    if use_archive_first_page:
+        with scraper._jsf_cache_lock:
+            scraper._jsf_page_cache[(category_url, 1)] = first_html
 
     page_number = 2
     while page_number <= known_pages:

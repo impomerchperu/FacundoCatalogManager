@@ -9,7 +9,6 @@ from typing import Any, cast
 import requests
 from bs4 import BeautifulSoup
 
-from config.scraping_config import SCRAPING_CATEGORY_WORKERS
 from models.scraping.sync_result import SyncResult
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_name_normalizer import (
@@ -43,12 +42,16 @@ class CategoryProductSyncService:
         mapper=None,
         catalog_sync_service=None,
         image_sync_adapter=None,
+        category_workers=16,
     ):
         self.scraper_service = scraper_service
         self.persistence_service = persistence_service
         self.mapper = mapper
         self.catalog_sync_service = catalog_sync_service
         self.image_sync_adapter = image_sync_adapter
+        self.category_workers = int(category_workers)
+        if self.category_workers <= 0:
+            raise ValueError("category_workers debe ser mayor que cero.")
         self.last_sync_result = SyncResult()
         self._occurrence_categories = []
         self._full_sync_coverage_validated = None
@@ -102,7 +105,7 @@ class CategoryProductSyncService:
         started = time.perf_counter()
         self._enable_thread_sessions()
         if categories:
-            worker_count = min(SCRAPING_CATEGORY_WORKERS, len(categories))
+            worker_count = min(self.category_workers, len(categories))
             with ThreadPoolExecutor(max_workers=worker_count) as executor:
                 futures = {
                     executor.submit(self._collect_category, index, category): index
@@ -137,7 +140,7 @@ class CategoryProductSyncService:
             recovery_started = time.perf_counter()
             recovered = 0
             recovery_worker_count = min(
-                SCRAPING_CATEGORY_WORKERS,
+                self.category_workers,
                 len(failed_category_errors),
             )
             with ThreadPoolExecutor(max_workers=recovery_worker_count) as executor:
@@ -196,7 +199,7 @@ class CategoryProductSyncService:
         started = time.perf_counter()
         enriched_by_index: list[list[Any] | None] = [None] * len(categories)
         if categories:
-            worker_count = min(SCRAPING_CATEGORY_WORKERS, len(categories))
+            worker_count = min(self.category_workers, len(categories))
             with ThreadPoolExecutor(max_workers=worker_count) as executor:
                 futures = {
                     executor.submit(

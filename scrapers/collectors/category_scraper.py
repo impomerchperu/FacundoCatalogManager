@@ -2,7 +2,7 @@ import contextlib
 import json
 import re
 from concurrent.futures import ThreadPoolExecutor
-from threading import Lock
+from threading import BoundedSemaphore, Lock
 from typing import Any
 from urllib.parse import urljoin
 
@@ -26,6 +26,8 @@ class CategoryScraper:
     MAX_HIDDEN_PAGE_PROBES = 100
     JSF_EMPTY_PAGE_RETRIES = 1
     JSF_PAGE_WORKERS = 2
+    JSF_HTTP_CONCURRENCY = 4
+    _JSF_HTTP_SEMAPHORE = BoundedSemaphore(JSF_HTTP_CONCURRENCY)
 
     def __init__(self, browser: Any, parser: Any = None, category_extractor: Any = None, product_block_extractor: Any = None) -> None:
         self.parser = parser
@@ -291,11 +293,12 @@ class CategoryScraper:
         return found_posts, max_num_pages, rendered_html
 
     def _post_jsf(self, payload: list[tuple[str, str]]) -> str:
-        if self.browser and hasattr(self.browser, "post"):
-            return self._response_text(self.browser.post(JETSMARTFILTERS_AJAX_URL, data=payload))
-        response = requests.post(JETSMARTFILTERS_AJAX_URL, data=payload, headers=DEFAULT_HEADERS, timeout=20)
-        response.raise_for_status()
-        return response.text
+        with self._JSF_HTTP_SEMAPHORE:
+            if self.browser and hasattr(self.browser, "post"):
+                return self._response_text(self.browser.post(JETSMARTFILTERS_AJAX_URL, data=payload))
+            response = requests.post(JETSMARTFILTERS_AJAX_URL, data=payload, headers=DEFAULT_HEADERS, timeout=20)
+            response.raise_for_status()
+            return response.text
 
     @staticmethod
     def _jet_smart_filters_payload(category_id: int, page: int) -> list[tuple[str, str]]:

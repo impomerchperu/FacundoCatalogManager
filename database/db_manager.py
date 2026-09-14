@@ -63,7 +63,7 @@ class DBManager:
         )
 
     def _restore_applied_history_marker(self) -> None:
-        """Marca la última ejecución FULL válida como aplicada en bases antiguas."""
+        """Marca la última descarga exitosa histórica como aplicada en bases antiguas."""
         self.connection.execute(
             """
             UPDATE scraping_history
@@ -72,8 +72,6 @@ class DBManager:
                 SELECT MAX(id)
                 FROM scraping_history
                 WHERE status = 'SUCCESS'
-                  AND mode = 'full'
-                  AND coverage_complete = 1
             )
             AND applied_at IS NULL
             """
@@ -233,10 +231,10 @@ class DBManager:
 
     def _add_column_if_missing(
         self,
-        table_name,
-        column_name,
-        column_definition,
-    ):
+        table_name: str,
+        column_name: str,
+        column_definition: str,
+    ) -> None:
         columns = self.fetch_all(f"PRAGMA table_info({table_name})")
         if column_name in {row["name"] for row in columns}:
             return
@@ -261,7 +259,7 @@ class DBManager:
     def execute_query(self, query, params=()):
         cursor = self.connection.cursor()
         cursor.execute(query, params)
-        if not query.lstrip().upper().startswith(("SELECT", "PRAGMA")):
+        if not self._transaction_active:
             self.connection.commit()
         return cursor
 
@@ -276,5 +274,4 @@ class DBManager:
         return cursor.fetchone()
 
     def close(self):
-        if self.connection:
-            self.connection.close()
+        self.connection.close()

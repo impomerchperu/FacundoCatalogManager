@@ -117,6 +117,7 @@ class ScrapingFactory:
             catalog_sync_service,
             image_sync_adapter,
             normalized_repository=normalized_repository,
+            category_workers=config.category_workers,
         )
 
         return ScrapingRunner(

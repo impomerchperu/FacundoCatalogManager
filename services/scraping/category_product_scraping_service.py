@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 from models.scraping.category import Category
 from services.scraping.page_metrics_audit import record_page_metrics
@@ -55,8 +55,9 @@ class CategoryProductScrapingService:
         )
         get_page_metrics = getattr(self.scraper, "get_page_metrics", None)
         if callable(get_page_metrics):
+            metrics = cast(dict[str, dict[str, Any]], get_page_metrics())
             record_page_metrics(
-                get_page_metrics(),
+                metrics,
                 category_url=category.url,
             )
         return products

@@ -12,8 +12,8 @@ from repositories.scraping.scraping_history_repository import (
     ScrapingHistoryRepository,
 )
 from scrapers.browser import Browser
-from scrapers.collectors.product_collection_scraper import (
-    ProductCollectionScraper,
+from scrapers.collectors.price_recovery_product_collection_scraper import (
+    PriceRecoveryProductCollectionScraper,
 )
 from scrapers.collectors.resilient_category_scraper import (
     ResilientCategoryScraper,
@@ -100,7 +100,7 @@ class ScrapingFactory:
             config.catalog_url,
         )
 
-        collection_scraper = ProductCollectionScraper(
+        collection_scraper = PriceRecoveryProductCollectionScraper(
             category_scraper,
             ProductCardExtractor(),
             CategoryProductExtractor(),

@@ -102,83 +102,17 @@ class CategoryScraper:
         return paginate_category(self, category_url, expected_count=expected_count)
 
     def _jsf_category_pages(self, category_url: str, category_id: int, expected_count: int) -> list[str]:
-        found_posts, declared_max_num_pages, first_html = self._fetch_jsf_page(category_url, category_id, 1)
-        expected_pages = self._required_page_count(expected_count)
-        published_pages = self._required_page_count(found_posts)
-        declared_total_pages = self._declared_total_pages(first_html)
-        declared_pagination_max_page = self._pagination_max_page(first_html)
-        max_num_pages = max(
-            declared_max_num_pages,
-            published_pages,
-            expected_pages,
-            declared_total_pages,
-            declared_pagination_max_page,
+        """Preserve the historical JSF helper while delegating policy to the canonical engine."""
+        from .category_pagination_engine import _jsf_category_pages_with_probe
+
+        category_html = self.get_html(category_url)
+        return _jsf_category_pages_with_probe(
+            self,
+            category_url,
+            category_id,
+            expected_count,
+            category_html=category_html,
         )
-        if max_num_pages <= 0:
-            return [category_url]
-
-        pages = [category_url]
-        seen_product_keys = self._product_keys(first_html)
-        if first_html:
-            self._cache_category_html(category_url, first_html)
-
-        completed_declared_range = True
-        pending_pages = list(range(2, max_num_pages + 1))
-        if pending_pages:
-            worker_count = min(self.JSF_PAGE_WORKERS, len(pending_pages))
-            with ThreadPoolExecutor(max_workers=worker_count) as executor:
-                futures = {
-                    page_number: executor.submit(
-                        self._fetch_jsf_page_with_empty_retries,
-                        category_url,
-                        category_id,
-                        page_number,
-                    )
-                    for page_number in pending_pages
-                }
-                for page_number in pending_pages:
-                    page_url = self._jsf_page_url(category_url, page_number)
-                    _, _, rendered_html = futures[page_number].result()
-                    if not rendered_html:
-                        completed_declared_range = False
-                        break
-                    current_product_keys = self._product_keys(rendered_html)
-                    if current_product_keys and not current_product_keys - seen_product_keys:
-                        raise RuntimeError(
-                            f"Repeated JSF pagination page {page_number} for {category_url}"
-                        )
-                    if not current_product_keys and rendered_html == first_html:
-                        raise RuntimeError(
-                            f"Repeated JSF pagination page {page_number} for {category_url}"
-                        )
-                    seen_product_keys.update(current_product_keys)
-                    self._cache_category_html(page_url, rendered_html)
-                    pages.append(page_url)
-
-        underreported_metadata = (
-            declared_max_num_pages > 0
-            and published_pages > declared_max_num_pages
-        )
-        if underreported_metadata and completed_declared_range:
-            sentinel_page = max_num_pages + 1
-            sentinel_html = self._fetch_jsf_page(
-                category_url,
-                category_id,
-                sentinel_page,
-            )[2]
-            if sentinel_html:
-                sentinel_url = self._jsf_page_url(category_url, sentinel_page)
-                sentinel_product_keys = self._product_keys(sentinel_html)
-                if sentinel_product_keys and not sentinel_product_keys - seen_product_keys:
-                    raise RuntimeError(
-                        f"Repeated JSF pagination page {sentinel_page} for {category_url}"
-                    )
-                if sentinel_product_keys:
-                    seen_product_keys.update(sentinel_product_keys)
-                    self._cache_category_html(sentinel_url, sentinel_html)
-                    pages.append(sentinel_url)
-
-        return pages
 
     def _fetch_jsf_page_with_empty_retries(self, category_url: str, category_id: int, page: int) -> tuple[int, int, str]:
         result = self._fetch_jsf_page(category_url, category_id, page)
@@ -359,92 +293,7 @@ class CategoryScraper:
     @staticmethod
     def _first_int(text: str, patterns: tuple[str, ...]) -> int:
         for pattern in patterns:
-            match = re.search(pattern, text or "", flags=re.IGNORECASE)
-            if match:
-                try:
-                    return int(match.group(1))
-                except (IndexError, TypeError, ValueError):
-                    return 0
-        return 0
-
-    @staticmethod
-    def _category_id(html: str) -> int | None:
-        soup = BeautifulSoup(html or "", "html.parser")
-        body = soup.body
-        if body is not None:
-            class_names = body.get("class")
-            if isinstance(class_names, (list, tuple)):
-                for class_name in class_names:
-                    match = re.fullmatch(r"(?:term|product_cat)-(\d+)", str(class_name))
-                    if match:
-                        return int(match.group(1))
-            for attribute in ("data-term-id", "data-category-id"):
-                value = body.get(attribute)
-                if isinstance(value, str) and value.isdigit():
-                    return int(value)
-        patterns = (r'data-term-id=["\'](\d+)["\']', r'data-category-id=["\'](\d+)["\']', r'"filtered_post_id"\s*[:=]\s*["\']?(\d+)', r'"_tax_query_product_cat"\s*[:=]\s*["\']?(\d+)', r"\bterm-(\d+)\b", r"\bproduct_cat-(\d+)\b")
-        for pattern in patterns:
-            match = re.search(pattern, html or "", flags=re.IGNORECASE)
-            if match:
-                try:
-                    return int(match.group(1))
-                except (IndexError, TypeError, ValueError):
-                    continue
-        return None
-
-    @staticmethod
-    def _is_facundo_url(url: str) -> bool:
-        return url.startswith("https://stock.importacionesfacundo.com/")
-
-    @staticmethod
-    def _jsf_page_url(category_url: str, page: int) -> str:
-        return f"{category_url.rstrip('/')}?product-page={page}"
-
-    @staticmethod
-    def _fallback_page_url(category_url: str, page: int) -> str:
-        return f"{category_url.rstrip('/')}/page/{page}/"
-
-    @staticmethod
-    def _declared_total_pages(html: str) -> int:
-        return CategoryScraper._first_int(html, (r"\btotalPages\s*[:=]\s*(\d+)", r'"max_num_pages"\s*[:=]\s*(\d+)', r"\bmax_num_pages\s*[:=]\s*(\d+)"))
-
-    @staticmethod
-    def _pagination_max_page(html: str) -> int:
-        if not html:
-            return 0
-        numbers: list[int] = []
-        for pattern in (r"[?&](?:product-page|paged)=(\d+)", r"/page/(\d+)(?:/|$)", r"data-value=[\"'](\d+)[\"']", r"data-page=[\"'](\d+)[\"']"):
-            numbers.extend(int(value) for value in re.findall(pattern, html, flags=re.IGNORECASE))
-        return max(numbers, default=0)
-
-    @staticmethod
-    def _page_number(url: str) -> int | None:
-        for pattern in (r"[?&](?:product-page|paged)=(\d+)", r"/page/(\d+)(?:/|$)"):
-            match = re.search(pattern, url or "", flags=re.IGNORECASE)
+            match = re.search(pattern, text or "")
             if match:
                 return int(match.group(1))
-        return None
-
-    def _fallback_pagination_links(self, category_url: str, html: str) -> list[str]:
-        soup = self._parse(html)
-        links: dict[int, str] = {}
-        selector = (
-            "a.page-numbers, nav.woocommerce-pagination a, "
-            "a[href*='product-page='], a[href*='paged='], a[href*='page/'], "
-            ".jet-filters-pagination__item[data-value]"
-        )
-        for link in soup.select(selector):
-            href = link.get("href")
-            if isinstance(href, str) and href:
-                absolute_url = urljoin(category_url, href)
-                page_number = self._page_number(absolute_url)
-            else:
-                value = link.get("data-value")
-                if not isinstance(value, str) or not value.isdigit():
-                    continue
-                page_number = int(value)
-                absolute_url = self._fallback_page_url(category_url, page_number)
-            if page_number is None or page_number <= 1:
-                continue
-            links.setdefault(page_number, absolute_url)
-        return [links[number] for number in sorted(links)]
+        return 0

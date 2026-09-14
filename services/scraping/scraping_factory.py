@@ -1,16 +1,5 @@
 from pathlib import Path
 
-from database.db_manager import DBManager
-from repositories.product_repository import ProductRepository
-from repositories.scraping.normalized_scraping_repository import (
-    NormalizedScrapingRepository,
-)
-from repositories.scraping.scraped_product_repository import (
-    ScrapedProductRepository,
-)
-from repositories.scraping.scraping_history_repository import (
-    ScrapingHistoryRepository,
-)
 from scrapers.browser import Browser
 from scrapers.collectors.price_recovery_product_collection_scraper import (
     PriceRecoveryProductCollectionScraper,
@@ -27,6 +16,17 @@ from scrapers.extractors.product_extractor import ProductExtractor
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.safe_image_manager import SafeImageManager
 from scrapers.sync.image_sync import ImageSync
+from database.db_manager import DBManager
+from repositories.product_repository import ProductRepository
+from repositories.scraping.normalized_scraping_repository import (
+    NormalizedScrapingRepository,
+)
+from repositories.scraping.scraped_product_repository import (
+    ScrapedProductRepository,
+)
+from repositories.scraping.scraping_history_repository import (
+    ScrapingHistoryRepository,
+)
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,

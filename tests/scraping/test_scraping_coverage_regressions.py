@@ -233,7 +233,7 @@ def test_facundo_jsf_pagination_does_not_treat_max_num_pages_as_hard_ceiling():
         expected_count=0,
     )
 
-    assert calls == [2, 3]
+    assert calls == [1, 2, 3]
     assert pages == [
         category_url,
         f"{category_url.rstrip('/')}?product-page=2",

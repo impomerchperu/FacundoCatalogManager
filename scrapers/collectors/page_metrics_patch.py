@@ -5,10 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from services.scraping.page_metrics_audit import (
-    TIMING_LOG as _AUDIT_TIMING_LOG,
-    record_page_metrics,
-)
+from services.scraping.page_metrics_audit import record_page_metrics
+from services.scraping.page_metrics_audit import TIMING_LOG as _AUDIT_TIMING_LOG
 
 _PATCHED = False
 TIMING_LOG = _AUDIT_TIMING_LOG

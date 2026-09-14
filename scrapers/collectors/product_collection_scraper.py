@@ -367,23 +367,10 @@ class ProductCollectionScraper:
     @classmethod
     def _missing_price_fields(cls, card: Any, product: Any) -> tuple[str, ...]:
         """Treat every non-positive catalog price as missing for recovery."""
-        card_text = " ".join(card.stripped_strings).casefold()
         return tuple(
-            dict.fromkeys(
-                (
-                    *tuple(
-                        field
-                        for field in cls._PRICE_FIELDS
-                        if float(getattr(product, field, 0.0) or 0.0) <= 0
-                        and cls._PRICE_LABELS[field] in card_text
-                    ),
-                    *tuple(
-                        field
-                        for field in cls._PRICE_FIELDS
-                        if float(getattr(product, field, 0.0) or 0.0) <= 0
-                    ),
-                )
-            )
+            field
+            for field in cls._PRICE_FIELDS
+            if float(getattr(product, field, 0.0) or 0.0) <= 0
         )
 
     @classmethod

@@ -207,12 +207,7 @@ def _retry_jsf_page(
     result = (0, 0, "")
     for _ in range(JSF_PAGE_RETRIES):
         try:
-            result = _fetch_jsf_page_direct(
-                scraper,
-                category_url,
-                category_id,
-                page,
-            )
+            result = _fetch_jsf_page_direct(scraper, category_url, category_id, page)
         except requests.RequestException as error:
             last_error = error
             continue
@@ -353,8 +348,7 @@ def _collect_direct_pages(
         )
         if accepted_url is None:
             raise RuntimeError(
-                f"No unique products found on public pagination page "
-                f"{page_number} for {category_url}"
+                f"No unique products found on public pagination page {page_number} for {category_url}"
             )
         pages.append(accepted_url)
         declared_pages = max(
@@ -375,8 +369,9 @@ def _jsf_category_pages_with_probe(
     """Use authoritative JSF pagination with validated archive fast-path."""
     _remember_jsf_settings(category_id, category_html)
     archive_product_urls = _direct_product_urls(category_html, category_url)
+    use_archive_first_page = bool(archive_product_urls) and len(archive_product_urls) <= scraper.PRODUCTS_PER_PAGE
 
-    if archive_product_urls:
+    if use_archive_first_page:
         first_html = category_html
         with _JSF_STATE_LOCK:
             found_posts, declared_max = _JSF_QUERY_STATE.get(category_id, (0, 0))

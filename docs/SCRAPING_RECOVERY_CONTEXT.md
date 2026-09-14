@@ -3,16 +3,53 @@
 > **Reference point for future work on `feature/scraping-performance-recovery`.**
 > Read this before proposing or applying changes to the scraper/sync pipeline.
 
-## Current validated state
+## FCM architecture checkpoint — 2026-09-14
 
-The application is locally green after the recovery and architecture-consolidation work completed so far.
+### BRANCH
 
-- Branch: `feature/scraping-performance-recovery`
-- Latest validated commit: `44ffa17952d0e512863fa295bbb7ad0671bbe52e`
-- Latest local validation: `378 passed, 1 skipped, 7 deselected`
-- Ruff: `All checks passed!`
-- Pyright: `0 errors, 0 warnings, 0 informations`
-- No real-site FULL has been run after the latest architecture-consolidation checkpoint.
+- [x] `feature/scraping-performance-recovery`
+
+### QUALITY
+
+- [x] Full automated suite: `378 passed, 1 skipped, 7 deselected`
+- [x] Ruff: `All checks passed!`
+- [x] Pyright: `0 errors, 0 warnings, 0 informations`
+- [x] Focused scraping/recovery coverage retained
+- [x] Bootstrap/reconciliation coverage retained
+- [x] Architecture-boundary coverage retained
+
+### RUNTIME CONSOLIDATION
+
+- [x] Pagination monkey patch retired
+- [x] JSF concurrency monkey patch retired
+- [x] Page-metrics monkey patch retired
+- [x] Price recovery monkey patch retired
+- [x] Price recovery preserved natively in `ProductCollectionScraper`
+- [x] Page-metrics audit preserved
+- [x] Canonical pagination engine active
+- [x] FULL/prune safety preserved
+- [x] Bootstrap/reconciliation preserved
+- [x] Canonical `ScrapingConfig` worker limits unified and injected
+- [x] Browser HTTP concurrency limit injected (`28` by default)
+- [x] Category worker limit injected (`16` by default)
+- [x] Detail worker limit injected (`32` by default)
+
+### ARCHITECTURE CLEANUP STATUS
+
+- [x] P4b — consolidate price recovery into `ProductCollectionScraper` base behavior
+- [x] P5 — remove duplicated pagination policy from `CategoryScraper` in favor of the canonical pagination engine
+- [x] P6 — finish `ScrapingConfig` unification and worker propagation
+- [x] P7 — compatibility/dead-code audit substantially completed; compatibility facades retained only where current tests/consumers require them
+- [x] P8 — legacy DB/model audit completed; `scraped_products` and `sync_records` retained intentionally because recovery/reconciliation still consumes them
+- [ ] P9 — real FULL validation across all 24 categories
+
+### REMAINING ARCHITECTURE AUDIT
+
+The main remaining compatibility item requiring explicit evidence before removal is:
+
+- `scrapers/collectors/page_coverage_recovery_patch.py` still exposes an explicit runtime `activate()` monkey-patch path.
+
+Do not remove or invoke that compatibility path as part of the production FULL validation. Audit its actual usages/tests separately after the real FULL has passed.
 
 ## Authoritative real FULL checkpoint
 
@@ -39,7 +76,7 @@ Interpretation:
 - 534 product-category relationships.
 - Complete coverage means all expected category occurrences are represented and the unique-code count is complete.
 
-This checkpoint supersedes the older 530/526 reference that appears in historical notes. **Do not accept 529/525 or another manually chosen lower floor as a valid COMPLETE baseline.** The latest independently validated complete FULL result is authoritative.
+This checkpoint supersedes all older 530/526 notes. **Do not accept 529/525 or another manually chosen lower floor as a valid COMPLETE baseline.** The latest independently validated complete FULL result is authoritative.
 
 ## Non-negotiable safety rules
 
@@ -61,29 +98,27 @@ This checkpoint supersedes the older 530/526 reference that appears in historica
 6. **Do not break the already-solved embedded/AJAX category pagination.**
    Multiple product pages can exist under the same category URL through JetSmartFilters/AJAX.
 
-## Current architecture checkpoint
+## Current validated engineering state
 
-Completed and locally validated consolidation areas:
+The application is locally green after the recovery and architecture-consolidation work completed so far.
 
-- canonical scraping configuration with explicit category, HTTP, and detail worker limits;
-- `Browser` HTTP concurrency injection with bounded semaphore;
-- category worker injection through the normalized sync pipeline;
-- canonical pagination engine used by `CategoryScraper`;
-- native JSF concurrency control;
-- native page-metrics collection and audit path;
-- native price-detail recovery behavior;
-- compatibility facades retained only where tests/legacy consumers still require them;
-- canonical factory as the production construction path;
-- bootstrap/reconciliation safety around the latest successful FULL run;
-- FULL prune guard preventing destructive reconciliation on incomplete coverage;
-- history recording that preserves the existing history and records only detected changes;
-- legacy `scraped_products` / `sync_records` tables intentionally retained because recovery/reconciliation still consumes them.
+- Branch: `feature/scraping-performance-recovery`
+- Latest validated code commit: `44ffa17952d0e512863fa295bbb7ad0671bbe52e`
+- Latest documentation checkpoint commit: this update
+- Latest local validation: `378 passed, 1 skipped, 7 deselected`
+- Ruff: `All checks passed!`
+- Pyright: `0 errors, 0 warnings, 0 informations`
+- No real-site FULL has been run after the latest architecture-consolidation checkpoint.
 
-One compatibility area remains under audit and must not be removed without evidence from usages/tests:
+## Production construction path
 
-- `scrapers/collectors/page_coverage_recovery_patch.py` still contains an explicit runtime patch activation path.
+The canonical production path is:
 
-Other retired patch modules are facades/no-op activators and should not be reintroduced as runtime monkey patches.
+`ScrapingController.run_full_scraping()` → `ScrapingSession.execute_all()` → `ScrapingRunner.run_all()` → canonical normalized scraping/sync pipeline.
+
+`run_all()` discovers the categories through `CategoryService`. When all discovered categories remain selected, the runner executes them as a FULL run; when a category filter is active, the run is treated as directed rather than FULL.
+
+The FULL validation must therefore use the application’s real full-catalog entry point, not a handcrafted subset of categories.
 
 ## Real-site pagination facts
 
@@ -116,7 +151,7 @@ History is expected to contain only detected changes:
 
 The bootstrap/reconciliation path must preserve prior history and must never treat an incomplete latest scrape as authoritative catalog state.
 
-## Checklist before the next production/full validation
+## Checklist — before and after the next real FULL
 
 - [x] Pull latest branch and verify working tree.
 - [x] Ruff clean.
@@ -125,14 +160,21 @@ The bootstrap/reconciliation path must preserve prior history and must never tre
 - [x] Canonical worker configuration injected and covered by tests.
 - [x] Pagination/recovery architecture protected by tests.
 - [x] Bootstrap/history/prune safety protected by tests.
-- [x] Authoritative FULL target recorded as `534 / 530 / 4`.
+- [x] P4b/P5/P6 architecture consolidation complete.
+- [x] P7 compatibility/dead-code audit substantially complete.
+- [x] P8 legacy DB/model audit complete; legacy recovery tables retained intentionally.
+- [x] Authoritative FULL target recorded as `24 / 534 / 530 / 4`.
 - [ ] Run the next real FULL across all 24 categories.
-- [ ] Verify `products_found=534`, `products_unique=530`, `products_multiple_categories=4` and `coverage_complete=true`.
-- [ ] Verify zero invalidating errors and no unsafe prune.
+- [ ] Verify `categories_processed=24`.
+- [ ] Verify `products_found=534`, `products_unique=530`, `products_multiple_categories=4`.
+- [ ] Verify `expected_category_occurrences=534` and `duplicate_occurrences=4`.
+- [ ] Verify `coverage_complete=true` and zero invalidating errors.
+- [ ] Verify no unsafe prune occurs when coverage is incomplete.
 - [ ] Verify catalog/database reconciliation matches the complete FULL result.
-- [ ] Verify history retains prior executions and records the new run correctly.
-- [ ] Verify a subsequent idempotent FULL still produces no false changes.
-- [ ] Only after the above, continue removing legacy compatibility/runtime patch code where proven safe.
+- [ ] Verify all prior history remains intact.
+- [ ] Verify the new history entry is `SUCCESS` and records only effective changes.
+- [ ] Verify a subsequent identical FULL is idempotent and produces no false changes.
+- [ ] Only after the above, continue removing remaining compatibility/runtime patch code where proven safe.
 
 ## Validated local commands
 
@@ -150,13 +192,13 @@ python -m pytest -q
 
 Before changing scraper/sync code:
 
-1. Read this document and compare the proposed change against the authoritative 534-occurrence / 530-unique / 4-multi-category FULL baseline.
+1. Read this document and compare every change against the authoritative 24-category / 534-occurrence / 530-unique / 4-multi-category FULL baseline.
 2. Prefer focused unit/integration tests before any expensive real-site run.
-3. For real validation, use the smallest targeted category set that can demonstrate a code-path behavior first.
-4. The decisive production validation is a **FULL run across all 24 categories**.
+3. For real validation, do not substitute a category subset for the decisive FULL validation.
+4. The decisive production validation is a **FULL run across all 24 categories** through the canonical application entry point.
 5. Do not treat a lower historical floor as evidence of complete coverage.
-6. After any production change, re-check coverage, pruning guard, normalized persistence, idempotency, and history behavior.
+6. After the FULL, validate database reconciliation, history preservation, and idempotency before further cleanup.
 
 ### Guiding principle
 
-**Preserve proven coverage and safety first. The 24-category FULL result is only valid when the actual run proves complete coverage; lower manually selected floors are not substitutes.**
+**Preserve proven coverage and safety first. The 24-category FULL result is valid only when the actual run proves complete coverage; lower manually selected floors are not substitutes.**

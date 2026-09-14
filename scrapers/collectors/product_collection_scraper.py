@@ -314,18 +314,19 @@ class ProductCollectionScraper:
 
     @classmethod
     def _detail_skip_reason(cls, card: Any, product: Any) -> str | None:
-        if cls._missing_detail_fields(product):
-            return None
-        if cls._missing_price_fields(card, product):
-            return None
-
         stock_values = cls._stock_values(card)
         if cls._has_complete_card_color_stock(card, product, stock_values):
+            if cls._missing_price_fields(card, product):
+                return None
             return "complete_color_stock"
 
         if len(stock_values) != 1:
             return None
 
+        if cls._missing_detail_fields(product):
+            return None
+        if cls._missing_price_fields(card, product):
+            return None
         return "complete_single_stock"
 
     @classmethod

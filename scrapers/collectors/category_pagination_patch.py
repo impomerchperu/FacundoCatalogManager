@@ -1,13 +1,13 @@
 """Compatibility facade for the canonical category pagination engine.
 
 The implementation lives in ``category_pagination_engine``.  This module
-preserves historical helper names used by legacy callers and tests.
+preserves historical helper names used by legacy callers and tests without
+modifying ``CategoryScraper`` at import time.
 """
 
 from __future__ import annotations
 
 from . import category_pagination_engine as _engine
-from .category_scraper import CategoryScraper
 
 JSF_PAGE_RETRIES = _engine.JSF_PAGE_RETRIES
 _JSF_QUERY_STATE = _engine._JSF_QUERY_STATE
@@ -23,9 +23,8 @@ _engine_get_category_pages = _engine.get_category_pages
 pages_required = _engine.pages_required
 
 
-# Historical private entry point retained for compatibility.
 def get_category_pages(
-    self: CategoryScraper,
+    self,
     category_url: str,
     expected_count: int = 0,
 ) -> list[str]:
@@ -39,16 +38,13 @@ def get_category_pages(
 
 _get_category_pages = get_category_pages
 
+
 _PATCHED = False
 
 
 def activate() -> None:
-    """Install the canonical pagination callable through the legacy hook."""
-    global _PATCHED
-    if _PATCHED:
-        return
-    CategoryScraper.get_category_pages = get_category_pages
-    _PATCHED = True
+    """Preserve the historical activation API without monkey-patching runtime code."""
+    return None
 
 
 assert _engine.get_category_pages is _engine_get_category_pages

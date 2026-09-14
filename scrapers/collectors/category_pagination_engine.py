@@ -235,7 +235,7 @@ def _probe_jsf_page(
     category_id: int,
     page: int,
 ) -> tuple[int, int, str]:
-    return scraper._fetch_jsf_page(category_url, category_id, page)
+    return _retry_jsf_page(scraper, category_url, category_id, page)
 
 
 def _probe_boundary_page(

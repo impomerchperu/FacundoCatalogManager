@@ -5,9 +5,10 @@ Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
 
-- [x] Full suite: `378 passed, 1 skipped, 7 deselected`
+- [x] Full suite: `378 passed, 1 skipped, 7 deselected` *(validated before latest compatibility-facade cleanup)*
 - [x] Ruff: clean
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
+- [x] Targeted page-coverage compatibility tests: `6 passed`
 
 ## RUNTIME CONSOLIDATION
 
@@ -15,6 +16,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] JSF concurrency monkey patch retired
 - [x] Page metrics monkey patch retired
 - [x] Price recovery monkey patch retired
+- [x] Page coverage recovery monkey patch retired; `activate()` is now a compatibility no-op
 - [x] Price recovery preserved natively in `ProductCollectionScraper`
 - [x] Page metrics audit preserved
 - [x] Canonical pagination engine active
@@ -31,6 +33,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] P7 — compatibility/dead-code audit substantially completed
 - [x] P8 — legacy DB/model audit completed; recovery tables retained intentionally
 - [x] P9 — real FULL validation completed
+- [x] Page-coverage facade audited and locked against monkey patching
 
 ## AUTHORITATIVE FULL REFERENCE
 
@@ -105,12 +108,14 @@ The run reproduced the authoritative `24 / 534 / 530 / 4` result and produced no
 - [x] Verify previous history remains intact
 - [x] Verify new history entry is SUCCESS and applied
 - [x] Verify idempotent classification: 530 unchanged, 0 created, 0 updated, 0 deleted
+- [x] Audit actual usage of `page_coverage_recovery_patch.py`
+- [x] Confirm its runtime `activate()` path is no longer required
 
 ## NEXT
 
-- [ ] Audit actual usages/tests of `scrapers/collectors/page_coverage_recovery_patch.py`
-- [ ] Determine whether its runtime `activate()` path is still required
-- [ ] Remove only proven-dead compatibility/runtime patch code
+- [ ] Audit actual production usage of `scrapers/collectors/catalog_scraper.py`
+- [ ] Determine whether `CatalogScraper` and `category_page_recovery.py` are legacy-only
+- [ ] Remove only proven-dead legacy code and its tests
 - [ ] Run the complete suite after every cleanup change
 - [ ] Re-run a real FULL when a cleanup change can affect scraping/coverage/sync/persistence
 - [ ] Optimize performance only while preserving `24 / 534 / 530 / 4`

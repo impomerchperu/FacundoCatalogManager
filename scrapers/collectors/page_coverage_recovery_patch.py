@@ -1,10 +1,9 @@
-"""Compatibility facade for canonical category page coverage recovery."""
+"""Compatibility facade for native category page coverage recovery."""
 
 from __future__ import annotations
 
 import requests
 
-from .category_page_recovery import recover_missing_category_pages
 from .category_pagination_engine import pages_required
 from .category_scraper import CategoryScraper
 
@@ -132,5 +131,4 @@ __all__ = [
     "_get_resilient_category_pages_with_recovery",
     "_recover_missing_pages",
     "activate",
-    "recover_missing_category_pages",
 ]

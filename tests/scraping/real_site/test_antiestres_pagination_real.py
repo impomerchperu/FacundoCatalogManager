@@ -34,10 +34,7 @@ def _rendered_content(payload: str) -> str:
         return ""
     if not isinstance(data, dict):
         return ""
-    data_section = data.get("data")
-    if not isinstance(data_section, dict):
-        return ""
-    rendered = data_section.get("rendered_content")
+    rendered = data.get("rendered_content")
     return rendered if isinstance(rendered, str) else ""
 
 

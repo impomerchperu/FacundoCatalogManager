@@ -12,11 +12,11 @@ from repositories.scraping.scraping_history_repository import (
     ScrapingHistoryRepository,
 )
 from scrapers.browser import Browser
-from scrapers.collectors.price_recovery_product_collection_scraper import (
-    PriceRecoveryProductCollectionScraper,
-)
 from scrapers.collectors.resilient_category_scraper import (
     ResilientCategoryScraper,
+)
+from scrapers.collectors.price_recovery_product_collection_scraper import (
+    PriceRecoveryProductCollectionScraper,
 )
 from scrapers.extractors.category_extractor import CategoryExtractor
 from scrapers.extractors.category_product_extractor import (

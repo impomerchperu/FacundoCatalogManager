@@ -12,10 +12,23 @@ from config.scraping_config import (
 
 
 class Browser:
-    def __init__(self, session=None, request_timeout=None, max_retries=None):
+    def __init__(
+        self,
+        session=None,
+        request_timeout=None,
+        max_retries=None,
+        http_workers=None,
+    ):
         self.session = session
         self._thread_local = threading.local()
-        self._http_semaphore = threading.BoundedSemaphore(SCRAPING_HTTP_WORKERS)
+        worker_count = (
+            SCRAPING_HTTP_WORKERS
+            if http_workers is None
+            else int(http_workers)
+        )
+        if worker_count <= 0:
+            raise ValueError("http_workers debe ser mayor que cero.")
+        self._http_semaphore = threading.BoundedSemaphore(worker_count)
 
         if session is None:
             self.session = requests.Session()
@@ -178,131 +191,3 @@ class Browser:
 
             if retry_after_release:
                 time.sleep(attempt + 1)
-
-        if last_error:
-            raise last_error
-
-    @staticmethod
-    def _is_retryable_error(error):
-        """Retry only transient network/server failures, not permanent 4xx errors."""
-        if isinstance(
-            error,
-            (
-                requests.exceptions.ConnectionError,
-                requests.exceptions.Timeout,
-            ),
-        ):
-            return True
-
-        if isinstance(error, requests.exceptions.HTTPError):
-            response = getattr(error, "response", None)
-            status_code = getattr(response, "status_code", None)
-            return status_code == 429 or (
-                isinstance(status_code, int) and status_code >= 500
-            )
-
-        return False
-
-    def _begin_request(self, url):
-        with self._metrics_lock:
-            self._http_requests += 1
-            self._http_in_flight += 1
-            self._http_max_in_flight = max(
-                self._http_max_in_flight,
-                self._http_in_flight,
-            )
-
-            url_text = str(url)
-            if "/producto/" in url_text:
-                self._detail_http_requests += 1
-            elif "/categoria-producto/" in url_text or "/tienda/" in url_text:
-                self._category_http_requests += 1
-            else:
-                self._other_http_requests += 1
-
-    def _finish_request(self, elapsed, success, url):
-        with self._metrics_lock:
-            self._http_in_flight = max(0, self._http_in_flight - 1)
-            self._http_total_seconds += elapsed
-            self._http_max_seconds = max(
-                self._http_max_seconds,
-                elapsed,
-            )
-
-            if success:
-                self._http_successes += 1
-            else:
-                self._http_errors += 1
-
-            if elapsed < 0.5:
-                bucket = "lt_0_5"
-            elif elapsed < 1:
-                bucket = "0_5_1"
-            elif elapsed < 2:
-                bucket = "1_2"
-            elif elapsed < 5:
-                bucket = "2_5"
-            elif elapsed < 10:
-                bucket = "5_10"
-            else:
-                bucket = "gte_10"
-            self._latency_buckets[bucket] += 1
-
-            self._slowest_requests.append((elapsed, str(url)))
-            self._slowest_requests.sort(reverse=True)
-            del self._slowest_requests[10:]
-
-    def _record_retry(self):
-        with self._metrics_lock:
-            self._http_retries += 1
-
-    def _record_terminal_error(self):
-        with self._metrics_lock:
-            self._http_terminal_errors += 1
-
-    def get_http_metrics(self):
-        """Return accumulated HTTP timing and concurrency metrics."""
-        with self._metrics_lock:
-            return {
-                "http_requests": self._http_requests,
-                "http_successes": self._http_successes,
-                "http_errors": self._http_errors,
-                "http_terminal_errors": self._http_terminal_errors,
-                "http_retries": self._http_retries,
-                "http_total_seconds": self._http_total_seconds,
-                "http_max_seconds": self._http_max_seconds,
-                "http_in_flight": self._http_in_flight,
-                "http_max_in_flight": self._http_max_in_flight,
-                "max_concurrency": self._http_max_in_flight,
-                "http_concurrency_limit": SCRAPING_HTTP_WORKERS,
-                "detail_http_requests": self._detail_http_requests,
-                "category_http_requests": self._category_http_requests,
-                "other_http_requests": self._other_http_requests,
-                "latency_buckets": dict(self._latency_buckets),
-                "slowest_requests": list(self._slowest_requests),
-            }
-
-    def reset_http_metrics(self):
-        """Reset HTTP metrics before a new full scraping run."""
-        with self._metrics_lock:
-            self._http_requests = 0
-            self._http_successes = 0
-            self._http_errors = 0
-            self._http_terminal_errors = 0
-            self._http_retries = 0
-            self._http_total_seconds = 0.0
-            self._http_max_seconds = 0.0
-            self._http_in_flight = 0
-            self._http_max_in_flight = 0
-            self._detail_http_requests = 0
-            self._category_http_requests = 0
-            self._other_http_requests = 0
-            self._latency_buckets = {
-                "lt_0_5": 0,
-                "0_5_1": 0,
-                "1_2": 0,
-                "2_5": 0,
-                "5_10": 0,
-                "gte_10": 0,
-            }
-            self._slowest_requests = []

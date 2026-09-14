@@ -1,7 +1,6 @@
 import contextlib
 import json
 import re
-from concurrent.futures import ThreadPoolExecutor
 from threading import BoundedSemaphore, Lock
 from typing import Any
 from urllib.parse import urljoin

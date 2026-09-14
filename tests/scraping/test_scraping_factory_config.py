@@ -10,10 +10,17 @@ def test_factory_passes_transport_config_to_browser(monkeypatch):
         pass
 
     class FakeBrowser:
-        def __init__(self, session=None, request_timeout=None, max_retries=None):
+        def __init__(
+            self,
+            session=None,
+            request_timeout=None,
+            max_retries=None,
+            http_workers=None,
+        ):
             captured["session"] = session
             captured["request_timeout"] = request_timeout
             captured["max_retries"] = max_retries
+            captured["http_workers"] = http_workers
 
     monkeypatch.setattr(factory_module, "DBManager", FakeDB)
     monkeypatch.setattr(factory_module, "Browser", FakeBrowser)
@@ -21,6 +28,7 @@ def test_factory_passes_transport_config_to_browser(monkeypatch):
     config = ScrapingConfig(
         request_timeout=27,
         max_retries=5,
+        http_workers=19,
         download_images=False,
     )
 
@@ -30,6 +38,7 @@ def test_factory_passes_transport_config_to_browser(monkeypatch):
         "session": None,
         "request_timeout": 27,
         "max_retries": 5,
+        "http_workers": 19,
     }
     assert runner.config is config
 
@@ -43,7 +52,13 @@ def test_factory_passes_configured_image_folder_to_downloader(monkeypatch):
         pass
 
     class FakeBrowser:
-        def __init__(self, session=None, request_timeout=None, max_retries=None):
+        def __init__(
+            self,
+            session=None,
+            request_timeout=None,
+            max_retries=None,
+            http_workers=None,
+        ):
             pass
 
     class FakeImageDownloader:

@@ -1,3 +1,5 @@
+from typing import Any
+
 from models.scraping.category import Category
 from services.scraping.page_metrics_audit import record_page_metrics
 
@@ -20,16 +22,16 @@ class CategoryProductScrapingService:
 
     def __init__(
         self,
-        scraper,
-    ):
+        scraper: Any,
+    ) -> None:
         self.scraper = scraper
 
     def scrape_category(
         self,
         category_url: str,
-        category_name,
+        category_name: Any,
         expected_count: int = 0,
-    ):
+    ) -> Any:
         """
         Ejecuta extracción de productos
         para una categoría, conservando su conteo esperado.

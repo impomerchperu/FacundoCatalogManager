@@ -5,7 +5,7 @@ Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
 
-- [x] Full suite: `378 passed, 1 skipped, 7 deselected` *(validated before latest compatibility-facade cleanup)*
+- [x] Full suite: `376 passed, 1 skipped, 7 deselected` *(validated after latest compatibility-facade cleanup)*
 - [x] Ruff: clean
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
 - [x] Targeted page-coverage compatibility tests: `6 passed`
@@ -34,6 +34,11 @@ Branch: `feature/scraping-performance-recovery`
 - [x] P8 — legacy DB/model audit completed; recovery tables retained intentionally
 - [x] P9 — real FULL validation completed
 - [x] Page-coverage facade audited and locked against monkey patching
+- [x] `CatalogScraper` production usage audited; no canonical runtime dependency found
+- [x] `scrapers/collectors/catalog_scraper.py` removed after usage audit
+- [x] `scrapers/collectors/category_page_recovery.py` removed after usage audit
+- [x] CatalogScraper-only legacy tests removed
+- [x] Page-coverage facade detached from deleted legacy recovery module
 
 ## AUTHORITATIVE FULL REFERENCE
 
@@ -110,12 +115,14 @@ The run reproduced the authoritative `24 / 534 / 530 / 4` result and produced no
 - [x] Verify idempotent classification: 530 unchanged, 0 created, 0 updated, 0 deleted
 - [x] Audit actual usage of `page_coverage_recovery_patch.py`
 - [x] Confirm its runtime `activate()` path is no longer required
+- [x] Audit actual production usage of `scrapers/collectors/catalog_scraper.py`
+- [x] Confirm `CatalogScraper` and `category_page_recovery.py` are legacy-only
+- [x] Remove only proven-dead legacy code and its tests
+- [x] Run the complete suite after the cleanup changes
 
 ## NEXT
 
-- [ ] Audit actual production usage of `scrapers/collectors/catalog_scraper.py`
-- [ ] Determine whether `CatalogScraper` and `category_page_recovery.py` are legacy-only
-- [ ] Remove only proven-dead legacy code and its tests
-- [ ] Run the complete suite after every cleanup change
+- [ ] Audit remaining legacy compatibility facades for proven-dead runtime-only code
+- [ ] Keep compatibility facades only where tests or supported external imports require them
 - [ ] Re-run a real FULL when a cleanup change can affect scraping/coverage/sync/persistence
 - [ ] Optimize performance only while preserving `24 / 534 / 530 / 4`

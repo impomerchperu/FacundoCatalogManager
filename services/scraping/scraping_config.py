@@ -1,6 +1,13 @@
 from dataclasses import dataclass, field
 
-from config.scraping_config import MAX_RETRIES, REQUEST_TIMEOUT, STORE_URL
+from config.scraping_config import (
+    MAX_RETRIES,
+    REQUEST_TIMEOUT,
+    SCRAPING_CATEGORY_WORKERS,
+    SCRAPING_HTTP_WORKERS,
+    SCRAPING_MAX_WORKERS,
+    STORE_URL,
+)
 
 
 @dataclass
@@ -8,8 +15,8 @@ class ScrapingConfig:
     """
     Configuración de ejecución del motor de scraping.
 
-    Los parámetros de transporte compartidos se toman de la configuración
-    canónica de bajo nivel para evitar que existan valores divergentes.
+    Los valores de transporte y concurrencia se centralizan aquí y conservan
+    los valores de producción previamente validados como defaults.
     """
 
     catalog_url: str = STORE_URL
@@ -28,6 +35,12 @@ class ScrapingConfig:
 
     request_timeout: int = REQUEST_TIMEOUT
 
+    category_workers: int = SCRAPING_CATEGORY_WORKERS
+
+    http_workers: int = SCRAPING_HTTP_WORKERS
+
+    detail_workers: int = SCRAPING_MAX_WORKERS
+
     enabled_categories: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -35,6 +48,12 @@ class ScrapingConfig:
             raise ValueError("request_timeout debe ser mayor que cero.")
         if self.max_retries <= 0:
             raise ValueError("max_retries debe ser mayor que cero.")
+        if self.category_workers <= 0:
+            raise ValueError("category_workers debe ser mayor que cero.")
+        if self.http_workers <= 0:
+            raise ValueError("http_workers debe ser mayor que cero.")
+        if self.detail_workers <= 0:
+            raise ValueError("detail_workers debe ser mayor que cero.")
 
     def is_category_enabled(self, category: str) -> bool:
         """Determina si una categoría debe procesarse."""

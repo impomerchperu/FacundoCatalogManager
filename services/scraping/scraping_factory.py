@@ -88,6 +88,7 @@ class ScrapingFactory:
         browser = Browser(
             request_timeout=config.request_timeout,
             max_retries=config.max_retries,
+            http_workers=config.http_workers,
         )
         category_scraper = ResilientCategoryScraper(
             browser=browser,
@@ -103,6 +104,7 @@ class ScrapingFactory:
             ProductCardExtractor(),
             CategoryProductExtractor(),
             ProductExtractor(),
+            max_workers=config.detail_workers,
         )
         product_scraping_service = CategoryProductScrapingService(
             collection_scraper,

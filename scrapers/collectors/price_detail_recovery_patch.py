@@ -1,12 +1,10 @@
-"""Compatibility facade for the explicit price-recovery collector."""
+"""Compatibility facade for the consolidated price-recovery policy."""
 
 from __future__ import annotations
 
-from .price_recovery_product_collection_scraper import (
-    PriceRecoveryProductCollectionScraper,
-)
+from .product_collection_scraper import ProductCollectionScraper
 
-_PATCHED = False
+PriceRecoveryProductCollectionScraper = ProductCollectionScraper
 
 
 def activate() -> None:

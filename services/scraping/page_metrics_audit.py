@@ -19,9 +19,20 @@ def _log_timing(message: str, *args: Any) -> None:
         file.write(f"{formatted}\n")
 
 
-def record_page_metrics(metrics: dict[str, dict[str, Any]]) -> None:
-    """Write the same category/page coverage audit emitted historically."""
-    for category_metrics in metrics.values():
+def record_page_metrics(
+    metrics: dict[str, dict[str, Any]],
+    category_url: str | None = None,
+) -> None:
+    """Write the category/page coverage audit for one completed category."""
+    if category_url is not None:
+        selected = metrics.get(category_url)
+        if selected is None:
+            return
+        selected_metrics = {category_url: selected}
+    else:
+        selected_metrics = metrics
+
+    for category_metrics in selected_metrics.values():
         category_name = str(category_metrics.get("category", ""))
         expected_count = int(category_metrics.get("expected_count", 0) or 0)
         pages = list(category_metrics.get("pages", []))

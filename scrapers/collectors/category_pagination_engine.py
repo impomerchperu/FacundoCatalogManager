@@ -375,13 +375,12 @@ def _jsf_category_pages_with_probe(
     """Use authoritative JSF pagination for Facundo with validated public fallback."""
     _remember_jsf_settings(category_id, category_html)
 
-    expected = max(int(expected_count or 0), 0)
-    found_posts, declared_max, first_html = _retry_jsf_page(
-        scraper,
-        category_url,
-        category_id,
-        1,
-    )
+    with _JSF_STATE_LOCK:
+        remembered_found, remembered_max = _JSF_QUERY_STATE.get(category_id, (0, 0))
+
+    found_posts = remembered_found
+    declared_max = remembered_max
+    first_html = category_html
 
     expected_pages = scraper._required_page_count(expected_count)
     published_pages = scraper._required_page_count(found_posts)

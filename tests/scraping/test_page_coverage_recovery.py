@@ -11,6 +11,15 @@ def _new_scraper() -> CategoryScraper:
     return scraper
 
 
+def test_activate_is_a_noop_and_does_not_monkey_patch_category_scraper():
+    original = CategoryScraper.get_category_pages
+
+    page_coverage_recovery_patch.activate()
+
+    assert CategoryScraper.get_category_pages is original
+    assert page_coverage_recovery_patch._PATCHED is False
+
+
 def test_recovery_materializes_missing_expected_jsf_pages():
     scraper = _new_scraper()
     category_url = (

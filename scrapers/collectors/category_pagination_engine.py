@@ -235,7 +235,8 @@ def _probe_jsf_page(
     category_id: int,
     page: int,
 ) -> tuple[int, int, str]:
-    return _retry_jsf_page(scraper, category_url, category_id, page)
+    """Probe one boundary page without turning an expected empty into retries."""
+    return _fetch_jsf_page_direct(scraper, category_url, category_id, page)
 
 
 def _probe_boundary_page(

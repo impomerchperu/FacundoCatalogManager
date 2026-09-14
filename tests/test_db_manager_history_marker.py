@@ -3,7 +3,7 @@ import sqlite3
 from database.db_manager import DBManager
 
 
-def test_restore_applied_history_marker_uses_latest_valid_full_run():
+def test_restore_applied_history_marker_uses_latest_successful_history():
     connection = sqlite3.connect(":memory:")
     connection.row_factory = sqlite3.Row
     connection.execute(
@@ -11,9 +11,7 @@ def test_restore_applied_history_marker_uses_latest_valid_full_run():
         CREATE TABLE scraping_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             finished_at TEXT NOT NULL,
-            mode TEXT NOT NULL,
             status TEXT NOT NULL,
-            coverage_complete INTEGER DEFAULT 0,
             applied_at TEXT
         )
         """
@@ -21,12 +19,13 @@ def test_restore_applied_history_marker_uses_latest_valid_full_run():
     connection.executemany(
         """
         INSERT INTO scraping_history
-            (finished_at, mode, status, coverage_complete, applied_at)
-        VALUES (?, ?, ?, ?, NULL)
+            (finished_at, status, applied_at)
+        VALUES (?, ?, NULL)
         """,
         [
-            ("2026-09-13T10:00:00+00:00", "full", "SUCCESS", 1),
-            ("2026-09-13T11:00:00+00:00", "directed", "SUCCESS", 1),
+            ("2026-09-13T10:00:00+00:00", "SUCCESS"),
+            ("2026-09-13T11:00:00+00:00", "ERROR"),
+            ("2026-09-13T12:00:00+00:00", "SUCCESS"),
         ],
     )
     connection.commit()
@@ -43,5 +42,6 @@ def test_restore_applied_history_marker_uses_latest_valid_full_run():
         """
     ).fetchall()
 
-    assert rows[0]["applied_at"] == "2026-09-13T10:00:00+00:00"
+    assert rows[0]["applied_at"] is None
     assert rows[1]["applied_at"] is None
+    assert rows[2]["applied_at"] == "2026-09-13T12:00:00+00:00"

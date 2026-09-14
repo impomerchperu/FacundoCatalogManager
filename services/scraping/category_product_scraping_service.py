@@ -53,7 +53,10 @@ class CategoryProductScrapingService:
         )
         get_page_metrics = getattr(self.scraper, "get_page_metrics", None)
         if callable(get_page_metrics):
-            record_page_metrics(get_page_metrics())
+            record_page_metrics(
+                get_page_metrics(),
+                category_url=category.url,
+            )
         return products
 
     def close(self) -> None:

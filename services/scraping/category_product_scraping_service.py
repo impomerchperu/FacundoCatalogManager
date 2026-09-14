@@ -1,4 +1,5 @@
 from models.scraping.category import Category
+from services.scraping.page_metrics_audit import record_page_metrics
 
 
 class CategoryProductScrapingService:
@@ -47,9 +48,13 @@ class CategoryProductScrapingService:
                 expected_count=max(int(expected_count or 0), 0),
             )
 
-        return self.scraper.scrape_category(
+        products = self.scraper.scrape_category(
             category,
         )
+        get_page_metrics = getattr(self.scraper, "get_page_metrics", None)
+        if callable(get_page_metrics):
+            record_page_metrics(get_page_metrics())
+        return products
 
     def close(self) -> None:
         """Cierra los recursos internos del scraper de productos."""

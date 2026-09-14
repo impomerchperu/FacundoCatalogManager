@@ -359,6 +359,20 @@ def _collect_direct_pages(
     return pages, seen
 
 
+def _initial_jsf_page(
+    scraper: CategoryScraper,
+    category_url: str,
+    category_id: int,
+    category_html: str,
+    use_archive_first_page: bool,
+) -> tuple[int, int, str]:
+    if use_archive_first_page:
+        with _JSF_STATE_LOCK:
+            found_posts, declared_max = _JSF_QUERY_STATE.get(category_id, (0, 0))
+        return found_posts, declared_max, category_html
+    return _retry_jsf_page(scraper, category_url, category_id, 1)
+
+
 def _jsf_category_pages_with_probe(
     scraper: CategoryScraper,
     category_url: str,
@@ -371,17 +385,13 @@ def _jsf_category_pages_with_probe(
     archive_product_urls = _direct_product_urls(category_html, category_url)
     use_archive_first_page = bool(archive_product_urls) and len(archive_product_urls) <= scraper.PRODUCTS_PER_PAGE
 
-    if use_archive_first_page:
-        first_html = category_html
-        with _JSF_STATE_LOCK:
-            found_posts, declared_max = _JSF_QUERY_STATE.get(category_id, (0, 0))
-    else:
-        found_posts, declared_max, first_html = _retry_jsf_page(
-            scraper,
-            category_url,
-            category_id,
-            1,
-        )
+    found_posts, declared_max, first_html = _initial_jsf_page(
+        scraper,
+        category_url,
+        category_id,
+        category_html,
+        use_archive_first_page,
+    )
 
     expected_pages = scraper._required_page_count(expected_count)
     published_pages = scraper._required_page_count(found_posts)

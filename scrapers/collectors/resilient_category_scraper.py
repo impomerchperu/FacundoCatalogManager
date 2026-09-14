@@ -56,8 +56,17 @@ class ResilientCategoryScraper(CategoryScraper):
     ) -> list[str] | None:
         try:
             pages = super().get_category_pages(category_url, expected_count)
-        except (RuntimeError, requests.exceptions.HTTPError) as error:
-            self._raise_if_not_retryable(error)
+        except (RuntimeError, requests.exceptions.RequestException) as error:
+            cached_pages = self._recover_cached_jsf_pages(
+                category_url,
+                expected_count,
+            )
+            if cached_pages is not None:
+                return cached_pages
+            if isinstance(error, requests.exceptions.HTTPError):
+                self._raise_if_not_retryable(error)
+            else:
+                raise
             return self._refresh_and_fallback(
                 category_url,
                 expected_count,
@@ -73,6 +82,31 @@ class ResilientCategoryScraper(CategoryScraper):
                 )
             return None
         return pages
+
+    def _recover_cached_jsf_pages(
+        self,
+        category_url: str,
+        expected_count: int,
+    ) -> list[str] | None:
+        """Return already validated JSF pages when only the optional boundary probe fails."""
+        required_pages = self._required_page_count(expected_count)
+        if required_pages <= 0:
+            return None
+        with self._jsf_cache_lock:
+            cached = [
+                page_number
+                for page_number in range(1, required_pages + 1)
+                if self._jsf_page_cache.get((category_url, page_number))
+            ]
+        if len(cached) != required_pages:
+            return None
+        return [
+            category_url,
+            *(
+                self._jsf_page_url(category_url, page_number)
+                for page_number in range(2, required_pages + 1)
+            ),
+        ]
 
     def _fallback_after_jsf_failure(
         self,

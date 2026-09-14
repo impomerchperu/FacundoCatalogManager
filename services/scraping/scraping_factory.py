@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from scrapers.browser import Browser
 from scrapers.collectors.price_recovery_product_collection_scraper import (
     PriceRecoveryProductCollectionScraper,
 )
@@ -16,6 +15,7 @@ from repositories.scraping.scraped_product_repository import (
 from repositories.scraping.scraping_history_repository import (
     ScrapingHistoryRepository,
 )
+from scrapers.browser import Browser
 from scrapers.collectors.resilient_category_scraper import (
     ResilientCategoryScraper,
 )

@@ -666,7 +666,7 @@ class CategoryProductSyncService:
             return
         values = cast(dict[str, Any], metrics() or {})
         _log_timing(
-            "SCRAPING TIMING | stage=http | requests=%d | category=%d | detail=%d | other=%d | retries=%d | errors=%d | terminal=%d | total_seconds=%.3f | max_seconds=%.3f | max_concurrency=%d",
+            "SCRAPING TIMING | stage=http | requests=%d | category=%d | detail=%d | other=%d | retries=%d | errors=%d | terminal=%d | retry_sleep_count=%d | retry_sleep_seconds=%.3f | total_seconds=%.3f | max_seconds=%.3f | max_concurrency=%d",
             int(values.get("http_requests", 0) or 0),
             int(values.get("category_http_requests", 0) or 0),
             int(values.get("detail_http_requests", 0) or 0),
@@ -674,6 +674,8 @@ class CategoryProductSyncService:
             int(values.get("http_retries", 0) or 0),
             int(values.get("http_errors", 0) or 0),
             int(values.get("http_terminal_errors", 0) or 0),
+            int(values.get("http_retry_sleep_count", 0) or 0),
+            float(values.get("http_retry_sleep_seconds", 0.0) or 0.0),
             float(values.get("http_total_seconds", 0.0) or 0.0),
             float(values.get("http_max_seconds", 0.0) or 0.0),
             int(values.get("http_max_in_flight", 0) or 0),

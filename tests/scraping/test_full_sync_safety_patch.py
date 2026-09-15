@@ -1,7 +1,6 @@
 from types import SimpleNamespace
 
 from models.scraping.sync_result import SyncResult
-from scrapers.collectors import full_sync_safety_patch  # noqa: F401
 from services.scraping.category_product_sync_service import CategoryProductSyncService
 
 

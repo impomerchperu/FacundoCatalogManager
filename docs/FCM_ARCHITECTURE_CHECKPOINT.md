@@ -5,10 +5,10 @@ Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
 
-- [x] Full suite: `376 passed, 1 skipped, 7 deselected` *(validated after latest compatibility-facade cleanup)*
+- [x] Full suite: `374 passed, 1 skipped, 7 deselected` *(validated after latest compatibility-facade cleanup)*
 - [x] Ruff: clean
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
-- [x] Targeted page-coverage compatibility tests: `6 passed`
+- [x] Targeted page-coverage compatibility tests: `6 passed` *(previous validated checkpoint)*
 
 ## RUNTIME CONSOLIDATION
 
@@ -39,6 +39,10 @@ Branch: `feature/scraping-performance-recovery`
 - [x] `scrapers/collectors/category_page_recovery.py` removed after usage audit
 - [x] CatalogScraper-only legacy tests removed
 - [x] Page-coverage facade detached from deleted legacy recovery module
+- [x] Unused `jsf_request_recovery_patch.py` removed
+- [x] Obsolete `test_jsf_request_recovery.py` removed
+- [x] Unused `price_detail_recovery_patch.py` removed
+- [x] Remaining compatibility facades audited for known consumers
 
 ## AUTHORITATIVE FULL REFERENCE
 
@@ -119,10 +123,12 @@ The run reproduced the authoritative `24 / 534 / 530 / 4` result and produced no
 - [x] Confirm `CatalogScraper` and `category_page_recovery.py` are legacy-only
 - [x] Remove only proven-dead legacy code and its tests
 - [x] Run the complete suite after the cleanup changes
+- [x] Audit `jsf_request_recovery_patch.py` and remove its obsolete test consumer
+- [x] Audit `price_detail_recovery_patch.py` and remove it as unused
 
 ## NEXT
 
-- [ ] Audit remaining legacy compatibility facades for proven-dead runtime-only code
+- [ ] Audit remaining compatibility facades only where consumer evidence is still incomplete
 - [ ] Keep compatibility facades only where tests or supported external imports require them
 - [ ] Re-run a real FULL when a cleanup change can affect scraping/coverage/sync/persistence
 - [ ] Optimize performance only while preserving `24 / 534 / 530 / 4`

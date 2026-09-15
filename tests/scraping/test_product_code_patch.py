@@ -1,43 +1,30 @@
-from types import SimpleNamespace
+from bs4 import BeautifulSoup
 
-from scrapers.collectors import product_code_patch
+from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
 
 
-def test_product_code_patch_extracts_explicit_sku_from_detail_markup():
-    from bs4 import BeautifulSoup
-
+def test_product_extractor_extracts_explicit_sku_from_detail_markup():
     soup = BeautifulSoup('<span class="sku">FB-1426</span>', "lxml")
     extractor = object.__new__(ProductExtractor)
-    extractor._legacy_extract_code = lambda _soup: ""
 
-    assert product_code_patch._extract_code(extractor, soup) == "FB-1426"
+    assert extractor.extract_code(soup) == "FB-1426"
 
 
-def test_product_code_patch_backfills_authoritative_detail_code(monkeypatch):
-    product = SimpleNamespace(
-        code="",
-        url="https://stock.importacionesfacundo.com/producto/demo/",
+def test_product_collection_scraper_backfills_authoritative_detail_code():
+    product = type("Product", (), {"code": "", "url": ""})()
+    detail_product = type("DetailProduct", (), {"code": "FB-7008"})()
+    card = BeautifulSoup(
+        '<article><a href="/producto/demo/">Demo</a></article>',
+        "lxml",
     )
-    detail_product = SimpleNamespace(code="FB-7008")
-    card = SimpleNamespace()
-    scraper = object.__new__(product_code_patch.ProductCollectionScraper)
+    scraper = object.__new__(ProductCollectionScraper)
     scraper.detail_extractor = object()
-    scraper._card_detail_url = lambda _card, _page, _product: (
-        "https://stock.importacionesfacundo.com/producto/demo/"
-    )
-    scraper._detail_cache_key = lambda _card, _product, url: f"url:{url}"
+    scraper._detail_cache_key = lambda _card, _product, _url: "url:demo"
     scraper._get_detailed_product = lambda _key, _url, _category: detail_product
 
-    monkeypatch.setattr(
-        product_code_patch,
-        "_ORIGINAL_ENRICH_FROM_DETAIL_PAGE",
-        lambda _self, _card, _page, current, _category: current,
-    )
-
-    result = product_code_patch._enrich_with_authoritative_code(
-        scraper,
+    result = scraper._enrich_from_detail_page(
         card,
         "https://stock.importacionesfacundo.com/categoria-producto/demo/",
         product,
@@ -48,7 +35,7 @@ def test_product_code_patch_backfills_authoritative_detail_code(monkeypatch):
     assert result.url == "https://stock.importacionesfacundo.com/producto/demo/"
 
 
-def test_product_code_patch_accepts_published_letter_only_skus():
+def test_product_code_normalization_accepts_published_letter_only_skus():
     extractor = CategoryProductExtractor()
     for code in (
         "IEV-SFE-CIT",

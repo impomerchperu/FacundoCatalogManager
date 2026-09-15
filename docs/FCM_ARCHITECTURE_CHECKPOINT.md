@@ -5,9 +5,9 @@ Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
 
-- [x] Full suite: `374 passed, 1 skipped, 7 deselected` *(validated after latest compatibility-facade cleanup, including FULL sync safety facade removal)*
-- [x] Ruff: clean
-- [x] Pyright: `0 errors, 0 warnings, 0 informations`
+- [x] Full suite: `374 passed, 1 skipped, 7 deselected` *(last validated before page-coverage facade removal; revalidate after the current cleanup)*
+- [x] Ruff: clean *(last validated before the current cleanup)*
+- [x] Pyright: `0 errors, 0 warnings, 0 informations` *(last validated before the current cleanup)*
 - [x] Targeted page-coverage compatibility tests: `6 passed` *(previous validated checkpoint)*
 
 ## RUNTIME CONSOLIDATION
@@ -16,7 +16,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] JSF concurrency monkey patch retired
 - [x] Page metrics monkey patch retired
 - [x] Price recovery monkey patch retired
-- [x] Page coverage recovery monkey patch retired; `activate()` is now a compatibility no-op
+- [x] Page coverage recovery monkey patch retired; compatibility facade removed after consumer audit
 - [x] Price recovery preserved natively in `ProductCollectionScraper`
 - [x] Page metrics audit preserved
 - [x] Canonical pagination engine active
@@ -33,17 +33,16 @@ Branch: `feature/scraping-performance-recovery`
 - [x] P7 — compatibility/dead-code audit substantially completed
 - [x] P8 — legacy DB/model audit completed; recovery tables retained intentionally
 - [x] P9 — real FULL validation completed
-- [x] Page-coverage facade audited and locked against monkey patching
 - [x] `CatalogScraper` production usage audited; no canonical runtime dependency found
 - [x] `scrapers/collectors/catalog_scraper.py` removed after usage audit
 - [x] `scrapers/collectors/category_page_recovery.py` removed after usage audit
 - [x] CatalogScraper-only legacy tests removed
-- [x] Page-coverage facade detached from deleted legacy recovery module
 - [x] Unused `jsf_request_recovery_patch.py` removed
 - [x] Obsolete `test_jsf_request_recovery.py` removed
 - [x] Unused `price_detail_recovery_patch.py` removed
 - [x] Remaining compatibility facades audited for known consumers
 - [x] Unused `full_sync_safety_patch.py` removed; canonical FULL/prune safety tests remain active
+- [x] `page_coverage_recovery_patch.py` audited: production usage absent; facade and facade-only tests removed
 
 ## AUTHORITATIVE FULL REFERENCE
 
@@ -118,18 +117,17 @@ The run reproduced the authoritative `24 / 534 / 530 / 4` result and produced no
 - [x] Verify previous history remains intact
 - [x] Verify new history entry is SUCCESS and applied
 - [x] Verify idempotent classification: 530 unchanged, 0 created, 0 updated, 0 deleted
-- [x] Audit actual usage of `page_coverage_recovery_patch.py`
-- [x] Confirm its runtime `activate()` path is no longer required
-- [x] Audit actual production usage of `scrapers/collectors/catalog_scraper.py`
+- [x] Audit actual usage of `scrapers/collectors/catalog_scraper.py`
 - [x] Confirm `CatalogScraper` and `category_page_recovery.py` are legacy-only
 - [x] Remove only proven-dead legacy code and its tests
-- [x] Run the complete suite after the cleanup changes
 - [x] Audit `jsf_request_recovery_patch.py` and remove its obsolete test consumer
 - [x] Audit `price_detail_recovery_patch.py` and remove it as unused
 - [x] Audit `full_sync_safety_patch.py` and remove it as an unused facade
+- [x] Audit `page_coverage_recovery_patch.py` and remove it with its facade-only tests
 
 ## NEXT
 
+- [ ] Revalidate the complete local suite after the page-coverage cleanup
 - [ ] Audit remaining compatibility facades only where consumer evidence is still incomplete
 - [ ] Keep compatibility facades only where tests or supported external imports require them
 - [ ] Re-run a real FULL when a cleanup change can affect scraping/coverage/sync/persistence

@@ -5,8 +5,10 @@ Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
 
-- [x] Full suite: `366 passed, 1 skipped, 7 deselected` *(validated after page-metrics cleanup)*
-- [x] Ruff: clean
+- [ ] Full suite post-product-code cleanup: blocked by one stale regression test that still imported the removed facade *(fixed in `9578d92`; local validation pending)*
+- [x] Product-code targeted tests: `3 passed` before removal of the remaining stale consumer
+- [x] Architecture-boundary tests: `23 passed`
+- [x] Ruff: clean on current branch
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
 - [x] Targeted page-coverage compatibility tests: removed with retired facade
 
@@ -18,12 +20,13 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Price recovery monkey patch retired
 - [x] Page coverage recovery monkey patch retired; compatibility facade removed after consumer audit
 - [x] Price recovery preserved natively in `ProductCollectionScraper`
-- [x] Page metrics audit preserved
+- [x] Page metrics audit preserved natively
 - [x] Canonical pagination engine active
 - [x] FULL/prune safety preserved natively in canonical sync/coverage policy
 - [x] Bootstrap/reconciliation preserved
 - [x] `ScrapingConfig` unified
 - [x] Workers configurable: category `16`, HTTP `28`, detail `32`
+- [x] Product-code extraction and authoritative detail-code backfill preserved natively
 
 ## ARCHITECTURE CLEANUP
 
@@ -51,6 +54,8 @@ Branch: `feature/scraping-performance-recovery`
 - [x] `jsf_concurrency_patch.py` removed after consumer test migrated to native `CategoryScraper`
 - [x] `page_metrics_patch.py` removed after audit consumer migrated to native metrics storage/audit
 - [x] `product_code_patch.py` removed after SKU extraction and authoritative detail-code backfill were verified as native
+- [x] Remaining product-code regression test consumer migrated to native `ProductExtractor`
+- [ ] Compatibility scraping factories: audit direct consumers before deciding whether to remove wrappers
 
 ## AUTHORITATIVE FULL REFERENCE
 
@@ -112,6 +117,8 @@ The run reproduced the authoritative `24 / 534 / 530 / 4` result and produced no
 
 ## CHECKLIST
 
+### Completed
+
 - [x] Run real FULL across all 24 categories
 - [x] Verify 24 categories
 - [x] Verify 534 appearances
@@ -136,9 +143,18 @@ The run reproduced the authoritative `24 / 534 / 530 / 4` result and produced no
 - [x] Migrate pagination and JSF-concurrency compatibility test consumers to canonical/native code
 - [x] Revalidate the complete local suite after pagination and JSF-concurrency cleanup
 - [x] Migrate page-metrics and product-code compatibility tests to native implementation
+- [x] Remove `product_code_patch.py`
+- [x] Remove remaining `product_code_patch` imports/references from runtime tests
+- [x] Preserve native SKU extraction and authoritative detail-code backfill
 
-## NEXT
+### Pending validation
 
-- [ ] Audit compatibility scraping factories and remove only when no supported external imports/tests remain
-- [ ] Re-run a real FULL when a cleanup change can affect scraping/coverage/sync/persistence
+- [ ] Re-run `tests/scraping/test_scraping_coverage_regressions.py` after native migration
+- [ ] Re-run complete local pytest suite
+- [ ] Reconfirm Ruff and Pyright after final test-consumer migration
+- [ ] Re-run a real FULL because product-code cleanup touches a scraping-related regression surface
+
+### Next cleanup
+
+- [ ] Audit compatibility scraping factories (`factories/scraping_factory.py`, `scrapers/factories/scraping_factory.py`) and remove only when no supported external imports/tests remain
 - [ ] Optimize performance only while preserving `24 / 534 / 530 / 4`

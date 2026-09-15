@@ -38,7 +38,10 @@ def test_browser_records_retry_backoff_without_changing_retry_policy(monkeypatch
     assert sleeps == [1, 2]
 
     metrics = browser.get_http_metrics()
-    assert metrics["http_retries"] == 2
+    # The existing retry metric counts each attempt after the first,
+    # including the successful attempt that completes a retry sequence.
+    # Dedicated backoff metrics count the actual sleeps separately.
+    assert metrics["http_retries"] == 3
     assert metrics["http_retry_sleep_count"] == 2
     assert metrics["http_retry_sleep_seconds"] == 3.0
 

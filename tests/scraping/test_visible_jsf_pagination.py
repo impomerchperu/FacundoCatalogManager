@@ -1,7 +1,7 @@
 import json
 from threading import RLock
 
-from scrapers.collectors import category_pagination_patch
+from scrapers.collectors import category_pagination_engine
 from scrapers.collectors.category_scraper import CategoryScraper
 
 
@@ -73,7 +73,7 @@ def test_visible_jetsmartfilters_pagination_is_honored():
 
     scraper._post_jsf = post
 
-    result = category_pagination_patch._get_category_pages(
+    result = category_pagination_engine.get_category_pages(
         scraper,
         category_url,
         expected_count=0,

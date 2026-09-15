@@ -34,16 +34,18 @@ def _timed_enrich(
 def main() -> int:
     config = ScrapingConfig(download_images=False)
     runner = ScrapingFactory.create_runner(config)
+    category_service = runner.category_service
+    if category_service is None:
+        raise RuntimeError("ScrapingRunner no tiene CategoryService configurado.")
 
     started = time.perf_counter()
-    categories = list(runner.category_service.scrape_all() or [])
+    categories = list(category_service.scrape_all() or [])
     discovery_seconds = time.perf_counter() - started
 
     service = runner.scraping_service
     worker_count = min(config.category_workers, len(categories))
     collected_by_index: list[list[Any]] = [[] for _ in categories]
     listing_seconds: dict[int, float] = {}
-    enrichment_seconds: dict[int, float] = {}
     rows: list[dict[str, Any]] = []
 
     profile_started = time.perf_counter()
@@ -71,7 +73,6 @@ def main() -> int:
             }
             for future in as_completed(futures):
                 index, seconds, enriched = future.result()
-                enrichment_seconds[index] = seconds
                 category = categories[index]
                 unique_codes = {
                     str(getattr(product, "code", "") or "").strip().casefold()

@@ -179,16 +179,82 @@ The successful FULL result demonstrates that transient HTTP errors/retries can c
 - [x] Confirmed enrichment currently emits no intermediate `25..47` callbacks
 - [x] Confirmed runner emits terminal `48/48` after `sync_categories()` returns
 - [x] Confirmed this is a progress-reporting semantics issue only; the validated FULL result is unaffected
-- [ ] Change progress callbacks only after adding targeted contract tests; no runtime behavior change has been made yet
+- [ ] Add targeted contract tests before changing progress callbacks or emitting enrichment progress `25..47`
 
 ## TRANSACTION SCOPE AUDIT
 
 - [x] Executed targeted scraping-session transaction/history/application-state tests
 - [x] Result: `8 passed`
 - [x] Verified rollback/error-history/application-state behavior remains green under current transaction boundaries
-- [x] No transaction-boundary runtime change made from this audit
+- [x] Audited the current transaction scope and its relationship to observed FULL timing
 - [x] Current timing evidence does not justify treating SQLite transaction scope as the primary performance bottleneck
-- [ ] Consider transaction-scope optimization only after a separate benchmark confirms measurable SQLite contention/latency benefit
+- [x] No transaction-boundary runtime change made
+- [ ] Benchmark transaction scope only if a concrete SQLite contention or latency issue is observed
+
+## MASTER PLAN STATUS
+
+### 1. Corrección funcional
+
+- [x] FULL real de 24 categorías validado
+- [x] `534 / 530 / 4` validado como referencia autoritativa
+- [x] `coverage_complete=1` y `coverage_gap=0`
+- [x] 0 errores invalidantes
+- [x] FULL/prune safety preservado
+
+### 2. Recuperación y persistencia
+
+- [x] Recuperación de paginación/JSF/cobertura/detalle/códigos consolidada
+- [x] FULL incompleto no puede ejecutar prune destructivo
+- [x] FULL fallida más reciente no sustituye una FULL válida anterior
+- [x] Historial previo preservado
+- [x] `history_id=180` aplicado correctamente
+- [x] Catálogo reconciliado: `530 / 534`
+
+### 3. Consolidación y limpieza
+
+- [x] Implementación canónica única por responsabilidad
+- [x] Legacy/patch facades muertos eliminados después de auditoría
+- [x] Consumidores de tests migrados a APIs nativas
+- [x] Factory canónica de producción confirmada
+- [ ] Compatibility factories: conservar por compatibilidad externa potencial
+
+### 4. Calidad
+
+- [x] Full suite: `366 passed, 1 skipped, 7 deselected`
+- [x] Architecture boundaries: `23 passed`
+- [x] Ruff limpio
+- [x] Pyright limpio
+
+### 5. Progreso UI
+
+- [x] Semántica actual `1..24`, luego `48/48`, documentada
+- [x] Confirmado que no afecta cobertura ni persistencia
+- [ ] Tests formales del contrato de progreso
+- [ ] Decidir, con tests, si se implementa progreso intermedio `25..47`
+
+### 6. Transacciones SQLite
+
+- [x] Atomicidad funcional validada
+- [x] Rollback validado
+- [x] Error-history/application-state validados
+- [x] Alcance actual auditado frente al timing observado
+- [ ] Benchmark de contención/latencia
+- [ ] Optimización del scope transaccional solo con evidencia cuantitativa
+
+### 7. Rendimiento final
+
+- [x] Separación de tiempos por etapa auditada
+- [x] HTTP/detail auditado
+- [x] Confirmado que SQLite no domina el tiempo total
+- [x] Identificado que category/detail concentran el coste de red
+- [x] Confirmada concurrencia HTTP efectiva hasta `28`
+- [x] Sin cambios de runtime realizados todavía
+- [ ] Aislar el siguiente experimento de rendimiento en red/category/detail
+- [ ] Ejecutar benchmark comparativo
+- [ ] Repetir FULL real después de cualquier cambio
+- [ ] Confirmar nuevamente `24 / 534 / 530 / 4`
+- [ ] Confirmar nuevamente DB `530 / 534`
+- [ ] Confirmar historial aplicado e idempotencia
 
 ## CHECKLIST
 
@@ -233,6 +299,7 @@ The successful FULL result demonstrates that transient HTTP errors/retries can c
 - [x] Audit recent HTTP/detail request metrics without changing runtime behavior
 - [x] Confirm effective HTTP concurrency reaches the configured worker level in recent samples
 - [x] Confirm detail cache behavior is dominated by cache misses in complete FULL samples
+- [x] Consolidate the master state of correction, recovery, architecture cleanup, quality, transaction audit, progress audit, and performance audit
 
 ### Next cleanup
 
@@ -240,4 +307,5 @@ The successful FULL result demonstrates that transient HTTP errors/retries can c
 - [ ] Add targeted progress-contract tests, then decide whether to emit enrichment progress `25..47` before changing the callback behavior
 - [ ] Isolate the next performance experiment to network/category-detail behavior; do not alter FULL safety or persistence boundaries
 - [ ] Benchmark/audit transaction scope only if a concrete SQLite contention or latency issue is observed
-- [ ] Optimize performance only while preserving `24 / 534 / 530 / 4`
+- [ ] Repeat a real FULL after any scraping/runtime performance change and require `24 / 534 / 530 / 4`, complete coverage, DB `530 / 534`, applied history, and idempotence
+- [ ] Close the master plan only after the progress contract, any necessary transaction benchmark, and final performance validation are complete

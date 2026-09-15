@@ -5,12 +5,12 @@ Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
 
-- [ ] Full suite post-product-code cleanup: blocked by one stale regression test that still imported the removed facade *(fixed in `9578d92`; local validation pending)*
-- [x] Product-code targeted tests: `3 passed` before removal of the remaining stale consumer
+- [x] Targeted scraping coverage regressions: `8 passed`
+- [x] Full suite: `366 passed, 1 skipped, 7 deselected`
 - [x] Architecture-boundary tests: `23 passed`
-- [x] Ruff: clean on current branch
+- [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
-- [x] Targeted page-coverage compatibility tests: removed with retired facade
+- [x] Product-code facade removal validated after remaining test consumer migration
 
 ## RUNTIME CONSOLIDATION
 
@@ -55,7 +55,15 @@ Branch: `feature/scraping-performance-recovery`
 - [x] `page_metrics_patch.py` removed after audit consumer migrated to native metrics storage/audit
 - [x] `product_code_patch.py` removed after SKU extraction and authoritative detail-code backfill were verified as native
 - [x] Remaining product-code regression test consumer migrated to native `ProductExtractor`
-- [ ] Compatibility scraping factories: audit direct consumers before deciding whether to remove wrappers
+
+### Compatibility scraping factories
+
+- [x] `factories/scraping_factory.py` audited
+- [x] `scrapers/factories/scraping_factory.py` audited
+- [x] Production controller confirmed to import the canonical `services.scraping.scraping_factory.ScrapingFactory`
+- [x] Compatibility factories confirmed to delegate to the canonical factory rather than implement a second scraping pipeline
+- [x] No in-repository production consumer of the compatibility factories identified
+- [ ] Do not remove compatibility factories yet: external import compatibility remains an unsupported-but-possible contract
 
 ## AUTHORITATIVE FULL REFERENCE
 
@@ -146,15 +154,17 @@ The run reproduced the authoritative `24 / 534 / 530 / 4` result and produced no
 - [x] Remove `product_code_patch.py`
 - [x] Remove remaining `product_code_patch` imports/references from runtime tests
 - [x] Preserve native SKU extraction and authoritative detail-code backfill
+- [x] Validate targeted coverage regressions after product-code cleanup
+- [x] Validate complete local suite after product-code cleanup
+- [x] Reconfirm Ruff and Pyright after final test-consumer migration
+- [x] Audit compatibility scraping factories and confirm canonical runtime uses the service-level factory
 
 ### Pending validation
 
-- [ ] Re-run `tests/scraping/test_scraping_coverage_regressions.py` after native migration
-- [ ] Re-run complete local pytest suite
-- [ ] Reconfirm Ruff and Pyright after final test-consumer migration
 - [ ] Re-run a real FULL because product-code cleanup touches a scraping-related regression surface
 
 ### Next cleanup
 
-- [ ] Audit compatibility scraping factories (`factories/scraping_factory.py`, `scrapers/factories/scraping_factory.py`) and remove only when no supported external imports/tests remain
+- [ ] Keep compatibility scraping factories as thin external-compatibility wrappers unless a future audit proves they can be removed safely
+- [ ] Re-run a real FULL and verify `24 / 534 / 530 / 4` after the cleanup series
 - [ ] Optimize performance only while preserving `24 / 534 / 530 / 4`

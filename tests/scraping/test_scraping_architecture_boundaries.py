@@ -304,3 +304,13 @@ def test_production_roots_do_not_import_legacy_scraping_services():
 
 def test_obsolete_sync_history_model_stays_absent():
     assert not (PROJECT_ROOT / "models" / "scraping" / "sync_history.py").exists()
+
+
+def test_removed_legacy_scraping_facades_stay_absent():
+    removed_paths = (
+        PROJECT_ROOT / "scrapers" / "collectors" / "single_page_fastpath_patch.py",
+        PROJECT_ROOT / "scrapers" / "collectors" / "scraping_compat.py",
+        PROJECT_ROOT / "scrapers" / "collectors" / "archive" / "scraping_compat.py",
+    )
+
+    assert all(not path.exists() for path in removed_paths)

@@ -1,12 +1,12 @@
 # FCM Architecture Checkpoint
 
-Fecha: 2026-09-16  
+Fecha: 2026-09-15  
 Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions: `8 passed`
-- [x] Full suite: `366 passed, 1 skipped, 7 deselected`
+- [x] Full suite: `370 passed, 1 skipped, 7 deselected`
 - [x] Architecture-boundary tests: `23 passed`
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -15,6 +15,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Scraping session/history transaction and application-state tests: `8 passed`
 - [x] HTTP/detail timing audit completed from recent FULL samples
 - [x] Progress-contract tests added and validated: `8 passed` across runner + progress contract
+- [x] Browser retry/backoff telemetry added and validated: `2 passed`
 
 ## RUNTIME CONSOLIDATION
 
@@ -24,13 +25,14 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Price recovery monkey patch retired
 - [x] Page coverage recovery monkey patch retired; compatibility facade removed after consumer audit
 - [x] Price recovery preserved natively in `ProductCollectionScraper`
-- [x] Page metrics audit preserved natively
+- [x] Page metrics preserved natively
 - [x] Canonical pagination engine active
 - [x] FULL/prune safety preserved natively in canonical sync/coverage policy
 - [x] Bootstrap/reconciliation preserved
 - [x] `ScrapingConfig` unified
 - [x] Workers configurable: category `16`, HTTP `28`, detail `32`
 - [x] Product-code extraction and authoritative detail-code backfill preserved natively
+- [x] Retry/backoff metrics are now observable without changing retry semantics
 
 ## ARCHITECTURE CLEANUP
 
@@ -71,7 +73,7 @@ Branch: `feature/scraping-performance-recovery`
 
 ## AUTHORITATIVE FULL REFERENCE
 
-Reference: **latest applied FULL ID 180**
+Reference: **latest applied FULL ID 182**
 
 - 24 categories
 - 534 product appearances
@@ -81,13 +83,12 @@ Reference: **latest applied FULL ID 180**
 - complete coverage
 - 0 invalidating errors
 
-Lower floors such as `529/525` are not valid substitutes for complete coverage.
+Lower floors such as `529/525` are not valid substitutes for complete coverage. The latest successful complete real run remains the governing reference.
 
 ## POST-CONSOLIDATION REAL FULL — VALIDATED
 
 ### Scraping run
 
-- `scraping_run=23`
 - `mode=full`
 - `status=SUCCESS`
 - `categories_requested=24`
@@ -103,7 +104,7 @@ Lower floors such as `529/525` are not valid substitutes for complete coverage.
 
 ### Latest controller FULL — VALIDATED
 
-- `history_id=180`
+- `history_id=182`
 - `status=SUCCESS`
 - `categories_processed=24`
 - `expected_category_occurrences=534`
@@ -113,64 +114,80 @@ Lower floors such as `529/525` are not valid substitutes for complete coverage.
 - `duplicate_occurrences=4`
 - `errors=0`
 - `applied_at` populated
-- execution time: `121.17s`
-- recent valid timing sample: `118.517s` end-to-end
-- controller progress callback completed at `48/48`
+- execution time: `149.375s`
+- progress callback completed at `48/48`
+
+### Latest classification
+
+- `created=1`
+- `updated=126`
+- `unchanged=403`
+- `deleted=0`
+
+This classification is recorded for the latest applied FULL. The final catalog remained `530 / 534`, but the run is **not** classified as idempotent because it contained created/updated records.
 
 ### History
 
-- `history_id=180` is the latest successful applied execution.
-- `history_id=179` remains preserved as an older successful execution with the same coverage result.
-- `history_id=178` remains preserved as `ERROR` with `errors=3` and no `applied_at`.
-
-Previous history was therefore preserved rather than deleted or overwritten.
+- `history_id=182` is the latest successful applied execution.
+- Previous history remains preserved; failed/incomplete executions are not promoted over a valid complete FULL.
+- The recovery rule remains: a historical coverage floor must never override the latest successful complete real run.
 
 ### Catalog after latest FULL
 
 - `products=530`
 - `product_categories=534`
-- latest FULL classified result: `created=0`, `updated=0`, `unchanged=530`, `deleted=0`
 
-The latest controller FULL reproduced the authoritative `24 / 534 / 530 / 4` result and persisted it as `history_id=180` with no errors.
+The latest controller FULL persisted the authoritative `24 / 534 / 530 / 4` result with no invalidating errors.
 
 ## HTTP / DETAIL AUDIT
 
 Recent FULL timing samples show the network layer, not SQLite/catalog persistence, is the dominant runtime area.
 
+### Latest complete FULL HTTP sample
+
+- `requests=349`
+- category requests: `26`
+- detail requests: `289`
+- other requests: `34`
+- retries: `2`
+- errors: `1`
+- terminal errors: `0`
+- observed `max_concurrency=28`
+- `retry_sleep_count=1`
+- `retry_sleep_seconds=1.000`
+- per-request `max_seconds≈20.422`
+- aggregate request `total_seconds≈2301.970`
+
+The `total_seconds` field is an aggregate of individual request timings and must not be interpreted as wall-clock execution time.
+
+The current timeout baseline is `20s`, and the latest complete sample reached approximately `20.4s` on its slowest request. Historical valid wall-clock FULL timing was approximately `118.517s`; the latest controller run at `149.375s` therefore does not yet establish a performance improvement.
+
 ### Detail cache
 
-- Recent complete samples: `detail_cache requests=288–289`
-- `cache_hits=0` in the recent samples
-- `cache_size=288–289`
-- `skipped=215–245`
-- Interpretation: the enrichment phase is performing real detail HTTP requests for the consolidated product set; the detail cache is not reducing these requests within a single FULL sample.
+- Latest complete sample: `detail_cache requests=289`
+- `cache_hits=0`
+- `cache_size=289`
 
-### HTTP metrics
-
-Observed recent samples:
-
-- `requests=356–380`
-- category requests: `32–51`
-- detail requests: `288–289`
-- other requests: `34–40`
-- retries: `9–43`
-- errors: `6–32`
-- terminal errors: `0–4`
-- observed `max_concurrency`: `24`, `28`, and one historical sample `32`
-- per-request `max_seconds`: approximately `10.4–12.0s`
-
-The `total_seconds` field is an aggregate of request timings and must not be interpreted as wall-clock execution time. Wall-clock FULL timing remains approximately `118–121s` in the validated recent runs.
-
-The successful FULL result demonstrates that transient HTTP errors/retries can coexist with a complete final dataset when the final coverage is `24 / 534 / 530 / 4` and no invalidating errors remain.
+Interpretation: the enrichment phase is still doing real detail HTTP requests for the consolidated product set; the detail cache is not materially reducing requests inside the same FULL sample.
 
 ### Performance conclusion
 
-- [x] SQLite/catalog persistence is not the observed bottleneck: `catalog_sync` remains sub-second in the timing samples audited previously.
-- [x] Detail enrichment is a major network cost because roughly `288–289` detail requests are made per complete FULL sample.
-- [x] Category listing/recovery is also a significant network cost and shows variable retries/errors.
-- [x] Effective HTTP concurrency is reaching the configured `28` in the current native path in the relevant samples.
-- [x] No runtime performance change was made from this audit.
+- [x] SQLite/catalog persistence is not the observed bottleneck.
+- [x] Detail enrichment is a major network cost because roughly `289` detail requests are made per complete FULL sample.
+- [x] Category listing/recovery is also a significant network cost and remains variable under transient retries.
+- [x] Effective HTTP concurrency reaches the configured `28` in the current native path.
+- [x] Retry/backoff telemetry is now available for benchmark interpretation.
+- [x] No runtime optimization has been applied yet after this audit.
 - [ ] Any performance optimization must be isolated, benchmarked, and validated against the authoritative `24 / 534 / 530 / 4` result.
+
+## PER-CATEGORY TIMING NEXT STEP
+
+- [x] Native page metrics are already available from `ProductCollectionScraper`.
+- [ ] Add explicit per-category timing telemetry around collection/listing.
+- [ ] Add explicit per-category timing telemetry around enrichment/detail.
+- [ ] Use the telemetry to identify the slowest categories before changing worker/concurrency behavior.
+- [ ] Run one isolated performance experiment at a time.
+- [ ] Repeat an authoritative FULL after any runtime performance change.
 
 ## PROGRESS CONTRACT AUDIT
 
@@ -210,8 +227,9 @@ The successful FULL result demonstrates that transient HTTP errors/retries can c
 - [x] FULL incompleto no puede ejecutar prune destructivo
 - [x] FULL fallida más reciente no sustituye una FULL válida anterior
 - [x] Historial previo preservado
-- [x] `history_id=180` aplicado correctamente
+- [x] `history_id=182` aplicado correctamente
 - [x] Catálogo reconciliado: `530 / 534`
+- [x] Latest classification recorded: `1 created / 126 updated / 403 unchanged / 0 deleted`
 
 ### 3. Consolidación y limpieza
 
@@ -223,11 +241,12 @@ The successful FULL result demonstrates that transient HTTP errors/retries can c
 
 ### 4. Calidad
 
-- [x] Full suite: `366 passed, 1 skipped, 7 deselected`
+- [x] Full suite: `370 passed, 1 skipped, 7 deselected`
 - [x] Architecture boundaries: `23 passed`
 - [x] Ruff limpio
 - [x] Pyright limpio
 - [x] Runner + progress contract: `8 passed`
+- [x] Retry/backoff metrics: `2 passed`
 
 ### 5. Progreso UI
 
@@ -242,7 +261,7 @@ The successful FULL result demonstrates that transient HTTP errors/retries can c
 - [x] Rollback validado
 - [x] Error-history/application-state validados
 - [x] Alcance actual auditado frente al timing observado
-- [ ] Benchmark de contención/latencia
+- [ ] Benchmark de contención/latencia solo si aparece evidencia concreta
 - [ ] Optimización del scope transaccional solo con evidencia cuantitativa
 
 ### 7. Rendimiento final
@@ -252,13 +271,15 @@ The successful FULL result demonstrates that transient HTTP errors/retries can c
 - [x] Confirmado que SQLite no domina el tiempo total
 - [x] Identificado que category/detail concentran el coste de red
 - [x] Confirmada concurrencia HTTP efectiva hasta `28`
-- [x] Sin cambios de runtime realizados todavía
-- [ ] Aislar el siguiente experimento de rendimiento en red/category/detail
+- [x] Integrada telemetría de retry/backoff
+- [ ] Añadir tiempos explícitos por categoría para listing/collection
+- [ ] Añadir tiempos explícitos por categoría para enrichment/detail
+- [ ] Aislar siguiente experimento de rendimiento en network/category/detail
 - [ ] Ejecutar benchmark comparativo
-- [ ] Repetir FULL real después de cualquier cambio
+- [ ] Repetir FULL real después de cualquier cambio de runtime
 - [ ] Confirmar nuevamente `24 / 534 / 530 / 4`
 - [ ] Confirmar nuevamente DB `530 / 534`
-- [ ] Confirmar historial aplicado e idempotencia
+- [ ] Confirmar historial aplicado y registrar clasificación real; exigir idempotencia solo cuando la ejecución realmente sea idempotente
 
 ## CHECKLIST
 
@@ -276,7 +297,9 @@ The successful FULL result demonstrates that transient HTTP errors/retries can c
 - [x] Verify catalog/database reconciliation: 530 / 534
 - [x] Verify previous history remains intact
 - [x] Verify new history entry is SUCCESS and applied
-- [x] Verify idempotent classification: 530 unchanged, 0 created, 0 updated, 0 deleted
+- [x] Verify latest applied FULL is `history_id=182`
+- [x] Record latest classification: `1 created, 126 updated, 403 unchanged, 0 deleted`
+- [x] Confirm the latest run is not idempotent despite preserving 530 / 534 final counts
 - [x] Audit actual usage of `scrapers/collectors/catalog_scraper.py`
 - [x] Confirm `CatalogScraper` and `category_page_recovery.py` are legacy-only
 - [x] Remove only proven-dead legacy code and its tests
@@ -296,13 +319,14 @@ The successful FULL result demonstrates that transient HTTP errors/retries can c
 - [x] Reconfirm Ruff and Pyright after final test-consumer migration
 - [x] Audit compatibility scraping factories and confirm canonical runtime uses the service-level factory
 - [x] Re-run a real FULL after product-code cleanup
-- [x] Verify latest controller FULL persists `history_id=180` as SUCCESS and applied
+- [x] Verify latest controller FULL persists `history_id=182` as SUCCESS and applied
 - [x] Verify latest catalog remains `530 products / 534 product_categories`
 - [x] Audit current progress callback contract without changing scraping behavior
 - [x] Execute targeted transaction/history/application-state audit: `8 passed`
 - [x] Audit recent HTTP/detail request metrics without changing runtime behavior
 - [x] Confirm effective HTTP concurrency reaches the configured worker level in recent samples
 - [x] Confirm detail cache behavior is dominated by cache misses in complete FULL samples
+- [x] Validate retry/backoff metrics without changing retry semantics
 - [x] Consolidate the master state of correction, recovery, architecture cleanup, quality, transaction audit, progress audit, and performance audit
 - [x] Add targeted progress-contract tests and validate them with runner tests: `8 passed`
 
@@ -310,7 +334,9 @@ The successful FULL result demonstrates that transient HTTP errors/retries can c
 
 - [ ] Keep compatibility scraping factories as thin external-compatibility wrappers unless a future audit proves they can be removed safely
 - [ ] Decide whether the current UI contract is sufficient or whether enrichment progress `25..47` provides enough value to justify runtime callbacks
+- [ ] Add per-category collection/listing timing telemetry without changing scraping behavior
+- [ ] Add per-category enrichment/detail timing telemetry without changing scraping behavior
 - [ ] Isolate the next performance experiment to network/category-detail behavior; do not alter FULL safety or persistence boundaries
 - [ ] Benchmark/audit transaction scope only if a concrete SQLite contention or latency issue is observed
-- [ ] Repeat a real FULL after any scraping/runtime performance change and require `24 / 534 / 530 / 4`, complete coverage, DB `530 / 534`, applied history, and idempotence
+- [ ] Repeat a real FULL after any scraping/runtime performance change and require `24 / 534 / 530 / 4`, complete coverage, DB `530 / 534`, and an applied history entry
 - [ ] Close the master plan only after the progress decision, any necessary transaction benchmark, and final performance validation are complete

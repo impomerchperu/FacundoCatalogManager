@@ -12,6 +12,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
 - [x] Product-code facade removal validated after remaining test consumer migration
 - [x] Real FULL re-run after product-code cleanup: `24 / 534 / 530 / 4`
+- [x] Scraping session/history transaction and application-state tests: `8 passed`
 
 ## RUNTIME CONSOLIDATION
 
@@ -53,7 +54,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Obsolete archived `scraping_compat.py` implementation removed
 - [x] `category_pagination_patch.py` removed after test consumers migrated to canonical engine
 - [x] `jsf_concurrency_patch.py` removed after consumer test migrated to native `CategoryScraper`
-- [x] `page_metrics_patch.py` removed after audit consumer migrated to native metrics storage/audit
+- [x] `page_metrics_patch.py` removed after audit consumer migrated to native metrics/audit
 - [x] `product_code_patch.py` removed after SKU extraction and authoritative detail-code backfill were verified as native
 - [x] Remaining product-code regression test consumer migrated to native `ProductExtractor`
 
@@ -139,6 +140,14 @@ The latest controller FULL reproduced the authoritative `24 / 534 / 530 / 4` res
 - [x] Confirmed this is a progress-reporting semantics issue only; the validated FULL result is unaffected
 - [ ] Change progress callbacks only after adding targeted contract tests; no runtime behavior change has been made yet
 
+## TRANSACTION SCOPE AUDIT
+
+- [x] Executed targeted scraping-session transaction/history/application-state tests
+- [x] Result: `8 passed`
+- [x] Verified rollback/error-history/application-state behavior remains green under current transaction boundaries
+- [x] No transaction-boundary runtime change made from this audit
+- [ ] Consider transaction-scope optimization only after the progress contract is covered and a separate benchmark confirms measurable SQLite contention/latency benefit
+
 ## CHECKLIST
 
 ### Completed
@@ -178,10 +187,11 @@ The latest controller FULL reproduced the authoritative `24 / 534 / 530 / 4` res
 - [x] Verify latest controller FULL persists `history_id=180` as SUCCESS and applied
 - [x] Verify latest catalog remains `530 products / 534 product_categories`
 - [x] Audit current progress callback contract without changing scraping behavior
+- [x] Execute targeted transaction/history/application-state audit: `8 passed`
 
 ### Next cleanup
 
 - [ ] Keep compatibility scraping factories as thin external-compatibility wrappers unless a future audit proves they can be removed safely
 - [ ] Add targeted progress-contract tests, then decide whether to emit enrichment progress `25..47` before changing the callback behavior
-- [ ] Audit the long-lived SQLite transaction scope separately; do not change transaction boundaries without targeted atomicity and persistence tests
+- [ ] Benchmark/audit transaction scope only if a concrete SQLite contention or latency issue is observed
 - [ ] Optimize performance only while preserving `24 / 534 / 530 / 4`

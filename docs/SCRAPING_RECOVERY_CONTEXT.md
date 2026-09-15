@@ -14,12 +14,11 @@ The obsolete `missing_code_recovery_patch.py` facade and its facade-only test ha
 
 ## Authoritative real FULL checkpoint
 
-The authoritative real-site reference is the latest validated successful FULL run, **scraping_run=23 / history_id=179**.
+The authoritative real-site reference is the latest validated successful FULL run, **history_id=182**.
 
-- `scraping_run=23`
-- `history_id=179`
-- `status=SUCCESS`
+- `history_id=182`
 - `mode=full`
+- `status=SUCCESS`
 - `categories_requested=24`
 - `expected_category_occurrences=534`
 - `actual_category_occurrences=534`
@@ -31,13 +30,61 @@ The authoritative real-site reference is the latest validated successful FULL ru
 - `coverage_gap=0`
 - `error_count=0`
 - `applied_at` populated
+- execution time: `149.375s`
 
-The preceding `history_id=178` was an unsuccessful run with 3 errors and was not applied. Future FULL validation must be governed by the latest successful complete run, not by a manually chosen historical coverage floor such as 529/525.
+The latest applied FULL classification was `created=1`, `updated=126`, `unchanged=403`, `deleted=0`. The final catalog remained `530 products / 534 product_categories`, but the run was not idempotent.
+
+Future FULL validation must be governed by the latest successful complete run, not by a manually chosen historical coverage floor such as 529/525.
+
+## Current configuration baseline
+
+- request timeout: `20s`
+- max retries: `3`
+- category workers: `16`
+- shared HTTP workers: `28`
+- detail workers: `32`
+- HTML parser: `lxml`
+
+Run 182 is the validated production coverage baseline for the current configuration and must remain the comparison point until a newer complete live FULL establishes a different validated result.
 
 ## Latest repository validation
 
-After removing obsolete facade-only tests, the branch validated cleanly with:
-
-- `366 passed, 1 skipped, 7 deselected`
+- Full suite: `370 passed, 1 skipped, 7 deselected`
+- Architecture-boundary tests: `23 passed`
+- Targeted scraping coverage regressions: `8 passed`
+- Transaction/history/application-state tests: `8 passed`
+- Runner/progress contract tests: `8 passed`
+- Retry/backoff metrics: `2 passed`
 - Ruff: clean
 - Pyright: `0 errors, 0 warnings, 0 informations`
+
+## Performance audit status
+
+The current evidence continues to point to network/category/detail work as the main runtime area rather than SQLite persistence.
+
+Latest complete FULL HTTP sample:
+
+- `requests=349`
+- category requests: `26`
+- detail requests: `289`
+- other requests: `34`
+- retries: `2`
+- errors: `1`
+- terminal errors: `0`
+- `max_concurrency=28`
+- retry sleep count: `1`
+- retry sleep seconds: `1.000`
+- slowest observed request: approximately `20.422s`
+- aggregate request timing: approximately `2301.970s` (not wall-clock)
+
+The detail cache showed `289` requests, `0` hits, and `289` cached entries in the latest complete sample. This indicates that the current enrichment phase is still dominated by real detail HTTP work within a FULL run.
+
+No runtime performance optimization has been applied from this audit yet. The next change should be measurement-first: add explicit per-category collection/listing and enrichment/detail timing telemetry, then isolate one network-side optimization at a time and revalidate the complete `24 / 534 / 530 / 4` result.
+
+## Progress contract
+
+The current FULL runner reports category progress `1..24`, then emits terminal `48/48` after enrichment/synchronization completes. Tests validate this behavior. Intermediate enrichment callbacks `25..47` remain an optional UI-contract change and have not been introduced.
+
+## Persistence and safety
+
+FULL safety remains authoritative: incomplete or failed FULL runs must not perform destructive prune, and an unsuccessful run must not replace a previously valid complete applied state. Historical execution records remain preserved.

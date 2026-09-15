@@ -1,6 +1,6 @@
 # FCM Architecture Checkpoint
 
-Fecha: 2026-09-15  
+Fecha: 2026-09-16  
 Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
@@ -13,6 +13,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Product-code facade removal validated after remaining test consumer migration
 - [x] Real FULL re-run after product-code cleanup: `24 / 534 / 530 / 4`
 - [x] Scraping session/history transaction and application-state tests: `8 passed`
+- [x] HTTP/detail timing audit completed from recent FULL samples
 
 ## RUNTIME CONSOLIDATION
 
@@ -112,6 +113,7 @@ Lower floors such as `529/525` are not valid substitutes for complete coverage.
 - `errors=0`
 - `applied_at` populated
 - execution time: `121.17s`
+- recent valid timing sample: `118.517s` end-to-end
 - controller progress callback completed at `48/48`
 
 ### History
@@ -130,6 +132,45 @@ Previous history was therefore preserved rather than deleted or overwritten.
 
 The latest controller FULL reproduced the authoritative `24 / 534 / 530 / 4` result and persisted it as `history_id=180` with no errors.
 
+## HTTP / DETAIL AUDIT
+
+Recent FULL timing samples show the network layer, not SQLite/catalog persistence, is the dominant runtime area.
+
+### Detail cache
+
+- Recent complete samples: `detail_cache requests=288–289`
+- `cache_hits=0` in the recent samples
+- `cache_size=288–289`
+- `skipped=215–245`
+- Interpretation: the enrichment phase is performing real detail HTTP requests for the consolidated product set; the detail cache is not reducing these requests within a single FULL sample.
+
+### HTTP metrics
+
+Observed recent samples:
+
+- `requests=356–380`
+- category requests: `32–51`
+- detail requests: `288–289`
+- other requests: `34–40`
+- retries: `9–43`
+- errors: `6–32`
+- terminal errors: `0–4`
+- observed `max_concurrency`: `24`, `28`, and one historical sample `32`
+- per-request `max_seconds`: approximately `10.4–12.0s`
+
+The `total_seconds` field is an aggregate of request timings and must not be interpreted as wall-clock execution time. Wall-clock FULL timing remains approximately `118–121s` in the validated recent runs.
+
+The successful FULL result demonstrates that transient HTTP errors/retries can coexist with a complete final dataset when the final coverage is `24 / 534 / 530 / 4` and no invalidating errors remain.
+
+### Performance conclusion
+
+- [x] SQLite/catalog persistence is not the observed bottleneck: `catalog_sync` remains sub-second in the timing samples audited previously.
+- [x] Detail enrichment is a major network cost because roughly `288–289` detail requests are made per complete FULL sample.
+- [x] Category listing/recovery is also a significant network cost and shows variable retries/errors.
+- [x] Effective HTTP concurrency is reaching the configured `28` in the current native path in the relevant samples.
+- [x] No runtime performance change was made from this audit.
+- [ ] Any performance optimization must be isolated, benchmarked, and validated against the authoritative `24 / 534 / 530 / 4` result.
+
 ## PROGRESS CONTRACT AUDIT
 
 - [x] Audited `ScrapingRunner.run()` progress mapping
@@ -146,7 +187,8 @@ The latest controller FULL reproduced the authoritative `24 / 534 / 530 / 4` res
 - [x] Result: `8 passed`
 - [x] Verified rollback/error-history/application-state behavior remains green under current transaction boundaries
 - [x] No transaction-boundary runtime change made from this audit
-- [ ] Consider transaction-scope optimization only after the progress contract is covered and a separate benchmark confirms measurable SQLite contention/latency benefit
+- [x] Current timing evidence does not justify treating SQLite transaction scope as the primary performance bottleneck
+- [ ] Consider transaction-scope optimization only after a separate benchmark confirms measurable SQLite contention/latency benefit
 
 ## CHECKLIST
 
@@ -188,10 +230,14 @@ The latest controller FULL reproduced the authoritative `24 / 534 / 530 / 4` res
 - [x] Verify latest catalog remains `530 products / 534 product_categories`
 - [x] Audit current progress callback contract without changing scraping behavior
 - [x] Execute targeted transaction/history/application-state audit: `8 passed`
+- [x] Audit recent HTTP/detail request metrics without changing runtime behavior
+- [x] Confirm effective HTTP concurrency reaches the configured worker level in recent samples
+- [x] Confirm detail cache behavior is dominated by cache misses in complete FULL samples
 
 ### Next cleanup
 
 - [ ] Keep compatibility scraping factories as thin external-compatibility wrappers unless a future audit proves they can be removed safely
 - [ ] Add targeted progress-contract tests, then decide whether to emit enrichment progress `25..47` before changing the callback behavior
+- [ ] Isolate the next performance experiment to network/category-detail behavior; do not alter FULL safety or persistence boundaries
 - [ ] Benchmark/audit transaction scope only if a concrete SQLite contention or latency issue is observed
 - [ ] Optimize performance only while preserving `24 / 534 / 530 / 4`

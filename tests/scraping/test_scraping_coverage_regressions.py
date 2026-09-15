@@ -3,8 +3,11 @@ from threading import RLock
 
 from bs4 import BeautifulSoup
 
-from scrapers.collectors import category_pagination_engine
-from scrapers.collectors import jsf_concurrency_patch, product_code_patch
+from scrapers.collectors import (
+    category_pagination_engine,
+    jsf_concurrency_patch,
+    product_code_patch,
+)
 from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_product_sync_service import CategoryProductSyncService

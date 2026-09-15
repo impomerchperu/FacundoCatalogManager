@@ -68,7 +68,7 @@ Branch: `feature/scraping-performance-recovery`
 
 ## AUTHORITATIVE FULL REFERENCE
 
-Reference: **FULL ID 177**
+Reference: **latest applied FULL ID 180**
 
 - 24 categories
 - 534 product appearances
@@ -129,6 +129,16 @@ Previous history was therefore preserved rather than deleted or overwritten.
 
 The latest controller FULL reproduced the authoritative `24 / 534 / 530 / 4` result and persisted it as `history_id=180` with no errors.
 
+## PROGRESS CONTRACT AUDIT
+
+- [x] Audited `ScrapingRunner.run()` progress mapping
+- [x] Confirmed FULL pipeline total is `2 × categories = 48`
+- [x] Confirmed category collection currently emits `1..24`
+- [x] Confirmed enrichment currently emits no intermediate `25..47` callbacks
+- [x] Confirmed runner emits terminal `48/48` after `sync_categories()` returns
+- [x] Confirmed this is a progress-reporting semantics issue only; the validated FULL result is unaffected
+- [ ] Change progress callbacks only after adding targeted contract tests; no runtime behavior change has been made yet
+
 ## CHECKLIST
 
 ### Completed
@@ -167,10 +177,11 @@ The latest controller FULL reproduced the authoritative `24 / 534 / 530 / 4` res
 - [x] Re-run a real FULL after product-code cleanup
 - [x] Verify latest controller FULL persists `history_id=180` as SUCCESS and applied
 - [x] Verify latest catalog remains `530 products / 534 product_categories`
+- [x] Audit current progress callback contract without changing scraping behavior
 
 ### Next cleanup
 
 - [ ] Keep compatibility scraping factories as thin external-compatibility wrappers unless a future audit proves they can be removed safely
-- [ ] Review the progress-reporting contract: current runner reports category collection progress `1..24` and final pipeline completion `48/48`, while the enrichment phase does not emit intermediate `25..47` callbacks
+- [ ] Add targeted progress-contract tests, then decide whether to emit enrichment progress `25..47` before changing the callback behavior
 - [ ] Audit the long-lived SQLite transaction scope separately; do not change transaction boundaries without targeted atomicity and persistence tests
 - [ ] Optimize performance only while preserving `24 / 534 / 530 / 4`

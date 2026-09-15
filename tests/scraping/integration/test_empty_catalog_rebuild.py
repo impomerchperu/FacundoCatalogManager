@@ -7,7 +7,6 @@ from repositories.product_repository import ProductRepository
 from repositories.scraping.normalized_scraping_repository import (
     NormalizedScrapingRepository,
 )
-from scrapers.collectors import full_sync_safety_patch  # noqa: F401
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.normalized_category_product_sync_service import (
     NormalizedCategoryProductSyncService,

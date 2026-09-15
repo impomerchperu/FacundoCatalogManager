@@ -6,7 +6,7 @@ import pytest
 
 from config.scraping_config import STORE_URL
 from scrapers.browser import Browser
-from scrapers.collectors.category_pagination_patch import _direct_product_urls
+from scrapers.collectors.category_pagination_engine import _direct_product_urls
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 from scrapers.collectors.resilient_category_scraper import ResilientCategoryScraper
 from scrapers.extractors.category_extractor import CategoryExtractor

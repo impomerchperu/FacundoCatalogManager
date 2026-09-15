@@ -5,7 +5,7 @@ Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
 
-- [x] Full suite: `368 passed, 1 skipped, 7 deselected` *(validated after page-coverage facade removal)*
+- [x] Full suite: `366 passed, 1 skipped, 7 deselected` *(validated after page-coverage and missing-code facade cleanup)*
 - [x] Ruff: clean
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
 - [x] Targeted page-coverage compatibility tests: removed with retired facade
@@ -44,6 +44,11 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Unused `full_sync_safety_patch.py` removed; canonical FULL/prune safety tests remain active
 - [x] `page_coverage_recovery_patch.py` audited: production usage absent; facade and all facade-only tests removed
 - [x] Stale page-coverage recovery documentation removed
+- [x] Retired `single_page_fastpath_patch.py` facade removed
+- [x] Retired `scraping_compat.py` facade removed
+- [x] Obsolete archived `scraping_compat.py` implementation removed
+- [x] Architecture boundary test now guards those removed paths
+- [ ] Remaining compatibility facades: `category_pagination_patch.py`, `jsf_concurrency_patch.py`, `page_metrics_patch.py`, `product_code_patch.py`, and compatibility scraping factories require final consumer decision before removal
 
 ## AUTHORITATIVE FULL REFERENCE
 
@@ -126,10 +131,12 @@ The run reproduced the authoritative `24 / 534 / 530 / 4` result and produced no
 - [x] Audit `full_sync_safety_patch.py` and remove it as an unused facade
 - [x] Audit `page_coverage_recovery_patch.py` and remove it with all facade-only tests
 - [x] Revalidate the complete local suite after the page-coverage cleanup
+- [x] Revalidate the complete local suite after the missing-code facade test cleanup
+- [x] Remove retired single-page/scraping-compat facades after consumer audit
 
 ## NEXT
 
-- [ ] Audit remaining compatibility facades only where consumer evidence is still incomplete
+- [ ] Audit the remaining compatibility facades only where consumer evidence is still incomplete
 - [ ] Keep compatibility facades only where tests or supported external imports require them
 - [ ] Re-run a real FULL when a cleanup change can affect scraping/coverage/sync/persistence
 - [ ] Optimize performance only while preserving `24 / 534 / 530 / 4`

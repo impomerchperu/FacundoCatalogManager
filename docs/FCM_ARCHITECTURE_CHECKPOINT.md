@@ -14,6 +14,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Real FULL re-run after product-code cleanup: `24 / 534 / 530 / 4`
 - [x] Scraping session/history transaction and application-state tests: `8 passed`
 - [x] HTTP/detail timing audit completed from recent FULL samples
+- [x] Progress-contract tests added and validated: `8 passed` across runner + progress contract
 
 ## RUNTIME CONSOLIDATION
 
@@ -179,7 +180,9 @@ The successful FULL result demonstrates that transient HTTP errors/retries can c
 - [x] Confirmed enrichment currently emits no intermediate `25..47` callbacks
 - [x] Confirmed runner emits terminal `48/48` after `sync_categories()` returns
 - [x] Confirmed this is a progress-reporting semantics issue only; the validated FULL result is unaffected
-- [ ] Add targeted contract tests before changing progress callbacks or emitting enrichment progress `25..47`
+- [x] Added targeted contract test covering the current `1..N` then terminal `2N/2N` semantics
+- [x] Validated runner + progress-contract tests: `8 passed`
+- [ ] Decide whether to implement enrichment callbacks `25..47` as a separate UI-contract change
 
 ## TRANSACTION SCOPE AUDIT
 
@@ -224,12 +227,13 @@ The successful FULL result demonstrates that transient HTTP errors/retries can c
 - [x] Architecture boundaries: `23 passed`
 - [x] Ruff limpio
 - [x] Pyright limpio
+- [x] Runner + progress contract: `8 passed`
 
 ### 5. Progreso UI
 
 - [x] Semántica actual `1..24`, luego `48/48`, documentada
 - [x] Confirmado que no afecta cobertura ni persistencia
-- [ ] Tests formales del contrato de progreso
+- [x] Tests formales del contrato de progreso
 - [ ] Decidir, con tests, si se implementa progreso intermedio `25..47`
 
 ### 6. Transacciones SQLite
@@ -300,12 +304,13 @@ The successful FULL result demonstrates that transient HTTP errors/retries can c
 - [x] Confirm effective HTTP concurrency reaches the configured worker level in recent samples
 - [x] Confirm detail cache behavior is dominated by cache misses in complete FULL samples
 - [x] Consolidate the master state of correction, recovery, architecture cleanup, quality, transaction audit, progress audit, and performance audit
+- [x] Add targeted progress-contract tests and validate them with runner tests: `8 passed`
 
 ### Next cleanup
 
 - [ ] Keep compatibility scraping factories as thin external-compatibility wrappers unless a future audit proves they can be removed safely
-- [ ] Add targeted progress-contract tests, then decide whether to emit enrichment progress `25..47` before changing the callback behavior
+- [ ] Decide whether the current UI contract is sufficient or whether enrichment progress `25..47` provides enough value to justify runtime callbacks
 - [ ] Isolate the next performance experiment to network/category-detail behavior; do not alter FULL safety or persistence boundaries
 - [ ] Benchmark/audit transaction scope only if a concrete SQLite contention or latency issue is observed
 - [ ] Repeat a real FULL after any scraping/runtime performance change and require `24 / 534 / 530 / 4`, complete coverage, DB `530 / 534`, applied history, and idempotence
-- [ ] Close the master plan only after the progress contract, any necessary transaction benchmark, and final performance validation are complete
+- [ ] Close the master plan only after the progress decision, any necessary transaction benchmark, and final performance validation are complete

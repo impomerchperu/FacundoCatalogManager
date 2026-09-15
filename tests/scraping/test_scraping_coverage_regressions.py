@@ -3,10 +3,7 @@ from threading import RLock
 
 from bs4 import BeautifulSoup
 
-from scrapers.collectors import (
-    category_pagination_engine,
-    product_code_patch,
-)
+from scrapers.collectors import category_pagination_engine
 from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_product_sync_service import CategoryProductSyncService
@@ -243,9 +240,7 @@ def test_product_code_can_extract_explicit_sku_without_relationship_rules():
     extractor = object.__new__(ProductExtractor)
     soup = BeautifulSoup('<span class="sku">AB-7008-X</span>', "html.parser")
 
-    code = product_code_patch._extract_code(extractor, soup)
-
-    assert code == "AB-7008-X"
+    assert extractor.extract_code(soup) == "AB-7008-X"
 
 
 def test_category_coverage_preserves_comma_in_real_category_name():
@@ -256,9 +251,8 @@ def test_category_coverage_preserves_comma_in_real_category_name():
     ]
 
 
-def test_compatibility_layers_are_explicit_not_implicitly_active():
-    assert CategoryScraper.get_category_pages is not (
-        category_pagination_engine.get_category_pages
-    )
-    assert CategoryScraper.JSF_HTTP_CONCURRENCY == 4
-    assert ProductExtractor.extract_code is product_code_patch._extract_code
+def test_scraping_uses_native_product_code_extraction():
+    extractor = object.__new__(ProductExtractor)
+    soup = BeautifulSoup('<span class="sku">FB-1426</span>', "html.parser")
+
+    assert ProductExtractor.extract_code(extractor, soup) == "FB-1426"

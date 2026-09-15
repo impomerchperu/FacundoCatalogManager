@@ -1,6 +1,6 @@
 # FCM Architecture Checkpoint
 
-Fecha: 2026-09-14  
+Fecha: 2026-09-15  
 Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
@@ -11,6 +11,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
 - [x] Product-code facade removal validated after remaining test consumer migration
+- [x] Real FULL re-run after product-code cleanup: `24 / 534 / 530 / 4`
 
 ## RUNTIME CONSOLIDATION
 
@@ -97,31 +98,36 @@ Lower floors such as `529/525` are not valid substitutes for complete coverage.
 - `coverage_gap=0`
 - `error_count=0`
 
-### History
+### Latest controller FULL — VALIDATED
 
-- `history_id=179`
+- `history_id=180`
 - `status=SUCCESS`
 - `categories_processed=24`
-- `products_expected=530`
+- `expected_category_occurrences=534`
 - `products_found=534`
 - `products_unique=530`
 - `products_multiple_categories=4`
 - `duplicate_occurrences=4`
 - `errors=0`
 - `applied_at` populated
+- execution time: `121.17s`
+- controller progress callback completed at `48/48`
 
-The previous `history_id=178` remains as `ERROR` with `errors=3` and no `applied_at`. Previous history was therefore preserved rather than deleted or overwritten.
+### History
 
-### Catalog after FULL
+- `history_id=180` is the latest successful applied execution.
+- `history_id=179` remains preserved as an older successful execution with the same coverage result.
+- `history_id=178` remains preserved as `ERROR` with `errors=3` and no `applied_at`.
+
+Previous history was therefore preserved rather than deleted or overwritten.
+
+### Catalog after latest FULL
 
 - `products=530`
 - `product_categories=534`
-- `created=0`
-- `updated=0`
-- `unchanged=530`
-- `deleted=0`
+- latest FULL classified result: `created=0`, `updated=0`, `unchanged=530`, `deleted=0`
 
-The run reproduced the authoritative `24 / 534 / 530 / 4` result and produced no false catalog changes.
+The latest controller FULL reproduced the authoritative `24 / 534 / 530 / 4` result and persisted it as `history_id=180` with no errors.
 
 ## CHECKLIST
 
@@ -158,13 +164,13 @@ The run reproduced the authoritative `24 / 534 / 530 / 4` result and produced no
 - [x] Validate complete local suite after product-code cleanup
 - [x] Reconfirm Ruff and Pyright after final test-consumer migration
 - [x] Audit compatibility scraping factories and confirm canonical runtime uses the service-level factory
-
-### Pending validation
-
-- [ ] Re-run a real FULL because product-code cleanup touches a scraping-related regression surface
+- [x] Re-run a real FULL after product-code cleanup
+- [x] Verify latest controller FULL persists `history_id=180` as SUCCESS and applied
+- [x] Verify latest catalog remains `530 products / 534 product_categories`
 
 ### Next cleanup
 
 - [ ] Keep compatibility scraping factories as thin external-compatibility wrappers unless a future audit proves they can be removed safely
-- [ ] Re-run a real FULL and verify `24 / 534 / 530 / 4` after the cleanup series
+- [ ] Review the progress-reporting contract: current runner reports category collection progress `1..24` and final pipeline completion `48/48`, while the enrichment phase does not emit intermediate `25..47` callbacks
+- [ ] Audit the long-lived SQLite transaction scope separately; do not change transaction boundaries without targeted atomicity and persistence tests
 - [ ] Optimize performance only while preserving `24 / 534 / 530 / 4`

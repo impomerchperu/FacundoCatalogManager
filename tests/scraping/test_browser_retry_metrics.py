@@ -43,11 +43,13 @@ def test_browser_records_retry_backoff_without_changing_retry_policy(monkeypatch
     assert metrics["http_retry_sleep_seconds"] == 3.0
 
 
-def test_browser_resets_retry_backoff_metrics():
+def test_browser_resets_retry_backoff_metrics(monkeypatch):
     session = RetrySession(failures=1)
+    sleeps = []
+    monkeypatch.setattr("scrapers.browser.time.sleep", sleeps.append)
+
     browser = Browser(session=session, max_retries=2)
 
-    browser.time = None if False else browser.time
     assert browser.fetch("https://example.test") == "<html>ok</html>"
     assert browser.get_http_metrics()["http_retry_sleep_count"] == 1
 

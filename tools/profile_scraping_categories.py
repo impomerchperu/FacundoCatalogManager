@@ -14,34 +14,21 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_PATH = PROJECT_ROOT / "data" / "scraping_category_profile.json"
 
 
-def _profile_category(service: Any, index: int, category: Any) -> dict[str, Any]:
-    category_name = str(getattr(category, "name", "") or "").strip() or "(sin nombre)"
-    expected = max(int(getattr(category, "expected_count", 0) or 0), 0)
+def _timed_collect(service: Any, index: int, category: Any) -> tuple[int, float, list[Any]]:
+    started = time.perf_counter()
+    products = service._collect_category(index, category)
+    return index, time.perf_counter() - started, products
 
-    listing_started = time.perf_counter()
-    collected = service._collect_category(index, category)
-    listing_seconds = time.perf_counter() - listing_started
 
-    enrichment_started = time.perf_counter()
-    enriched = service._enrich_category(index, category, collected)
-    enrichment_seconds = time.perf_counter() - enrichment_started
-
-    unique_codes = {
-        str(getattr(product, "code", "") or "").strip().casefold()
-        for product in enriched
-        if str(getattr(product, "code", "") or "").strip()
-    }
-
-    return {
-        "category": category_name,
-        "expected": expected,
-        "collected": len(collected),
-        "enriched": len(enriched),
-        "unique_codes": len(unique_codes),
-        "listing_seconds": round(listing_seconds, 3),
-        "enrichment_seconds": round(enrichment_seconds, 3),
-        "total_seconds": round(listing_seconds + enrichment_seconds, 3),
-    }
+def _timed_enrich(
+    service: Any,
+    index: int,
+    category: Any,
+    products: list[Any],
+) -> tuple[int, float, list[Any]]:
+    started = time.perf_counter()
+    enriched = service._enrich_category(index, category, products)
+    return index, time.perf_counter() - started, enriched
 
 
 def main() -> int:
@@ -54,42 +41,38 @@ def main() -> int:
 
     service = runner.scraping_service
     worker_count = min(config.category_workers, len(categories))
+    collected_by_index: list[list[Any]] = [[] for _ in categories]
+    listing_seconds: dict[int, float] = {}
+    enrichment_seconds: dict[int, float] = {}
     rows: list[dict[str, Any]] = []
 
     profile_started = time.perf_counter()
     if categories:
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
             futures = {
-                executor.submit(service._collect_category, index, category): (index, category)
+                executor.submit(_timed_collect, service, index, category): index
                 for index, category in enumerate(categories)
             }
-            collected_by_index: list[list[Any]] = [[] for _ in categories]
-            listing_started: dict[int, float] = {}
-            listing_seconds: dict[int, float] = {}
-            for future, (index, category) in futures.items():
-                del category
-                listing_started[index] = time.perf_counter()
-                collected_by_index[index] = future.result()
-                listing_seconds[index] = time.perf_counter() - listing_started[index]
+            for future in as_completed(futures):
+                index, seconds, collected = future.result()
+                collected_by_index[index] = collected
+                listing_seconds[index] = seconds
 
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
             futures = {
                 executor.submit(
-                    service._enrich_category,
+                    _timed_enrich,
+                    service,
                     index,
                     categories[index],
                     collected_by_index[index],
                 ): index
                 for index in range(len(categories))
             }
-            enrichment_started: dict[int, float] = {}
-            enriched_by_index: list[list[Any]] = [[] for _ in categories]
-            for future, index in futures.items():
-                enrichment_started[index] = time.perf_counter()
-                enriched_by_index[index] = future.result()
-                enrichment_seconds = time.perf_counter() - enrichment_started[index]
+            for future in as_completed(futures):
+                index, seconds, enriched = future.result()
+                enrichment_seconds[index] = seconds
                 category = categories[index]
-                enriched = enriched_by_index[index]
                 unique_codes = {
                     str(getattr(product, "code", "") or "").strip().casefold()
                     for product in enriched
@@ -103,11 +86,8 @@ def main() -> int:
                         "enriched": len(enriched),
                         "unique_codes": len(unique_codes),
                         "listing_seconds": round(listing_seconds[index], 3),
-                        "enrichment_seconds": round(enrichment_seconds, 3),
-                        "total_seconds": round(
-                            listing_seconds[index] + enrichment_seconds,
-                            3,
-                        ),
+                        "enrichment_seconds": round(seconds, 3),
+                        "total_seconds": round(listing_seconds[index] + seconds, 3),
                     }
                 )
 

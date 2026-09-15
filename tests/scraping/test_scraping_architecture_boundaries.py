@@ -311,6 +311,7 @@ def test_removed_legacy_scraping_facades_stay_absent():
         PROJECT_ROOT / "scrapers" / "collectors" / "single_page_fastpath_patch.py",
         PROJECT_ROOT / "scrapers" / "collectors" / "scraping_compat.py",
         PROJECT_ROOT / "scrapers" / "collectors" / "archive" / "scraping_compat.py",
+        PROJECT_ROOT / "scrapers" / "collectors" / "jsf_concurrency_patch.py",
     )
 
     assert all(not path.exists() for path in removed_paths)

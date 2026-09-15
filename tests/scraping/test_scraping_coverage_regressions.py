@@ -3,12 +3,8 @@ from threading import RLock
 
 from bs4 import BeautifulSoup
 
-from scrapers.collectors import (
-    category_pagination_patch,
-    jsf_concurrency_patch,
-    product_code_patch,
-    scraping_compat,
-)
+from scrapers.collectors import category_pagination_engine
+from scrapers.collectors import jsf_concurrency_patch, product_code_patch
 from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_product_sync_service import CategoryProductSyncService
@@ -75,7 +71,7 @@ def test_facundo_get_category_pages_prefers_jsf_pagination():
         f"{category_url}page/2/",
     ]
 
-    pages = category_pagination_patch._get_category_pages(
+    pages = category_pagination_engine.get_category_pages(
         scraper,
         category_url,
         expected_count=31,
@@ -112,7 +108,7 @@ def test_facundo_get_category_pages_does_not_replace_jsf_with_public_fallback():
 
     scraper._fallback_category_pages = unexpected_public_fallback
 
-    pages = category_pagination_patch._get_category_pages(
+    pages = category_pagination_engine.get_category_pages(
         scraper,
         category_url,
         expected_count=50,
@@ -127,12 +123,12 @@ def test_facundo_get_category_pages_does_not_replace_jsf_with_public_fallback():
 
 def test_facundo_jsf_pagination_payload_uses_canonical_defaults_without_browser_state():
     category_id = 123
-    with category_pagination_patch._JSF_STATE_LOCK:
-        category_pagination_patch._JSF_REQUEST_STATE.pop(category_id, None)
-        category_pagination_patch._JSF_QUERY_STATE.pop(category_id, None)
-    category_pagination_patch._remember_jsf_metadata(category_id, 50, 2)
+    with category_pagination_engine._JSF_STATE_LOCK:
+        category_pagination_engine._JSF_REQUEST_STATE.pop(category_id, None)
+        category_pagination_engine._JSF_QUERY_STATE.pop(category_id, None)
+    category_pagination_engine._remember_jsf_metadata(category_id, 50, 2)
 
-    payload = category_pagination_patch._browser_compatible_jsf_payload(category_id, 2)
+    payload = category_pagination_engine._browser_compatible_jsf_payload(category_id, 2)
     values = dict(payload)
 
     assert values["defaults[paged]"] == "2"
@@ -184,12 +180,12 @@ def test_facundo_jsf_payload_uses_live_querydesk_signature_and_defaults():
     </script>
     '''
 
-    category_pagination_patch._remember_jsf_settings(
+    category_pagination_engine._remember_jsf_settings(
         category_id,
         category_html,
     )
 
-    payload = category_pagination_patch._browser_compatible_jsf_payload(
+    payload = category_pagination_engine._browser_compatible_jsf_payload(
         category_id,
         2,
     )
@@ -206,8 +202,8 @@ def test_facundo_jsf_payload_uses_live_querydesk_signature_and_defaults():
     assert "props[found_posts]" not in values
     assert "props[max_num_pages]" not in values
 
-    with category_pagination_patch._JSF_STATE_LOCK:
-        assert category_pagination_patch._JSF_QUERY_STATE[category_id] == (82, 4)
+    with category_pagination_engine._JSF_STATE_LOCK:
+        assert category_pagination_engine._JSF_QUERY_STATE[category_id] == (82, 4)
 
 
 def test_facundo_jsf_pagination_does_not_treat_max_num_pages_as_hard_ceiling():
@@ -227,7 +223,7 @@ def test_facundo_jsf_pagination_does_not_treat_max_num_pages_as_hard_ceiling():
         },
     )
 
-    pages = category_pagination_patch._get_category_pages(
+    pages = category_pagination_engine.get_category_pages(
         scraper,
         category_url,
         expected_count=0,
@@ -260,9 +256,8 @@ def test_category_coverage_preserves_comma_in_real_category_name():
 
 def test_compatibility_layers_are_explicit_not_implicitly_active():
     assert CategoryScraper.get_category_pages is not (
-        category_pagination_patch._get_category_pages
+        category_pagination_engine.get_category_pages
     )
     assert not hasattr(jsf_concurrency_patch, "_post_jsf")
     assert CategoryScraper.JSF_HTTP_CONCURRENCY == jsf_concurrency_patch.JSF_HTTP_CONCURRENCY
     assert ProductExtractor.extract_code is product_code_patch._extract_code
-    assert hasattr(scraping_compat, "activate")

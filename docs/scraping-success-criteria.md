@@ -67,13 +67,14 @@ La rama cuenta actualmente con:
 
 - Ruff limpio.
 - Pyright limpio (`0 errors, 0 warnings, 0 informations`).
-- Suite automatizada: `366 passed, 1 skipped, 7 deselected`.
+- Suite automatizada base: `366 passed, 1 skipped, 7 deselected`.
 - `23` pruebas de límites arquitectónicos pasadas.
 - Configuración canónica de workers: categoría `16`, HTTP `28`, detalle `32`.
 - Guard de FULL que impide prune destructivo cuando la cobertura no está validada.
 - Persistencia y recuperación de historial protegidas por pruebas.
 - Auditoría de transacciones/historial/estado de aplicación: `8 passed`.
 - Auditoría reciente de métricas HTTP y detail-cache completada sin cambios de runtime.
+- Tests formales del contrato actual de progreso runner: `8 passed`.
 - Limpieza y migración de consumers/patches obsoletos completada donde se demostró ausencia de uso productivo.
 
 ## Checklist general maestro
@@ -138,11 +139,12 @@ La rama cuenta actualmente con:
 
 ### E. Calidad
 
-- [x] Tests: `366 passed, 1 skipped, 7 deselected`.
+- [x] Tests base: `366 passed, 1 skipped, 7 deselected`.
 - [x] Architecture boundaries: `23 passed`.
 - [x] Ruff clean.
 - [x] Pyright clean.
 - [x] Real FULL post-cleanup.
+- [x] Runner + progress contract tests: `8 passed`.
 
 ### F. Progreso UI
 
@@ -151,7 +153,7 @@ La rama cuenta actualmente con:
 - [x] Enrichment actualmente no emite callbacks intermedios `25..47`.
 - [x] Runner termina en `48/48`.
 - [x] Confirmado que esto no afecta cobertura ni persistencia.
-- [ ] Tests formales del contrato de progreso.
+- [x] Tests formales del contrato actual ejecutados y verdes.
 - [ ] Decidir con esos tests si se implementan callbacks `25..47`.
 
 ### G. Rendimiento
@@ -174,8 +176,8 @@ La rama cuenta actualmente con:
 
 El plan maestro no debe declararse cerrado hasta completar, como mínimo:
 
-1. contrato de progreso formalizado y probado;
-2. cualquier decisión sobre scope transaccional respaldada por medición;
+1. decisión sobre la semántica final del progreso y, en caso de cambio, su implementación y validación;
+2. cualquier decisión sobre scope transaccional respaldada por medición si se decide optimizarlo;
 3. un experimento de rendimiento aislado sobre red/category/detail;
 4. un FULL real posterior que vuelva a demostrar `24 / 534 / 530 / 4`, cobertura completa, DB `530 / 534`, historial aplicado e idempotencia.
 

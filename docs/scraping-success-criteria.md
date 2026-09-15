@@ -68,57 +68,115 @@ La rama cuenta actualmente con:
 - Ruff limpio.
 - Pyright limpio (`0 errors, 0 warnings, 0 informations`).
 - Suite automatizada: `366 passed, 1 skipped, 7 deselected`.
-- Configuración canónica de workers para categorías, HTTP y detalle.
+- `23` pruebas de límites arquitectónicos pasadas.
+- Configuración canónica de workers: categoría `16`, HTTP `28`, detalle `32`.
 - Guard de FULL que impide prune destructivo cuando la cobertura no está validada.
 - Persistencia y recuperación de historial protegidas por pruebas.
 - Auditoría de transacciones/historial/estado de aplicación: `8 passed`.
 - Auditoría reciente de métricas HTTP y detail-cache completada sin cambios de runtime.
+- Limpieza y migración de consumers/patches obsoletos completada donde se demostró ausencia de uso productivo.
 
-## Checklist general
+## Checklist general maestro
 
-### Cobertura y corrección
+### A. Corrección funcional
 
-- [x] FULL de las 24 categorías validado.
-- [x] 534 apariciones verificadas.
-- [x] 530 productos únicos verificados.
-- [x] 4 productos multiproducto verificados.
-- [x] 534 relaciones producto-categoría verificadas.
-- [x] `coverage_complete=true` verificado.
-- [x] `coverage_gap=0` verificado.
-- [x] 0 errores invalidantes en la ejecución FULL aplicada de referencia.
+- [x] FULL real de 24 categorías.
+- [x] 534 apariciones.
+- [x] 530 productos únicos.
+- [x] 4 productos multiproducto.
+- [x] 534 relaciones producto-categoría.
+- [x] Cobertura completa.
+- [x] `coverage_gap=0`.
+- [x] 0 errores invalidantes.
+- [x] FULL/prune safety.
+- [x] Reconciliación correcta.
 
-### Persistencia e historial
+### B. Recuperación y persistencia
 
-- [x] Catálogo reconciliado en `530 / 534`.
-- [x] FULL válido aplicado a la base de datos.
+- [x] Recuperación de paginación.
+- [x] Recuperación JSF.
+- [x] Recuperación de páginas incompletas.
+- [x] Recuperación de códigos/SKU.
+- [x] Recuperación de detalle.
+- [x] Recuperación de cobertura.
+- [x] Manejo de FULL incompleto.
+- [x] Manejo de FULL fallido.
+- [x] Precedencia de FULL válida frente a FULL fallida más reciente.
+- [x] Atomicidad de catálogo + historial.
+- [x] Rollback.
+- [x] `history_id=180` aplicado.
 - [x] Historial previo preservado.
-- [x] Última ejecución válida registrada como `history_id=180`.
-- [x] `applied_at` presente para la ejecución aplicada.
-- [x] Reconciliación idempotente validada: `0 created / 0 updated / 530 unchanged / 0 deleted`.
-- [x] Pruebas de rollback, error-history y application-state: `8 passed`.
+- [x] Catálogo reconciliado en `530 / 534`.
 
-### Calidad de ingeniería
+### C. Consolidación arquitectónica
 
-- [x] Full suite: `366 passed, 1 skipped, 7 deselected`.
-- [x] Pyright: `0 errors, 0 warnings, 0 informations`.
-- [x] Ruff: clean.
-- [x] Runtime usa `services.scraping.scraping_factory.ScrapingFactory` como fábrica canónica.
-- [x] Workers canónicos preservados: categoría `16`, HTTP `28`, detalle `32`.
-- [x] Limpieza de facades/patches obsoletos completada donde se demostró ausencia de uso.
+- [x] Pagination consolidada.
+- [x] JSF consolidado.
+- [x] Metrics consolidado.
+- [x] Price recovery consolidado.
+- [x] Coverage recovery consolidado.
+- [x] Full/prune safety consolidado.
+- [x] Product-code consolidado.
+- [x] `ScrapingConfig` consolidada.
+- [x] Workers consolidados.
+- [x] Factory canónica de producción confirmada.
+- [x] Facades/patches muertos eliminados después de auditoría.
+- [x] Consumers de tests migrados a APIs nativas.
+- [ ] Compatibility factories conservadas por posible compatibilidad externa.
 
-### Auditoría de rendimiento
+### D. Historial / DB / transacciones
 
-- [x] Separación de tiempos de categoría, detalle, imágenes, mapping y persistencia auditada.
+- [x] Atomicidad funcional.
+- [x] Rollback.
+- [x] Aplicación de history.
+- [x] Precedencia SUCCESS vs ERROR.
+- [x] Reconstrucción/reconciliación de catálogo.
+- [x] Relaciones categoría-producto.
+- [x] Auditoría del alcance transaccional actual frente al timing observado.
+- [ ] Benchmark de contención/latencia SQLite.
+- [ ] Cambiar boundaries transaccionales solo con evidencia cuantitativa.
+
+### E. Calidad
+
+- [x] Tests: `366 passed, 1 skipped, 7 deselected`.
+- [x] Architecture boundaries: `23 passed`.
+- [x] Ruff clean.
+- [x] Pyright clean.
+- [x] Real FULL post-cleanup.
+
+### F. Progreso UI
+
+- [x] Pipeline FULL definido como `48` pasos lógicos.
+- [x] Colección actual emite `1..24`.
+- [x] Enrichment actualmente no emite callbacks intermedios `25..47`.
+- [x] Runner termina en `48/48`.
+- [x] Confirmado que esto no afecta cobertura ni persistencia.
+- [ ] Tests formales del contrato de progreso.
+- [ ] Decidir con esos tests si se implementan callbacks `25..47`.
+
+### G. Rendimiento
+
+- [x] Tiempos por etapa auditados.
+- [x] HTTP/detail auditado.
 - [x] Confirmado que SQLite/catalog sync no domina el tiempo total.
-- [x] Confirmado que el enriquecimiento de detalle representa una parte importante del tráfico HTTP.
-- [x] Confirmado que el cache de detalle registra `0` hits en los FULL completos auditados.
-- [x] Confirmado que la concurrencia HTTP efectiva alcanza `28` en muestras recientes.
-- [x] Confirmado que reintentos/errores transitorios aparecen en la telemetría sin impedir un FULL válido cuando la cobertura final es completa.
+- [x] Confirmado que category/detail concentran el coste de red observado.
+- [x] Concurrencia HTTP efectiva hasta `28` en muestras relevantes.
+- [x] Detail-cache con `0` hits en los FULL completos auditados.
+- [x] Sin cambios de runtime realizados desde esta auditoría.
+- [ ] Aislar el siguiente experimento en red/category/detail.
+- [ ] Ejecutar benchmark comparativo.
+- [ ] Repetir FULL real después de cualquier cambio.
+- [ ] Confirmar nuevamente `24 / 534 / 530 / 4`.
+- [ ] Confirmar nuevamente DB `530 / 534`.
+- [ ] Confirmar historial aplicado e idempotencia.
 
-## Próximos pasos controlados
+## Criterio para cerrar el plan
 
-- [ ] Mantener las fábricas de compatibilidad mientras exista posible contrato externo no documentado.
-- [ ] Añadir y ejecutar pruebas específicas del contrato de progreso antes de cambiar los callbacks `25..47`.
-- [ ] Realizar el siguiente experimento de rendimiento sobre red/categoría/detalle, aislado y reversible.
-- [ ] No modificar transacciones SQLite salvo que un benchmark demuestre una ganancia medible o exista evidencia concreta de contención.
-- [ ] Repetir FULL real después de cualquier cambio de scraping y exigir nuevamente `24 / 534 / 530 / 4`, cobertura completa y ausencia de errores invalidantes.
+El plan maestro no debe declararse cerrado hasta completar, como mínimo:
+
+1. contrato de progreso formalizado y probado;
+2. cualquier decisión sobre scope transaccional respaldada por medición;
+3. un experimento de rendimiento aislado sobre red/category/detail;
+4. un FULL real posterior que vuelva a demostrar `24 / 534 / 530 / 4`, cobertura completa, DB `530 / 534`, historial aplicado e idempotencia.
+
+Mientras esos puntos sigan pendientes, la parte crítica de corrección, recuperación, consolidación, persistencia e integridad del catálogo permanece validada y no debe modificarse sin una razón concreta.

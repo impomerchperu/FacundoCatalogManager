@@ -1,4 +1,5 @@
 import time
+import traceback
 from pathlib import Path
 
 from models.scraping.category import Category
@@ -20,25 +21,7 @@ def _log_timing(message, *args):
 
 
 class ScrapingRunner:
-    """
-    Ejecuta el proceso completo de scraping.
-
-    Modos soportados:
-
-    1. Ejecución controlada:
-        runner.run(categories)
-
-    2. Ejecución automática:
-        runner.run()
-
-    Responsabilidades:
-
-    - Coordinar servicios.
-    - Ejecutar categorías.
-    - Mantener configuración activa.
-    - Reportar progreso.
-    - Exponer los repositorios de historial y catálogo.
-    """
+    """Ejecuta y coordina el proceso completo de scraping."""
 
     def __init__(
         self,
@@ -58,6 +41,8 @@ class ScrapingRunner:
         self,
         categories: list[Category] | None = None,
         progress_callback=None,
+        *,
+        full_catalog=False,
     ):
         """Ejecuta scraping sobre las categorías recibidas."""
         if categories is None:
@@ -77,52 +62,89 @@ class ScrapingRunner:
         if callable(reset_sync_result):
             reset_sync_result()
 
-        sync_categories = getattr(
-            self.scraping_service,
-            "sync_categories",
-            None,
+        self.scraping_service._scraping_mode = (
+            "full" if full_catalog else "directed"
         )
-        if callable(sync_categories):
-            result = sync_categories(categories, progress_callback)
+
+        try:
+            sync_categories = getattr(
+                self.scraping_service,
+                "sync_categories",
+                None,
+            )
+            if callable(sync_categories):
+                pipeline_total = max(len(categories) * 2, 1)
+
+                def pipeline_progress(current, _total):
+                    if progress_callback:
+                        progress_callback(
+                            min(max(int(current), 0), len(categories)),
+                            pipeline_total,
+                        )
+
+                result = sync_categories(categories, pipeline_progress)
+                if progress_callback:
+                    progress_callback(pipeline_total, pipeline_total)
+                return result
+
+            results = []
+            total = len(categories)
+
+            for index, category in enumerate(categories, start=1):
+                if hasattr(self.scraping_service, "sync_category"):
+                    products = self.scraping_service.sync_category(
+                        category.url,
+                        category.name,
+                    )
+                else:
+                    products = self.scraping_service.scrape_category(category)
+
+                results.extend(products)
+                if progress_callback:
+                    progress_callback(index, total)
+        except Exception as error:
+            _log_timing(
+                "SCRAPING TIMING | stage=run_error | categories=%d | "
+                "error_type=%s | error=%s",
+                len(categories),
+                type(error).__name__,
+                str(error),
+            )
+            traceback_text = "".join(
+                traceback.format_exception(type(error), error, error.__traceback__)
+            ).rstrip()
+            for line in traceback_text.splitlines():
+                _log_timing("SCRAPING TIMING | stage=run_traceback | %s", line)
+            raise
+        else:
+            return results
+        finally:
             _log_timing(
                 "SCRAPING TIMING | stage=run_total | categories=%d "
                 "| seconds=%.3f",
                 len(categories),
                 time.perf_counter() - started,
             )
-            return result
-
-        results = []
-        total = len(categories)
-
-        for index, category in enumerate(categories, start=1):
-            if hasattr(self.scraping_service, "sync_category"):
-                products = self.scraping_service.sync_category(
-                    category.url,
-                    category.name,
-                )
-            else:
-                products = self.scraping_service.scrape_category(category)
-
-            results.extend(products)
-            if progress_callback:
-                progress_callback(index, total)
-
-        _log_timing(
-            "SCRAPING TIMING | stage=run_total | categories=%d "
-            "| seconds=%.3f",
-            len(categories),
-            time.perf_counter() - started,
-        )
-        return results
 
     def run_all(self, progress_callback=None):
-        """Obtiene categorías automáticamente y ejecuta el scraping completo."""
+        """Obtiene categorías automáticamente y ejecuta FULL solo con cobertura total."""
         if self.category_service is None:
             return []
 
         started = time.perf_counter()
-        categories = self.category_service.scrape_all()
+        discovered_categories = list(self.category_service.scrape_all() or [])
+        categories = discovered_categories
+        category_filter = getattr(
+            self.config,
+            "is_category_enabled",
+            None,
+        )
+        if callable(category_filter):
+            categories = [
+                category
+                for category in discovered_categories
+                if category_filter(getattr(category, "name", ""))
+            ]
         _log_timing(
             "SCRAPING TIMING | stage=category_discovery | categories=%d "
             "| seconds=%.3f",
@@ -130,4 +152,17 @@ class ScrapingRunner:
             time.perf_counter() - started,
         )
 
-        return self.run(categories, progress_callback)
+        full_catalog = len(categories) == len(discovered_categories)
+        if not full_catalog:
+            _log_timing(
+                "SCRAPING TIMING | stage=category_filter | "
+                "discovered=%d | selected=%d | mode=directed",
+                len(discovered_categories),
+                len(categories),
+            )
+
+        return self.run(
+            categories,
+            progress_callback,
+            full_catalog=full_catalog,
+        )

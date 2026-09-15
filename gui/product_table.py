@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 
 from controllers.product_controller import ProductController
 from models.product import Product
+from services.scraping.category_name_normalizer import split_category_names
 
 
 class NumericTableWidgetItem(QTableWidgetItem):
@@ -283,14 +284,7 @@ class ProductTable(QTableWidget):
 
     @staticmethod
     def _format_categories(category: str) -> str:
-        categories = []
-        seen: set[str] = set()
-        for value in str(category or "").split(","):
-            normalized = value.strip()
-            key = normalized.casefold()
-            if normalized and key not in seen:
-                seen.add(key)
-                categories.append(normalized)
+        categories = split_category_names(category)
         return "\n".join(categories) if categories else "—"
 
     def _set_stock_widget(self, row: int, product: Product) -> None:

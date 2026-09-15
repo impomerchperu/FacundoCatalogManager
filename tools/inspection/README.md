@@ -5,6 +5,8 @@ del sitio https://stock.importacionesfacundo.com.
 
 Estos scripts no forman parte del código de producción.
 
-Se conservan únicamente como referencia para futuras investigaciones.
+Los diagnósticos históricos que solo fueron útiles durante la investigación se conservan en `archive/`.
+
+Los diagnósticos activos se conservan únicamente cuando siguen siendo útiles y reproducibles para investigar el scraper actual.
 
 No deben utilizarse desde la aplicación principal.

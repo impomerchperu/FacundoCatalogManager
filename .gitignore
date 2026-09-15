@@ -58,6 +58,10 @@ database/*.bak
 # Imágenes descargadas
 media/
 images/
+!scrapers/images/
+!scrapers/images/**
+# El código fuente de scrapers/images sí se versiona, pero su caché no.
+scrapers/images/__pycache__/
 downloads/
 scraper_output/
 output/
@@ -72,6 +76,10 @@ generated/
 # Archivos temporales scraper
 *.tmp
 *.cache
+
+# Artefactos generados por la ejecución del scraper
+data/scraping_result.json
+data/scraping_timing.log
 
 
 # ==========================================================

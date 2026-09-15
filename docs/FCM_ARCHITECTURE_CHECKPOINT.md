@@ -5,7 +5,7 @@ Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
 
-- [x] Full suite: `367 passed, 1 skipped, 7 deselected` *(validated after pagination and JSF concurrency facade cleanup)*
+- [x] Full suite: `366 passed, 1 skipped, 7 deselected` *(validated after page-metrics cleanup)*
 - [x] Ruff: clean
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
 - [x] Targeted page-coverage compatibility tests: removed with retired facade
@@ -47,10 +47,10 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Retired `single_page_fastpath_patch.py` facade removed
 - [x] Retired `scraping_compat.py` facade removed
 - [x] Obsolete archived `scraping_compat.py` implementation removed
-- [x] Architecture boundary test now guards removed paths
 - [x] `category_pagination_patch.py` removed after test consumers migrated to canonical engine
 - [x] `jsf_concurrency_patch.py` removed after consumer test migrated to native `CategoryScraper`
-- [ ] Remaining compatibility facades: `page_metrics_patch.py`, `product_code_patch.py`, and compatibility scraping factories require final consumer decision before removal
+- [x] `page_metrics_patch.py` removed after audit consumer migrated to native metrics storage/audit
+- [x] `product_code_patch.py` removed after SKU extraction and authoritative detail-code backfill were verified as native
 
 ## AUTHORITATIVE FULL REFERENCE
 
@@ -135,11 +135,10 @@ The run reproduced the authoritative `24 / 534 / 530 / 4` result and produced no
 - [x] Revalidate the complete local suite after page-coverage cleanup
 - [x] Migrate pagination and JSF-concurrency compatibility test consumers to canonical/native code
 - [x] Revalidate the complete local suite after pagination and JSF-concurrency cleanup
+- [x] Migrate page-metrics and product-code compatibility tests to native implementation
 
 ## NEXT
 
-- [ ] Audit `page_metrics_patch.py` consumers
-- [ ] Audit `product_code_patch.py` consumers and prove whether authoritative detail-code behavior is fully native
 - [ ] Audit compatibility scraping factories and remove only when no supported external imports/tests remain
 - [ ] Re-run a real FULL when a cleanup change can affect scraping/coverage/sync/persistence
 - [ ] Optimize performance only while preserving `24 / 534 / 530 / 4`

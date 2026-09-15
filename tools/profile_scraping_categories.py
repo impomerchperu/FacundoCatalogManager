@@ -1,33 +1,38 @@
 from __future__ import annotations
 
 import json
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from services.scraping.scraping_config import ScrapingConfig
 from services.scraping.scraping_factory import ScrapingFactory
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_PATH = PROJECT_ROOT / "data" / "scraping_category_profile.json"
 
 
 def _timed_collect(service: Any, index: int, category: Any) -> tuple[int, float, list[Any]]:
     started = time.perf_counter()
-    products = service._collect_category(index, category)
-    return index, time.perf_counter() - started, products
+    collected = service._collect_category(index, category)
+    return index, time.perf_counter() - started, collected
 
 
 def _timed_enrich(
     service: Any,
     index: int,
     category: Any,
-    products: list[Any],
+    collected: list[Any],
 ) -> tuple[int, float, list[Any]]:
     started = time.perf_counter()
-    enriched = service._enrich_category(index, category, products)
+    enriched = service._enrich_category(index, category, collected)
     return index, time.perf_counter() - started, enriched
 
 
@@ -81,7 +86,8 @@ def main() -> int:
                 }
                 rows.append(
                     {
-                        "category": str(getattr(category, "name", "") or "").strip() or "(sin nombre)",
+                        "category": str(getattr(category, "name", "") or "").strip()
+                        or "(sin nombre)",
                         "expected": max(int(getattr(category, "expected_count", 0) or 0), 0),
                         "collected": len(collected_by_index[index]),
                         "enriched": len(enriched),

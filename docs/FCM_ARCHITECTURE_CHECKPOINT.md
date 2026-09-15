@@ -5,10 +5,10 @@ Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
 
-- [x] Full suite: `374 passed, 1 skipped, 7 deselected` *(last validated before page-coverage facade removal; revalidate after the current cleanup)*
-- [x] Ruff: clean *(last validated before the current cleanup)*
-- [x] Pyright: `0 errors, 0 warnings, 0 informations` *(last validated before the current cleanup)*
-- [x] Targeted page-coverage compatibility tests: `6 passed` *(previous validated checkpoint)*
+- [x] Full suite: `368 passed, 1 skipped, 7 deselected` *(validated after page-coverage facade removal)*
+- [x] Ruff: clean
+- [x] Pyright: `0 errors, 0 warnings, 0 informations`
+- [x] Targeted page-coverage compatibility tests: removed with retired facade
 
 ## RUNTIME CONSOLIDATION
 
@@ -42,7 +42,8 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Unused `price_detail_recovery_patch.py` removed
 - [x] Remaining compatibility facades audited for known consumers
 - [x] Unused `full_sync_safety_patch.py` removed; canonical FULL/prune safety tests remain active
-- [x] `page_coverage_recovery_patch.py` audited: production usage absent; facade and facade-only tests removed
+- [x] `page_coverage_recovery_patch.py` audited: production usage absent; facade and all facade-only tests removed
+- [x] Stale page-coverage recovery documentation removed
 
 ## AUTHORITATIVE FULL REFERENCE
 
@@ -123,11 +124,11 @@ The run reproduced the authoritative `24 / 534 / 530 / 4` result and produced no
 - [x] Audit `jsf_request_recovery_patch.py` and remove its obsolete test consumer
 - [x] Audit `price_detail_recovery_patch.py` and remove it as unused
 - [x] Audit `full_sync_safety_patch.py` and remove it as an unused facade
-- [x] Audit `page_coverage_recovery_patch.py` and remove it with its facade-only tests
+- [x] Audit `page_coverage_recovery_patch.py` and remove it with all facade-only tests
+- [x] Revalidate the complete local suite after the page-coverage cleanup
 
 ## NEXT
 
-- [ ] Revalidate the complete local suite after the page-coverage cleanup
 - [ ] Audit remaining compatibility facades only where consumer evidence is still incomplete
 - [ ] Keep compatibility facades only where tests or supported external imports require them
 - [ ] Re-run a real FULL when a cleanup change can affect scraping/coverage/sync/persistence

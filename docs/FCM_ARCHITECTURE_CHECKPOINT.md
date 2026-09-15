@@ -5,7 +5,7 @@ Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
 
-- [x] Full suite: `374 passed, 1 skipped, 7 deselected` *(validated after latest compatibility-facade cleanup)*
+- [x] Full suite: `374 passed, 1 skipped, 7 deselected` *(validated after latest compatibility-facade cleanup, including FULL sync safety facade removal)*
 - [x] Ruff: clean
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
 - [x] Targeted page-coverage compatibility tests: `6 passed` *(previous validated checkpoint)*
@@ -20,7 +20,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Price recovery preserved natively in `ProductCollectionScraper`
 - [x] Page metrics audit preserved
 - [x] Canonical pagination engine active
-- [x] FULL/prune safety preserved
+- [x] FULL/prune safety preserved natively in canonical sync/coverage policy
 - [x] Bootstrap/reconciliation preserved
 - [x] `ScrapingConfig` unified
 - [x] Workers configurable: category `16`, HTTP `28`, detail `32`
@@ -43,6 +43,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Obsolete `test_jsf_request_recovery.py` removed
 - [x] Unused `price_detail_recovery_patch.py` removed
 - [x] Remaining compatibility facades audited for known consumers
+- [x] Unused `full_sync_safety_patch.py` removed; canonical FULL/prune safety tests remain active
 
 ## AUTHORITATIVE FULL REFERENCE
 
@@ -125,6 +126,7 @@ The run reproduced the authoritative `24 / 534 / 530 / 4` result and produced no
 - [x] Run the complete suite after the cleanup changes
 - [x] Audit `jsf_request_recovery_patch.py` and remove its obsolete test consumer
 - [x] Audit `price_detail_recovery_patch.py` and remove it as unused
+- [x] Audit `full_sync_safety_patch.py` and remove it as an unused facade
 
 ## NEXT
 

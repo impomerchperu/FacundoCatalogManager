@@ -5,7 +5,6 @@ from bs4 import BeautifulSoup
 
 from scrapers.collectors import (
     category_pagination_engine,
-    jsf_concurrency_patch,
     product_code_patch,
 )
 from scrapers.collectors.category_scraper import CategoryScraper
@@ -261,6 +260,5 @@ def test_compatibility_layers_are_explicit_not_implicitly_active():
     assert CategoryScraper.get_category_pages is not (
         category_pagination_engine.get_category_pages
     )
-    assert not hasattr(jsf_concurrency_patch, "_post_jsf")
-    assert CategoryScraper.JSF_HTTP_CONCURRENCY == jsf_concurrency_patch.JSF_HTTP_CONCURRENCY
+    assert CategoryScraper.JSF_HTTP_CONCURRENCY == 4
     assert ProductExtractor.extract_code is product_code_patch._extract_code

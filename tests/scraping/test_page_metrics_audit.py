@@ -1,7 +1,7 @@
 from threading import RLock
 
-from scrapers.collectors import page_metrics_patch
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
+from services.scraping import page_metrics_audit
 
 
 def test_page_metrics_audit_logs_every_category_page(tmp_path):
@@ -9,11 +9,10 @@ def test_page_metrics_audit_logs_every_category_page(tmp_path):
     scraper._page_metrics = {}
     scraper._page_metrics_lock = RLock()
     log_path = tmp_path / "scraping_timing.log"
-    original_log = page_metrics_patch.TIMING_LOG
-    page_metrics_patch.TIMING_LOG = log_path
+    original_log = page_metrics_audit.TIMING_LOG
+    page_metrics_audit.TIMING_LOG = log_path
     try:
-        page_metrics_patch._store_page_metrics_with_audit(
-            scraper,
+        scraper._store_page_metrics(
             category_url="https://stock.importacionesfacundo.com/categoria-producto/demo/",
             category_name="Demo",
             expected_count=51,
@@ -42,8 +41,12 @@ def test_page_metrics_audit_logs_every_category_page(tmp_path):
             ],
             unique_products=51,
         )
+        page_metrics_audit.record_page_metrics(
+            scraper.get_page_metrics(),
+            "https://stock.importacionesfacundo.com/categoria-producto/demo/",
+        )
     finally:
-        page_metrics_patch.TIMING_LOG = original_log
+        page_metrics_audit.TIMING_LOG = original_log
 
     content = log_path.read_text(encoding="utf-8")
     assert "stage=category_page_summary" in content

@@ -46,6 +46,8 @@ class Browser:
         self._http_errors = 0
         self._http_terminal_errors = 0
         self._http_retries = 0
+        self._http_retry_sleep_seconds = 0.0
+        self._http_retry_sleep_count = 0
         self._http_total_seconds = 0.0
         self._http_max_seconds = 0.0
         self._http_in_flight = 0
@@ -132,6 +134,7 @@ class Browser:
                 self._http_semaphore.release()
 
             if retry_after_release:
+                self._record_retry_sleep(attempt + 1)
                 time.sleep(attempt + 1)
 
         if last_error:
@@ -184,6 +187,7 @@ class Browser:
                 self._http_semaphore.release()
 
             if retry_after_release:
+                self._record_retry_sleep(attempt + 1)
                 time.sleep(attempt + 1)
 
         if last_error:
@@ -263,6 +267,11 @@ class Browser:
         with self._metrics_lock:
             self._http_retries += 1
 
+    def _record_retry_sleep(self, seconds):
+        with self._metrics_lock:
+            self._http_retry_sleep_seconds += float(seconds)
+            self._http_retry_sleep_count += 1
+
     def _record_terminal_error(self):
         with self._metrics_lock:
             self._http_terminal_errors += 1
@@ -276,6 +285,8 @@ class Browser:
                 "http_errors": self._http_errors,
                 "http_terminal_errors": self._http_terminal_errors,
                 "http_retries": self._http_retries,
+                "http_retry_sleep_seconds": self._http_retry_sleep_seconds,
+                "http_retry_sleep_count": self._http_retry_sleep_count,
                 "http_total_seconds": self._http_total_seconds,
                 "http_max_seconds": self._http_max_seconds,
                 "http_in_flight": self._http_in_flight,
@@ -297,6 +308,8 @@ class Browser:
             self._http_errors = 0
             self._http_terminal_errors = 0
             self._http_retries = 0
+            self._http_retry_sleep_seconds = 0.0
+            self._http_retry_sleep_count = 0
             self._http_total_seconds = 0.0
             self._http_max_seconds = 0.0
             self._http_in_flight = 0

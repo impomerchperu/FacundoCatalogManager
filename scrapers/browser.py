@@ -5,6 +5,7 @@ import requests
 
 from config.scraping_config import (
     DEFAULT_HEADERS,
+    JETSMARTFILTERS_AJAX_URL,
     MAX_RETRIES,
     REQUEST_TIMEOUT,
     SCRAPING_HTTP_WORKERS,
@@ -54,12 +55,15 @@ class Browser:
         self._http_max_in_flight = 0
         self._detail_http_requests = 0
         self._category_http_requests = 0
+        self._jsf_http_requests = 0
         self._other_http_requests = 0
         self._detail_http_total_seconds = 0.0
         self._category_http_total_seconds = 0.0
+        self._jsf_http_total_seconds = 0.0
         self._other_http_total_seconds = 0.0
         self._detail_http_max_seconds = 0.0
         self._category_http_max_seconds = 0.0
+        self._jsf_http_max_seconds = 0.0
         self._other_http_max_seconds = 0.0
         self._latency_buckets = {
             "lt_0_5": 0,
@@ -70,6 +74,7 @@ class Browser:
             "gte_10": 0,
         }
         self._slowest_requests: list[tuple[float, str]] = []
+        self._retry_events: list[dict[str, object]] = []
 
     def _get_session(self):
         """Return a session safe for the current scraping worker."""
@@ -122,7 +127,13 @@ class Browser:
                     raise
 
                 if attempt < self.max_retries - 1:
-                    self._record_retry()
+                    self._record_retry(
+                        url=url,
+                        error_type=type(error).__name__,
+                        status_code=getattr(getattr(error, "response", None), "status_code", None),
+                        elapsed=elapsed,
+                        attempt=attempt,
+                    )
                     retry_after_release = True
                 else:
                     self._record_terminal_error()
@@ -131,7 +142,13 @@ class Browser:
                 self._finish_request(elapsed, success=True, url=url)
 
                 if attempt:
-                    self._record_retry()
+                    self._record_retry(
+                        url=url,
+                        error_type="retry_success",
+                        status_code=getattr(response, "status_code", None),
+                        elapsed=elapsed,
+                        attempt=attempt,
+                    )
 
                 if hasattr(response, "text"):
                     return response.text
@@ -177,7 +194,13 @@ class Browser:
                     raise
 
                 if attempt < self.max_retries - 1:
-                    self._record_retry()
+                    self._record_retry(
+                        url=url,
+                        error_type=type(error).__name__,
+                        status_code=getattr(getattr(error, "response", None), "status_code", None),
+                        elapsed=elapsed,
+                        attempt=attempt,
+                    )
                     retry_after_release = True
                 else:
                     self._record_terminal_error()
@@ -185,7 +208,13 @@ class Browser:
                 elapsed = time.perf_counter() - started
                 self._finish_request(elapsed, success=True, url=url)
                 if attempt:
-                    self._record_retry()
+                    self._record_retry(
+                        url=url,
+                        error_type="retry_success",
+                        status_code=getattr(response, "status_code", None),
+                        elapsed=elapsed,
+                        attempt=attempt,
+                    )
                 if hasattr(response, "text"):
                     return response.text
                 return response
@@ -223,6 +252,8 @@ class Browser:
     @staticmethod
     def _request_class(url):
         url_text = str(url)
+        if url_text.rstrip("/").casefold() == JETSMARTFILTERS_AJAX_URL.rstrip("/").casefold():
+            return "jsf"
         if "/producto/" in url_text:
             return "detail"
         if "/categoria-producto/" in url_text or "/tienda/" in url_text:
@@ -243,6 +274,8 @@ class Browser:
                 self._detail_http_requests += 1
             elif request_class == "category":
                 self._category_http_requests += 1
+            elif request_class == "jsf":
+                self._jsf_http_requests += 1
             else:
                 self._other_http_requests += 1
 
@@ -266,6 +299,12 @@ class Browser:
                 self._category_http_total_seconds += elapsed
                 self._category_http_max_seconds = max(
                     self._category_http_max_seconds,
+                    elapsed,
+                )
+            elif request_class == "jsf":
+                self._jsf_http_total_seconds += elapsed
+                self._jsf_http_max_seconds = max(
+                    self._jsf_http_max_seconds,
                     elapsed,
                 )
             else:
@@ -298,9 +337,27 @@ class Browser:
             self._slowest_requests.sort(reverse=True)
             del self._slowest_requests[10:]
 
-    def _record_retry(self):
+    def _record_retry(
+        self,
+        *,
+        url=None,
+        error_type=None,
+        status_code=None,
+        elapsed=0.0,
+        attempt=0,
+    ):
         with self._metrics_lock:
             self._http_retries += 1
+            if url is not None and len(self._retry_events) < 20:
+                self._retry_events.append(
+                    {
+                        "url": str(url),
+                        "error_type": error_type,
+                        "status_code": status_code,
+                        "elapsed": float(elapsed),
+                        "attempt": int(attempt),
+                    }
+                )
 
     def _record_retry_sleep(self, seconds):
         with self._metrics_lock:
@@ -330,15 +387,19 @@ class Browser:
                 "http_concurrency_limit": self.http_workers,
                 "detail_http_requests": self._detail_http_requests,
                 "category_http_requests": self._category_http_requests,
+                "jsf_http_requests": self._jsf_http_requests,
                 "other_http_requests": self._other_http_requests,
                 "detail_http_total_seconds": self._detail_http_total_seconds,
                 "category_http_total_seconds": self._category_http_total_seconds,
+                "jsf_http_total_seconds": self._jsf_http_total_seconds,
                 "other_http_total_seconds": self._other_http_total_seconds,
                 "detail_http_max_seconds": self._detail_http_max_seconds,
                 "category_http_max_seconds": self._category_http_max_seconds,
+                "jsf_http_max_seconds": self._jsf_http_max_seconds,
                 "other_http_max_seconds": self._other_http_max_seconds,
                 "latency_buckets": dict(self._latency_buckets),
                 "slowest_requests": list(self._slowest_requests),
+                "retry_events": list(self._retry_events),
             }
 
     def reset_http_metrics(self):
@@ -357,12 +418,15 @@ class Browser:
             self._http_max_in_flight = 0
             self._detail_http_requests = 0
             self._category_http_requests = 0
+            self._jsf_http_requests = 0
             self._other_http_requests = 0
             self._detail_http_total_seconds = 0.0
             self._category_http_total_seconds = 0.0
+            self._jsf_http_total_seconds = 0.0
             self._other_http_total_seconds = 0.0
             self._detail_http_max_seconds = 0.0
             self._category_http_max_seconds = 0.0
+            self._jsf_http_max_seconds = 0.0
             self._other_http_max_seconds = 0.0
             self._latency_buckets = {
                 "lt_0_5": 0,
@@ -373,3 +437,4 @@ class Browser:
                 "gte_10": 0,
             }
             self._slowest_requests = []
+            self._retry_events = []

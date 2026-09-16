@@ -55,6 +55,12 @@ class Browser:
         self._detail_http_requests = 0
         self._category_http_requests = 0
         self._other_http_requests = 0
+        self._detail_http_total_seconds = 0.0
+        self._category_http_total_seconds = 0.0
+        self._other_http_total_seconds = 0.0
+        self._detail_http_max_seconds = 0.0
+        self._category_http_max_seconds = 0.0
+        self._other_http_max_seconds = 0.0
         self._latency_buckets = {
             "lt_0_5": 0,
             "0_5_1": 0,
@@ -214,6 +220,15 @@ class Browser:
 
         return False
 
+    @staticmethod
+    def _request_class(url):
+        url_text = str(url)
+        if "/producto/" in url_text:
+            return "detail"
+        if "/categoria-producto/" in url_text or "/tienda/" in url_text:
+            return "category"
+        return "other"
+
     def _begin_request(self, url):
         with self._metrics_lock:
             self._http_requests += 1
@@ -223,10 +238,10 @@ class Browser:
                 self._http_in_flight,
             )
 
-            url_text = str(url)
-            if "/producto/" in url_text:
+            request_class = self._request_class(url)
+            if request_class == "detail":
                 self._detail_http_requests += 1
-            elif "/categoria-producto/" in url_text or "/tienda/" in url_text:
+            elif request_class == "category":
                 self._category_http_requests += 1
             else:
                 self._other_http_requests += 1
@@ -239,6 +254,26 @@ class Browser:
                 self._http_max_seconds,
                 elapsed,
             )
+
+            request_class = self._request_class(url)
+            if request_class == "detail":
+                self._detail_http_total_seconds += elapsed
+                self._detail_http_max_seconds = max(
+                    self._detail_http_max_seconds,
+                    elapsed,
+                )
+            elif request_class == "category":
+                self._category_http_total_seconds += elapsed
+                self._category_http_max_seconds = max(
+                    self._category_http_max_seconds,
+                    elapsed,
+                )
+            else:
+                self._other_http_total_seconds += elapsed
+                self._other_http_max_seconds = max(
+                    self._other_http_max_seconds,
+                    elapsed,
+                )
 
             if success:
                 self._http_successes += 1
@@ -296,6 +331,12 @@ class Browser:
                 "detail_http_requests": self._detail_http_requests,
                 "category_http_requests": self._category_http_requests,
                 "other_http_requests": self._other_http_requests,
+                "detail_http_total_seconds": self._detail_http_total_seconds,
+                "category_http_total_seconds": self._category_http_total_seconds,
+                "other_http_total_seconds": self._other_http_total_seconds,
+                "detail_http_max_seconds": self._detail_http_max_seconds,
+                "category_http_max_seconds": self._category_http_max_seconds,
+                "other_http_max_seconds": self._other_http_max_seconds,
                 "latency_buckets": dict(self._latency_buckets),
                 "slowest_requests": list(self._slowest_requests),
             }
@@ -317,6 +358,12 @@ class Browser:
             self._detail_http_requests = 0
             self._category_http_requests = 0
             self._other_http_requests = 0
+            self._detail_http_total_seconds = 0.0
+            self._category_http_total_seconds = 0.0
+            self._other_http_total_seconds = 0.0
+            self._detail_http_max_seconds = 0.0
+            self._category_http_max_seconds = 0.0
+            self._other_http_max_seconds = 0.0
             self._latency_buckets = {
                 "lt_0_5": 0,
                 "0_5_1": 0,

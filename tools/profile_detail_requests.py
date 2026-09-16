@@ -42,6 +42,9 @@ def _timed_enrich(
     return index, service._enrich_category(index, category, collected)
 
 
+# ruff: noqa: PLR0912
+# The profiler main() intentionally keeps the orchestration flow together so
+# its collect/enrich phase boundaries remain identical to the production flow.
 def main() -> int:
     config = ScrapingConfig(download_images=False)
     http_workers = _positive_int("FCM_PROFILE_HTTP_WORKERS")

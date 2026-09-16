@@ -104,6 +104,7 @@ def main() -> int:
         "category_workers": config.category_workers,
         "http_workers": config.http_workers,
         "detail_workers": config.detail_workers,
+        "jsf_http_concurrency": config.jsf_http_concurrency,
         "request_timeout": config.request_timeout,
         "download_images": config.download_images,
         "discovery_seconds": round(discovery_seconds, 3),
@@ -120,6 +121,7 @@ def main() -> int:
     print(f"categories={len(categories)}")
     print(f"discovery_seconds={discovery_seconds:.3f}")
     print(f"profile_seconds={payload['profile_seconds']:.3f}")
+    print(f"jsf_http_concurrency={config.jsf_http_concurrency}")
     print(f"output={OUTPUT_PATH}")
     print("category\texpected\tcollected\tenriched\tunique\tlisting_s\tenrichment_s\ttotal_s")
     for row in rows:

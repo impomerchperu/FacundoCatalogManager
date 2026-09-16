@@ -709,17 +709,18 @@ class CategoryProductSyncService:
 
         _log_timing(
             "SCRAPING TIMING | stage=http | "
-            "requests=%d | category=%d | detail=%d | other=%d | "
+            "requests=%d | category=%d | jsf=%d | detail=%d | other=%d | "
             "retries=%d | errors=%d | terminal=%d | "
             "retry_sleep_count=%d | retry_sleep_seconds=%.3f | "
             "total_seconds=%.3f | max_seconds=%.3f | max_concurrency=%d | "
-            "category_total_seconds=%.3f | detail_total_seconds=%.3f | "
+            "category_total_seconds=%.3f | jsf_total_seconds=%.3f | detail_total_seconds=%.3f | "
             "other_total_seconds=%.3f | category_max_seconds=%.3f | "
-            "detail_max_seconds=%.3f | other_max_seconds=%.3f | "
+            "jsf_max_seconds=%.3f | detail_max_seconds=%.3f | other_max_seconds=%.3f | "
             "lt_0_5=%d | 0_5_1=%d | 1_2=%d | 2_5=%d | "
             "5_10=%d | gte_10=%d | slowest=%s",
             int(values.get("http_requests", 0) or 0),
             int(values.get("category_http_requests", 0) or 0),
+            int(values.get("jsf_http_requests", 0) or 0),
             int(values.get("detail_http_requests", 0) or 0),
             int(values.get("other_http_requests", 0) or 0),
             int(values.get("http_retries", 0) or 0),
@@ -731,9 +732,11 @@ class CategoryProductSyncService:
             float(values.get("http_max_seconds", 0.0) or 0.0),
             int(values.get("http_max_in_flight", 0) or 0),
             float(values.get("category_http_total_seconds", 0.0) or 0.0),
+            float(values.get("jsf_http_total_seconds", 0.0) or 0.0),
             float(values.get("detail_http_total_seconds", 0.0) or 0.0),
             float(values.get("other_http_total_seconds", 0.0) or 0.0),
             float(values.get("category_http_max_seconds", 0.0) or 0.0),
+            float(values.get("jsf_http_max_seconds", 0.0) or 0.0),
             float(values.get("detail_http_max_seconds", 0.0) or 0.0),
             float(values.get("other_http_max_seconds", 0.0) or 0.0),
             int(buckets.get("lt_0_5", 0) or 0),
@@ -828,29 +831,12 @@ class CategoryProductSyncService:
 
     @staticmethod
     def _category_coverage_gap_reason(category_summary):
-        for row in cast(list[dict[str, Any]], category_summary):
-            expected = max(int(row.get("expected", 0) or 0), 0)
-            if expected <= 0:
-                continue
-            products_found = int(row.get("products", 0) or 0)
-            unique_found = int(row.get("unique_products", 0) or 0)
-            if products_found != expected or unique_found != expected:
-                return f"category_coverage_gap:{row.get('category', '')}"
-        return None
-
-    @staticmethod
-    def _unique_coverage_gap_reason(products, expected_products):
-        expected_unique = max(int(expected_products or 0), 0)
-        if not expected_unique:
-            return None
-        unique_codes = {
-            str(getattr(product, "code", "")).strip().casefold()
-            for product in products
-            if str(getattr(product, "code", "")).strip()
-        }
-        if len(unique_codes) < expected_unique:
-            return f"unique_coverage_gap:{expected_unique - len(unique_codes)}"
-        return None
+        gaps = []
+        for row in category_summary:
+            gap = int(row.get("gap", 0) or 0)
+            if gap > 0:
+                gaps.append(f"{row.get('category', '(sin nombre)')}:{gap}")
+        return ",".join(gaps)
 
     def _full_sync_prune_guard(
         self,
@@ -858,53 +844,30 @@ class CategoryProductSyncService:
         category_count,
         *,
         expected_category_occurrences=0,
-        expected_products=None,
+        expected_products=0,
     ):
-        self._recover_missing_codes(products)
-        if not products:
-            result = (False, "no_products")
-        elif category_count <= 0:
-            result = (False, "no_categories")
-        else:
-            expected_occurrences = max(int(expected_category_occurrences or 0), 0)
-            if expected_occurrences <= 0:
-                result = (False, "no_expected_category_occurrences")
-            else:
-                missing = sum(
-                    1 for product in products
-                    if not str(getattr(product, "code", "") or "").strip()
-                )
-                if missing:
-                    result = (False, f"missing_codes:{missing}")
-                else:
-                    terminal_reason = self._terminal_http_error_reason()
-                    if terminal_reason:
-                        result = (False, terminal_reason)
-                    else:
-                        category_reason = self._category_coverage_gap_reason(
-                            getattr(self.last_sync_result, "category_summary", []) or []
-                        )
-                        if category_reason:
-                            result = (False, category_reason)
-                        elif len(products) < expected_occurrences:
-                            result = (
-                                False,
-                                f"category_coverage_gap:{expected_occurrences - len(products)}",
-                            )
-                        else:
-                            unique_reason = self._unique_coverage_gap_reason(
-                                products,
-                                expected_products,
-                            )
-                            if unique_reason:
-                                result = (False, unique_reason)
-                            else:
-                                result = (True, "complete")
-
-        complete, reason = result
-        self._full_sync_coverage_validated = bool(complete)
-        self._full_sync_coverage_reason = str(reason or "unknown")
-        return result
+        category_summary = getattr(self.last_sync_result, "category_summary", None) or []
+        gap_reason = self._category_coverage_gap_reason(category_summary)
+        if category_count <= 0:
+            self._full_sync_coverage_validated = False
+            self._full_sync_coverage_reason = "no_categories"
+            return False, self._full_sync_coverage_reason
+        if not demonstrates_complete_coverage(
+            products,
+            expected_products=expected_products,
+            expected_category_occurrences=expected_category_occurrences,
+            category_summary=category_summary,
+        ):
+            self._full_sync_coverage_validated = False
+            reason = gap_reason or "coverage_not_complete"
+            http_reason = self._terminal_http_error_reason()
+            if http_reason:
+                reason = f"{reason};{http_reason}"
+            self._full_sync_coverage_reason = reason
+            return False, reason
+        self._full_sync_coverage_validated = True
+        self._full_sync_coverage_reason = "complete"
+        return True, "complete"
 
     def _demonstrates_complete_coverage(
         self,
@@ -912,10 +875,11 @@ class CategoryProductSyncService:
         *,
         expected_products=0,
         expected_category_occurrences=0,
-    ) -> bool:
+    ):
+        category_summary = getattr(self.last_sync_result, "category_summary", None) or []
         return demonstrates_complete_coverage(
-            self.last_sync_result,
             products,
             expected_products=expected_products,
             expected_category_occurrences=expected_category_occurrences,
+            category_summary=category_summary,
         )

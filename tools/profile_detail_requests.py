@@ -56,6 +56,7 @@ def _coverage_metrics(
         category_name = str(getattr(category, "name", "") or "").strip() or "(sin nombre)"
         expected_occurrences += max(
             int(getattr(category, "expected_count", 0) or 0),
+            0,
         )
         for product in enriched[index]:
             occurrences += 1

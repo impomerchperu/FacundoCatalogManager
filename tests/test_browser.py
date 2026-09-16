@@ -37,6 +37,8 @@ def test_browser_fetch_uses_session_without_network():
     assert metrics["http_successes"] == 1
     assert metrics["category_http_requests"] == 0
     assert metrics["other_http_requests"] == 1
+    assert metrics["other_semaphore_wait_count"] == 1
+    assert metrics["other_semaphore_wait_seconds"] >= 0.0
 
 
 def test_browser_post_uses_metrics_pipeline():
@@ -55,6 +57,8 @@ def test_browser_post_uses_metrics_pipeline():
     assert metrics["http_successes"] == 1
     assert metrics["other_http_requests"] == 1
     assert metrics["http_errors"] == 0
+    assert metrics["other_semaphore_wait_count"] == 1
+    assert metrics["other_semaphore_wait_seconds"] >= 0.0
 
 
 def test_browser_classifies_jetsmartfilters_ajax_separately():
@@ -71,5 +75,7 @@ def test_browser_classifies_jetsmartfilters_ajax_separately():
     assert metrics["jsf_http_requests"] == 1
     assert metrics["jsf_http_total_seconds"] >= 0.0
     assert metrics["jsf_http_max_seconds"] >= 0.0
+    assert metrics["jsf_semaphore_wait_count"] == 1
+    assert metrics["jsf_semaphore_wait_seconds"] >= 0.0
     assert metrics["other_http_requests"] == 0
     assert metrics["retry_events"] == []

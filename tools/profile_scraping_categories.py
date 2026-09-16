@@ -12,9 +12,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from services.scraping.scraping_config import ScrapingConfig
-from services.scraping.scraping_factory import ScrapingFactory
-
 
 OUTPUT_PATH = PROJECT_ROOT / "data" / "scraping_category_profile.json"
 
@@ -37,6 +34,9 @@ def _timed_enrich(
 
 
 def main() -> int:
+    from services.scraping.scraping_config import ScrapingConfig
+    from services.scraping.scraping_factory import ScrapingFactory
+
     config = ScrapingConfig(download_images=False)
     runner = ScrapingFactory.create_runner(config)
     category_service = runner.category_service

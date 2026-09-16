@@ -50,6 +50,7 @@ def main() -> int:
     discovery_seconds = time.perf_counter() - started
 
     service = runner.scraping_service
+    scraper = getattr(service, "scraper", None)
     worker_count = min(config.category_workers, len(categories))
     collected_by_index: list[list[Any]] = [[] for _ in categories]
     listing_seconds: dict[int, float] = {}
@@ -81,6 +82,11 @@ def main() -> int:
             for future in as_completed(futures):
                 index, seconds, enriched = future.result()
                 category = categories[index]
+                category_name = str(getattr(category, "name", "") or "").strip() or "(sin nombre)"
+                enrichment_metrics: dict[str, Any] = {}
+                get_enrichment_metrics = getattr(scraper, "get_enrichment_metrics", None)
+                if callable(get_enrichment_metrics):
+                    enrichment_metrics = dict(get_enrichment_metrics(category_name) or {})
                 unique_codes = {
                     str(getattr(product, "code", "") or "").strip().casefold()
                     for product in enriched
@@ -88,14 +94,23 @@ def main() -> int:
                 }
                 rows.append(
                     {
-                        "category": str(getattr(category, "name", "") or "").strip()
-                        or "(sin nombre)",
+                        "category": category_name,
                         "expected": max(int(getattr(category, "expected_count", 0) or 0), 0),
                         "collected": len(collected_by_index[index]),
                         "enriched": len(enriched),
                         "unique_codes": len(unique_codes),
                         "listing_seconds": round(listing_seconds[index], 3),
                         "enrichment_seconds": round(seconds, 3),
+                        "enrichment_submit_seconds": round(
+                            float(enrichment_metrics.get("submit_seconds", 0.0) or 0.0),
+                            3,
+                        ),
+                        "enrichment_wait_seconds": round(
+                            float(enrichment_metrics.get("wait_seconds", 0.0) or 0.0),
+                            3,
+                        ),
+                        "detail_requested": int(enrichment_metrics.get("requested", 0) or 0),
+                        "detail_skipped": int(enrichment_metrics.get("skipped", 0) or 0),
                         "total_seconds": round(listing_seconds[index] + seconds, 3),
                     }
                 )
@@ -125,12 +140,17 @@ def main() -> int:
     print(f"profile_seconds={payload['profile_seconds']:.3f}")
     print(f"jsf_http_concurrency={config.jsf_http_concurrency}")
     print(f"output={OUTPUT_PATH}")
-    print("category\texpected\tcollected\tenriched\tunique\tlisting_s\tenrichment_s\ttotal_s")
+    print(
+        "category\texpected\tcollected\tenriched\tunique\tlisting_s\t"
+        "enrichment_s\tsubmit_s\twait_s\tdetail_req\tdetail_skip\ttotal_s"
+    )
     for row in rows:
         print(
             f"{row['category']}\t{row['expected']}\t{row['collected']}\t"
             f"{row['enriched']}\t{row['unique_codes']}\t{row['listing_seconds']:.3f}\t"
-            f"{row['enrichment_seconds']:.3f}\t{row['total_seconds']:.3f}"
+            f"{row['enrichment_seconds']:.3f}\t{row['enrichment_submit_seconds']:.3f}\t"
+            f"{row['enrichment_wait_seconds']:.3f}\t{row['detail_requested']}\t"
+            f"{row['detail_skipped']}\t{row['total_seconds']:.3f}"
         )
 
     return 0

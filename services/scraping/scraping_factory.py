@@ -1,4 +1,5 @@
 from pathlib import Path
+from threading import BoundedSemaphore
 
 from database.db_manager import DBManager
 from repositories.product_repository import ProductRepository
@@ -93,6 +94,9 @@ class ScrapingFactory:
         category_scraper = ResilientCategoryScraper(
             browser=browser,
             category_extractor=CategoryExtractor(),
+        )
+        category_scraper._JSF_HTTP_SEMAPHORE = BoundedSemaphore(
+            config.jsf_http_concurrency
         )
         category_service = CategoryService(
             category_scraper,

@@ -1,4 +1,5 @@
 import re
+import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from threading import Lock
 from typing import Any, ClassVar, Iterable
@@ -85,6 +86,8 @@ class ProductCollectionScraper:
 
         products: list[tuple[Any, str, Any]] = []
         seen: set[str] = set()
+
+        discovery_started = time.perf_counter()
         try:
             pages = self.category_scraper.get_category_pages(
                 category_url,
@@ -94,10 +97,14 @@ class ProductCollectionScraper:
             if "expected_count" not in str(exc):
                 raise
             pages = self.category_scraper.get_category_pages(category_url)
+        discovery_seconds = time.perf_counter() - discovery_started
 
+        page_load_seconds = 0.0
         page_metrics: list[dict[str, Any]] = []
         for page_number, page in enumerate(pages, start=1):
+            page_started = time.perf_counter()
             html = self.category_scraper.get_html(page)
+            page_load_seconds += time.perf_counter() - page_started
             if not html:
                 page_metrics.append(
                     self._build_page_metric(
@@ -151,6 +158,8 @@ class ProductCollectionScraper:
             expected_count=expected_count,
             pages=page_metrics,
             unique_products=len(products),
+            discovery_seconds=discovery_seconds,
+            page_load_seconds=page_load_seconds,
         )
         return products
 
@@ -179,6 +188,8 @@ class ProductCollectionScraper:
         expected_count: int,
         pages: list[dict[str, Any]],
         unique_products: int,
+        discovery_seconds: float = 0.0,
+        page_load_seconds: float = 0.0,
     ) -> None:
         with self._page_metrics_lock:
             self._page_metrics[category_url] = {
@@ -195,6 +206,8 @@ class ProductCollectionScraper:
                 ),
                 "cards_found": sum(page["cards"] for page in pages),
                 "unique_products": unique_products,
+                "discovery_seconds": float(discovery_seconds),
+                "page_load_seconds": float(page_load_seconds),
                 "pages": pages,
             }
 

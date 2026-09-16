@@ -230,10 +230,20 @@ class CategoryProductSyncService:
         self._log_http_metrics()
 
         raw_products = list(products)
+
+        started = time.perf_counter()
         coverage_products = self._consolidate_for_coverage(raw_products)
         self._attach_category_coverage(raw_products, coverage_products, categories)
+        _log_timing(
+            "SCRAPING TIMING | stage=coverage_pre_sync | products=%d | unique=%d | seconds=%.3f",
+            len(raw_products),
+            len(coverage_products),
+            time.perf_counter() - started,
+        )
 
         full_mode = getattr(self, "_scraping_mode", "directed") == "full"
+
+        started = time.perf_counter()
         complete, reason = self._full_sync_prune_guard(
             raw_products,
             len(categories),
@@ -243,6 +253,12 @@ class CategoryProductSyncService:
         if not full_mode:
             reason = "directed_mode"
             complete = False
+        _log_timing(
+            "SCRAPING TIMING | stage=coverage_guard | complete=%s | reason=%s | seconds=%.3f",
+            str(bool(complete)).lower(),
+            reason,
+            time.perf_counter() - started,
+        )
         _log_timing(
             "SCRAPING TIMING | stage=coverage_incomplete | reason=%s | products=%d | categories=%d | expected_category_occurrences=%d",
             reason,
@@ -258,6 +274,8 @@ class CategoryProductSyncService:
             expected_products=len(coverage_products) if full_mode else 0,
             expected_category_occurrences=expected_category_occurrences,
         )
+
+        started = time.perf_counter()
         self._propagate_synced_fields(raw_products, synced_products)
         self._attach_category_coverage(
             raw_products,
@@ -267,6 +285,12 @@ class CategoryProductSyncService:
         self.last_sync_result.errors = list(dict.fromkeys(self.last_sync_result.errors))
         self.last_sync_result.finish()
         self._write_final_result_artifact(raw_products)
+        _log_timing(
+            "SCRAPING TIMING | stage=post_sync_finalize | products=%d | synced=%d | seconds=%.3f",
+            len(raw_products),
+            len(synced_products),
+            time.perf_counter() - started,
+        )
         _log_timing(
             "SCRAPING TIMING | stage=sync_categories_total | categories=%d | products=%d | seconds=%.3f",
             len(categories),

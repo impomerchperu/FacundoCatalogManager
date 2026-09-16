@@ -44,11 +44,18 @@ def record_page_metrics(
         total_cards = sum(int(page.get("cards", 0) or 0) for page in pages)
         loaded_pages = sum(1 for page in pages if page.get("html_available"))
         unique_products = int(category_metrics.get("unique_products", 0) or 0)
+        discovery_seconds = float(
+            category_metrics.get("discovery_seconds", 0.0) or 0.0
+        )
+        page_load_seconds = float(
+            category_metrics.get("page_load_seconds", 0.0) or 0.0
+        )
 
         _log_timing(
             "SCRAPING TIMING | stage=category_page_summary | "
             "category=%s | pages_expected=%d | pages_requested=%d | "
-            "pages_loaded=%d | cards=%d | unique=%d | expected_products=%d",
+            "pages_loaded=%d | cards=%d | unique=%d | expected_products=%d | "
+            "discovery_seconds=%.3f | page_load_seconds=%.3f",
             category_name,
             expected_pages,
             len(pages),
@@ -56,6 +63,8 @@ def record_page_metrics(
             total_cards,
             unique_products,
             expected_count,
+            discovery_seconds,
+            page_load_seconds,
         )
         for page in pages:
             _log_timing(

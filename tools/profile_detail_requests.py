@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import time
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,41 @@ def _timed_enrich(
     collected: list[Any],
 ) -> tuple[int, list[Any]]:
     return index, service._enrich_category(index, category, collected)
+
+
+def _coverage_metrics(
+    categories: list[Any],
+    enriched: list[list[Any]],
+) -> dict[str, Any]:
+    code_categories: dict[str, set[str]] = defaultdict(set)
+    occurrences = 0
+    missing_codes = 0
+    expected_occurrences = 0
+
+    for index, category in enumerate(categories):
+        category_name = str(getattr(category, "name", "") or "").strip() or "(sin nombre)"
+        expected_occurrences += max(
+            int(getattr(category, "expected_count", 0) or 0),
+        )
+        for product in enriched[index]:
+            occurrences += 1
+            code = str(getattr(product, "code", "") or "").strip().casefold()
+            if not code:
+                missing_codes += 1
+                continue
+            code_categories[code].add(category_name)
+
+    return {
+        "expected_occurrences": expected_occurrences,
+        "occurrences": occurrences,
+        "occurrence_gap": max(expected_occurrences - occurrences, 0),
+        "unique_products": len(code_categories),
+        "multi_category_products": sum(
+            1 for categories_for_code in code_categories.values()
+            if len(categories_for_code) >= 2
+        ),
+        "missing_codes": missing_codes,
+    }
 
 
 # ruff: noqa: PLR0912
@@ -144,12 +180,14 @@ def main() -> int:
 
     detail_http_requests = int(http_metrics.get("detail_http_requests", 0) or 0)
     detail_http_total = float(http_metrics.get("detail_http_total_seconds", 0.0) or 0.0)
+    coverage = _coverage_metrics(categories, enriched)
     payload = {
         "categories": len(categories),
         "http_workers": config.http_workers,
         "detail_workers": config.detail_workers,
         "jsf_http_concurrency": config.jsf_http_concurrency,
         "elapsed_seconds": round(time.perf_counter() - started, 3),
+        "coverage": coverage,
         "detail": detail_metrics,
         "http": {
             "requests": int(http_metrics.get("http_requests", 0) or 0),
@@ -176,6 +214,15 @@ def main() -> int:
     print(f"http_workers={config.http_workers}")
     print(f"detail_workers={config.detail_workers}")
     print(f"jsf_http_concurrency={config.jsf_http_concurrency}")
+    print(
+        "coverage="
+        f"expected_occurrences:{coverage['expected_occurrences']} "
+        f"occurrences:{coverage['occurrences']} "
+        f"gap:{coverage['occurrence_gap']} "
+        f"unique:{coverage['unique_products']} "
+        f"multi_category:{coverage['multi_category_products']} "
+        f"missing_codes:{coverage['missing_codes']}"
+    )
     print(f"detail_requests={detail_metrics.get('detail_requests', 0)}")
     print(f"detail_cache_hits={detail_metrics.get('detail_cache_hits', 0)}")
     print(f"detail_skipped={detail_metrics.get('detail_skipped', 0)}")

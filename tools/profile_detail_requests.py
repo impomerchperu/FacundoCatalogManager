@@ -12,6 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# The profiler deliberately mirrors the existing collect -> enrich orchestration.
 from services.scraping.scraping_config import ScrapingConfig
 from services.scraping.scraping_factory import ScrapingFactory
 
@@ -28,10 +29,17 @@ def _positive_int(name: str) -> int | None:
     return parsed
 
 
-def _run_category(service: Any, index: int, category: Any) -> tuple[int, list[Any], list[Any]]:
-    collected = service._collect_category(index, category)
-    enriched = service._enrich_category(index, category, collected)
-    return index, collected, enriched
+def _timed_collect(service: Any, index: int, category: Any) -> tuple[int, list[Any]]:
+    return index, service._collect_category(index, category)
+
+
+def _timed_enrich(
+    service: Any,
+    index: int,
+    category: Any,
+    collected: list[Any],
+) -> tuple[int, list[Any]]:
+    return index, service._enrich_category(index, category, collected)
 
 
 def main() -> int:
@@ -57,22 +65,39 @@ def main() -> int:
 
     category_scraper = getattr(scraper, "category_scraper", None)
     browser = getattr(category_scraper, "browser", None)
-    categories = list(category_service.scrape_all() or [])
     started = time.perf_counter()
+    categories = list(category_service.scrape_all() or [])
 
     worker_count = min(config.category_workers, len(categories))
     collected: list[list[Any]] = [[] for _ in categories]
     enriched: list[list[Any]] = [[] for _ in categories]
+
+    # Keep the same phase barrier as tools/profile_scraping_categories.py:
+    # complete collection for every category before starting enrichment.
     if categories:
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
             futures = {
-                executor.submit(_run_category, service, index, category): index
+                executor.submit(_timed_collect, service, index, category): index
                 for index, category in enumerate(categories)
             }
             for future in as_completed(futures):
-                index, category_products, enriched_products = future.result()
-                collected[index] = category_products
-                enriched[index] = enriched_products
+                index, products = future.result()
+                collected[index] = products
+
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures = {
+                executor.submit(
+                    _timed_enrich,
+                    service,
+                    index,
+                    categories[index],
+                    collected[index],
+                ): index
+                for index in range(len(categories))
+            }
+            for future in as_completed(futures):
+                index, products = future.result()
+                enriched[index] = products
 
     detail_metrics: dict[str, Any] = {}
     get_detail_metrics = getattr(scraper, "get_detail_metrics", None)
@@ -85,10 +110,15 @@ def main() -> int:
         if callable(get_http_metrics):
             http_metrics = dict(get_http_metrics() or {})
 
-    category_rows = []
+    category_rows: list[dict[str, Any]] = []
+    get_enrichment_metrics = getattr(scraper, "get_enrichment_metrics", None)
     for index, category in enumerate(categories):
         category_name = str(getattr(category, "name", "") or "").strip() or "(sin nombre)"
-        enrichment = scraper.get_enrichment_metrics(category_name)
+        enrichment = (
+            dict(get_enrichment_metrics(category_name) or {})
+            if callable(get_enrichment_metrics)
+            else {}
+        )
         category_rows.append(
             {
                 "category": category_name,
@@ -102,6 +132,8 @@ def main() -> int:
         )
     category_rows.sort(key=lambda row: row["detail_requested"], reverse=True)
 
+    detail_http_requests = int(http_metrics.get("detail_http_requests", 0) or 0)
+    detail_http_total = float(http_metrics.get("detail_http_total_seconds", 0.0) or 0.0)
     payload = {
         "categories": len(categories),
         "http_workers": config.http_workers,
@@ -110,14 +142,11 @@ def main() -> int:
         "detail": detail_metrics,
         "http": {
             "requests": int(http_metrics.get("http_requests", 0) or 0),
-            "detail_requests": int(http_metrics.get("detail_http_requests", 0) or 0),
-            "detail_total_seconds": float(http_metrics.get("detail_http_total_seconds", 0.0) or 0.0),
-            "detail_avg_seconds": (
-                float(http_metrics.get("detail_http_total_seconds", 0.0) or 0.0)
-                / int(http_metrics.get("detail_http_requests", 0) or 1)
-                if int(http_metrics.get("detail_http_requests", 0) or 0)
-                else 0.0
-            ),
+            "detail_requests": detail_http_requests,
+            "detail_total_seconds": detail_http_total,
+            "detail_avg_seconds": detail_http_total / detail_http_requests
+            if detail_http_requests
+            else 0.0,
             "max_concurrency": int(http_metrics.get("http_max_in_flight", 0) or 0),
             "errors": int(http_metrics.get("http_errors", 0) or 0),
             "retries": int(http_metrics.get("http_retries", 0) or 0),
@@ -126,21 +155,24 @@ def main() -> int:
     }
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    OUTPUT_PATH.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
     print(f"categories={len(categories)}")
     print(f"elapsed_seconds={payload['elapsed_seconds']:.3f}")
-    print(f"detail_requests={payload['detail']['detail_requests']}" )
-    print(f"detail_cache_hits={payload['detail']['detail_cache_hits']}" )
-    print(f"detail_skipped={payload['detail']['detail_skipped']}" )
-    print(f"detail_cache_size={payload['detail']['detail_cache_size']}" )
-    print(f"detail_reason_counts={payload['detail']['detail_reason_counts']}" )
-    print(f"detail_http_requests={payload['http']['detail_requests']}" )
-    print(f"detail_http_total_seconds={payload['http']['detail_total_seconds']:.3f}")
+    print(f"detail_requests={detail_metrics.get('detail_requests', 0)}")
+    print(f"detail_cache_hits={detail_metrics.get('detail_cache_hits', 0)}")
+    print(f"detail_skipped={detail_metrics.get('detail_skipped', 0)}")
+    print(f"detail_cache_size={detail_metrics.get('detail_cache_size', 0)}")
+    print(f"detail_reason_counts={detail_metrics.get('detail_reason_counts', {})}")
+    print(f"detail_http_requests={detail_http_requests}")
+    print(f"detail_http_total_seconds={detail_http_total:.3f}")
     print(f"detail_http_avg_seconds={payload['http']['detail_avg_seconds']:.3f}")
     print(f"http_errors={payload['http']['errors']} retries={payload['http']['retries']}")
     print(f"output={OUTPUT_PATH}")
-
+    print("category\texpected\tcollected\tenriched\tdetail_req\tdetail_skip\tenrichment_s")
     for row in category_rows:
         print(
             f"{row['category']}\t{row['expected']}\t{row['collected']}\t"

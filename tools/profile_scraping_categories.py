@@ -52,6 +52,8 @@ def main() -> int:
     service = runner.scraping_service
     category_product_service = getattr(service, "scraper_service", None)
     scraper = getattr(category_product_service, "scraper", None)
+    category_scraper = getattr(scraper, "category_scraper", None)
+    browser = getattr(category_scraper, "browser", None)
     worker_count = min(config.category_workers, len(categories))
     collected_by_index: list[list[Any]] = [[] for _ in categories]
     listing_seconds: dict[int, float] = {}
@@ -116,6 +118,13 @@ def main() -> int:
                     }
                 )
 
+    http_metrics: dict[str, Any] = {}
+    if browser is not None:
+        get_http_metrics = getattr(browser, "get_http_metrics", None)
+        if callable(get_http_metrics):
+            http_metrics = dict(get_http_metrics() or {})
+    buckets = dict(http_metrics.get("latency_buckets", {}) or {})
+
     rows.sort(key=lambda row: row["total_seconds"], reverse=True)
     payload = {
         "categories": len(categories),
@@ -127,6 +136,25 @@ def main() -> int:
         "download_images": config.download_images,
         "discovery_seconds": round(discovery_seconds, 3),
         "profile_seconds": round(time.perf_counter() - profile_started, 3),
+        "http": {
+            "requests": int(http_metrics.get("http_requests", 0) or 0),
+            "category_requests": int(http_metrics.get("category_http_requests", 0) or 0),
+            "detail_requests": int(http_metrics.get("detail_http_requests", 0) or 0),
+            "other_requests": int(http_metrics.get("other_http_requests", 0) or 0),
+            "retries": int(http_metrics.get("http_retries", 0) or 0),
+            "errors": int(http_metrics.get("http_errors", 0) or 0),
+            "terminal_errors": int(http_metrics.get("http_terminal_errors", 0) or 0),
+            "total_seconds": float(http_metrics.get("http_total_seconds", 0.0) or 0.0),
+            "detail_total_seconds": float(http_metrics.get("detail_http_total_seconds", 0.0) or 0.0),
+            "category_total_seconds": float(http_metrics.get("category_http_total_seconds", 0.0) or 0.0),
+            "other_total_seconds": float(http_metrics.get("other_http_total_seconds", 0.0) or 0.0),
+            "max_seconds": float(http_metrics.get("http_max_seconds", 0.0) or 0.0),
+            "max_concurrency": int(http_metrics.get("http_max_in_flight", 0) or 0),
+            "latency_buckets": {
+                key: int(buckets.get(key, 0) or 0)
+                for key in ("lt_0_5", "0_5_1", "1_2", "2_5", "5_10", "gte_10")
+            },
+        },
         "rows": rows,
     }
 
@@ -141,6 +169,22 @@ def main() -> int:
     print(f"profile_seconds={payload['profile_seconds']:.3f}")
     print(f"jsf_http_concurrency={config.jsf_http_concurrency}")
     print(f"output={OUTPUT_PATH}")
+    http = payload["http"]
+    print(
+        "http="
+        f"requests:{http['requests']} "
+        f"category:{http['category_requests']} "
+        f"detail:{http['detail_requests']} "
+        f"other:{http['other_requests']} "
+        f"retries:{http['retries']} "
+        f"errors:{http['errors']} "
+        f"terminal:{http['terminal_errors']} "
+        f"total_s:{http['total_seconds']:.3f} "
+        f"detail_total_s:{http['detail_total_seconds']:.3f} "
+        f"max_s:{http['max_seconds']:.3f} "
+        f"max_concurrency:{http['max_concurrency']}"
+    )
+    print(f"latency_buckets={http['latency_buckets']}")
     print(
         "category\texpected\tcollected\tenriched\tunique\tlisting_s\t"
         "enrichment_s\tsubmit_s\twait_s\tdetail_req\tdetail_skip\ttotal_s"

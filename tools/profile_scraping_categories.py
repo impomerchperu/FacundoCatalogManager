@@ -14,7 +14,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# ruff: noqa: I001
+# ruff: noqa: I001, PLR0912
+# The profiler main() is intentionally kept as a single orchestration flow.
 from services.scraping.scraping_config import ScrapingConfig
 from services.scraping.scraping_factory import ScrapingFactory
 

@@ -65,6 +65,18 @@ class Browser:
         self._category_http_max_seconds = 0.0
         self._jsf_http_max_seconds = 0.0
         self._other_http_max_seconds = 0.0
+        self._detail_semaphore_wait_seconds = 0.0
+        self._category_semaphore_wait_seconds = 0.0
+        self._jsf_semaphore_wait_seconds = 0.0
+        self._other_semaphore_wait_seconds = 0.0
+        self._detail_semaphore_max_wait_seconds = 0.0
+        self._category_semaphore_max_wait_seconds = 0.0
+        self._jsf_semaphore_max_wait_seconds = 0.0
+        self._other_semaphore_max_wait_seconds = 0.0
+        self._detail_semaphore_wait_count = 0
+        self._category_semaphore_wait_count = 0
+        self._jsf_semaphore_wait_count = 0
+        self._other_semaphore_wait_count = 0
         self._latency_buckets = {
             "lt_0_5": 0,
             "0_5_1": 0,
@@ -103,7 +115,9 @@ class Browser:
         session = self._get_session()
 
         for attempt in range(self.max_retries):
+            acquire_started = time.perf_counter()
             self._http_semaphore.acquire()
+            self._record_semaphore_wait(url, time.perf_counter() - acquire_started)
             started = time.perf_counter()
             self._begin_request(url)
             retry_after_release = False
@@ -170,7 +184,9 @@ class Browser:
         request_headers = headers or self.headers
 
         for attempt in range(self.max_retries):
+            acquire_started = time.perf_counter()
             self._http_semaphore.acquire()
+            self._record_semaphore_wait(url, time.perf_counter() - acquire_started)
             started = time.perf_counter()
             self._begin_request(url)
             retry_after_release = False
@@ -259,6 +275,38 @@ class Browser:
         if "/categoria-producto/" in url_text or "/tienda/" in url_text:
             return "category"
         return "other"
+
+    def _record_semaphore_wait(self, url, elapsed):
+        request_class = self._request_class(url)
+        with self._metrics_lock:
+            if request_class == "detail":
+                self._detail_semaphore_wait_seconds += elapsed
+                self._detail_semaphore_max_wait_seconds = max(
+                    self._detail_semaphore_max_wait_seconds,
+                    elapsed,
+                )
+                self._detail_semaphore_wait_count += 1
+            elif request_class == "category":
+                self._category_semaphore_wait_seconds += elapsed
+                self._category_semaphore_max_wait_seconds = max(
+                    self._category_semaphore_max_wait_seconds,
+                    elapsed,
+                )
+                self._category_semaphore_wait_count += 1
+            elif request_class == "jsf":
+                self._jsf_semaphore_wait_seconds += elapsed
+                self._jsf_semaphore_max_wait_seconds = max(
+                    self._jsf_semaphore_max_wait_seconds,
+                    elapsed,
+                )
+                self._jsf_semaphore_wait_count += 1
+            else:
+                self._other_semaphore_wait_seconds += elapsed
+                self._other_semaphore_max_wait_seconds = max(
+                    self._other_semaphore_max_wait_seconds,
+                    elapsed,
+                )
+                self._other_semaphore_wait_count += 1
 
     def _begin_request(self, url):
         with self._metrics_lock:
@@ -397,6 +445,18 @@ class Browser:
                 "category_http_max_seconds": self._category_http_max_seconds,
                 "jsf_http_max_seconds": self._jsf_http_max_seconds,
                 "other_http_max_seconds": self._other_http_max_seconds,
+                "detail_semaphore_wait_seconds": self._detail_semaphore_wait_seconds,
+                "category_semaphore_wait_seconds": self._category_semaphore_wait_seconds,
+                "jsf_semaphore_wait_seconds": self._jsf_semaphore_wait_seconds,
+                "other_semaphore_wait_seconds": self._other_semaphore_wait_seconds,
+                "detail_semaphore_max_wait_seconds": self._detail_semaphore_max_wait_seconds,
+                "category_semaphore_max_wait_seconds": self._category_semaphore_max_wait_seconds,
+                "jsf_semaphore_max_wait_seconds": self._jsf_semaphore_max_wait_seconds,
+                "other_semaphore_max_wait_seconds": self._other_semaphore_max_wait_seconds,
+                "detail_semaphore_wait_count": self._detail_semaphore_wait_count,
+                "category_semaphore_wait_count": self._category_semaphore_wait_count,
+                "jsf_semaphore_wait_count": self._jsf_semaphore_wait_count,
+                "other_semaphore_wait_count": self._other_semaphore_wait_count,
                 "latency_buckets": dict(self._latency_buckets),
                 "slowest_requests": list(self._slowest_requests),
                 "retry_events": list(self._retry_events),
@@ -428,6 +488,18 @@ class Browser:
             self._category_http_max_seconds = 0.0
             self._jsf_http_max_seconds = 0.0
             self._other_http_max_seconds = 0.0
+            self._detail_semaphore_wait_seconds = 0.0
+            self._category_semaphore_wait_seconds = 0.0
+            self._jsf_semaphore_wait_seconds = 0.0
+            self._other_semaphore_wait_seconds = 0.0
+            self._detail_semaphore_max_wait_seconds = 0.0
+            self._category_semaphore_max_wait_seconds = 0.0
+            self._jsf_semaphore_max_wait_seconds = 0.0
+            self._other_semaphore_max_wait_seconds = 0.0
+            self._detail_semaphore_wait_count = 0
+            self._category_semaphore_wait_count = 0
+            self._jsf_semaphore_wait_count = 0
+            self._other_semaphore_wait_count = 0
             self._latency_buckets = {
                 "lt_0_5": 0,
                 "0_5_1": 0,

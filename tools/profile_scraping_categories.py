@@ -50,7 +50,8 @@ def main() -> int:
     discovery_seconds = time.perf_counter() - started
 
     service = runner.scraping_service
-    scraper = getattr(service, "scraper", None)
+    category_product_service = getattr(service, "scraper_service", None)
+    scraper = getattr(category_product_service, "scraper", None)
     worker_count = min(config.category_workers, len(categories))
     collected_by_index: list[list[Any]] = [[] for _ in categories]
     listing_seconds: dict[int, float] = {}

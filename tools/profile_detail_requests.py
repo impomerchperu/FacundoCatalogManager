@@ -1,0 +1,155 @@
+from __future__ import annotations
+
+import json
+import os
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from typing import Any
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from services.scraping.scraping_config import ScrapingConfig
+from services.scraping.scraping_factory import ScrapingFactory
+
+OUTPUT_PATH = PROJECT_ROOT / "data" / "scraping_detail_profile.json"
+
+
+def _positive_int(name: str) -> int | None:
+    value = os.getenv(name, "").strip()
+    if not value:
+        return None
+    parsed = int(value)
+    if parsed <= 0:
+        raise ValueError(f"{name} debe ser mayor que cero.")
+    return parsed
+
+
+def _run_category(service: Any, index: int, category: Any) -> tuple[int, list[Any], list[Any]]:
+    collected = service._collect_category(index, category)
+    enriched = service._enrich_category(index, category, collected)
+    return index, collected, enriched
+
+
+def main() -> int:
+    config = ScrapingConfig(download_images=False)
+    http_workers = _positive_int("FCM_PROFILE_HTTP_WORKERS")
+    jsf_concurrency = _positive_int("FCM_PROFILE_JSF_HTTP_CONCURRENCY")
+    if http_workers is not None:
+        config.http_workers = http_workers
+    if jsf_concurrency is not None:
+        config.jsf_http_concurrency = jsf_concurrency
+    if http_workers is not None or jsf_concurrency is not None:
+        config.__post_init__()
+
+    runner = ScrapingFactory.create_runner(config)
+    category_service = runner.category_service
+    if category_service is None:
+        raise RuntimeError("ScrapingRunner no tiene CategoryService configurado.")
+
+    service = runner.scraping_service
+    scraper = getattr(getattr(service, "scraper_service", None), "scraper", None)
+    if scraper is None:
+        raise RuntimeError("ScrapingService no tiene scraper configurado.")
+
+    category_scraper = getattr(scraper, "category_scraper", None)
+    browser = getattr(category_scraper, "browser", None)
+    categories = list(category_service.scrape_all() or [])
+    started = time.perf_counter()
+
+    worker_count = min(config.category_workers, len(categories))
+    collected: list[list[Any]] = [[] for _ in categories]
+    enriched: list[list[Any]] = [[] for _ in categories]
+    if categories:
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures = {
+                executor.submit(_run_category, service, index, category): index
+                for index, category in enumerate(categories)
+            }
+            for future in as_completed(futures):
+                index, category_products, enriched_products = future.result()
+                collected[index] = category_products
+                enriched[index] = enriched_products
+
+    detail_metrics: dict[str, Any] = {}
+    get_detail_metrics = getattr(scraper, "get_detail_metrics", None)
+    if callable(get_detail_metrics):
+        detail_metrics = dict(get_detail_metrics() or {})
+
+    http_metrics: dict[str, Any] = {}
+    if browser is not None:
+        get_http_metrics = getattr(browser, "get_http_metrics", None)
+        if callable(get_http_metrics):
+            http_metrics = dict(get_http_metrics() or {})
+
+    category_rows = []
+    for index, category in enumerate(categories):
+        category_name = str(getattr(category, "name", "") or "").strip() or "(sin nombre)"
+        enrichment = scraper.get_enrichment_metrics(category_name)
+        category_rows.append(
+            {
+                "category": category_name,
+                "expected": max(int(getattr(category, "expected_count", 0) or 0), 0),
+                "collected": len(collected[index]),
+                "enriched": len(enriched[index]),
+                "detail_requested": int(enrichment.get("requested", 0) or 0),
+                "detail_skipped": int(enrichment.get("skipped", 0) or 0),
+                "enrichment_seconds": float(enrichment.get("total_seconds", 0.0) or 0.0),
+            }
+        )
+    category_rows.sort(key=lambda row: row["detail_requested"], reverse=True)
+
+    payload = {
+        "categories": len(categories),
+        "http_workers": config.http_workers,
+        "jsf_http_concurrency": config.jsf_http_concurrency,
+        "elapsed_seconds": round(time.perf_counter() - started, 3),
+        "detail": detail_metrics,
+        "http": {
+            "requests": int(http_metrics.get("http_requests", 0) or 0),
+            "detail_requests": int(http_metrics.get("detail_http_requests", 0) or 0),
+            "detail_total_seconds": float(http_metrics.get("detail_http_total_seconds", 0.0) or 0.0),
+            "detail_avg_seconds": (
+                float(http_metrics.get("detail_http_total_seconds", 0.0) or 0.0)
+                / int(http_metrics.get("detail_http_requests", 0) or 1)
+                if int(http_metrics.get("detail_http_requests", 0) or 0)
+                else 0.0
+            ),
+            "max_concurrency": int(http_metrics.get("http_max_in_flight", 0) or 0),
+            "errors": int(http_metrics.get("http_errors", 0) or 0),
+            "retries": int(http_metrics.get("http_retries", 0) or 0),
+        },
+        "categories_detail": category_rows,
+    }
+
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    print(f"categories={len(categories)}")
+    print(f"elapsed_seconds={payload['elapsed_seconds']:.3f}")
+    print(f"detail_requests={payload['detail']['detail_requests']}" )
+    print(f"detail_cache_hits={payload['detail']['detail_cache_hits']}" )
+    print(f"detail_skipped={payload['detail']['detail_skipped']}" )
+    print(f"detail_cache_size={payload['detail']['detail_cache_size']}" )
+    print(f"detail_reason_counts={payload['detail']['detail_reason_counts']}" )
+    print(f"detail_http_requests={payload['http']['detail_requests']}" )
+    print(f"detail_http_total_seconds={payload['http']['detail_total_seconds']:.3f}")
+    print(f"detail_http_avg_seconds={payload['http']['detail_avg_seconds']:.3f}")
+    print(f"http_errors={payload['http']['errors']} retries={payload['http']['retries']}")
+    print(f"output={OUTPUT_PATH}")
+
+    for row in category_rows:
+        print(
+            f"{row['category']}\t{row['expected']}\t{row['collected']}\t"
+            f"{row['enriched']}\t{row['detail_requested']}\t"
+            f"{row['detail_skipped']}\t{row['enrichment_seconds']:.3f}"
+        )
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

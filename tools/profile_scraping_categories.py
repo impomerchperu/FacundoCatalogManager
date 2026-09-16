@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -38,8 +39,23 @@ def _timed_enrich(
     return index, time.perf_counter() - started, enriched
 
 
+def _profile_http_workers() -> int | None:
+    raw_value = os.getenv("FCM_PROFILE_HTTP_WORKERS", "").strip()
+    if not raw_value:
+        return None
+    workers = int(raw_value)
+    if workers <= 0:
+        raise ValueError("FCM_PROFILE_HTTP_WORKERS debe ser mayor que cero.")
+    return workers
+
+
 def main() -> int:
+    profile_http_workers = _profile_http_workers()
     config = ScrapingConfig(download_images=False)
+    if profile_http_workers is not None:
+        config.http_workers = profile_http_workers
+        config.__post_init__()
+
     runner = ScrapingFactory.create_runner(config)
     category_service = runner.category_service
     if category_service is None:
@@ -124,6 +140,7 @@ def main() -> int:
         if callable(get_http_metrics):
             http_metrics = dict(get_http_metrics() or {})
     buckets = dict(http_metrics.get("latency_buckets", {}) or {})
+    retry_events = list(http_metrics.get("retry_events", []) or [])
 
     rows.sort(key=lambda row: row["total_seconds"], reverse=True)
     payload = {
@@ -144,6 +161,8 @@ def main() -> int:
             "retries": int(http_metrics.get("http_retries", 0) or 0),
             "errors": int(http_metrics.get("http_errors", 0) or 0),
             "terminal_errors": int(http_metrics.get("http_terminal_errors", 0) or 0),
+            "retry_sleep_count": int(http_metrics.get("http_retry_sleep_count", 0) or 0),
+            "retry_sleep_seconds": float(http_metrics.get("http_retry_sleep_seconds", 0.0) or 0.0),
             "total_seconds": float(http_metrics.get("http_total_seconds", 0.0) or 0.0),
             "detail_total_seconds": float(http_metrics.get("detail_http_total_seconds", 0.0) or 0.0),
             "category_total_seconds": float(http_metrics.get("category_http_total_seconds", 0.0) or 0.0),
@@ -154,6 +173,7 @@ def main() -> int:
                 key: int(buckets.get(key, 0) or 0)
                 for key in ("lt_0_5", "0_5_1", "1_2", "2_5", "5_10", "gte_10")
             },
+            "retry_events": retry_events,
         },
         "rows": rows,
     }
@@ -167,6 +187,7 @@ def main() -> int:
     print(f"categories={len(categories)}")
     print(f"discovery_seconds={discovery_seconds:.3f}")
     print(f"profile_seconds={payload['profile_seconds']:.3f}")
+    print(f"http_workers={config.http_workers}")
     print(f"jsf_http_concurrency={config.jsf_http_concurrency}")
     print(f"output={OUTPUT_PATH}")
     http = payload["http"]
@@ -179,12 +200,25 @@ def main() -> int:
         f"retries:{http['retries']} "
         f"errors:{http['errors']} "
         f"terminal:{http['terminal_errors']} "
+        f"retry_sleep_count:{http['retry_sleep_count']} "
+        f"retry_sleep_s:{http['retry_sleep_seconds']:.3f} "
         f"total_s:{http['total_seconds']:.3f} "
         f"detail_total_s:{http['detail_total_seconds']:.3f} "
         f"max_s:{http['max_seconds']:.3f} "
         f"max_concurrency:{http['max_concurrency']}"
     )
     print(f"latency_buckets={http['latency_buckets']}")
+    if retry_events:
+        print("retry_events=")
+        for event in retry_events:
+            print(
+                f"  url={event.get('url')} "
+                f"error_type={event.get('error_type')} "
+                f"status_code={event.get('status_code')} "
+                f"elapsed={float(event.get('elapsed', 0.0)):.3f}s "
+                f"attempt={event.get('attempt')}"
+            )
+
     print(
         "category\texpected\tcollected\tenriched\tunique\tlisting_s\t"
         "enrichment_s\tsubmit_s\twait_s\tdetail_req\tdetail_skip\ttotal_s"

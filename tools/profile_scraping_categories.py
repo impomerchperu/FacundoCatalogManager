@@ -6,6 +6,7 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 # The project imports intentionally follow the runtime sys.path bootstrap below.
@@ -21,6 +22,47 @@ from services.scraping.scraping_factory import ScrapingFactory
 
 
 OUTPUT_PATH = PROJECT_ROOT / "data" / "scraping_category_profile.json"
+
+
+class _MeasuredSemaphore:
+    """Measure waiting time on the shared Browser HTTP semaphore."""
+
+    def __init__(self, semaphore: Any) -> None:
+        self._semaphore = semaphore
+        self._lock = Lock()
+        self.wait_seconds = 0.0
+        self.max_wait_seconds = 0.0
+        self.wait_count = 0
+        self.waits_over_10ms = 0
+        self.waits_over_100ms = 0
+
+    def acquire(self, *args: Any, **kwargs: Any) -> Any:
+        started = time.perf_counter()
+        acquired = self._semaphore.acquire(*args, **kwargs)
+        if acquired:
+            elapsed = time.perf_counter() - started
+            with self._lock:
+                self.wait_seconds += elapsed
+                self.max_wait_seconds = max(self.max_wait_seconds, elapsed)
+                self.wait_count += 1
+                if elapsed >= 0.01:
+                    self.waits_over_10ms += 1
+                if elapsed >= 0.1:
+                    self.waits_over_100ms += 1
+        return acquired
+
+    def release(self) -> None:
+        self._semaphore.release()
+
+    def metrics(self) -> dict[str, float | int]:
+        with self._lock:
+            return {
+                "wait_seconds": self.wait_seconds,
+                "max_wait_seconds": self.max_wait_seconds,
+                "wait_count": self.wait_count,
+                "waits_over_10ms": self.waits_over_10ms,
+                "waits_over_100ms": self.waits_over_100ms,
+            }
 
 
 def _timed_collect(service: Any, index: int, category: Any) -> tuple[int, float, list[Any]]:
@@ -136,15 +178,20 @@ def main() -> int:
     if category_service is None:
         raise RuntimeError("ScrapingRunner no tiene CategoryService configurado.")
 
-    started = time.perf_counter()
-    categories = list(category_service.scrape_all() or [])
-    discovery_seconds = time.perf_counter() - started
-
     service = runner.scraping_service
     category_product_service = getattr(service, "scraper_service", None)
     scraper = getattr(category_product_service, "scraper", None)
     category_scraper = getattr(scraper, "category_scraper", None)
     browser = getattr(category_scraper, "browser", None)
+    semaphore = None
+    if browser is not None and hasattr(browser, "_http_semaphore"):
+        semaphore = _MeasuredSemaphore(browser._http_semaphore)
+        browser._http_semaphore = semaphore
+
+    started = time.perf_counter()
+    categories = list(category_service.scrape_all() or [])
+    discovery_seconds = time.perf_counter() - started
+
     worker_count = min(config.category_workers, len(categories))
     collected_by_index: list[list[Any]] = [[] for _ in categories]
     listing_seconds: dict[int, float] = {}
@@ -216,6 +263,26 @@ def main() -> int:
             http_metrics = dict(get_http_metrics() or {})
     rows.sort(key=lambda row: row["total_seconds"], reverse=True)
     http_payload = _build_http_payload(http_metrics)
+    if semaphore is not None:
+        http_payload.update(
+            {
+                "semaphore_wait_seconds": float(semaphore.metrics()["wait_seconds"]),
+                "semaphore_max_wait_seconds": float(semaphore.metrics()["max_wait_seconds"]),
+                "semaphore_wait_count": int(semaphore.metrics()["wait_count"]),
+                "semaphore_waits_over_10ms": int(semaphore.metrics()["waits_over_10ms"]),
+                "semaphore_waits_over_100ms": int(semaphore.metrics()["waits_over_100ms"]),
+            }
+        )
+    else:
+        http_payload.update(
+            {
+                "semaphore_wait_seconds": 0.0,
+                "semaphore_max_wait_seconds": 0.0,
+                "semaphore_wait_count": 0,
+                "semaphore_waits_over_10ms": 0,
+                "semaphore_waits_over_100ms": 0,
+            }
+        )
     payload = {
         "categories": len(categories),
         "category_workers": config.category_workers,
@@ -275,6 +342,14 @@ def main() -> int:
         f"jsf:{http['jsf_max_seconds']:.3f} "
         f"detail:{http['detail_max_seconds']:.3f} "
         f"other:{http['other_max_seconds']:.3f}"
+    )
+    print(
+        "semaphore_wait="
+        f"total:{http['semaphore_wait_seconds']:.3f}s "
+        f"max:{http['semaphore_max_wait_seconds']:.3f}s "
+        f"count:{http['semaphore_wait_count']} "
+        f">10ms:{http['semaphore_waits_over_10ms']} "
+        f">100ms:{http['semaphore_waits_over_100ms']}"
     )
     print(f"latency_buckets={http['latency_buckets']}")
     if http["slowest_requests"]:

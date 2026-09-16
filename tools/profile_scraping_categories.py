@@ -40,25 +40,95 @@ def _timed_enrich(
     return index, time.perf_counter() - started, enriched
 
 
-def _profile_http_workers() -> int | None:
-    raw_value = os.getenv("FCM_PROFILE_HTTP_WORKERS", "").strip()
+def _env_positive_int(name: str) -> int | None:
+    raw_value = os.getenv(name, "").strip()
     if not raw_value:
         return None
-    workers = int(raw_value)
-    if workers <= 0:
-        raise ValueError("FCM_PROFILE_HTTP_WORKERS debe ser mayor que cero.")
-    return workers
+    value = int(raw_value)
+    if value <= 0:
+        raise ValueError(f"{name} debe ser mayor que cero.")
+    return value
+
+
+def _profile_http_workers() -> int | None:
+    return _env_positive_int("FCM_PROFILE_HTTP_WORKERS")
+
+
+def _profile_jsf_http_concurrency() -> int | None:
+    return _env_positive_int("FCM_PROFILE_JSF_HTTP_CONCURRENCY")
 
 
 def _average(total: float, count: int) -> float:
     return total / count if count else 0.0
 
 
+def _build_http_payload(http_metrics: dict[str, Any]) -> dict[str, Any]:
+    buckets = dict(http_metrics.get("latency_buckets", {}) or {})
+    retry_events = list(http_metrics.get("retry_events", []) or [])
+    slowest_requests = list(http_metrics.get("slowest_requests", []) or [])
+
+    http_counts = {
+        "category": int(http_metrics.get("category_http_requests", 0) or 0),
+        "jsf": int(http_metrics.get("jsf_http_requests", 0) or 0),
+        "detail": int(http_metrics.get("detail_http_requests", 0) or 0),
+        "other": int(http_metrics.get("other_http_requests", 0) or 0),
+    }
+    http_totals = {
+        "category": float(http_metrics.get("category_http_total_seconds", 0.0) or 0.0),
+        "jsf": float(http_metrics.get("jsf_http_total_seconds", 0.0) or 0.0),
+        "detail": float(http_metrics.get("detail_http_total_seconds", 0.0) or 0.0),
+        "other": float(http_metrics.get("other_http_total_seconds", 0.0) or 0.0),
+    }
+    http_maxes = {
+        "category": float(http_metrics.get("category_http_max_seconds", 0.0) or 0.0),
+        "jsf": float(http_metrics.get("jsf_http_max_seconds", 0.0) or 0.0),
+        "detail": float(http_metrics.get("detail_http_max_seconds", 0.0) or 0.0),
+        "other": float(http_metrics.get("other_http_max_seconds", 0.0) or 0.0),
+    }
+    return {
+        "requests": int(http_metrics.get("http_requests", 0) or 0),
+        "category_requests": http_counts["category"],
+        "jsf_requests": http_counts["jsf"],
+        "detail_requests": http_counts["detail"],
+        "other_requests": http_counts["other"],
+        "retries": int(http_metrics.get("http_retries", 0) or 0),
+        "errors": int(http_metrics.get("http_errors", 0) or 0),
+        "terminal_errors": int(http_metrics.get("http_terminal_errors", 0) or 0),
+        "retry_sleep_count": int(http_metrics.get("http_retry_sleep_count", 0) or 0),
+        "retry_sleep_seconds": float(http_metrics.get("http_retry_sleep_seconds", 0.0) or 0.0),
+        "total_seconds": float(http_metrics.get("http_total_seconds", 0.0) or 0.0),
+        "category_total_seconds": http_totals["category"],
+        "jsf_total_seconds": http_totals["jsf"],
+        "detail_total_seconds": http_totals["detail"],
+        "other_total_seconds": http_totals["other"],
+        "category_avg_seconds": _average(http_totals["category"], http_counts["category"]),
+        "jsf_avg_seconds": _average(http_totals["jsf"], http_counts["jsf"]),
+        "detail_avg_seconds": _average(http_totals["detail"], http_counts["detail"]),
+        "other_avg_seconds": _average(http_totals["other"], http_counts["other"]),
+        "max_seconds": float(http_metrics.get("http_max_seconds", 0.0) or 0.0),
+        "category_max_seconds": http_maxes["category"],
+        "jsf_max_seconds": http_maxes["jsf"],
+        "detail_max_seconds": http_maxes["detail"],
+        "other_max_seconds": http_maxes["other"],
+        "max_concurrency": int(http_metrics.get("http_max_in_flight", 0) or 0),
+        "latency_buckets": {
+            key: int(buckets.get(key, 0) or 0)
+            for key in ("lt_0_5", "0_5_1", "1_2", "2_5", "5_10", "gte_10")
+        },
+        "slowest_requests": slowest_requests,
+        "retry_events": retry_events,
+    }
+
+
 def main() -> int:
     profile_http_workers = _profile_http_workers()
+    profile_jsf_http_concurrency = _profile_jsf_http_concurrency()
     config = ScrapingConfig(download_images=False)
     if profile_http_workers is not None:
         config.http_workers = profile_http_workers
+    if profile_jsf_http_concurrency is not None:
+        config.jsf_http_concurrency = profile_jsf_http_concurrency
+    if profile_http_workers is not None or profile_jsf_http_concurrency is not None:
         config.__post_init__()
 
     runner = ScrapingFactory.create_runner(config)
@@ -144,30 +214,8 @@ def main() -> int:
         get_http_metrics = getattr(browser, "get_http_metrics", None)
         if callable(get_http_metrics):
             http_metrics = dict(get_http_metrics() or {})
-    buckets = dict(http_metrics.get("latency_buckets", {}) or {})
-    retry_events = list(http_metrics.get("retry_events", []) or [])
-    slowest_requests = list(http_metrics.get("slowest_requests", []) or [])
-
-    http_counts = {
-        "category": int(http_metrics.get("category_http_requests", 0) or 0),
-        "jsf": int(http_metrics.get("jsf_http_requests", 0) or 0),
-        "detail": int(http_metrics.get("detail_http_requests", 0) or 0),
-        "other": int(http_metrics.get("other_http_requests", 0) or 0),
-    }
-    http_totals = {
-        "category": float(http_metrics.get("category_http_total_seconds", 0.0) or 0.0),
-        "jsf": float(http_metrics.get("jsf_http_total_seconds", 0.0) or 0.0),
-        "detail": float(http_metrics.get("detail_http_total_seconds", 0.0) or 0.0),
-        "other": float(http_metrics.get("other_http_total_seconds", 0.0) or 0.0),
-    }
-    http_maxes = {
-        "category": float(http_metrics.get("category_http_max_seconds", 0.0) or 0.0),
-        "jsf": float(http_metrics.get("jsf_http_max_seconds", 0.0) or 0.0),
-        "detail": float(http_metrics.get("detail_http_max_seconds", 0.0) or 0.0),
-        "other": float(http_metrics.get("other_http_max_seconds", 0.0) or 0.0),
-    }
-
     rows.sort(key=lambda row: row["total_seconds"], reverse=True)
+    http_payload = _build_http_payload(http_metrics)
     payload = {
         "categories": len(categories),
         "category_workers": config.category_workers,
@@ -178,39 +226,7 @@ def main() -> int:
         "download_images": config.download_images,
         "discovery_seconds": round(discovery_seconds, 3),
         "profile_seconds": round(time.perf_counter() - profile_started, 3),
-        "http": {
-            "requests": int(http_metrics.get("http_requests", 0) or 0),
-            "category_requests": http_counts["category"],
-            "jsf_requests": http_counts["jsf"],
-            "detail_requests": http_counts["detail"],
-            "other_requests": http_counts["other"],
-            "retries": int(http_metrics.get("http_retries", 0) or 0),
-            "errors": int(http_metrics.get("http_errors", 0) or 0),
-            "terminal_errors": int(http_metrics.get("http_terminal_errors", 0) or 0),
-            "retry_sleep_count": int(http_metrics.get("http_retry_sleep_count", 0) or 0),
-            "retry_sleep_seconds": float(http_metrics.get("http_retry_sleep_seconds", 0.0) or 0.0),
-            "total_seconds": float(http_metrics.get("http_total_seconds", 0.0) or 0.0),
-            "category_total_seconds": http_totals["category"],
-            "jsf_total_seconds": http_totals["jsf"],
-            "detail_total_seconds": http_totals["detail"],
-            "other_total_seconds": http_totals["other"],
-            "category_avg_seconds": _average(http_totals["category"], http_counts["category"]),
-            "jsf_avg_seconds": _average(http_totals["jsf"], http_counts["jsf"]),
-            "detail_avg_seconds": _average(http_totals["detail"], http_counts["detail"]),
-            "other_avg_seconds": _average(http_totals["other"], http_counts["other"]),
-            "max_seconds": float(http_metrics.get("http_max_seconds", 0.0) or 0.0),
-            "category_max_seconds": http_maxes["category"],
-            "jsf_max_seconds": http_maxes["jsf"],
-            "detail_max_seconds": http_maxes["detail"],
-            "other_max_seconds": http_maxes["other"],
-            "max_concurrency": int(http_metrics.get("http_max_in_flight", 0) or 0),
-            "latency_buckets": {
-                key: int(buckets.get(key, 0) or 0)
-                for key in ("lt_0_5", "0_5_1", "1_2", "2_5", "5_10", "gte_10")
-            },
-            "slowest_requests": slowest_requests,
-            "retry_events": retry_events,
-        },
+        "http": http_payload,
         "rows": rows,
     }
 
@@ -261,13 +277,13 @@ def main() -> int:
         f"other:{http['other_max_seconds']:.3f}"
     )
     print(f"latency_buckets={http['latency_buckets']}")
-    if slowest_requests:
+    if http["slowest_requests"]:
         print("slowest_requests=")
-        for elapsed, url in slowest_requests[:10]:
+        for elapsed, url in http["slowest_requests"][:10]:
             print(f"  {float(elapsed):.3f}s {url}")
-    if retry_events:
+    if http["retry_events"]:
         print("retry_events=")
-        for event in retry_events:
+        for event in http["retry_events"]:
             print(
                 f"  url={event.get('url')} "
                 f"error_type={event.get('error_type')} "

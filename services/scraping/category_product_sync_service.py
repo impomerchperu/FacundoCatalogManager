@@ -831,12 +831,11 @@ class CategoryProductSyncService:
 
     @staticmethod
     def _category_coverage_gap_reason(category_summary):
-        gaps = []
-        for row in category_summary:
-            gap = int(row.get("gap", 0) or 0)
-            if gap > 0:
-                gaps.append(f"{row.get('category', '(sin nombre)')}:{gap}")
-        return ",".join(gaps)
+        gap_total = sum(
+            max(int(row.get("gap", 0) or 0), 0)
+            for row in category_summary
+        )
+        return f"category_coverage_gap:{gap_total}" if gap_total else ""
 
     def _full_sync_prune_guard(
         self,
@@ -847,24 +846,48 @@ class CategoryProductSyncService:
         expected_products=0,
     ):
         category_summary = getattr(self.last_sync_result, "category_summary", None) or []
-        gap_reason = self._category_coverage_gap_reason(category_summary)
         if category_count <= 0:
             self._full_sync_coverage_validated = False
             self._full_sync_coverage_reason = "no_categories"
             return False, self._full_sync_coverage_reason
+
+        self._recover_missing_codes(products)
+
+        raw_products = list(products or [])
+        missing_codes = sum(
+            1
+            for product in raw_products
+            if not str(getattr(product, "code", "") or "").strip()
+        )
+        if missing_codes:
+            reason = f"missing_codes:{missing_codes}"
+            self._full_sync_coverage_validated = False
+            self._full_sync_coverage_reason = reason
+            return False, reason
+
+        http_reason = self._terminal_http_error_reason()
+        if http_reason:
+            self._full_sync_coverage_validated = False
+            self._full_sync_coverage_reason = http_reason
+            return False, http_reason
+
+        gap_reason = self._category_coverage_gap_reason(category_summary)
+        if gap_reason:
+            self._full_sync_coverage_validated = False
+            self._full_sync_coverage_reason = gap_reason
+            return False, gap_reason
+
         if not demonstrates_complete_coverage(
-            products,
+            raw_products,
             expected_products=expected_products,
             expected_category_occurrences=expected_category_occurrences,
             category_summary=category_summary,
         ):
             self._full_sync_coverage_validated = False
-            reason = gap_reason or "coverage_not_complete"
-            http_reason = self._terminal_http_error_reason()
-            if http_reason:
-                reason = f"{reason};{http_reason}"
+            reason = "coverage_not_complete"
             self._full_sync_coverage_reason = reason
             return False, reason
+
         self._full_sync_coverage_validated = True
         self._full_sync_coverage_reason = "complete"
         return True, "complete"
@@ -877,6 +900,8 @@ class CategoryProductSyncService:
         expected_category_occurrences=0,
     ):
         category_summary = getattr(self.last_sync_result, "category_summary", None) or []
+        if not has_complete_category_coverage(self.last_sync_result):
+            return False
         return demonstrates_complete_coverage(
             products,
             expected_products=expected_products,

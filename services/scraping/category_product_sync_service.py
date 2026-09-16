@@ -9,6 +9,7 @@ from typing import Any, cast
 import requests
 from bs4 import BeautifulSoup
 
+from models.scraping.scraped_product import ScrapedProduct
 from models.scraping.sync_result import SyncResult
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_name_normalizer import (
@@ -118,18 +119,14 @@ class CategoryProductSyncService:
                         collected_by_index[index] = cast(list[Any], future.result())
                     except requests.exceptions.RequestException as error:
                         collected_by_index[index] = []
-                        category_name = str(
-                            getattr(category, "name", "")
-                        ).strip() or "(sin nombre)"
+                        category_name = str(getattr(category, "name", "")).strip() or "(sin nombre)"
                         message = (
-                            f"Error de red en categoría '{category_name}': "
-                            f"{error}"
+                            f"Error de red en categoría '{category_name}': {error}"
                         )
                         failed_category_errors[index] = message
                         self.last_sync_result.errors.append(message)
                         _log_timing(
-                            "SCRAPING TIMING | stage=category_error | category=%s | "
-                            "error_type=%s | error=%s",
+                            "SCRAPING TIMING | stage=category_error | category=%s | error_type=%s | error=%s",
                             category_name,
                             type(error).__name__,
                             str(error),
@@ -140,17 +137,10 @@ class CategoryProductSyncService:
         if failed_category_errors:
             recovery_started = time.perf_counter()
             recovered = 0
-            recovery_worker_count = min(
-                self.category_workers,
-                len(failed_category_errors),
-            )
+            recovery_worker_count = min(self.category_workers, len(failed_category_errors))
             with ThreadPoolExecutor(max_workers=recovery_worker_count) as executor:
                 futures = {
-                    executor.submit(
-                        self._collect_category,
-                        index,
-                        categories[index],
-                    ): index
+                    executor.submit(self._collect_category, index, categories[index]): index
                     for index in failed_category_errors
                 }
                 for future, index in futures.items():
@@ -161,8 +151,7 @@ class CategoryProductSyncService:
                         collected_by_index[index] = cast(list[Any], future.result())
                     except requests.exceptions.RequestException as error:
                         _log_timing(
-                            "SCRAPING TIMING | stage=category_recovery_error | category=%s | "
-                            "error_type=%s | error=%s",
+                            "SCRAPING TIMING | stage=category_recovery_error | category=%s | error_type=%s | error=%s",
                             category_name,
                             type(error).__name__,
                             str(error),
@@ -173,9 +162,7 @@ class CategoryProductSyncService:
                     else:
                         recovered += 1
                         self.last_sync_result.errors = [
-                            message
-                            for message in self.last_sync_result.errors
-                            if message != original_error
+                            message for message in self.last_sync_result.errors if message != original_error
                         ]
                         _log_timing(
                             "SCRAPING TIMING | stage=category_recovered | category=%s | products=%d",
@@ -203,12 +190,7 @@ class CategoryProductSyncService:
             worker_count = min(self.category_workers, len(categories))
             with ThreadPoolExecutor(max_workers=worker_count) as executor:
                 futures = {
-                    executor.submit(
-                        self._enrich_category,
-                        index,
-                        category,
-                        collected_by_index[index],
-                    ): index
+                    executor.submit(self._enrich_category, index, category, collected_by_index[index]): index
                     for index, category in enumerate(categories)
                 }
                 for future, index in futures.items():
@@ -231,7 +213,6 @@ class CategoryProductSyncService:
         self._log_http_metrics()
 
         raw_products = list(products)
-
         started = time.perf_counter()
         coverage_products = self._consolidate_for_coverage(raw_products)
         self._attach_category_coverage(raw_products, coverage_products, categories)
@@ -243,7 +224,6 @@ class CategoryProductSyncService:
         )
 
         full_mode = getattr(self, "_scraping_mode", "directed") == "full"
-
         started = time.perf_counter()
         complete, reason = self._full_sync_prune_guard(
             raw_products,
@@ -482,13 +462,7 @@ class CategoryProductSyncService:
             for category in categories
         ]
 
-    def _build_category_summary_row(
-        self,
-        raw_products,
-        category,
-        legacy_call,
-        has_occurrences,
-    ):
+    def _build_category_summary_row(self, raw_products, category, legacy_call, has_occurrences):
         category_name = canonical_category_name(str(getattr(category, "name", "")).strip())
         expected = max(int(getattr(category, "expected_count", 0) or 0), 0)
         category_key = normalize_category_name(category_name)
@@ -575,19 +549,12 @@ class CategoryProductSyncService:
 
     def _attach_category_coverage(self, raw_products, products_or_categories, categories=None):
         legacy_call = categories is None
-        categories = (
-            list(products_or_categories or [])
-            if legacy_call
-            else list(categories or [])
-        )
+        categories = list(products_or_categories or []) if legacy_call else list(categories or [])
         del products_or_categories
 
         self.last_sync_result.categories_processed = len(categories)
         category_summary = self._category_summary(raw_products, categories, legacy_call)
-        multiple = self._multiple_category_products(
-            raw_products,
-            None if legacy_call else categories,
-        )
+        multiple = self._multiple_category_products(raw_products, None if legacy_call else categories)
         self.last_sync_result.category_summary = category_summary
         self.last_sync_result.multiple_category_products = multiple
         self.last_sync_result.products_multiple_categories = len(multiple)
@@ -639,13 +606,11 @@ class CategoryProductSyncService:
             get_page_metrics = getattr(scraper, "get_page_metrics", None)
             if callable(get_page_metrics):
                 metrics = cast(dict[str, dict[str, Any]], get_page_metrics())
-                record_page_metrics(
-                    metrics,
-                    category_url=category.url,
-                )
+                record_page_metrics(metrics, category_url=category.url)
             return products
         return self.scraper_service.scrape_category(
-            category.url, category.name,
+            category.url,
+            category.name,
             expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),
         )
 
@@ -656,7 +621,8 @@ class CategoryProductSyncService:
         if callable(enrich):
             return enrich(collected, category.name)
         return self.scraper_service.scrape_category(
-            category.url, category.name,
+            category.url,
+            category.name,
             expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),
         )
 
@@ -697,27 +663,12 @@ class CategoryProductSyncService:
         metrics = getattr(browser, "get_http_metrics", None)
         if not callable(metrics):
             return
-
         values = cast(dict[str, Any], metrics() or {})
         buckets = values.get("latency_buckets", {}) or {}
         slowest = values.get("slowest_requests", []) or []
-
-        slowest_text = ";".join(
-            f"{float(elapsed):.3f}s:{url}"
-            for elapsed, url in slowest
-        )
-
+        slowest_text = ";".join(f"{float(elapsed):.3f}s:{url}" for elapsed, url in slowest)
         _log_timing(
-            "SCRAPING TIMING | stage=http | "
-            "requests=%d | category=%d | jsf=%d | detail=%d | other=%d | "
-            "retries=%d | errors=%d | terminal=%d | "
-            "retry_sleep_count=%d | retry_sleep_seconds=%.3f | "
-            "total_seconds=%.3f | max_seconds=%.3f | max_concurrency=%d | "
-            "category_total_seconds=%.3f | jsf_total_seconds=%.3f | detail_total_seconds=%.3f | "
-            "other_total_seconds=%.3f | category_max_seconds=%.3f | "
-            "jsf_max_seconds=%.3f | detail_max_seconds=%.3f | other_max_seconds=%.3f | "
-            "lt_0_5=%d | 0_5_1=%d | 1_2=%d | 2_5=%d | "
-            "5_10=%d | gte_10=%d | slowest=%s",
+            "SCRAPING TIMING | stage=http | requests=%d | category=%d | jsf=%d | detail=%d | other=%d | retries=%d | errors=%d | terminal=%d | retry_sleep_count=%d | retry_sleep_seconds=%.3f | total_seconds=%.3f | max_seconds=%.3f | max_concurrency=%d | category_total_seconds=%.3f | jsf_total_seconds=%.3f | detail_total_seconds=%.3f | other_total_seconds=%.3f | category_max_seconds=%.3f | jsf_max_seconds=%.3f | detail_max_seconds=%.3f | other_max_seconds=%.3f | lt_0_5=%d | 0_5_1=%d | 1_2=%d | 2_5=%d | 5_10=%d | gte_10=%d | slowest=%s",
             int(values.get("http_requests", 0) or 0),
             int(values.get("category_http_requests", 0) or 0),
             int(values.get("jsf_http_requests", 0) or 0),
@@ -771,24 +722,19 @@ class CategoryProductSyncService:
         code = str(getattr(product, "code", "") or "").strip()
         if code:
             return False
-
         url = str(getattr(product, "url", "") or "").strip()
         if "/producto/" not in url:
             return False
-
         try:
             html = browser.get(url)
         except requests.RequestException:
             return False
-
         if not isinstance(html, str) or not html:
             return False
-
         soup = BeautifulSoup(html, "lxml")
         recovered_code = str(extractor.extract_code(soup) or "").strip()
         if not recovered_code:
             return False
-
         product.code = recovered_code.upper()
         return True
 
@@ -796,16 +742,13 @@ class CategoryProductSyncService:
         browser = self._browser_for_sku_recovery()
         if browser is None:
             return 0
-
         missing_products = [
-            product
-            for product in products
+            product for product in products
             if not str(getattr(product, "code", "") or "").strip()
             and "/producto/" in str(getattr(product, "url", "") or "")
         ]
         if not missing_products:
             return 0
-
         extractor = ProductExtractor()
         recovered = 0
         for product in missing_products:
@@ -831,11 +774,18 @@ class CategoryProductSyncService:
 
     @staticmethod
     def _category_coverage_gap_reason(category_summary):
-        gap_total = sum(
-            max(int(row.get("gap", 0) or 0), 0)
-            for row in category_summary
-        )
-        return f"category_coverage_gap:{gap_total}" if gap_total else ""
+        invalid_categories = []
+        for row in category_summary:
+            expected = max(int(row.get("expected", 0) or 0), 0)
+            if expected <= 0:
+                continue
+            products_found = int(row.get("products", 0) or 0)
+            unique_found = int(row.get("unique_products", 0) or 0)
+            if products_found != expected or unique_found != expected:
+                invalid_categories.append(str(row.get("category", "(sin nombre)")))
+        if not invalid_categories:
+            return ""
+        return f"category_coverage_gap:{','.join(invalid_categories)}"
 
     def _full_sync_prune_guard(
         self,
@@ -852,11 +802,9 @@ class CategoryProductSyncService:
             return False, self._full_sync_coverage_reason
 
         self._recover_missing_codes(products)
-
         raw_products = list(products or [])
         missing_codes = sum(
-            1
-            for product in raw_products
+            1 for product in raw_products
             if not str(getattr(product, "code", "") or "").strip()
         )
         if missing_codes:
@@ -900,8 +848,6 @@ class CategoryProductSyncService:
         expected_category_occurrences=0,
     ):
         category_summary = getattr(self.last_sync_result, "category_summary", None) or []
-        if not has_complete_category_coverage(self.last_sync_result):
-            return False
         return demonstrates_complete_coverage(
             products,
             expected_products=expected_products,

@@ -20,6 +20,7 @@ from services.scraping.full_sync_coverage_policy import (
     demonstrates_complete_coverage,
     has_complete_category_coverage,
 )
+from services.scraping.page_metrics_audit import record_page_metrics
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TIMING_LOG = PROJECT_ROOT / "data" / "scraping_timing.log"
@@ -634,7 +635,15 @@ class CategoryProductSyncService:
         scraper = getattr(self.scraper_service, "scraper", None)
         collect = getattr(scraper, "collect_category", None)
         if callable(collect):
-            return collect(category)
+            products = collect(category)
+            get_page_metrics = getattr(scraper, "get_page_metrics", None)
+            if callable(get_page_metrics):
+                metrics = cast(dict[str, dict[str, Any]], get_page_metrics())
+                record_page_metrics(
+                    metrics,
+                    category_url=category.url,
+                )
+            return products
         return self.scraper_service.scrape_category(
             category.url, category.name,
             expected_count=max(int(getattr(category, "expected_count", 0) or 0), 0),

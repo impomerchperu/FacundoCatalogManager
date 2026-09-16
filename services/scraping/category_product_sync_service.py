@@ -697,9 +697,27 @@ class CategoryProductSyncService:
         metrics = getattr(browser, "get_http_metrics", None)
         if not callable(metrics):
             return
+
         values = cast(dict[str, Any], metrics() or {})
+        buckets = values.get("latency_buckets", {}) or {}
+        slowest = values.get("slowest_requests", []) or []
+
+        slowest_text = ";".join(
+            f"{float(elapsed):.3f}s:{url}"
+            for elapsed, url in slowest
+        )
+
         _log_timing(
-            "SCRAPING TIMING | stage=http | requests=%d | category=%d | detail=%d | other=%d | retries=%d | errors=%d | terminal=%d | retry_sleep_count=%d | retry_sleep_seconds=%.3f | total_seconds=%.3f | max_seconds=%.3f | max_concurrency=%d",
+            "SCRAPING TIMING | stage=http | "
+            "requests=%d | category=%d | detail=%d | other=%d | "
+            "retries=%d | errors=%d | terminal=%d | "
+            "retry_sleep_count=%d | retry_sleep_seconds=%.3f | "
+            "total_seconds=%.3f | max_seconds=%.3f | max_concurrency=%d | "
+            "category_total_seconds=%.3f | detail_total_seconds=%.3f | "
+            "other_total_seconds=%.3f | category_max_seconds=%.3f | "
+            "detail_max_seconds=%.3f | other_max_seconds=%.3f | "
+            "lt_0_5=%d | 0_5_1=%d | 1_2=%d | 2_5=%d | "
+            "5_10=%d | gte_10=%d | slowest=%s",
             int(values.get("http_requests", 0) or 0),
             int(values.get("category_http_requests", 0) or 0),
             int(values.get("detail_http_requests", 0) or 0),
@@ -712,6 +730,19 @@ class CategoryProductSyncService:
             float(values.get("http_total_seconds", 0.0) or 0.0),
             float(values.get("http_max_seconds", 0.0) or 0.0),
             int(values.get("http_max_in_flight", 0) or 0),
+            float(values.get("category_http_total_seconds", 0.0) or 0.0),
+            float(values.get("detail_http_total_seconds", 0.0) or 0.0),
+            float(values.get("other_http_total_seconds", 0.0) or 0.0),
+            float(values.get("category_http_max_seconds", 0.0) or 0.0),
+            float(values.get("detail_http_max_seconds", 0.0) or 0.0),
+            float(values.get("other_http_max_seconds", 0.0) or 0.0),
+            int(buckets.get("lt_0_5", 0) or 0),
+            int(buckets.get("0_5_1", 0) or 0),
+            int(buckets.get("1_2", 0) or 0),
+            int(buckets.get("2_5", 0) or 0),
+            int(buckets.get("5_10", 0) or 0),
+            int(buckets.get("gte_10", 0) or 0),
+            slowest_text,
         )
 
     def _browser(self):

@@ -6,7 +6,6 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from threading import Lock
 from typing import Any
 
 # The project imports intentionally follow the runtime sys.path bootstrap below.
@@ -24,48 +23,11 @@ from services.scraping.scraping_factory import ScrapingFactory
 OUTPUT_PATH = PROJECT_ROOT / "data" / "scraping_category_profile.json"
 
 
-class _MeasuredSemaphore:
-    """Measure waiting time on the shared Browser HTTP semaphore."""
-
-    def __init__(self, semaphore: Any) -> None:
-        self._semaphore = semaphore
-        self._lock = Lock()
-        self.wait_seconds = 0.0
-        self.max_wait_seconds = 0.0
-        self.wait_count = 0
-        self.waits_over_10ms = 0
-        self.waits_over_100ms = 0
-
-    def acquire(self, *args: Any, **kwargs: Any) -> Any:
-        started = time.perf_counter()
-        acquired = self._semaphore.acquire(*args, **kwargs)
-        if acquired:
-            elapsed = time.perf_counter() - started
-            with self._lock:
-                self.wait_seconds += elapsed
-                self.max_wait_seconds = max(self.max_wait_seconds, elapsed)
-                self.wait_count += 1
-                if elapsed >= 0.01:
-                    self.waits_over_10ms += 1
-                if elapsed >= 0.1:
-                    self.waits_over_100ms += 1
-        return acquired
-
-    def release(self) -> None:
-        self._semaphore.release()
-
-    def metrics(self) -> dict[str, float | int]:
-        with self._lock:
-            return {
-                "wait_seconds": self.wait_seconds,
-                "max_wait_seconds": self.max_wait_seconds,
-                "wait_count": self.wait_count,
-                "waits_over_10ms": self.waits_over_10ms,
-                "waits_over_100ms": self.waits_over_100ms,
-            }
-
-
-def _timed_collect(service: Any, index: int, category: Any) -> tuple[int, float, list[Any]]:
+def _timed_collect(
+    service: Any,
+    index: int,
+    category: Any,
+) -> tuple[int, float, list[Any]]:
     started = time.perf_counter()
     collected = service._collect_category(index, category)
     return index, time.perf_counter() - started, collected
@@ -127,6 +89,44 @@ def _build_http_payload(http_metrics: dict[str, Any]) -> dict[str, Any]:
         "detail": float(http_metrics.get("detail_http_max_seconds", 0.0) or 0.0),
         "other": float(http_metrics.get("other_http_max_seconds", 0.0) or 0.0),
     }
+    semaphore_totals = {
+        "category": float(
+            http_metrics.get("category_semaphore_wait_seconds", 0.0) or 0.0
+        ),
+        "jsf": float(
+            http_metrics.get("jsf_semaphore_wait_seconds", 0.0) or 0.0
+        ),
+        "detail": float(
+            http_metrics.get("detail_semaphore_wait_seconds", 0.0) or 0.0
+        ),
+        "other": float(
+            http_metrics.get("other_semaphore_wait_seconds", 0.0) or 0.0
+        ),
+    }
+    semaphore_maxes = {
+        "category": float(
+            http_metrics.get("category_semaphore_max_wait_seconds", 0.0) or 0.0
+        ),
+        "jsf": float(
+            http_metrics.get("jsf_semaphore_max_wait_seconds", 0.0) or 0.0
+        ),
+        "detail": float(
+            http_metrics.get("detail_semaphore_max_wait_seconds", 0.0) or 0.0
+        ),
+        "other": float(
+            http_metrics.get("other_semaphore_max_wait_seconds", 0.0) or 0.0
+        ),
+    }
+    semaphore_counts = {
+        "category": int(http_metrics.get("category_semaphore_wait_count", 0) or 0),
+        "jsf": int(http_metrics.get("jsf_semaphore_wait_count", 0) or 0),
+        "detail": int(http_metrics.get("detail_semaphore_wait_count", 0) or 0),
+        "other": int(http_metrics.get("other_semaphore_wait_count", 0) or 0),
+    }
+    semaphore_wait_seconds = sum(semaphore_totals.values())
+    semaphore_max_wait_seconds = max(semaphore_maxes.values(), default=0.0)
+    semaphore_wait_count = sum(semaphore_counts.values())
+
     return {
         "requests": int(http_metrics.get("http_requests", 0) or 0),
         "category_requests": http_counts["category"],
@@ -137,15 +137,21 @@ def _build_http_payload(http_metrics: dict[str, Any]) -> dict[str, Any]:
         "errors": int(http_metrics.get("http_errors", 0) or 0),
         "terminal_errors": int(http_metrics.get("http_terminal_errors", 0) or 0),
         "retry_sleep_count": int(http_metrics.get("http_retry_sleep_count", 0) or 0),
-        "retry_sleep_seconds": float(http_metrics.get("http_retry_sleep_seconds", 0.0) or 0.0),
+        "retry_sleep_seconds": float(
+            http_metrics.get("http_retry_sleep_seconds", 0.0) or 0.0
+        ),
         "total_seconds": float(http_metrics.get("http_total_seconds", 0.0) or 0.0),
         "category_total_seconds": http_totals["category"],
         "jsf_total_seconds": http_totals["jsf"],
         "detail_total_seconds": http_totals["detail"],
         "other_total_seconds": http_totals["other"],
-        "category_avg_seconds": _average(http_totals["category"], http_counts["category"]),
+        "category_avg_seconds": _average(
+            http_totals["category"], http_counts["category"]
+        ),
         "jsf_avg_seconds": _average(http_totals["jsf"], http_counts["jsf"]),
-        "detail_avg_seconds": _average(http_totals["detail"], http_counts["detail"]),
+        "detail_avg_seconds": _average(
+            http_totals["detail"], http_counts["detail"]
+        ),
         "other_avg_seconds": _average(http_totals["other"], http_counts["other"]),
         "max_seconds": float(http_metrics.get("http_max_seconds", 0.0) or 0.0),
         "category_max_seconds": http_maxes["category"],
@@ -153,6 +159,18 @@ def _build_http_payload(http_metrics: dict[str, Any]) -> dict[str, Any]:
         "detail_max_seconds": http_maxes["detail"],
         "other_max_seconds": http_maxes["other"],
         "max_concurrency": int(http_metrics.get("http_max_in_flight", 0) or 0),
+        "semaphore_wait_seconds": semaphore_wait_seconds,
+        "semaphore_max_wait_seconds": semaphore_max_wait_seconds,
+        "semaphore_wait_count": semaphore_wait_count,
+        "semaphore_waits_over_10ms": int(
+            http_metrics.get("semaphore_waits_over_10ms", 0) or 0
+        ),
+        "semaphore_waits_over_100ms": int(
+            http_metrics.get("semaphore_waits_over_100ms", 0) or 0
+        ),
+        "semaphore_wait_seconds_by_class": semaphore_totals,
+        "semaphore_max_wait_seconds_by_class": semaphore_maxes,
+        "semaphore_wait_count_by_class": semaphore_counts,
         "latency_buckets": {
             key: int(buckets.get(key, 0) or 0)
             for key in ("lt_0_5", "0_5_1", "1_2", "2_5", "5_10", "gte_10")
@@ -183,10 +201,6 @@ def main() -> int:
     scraper = getattr(category_product_service, "scraper", None)
     category_scraper = getattr(scraper, "category_scraper", None)
     browser = getattr(category_scraper, "browser", None)
-    semaphore = None
-    if browser is not None and hasattr(browser, "_http_semaphore"):
-        semaphore = _MeasuredSemaphore(browser._http_semaphore)
-        browser._http_semaphore = semaphore
 
     started = time.perf_counter()
     categories = list(category_service.scrape_all() or [])
@@ -223,7 +237,10 @@ def main() -> int:
             for future in as_completed(futures):
                 index, seconds, enriched = future.result()
                 category = categories[index]
-                category_name = str(getattr(category, "name", "") or "").strip() or "(sin nombre)"
+                category_name = (
+                    str(getattr(category, "name", "") or "").strip()
+                    or "(sin nombre)"
+                )
                 enrichment_metrics: dict[str, Any] = {}
                 get_enrichment_metrics = getattr(scraper, "get_enrichment_metrics", None)
                 if callable(get_enrichment_metrics):
@@ -236,23 +253,35 @@ def main() -> int:
                 rows.append(
                     {
                         "category": category_name,
-                        "expected": max(int(getattr(category, "expected_count", 0) or 0), 0),
+                        "expected": max(
+                            int(getattr(category, "expected_count", 0) or 0),
+                            0,
+                        ),
                         "collected": len(collected_by_index[index]),
                         "enriched": len(enriched),
                         "unique_codes": len(unique_codes),
                         "listing_seconds": round(listing_seconds[index], 3),
                         "enrichment_seconds": round(seconds, 3),
                         "enrichment_submit_seconds": round(
-                            float(enrichment_metrics.get("submit_seconds", 0.0) or 0.0),
+                            float(
+                                enrichment_metrics.get("submit_seconds", 0.0) or 0.0
+                            ),
                             3,
                         ),
                         "enrichment_wait_seconds": round(
                             float(enrichment_metrics.get("wait_seconds", 0.0) or 0.0),
                             3,
                         ),
-                        "detail_requested": int(enrichment_metrics.get("requested", 0) or 0),
-                        "detail_skipped": int(enrichment_metrics.get("skipped", 0) or 0),
-                        "total_seconds": round(listing_seconds[index] + seconds, 3),
+                        "detail_requested": int(
+                            enrichment_metrics.get("requested", 0) or 0
+                        ),
+                        "detail_skipped": int(
+                            enrichment_metrics.get("skipped", 0) or 0
+                        ),
+                        "total_seconds": round(
+                            listing_seconds[index] + seconds,
+                            3,
+                        ),
                     }
                 )
 
@@ -261,28 +290,10 @@ def main() -> int:
         get_http_metrics = getattr(browser, "get_http_metrics", None)
         if callable(get_http_metrics):
             http_metrics = dict(get_http_metrics() or {})
+
     rows.sort(key=lambda row: row["total_seconds"], reverse=True)
     http_payload = _build_http_payload(http_metrics)
-    if semaphore is not None:
-        http_payload.update(
-            {
-                "semaphore_wait_seconds": float(semaphore.metrics()["wait_seconds"]),
-                "semaphore_max_wait_seconds": float(semaphore.metrics()["max_wait_seconds"]),
-                "semaphore_wait_count": int(semaphore.metrics()["wait_count"]),
-                "semaphore_waits_over_10ms": int(semaphore.metrics()["waits_over_10ms"]),
-                "semaphore_waits_over_100ms": int(semaphore.metrics()["waits_over_100ms"]),
-            }
-        )
-    else:
-        http_payload.update(
-            {
-                "semaphore_wait_seconds": 0.0,
-                "semaphore_max_wait_seconds": 0.0,
-                "semaphore_wait_count": 0,
-                "semaphore_waits_over_10ms": 0,
-                "semaphore_waits_over_100ms": 0,
-            }
-        )
+
     payload = {
         "categories": len(categories),
         "category_workers": config.category_workers,
@@ -350,6 +361,27 @@ def main() -> int:
         f"count:{http['semaphore_wait_count']} "
         f">10ms:{http['semaphore_waits_over_10ms']} "
         f">100ms:{http['semaphore_waits_over_100ms']}"
+    )
+    print(
+        "semaphore_wait_by_class="
+        f"category:{http['semaphore_wait_seconds_by_class']['category']:.3f}s "
+        f"jsf:{http['semaphore_wait_seconds_by_class']['jsf']:.3f}s "
+        f"detail:{http['semaphore_wait_seconds_by_class']['detail']:.3f}s "
+        f"other:{http['semaphore_wait_seconds_by_class']['other']:.3f}s"
+    )
+    print(
+        "semaphore_max_wait_by_class="
+        f"category:{http['semaphore_max_wait_seconds_by_class']['category']:.3f}s "
+        f"jsf:{http['semaphore_max_wait_seconds_by_class']['jsf']:.3f}s "
+        f"detail:{http['semaphore_max_wait_seconds_by_class']['detail']:.3f}s "
+        f"other:{http['semaphore_max_wait_seconds_by_class']['other']:.3f}s"
+    )
+    print(
+        "semaphore_count_by_class="
+        f"category:{http['semaphore_wait_count_by_class']['category']} "
+        f"jsf:{http['semaphore_wait_count_by_class']['jsf']} "
+        f"detail:{http['semaphore_wait_count_by_class']['detail']} "
+        f"other:{http['semaphore_wait_count_by_class']['other']}"
     )
     print(f"latency_buckets={http['latency_buckets']}")
     if http["slowest_requests"]:

@@ -48,12 +48,19 @@ def _timed_enrich(
 def main() -> int:
     config = ScrapingConfig(download_images=False)
     http_workers = _positive_int("FCM_PROFILE_HTTP_WORKERS")
+    detail_workers = _positive_int("FCM_PROFILE_DETAIL_WORKERS")
     jsf_concurrency = _positive_int("FCM_PROFILE_JSF_HTTP_CONCURRENCY")
     if http_workers is not None:
         config.http_workers = http_workers
+    if detail_workers is not None:
+        config.detail_workers = detail_workers
     if jsf_concurrency is not None:
         config.jsf_http_concurrency = jsf_concurrency
-    if http_workers is not None or jsf_concurrency is not None:
+    if (
+        http_workers is not None
+        or detail_workers is not None
+        or jsf_concurrency is not None
+    ):
         config.__post_init__()
 
     runner = ScrapingFactory.create_runner(config)
@@ -140,6 +147,7 @@ def main() -> int:
     payload = {
         "categories": len(categories),
         "http_workers": config.http_workers,
+        "detail_workers": config.detail_workers,
         "jsf_http_concurrency": config.jsf_http_concurrency,
         "elapsed_seconds": round(time.perf_counter() - started, 3),
         "detail": detail_metrics,
@@ -165,6 +173,9 @@ def main() -> int:
 
     print(f"categories={len(categories)}")
     print(f"elapsed_seconds={payload['elapsed_seconds']:.3f}")
+    print(f"http_workers={config.http_workers}")
+    print(f"detail_workers={config.detail_workers}")
+    print(f"jsf_http_concurrency={config.jsf_http_concurrency}")
     print(f"detail_requests={detail_metrics.get('detail_requests', 0)}")
     print(f"detail_cache_hits={detail_metrics.get('detail_cache_hits', 0)}")
     print(f"detail_skipped={detail_metrics.get('detail_skipped', 0)}")

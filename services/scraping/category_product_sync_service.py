@@ -9,7 +9,6 @@ from typing import Any, cast
 import requests
 from bs4 import BeautifulSoup
 
-from models.scraping.scraped_product import ScrapedProduct
 from models.scraping.sync_result import SyncResult
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_name_normalizer import (
@@ -120,9 +119,7 @@ class CategoryProductSyncService:
                     except requests.exceptions.RequestException as error:
                         collected_by_index[index] = []
                         category_name = str(getattr(category, "name", "")).strip() or "(sin nombre)"
-                        message = (
-                            f"Error de red en categoría '{category_name}': {error}"
-                        )
+                        message = f"Error de red en categoría '{category_name}': {error}"
                         failed_category_errors[index] = message
                         self.last_sync_result.errors.append(message)
                         _log_timing(
@@ -162,7 +159,8 @@ class CategoryProductSyncService:
                     else:
                         recovered += 1
                         self.last_sync_result.errors = [
-                            message for message in self.last_sync_result.errors if message != original_error
+                            message for message in self.last_sync_result.errors
+                            if message != original_error
                         ]
                         _log_timing(
                             "SCRAPING TIMING | stage=category_recovered | category=%s | products=%d",
@@ -190,7 +188,12 @@ class CategoryProductSyncService:
             worker_count = min(self.category_workers, len(categories))
             with ThreadPoolExecutor(max_workers=worker_count) as executor:
                 futures = {
-                    executor.submit(self._enrich_category, index, category, collected_by_index[index]): index
+                    executor.submit(
+                        self._enrich_category,
+                        index,
+                        category,
+                        collected_by_index[index],
+                    ): index
                     for index, category in enumerate(categories)
                 }
                 for future, index in futures.items():
@@ -290,7 +293,10 @@ class CategoryProductSyncService:
     ):
         coverage_validated = self._full_sync_coverage_validated
         if full_sync and coverage_validated is False:
-            recovered = self._demonstrates_complete_coverage(
+            has_summary = bool(
+                getattr(self.last_sync_result, "category_summary", None)
+            )
+            recovered = has_summary and self._demonstrates_complete_coverage(
                 products,
                 expected_products=expected_products,
                 expected_category_occurrences=expected_category_occurrences,
@@ -781,7 +787,7 @@ class CategoryProductSyncService:
                 continue
             products_found = int(row.get("products", 0) or 0)
             unique_found = int(row.get("unique_products", 0) or 0)
-            if products_found != expected or unique_found != expected:
+            if products_found < expected or unique_found != products_found:
                 invalid_categories.append(str(row.get("category", "(sin nombre)")))
         if not invalid_categories:
             return ""
@@ -832,7 +838,8 @@ class CategoryProductSyncService:
             category_summary=category_summary,
         ):
             self._full_sync_coverage_validated = False
-            reason = "coverage_not_complete"
+            gap = max(expected_category_occurrences - len(raw_products), 0)
+            reason = f"category_coverage_gap:{gap}" if gap and not category_summary else "coverage_not_complete"
             self._full_sync_coverage_reason = reason
             return False, reason
 

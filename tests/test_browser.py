@@ -1,3 +1,4 @@
+from config.scraping_config import JETSMARTFILTERS_AJAX_URL
 from scrapers.browser import Browser
 
 
@@ -54,3 +55,21 @@ def test_browser_post_uses_metrics_pipeline():
     assert metrics["http_successes"] == 1
     assert metrics["other_http_requests"] == 1
     assert metrics["http_errors"] == 0
+
+
+def test_browser_classifies_jetsmartfilters_ajax_separately():
+    session = FakeSession()
+    browser = Browser(session=session)
+
+    browser.post(
+        JETSMARTFILTERS_AJAX_URL,
+        data={"paged": "2"},
+    )
+
+    metrics = browser.get_http_metrics()
+    assert metrics["http_requests"] == 1
+    assert metrics["jsf_http_requests"] == 1
+    assert metrics["jsf_http_total_seconds"] >= 0.0
+    assert metrics["jsf_http_max_seconds"] >= 0.0
+    assert metrics["other_http_requests"] == 0
+    assert metrics["retry_events"] == []

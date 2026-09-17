@@ -640,7 +640,21 @@ class CategoryProductSyncService:
         scraper = getattr(self.scraper_service, "scraper", None)
         enrich = getattr(scraper, "enrich_category_products", None)
         if callable(enrich):
-            return enrich(collected, category.name)
+            result = enrich(collected, category.name)
+            get_enrichment_metrics = getattr(scraper, "get_enrichment_metrics", None)
+            if callable(get_enrichment_metrics):
+                metrics = cast(dict[str, Any], get_enrichment_metrics(category.name) or {})
+                if metrics:
+                    _log_timing(
+                        "SCRAPING TIMING | stage=category_enrichment_summary | category=%s | requested=%d | skipped=%d | total_seconds=%.3f | submit_seconds=%.3f | wait_seconds=%.3f",
+                        str(category.name).strip() or "(sin nombre)",
+                        int(metrics.get("requested", 0) or 0),
+                        int(metrics.get("skipped", 0) or 0),
+                        float(metrics.get("total_seconds", 0.0) or 0.0),
+                        float(metrics.get("submit_seconds", 0.0) or 0.0),
+                        float(metrics.get("wait_seconds", 0.0) or 0.0),
+                    )
+            return result
         return self.scraper_service.scrape_category(
             category.url,
             category.name,

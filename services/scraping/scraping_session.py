@@ -126,6 +126,13 @@ class ScrapingSession:
         ]
         return bool(coverage_errors) and len(coverage_errors) == len(self.result.errors)
 
+    def _persist_pending_full_run_failure(self):
+        sync_service = getattr(self.runner, "scraping_service", None)
+        persist_pending = getattr(sync_service, "persist_pending_full_run_failure", None)
+        if not callable(persist_pending):
+            return
+        persist_pending()
+
     @staticmethod
     def _rollback_transaction(db, transaction_started):
         if db is not None and transaction_started:
@@ -137,6 +144,7 @@ class ScrapingSession:
             return
         try:
             db.begin()
+            self._persist_pending_full_run_failure()
             self._save_history()
             db.commit()
         except Exception:

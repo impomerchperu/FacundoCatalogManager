@@ -15,16 +15,30 @@ La prioridad sigue siendo conservar la cobertura FULL real antes de optimizar o 
 
 Los pisos históricos menores no sustituyen esta referencia.
 
-## Evidencia reciente
+## Evidencia reciente validada localmente
 
-El test real de colección:
+Después de la limpieza segura de esta etapa, la batería local quedó en:
 
 ```text
+python -m ruff check .
+All checks passed!
+
+python -m pyright
+0 errors, 0 warnings, 0 informations
+
+python -m pytest tests/scraping/test_full_sync_prune_safety.py tests/scraping/test_product_code_recovery.py -q
+8 passed in 0.36s
+
 python -m pytest tests/scraping/real_site/test_full_catalog_scraper.py -q -m real_site
-1 passed in 371.32s (0:06:11)
+1 passed in 391.61s (0:06:31)
+
+python -m pytest -q --ignore=tests/scraping/real_site
+379 passed, 2 deselected in 8.13s
 ```
 
-Ese tiempo corresponde al test de colección real ejecutado de forma secuencial por categoría; no debe compararse directamente con el wall-clock del pipeline de producción, que usa concurrencia por categoría.
+El test real de colección se ejecuta de forma secuencial por categoría; por ello sus `391.61s` son una referencia del recolector real y no deben compararse directamente con el wall-clock del pipeline de producción, que utiliza concurrencia por categoría.
+
+La variación respecto de la ejecución real anterior (`371.32s`) no cambia la conclusión funcional: ambas ejecuciones alcanzan el contrato del test. El rendimiento no se considerará mejorado ni empeorado hasta disponer de un benchmark controlado y comparable.
 
 ## Etapa aplicada en este checkpoint
 
@@ -38,7 +52,20 @@ Ese tiempo corresponde al test de colección real ejecutado de forma secuencial 
 
 `quality.yml` mantiene el CI normal de Ruff, Pyright y pytest sin `tests/scraping/real_site`.
 
-Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`. Ese job ejecuta únicamente el test FULL real y funciona como aceptación externa controlada de la cobertura del sitio.
+Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, para ejecutar de forma controlada el test FULL real sin convertir el sitio externo en una dependencia del CI rápido.
+
+## Estado de esta etapa
+
+- [x] Sincronización local con la rama remota.
+- [x] Ruff limpio.
+- [x] Pyright limpio.
+- [x] Tests de las dos familias renombradas: 8/8.
+- [x] Suite no-real-site: 379/379.
+- [x] FULL real de colección: 1/1.
+- [x] Referencia funcional 24/534/530/4 preservada por el test real.
+- [ ] No se ha iniciado todavía una refactorización de runtime de `scraping_runs` / `scraping_history`.
+- [ ] No se ha cambiado la concurrencia productiva.
+- [ ] No se ha cambiado el comportamiento de prune.
 
 ## Próximo orden de trabajo
 
@@ -52,3 +79,5 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`. 
 ## Regla de seguridad del plan
 
 Ninguna limpieza, refactor o optimización se considera válida si reduce la cobertura FULL, cambia la precedencia de la última ejecución completa válida, borra historial existente o habilita prune con cobertura no demostrada.
+
+Los archivos locales `data/scraping_category_profile.json` y `data/scraping_detail_profile.json` son artefactos de profiling generados por las pruebas/diagnósticos; no forman parte de esta etapa de código y no deben añadirse al commit salvo decisión explícita posterior.

@@ -172,17 +172,8 @@ class CatalogReconciliationService:
         row = self.db.fetch_one("SELECT COUNT(*) AS total FROM products")
         return int(row["total"]) if row else 0
 
-    @staticmethod
-    def _scraping_run_columns(db) -> set[str]:
-        rows = db.fetch_all("PRAGMA table_info(scraping_runs)")
-        return {str(row["name"]) for row in rows}
-
     def _scraping_run_columns(self) -> set[str]:
-        return self._scraping_run_columns_for(self.db)
-
-    @staticmethod
-    def _scraping_run_columns_for(db) -> set[str]:
-        rows = db.fetch_all("PRAGMA table_info(scraping_runs)")
+        rows = self.db.fetch_all("PRAGMA table_info(scraping_runs)")
         return {str(row["name"]) for row in rows}
 
     @staticmethod
@@ -199,19 +190,21 @@ class CatalogReconciliationService:
         coverage_gap = int(run.get("coverage_gap", 0) or 0)
         error_count = int(run.get("error_count", 0) or 0)
 
-        if coverage_gap != 0 or error_count != 0:
-            return False
-        if total_occurrences <= 0:
-            return False
-        if expected_occurrences > 0 and total_occurrences != expected_occurrences:
-            return False
-        if actual_occurrences > 0 and total_occurrences != actual_occurrences:
-            return False
-        if products_found > 0 and total_occurrences != products_found:
-            return False
-        if products_unique > 0 and unique_codes != products_unique:
-            return False
-        return not (products_found > 0 and products_unique > 0 and unique_codes != products_unique)
+        return not (
+            coverage_gap != 0
+            or error_count != 0
+            or total_occurrences <= 0
+            or (
+                expected_occurrences > 0
+                and total_occurrences != expected_occurrences
+            )
+            or (
+                actual_occurrences > 0
+                and total_occurrences != actual_occurrences
+            )
+            or (products_found > 0 and total_occurrences != products_found)
+            or (products_unique > 0 and unique_codes != products_unique)
+        )
 
     def _restore_missing_products_from_legacy_sources(self, run_id: int) -> None:
         missing = self.db.fetch_all(

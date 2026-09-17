@@ -68,11 +68,14 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         self.last_sync_result.multiple_category_products = multiple
         self.last_sync_result.products_multiple_categories = len(multiple)
 
-    def _full_coverage_ready(self, products) -> bool:
+    def _full_coverage_ready(self, products, *, mode: str | None = None) -> bool:
         """Autoriza maestros y ocurrencias solo con cobertura FULL explícitamente completa."""
         result = self.last_sync_result
+        effective_mode = (
+            str(mode or getattr(self, "_scraping_mode", "directed")).strip().casefold()
+        )
         if (
-            getattr(self, "_scraping_mode", "directed") != "full"
+            effective_mode != "full"
             or getattr(result, "missing_code", 0)
             or getattr(result, "errors", None)
             or getattr(result, "failures", None)
@@ -88,9 +91,9 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
             ),
         )
 
-    def _ensure_full_catalog_masters(self, products) -> None:
+    def _ensure_full_catalog_masters(self, products, *, mode: str | None = None) -> None:
         """Garantiza la FK maestra antes de persistir ocurrencias de un FULL válido."""
-        if not self._full_coverage_ready(products):
+        if not self._full_coverage_ready(products, mode=mode):
             return
 
         catalog_sync_service = self.catalog_sync_service
@@ -121,7 +124,7 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
                     result, "expected_category_occurrences", 0
                 ),
             )
-            if not self._full_coverage_ready(products):
+            if not self._full_coverage_ready(products, mode=mode):
                 reason = str(
                     getattr(self, "_full_sync_coverage_reason", "")
                     or "coverage_not_complete"
@@ -134,7 +137,7 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
                 )
                 return
         else:
-            self._ensure_full_catalog_masters(products)
+            self._ensure_full_catalog_masters(products, mode=mode)
             run_id = repository.start_run(
                 mode=mode,
                 categories_requested=len(categories),
@@ -144,7 +147,7 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
             )
 
         try:
-            self._ensure_full_catalog_masters(products)
+            self._ensure_full_catalog_masters(products, mode=mode)
             actual = repository.persist_occurrences(
                 run_id,
                 categories,

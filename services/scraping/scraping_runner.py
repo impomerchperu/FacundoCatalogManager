@@ -62,9 +62,13 @@ class ScrapingRunner:
         if callable(reset_sync_result):
             reset_sync_result()
 
-        self.scraping_service._scraping_mode = (
-            "full" if full_catalog else "directed"
-        )
+        set_scraping_mode = getattr(self.scraping_service, "set_scraping_mode", None)
+        if callable(set_scraping_mode):
+            set_scraping_mode("full" if full_catalog else "directed")
+        else:
+            self.scraping_service._scraping_mode = (
+                "full" if full_catalog else "directed"
+            )
 
         try:
             sync_categories = getattr(

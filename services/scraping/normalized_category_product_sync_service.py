@@ -112,19 +112,39 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         if repository is None or catalog_sync_service is None:
             return
 
-        if mode == "full" and not self._full_coverage_ready(products):
-            return
-
-        self._ensure_full_catalog_masters(products)
         result = self.last_sync_result
-        run_id = repository.start_run(
-            mode=mode,
-            categories_requested=len(categories),
-            expected_category_occurrences=getattr(
-                result, "expected_category_occurrences", 0
-            ),
-        )
+        if mode == "full":
+            run_id = repository.start_run(
+                mode=mode,
+                categories_requested=len(categories),
+                expected_category_occurrences=getattr(
+                    result, "expected_category_occurrences", 0
+                ),
+            )
+            if not self._full_coverage_ready(products):
+                reason = str(
+                    getattr(self, "_full_sync_coverage_reason", "")
+                    or "coverage_not_complete"
+                )
+                repository.finish_run(
+                    run_id,
+                    result=result,
+                    actual_category_occurrences=0,
+                    message=f"FULL incompleto: {reason}",
+                )
+                return
+        else:
+            self._ensure_full_catalog_masters(products)
+            run_id = repository.start_run(
+                mode=mode,
+                categories_requested=len(categories),
+                expected_category_occurrences=getattr(
+                    result, "expected_category_occurrences", 0
+                ),
+            )
+
         try:
+            self._ensure_full_catalog_masters(products)
             actual = repository.persist_occurrences(
                 run_id,
                 categories,

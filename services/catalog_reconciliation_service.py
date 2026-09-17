@@ -23,19 +23,22 @@ class CatalogReconciliationService:
         "content_hash",
     )
 
+    _RUN_METRIC_COLUMNS: ClassVar[tuple[str, ...]] = (
+        "expected_category_occurrences",
+        "actual_category_occurrences",
+        "products_found",
+        "products_unique",
+        "coverage_gap",
+        "error_count",
+    )
+
     def __init__(self, db: DBManager) -> None:
         self.db = db
 
     def find_latest_successful_full_run(self):
         candidates = self.db.fetch_all(
             """
-            SELECT id,
-                   expected_category_occurrences,
-                   actual_category_occurrences,
-                   products_found,
-                   products_unique,
-                   coverage_gap,
-                   error_count
+            SELECT id
             FROM scraping_runs
             WHERE mode='full'
               AND status='SUCCESS'
@@ -43,8 +46,27 @@ class CatalogReconciliationService:
             ORDER BY id DESC
             """
         )
-        for run in candidates:
-            run_id = int(run["id"])
+        run_columns = self._scraping_run_columns()
+        metric_columns = [
+            column
+            for column in self._RUN_METRIC_COLUMNS
+            if column in run_columns
+        ]
+
+        for candidate in candidates:
+            run_id = int(candidate["id"])
+            run = {"id": run_id}
+            if metric_columns:
+                row = self.db.fetch_one(
+                    "SELECT "
+                    + ", ".join(metric_columns)
+                    + " FROM scraping_runs WHERE id=?",
+                    (run_id,),
+                )
+                if row is None:
+                    continue
+                run.update(dict(row))
+
             occurrence_count = self.db.fetch_one(
                 """
                 SELECT COUNT(*) AS total,
@@ -151,18 +173,31 @@ class CatalogReconciliationService:
         return int(row["total"]) if row else 0
 
     @staticmethod
+    def _scraping_run_columns(db) -> set[str]:
+        rows = db.fetch_all("PRAGMA table_info(scraping_runs)")
+        return {str(row["name"]) for row in rows}
+
+    def _scraping_run_columns(self) -> set[str]:
+        return self._scraping_run_columns_for(self.db)
+
+    @staticmethod
+    def _scraping_run_columns_for(db) -> set[str]:
+        rows = db.fetch_all("PRAGMA table_info(scraping_runs)")
+        return {str(row["name"]) for row in rows}
+
+    @staticmethod
     def _run_metrics_are_consistent(
         run,
         *,
         total_occurrences: int,
         unique_codes: int,
     ) -> bool:
-        expected_occurrences = int(run["expected_category_occurrences"] or 0)
-        actual_occurrences = int(run["actual_category_occurrences"] or 0)
-        products_found = int(run["products_found"] or 0)
-        products_unique = int(run["products_unique"] or 0)
-        coverage_gap = int(run["coverage_gap"] or 0)
-        error_count = int(run["error_count"] or 0)
+        expected_occurrences = int(run.get("expected_category_occurrences", 0) or 0)
+        actual_occurrences = int(run.get("actual_category_occurrences", 0) or 0)
+        products_found = int(run.get("products_found", 0) or 0)
+        products_unique = int(run.get("products_unique", 0) or 0)
+        coverage_gap = int(run.get("coverage_gap", 0) or 0)
+        error_count = int(run.get("error_count", 0) or 0)
 
         if coverage_gap != 0 or error_count != 0:
             return False
@@ -176,7 +211,7 @@ class CatalogReconciliationService:
             return False
         if products_unique > 0 and unique_codes != products_unique:
             return False
-        return True
+        return not (products_found > 0 and products_unique > 0 and unique_codes != products_unique)
 
     def _restore_missing_products_from_legacy_sources(self, run_id: int) -> None:
         missing = self.db.fetch_all(

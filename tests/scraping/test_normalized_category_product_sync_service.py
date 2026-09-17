@@ -9,6 +9,7 @@ from services.scraping.normalized_category_product_sync_service import (
 class FakeNormalizedRepository:
     def __init__(self):
         self.modes = []
+        self.finished = []
 
     def start_run(self, *, mode, categories_requested, expected_category_occurrences):
         self.modes.append(mode)
@@ -32,7 +33,13 @@ class FakeNormalizedRepository:
         actual_category_occurrences,
         message="",
     ):
-        return None
+        self.finished.append(
+            {
+                "run_id": run_id,
+                "actual_category_occurrences": actual_category_occurrences,
+                "message": message,
+            }
+        )
 
 
 class FakeProductRepository:
@@ -108,7 +115,7 @@ def test_normalized_sync_categories_uses_full_mode_when_runner_marks_full():
     assert repository.modes == ["full"]
 
 
-def test_full_mode_skips_normalized_persistence_when_coverage_is_incomplete():
+def test_full_mode_records_incomplete_run_without_persisting_occurrences():
     repository = FakeNormalizedRepository()
     service = _build_service(repository)
     service._scraping_mode = "full"
@@ -126,6 +133,7 @@ def test_full_mode_skips_normalized_persistence_when_coverage_is_incomplete():
             "gap": 2,
         }
     ]
+    service._full_sync_coverage_reason = "category_gap:2"
 
     service._persist_normalized(
         [Category(name="Categoría A", url="https://example.test/a", expected_count=10)],
@@ -133,7 +141,14 @@ def test_full_mode_skips_normalized_persistence_when_coverage_is_incomplete():
         mode="full",
     )
 
-    assert repository.modes == []
+    assert repository.modes == ["full"]
+    assert repository.finished == [
+        {
+            "run_id": 1,
+            "actual_category_occurrences": 0,
+            "message": "FULL incompleto: category_gap:2",
+        }
+    ]
 
 
 def test_occurrence_metadata_uses_normalized_category_keys_and_preserves_multi_category_products():

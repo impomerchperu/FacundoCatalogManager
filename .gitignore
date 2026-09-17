@@ -46,6 +46,10 @@ ENV/
 database/*.db
 database/*.sqlite
 database/*.sqlite3
+# SQLite sidecar files (WAL / SHM)
+database/*.db-*
+database/*.sqlite-*
+database/*.sqlite3-*
 
 # backups DB
 database/*.bak
@@ -80,6 +84,7 @@ generated/
 # Artefactos generados por la ejecución del scraper
 data/scraping_result.json
 data/scraping_timing.log
+data/scraping_*_profile.json
 
 
 # ==========================================================

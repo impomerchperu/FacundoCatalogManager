@@ -24,10 +24,12 @@ class RecordingNormalizedRepository:
 
 class RecordingProductRepository:
     def __init__(self):
+        self.get_calls = []
         self.saved = False
 
-    def get(self, _code):
-        raise AssertionError("No debe consultarse el catálogo maestro en FULL incompleto.")
+    def get(self, code):
+        self.get_calls.append(code)
+        return None
 
     def save(self, _product):
         self.saved = True
@@ -83,6 +85,7 @@ def test_incomplete_full_creates_error_run_without_persisting_catalog_data():
         }
     ]
     assert repository.persisted is False
+    assert catalog_sync.repository.get_calls == []
     assert catalog_sync.repository.saved is False
     assert len(repository.finished) == 1
     run_id, values = repository.finished[0]
@@ -116,7 +119,6 @@ def test_complete_full_still_persists_after_run_is_started():
         return 1
 
     repository.persist_occurrences = persist_occurrences
-    service._full_sync_coverage_reason = "complete"
 
     service._persist_normalized(
         [
@@ -141,5 +143,7 @@ def test_complete_full_still_persists_after_run_is_started():
     )
 
     assert repository.started[0]["mode"] == "full"
+    assert catalog_sync.repository.get_calls == ["FB-001"]
+    assert catalog_sync.repository.saved is True
     assert repository.persisted is True
     assert repository.finished[0][0] == 41

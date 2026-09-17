@@ -4,7 +4,6 @@ import pytest
 
 from config.scraping_config import STORE_URL
 from database.db_manager import DBManager
-from models.scraping.category import Category
 from repositories.product_repository import ProductRepository
 from repositories.scraping.normalized_scraping_repository import (
     NormalizedScrapingRepository,
@@ -27,13 +26,13 @@ from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,
 )
 from services.scraping.category_service import CategoryService
+from services.scraping.normalized_category_product_sync_service import (
+    NormalizedCategoryProductSyncService,
+)
 from services.scraping.product_diff_service import ProductDiffService
 from services.scraping.scraped_product_mapper import ScrapedProductMapper
 from services.scraping.scraped_product_persistence_service import (
     ScrapedProductPersistenceService,
-)
-from services.scraping.normalized_category_product_sync_service import (
-    NormalizedCategoryProductSyncService,
 )
 from services.scraping.scraping_config import ScrapingConfig
 from services.scraping.scraping_result_writer import ScrapingResultWriter
@@ -88,7 +87,7 @@ def test_full_catalog_production_e2e_real_site(tmp_path):
         ProductExtractor(),
         max_workers=config.detail_workers,
     )
-    product_scraping_service = CategoryProductScrapingService(collection_scraper)
+    product_scraping_service = CategoryProductScrapingService(product_collection_scraper)
     sync_service = NormalizedCategoryProductSyncService(
         product_scraping_service,
         scraped_persistence,
@@ -195,10 +194,7 @@ def test_full_catalog_production_e2e_real_site(tmp_path):
         assert history_row["status"] == "SUCCESS"
         assert history_row["applied_at"]
         assert history_row["categories_processed"] == EXPECTED_CATEGORIES
-        assert history_row["products_expected"] in {
-            0,
-            EXPECTED_UNIQUE_PRODUCTS,
-        }
+        assert history_row["products_expected"] in {0, EXPECTED_UNIQUE_PRODUCTS}
         assert history_row["products_found"] == EXPECTED_CATEGORY_OCCURRENCES
         assert history_row["products_unique"] == EXPECTED_UNIQUE_PRODUCTS
         assert (

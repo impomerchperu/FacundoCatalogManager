@@ -130,6 +130,7 @@ def test_full_catalog_production_concurrency_real_site():
     )
 
     http_metrics = browser.get_http_metrics()
+    detail_metrics = collection.get_detail_metrics()
     print("=" * 80)
     print("FULL PRODUCCIÓN - BENCHMARK DE CONCURRENCIA")
     print("CATEGORÍAS:", len(categories))
@@ -149,6 +150,9 @@ def test_full_catalog_production_concurrency_real_site():
     print("CATEGORY HTTP REQUESTS:", http_metrics["category_http_requests"])
     print("JSF HTTP REQUESTS:", http_metrics["jsf_http_requests"])
     print("DETAIL HTTP REQUESTS:", http_metrics["detail_http_requests"])
+    print("DETAIL CACHE HITS:", detail_metrics["detail_cache_hits"])
+    print("DETAIL CACHE SIZE:", detail_metrics["detail_cache_size"])
+    print("DETAIL SKIPPED:", detail_metrics["detail_skipped"])
     print("DETAIL SEMAPHORE WAIT:", f"{http_metrics['detail_semaphore_wait_seconds']:.2f}s")
     print("TOP SLOW REQUESTS:", http_metrics["slowest_requests"])
     print("=" * 80)

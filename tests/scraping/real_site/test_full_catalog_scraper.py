@@ -239,6 +239,47 @@ def test_full_catalog_scraper_real_site():
             reverse=True,
         )[:5],
     )
+    http_metrics = browser.get_http_metrics()
+    print("=" * 80)
+    print("PROFILING HTTP FULL")
+    print("HTTP REQUESTS:", http_metrics["http_requests"])
+    print("HTTP SUCCESSES:", http_metrics["http_successes"])
+    print("HTTP ERRORS:", http_metrics["http_errors"])
+    print("HTTP RETRIES:", http_metrics["http_retries"])
+    print(
+        "HTTP RETRY SLEEP:",
+        f'{http_metrics["http_retry_sleep_seconds"]:.2f}s',
+    )
+    print("HTTP MAX IN FLIGHT:", http_metrics["http_max_in_flight"])
+    print("HTTP CONCURRENCY LIMIT:", http_metrics["http_concurrency_limit"])
+    print("CATEGORY HTTP REQUESTS:", http_metrics["category_http_requests"])
+    print(
+        "CATEGORY HTTP TOTAL:",
+        f'{http_metrics["category_http_total_seconds"]:.2f}s',
+    )
+    print(
+        "CATEGORY SEMAPHORE WAIT:",
+        f'{http_metrics["category_semaphore_wait_seconds"]:.2f}s',
+    )
+    print("JSF HTTP REQUESTS:", http_metrics["jsf_http_requests"])
+    print("JSF HTTP TOTAL:", f'{http_metrics["jsf_http_total_seconds"]:.2f}s')
+    print(
+        "JSF SEMAPHORE WAIT:",
+        f'{http_metrics["jsf_semaphore_wait_seconds"]:.2f}s',
+    )
+    print("DETAIL HTTP REQUESTS:", http_metrics["detail_http_requests"])
+    print(
+        "DETAIL HTTP TOTAL:",
+        f'{http_metrics["detail_http_total_seconds"]:.2f}s',
+    )
+    print(
+        "DETAIL SEMAPHORE WAIT:",
+        f'{http_metrics["detail_semaphore_wait_seconds"]:.2f}s',
+    )
+    print(
+        "TOP SLOW REQUESTS:",
+        http_metrics["slowest_requests"],
+    )
     print("DURACIÓN TOTAL:", f"{perf_counter() - started:.2f}s")
     print("=" * 80)
 

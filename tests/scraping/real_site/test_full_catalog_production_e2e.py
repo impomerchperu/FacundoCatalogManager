@@ -87,7 +87,7 @@ def test_full_catalog_production_e2e_real_site(tmp_path):
         ProductExtractor(),
         max_workers=config.detail_workers,
     )
-    product_scraping_service = CategoryProductScrapingService(product_collection_scraper)
+    product_scraping_service = CategoryProductScrapingService(collection_scraper)
     sync_service = NormalizedCategoryProductSyncService(
         product_scraping_service,
         scraped_persistence,

@@ -275,3 +275,41 @@ def test_reconcile_skips_inconsistent_latest_full_and_uses_previous_valid_run():
         "SELECT COUNT(*) FROM scraping_product_occurrences WHERE run_id=? AND product_id IS NOT NULL",
         (invalid_latest_run_id,),
     ).fetchone()[0] == 0
+
+
+def test_reconcile_rejects_modern_full_with_zero_metrics():
+    connection = _db()
+    db = SQLiteDBAdapter(connection)
+
+    connection.execute(
+        "INSERT INTO categories (name, canonical_url) VALUES ('Categoría A', 'category-a')"
+    )
+    category_id = connection.execute("SELECT id FROM categories").fetchone()[0]
+    connection.execute(
+        """
+        INSERT INTO scraping_runs (
+            mode, status, categories_requested,
+            expected_category_occurrences, actual_category_occurrences,
+            products_found, products_unique, coverage_complete,
+            coverage_gap, error_count
+        ) VALUES ('full', 'SUCCESS', 1, 0, 0, 0, 0, 1, 0, 0)
+        """
+    )
+    run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
+    connection.execute(
+        "INSERT INTO products (code, name) VALUES ('FB-0001', 'Producto 1')"
+    )
+    product_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
+    connection.execute(
+        """
+        INSERT INTO scraping_product_occurrences
+            (run_id, category_id, product_id, code, discovered_at)
+        VALUES (?, ?, ?, 'FB-0001', 'now')
+        """,
+        (run_id, category_id, product_id),
+    )
+    connection.commit()
+
+    service = CatalogBootstrapService(db=db)
+
+    assert service.reconciliation_service.find_latest_successful_full_run() is None

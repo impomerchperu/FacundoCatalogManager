@@ -256,9 +256,9 @@ def test_reconcile_skips_inconsistent_latest_full_and_uses_previous_valid_run():
         VALUES (?, ?, NULL, ?, 'now')
         """,
         [
-            (invalid_latest_run_id, "FB-0001"),
-            (invalid_latest_run_id, "FB-0002"),
-            (invalid_latest_run_id, "FB-0003"),
+            (invalid_latest_run_id, category_id, "FB-0001"),
+            (invalid_latest_run_id, category_id, "FB-0002"),
+            (invalid_latest_run_id, category_id, "FB-0003"),
         ],
     )
     connection.commit()

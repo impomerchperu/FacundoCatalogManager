@@ -48,6 +48,13 @@ La variación respecto de la ejecución real anterior (`371.32s`) no cambia la c
 - Renombrado `test_product_code_patch.py` → `test_product_code_recovery.py`.
 - No se modificó la lógica de cobertura, recuperación, reconciliación ni prune.
 
+### Trazabilidad de FULL incompleto
+
+- Una ejecución FULL incompleta ahora crea igualmente su registro en `scraping_runs` con estado final `ERROR` y el motivo de cobertura.
+- No se persisten ocurrencias ni se crean/alteran maestros de catálogo para ese FULL incompleto.
+- El FULL válido mantiene su ruta de persistencia normal.
+- Se agregó una prueba específica para proteger esta separación.
+
 ### Calidad / aceptación
 
 `quality.yml` mantiene el CI normal de Ruff, Pyright y pytest sin `tests/scraping/real_site`.
@@ -63,7 +70,8 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] Suite no-real-site: 379/379.
 - [x] FULL real de colección: 1/1.
 - [x] Referencia funcional 24/534/530/4 preservada por el test real.
-- [ ] No se ha iniciado todavía una refactorización de runtime de `scraping_runs` / `scraping_history`.
+- [x] FULL incompleto registrado sin escritura parcial.
+- [ ] Unificación completa de `scraping_runs` / `scraping_history` todavía pendiente.
 - [ ] No se ha cambiado la concurrencia productiva.
 - [ ] No se ha cambiado el comportamiento de prune.
 

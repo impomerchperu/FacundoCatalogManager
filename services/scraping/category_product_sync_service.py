@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, cast
@@ -124,7 +124,9 @@ class CategoryProductSyncService:
                     executor.submit(self._collect_category, index, category): index
                     for index, category in enumerate(categories)
                 }
-                for future, index in futures.items():
+                completed_count = 0
+                for future in as_completed(futures):
+                    index = futures[future]
                     category = categories[index]
                     try:
                         collected_by_index[index] = cast(list[Any], future.result())
@@ -140,8 +142,9 @@ class CategoryProductSyncService:
                             type(error).__name__,
                             str(error),
                         )
+                    completed_count += 1
                     if progress_callback:
-                        progress_callback(index + 1, len(categories))
+                        progress_callback(completed_count, len(categories))
 
         if failed_category_errors:
             recovery_started = time.perf_counter()
@@ -152,7 +155,8 @@ class CategoryProductSyncService:
                     executor.submit(self._collect_category, index, categories[index]): index
                     for index in failed_category_errors
                 }
-                for future, index in futures.items():
+                for future in as_completed(futures):
+                    index = futures[future]
                     category = categories[index]
                     original_error = failed_category_errors[index]
                     category_name = str(getattr(category, "name", "")).strip() or "(sin nombre)"
@@ -208,7 +212,8 @@ class CategoryProductSyncService:
                     ): index
                     for index, category in enumerate(categories)
                 }
-                for future, index in futures.items():
+                for future in as_completed(futures):
+                    index = futures[future]
                     enriched_by_index[index] = cast(list[Any], future.result())
 
         products = []

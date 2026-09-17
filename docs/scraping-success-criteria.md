@@ -65,6 +65,8 @@ La configuración de producción validada es:
 
 La evidencia disponible muestra que el coste principal está en red, especialmente en extracción de categorías y enriquecimiento de detalle. El detalle se ha protegido con coalescencia concurrente de futures y pruebas específicas.
 
+La telemetría de enrichment por categoría registra `requested`, `skipped`, `total_seconds`, `submit_seconds` y `wait_seconds` sin modificar la semántica del scraping. Está cubierta por una prueba de contrato específica y permite separar el tiempo de cada categoría de las métricas agregadas.
+
 No existe una cifra única de tiempo de pared que deba tratarse como requisito funcional: los benchmarks dependen del estado del sitio remoto y de la red. Cualquier optimización debe conservar `24 / 534 / 530 / 4` y ser validada nuevamente.
 
 Un benchmark específico de contención de SQLite no es requisito para la corrección actual y queda como optimización futura, no como bloqueo de la funcionalidad validada.
@@ -73,9 +75,10 @@ Un benchmark específico de contención de SQLite no es requisito para la correc
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite completa: `386 passed, 1 skipped, 9 deselected`.
+- Suite completa: `387 passed, 1 skipped, 9 deselected`.
 - Pruebas de bootstrap/reconciliación: `15 passed`.
 - Batería scraping/runner/cache/progreso: validada.
+- Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
 - FULL real: `24 / 534 / 530 / 4`.
 - E2E de producción: `24 / 534 / 530 / 4`, DB `530 / 534`, historial aplicado.
 - Smoke de bootstrap sobre copia de la base real: `530 / 534`, usando el FULL más reciente válido.
@@ -134,6 +137,7 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 - [x] pruebas de bootstrap/reconciliación.
 - [x] pruebas de cache concurrente.
 - [x] pruebas de progreso runner.
+- [x] prueba de contrato de telemetría de enrichment.
 - [x] FULL real posterior a la consolidación.
 
 ### UI / operación
@@ -149,6 +153,7 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 
 - [ ] benchmark específico de contención/latencia SQLite;
 - [ ] mayor granularidad de callbacks de progreso durante enrichment;
+- [ ] benchmark de red separado para categorías y detalle usando la nueva telemetría;
 - [ ] mantener las fábricas de compatibilidad mientras pueda existir consumo externo.
 
 Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes `24 / 534 / 530 / 4` y la relación DB `530 / 534`.

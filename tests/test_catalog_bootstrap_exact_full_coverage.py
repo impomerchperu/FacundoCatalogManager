@@ -197,3 +197,81 @@ def test_reconcile_exact_full_coverage_preserves_530_masters_and_534_relations()
         """,
         (run_id,),
     ).fetchone()[0] == 4
+
+
+def test_reconcile_skips_inconsistent_latest_full_and_uses_previous_valid_run():
+    connection = _db()
+    db = SQLiteDBAdapter(connection)
+
+    connection.execute(
+        "INSERT INTO categories (name, canonical_url) VALUES ('Categoría A', 'category-a')"
+    )
+    category_id = connection.execute("SELECT id FROM categories").fetchone()[0]
+
+    connection.execute(
+        """
+        INSERT INTO scraping_runs (
+            mode, status, categories_requested,
+            expected_category_occurrences, actual_category_occurrences,
+            products_found, products_unique, coverage_complete, coverage_gap, error_count
+        ) VALUES ('full', 'SUCCESS', 24, 3, 3, 3, 3, 1, 0, 0)
+        """
+    )
+    valid_run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
+    valid_products = [("FB-0001", "Producto 1"), ("FB-0002", "Producto 2"), ("FB-0003", "Producto 3")]
+    connection.executemany(
+        "INSERT INTO products (code, name) VALUES (?, ?)",
+        valid_products,
+    )
+    valid_product_ids = {
+        row["code"]: row["id"]
+        for row in connection.execute("SELECT id, code FROM products")
+    }
+    connection.executemany(
+        """
+        INSERT INTO scraping_product_occurrences
+            (run_id, category_id, product_id, code, discovered_at)
+        VALUES (?, ?, ?, ?, 'now')
+        """,
+        [
+            (valid_run_id, category_id, valid_product_ids[code], code)
+            for code, _ in valid_products
+        ],
+    )
+
+    connection.execute(
+        """
+        INSERT INTO scraping_runs (
+            mode, status, categories_requested,
+            expected_category_occurrences, actual_category_occurrences,
+            products_found, products_unique, coverage_complete, coverage_gap, error_count
+        ) VALUES ('full', 'SUCCESS', 24, 4, 4, 4, 4, 1, 0, 0)
+        """
+    )
+    invalid_latest_run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
+    connection.executemany(
+        """
+        INSERT INTO scraping_product_occurrences
+            (run_id, category_id, product_id, code, discovered_at)
+        VALUES (?, ?, NULL, ?, 'now')
+        """,
+        [
+            (invalid_latest_run_id, "FB-0001"),
+            (invalid_latest_run_id, "FB-0002"),
+            (invalid_latest_run_id, "FB-0003"),
+        ],
+    )
+    connection.commit()
+
+    service = CatalogBootstrapService(db=db)
+
+    assert service.reconciliation_service.find_latest_successful_full_run()["id"] == valid_run_id
+    assert service.reconcile_latest_successful_run() == 3
+    assert connection.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 3
+    assert connection.execute(
+        "SELECT COUNT(*) FROM product_categories"
+    ).fetchone()[0] == 3
+    assert connection.execute(
+        "SELECT COUNT(*) FROM scraping_product_occurrences WHERE run_id=? AND product_id IS NOT NULL",
+        (invalid_latest_run_id,),
+    ).fetchone()[0] == 0

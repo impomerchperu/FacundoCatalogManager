@@ -47,11 +47,11 @@ class CatalogReconciliationService:
             """
         )
         run_columns = self._scraping_run_columns()
-        metric_columns = [
+        metric_columns = {
             column
             for column in self._RUN_METRIC_COLUMNS
             if column in run_columns
-        ]
+        }
 
         for candidate in candidates:
             run_id = int(candidate["id"])
@@ -86,6 +86,7 @@ class CatalogReconciliationService:
                 run,
                 total_occurrences=total_occurrences,
                 unique_codes=unique_codes,
+                metric_columns=metric_columns,
             ):
                 return run
         return None
@@ -182,29 +183,38 @@ class CatalogReconciliationService:
         *,
         total_occurrences: int,
         unique_codes: int,
+        metric_columns: set[str],
     ) -> bool:
-        expected_occurrences = int(run.get("expected_category_occurrences", 0) or 0)
-        actual_occurrences = int(run.get("actual_category_occurrences", 0) or 0)
-        products_found = int(run.get("products_found", 0) or 0)
-        products_unique = int(run.get("products_unique", 0) or 0)
-        coverage_gap = int(run.get("coverage_gap", 0) or 0)
-        error_count = int(run.get("error_count", 0) or 0)
+        if total_occurrences <= 0:
+            return False
+        if not metric_columns:
+            return True
 
-        return not (
-            coverage_gap != 0
-            or error_count != 0
-            or total_occurrences <= 0
-            or (
-                expected_occurrences > 0
-                and total_occurrences != expected_occurrences
-            )
-            or (
-                actual_occurrences > 0
-                and total_occurrences != actual_occurrences
-            )
-            or (products_found > 0 and total_occurrences != products_found)
-            or (products_unique > 0 and unique_codes != products_unique)
-        )
+        if "coverage_gap" in metric_columns and int(run.get("coverage_gap", 0) or 0) != 0:
+            return False
+        if "error_count" in metric_columns and int(run.get("error_count", 0) or 0) != 0:
+            return False
+        if (
+            "expected_category_occurrences" in metric_columns
+            and int(run.get("expected_category_occurrences", 0) or 0) != total_occurrences
+        ):
+            return False
+        if (
+            "actual_category_occurrences" in metric_columns
+            and int(run.get("actual_category_occurrences", 0) or 0) != total_occurrences
+        ):
+            return False
+        if (
+            "products_found" in metric_columns
+            and int(run.get("products_found", 0) or 0) != total_occurrences
+        ):
+            return False
+        if (
+            "products_unique" in metric_columns
+            and int(run.get("products_unique", 0) or 0) != unique_codes
+        ):
+            return False
+        return True
 
     def _restore_missing_products_from_legacy_sources(self, run_id: int) -> None:
         missing = self.db.fetch_all(

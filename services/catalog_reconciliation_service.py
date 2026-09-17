@@ -27,7 +27,7 @@ class CatalogReconciliationService:
         self.db = db
 
     def find_latest_successful_full_run(self):
-        return self.db.fetch_one(
+        candidates = self.db.fetch_all(
             """
             SELECT id,
                    expected_category_occurrences,
@@ -41,9 +41,32 @@ class CatalogReconciliationService:
               AND status='SUCCESS'
               AND coverage_complete=1
             ORDER BY id DESC
-            LIMIT 1
             """
         )
+        for run in candidates:
+            run_id = int(run["id"])
+            occurrence_count = self.db.fetch_one(
+                """
+                SELECT COUNT(*) AS total,
+                       COUNT(DISTINCT UPPER(TRIM(code))) AS unique_codes
+                FROM scraping_product_occurrences
+                WHERE run_id=?
+                """,
+                (run_id,),
+            )
+            total_occurrences = (
+                int(occurrence_count["total"] or 0) if occurrence_count else 0
+            )
+            unique_codes = (
+                int(occurrence_count["unique_codes"] or 0) if occurrence_count else 0
+            )
+            if self._run_metrics_are_consistent(
+                run,
+                total_occurrences=total_occurrences,
+                unique_codes=unique_codes,
+            ):
+                return run
+        return None
 
     def reconcile_latest_successful_run(self) -> int:
         """Reconstruye productos y relaciones exclusivamente desde el último FULL válido."""
@@ -54,8 +77,7 @@ class CatalogReconciliationService:
         run_id = int(run["id"])
         occurrence_count = self.db.fetch_one(
             """
-            SELECT COUNT(*) AS total,
-                   COUNT(DISTINCT UPPER(TRIM(code))) AS unique_codes
+            SELECT COUNT(*) AS total
             FROM scraping_product_occurrences
             WHERE run_id=?
             """,
@@ -64,14 +86,7 @@ class CatalogReconciliationService:
         total_occurrences = (
             int(occurrence_count["total"] or 0) if occurrence_count else 0
         )
-        unique_codes = (
-            int(occurrence_count["unique_codes"] or 0) if occurrence_count else 0
-        )
-        if not self._run_metrics_are_consistent(
-            run,
-            total_occurrences=total_occurrences,
-            unique_codes=unique_codes,
-        ):
+        if total_occurrences <= 0:
             return 0
 
         self.db.begin()

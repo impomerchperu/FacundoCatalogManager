@@ -1,3 +1,4 @@
+import os
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from time import perf_counter
@@ -25,11 +26,27 @@ EXPECTED_UNIQUE_PRODUCTS = 530
 EXPECTED_MULTI_CATEGORY_PRODUCTS = 4
 
 
+def _worker_count(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = int(raw)
+    if value < 1:
+        raise ValueError(f"{name} must be >= 1, got {value}")
+    return value
+
+
 @pytest.mark.real_site
 def test_full_catalog_production_concurrency_real_site():
-    """Benchmark del mismo patrón de concurrencia usado por el servicio productivo."""
+    """Benchmarka el patrón productivo con workers configurables por entorno."""
+    category_workers = _worker_count(
+        "FCM_BENCH_CATEGORY_WORKERS", SCRAPING_CATEGORY_WORKERS
+    )
+    detail_workers = _worker_count("FCM_BENCH_DETAIL_WORKERS", SCRAPING_MAX_WORKERS)
+    http_workers = _worker_count("FCM_BENCH_HTTP_WORKERS", SCRAPING_HTTP_WORKERS)
+
     started = perf_counter()
-    browser = Browser(http_workers=SCRAPING_HTTP_WORKERS)
+    browser = Browser(http_workers=http_workers)
     category_scraper = ResilientCategoryScraper(
         browser=browser,
         category_extractor=CategoryExtractor(),
@@ -40,7 +57,7 @@ def test_full_catalog_production_concurrency_real_site():
         ProductCardExtractor(),
         CategoryProductExtractor(),
         ProductExtractor(),
-        max_workers=SCRAPING_MAX_WORKERS,
+        max_workers=detail_workers,
     )
 
     categories = category_service.scrape_all()
@@ -57,7 +74,7 @@ def test_full_catalog_production_concurrency_real_site():
     collection_errors: list[str] = []
     collection_started = perf_counter()
     with ThreadPoolExecutor(
-        max_workers=min(SCRAPING_CATEGORY_WORKERS, len(categories))
+        max_workers=min(category_workers, len(categories))
     ) as executor:
         futures = {
             executor.submit(collection.collect_category, category): index
@@ -79,7 +96,7 @@ def test_full_catalog_production_concurrency_real_site():
     enrichment_errors: list[str] = []
     enrichment_started = perf_counter()
     with ThreadPoolExecutor(
-        max_workers=min(SCRAPING_CATEGORY_WORKERS, len(categories))
+        max_workers=min(category_workers, len(categories))
     ) as executor:
         futures = {
             executor.submit(
@@ -123,9 +140,9 @@ def test_full_catalog_production_concurrency_real_site():
     print("COLLECTION WALL:", f"{collection_seconds:.2f}s")
     print("ENRICHMENT WALL:", f"{enrichment_seconds:.2f}s")
     print("TOTAL PIPELINE:", f"{perf_counter() - started:.2f}s")
-    print("CATEGORY WORKERS:", SCRAPING_CATEGORY_WORKERS)
-    print("DETAIL WORKERS:", SCRAPING_MAX_WORKERS)
-    print("HTTP WORKERS:", SCRAPING_HTTP_WORKERS)
+    print("CATEGORY WORKERS:", category_workers)
+    print("DETAIL WORKERS:", detail_workers)
+    print("HTTP WORKERS:", http_workers)
     print("HTTP REQUESTS:", http_metrics["http_requests"])
     print("HTTP MAX IN FLIGHT:", http_metrics["http_max_in_flight"])
     print("HTTP RETRIES:", http_metrics["http_retries"])

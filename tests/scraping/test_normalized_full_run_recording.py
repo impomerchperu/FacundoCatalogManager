@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from models.scraping.sync_result import SyncResult
 from services.scraping.normalized_category_product_sync_service import (
     NormalizedCategoryProductSyncService,
@@ -43,6 +45,7 @@ def _service(repository, catalog_sync):
     service = NormalizedCategoryProductSyncService.__new__(
         NormalizedCategoryProductSyncService
     )
+    service.scraper_service = SimpleNamespace(scraper=None)
     service.normalized_repository = repository
     service.catalog_sync_service = catalog_sync
     service.last_sync_result = SyncResult(

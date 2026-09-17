@@ -15,6 +15,7 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
     def __init__(self, *args, normalized_repository=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.normalized_repository = normalized_repository
+        self._pending_full_run_failure = None
 
     def sync_categories(self, categories, progress_callback=None):
         products = super().sync_categories(categories, progress_callback)
@@ -109,6 +110,46 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
             if product_repository.get(code) is None:
                 product_repository.save(product)
 
+    def _remember_full_run_failure(
+        self,
+        *,
+        mode: str,
+        categories_requested: int,
+        expected_category_occurrences: int,
+        message: str,
+    ) -> None:
+        if mode != "full":
+            return
+        self._pending_full_run_failure = {
+            "mode": mode,
+            "categories_requested": max(int(categories_requested or 0), 0),
+            "expected_category_occurrences": max(
+                int(expected_category_occurrences or 0), 0
+            ),
+            "message": str(message or "FULL execution failed"),
+        }
+
+    def persist_pending_full_run_failure(self) -> bool:
+        """Registra en una transacción limpia un FULL fallido que fue revertido."""
+        pending = self._pending_full_run_failure
+        repository = self.normalized_repository
+        if not pending or repository is None:
+            return False
+
+        run_id = repository.start_run(
+            mode=pending["mode"],
+            categories_requested=pending["categories_requested"],
+            expected_category_occurrences=pending["expected_category_occurrences"],
+        )
+        repository.finish_run(
+            run_id,
+            result=self.last_sync_result,
+            actual_category_occurrences=0,
+            message=pending["message"],
+        )
+        self._pending_full_run_failure = None
+        return True
+
     def _persist_normalized(self, categories, products, *, mode: str) -> None:
         repository = self.normalized_repository
         catalog_sync_service = self.catalog_sync_service
@@ -117,25 +158,29 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
 
         result = self.last_sync_result
         if mode == "full":
-            run_id = repository.start_run(
-                mode=mode,
-                categories_requested=len(categories),
-                expected_category_occurrences=getattr(
+            run_context = {
+                "mode": mode,
+                "categories_requested": len(categories),
+                "expected_category_occurrences": getattr(
                     result, "expected_category_occurrences", 0
                 ),
-            )
+            }
+            run_id = repository.start_run(**run_context)
             if not self._full_coverage_ready(products, mode=mode):
                 reason = str(
                     getattr(self, "_full_sync_coverage_reason", "")
                     or "coverage_not_complete"
                 )
+                message = f"FULL incompleto: {reason}"
                 repository.finish_run(
                     run_id,
                     result=result,
                     actual_category_occurrences=0,
-                    message=f"FULL incompleto: {reason}",
+                    message=message,
                 )
+                self._remember_full_run_failure(**run_context, message=message)
                 return
+            self._pending_full_run_failure = None
         else:
             self._ensure_full_catalog_masters(products, mode=mode)
             run_id = repository.start_run(
@@ -163,13 +208,26 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
                 actual_category_occurrences=actual,
             )
         except Exception as error:
+            message = f"normalized persistence error: {error}"
+            if mode == "full":
+                self._remember_full_run_failure(
+                    mode=mode,
+                    categories_requested=len(categories),
+                    expected_category_occurrences=getattr(
+                        result, "expected_category_occurrences", 0
+                    ),
+                    message=message,
+                )
             repository.finish_run(
                 run_id,
                 result=result,
                 actual_category_occurrences=0,
-                message=f"normalized persistence error: {error}",
+                message=message,
             )
             raise
+        else:
+            if mode == "full":
+                self._pending_full_run_failure = None
 
     def _build_occurrence_metadata(self, categories, products):
         """Asocia cada producto extraído con su página y posición original."""

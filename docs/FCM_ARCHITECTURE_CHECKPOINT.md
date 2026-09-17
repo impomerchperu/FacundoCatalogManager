@@ -6,7 +6,7 @@ Branch: `feature/scraping-performance-recovery`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Full suite: `386 passed, 1 skipped, 9 deselected`
+- [x] Full suite: `387 passed, 1 skipped, 9 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -14,6 +14,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Real FULL validated at `24 / 534 / 530 / 4`
 - [x] Bootstrap/reconciliation tests: `15 passed`
 - [x] HTTP/detail timing and retry telemetry audited
+- [x] Per-category enrichment timing telemetry instrumented and tested
 - [x] Progress-contract tests validated
 - [x] Detail-cache concurrency tests validated
 
@@ -146,11 +147,29 @@ Detail-cache behavior is protected by both single-threaded reuse and concurrent 
 
 HTTP request counts, retry counts, aggregate request durations and wall-clock time must be interpreted separately because concurrent requests overlap.
 
+## ENRICHMENT TELEMETRY
+
+Per-category enrichment now exposes diagnostic timing without changing scraping semantics:
+
+- `requested`
+- `skipped`
+- `total_seconds`
+- `submit_seconds`
+- `wait_seconds`
+
+`CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`.
+
+The contract is covered by a focused unit test and the complete local suite remains green at `387 passed, 1 skipped, 9 deselected`.
+
+This instrumentation is diagnostic only. It does not change coverage, product selection, persistence, prune behavior or retry semantics.
+
 ## PERFORMANCE STATUS
 
 Performance remains secondary to correctness. The current validated configuration is `8 / 24 / 28` and has preserved the authoritative `24 / 534 / 530 / 4` result in live validation.
 
 No single wall-clock number is treated as a functional requirement because the live site and network are variable. Any runtime optimization must be isolated, benchmarked and followed by another authoritative FULL validation.
+
+The enrichment instrumentation is now in place, so the next performance experiment can isolate category discovery/page loading from product-detail enrichment using per-category timing evidence rather than aggregate wall-clock guesses.
 
 SQLite transaction-scope optimization is not currently a correctness blocker. A dedicated contention/latency benchmark is optional and should be triggered only by concrete evidence of SQLite contention.
 
@@ -208,12 +227,13 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 
 ### 4. Calidad
 
-- [x] Full suite: `386 passed, 1 skipped, 9 deselected`
+- [x] Full suite: `387 passed, 1 skipped, 9 deselected`
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`
 - [x] Detail-cache concurrency coverage
 - [x] Runner/progress contract coverage
+- [x] Enrichment telemetry contract coverage
 - [x] Real FULL validated
 - [x] Production E2E validated
 
@@ -240,7 +260,8 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 - [x] HTTP concurrency validated to configured `28`
 - [x] Retry/backoff telemetry available
 - [x] Current production workers `8 / 24 / 28` validated
-- [ ] Optional next experiment: isolate category/detail network behavior
+- [x] Per-category enrichment timing telemetry instrumented and tested
+- [ ] Benchmark: isolate category/detail network behavior using the new telemetry
 - [ ] Re-run authoritative FULL after any runtime performance change
 
 ## RELEASE POSITION

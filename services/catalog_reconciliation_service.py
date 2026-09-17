@@ -209,12 +209,10 @@ class CatalogReconciliationService:
             and int(run.get("products_found", 0) or 0) != total_occurrences
         ):
             return False
-        if (
+        return not (
             "products_unique" in metric_columns
             and int(run.get("products_unique", 0) or 0) != unique_codes
-        ):
-            return False
-        return True
+        )
 
     def _restore_missing_products_from_legacy_sources(self, run_id: int) -> None:
         missing = self.db.fetch_all(

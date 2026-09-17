@@ -124,8 +124,7 @@ class CategoryProductSyncService:
                     executor.submit(self._collect_category, index, category): index
                     for index, category in enumerate(categories)
                 }
-                completed_count = 0
-                for future in as_completed(futures):
+                for completed_count, future in enumerate(as_completed(futures), start=1):
                     index = futures[future]
                     category = categories[index]
                     try:
@@ -142,7 +141,6 @@ class CategoryProductSyncService:
                             type(error).__name__,
                             str(error),
                         )
-                    completed_count += 1
                     if progress_callback:
                         progress_callback(completed_count, len(categories))
 

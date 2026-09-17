@@ -1,5 +1,6 @@
 import pytest
 
+from config.scraping_config import SCRAPING_CATEGORY_WORKERS
 from tools.profile_category_workers import _ExperimentScrapingConfig
 
 
@@ -8,7 +9,7 @@ def test_experiment_config_defaults_to_production_workers(monkeypatch):
 
     config = _ExperimentScrapingConfig()
 
-    assert config.category_workers == 16
+    assert config.category_workers == SCRAPING_CATEGORY_WORKERS
 
 
 def test_experiment_config_accepts_positive_override(monkeypatch):

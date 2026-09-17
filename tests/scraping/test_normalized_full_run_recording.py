@@ -29,7 +29,6 @@ class RecordingProductRepository:
 
     def get(self, code):
         self.get_calls.append(code)
-        return None
 
     def save(self, _product):
         self.saved = True

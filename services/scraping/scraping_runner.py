@@ -53,7 +53,22 @@ class ScrapingRunner:
             "SCRAPING TIMING | stage=run_start | categories=%d",
             len(categories),
         )
+        self._prepare_run(full_catalog)
 
+        try:
+            return self._execute_categories(categories, progress_callback)
+        except Exception as error:
+            self._log_run_error(categories, error)
+            raise
+        finally:
+            _log_timing(
+                "SCRAPING TIMING | stage=run_total | categories=%d "
+                "| seconds=%.3f",
+                len(categories),
+                time.perf_counter() - started,
+            )
+
+    def _prepare_run(self, full_catalog: bool) -> None:
         reset_sync_result = getattr(
             self.scraping_service,
             "reset_sync_result",
@@ -65,70 +80,76 @@ class ScrapingRunner:
         set_scraping_mode = getattr(self.scraping_service, "set_scraping_mode", None)
         if callable(set_scraping_mode):
             set_scraping_mode("full" if full_catalog else "directed")
-        else:
-            self.scraping_service._scraping_mode = (
-                "full" if full_catalog else "directed"
+            return
+
+        self.scraping_service._scraping_mode = "full" if full_catalog else "directed"
+
+    def _execute_categories(self, categories, progress_callback):
+        sync_categories = getattr(
+            self.scraping_service,
+            "sync_categories",
+            None,
+        )
+        if callable(sync_categories):
+            return self._execute_sync_categories(
+                sync_categories,
+                categories,
+                progress_callback,
             )
+        return self._execute_legacy_categories(categories, progress_callback)
 
-        try:
-            sync_categories = getattr(
-                self.scraping_service,
-                "sync_categories",
-                None,
-            )
-            if callable(sync_categories):
-                pipeline_total = max(len(categories) * 2, 1)
+    @staticmethod
+    def _execute_sync_categories(
+        sync_categories,
+        categories,
+        progress_callback,
+    ):
+        pipeline_total = max(len(categories) * 2, 1)
 
-                def pipeline_progress(current, _total):
-                    if progress_callback:
-                        progress_callback(
-                            min(max(int(current), 0), len(categories)),
-                            pipeline_total,
-                        )
+        def pipeline_progress(current, _total):
+            if progress_callback:
+                progress_callback(
+                    min(max(int(current), 0), len(categories)),
+                    pipeline_total,
+                )
 
-                result = sync_categories(categories, pipeline_progress)
-                if progress_callback:
-                    progress_callback(pipeline_total, pipeline_total)
-                return result
+        result = sync_categories(categories, pipeline_progress)
+        if progress_callback:
+            progress_callback(pipeline_total, pipeline_total)
+        return result
 
-            results = []
-            total = len(categories)
+    def _execute_legacy_categories(self, categories, progress_callback):
+        results = []
+        total = len(categories)
 
-            for index, category in enumerate(categories, start=1):
-                if hasattr(self.scraping_service, "sync_category"):
-                    products = self.scraping_service.sync_category(
-                        category.url,
-                        category.name,
-                    )
-                else:
-                    products = self.scraping_service.scrape_category(category)
+        for index, category in enumerate(categories, start=1):
+            if hasattr(self.scraping_service, "sync_category"):
+                products = self.scraping_service.sync_category(
+                    category.url,
+                    category.name,
+                )
+            else:
+                products = self.scraping_service.scrape_category(category)
 
-                results.extend(products)
-                if progress_callback:
-                    progress_callback(index, total)
-        except Exception as error:
-            _log_timing(
-                "SCRAPING TIMING | stage=run_error | categories=%d | "
-                "error_type=%s | error=%s",
-                len(categories),
-                type(error).__name__,
-                str(error),
-            )
-            traceback_text = "".join(
-                traceback.format_exception(type(error), error, error.__traceback__)
-            ).rstrip()
-            for line in traceback_text.splitlines():
-                _log_timing("SCRAPING TIMING | stage=run_traceback | %s", line)
-            raise
-        else:
-            return results
-        finally:
-            _log_timing(
-                "SCRAPING TIMING | stage=run_total | categories=%d "
-                "| seconds=%.3f",
-                len(categories),
-                time.perf_counter() - started,
-            )
+            results.extend(products)
+            if progress_callback:
+                progress_callback(index, total)
+        return results
+
+    @staticmethod
+    def _log_run_error(categories, error) -> None:
+        _log_timing(
+            "SCRAPING TIMING | stage=run_error | categories=%d | "
+            "error_type=%s | error=%s",
+            len(categories),
+            type(error).__name__,
+            str(error),
+        )
+        traceback_text = "".join(
+            traceback.format_exception(type(error), error, error.__traceback__)
+        ).rstrip()
+        for line in traceback_text.splitlines():
+            _log_timing("SCRAPING TIMING | stage=run_traceback | %s", line)
 
     def run_all(self, progress_callback=None):
         """Obtiene categorías automáticamente y ejecuta FULL solo con cobertura total."""

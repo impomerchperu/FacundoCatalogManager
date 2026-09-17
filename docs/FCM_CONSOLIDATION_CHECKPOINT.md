@@ -48,41 +48,44 @@ La variación respecto de la ejecución real anterior (`371.32s`) no cambia la c
 - Renombrado `test_product_code_patch.py` → `test_product_code_recovery.py`.
 - No se modificó la lógica de cobertura, recuperación, reconciliación ni prune.
 
-### Trazabilidad de FULL incompleto
-
-- Una ejecución FULL incompleta ahora crea igualmente su registro en `scraping_runs` con estado final `ERROR` y el motivo de cobertura.
-- No se persisten ocurrencias ni se crean/alteran maestros de catálogo para ese FULL incompleto.
-- El FULL válido mantiene su ruta de persistencia normal.
-- Se agregó una prueba específica para proteger esta separación.
-
 ### Calidad / aceptación
 
 `quality.yml` mantiene el CI normal de Ruff, Pyright y pytest sin `tests/scraping/real_site`.
 
 Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, para ejecutar de forma controlada el test FULL real sin convertir el sitio externo en una dependencia del CI rápido.
 
+### Ledger de FULL incompleto
+
+- Un FULL crea `scraping_runs` desde el inicio para conservar trazabilidad.
+- Si la cobertura no es completa, el run termina en `ERROR` con el motivo.
+- Un FULL incompleto no persiste `scraping_product_occurrences` ni ejecuta `prune`.
+- La validación de cobertura del servicio normalizado respeta el `mode` explícito recibido por `_persist_normalized` y no depende únicamente del estado privado `_scraping_mode`.
+- Los tests del ledger fueron alineados con esta semántica: FULL incompleto se registra, pero no escribe datos del catálogo.
+
 ## Estado de esta etapa
 
 - [x] Sincronización local con la rama remota.
-- [x] Ruff limpio.
-- [x] Pyright limpio.
-- [x] Tests de las dos familias renombradas: 8/8.
-- [x] Suite no-real-site: 379/379.
-- [x] FULL real de colección: 1/1.
+- [x] Ruff limpio en la validación anterior.
+- [x] Pyright limpio en la validación anterior.
+- [x] Tests anteriores de las dos familias renombradas: 8/8.
+- [x] Suite no-real-site anterior: 379/379.
+- [x] FULL real de colección anterior: 1/1.
 - [x] Referencia funcional 24/534/530/4 preservada por el test real.
-- [x] FULL incompleto registrado sin escritura parcial.
-- [ ] Unificación completa de `scraping_runs` / `scraping_history` todavía pendiente.
+- [x] Corrección aplicada a los contratos del nuevo ledger.
+- [ ] Reejecutar tests del ledger corregidos.
+- [ ] Reejecutar suite no-real-site después de la corrección.
 - [ ] No se ha cambiado la concurrencia productiva.
 - [ ] No se ha cambiado el comportamiento de prune.
 
 ## Próximo orden de trabajo
 
-1. Auditar y consolidar los dos libros de ejecución (`scraping_runs` / `scraping_history`) sin perder el historial existente.
-2. Medir por categoría y por etapa antes de alterar concurrencia.
-3. Revisar el doble rol de consolidación entre `CategoryProductSyncService` y `CatalogSyncService`.
-4. Eliminar estados globales JSF y accesos a estado privado solo después de identificar todos sus consumidores y cubrirlos con tests.
-5. Revisar migraciones SQLite para introducir versionado explícito.
-6. Repetir FULL real y validar otra vez `24 / 534 / 530 / 4`, DB `530 / 534`, historial aplicado e idempotencia.
+1. Revalidar la corrección del ledger y, con tests verdes, conservar `scraping_runs` como registro de ejecución sin duplicar todavía autoridad funcional.
+2. Auditar los consumidores de `scraping_history` y `scraping_runs` para definir una autoridad única de ejecución aplicada.
+3. Medir por categoría y por etapa antes de alterar concurrencia.
+4. Revisar el doble rol de consolidación entre `CategoryProductSyncService` y `CatalogSyncService`.
+5. Eliminar estados globales JSF y accesos a estado privado solo después de identificar todos sus consumidores y cubrirlos con tests.
+6. Revisar migraciones SQLite para introducir versionado explícito.
+7. Repetir FULL real y validar otra vez `24 / 534 / 530 / 4`, DB `530 / 534`, historial aplicado e idempotencia.
 
 ## Regla de seguridad del plan
 

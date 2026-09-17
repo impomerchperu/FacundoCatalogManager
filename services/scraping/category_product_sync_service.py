@@ -57,9 +57,21 @@ class CategoryProductSyncService:
         self._occurrence_categories = []
         self._full_sync_coverage_validated = None
         self._full_sync_coverage_reason = ""
+        self._scraping_mode = "directed"
 
     def reset_sync_result(self):
         self.last_sync_result = SyncResult()
+
+    def set_scraping_mode(self, mode: str) -> None:
+        """Define el modo de ejecución usando una interfaz pública estable."""
+        normalized = str(mode or "directed").strip().casefold()
+        if normalized not in {"directed", "full"}:
+            raise ValueError("mode debe ser 'directed' o 'full'.")
+        self._scraping_mode = normalized
+
+    def scraping_mode(self) -> str:
+        """Devuelve el modo de ejecución actual."""
+        return self._scraping_mode
 
     @staticmethod
     def _split_categories(value: object) -> list[str]:
@@ -226,7 +238,7 @@ class CategoryProductSyncService:
             time.perf_counter() - started,
         )
 
-        full_mode = getattr(self, "_scraping_mode", "directed") == "full"
+        full_mode = self.scraping_mode() == "full"
         started = time.perf_counter()
         complete, reason = self._full_sync_prune_guard(
             raw_products,

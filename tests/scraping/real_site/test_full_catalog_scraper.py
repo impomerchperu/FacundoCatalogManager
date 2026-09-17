@@ -63,6 +63,16 @@ def test_full_catalog_scraper_real_site():
     products = []
     category_results = []
     errors = []
+    profiling_totals = {
+        "category_wall_seconds": 0.0,
+        "discovery_seconds": 0.0,
+        "page_load_seconds": 0.0,
+        "enrichment_seconds": 0.0,
+        "enrichment_submit_seconds": 0.0,
+        "enrichment_wait_seconds": 0.0,
+        "detail_requests": 0,
+        "detail_skipped": 0,
+    }
     for index, category in enumerate(categories, start=1):
         category_started = perf_counter()
         try:
@@ -72,10 +82,12 @@ def test_full_catalog_scraper_real_site():
             errors.append(
                 f"{category.name}: {type(error).__name__}: {error}"
             )
+        category_seconds = perf_counter() - category_started
         products.extend(category_products)
         found = len(category_products)
 
         metrics = collection.get_page_metrics().get(category.url, {})
+        enrichment = collection.get_enrichment_metrics(category.name)
         expected = max(int(category.expected_count or 0), 0)
         required_pages = max(
             (expected + PRODUCTS_PER_PAGE - 1) // PRODUCTS_PER_PAGE,
@@ -84,6 +96,17 @@ def test_full_catalog_scraper_real_site():
         pages_requested = int(metrics.get("pages_requested", 0) or 0)
         pages_loaded = int(metrics.get("pages_loaded", 0) or 0)
         cards_found = int(metrics.get("cards_found", 0) or 0)
+        discovery_seconds = float(metrics.get("discovery_seconds", 0.0) or 0.0)
+        page_load_seconds = float(metrics.get("page_load_seconds", 0.0) or 0.0)
+        enrichment_seconds = float(enrichment.get("total_seconds", 0.0) or 0.0)
+        enrichment_submit_seconds = float(
+            enrichment.get("submit_seconds", 0.0) or 0.0
+        )
+        enrichment_wait_seconds = float(
+            enrichment.get("wait_seconds", 0.0) or 0.0
+        )
+        detail_requests = int(enrichment.get("requested", 0) or 0)
+        detail_skipped = int(enrichment.get("skipped", 0) or 0)
         page_error = None
         if pages_requested < required_pages:
             page_error = (
@@ -106,16 +129,36 @@ def test_full_catalog_scraper_real_site():
                 "pages_requested": pages_requested,
                 "pages_loaded": pages_loaded,
                 "cards_found": cards_found,
+                "discovery_seconds": discovery_seconds,
+                "page_load_seconds": page_load_seconds,
+                "enrichment_seconds": enrichment_seconds,
+                "enrichment_submit_seconds": enrichment_submit_seconds,
+                "enrichment_wait_seconds": enrichment_wait_seconds,
+                "detail_requests": detail_requests,
+                "detail_skipped": detail_skipped,
+                "category_wall_seconds": category_seconds,
                 "page_error": page_error,
             }
         )
+        profiling_totals["category_wall_seconds"] += category_seconds
+        profiling_totals["discovery_seconds"] += discovery_seconds
+        profiling_totals["page_load_seconds"] += page_load_seconds
+        profiling_totals["enrichment_seconds"] += enrichment_seconds
+        profiling_totals["enrichment_submit_seconds"] += enrichment_submit_seconds
+        profiling_totals["enrichment_wait_seconds"] += enrichment_wait_seconds
+        profiling_totals["detail_requests"] += detail_requests
+        profiling_totals["detail_skipped"] += detail_skipped
         print(
             f"[{index:02d}/{len(categories):02d}] "
             f"{category.name}: expected={expected} "
             f"found={found} "
             f"pages={pages_loaded}/{required_pages} "
             f"cards={cards_found} "
-            f"seconds={perf_counter() - category_started:.2f}"
+            f"wall={category_seconds:.2f}s "
+            f"discovery={discovery_seconds:.2f}s "
+            f"page_load={page_load_seconds:.2f}s "
+            f"enrichment={enrichment_seconds:.2f}s "
+            f"detail_requests={detail_requests}"
         )
 
     codes = [str(product.code).strip().upper() for product in products if product.code]
@@ -158,6 +201,44 @@ def test_full_catalog_scraper_real_site():
     print("ERRORES DE COBERTURA DE PÁGINAS:", [
         row for row in category_results if row["page_error"]
     ])
+    print("=" * 80)
+    print("PROFILING FULL POR CATEGORÍA")
+    print("WALL TOTAL CATEGORÍAS:", f'{profiling_totals["category_wall_seconds"]:.2f}s')
+    print("DISCOVERY ACUMULADO:", f'{profiling_totals["discovery_seconds"]:.2f}s')
+    print("PAGE LOAD ACUMULADO:", f'{profiling_totals["page_load_seconds"]:.2f}s')
+    print("ENRICHMENT ACUMULADO:", f'{profiling_totals["enrichment_seconds"]:.2f}s')
+    print(
+        "ENRICHMENT SUBMIT ACUMULADO:",
+        f'{profiling_totals["enrichment_submit_seconds"]:.2f}s',
+    )
+    print(
+        "ENRICHMENT WAIT ACUMULADO:",
+        f'{profiling_totals["enrichment_wait_seconds"]:.2f}s',
+    )
+    print("DETAIL REQUESTS:", profiling_totals["detail_requests"])
+    print("DETAIL SKIPPED:", profiling_totals["detail_skipped"])
+    print(
+        "TOP CATEGORÍAS POR WALL:",
+        sorted(
+            (
+                (row["category"], row["category_wall_seconds"])
+                for row in category_results
+            ),
+            key=lambda item: item[1],
+            reverse=True,
+        )[:5],
+    )
+    print(
+        "TOP CATEGORÍAS POR ENRICHMENT:",
+        sorted(
+            (
+                (row["category"], row["enrichment_seconds"])
+                for row in category_results
+            ),
+            key=lambda item: item[1],
+            reverse=True,
+        )[:5],
+    )
     print("DURACIÓN TOTAL:", f"{perf_counter() - started:.2f}s")
     print("=" * 80)
 

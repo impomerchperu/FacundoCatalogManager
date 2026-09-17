@@ -21,21 +21,19 @@ MAX_RETRIES = 3
 # extraction. category_scraper.py keeps a html.parser fallback for portability.
 SCRAPING_HTML_PARSER = "lxml"
 
-# Detail enrichment is an I/O-bound workload. Keep the detail worker pool
-# larger than the shared HTTP budget so local task scheduling does not
-# artificially serialize detail requests.
-SCRAPING_MAX_WORKERS = 32
+# Detail enrichment is an I/O-bound workload. The live FULL benchmark validated
+# 24 detail workers as the best observed point with the current HTTP budget.
+SCRAPING_MAX_WORKERS = 24
 
-# Restore the previously validated category concurrency. The 8-worker tuning
-# increased the category phase on the live catalog; 16 workers is the
-# performance baseline that previously reached the correct FULL coverage.
-SCRAPING_CATEGORY_WORKERS = 16
+# The live production-concurrency benchmark repeatedly preserved complete
+# coverage with 8 category workers while avoiding the retry pressure observed
+# at higher category concurrency.
+SCRAPING_CATEGORY_WORKERS = 8
 
-# Run 182 validated complete FULL coverage with 28 shared HTTP workers:
+# Keep the shared HTTP budget at the validated live FULL baseline:
 # 24 categories, 534 occurrences, 530 unique products, 4 multi-category
 # products, 534 product-category relationships, complete coverage, and
-# zero invalidating errors. Keep this as the production baseline until a
-# new live FULL run establishes a different validated point.
+# zero invalidating errors. Increasing this budget did not improve wall time.
 SCRAPING_HTTP_WORKERS = 28
 
 # JetSmartFilters/Bricks Query Loop request metadata observed on the live catalog.

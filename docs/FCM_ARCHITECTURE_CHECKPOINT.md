@@ -1,342 +1,248 @@
 # FCM Architecture Checkpoint
 
-Fecha: 2026-09-15  
+Fecha: 2026-09-17  
 Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
 
-- [x] Targeted scraping coverage regressions: `8 passed`
-- [x] Full suite: `370 passed, 1 skipped, 7 deselected`
-- [x] Architecture-boundary tests: `23 passed`
+- [x] Targeted scraping coverage regressions validated
+- [x] Full suite: `386 passed, 1 skipped, 9 deselected`
+- [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
-- [x] Product-code facade removal validated after remaining test consumer migration
-- [x] Real FULL re-run after product-code cleanup: `24 / 534 / 530 / 4`
-- [x] Scraping session/history transaction and application-state tests: `8 passed`
-- [x] HTTP/detail timing audit completed from recent FULL samples
-- [x] Progress-contract tests added and validated: `8 passed` across runner + progress contract
-- [x] Browser retry/backoff telemetry added and validated: `2 passed`
+- [x] Product-code migration/cleanup validated
+- [x] Real FULL validated at `24 / 534 / 530 / 4`
+- [x] Bootstrap/reconciliation tests: `15 passed`
+- [x] HTTP/detail timing and retry telemetry audited
+- [x] Progress-contract tests validated
+- [x] Detail-cache concurrency tests validated
 
 ## RUNTIME CONSOLIDATION
 
-- [x] Pagination monkey patch retired
-- [x] JSF concurrency monkey patch retired
-- [x] Page metrics monkey patch retired
-- [x] Price recovery monkey patch retired
-- [x] Page coverage recovery monkey patch retired; compatibility facade removed after consumer audit
+- [x] Pagination compatibility patch retired
+- [x] JSF concurrency compatibility patch retired
+- [x] Page metrics compatibility patch retired
+- [x] Price recovery compatibility patch retired
+- [x] Page coverage compatibility facade retired after audit
 - [x] Price recovery preserved natively in `ProductCollectionScraper`
 - [x] Page metrics preserved natively
 - [x] Canonical pagination engine active
 - [x] FULL/prune safety preserved natively in canonical sync/coverage policy
 - [x] Bootstrap/reconciliation preserved
 - [x] `ScrapingConfig` unified
-- [x] Workers configurable: category `16`, HTTP `28`, detail `32`
+- [x] Production workers validated: category `8`, HTTP `28`, detail `24`
 - [x] Product-code extraction and authoritative detail-code backfill preserved natively
-- [x] Retry/backoff metrics are now observable without changing retry semantics
+- [x] Retry/backoff metrics observable without changing retry semantics
 
 ## ARCHITECTURE CLEANUP
 
-- [x] P4b — price recovery consolidated
-- [x] P5 — duplicated pagination policy removed from `CategoryScraper`
-- [x] P6 — `ScrapingConfig` worker propagation completed
-- [x] P7 — compatibility/dead-code audit substantially completed
-- [x] P8 — legacy DB/model audit completed; recovery tables retained intentionally
-- [x] P9 — real FULL validation completed
+- [x] Price recovery consolidated
+- [x] Duplicated pagination policy removed from `CategoryScraper`
+- [x] `ScrapingConfig` worker propagation completed
+- [x] Compatibility/dead-code audit substantially completed
+- [x] Legacy DB/model audit completed; recovery tables retained intentionally
+- [x] Production FULL validation completed
 - [x] `CatalogScraper` production usage audited; no canonical runtime dependency found
-- [x] `scrapers/collectors/catalog_scraper.py` removed after usage audit
-- [x] `scrapers/collectors/category_page_recovery.py` removed after usage audit
-- [x] CatalogScraper-only legacy tests removed
-- [x] Unused `jsf_request_recovery_patch.py` removed
-- [x] Obsolete `test_jsf_request_recovery.py` removed
-- [x] Unused `price_detail_recovery_patch.py` removed
-- [x] Remaining compatibility facades audited for known consumers
-- [x] Unused `full_sync_safety_patch.py` removed; canonical FULL/prune safety tests remain active
-- [x] `page_coverage_recovery_patch.py` audited: production usage absent; facade and all facade-only tests removed
-- [x] Stale page-coverage recovery documentation removed
-- [x] Retired `single_page_fastpath_patch.py` facade removed
-- [x] Retired `scraping_compat.py` facade removed
-- [x] Obsolete archived `scraping_compat.py` implementation removed
-- [x] `category_pagination_patch.py` removed after test consumers migrated to canonical engine
-- [x] `jsf_concurrency_patch.py` removed after consumer test migrated to native `CategoryScraper`
-- [x] `page_metrics_patch.py` removed after audit consumer migrated to native metrics/audit
-- [x] `product_code_patch.py` removed after SKU extraction and authoritative detail-code backfill were verified as native
-- [x] Remaining product-code regression test consumer migrated to native `ProductExtractor`
-
-### Compatibility scraping factories
-
-- [x] `factories/scraping_factory.py` audited
-- [x] `scrapers/factories/scraping_factory.py` audited
-- [x] Production controller confirmed to import the canonical `services.scraping.scraping_factory.ScrapingFactory`
-- [x] Compatibility factories confirmed to delegate to the canonical factory rather than implement a second scraping pipeline
-- [x] No in-repository production consumer of the compatibility factories identified
-- [ ] Do not remove compatibility factories yet: external import compatibility remains an unsupported-but-possible contract
+- [x] Obsolete scraping facades and patch-only consumers removed after usage audits
+- [x] Pagination, JSF-concurrency, page-metrics and product-code test consumers migrated to native APIs
+- [x] Canonical service-level scraping factory confirmed in production usage
+- [x] Compatibility scraping factories confirmed as thin delegates and retained only for possible external import compatibility
 
 ## AUTHORITATIVE FULL REFERENCE
 
-Reference: **latest applied FULL ID 182**
+The governing functional reference is the latest successful complete FULL execution. Lower historical floors such as `529/525` are not substitutes for complete coverage.
+
+Validated invariants:
 
 - 24 categories
 - 534 product appearances
 - 530 unique products
 - 4 multi-category products
 - 534 product-category relationships
-- complete coverage
-- 0 invalidating errors
-
-Lower floors such as `529/525` are not valid substitutes for complete coverage. The latest successful complete real run remains the governing reference.
-
-## POST-CONSOLIDATION REAL FULL — VALIDATED
-
-### Scraping run
-
-- `mode=full`
-- `status=SUCCESS`
-- `categories_requested=24`
-- `expected_category_occurrences=534`
-- `actual_category_occurrences=534`
-- `products_found=534`
-- `products_unique=530`
-- `products_multiple_categories=4`
-- `duplicate_occurrences=4`
 - `coverage_complete=1`
 - `coverage_gap=0`
 - `error_count=0`
 
-### Latest controller FULL — VALIDATED
+## CURRENT REAL DATABASE VALIDATION
 
-- `history_id=182`
-- `status=SUCCESS`
-- `categories_processed=24`
-- `expected_category_occurrences=534`
-- `products_found=534`
-- `products_unique=530`
-- `products_multiple_categories=4`
-- `duplicate_occurrences=4`
-- `errors=0`
-- `applied_at` populated
-- execution time: `149.375s`
-- progress callback completed at `48/48`
+The read-only validation of the local `database/catalog.db` confirmed:
 
-### Latest classification
+- SQLite `PRAGMA integrity_check`: `ok`
+- Latest FULL run: `id=34`
+- Run status: `SUCCESS`
+- Run metrics: `24 / 534 / 530 / 4`
+- `coverage_gap=0`
+- `error_count=0`
+- Occurrences in latest run: `534`
+- Distinct normalized product codes in latest run: `530`
+- Categories represented in latest run: `24`
+- Occurrences without a product link: `0`
+- Product codes missing from `products`: `0`
+- Products not represented by latest run: `0`
+- Missing product-category relations: `0`
+- Extra product-category relations: `0`
+- Current catalog: `530` products / `534` product-category relations
+- Preserved history: `156` records
+- Preserved change details: `52,816` records
+- `initialized=1`
+- `history_recovery_applied=1`
 
-- `created=1`
-- `updated=126`
-- `unchanged=403`
-- `deleted=0`
+The latest real history record is `history_id=191`, marked `SUCCESS` and applied, with `24` categories, `534` found occurrences, `530` unique products, `4` multi-category products, `0` errors, and classification `0 created / 0 updated / 530 unchanged / 0 deleted`.
 
-This classification is recorded for the latest applied FULL. The final catalog remained `530 / 534`, but the run is **not** classified as idempotent because it contained created/updated records.
+## BOOTSTRAP VALIDATION
 
-### History
+The bootstrap/reconciliation implementation is authoritative by actual run validity, not by a manually selected historical coverage floor.
 
-- `history_id=182` is the latest successful applied execution.
-- Previous history remains preserved; failed/incomplete executions are not promoted over a valid complete FULL.
-- The recovery rule remains: a historical coverage floor must never override the latest successful complete real run.
+Validation performed:
 
-### Catalog after latest FULL
+- Bootstrap/reconciliation suite: `15 passed`
+- Modern FULL metrics are checked for exact consistency when those columns exist.
+- A modern `SUCCESS` run with zero/inconsistent metrics is rejected.
+- Legacy fixtures without the modern metric columns remain supported using occurrence-count validation.
+- Bootstrap smoke on a copy of the real `catalog.db` rebuilt `530` products and `534` relations from the latest valid FULL run.
+- The real database was not modified by the smoke test.
 
-- `products=530`
-- `product_categories=534`
+## REAL FULL AND E2E VALIDATION
 
-The latest controller FULL persisted the authoritative `24 / 534 / 530 / 4` result with no invalidating errors.
+A real FULL validation confirmed:
+
+- 24/24 categories
+- 534 occurrences
+- 530 unique products
+- 4 multi-category products
+- 0 missing codes
+- no category errors
+- no page coverage errors
+- complete coverage
+- terminal HTTP errors: `0`
+
+A production-style E2E validation also confirmed:
+
+- 24 categories
+- 534 occurrences
+- 530 unique products
+- 4 multi-category products
+- DB products: `530`
+- DB relations: `534`
+- run occurrences: `534`
+- successful history with `applied_at`
+- configured workers `8 / 24 / 28`
+- terminal HTTP errors: `0`
 
 ## HTTP / DETAIL AUDIT
 
-Recent FULL timing samples show the network layer, not SQLite/catalog persistence, is the dominant runtime area.
+Recent complete FULL samples show that network work, especially category extraction and product-detail enrichment, dominates the observed runtime more than SQLite/catalog persistence.
 
-### Latest complete FULL HTTP sample
+Current production configuration:
 
-- `requests=349`
-- category requests: `26`
-- detail requests: `289`
-- other requests: `34`
-- retries: `2`
-- errors: `1`
-- terminal errors: `0`
-- observed `max_concurrency=28`
-- `retry_sleep_count=1`
-- `retry_sleep_seconds=1.000`
-- per-request `max_seconds≈20.422`
-- aggregate request `total_seconds≈2301.970`
+- category workers: `8`
+- detail workers: `24`
+- HTTP workers: `28`
+- JetSmartFilters HTTP concurrency: `8`
+- request timeout: `20s`
+- max retries: `3`
 
-The `total_seconds` field is an aggregate of individual request timings and must not be interpreted as wall-clock execution time.
+Detail-cache behavior is protected by both single-threaded reuse and concurrent coalescing tests. Complete FULL samples have shown approximately `289` detail requests and `cache_hits=0`; this means the mechanism is correct but does not materially reduce requests when the current consolidated product set has little repeated enrichment work.
 
-The current timeout baseline is `20s`, and the latest complete sample reached approximately `20.4s` on its slowest request. Historical valid wall-clock FULL timing was approximately `118.517s`; the latest controller run at `149.375s` therefore does not yet establish a performance improvement.
+HTTP request counts, retry counts, aggregate request durations and wall-clock time must be interpreted separately because concurrent requests overlap.
 
-### Detail cache
+## PERFORMANCE STATUS
 
-- Latest complete sample: `detail_cache requests=289`
-- `cache_hits=0`
-- `cache_size=289`
+Performance remains secondary to correctness. The current validated configuration is `8 / 24 / 28` and has preserved the authoritative `24 / 534 / 530 / 4` result in live validation.
 
-Interpretation: the enrichment phase is still doing real detail HTTP requests for the consolidated product set; the detail cache is not materially reducing requests inside the same FULL sample.
+No single wall-clock number is treated as a functional requirement because the live site and network are variable. Any runtime optimization must be isolated, benchmarked and followed by another authoritative FULL validation.
 
-### Performance conclusion
-
-- [x] SQLite/catalog persistence is not the observed bottleneck.
-- [x] Detail enrichment is a major network cost because roughly `289` detail requests are made per complete FULL sample.
-- [x] Category listing/recovery is also a significant network cost and remains variable under transient retries.
-- [x] Effective HTTP concurrency reaches the configured `28` in the current native path.
-- [x] Retry/backoff telemetry is now available for benchmark interpretation.
-- [x] No runtime optimization has been applied yet after this audit.
-- [ ] Any performance optimization must be isolated, benchmarked, and validated against the authoritative `24 / 534 / 530 / 4` result.
-
-## PER-CATEGORY TIMING NEXT STEP
-
-- [x] Native page metrics are already available from `ProductCollectionScraper`.
-- [ ] Add explicit per-category timing telemetry around collection/listing.
-- [ ] Add explicit per-category timing telemetry around enrichment/detail.
-- [ ] Use the telemetry to identify the slowest categories before changing worker/concurrency behavior.
-- [ ] Run one isolated performance experiment at a time.
-- [ ] Repeat an authoritative FULL after any runtime performance change.
+SQLite transaction-scope optimization is not currently a correctness blocker. A dedicated contention/latency benchmark is optional and should be triggered only by concrete evidence of SQLite contention.
 
 ## PROGRESS CONTRACT AUDIT
 
-- [x] Audited `ScrapingRunner.run()` progress mapping
-- [x] Confirmed FULL pipeline total is `2 × categories = 48`
-- [x] Confirmed category collection currently emits `1..24`
-- [x] Confirmed enrichment currently emits no intermediate `25..47` callbacks
-- [x] Confirmed runner emits terminal `48/48` after `sync_categories()` returns
-- [x] Confirmed this is a progress-reporting semantics issue only; the validated FULL result is unaffected
-- [x] Added targeted contract test covering the current `1..N` then terminal `2N/2N` semantics
-- [x] Validated runner + progress-contract tests: `8 passed`
-- [ ] Decide whether to implement enrichment callbacks `25..47` as a separate UI-contract change
+- [x] FULL pipeline total is `2 × categories = 48`
+- [x] Category collection reports completion across `1..24`
+- [x] Enrichment currently does not emit intermediate callbacks `25..47`
+- [x] Runner emits terminal `48/48`
+- [x] Current progress semantics are covered by tests
+- [x] Confirmed progress semantics do not alter coverage or persistence
+
+The current behavior is a UI-reporting choice, not a scraping correctness issue. More granular enrichment progress may be added later as a separate UX change.
 
 ## TRANSACTION SCOPE AUDIT
 
-- [x] Executed targeted scraping-session transaction/history/application-state tests
-- [x] Result: `8 passed`
-- [x] Verified rollback/error-history/application-state behavior remains green under current transaction boundaries
-- [x] Audited the current transaction scope and its relationship to observed FULL timing
-- [x] Current timing evidence does not justify treating SQLite transaction scope as the primary performance bottleneck
+- [x] Atomicity of catalog/history state validated
+- [x] Rollback/error-history/application-state behavior validated
+- [x] Current transaction scope audited against observed timing
+- [x] No evidence that transaction scope is the primary runtime bottleneck
 - [x] No transaction-boundary runtime change made
-- [ ] Benchmark transaction scope only if a concrete SQLite contention or latency issue is observed
+
+A SQLite contention benchmark remains optional and non-blocking unless a concrete contention or latency issue appears.
 
 ## MASTER PLAN STATUS
 
 ### 1. Corrección funcional
 
-- [x] FULL real de 24 categorías validado
-- [x] `534 / 530 / 4` validado como referencia autoritativa
-- [x] `coverage_complete=1` y `coverage_gap=0`
-- [x] 0 errores invalidantes
-- [x] FULL/prune safety preservado
+- [x] FULL real de 24 categorías
+- [x] `534 / 530 / 4` as authoritative reference
+- [x] `coverage_complete=1`
+- [x] `coverage_gap=0`
+- [x] zero invalidating errors
+- [x] FULL/prune safety
+- [x] latest-valid-FULL precedence in bootstrap reconciliation
 
 ### 2. Recuperación y persistencia
 
-- [x] Recuperación de paginación/JSF/cobertura/detalle/códigos consolidada
-- [x] FULL incompleto no puede ejecutar prune destructivo
-- [x] FULL fallida más reciente no sustituye una FULL válida anterior
-- [x] Historial previo preservado
-- [x] `history_id=182` aplicado correctamente
-- [x] Catálogo reconciliado: `530 / 534`
-- [x] Latest classification recorded: `1 created / 126 updated / 403 unchanged / 0 deleted`
+- [x] Pagination/JSF/coverage/detail/code recovery consolidated
+- [x] Incomplete FULL cannot trigger destructive prune
+- [x] Failed newer FULL cannot replace a valid complete FULL
+- [x] Historical records preserved
+- [x] Latest real applied history validated as `191`
+- [x] Catalog reconciled to `530 / 534`
+- [x] Modern run-metric consistency guard validated
+- [x] Bootstrap smoke validated on a copy of the real DB
 
 ### 3. Consolidación y limpieza
 
-- [x] Implementación canónica única por responsabilidad
-- [x] Legacy/patch facades muertos eliminados después de auditoría
-- [x] Consumidores de tests migrados a APIs nativas
-- [x] Factory canónica de producción confirmada
-- [ ] Compatibility factories: conservar por compatibilidad externa potencial
+- [x] Single canonical implementation per responsibility
+- [x] Dead legacy facades/patches removed after audit
+- [x] Test consumers migrated to native APIs
+- [x] Canonical production factory confirmed
+- [x] Compatibility factories retained only as thin external-compatibility wrappers
 
 ### 4. Calidad
 
-- [x] Full suite: `370 passed, 1 skipped, 7 deselected`
-- [x] Architecture boundaries: `23 passed`
-- [x] Ruff limpio
-- [x] Pyright limpio
-- [x] Runner + progress contract: `8 passed`
-- [x] Retry/backoff metrics: `2 passed`
+- [x] Full suite: `386 passed, 1 skipped, 9 deselected`
+- [x] Ruff clean
+- [x] Pyright clean
+- [x] Bootstrap/reconciliation: `15 passed`
+- [x] Detail-cache concurrency coverage
+- [x] Runner/progress contract coverage
+- [x] Real FULL validated
+- [x] Production E2E validated
 
 ### 5. Progreso UI
 
-- [x] Semántica actual `1..24`, luego `48/48`, documentada
-- [x] Confirmado que no afecta cobertura ni persistencia
-- [x] Tests formales del contrato de progreso
-- [ ] Decidir, con tests, si se implementa progreso intermedio `25..47`
+- [x] Current `1..24`, then `48/48`, semantics documented and tested
+- [x] Confirmed no effect on coverage/persistence
+- [ ] Optional UX improvement: intermediate enrichment callbacks `25..47`
 
-### 6. Transacciones SQLite
+### 6. SQLite transactions
 
-- [x] Atomicidad funcional validada
-- [x] Rollback validado
-- [x] Error-history/application-state validados
-- [x] Alcance actual auditado frente al timing observado
-- [ ] Benchmark de contención/latencia solo si aparece evidencia concreta
-- [ ] Optimización del scope transaccional solo con evidencia cuantitativa
+- [x] Atomicity validated
+- [x] Rollback validated
+- [x] Error-history/application-state validated
+- [x] Scope audited against observed timing
+- [ ] Optional contention/latency benchmark if evidence appears
 
-### 7. Rendimiento final
+### 7. Performance
 
-- [x] Separación de tiempos por etapa auditada
-- [x] HTTP/detail auditado
-- [x] Confirmado que SQLite no domina el tiempo total
-- [x] Identificado que category/detail concentran el coste de red
-- [x] Confirmada concurrencia HTTP efectiva hasta `28`
-- [x] Integrada telemetría de retry/backoff
-- [ ] Añadir tiempos explícitos por categoría para listing/collection
-- [ ] Añadir tiempos explícitos por categoría para enrichment/detail
-- [ ] Aislar siguiente experimento de rendimiento en network/category/detail
-- [ ] Ejecutar benchmark comparativo
-- [ ] Repetir FULL real después de cualquier cambio de runtime
-- [ ] Confirmar nuevamente `24 / 534 / 530 / 4`
-- [ ] Confirmar nuevamente DB `530 / 534`
-- [ ] Confirmar historial aplicado y registrar clasificación real; exigir idempotencia solo cuando la ejecución realmente sea idempotente
+- [x] Stage timings audited
+- [x] HTTP/detail audited
+- [x] SQLite not identified as primary bottleneck
+- [x] Category/detail identified as major network cost
+- [x] HTTP concurrency validated to configured `28`
+- [x] Retry/backoff telemetry available
+- [x] Current production workers `8 / 24 / 28` validated
+- [ ] Optional next experiment: isolate category/detail network behavior
+- [ ] Re-run authoritative FULL after any runtime performance change
 
-## CHECKLIST
+## RELEASE POSITION
 
-### Completed
-
-- [x] Run real FULL across all 24 categories
-- [x] Verify 24 categories
-- [x] Verify 534 appearances
-- [x] Verify 530 unique products
-- [x] Verify 4 multi-category products
-- [x] Verify 534 product-category relationships
-- [x] Verify `coverage_complete=true`
-- [x] Verify `coverage_gap=0`
-- [x] Verify zero invalidating errors
-- [x] Verify catalog/database reconciliation: 530 / 534
-- [x] Verify previous history remains intact
-- [x] Verify new history entry is SUCCESS and applied
-- [x] Verify latest applied FULL is `history_id=182`
-- [x] Record latest classification: `1 created, 126 updated, 403 unchanged, 0 deleted`
-- [x] Confirm the latest run is not idempotent despite preserving 530 / 534 final counts
-- [x] Audit actual usage of `scrapers/collectors/catalog_scraper.py`
-- [x] Confirm `CatalogScraper` and `category_page_recovery.py` are legacy-only
-- [x] Remove only proven-dead legacy code and its tests
-- [x] Audit `jsf_request_recovery_patch.py` and remove its obsolete test consumer
-- [x] Audit `price_detail_recovery_patch.py` and remove it as unused
-- [x] Audit `full_sync_safety_patch.py` and remove it as an unused facade
-- [x] Audit `page_coverage_recovery_patch.py` and remove it with all facade-only tests
-- [x] Revalidate the complete local suite after page-coverage cleanup
-- [x] Migrate pagination and JSF-concurrency compatibility test consumers to canonical/native code
-- [x] Revalidate the complete local suite after pagination and JSF-concurrency cleanup
-- [x] Migrate page-metrics and product-code compatibility tests to native implementation
-- [x] Remove `product_code_patch.py`
-- [x] Remove remaining `product_code_patch` imports/references from runtime tests
-- [x] Preserve native SKU extraction and authoritative detail-code backfill
-- [x] Validate targeted coverage regressions after product-code cleanup
-- [x] Validate complete local suite after product-code cleanup
-- [x] Reconfirm Ruff and Pyright after final test-consumer migration
-- [x] Audit compatibility scraping factories and confirm canonical runtime uses the service-level factory
-- [x] Re-run a real FULL after product-code cleanup
-- [x] Verify latest controller FULL persists `history_id=182` as SUCCESS and applied
-- [x] Verify latest catalog remains `530 products / 534 product_categories`
-- [x] Audit current progress callback contract without changing scraping behavior
-- [x] Execute targeted transaction/history/application-state audit: `8 passed`
-- [x] Audit recent HTTP/detail request metrics without changing runtime behavior
-- [x] Confirm effective HTTP concurrency reaches the configured worker level in recent samples
-- [x] Confirm detail cache behavior is dominated by cache misses in complete FULL samples
-- [x] Validate retry/backoff metrics without changing retry semantics
-- [x] Consolidate the master state of correction, recovery, architecture cleanup, quality, transaction audit, progress audit, and performance audit
-- [x] Add targeted progress-contract tests and validate them with runner tests: `8 passed`
-
-### Next cleanup
-
-- [ ] Keep compatibility scraping factories as thin external-compatibility wrappers unless a future audit proves they can be removed safely
-- [ ] Decide whether the current UI contract is sufficient or whether enrichment progress `25..47` provides enough value to justify runtime callbacks
-- [ ] Add per-category collection/listing timing telemetry without changing scraping behavior
-- [ ] Add per-category enrichment/detail timing telemetry without changing scraping behavior
-- [ ] Isolate the next performance experiment to network/category-detail behavior; do not alter FULL safety or persistence boundaries
-- [ ] Benchmark/audit transaction scope only if a concrete SQLite contention or latency issue is observed
-- [ ] Repeat a real FULL after any scraping/runtime performance change and require `24 / 534 / 530 / 4`, complete coverage, DB `530 / 534`, and an applied history entry
-- [ ] Close the master plan only after the progress decision, any necessary transaction benchmark, and final performance validation are complete
+The correction, recovery, persistence, reconciliation, coverage and quality work for `feature/scraping-performance-recovery` is validated. Future changes should be treated as incremental improvements and must preserve the authoritative `24 / 534 / 530 / 4` result, complete coverage, DB `530 / 534`, applied history and the green automated suite.

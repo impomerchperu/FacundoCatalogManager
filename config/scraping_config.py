@@ -45,7 +45,7 @@ JETSMARTFILTERS_ELEMENT_ID = "95dc8a"
 JETSMARTFILTERS_SIGNATURE = "83bc155b208a7b2c473d90a84cf5fe01"
 JETSMARTFILTERS_INDEXING_FILTERS = "434"
 
-# The canonical pagination engine still walks category pages sequentially, so
-# this is intentionally isolated as the first network-only performance
-# experiment. It remains below the shared HTTP worker budget.
+# The canonical pagination engine uses bounded page parallelism. Keep the JSF
+# HTTP semaphore independently capped so pagination cannot consume the entire
+# shared HTTP worker budget.
 SCRAPING_JSF_HTTP_CONCURRENCY = 8

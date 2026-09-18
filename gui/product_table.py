@@ -1,11 +1,12 @@
 from typing import ClassVar
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
     QLabel,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
 )
@@ -70,8 +71,8 @@ class ProductImageLabel(QLabel):
         self.setContentsMargins(0, 0, 0, 0)
         self.setMargin(0)
         self.setSizePolicy(
-            QAbstractItemView.SizeAdjustPolicy.AdjustIgnored,
-            QAbstractItemView.SizeAdjustPolicy.AdjustIgnored,
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
         )
         self.setStyleSheet("QLabel { padding: 0px; margin: 0px; }")
 

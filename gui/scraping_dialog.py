@@ -21,7 +21,11 @@ class ScrapingDialog(QDialog):
     finished_success = Signal()
 
     def __init__(self, parent=None) -> None:
+        # El progreso debe ser una ventana superior independiente para que
+        # Windows la trate como una ventana normal y pueda alternarse con
+        # MainWindow mediante clic o Alt+Tab.
         super().__init__(parent)
+        self.setWindowFlag(Qt.WindowType.Window, True)
 
         self.scraping_thread: QThread | None = None
         self.worker: ScrapingWorker | None = None
@@ -105,18 +109,9 @@ class ScrapingDialog(QDialog):
         self.scraping_thread.finished.connect(self.thread_finished)
         self.scraping_thread.start()
 
-        # Un QDialog hijo de la ventana principal puede permanecer visualmente
-        # por encima de su parent en Windows aunque sea no modal. Durante el
-        # scraping ocultamos esta ventana para que el catálogo quede realmente
-        # al frente y el usuario pueda navegar con normalidad.
-        parent_window = self.parentWidget()
-        if parent_window is not None:
-            self.hide()
-            QTimer.singleShot(0, parent_window.raise_)
-            QTimer.singleShot(0, parent_window.activateWindow)
-            table = getattr(parent_window, "table", None)
-            if table is not None:
-                QTimer.singleShot(0, table.setFocus)
+        # La ventana permanece visible y no modal. El usuario puede llevar la
+        # tabla al frente haciendo clic sobre MainWindow o alternar entre ambas
+        # ventanas con Alt+Tab mientras el scraping continúa en segundo plano.
 
     def update_progress(self, current: int, total: int) -> None:
         if total <= 0:
@@ -168,9 +163,8 @@ class ScrapingDialog(QDialog):
         )
 
     def show_thread_result(self, result, error: str | None) -> None:
-        # El diálogo permaneció oculto durante la actualización. Debe volver a
-        # estar visible antes de mostrar el resumen o un error, para que el
-        # QMessageBox tenga un parent visible y el resultado quede accesible.
+        # El progreso permaneció visible durante toda la ejecución; solo
+        # recuperamos su estado normal y foco para mostrar el resultado.
         self.showNormal()
         self.raise_()
         self.activateWindow()

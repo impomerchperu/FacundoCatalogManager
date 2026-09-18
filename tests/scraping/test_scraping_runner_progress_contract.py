@@ -21,7 +21,7 @@ def test_progress_contract_reports_collection_then_terminal_pipeline_completion(
     assert progress == [(1, 6), (2, 6), (3, 6), (6, 6)]
 
 
-def test_progress_contract_preserves_validated_pipeline_positions():
+def test_progress_contract_does_not_expose_unvalidated_enrichment_steps():
     progress = []
 
     class FakeScrapingService:

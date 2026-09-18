@@ -109,7 +109,7 @@ class ScrapingRunner:
         def pipeline_progress(current, _total):
             if progress_callback:
                 progress_callback(
-                    min(max(int(current), 0), pipeline_total),
+                    min(max(int(current), 0), len(categories)),
                     pipeline_total,
                 )
 

@@ -6,7 +6,7 @@ Branch: `feature/scraping-performance-recovery`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Full suite: `398 passed, 1 skipped, 9 deselected`
+- [x] Full suite: `392 passed, 1 skipped, 9 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -15,7 +15,6 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Bootstrap/reconciliation tests: `15 passed`
 - [x] HTTP/detail timing and retry telemetry audited
 - [x] Per-category enrichment timing telemetry instrumented and tested
-- [x] Incremental enrichment progress callbacks integrated into the GUI progress contract
 - [x] Progress-contract tests validated
 - [x] Detail-cache concurrency tests validated
 
@@ -163,7 +162,7 @@ Per-category enrichment now exposes diagnostic timing without changing scraping 
 
 `CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`.
 
-The contract is covered by a focused unit test and the complete local suite remains green at `398 passed, 1 skipped, 9 deselected`.
+The contract is covered by a focused unit test and the complete local suite remains green at `392 passed, 1 skipped, 9 deselected`.
 
 This instrumentation is diagnostic only. It does not change coverage, product selection, persistence, prune behavior or retry semantics.
 
@@ -181,12 +180,12 @@ SQLite transaction-scope optimization is not currently a correctness blocker. A 
 
 - [x] FULL pipeline total is `2 × categories = 48`
 - [x] Category collection reports completion across `1..24`
-- [x] Enrichment emits intermediate callbacks `25..47` as each category completes
+- [x] Enrichment currently does not emit intermediate callbacks `25..47`
 - [x] Runner emits terminal `48/48`
-- [x] Current progress semantics are covered by tests, including incremental enrichment callbacks
+- [x] Current progress semantics are covered by tests
 - [x] Confirmed progress semantics do not alter coverage or persistence
 
-The current behavior is a UI-reporting choice, not a scraping correctness issue. Incremental enrichment progress is now part of the validated GUI contract.
+The current behavior is a UI-reporting choice, not a scraping correctness issue. More granular enrichment progress may be added later as a separate UX change.
 
 ## TRANSACTION SCOPE AUDIT
 
@@ -231,7 +230,7 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 
 ### 4. Calidad
 
-- [x] Full suite: `398 passed, 1 skipped, 9 deselected`
+- [x] Full suite: `392 passed, 1 skipped, 9 deselected`
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`
@@ -243,9 +242,9 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 
 ### 5. Progreso UI
 
-- [x] Current `1..24`, then incremental `25..47`, then `48/48`, semantics documented and tested
+- [x] Current `1..24`, then `48/48`, semantics documented and tested
 - [x] Confirmed no effect on coverage/persistence
-- [x] UX progress improvement: intermediate enrichment callbacks `25..47`
+- [ ] Optional UX improvement: intermediate enrichment callbacks `25..47`
 
 ### 6. SQLite transactions
 
@@ -267,7 +266,6 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 - [x] Detail workers `16` selected after crossed live benchmark against `24`
 - [x] Authoritative real-site scrape validated under production `8 / 16 / 28`
 - [x] Per-category enrichment timing telemetry instrumented and tested
-- [x] Incremental enrichment progress callbacks integrated into the GUI progress contract
 - [x] Benchmark: isolate detail worker behavior with crossed live runs
 - [x] Final production E2E: revalidate coverage and persistence under `8 / 16 / 28`
 - [ ] Re-run authoritative FULL after any runtime performance change

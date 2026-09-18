@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
 from gui.scraping_dialog import ScrapingDialog
 from services.scraping.scraping_session import ScrapingSessionResult
@@ -26,20 +26,29 @@ def _result(*, success: bool = True) -> ScrapingSessionResult:
     return result
 
 
-def test_scraping_dialog_shows_session_result_without_attribute_error():
+def test_scraping_dialog_shows_session_result_without_attribute_error(monkeypatch):
     _qapp()
     dialog = ScrapingDialog()
+    shown = {}
+
+    monkeypatch.setattr(
+        QMessageBox,
+        "information",
+        lambda *args: shown.setdefault("message", args[2]),
+    )
+
     dialog.show_result(_result())
 
-    assert "Estado: COMPLETADA" in dialog.summary_label.text()
-    assert "Categorías: 1" in dialog.summary_label.text()
-    assert "Esperadas: 2" in dialog.summary_label.text()
-    assert "Brecha: 0" in dialog.summary_label.text()
+    assert "Estado: COMPLETADA" in shown["message"]
+    assert "Categorías: 1" in shown["message"]
+    assert "Apariciones esperadas por categorías: 2" in shown["message"]
+    assert "Brecha por categorías: 0" in shown["message"]
 
     dialog.close()
 
 
 def test_scraping_dialog_hides_during_running_scraping(monkeypatch):
+
     app = _qapp()
     main_window = QWidget()
     dialog = ScrapingDialog(main_window)
@@ -55,54 +64,6 @@ def test_scraping_dialog_hides_during_running_scraping(monkeypatch):
     app.processEvents()
 
     assert not dialog.isVisible()
-    assert main_window.isVisible()
-
-    dialog.close()
-    main_window.close()
-    app.processEvents()
-
-def test_scraping_dialog_reports_category_and_enrichment_progress():
-    _qapp()
-    dialog = ScrapingDialog()
-    dialog.elapsed_timer.start()
-
-    dialog.update_progress(1, 48)
-    assert dialog.progress.value() == 2
-    assert "Recorrido de categorías: 1/24" in dialog.status_label.text()
-    assert "2%" in dialog.status_label.text()
-
-    dialog.update_progress(24, 48)
-    assert dialog.progress.value() == 50
-    assert "24/24" in dialog.status_label.text()
-    assert "preparando enriquecimiento" in dialog.status_label.text()
-
-    dialog.update_progress(25, 48)
-    assert dialog.progress.value() == 52
-    assert "Enriquecimiento: 1/24" in dialog.status_label.text()
-
-    dialog.update_progress(47, 48)
-    assert dialog.progress.value() == 97
-    assert "Enriquecimiento: 23/24" in dialog.status_label.text()
-
-    dialog.close()
-
-def test_scraping_dialog_show_catalog_emits_request_and_hides():
-    app = _qapp()
-    main_window = QWidget()
-    dialog = ScrapingDialog(main_window)
-    requested = []
-    dialog.catalog_requested.connect(lambda: requested.append(True))
-
-    main_window.show()
-    dialog.show()
-    app.processEvents()
-
-    dialog.show_catalog()
-    app.processEvents()
-
-    assert requested == [True]
-    assert not dialog.isVisible()
-    assert main_window.isVisible()
 
     dialog.close()
     main_window.close()

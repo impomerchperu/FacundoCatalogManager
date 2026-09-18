@@ -210,9 +210,16 @@ class CategoryProductSyncService:
                     ): index
                     for index, category in enumerate(categories)
                 }
+                enrichment_completed = 0
                 for future in as_completed(futures):
                     index = futures[future]
                     enriched_by_index[index] = cast(list[Any], future.result())
+                    enrichment_completed += 1
+                    if progress_callback:
+                        progress_callback(
+                            len(categories) + enrichment_completed,
+                            len(categories) * 2,
+                        )
 
         products = []
         for index, category in enumerate(categories):

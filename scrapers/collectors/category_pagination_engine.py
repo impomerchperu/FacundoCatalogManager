@@ -412,7 +412,7 @@ def _initial_jsf_page(
     return _retry_jsf_page(scraper, category_url, category_id, 1)
 
 
-def _jsf_category_pages_with_probe(
+def _jsf_category_pages_with_probe(  # noqa: PLR0912
     scraper: CategoryScraper,
     category_url: str,
     category_id: int,

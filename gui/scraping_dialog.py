@@ -105,13 +105,18 @@ class ScrapingDialog(QDialog):
         self.scraping_thread.finished.connect(self.thread_finished)
         self.scraping_thread.start()
 
-        # El scraping ya se ejecuta en QThread. Devuelve el foco a la
-        # ventana principal para que el usuario pueda seguir navegando
-        # mientras la actualización está en curso.
+        # Un QDialog hijo de la ventana principal puede permanecer visualmente
+        # por encima de su parent en Windows aunque sea no modal. Durante el
+        # scraping ocultamos esta ventana para que el catálogo quede realmente
+        # al frente y el usuario pueda navegar con normalidad.
         parent_window = self.parentWidget()
         if parent_window is not None:
-            parent_window.raise_()
-            parent_window.activateWindow()
+            self.hide()
+            QTimer.singleShot(0, parent_window.raise_)
+            QTimer.singleShot(0, parent_window.activateWindow)
+            table = getattr(parent_window, "table", None)
+            if table is not None:
+                QTimer.singleShot(0, table.setFocus)
 
     def update_progress(self, current: int, total: int) -> None:
         if total <= 0:
@@ -163,6 +168,13 @@ class ScrapingDialog(QDialog):
         )
 
     def show_thread_result(self, result, error: str | None) -> None:
+        # El diálogo permaneció oculto durante la actualización. Debe volver a
+        # estar visible antes de mostrar el resumen o un error, para que el
+        # QMessageBox tenga un parent visible y el resultado quede accesible.
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
         if error is not None:
             QMessageBox.critical(
                 self,

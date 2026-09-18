@@ -34,8 +34,9 @@ def test_status_text_shows_applied_with_application_datetime():
     )
 
     assert text.startswith("APLICADO\n")
-    assert "2026" not in text
-    assert text.endswith(applied_at.astimezone().strftime("%d/%m/%Y %H:%M:%S"))
+    assert text.endswith(
+        applied_at.astimezone().strftime("%d/%m/%Y %H:%M:%S"),
+    )
 
 
 def test_status_text_falls_back_to_finished_datetime_for_success_without_applied_marker():

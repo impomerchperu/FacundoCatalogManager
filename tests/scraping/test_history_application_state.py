@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from PySide6.QtWidgets import QApplication
@@ -10,46 +9,17 @@ def _qapp():
     return QApplication.instance() or QApplication([])
 
 
-def _history(
-    history_id: int,
-    status: str,
-    *,
-    finished_at: datetime | None = None,
-    applied_at: datetime | None = None,
-):
+def _history(history_id: int, status: str):
     return SimpleNamespace(
         history_id=history_id,
         status=status,
-        finished_at=finished_at
-        or datetime(2026, 9, 17, 18, 30, tzinfo=timezone.utc),
-        applied_at=applied_at,
+        finished_at="2026-09-17T21:10:05+00:00",
+        applied_at="2026-09-17T21:15:05+00:00",
     )
 
 
-def test_status_text_shows_applied_with_application_datetime():
-    applied_at = datetime(2026, 9, 17, 20, 45, 12, tzinfo=timezone.utc)
-
-    text = ScrapingHistoryDialog._status_text(
-        _history(11, "SUCCESS", applied_at=applied_at),
-    )
-
-    assert text.startswith("APLICADO\n")
-    assert text.endswith(
-        applied_at.astimezone().strftime("%d/%m/%Y %H:%M:%S"),
-    )
-
-
-def test_status_text_falls_back_to_finished_datetime_for_success_without_applied_marker():
-    finished_at = datetime(2026, 9, 17, 21, 10, 5, tzinfo=timezone.utc)
-
-    text = ScrapingHistoryDialog._status_text(
-        _history(12, "SUCCESS", finished_at=finished_at),
-    )
-
-    assert text == (
-        "APLICADO\n"
-        + finished_at.astimezone().strftime("%d/%m/%Y %H:%M:%S")
-    )
+def test_status_text_shows_only_applied_for_successful_scraping():
+    assert ScrapingHistoryDialog._status_text(_history(11, "SUCCESS")) == "APLICADO"
 
 
 def test_status_text_shows_only_error_for_failed_scraping():
@@ -65,10 +35,11 @@ def test_history_table_has_expected_columns_after_layout_cleanup():
         for column in range(dialog.table.columnCount())
     ]
 
-    assert dialog.table.columnCount() == 9
+    assert dialog.table.columnCount() == 10
     assert headers == [
         "ID",
-        "Fecha y duración",
+        "Fecha de descarga",
+        "Duración",
         "Procesados",
         "Nuevos",
         "Actualizados",
@@ -81,20 +52,49 @@ def test_history_table_has_expected_columns_after_layout_cleanup():
     dialog.close()
 
 
-def test_history_dialog_fit_keeps_table_columns_within_window_width():
+def test_history_columns_use_responsive_resize_modes_without_horizontal_scroll():
     _qapp()
     dialog = ScrapingHistoryDialog()
-    dialog._fit_window_to_table()
+    header = dialog.table.horizontalHeader()
 
-    layout = dialog.layout()
-    assert layout is not None
-    margins = layout.contentsMargins()
-    required = (
-        dialog.table.horizontalHeader().length()
-        + dialog.table.frameWidth() * 2
-        + margins.left()
-        + margins.right()
+    assert (
+        dialog.table.horizontalScrollBarPolicy()
+        .name
+        == "ScrollBarAlwaysOff"
     )
-    assert dialog.width() >= required
+
+    for column in (0, 1, 2, 8, 9):
+        assert (
+            header.sectionResizeMode(column).name
+            == "ResizeToContents"
+        )
+
+    for column in (3, 4, 5, 6, 7):
+        assert (
+            header.sectionResizeMode(column).name
+            == "Stretch"
+        )
 
     dialog.close()
+
+
+def test_history_dialog_centers_on_parent_when_shown():
+    _qapp()
+    parent = dialog = None
+    try:
+        from PySide6.QtWidgets import QWidget
+
+        parent = QWidget()
+        parent.resize(1200, 700)
+        parent.show()
+
+        dialog = ScrapingHistoryDialog(parent)
+        dialog.show()
+        dialog._center_on_parent()
+
+        assert dialog.frameGeometry().center() == parent.frameGeometry().center()
+    finally:
+        if dialog is not None:
+            dialog.close()
+        if parent is not None:
+            parent.close()

@@ -49,7 +49,7 @@ Run 182 remains the persistent coverage baseline (`24 / 534 / 530 / 4`). A newer
 
 ## Latest repository validation
 
-- Full suite: `397 passed, 1 skipped, 9 deselected`
+- Full suite: `398 passed, 1 skipped, 9 deselected`
 - Architecture-boundary tests: `23 passed`
 - Targeted scraping coverage regressions: `8 passed`
 - Transaction/history/application-state tests: `8 passed`

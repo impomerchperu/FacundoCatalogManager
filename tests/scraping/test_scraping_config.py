@@ -22,3 +22,7 @@ def test_high_level_config_uses_canonical_transport_defaults():
     assert config.catalog_url == STORE_URL
     assert config.request_timeout == REQUEST_TIMEOUT
     assert config.max_retries == MAX_RETRIES
+    assert config.category_workers == 8
+    assert config.detail_workers == 16
+    assert config.http_workers == 28
+    assert config.jsf_http_concurrency == 8

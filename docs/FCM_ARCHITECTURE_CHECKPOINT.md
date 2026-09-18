@@ -15,6 +15,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Bootstrap/reconciliation tests: `15 passed`
 - [x] HTTP/detail timing and retry telemetry audited
 - [x] Per-category enrichment timing telemetry instrumented and tested
+- [x] Incremental enrichment progress callbacks integrated into the GUI progress contract
 - [x] Progress-contract tests validated
 - [x] Detail-cache concurrency tests validated
 
@@ -182,7 +183,7 @@ SQLite transaction-scope optimization is not currently a correctness blocker. A 
 - [x] Category collection reports completion across `1..24`
 - [x] Enrichment currently does not emit intermediate callbacks `25..47`
 - [x] Runner emits terminal `48/48`
-- [x] Current progress semantics are covered by tests
+- [x] Current progress semantics are covered by tests, including incremental enrichment callbacks
 - [x] Confirmed progress semantics do not alter coverage or persistence
 
 The current behavior is a UI-reporting choice, not a scraping correctness issue. More granular enrichment progress may be added later as a separate UX change.
@@ -244,7 +245,7 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 
 - [x] Current `1..24`, then `48/48`, semantics documented and tested
 - [x] Confirmed no effect on coverage/persistence
-- [ ] Optional UX improvement: intermediate enrichment callbacks `25..47`
+- [x] UX progress improvement: intermediate enrichment callbacks `25..47`
 
 ### 6. SQLite transactions
 
@@ -266,6 +267,7 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 - [x] Detail workers `16` selected after crossed live benchmark against `24`
 - [x] Authoritative real-site scrape validated under production `8 / 16 / 28`
 - [x] Per-category enrichment timing telemetry instrumented and tested
+- [x] Incremental enrichment progress callbacks integrated into the GUI progress contract
 - [x] Benchmark: isolate detail worker behavior with crossed live runs
 - [x] Final production E2E: revalidate coverage and persistence under `8 / 16 / 28`
 - [ ] Re-run authoritative FULL after any runtime performance change

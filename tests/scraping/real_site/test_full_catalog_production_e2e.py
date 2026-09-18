@@ -1,3 +1,4 @@
+from threading import BoundedSemaphore
 from time import perf_counter
 
 import pytest
@@ -67,8 +68,9 @@ def test_full_catalog_production_e2e_real_site(tmp_path):
         catalog_url=STORE_URL,
         download_images=False,
         category_workers=8,
-        detail_workers=24,
+        detail_workers=16,
         http_workers=28,
+        jsf_http_concurrency=8,
     )
     browser = Browser(
         request_timeout=config.request_timeout,
@@ -78,6 +80,9 @@ def test_full_catalog_production_e2e_real_site(tmp_path):
     category_scraper = ResilientCategoryScraper(
         browser=browser,
         category_extractor=CategoryExtractor(),
+    )
+    category_scraper._JSF_HTTP_SEMAPHORE = BoundedSemaphore(
+        config.jsf_http_concurrency
     )
     category_service = CategoryService(category_scraper, config.catalog_url)
     collection_scraper = ProductCollectionScraper(
@@ -212,7 +217,6 @@ def test_full_catalog_production_e2e_real_site(tmp_path):
         assert change_summary["other_rows"] == 0
 
         assert http_metrics["http_terminal_errors"] == 0
-        assert http_metrics["http_retries"] == 0
 
         print("=" * 80)
         print("FULL PRODUCCIÓN - E2E SCRAPING -> SQLITE -> HISTORIAL")

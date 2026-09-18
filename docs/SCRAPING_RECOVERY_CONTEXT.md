@@ -42,14 +42,14 @@ Future FULL validation must be governed by the latest successful complete run, n
 - max retries: `3`
 - category workers: `16`
 - shared HTTP workers: `28`
-- detail workers: `32`
+- detail workers: `16`
 - HTML parser: `lxml`
 
 Run 182 is the validated production coverage baseline for the current configuration and must remain the comparison point until a newer complete live FULL establishes a different validated result.
 
 ## Latest repository validation
 
-- Full suite: `370 passed, 1 skipped, 7 deselected`
+- Full suite: `392 passed, 1 skipped, 9 deselected`
 - Architecture-boundary tests: `23 passed`
 - Targeted scraping coverage regressions: `8 passed`
 - Transaction/history/application-state tests: `8 passed`
@@ -79,7 +79,7 @@ Latest complete FULL HTTP sample:
 
 The detail cache showed `289` requests, `0` hits, and `289` cached entries in the latest complete sample. This indicates that the current enrichment phase is still dominated by real detail HTTP work within a FULL run.
 
-No runtime performance optimization has been applied from this audit yet. The next change should be measurement-first: add explicit per-category collection/listing and enrichment/detail timing telemetry, then isolate one network-side optimization at a time and revalidate the complete `24 / 534 / 530 / 4` result.
+The enrichment/detail timing telemetry is now in place. Controlled live measurements crossed 16 and 24 detail workers and showed comparable wall time, with 16 workers materially reducing aggregate detail HTTP work. The production detail-worker default is now `16`; the next and final performance gate is a new authoritative FULL validation under the `8 / 16 / 28` configuration.
 
 ## Progress contract
 

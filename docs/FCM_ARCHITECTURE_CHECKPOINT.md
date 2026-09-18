@@ -6,7 +6,7 @@ Branch: `feature/scraping-performance-recovery`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Full suite: `387 passed, 1 skipped, 9 deselected`
+- [x] Full suite: `392 passed, 1 skipped, 9 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -31,7 +31,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] FULL/prune safety preserved natively in canonical sync/coverage policy
 - [x] Bootstrap/reconciliation preserved
 - [x] `ScrapingConfig` unified
-- [x] Production workers validated: category `8`, HTTP `28`, detail `24`
+- [x] Production workers validated: category `8`, HTTP `28`, detail baseline benchmarked at `16`
 - [x] Product-code extraction and authoritative detail-code backfill preserved natively
 - [x] Retry/backoff metrics observable without changing retry semantics
 
@@ -137,7 +137,7 @@ Recent complete FULL samples show that network work, especially category extract
 Current production configuration:
 
 - category workers: `8`
-- detail workers: `24`
+- detail workers: `16`
 - HTTP workers: `28`
 - JetSmartFilters HTTP concurrency: `8`
 - request timeout: `20s`
@@ -165,7 +165,7 @@ This instrumentation is diagnostic only. It does not change coverage, product se
 
 ## PERFORMANCE STATUS
 
-Performance remains secondary to correctness. The current validated configuration is `8 / 24 / 28` and has preserved the authoritative `24 / 534 / 530 / 4` result in live validation.
+Performance remains secondary to correctness. The current production configuration is `8 / 16 / 28`. The authoritative `24 / 534 / 530 / 4` result remains the functional reference from the prior complete FULL; a new complete FULL under `8 / 16 / 28` is the remaining release gate.
 
 No single wall-clock number is treated as a functional requirement because the live site and network are variable. Any runtime optimization must be isolated, benchmarked and followed by another authoritative FULL validation.
 
@@ -259,9 +259,12 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 - [x] Category/detail identified as major network cost
 - [x] HTTP concurrency validated to configured `28`
 - [x] Retry/backoff telemetry available
-- [x] Current production workers `8 / 24 / 28` validated
+- [x] Category/HTTP workers `8 / 28` remain validated
+- [x] Detail workers `16` selected after crossed live benchmark against `24`
+- [ ] Authoritative FULL re-validation under production `8 / 16 / 28`
 - [x] Per-category enrichment timing telemetry instrumented and tested
-- [ ] Benchmark: isolate category/detail network behavior using the new telemetry
+- [x] Benchmark: isolate detail worker behavior with crossed live runs
+- [ ] Final FULL: revalidate coverage and persistence under `8 / 16 / 28`
 - [ ] Re-run authoritative FULL after any runtime performance change
 
 ## RELEASE POSITION

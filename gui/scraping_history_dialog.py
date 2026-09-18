@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QBrush, QColor, QFont
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -23,8 +23,6 @@ from repositories.scraping.scraping_history_repository import ScrapingHistoryRep
 
 class ScrapingHistoryDialog(QDialog):
     """Historial de descargas aplicadas automáticamente al catálogo."""
-
-    APPLIED_BACKGROUND = "#b2ebf2"
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -49,7 +47,7 @@ class ScrapingHistoryDialog(QDialog):
         layout.addWidget(title)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(13)
+        self.table.setColumnCount(12)
         self.table.setHorizontalHeaderLabels(
             [
                 "ID",
@@ -63,7 +61,6 @@ class ScrapingHistoryDialog(QDialog):
                 "Cobertura",
                 "Errores",
                 "Estado",
-                "Aplicación",
                 "Detalle",
             ],
         )
@@ -90,7 +87,6 @@ class ScrapingHistoryDialog(QDialog):
     def load_history(self) -> None:
         try:
             history = self.repository.get_all()
-            latest_applied_id = self._latest_applied_history_id(history)
         except (sqlite3.Error, TypeError, ValueError, KeyError) as error:
             self.table.setRowCount(1)
             self.table.setItem(
@@ -123,7 +119,6 @@ class ScrapingHistoryDialog(QDialog):
 
             self._set_item(row, 9, str(record.errors))
             self._set_status_item(row, 10, record)
-            self._set_application_item(row, 11, record, latest_applied_id)
             self._set_detail_button(row, record.history_id)
             self.table.setRowHeight(row, 44)
 
@@ -139,23 +134,24 @@ class ScrapingHistoryDialog(QDialog):
             7: 85,
             8: 250,
             9: 65,
-            10: 85,
-            11: 175,
-            12: 110,
+            10: 190,
+            11: 110,
         }
         for column, width in widths.items():
             self.table.setColumnWidth(column, width)
+        self._fit_window_to_table()
 
-    @staticmethod
-    def _latest_applied_history_id(history) -> int | None:
-        applied = [
-            int(record.history_id)
-            for record in history
-            if record.history_id is not None
-            and record.status == "SUCCESS"
-            and getattr(record, "applied_at", None) is not None
-        ]
-        return max(applied) if applied else None
+    def _fit_window_to_table(self) -> None:
+        header = self.table.horizontalHeader()
+        table_width = (
+            header.length()
+            + self.table.verticalHeader().width()
+            + self.table.frameWidth() * 2
+            + self.table.verticalScrollBar().sizeHint().width()
+        )
+        margins = self.layout().contentsMargins()
+        total_width = table_width + margins.left() + margins.right() + 24
+        self.resize(total_width, self.height())
 
     @staticmethod
     def _coverage_text(record) -> str:
@@ -196,41 +192,20 @@ class ScrapingHistoryDialog(QDialog):
         return "\n".join(lines)
 
     def _set_status_item(self, row: int, column: int, record) -> None:
-        item = QTableWidgetItem(
-            "APLICADO" if record.status == "SUCCESS" else "ERROR",
-        )
-        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        font = QFont(item.font())
-        font.setBold(True)
-        item.setFont(font)
-        self.table.setItem(row, column, item)
-
-    def _set_application_item(
-        self,
-        row: int,
-        column: int,
-        record,
-        latest_applied_id: int | None,
-    ) -> None:
-        if record.status != "SUCCESS":
-            text = "No aplicable"
-            tooltip = "La descarga terminó con error y no se considera aplicable."
-        elif record.history_id == latest_applied_id:
-            applied_at = self._parse_datetime(record.applied_at)
-            text = f"Aplicado\n{self._format_datetime(applied_at)}"
-            tooltip = "Esta versión está marcada persistentemente como la aplicada al catálogo."
+        if record.status == "SUCCESS":
+            applied_at = getattr(record, "applied_at", None) or record.finished_at
+            text = f"APLICADO\n{self._format_datetime(self._parse_datetime(applied_at))}"
+            tooltip = "Descarga aplicada al catálogo."
         else:
-            text = "No Aplicado"
-            tooltip = "Esta versión no es la actualmente marcada como aplicada."
+            text = "ERROR"
+            tooltip = "La descarga no fue aplicada al catálogo."
 
         item = QTableWidgetItem(text)
         item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         item.setToolTip(tooltip)
-        if record.status == "SUCCESS" and record.history_id == latest_applied_id:
-            font = QFont(item.font())
-            font.setBold(True)
-            item.setFont(font)
-            item.setBackground(QBrush(QColor(self.APPLIED_BACKGROUND)))
+        font = QFont(item.font())
+        font.setBold(True)
+        item.setFont(font)
         self.table.setItem(row, column, item)
 
     def _set_detail_button(self, row: int, history_id: int | None) -> None:

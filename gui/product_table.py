@@ -5,6 +5,7 @@ from PySide6.QtGui import QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
+    QLabel,
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QTableWidget,

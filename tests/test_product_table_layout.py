@@ -17,7 +17,7 @@ class _Controller:
         return []
 
 
-def test_product_table_images_fit_inside_rows_and_keep_side_padding(tmp_path: Path):
+def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     _qapp()
 
     image_path = tmp_path / "product.png"
@@ -25,6 +25,7 @@ def test_product_table_images_fit_inside_rows_and_keep_side_padding(tmp_path: Pa
     assert pixmap.save(str(image_path))
 
     table = ProductTable(_Controller())
+    table.resize(1800, 700)
     table.show()
     table.load_products(
         [
@@ -40,13 +41,27 @@ def test_product_table_images_fit_inside_rows_and_keep_side_padding(tmp_path: Pa
     image = table.cellWidget(0, ProductTable.IMAGE_COLUMN)
 
     assert isinstance(image, QLabel)
-    assert image.size().width() == ProductTable.IMAGE_CELL_SIZE
-    assert image.size().height() == ProductTable.IMAGE_CELL_SIZE
+    assert image.contentsMargins().left() == 0
+    assert image.contentsMargins().right() == 0
+    assert image.contentsMargins().top() == 0
+    assert image.contentsMargins().bottom() == 0
+    assert image.width() == table.columnWidth(ProductTable.IMAGE_COLUMN)
+    assert image.height() == table.rowHeight(0)
+
     rendered = image.pixmap()
     assert rendered is not None
-    assert rendered.width() <= ProductTable.IMAGE_SIZE
-    assert rendered.height() <= ProductTable.IMAGE_SIZE
-    assert table.rowHeight(0) >= ProductTable.IMAGE_CELL_SIZE
+    assert rendered.width() == image.width()
+    assert rendered.height() == image.height()
+
+    table.resize(2200, 700)
+    QApplication.processEvents()
+
+    assert image.width() == table.columnWidth(ProductTable.IMAGE_COLUMN)
+    assert image.height() == table.rowHeight(0)
+    rendered = image.pixmap()
+    assert rendered is not None
+    assert rendered.width() == image.width()
+    assert rendered.height() == image.height()
 
     table.close()
 

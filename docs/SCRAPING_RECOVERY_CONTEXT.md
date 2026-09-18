@@ -83,7 +83,7 @@ The enrichment/detail timing telemetry is now in place. Controlled live measurem
 
 ## Progress contract
 
-The current FULL runner reports category progress `1..24`, then emits terminal `48/48` after enrichment/synchronization completes. Tests validate this behavior. Intermediate enrichment callbacks `25..47` remain an optional UI-contract change and have not been introduced.
+The current FULL runner reports category progress `1..24`, then incremental enrichment completion `25..47`, followed by terminal `48/48`. Tests validate these pipeline positions and the parallel enrichment callbacks.
 
 ## Persistence and safety
 

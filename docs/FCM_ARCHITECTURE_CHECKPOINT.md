@@ -181,12 +181,12 @@ SQLite transaction-scope optimization is not currently a correctness blocker. A 
 
 - [x] FULL pipeline total is `2 × categories = 48`
 - [x] Category collection reports completion across `1..24`
-- [x] Enrichment currently does not emit intermediate callbacks `25..47`
+- [x] Enrichment emits intermediate callbacks `25..47` as each category completes
 - [x] Runner emits terminal `48/48`
 - [x] Current progress semantics are covered by tests, including incremental enrichment callbacks
 - [x] Confirmed progress semantics do not alter coverage or persistence
 
-The current behavior is a UI-reporting choice, not a scraping correctness issue. More granular enrichment progress may be added later as a separate UX change.
+The current behavior is a UI-reporting choice, not a scraping correctness issue. Incremental enrichment progress is now part of the validated GUI contract.
 
 ## TRANSACTION SCOPE AUDIT
 
@@ -243,7 +243,7 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 
 ### 5. Progreso UI
 
-- [x] Current `1..24`, then `48/48`, semantics documented and tested
+- [x] Current `1..24`, then incremental `25..47`, then `48/48`, semantics documented and tested
 - [x] Confirmed no effect on coverage/persistence
 - [x] UX progress improvement: intermediate enrichment callbacks `25..47`
 

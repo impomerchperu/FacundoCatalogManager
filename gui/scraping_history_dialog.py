@@ -74,6 +74,17 @@ class ScrapingHistoryDialog(QDialog):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.cellDoubleClicked.connect(self.show_details)
 
+        header = self.table.horizontalHeader()
+        for column in (0, 1, 2, 8, 9):
+            header.setSectionResizeMode(
+                column,
+                QHeaderView.ResizeMode.ResizeToContents,
+            )
+        for column in (3, 4, 5, 6, 7):
+            header.setSectionResizeMode(
+                column,
+                QHeaderView.ResizeMode.Stretch,
+            )
 
         layout.addWidget(self.table)
 

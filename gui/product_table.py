@@ -437,7 +437,7 @@ class ProductTable(QTableWidget):
 
         reducible_total = sum(
             max(width - minimum, 0)
-            for width, minimum in zip(preferred_widths, minimum_widths)
+            for width, minimum in zip(preferred_widths, minimum_widths, strict=True)
         )
         if reducible_total <= 0:
             return minimum_widths.copy()
@@ -446,7 +446,7 @@ class ProductTable(QTableWidget):
         widths = preferred_widths.copy()
         reduced = 0
         for column, (preferred_width, minimum_width) in enumerate(
-            zip(preferred_widths, minimum_widths),
+            zip(preferred_widths, minimum_widths, strict=True),
         ):
             room = max(preferred_width - minimum_width, 0)
             if column == len(preferred_widths) - 1:

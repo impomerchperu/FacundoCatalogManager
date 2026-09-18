@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QTableWidgetItem
 
 from gui.scraping_history_dialog import ScrapingHistoryDialog
 
@@ -82,7 +82,7 @@ def test_history_window_expands_to_fit_content_with_side_padding():
     dialog.table.setItem(
         0,
         5,
-        __import__("PySide6.QtWidgets", fromlist=["QTableWidgetItem"]).QTableWidgetItem(
+        QTableWidgetItem(
             "Texto suficientemente largo para comprobar que la ventana se adapte",
         ),
     )

@@ -90,8 +90,6 @@ class ScrapingHistoryDialog(QDialog):
     def load_history(self) -> None:
         try:
             history = self.repository.get_all()
-            latest_applied_id = self._latest_applied_history_id(history)
-            del latest_applied_id
         except (sqlite3.Error, TypeError, ValueError, KeyError) as error:
             self.table.setRowCount(1)
             self.table.setItem(
@@ -128,17 +126,6 @@ class ScrapingHistoryDialog(QDialog):
             self.table.setRowHeight(row, 44)
 
         self._fit_window_to_table()
-
-    @staticmethod
-    def _latest_applied_history_id(history) -> int | None:
-        applied = [
-            int(record.history_id)
-            for record in history
-            if record.history_id is not None
-            and record.status == "SUCCESS"
-            and getattr(record, "applied_at", None) is not None
-        ]
-        return max(applied) if applied else None
 
     @staticmethod
     def _coverage_text(record) -> str:

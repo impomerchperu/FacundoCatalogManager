@@ -63,6 +63,10 @@ class ProductHeader(QHeaderView):
 class ProductTable(QTableWidget):
     """Tabla principal del catálogo de productos."""
 
+    CONTENT_SIDE_PADDING = 4
+    IMAGE_SIZE = 160
+    IMAGE_CELL_SIZE = IMAGE_SIZE + (2 * CONTENT_SIDE_PADDING)
+
     IMAGE_COLUMN = 0
     CODE_COLUMN = 1
     NAME_COLUMN = 2
@@ -72,6 +76,18 @@ class ProductTable(QTableWidget):
     PRICE_SAMPLE_COLUMN = 6
     PRICE_HUNDRED_COLUMN = 7
     PRICE_THOUSAND_COLUMN = 8
+
+    MIN_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
+        IMAGE_COLUMN: IMAGE_CELL_SIZE,
+        CODE_COLUMN: 80,
+        NAME_COLUMN: 120,
+        DETAIL_COLUMN: 180,
+        CATEGORY_COLUMN: 110,
+        STOCK_COLUMN: 120,
+        PRICE_SAMPLE_COLUMN: 105,
+        PRICE_HUNDRED_COLUMN: 105,
+        PRICE_THOUSAND_COLUMN: 105,
+    }
 
     SORTABLE_COLUMNS: ClassVar[set[int]] = {
         CODE_COLUMN,
@@ -114,8 +130,15 @@ class ProductTable(QTableWidget):
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setWordWrap(True)
+        self.setTextElideMode(Qt.TextElideMode.ElideNone)
+        self.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
+        self.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded,
+        )
         self.verticalHeader().setVisible(False)
-        self.verticalHeader().setDefaultSectionSize(140)
+        self.verticalHeader().setDefaultSectionSize(self.IMAGE_CELL_SIZE)
         self.setShowGrid(True)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
@@ -127,12 +150,12 @@ class ProductTable(QTableWidget):
                 selection-color: #000000;
             }
             QTableWidget::item {
-                padding: 6px;
+                padding: 4px;
                 font-size: 16px;
             }
             QHeaderView::section {
                 min-height: 64px;
-                padding: 4px 6px;
+                padding: 4px;
                 font-size: 18px;
                 font-weight: bold;
                 text-align: center;
@@ -145,26 +168,13 @@ class ProductTable(QTableWidget):
         self.setHorizontalHeader(header)
         header.sectionClicked.connect(self._handle_header_click)
         header.setStretchLastSection(False)
-        header.setDefaultSectionSize(135)
+        header.setDefaultSectionSize(110)
         for column in range(self.columnCount()):
             header.setSectionResizeMode(
                 column,
-                QHeaderView.ResizeMode.Fixed
-                if column == self.IMAGE_COLUMN
-                else QHeaderView.ResizeMode.Interactive,
+                QHeaderView.ResizeMode.Interactive,
             )
-        widths = {
-            self.IMAGE_COLUMN: 180,
-            self.CODE_COLUMN: 110,
-            self.NAME_COLUMN: 230,
-            self.DETAIL_COLUMN: 320,
-            self.CATEGORY_COLUMN: 180,
-            self.STOCK_COLUMN: 190,
-            self.PRICE_SAMPLE_COLUMN: 140,
-            self.PRICE_HUNDRED_COLUMN: 140,
-            self.PRICE_THOUSAND_COLUMN: 140,
-        }
-        for column, width in widths.items():
+        for column, width in self.MIN_COLUMN_WIDTHS.items():
             self.setColumnWidth(column, width)
 
     def _handle_header_click(self, column: int) -> None:
@@ -236,18 +246,19 @@ class ProductTable(QTableWidget):
         for row, product in enumerate(products):
             self._add_product_row(row, product)
         self._adjust_table_rows()
+        self._fit_columns_to_content()
 
     def _add_product_row(self, row: int, product: Product) -> None:
         image = QLabel()
         image.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        image.setMinimumSize(164, 164)
+        image.setFixedSize(self.IMAGE_CELL_SIZE, self.IMAGE_CELL_SIZE)
         if product.image_path:
             pixmap = QPixmap(product.image_path)
             if not pixmap.isNull():
                 image.setPixmap(
                     pixmap.scaled(
-                        160,
-                        160,
+                        self.IMAGE_SIZE,
+                        self.IMAGE_SIZE,
                         Qt.AspectRatioMode.KeepAspectRatio,
                         Qt.TransformationMode.SmoothTransformation,
                     )
@@ -350,29 +361,108 @@ class ProductTable(QTableWidget):
     def _adjust_table_rows(self) -> None:
         self.resizeRowsToContents()
         for row in range(self.rowCount()):
-            self.setRowHeight(row, max(140, min(self.rowHeight(row), 260)))
+            self.setRowHeight(
+                row,
+                max(self.IMAGE_CELL_SIZE, self.rowHeight(row)),
+            )
+
+    def _preferred_column_widths(self, header: QHeaderView) -> list[int]:
+        self.resizeColumnsToContents()
+        return [
+            max(
+                header.sectionSize(column),
+                self.MIN_COLUMN_WIDTHS[column],
+            )
+            for column in range(self.columnCount())
+        ]
+
+    def _fit_columns_to_content(self) -> None:
+        if getattr(self, "_is_fitting_columns", False):
+            return
+
+        self._is_fitting_columns = True
+        try:
+            header = self.horizontalHeader()
+            preferred_widths = self._preferred_column_widths(header)
+            minimum_widths = [
+                self.MIN_COLUMN_WIDTHS[column]
+                for column in range(self.columnCount())
+            ]
+            minimum_total = sum(minimum_widths)
+            available_width = self.viewport().width()
+            target_width = max(available_width, minimum_total)
+            widths = self._allocate_column_widths(
+                preferred_widths,
+                minimum_widths,
+                target_width,
+            )
+
+            self.setMinimumWidth(
+                minimum_total
+                + (2 * self.frameWidth())
+                + self.verticalScrollBar().sizeHint().width(),
+            )
+            for column, width in enumerate(widths):
+                header.resizeSection(column, width)
+        finally:
+            self._is_fitting_columns = False
+
+    @staticmethod
+    def _allocate_column_widths(
+        preferred_widths: list[int],
+        minimum_widths: list[int],
+        target_width: int,
+    ) -> list[int]:
+        preferred_total = sum(preferred_widths)
+        minimum_total = sum(minimum_widths)
+        target_width = max(target_width, minimum_total)
+
+        if preferred_total <= target_width:
+            extra_width = target_width - preferred_total
+            if preferred_total <= 0:
+                return minimum_widths.copy()
+
+            widths = preferred_widths.copy()
+            distributed = 0
+            for column, preferred_width in enumerate(preferred_widths):
+                if column == len(preferred_widths) - 1:
+                    additional = extra_width - distributed
+                else:
+                    additional = round(
+                        extra_width * preferred_width / preferred_total,
+                    )
+                    distributed += additional
+                widths[column] += additional
+            return widths
+
+        reducible_total = sum(
+            max(width - minimum, 0)
+            for width, minimum in zip(preferred_widths, minimum_widths)
+        )
+        if reducible_total <= 0:
+            return minimum_widths.copy()
+
+        reduction_target = preferred_total - target_width
+        widths = preferred_widths.copy()
+        reduced = 0
+        for column, (preferred_width, minimum_width) in enumerate(
+            zip(preferred_widths, minimum_widths),
+        ):
+            room = max(preferred_width - minimum_width, 0)
+            if column == len(preferred_widths) - 1:
+                reduction = reduction_target - reduced
+            else:
+                reduction = round(
+                    reduction_target * room / reducible_total,
+                )
+                reduced += reduction
+            widths[column] = max(preferred_width - reduction, minimum_width)
+
+        return widths
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        available_width = self.viewport().width()
-        if available_width <= 0:
+        if getattr(self, "_is_fitting_columns", False):
             return
-        fixed_width = sum(
-            self.columnWidth(column)
-            for column in (
-                self.IMAGE_COLUMN,
-                self.CODE_COLUMN,
-                self.STOCK_COLUMN,
-                self.PRICE_SAMPLE_COLUMN,
-                self.PRICE_HUNDRED_COLUMN,
-                self.PRICE_THOUSAND_COLUMN,
-            )
-        )
-        remaining = max(available_width - fixed_width, 540)
-        self.setColumnWidth(self.NAME_COLUMN, int(remaining * 0.29))
-        self.setColumnWidth(self.DETAIL_COLUMN, int(remaining * 0.43))
-        self.setColumnWidth(
-            self.CATEGORY_COLUMN,
-            max(int(remaining * 0.28), 120),
-        )
+        self._fit_columns_to_content()
         self._adjust_table_rows()

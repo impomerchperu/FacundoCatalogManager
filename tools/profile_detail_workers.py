@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from config.scraping_config import SCRAPING_HTTP_WORKERS, STORE_URL
+from config.scraping_config import SCRAPING_HTTP_WORKERS, STORE_URL  # noqa: I001
 from scrapers.browser import Browser
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 from scrapers.collectors.resilient_category_scraper import ResilientCategoryScraper

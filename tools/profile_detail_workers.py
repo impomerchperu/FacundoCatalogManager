@@ -1,18 +1,28 @@
 from __future__ import annotations
 
+import copy
 import os
 import sys
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from time import perf_counter
 from pathlib import Path
-from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from services.scraping.scraping_config import ScrapingConfig
-from services.scraping.scraping_factory import ScrapingFactory
+from config.scraping_config import SCRAPING_HTTP_WORKERS, STORE_URL
+from scrapers.browser import Browser
+from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
+from scrapers.collectors.resilient_category_scraper import ResilientCategoryScraper
+from scrapers.extractors.category_extractor import CategoryExtractor
+from scrapers.extractors.category_product_extractor import CategoryProductExtractor
+from scrapers.extractors.product_card_extractor import ProductCardExtractor
+from scrapers.extractors.product_extractor import ProductExtractor
+from services.scraping.category_service import CategoryService
+
+
+DEFAULT_CATEGORY_SLUG = "papeles-fotograficos"
+DEFAULT_WORKERS = (24, 28)
 
 
 def _positive_int(name: str, default: int) -> int:
@@ -25,135 +35,154 @@ def _positive_int(name: str, default: int) -> int:
     return value
 
 
-def _timed_collect(service: Any, index: int, category: Any):
-    started = time.perf_counter()
-    collected = service._collect_category(index, category)
-    return index, time.perf_counter() - started, collected
+def _worker_values() -> tuple[int, ...]:
+    raw = os.getenv("FCM_PROFILE_DETAIL_WORKERS", "").strip()
+    if not raw:
+        return DEFAULT_WORKERS
+    values = tuple(
+        int(value.strip())
+        for value in raw.split(",")
+        if value.strip()
+    )
+    if not values or any(value <= 0 for value in values):
+        raise ValueError(
+            "FCM_PROFILE_DETAIL_WORKERS debe contener enteros positivos."
+        )
+    return values
 
 
-def _timed_enrich(service: Any, index: int, category: Any, collected: list[Any]):
-    started = time.perf_counter()
-    enriched = service._enrich_category(index, category, collected)
-    return index, time.perf_counter() - started, enriched
+def _select_category(categories):
+    slug = (
+        os.getenv(
+            "FCM_PROFILE_DETAIL_CATEGORY",
+            DEFAULT_CATEGORY_SLUG,
+        )
+        .strip()
+        .strip("/")
+        .casefold()
+    )
+    for category in categories:
+        url = str(getattr(category, "url", "")).strip().rstrip("/").casefold()
+        if url.endswith(f"/{slug}"):
+            return category
+    available = ", ".join(
+        str(getattr(category, "url", "")).strip()
+        for category in categories
+    )
+    raise RuntimeError(
+        f"No se encontró la categoría '{slug}'. URLs disponibles: {available}"
+    )
+
+
+def _clone_collected(collected):
+    return [
+        (card, page_url, copy.copy(product))
+        for card, page_url, product in collected
+    ]
+
+
+def _build_collection(category_scraper, max_workers):
+    return ProductCollectionScraper(
+        category_scraper,
+        ProductCardExtractor(),
+        CategoryProductExtractor(),
+        ProductExtractor(),
+        max_workers=max_workers,
+    )
+
+
+def _run_enrichment(browser, category_scraper, category, collected, max_workers):
+    collection = _build_collection(category_scraper, max_workers)
+    browser.reset_http_metrics()
+    started = perf_counter()
+    try:
+        products = collection.enrich_category_products(
+            _clone_collected(collected),
+            category.name,
+        )
+        elapsed = perf_counter() - started
+        metrics = collection.get_enrichment_metrics(category.name)
+        http_metrics = browser.get_http_metrics()
+        return products, elapsed, metrics, http_metrics
+    finally:
+        collection.close()
 
 
 def main() -> int:
-    http_workers = _positive_int("FCM_PROFILE_HTTP_WORKERS", 28)
-    jsf_concurrency = _positive_int("FCM_PROFILE_JSF_HTTP_CONCURRENCY", 8)
-    detail_workers = _positive_int("FCM_PROFILE_DETAIL_WORKERS", 32)
-
-    config = ScrapingConfig(
-        download_images=False,
-        http_workers=http_workers,
-        jsf_http_concurrency=jsf_concurrency,
-        detail_workers=detail_workers,
+    browser = Browser(
+        http_workers=_positive_int(
+            "FCM_PROFILE_HTTP_WORKERS",
+            SCRAPING_HTTP_WORKERS,
+        )
     )
-    runner = ScrapingFactory.create_runner(config)
-    category_service = runner.category_service
-    if category_service is None:
-        raise RuntimeError("ScrapingRunner no tiene CategoryService configurado.")
+    browser.enable_thread_sessions()
 
-    service = runner.scraping_service
-    scraper = getattr(getattr(service, "scraper_service", None), "scraper", None)
-    category_scraper = getattr(scraper, "category_scraper", None)
-    browser = getattr(category_scraper, "browser", None)
-
-    started = time.perf_counter()
-    categories = list(category_service.scrape_all() or [])
-    discovery_seconds = time.perf_counter() - started
-
-    worker_count = min(config.category_workers, len(categories))
-    collected_by_index: list[list[Any]] = [[] for _ in categories]
-    listing_seconds: dict[int, float] = {}
-    enriched_by_index: list[list[Any]] = [[] for _ in categories]
-    enrichment_seconds: dict[int, float] = {}
-
-    profile_started = time.perf_counter()
-    if categories:
-        with ThreadPoolExecutor(max_workers=worker_count) as executor:
-            futures = {
-                executor.submit(_timed_collect, service, i, category): i
-                for i, category in enumerate(categories)
-            }
-            for future in as_completed(futures):
-                index, seconds, collected = future.result()
-                collected_by_index[index] = collected
-                listing_seconds[index] = seconds
-
-        with ThreadPoolExecutor(max_workers=worker_count) as executor:
-            futures = {
-                executor.submit(
-                    _timed_enrich,
-                    service,
-                    i,
-                    categories[i],
-                    collected_by_index[i],
-                ): i
-                for i in range(len(categories))
-            }
-            for future in as_completed(futures):
-                index, seconds, enriched = future.result()
-                enriched_by_index[index] = enriched
-                enrichment_seconds[index] = seconds
-
-    mismatches: list[str] = []
-    total_expected = 0
-    total_collected = 0
-    total_enriched = 0
-    for i, category in enumerate(categories):
-        expected = max(int(getattr(category, "expected_count", 0) or 0), 0)
-        collected = len(collected_by_index[i])
-        enriched = len(enriched_by_index[i])
-        total_expected += expected
-        total_collected += collected
-        total_enriched += enriched
-        if collected != expected or enriched != expected:
-            mismatches.append(
-                f"{getattr(category, 'name', '(sin nombre)')}:"
-                f" expected={expected} collected={collected} enriched={enriched}"
-            )
-
-    http_metrics = {}
-    if browser is not None:
-        getter = getattr(browser, "get_http_metrics", None)
-        if callable(getter):
-            http_metrics = dict(getter() or {})
-
-    print(f"categories={len(categories)}")
-    print(f"discovery_seconds={discovery_seconds:.3f}")
-    print(f"profile_seconds={time.perf_counter() - profile_started:.3f}")
-    print(f"http_workers={http_workers}")
-    print(f"jsf_http_concurrency={jsf_concurrency}")
-    print(f"detail_workers={detail_workers}")
-    print(
-        "coverage="
-        f"expected:{total_expected} "
-        f"collected:{total_collected} "
-        f"enriched:{total_enriched} "
-        f"complete:{not mismatches}"
+    category_scraper = ResilientCategoryScraper(
+        browser=browser,
+        category_extractor=CategoryExtractor(),
     )
-    print(
-        "http="
-        f"requests:{http_metrics.get('http_requests', 0)} "
-        f"category:{http_metrics.get('category_http_requests', 0)} "
-        f"jsf:{http_metrics.get('jsf_http_requests', 0)} "
-        f"detail:{http_metrics.get('detail_http_requests', 0)} "
-        f"retries:{http_metrics.get('http_retries', 0)} "
-        f"errors:{http_metrics.get('http_errors', 0)} "
-        f"max_concurrency:{http_metrics.get('http_max_in_flight', 0)}"
-    )
-    print(
-        "semaphore_wait_by_class="
-        f"category:{float(http_metrics.get('category_semaphore_wait_seconds', 0.0) or 0.0):.3f}s "
-        f"jsf:{float(http_metrics.get('jsf_semaphore_wait_seconds', 0.0) or 0.0):.3f}s "
-        f"detail:{float(http_metrics.get('detail_semaphore_wait_seconds', 0.0) or 0.0):.3f}s"
-    )
-    if mismatches:
-        print("coverage_mismatches=")
-        for mismatch in mismatches:
-            print(f"  {mismatch}")
-        return 2
+    category_service = CategoryService(category_scraper, STORE_URL)
 
+    categories = category_service.scrape_all()
+    category = _select_category(categories)
+
+    print("=" * 80)
+    print("CONTROLLED DETAIL WORKER BENCHMARK")
+    print("CATEGORY:", category.name)
+    print("EXPECTED:", category.expected_count)
+
+    discovery_started = perf_counter()
+    collected = category_scraper.collect_category(category)
+    discovery_seconds = perf_counter() - discovery_started
+
+    print("COLLECTED:", len(collected))
+    print("DISCOVERY:", f"{discovery_seconds:.2f}s")
+
+    if len(collected) != int(category.expected_count or 0):
+        raise RuntimeError(
+            "La colección de referencia no coincide con expected_count: "
+            f"{len(collected)} != {category.expected_count}"
+        )
+
+    results = []
+    for max_workers in _worker_values():
+        (
+            products,
+            elapsed,
+            metrics,
+            http_metrics,
+        ) = _run_enrichment(
+            browser,
+            category_scraper,
+            category,
+            collected,
+            max_workers,
+        )
+        results.append((max_workers, elapsed))
+        print("-" * 80)
+        print("DETAIL WORKERS:", max_workers)
+        print("PRODUCTS:", len(products))
+        print("ENRICHMENT WALL:", f"{elapsed:.2f}s")
+        print("REQUESTED:", metrics.get("requested", 0))
+        print("SKIPPED:", metrics.get("skipped", 0))
+        print("SUBMIT:", f'{float(metrics.get("submit_seconds", 0.0) or 0.0):.3f}s')
+        print("WAIT:", f'{float(metrics.get("wait_seconds", 0.0) or 0.0):.3f}s')
+        print(
+            "HTTP:",
+            f'requests={http_metrics.get("http_requests", 0)}',
+            f'errors={http_metrics.get("http_errors", 0)}',
+            f'retries={http_metrics.get("http_retries", 0)}',
+            f'max_in_flight={http_metrics.get("http_max_in_flight", 0)}',
+        )
+        print(
+            "DETAIL HTTP:",
+            f'total={float(http_metrics.get("detail_http_total_seconds", 0.0) or 0.0):.2f}s',
+            f'max={float(http_metrics.get("detail_http_max_seconds", 0.0) or 0.0):.2f}s',
+            f'semaphore_wait={float(http_metrics.get("detail_semaphore_wait_seconds", 0.0) or 0.0):.3f}s',
+        )
+
+    print("=" * 80)
+    print("RESULTS:", results)
     return 0
 
 

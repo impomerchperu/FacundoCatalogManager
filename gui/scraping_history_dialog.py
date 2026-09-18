@@ -51,11 +51,12 @@ class ScrapingHistoryDialog(QDialog):
         layout.addWidget(title)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(9)
+        self.table.setColumnCount(10)
         self.table.setHorizontalHeaderLabels(
             [
                 "ID",
-                "Fecha y duración",
+                "Fecha de descarga",
+                "Duración",
                 "Procesados",
                 "Nuevos",
                 "Actualizados",
@@ -64,6 +65,9 @@ class ScrapingHistoryDialog(QDialog):
                 "Estado",
                 "Detalle",
             ],
+        )
+        self.table.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -119,30 +123,21 @@ class ScrapingHistoryDialog(QDialog):
             self._set_detail_button(row, record.history_id)
             self.table.setRowHeight(row, 44)
 
-        self.table.resizeColumnsToContents()
-        widths = {
-            0: 70,
-            1: 255,
-            2: 80,
-            3: 70,
-            4: 95,
-            5: 90,
-            6: 85,
-            7: 85,
-            8: 110,
-        }
-        for column, width in widths.items():
-            self.table.setColumnWidth(column, width)
-        self._fit_window_to_table()
+        header = self.table.horizontalHeader()
+        for column in (0, 1, 2, 8, 9):
+            header.setSectionResizeMode(
+                column,
+                QHeaderView.ResizeMode.ResizeToContents,
+            )
+        for column in (3, 4, 5, 6, 7):
+            header.setSectionResizeMode(
+                column,
+                QHeaderView.ResizeMode.Stretch,
+            )
 
     @staticmethod
     def _status_text(record) -> str:
-        if record.status != "SUCCESS":
-            return "ERROR"
-        applied_at = ScrapingHistoryDialog._parse_datetime(
-            getattr(record, "applied_at", None) or record.finished_at,
-        )
-        return f"APLICADO\n{ScrapingHistoryDialog._format_datetime(applied_at)}"
+        return "APLICADO" if record.status == "SUCCESS" else "ERROR"
 
     def _set_status_item(self, row: int, column: int, record) -> None:
         item = QTableWidgetItem(self._status_text(record))
@@ -166,21 +161,7 @@ class ScrapingHistoryDialog(QDialog):
         button.setProperty("history_id", history_id)
         button.clicked.connect(self.show_row_details)
         layout.addWidget(button)
-        self.table.setCellWidget(row, 8, container)
-
-    def _fit_window_to_table(self) -> None:
-        header = self.table.horizontalHeader()
-        table_width = header.length() + self.table.frameWidth() * 2
-        if self.table.verticalScrollBar().isVisible():
-            table_width += self.table.verticalScrollBar().sizeHint().width()
-
-        layout = self.layout()
-        if layout is None:
-            return
-        margins = layout.contentsMargins()
-        width = table_width + margins.left() + margins.right()
-        self.resize(max(width, 1), self.height())
-        self._center_on_parent()
+        self.table.setCellWidget(row, 9, container)
 
     def _center_on_parent(self) -> None:
         parent = self.parentWidget()

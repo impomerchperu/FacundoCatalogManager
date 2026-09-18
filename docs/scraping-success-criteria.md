@@ -80,7 +80,7 @@ Un benchmark específico de contención de SQLite no es requisito para la correc
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
 - FULL real: `24 / 534 / 530 / 4`.
-- E2E de producción: `24 / 534 / 530 / 4`, DB `530 / 534`, historial aplicado.
+- E2E de producción: `24 / 534 / 530 / 4`, DB `530 / 534`, historial aplicado, configuración `8 / 16 / 28`, duración `113.97s`.
 - Smoke de bootstrap sobre copia de la base real: `530 / 534`, usando el FULL más reciente válido.
 
 ## Progreso de UI
@@ -155,6 +155,6 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 - [ ] mayor granularidad de callbacks de progreso durante enrichment;
 - [x] benchmark de red separado para detalle con comparación cruzada 16/24;
 - [ ] mantener las fábricas de compatibilidad mientras pueda existir consumo externo.
-- [ ] nueva validación FULL autoritativa después del cambio de concurrencia a 16 workers;
+- [x] validación E2E real de producción después del cambio de concurrencia a 16 workers;
 
-Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes `24 / 534 / 530 / 4` y la relación DB `530 / 534`.
+Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes `24 / 534 / 530 / 4` y la relación DB `530 / 534`. El E2E real bajo `8 / 16 / 28` ya satisface la validación de cierre de esta etapa.

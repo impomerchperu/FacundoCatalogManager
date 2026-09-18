@@ -97,7 +97,68 @@ def test_category_scraper_uses_jetsmartfilters_for_every_declared_page():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3"]
+    ] == sorted(["1", "2", "3"])
+
+
+def test_category_scraper_uses_jsf_page_workers_concurrently():
+    import threading
+    import time
+
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+
+    class ConcurrentBrowser(FakeBrowser):
+        def __init__(self, responses):
+            super().__init__(responses)
+            self._lock = threading.Lock()
+            self.active = 0
+            self.max_active = 0
+
+        def post(self, url, data=None):
+            with self._lock:
+                self.active += 1
+                self.max_active = max(self.max_active, self.active)
+            try:
+                time.sleep(0.02)
+                return super().post(url, data=data)
+            finally:
+                with self._lock:
+                    self.active -= 1
+
+    responses = {
+        category_url: '<body class="tax-product_cat term-127"></body>',
+        "ajax:1": (
+            '{"found_posts":75,"max_num_pages":3,'
+            '"rendered_content":"<div>FB-001</div>"}'
+        ),
+        "ajax:2": (
+            '{"found_posts":75,"max_num_pages":3,'
+            '"rendered_content":"<div>FB-026</div>"}'
+        ),
+        "ajax:3": (
+            '{"found_posts":75,"max_num_pages":3,'
+            '"rendered_content":"<div>FB-051</div>"}'
+        ),
+        "ajax:4": (
+            '{"found_posts":75,"max_num_pages":3,'
+            '"rendered_content":"<div>FB-076</div>"}'
+        ),
+        "ajax:5": "",
+    }
+    browser = ConcurrentBrowser(responses)
+    scraper = CategoryScraper(browser)
+
+    pages = scraper.get_category_pages(category_url, expected_count=75)
+
+    assert pages == [
+        category_url,
+        f"{category_url.rstrip('/')}?product-page=2",
+        f"{category_url.rstrip('/')}?product-page=3",
+        f"{category_url.rstrip('/')}?product-page=4",
+    ]
+    assert browser.max_active >= 2
 
 
 def test_category_scraper_uses_expected_count_to_cover_all_pages():
@@ -139,7 +200,7 @@ def test_category_scraper_uses_expected_count_to_cover_all_pages():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3", "4", "5"]
+    ] == sorted(["1", "2", "3", "4", "5"])
 
 
 def test_category_scraper_recovers_transient_empty_required_page():
@@ -172,7 +233,7 @@ def test_category_scraper_recovers_transient_empty_required_page():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "2", "3"]
+    ] == sorted(["1", "2", "2", "3"])
 
 
 def test_category_scraper_stops_after_empty_page_retry_exhaustion():
@@ -197,7 +258,7 @@ def test_category_scraper_stops_after_empty_page_retry_exhaustion():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "2", "2"]
+    ] == sorted(["1", "2", "2", "2"])
 
 
 def test_category_scraper_continues_real_products_past_underreported_jsf_pages():
@@ -283,4 +344,4 @@ def test_category_scraper_continues_real_products_when_jsf_reports_one_page():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == ["1", "2", "3", "4"]
+    ] == sorted(["1", "2", "3", "4"])

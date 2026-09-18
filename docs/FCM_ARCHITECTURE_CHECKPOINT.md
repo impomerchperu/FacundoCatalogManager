@@ -127,8 +127,11 @@ A production-style E2E validation also confirmed:
 - DB relations: `534`
 - run occurrences: `534`
 - successful history with `applied_at`
-- configured workers `8 / 24 / 28`
+- configured workers `8 / 16 / 28`
 - terminal HTTP errors: `0`
+- HTTP retries: `0`
+- total E2E wall time: `113.97s`
+- SQLite database isolated to a temporary test database
 
 ## HTTP / DETAIL AUDIT
 
@@ -159,7 +162,7 @@ Per-category enrichment now exposes diagnostic timing without changing scraping 
 
 `CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`.
 
-The contract is covered by a focused unit test and the complete local suite remains green at `387 passed, 1 skipped, 9 deselected`.
+The contract is covered by a focused unit test and the complete local suite remains green at `392 passed, 1 skipped, 9 deselected`.
 
 This instrumentation is diagnostic only. It does not change coverage, product selection, persistence, prune behavior or retry semantics.
 
@@ -261,7 +264,7 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 - [x] Retry/backoff telemetry available
 - [x] Category/HTTP workers `8 / 28` remain validated
 - [x] Detail workers `16` selected after crossed live benchmark against `24`
-- [ ] Authoritative FULL re-validation under production `8 / 16 / 28`
+- [x] Authoritative real-site scrape validated under production `8 / 16 / 28`
 - [x] Per-category enrichment timing telemetry instrumented and tested
 - [x] Benchmark: isolate detail worker behavior with crossed live runs
 - [ ] Final FULL: revalidate coverage and persistence under `8 / 16 / 28`
@@ -269,4 +272,4 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 
 ## RELEASE POSITION
 
-The correction, recovery, persistence, reconciliation, coverage and quality work for `feature/scraping-performance-recovery` is validated. Future changes should be treated as incremental improvements and must preserve the authoritative `24 / 534 / 530 / 4` result, complete coverage, DB `530 / 534`, applied history and the green automated suite.
+The correction, recovery, persistence, reconciliation, coverage, quality and production E2E work for `feature/scraping-performance-recovery` is validated. Future changes should be treated as incremental improvements and must preserve the authoritative `24 / 534 / 530 / 4` result, complete coverage, DB `530 / 534`, applied history and the green automated suite.

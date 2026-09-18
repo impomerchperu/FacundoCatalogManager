@@ -152,7 +152,10 @@ class ScrapingHistoryDialog(QDialog):
             + self.table.frameWidth() * 2
             + self.table.verticalScrollBar().sizeHint().width()
         )
-        margins = self.layout().contentsMargins()
+        dialog_layout = self.layout()
+        if dialog_layout is None:
+            return
+        margins = dialog_layout.contentsMargins()
         total_width = table_width + margins.left() + margins.right() + 24
         self.resize(total_width, self.height())
 
@@ -206,7 +209,7 @@ class ScrapingHistoryDialog(QDialog):
         item = QTableWidgetItem(text)
         item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         item.setToolTip(tooltip)
-        font = QFont(item.font())
+        font = QFont()
         font.setBold(True)
         item.setFont(font)
         self.table.setItem(row, column, item)

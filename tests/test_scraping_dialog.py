@@ -26,7 +26,7 @@ def _result(*, success: bool = True) -> ScrapingSessionResult:
     return result
 
 
-def test_scraping_dialog_shows_session_result_without_attribute_error(monkeypatch):
+def test_scraping_dialog_shows_session_result_without_attribute_error():
     _qapp()
     dialog = ScrapingDialog()
     dialog.show_result(_result())

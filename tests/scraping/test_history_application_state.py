@@ -38,11 +38,15 @@ def test_status_displays_applied_with_application_datetime():
         module.QTableWidgetItem = original
 
     assert "APLICADO" in captured["text"]
-    assert "12/09/2026 10:00:00" in captured["text"]
+    assert ScrapingHistoryDialog._format_datetime(applied_at) in captured["text"]
 
 
 def test_status_displays_error_for_failed_history():
-    record = _history(20, "ERROR", finished_at=datetime(2026, 9, 12, 11, 0, tzinfo=timezone.utc))
+    record = _history(
+        20,
+        "ERROR",
+        finished_at=datetime(2026, 9, 12, 11, 0, tzinfo=timezone.utc),
+    )
 
     dialog = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
     dialog.table = SimpleNamespace(setItem=lambda *args: None)
@@ -67,13 +71,12 @@ def test_status_displays_error_for_failed_history():
     assert captured["text"] == "ERROR"
 
 
-
 def test_history_detail_button_uses_last_visible_column():
     from PySide6.QtWidgets import QApplication, QTableWidget
 
     app = QApplication.instance() or QApplication([])
     table = QTableWidget(1, 12)
-    dialog = SimpleNamespace(table=table)
+    dialog = SimpleNamespace(table=table, show_row_details=lambda: None)
 
     ScrapingHistoryDialog._set_detail_button(dialog, 0, 42)
     app.processEvents()

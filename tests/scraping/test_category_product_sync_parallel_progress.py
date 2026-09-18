@@ -18,6 +18,7 @@ def test_category_progress_tracks_completion_without_reordering_results():
     slow_started = Event()
     release_slow = Event()
     fast_completed = Event()
+    progress_reported = Event()
     progress = []
 
     class FakeScraper:
@@ -44,15 +45,21 @@ def test_category_progress_tracks_completion_without_reordering_results():
         Category("Categoria Rápida", "https://example.com/rapida/", expected_count=1),
     ]
 
+    def record_progress(current, total):
+        progress.append((current, total))
+        if (current, total) == (1, 2):
+            progress_reported.set()
+
     try:
         with ThreadPoolExecutor(max_workers=1) as executor:
             run_future = executor.submit(
                 service.sync_categories,
                 categories,
-                lambda current, total: progress.append((current, total)),
+                record_progress,
             )
             assert slow_started.wait(timeout=2)
             assert fast_completed.wait(timeout=2)
+            assert progress_reported.wait(timeout=2)
             assert progress == [(1, 2)]
             release_slow.set()
             result = run_future.result(timeout=2)

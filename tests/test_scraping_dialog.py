@@ -85,3 +85,25 @@ def test_scraping_dialog_reports_category_and_enrichment_progress():
     assert "Enriquecimiento: 23/24" in dialog.status_label.text()
 
     dialog.close()
+
+def test_scraping_dialog_show_catalog_emits_request_and_hides():
+    app = _qapp()
+    main_window = QWidget()
+    dialog = ScrapingDialog(main_window)
+    requested = []
+    dialog.catalog_requested.connect(lambda: requested.append(True))
+
+    main_window.show()
+    dialog.show()
+    app.processEvents()
+
+    dialog.show_catalog()
+    app.processEvents()
+
+    assert requested == [True]
+    assert not dialog.isVisible()
+    assert main_window.isVisible()
+
+    dialog.close()
+    main_window.close()
+    app.processEvents()

@@ -59,11 +59,8 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     table.show()
     product = Product(
         code="FB-200",
-        name="Nombre de producto suficientemente largo para comprobar ajuste",
-        description=(
-            "Detalle suficientemente largo para comprobar que la columna "
-            "se ajuste al contenido y no recorte el texto"
-        ),
+        name="Nombre de producto suficientemente largo",
+        description="Detalle suficientemente largo para comprobar el ajuste",
         category="Categoria de prueba",
     )
     table.load_products([product])

@@ -1,8 +1,9 @@
-from scrapers.collectors.category_scraper import CategoryScraper
-from scrapers.extractors.product_block_extractor import ProductBlockExtractor
 from scrapers.parser.category_product_parser import (
     CategoryProductParser,
 )
+
+from scrapers.collectors.category_scraper import CategoryScraper
+from scrapers.extractors.product_block_extractor import ProductBlockExtractor
 from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,
 )

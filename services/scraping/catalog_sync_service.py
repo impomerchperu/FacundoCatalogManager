@@ -1,12 +1,23 @@
-from typing import ClassVar
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, ClassVar
 
 from models.scraping.sync_result import SyncResult
+from services.scraping.category_name_normalizer import (
+    merge_category_names,
+    split_category_names,
+)
+from services.scraping.product_hash_service import ProductHashService
+
+if TYPE_CHECKING:
+    from services.scraping.scraping_result_writer import ScrapingResultWriter
 
 
 class CatalogSyncService:
     """Compara productos obtenidos contra el catálogo persistido."""
 
     FIELD_LABELS: ClassVar[dict[str, str]] = {
+        "code": "Código",
         "name": "Nombre",
         "category": "Categoría",
         "description": "Detalle",
@@ -26,90 +37,186 @@ class CatalogSyncService:
     def __init__(self, repository, diff_service):
         self.repository = repository
         self.diff_service = diff_service
+        self.last_sync_result = SyncResult()
+        self.hash_service = ProductHashService()
+        self.result_writer: ScrapingResultWriter | None = None
 
-    def sync(self, products):
+    @staticmethod
+    def _normalize_code(value) -> str:
+        """Normaliza mayúsculas y espacios exteriores."""
+        return str(value or "").strip().upper()
+
+    def sync(
+        self,
+        products,
+        prune_missing: bool = True,
+        cleanup_generated: bool = True,
+        expected_products: int | None = 0,
+        expected_category_occurrences: int = 0,
+    ):
+        """Sincroniza el catálogo usando códigos reales como identidad."""
+        del cleanup_generated
         result = SyncResult()
-        consolidated = self.consolidate_products(products)
+        raw_products = list(products)
+        missing_code_products = [
+            p
+            for p in raw_products
+            if not self._normalize_code(getattr(p, "code", ""))
+        ]
+        result.missing_code = len(missing_code_products)
+        prepared = []
+        for product in raw_products:
+            code = self._normalize_code(getattr(product, "code", ""))
+            if not code:
+                continue
+            product.code = code
+            product.category = self._merge_categories(
+                getattr(product, "category", "")
+            )
+            prepared.append(product)
+        consolidated = self.consolidate_products(prepared)
+        result.products_expected = max(int(expected_products or 0), 0)
+        result.expected_category_occurrences = max(
+            int(expected_category_occurrences or 0), 0
+        )
+        result.products_found = len(raw_products)
+        result.products_unique = len(consolidated)
+        result.processed = result.products_found
+        result.duplicate_occurrences = max(
+            result.products_found - result.products_unique, 0
+        )
+        result.products_multiple_categories = self._count_multi_category_products(
+            prepared
+        )
+        scraped_codes = {
+            self._normalize_code(p.code).casefold() for p in consolidated
+        }
 
         for product in consolidated:
-            result.increment_processed()
             existing = self.repository.get(product.code)
-
             if existing is None:
                 result.created += 1
-                result.changes.append({
-                    "type": "NEW",
-                    "code": product.code,
-                    "name": product.name,
-                    "changes": [],
-                })
+                result.changes.append(
+                    {
+                        "type": "NEW",
+                        "code": product.code,
+                        "name": product.name,
+                        "changes": [],
+                    }
+                )
                 self.repository.save(product)
                 continue
 
             product.category = self._merge_categories(
-                existing.category,
-                product.category,
+                self._value(existing, "category"),
+                getattr(product, "category", ""),
             )
-
+            self._preserve_existing_prices(existing, product)
+            product.content_hash = self.hash_service.generate(product)
             comparison = self.diff_service.compare(existing, product)
             if comparison["changed"]:
                 result.updated += 1
-                field_changes = [
+                result.changes.append(
                     {
-                        "field": field,
-                        "label": self.FIELD_LABELS.get(field, field),
-                        "old": self._value(existing, field),
-                        "new": self._value(product, field),
+                        "type": "UPDATED",
+                        "code": product.code,
+                        "name": product.name,
+                        "changes": [
+                            {
+                                "field": field,
+                                "label": self.FIELD_LABELS.get(field, field),
+                                "old": self._value(existing, field),
+                                "new": self._value(product, field),
+                            }
+                            for field in comparison["fields"]
+                        ],
                     }
-                    for field in comparison["fields"]
-                ]
-                result.changes.append({
-                    "type": "UPDATED",
-                    "code": product.code,
-                    "name": product.name,
-                    "changes": field_changes,
-                })
+                )
                 self.repository.save(product)
-                continue
+            else:
+                result.unchanged += 1
 
-            result.unchanged += 1
-
+        expected_unique = result.products_expected
+        actual_unique = len(scraped_codes)
+        expected_complete = expected_unique <= 0 or actual_unique >= expected_unique
+        prune_allowed = (
+            prune_missing
+            and result.coverage_complete
+            and expected_complete
+            and not result.has_errors
+        )
+        if prune_allowed:
+            self._remove_missing_products(scraped_codes, result)
         result.finish()
+        self.last_sync_result = result
         return result
 
-    def synchronize(self, products):
-        return self.sync(products)
+    def sync_full_catalog(
+        self,
+        products,
+        prune_missing: bool = True,
+        expected_products: int | None = 0,
+        expected_category_occurrences: int = 0,
+    ):
+        return self.sync(
+            products,
+            prune_missing=prune_missing,
+            expected_products=expected_products,
+            expected_category_occurrences=expected_category_occurrences,
+        )
+
+    def synchronize(self, products, prune_missing: bool = False):
+        return self.sync(products, prune_missing=prune_missing)
+
+    def _remove_missing_products(
+        self, scraped_codes: set[str], result: SyncResult
+    ) -> None:
+        for existing in self.repository.get_all():
+            code = self._normalize_code(self._value(existing, "code"))
+            if not code or code.casefold() in scraped_codes:
+                continue
+            result.deleted += 1
+            result.changes.append(
+                {
+                    "type": "DELETED",
+                    "code": code,
+                    "name": self._value(existing, "name"),
+                    "changes": [
+                        {
+                            "field": "code",
+                            "label": "Código ausente en origen",
+                            "old": code,
+                            "new": "Eliminado",
+                        }
+                    ],
+                }
+            )
+            self.repository.delete_by_code(code)
 
     @classmethod
     def consolidate_products(cls, products):
-        """Consolida por código antes de comparar o guardar el catálogo."""
         consolidated = {}
-
         for product in products:
-            code = str(getattr(product, "code", "")).strip()
+            code = cls._normalize_code(getattr(product, "code", ""))
             if not code:
                 continue
-
-            existing = consolidated.get(code)
+            product.code = code
+            product.category = cls._merge_categories(
+                getattr(product, "category", "")
+            )
+            existing = consolidated.get(code.casefold())
             if existing is None:
-                consolidated[code] = product
+                consolidated[code.casefold()] = product
                 continue
-
             existing.category = cls._merge_categories(
-                existing.category,
-                product.category,
+                existing.category, product.category
             )
-
-            colors = list(getattr(existing, "colors", []))
-            colors.extend(getattr(product, "colors", []))
+            colors = list(getattr(existing, "colors", [])) + list(
+                getattr(product, "colors", [])
+            )
             existing.colors = list(
-                dict.fromkeys(
-                    str(color).strip()
-                    for color in colors
-                    if str(color).strip()
-                )
+                dict.fromkeys(str(c).strip() for c in colors if str(c).strip())
             )
-
             color_stock = dict(getattr(existing, "color_stock", {}))
             for color, stock in getattr(product, "color_stock", {}).items():
                 normalized_color = str(color).strip()
@@ -120,37 +227,79 @@ class CatalogSyncService:
                 except (TypeError, ValueError):
                     continue
                 color_stock[normalized_color] = max(
-                    color_stock.get(normalized_color, 0),
-                    normalized_stock,
+                    color_stock.get(normalized_color, 0), normalized_stock
                 )
             existing.color_stock = color_stock
-
-            if not getattr(existing, "description", "") and getattr(
-                product, "description", ""
-            ):
-                existing.description = product.description
-            if not getattr(existing, "image_url", "") and getattr(
-                product, "image_url", ""
-            ):
-                existing.image_url = product.image_url
-
+            cls._merge_missing_scalar_fields(existing, product)
         return list(consolidated.values())
 
     @staticmethod
+    def _merge_missing_scalar_fields(existing, product) -> None:
+        """Completa campos vacíos con una ocurrencia duplicada más rica."""
+        text_fields = (
+            "name",
+            "description",
+            "image_url",
+            "image_path",
+            "image_hash",
+        )
+        for field in text_fields:
+            current = getattr(existing, field, "")
+            candidate = getattr(product, field, "")
+            if not str(current or "").strip() and str(candidate or "").strip():
+                setattr(existing, field, candidate)
+
+        price_fields = (
+            "price",
+            "price_sample",
+            "price_hundred",
+            "price_thousand",
+        )
+        for field in price_fields:
+            try:
+                current = float(getattr(existing, field, 0.0) or 0.0)
+                candidate = float(getattr(product, field, 0.0) or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if current <= 0.0 < candidate:
+                setattr(existing, field, candidate)
+
+    @staticmethod
+    def _preserve_existing_prices(existing, product) -> None:
+        """Evita borrar precios válidos cuando una extracción llega incompleta."""
+        for field in (
+            "price",
+            "price_sample",
+            "price_hundred",
+            "price_thousand",
+        ):
+            try:
+                current = float(CatalogSyncService._value(existing, field) or 0.0)
+                incoming = float(getattr(product, field, 0.0) or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if incoming <= 0.0 < current:
+                setattr(product, field, current)
+
+    @classmethod
+    def _count_multi_category_products(cls, products) -> int:
+        categories_by_code: dict[str, set[str]] = {}
+        for product in products:
+            code = cls._normalize_code(getattr(product, "code", ""))
+            if not code:
+                continue
+            categories = categories_by_code.setdefault(code.casefold(), set())
+            for category in split_category_names(getattr(product, "category", "")):
+                normalized = category.strip().casefold()
+                if normalized:
+                    categories.add(normalized)
+        return sum(
+            1 for categories in categories_by_code.values() if len(categories) > 1
+        )
+
+    @staticmethod
     def _merge_categories(*categories) -> str:
-        """Une categorías sin duplicarlas y conserva su orden de aparición."""
-        merged: list[str] = []
-        seen: set[str] = set()
-
-        for value in categories:
-            for category in str(value or "").split(","):
-                normalized = category.strip()
-                key = normalized.casefold()
-                if normalized and key not in seen:
-                    seen.add(key)
-                    merged.append(normalized)
-
-        return ", ".join(merged)
+        return merge_category_names(*categories)
 
     @staticmethod
     def _value(obj, field):

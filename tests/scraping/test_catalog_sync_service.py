@@ -1,28 +1,39 @@
-from repositories.scraping.sync_repository import SyncRepository
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.product_diff_service import ProductDiffService
+from tests.scraping.catalog_sync_test_doubles import InMemoryCatalogRepository
 
 
 class Product:
     def __init__(
         self,
-        code,
-        name,
-        price,
-        category="",
-        colors=None,
-        color_stock=None,
-    ):
+        code: str,
+        name: str,
+        price: float,
+        category: str = "",
+        colors: list[str] | None = None,
+        color_stock: dict[str, int] | None = None,
+        url: str = "",
+    ) -> None:
         self.code = code
         self.name = name
         self.price = price
         self.category = category
         self.colors = list(colors or [])
         self.color_stock = dict(color_stock or {})
+        self.url = url
+
+        self.description = ""
+        self.price_sample = 0.0
+        self.price_hundred = 0.0
+        self.price_thousand = 0.0
+        self.image_url = ""
+        self.image_path = ""
+        self.image_hash = ""
+        self.content_hash = ""
 
 
 def test_catalog_sync_creates_new_product():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     service = CatalogSyncService(repository, ProductDiffService())
 
     result = service.synchronize([Product("P001", "Producto A", 10)])
@@ -34,7 +45,7 @@ def test_catalog_sync_creates_new_product():
 
 
 def test_catalog_sync_updates_product():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     repository.save(Product("P001", "Producto A", 10))
 
     service = CatalogSyncService(repository, ProductDiffService())
@@ -45,8 +56,58 @@ def test_catalog_sync_updates_product():
     assert result.counts_are_consistent
 
 
+def test_catalog_sync_preserves_existing_prices_on_partial_update():
+    repository = InMemoryCatalogRepository()
+    existing = Product("P010", "Producto A", 8.5)
+    existing.price_sample = 8.5
+    existing.price_hundred = 770.0
+    existing.price_thousand = 7500.0
+    repository.save(existing)
+
+    incoming = Product("P010", "Producto A actualizado", 0)
+    incoming.price_sample = 0
+    incoming.price_hundred = 0
+    incoming.price_thousand = 0
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+    stored = repository.get("P010")
+    assert stored is not None
+
+    assert result.updated == 1
+    assert stored.price == 8.5
+    assert stored.price_sample == 8.5
+    assert stored.price_hundred == 770.0
+    assert stored.price_thousand == 7500.0
+    assert stored.name == "Producto A actualizado"
+
+
+def test_catalog_sync_preserves_existing_prices_independently():
+    repository = InMemoryCatalogRepository()
+    existing = Product("P011", "Producto B", 8.5)
+    existing.price_sample = 8.5
+    existing.price_hundred = 770.0
+    existing.price_thousand = 7500.0
+    repository.save(existing)
+
+    incoming = Product("P011", "Producto B", 9.0)
+    incoming.price_sample = 9.0
+    incoming.price_hundred = 0
+    incoming.price_thousand = 8000.0
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    service.synchronize([incoming])
+    stored = repository.get("P011")
+    assert stored is not None
+
+    assert stored.price == 9.0
+    assert stored.price_sample == 9.0
+    assert stored.price_hundred == 770.0
+    assert stored.price_thousand == 8000.0
+
+
 def test_catalog_sync_consolidates_product_in_multiple_categories():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     service = CatalogSyncService(repository, ProductDiffService())
 
     products = [
@@ -70,29 +131,111 @@ def test_catalog_sync_consolidates_product_in_multiple_categories():
 
     result = service.synchronize(products)
     stored = repository.get("P002")
+    assert stored is not None
 
     assert result.created == 1
-    assert result.processed == 1
+    assert result.processed == 2
     assert result.classified_total == 1
     assert result.counts_are_consistent
+    assert result.products_found == 2
+    assert result.products_unique == 1
+    assert result.duplicate_occurrences == 1
+    assert result.products_multiple_categories == 1
     assert stored.category == "Jarros Mug, Promocionales"
     assert stored.colors == ["Rojo", "Azul"]
     assert stored.color_stock == {"Rojo": 5, "Azul": 7}
 
 
+def test_catalog_sync_preserves_richer_duplicate_product_fields():
+    sparse = Product("P007", "", 0)
+    sparse.description = ""
+    sparse.price_sample = 0
+    sparse.price_hundred = 0
+    sparse.price_thousand = 0
+    sparse.image_url = ""
+    sparse.image_path = ""
+    sparse.image_hash = ""
+
+    rich = Product("P007", "Producto completo", 8)
+    rich.description = "Detalle completo"
+    rich.price_sample = 8
+    rich.price_hundred = 70
+    rich.price_thousand = 600
+    rich.image_url = "https://example.com/p007.jpg"
+    rich.image_path = "images/P007.jpg"
+    rich.image_hash = "hash-p007"
+
+    consolidated = CatalogSyncService.consolidate_products([sparse, rich])
+
+    assert len(consolidated) == 1
+    stored = consolidated[0]
+    assert stored.name == "Producto completo"
+    assert stored.description == "Detalle completo"
+    assert stored.price == 8
+    assert stored.price_sample == 8
+    assert stored.price_hundred == 70
+    assert stored.price_thousand == 600
+    assert stored.image_url == "https://example.com/p007.jpg"
+    assert stored.image_path == "images/P007.jpg"
+    assert stored.image_hash == "hash-p007"
+
+
+def test_catalog_sync_does_not_overwrite_richer_duplicate_product_fields():
+    rich = Product("P008", "Producto completo", 8)
+    rich.description = "Detalle completo"
+    rich.price_sample = 8
+    rich.price_hundred = 70
+    rich.price_thousand = 600
+    rich.image_url = "https://example.com/p008.jpg"
+
+    sparse = Product("P008", "", 0)
+    sparse.description = ""
+    sparse.price_sample = 0
+    sparse.price_hundred = 0
+    sparse.price_thousand = 0
+    sparse.image_url = ""
+
+    consolidated = CatalogSyncService.consolidate_products([rich, sparse])
+
+    stored = consolidated[0]
+    assert stored.name == "Producto completo"
+    assert stored.description == "Detalle completo"
+    assert stored.price == 8
+    assert stored.price_sample == 8
+    assert stored.price_hundred == 70
+    assert stored.price_thousand == 600
+    assert stored.image_url == "https://example.com/p008.jpg"
+
+
+def test_catalog_sync_reports_duplicate_occurrences_across_multiple_categories():
+    repository = InMemoryCatalogRepository()
+    service = CatalogSyncService(repository, ProductDiffService())
+
+    products = [
+        Product("P005", "Compartido", 10, category="Jarros"),
+        Product("P005", "Compartido", 10, category="Promocionales"),
+        Product("P005", "Compartido", 10, category="Oficina"),
+        Product("P006", "Único", 12, category="Oficina"),
+    ]
+
+    result = service.synchronize(products)
+
+    assert result.products_found == 4
+    assert result.products_unique == 2
+    assert result.duplicate_occurrences == 2
+    assert result.products_multiple_categories == 1
+    assert result.processed == 4
+    assert result.classified_total == 2
+    assert result.counts_are_consistent
+
+
 def test_catalog_sync_preserves_categories_across_separate_category_syncs():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     service = CatalogSyncService(repository, ProductDiffService())
 
     first = service.synchronize([
-        Product(
-            "P003",
-            "Producto compartido",
-            10,
-            category="Jarros",
-        ),
+        Product("P003", "Producto compartido", 10, category="Jarros"),
     ])
-
     second = service.synchronize([
         Product(
             "P003",
@@ -103,6 +246,7 @@ def test_catalog_sync_preserves_categories_across_separate_category_syncs():
     ])
 
     stored = repository.get("P003")
+    assert stored is not None
 
     assert first.created == 1
     assert first.counts_are_consistent
@@ -112,20 +256,82 @@ def test_catalog_sync_preserves_categories_across_separate_category_syncs():
 
 
 def test_catalog_sync_does_not_duplicate_existing_category():
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
     service = CatalogSyncService(repository, ProductDiffService())
 
-    service.synchronize([
-        Product("P004", "Producto", 10, category="Jarros"),
-    ])
-
+    service.synchronize([Product("P004", "Producto", 10, category="Jarros")])
     result = service.synchronize([
         Product("P004", "Producto", 10, category="jarros"),
     ])
 
     stored = repository.get("P004")
+    assert stored is not None
 
     assert result.unchanged == 1
     assert result.updated == 0
     assert result.counts_are_consistent
     assert stored.category == "Jarros"
+
+
+def test_catalog_sync_does_not_create_local_code_when_missing():
+    repository = InMemoryCatalogRepository()
+    service = CatalogSyncService(repository, ProductDiffService())
+    product = Product(
+        "",
+        "Producto sin código",
+        10,
+        url="https://stock.importacionesfacundo.com/producto/producto-sin-codigo/",
+    )
+
+    result = service.synchronize([product])
+
+    assert result.missing_code == 1
+    assert result.created == 0
+    assert result.processed == 1
+    assert result.classified_total == 0
+    assert result.products_unique == 0
+    assert product.code == ""
+    assert repository.get_all() == []
+    assert result.changes == []
+
+
+def test_catalog_sync_prunes_every_unmatched_local_code_after_complete_coverage():
+    repository = InMemoryCatalogRepository()
+    repository.save(Product("AUTO-OLD-12.50-35.00", "Producto provisional", 12.50))
+    repository.save(Product("OLD-LEGACY-999", "Otro legado", 99))
+    repository.save(Product("KEEP001", "Producto vigente", 20))
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.sync(
+        [Product("KEEP001", "Producto vigente", 20)],
+        expected_products=1,
+    )
+
+    assert result.processed == 1
+    assert result.classified_total == 1
+    assert result.deleted == 2
+    assert repository.get("AUTO-OLD-12.50-35.00") is None
+    assert repository.get("OLD-LEGACY-999") is None
+    assert repository.get("KEEP001") is not None
+    deleted_codes = {
+        change["code"]
+        for change in result.changes
+        if change["type"] == "DELETED"
+    }
+    assert deleted_codes == {"AUTO-OLD-12.50-35.00", "OLD-LEGACY-999"}
+
+
+def test_catalog_sync_keeps_unmatched_local_codes_when_coverage_is_incomplete():
+    repository = InMemoryCatalogRepository()
+    repository.save(Product("OLD001", "Producto antiguo", 10))
+    repository.save(Product("KEEP001", "Producto vigente", 20))
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.sync_full_catalog(
+        [Product("KEEP001", "Producto vigente", 20)],
+        expected_products=2,
+    )
+
+    assert result.deleted == 0
+    assert repository.get("OLD001") is not None
+    assert repository.get("KEEP001") is not None

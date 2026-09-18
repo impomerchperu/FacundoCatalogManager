@@ -5,3 +5,4 @@ from dataclasses import dataclass
 class Category:
     name: str
     url: str
+    expected_count: int = 0

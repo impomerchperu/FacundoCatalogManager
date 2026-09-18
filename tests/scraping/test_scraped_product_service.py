@@ -1,42 +1,28 @@
 from models.scraping.scraped_product import ScrapedProduct
-from services.scraping.scraped_product_service import ScrapedProductService
+from services.scraping.scraped_product_persistence_service import (
+    ScrapedProductPersistenceService,
+)
 
 
 class FakeRepository:
     def __init__(self):
-        self.products = {}
+        self.products = []
 
-    def get_by_url(self, url):
-        return self.products.get(url)
-
-    def create(self, product):
-        self.products[product.url] = product
+    def save(self, product):
+        self.products.append(product)
 
 
-class FakeScraper:
-    def scrape(self, url):
-        class Soup:
-            title = type("Title", (), {"text": "Producto Demo"})()
-
-        return Soup()
-
-
-class FakeMapper:
-    def map(self, soup, url):
-
-        return ScrapedProduct(source="test", url=url, name=soup.title.text)
-
-
-def test_scrape_and_save_product():
-
+def test_persistence_service_saves_scraped_products():
     repository = FakeRepository()
+    service = ScrapedProductPersistenceService(repository)
+    product = ScrapedProduct(
+        source="test",
+        url="https://example.com/producto",
+        code="FB-001",
+        name="Producto Demo",
+    )
 
-    service = ScrapedProductService(repository, FakeScraper(), FakeMapper())
+    result = service.save_products([product])
 
-    result = service.scrape_and_save("https://example.com/producto")
-
-    assert result.name == "Producto Demo"
-
-    stored = repository.get_by_url("https://example.com/producto")
-
-    assert stored is not None
+    assert result == [product]
+    assert repository.products == [product]

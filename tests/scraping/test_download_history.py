@@ -101,3 +101,62 @@ def test_history_records_finished_time_as_application_time():
     assert stored.finished_at == history.finished_at
     assert stored.status == "SUCCESS"
     db.close()
+
+
+def test_history_stores_deleted_change_without_field_details():
+    db = DBManager(":memory:")
+    repository = ScrapingHistoryRepository(db)
+    changes = [
+        {
+            "type": "DELETED",
+            "code": "OLD-001",
+            "name": "Producto eliminado",
+            "changes": [],
+        }
+    ]
+
+    history_id = repository.save(_history(), changes, [])
+    stored = repository.get_changes(history_id)
+
+    assert stored == [
+        {
+            "type": "DELETED",
+            "code": "OLD-001",
+            "name": "Producto eliminado",
+            "field": None,
+            "label": "Producto eliminado",
+            "old": "Presente en catálogo",
+            "new": "Ausente en origen",
+        }
+    ]
+    db.close()
+
+
+def test_history_changes_are_sorted_by_product_code():
+    db = DBManager(":memory:")
+    repository = ScrapingHistoryRepository(db)
+    changes = [
+        {"type": "DELETED", "code": "ZZ-003", "name": "Z", "changes": []},
+        {
+            "type": "UPDATED",
+            "code": "AA-001",
+            "name": "A",
+            "changes": [
+                {"field": "stock", "label": "Stock", "old": 1, "new": 2}
+            ],
+        },
+        {
+            "type": "UPDATED",
+            "code": "MM-002",
+            "name": "M",
+            "changes": [
+                {"field": "stock", "label": "Stock", "old": 3, "new": 4}
+            ],
+        },
+    ]
+
+    history_id = repository.save(_history(), changes, [])
+    stored = repository.get_changes(history_id)
+
+    assert [item["code"] for item in stored] == ["AA-001", "MM-002", "ZZ-003"]
+    db.close()

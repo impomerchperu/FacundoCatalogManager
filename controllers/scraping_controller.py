@@ -70,3 +70,7 @@ class ScrapingController:
         return self.session.execute_all(
             progress_callback=progress_callback,
         )
+
+    def close(self) -> None:
+        """Libera los recursos asociados al pipeline de scraping."""
+        self.session.close()

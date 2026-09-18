@@ -52,7 +52,7 @@ def test_history_table_has_expected_columns_after_layout_cleanup():
     dialog.close()
 
 
-def test_history_columns_use_responsive_resize_modes_without_horizontal_scroll():
+def test_history_columns_use_content_width_without_horizontal_scroll():
     _qapp()
     dialog = ScrapingHistoryDialog()
     header = dialog.table.horizontalHeader()
@@ -62,18 +62,45 @@ def test_history_columns_use_responsive_resize_modes_without_horizontal_scroll()
         .name
         == "ScrollBarAlwaysOff"
     )
+    assert dialog.table.textElideMode().name == "ElideNone"
+    assert "padding-left: 3px" in dialog.table.styleSheet()
+    assert "padding-right: 3px" in dialog.table.styleSheet()
 
-    for column in (0, 1, 2, 8, 9):
+    for column in range(dialog.table.columnCount()):
         assert (
             header.sectionResizeMode(column).name
             == "ResizeToContents"
         )
 
-    for column in (3, 4, 5, 6, 7):
-        assert (
-            header.sectionResizeMode(column).name
-            == "Stretch"
-        )
+    dialog.close()
+
+
+def test_history_window_expands_to_fit_content_with_side_padding():
+    _qapp()
+    dialog = ScrapingHistoryDialog()
+    dialog.table.setRowCount(1)
+    dialog.table.setItem(
+        0,
+        5,
+        __import__("PySide6.QtWidgets", fromlist=["QTableWidgetItem"]).QTableWidgetItem(
+            "Texto suficientemente largo para comprobar que la ventana se adapte",
+        ),
+    )
+
+    dialog._fit_table_to_content()
+
+    header = dialog.table.horizontalHeader()
+    margins = dialog.layout().contentsMargins()
+    expected_minimum = (
+        header.length()
+        + (2 * dialog.table.frameWidth())
+        + margins.left()
+        + margins.right()
+    )
+
+    assert header.sectionSize(5) >= 6
+    assert dialog.minimumWidth() >= expected_minimum
+    assert dialog.width() >= dialog.minimumWidth()
 
     dialog.close()
 

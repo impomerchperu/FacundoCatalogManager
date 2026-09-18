@@ -57,7 +57,7 @@ def test_category_progress_tracks_completion_without_reordering_results():
             release_slow.set()
             result = run_future.result(timeout=2)
 
-        assert progress == [(1, 2), (2, 2)]
+        assert progress == [(1, 2), (2, 2), (3, 4), (4, 4)]
         assert [product.category for product in result] == [
             "Categoria Lenta",
             "Categoria Rápida",

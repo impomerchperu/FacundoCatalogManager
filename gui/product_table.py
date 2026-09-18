@@ -65,11 +65,12 @@ class ProductImageDelegate(QStyledItemDelegate):
     """Pinta la imagen sobre todo el rectángulo visible de la celda."""
 
     DEFAULT_SIZE = 160
+    IMAGE_ROLE = int(Qt.ItemDataRole.UserRole) + 1
 
     def paint(self, painter: QPainter, option, index) -> None:
         super().paint(painter, option, index)
 
-        pixmap = index.data(Qt.ItemDataRole.DecorationRole)
+        pixmap = index.data(self.IMAGE_ROLE)
         if not isinstance(pixmap, QPixmap) or pixmap.isNull():
             return
 
@@ -302,10 +303,7 @@ class ProductTable(QTableWidget):
         if product.image_path:
             pixmap = QPixmap(product.image_path)
             if not pixmap.isNull():
-                image_item.setData(
-                    Qt.ItemDataRole.DecorationRole,
-                    pixmap,
-                )
+                image_item.setData(ProductImageDelegate.IMAGE_ROLE, pixmap)
         self.setItem(row, self.IMAGE_COLUMN, image_item)
 
         item_code = QTableWidgetItem(product.code)
@@ -442,6 +440,7 @@ class ProductTable(QTableWidget):
                 preferred_widths,
                 minimum_widths,
                 target_width,
+                growable_columns=set(range(1, self.columnCount())),
             )
 
             self.setMinimumWidth(
@@ -459,51 +458,75 @@ class ProductTable(QTableWidget):
         preferred_widths: list[int],
         minimum_widths: list[int],
         target_width: int,
+        *,
+        growable_columns: set[int],
     ) -> list[int]:
-        preferred_total = sum(preferred_widths)
         minimum_total = sum(minimum_widths)
         target_width = max(target_width, minimum_total)
+        widths = preferred_widths.copy()
 
-        if preferred_total <= target_width:
-            extra_width = target_width - preferred_total
-            if preferred_total <= 0:
-                return minimum_widths.copy()
+        growable_preferred_total = sum(
+            preferred_widths[column] for column in growable_columns
+        )
+        fixed_preferred_total = sum(
+            preferred_width
+            for column, preferred_width in enumerate(preferred_widths)
+            if column not in growable_columns
+        )
+        growable_minimum_total = sum(
+            minimum_widths[column] for column in growable_columns
+        )
+        growable_target = max(
+            target_width - fixed_preferred_total,
+            growable_minimum_total,
+        )
 
-            widths = preferred_widths.copy()
+        if growable_preferred_total <= growable_target:
+            extra_width = growable_target - growable_preferred_total
+            if growable_preferred_total <= 0:
+                return widths
+
             distributed = 0
-            for column, preferred_width in enumerate(preferred_widths):
-                if column == len(preferred_widths) - 1:
+            ordered_columns = sorted(growable_columns)
+            for position, column in enumerate(ordered_columns):
+                if position == len(ordered_columns) - 1:
                     additional = extra_width - distributed
                 else:
                     additional = round(
-                        extra_width * preferred_width / preferred_total,
+                        extra_width
+                        * preferred_widths[column]
+                        / growable_preferred_total,
                     )
                     distributed += additional
                 widths[column] += additional
             return widths
 
         reducible_total = sum(
-            max(width - minimum, 0)
-            for width, minimum in zip(preferred_widths, minimum_widths, strict=True)
+            max(preferred_widths[column] - minimum_widths[column], 0)
+            for column in growable_columns
         )
         if reducible_total <= 0:
-            return minimum_widths.copy()
+            return widths
 
-        reduction_target = preferred_total - target_width
-        widths = preferred_widths.copy()
+        reduction_target = growable_preferred_total - growable_target
         reduced = 0
-        for column, (preferred_width, minimum_width) in enumerate(
-            zip(preferred_widths, minimum_widths, strict=True),
-        ):
-            room = max(preferred_width - minimum_width, 0)
-            if column == len(preferred_widths) - 1:
+        ordered_columns = sorted(growable_columns)
+        for position, column in enumerate(ordered_columns):
+            room = max(
+                preferred_widths[column] - minimum_widths[column],
+                0,
+            )
+            if position == len(ordered_columns) - 1:
                 reduction = reduction_target - reduced
             else:
                 reduction = round(
                     reduction_target * room / reducible_total,
                 )
                 reduced += reduction
-            widths[column] = max(preferred_width - reduction, minimum_width)
+            widths[column] = max(
+                preferred_widths[column] - reduction,
+                minimum_widths[column],
+            )
 
         return widths
 

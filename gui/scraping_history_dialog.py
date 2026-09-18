@@ -150,7 +150,10 @@ class ScrapingHistoryDialog(QDialog):
             )
 
         table_width = header.length() + (2 * self.table.frameWidth())
-        margins = self.layout().contentsMargins()
+        layout = self.layout()
+        if layout is None:
+            return
+        margins = layout.contentsMargins()
         required_width = table_width + margins.left() + margins.right()
         self.setMinimumWidth(required_width)
         if self.width() < required_width:

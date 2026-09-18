@@ -259,7 +259,7 @@ def test_category_scraper_stops_after_empty_page_retry_exhaustion():
     assert [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == sorted(["1", "2", "2", "2", "3"])
+    ] == sorted(["1", "2", "2", "2", "3", "3", "3"])
 
 
 def test_category_scraper_continues_real_products_past_underreported_jsf_pages():

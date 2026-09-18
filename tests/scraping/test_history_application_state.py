@@ -65,3 +65,17 @@ def test_status_displays_error_for_failed_history():
         module.QTableWidgetItem = original
 
     assert captured["text"] == "ERROR"
+
+
+
+def test_history_detail_button_uses_last_visible_column():
+    from PySide6.QtWidgets import QApplication, QTableWidget
+
+    app = QApplication.instance() or QApplication([])
+    table = QTableWidget(1, 12)
+    dialog = SimpleNamespace(table=table)
+
+    ScrapingHistoryDialog._set_detail_button(dialog, 0, 42)
+    app.processEvents()
+
+    assert table.cellWidget(0, 11) is not None

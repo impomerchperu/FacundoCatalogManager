@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
 from urllib.parse import urljoin
 
@@ -229,6 +230,43 @@ def _walk_jsf_page(
     return _retry_jsf_page(scraper, category_url, category_id, page)
 
 
+def _walk_jsf_page_batch(
+    scraper: CategoryScraper,
+    category_url: str,
+    category_id: int,
+    page_numbers: list[int],
+) -> dict[int, tuple[int, int, str]]:
+    """Fetch a bounded batch of JSF pages concurrently while preserving page keys."""
+    if not page_numbers:
+        return {}
+
+    worker_count = max(
+        1,
+        min(
+            int(getattr(scraper, "JSF_PAGE_WORKERS", 1) or 1),
+            len(page_numbers),
+        ),
+    )
+    if worker_count == 1:
+        return {
+            page: _walk_jsf_page(scraper, category_url, category_id, page)
+            for page in page_numbers
+        }
+
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures = {
+            page: executor.submit(
+                _walk_jsf_page,
+                scraper,
+                category_url,
+                category_id,
+                page,
+            )
+            for page in page_numbers
+        }
+        return {page: futures[page].result() for page in page_numbers}
+
+
 def _probe_jsf_page(
     scraper: CategoryScraper,
     category_url: str,
@@ -424,39 +462,44 @@ def _jsf_category_pages_with_probe(
             scraper._jsf_page_cache[(category_url, 1)] = first_html
 
     page_number = 2
+    worker_count = max(1, int(getattr(scraper, "JSF_PAGE_WORKERS", 1) or 1))
     while page_number <= known_pages:
-        page_url = scraper._jsf_page_url(category_url, page_number)
-        page_found, page_max, rendered_html = _walk_jsf_page(
+        batch_end = min(page_number + worker_count - 1, known_pages)
+        batch_pages = list(range(page_number, batch_end + 1))
+        batch_results = _walk_jsf_page_batch(
             scraper,
             category_url,
             category_id,
-            page_number,
+            batch_pages,
         )
-        if not rendered_html:
-            raise RuntimeError(
-                f"Empty JSF pagination page {page_number} for {category_url}"
+        for current_page in batch_pages:
+            page_url = scraper._jsf_page_url(category_url, current_page)
+            page_found, page_max, rendered_html = batch_results[current_page]
+            if not rendered_html:
+                raise RuntimeError(
+                    f"Empty JSF pagination page {current_page} for {category_url}"
+                )
+            current_product_keys = _page_product_keys(scraper, rendered_html, page_url)
+            if not current_product_keys:
+                raise RuntimeError(
+                    f"No products found on JSF pagination page {current_page} for {category_url}"
+                )
+            new_product_keys = current_product_keys - seen_product_keys
+            if not new_product_keys:
+                raise RuntimeError(
+                    f"Repeated JSF pagination page {current_page} for {category_url}"
+                )
+            seen_product_keys.update(current_product_keys)
+            scraper._cache_category_html(page_url, rendered_html)
+            pages.append(page_url)
+            known_pages = max(
+                known_pages,
+                scraper._required_page_count(page_found),
+                page_max,
+                scraper._declared_total_pages(rendered_html),
+                scraper._pagination_max_page(rendered_html),
             )
-        current_product_keys = _page_product_keys(scraper, rendered_html, page_url)
-        if not current_product_keys:
-            raise RuntimeError(
-                f"No products found on JSF pagination page {page_number} for {category_url}"
-            )
-        new_product_keys = current_product_keys - seen_product_keys
-        if not new_product_keys:
-            raise RuntimeError(
-                f"Repeated JSF pagination page {page_number} for {category_url}"
-            )
-        seen_product_keys.update(current_product_keys)
-        scraper._cache_category_html(page_url, rendered_html)
-        pages.append(page_url)
-        known_pages = max(
-            known_pages,
-            scraper._required_page_count(page_found),
-            page_max,
-            scraper._declared_total_pages(rendered_html),
-            scraper._pagination_max_page(rendered_html),
-        )
-        page_number += 1
+        page_number = batch_end + 1
 
     boundary_page = known_pages + 1
     has_new_products, new_product_keys, boundary_found, boundary_max = _probe_boundary_page(
@@ -476,38 +519,42 @@ def _jsf_category_pages_with_probe(
         )
         page_number = boundary_page + 1
         while page_number <= known_pages:
-            page_url = scraper._jsf_page_url(category_url, page_number)
-            page_found, page_max, rendered_html = _walk_jsf_page(
+            batch_end = min(page_number + worker_count - 1, known_pages)
+            batch_pages = list(range(page_number, batch_end + 1))
+            batch_results = _walk_jsf_page_batch(
                 scraper,
                 category_url,
                 category_id,
-                page_number,
+                batch_pages,
             )
-            if not rendered_html:
-                raise RuntimeError(
-                    f"Empty JSF pagination page {page_number} for {category_url}"
+            for current_page in batch_pages:
+                page_url = scraper._jsf_page_url(category_url, current_page)
+                page_found, page_max, rendered_html = batch_results[current_page]
+                if not rendered_html:
+                    raise RuntimeError(
+                        f"Empty JSF pagination page {current_page} for {category_url}"
+                    )
+                current_product_keys = _page_product_keys(scraper, rendered_html, page_url)
+                if not current_product_keys:
+                    raise RuntimeError(
+                        f"No products found on JSF pagination page {current_page} for {category_url}"
+                    )
+                new_product_keys = current_product_keys - seen_product_keys
+                if not new_product_keys:
+                    raise RuntimeError(
+                        f"Repeated JSF pagination page {current_page} for {category_url}"
+                    )
+                seen_product_keys.update(current_product_keys)
+                scraper._cache_category_html(page_url, rendered_html)
+                pages.append(page_url)
+                known_pages = max(
+                    known_pages,
+                    scraper._required_page_count(page_found),
+                    page_max,
+                    scraper._declared_total_pages(rendered_html),
+                    scraper._pagination_max_page(rendered_html),
                 )
-            current_product_keys = _page_product_keys(scraper, rendered_html, page_url)
-            if not current_product_keys:
-                raise RuntimeError(
-                    f"No products found on JSF pagination page {page_number} for {category_url}"
-                )
-            new_product_keys = current_product_keys - seen_product_keys
-            if not new_product_keys:
-                raise RuntimeError(
-                    f"Repeated JSF pagination page {page_number} for {category_url}"
-                )
-            seen_product_keys.update(current_product_keys)
-            scraper._cache_category_html(page_url, rendered_html)
-            pages.append(page_url)
-            known_pages = max(
-                known_pages,
-                scraper._required_page_count(page_found),
-                page_max,
-                scraper._declared_total_pages(rendered_html),
-                scraper._pagination_max_page(rendered_html),
-            )
-            page_number += 1
+            page_number = batch_end + 1
     return pages
 
 

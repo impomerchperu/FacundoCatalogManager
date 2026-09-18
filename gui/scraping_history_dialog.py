@@ -160,64 +160,88 @@ class ScrapingHistoryDialog(QDialog):
         header = self.table.horizontalHeader()
         self._is_fitting_columns = True
         try:
-            for column in range(self.table.columnCount()):
-                header.setSectionResizeMode(
-                    column,
-                    QHeaderView.ResizeMode.Interactive,
-                )
-
-            self.table.resizeColumnsToContents()
-            padding = 2 * self.CONTENT_SIDE_PADDING
-            minimum_widths = []
-
-            for column in range(self.table.columnCount()):
-                width = max(header.sectionSize(column), 1)
-                for row in range(self.table.rowCount()):
-                    widget = self.table.cellWidget(row, column)
-                    if widget is not None:
-                        width = max(width, widget.sizeHint().width())
-                minimum_widths.append(width + padding)
-
+            self._prepare_column_resize_modes(header)
+            minimum_widths = self._calculate_minimum_column_widths(header)
             content_width = sum(minimum_widths)
-            frame_width = 2 * self.table.frameWidth()
-            vertical_scrollbar = (
-                self.table.verticalScrollBar().width()
-                if self.table.verticalScrollBar().isVisible()
-                else 0
+            required_width = self._calculate_required_window_width(
+                content_width,
+                layout.contentsMargins(),
             )
-            margins = layout.contentsMargins()
-            required_width = (
-                content_width
-                + frame_width
-                + vertical_scrollbar
-                + margins.left()
-                + margins.right()
-            )
-
             self.setMinimumWidth(required_width)
             if expand_window and self.width() < required_width:
                 self.resize(required_width, self.height())
 
             available_width = max(self.table.viewport().width(), content_width)
-            extra_width = available_width - content_width
-            widths = minimum_widths.copy()
-
-            if extra_width > 0 and content_width > 0:
-                distributed = 0
-                for column, minimum_width in enumerate(minimum_widths):
-                    if column == len(minimum_widths) - 1:
-                        additional = extra_width - distributed
-                    else:
-                        additional = round(
-                            extra_width * minimum_width / content_width,
-                        )
-                        distributed += additional
-                    widths[column] += additional
-
+            widths = self._distribute_extra_width(minimum_widths, available_width)
             for column, width in enumerate(widths):
                 header.resizeSection(column, width)
         finally:
             self._is_fitting_columns = False
+
+    def _prepare_column_resize_modes(self, header: QHeaderView) -> None:
+        for column in range(self.table.columnCount()):
+            header.setSectionResizeMode(
+                column,
+                QHeaderView.ResizeMode.Interactive,
+            )
+        self.table.resizeColumnsToContents()
+
+    def _calculate_minimum_column_widths(
+        self,
+        header: QHeaderView,
+    ) -> list[int]:
+        padding = 2 * self.CONTENT_SIDE_PADDING
+        minimum_widths = []
+        for column in range(self.table.columnCount()):
+            width = max(header.sectionSize(column), 1)
+            for row in range(self.table.rowCount()):
+                widget = self.table.cellWidget(row, column)
+                if widget is not None:
+                    width = max(width, widget.sizeHint().width())
+            minimum_widths.append(width + padding)
+        return minimum_widths
+
+    def _calculate_required_window_width(
+        self,
+        content_width: int,
+        margins,
+    ) -> int:
+        frame_width = 2 * self.table.frameWidth()
+        vertical_scrollbar = (
+            self.table.verticalScrollBar().width()
+            if self.table.verticalScrollBar().isVisible()
+            else 0
+        )
+        return (
+            content_width
+            + frame_width
+            + vertical_scrollbar
+            + margins.left()
+            + margins.right()
+        )
+
+    def _distribute_extra_width(
+        self,
+        minimum_widths: list[int],
+        available_width: int,
+    ) -> list[int]:
+        content_width = sum(minimum_widths)
+        extra_width = available_width - content_width
+        widths = minimum_widths.copy()
+        if extra_width <= 0 or content_width <= 0:
+            return widths
+
+        distributed = 0
+        for column, minimum_width in enumerate(minimum_widths):
+            if column == len(minimum_widths) - 1:
+                additional = extra_width - distributed
+            else:
+                additional = round(
+                    extra_width * minimum_width / content_width,
+                )
+                distributed += additional
+            widths[column] += additional
+        return widths
 
     @staticmethod
     def _status_text(record) -> str:

@@ -45,3 +45,20 @@ def test_scraping_dialog_shows_session_result_without_attribute_error(monkeypatc
     assert "Brecha por categorías: 0" in shown["message"]
 
     dialog.close()
+
+def test_scraping_dialog_hides_during_running_scraping(monkeypatch):
+    app = _qapp()
+    parent = ScrapingDialog()
+    parent.show()
+
+    monkeypatch.setattr(
+        "PySide6.QtCore.QThread.start",
+        lambda self: None,
+    )
+
+    parent.start_scraping()
+
+    assert not parent.isVisible()
+
+    parent.close()
+    app.processEvents()

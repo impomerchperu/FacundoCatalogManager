@@ -1,5 +1,7 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
+from gui.main_window import MainWindow
 from gui.scraping_dialog import ScrapingDialog
 from services.scraping.scraping_session import ScrapingSessionResult
 
@@ -47,13 +49,15 @@ def test_scraping_dialog_shows_session_result_without_attribute_error(monkeypatc
     dialog.close()
 
 
-def test_scraping_dialog_hides_during_running_scraping(monkeypatch):
-
+def test_scraping_dialog_remains_visible_as_independent_window(monkeypatch):
     app = _qapp()
     main_window = QWidget()
-    dialog = ScrapingDialog(main_window)
+    dialog = ScrapingDialog()
     main_window.show()
     dialog.show()
+
+    assert dialog.parentWidget() is None
+    assert dialog.windowFlags() & Qt.WindowType.Window
 
     monkeypatch.setattr(
         "PySide6.QtCore.QThread.start",
@@ -63,8 +67,47 @@ def test_scraping_dialog_hides_during_running_scraping(monkeypatch):
     dialog.start_scraping()
     app.processEvents()
 
-    assert not dialog.isVisible()
+    assert dialog.isVisible()
+    assert main_window.isVisible()
 
     dialog.close()
     main_window.close()
     app.processEvents()
+
+
+def test_main_window_creates_scraping_as_independent_window(monkeypatch):
+    created = []
+
+    class FakeSignal:
+        def connect(self, callback):
+            del callback
+
+    class FakeDialog:
+        finished_success = FakeSignal()
+        finished = FakeSignal()
+
+        def setModal(self, value):
+            del value
+
+        def show(self):
+            pass
+
+        def raise_(self):
+            pass
+
+        def activateWindow(self):
+            pass
+
+    def factory(*args):
+        created.append(args)
+        return FakeDialog()
+
+    monkeypatch.setattr("gui.main_window.ScrapingDialog", factory)
+
+    window = MainWindow.__new__(MainWindow)
+    window.scraping_dialog = None
+
+    MainWindow.open_scraping(window)
+
+    assert created == [()]
+    assert isinstance(window.scraping_dialog, FakeDialog)

@@ -35,7 +35,7 @@ La configuración de producción actual es:
 - HTTP: `28` workers.
 - JetSmartFilters HTTP: `8` de concurrencia.
 
-El valor de 16 workers de detalle fue seleccionado tras benchmarks en el sitio real con corridas cruzadas frente a 24 workers. La validación funcional autoritativa pendiente es una nueva ejecución FULL bajo esta configuración.
+El valor de 16 workers de detalle fue seleccionado tras benchmarks en el sitio real con corridas cruzadas frente a 24 workers. La validación E2E de producción bajo esta configuración ya está completada: `24 / 534 / 530 / 4`, DB `530 / 534`, historial aplicado y duración de `113.97s` en SQLite aislada.
 
 ## Historial
 
@@ -79,6 +79,6 @@ El workflow de GitHub Actions ejecuta Ruff, Pyright y Pytest automáticamente. L
 
 ## Estado validado de la rama
 
-En la rama `feature/scraping-performance-recovery` se ha validado el flujo completo de scraping, persistencia y bootstrap con cobertura FULL `534 / 530 / 4`, catálogo reconciliado `530 / 534`, historial persistente y suite automatizada en verde.
+En la rama `feature/scraping-performance-recovery` se ha validado el flujo completo de scraping, persistencia y bootstrap con cobertura FULL `534 / 530 / 4`, catálogo reconciliado `530 / 534`, historial persistente, E2E de producción bajo `8 / 16 / 28` y suite automatizada en verde.
 
 Las optimizaciones de rendimiento posteriores deben conservar siempre esas invariantes antes de considerar cualquier cambio como válido.

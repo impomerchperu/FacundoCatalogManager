@@ -2,7 +2,7 @@ import json
 import sqlite3
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QApplication,
@@ -41,7 +41,7 @@ class ScrapingHistoryDialog(QDialog):
         self._center_on_parent()
         self.raise_()
         self.activateWindow()
-        QTimer.singleShot(0, self.load_history)
+        self.load_history()
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -73,6 +73,7 @@ class ScrapingHistoryDialog(QDialog):
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.cellDoubleClicked.connect(self.show_details)
+
 
         layout.addWidget(self.table)
 
@@ -111,17 +112,14 @@ class ScrapingHistoryDialog(QDialog):
             duration = self._format_duration(started_at, finished_at)
 
             self._set_item(row, 0, str(record.history_id), record.history_id)
-            self._set_item(
-                row,
-                1,
-                f"{self._format_datetime(started_at)}\n{duration}",
-            )
-            self._set_item(row, 2, str(record.processed))
-            self._set_item(row, 3, str(record.created))
-            self._set_item(row, 4, str(record.updated))
-            self._set_item(row, 5, str(record.unchanged))
-            self._set_item(row, 6, str(record.deleted))
-            self._set_status_item(row, 7, record)
+            self._set_item(row, 1, self._format_datetime(started_at))
+            self._set_item(row, 2, duration)
+            self._set_item(row, 3, str(record.processed))
+            self._set_item(row, 4, str(record.created))
+            self._set_item(row, 5, str(record.updated))
+            self._set_item(row, 6, str(record.unchanged))
+            self._set_item(row, 7, str(record.deleted))
+            self._set_status_item(row, 8, record)
             self._set_detail_button(row, record.history_id)
             self.table.setRowHeight(row, 44)
 

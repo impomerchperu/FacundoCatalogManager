@@ -295,8 +295,8 @@ class ProductTable(QTableWidget):
         self.setRowCount(len(products))
         for row, product in enumerate(products):
             self._add_product_row(row, product)
-        self._adjust_table_rows()
         self._fit_columns_to_content()
+        self._adjust_table_rows()
 
     def _add_product_row(self, row: int, product: Product) -> None:
         image = ProductImageLabel()

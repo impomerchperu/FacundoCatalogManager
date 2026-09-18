@@ -3,8 +3,8 @@ from __future__ import annotations
 import copy
 import os
 import sys
-from time import perf_counter
 from pathlib import Path
+from time import perf_counter
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -132,7 +132,11 @@ def main() -> int:
     print("EXPECTED:", category.expected_count)
 
     discovery_started = perf_counter()
-    collected = category_scraper.collect_category(category)
+    collection = _build_collection(category_scraper, max(DEFAULT_WORKERS))
+    try:
+        collected = collection.collect_category(category)
+    finally:
+        collection.close()
     discovery_seconds = perf_counter() - discovery_started
 
     print("COLLECTED:", len(collected))

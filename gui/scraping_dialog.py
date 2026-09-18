@@ -19,6 +19,7 @@ class ScrapingDialog(QDialog):
     """Ventana manual de actualización del catálogo."""
 
     finished_success = Signal()
+    catalog_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -29,6 +30,7 @@ class ScrapingDialog(QDialog):
         self.pending_error: str | None = None
         self.detail_dialog: QDialog | None = None
         self.elapsed_timer = QElapsedTimer()
+        self.category_total = 0
         self.elapsed_clock = QTimer(self)
         self.elapsed_clock.setInterval(250)
         self.elapsed_clock.timeout.connect(self.update_elapsed_status)
@@ -52,6 +54,10 @@ class ScrapingDialog(QDialog):
         self.status_label.setWordWrap(True)
         layout.addWidget(self.status_label)
 
+        self.summary_label = QLabel("")
+        self.summary_label.setWordWrap(True)
+        layout.addWidget(self.summary_label)
+
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
         self.progress.setFormat("%p%")
@@ -67,6 +73,10 @@ class ScrapingDialog(QDialog):
         self.details_button.setEnabled(False)
         self.details_button.clicked.connect(self.show_result_details)
         buttons.addWidget(self.details_button)
+
+        self.catalog_button = QPushButton("Ver catálogo")
+        self.catalog_button.clicked.connect(self.show_catalog)
+        buttons.addWidget(self.catalog_button)
 
         close_button = QPushButton("Cerrar")
         close_button.clicked.connect(self.close)
@@ -85,7 +95,10 @@ class ScrapingDialog(QDialog):
         self.start_button.setEnabled(False)
         self.details_button.setEnabled(False)
         self.progress.setValue(0)
-        self.status_label.setText("Preparando actualización... 0%")
+        self.summary_label.clear()
+        self.status_label.setText(
+            "Preparando actualización • recorriendo categorías • 0% • 00:00",
+        )
         self.pending_result = None
         self.pending_error = None
         self.elapsed_timer.start()
@@ -105,6 +118,12 @@ class ScrapingDialog(QDialog):
         self.scraping_thread.finished.connect(self.thread_finished)
         self.scraping_thread.start()
 
+        parent_window = self.parentWidget()
+        if parent_window is not None:
+            catalog_button = getattr(parent_window, "catalog_button", None)
+            if catalog_button is not None:
+                catalog_button.setText("Ver progreso")
+
         # Un QDialog hijo de la ventana principal puede permanecer visualmente
         # por encima de su parent en Windows aunque sea no modal. Durante el
         # scraping ocultamos esta ventana para que el catálogo quede realmente
@@ -122,25 +141,57 @@ class ScrapingDialog(QDialog):
         if total <= 0:
             return
 
+        self.category_total = max(total // 2, 1)
         value = min(100, int(current * 100 / total))
         self.progress.setValue(value)
-        elapsed = self._format_elapsed()
-        self.status_label.setText(
-            f"Extracción en curso • {value}% • {elapsed}",
-        )
+        self.status_label.setText(self._progress_text(current, total, value))
 
     def update_elapsed_status(self) -> None:
         if self.scraping_thread is None or not self.scraping_thread.isRunning():
             return
 
+        value = self.progress.value()
         elapsed = self._format_elapsed()
+        if value == 0:
+            stage = "Descubriendo categorías"
+        elif self.category_total and value < 50:
+            stage = "Recorrido de categorías"
+        elif value < 100:
+            stage = "Enriquecimiento y sincronización"
+        else:
+            stage = "Finalizando"
         self.status_label.setText(
-            f"Actualización en curso • {self.progress.value()}% "
-            f"• {elapsed}",
+            f"{stage} • {value}% • {elapsed}",
+        )
+
+    def _progress_text(self, current: int, total: int, value: int) -> str:
+        category_total = max(total // 2, 1)
+        if current <= 0:
+            return f"Descubriendo categorías • {value}% • {self._format_elapsed()}"
+        if current < category_total:
+            return (
+                f"Recorrido de categorías: {current}/{category_total} "
+                f"• {value}% • {self._format_elapsed()}"
+            )
+        if current == category_total:
+            return (
+                f"Recorrido de categorías: {category_total}/{category_total} "
+                f"• preparando enriquecimiento • {value}% • "
+                f"{self._format_elapsed()}"
+            )
+        enriched = min(current - category_total, category_total)
+        if current >= total:
+            return (
+                f"Enriquecimiento: {enriched}/{category_total} "
+                f"• 100% • {self._format_elapsed()}"
+            )
+        return (
+            f"Enriquecimiento: {enriched}/{category_total} "
+            f"• {value}% • {self._format_elapsed()}"
         )
 
     def scraping_finished(self, result) -> None:
-        """Recibe el resultado del worker; la actualización de la GUI se difiere."""
+        """Recibe el resultado del worker y lo deja visible sin un diálogo modal."""
         self.pending_result = result
         self.progress.setValue(100)
         self.elapsed_clock.stop()
@@ -202,30 +253,37 @@ class ScrapingDialog(QDialog):
         multi = result.products_multiple_categories
         gap = result.category_occurrence_gap
         errors = len(result.errors)
-        QMessageBox.information(
-            self,
-            "Resumen actualización",
+        self.summary_label.setText(
             (
-                f"Estado: {state}\n\n"
-                f"Categorías: {result.categories_processed}\n"
-                f"Apariciones esperadas por categorías: {expected}\n"
-                f"Apariciones encontradas: {found}\n"
-                f"Productos únicos: {unique}\n"
-                f"Múltiples categorías: {multi}\n"
-                f"Brecha por categorías: {gap}\n"
-                f"Códigos sin código: {result.missing_code}\n"
-                f"Cobertura: {coverage}\n"
-                f"Conteos consistentes: {consistency}\n"
-                f"Errores: {errors}\n\n"
-                f"Procesados: {result.processed}\n"
-                f"Nuevos: {result.created}\n"
-                f"Actualizados: {result.updated}\n"
-                f"Sin cambios: {result.unchanged}\n"
-                f"Total clasificado: {result.classified_total}\n\n"
-                "Use 'Ver detalle' para revisar los productos nuevos "
-                "y las variaciones detectadas."
+                f"<b>Estado: {state}</b><br>"
+                f"Categorías: {result.categories_processed} &nbsp;|&nbsp; "
+                f"Esperadas: {expected} &nbsp;|&nbsp; "
+                f"Encontradas: {found} &nbsp;|&nbsp; "
+                f"Únicos: {unique} &nbsp;|&nbsp; "
+                f"Múltiples categorías: {multi} &nbsp;|&nbsp; "
+                f"Brecha: {gap}<br>"
+                f"Cobertura: {coverage} &nbsp;|&nbsp; "
+                f"Conteos consistentes: {consistency} &nbsp;|&nbsp; "
+                f"Errores: {errors}<br>"
+                f"Procesados: {result.processed} &nbsp;|&nbsp; "
+                f"Nuevos: {result.created} &nbsp;|&nbsp; "
+                f"Actualizados: {result.updated} &nbsp;|&nbsp; "
+                f"Sin cambios: {result.unchanged}<br>"
+                "Los detalles de los cambios están disponibles inmediatamente "
+                "en 'Ver detalle'."
             ),
         )
+
+    def show_catalog(self) -> None:
+        self.hide()
+        self.catalog_requested.emit()
+        parent_window = self.parentWidget()
+        if parent_window is not None:
+            parent_window.raise_()
+            parent_window.activateWindow()
+            table = getattr(parent_window, "table", None)
+            if table is not None:
+                table.setFocus()
 
     def show_result_details(self) -> None:
         result = self.pending_result

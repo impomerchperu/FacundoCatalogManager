@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
+from PySide6.QtWidgets import QApplication, QWidget
 
 from gui.scraping_dialog import ScrapingDialog
 from services.scraping.scraping_session import ScrapingSessionResult
@@ -29,26 +29,17 @@ def _result(*, success: bool = True) -> ScrapingSessionResult:
 def test_scraping_dialog_shows_session_result_without_attribute_error(monkeypatch):
     _qapp()
     dialog = ScrapingDialog()
-    shown = {}
-
-    monkeypatch.setattr(
-        QMessageBox,
-        "information",
-        lambda *args: shown.setdefault("message", args[2]),
-    )
-
     dialog.show_result(_result())
 
-    assert "Estado: COMPLETADA" in shown["message"]
-    assert "Categorías: 1" in shown["message"]
-    assert "Apariciones esperadas por categorías: 2" in shown["message"]
-    assert "Brecha por categorías: 0" in shown["message"]
+    assert "Estado: COMPLETADA" in dialog.summary_label.text()
+    assert "Categorías: 1" in dialog.summary_label.text()
+    assert "Esperadas: 2" in dialog.summary_label.text()
+    assert "Brecha: 0" in dialog.summary_label.text()
 
     dialog.close()
 
 
 def test_scraping_dialog_hides_during_running_scraping(monkeypatch):
-
     app = _qapp()
     main_window = QWidget()
     dialog = ScrapingDialog(main_window)
@@ -64,6 +55,7 @@ def test_scraping_dialog_hides_during_running_scraping(monkeypatch):
     app.processEvents()
 
     assert not dialog.isVisible()
+    assert main_window.isVisible()
 
     dialog.close()
     main_window.close()

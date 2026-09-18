@@ -223,7 +223,7 @@ class ScrapingHistoryDialog(QDialog):
         button.setProperty("history_id", history_id)
         button.clicked.connect(self.show_row_details)
         layout.addWidget(button)
-        self.table.setCellWidget(row, 12, container)
+        self.table.setCellWidget(row, 11, container)
 
     def show_row_details(self) -> None:
         button = self.sender()

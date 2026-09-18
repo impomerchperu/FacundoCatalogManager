@@ -6,7 +6,7 @@ Branch: `feature/scraping-performance-recovery`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Full suite: `397 passed, 1 skipped, 9 deselected`
+- [x] Full suite: `398 passed, 1 skipped, 9 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -163,7 +163,7 @@ Per-category enrichment now exposes diagnostic timing without changing scraping 
 
 `CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`.
 
-The contract is covered by a focused unit test and the complete local suite remains green at `397 passed, 1 skipped, 9 deselected`.
+The contract is covered by a focused unit test and the complete local suite remains green at `398 passed, 1 skipped, 9 deselected`.
 
 This instrumentation is diagnostic only. It does not change coverage, product selection, persistence, prune behavior or retry semantics.
 
@@ -231,7 +231,7 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 
 ### 4. Calidad
 
-- [x] Full suite: `397 passed, 1 skipped, 9 deselected`
+- [x] Full suite: `398 passed, 1 skipped, 9 deselected`
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`

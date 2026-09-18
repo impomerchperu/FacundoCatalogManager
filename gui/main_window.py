@@ -459,7 +459,9 @@ class MainWindow(QMainWindow):
                 self.scraping_dialog.raise_()
                 self.scraping_dialog.activateWindow()
             return
-        self.scraping_dialog = ScrapingDialog(self)
+        # El progreso es una ventana independiente, no una ventana hija del
+        # catálogo. Así puede alternarse con MainWindow mediante clic o Alt+Tab.
+        self.scraping_dialog = ScrapingDialog()
         self.scraping_dialog.finished_success.connect(self.scraping_finished)
         self.scraping_dialog.finished.connect(self.scraping_dialog_closed)
         self.scraping_dialog.setModal(False)

@@ -35,7 +35,6 @@ class ScrapingHistoryDialog(QDialog):
         self.setWindowTitle("Historial de descargas")
         self.resize(940, 660)
         self._build_ui()
-        QTimer.singleShot(0, self.load_history)
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -74,6 +73,7 @@ class ScrapingHistoryDialog(QDialog):
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.cellDoubleClicked.connect(self.show_details)
+
         layout.addWidget(self.table)
 
         buttons = QHBoxLayout()
@@ -90,6 +90,8 @@ class ScrapingHistoryDialog(QDialog):
         layout.addLayout(buttons)
 
     def load_history(self) -> None:
+        if not self.isVisible():
+            return
         try:
             history = self.repository.get_all()
         except (sqlite3.Error, TypeError, ValueError, KeyError) as error:

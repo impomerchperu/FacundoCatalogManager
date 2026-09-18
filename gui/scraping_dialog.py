@@ -202,6 +202,11 @@ class ScrapingDialog(QDialog):
 
     def scraping_error(self, message: str) -> None:
         self.pending_error = message
+        parent_window = self.parentWidget()
+        if parent_window is not None:
+            catalog_button = getattr(parent_window, "catalog_button", None)
+            if catalog_button is not None:
+                catalog_button.setText("Actualizar catálogo")
         self.elapsed_clock.stop()
         self.status_label.setText(
             f"La actualización terminó con errores • "

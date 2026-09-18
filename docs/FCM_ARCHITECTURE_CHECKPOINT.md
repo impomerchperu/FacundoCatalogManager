@@ -168,11 +168,11 @@ This instrumentation is diagnostic only. It does not change coverage, product se
 
 ## PERFORMANCE STATUS
 
-Performance remains secondary to correctness. The current production configuration is `8 / 16 / 28`. The authoritative `24 / 534 / 530 / 4` result remains the functional reference from the prior complete FULL; a new complete FULL under `8 / 16 / 28` is the remaining release gate.
+Performance remains secondary to correctness. The current production configuration is `8 / 16 / 28`. A real production-style E2E has now validated the complete scrape-to-SQLite-to-history path under this configuration with `24 / 534 / 530 / 4` and DB `530 / 534`.
 
 No single wall-clock number is treated as a functional requirement because the live site and network are variable. Any runtime optimization must be isolated, benchmarked and followed by another authoritative FULL validation.
 
-The enrichment instrumentation is now in place, so the next performance experiment can isolate category discovery/page loading from product-detail enrichment using per-category timing evidence rather than aggregate wall-clock guesses.
+The enrichment instrumentation and the crossed 16/24 worker benchmark are complete. Further performance work is optional and should be isolated from the validated release baseline.
 
 SQLite transaction-scope optimization is not currently a correctness blocker. A dedicated contention/latency benchmark is optional and should be triggered only by concrete evidence of SQLite contention.
 
@@ -230,7 +230,7 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 
 ### 4. Calidad
 
-- [x] Full suite: `387 passed, 1 skipped, 9 deselected`
+- [x] Full suite: `392 passed, 1 skipped, 9 deselected`
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`
@@ -267,7 +267,7 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 - [x] Authoritative real-site scrape validated under production `8 / 16 / 28`
 - [x] Per-category enrichment timing telemetry instrumented and tested
 - [x] Benchmark: isolate detail worker behavior with crossed live runs
-- [ ] Final FULL: revalidate coverage and persistence under `8 / 16 / 28`
+- [x] Final production E2E: revalidate coverage and persistence under `8 / 16 / 28`
 - [ ] Re-run authoritative FULL after any runtime performance change
 
 ## RELEASE POSITION

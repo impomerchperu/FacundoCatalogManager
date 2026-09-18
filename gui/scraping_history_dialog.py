@@ -3,8 +3,9 @@ import sqlite3
 from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QBrush, QColor, QFont
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QApplication,
     QDialog,
     QHBoxLayout,
     QHeaderView,
@@ -32,12 +33,13 @@ class ScrapingHistoryDialog(QDialog):
         self.repository = ScrapingHistoryRepository(self.db)
         self.detail_dialog: QDialog | None = None
         self.setWindowTitle("Historial de descargas")
-        self.resize(1550, 660)
+        self.resize(940, 660)
         self._build_ui()
         QTimer.singleShot(0, self.load_history)
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
+        self._center_on_parent()
         self.raise_()
         self.activateWindow()
         QTimer.singleShot(0, self.load_history)
@@ -49,21 +51,17 @@ class ScrapingHistoryDialog(QDialog):
         layout.addWidget(title)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(13)
+        self.table.setColumnCount(9)
         self.table.setHorizontalHeaderLabels(
             [
                 "ID",
-                "Fecha de descarga",
-                "Duración",
+                "Fecha y duración",
                 "Procesados",
                 "Nuevos",
                 "Actualizados",
                 "Sin cambios",
                 "Eliminados",
-                "Cobertura",
-                "Errores",
                 "Estado",
-                "Aplicación",
                 "Detalle",
             ],
         )
@@ -90,7 +88,6 @@ class ScrapingHistoryDialog(QDialog):
     def load_history(self) -> None:
         try:
             history = self.repository.get_all()
-            latest_applied_id = self._latest_applied_history_id(history)
         except (sqlite3.Error, TypeError, ValueError, KeyError) as error:
             self.table.setRowCount(1)
             self.table.setItem(
@@ -108,129 +105,56 @@ class ScrapingHistoryDialog(QDialog):
             duration = self._format_duration(started_at, finished_at)
 
             self._set_item(row, 0, str(record.history_id), record.history_id)
-            self._set_item(row, 1, self._format_datetime(started_at))
-            self._set_item(row, 2, duration)
-            self._set_item(row, 3, str(record.processed))
-            self._set_item(row, 4, str(record.created))
-            self._set_item(row, 5, str(record.updated))
-            self._set_item(row, 6, str(record.unchanged))
-            self._set_item(row, 7, str(record.deleted))
-
-            coverage_item = QTableWidgetItem(self._coverage_text(record))
-            coverage_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            coverage_item.setToolTip(self._coverage_tooltip(record))
-            self.table.setItem(row, 8, coverage_item)
-
-            self._set_item(row, 9, str(record.errors))
-            self._set_status_item(row, 10, record)
-            self._set_application_item(row, 11, record, latest_applied_id)
+            self._set_item(
+                row,
+                1,
+                f"{self._format_datetime(started_at)}\n{duration}",
+            )
+            self._set_item(row, 2, str(record.processed))
+            self._set_item(row, 3, str(record.created))
+            self._set_item(row, 4, str(record.updated))
+            self._set_item(row, 5, str(record.unchanged))
+            self._set_item(row, 6, str(record.deleted))
+            self._set_status_item(row, 7, record)
             self._set_detail_button(row, record.history_id)
             self.table.setRowHeight(row, 44)
 
         self.table.resizeColumnsToContents()
         widths = {
             0: 70,
-            1: 165,
-            2: 90,
-            3: 80,
-            4: 70,
-            5: 95,
-            6: 90,
+            1: 255,
+            2: 80,
+            3: 70,
+            4: 95,
+            5: 90,
+            6: 85,
             7: 85,
-            8: 250,
-            9: 65,
-            10: 85,
-            11: 175,
-            12: 110,
+            8: 110,
         }
         for column, width in widths.items():
             self.table.setColumnWidth(column, width)
+        self._fit_window_to_table()
 
     @staticmethod
-    def _latest_applied_history_id(history) -> int | None:
-        applied = [
-            int(record.history_id)
-            for record in history
-            if record.history_id is not None
-            and record.status == "SUCCESS"
-            and getattr(record, "applied_at", None) is not None
-        ]
-        return max(applied) if applied else None
-
-    @staticmethod
-    def _coverage_text(record) -> str:
-        categories = max(
-            int(getattr(record, "categories_processed", 0) or 0),
-            len(getattr(record, "category_summary", []) or []),
+    def _status_text(record) -> str:
+        if record.status != "SUCCESS":
+            return "ERROR"
+        applied_at = ScrapingHistoryDialog._parse_datetime(
+            getattr(record, "applied_at", None) or record.finished_at,
         )
-        return (
-            f"E:{record.products_expected} F:{record.products_found} "
-            f"U:{record.products_unique} M:{record.products_multiple_categories} "
-            f"D:{record.duplicate_occurrences} C:{categories}"
-        )
-
-    @staticmethod
-    def _coverage_tooltip(record) -> str:
-        categories = max(
-            int(getattr(record, "categories_processed", 0) or 0),
-            len(getattr(record, "category_summary", []) or []),
-        )
-        lines = [
-            "E = Esperados",
-            "F = Encontrados",
-            "U = Únicos",
-            "M = Productos en múltiples categorías",
-            "D = Apariciones duplicadas",
-            f"C = Categorías procesadas ({categories})",
-        ]
-        category_summary = getattr(record, "category_summary", []) or []
-        category_lines = "\n".join(
-            f"• {item.get('category', '')}: "
-            f"{item.get('products', 0)} encontrados / "
-            f"{item.get('unique_products', 0)} únicos"
-            for item in category_summary
-            if isinstance(item, dict)
-        )
-        if category_lines:
-            lines.extend(["", "Productos por categoría:", category_lines])
-        return "\n".join(lines)
+        return f"APLICADO\n{ScrapingHistoryDialog._format_datetime(applied_at)}"
 
     def _set_status_item(self, row: int, column: int, record) -> None:
-        item = QTableWidgetItem(
-            "APLICADO" if record.status == "SUCCESS" else "ERROR",
-        )
+        item = QTableWidgetItem(self._status_text(record))
         item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        item.setToolTip(
+            "La descarga fue aplicada al catálogo."
+            if record.status == "SUCCESS"
+            else "La descarga terminó con error y no fue aplicada.",
+        )
         font = QFont(item.font())
         font.setBold(True)
         item.setFont(font)
-        self.table.setItem(row, column, item)
-
-    def _set_application_item(
-        self,
-        row: int,
-        column: int,
-        record,
-        latest_applied_id: int | None,
-    ) -> None:
-        if record.status != "SUCCESS":
-            text = "No aplicable"
-            tooltip = "La descarga terminó con error y no se considera aplicable."
-        elif record.history_id == latest_applied_id:
-            applied_at = self._parse_datetime(record.applied_at)
-            text = f"Aplicado\n{self._format_datetime(applied_at)}"
-            tooltip = "Esta versión está marcada persistentemente como la aplicada al catálogo."
-        else:
-            text = "No Aplicado"
-            tooltip = "Esta versión no es la actualmente marcada como aplicada."
-
-        item = QTableWidgetItem(text)
-        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        item.setToolTip(tooltip)
-        if record.status == "SUCCESS" and record.history_id == latest_applied_id:
-            font = QFont(item.font())
-            font.setBold(True)
-            item.setFont(font)
-            item.setBackground(QBrush(QColor(self.APPLIED_BACKGROUND)))
         self.table.setItem(row, column, item)
 
     def _set_detail_button(self, row: int, history_id: int | None) -> None:
@@ -242,7 +166,34 @@ class ScrapingHistoryDialog(QDialog):
         button.setProperty("history_id", history_id)
         button.clicked.connect(self.show_row_details)
         layout.addWidget(button)
-        self.table.setCellWidget(row, 12, container)
+        self.table.setCellWidget(row, 8, container)
+
+    def _fit_window_to_table(self) -> None:
+        header = self.table.horizontalHeader()
+        table_width = header.length() + self.table.frameWidth() * 2
+        if self.table.verticalScrollBar().isVisible():
+            table_width += self.table.verticalScrollBar().sizeHint().width()
+
+        layout = self.layout()
+        if layout is None:
+            return
+        margins = layout.contentsMargins()
+        width = table_width + margins.left() + margins.right()
+        self.resize(max(width, 1), self.height())
+        self._center_on_parent()
+
+    def _center_on_parent(self) -> None:
+        parent = self.parentWidget()
+        if isinstance(parent, QWidget) and parent.isWindow():
+            center = parent.frameGeometry().center()
+        else:
+            screen = self.screen() or QApplication.primaryScreen()
+            if screen is None:
+                return
+            center = screen.availableGeometry().center()
+        frame = self.frameGeometry()
+        frame.moveCenter(center)
+        self.move(frame.topLeft())
 
     def show_row_details(self) -> None:
         button = self.sender()

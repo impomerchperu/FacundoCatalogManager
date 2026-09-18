@@ -21,9 +21,10 @@ MAX_RETRIES = 3
 # extraction. category_scraper.py keeps a html.parser fallback for portability.
 SCRAPING_HTML_PARSER = "lxml"
 
-# Detail enrichment is an I/O-bound workload. The live FULL benchmark validated
-# 24 detail workers as the best observed point with the current HTTP budget.
-SCRAPING_MAX_WORKERS = 24
+# Detail enrichment is I/O-bound. Controlled live benchmarks with crossed
+# 16/24-worker runs showed comparable wall time while 16 workers reduced
+# aggregate detail HTTP work by roughly 29% and kept latency lower.
+SCRAPING_MAX_WORKERS = 16
 
 # The live production-concurrency benchmark repeatedly preserved complete
 # coverage with 8 category workers while avoiding the retry pressure observed

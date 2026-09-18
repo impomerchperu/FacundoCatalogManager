@@ -248,6 +248,7 @@ def test_category_scraper_stops_after_empty_page_retry_exhaustion():
             '"rendered_content":"<div>FB-001</div>"}'
         ),
         "ajax:2": ["", ""],
+        "ajax:3": "",
     }
     browser = FakeBrowser(responses)
     scraper = CategoryScraper(browser)

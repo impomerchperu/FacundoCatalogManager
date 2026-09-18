@@ -2,9 +2,9 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics, QPixmap
-from PySide6.QtWidgets import QApplication, QHeaderView, QLabel
+from PySide6.QtWidgets import QApplication, QHeaderView
 
-from gui.product_table import ProductTable
+from gui.product_table import ProductImageDelegate, ProductTable
 from models.product import Product
 
 
@@ -38,30 +38,24 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     )
     QApplication.processEvents()
 
-    image = table.cellWidget(0, ProductTable.IMAGE_COLUMN)
+    item = table.item(0, ProductTable.IMAGE_COLUMN)
+    delegate = table.itemDelegateForColumn(ProductTable.IMAGE_COLUMN)
 
-    assert isinstance(image, QLabel)
-    assert image.contentsMargins().left() == 0
-    assert image.contentsMargins().right() == 0
-    assert image.contentsMargins().top() == 0
-    assert image.contentsMargins().bottom() == 0
-    assert image.width() == table.columnWidth(ProductTable.IMAGE_COLUMN)
-    assert image.height() == table.rowHeight(0)
-
-    rendered = image.pixmap()
-    assert rendered is not None
-    assert rendered.width() == image.width()
-    assert rendered.height() == image.height()
+    assert table.cellWidget(0, ProductTable.IMAGE_COLUMN) is None
+    assert isinstance(delegate, ProductImageDelegate)
+    assert isinstance(item.data(ProductImageDelegate.IMAGE_ROLE), QPixmap)
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) >= (
+        ProductImageDelegate.DEFAULT_SIZE
+    )
+    assert table.rowHeight(0) == table.columnWidth(ProductTable.IMAGE_COLUMN)
 
     table.resize(2200, 700)
     QApplication.processEvents()
 
-    assert image.width() == table.columnWidth(ProductTable.IMAGE_COLUMN)
-    assert image.height() == table.rowHeight(0)
-    rendered = image.pixmap()
-    assert rendered is not None
-    assert rendered.width() == image.width()
-    assert rendered.height() == image.height()
+    assert table.rowHeight(0) == table.columnWidth(ProductTable.IMAGE_COLUMN)
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == (
+        ProductImageDelegate.DEFAULT_SIZE
+    )
 
     table.close()
 

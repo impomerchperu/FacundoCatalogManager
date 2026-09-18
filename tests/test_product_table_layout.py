@@ -2,7 +2,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics, QPixmap
-from PySide6.QtWidgets import QApplication, QLabel
+from PySide6.QtWidgets import QApplication, QLabel, QHeaderView
 
 from gui.product_table import ProductTable
 from models.product import Product
@@ -88,7 +88,7 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     for column in range(table.columnCount()):
         assert (
             header.sectionResizeMode(column)
-            == header.ResizeMode.Interactive
+            == QHeaderView.ResizeMode.Interactive
         )
 
     table.close()

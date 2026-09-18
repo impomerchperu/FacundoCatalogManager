@@ -28,12 +28,14 @@ Una ejecución FULL válida debe cubrir las 24 categorías y conservar estas inv
 
 Una ejecución incompleta o inconsistente no debe utilizarse para hacer un prune destructivo del catálogo persistido. La reconciliación de bootstrap selecciona la ejecución FULL exitosa más reciente que además sea consistente con sus métricas y sus ocurrencias reales.
 
-La configuración de producción validada actualmente es:
+La configuración de producción actual es:
 
 - Categorías: `8` workers.
-- Detalle: `24` workers.
+- Detalle: `16` workers.
 - HTTP: `28` workers.
 - JetSmartFilters HTTP: `8` de concurrencia.
+
+El valor de 16 workers de detalle fue seleccionado tras benchmarks en el sitio real con corridas cruzadas frente a 24 workers. La validación funcional autoritativa pendiente es una nueva ejecución FULL bajo esta configuración.
 
 ## Historial
 

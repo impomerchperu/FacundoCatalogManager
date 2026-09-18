@@ -2,7 +2,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics, QPixmap
-from PySide6.QtWidgets import QApplication, QLabel, QHeaderView
+from PySide6.QtWidgets import QApplication, QHeaderView, QLabel
 
 from gui.product_table import ProductTable
 from models.product import Product

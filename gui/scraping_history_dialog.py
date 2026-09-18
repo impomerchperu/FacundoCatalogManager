@@ -64,6 +64,9 @@ class ScrapingHistoryDialog(QDialog):
                 "Detalle",
             ],
         )
+        self.table.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)

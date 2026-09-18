@@ -59,6 +59,7 @@ class MainWindow(QMainWindow):
         self.categories_visible = False
         self.scraping_dialog: ScrapingDialog | None = None
         self.history_dialog: ScrapingHistoryDialog | None = None
+        self.scraping_refresh_pending = False
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -112,6 +113,8 @@ class MainWindow(QMainWindow):
             )
             button.clicked.connect(callback)
             buttons_layout.addWidget(button)
+            if text == "Actualizar catálogo":
+                self.catalog_button = button
         buttons_layout.addStretch()
         layout.addLayout(buttons_layout)
 
@@ -454,13 +457,14 @@ class MainWindow(QMainWindow):
     def open_scraping(self) -> None:
         if self.is_scraping_running():
             if self.scraping_dialog is not None:
-                if self.scraping_dialog.isMinimized():
-                    self.scraping_dialog.showNormal()
+                self.scraping_dialog.showNormal()
                 self.scraping_dialog.raise_()
                 self.scraping_dialog.activateWindow()
             return
+
         self.scraping_dialog = ScrapingDialog(self)
         self.scraping_dialog.finished_success.connect(self.scraping_finished)
+        self.scraping_dialog.catalog_requested.connect(self._show_catalog_after_scraping)
         self.scraping_dialog.finished.connect(self.scraping_dialog_closed)
         self.scraping_dialog.setModal(False)
         self.scraping_dialog.show()
@@ -486,13 +490,33 @@ class MainWindow(QMainWindow):
         self.history_dialog = None
 
     def scraping_finished(self) -> None:
-        self.refresh_catalog()
+        self.scraping_refresh_pending = True
         if self.history_dialog is not None:
             self.history_dialog.load_history()
+        if hasattr(self, "catalog_button"):
+            self.catalog_button.setText("Actualizar catálogo")
         if self.scraping_dialog is not None:
             self.scraping_dialog.setWindowTitle("Actualización completada")
             self.scraping_dialog.raise_()
             self.scraping_dialog.activateWindow()
+
+    def _show_catalog_after_scraping(self) -> None:
+        if self.scraping_refresh_pending:
+            self.refresh_catalog()
+            self.scraping_refresh_pending = False
+        if hasattr(self, "catalog_button"):
+            self.catalog_button.setText("Actualizar catálogo")
+        if self.scraping_dialog is not None:
+            self.scraping_dialog.hide()
+        self.raise_()
+        self.activateWindow()
+        self.table.setFocus()
+
+    def _set_scraping_navigation_active(self, active: bool) -> None:
+        if hasattr(self, "catalog_button"):
+            self.catalog_button.setText(
+                "Ver progreso" if active else "Actualizar catálogo",
+            )
 
     def scraping_dialog_closed(self) -> None:
         self.scraping_dialog = None

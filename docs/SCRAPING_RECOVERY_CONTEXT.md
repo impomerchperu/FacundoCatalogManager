@@ -40,12 +40,12 @@ Future FULL validation must be governed by the latest successful complete run, n
 
 - request timeout: `20s`
 - max retries: `3`
-- category workers: `16`
+- category workers: `8`
 - shared HTTP workers: `28`
 - detail workers: `16`
 - HTML parser: `lxml`
 
-Run 182 is the validated production coverage baseline for the current configuration and must remain the comparison point until a newer complete live FULL establishes a different validated result.
+Run 182 remains the persistent coverage baseline (`24 / 534 / 530 / 4`). A newer real-site production-style E2E under `8 / 16 / 28` has now validated the full scrape-to-SQLite-to-history path in an isolated SQLite database.
 
 ## Latest repository validation
 
@@ -79,7 +79,7 @@ Latest complete FULL HTTP sample:
 
 The detail cache showed `289` requests, `0` hits, and `289` cached entries in the latest complete sample. This indicates that the current enrichment phase is still dominated by real detail HTTP work within a FULL run.
 
-The enrichment/detail timing telemetry is now in place. Controlled live measurements crossed 16 and 24 detail workers and showed comparable wall time, with 16 workers materially reducing aggregate detail HTTP work. The production detail-worker default is now `16`; the next and final performance gate is a new authoritative FULL validation under the `8 / 16 / 28` configuration.
+The enrichment/detail timing telemetry is now in place. Controlled live measurements crossed 16 and 24 detail workers and showed comparable wall time, with 16 workers materially reducing aggregate detail HTTP work. The production detail-worker default is now `16`. A real production-style E2E under `8 / 16 / 28` completed in `113.97s` with `24 / 534 / 530 / 4`, `530 / 534` persisted records, successful history application, and zero HTTP retries.
 
 ## Progress contract
 

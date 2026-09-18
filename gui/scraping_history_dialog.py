@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -26,12 +26,14 @@ class ScrapingHistoryDialog(QDialog):
     """Historial de descargas aplicadas automáticamente al catálogo."""
 
     APPLIED_BACKGROUND = "#b2ebf2"
+    CONTENT_SIDE_PADDING = 4
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.db = DBManager()
         self.repository = ScrapingHistoryRepository(self.db)
         self.detail_dialog: QDialog | None = None
+        self._is_fitting_columns = False
         self.setWindowTitle("Historial de descargas")
         self.resize(940, 660)
         self._build_ui()
@@ -81,12 +83,15 @@ class ScrapingHistoryDialog(QDialog):
         for column in range(self.table.columnCount()):
             header.setSectionResizeMode(
                 column,
-                QHeaderView.ResizeMode.ResizeToContents,
+                QHeaderView.ResizeMode.Interactive,
             )
 
+        side_padding = self.CONTENT_SIDE_PADDING
         self.table.setStyleSheet(
-            "QHeaderView::section { padding-left: 3px; padding-right: 3px; }"
-            "QTableWidget::item { padding-left: 3px; padding-right: 3px; }"
+            f"QHeaderView::section {{ padding-left: {side_padding}px; "
+            f"padding-right: {side_padding}px; }}"
+            f"QTableWidget::item {{ padding-left: {side_padding}px; "
+            f"padding-right: {side_padding}px; }}"
         )
 
         layout.addWidget(self.table)
@@ -139,25 +144,80 @@ class ScrapingHistoryDialog(QDialog):
 
         self._fit_table_to_content()
 
-    def _fit_table_to_content(self) -> None:
-        header = self.table.horizontalHeader()
-        self.table.resizeColumnsToContents()
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "table") and not self._is_fitting_columns:
+            self._fit_table_to_content(expand_window=False)
 
-        for column in range(self.table.columnCount()):
-            header.resizeSection(
-                column,
-                max(header.sectionSize(column), 1) + 6,
-            )
+    def _fit_table_to_content(self, *, expand_window: bool = True) -> None:
+        if self._is_fitting_columns:
+            return
 
-        table_width = header.length() + (2 * self.table.frameWidth())
         layout = self.layout()
         if layout is None:
             return
-        margins = layout.contentsMargins()
-        required_width = table_width + margins.left() + margins.right()
-        self.setMinimumWidth(required_width)
-        if self.width() < required_width:
-            self.resize(required_width, self.height())
+
+        header = self.table.horizontalHeader()
+        self._is_fitting_columns = True
+        try:
+            for column in range(self.table.columnCount()):
+                header.setSectionResizeMode(
+                    column,
+                    QHeaderView.ResizeMode.Interactive,
+                )
+
+            self.table.resizeColumnsToContents()
+            padding = 2 * self.CONTENT_SIDE_PADDING
+            minimum_widths = []
+
+            for column in range(self.table.columnCount()):
+                width = max(header.sectionSize(column), 1)
+                for row in range(self.table.rowCount()):
+                    widget = self.table.cellWidget(row, column)
+                    if widget is not None:
+                        width = max(width, widget.sizeHint().width())
+                minimum_widths.append(width + padding)
+
+            content_width = sum(minimum_widths)
+            frame_width = 2 * self.table.frameWidth()
+            vertical_scrollbar = (
+                self.table.verticalScrollBar().width()
+                if self.table.verticalScrollBar().isVisible()
+                else 0
+            )
+            margins = layout.contentsMargins()
+            required_width = (
+                content_width
+                + frame_width
+                + vertical_scrollbar
+                + margins.left()
+                + margins.right()
+            )
+
+            self.setMinimumWidth(required_width)
+            if expand_window and self.width() < required_width:
+                self.resize(required_width, self.height())
+
+            available_width = max(self.table.viewport().width(), content_width)
+            extra_width = available_width - content_width
+            widths = minimum_widths.copy()
+
+            if extra_width > 0 and content_width > 0:
+                distributed = 0
+                for column, minimum_width in enumerate(minimum_widths):
+                    if column == len(minimum_widths) - 1:
+                        additional = extra_width - distributed
+                    else:
+                        additional = round(
+                            extra_width * minimum_width / content_width,
+                        )
+                        distributed += additional
+                    widths[column] += additional
+
+            for column, width in enumerate(widths):
+                header.resizeSection(column, width)
+        finally:
+            self._is_fitting_columns = False
 
     @staticmethod
     def _status_text(record) -> str:

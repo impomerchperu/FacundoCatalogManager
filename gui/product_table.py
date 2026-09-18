@@ -1,12 +1,12 @@
 from typing import ClassVar
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
-    QLabel,
-    QSizePolicy,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
     QTableWidget,
     QTableWidgetItem,
 )
@@ -61,40 +61,23 @@ class ProductHeader(QHeaderView):
         super().paintSection(painter, rect, logical_index)
 
 
-class ProductImageLabel(QLabel):
-    """Etiqueta que ocupa toda la celda y escala la imagen dinámicamente."""
+class ProductImageDelegate(QStyledItemDelegate):
+    """Pinta la imagen sobre todo el rectángulo visible de la celda."""
 
-    def __init__(self) -> None:
-        super().__init__()
-        self._source_pixmap: QPixmap | None = None
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setContentsMargins(0, 0, 0, 0)
-        self.setMargin(0)
-        self.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Expanding,
-        )
-        self.setStyleSheet("QLabel { padding: 0px; margin: 0px; }")
+    DEFAULT_SIZE = 160
 
-    def set_source_pixmap(self, pixmap: QPixmap) -> None:
-        self._source_pixmap = pixmap
-        self._update_pixmap()
+    def paint(self, painter: QPainter, option, index) -> None:
+        super().paint(painter, option, index)
 
-    def resizeEvent(self, event) -> None:
-        super().resizeEvent(event)
-        self._update_pixmap()
-
-    def _update_pixmap(self) -> None:
-        source = self._source_pixmap
-        if source is None or source.isNull():
-            super().setPixmap(QPixmap())
+        pixmap = index.data(Qt.ItemDataRole.DecorationRole)
+        if not isinstance(pixmap, QPixmap) or pixmap.isNull():
             return
 
-        target_size = self.size()
+        target_size = option.rect.size()
         if target_size.width() <= 0 or target_size.height() <= 0:
             return
 
-        scaled = source.scaled(
+        scaled = pixmap.scaled(
             target_size,
             Qt.AspectRatioMode.KeepAspectRatioByExpanding,
             Qt.TransformationMode.SmoothTransformation,
@@ -107,7 +90,19 @@ class ProductImageLabel(QLabel):
             target_size.width(),
             target_size.height(),
         )
-        super().setPixmap(cropped)
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        painter.drawPixmap(option.rect, cropped)
+        painter.restore()
+
+    def sizeHint(
+        self,
+        option: QStyleOptionViewItem,
+        index,
+    ) -> QSize:
+        del option, index
+        return QSize(self.DEFAULT_SIZE, self.DEFAULT_SIZE)
 
 
 class ProductTable(QTableWidget):
@@ -216,6 +211,10 @@ class ProductTable(QTableWidget):
     def _setup_header(self) -> None:
         header = ProductHeader(self)
         self.setHorizontalHeader(header)
+        self.setItemDelegateForColumn(
+            self.IMAGE_COLUMN,
+            ProductImageDelegate(self),
+        )
         header.sectionClicked.connect(self._handle_header_click)
         header.setStretchLastSection(False)
         header.setDefaultSectionSize(110)
@@ -299,12 +298,15 @@ class ProductTable(QTableWidget):
         self._adjust_table_rows()
 
     def _add_product_row(self, row: int, product: Product) -> None:
-        image = ProductImageLabel()
+        image_item = QTableWidgetItem()
         if product.image_path:
             pixmap = QPixmap(product.image_path)
             if not pixmap.isNull():
-                image.set_source_pixmap(pixmap)
-        self.setCellWidget(row, self.IMAGE_COLUMN, image)
+                image_item.setData(
+                    Qt.ItemDataRole.DecorationRole,
+                    pixmap,
+                )
+        self.setItem(row, self.IMAGE_COLUMN, image_item)
 
         item_code = QTableWidgetItem(product.code)
         item_code.setData(Qt.ItemDataRole.UserRole, product.id)
@@ -401,14 +403,14 @@ class ProductTable(QTableWidget):
 
     def _adjust_table_rows(self) -> None:
         self.resizeRowsToContents()
-        image_height = max(
+        image_size = max(
             self.columnWidth(self.IMAGE_COLUMN),
             self.DEFAULT_IMAGE_CELL_SIZE,
         )
         for row in range(self.rowCount()):
             self.setRowHeight(
                 row,
-                max(image_height, self.rowHeight(row)),
+                max(image_size, self.rowHeight(row)),
             )
 
     def _preferred_column_widths(self, header: QHeaderView) -> list[int]:

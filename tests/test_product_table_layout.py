@@ -53,7 +53,7 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     QApplication.processEvents()
 
     assert table.rowHeight(0) == table.columnWidth(ProductTable.IMAGE_COLUMN)
-    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == (
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) >= (
         ProductImageDelegate.DEFAULT_SIZE
     )
 

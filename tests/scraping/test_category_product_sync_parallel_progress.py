@@ -19,6 +19,7 @@ def test_category_progress_tracks_completion_without_reordering_results():
     release_slow = Event()
     fast_completed = Event()
     progress = []
+    first_progress = Event()
 
     class FakeScraper:
         def collect_category(self, category):
@@ -49,10 +50,14 @@ def test_category_progress_tracks_completion_without_reordering_results():
             run_future = executor.submit(
                 service.sync_categories,
                 categories,
-                lambda current, total: progress.append((current, total)),
+                lambda current, total: (
+                    progress.append((current, total)),
+                    first_progress.set(),
+                ),
             )
             assert slow_started.wait(timeout=2)
             assert fast_completed.wait(timeout=2)
+            assert first_progress.wait(timeout=2)
             assert progress == [(1, 2)]
             release_slow.set()
             result = run_future.result(timeout=2)

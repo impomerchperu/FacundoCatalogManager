@@ -512,13 +512,10 @@ class MainWindow(QMainWindow):
         self.activateWindow()
         self.table.setFocus()
 
-    def _set_scraping_navigation_active(self, active: bool) -> None:
-        if hasattr(self, "catalog_button"):
-            self.catalog_button.setText(
-                "Ver progreso" if active else "Actualizar catálogo",
-            )
-
     def scraping_dialog_closed(self) -> None:
+        if self.scraping_refresh_pending:
+            self.refresh_catalog()
+            self.scraping_refresh_pending = False
         self.scraping_dialog = None
 
     def is_scraping_running(self) -> bool:

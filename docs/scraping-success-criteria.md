@@ -75,7 +75,7 @@ Un benchmark específico de contención de SQLite no es requisito para la correc
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite completa: `392 passed, 1 skipped, 9 deselected`.
+- Suite completa: `398 passed, 1 skipped, 9 deselected`.
 - Pruebas de bootstrap/reconciliación: `15 passed`.
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
@@ -87,7 +87,7 @@ Un benchmark específico de contención de SQLite no es requisito para la correc
 
 El pipeline FULL mantiene 48 pasos lógicos. La colección emite progreso por finalización de categorías y el runner finaliza en `48/48`. El enrichment no emite callbacks intermedios adicionales en este momento.
 
-Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia. Mejorar la granularidad del progreso puede tratarse como una mejora de UX independiente.
+Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia. La granularidad actual del progreso forma parte del contrato de UX validado.
 
 ## Checklist maestro
 
@@ -152,9 +152,9 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 ## Pendientes no bloqueantes
 
 - [ ] benchmark específico de contención/latencia SQLite;
-- [ ] mayor granularidad de callbacks de progreso durante enrichment;
+- [x] mayor granularidad de callbacks de progreso durante enrichment;
 - [x] benchmark de red separado para detalle con comparación cruzada 16/24;
-- [ ] mantener las fábricas de compatibilidad mientras pueda existir consumo externo.
+- [x] mantener las fábricas de compatibilidad como wrappers delgados mientras pueda existir consumo externo.
 - [x] validación E2E real de producción después del cambio de concurrencia a 16 workers;
 
 Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes `24 / 534 / 530 / 4` y la relación DB `530 / 534`. El E2E real bajo `8 / 16 / 28` ya satisface la validación de cierre de esta etapa.

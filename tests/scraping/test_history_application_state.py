@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import QApplication, QTableWidgetItem
 
 from gui.scraping_history_dialog import ScrapingHistoryDialog
@@ -63,14 +64,66 @@ def test_history_columns_use_content_width_without_horizontal_scroll():
         == "ScrollBarAlwaysOff"
     )
     assert dialog.table.textElideMode().name == "ElideNone"
-    assert "padding-left: 3px" in dialog.table.styleSheet()
-    assert "padding-right: 3px" in dialog.table.styleSheet()
+    assert "padding-left: 4px" in dialog.table.styleSheet()
+    assert "padding-right: 4px" in dialog.table.styleSheet()
 
     for column in range(dialog.table.columnCount()):
         assert (
             header.sectionResizeMode(column).name
-            == "ResizeToContents"
+            == "Interactive"
         )
+
+    dialog.close()
+
+
+def test_history_columns_include_content_plus_minimum_side_padding():
+    _qapp()
+    dialog = ScrapingHistoryDialog()
+    long_text = "Texto suficientemente largo para comprobar que no se recorta"
+
+    dialog.table.setRowCount(1)
+    dialog.table.setItem(0, 5, QTableWidgetItem(long_text))
+    dialog._fit_table_to_content()
+
+    header = dialog.table.horizontalHeader()
+    text_width = QFontMetrics(dialog.table.font()).horizontalAdvance(long_text)
+
+    assert header.sectionSize(5) >= (
+        text_width + (2 * ScrapingHistoryDialog.CONTENT_SIDE_PADDING)
+    )
+    assert dialog.table.textElideMode().name == "ElideNone"
+
+    dialog.close()
+
+
+def test_history_columns_expand_when_window_is_wider():
+    _qapp()
+    dialog = ScrapingHistoryDialog()
+    dialog.show()
+    dialog.table.setRowCount(1)
+    for column in range(dialog.table.columnCount()):
+        dialog.table.setItem(
+            0,
+            column,
+            QTableWidgetItem("Contenido"),
+        )
+
+    dialog._fit_table_to_content()
+    header = dialog.table.horizontalHeader()
+    initial_width = sum(
+        header.sectionSize(column)
+        for column in range(dialog.table.columnCount())
+    )
+
+    dialog.resize(dialog.width() + 400, dialog.height())
+    dialog._fit_table_to_content(expand_window=False)
+
+    expanded_width = sum(
+        header.sectionSize(column)
+        for column in range(dialog.table.columnCount())
+    )
+
+    assert expanded_width > initial_width
 
     dialog.close()
 
@@ -98,7 +151,7 @@ def test_history_window_expands_to_fit_content_with_side_padding():
         + margins.right()
     )
 
-    assert header.sectionSize(5) >= 6
+    assert header.sectionSize(5) >= 8
     assert dialog.minimumWidth() >= expected_minimum
     assert dialog.width() >= dialog.minimumWidth()
 

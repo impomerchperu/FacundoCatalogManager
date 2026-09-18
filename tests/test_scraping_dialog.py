@@ -47,18 +47,24 @@ def test_scraping_dialog_shows_session_result_without_attribute_error(monkeypatc
     dialog.close()
 
 def test_scraping_dialog_hides_during_running_scraping(monkeypatch):
+    from PySide6.QtWidgets import QWidget
+
     app = _qapp()
-    parent = ScrapingDialog()
-    parent.show()
+    main_window = QWidget()
+    dialog = ScrapingDialog(main_window)
+    main_window.show()
+    dialog.show()
 
     monkeypatch.setattr(
         "PySide6.QtCore.QThread.start",
         lambda self: None,
     )
 
-    parent.start_scraping()
+    dialog.start_scraping()
+    app.processEvents()
 
-    assert not parent.isVisible()
+    assert not dialog.isVisible()
 
-    parent.close()
+    dialog.close()
+    main_window.close()
     app.processEvents()

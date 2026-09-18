@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
 from gui.scraping_dialog import ScrapingDialog
 from services.scraping.scraping_session import ScrapingSessionResult
@@ -46,8 +46,8 @@ def test_scraping_dialog_shows_session_result_without_attribute_error(monkeypatc
 
     dialog.close()
 
+
 def test_scraping_dialog_hides_during_running_scraping(monkeypatch):
-    from PySide6.QtWidgets import QWidget
 
     app = _qapp()
     main_window = QWidget()

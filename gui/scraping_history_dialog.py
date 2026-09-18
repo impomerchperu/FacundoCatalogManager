@@ -72,19 +72,22 @@ class ScrapingHistoryDialog(QDialog):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.setWordWrap(False)
+        self.table.setTextElideMode(Qt.TextElideMode.ElideNone)
         self.table.cellDoubleClicked.connect(self.show_details)
 
         header = self.table.horizontalHeader()
-        for column in (0, 1, 2, 8, 9):
+        header.setStretchLastSection(False)
+        for column in range(self.table.columnCount()):
             header.setSectionResizeMode(
                 column,
                 QHeaderView.ResizeMode.ResizeToContents,
             )
-        for column in (3, 4, 5, 6, 7):
-            header.setSectionResizeMode(
-                column,
-                QHeaderView.ResizeMode.Stretch,
-            )
+
+        self.table.setStyleSheet(
+            "QHeaderView::section { padding-left: 3px; padding-right: 3px; }"
+            "QTableWidget::item { padding-left: 3px; padding-right: 3px; }"
+        )
 
         layout.addWidget(self.table)
 
@@ -134,17 +137,24 @@ class ScrapingHistoryDialog(QDialog):
             self._set_detail_button(row, record.history_id)
             self.table.setRowHeight(row, 44)
 
+        self._fit_table_to_content()
+
+    def _fit_table_to_content(self) -> None:
         header = self.table.horizontalHeader()
-        for column in (0, 1, 2, 8, 9):
-            header.setSectionResizeMode(
+        self.table.resizeColumnsToContents()
+
+        for column in range(self.table.columnCount()):
+            header.resizeSection(
                 column,
-                QHeaderView.ResizeMode.ResizeToContents,
+                max(header.sectionSize(column), 1) + 6,
             )
-        for column in (3, 4, 5, 6, 7):
-            header.setSectionResizeMode(
-                column,
-                QHeaderView.ResizeMode.Stretch,
-            )
+
+        table_width = header.length() + (2 * self.table.frameWidth())
+        margins = self.layout().contentsMargins()
+        required_width = table_width + margins.left() + margins.right()
+        self.setMinimumWidth(required_width)
+        if self.width() < required_width:
+            self.resize(required_width, self.height())
 
     @staticmethod
     def _status_text(record) -> str:

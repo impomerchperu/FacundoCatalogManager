@@ -4,30 +4,64 @@ from types import SimpleNamespace
 from gui.scraping_history_dialog import ScrapingHistoryDialog
 
 
-def _history(history_id: int, status: str, applied_at=None):
+def _history(history_id: int, status: str, applied_at=None, finished_at=None):
     return SimpleNamespace(
         history_id=history_id,
         status=status,
         applied_at=applied_at,
+        finished_at=finished_at or applied_at,
     )
 
 
-def test_latest_applied_history_uses_persisted_application_marker():
+def test_status_displays_applied_with_application_datetime():
     applied_at = datetime(2026, 9, 12, 10, 0, tzinfo=timezone.utc)
-    history = [
-        _history(12, "SUCCESS"),
-        _history(11, "SUCCESS", applied_at),
-        _history(10, "ERROR"),
-    ]
+    record = _history(11, "SUCCESS", applied_at=applied_at)
 
-    assert ScrapingHistoryDialog._latest_applied_history_id(history) == 11
+    dialog = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
+    dialog.table = SimpleNamespace(setItem=lambda *args: None)
+    captured = {}
+
+    class Item:
+        def __init__(self, text):
+            captured["text"] = text
+
+        def setTextAlignment(self, *args): pass
+        def setToolTip(self, *args): pass
+        def setFont(self, *args): pass
+
+    import gui.scraping_history_dialog as module
+    original = module.QTableWidgetItem
+    module.QTableWidgetItem = Item
+    try:
+        dialog._set_status_item(0, 10, record)
+    finally:
+        module.QTableWidgetItem = original
+
+    assert "APLICADO" in captured["text"]
+    assert "12/09/2026 10:00:00" in captured["text"]
 
 
-def test_latest_applied_history_ignores_error_records_without_marker():
-    history = [
-        _history(20, "ERROR"),
-        _history(18, "ERROR"),
-        _history(17, "SUCCESS"),
-    ]
+def test_status_displays_error_for_failed_history():
+    record = _history(20, "ERROR", finished_at=datetime(2026, 9, 12, 11, 0, tzinfo=timezone.utc))
 
-    assert ScrapingHistoryDialog._latest_applied_history_id(history) is None
+    dialog = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
+    dialog.table = SimpleNamespace(setItem=lambda *args: None)
+    captured = {}
+
+    class Item:
+        def __init__(self, text):
+            captured["text"] = text
+
+        def setTextAlignment(self, *args): pass
+        def setToolTip(self, *args): pass
+        def setFont(self, *args): pass
+
+    import gui.scraping_history_dialog as module
+    original = module.QTableWidgetItem
+    module.QTableWidgetItem = Item
+    try:
+        dialog._set_status_item(0, 10, record)
+    finally:
+        module.QTableWidgetItem = original
+
+    assert captured["text"] == "ERROR"

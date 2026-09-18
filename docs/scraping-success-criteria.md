@@ -59,7 +59,7 @@ Los contadores HTTP, reintentos y tiempos agregados son métricas de diagnóstic
 La configuración de producción validada es:
 
 - categoría: `8` workers;
-- detalle: `24` workers;
+- detalle: `16` workers;
 - HTTP: `28` workers;
 - JetSmartFilters HTTP: `8` concurrentes.
 
@@ -75,7 +75,7 @@ Un benchmark específico de contención de SQLite no es requisito para la correc
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite completa: `387 passed, 1 skipped, 9 deselected`.
+- Suite completa: `392 passed, 1 skipped, 9 deselected`.
 - Pruebas de bootstrap/reconciliación: `15 passed`.
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
@@ -153,7 +153,8 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 
 - [ ] benchmark específico de contención/latencia SQLite;
 - [ ] mayor granularidad de callbacks de progreso durante enrichment;
-- [ ] benchmark de red separado para categorías y detalle usando la nueva telemetría;
+- [x] benchmark de red separado para detalle con comparación cruzada 16/24;
 - [ ] mantener las fábricas de compatibilidad mientras pueda existir consumo externo.
+- [ ] nueva validación FULL autoritativa después del cambio de concurrencia a 16 workers;
 
 Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes `24 / 534 / 530 / 4` y la relación DB `530 / 534`.

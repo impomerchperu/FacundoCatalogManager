@@ -60,7 +60,7 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     table.close()
 
 
-def test_product_table_categories_wrap_at_26_characters_without_breaking_words():
+def test_product_table_categories_wrap_at_four_words_or_30_characters():
     category = (
         "Impresoras y Consumible Fotográficas Térmicas, "
         "Artículos de Escritorio"
@@ -69,17 +69,18 @@ def test_product_table_categories_wrap_at_26_characters_without_breaking_words()
     formatted = ProductTable._format_categories(category)
     lines = formatted.splitlines()
 
-    assert all(
-        len(line) <= ProductTable.CATEGORY_LINE_MAX_LENGTH
-        for line in lines
-    )
     assert lines == [
         "Impresoras y Consumible",
         "Fotográficas Térmicas",
         "Artículos de Escritorio",
     ]
-    assert " ".join(lines[:2]) == (
-        "Impresoras y Consumible Fotográficas Térmicas"
+    assert all(
+        len(line.split()) <= ProductTable.CATEGORY_MAX_WORDS
+        for line in lines
+    )
+    assert all(
+        len(line) <= ProductTable.CATEGORY_MAX_CHARACTERS
+        for line in lines
     )
 
 
@@ -95,10 +96,7 @@ def test_product_table_category_with_long_word_does_not_split_the_word():
         "extraordinariamenteLargaSinEspacios",
     ]
     assert "extraordinariamenteLargaSinEspacios" in formatted
-    assert all(
-        word in formatted.split()
-        for word in category.split()
-    )
+    assert all(word in formatted.split() for word in category.split())
 
 
 def test_product_table_category_sublimacion_stays_on_one_line():
@@ -125,6 +123,28 @@ def test_product_table_category_sublimacion_stays_on_one_line():
         + (2 * ProductTable.CONTENT_SIDE_PADDING)
     )
     assert table.columnWidth(ProductTable.CATEGORY_COLUMN) >= expected_width
+
+
+def test_product_table_category_wraps_after_four_words():
+    category = "Uno Dos Tres Cuatro Cinco Seis"
+
+    formatted = ProductTable._format_categories(category)
+
+    assert formatted.splitlines() == [
+        "Uno Dos Tres Cuatro",
+        "Cinco Seis",
+    ]
+
+
+def test_product_table_category_wraps_before_31st_character():
+    category = "12345 67890 abcde fghij klmno"
+
+    formatted = ProductTable._format_categories(category)
+
+    assert formatted.splitlines() == [
+        "12345 67890 abcde fghij",
+        "klmno",
+    ]
 
     table.close()
 

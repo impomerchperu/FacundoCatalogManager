@@ -73,11 +73,14 @@ def test_product_table_categories_wrap_at_26_characters_without_breaking_words()
         len(line) <= ProductTable.CATEGORY_LINE_MAX_LENGTH
         for line in lines
     )
-    assert "Consumible" in lines
-    assert "Fotográficas" in lines
-    assert "Impresoras y" in lines[0]
-    assert "Artículos de Escritorio" not in formatted.splitlines()[0]
-    assert "Artículos de Escritorio" in formatted
+    assert lines == [
+        "Impresoras y Consumible",
+        "Fotográficas Térmicas",
+        "Artículos de Escritorio",
+    ]
+    assert " ".join(lines[:2]) == (
+        "Impresoras y Consumible Fotográficas Térmicas"
+    )
 
 
 def test_product_table_category_with_long_word_does_not_split_the_word():
@@ -85,7 +88,17 @@ def test_product_table_category_with_long_word_does_not_split_the_word():
 
     formatted = ProductTable._format_categories(category)
 
-    assert formatted == category
+    lines = formatted.splitlines()
+
+    assert lines == [
+        "Categoria",
+        "extraordinariamenteLargaSinEspacios",
+    ]
+    assert "extraordinariamenteLargaSinEspacios" in formatted
+    assert all(
+        word in formatted.split()
+        for word in category.split()
+    )
 
 
 def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():

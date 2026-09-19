@@ -114,6 +114,7 @@ class ProductTable(QTableWidget):
     CATEGORY_MAX_WORDS = 4
     CATEGORY_MAX_CHARACTERS = 30
     DEFAULT_IMAGE_CELL_SIZE = 160
+    CONTENT_FONT_PIXEL_SIZE = 16
     IMAGE_SIZE = DEFAULT_IMAGE_CELL_SIZE
 
     IMAGE_COLUMN = 0
@@ -173,6 +174,9 @@ class ProductTable(QTableWidget):
         self._setup_header()
 
     def _setup_table(self) -> None:
+        table_font = self.font()
+        table_font.setPixelSize(self.CONTENT_FONT_PIXEL_SIZE)
+        self.setFont(table_font)
         self.setSortingEnabled(False)
         self.setAlternatingRowColors(True)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)

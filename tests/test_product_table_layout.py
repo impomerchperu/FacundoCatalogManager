@@ -137,13 +137,13 @@ def test_product_table_category_wraps_after_four_words():
 
 
 def test_product_table_category_wraps_before_31st_character():
-    category = "12345 67890 abcde fghij klmno"
+    category = "123456 123456 123456 123456 1234"
 
     formatted = ProductTable._format_categories(category)
 
     assert formatted.splitlines() == [
-        "12345 67890 abcde fghij",
-        "klmno",
+        "123456 123456 123456 123456",
+        "1234",
     ]
 
     table.close()

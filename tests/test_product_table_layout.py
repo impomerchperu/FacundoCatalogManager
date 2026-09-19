@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFontMetrics, QPixmap
+from PySide6.QtGui import QFont, QFontMetrics, QPixmap
 from PySide6.QtWidgets import QApplication, QHeaderView
 
 from gui.product_table import ProductImageDelegate, ProductTable
@@ -123,6 +123,36 @@ def test_product_table_category_sublimacion_stays_on_one_line():
         + (2 * ProductTable.CONTENT_SIDE_PADDING)
     )
     assert table.columnWidth(ProductTable.CATEGORY_COLUMN) >= expected_width
+
+
+def test_product_table_category_enmicadoras_laminadores_fits_one_line():
+    _qapp()
+
+    table = ProductTable(_Controller())
+    table.resize(1400, 700)
+    table.show()
+    product = Product(
+        code="FB-401",
+        name="Producto",
+        category="Enmicadoras / Laminadores",
+    )
+    table.load_products([product])
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.CATEGORY_COLUMN)
+    assert item is not None
+    assert item.text() == "Enmicadoras / Laminadores"
+    assert "\n" not in item.text()
+
+    category_font = QFont(table.font())
+    category_font.setPixelSize(16)
+    expected_width = (
+        QFontMetrics(category_font).horizontalAdvance(item.text())
+        + (2 * ProductTable.CONTENT_SIDE_PADDING)
+    )
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) >= expected_width
+
+    table.close()
 
 
 def test_product_table_category_wraps_after_four_words():

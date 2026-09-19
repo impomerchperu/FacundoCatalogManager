@@ -1,3 +1,4 @@
+import textwrap
 from typing import ClassVar
 
 from PySide6.QtCore import QSize, Qt
@@ -111,6 +112,7 @@ class ProductTable(QTableWidget):
     """Tabla principal del catálogo de productos."""
 
     CONTENT_SIDE_PADDING = 4
+    CATEGORY_LINE_MAX_LENGTH = 26
     DEFAULT_IMAGE_CELL_SIZE = 160
     IMAGE_SIZE = DEFAULT_IMAGE_CELL_SIZE
 
@@ -335,10 +337,23 @@ class ProductTable(QTableWidget):
             self._format_categories(category),
         )
 
-    @staticmethod
-    def _format_categories(category: str) -> str:
+    @classmethod
+    def _format_categories(cls, category: str) -> str:
         categories = split_category_names(category)
-        return "\n".join(categories) if categories else "—"
+        if not categories:
+            return "—"
+
+        lines: list[str] = []
+        for category_name in categories:
+            lines.extend(
+                textwrap.wrap(
+                    category_name,
+                    width=cls.CATEGORY_LINE_MAX_LENGTH,
+                    break_long_words=False,
+                    break_on_hyphens=False,
+                ),
+            )
+        return "\n".join(lines)
 
     def _set_stock_widget(self, row: int, product: Product) -> None:
         """Muestra cada color y su stock en una fila dentro de Stock."""

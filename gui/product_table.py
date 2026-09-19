@@ -1,4 +1,3 @@
-import textwrap
 from typing import ClassVar
 
 from PySide6.QtCore import QSize, Qt
@@ -112,7 +111,8 @@ class ProductTable(QTableWidget):
     """Tabla principal del catálogo de productos."""
 
     CONTENT_SIDE_PADDING = 4
-    CATEGORY_LINE_MAX_LENGTH = 26
+    CATEGORY_MAX_WORDS = 4
+    CATEGORY_MAX_CHARACTERS = 30
     DEFAULT_IMAGE_CELL_SIZE = 160
     IMAGE_SIZE = DEFAULT_IMAGE_CELL_SIZE
 
@@ -345,15 +345,41 @@ class ProductTable(QTableWidget):
 
         lines: list[str] = []
         for category_name in categories:
-            lines.extend(
-                textwrap.wrap(
-                    category_name,
-                    width=cls.CATEGORY_LINE_MAX_LENGTH,
-                    break_long_words=False,
-                    break_on_hyphens=False,
-                ),
-            )
+            lines.extend(cls._wrap_category_name(category_name))
         return "\n".join(lines)
+
+    @classmethod
+    def _wrap_category_name(cls, category_name: str) -> list[str]:
+        words = category_name.split()
+        if not words:
+            return []
+
+        lines: list[str] = []
+        current_words: list[str] = []
+        current_length = 0
+
+        for word in words:
+            candidate_length = (
+                len(word)
+                if not current_words
+                else current_length + 1 + len(word)
+            )
+            if current_words and (
+                len(current_words) >= cls.CATEGORY_MAX_WORDS
+                or candidate_length > cls.CATEGORY_MAX_CHARACTERS
+            ):
+                lines.append(" ".join(current_words))
+                current_words = [word]
+                current_length = len(word)
+                continue
+
+            current_words.append(word)
+            current_length = candidate_length
+
+        if current_words:
+            lines.append(" ".join(current_words))
+
+        return lines
 
     def _set_stock_widget(self, row: int, product: Product) -> None:
         """Muestra cada color y su stock en una fila dentro de Stock."""

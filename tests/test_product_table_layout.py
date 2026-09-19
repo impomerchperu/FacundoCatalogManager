@@ -146,8 +146,6 @@ def test_product_table_category_wraps_before_31st_character():
         "1234",
     ]
 
-    table.close()
-
 
 def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     _qapp()

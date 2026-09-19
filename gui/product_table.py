@@ -2,7 +2,7 @@ import textwrap
 from typing import ClassVar
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QPainter, QPixmap
+from PySide6.QtGui import QFontMetrics, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -427,12 +427,33 @@ class ProductTable(QTableWidget):
                 max(image_size, self.rowHeight(row)),
             )
 
+    def _category_minimum_width(self) -> int:
+        metrics = QFontMetrics(self.font())
+        category_width = self.MIN_COLUMN_WIDTHS[self.CATEGORY_COLUMN]
+        for row in range(self.rowCount()):
+            item = self.item(row, self.CATEGORY_COLUMN)
+            if item is None:
+                continue
+            for line in item.text().splitlines():
+                category_width = max(
+                    category_width,
+                    metrics.horizontalAdvance(line) + (
+                        2 * self.CONTENT_SIDE_PADDING
+                    ),
+                )
+        return category_width
+
     def _preferred_column_widths(self, header: QHeaderView) -> list[int]:
         self.resizeColumnsToContents()
+        minimum_widths = [
+            self.MIN_COLUMN_WIDTHS[column]
+            for column in range(self.columnCount())
+        ]
+        minimum_widths[self.CATEGORY_COLUMN] = self._category_minimum_width()
         return [
             max(
                 header.sectionSize(column),
-                self.MIN_COLUMN_WIDTHS[column],
+                minimum_widths[column],
             )
             for column in range(self.columnCount())
         ]
@@ -449,6 +470,7 @@ class ProductTable(QTableWidget):
                 self.MIN_COLUMN_WIDTHS[column]
                 for column in range(self.columnCount())
             ]
+            minimum_widths[self.CATEGORY_COLUMN] = self._category_minimum_width()
             minimum_total = sum(minimum_widths)
             available_width = self.viewport().width()
             target_width = max(available_width, minimum_total)

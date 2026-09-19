@@ -1,7 +1,7 @@
 from typing import ClassVar
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QFontMetrics, QPainter, QPixmap
+from PySide6.QtGui import QFont, QFontMetrics, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -454,7 +454,9 @@ class ProductTable(QTableWidget):
             )
 
     def _category_minimum_width(self) -> int:
-        metrics = QFontMetrics(self.font())
+        category_font = QFont(self.font())
+        category_font.setPixelSize(16)
+        metrics = QFontMetrics(category_font)
         category_width = self.MIN_COLUMN_WIDTHS[self.CATEGORY_COLUMN]
         for row in range(self.rowCount()):
             item = self.item(row, self.CATEGORY_COLUMN)

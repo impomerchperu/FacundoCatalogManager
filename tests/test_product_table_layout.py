@@ -60,6 +60,36 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     table.close()
 
 
+
+
+def test_product_table_categories_wrap_at_26_characters_without_breaking_words():
+    category = (
+        "Impresoras y Consumible Fotográficas Térmicas, "
+        "Artículos de Escritorio"
+    )
+
+    formatted = ProductTable._format_categories(category)
+    lines = formatted.splitlines()
+
+    assert all(
+        len(line) <= ProductTable.CATEGORY_LINE_MAX_LENGTH
+        for line in lines
+    )
+    assert "Consumible" in lines
+    assert "Fotográficas" in lines
+    assert "Impresoras y" in lines[0]
+    assert "Artículos de Escritorio" not in formatted.splitlines()[0]
+    assert "Artículos de Escritorio" in formatted
+
+
+def test_product_table_category_with_long_word_does_not_split_the_word():
+    category = "Categoria extraordinariamenteLargaSinEspacios"
+
+    formatted = ProductTable._format_categories(category)
+
+    assert formatted == category
+
+
 def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     _qapp()
 

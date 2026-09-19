@@ -60,8 +60,6 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     table.close()
 
 
-
-
 def test_product_table_categories_wrap_at_26_characters_without_breaking_words():
     category = (
         "Impresoras y Consumible Fotográficas Térmicas, "

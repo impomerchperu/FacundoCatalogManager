@@ -39,7 +39,7 @@ El snapshot histórico 534/530/4 permanece únicamente como referencia diagnóst
 - Batería focal del checkpoint previa: `21 passed in 0.63s`.
 - Suite no-real-site más reciente: `437 passed, 2 deselected in 4.51s`.
 - Git working tree local: limpio después de sincronizar con `origin/feature/scraping-performance-recovery`.
-- GitHub Actions Quality `#1987`: `success` sobre `173d560`, con Ruff, Pyright y Pytest verdes.
+- GitHub Actions Quality `#2018`: `success` sobre `e45a4a4`, con Ruff, Pyright y Pytest verdes.
 - `live-catalog`: `skipped` en CI rápido; las validaciones FULL reales se ejecutaron manualmente contra el sitio.
 - Se deshabilitaron las rutas de limpieza destructiva directa de catálogo e imágenes; quedan solo como diagnóstico.
 - FULL real independiente de cobertura validado: `24 / 523 / 519 / 4`, con `523/523` apariciones, `0` gaps y `0` códigos sin código.
@@ -105,7 +105,7 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] No se ha cambiado la concurrencia productiva.
 - [x] No se ha cambiado el comportamiento funcional de prune; además se bloquearon herramientas legacy de borrado directo.
 - [x] Limpieza destructiva directa de imágenes bloqueada.
-- [x] Quality CI: success (#1987) sobre `173d560`, con Ruff, Pyright y Pytest verdes; `live-catalog` quedó `skipped` de forma intencional.
+- [x] Quality CI: success (#2018) sobre `e45a4a4`, con Ruff, Pyright y Pytest verdes; `live-catalog` quedó `skipped` de forma intencional.
 
 ## Estado maestro actual
 

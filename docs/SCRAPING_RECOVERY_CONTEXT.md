@@ -16,7 +16,7 @@ The obsolete `missing_code_recovery_patch.py` facade and its facade-only test ha
 
 The authoritative real-site reference is the latest validated successful FULL run, **history_id=182**.
 
-- `history_id=182`
+- `history_id=191`
 - `mode=full`
 - `status=SUCCESS`
 - `categories_requested=24`
@@ -30,9 +30,9 @@ The authoritative real-site reference is the latest validated successful FULL ru
 - `coverage_gap=0`
 - `error_count=0`
 - `applied_at` populated
-- execution time: `149.375s`
-
-The latest applied FULL classification was `created=1`, `updated=126`, `unchanged=403`, `deleted=0`. The final catalog remained `530 products / 534 product_categories`, but the run was not idempotent.
+- latest applied FULL classification: `created=0`, `updated=0`, `unchanged=530`, `deleted=0`.
+- final catalog: `530 products / 534 product_categories`.
+- latest history record is consistent with the protected master checkpoint and reports `0` errors.
 
 Future FULL validation must be governed by the latest successful complete run, not by a manually chosen historical coverage floor such as 529/525.
 
@@ -45,11 +45,11 @@ Future FULL validation must be governed by the latest successful complete run, n
 - detail workers: `16`
 - HTML parser: `lxml`
 
-Run 182 remains the persistent coverage baseline (`24 / 534 / 530 / 4`). A newer real-site production-style E2E under `8 / 16 / 28` has now validated the full scrape-to-SQLite-to-history path in an isolated SQLite database.
+Run/history 191 remains the latest applied history reference; the protected coverage baseline is the latest valid FULL at `24 / 534 / 530 / 4`. A newer real-site production-style E2E under `8 / 16 / 28` has now validated the full scrape-to-SQLite-to-history path in an isolated SQLite database.
 
 ## Latest repository validation
 
-- Full suite: `392 passed, 1 skipped, 9 deselected`
+- No-real-site suite at the checkpoint: `431 passed, 2 deselected`
 - Architecture-boundary tests: `23 passed`
 - Targeted scraping coverage regressions: `8 passed`
 - Transaction/history/application-state tests: `8 passed`
@@ -57,6 +57,7 @@ Run 182 remains the persistent coverage baseline (`24 / 534 / 530 / 4`). A newer
 - Retry/backoff metrics: `2 passed`
 - Ruff: clean
 - Pyright: `0 errors, 0 warnings, 0 informations`
+- Image hashing focused audit: `10 passed`
 
 ## Performance audit status
 

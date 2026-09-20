@@ -14,7 +14,7 @@ The obsolete `missing_code_recovery_patch.py` facade and its facade-only test ha
 
 ## Authoritative real FULL checkpoint
 
-The authoritative real-site reference is the latest validated successful FULL run, **history_id=182**.
+The authoritative real-site reference is the latest validated successful FULL run, **history_id=191**.
 
 - `history_id=191`
 - `mode=full`

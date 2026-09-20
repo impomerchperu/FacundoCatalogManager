@@ -98,7 +98,7 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 1. [x] Sincronizar el último HEAD remoto.
 2. [x] Ejecutar Ruff.
 3. [x] Ejecutar Pyright.
-4. [x] Ejecutar `python -m pytest -q --ignore=tests/scraping/real_site`.
+4. [x] Ejecutar `python -m pytest -q`.
 5. [x] Confirmar `git status --short` vacío.
 6. [x] Quality #2018: success sobre `e45a4a4`; Ruff, Pyright y Pytest verdes; `live-catalog` skipped de forma intencional.
 7. [x] FULL real ejecutado y validado: el sitio publicó 523 apariciones esperadas, 11 menos que la referencia histórica 534.

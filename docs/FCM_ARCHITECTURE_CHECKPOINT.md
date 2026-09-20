@@ -6,7 +6,7 @@ Branch oficial: `main`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Última Quality CI: run `#2189` sobre `6ac1fdc` terminó en `success`; validación local actual: Ruff clean, Pyright `0 errors, 0 warnings, 0 informations`, `453 passed, 8 deselected`
+- [x] Última Quality CI: run `#2194` sobre `ef8d9c8` terminó en `success`; validación local del código funcional en el baseline: Ruff clean, Pyright `0 errors, 0 warnings, 0 informations`, `453 passed, 8 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -160,7 +160,7 @@ Per-category enrichment now exposes diagnostic timing without changing scraping 
 
 `CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`. During the same phase it now emits progress callbacks through the enrichment range `25..47` for a 24-category FULL; `ScrapingRunner` reserves `48/48` as the terminal callback.
 
-The contract is covered by focused unit tests. Earlier Quality CI run `#2135` validated the image-audit changes with `446 passed, 8 deselected`; the current `main` state was subsequently validated locally and by Quality run `#2186`.
+The contract is covered by focused unit tests. Quality CI runs `#2135` and `#2186` are historical validation points; the current documentation baseline at `ef8d9c8` was subsequently confirmed by Quality run `#2194`.
 
 This instrumentation is diagnostic only. It does not change coverage, product selection, persistence, prune behavior or retry semantics.
 
@@ -232,13 +232,13 @@ This distinction is intentional and avoids allowing a partial/directed applicati
 Current checkpoint is maintained on `main`.
 The current release baseline is the merged recovery result; the enrichment progress contract and its tests are included in `main`. The last runtime hash fix remains `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d`.
 
-Local validation at current HEAD (`280c32f`):
+Última validación local del código funcional antes de los commits documentales posteriores (`280c32f`):
 
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
 - Full no-real-site suite: `453 passed, 8 deselected in 6.79s`
 - Git working tree: clean
-- GitHub Actions Quality run `#2186`: success on `280c32f`
+- GitHub Actions Quality run `#2194`: success on `ef8d9c8`
 
 The older focused-checkpoint and live-catalog references above remain historical evidence for the earlier audit checkpoint.
 
@@ -260,7 +260,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 
 ### 4. Calidad
 
-- [x] Última Quality CI: suite no-real-site `446 passed, 8 deselected`; validación local del nuevo código pendiente de sincronización
+- [x] Última Quality CI: `#2194` sobre `ef8d9c8` terminó en `success`; la validación local del baseline funcional quedó en `453 passed, 8 deselected`
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`
@@ -337,4 +337,4 @@ Las validaciones reales documentadas en este checkpoint confirmaron `523` aparic
 
 ## RELEASE POSITION
 
-The correction, recovery, persistence, reconciliation, coverage, performance diagnostics and automated quality work remain validated on `main`. The live functional reference remains `24 / 523 / 519 / 4`, with complete coverage, DB `519 / 523`, applied history and production-style E2E evidence. The historical `24 / 534 / 530 / 4` snapshot remains diagnostic. Image storage now follows a DB-backed allowlist: products.image_path is the sole active reference, resources/images historical assets have been removed from the repository, and local generated files outside that allowlist are cleaned explicitly with tools/clean_unused_images.py. The remaining release step is to run and verify that local cleanup against the user's database and image directory.
+The correction, recovery, persistence, reconciliation, coverage, performance diagnostics and automated quality work remain validated on `main`. The live functional reference remains `24 / 523 / 519 / 4`, with complete coverage, DB `519 / 523`, applied history and production-style E2E evidence. The historical `24 / 534 / 530 / 4` snapshot remains diagnostic. Image storage now follows a DB-backed allowlist: products.image_path is the sole active reference, resources/images historical assets have been removed from the repository, and local generated files outside that allowlist are cleaned explicitly with tools/clean_unused_images.py. No queda pendiente una acción de release para la auditoría de imágenes: la verificación local ya confirmó la ruta canónica activa, cero referencias activas inexistentes y cero archivos huérfanos; el reporte JSON generado durante la auditoría se mantiene fuera del repositorio.

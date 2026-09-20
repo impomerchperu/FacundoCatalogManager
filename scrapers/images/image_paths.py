@@ -4,3 +4,4 @@ from pathlib import Path
 # data/images/products es la única ubicación canónica del catálogo descargado.
 IMAGE_ROOT = Path("data/images")
 IMAGE_PRODUCTS_DIR = IMAGE_ROOT / "products"
+IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif"})

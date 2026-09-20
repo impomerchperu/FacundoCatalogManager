@@ -337,4 +337,10 @@ Las validaciones reales documentadas en este checkpoint confirmaron `523` aparic
 
 ## RELEASE POSITION
 
+## GUI OPERATIONAL SMOKE TEST
+
+El smoke test manual de la aplicación sobre el baseline actual fue completado el 2026-09-20. Se confirmó el arranque de `app.py`, la carga del catálogo persistido desde `database/catalog.db` sin iniciar scraping automáticamente, la disponibilidad y navegación de la tabla, búsqueda/filtros, los accesos a **Actualizar catálogo** y **Historial**, y la ejecución completa del flujo de actualización desde la GUI. El resultado final, detalle e historial fueron revisados sin incidencias visibles.
+
+La validación manual confirma el contrato operativo de la GUI sobre el baseline existente; no implica cambios de runtime ni sustituye las pruebas automatizadas o el E2E real.
+
 The correction, recovery, persistence, reconciliation, coverage, performance diagnostics and automated quality work remain validated on `main`. The live functional reference remains `24 / 523 / 519 / 4`, with complete coverage, DB `519 / 523`, applied history and production-style E2E evidence. The historical `24 / 534 / 530 / 4` snapshot remains diagnostic. Image storage now follows a DB-backed allowlist: products.image_path is the sole active reference, resources/images historical assets have been removed from the repository, and local generated files outside that allowlist are cleaned explicitly with tools/clean_unused_images.py. No queda pendiente una acción de release para la auditoría de imágenes: la verificación local ya confirmó la ruta canónica activa, cero referencias activas inexistentes y cero archivos huérfanos; el reporte JSON generado durante la auditoría se mantiene fuera del repositorio.

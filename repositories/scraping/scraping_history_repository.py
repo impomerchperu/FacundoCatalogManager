@@ -117,6 +117,28 @@ class ScrapingHistoryRepository:
                 )
         return history.history_id
 
+    def link_scraping_run(self, run_id: int, history_id: int) -> None:
+        """Relaciona exactamente una ejecución de scraping con su historial."""
+        if run_id <= 0 or history_id <= 0:
+            raise ValueError("run_id e history_id deben ser positivos.")
+        self._assert_history_exists(history_id)
+        run = self.db.fetch_one(
+            "SELECT id FROM scraping_runs WHERE id = ?",
+            (run_id,),
+        )
+        if run is None:
+            raise RuntimeError(
+                "No existe la ejecución de scraping para enlazar el historial: "
+                f"run_id={run_id}."
+            )
+        self.db.execute_query(
+            """
+            INSERT INTO scraping_run_history (run_id, history_id)
+            VALUES (?, ?)
+            """,
+            (run_id, history_id),
+        )
+
     def _assert_history_exists(self, history_id: int) -> None:
         parent = self.db.fetch_one(
             "SELECT id FROM scraping_history WHERE id = ?",

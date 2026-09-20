@@ -111,14 +111,30 @@ La etapa funcional principal continúa cerrada y protegida. El trabajo posterior
 
 ### En revisión
 
-- Auditoría de duplicación y APIs legacy de imágenes.
-- Revisión final de fábricas de compatibilidad.
-- Actualización y consistencia final de documentación/checkpoints.
+- Auditoría final de duplicación de hashing y componentes legacy de imágenes.
+- Mejoras opcionales de granularidad de progreso UI.
+- Benchmark específico de contención/latencia SQLite solo si aparece evidencia concreta.
+
+### Auditorías cerradas en este avance
+
+- Fábricas de compatibilidad: ambas son delegados finos al factory canónico; se conservan por compatibilidad potencial y no existe una implementación paralela.
+- Autoridad de ejecución: `scraping_runs` gobierna recuperación/reconciliación del último FULL válido; `scraping_history.applied_at` representa la última aplicación de historial y puede corresponder a una ejecución dirigida. `scraping_run_history` mantiene el vínculo entre ambos.
+- No se requiere modificación de runtime por estas auditorías.
 
 ### No ejecutar en esta fase
 
 - Nuevo FULL real, salvo que se abra explícitamente el checkpoint de validación funcional.
 - Cambios de extracción, paginación o límites de concurrencia sin benchmark + FULL posterior.
+
+## Modelo de autoridad persistente
+
+El modelo actual usa dos conceptos deliberadamente separados:
+
+1. `scraping_runs`: fuente técnica para decidir qué FULL completo y consistente puede reconstruir el catálogo.
+2. `scraping_history`: bitácora de ejecuciones/aplicaciones y detalle de cambios; `applied_at` identifica la versión de historial actualmente aplicada.
+3. `scraping_run_history`: vínculo explícito cuando una ejecución moderna tiene una correspondencia demostrable con su historial.
+
+Una ejecución dirigida puede quedar aplicada en historial sin convertirse por ello en la base de recuperación FULL. Mantener esta separación evita que una actualización parcial sustituya silenciosamente la referencia completa del catálogo.
 
 ## Próximo orden de trabajo
 

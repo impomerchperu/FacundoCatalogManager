@@ -82,6 +82,8 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 4. [x] Ejecutar `python -m pytest -q --ignore=tests/scraping/real_site`.
 5. [x] Confirmar `git status --short` vacío.
 6. [x] Quality #1913: success; Ruff, Pyright y Pytest verdes; `live-catalog` skipped de forma intencional.
-7. [ ] Cuando se abra explícitamente la validación funcional final, repetir FULL real + validación de DB + historial + idempotencia.
+7. [x] FULL real ejecutado: el sitio publicó 523 apariciones esperadas, 11 menos que la referencia histórica 534.
+8. [x] Diagnóstico confirmado: la prueba estaba tratando el inventario histórico como contrato fijo; se ajustó para validar cobertura contra los totales publicados por el sitio en cada ejecución, conservando 534 como referencia diagnóstica.
+9. [ ] Repetir FULL real + validación de DB + historial + idempotencia después de este ajuste.
 
 No se requiere otro cambio de runtime mientras las invariantes protegidas permanezcan verdes.

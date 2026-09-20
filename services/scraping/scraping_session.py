@@ -64,7 +64,13 @@ class ScrapingSession:
         return self._execute(lambda: self.runner.run_all(progress_callback))
 
     def close(self) -> None:
-        """Cierra los recursos de scraping cuando finaliza la vida de la sesión."""
+        """Cierra el pipeline cuando finaliza la vida de la sesión."""
+        close_runner = getattr(self.runner, "close", None)
+        if callable(close_runner):
+            close_runner()
+            return
+
+        # Compatibilidad con runners antiguos sin API explícita de cierre.
         sync_service = getattr(self.runner, "scraping_service", None)
         scraper_service = getattr(sync_service, "scraper_service", None)
         close_scraper = getattr(scraper_service, "close", None)

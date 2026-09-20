@@ -69,7 +69,7 @@ Validación local reportada para el código anterior a la última normalización
 - Batería focal de imágenes: `10 passed`.
 - Contrato focal de progreso: `13 passed`.
 
-Los últimos cambios de código solo reorganizaron tres pruebas de imágenes para que sean funciones pytest convencionales, aislaron `ImageSync` del repositorio físico local y corrigieron el comando de suite documentado en README. La validación local más reciente quedó verde: Ruff limpio, Pyright sin diagnósticos y `436 passed, 2 deselected`.
+Los últimos cambios de código solo reorganizaron tres pruebas de imágenes para que sean funciones pytest convencionales, aislaron `ImageSync` del repositorio físico local y corrigieron el comando de suite documentado en README. La validación documentada de la suite no-real-site quedó verde con `437 passed, 2 deselected`; las comprobaciones estáticas también quedaron limpias.
 
 ## Arquitectura
 

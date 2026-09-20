@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from database.db_manager import DBManager
@@ -26,7 +27,6 @@ def test_history_save_links_to_current_normalized_scraping_run():
         )
     )
     session = ScrapingSession(runner, history_repository=history_repository)
-    from datetime import datetime, timezone
     session.result.started_at = datetime.now(timezone.utc)
     session.result.finished_at = datetime.now(timezone.utc)
 
@@ -53,7 +53,6 @@ def test_history_save_keeps_legacy_history_unlinked_without_normalized_run():
     history_repository = ScrapingHistoryRepository(db)
     runner = SimpleNamespace(scraping_service=SimpleNamespace())
     session = ScrapingSession(runner, history_repository=history_repository)
-    from datetime import datetime, timezone
     session.result.started_at = datetime.now(timezone.utc)
     session.result.finished_at = datetime.now(timezone.utc)
 

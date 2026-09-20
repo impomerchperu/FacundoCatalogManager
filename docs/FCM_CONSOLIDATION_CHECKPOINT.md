@@ -37,8 +37,8 @@ El snapshot histórico 534/530/4 permanece únicamente como referencia diagnóst
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
 - Batería focal del checkpoint previa: `21 passed in 0.63s`.
-- Suite no-real-site más reciente: `437 passed, 2 deselected in 4.51s`.
-- Git working tree local: limpio después de sincronizar con `origin/feature/scraping-performance-recovery`.
+- Suite no-real-site más reciente: `437 passed, 8 deselected in 9.95s`.
+- Git working tree local: limpio después de sincronizar con `origin/main`.
 - GitHub Actions Quality `#2018`: `success` sobre `e45a4a4`, con Ruff, Pyright y Pytest verdes.
 - `live-catalog`: `skipped` en CI rápido; las validaciones FULL reales se ejecutaron manualmente contra el sitio.
 - Se deshabilitaron las rutas de limpieza destructiva directa de catálogo e imágenes; quedan solo como diagnóstico.
@@ -62,7 +62,7 @@ python -m pytest tests/scraping/real_site/test_full_catalog_scraper.py -q -m rea
 1 passed in 391.61s (0:06:31)
 
 python -m pytest -q --ignore=tests/scraping/real_site
-379 passed, 2 deselected in 8.13s
+437 passed, 8 deselected in 9.95s
 ```
 
 El test real de colección se ejecuta de forma secuencial por categoría; por ello sus `391.61s` son una referencia del recolector real y no deben compararse directamente con el wall-clock del pipeline de producción, que utiliza concurrencia por categoría.
@@ -97,7 +97,7 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] Ruff limpio en el checkpoint actual.
 - [x] Pyright limpio en el checkpoint actual.
 - [x] Batería focal de esta auditoría de hashing: 10/10; batería general previa 21/21.
-- [x] Suite no-real-site actual: 437/437 (2 deselected).
+- [x] Suite no-real-site actual: 437/437 (8 deselected).
 - [x] Snapshot histórico FULL: 24/534/530/4.
 - [x] Referencia operativa actual FULL/E2E: 24/523/519/4.
 - [x] Idempotencia validada en la misma SQLite: segunda ejecución idéntica clasifica todos los productos como `unchanged` y no genera `download_changes`.

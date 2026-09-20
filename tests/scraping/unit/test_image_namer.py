@@ -8,27 +8,27 @@ def test_image_namer_builds_expected_paths():
         (
             "FB-1812",
             "https://site.com/images/FB-1812.webp",
-            "data/images/FB-1812.webp",
+            "data/images/products/FB-1812.webp",
         ),
         (
             "FB-1800-AZ",
             "https://site.com/a/b/c.png",
-            "data/images/FB-1800-AZ.png",
+            "data/images/products/FB-1800-AZ.png",
         ),
         (
             "ABC123",
             "https://site.com/img/test.jpg",
-            "data/images/ABC123.jpg",
+            "data/images/products/ABC123.jpg",
         ),
         (
             "ABC123",
             "https://site.com/img/test.jpeg",
-            "data/images/ABC123.jpeg",
+            "data/images/products/ABC123.jpeg",
         ),
         (
             "ABC123",
             "",
-            "data/images/ABC123.bin",
+            "data/images/products/ABC123.bin",
         ),
     ]
 

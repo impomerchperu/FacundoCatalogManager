@@ -152,9 +152,9 @@ El diagnóstico de transporte del 2026-09-20 quedó cerrado con cuatro corridas 
 - [x] Cerrar la comparación de `FCM_BENCH_CATEGORY_PAGE_WORKERS` bajo `8 / 16 / 28` + JSF `8 / 2`: tres corridas por condición, cobertura completa y `0` errores; no se estableció beneficio reproducible
 - [x] Determinar por qué el máximo HTTP en vuelo del benchmark queda en `16` pese al límite configurado de `28`: lo limita la paralelización aguas arriba, no el semáforo global.
 - [x] Separar el coste de requests de categoría, JSF y detalle por percentiles y por etapa mediante telemetría de P50/P95/P99, máximos en vuelo por clase y tiempos agregados.
-- [ ] Solo después de identificar una oportunidad concreta y reproducible, aplicar un cambio de runtime.
-- [ ] Reejecutar benchmark y FULL real después de cualquier cambio de runtime.
-- [ ] Revalidar persistencia, historial, cobertura y prune en un E2E productivo posterior.
+- [x] Los diagnósticos controlados no identificaron una oportunidad reproducible que justificara un cambio de runtime; producción conserva `8 / 16 / 28` + JSF `8 / 2` + category-page `1`.
+- [x] No hubo cambio de runtime posterior a los diagnósticos; por tanto no se activa una nueva validación FULL post-cambio.
+- [x] La última validación E2E productiva existente sigue siendo la referencia porque no hubo cambio de runtime que requiriera otro E2E.
 
 ## Progreso de UI
 

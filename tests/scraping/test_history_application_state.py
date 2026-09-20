@@ -10,21 +10,35 @@ def _qapp():
     return QApplication.instance() or QApplication([])
 
 
-def _history(history_id: int, status: str):
+def _history(
+    history_id: int,
+    status: str,
+    applied_at: str | None = "2026-09-17T21:15:05+00:00",
+):
     return SimpleNamespace(
         history_id=history_id,
         status=status,
         finished_at="2026-09-17T21:10:05+00:00",
-        applied_at="2026-09-17T21:15:05+00:00",
+        applied_at=applied_at,
     )
 
 
-def test_status_text_shows_only_applied_for_successful_scraping():
-    assert ScrapingHistoryDialog._status_text(_history(11, "SUCCESS")) == "APLICADO"
+def test_status_text_shows_applied_timestamp_for_current_success():
+    assert ScrapingHistoryDialog._status_text(_history(11, "SUCCESS")) == (
+        "APLICADO\n17/09/2026 16:15:05"
+    )
 
 
-def test_status_text_shows_only_error_for_failed_scraping():
-    assert ScrapingHistoryDialog._status_text(_history(20, "ERROR")) == "ERROR"
+def test_status_text_shows_not_applied_for_superseded_success():
+    record = _history(12, "SUCCESS", applied_at=None)
+
+    assert ScrapingHistoryDialog._status_text(record) == "NO APLICADO"
+
+
+def test_status_text_shows_error_for_failed_scraping():
+    record = _history(20, "ERROR", applied_at=None)
+
+    assert ScrapingHistoryDialog._status_text(record) == "ERROR"
 
 
 def test_history_table_has_expected_columns_after_layout_cleanup():

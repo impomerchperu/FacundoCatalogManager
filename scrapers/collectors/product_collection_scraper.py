@@ -67,6 +67,11 @@ class ProductCollectionScraper:
                 continue
             seen.add(id(executor))
             executor.shutdown(wait=True, cancel_futures=True)
+
+        close_category_scraper = getattr(self.category_scraper, "close", None)
+        if callable(close_category_scraper):
+            close_category_scraper()
+
         self._closed = True
 
     def scrape_category(self, category: Any) -> list[Any]:

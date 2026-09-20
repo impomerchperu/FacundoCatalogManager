@@ -1,4 +1,3 @@
-from threading import BoundedSemaphore
 from time import perf_counter
 
 import pytest

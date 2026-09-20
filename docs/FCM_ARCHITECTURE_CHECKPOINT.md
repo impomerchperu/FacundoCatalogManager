@@ -290,7 +290,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] HTTP/detail audited
 - [x] SQLite not identified as primary bottleneck
 - [x] Category/detail identified as major network cost
-- [x] HTTP concurrency validated to configured `28`
+- [x] Shared HTTP budget configured at `28`; observed peak `16` explained by upstream stage parallelism
 - [x] Retry/backoff telemetry available
 - [x] Category/HTTP workers `8 / 28` remain validated
 - [x] Detail workers `16` selected after crossed live benchmark against `24`
@@ -299,8 +299,9 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Benchmark: isolate detail worker behavior with crossed live runs
 - [x] Final production E2E: revalidate coverage and persistence under `8 / 16 / 28`
 - [x] Baseline concurrency benchmark `8 / 16 / 28` re-run with live coverage contract
+- [x] HTTP diagnostics expose max in-flight by request class and P50/P95/P99 by stage
 - [ ] Isolate category collection bottleneck with controlled worker comparison
-- [ ] Explain HTTP max-in-flight `16` versus configured limit `28`
+- [x] Explain HTTP max-in-flight `16` versus configured limit `28`
 - [ ] Re-run authoritative FULL after any runtime performance change
 
 ## IMAGE AUDIT POSITION

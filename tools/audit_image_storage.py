@@ -188,15 +188,48 @@ def audit(
         if len({record["root"] for record in group}) > 1
     ]
 
+    active_references = [
+        reference
+        for reference in references
+        if reference["table"] == "products"
+    ]
+    legacy_references = [
+        reference
+        for reference in references
+        if reference["table"] in {"scraped_products", "sync_records"}
+    ]
+    active_referenced_paths = {
+        reference["resolved_path"] for reference in active_references
+    }
+    legacy_referenced_paths = {
+        reference["resolved_path"] for reference in legacy_references
+    }
+
     missing_references = [
         reference
         for reference in references
+        if reference["resolved_path"] not in file_by_path
+    ]
+    missing_active_references = [
+        reference
+        for reference in active_references
         if reference["resolved_path"] not in file_by_path
     ]
     orphan_files = [
         record
         for record in files
         if record["path"] not in references_by_path
+    ]
+    active_orphan_files = [
+        record
+        for record in files
+        if record["path"] not in active_referenced_paths
+    ]
+    legacy_only_files = [
+        record
+        for record in files
+        if record["path"] in legacy_referenced_paths
+        and record["path"] not in active_referenced_paths
     ]
 
     hash_match = []
@@ -246,7 +279,11 @@ def audit(
         },
         "referenced_files": len(files) - len(orphan_files),
         "orphan_files": len(orphan_files),
+        "active_referenced_files": len(files) - len(active_orphan_files),
+        "active_orphan_files": len(active_orphan_files),
+        "legacy_only_files": len(legacy_only_files),
         "missing_references": len(missing_references),
+        "missing_active_references": len(missing_active_references),
         "hash_match_references": len(hash_match),
         "hash_mismatch_references": len(hash_mismatch),
         "hash_missing_references": len(hash_missing),
@@ -275,7 +312,10 @@ def audit(
             key=lambda item: (-item["references"], item["url"]),
         ),
         "missing_reference_details": missing_references,
+        "missing_active_reference_details": missing_active_references,
         "orphan_file_details": orphan_files,
+        "active_orphan_file_details": active_orphan_files,
+        "legacy_only_file_details": legacy_only_files,
         "hash_mismatch_details": hash_mismatch,
     }
 
@@ -304,7 +344,20 @@ def print_report(report: dict[str, Any], max_details: int = 100) -> None:
 
     print(f"Archivos referenciados: {report['referenced_files']}")
     print(f"Archivos sin referencia DB: {report['orphan_files']}")
+    print(
+        "Archivos referenciados por products: "
+        f"{report['active_referenced_files']}"
+    )
+    print(
+        "Archivos no referenciados por products: "
+        f"{report['active_orphan_files']}"
+    )
+    print(f"Archivos solo legacy: {report['legacy_only_files']}")
     print(f"Referencias a archivos inexistentes: {report['missing_references']}")
+    print(
+        "Referencias activas a archivos inexistentes: "
+        f"{report['missing_active_references']}"
+    )
     print(f"Hashes DB coincidentes: {report['hash_match_references']}")
     print(f"Hashes DB ausentes: {report['hash_missing_references']}")
     print(f"Hashes DB distintos: {report['hash_mismatch_references']}")
@@ -376,16 +429,22 @@ def _json_safe(report: dict[str, Any]) -> dict[str, Any]:
         ]
     for key in (
         "missing_reference_details",
+        "missing_active_reference_details",
         "hash_mismatch_details",
     ):
         serializable[key] = [
             {**reference, "resolved_path": str(reference["resolved_path"])}
             for reference in serializable[key]
         ]
-    serializable["orphan_file_details"] = [
-        {**record, "path": str(record["path"])}
-        for record in serializable["orphan_file_details"]
-    ]
+    for key in (
+        "orphan_file_details",
+        "active_orphan_file_details",
+        "legacy_only_file_details",
+    ):
+        serializable[key] = [
+            {**record, "path": str(record["path"])}
+            for record in serializable[key]
+        ]
     return serializable
 
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import requests
 
 from scrapers.images.image_hash import ImageHash
-from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
+from scrapers.images.image_paths import IMAGE_EXTENSIONS, IMAGE_PRODUCTS_DIR
 
 
 class ImageDownloader:
@@ -91,7 +91,7 @@ class ImageDownloader:
     @staticmethod
     def _extension(url: str, content_type: str) -> str:
         suffix = Path(url.split("?", 1)[0]).suffix.lower()
-        if suffix in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+        if suffix in IMAGE_EXTENSIONS:
             return suffix
 
         mapping = {

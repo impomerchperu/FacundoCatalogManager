@@ -114,7 +114,7 @@ Se ejecutó un benchmark aislado sobre SQLite temporal con 530 productos, WAL, `
 
 ## Estado de ingeniería validado
 
-La última Quality CI sobre `main` es el run `#2186`, ejecutado sobre `280c32f`, y terminó en `success`. La validación local posterior confirma Ruff limpio, Pyright con `0 errors, 0 warnings, 0 informations` y `453 passed, 8 deselected`.
+La última Quality CI sobre `main` es el run `#2194`, ejecutado sobre `ef8d9c8`, y terminó en `success`. La validación local del baseline funcional confirma Ruff limpio, Pyright con `0 errors, 0 warnings, 0 informations` y `453 passed, 8 deselected`.
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
@@ -123,7 +123,7 @@ La última Quality CI sobre `main` es el run `#2186`, ejecutado sobre `280c32f`,
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
 - FULL/E2E de producción más reciente: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, configuración `8 / 16 / 28`, `337` solicitudes HTTP, duración `100.33s`.
-- Quality CI de la referencia actual sobre `main`: run `#2189`, commit `6ac1fdc`, completado en `success`.
+- Quality CI del estado actual de `main`: run `#2194`, commit `ef8d9c8`, completado en `success`.
 - Snapshot histórico preservado: `24 / 534 / 530 / 4`.
 - Smoke de bootstrap sobre copia de la base real: `530 / 534`, usando el FULL más reciente válido.
 
@@ -168,7 +168,7 @@ El diagnóstico de transporte del 2026-09-20 quedó cerrado con cuatro corridas 
 - [x] Diagnóstico de sesiones HTTP por hilo cerrado: TRUE `41.15s` y `52.79s`; FALSE `53.43s` y `43.93s`; cuatro corridas con `523/523` y `0` errores.
 - [x] No se estableció beneficio reproducible de sesiones por hilo; producción conserva el transporte HTTP actual.
 - [x] Control benchmark-only para paralelismo de páginas de categoría añadido con default `1`; la prueba verifica concurrencia real y conservación del orden lógico del resultado.
-- [x] Validar localmente el ajuste de la prueba tras eliminar la asunción de orden de llamadas concurrentes; queda pendiente la confirmación equivalente en Quality CI.
+- [x] Validar localmente el ajuste de la prueba tras eliminar la asunción de orden de llamadas concurrentes; Quality CI posterior confirmó el estado en verde.
 - [x] Cerrar la comparación de `FCM_BENCH_CATEGORY_PAGE_WORKERS` bajo `8 / 16 / 28` + JSF `8 / 2`: tres corridas por condición, cobertura completa y `0` errores; no se estableció beneficio reproducible
 - [x] Determinar por qué el máximo HTTP en vuelo del benchmark queda en `16` pese al límite configurado de `28`: lo limita la paralelización aguas arriba, no el semáforo global.
 - [x] Separar el coste de requests de categoría, JSF y detalle por percentiles y por etapa mediante telemetría de P50/P95/P99, máximos en vuelo por clase y tiempos agregados.

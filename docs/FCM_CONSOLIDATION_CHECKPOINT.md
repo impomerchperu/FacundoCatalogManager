@@ -17,6 +17,21 @@ Los pisos históricos menores no sustituyen esta referencia.
 
 ## Evidencia reciente validada localmente
 
+### Checkpoint actual — 2026-09-19
+
+- HEAD: `95e244eeda6444fbba2d1e888d0714e48241ec04`.
+- Ruff: `All checks passed!`.
+- Pyright: `0 errors, 0 warnings, 0 informations`.
+- Batería focal del checkpoint: `21 passed in 0.63s`.
+- Suite no-real-site: `429 passed, 2 deselected in 6.40s`.
+- Git working tree local: limpio después de sincronizar con `origin/feature/scraping-performance-recovery`.
+- GitHub Actions Quality `#1867`: `success`.
+- `live-catalog`: `skipped`, deliberadamente no ejecutado durante esta auditoría.
+- Se deshabilitaron las rutas de limpieza destructiva directa de catálogo e imágenes; quedan solo como diagnóstico.
+- No se ejecutó un nuevo scraping real durante este checkpoint.
+
+
+
 Después de la limpieza segura de esta etapa, la batería local quedó en:
 
 ```text
@@ -65,17 +80,45 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 ## Estado de esta etapa
 
 - [x] Sincronización local con la rama remota.
-- [x] Ruff limpio en la validación anterior.
-- [x] Pyright limpio en la validación anterior.
-- [x] Tests anteriores de las dos familias renombradas: 8/8.
-- [x] Suite no-real-site anterior: 379/379.
-- [x] FULL real de colección anterior: 1/1.
-- [x] Referencia funcional 24/534/530/4 preservada por el test real.
-- [x] Corrección aplicada a los contratos del nuevo ledger.
-- [ ] Reejecutar tests del ledger corregidos.
-- [ ] Reejecutar suite no-real-site después de la corrección.
-- [ ] No se ha cambiado la concurrencia productiva.
-- [ ] No se ha cambiado el comportamiento de prune.
+- [x] Ruff limpio en el checkpoint actual.
+- [x] Pyright limpio en el checkpoint actual.
+- [x] Batería focal actual: 21/21.
+- [x] Suite no-real-site actual: 429/429.
+- [x] FULL real de referencia: 24/534/530/4.
+- [x] Correcciones del ledger y trazabilidad run/history validadas.
+- [x] No se ha cambiado la concurrencia productiva.
+- [x] No se ha cambiado el comportamiento funcional de prune; además se bloquearon herramientas legacy de borrado directo.
+- [x] Limpieza destructiva directa de imágenes bloqueada.
+- [x] Quality CI actual: success.
+
+## Estado maestro actual
+
+La etapa funcional principal continúa cerrada y protegida. El trabajo posterior es de auditoría/limpieza y no debe modificar la cobertura validada.
+
+### Cerrado
+
+- Cobertura FULL `24 / 534 / 530 / 4`.
+- Persistencia `530 / 534`.
+- `coverage_complete=1`, `coverage_gap=0`, `error_count=0`.
+- Recuperación y precedencia de FULL válido.
+- Ledger SQLite v2.
+- Enlace técnico `scraping_run_history`.
+- Cierre determinista de recursos.
+- Configuración productiva `8 / 16 / 28`.
+- Consolidación de paginación/JSF/métricas/código.
+- Auditoría y bloqueo de herramientas legacy destructivas.
+- Calidad local y Quality CI verdes.
+
+### En revisión
+
+- Auditoría de duplicación y APIs legacy de imágenes.
+- Revisión final de fábricas de compatibilidad.
+- Actualización y consistencia final de documentación/checkpoints.
+
+### No ejecutar en esta fase
+
+- Nuevo FULL real, salvo que se abra explícitamente el checkpoint de validación funcional.
+- Cambios de extracción, paginación o límites de concurrencia sin benchmark + FULL posterior.
 
 ## Próximo orden de trabajo
 

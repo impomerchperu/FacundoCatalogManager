@@ -184,6 +184,19 @@ class ScrapingSession:
         for product in self.result.products:
             self.catalog_repository.save(product)
 
+    def _get_scraping_run_id(self) -> int | None:
+        """Obtiene la ejecución normalizada asociada a la sesión actual."""
+        sync_service = getattr(self.runner, "scraping_service", None)
+        repository = getattr(sync_service, "normalized_repository", None)
+        run_id = getattr(repository, "last_run_id", None)
+        if run_id is None:
+            return None
+        try:
+            value = int(run_id)
+        except (TypeError, ValueError):
+            return None
+        return value if value > 0 else None
+
     def _extract_sync_result(self):
         sync_service = self.runner.scraping_service
         sync_result = getattr(sync_service, "last_sync_result", None)
@@ -307,3 +320,9 @@ class ScrapingSession:
             self.result.changes,
             self.result.products,
         )
+        scraping_run_id = self._get_scraping_run_id()
+        if scraping_run_id is not None:
+            self.history_repository.link_scraping_run(
+                scraping_run_id,
+                self.result.history_id,
+            )

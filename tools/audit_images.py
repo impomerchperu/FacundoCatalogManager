@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Permite ejecutar el archivo directamente desde la raíz del proyecto:
 # `python tools/audit_images.py`.

@@ -109,7 +109,7 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 
 ## Estado maestro actual
 
-La etapa funcional principal continúa cerrada y protegida. El trabajo posterior es de auditoría/limpieza y debe preservar la cobertura completa relativa al inventario vivo. El snapshot histórico 534/530/4 permanece como referencia diagnóstica.
+La etapa funcional principal continúa cerrada y protegida en `main`. El benchmark de contención/latencia SQLite pendiente ya fue ejecutado y no produjo evidencia que justifique modificar el runtime. El snapshot histórico 534/530/4 permanece como referencia diagnóstica.
 
 ### Cerrado
 

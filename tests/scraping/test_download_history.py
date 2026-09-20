@@ -80,12 +80,10 @@ def test_history_stores_only_detected_changes():
     }
 
     new_fields = [item for item in stored if item["type"] == "NEW"]
-    assert {item["field"] for item in new_fields} >= {
-        "name",
-        "category",
-        "description",
-        "stock",
-    }
+    assert len(new_fields) == len(ScrapingHistoryRepository.PRODUCT_FIELDS)
+    assert {item["field"] for item in new_fields} == set(
+        ScrapingHistoryRepository.PRODUCT_FIELDS
+    )
     assert all(item["old"] is None for item in new_fields)
     db.close()
 

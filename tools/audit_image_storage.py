@@ -82,7 +82,7 @@ def _collect_db_references(
                 f"SELECT {', '.join(selected)} FROM {table}"
             ).fetchall()
             for row in rows:
-                values = dict(zip(selected, row))
+                values = dict(zip(selected, row, strict=True))
                 normalized = _normalized_db_path(
                     values.get("image_path"),
                     project_root,

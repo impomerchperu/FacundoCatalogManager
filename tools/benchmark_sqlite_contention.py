@@ -18,7 +18,6 @@ import threading
 import time
 from pathlib import Path
 
-
 DEFAULT_PRODUCTS = 530
 DEFAULT_READ_ITERATIONS = 250
 DEFAULT_WRITE_BATCHES = 12

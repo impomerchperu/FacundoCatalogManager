@@ -18,8 +18,6 @@ import threading
 import time
 from pathlib import Path
 
-from database.db_manager import DBManager
-
 
 DEFAULT_PRODUCTS = 530
 DEFAULT_READ_ITERATIONS = 250
@@ -35,11 +33,13 @@ def configure(connection: sqlite3.Connection) -> None:
 
 
 def seed_database(path: Path, products: int) -> None:
-    db = DBManager(str(path))
+    schema_path = Path(__file__).resolve().parents[1] / "database" / "schema.sql"
+    connection = sqlite3.connect(str(path), timeout=30)
     try:
-        db.begin()
+        configure(connection)
+        connection.executescript(schema_path.read_text(encoding="utf-8"))
         for index in range(1, products + 1):
-            db.execute_query(
+            connection.execute(
                 """
                 INSERT INTO products (
                     code, name, category, description, price,
@@ -56,10 +56,10 @@ def seed_database(path: Path, products: int) -> None:
                     f"hash-{index:04d}",
                 ),
             )
-        db.commit()
-        db.connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        connection.commit()
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     finally:
-        db.close()
+        connection.close()
 
 
 def run_writer(

@@ -170,6 +170,14 @@ class NormalizedScrapingRepository:
                 getattr(category, "expected_count", 0),
             )
 
+        self.db.executemany(
+            """
+            INSERT OR IGNORE INTO scraping_run_categories (run_id, category_id)
+            VALUES (?, ?)
+            """,
+            [(run_id, category_id) for category_id in category_ids.values()],
+        )
+
         metadata = occurrence_metadata or {}
         now = self._now()
         occurrences = 0

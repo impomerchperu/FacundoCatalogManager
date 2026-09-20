@@ -15,13 +15,21 @@ class FakeManager:
         }
 
 
+class EmptyRepository:
+    def find(self, code):
+        return None
+
+
 class Product:
     code = "FB-1812"
     image_url = "https://site.com/FB-1812.webp"
 
 
 def test_image_sync_synchronizes_product_image():
-    sync = ImageSync(image_manager=FakeManager())
+    sync = ImageSync(
+        image_manager=FakeManager(),
+        image_repository=EmptyRepository(),
+    )
 
     result = sync.synchronize(Product())
 

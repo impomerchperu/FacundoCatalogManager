@@ -94,6 +94,7 @@ class ScrapingFactory:
             browser=browser,
             category_extractor=CategoryExtractor(),
             jsf_http_concurrency=config.jsf_http_concurrency,
+            jsf_page_workers=config.jsf_page_workers,
         )
         category_service = CategoryService(
             category_scraper,

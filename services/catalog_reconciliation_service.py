@@ -24,6 +24,7 @@ class CatalogReconciliationService:
     )
 
     _RUN_METRIC_COLUMNS: ClassVar[tuple[str, ...]] = (
+        "categories_requested",
         "expected_category_occurrences",
         "actual_category_occurrences",
         "products_found",
@@ -70,7 +71,8 @@ class CatalogReconciliationService:
             occurrence_count = self.db.fetch_one(
                 """
                 SELECT COUNT(*) AS total,
-                       COUNT(DISTINCT UPPER(TRIM(code))) AS unique_codes
+                       COUNT(DISTINCT UPPER(TRIM(code))) AS unique_codes,
+                       COUNT(DISTINCT category_id) AS unique_categories
                 FROM scraping_product_occurrences
                 WHERE run_id=?
                 """,
@@ -82,10 +84,16 @@ class CatalogReconciliationService:
             unique_codes = (
                 int(occurrence_count["unique_codes"] or 0) if occurrence_count else 0
             )
+            unique_categories = (
+                int(occurrence_count["unique_categories"] or 0)
+                if occurrence_count
+                else 0
+            )
             if self._run_metrics_are_consistent(
                 run,
                 total_occurrences=total_occurrences,
                 unique_codes=unique_codes,
+                unique_categories=unique_categories,
                 metric_columns=metric_columns,
             ):
                 return run
@@ -183,6 +191,7 @@ class CatalogReconciliationService:
         *,
         total_occurrences: int,
         unique_codes: int,
+        unique_categories: int,
         metric_columns: set[str],
     ) -> bool:
         if total_occurrences <= 0:
@@ -193,6 +202,11 @@ class CatalogReconciliationService:
         if "coverage_gap" in metric_columns and int(run.get("coverage_gap", 0) or 0) != 0:
             return False
         if "error_count" in metric_columns and int(run.get("error_count", 0) or 0) != 0:
+            return False
+        if (
+            "categories_requested" in metric_columns
+            and int(run.get("categories_requested", 0) or 0) != unique_categories
+        ):
             return False
         if (
             "expected_category_occurrences" in metric_columns

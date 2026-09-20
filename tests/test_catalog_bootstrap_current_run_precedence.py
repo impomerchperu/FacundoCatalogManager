@@ -195,6 +195,67 @@ def test_recovery_uses_the_latest_successful_run_without_a_historical_count_floo
     ] == ["CURRENT"]
 
 
+def test_recovery_rejects_full_run_missing_a_requested_category():
+    from database.db_manager import DBManager
+    from models.product import Product
+    from repositories.product_repository import ProductRepository
+    from repositories.scraping.normalized_scraping_repository import (
+        NormalizedScrapingRepository,
+    )
+
+    db = DBManager(":memory:")
+    product_repository = ProductRepository(db)
+    normalized = NormalizedScrapingRepository(db)
+
+    category_id = normalized.upsert_category(
+        "Categoría A",
+        "https://example.test/categoria-a/",
+        expected_count=1,
+    )
+    product = Product(code="CURRENT", name="Producto actual")
+    product_repository.save(product)
+
+    run_id = normalized.start_run(
+        mode="full",
+        categories_requested=2,
+        expected_category_occurrences=1,
+    )
+    db.execute_query(
+        """
+        INSERT INTO scraping_product_occurrences
+            (run_id, category_id, product_id, code, product_url, discovered_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            run_id,
+            category_id,
+            product.product_id,
+            product.code,
+            "https://example.test/producto/current/",
+            "now",
+        ),
+    )
+    db.execute_query(
+        """
+        UPDATE scraping_runs
+        SET status='SUCCESS',
+            actual_category_occurrences=1,
+            products_found=1,
+            products_unique=1,
+            coverage_complete=1,
+            coverage_gap=0,
+            error_count=0
+        WHERE id=?
+        """,
+        (run_id,),
+    )
+
+    service = CatalogBootstrapService(db=db)
+
+    assert service.reconciliation_service.find_latest_successful_full_run() is None
+    db.close()
+
+
 def test_bootstrap_does_not_replace_initialized_catalog_with_another_successful_run():
     connection = _db()
     db = SQLiteDBAdapter(connection)

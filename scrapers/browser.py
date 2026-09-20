@@ -15,7 +15,11 @@ from config.scraping_config import (
 class Browser:
     def __init__(self, session=None, request_timeout=None, max_retries=None, http_workers=None):
         self.session = session
+        self._owns_session = session is None
         self._thread_local = threading.local()
+        self._sessions_lock = threading.Lock()
+        self._thread_sessions: set[requests.Session] = set()
+        self._closed = False
         self.http_workers = (
             SCRAPING_HTTP_WORKERS
             if http_workers is None
@@ -98,10 +102,37 @@ class Browser:
             return self.session
 
         session = getattr(self._thread_local, "session", None)
+        if self._closed:
+            raise RuntimeError("Browser ya está cerrado.")
         if session is None:
             session = requests.Session()
-            self._thread_local.session = session
+            with self._sessions_lock:
+                if self._closed:
+                    session.close()
+                    raise RuntimeError("Browser ya está cerrado.")
+                self._thread_local.session = session
+                self._thread_sessions.add(session)
         return session
+
+    def close(self) -> None:
+        """Cierra todas las sesiones HTTP creadas por este browser."""
+        with self._sessions_lock:
+            if self._closed:
+                return
+            self._closed = True
+            sessions = list(self._thread_sessions)
+            self._thread_sessions.clear()
+            if self._owns_session and self.session is not None:
+                sessions.append(self.session)
+
+        seen: set[int] = set()
+        for session in sessions:
+            if id(session) in seen:
+                continue
+            seen.add(id(session))
+            close = getattr(session, "close", None)
+            if callable(close):
+                close()
 
     def enable_thread_sessions(self):
         """Use one requests session per worker thread for concurrent scraping."""

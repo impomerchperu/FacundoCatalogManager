@@ -101,6 +101,7 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 7. [x] FULL real ejecutado y validado: el sitio publicó 523 apariciones esperadas, 11 menos que la referencia histórica 534.
 8. [x] Pruebas reales ajustadas para usar los totales publicados por las categorías como fuente de verdad de cobertura, conservando 534/530/4 como referencia histórica.
 9. [x] E2E productivo validado: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, cobertura completa y cero errores HTTP terminales.
-10. [ ] Repetir el FULL real independiente de cobertura y la prueba de idempotencia antes del cierre definitivo del release.
+10. [x] FULL real independiente de cobertura completado: 24/24 categorías, 523/523 apariciones, 519 únicos, 4 multi-categoría, 0 gaps y 0 códigos sin código.
+11. [ ] Ejecutar prueba de idempotencia sobre la misma SQLite antes del cierre definitivo del release.
 
 No se requiere otro cambio de runtime mientras las invariantes protegidas permanezcan verdes.

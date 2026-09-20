@@ -114,7 +114,7 @@ Esta validación manual se completó el 2026-09-20 sobre `main` y no modificó e
 3. [x] Ejecutar Pyright.
 4. [x] Ejecutar `python -m pytest -q`.
 5. [x] Confirmar `git status --short` vacío.
-6. [x] Quality #2194: success sobre `ef8d9c8`; el baseline funcional mantiene Ruff, Pyright y Pytest verdes (`453 passed, 8 deselected`).
+6. [x] Quality #2201: success sobre `9d60a3d`; el baseline funcional mantiene Ruff, Pyright y Pytest verdes (`453 passed, 8 deselected`).
 7. [x] FULL real ejecutado y validado: el sitio publicó 523 apariciones esperadas, 11 menos que la referencia histórica 534.
 8. [x] Pruebas reales ajustadas para usar los totales publicados por las categorías como fuente de verdad de cobertura, conservando 534/530/4 como referencia histórica.
 9. [x] E2E productivo validado: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, cobertura completa y cero errores HTTP terminales.

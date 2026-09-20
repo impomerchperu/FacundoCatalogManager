@@ -78,6 +78,13 @@ def test_persist_occurrences_creates_missing_master_product_before_recording_occ
     assert master is not None
     assert db.fetch_one("SELECT COUNT(*) AS n FROM product_categories")["n"] == 1
     assert (
+        db.fetch_one(
+            "SELECT COUNT(*) AS n FROM scraping_run_categories WHERE run_id=?",
+            (run_id,),
+        )["n"]
+        == 1
+    )
+    assert (
         db.fetch_one("SELECT COUNT(*) AS n FROM scraping_product_occurrences")["n"]
         == 1
     )

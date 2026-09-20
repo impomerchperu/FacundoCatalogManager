@@ -18,16 +18,18 @@ def test_image_audit_detects_byte_identical_duplicates(tmp_path):
     assert report["duplicate_files"] == 1
 
 
-def test_image_audit_cleanup_only_removes_duplicates(tmp_path):
+def test_image_audit_rejects_destructive_cleanup(tmp_path):
     root = Path(tmp_path) / "products"
     root.mkdir()
     (root / "P001.webp").write_bytes(b"same")
     (root / "legacy-P001.webp").write_bytes(b"same")
     (root / "P002.webp").write_bytes(b"different")
 
-    report = ImageAuditService(root).remove_duplicates()
+    import pytest
 
-    assert report["duplicate_files"] == 0
-    assert len(report["removed"]) == 1
+    with pytest.raises(RuntimeError, match="deshabilitada"):
+        ImageAuditService(root).remove_duplicates()
+
     assert (root / "P001.webp").exists()
+    assert (root / "legacy-P001.webp").exists()
     assert (root / "P002.webp").exists()

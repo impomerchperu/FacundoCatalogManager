@@ -311,7 +311,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Validate the stabilized category-page concurrency test in the local suite and Quality CI
 - [x] Close the category-page worker comparison under the current `8 / 16 / 28` + JSF `8 / 2` contract after repeat controls; `PAGE=1` mean `45.78s` vs `PAGE=2` mean `44.53s`, no reproducible benefit
 - [x] Explain HTTP max-in-flight `16` versus configured limit `28`
-- [ ] Re-run authoritative FULL after any runtime performance change
+- [x] No runtime performance change was applied after the controlled diagnostics; the existing authoritative FULL remains the active release reference
 
 ## IMAGE AUDIT POSITION
 

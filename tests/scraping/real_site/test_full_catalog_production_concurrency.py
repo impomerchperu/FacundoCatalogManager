@@ -57,9 +57,12 @@ def test_full_catalog_production_concurrency_real_site():
         SCRAPING_JSF_PAGE_WORKERS,
     )
     collection_only = os.getenv("FCM_BENCH_COLLECTION_ONLY") == "1"
+    thread_sessions = os.getenv("FCM_BENCH_THREAD_SESSIONS") == "1"
 
     started = perf_counter()
     browser = Browser(http_workers=http_workers)
+    if thread_sessions:
+        browser.enable_thread_sessions()
     category_scraper = ResilientCategoryScraper(
         browser=browser,
         category_extractor=CategoryExtractor(),
@@ -144,6 +147,7 @@ def test_full_catalog_production_concurrency_real_site():
         collection_elapsed = perf_counter() - collection_started
         collection_metrics = browser.get_http_metrics()
         print("COLLECTION-ONLY:", True)
+        print("THREAD SESSIONS:", thread_sessions)
         print("COLLECTION WALL:", f"{collection_elapsed:.2f}s")
         print(
             "COLLECTION HTTP REQUESTS:",
@@ -259,6 +263,7 @@ def test_full_catalog_production_concurrency_real_site():
     print("HTTP WORKERS:", http_workers)
     print("JSF HTTP CONCURRENCY:", jsf_http_concurrency)
     print("JSF PAGE WORKERS:", jsf_page_workers)
+    print("THREAD SESSIONS:", thread_sessions)
     print("HTTP REQUESTS:", http_metrics["http_requests"])
     print("HTTP MAX IN FLIGHT:", http_metrics["http_max_in_flight"])
     print(

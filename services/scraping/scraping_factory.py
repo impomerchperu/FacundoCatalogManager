@@ -120,7 +120,7 @@ class ScrapingFactory:
             return clean_unused_images(
                 project_root=PROJECT_ROOT,
                 db_path=PROJECT_ROOT / "database" / "catalog.db",
-                roots=["data/images", "resources/images"],
+                roots=[Path(config.images_folder), Path("resources/images")],
                 delete=True,
             )
 

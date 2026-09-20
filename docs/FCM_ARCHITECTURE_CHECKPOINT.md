@@ -234,7 +234,8 @@ This distinction is intentional and avoids allowing a partial/directed applicati
 
 ### CURRENT ENGINEERING CHECKPOINT
 
-Current head: `28becc60b230ec0f43285e999932f4d6b2feee8d` (`style(tests): normalize image audit imports`).
+Current documentation head: `700b71ee51ecff259f21d17d2c82f0597340ba37`.
+Last runtime/tooling head: `28becc60b230ec0f43285e999932f4d6b2feee8d`.
 
 Local validation after synchronization:
 

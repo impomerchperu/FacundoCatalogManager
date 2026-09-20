@@ -6,7 +6,7 @@ Branch: `feature/scraping-performance-recovery`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Suite no-real-site actual: `436 passed, 2 deselected`
+- [x] Suite no-real-site actual: `437 passed, 2 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -158,9 +158,9 @@ Per-category enrichment now exposes diagnostic timing without changing scraping 
 - `submit_seconds`
 - `wait_seconds`
 
-`CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`.
+`CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`. During the same phase it now emits progress callbacks through the enrichment range `25..47` for a 24-category FULL; `ScrapingRunner` reserves `48/48` as the terminal callback.
 
-The contract is covered by a focused unit test and the current local no-real-site suite remains green at `436 passed, 2 deselected`.
+The contract is covered by focused unit tests; the current local no-real-site suite remains green at `437 passed, 2 deselected`.
 
 This instrumentation is diagnostic only. It does not change coverage, product selection, persistence, prune behavior or retry semantics.
 
@@ -170,7 +170,7 @@ Performance remains secondary to correctness. The current production configurati
 
 No single wall-clock number is treated as a functional requirement because the live site and network are variable. Any runtime optimization must be isolated, benchmarked and followed by another authoritative FULL validation.
 
-The enrichment instrumentation and the crossed 16/24 worker benchmark are complete. Further performance work is optional and should be isolated from the validated release baseline.
+The enrichment instrumentation, crossed 16/24 worker benchmark, and intermediate progress callbacks are complete. Further performance work is optional and should be isolated from the validated release baseline.
 
 SQLite transaction-scope optimization is not currently a correctness blocker. A dedicated contention/latency benchmark is optional and should be triggered only by concrete evidence of SQLite contention.
 
@@ -178,9 +178,9 @@ SQLite transaction-scope optimization is not currently a correctness blocker. A 
 
 - [x] FULL pipeline total is `2 × categories = 48`
 - [x] Category collection reports completion across `1..24`
-- [x] Enrichment currently does not emit intermediate callbacks `25..47`
+- [x] Enrichment emits intermediate callbacks `25..47`
 - [x] Runner emits terminal `48/48`
-- [x] Current progress semantics are covered by tests
+- [x] Current progress semantics are covered by tests (`13` focused progress/service/runner tests passed)
 - [x] Confirmed progress semantics do not alter coverage or persistence
 
 The current behavior is a UI-reporting choice, not a scraping correctness issue. More granular enrichment progress may be added later as a separate UX change.
@@ -230,17 +230,16 @@ This distinction is intentional and avoids allowing a partial/directed applicati
 ### CURRENT ENGINEERING CHECKPOINT
 
 Current checkpoint is maintained on `feature/scraping-performance-recovery`.
-The current remote HEAD is `173d560`; its changes after `2e8bd71` are documentation-only.
-The last runtime checkpoint includes the idempotency fix at `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d`; subsequent commits in this closeout are tests/documentation.
+The current functional HEAD is `12fc62e`; it includes the enrichment progress contract and its tests. The last runtime hash fix remains `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d`.
 
 Local validation after synchronization:
 
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
 - Focused checkpoint tests: `21 passed in 0.63s`
-- Full no-real-site suite at the current HEAD: `436 passed, 2 deselected in 4.63s`
+- Full no-real-site suite at the current HEAD before the latest GitHub documentation commits: `437 passed, 2 deselected in 4.51s`
 - Git working tree: clean
-- GitHub Actions Quality run `#1987`: success
+- GitHub Actions Quality run `#1987`: success on the previous validated HEAD `173d560`; the progress change is locally validated and the new Quality run is pending/completing on the current HEAD
 - CI `live-catalog`: skipped as intended for this audit checkpoint
 
 The audit also hardened two legacy maintenance tools so they cannot perform direct destructive deletion, and the catalog sync now initializes `content_hash` before classification so an identical second run remains idempotent:
@@ -275,7 +274,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 
 - [x] Current `1..24`, then `48/48`, semantics documented and tested
 - [x] Confirmed no effect on coverage/persistence
-- [ ] Optional UX improvement: intermediate enrichment callbacks `25..47`
+- [x] Intermediate enrichment callbacks `25..47` implemented and covered by tests
 
 ### 6. SQLite transactions
 

@@ -41,7 +41,7 @@ La base de datos persistente es `database/catalog.db`. El bootstrap no inicia sc
 
 El historial no se elimina para reparar el catálogo. Las ejecuciones anteriores permanecen disponibles y cada `SUCCESS` puede marcarse como la versión actualmente aplicada mediante `applied_at`.
 
-Una repetición idéntica sobre la misma SQLite debe ser idempotente: la segunda sincronización no crea ni actualiza productos, clasifica los productos como `unchanged` y no genera filas en `download_changes`. Esta garantía está validada por el test de integración de SQLite y Quality #1966.
+Una repetición idéntica sobre la misma SQLite debe ser idempotente: la segunda sincronización no crea ni actualiza productos, clasifica los productos como `unchanged` y no genera filas en `download_changes`. Esta garantía está validada por el test de integración de SQLite y el Quality CI actual.
 
 La validación realizada sobre la base real confirmó:
 
@@ -79,7 +79,7 @@ Un benchmark específico de contención de SQLite no es requisito para la correc
 
 ## Deriva del inventario vivo
 
-La validación del 2026-09-20 observó `523` apariciones esperadas frente al snapshot histórico `534`. Esto no demuestra por sí mismo una regresión del scraper: `expected_count` se obtiene del sitio y puede cambiar legítimamente. El criterio de cobertura se basa ahora en la consistencia interna de la ejecución actual; el baseline histórico permanece visible para detectar desviaciones, no para bloquear el test por sí solo.
+La validación real más reciente observó `523` apariciones esperadas frente al snapshot histórico `534`. Esto no demuestra por sí mismo una regresión del scraper: `expected_count` se obtiene del sitio y puede cambiar legítimamente. El criterio de cobertura se basa ahora en la consistencia interna de la ejecución actual; el baseline histórico permanece visible para detectar desviaciones, no para bloquear el test por sí solo.
 
 ## Estado de ingeniería validado
 
@@ -90,6 +90,7 @@ La validación del 2026-09-20 observó `523` apariciones esperadas frente al sna
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
 - FULL/E2E de producción: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, configuración `8 / 16 / 28`, `337` solicitudes HTTP, duración `90.78s`.
+- Quality CI #1987: `success` sobre el HEAD actual `173d560`.
 - Snapshot histórico preservado: `24 / 534 / 530 / 4`.
 - Smoke de bootstrap sobre copia de la base real: `530 / 534`, usando el FULL más reciente válido.
 

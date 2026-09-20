@@ -19,7 +19,7 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
 
     def sync_categories(self, categories, progress_callback=None):
         products = super().sync_categories(categories, progress_callback)
-        mode = getattr(self, "_scraping_mode", "directed")
+        mode = self.scraping_mode()
         self._align_multiple_category_result(categories, products)
         self._persist_normalized(categories, products, mode=mode)
         return products
@@ -72,9 +72,9 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
     def _full_coverage_ready(self, products, *, mode: str | None = None) -> bool:
         """Autoriza maestros y ocurrencias solo con cobertura FULL explícitamente completa."""
         result = self.last_sync_result
-        effective_mode = (
-            str(mode or getattr(self, "_scraping_mode", "directed")).strip().casefold()
-        )
+        effective_mode = str(
+            mode or self.scraping_mode()
+        ).strip().casefold()
         if (
             effective_mode != "full"
             or getattr(result, "missing_code", 0)

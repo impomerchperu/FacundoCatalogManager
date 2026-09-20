@@ -4,6 +4,7 @@ from typing import ClassVar
 import pytest
 
 from scrapers.images.image_downloader import ImageDownloader
+from scrapers.images.image_hash import ImageHash
 
 
 def test_image_downloader_saves_image(
@@ -123,3 +124,17 @@ def test_image_downloader_rejects_invalid_http_settings(tmp_path):
 
     with pytest.raises(ValueError, match="max_retries"):
         ImageDownloader(output_dir=tmp_path, max_retries=0)
+
+
+def test_image_downloader_hash_file_matches_canonical_image_hash(tmp_path):
+    image_path = tmp_path / "sample.webp"
+    image_path.write_bytes(b"same-image-bytes")
+
+    assert ImageDownloader.hash_file(image_path) == ImageHash().calculate(image_path)
+
+
+def test_image_downloader_hash_file_preserves_missing_file_error(tmp_path):
+    missing = tmp_path / "missing.webp"
+
+    with pytest.raises(FileNotFoundError):
+        ImageDownloader.hash_file(missing)

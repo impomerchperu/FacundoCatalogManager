@@ -1,8 +1,8 @@
-"""Limpieza controlada del catálogo local.
+"""Diagnóstico de residuos legacy del catálogo local.
 
-Elimina residuos de códigos generados por reglas antiguas y consolida
-registros duplicados cuyo código real solo difiere por espacios/mayúsculas.
-Por defecto funciona en modo simulación; usar --apply para modificar SQLite.
+La herramienta es deliberadamente de solo lectura. La limpieza destructiva
+de maestros y relaciones normalizadas se realiza desde el flujo de
+sincronización, que conoce las relaciones históricas y sus invariantes.
 """
 
 from __future__ import annotations
@@ -68,62 +68,59 @@ def merge_categories(values: list[str | None]) -> str:
 
 
 def clean_catalog(db_path: str | None = None, apply: bool = False) -> dict[str, int]:
+    """Report legacy cleanup candidates without modifying SQLite.
+
+    ``apply`` is retained only for backwards-compatible callers. Passing it
+    now fails explicitly because direct deletion can invalidate normalized
+    product/category relationships and historical occurrence traceability.
+    """
+    if apply:
+        raise RuntimeError(
+            "La limpieza destructiva directa está deshabilitada; "
+            "use la sincronización normalizada del catálogo."
+        )
+
     db = DBManager(db_path)
     connection = db.connection
-    generated, duplicates = find_cleanup_candidates(connection)
-    duplicate_rows = [row for items in duplicates.values() for row in items[1:]]
-
-    summary = {
-        "legacy_generated": len(generated),
-        "duplicate_records": len(duplicate_rows),
-        "duplicate_groups": len(duplicates),
-        "deleted": 0,
-    }
-
-    print(f"Códigos generados antiguos: {summary['legacy_generated']}")
-    print(f"Grupos duplicados por código normalizado: {summary['duplicate_groups']}")
-    print(f"Registros duplicados a eliminar: {summary['duplicate_records']}")
-
-    if not apply:
-        print("SIMULACIÓN: no se modificó la base. Use --apply para aplicar.")
-        return summary
-
-    connection.execute("BEGIN")
     try:
-        generated_ids = [row["id"] for row in generated]
-        if generated_ids:
-            connection.executemany(
-                "DELETE FROM products WHERE id = ?",
-                ((row_id,) for row_id in generated_ids),
-            )
-            summary["deleted"] += len(generated_ids)
+        generated, duplicates = find_cleanup_candidates(connection)
+        duplicate_rows = [
+            row for items in duplicates.values() for row in items[1:]
+        ]
 
-        for items in duplicates.values():
-            survivor = items[0]
-            survivor_categories = merge_categories([item["category"] for item in items])
-            if survivor_categories != (survivor["category"] or ""):
-                connection.execute(
-                    "UPDATE products SET category = ? WHERE id = ?",
-                    (survivor_categories, survivor["id"]),
-                )
-            duplicate_ids = [(item["id"],) for item in items[1:]]
-            connection.executemany("DELETE FROM products WHERE id = ?", duplicate_ids)
-            summary["deleted"] += len(duplicate_ids)
+        summary = {
+            "legacy_generated": len(generated),
+            "duplicate_records": len(duplicate_rows),
+            "duplicate_groups": len(duplicates),
+            "deleted": 0,
+        }
 
-        connection.commit()
-    except Exception:
-        connection.rollback()
-        raise
-
-    print(f"Registros eliminados: {summary['deleted']}")
-    return summary
-
+        print(f"Códigos generados antiguos: {summary['legacy_generated']}")
+        print(
+            "Grupos duplicados por código normalizado: "
+            f"{summary['duplicate_groups']}"
+        )
+        print(
+            "Registros duplicados que requieren revisión: "
+            f"{summary['duplicate_records']}"
+        )
+        print(
+            "SOLO DIAGNÓSTICO: no se modificó la base de datos. "
+            "La limpieza destructiva se gestiona dentro del flujo normalizado."
+        )
+        return summary
+    finally:
+        db.close()
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Limpia códigos generados y duplicados del catálogo local."
+        description="Diagnostica códigos generados y duplicados del catálogo local."
     )
-    parser.add_argument("--apply", action="store_true", help="Aplica los cambios; sin esto solo simula.")
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Obsoleto: la limpieza destructiva directa está deshabilitada.",
+    )
     parser.add_argument("--db", default=None, help="Ruta opcional al catalog.db.")
     args = parser.parse_args()
     clean_catalog(args.db, apply=args.apply)

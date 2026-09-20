@@ -9,7 +9,7 @@ class ImageHash:
 
     ALGORITHM = "sha256"
 
-    def calculate(self, image_path: str) -> str:
+    def calculate(self, image_path: str | Path) -> str:
         if not image_path:
             return ""
 
@@ -17,9 +17,9 @@ class ImageHash:
         if not path.exists():
             return ""
 
-        sha = hashlib.sha256()
+        digest = hashlib.sha256()
         with path.open("rb") as file:
             while chunk := file.read(8192):
-                sha.update(chunk)
+                digest.update(chunk)
 
-        return sha.hexdigest()
+        return digest.hexdigest()

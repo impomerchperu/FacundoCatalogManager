@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from database.db_manager import DBManager
 from repositories.product_repository import ProductRepository
 from repositories.scraping.normalized_scraping_repository import (

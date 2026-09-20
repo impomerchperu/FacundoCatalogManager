@@ -141,7 +141,8 @@ El benchmark real admite `FCM_BENCH_COLLECTION_ONLY=1` para ejecutar únicamente
 - [x] Comparación de workers de categoría cerrada: `8` conserva el valor validado; `12/16` no mostraron mejora reproducible.
 - [x] Comparación JSF cerrada: con `JSF HTTP=8`, las corridas `PAGE=4` midieron `42.85s` y `56.49s`, mientras `PAGE=2` midió `53.43s`; todas conservaron `523/523` y `0` errores.
 - [x] No se identificó beneficio reproducible de `PAGE=4`; se conserva `SCRAPING_JSF_PAGE_WORKERS=2` como default productivo validado.
-- [ ] Medir `FCM_BENCH_THREAD_SESSIONS=1` frente a la colección actual para aislar posible contención/reutilización del transporte HTTP por hilo.
+- [x] Primera prueba de sesiones HTTP por hilo: `41.15s` con `FCM_BENCH_THREAD_SESSIONS=1` frente a `53.43s` del control, cobertura completa y `0` errores.
+- [ ] Repetir sesiones por hilo bajo `8 / 16 / 28` + JSF `8 / 2` y obtener al menos una nueva corrida de control comparable antes de cambiar producción.
 - [x] Determinar por qué el máximo HTTP en vuelo del benchmark queda en `16` pese al límite configurado de `28`: lo limita la paralelización aguas arriba, no el semáforo global.
 - [x] Separar el coste de requests de categoría, JSF y detalle por percentiles y por etapa mediante telemetría de P50/P95/P99, máximos en vuelo por clase y tiempos agregados.
 - [ ] Solo después de identificar una oportunidad concreta y reproducible, aplicar un cambio de runtime.

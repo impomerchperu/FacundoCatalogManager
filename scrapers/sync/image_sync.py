@@ -26,7 +26,7 @@ class ImageSync:
         if not image_url:
             return product
 
-        existing = self.image_repository.find(product.code)
+        existing = self.image_repository.find(product.code, image_url)
         old_url = self._get(old_product, "image_url")
         url_changed = bool(old_product and old_url and old_url != image_url)
 

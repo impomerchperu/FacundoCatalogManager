@@ -16,8 +16,16 @@ class FakeImageManager:
         }
 
 
+class EmptyRepository:
+    def find(self, code):
+        return None
+
+
 def test_image_sync_processes_products():
-    sync = ImageSync(image_manager=FakeImageManager())
+    sync = ImageSync(
+        image_manager=FakeImageManager(),
+        image_repository=EmptyRepository(),
+    )
 
     product = ScrapedProduct(
         code="FB-1812",

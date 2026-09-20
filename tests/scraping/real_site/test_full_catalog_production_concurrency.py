@@ -135,18 +135,39 @@ def test_full_catalog_production_concurrency_real_site():
 
     if collection_only:
         collection_elapsed = perf_counter() - collection_started
+        collection_metrics = browser.get_http_metrics()
         print("COLLECTION-ONLY:", True)
         print("COLLECTION WALL:", f"{collection_elapsed:.2f}s")
-        print("COLLECTION HTTP REQUESTS:", http_metrics := browser.get_http_metrics()["category_http_requests"])
         print(
-            "COLLECTION HTTP MAX IN FLIGHT:",
-            browser.get_http_metrics()["http_max_in_flight_by_class"]["category"],
+            "COLLECTION HTTP REQUESTS:",
+            collection_metrics["category_http_requests"],
         )
         print(
-            "COLLECTION HTTP P95:",
-            f"{browser.get_http_metrics()["http_latency_percentiles"]["category"]["p95"]:.3f}s",
+            "COLLECTION JSF HTTP REQUESTS:",
+            collection_metrics["jsf_http_requests"],
         )
-        assert browser.get_http_metrics()["http_terminal_errors"] == 0
+        print(
+            "COLLECTION HTTP MAX IN FLIGHT BY CLASS:",
+            collection_metrics["http_max_in_flight_by_class"],
+        )
+        print(
+            "COLLECTION HTTP LATENCY P50/P95/P99:",
+            {
+                request_class: values
+                for request_class, values in collection_metrics[
+                    "http_latency_percentiles"
+                ].items()
+                if request_class in {"category", "jsf"}
+            },
+        )
+        print(
+            "COLLECTION HTTP STAGE TOTALS:",
+            {
+                "category": collection_metrics["category_http_total_seconds"],
+                "jsf": collection_metrics["jsf_http_total_seconds"],
+            },
+        )
+        assert collection_metrics["http_terminal_errors"] == 0
         browser.close()
         return
 

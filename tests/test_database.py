@@ -194,3 +194,37 @@ def test_product_repository_round_trips_all_catalog_prices():
     assert updated.price_thousand == 7900.00
 
     db.close()
+
+
+def test_database_schema_migration_ledger_records_current_version():
+    db = DBManager(":memory:")
+
+    row = db.fetch_one(
+        "SELECT version, description FROM schema_migrations ORDER BY version DESC LIMIT 1"
+    )
+
+    assert row is not None
+    assert row["version"] == DBManager.SCHEMA_VERSION
+    assert row["description"]
+
+    db.close()
+
+
+def test_database_rejects_newer_schema_version():
+    db = DBManager(":memory:")
+    db.execute_query(
+        """
+        INSERT INTO schema_migrations (version, applied_at, description)
+        VALUES (?, CURRENT_TIMESTAMP, ?)
+        """,
+        (DBManager.SCHEMA_VERSION + 1, "future"),
+    )
+
+    try:
+        db._run_migrations()
+    except RuntimeError as error:
+        assert "versión más nueva" in str(error)
+    else:
+        raise AssertionError("Se esperaba rechazo de una versión futura.")
+
+    db.close()

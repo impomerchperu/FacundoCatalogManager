@@ -12,8 +12,18 @@ from services.scraping.full_sync_coverage_policy import demonstrates_complete_co
 class NormalizedCategoryProductSyncService(CategoryProductSyncService):
     """Extiende el sync existente con persistencia normalizada del scraping."""
 
-    def __init__(self, *args, normalized_repository=None, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        *args,
+        normalized_repository=None,
+        image_cleanup=None,
+        **kwargs,
+    ):
+        super().__init__(
+            *args,
+            image_cleanup=image_cleanup,
+            **kwargs,
+        )
         self.normalized_repository = normalized_repository
         self._pending_full_run_failure = None
 

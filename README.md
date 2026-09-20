@@ -55,7 +55,7 @@ python -m pyright
 Suite automatizada completa, excluyendo las pruebas contra el sitio real:
 
 ```powershell
-python -m pytest -q
+python -m pytest -q --ignore=tests/scraping/real_site
 ```
 
 Validación FULL real:

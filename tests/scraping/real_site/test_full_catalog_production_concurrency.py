@@ -8,6 +8,7 @@ import pytest
 from config.scraping_config import (
     SCRAPING_CATEGORY_WORKERS,
     SCRAPING_HTTP_WORKERS,
+    SCRAPING_JSF_HTTP_CONCURRENCY,
     SCRAPING_JSF_PAGE_WORKERS,
     SCRAPING_MAX_WORKERS,
     STORE_URL,
@@ -47,6 +48,10 @@ def test_full_catalog_production_concurrency_real_site():
     )
     detail_workers = _worker_count("FCM_BENCH_DETAIL_WORKERS", SCRAPING_MAX_WORKERS)
     http_workers = _worker_count("FCM_BENCH_HTTP_WORKERS", SCRAPING_HTTP_WORKERS)
+    jsf_http_concurrency = _worker_count(
+        "FCM_BENCH_JSF_HTTP_CONCURRENCY",
+        SCRAPING_JSF_HTTP_CONCURRENCY,
+    )
     jsf_page_workers = _worker_count(
         "FCM_BENCH_JSF_PAGE_WORKERS",
         SCRAPING_JSF_PAGE_WORKERS,
@@ -58,8 +63,9 @@ def test_full_catalog_production_concurrency_real_site():
     category_scraper = ResilientCategoryScraper(
         browser=browser,
         category_extractor=CategoryExtractor(),
+        jsf_http_concurrency=jsf_http_concurrency,
+        jsf_page_workers=jsf_page_workers,
     )
-    category_scraper.JSF_PAGE_WORKERS = jsf_page_workers
     category_service = CategoryService(category_scraper, STORE_URL)
     collection = ProductCollectionScraper(
         category_scraper,
@@ -251,6 +257,7 @@ def test_full_catalog_production_concurrency_real_site():
     print("CATEGORY WORKERS:", category_workers)
     print("DETAIL WORKERS:", detail_workers)
     print("HTTP WORKERS:", http_workers)
+    print("JSF HTTP CONCURRENCY:", jsf_http_concurrency)
     print("JSF PAGE WORKERS:", jsf_page_workers)
     print("HTTP REQUESTS:", http_metrics["http_requests"])
     print("HTTP MAX IN FLIGHT:", http_metrics["http_max_in_flight"])

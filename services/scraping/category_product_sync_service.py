@@ -59,6 +59,12 @@ class CategoryProductSyncService:
         self._full_sync_coverage_reason = ""
         self._scraping_mode = "directed"
 
+    def close(self) -> None:
+        """Cierra el scraper de productos y sus recursos HTTP internos."""
+        close_scraper_service = getattr(self.scraper_service, "close", None)
+        if callable(close_scraper_service):
+            close_scraper_service()
+
     def reset_sync_result(self):
         self.last_sync_result = SyncResult()
 

@@ -6,7 +6,7 @@ Branch oficial: `main`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Suite no-real-site actual: `437 passed, 8 deselected`
+- [x] Suite no-real-site actual: `438 passed, 8 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -160,7 +160,7 @@ Per-category enrichment now exposes diagnostic timing without changing scraping 
 
 `CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`. During the same phase it now emits progress callbacks through the enrichment range `25..47` for a 24-category FULL; `ScrapingRunner` reserves `48/48` as the terminal callback.
 
-The contract is covered by focused unit tests; the current local no-real-site suite remains green at `437 passed, 8 deselected`.
+The contract is covered by focused unit tests; the current local no-real-site suite remains green at `438 passed, 8 deselected`.
 
 This instrumentation is diagnostic only. It does not change coverage, product selection, persistence, prune behavior or retry semantics.
 
@@ -170,7 +170,7 @@ Performance remains secondary to correctness. The current production configurati
 
 No single wall-clock number is treated as a functional requirement because the live site and network are variable. Any runtime optimization must be isolated, benchmarked and followed by another authoritative FULL validation.
 
-The enrichment instrumentation, crossed 16/24 worker benchmark, and intermediate progress callbacks are complete. Further performance work is optional and should be isolated from the validated release baseline.
+The enrichment instrumentation, crossed 16/24 worker benchmark, and intermediate progress callbacks are complete. Category concurrency has no justified increase. The first JSF page-worker measurements were not comparable because the benchmark harness did not propagate the production JSF HTTP concurrency of `8`; the harness is now corrected. Further performance work remains isolated from the validated release baseline.
 
 SQLite transaction-scope optimization is not currently a correctness blocker. A dedicated contention/latency benchmark is optional and should be triggered only by concrete evidence of SQLite contention.
 
@@ -237,7 +237,7 @@ Local validation after synchronization:
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
 - Focused checkpoint tests: `21 passed in 0.63s`
-- Full no-real-site suite at the current HEAD: `437 passed, 8 deselected in 9.95s`
+- Full no-real-site suite at the current HEAD: `438 passed, 8 deselected in 9.95s`
 - Git working tree: clean
 - GitHub Actions Quality run `#2018`: success on `e45a4a4`; the enrichment progress change is locally and CI validated
 - CI `live-catalog`: skipped as intended for this audit checkpoint
@@ -260,7 +260,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 
 ### 4. Calidad
 
-- [x] Suite no-real-site actual: `437 passed, 8 deselected`
+- [x] Suite no-real-site actual: `438 passed, 8 deselected`
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`
@@ -301,7 +301,8 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Baseline concurrency benchmark `8 / 16 / 28` re-run with live coverage contract
 - [x] HTTP diagnostics expose max in-flight by request class and P50/P95/P99 by stage
 - [x] JSF page workers centralized in `ScrapingConfig` with production default `2`
-- [ ] Close category collection matrix with same-mode `8 / 12 / 16` comparison and controlled JSF test
+- [x] Category worker comparison closed: `8` remains the validated production value; `12/16` showed no reproducible improvement
+- [ ] Repeat controlled JSF benchmark with `JSF HTTP=8` and `JSF PAGE=4` using the corrected harness
 - [x] Explain HTTP max-in-flight `16` versus configured limit `28`
 - [ ] Re-run authoritative FULL after any runtime performance change
 

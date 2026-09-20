@@ -385,7 +385,7 @@ def test_catalog_sync_is_idempotent_after_initial_create():
     stored = repository.get("P009")
     assert stored is not None
     assert stored.content_hash
-    
+
 def test_catalog_sync_cleans_unused_images_only_after_allowed_prune():
     repository = InMemoryCatalogRepository()
     repository.save(Product("OLD001", "Producto antiguo", 10))

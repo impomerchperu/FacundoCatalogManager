@@ -18,7 +18,6 @@ class FakeManager:
 class EmptyRepository:
     def find(self, code, image_url=None):
         del code, image_url
-        return None
 
 
 class Product:

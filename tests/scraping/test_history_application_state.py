@@ -24,8 +24,18 @@ def _history(
 
 
 def test_status_text_shows_applied_timestamp_for_current_success():
-    assert ScrapingHistoryDialog._status_text(_history(11, "SUCCESS")) == (
-        "APLICADO\n17/09/2026 16:15:05"
+    record = _history(11, "SUCCESS")
+    applied_at = ScrapingHistoryDialog._parse_datetime(record.applied_at)
+    finished_at = ScrapingHistoryDialog._parse_datetime(record.finished_at)
+
+    status = ScrapingHistoryDialog._status_text(record)
+
+    assert status == (
+        "APLICADO\n"
+        + ScrapingHistoryDialog._format_datetime(applied_at)
+    )
+    assert ScrapingHistoryDialog._format_datetime(applied_at) != (
+        ScrapingHistoryDialog._format_datetime(finished_at)
     )
 
 

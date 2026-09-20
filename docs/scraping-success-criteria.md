@@ -79,6 +79,20 @@ No existe una cifra única de tiempo de pared que deba tratarse como requisito f
 
 Un benchmark específico de contención de SQLite no es requisito para la corrección actual y queda como optimización futura, no como bloqueo de la funcionalidad validada.
 
+## Auditoría del almacenamiento de imágenes
+
+La ruta canónica del almacenamiento descargado es `data/images/products`. `resources/images` es un conjunto histórico versionado que proviene del antiguo `ImageManager` y no debe tratarse como caché actual sin comprobar sus referencias. `data/images` puede contener archivos legacy generados por versiones anteriores.
+
+- [x] Ruta canónica centralizada en `data/images/products`.
+- [x] `ImageNamer` alineado con la ruta canónica y con extensiones soportadas.
+- [x] `ImageRepository` prefiere la extensión de la URL actual para evitar reutilizar una variante antigua por orden alfabético.
+- [x] Auditoría no destructiva de filesystem + SQLite + SHA-256 implementada.
+- [x] El auditor distingue referencias activas de `products`, referencias solo legacy y archivos sin referencia.
+- [x] Limpieza destructiva permanece deshabilitada.
+- [ ] Ejecutar la auditoría sobre la `database/catalog.db` y las carpetas reales del PC.
+- [ ] Verificar referencias a `resources/images` y clasificar su contenido histórico antes de cualquier limpieza.
+- [ ] Definir una lista de archivos movibles/eliminables solo después de revisar el informe real.
+
 ## Deriva del inventario vivo
 
 La validación real más reciente observó `523` apariciones esperadas frente al snapshot histórico `534`. Esto no demuestra por sí mismo una regresión del scraper: `expected_count` se obtiene del sitio y puede cambiar legítimamente. El criterio de cobertura se basa ahora en la consistencia interna de la ejecución actual; el baseline histórico permanece visible para detectar desviaciones, no para bloquear el test por sí solo.
@@ -95,6 +109,8 @@ Se ejecutó un benchmark aislado sobre SQLite temporal con 530 productos, WAL, `
 - No se modifica el alcance transaccional ni la configuración SQLite por este resultado.
 
 ## Estado de ingeniería validado
+
+El último Quality CI sobre los cambios de auditoría de imágenes terminó en `success` con `446 passed, 8 deselected`. La validación local de ese mismo estado debe ejecutarse después de sincronizar `main`.
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.

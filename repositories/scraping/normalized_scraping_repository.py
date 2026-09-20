@@ -15,6 +15,7 @@ class NormalizedScrapingRepository:
 
     def __init__(self, db: DBManager | None = None) -> None:
         self.db = db or DBManager()
+        self.last_run_id: int | None = None
 
     @staticmethod
     def _now() -> str:
@@ -84,7 +85,8 @@ class NormalizedScrapingRepository:
         lastrowid = cursor.lastrowid
         if lastrowid is None:
             raise RuntimeError("No se pudo obtener el identificador de la ejecución.")
-        return int(lastrowid)
+        self.last_run_id = int(lastrowid)
+        return self.last_run_id
 
     def finish_run(
         self,

@@ -239,7 +239,7 @@ Local validation after synchronization:
 - Focused checkpoint tests: `21 passed in 0.63s`
 - Full no-real-site suite at the current HEAD before the latest GitHub documentation commits: `437 passed, 2 deselected in 4.51s`
 - Git working tree: clean
-- GitHub Actions Quality run `#1987`: success on the previous validated HEAD `173d560`; the progress change is locally validated and the new Quality run is pending/completing on the current HEAD
+- GitHub Actions Quality run `#2018`: success on `e45a4a4`; the enrichment progress change is locally and CI validated
 - CI `live-catalog`: skipped as intended for this audit checkpoint
 
 The audit also hardened two legacy maintenance tools so they cannot perform direct destructive deletion, and the catalog sync now initializes `content_hash` before classification so an identical second run remains idempotent:

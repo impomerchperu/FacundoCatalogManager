@@ -94,6 +94,21 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 
 ## Cierre previo a release
 
+## Smoke test manual de GUI
+
+- [x] Arranque real mediante `python app.py`.
+- [x] Catálogo cargado desde `database/catalog.db` sin scraping automático.
+- [x] Tabla, navegación y búsqueda/filtros operativos.
+- [x] Botones **Actualizar catálogo** y **Historial** disponibles.
+- [x] Flujo FULL ejecutado desde la GUI.
+- [x] Progreso y tiempo transcurrido observados durante la ejecución.
+- [x] Resumen final de la actualización revisado.
+- [x] Detalle de la ejecución revisado.
+- [x] Historial revisado y ejecución aplicada confirmada.
+- [x] Sin incidencias visibles durante el smoke test.
+
+Esta validación manual se completó el 2026-09-20 sobre `main` y no modificó el runtime.
+
 1. [x] Sincronizar el último HEAD remoto.
 2. [x] Ejecutar Ruff.
 3. [x] Ejecutar Pyright.

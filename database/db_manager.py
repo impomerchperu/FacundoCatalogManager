@@ -5,7 +5,7 @@ import sqlite3
 class DBManager:
     """Gestiona SQLite con inicialización, migraciones y persistencia segura."""
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     def __init__(self, db_path=None):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -60,6 +60,32 @@ class DBManager:
                 1,
                 "Estructura normalizada y migraciones heredadas consolidadas.",
             )
+            current_version = 1
+
+        if current_version < 2:
+            self._migrate_to_v2()
+            self._record_schema_migration(
+                2,
+                "Relación explícita entre ejecuciones de scraping e historial.",
+            )
+
+    def _migrate_to_v2(self) -> None:
+        self.connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS scraping_run_history (
+                run_id INTEGER PRIMARY KEY,
+                history_id INTEGER NOT NULL UNIQUE,
+                FOREIGN KEY (run_id) REFERENCES scraping_runs(id) ON DELETE CASCADE,
+                FOREIGN KEY (history_id) REFERENCES scraping_history(id) ON DELETE CASCADE
+            )
+            """
+        )
+        self.connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_scraping_run_history_history_id
+            ON scraping_run_history(history_id)
+            """
+        )
 
     def _schema_version(self) -> int:
         row = self.connection.execute(

@@ -170,7 +170,7 @@ Performance remains secondary to correctness. The current production configurati
 
 No single wall-clock number is treated as a functional requirement because the live site and network are variable. Any runtime optimization must be isolated, benchmarked and followed by another authoritative FULL validation.
 
-The enrichment instrumentation, crossed 16/24 worker benchmark, and intermediate progress callbacks are complete. Category concurrency has no justified increase. The initial JSF page-worker measurements were not comparable because the benchmark harness did not propagate the production JSF HTTP concurrency of `8`; the harness was corrected before the final comparison. Under the corrected contract, both PAGE `4` runs preserved `523/523` coverage and `0` terminal errors, but measured `42.85s` and `56.49s`, while PAGE `2` measured `53.43s`. The conflicting PAGE `4` results do not establish a reproducible wall-clock benefit, so the validated production default remains PAGE `2`. The next isolated transport diagnostic is to compare the current shared HTTP session behavior with per-thread sessions during collection, using the benchmark-only `FCM_BENCH_THREAD_SESSIONS=1` toggle; no production transport change is implied by that experiment.
+The enrichment instrumentation, crossed 16/24 worker benchmark, and intermediate progress callbacks are complete. Category concurrency has no justified increase. The initial JSF page-worker measurements were not comparable because the benchmark harness did not propagate the production JSF HTTP concurrency of `8`; the harness was corrected before the final comparison. Under the corrected contract, both PAGE `4` runs preserved `523/523` coverage and `0` terminal errors, but measured `42.85s` and `56.49s`, while PAGE `2` measured `53.43s`. The conflicting PAGE `4` results do not establish a reproducible wall-clock benefit, so the validated production default remains PAGE `2`. The next isolated transport diagnostic compared the current shared HTTP session behavior with per-thread sessions during collection, using the benchmark-only `FCM_BENCH_THREAD_SESSIONS=1` toggle. The first per-thread run measured `41.15s` versus the earlier `53.43s` control, with complete `523/523` collection and `0` terminal errors. This is a promising signal, but one pair is insufficient to attribute the wall-clock change to session reuse; production transport remains unchanged.
 
 SQLite transaction-scope optimization is not currently a correctness blocker. A dedicated contention/latency benchmark is optional and should be triggered only by concrete evidence of SQLite contention.
 
@@ -304,7 +304,8 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Category worker comparison closed: `8` remains the validated production value; `12/16` showed no reproducible improvement
 - [x] JSF page-worker comparison closed under `JSF HTTP=8`: PAGE `4` = `42.85s` and `56.49s`; PAGE `2` = `53.43s`; all runs had complete `523/523` collection and `0` terminal errors
 - [x] No reproducible benefit established for PAGE `4`; production default remains PAGE `2`
-- [ ] Isolate HTTP session reuse during concurrent collection with the benchmark-only `FCM_BENCH_THREAD_SESSIONS=1` toggle
+- [x] First transport/session diagnostic completed: per-thread sessions `41.15s` vs prior control `53.43s`, complete `523/523`, `0` terminal errors
+- [ ] Repeat per-thread sessions and obtain a comparable control before changing production transport
 - [x] Explain HTTP max-in-flight `16` versus configured limit `28`
 - [ ] Re-run authoritative FULL after any runtime performance change
 

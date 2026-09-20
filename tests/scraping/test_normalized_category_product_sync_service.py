@@ -90,7 +90,7 @@ def test_normalized_sync_categories_defaults_to_directed(monkeypatch):
 def test_normalized_sync_categories_uses_full_mode_when_runner_marks_full():
     repository = FakeNormalizedRepository()
     service = _build_service(repository)
-    service._scraping_mode = "full"
+    service.set_scraping_mode("full")
     service.last_sync_result = SyncResult(
         expected_category_occurrences=1,
         products_found=1,
@@ -109,7 +109,7 @@ def test_normalized_sync_categories_uses_full_mode_when_runner_marks_full():
     service._persist_normalized(
         [Category(name="Categoría A", url="https://example.test/a", expected_count=1)],
         [type("Product", (), {"code": "FB-001"})()],
-        mode=service._scraping_mode,
+        mode=service.scraping_mode(),
     )
 
     assert repository.modes == ["full"]
@@ -118,7 +118,7 @@ def test_normalized_sync_categories_uses_full_mode_when_runner_marks_full():
 def test_full_mode_records_incomplete_run_without_persisting_occurrences():
     repository = FakeNormalizedRepository()
     service = _build_service(repository)
-    service._scraping_mode = "full"
+    service.set_scraping_mode("full")
     service.last_sync_result = SyncResult(
         expected_category_occurrences=10,
         products_found=8,

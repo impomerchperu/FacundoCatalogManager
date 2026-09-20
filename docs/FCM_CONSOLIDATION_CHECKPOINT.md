@@ -28,7 +28,7 @@ El snapshot histórico 534/530/4 permanece únicamente como referencia diagnóst
 
 ## Evidencia reciente validada localmente
 
-### Checkpoint actual — 2026-09-19
+### Checkpoint actual — 2026-09-20
 
 - HEAD de código validado antes de la mejora de progreso: `2e8bd7190a89da308a739dd3b84b1a3dc74b9d95`.
 - HEAD funcional actual: `12fc62e96da0fe7f35a751cde911e681f8f8328a`.
@@ -37,7 +37,7 @@ El snapshot histórico 534/530/4 permanece únicamente como referencia diagnóst
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
 - Batería focal del checkpoint previa: `21 passed in 0.63s`.
-- Suite no-real-site más reciente: `437 passed, 8 deselected in 9.95s`.
+- Suite no-real-site más reciente: `454 passed, 8 deselected in 9.95s`.
 - Git working tree local: limpio después de sincronizar con `origin/main`.
 - GitHub Actions Quality `#2018`: `success` sobre `e45a4a4`, con Ruff, Pyright y Pytest verdes.
 - `live-catalog`: `skipped` en CI rápido; las validaciones FULL reales se ejecutaron manualmente contra el sitio.
@@ -62,7 +62,7 @@ python -m pytest tests/scraping/real_site/test_full_catalog_scraper.py -q -m rea
 1 passed in 391.61s (0:06:31)
 
 python -m pytest -q --ignore=tests/scraping/real_site
-437 passed, 8 deselected in 9.95s
+454 passed, 8 deselected in 9.95s
 ```
 
 El test real de colección se ejecuta de forma secuencial por categoría; por ello sus `391.61s` son una referencia del recolector real y no deben compararse directamente con el wall-clock del pipeline de producción, que utiliza concurrencia por categoría.
@@ -97,7 +97,7 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] Ruff limpio en el checkpoint actual.
 - [x] Pyright limpio en el checkpoint actual.
 - [x] Batería focal de esta auditoría de hashing: 10/10; batería general previa 21/21.
-- [x] Suite no-real-site actual: 437/437 (8 deselected).
+- [x] Suite no-real-site actual: 454/454 (8 deselected).
 - [x] Snapshot histórico FULL: 24/534/530/4.
 - [x] Referencia operativa actual FULL/E2E: 24/523/519/4.
 - [x] Idempotencia validada en la misma SQLite: segunda ejecución idéntica clasifica todos los productos como `unchanged` y no genera `download_changes`.
@@ -105,7 +105,7 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] No se ha cambiado la concurrencia productiva.
 - [x] No se ha cambiado el comportamiento funcional de prune; además se bloquearon herramientas legacy de borrado directo.
 - [x] Limpieza destructiva directa de imágenes bloqueada.
-- [x] Quality CI: success (#2018) sobre `e45a4a4`, con Ruff, Pyright y Pytest verdes; `live-catalog` quedó `skipped` de forma intencional.
+- [x] Quality CI: success (`#2210` sobre `aa412b1`); Ruff, Pyright y Pytest permanecen verdes y `live-catalog` quedó `skipped` de forma intencional.
 
 ## Estado maestro actual
 
@@ -133,6 +133,8 @@ La etapa funcional principal continúa cerrada y protegida en `main`. El benchma
 - Benchmark específico de contención/latencia SQLite solo si aparece evidencia concreta.
 
 ### Auditorías cerradas en este avance
+
+- Recuperación de la UI de historial cerrada: estado `APLICADO` con timestamp, `NO APLICADO` para versiones superadas y `ERROR` para ejecuciones fallidas; prueba focal `9 passed` y Quality `#2210` verde.
 
 - Fábricas de compatibilidad: ambas son delegados finos al factory canónico; se conservan por compatibilidad potencial y no existe una implementación paralela.
 - Autoridad de ejecución: `scraping_runs` gobierna recuperación/reconciliación del último FULL válido; `scraping_history.applied_at` representa la última aplicación de historial y puede corresponder a una ejecución dirigida. `scraping_run_history` mantiene el vínculo entre ambos.

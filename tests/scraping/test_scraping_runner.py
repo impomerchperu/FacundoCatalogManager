@@ -96,6 +96,7 @@ def test_scraping_runner_scales_sync_categories_progress_to_full_pipeline():
             assert progress_callback is not None
             progress_callback(1, len(categories))
             progress_callback(2, len(categories))
+            progress_callback(3, len(categories) * 2)
             return []
 
     runner = ScrapingRunner(FakeScrapingService())
@@ -105,7 +106,7 @@ def test_scraping_runner_scales_sync_categories_progress_to_full_pipeline():
         progress_callback=lambda current, total: progress.append((current, total)),
     )
 
-    assert progress == [(1, 4), (2, 4), (4, 4)]
+    assert progress == [(1, 4), (2, 4), (3, 4), (4, 4)]
 
 
 def test_scraping_runner_logs_error_and_total_on_sync_failure(tmp_path, monkeypatch):

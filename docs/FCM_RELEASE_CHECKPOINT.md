@@ -5,7 +5,7 @@ Branch: `feature/scraping-performance-recovery`
 
 ## Estado
 
-La rama se encuentra en fase de cierre previo a release. El baseline funcional está protegido y las últimas modificaciones de esta etapa son de pruebas y documentación; deben quedar validadas localmente antes de cerrar el release checkpoint.
+La rama se encuentra en fase de cierre previo a release. El baseline funcional está protegido; la última mejora funcional añade granularidad de progreso durante enrichment sin modificar las invariantes de scraping, persistencia o concurrencia.
 
 ## Referencias funcionales
 
@@ -65,8 +65,9 @@ Validación local reportada para el código anterior a la última normalización
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site actual: `436 passed, 2 deselected`.
+- Suite no-real-site actual: `437 passed, 2 deselected`.
 - Batería focal de imágenes: `10 passed`.
+- Contrato focal de progreso: `13 passed`.
 
 Los últimos cambios de código solo reorganizaron tres pruebas de imágenes para que sean funciones pytest convencionales, aislaron `ImageSync` del repositorio físico local y corrigieron el comando de suite documentado en README. La validación local más reciente quedó verde: Ruff limpio, Pyright sin diagnósticos y `436 passed, 2 deselected`.
 
@@ -106,4 +107,4 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 
 Hallazgo de idempotencia: las altas iniciales podían quedar sin `content_hash`, mientras que la segunda sincronización calculaba ese hash antes de comparar. Se corrigió la inicialización del hash antes de la clasificación para evitar un `UPDATED` espurio. La idempotencia ya quedó validada en CI con una SQLite persistente compartida por dos sincronizaciones consecutivas; no se requiere otro FULL real para cerrar este punto.
 
-No se requiere otro cambio de runtime mientras las invariantes protegidas permanezcan verdes. El HEAD remoto actual `173d560` contiene únicamente alineación documental posterior al último commit de código `2e8bd71`.
+La mejora de progreso ya quedó validada localmente sin requerir otro FULL real. Cualquier futura modificación de scraping, persistencia o concurrencia deberá conservar las invariantes actuales y seguir el ciclo benchmark + validación FULL.

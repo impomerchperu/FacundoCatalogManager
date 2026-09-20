@@ -335,3 +335,53 @@ def test_catalog_sync_keeps_unmatched_local_codes_when_coverage_is_incomplete():
     assert result.deleted == 0
     assert repository.get("OLD001") is not None
     assert repository.get("KEEP001") is not None
+
+def test_catalog_sync_is_idempotent_after_initial_create():
+    repository = InMemoryCatalogRepository()
+    service = CatalogSyncService(repository, ProductDiffService())
+
+    products = [
+        Product(
+            "P009",
+            "Producto estable",
+            12,
+            category="Categoria A",
+        ),
+        Product(
+            "P009",
+            "Producto estable",
+            12,
+            category="Categoria B",
+        ),
+        Product(
+            "P010",
+            "Otro producto",
+            18,
+            category="Categoria A",
+        ),
+    ]
+
+    first = service.synchronize(products)
+    second = service.synchronize(
+        [
+            Product("P009", "Producto estable", 12, category="Categoria A"),
+            Product("P009", "Producto estable", 12, category="Categoria B"),
+            Product("P010", "Otro producto", 18, category="Categoria A"),
+        ]
+    )
+
+    assert first.created == 2
+    assert first.updated == 0
+    assert first.unchanged == 0
+    assert first.counts_are_consistent
+
+    assert second.created == 0
+    assert second.updated == 0
+    assert second.unchanged == 2
+    assert second.deleted == 0
+    assert second.changes == []
+    assert second.counts_are_consistent
+
+    stored = repository.get("P009")
+    assert stored is not None
+    assert stored.content_hash

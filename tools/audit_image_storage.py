@@ -173,9 +173,11 @@ def audit(
 
     hash_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     filename_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    code_variant_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for record in files:
         hash_groups[record["sha256"]].append(record)
         filename_groups[record["path"].name.casefold()].append(record)
+        code_variant_groups[record["path"].stem.casefold()].append(record)
 
     duplicate_groups = [
         group for group in hash_groups.values() if len(group) > 1
@@ -253,6 +255,9 @@ def audit(
         "same_filename_groups": [
             group for group in filename_groups.values() if len(group) > 1
         ],
+        "same_code_variant_groups": [
+            group for group in code_variant_groups.values() if len(group) > 1
+        ],
         "db_path_duplicates": sorted(
             (
                 {"path": path, "references": count}
@@ -312,6 +317,10 @@ def print_report(report: dict[str, Any], max_details: int = 100) -> None:
         "Grupos con mismo nombre entre roots: "
         f"{len(report['same_filename_groups'])}"
     )
+    print(
+        "Códigos con múltiples archivos locales: "
+        f"{len(report['same_code_variant_groups'])}"
+    )
     print(f"Rutas DB repetidas: {len(report['db_path_duplicates'])}")
     print(f"URLs DB repetidas: {len(report['db_url_duplicates'])}")
 
@@ -356,6 +365,7 @@ def _json_safe(report: dict[str, Any]) -> dict[str, Any]:
         "duplicate_groups",
         "cross_root_duplicate_groups",
         "same_filename_groups",
+        "same_code_variant_groups",
     ):
         serializable[key] = [
             [

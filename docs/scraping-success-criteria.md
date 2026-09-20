@@ -96,14 +96,44 @@ Se ejecutó un benchmark aislado sobre SQLite temporal con 530 productos, WAL, `
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site actual: `437 passed, 2 deselected`.
+- Suite no-real-site actual: `437 passed, 8 deselected`.
 - Pruebas de bootstrap/reconciliación: `15 passed`.
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
 - FULL/E2E de producción: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, configuración `8 / 16 / 28`, `337` solicitudes HTTP, duración `90.78s`.
-- Quality CI #2018: `success` sobre el HEAD documental validado `e45a4a4`.
+- Quality CI reciente sobre `main`: ejecuciones `2032`–`2036` completadas en `success`; la revisión posterior del benchmark está siendo procesada por CI.
 - Snapshot histórico preservado: `24 / 534 / 530 / 4`.
 - Smoke de bootstrap sobre copia de la base real: `530 / 534`, usando el FULL más reciente válido.
+
+## Benchmark de rendimiento actual
+
+La ejecución real más reciente del benchmark de concurrencia, sin modificar producción, usó `8` workers de categoría, `16` de detalle y `28` HTTP:
+
+- `24` categorías.
+- `523` apariciones esperadas y encontradas.
+- `519` productos únicos.
+- `4` multi-categoría.
+- collection wall: `51.60s`.
+- enrichment wall: `43.50s`.
+- pipeline wall: `97.31s`.
+- `337` solicitudes HTTP.
+- máximo observado en vuelo: `16`.
+- `278` solicitudes de detalle.
+- `245` productos omitieron detalle.
+- `0` espera del semáforo de detalle.
+- `0` reintentos y `0` errores terminales.
+
+Los requests más lentos del muestreo fueron páginas de categoría, aproximadamente entre `8.19s` y `9.52s`. La evidencia actual desplaza el foco de optimización hacia la fase de colección/categorías y hacia la razón por la que el máximo HTTP observado queda en `16`, antes de aumentar workers o modificar el límite de `28`.
+
+### Próximo desarrollo controlado
+
+- [x] Benchmark productivo base `8 / 16 / 28` con cobertura viva `523 / 519 / 4`.
+- [ ] Aislar el coste de colección de categorías con comparación controlada de workers de categoría manteniendo detalle/HTTP constantes.
+- [ ] Determinar por qué el máximo HTTP en vuelo del benchmark queda en `16` pese al límite configurado de `28`.
+- [ ] Separar el coste de requests de categoría, JSF y detalle por percentiles y por etapa.
+- [ ] Solo después de identificar una oportunidad concreta, aplicar un cambio de runtime.
+- [ ] Reejecutar benchmark y FULL real después de cualquier cambio de runtime.
+- [ ] Revalidar persistencia, historial, cobertura y prune en un E2E productivo posterior.
 
 ## Progreso de UI
 
@@ -171,6 +201,10 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 - [x] detalle de cambios ordenado por código.
 - [x] indicador de versión actualmente aplicada.
 - [x] filtros de catálogo y stock.
+
+## Pendientes de rendimiento
+
+El baseline funcional permanece protegido. El desarrollo activo continúa únicamente en diagnóstico y optimización controlada de red/categorías; no se modifica todavía la configuración productiva `8 / 16 / 28`.
 
 ## Pendientes no bloqueantes
 

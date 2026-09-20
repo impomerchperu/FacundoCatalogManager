@@ -6,7 +6,7 @@ Branch oficial: `main`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Suite no-real-site actual: `438 passed, 8 deselected`
+- [x] Suite no-real-site actual: `439 passed, 8 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -308,7 +308,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] No reproducible production benefit established for per-thread sessions; production HTTP transport remains unchanged
 - [x] Benchmark-only category-page worker control added with production default `1`
 - [x] Unit coverage added for parallel category-page loading; the test now measures actual overlap and preserves result order
-- [ ] Validate the stabilized category-page concurrency test in the local suite and Quality CI
+- [x] Validate the stabilized category-page concurrency test in the local suite; Quality CI confirmation remains pending
 - [ ] Compare category-page workers under the current `8 / 16 / 28` + JSF `8 / 2` contract
 - [x] Explain HTTP max-in-flight `16` versus configured limit `28`
 - [ ] Re-run authoritative FULL after any runtime performance change

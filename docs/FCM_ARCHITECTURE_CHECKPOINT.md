@@ -307,7 +307,8 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Transport/session diagnostic closed: per-thread sessions `41.15s` and `52.79s`; shared-session controls `53.43s` and `43.93s`; all runs complete `523/523` with `0` terminal errors
 - [x] No reproducible production benefit established for per-thread sessions; production HTTP transport remains unchanged
 - [x] Benchmark-only category-page worker control added with production default `1`
-- [x] Unit coverage added for parallel category-page loading while preserving result order
+- [x] Unit coverage added for parallel category-page loading; the test now measures actual overlap and preserves result order
+- [ ] Validate the stabilized category-page concurrency test in the local suite and Quality CI
 - [ ] Compare category-page workers under the current `8 / 16 / 28` + JSF `8 / 2` contract
 - [x] Explain HTTP max-in-flight `16` versus configured limit `28`
 - [ ] Re-run authoritative FULL after any runtime performance change

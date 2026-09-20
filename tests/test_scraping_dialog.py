@@ -198,7 +198,7 @@ def test_main_window_refreshes_catalog_and_history_after_success(monkeypatch):
     assert calls == ["catalog"]
     assert history.load_count == 1
     assert scraping_dialog.window_title == "Actualización completada"
-    assert window.windowTitle() == "Actualización completada"
+    assert window.windowTitle() == "Facundo Catalog Manager"
 
     window.close()
     _qapp().processEvents()

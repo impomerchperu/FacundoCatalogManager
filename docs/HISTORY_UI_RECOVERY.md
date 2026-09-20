@@ -1,10 +1,26 @@
 # Download history UI recovery baseline
 
-This document records the historical behavior that must be recovered in the download-history screen. It is based on commits that already implemented and refined the feature; it is not a new design invented for the recovery.
+This document records the historical behavior that was compared against the current download-history screen. It is based on commits that already implemented and refined the feature; it is not a new design invented for the recovery.
 
 ## Current state
 
-The catalog synchronization itself is validated and must remain untouched while restoring the history presentation. The remaining issue is that the current history UI does not expose all of the information and application-state behavior that had previously been implemented.
+The catalog synchronization and persistence model remain validated and were not changed by this UI recovery.
+
+The current history dialog now preserves the information relevant to the active architecture:
+
+- download date/time and duration;
+- current application state derived from `scraping_history.applied_at`;
+- direct per-download detail;
+- detected changes only, ordered by product code;
+- coverage, category and multi-category information.
+
+The status presentation is now explicit:
+
+- `SUCCESS + applied_at`: **APLICADO** with the application date/time;
+- `SUCCESS + applied_at = NULL`: **NO APLICADO**, meaning a successful historical version was superseded by a later automatic application;
+- non-successful execution: **ERROR**.
+
+The current runtime automatically applies a successful synchronization. The old manual **Aplicar** action from the historical `CatalogLoadRepository` implementation is not restored because that repository/snapshot model no longer exists in the current architecture. Reintroducing it without persistent catalog snapshots would create a second application model and weaken the current authority rules.
 
 ## Historical evidence
 
@@ -12,93 +28,65 @@ The catalog synchronization itself is validated and must remain untouched while 
 
 Commit: `Rediseñar desde cero el historial de descargas y su detalle`.
 
-The history window was explicitly presented as **Historial de descargas y versiones del catálogo**.
-
-The main table exposed these columns:
-
-- Fecha de descarga
-- Productos
-- Nuevos
-- Actualizados
-- Sin cambios
-- Errores
-- Estado
-- Catálogo
-- Detalle
-
-The detail view already existed as a dedicated way to inspect the changes of a download.
+The history window was explicitly presented as **Historial de descargas y versiones del catálogo** and exposed download statistics, status and a dedicated detail action.
 
 ### `94c5398233b4efc48c015e63fc511ff333b7cbd2`
 
 Commit: `Mejorar historial aplicado y navegación de detalles`.
 
-The UI added/refined:
+The UI added/refined an applied-state presentation with a visible applied timestamp, a dedicated detail action and visible styling for the applied catalog version.
 
-- an explicit **Detalle** action per history row;
-- an applied-state presentation with a visible applied timestamp;
-- a distinct **Catálogo** state/action column;
-- the ability to navigate to row-specific details directly;
-- visible styling for an applied catalog version.
-
-### `696d7ebbc81230fcba29b3605f16f402b132ac48`
+### `696d7ebbc81230fcba29b3605f16f402b132ac48a`
 
 Commit: `Ajustar estados de aplicación y detalle del historial`.
 
-The application policy was refined so history distinguishes between:
-
-- a successful download that can be applied;
-- the download currently applied, with its own application date/time;
-- an older download that has been superseded and is therefore **No Aplicado**;
-- non-successful downloads that are **No aplicable**.
-
-It also preserved the concept that the latest applicable download is the one that can be applied next.
+The historical behavior distinguished successful versions, the currently applied version, superseded successful versions and failed/non-applicable executions.
 
 ### `5d53c66db4e795b49909fd3919c6fe12a87c434a`
 
 Commit: `Mejorar navegación del detalle de descarga`.
 
-The scraping dialog's detail view was made non-modal so it could remain open independently and be brought to the front without blocking the rest of the application.
+The detail view was made non-modal so it could remain open independently.
 
 ### `62d808e0e6da53ad9facd1e299bd2e36e6dce343`
 
 Commit: `Corregir carga visual del historial`.
 
-This corrected the table-item implementation after the history UI refactor. It is part of the known-good historical sequence and should not be treated as obsolete cleanup without evidence.
+This corrected the table-item implementation after the history UI refactor.
 
-## What the current recovery must restore/preserve
+## What the recovery preserves
 
-The current branch has added useful scraping-coverage data, deleted counts, and the new history repository policy. Those additions are valuable and should stay.
-
-However, restoring the history UI must also recover the information that was previously visible:
-
-1. **Download timestamp and duration.** The historical table showed both the execution date and the elapsed duration of the scraping/download operation.
-2. **Catalog application state.** The UI distinguished whether a download was applicable, already applied, or superseded, and an applied version showed its own application timestamp.
-3. **Per-download detail.** Each history record must provide a direct way to open the complete detail for that specific download.
-4. **Detailed change information.** The detail view must expose the detected changes faithfully, without turning unchanged products into fake changes.
-5. **Version semantics.** A download is a historical version; applying a later version must not erase the audit state of earlier applications.
-6. **Current coverage information.** The newer recovery work already exposes coverage metrics and category information. These must remain and coexist with the restored historical fields.
+1. **Download timestamp and duration.** The current table shows execution date/time and elapsed duration.
+2. **Application state.** The current row state reflects the persisted `applied_at` marker instead of treating every successful row as currently applied.
+3. **Per-download detail.** Each row exposes a direct **Ver detalle** action and double-click navigation.
+4. **Detailed change information.** The detail view reads the persisted `download_changes` rows and does not manufacture changes for unchanged products.
+5. **Version semantics.** A later successful automatic application clears the previous current marker while leaving the older history record and its details intact.
+6. **Coverage information.** The newer coverage, category and multi-category information remains in the detail view.
 
 ## Data-layer rules
 
-The UI restoration must not rewrite the validated history data model:
+The UI restoration does not rewrite the validated history data model:
 
-- `NEW` records expand into the stored product fields.
-- `UPDATED` records contain only the fields that actually changed.
+- `NEW` records expand into stored product fields.
+- `UPDATED` records contain only fields that actually changed.
 - `DELETED` records are explicit.
 - Change details are ordered by product code.
 - Completion/application timestamps remain intact.
 - An idempotent run with only unchanged products produces zero detail rows.
 
-## Evidence already validated on the current branch
+## Validation
 
-- FULL history `169`: 526 created, 0 updated, 0 unchanged, 0 deleted.
-- FULL history `170`: 0 created, 0 updated, 526 unchanged, 0 deleted, and **0 detail rows**.
-- Focused history/catalog/coverage tests: `26 passed`.
-- Ruff: `All checks passed!`.
-- The desktop application currently opens the catalog correctly from SQLite.
+Focused history/catalog/coverage tests remain part of the validated suite.
+
+For the UI-state recovery, `tests/scraping/test_history_application_state.py` now covers:
+
+- applied successful version with timestamp;
+- superseded successful version without `applied_at`;
+- failed execution;
+- existing history-column and responsive-width behavior.
+
+No new 24-category real scrape is required for this presentation-layer change because the scraping, persistence and coverage runtime were not modified.
 
 ## Recovery rule
 
-Do not replace the historical behavior with a simpler new interpretation. First compare `gui/scraping_history_dialog.py` against the historical commits above, recover missing presentation/state behavior, add deterministic GUI or repository tests for every restored behavior, and only then consider any UI refinements.
-
-Do not run another 24-category real scrape merely to investigate this UI problem; the existing history records and deterministic tests are enough to validate the presentation layer.
+Keep the current data model as the single persistence authority. UI changes should derive application state from the persisted history marker and should not reintroduce a parallel catalog-load/snapshot mechanism without a separate architectural decision.

@@ -149,6 +149,7 @@ def percentile(values: list[float], factor: float) -> float:
 
 def run_case(
     source: Path,
+    products: int,
     readers: int,
     writers: int,
     read_iterations: int,
@@ -251,6 +252,7 @@ def main() -> int:
         for readers, writers in cases:
             result = run_case(
                 source,
+                args.products,
                 readers,
                 writers,
                 args.read_iterations,

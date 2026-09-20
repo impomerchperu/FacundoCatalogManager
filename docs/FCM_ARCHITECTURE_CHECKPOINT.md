@@ -57,15 +57,15 @@ Branch: `feature/scraping-performance-recovery`
 
 ## AUTHORITATIVE FULL REFERENCE
 
-The governing functional reference is the latest successful complete FULL execution. Lower historical floors such as `529/525` are not substitutes for complete coverage.
+The governing functional reference is the latest successful complete FULL execution against the live inventory. The previous `24 / 534 / 530 / 4` remains a historical diagnostic snapshot.
 
-Validated invariants:
+Current validated invariants:
 
 - 24 categories
-- 534 product appearances
-- 530 unique products
+- 523 product appearances
+- 519 unique products
 - 4 multi-category products
-- 534 product-category relationships
+- 523 product-category relationships
 - `coverage_complete=1`
 - `coverage_gap=0`
 - `error_count=0`

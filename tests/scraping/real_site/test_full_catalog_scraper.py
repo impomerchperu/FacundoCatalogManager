@@ -45,7 +45,7 @@ def test_full_catalog_scraper_real_site():
         max(int(category.expected_count or 0), 0)
         for category in categories
     )
-    if expected_total != EXPECTED_CATEGORY_OCCURRENCES:
+    if expected_total != REFERENCE_CATEGORY_OCCURRENCES:
         print("=" * 80)
         print("DESVIACIÓN DEL BASELINE DE APARICIONES")
         print("REFERENCIA HISTÓRICA:", REFERENCE_CATEGORY_OCCURRENCES)

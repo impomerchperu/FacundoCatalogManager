@@ -19,7 +19,7 @@ Los pisos históricos menores no sustituyen esta referencia.
 
 ### Checkpoint actual — 2026-09-19
 
-- HEAD documental actual: `f89fa54a6c61dd2bf801267471ac9d969de412c7`.
+- HEAD documental actual: `1c7ff6ac1a520867102bab5b460418529c279ad0`.
 - Último HEAD con cambios de runtime/herramientas: `28becc60b230ec0f43285e999932f4d6b2feee8d`.
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.

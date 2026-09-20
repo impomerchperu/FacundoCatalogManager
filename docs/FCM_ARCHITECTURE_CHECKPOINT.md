@@ -6,11 +6,12 @@ Branch: `feature/scraping-performance-recovery`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Suite no-real-site actual: `429 passed, 2 deselected`
+- [x] Suite no-real-site actual: `431 passed, 2 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
 - [x] Product-code migration/cleanup validated
+- [x] Image hashing centralized without runtime semantic changes
 - [x] Legacy destructive catalog cleanup disabled and covered
 - [x] Legacy destructive image duplicate cleanup disabled and covered
 - [x] Real FULL validated at `24 / 534 / 530 / 4`
@@ -43,6 +44,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Duplicated pagination policy removed from `CategoryScraper`
 - [x] `ScrapingConfig` worker propagation completed
 - [x] Compatibility/dead-code audit substantially completed
+- [x] Image hashing duplication audit completed
 - [x] Legacy DB/model audit completed; recovery tables retained intentionally
 - [x] Production FULL validation completed
 - [x] `CatalogScraper` production usage audited; no canonical runtime dependency found
@@ -265,7 +267,7 @@ No real scraping was executed in this checkpoint, so the protected authoritative
 
 ### 4. Calidad
 
-- [x] Suite no-real-site actual: `429 passed, 2 deselected`
+- [x] Suite no-real-site actual: `431 passed, 2 deselected`
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`
@@ -304,6 +306,13 @@ No real scraping was executed in this checkpoint, so the protected authoritative
 - [x] Benchmark: isolate detail worker behavior with crossed live runs
 - [x] Final production E2E: revalidate coverage and persistence under `8 / 16 / 28`
 - [ ] Re-run authoritative FULL after any runtime performance change
+
+## IMAGE AUDIT POSITION
+
+- `ImageHash` is the canonical file SHA-256 implementation.
+- `ImageDownloader.hash_file()` and `ImageAuditService` delegate to it.
+- `ImageNamer`, `ImageValidator` and `ImageSyncAdapter` were reviewed and retained because they have distinct contracts; no safe deletion was justified by the current evidence.
+- Focused image audit: `10 passed`.
 
 ## RELEASE POSITION
 

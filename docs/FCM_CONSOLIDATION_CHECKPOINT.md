@@ -30,14 +30,14 @@ El snapshot histórico 534/530/4 permanece únicamente como referencia diagnóst
 
 ### Checkpoint actual — 2026-09-19
 
-- HEAD documental actual: `1c7ff6ac1a520867102bab5b460418529c279ad0`.
-- Último HEAD con cambios de runtime/herramientas: `28becc60b230ec0f43285e999932f4d6b2feee8d`.
+- HEAD actual del checkpoint: `2e8bd7190a89da308a739dd3b84b1a3dc74b9d95`.
+- Cambio funcional de runtime de este cierre: `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d` (idempotencia por `content_hash`).
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
 - Batería focal del checkpoint previa: `21 passed in 0.63s`.
-- Suite no-real-site: `434 passed, 2 deselected in 7.78s`.
+- Suite no-real-site más reciente: `436 passed, 2 deselected in 4.63s`.
 - Git working tree local: limpio después de sincronizar con `origin/feature/scraping-performance-recovery`.
-- GitHub Actions Quality `#1913`: `success` en el último runtime validado (`17619e7`).
+- GitHub Actions Quality `#1980`: `success` sobre `2e8bd71`, con Ruff, Pyright y Pytest verdes.
 - `live-catalog`: `skipped` en CI rápido; las validaciones FULL reales se ejecutaron manualmente contra el sitio.
 - Se deshabilitaron las rutas de limpieza destructiva directa de catálogo e imágenes; quedan solo como diagnóstico.
 - FULL real independiente de cobertura validado: `24 / 523 / 519 / 4`, con `523/523` apariciones, `0` gaps y `0` códigos sin código.
@@ -95,7 +95,7 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] Ruff limpio en el checkpoint actual.
 - [x] Pyright limpio en el checkpoint actual.
 - [x] Batería focal de esta auditoría de hashing: 10/10; batería general previa 21/21.
-- [x] Suite no-real-site actual: 434/434 (2 deselected).
+- [x] Suite no-real-site actual: 436/436 (2 deselected).
 - [x] Snapshot histórico FULL: 24/534/530/4.
 - [x] Referencia operativa actual FULL/E2E: 24/523/519/4.
 - [x] Idempotencia validada en la misma SQLite: segunda ejecución idéntica clasifica todos los productos como `unchanged` y no genera `download_changes`.
@@ -103,7 +103,7 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] No se ha cambiado la concurrencia productiva.
 - [x] No se ha cambiado el comportamiento funcional de prune; además se bloquearon herramientas legacy de borrado directo.
 - [x] Limpieza destructiva directa de imágenes bloqueada.
-- [x] Quality CI: success (#1966) sobre la corrección de idempotencia, con Ruff, Pyright y Pytest verdes.
+- [x] Quality CI: success (#1980) sobre `2e8bd71`, con Ruff, Pyright y Pytest verdes.
 
 ## Estado maestro actual
 

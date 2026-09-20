@@ -6,7 +6,7 @@ Branch oficial: `main`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Última Quality CI: run `#2186` sobre `280c32f` terminó en `success`; validación local actual: Ruff clean, Pyright `0 errors, 0 warnings, 0 informations`, `453 passed, 8 deselected`
+- [x] Última Quality CI: run `#2189` sobre `6ac1fdc` terminó en `success`; validación local actual: Ruff clean, Pyright `0 errors, 0 warnings, 0 informations`, `453 passed, 8 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -128,7 +128,7 @@ A production-style E2E validation documented in this checkpoint confirmed the cu
 - terminal HTTP errors: `0`
 - HTTP retries: `0`
 - 337 HTTP requests
-- total E2E wall time: `90.78s`
+- total E2E wall time: `100.33s`
 - SQLite database isolated to a temporary test database
 
 ## HTTP / DETAIL AUDIT

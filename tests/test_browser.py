@@ -79,3 +79,31 @@ def test_browser_classifies_jetsmartfilters_ajax_separately():
     assert metrics["jsf_semaphore_wait_seconds"] >= 0.0
     assert metrics["other_http_requests"] == 0
     assert metrics["retry_events"] == []
+
+
+def test_browser_close_closes_owned_http_sessions_once(monkeypatch):
+    created_sessions = []
+
+    class RecordingSession:
+        def __init__(self):
+            self.close_calls = 0
+            created_sessions.append(self)
+
+        def close(self):
+            self.close_calls += 1
+
+    monkeypatch.setattr(
+        "scrapers.browser.requests.Session",
+        RecordingSession,
+    )
+
+    browser = Browser()
+    browser.enable_thread_sessions()
+    browser._get_session()
+
+    assert len(created_sessions) == 2
+
+    browser.close()
+    browser.close()
+
+    assert [session.close_calls for session in created_sessions] == [1, 1]

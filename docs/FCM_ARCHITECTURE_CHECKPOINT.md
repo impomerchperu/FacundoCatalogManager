@@ -14,7 +14,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Image hashing centralized without runtime semantic changes
 - [x] Legacy destructive catalog cleanup disabled and covered
 - [x] Legacy destructive image duplicate cleanup disabled and covered
-- [x] Real FULL validated at `24 / 534 / 530 / 4`
+- [x] Real FULL reference previously validated at `24 / 534 / 530 / 4`
 - [x] Bootstrap/reconciliation tests: `15 passed`
 - [x] HTTP/detail timing and retry telemetry audited
 - [x] Per-category enrichment timing telemetry instrumented and tested
@@ -314,6 +314,10 @@ No real scraping was executed in this checkpoint, so the protected authoritative
 - `ImageNamer`, `ImageValidator` and `ImageSyncAdapter` were reviewed and retained because they have distinct contracts; no safe deletion was justified by the current evidence.
 - Focused image audit: `10 passed`.
 
+## LIVE INVENTORY DRIFT
+
+La validación real del 2026-09-20 observó `523` apariciones esperadas frente al snapshot histórico `534`. El test real se ajustó para tratar el total publicado por las categorías en cada ejecución como fuente de verdad de cobertura y conservar `534 / 530 / 4` como referencia histórica. Falta repetir la FULL real para obtener una nueva referencia operativa válida.
+
 ## RELEASE POSITION
 
-The correction, recovery, persistence, reconciliation, coverage, quality and production E2E work for `feature/scraping-performance-recovery` is validated. Future changes should be treated as incremental improvements and must preserve the authoritative `24 / 534 / 530 / 4` result, complete coverage, DB `530 / 534`, applied history and the green automated suite.
+The correction, recovery, persistence, reconciliation, coverage, quality and production E2E work for `feature/scraping-performance-recovery` is validated. Until a new complete FULL is validated against the live inventory, future changes should be treated as incremental improvements and must preserve the authoritative `24 / 534 / 530 / 4` result, complete coverage, DB `530 / 534`, applied history and the green automated suite.

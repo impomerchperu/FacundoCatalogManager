@@ -85,7 +85,7 @@ La validación del 2026-09-20 observó `523` apariciones esperadas frente al sna
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site actual: `434 passed, 2 deselected`.
+- Suite no-real-site actual: `436 passed, 2 deselected`.
 - Pruebas de bootstrap/reconciliación: `15 passed`.
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.

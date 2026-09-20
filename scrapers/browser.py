@@ -94,6 +94,8 @@ class Browser:
 
     def _get_session(self):
         """Return a session safe for the current scraping worker."""
+        if self._closed:
+            raise RuntimeError("Browser ya está cerrado.")
         if self.session is not None and not getattr(
             self,
             "_use_thread_sessions",
@@ -102,8 +104,6 @@ class Browser:
             return self.session
 
         session = getattr(self._thread_local, "session", None)
-        if self._closed:
-            raise RuntimeError("Browser ya está cerrado.")
         if session is None:
             session = requests.Session()
             with self._sessions_lock:

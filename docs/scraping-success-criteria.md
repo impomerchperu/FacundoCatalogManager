@@ -129,12 +129,14 @@ Los requests más lentos del muestreo fueron páginas de categoría, aproximadam
 
 Referencia real adicional del 2026-09-20: el baseline `8 / 2 / 16 / 28` volvió a completar `523/523`, `519` únicos y `4` multi-categoría, sin reintentos ni errores terminales; observó collection `54.64s`, enrichment `48.61s` y pipeline `105.32s`, con P50/P95/P99 de categoría `6.988/9.799/10.026s`, JSF `4.802/7.413/7.578s` y detalle `2.531/4.072/4.985s`. El intento controlado con `12` workers de categoría terminó con `KeyboardInterrupt` antes de producir resultado; queda como experimento no concluyente y no justifica cambiar el runtime.
 
+La comparación controlada de colección realizada después confirmó que `12` workers produjo `55.40s` y `56.12s` en dos corridas, mientras `16` workers produjo `59.40s`; por ello no hay evidencia para aumentar `SCRAPING_CATEGORY_WORKERS` desde `8`. El próximo experimento debe cerrar la comparación con `8` en modo collection-only y aislar `JSF_PAGE_WORKERS=4`, manteniendo detalle=`16` y HTTP=`28`.
+
 El benchmark real ahora admite `FCM_BENCH_COLLECTION_ONLY=1` para ejecutar únicamente la colección y reportar su wall-clock, requests de categoría, máximo en vuelo de categoría y P95 de latencia. También imprime la finalización de cada categoría y de cada enrichment, de modo que una ejecución interrumpida identifica el último trabajo que no completó. Esta instrumentación no cambia el runtime de producción.
 
 ### Próximo desarrollo controlado
 
 - [x] Benchmark productivo base `8 / 16 / 28` con cobertura viva `523 / 519 / 4`.
-- [ ] Aislar el coste de colección de categorías con comparación controlada de `FCM_BENCH_CATEGORY_WORKERS` y `FCM_BENCH_JSF_PAGE_WORKERS`, manteniendo detalle=`16` y HTTP=`28` constantes.
+- [ ] Cerrar la matriz de colección con una comparación `8 / 12 / 16` de workers de categoría y una prueba JSF controlada, manteniendo detalle=`16` y HTTP=`28` constantes.
 - [x] Determinar por qué el máximo HTTP en vuelo del benchmark queda en `16` pese al límite configurado de `28`: lo limita la paralelización aguas arriba, no el semáforo global.
 - [x] Separar el coste de requests de categoría, JSF y detalle por percentiles y por etapa mediante telemetría de P50/P95/P99, máximos en vuelo por clase y tiempos agregados.
 - [ ] Solo después de identificar una oportunidad concreta, aplicar un cambio de runtime.

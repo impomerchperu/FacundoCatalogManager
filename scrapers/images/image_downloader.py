@@ -6,6 +6,7 @@ from pathlib import Path
 import requests
 
 from scrapers.images.image_hash import ImageHash
+from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
 
 
 class ImageDownloader:
@@ -13,7 +14,7 @@ class ImageDownloader:
 
     def __init__(
         self,
-        output_dir: str | Path = "data/images/products",
+        output_dir: str | Path = IMAGE_PRODUCTS_DIR,
         request_timeout: int = 30,
         max_retries: int = 2,
     ):

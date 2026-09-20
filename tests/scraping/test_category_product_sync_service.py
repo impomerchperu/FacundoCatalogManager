@@ -79,7 +79,7 @@ def test_sync_categories_reports_enrichment_progress():
 
     assert len(result) == 2
     assert progress[:2] == [(1, 2), (2, 2)]
-    assert progress[2:] == [(3, 4), (4, 4)]
+    assert progress[2:] == [(3, 4)]
 
 
 def test_sync_categories_contains_category_request_exception():

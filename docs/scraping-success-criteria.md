@@ -90,11 +90,13 @@ data/images puede conservar archivos legacy de ejecuciones anteriores y resource
 - [x] Auditoría no destructiva de filesystem + SQLite + SHA-256 implementada.
 - [x] Auditoría dinámica de todas las tablas SQLite que contienen image_path.
 - [x] Limpieza basada exclusivamente en products.image_path implementada en tools/clean_unused_images.py.
+- [x] El scraping FULL ejecuta automáticamente esa limpieza después de un prune FULL válido; un scraping dirigido o incompleto no la ejecuta.
 - [x] La limpieza es no destructiva por defecto; --delete es una operación explícita.
 - [x] Auditoría real local: 1,037 imágenes encontradas en data/images y data/images/products, 530 referencias activas, 0 referencias activas inexistentes y 0 hash mismatches.
 - [ ] Auditar adicionalmente resources/images en el entorno local antes de ejecutar la limpieza completa.
-- [ ] Ejecutar primero tools/clean_unused_images.py sin --delete y revisar las candidatas.
-- [ ] Ejecutar la eliminación explícita y repetir la auditoría para verificar que solo permanecen las imágenes referenciadas por products.
+- [x] Limpieza manual inicial ejecutada: se eliminaron 507 archivos no referenciados, liberando 64,009,379 bytes.
+- [x] Auditoría posterior: 530 archivos, 530 referencias activas, 0 huérfanos, 0 referencias activas inexistentes y 0 hash mismatches.
+- [x] El almacenamiento futuro queda protegido por limpieza automática posterior a un FULL completo.
 ## Deriva del inventario vivo
 
 La validación real más reciente observó `523` apariciones esperadas frente al snapshot histórico `534`. Esto no demuestra por sí mismo una regresión del scraper: `expected_count` se obtiene del sitio y puede cambiar legítimamente. El criterio de cobertura se basa ahora en la consistencia interna de la ejecución actual; el baseline histórico permanece visible para detectar desviaciones, no para bloquear el test por sí solo.

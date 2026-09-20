@@ -5,6 +5,8 @@ import sqlite3
 class DBManager:
     """Gestiona SQLite con inicialización, migraciones y persistencia segura."""
 
+    SCHEMA_VERSION = 1
+
     def __init__(self, db_path=None):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         if db_path is None:
@@ -34,7 +36,47 @@ class DBManager:
         self.connection.commit()
 
     def _run_migrations(self):
-        """Completa y corrige estructuras necesarias en bases existentes."""
+        """Aplica migraciones versionadas y repetibles de forma segura."""
+        self.connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                version INTEGER PRIMARY KEY,
+                applied_at TEXT NOT NULL,
+                description TEXT NOT NULL
+            )
+            """
+        )
+
+        current_version = self._schema_version()
+        if current_version > self.SCHEMA_VERSION:
+            raise RuntimeError(
+                "La base de datos requiere una versión más nueva de la aplicación: "
+                f"schema={current_version}, soportado={self.SCHEMA_VERSION}."
+            )
+
+        if current_version < 1:
+            self._migrate_to_v1()
+            self._record_schema_migration(
+                1,
+                "Estructura normalizada y migraciones heredadas consolidadas.",
+            )
+
+    def _schema_version(self) -> int:
+        row = self.connection.execute(
+            "SELECT MAX(version) AS version FROM schema_migrations"
+        ).fetchone()
+        return int(row["version"] or 0) if row else 0
+
+    def _record_schema_migration(self, version: int, description: str) -> None:
+        self.connection.execute(
+            """
+            INSERT INTO schema_migrations (version, applied_at, description)
+            VALUES (?, CURRENT_TIMESTAMP, ?)
+            """,
+            (version, description),
+        )
+
+    def _migrate_to_v1(self) -> None:
         for table in ("products", "scraped_products", "sync_records"):
             self._add_column_if_missing(table, "color_stock", "TEXT DEFAULT '{}'")
         for column, definition in (

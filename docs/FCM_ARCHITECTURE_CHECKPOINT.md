@@ -112,7 +112,7 @@ Validation performed:
 
 ## REAL FULL AND E2E VALIDATION
 
-A production-style E2E validation on 2026-09-20 confirmed the current live inventory path:
+A production-style E2E validation documented in this checkpoint confirmed the current live inventory path:
 
 - 24/24 categories
 - 523 occurrences
@@ -230,6 +230,7 @@ This distinction is intentional and avoids allowing a partial/directed applicati
 ### CURRENT ENGINEERING CHECKPOINT
 
 Current checkpoint is maintained on `feature/scraping-performance-recovery`.
+The current remote HEAD is `173d560`; its changes after `2e8bd71` are documentation-only.
 The last runtime checkpoint includes the idempotency fix at `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d`; subsequent commits in this closeout are tests/documentation.
 
 Local validation after synchronization:
@@ -239,7 +240,7 @@ Local validation after synchronization:
 - Focused checkpoint tests: `21 passed in 0.63s`
 - Full no-real-site suite at the current HEAD: `436 passed, 2 deselected in 4.63s`
 - Git working tree: clean
-- GitHub Actions Quality run `#1913`: success
+- GitHub Actions Quality run `#1987`: success
 - CI `live-catalog`: skipped as intended for this audit checkpoint
 
 The audit also hardened two legacy maintenance tools so they cannot perform direct destructive deletion, and the catalog sync now initializes `content_hash` before classification so an identical second run remains idempotent:
@@ -260,7 +261,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 
 ### 4. Calidad
 
-- [x] Suite no-real-site actual: `434 passed, 2 deselected`
+- [x] Suite no-real-site actual: `436 passed, 2 deselected`
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`

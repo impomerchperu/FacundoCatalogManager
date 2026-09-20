@@ -102,6 +102,8 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 8. [x] Pruebas reales ajustadas para usar los totales publicados por las categorías como fuente de verdad de cobertura, conservando 534/530/4 como referencia histórica.
 9. [x] E2E productivo validado: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, cobertura completa y cero errores HTTP terminales.
 10. [x] FULL real independiente de cobertura completado: 24/24 categorías, 523/523 apariciones, 519 únicos, 4 multi-categoría, 0 gaps y 0 códigos sin código.
-11. [ ] Ejecutar prueba de idempotencia sobre la misma SQLite antes del cierre definitivo del release.
+11. [ ] Validar idempotencia sobre la misma SQLite: segunda ejecución idéntica debe producir `0 created / 0 updated / N unchanged / 0 deleted`, sin filas nuevas en `download_changes`.
+
+Hallazgo de idempotencia: las altas iniciales podían quedar sin `content_hash`, mientras que la segunda sincronización calculaba ese hash antes de comparar. Se corrigió la inicialización del hash antes de la clasificación para evitar un `UPDATED` espurio. La aceptación de idempotencia sigue pendiente de ejecución sobre la misma SQLite.
 
 No se requiere otro cambio de runtime mientras las invariantes protegidas permanezcan verdes.

@@ -50,6 +50,7 @@ JETSMARTFILTERS_INDEXING_FILTERS = "434"
 # shared HTTP worker budget.
 SCRAPING_JSF_HTTP_CONCURRENCY = 8
 
-# JSF page requests per category worker. Kept at 2 until the controlled
-# 8/4 live benchmark is repeated with the extended stage diagnostics.
+# JSF page requests per category worker. Controlled live repetitions with
+# JSF HTTP concurrency fixed at 8 did not show a reproducible wall-clock
+# benefit from increasing this value; keep the validated production default.
 SCRAPING_JSF_PAGE_WORKERS = 2

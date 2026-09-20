@@ -49,3 +49,7 @@ JETSMARTFILTERS_INDEXING_FILTERS = "434"
 # HTTP semaphore independently capped so pagination cannot consume the entire
 # shared HTTP worker budget.
 SCRAPING_JSF_HTTP_CONCURRENCY = 8
+
+# JSF page requests per category worker. Kept at 2 until the controlled
+# 8/4 live benchmark is repeated with the extended stage diagnostics.
+SCRAPING_JSF_PAGE_WORKERS = 2

@@ -65,11 +65,11 @@ Validación local reportada para el código anterior a la última normalización
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site actual: `437 passed, 2 deselected`.
+- Suite no-real-site actual: `437 passed, 8 deselected`.
 - Batería focal de imágenes: `10 passed`.
 - Contrato focal de progreso: `13 passed`.
 
-Los últimos cambios de código solo reorganizaron tres pruebas de imágenes para que sean funciones pytest convencionales, aislaron `ImageSync` del repositorio físico local y corrigieron el comando de suite documentado en README. La validación documentada de la suite no-real-site quedó verde con `437 passed, 2 deselected`; las comprobaciones estáticas también quedaron limpias.
+Los últimos cambios de código solo reorganizaron tres pruebas de imágenes para que sean funciones pytest convencionales, aislaron `ImageSync` del repositorio físico local y corrigieron el comando de suite documentado en README. La validación documentada de la suite no-real-site quedó verde con `437 passed, 8 deselected`; las comprobaciones estáticas también quedaron limpias.
 
 ## Arquitectura
 
@@ -86,8 +86,10 @@ Los últimos cambios de código solo reorganizaron tres pruebas de imágenes par
 El README ahora documenta explícitamente:
 
 ```powershell
-python -m pytest -q --ignore=tests/scraping/real_site
+python -m pytest -q
 ```
+
+Las pruebas contra el sitio real se excluyen mediante el marcador `real_site`.
 
 La prueba FULL real sigue disponible por separado y no forma parte de la suite rápida de CI.
 

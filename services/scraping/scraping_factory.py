@@ -1,6 +1,4 @@
 from pathlib import Path
-from tools.clean_unused_images import clean_unused_images
-
 
 from database.db_manager import DBManager
 from repositories.product_repository import ProductRepository
@@ -44,6 +42,7 @@ from services.scraping.scraped_product_persistence_service import (
 from services.scraping.scraping_config import ScrapingConfig
 from services.scraping.scraping_result_writer import ScrapingResultWriter
 from services.scraping.scraping_runner import ScrapingRunner
+from tools.clean_unused_images import clean_unused_images
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 

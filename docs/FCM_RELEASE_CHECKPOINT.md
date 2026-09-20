@@ -65,7 +65,7 @@ Validación local del baseline funcional sobre `main` (`280c32f`, antes de los c
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site: `453 passed, 8 deselected`.
+- Suite no-real-site: `454 passed, 8 deselected`.
 - E2E real: `1 passed`, cobertura `24 / 523 / 519 / 4`, historial aplicado y `0` errores HTTP terminales.
 
 Los últimos cambios de código solo reorganizaron tres pruebas de imágenes para que sean funciones pytest convencionales, aislaron `ImageSync` del repositorio físico local y corrigieron el comando de suite documentado en README. La validación documentada de la suite no-real-site quedó verde con `437 passed, 8 deselected`; las comprobaciones estáticas también quedaron limpias.
@@ -94,6 +94,8 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 
 ## Cierre previo a release
 
+La recuperación visual del historial quedó cerrada en `main`: `APLICADO` con fecha/hora de aplicación, `NO APLICADO` para versiones exitosas superadas y `ERROR` para ejecuciones fallidas. La prueba focal quedó en `9 passed` y Quality `#2210` terminó en `success`.
+
 ## Smoke test manual de GUI
 
 - [x] Arranque real mediante `python app.py`.
@@ -114,7 +116,7 @@ Esta validación manual se completó el 2026-09-20 sobre `main` y no modificó e
 3. [x] Ejecutar Pyright.
 4. [x] Ejecutar `python -m pytest -q`.
 5. [x] Confirmar `git status --short` vacío.
-6. [x] Quality #2201: success sobre `9d60a3d`; el baseline funcional mantiene Ruff, Pyright y Pytest verdes (`453 passed, 8 deselected`).
+6. [x] Quality #2210: success sobre `aa412b1`; el baseline actual mantiene Ruff, Pyright y Pytest verdes (`454 passed, 8 deselected`).
 7. [x] FULL real ejecutado y validado: el sitio publicó 523 apariciones esperadas, 11 menos que la referencia histórica 534.
 8. [x] Pruebas reales ajustadas para usar los totales publicados por las categorías como fuente de verdad de cobertura, conservando 534/530/4 como referencia histórica.
 9. [x] E2E productivo validado: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, cobertura completa y cero errores HTTP terminales.

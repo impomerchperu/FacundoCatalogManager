@@ -19,7 +19,8 @@ Los pisos históricos menores no sustituyen esta referencia.
 
 ### Checkpoint actual — 2026-09-19
 
-- HEAD: `95e244eeda6444fbba2d1e888d0714e48241ec04`.
+- HEAD documental actual: `f89fa54a6c61dd2bf801267471ac9d969de412c7`.
+- Último HEAD con cambios de runtime/herramientas: `28becc60b230ec0f43285e999932f4d6b2feee8d`.
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
 - Batería focal del checkpoint: `21 passed in 0.63s`.
@@ -138,13 +139,10 @@ Una ejecución dirigida puede quedar aplicada en historial sin convertirse por e
 
 ## Próximo orden de trabajo
 
-1. Revalidar la corrección del ledger y, con tests verdes, conservar `scraping_runs` como registro de ejecución sin duplicar todavía autoridad funcional.
-2. Auditar los consumidores de `scraping_history` y `scraping_runs` para definir una autoridad única de ejecución aplicada.
-3. Medir por categoría y por etapa antes de alterar concurrencia.
-4. Revisar el doble rol de consolidación entre `CategoryProductSyncService` y `CatalogSyncService`.
-5. Eliminar estados globales JSF y accesos a estado privado solo después de identificar todos sus consumidores y cubrirlos con tests.
-6. Revisar migraciones SQLite para introducir versionado explícito.
-7. Repetir FULL real y validar otra vez `24 / 534 / 530 / 4`, DB `530 / 534`, historial aplicado e idempotencia.
+1. Cerrar la auditoría residual de hashing/componentes legacy de imágenes y decidir solo cambios no destructivos.
+2. Mantener la compatibilidad de factories mientras pueda existir consumo externo y ampliar cobertura de contrato solo cuando aporte valor.
+3. Revisar opcionalmente progreso UI de enrichment y contención SQLite, siempre fuera del baseline funcional.
+4. Preparar un checkpoint de release y, únicamente cuando se abra explícitamente la fase funcional, repetir FULL real + DB + historial + idempotencia.
 
 ## Regla de seguridad del plan
 

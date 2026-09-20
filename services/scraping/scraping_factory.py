@@ -41,11 +41,12 @@ from services.scraping.scraped_product_persistence_service import (
 )
 from services.scraping.scraping_config import ScrapingConfig
 from services.scraping.scraping_result_writer import ScrapingResultWriter
-from tools.clean_unused_images import clean_unused_images
 from services.scraping.scraping_runner import ScrapingRunner
+from tools.clean_unused_images import clean_unused_images
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 
 class ScrapingFactory:
     """Construye el pipeline completo de scraping."""

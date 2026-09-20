@@ -30,13 +30,14 @@ El snapshot histórico 534/530/4 permanece únicamente como referencia diagnóst
 
 ### Checkpoint actual — 2026-09-19
 
-- HEAD de código validado: `2e8bd7190a89da308a739dd3b84b1a3dc74b9d95`.
-- HEAD remoto actual del checkpoint documental: `173d560cf47694b2f5872bda2a43b5dfc234422a`.
+- HEAD de código validado antes de la mejora de progreso: `2e8bd7190a89da308a739dd3b84b1a3dc74b9d95`.
+- HEAD funcional actual: `12fc62e96da0fe7f35a751cde911e681f8f8328a`.
+- Los commits posteriores a `2e8bd71` incorporan el contrato de progreso de enrichment y su cobertura de pruebas.
 - Cambio funcional de runtime de este cierre: `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d` (idempotencia por `content_hash`).
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
 - Batería focal del checkpoint previa: `21 passed in 0.63s`.
-- Suite no-real-site más reciente: `436 passed, 2 deselected in 4.63s`.
+- Suite no-real-site más reciente: `437 passed, 2 deselected in 4.51s`.
 - Git working tree local: limpio después de sincronizar con `origin/feature/scraping-performance-recovery`.
 - GitHub Actions Quality `#1987`: `success` sobre `173d560`, con Ruff, Pyright y Pytest verdes.
 - `live-catalog`: `skipped` en CI rápido; las validaciones FULL reales se ejecutaron manualmente contra el sitio.
@@ -96,7 +97,7 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] Ruff limpio en el checkpoint actual.
 - [x] Pyright limpio en el checkpoint actual.
 - [x] Batería focal de esta auditoría de hashing: 10/10; batería general previa 21/21.
-- [x] Suite no-real-site actual: 436/436 (2 deselected).
+- [x] Suite no-real-site actual: 437/437 (2 deselected).
 - [x] Snapshot histórico FULL: 24/534/530/4.
 - [x] Referencia operativa actual FULL/E2E: 24/523/519/4.
 - [x] Idempotencia validada en la misma SQLite: segunda ejecución idéntica clasifica todos los productos como `unchanged` y no genera `download_changes`.
@@ -123,19 +124,19 @@ La etapa funcional principal continúa cerrada y protegida. El trabajo posterior
 - Configuración productiva `8 / 16 / 28`.
 - Consolidación de paginación/JSF/métricas/código.
 - Auditoría y bloqueo de herramientas legacy destructivas.
-- Calidad local, idempotencia sobre la misma SQLite y Quality CI verdes.
+- Calidad local, idempotencia sobre la misma SQLite, granularidad de progreso de enrichment y Quality CI base verdes.
 
 ### En revisión
 
 - Auditoría residual de utilidades de imágenes sin dependencia canónica demostrada (`ImageNamer`, `ImageValidator`, `ImageSyncAdapter`): revisadas y conservadas por contratos propios; no se encontró justificación segura para eliminarlas.
-- Mejoras opcionales de granularidad de progreso UI.
+- Granularidad de progreso UI: callbacks intermedios `25..47` implementados y cubiertos por pruebas; el runner conserva el cierre `48/48`.
 - Benchmark específico de contención/latencia SQLite solo si aparece evidencia concreta.
 
 ### Auditorías cerradas en este avance
 
 - Fábricas de compatibilidad: ambas son delegados finos al factory canónico; se conservan por compatibilidad potencial y no existe una implementación paralela.
 - Autoridad de ejecución: `scraping_runs` gobierna recuperación/reconciliación del último FULL válido; `scraping_history.applied_at` representa la última aplicación de historial y puede corresponder a una ejecución dirigida. `scraping_run_history` mantiene el vínculo entre ambos.
-- No se requiere modificación de runtime por estas auditorías.
+- La mejora de progreso se incorporó sin alterar cobertura, persistencia, prune, concurrencia ni semántica de scraping.
 
 ### No ejecutar en esta fase
 
@@ -156,7 +157,7 @@ Una ejecución dirigida puede quedar aplicada en historial sin convertirse por e
 
 1. Mantener bajo observación las utilidades de imágenes conservadas por compatibilidad; no hay cambio funcional pendiente en hashing.
 2. Mantener la compatibilidad de factories mientras pueda existir consumo externo y ampliar cobertura de contrato solo cuando aporte valor.
-3. Revisar opcionalmente progreso UI de enrichment y contención SQLite, siempre fuera del baseline funcional.
+3. Mantener bajo observación la granularidad de progreso UI ya incorporada y revisar contención SQLite solo si aparece evidencia concreta.
 4. Mantener el checkpoint de release; no quedan validaciones funcionales bloqueantes en esta etapa.
 
 ## Regla de seguridad del plan

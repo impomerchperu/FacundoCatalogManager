@@ -6,7 +6,7 @@ Branch oficial: `main`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Suite no-real-site actual: `439 passed, 8 deselected`
+- [x] Última Quality CI: suite no-real-site `446 passed, 8 deselected`; validación local del nuevo código pendiente de sincronización
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -160,7 +160,7 @@ Per-category enrichment now exposes diagnostic timing without changing scraping 
 
 `CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`. During the same phase it now emits progress callbacks through the enrichment range `25..47` for a 24-category FULL; `ScrapingRunner` reserves `48/48` as the terminal callback.
 
-The contract is covered by focused unit tests; the current local no-real-site suite remains green at `439 passed, 8 deselected`.
+The contract is covered by focused unit tests. Quality CI run `#2135` validates the current image-audit changes with `446 passed, 8 deselected`; local synchronization is still required before declaring the PC baseline validated.
 
 This instrumentation is diagnostic only. It does not change coverage, product selection, persistence, prune behavior or retry semantics.
 
@@ -260,7 +260,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 
 ### 4. Calidad
 
-- [x] Suite no-real-site actual: `439 passed, 8 deselected`
+- [x] Última Quality CI: suite no-real-site `446 passed, 8 deselected`; validación local del nuevo código pendiente de sincronización
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`
@@ -313,12 +313,19 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Explain HTTP max-in-flight `16` versus configured limit `28`
 - [x] No runtime performance change was applied after the controlled diagnostics; the existing authoritative FULL remains the active release reference
 
-## IMAGE AUDIT POSITION
+## IMAGE STORAGE AUDIT POSITION
 
 - `ImageHash` is the canonical file SHA-256 implementation.
 - `ImageDownloader.hash_file()` and `ImageAuditService` delegate to it.
-- `ImageNamer`, `ImageValidator` and `ImageSyncAdapter` were reviewed and retained because they have distinct contracts; no safe deletion was justified by the current evidence.
-- Focused image audit: `10 passed`.
+- `ImageNamer` was aligned with the canonical download path `data/images/products` and now rejects unsupported URL extensions instead of inventing storage paths outside the image contract.
+- `ImageValidator` now shares the canonical image-extension set, including GIF, matching the downloader/repository contract.
+- `ImageRepository` prefers the file extension represented by the current product image URL, preventing an older `.jpg` from being selected when the current URL is `.webp`.
+- Non-destructive storage audit added at `tools/audit_image_storage.py`; it crosses filesystem, SQLite references, SHA-256, active catalog references and legacy-only references.
+- Destructive image cleanup remains disabled.
+- Quality CI run `#2135`: `446 passed, 8 deselected`.
+- [ ] Execute the storage audit against the real local `data/images`, `data/images/products` and `database/catalog.db`.
+- [ ] Classify `resources/images` legacy resources with repository references before considering any cleanup.
+- [ ] Only after the real audit, define a safe migration/deletion set; no physical deletion is authorized yet.
 
 ## LIVE INVENTORY DRIFT
 
@@ -326,4 +333,4 @@ Las validaciones reales documentadas en este checkpoint confirmaron `523` aparic
 
 ## RELEASE POSITION
 
-The correction, recovery, persistence, reconciliation, coverage, quality and production E2E work is validated on `main`. The functional release baseline is now validated against the live inventory at `24 / 523 / 519 / 4`, with complete coverage, DB `519 / 523`, applied history and green automated checks. The historical `24 / 534 / 530 / 4` snapshot remains diagnostic. Further runtime changes require controlled benchmark + FULL revalidation.
+The correction, recovery, persistence, reconciliation, coverage, performance diagnostics and automated quality work remain validated on `main`. The live functional reference remains `24 / 523 / 519 / 4`, with complete coverage, DB `519 / 523`, applied history and green production-style E2E evidence. The historical `24 / 534 / 530 / 4` snapshot remains diagnostic. Image storage cleanup is intentionally not yet part of the release baseline: the next step is a read-only audit of the actual local image directories and SQLite references. No physical deletion or mass migration is authorized before that evidence is reviewed.

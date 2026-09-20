@@ -78,3 +78,52 @@ def test_collect_category_processes_every_discovered_page_and_deduplicates_produ
     assert metrics["cards_found"] == 5
     assert metrics["unique_products"] == 4
     assert [page["unique_products"] for page in metrics["pages"]] == [2, 1, 1]
+
+class SlowPagesCategoryScraper(FakeCategoryScraper):
+    def get_html(self, page_url):
+        import time
+
+        if page_url == self.pages[0]:
+            time.sleep(0.03)
+        else:
+            time.sleep(0.01)
+        return super().get_html(page_url)
+
+
+def test_collect_category_can_fetch_pages_in_parallel_without_changing_result_order():
+    category_url = "https://example.com/categoria/catalogo/"
+    pages = [
+        category_url,
+        f"{category_url.rstrip('/')}?product-page=2",
+        f"{category_url.rstrip('/')}?product-page=3",
+    ]
+    category_scraper = SlowPagesCategoryScraper(pages)
+    scraper = ProductCollectionScraper(
+        category_scraper=category_scraper,
+        card_extractor=FakeCardExtractor(),
+        product_extractor=FakeProductExtractor(),
+        max_workers=1,
+        category_page_workers=2,
+    )
+
+    products = scraper.collect_category(
+        Category(name="Catalogo", url=category_url, expected_count=75)
+    )
+
+    assert {product[2].code for product in products} == {
+        "P001",
+        "P002",
+        "P003",
+        "P004",
+    }
+    assert [product[2].code for product in products] == [
+        "P001",
+        "P002",
+        "P003",
+        "P004",
+    ]
+    assert category_scraper.get_html_calls == [
+        category_scraper.pages[0],
+        category_scraper.pages[1],
+        category_scraper.pages[2],
+    ]

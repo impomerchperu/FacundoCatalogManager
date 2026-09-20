@@ -1,7 +1,7 @@
 # FCM Architecture Checkpoint
 
-Fecha del checkpoint actual: 2026-09-19  
-Branch: `feature/scraping-performance-recovery`
+Fecha del checkpoint actual: 2026-09-20  
+Branch oficial: `main`
 
 ## QUALITY
 
@@ -193,7 +193,7 @@ The current behavior is a UI-reporting choice, not a scraping correctness issue.
 - [x] No evidence that transaction scope is the primary runtime bottleneck
 - [x] No transaction-boundary runtime change made
 
-A SQLite contention benchmark remains optional and non-blocking unless a concrete contention or latency issue appears.
+El benchmark aislado de contención/latencia SQLite fue ejecutado sobre 530 productos con WAL + synchronous=NORMAL. Los cuatro escenarios terminaron sin errores; las escrituras tuvieron P95 entre 0.58 ms y 5.70 ms, las lecturas P95 <= 0.417 ms y el máximo puntual observado fue 16.52 ms. No existe evidencia suficiente para modificar el alcance transaccional ni la configuración SQLite actual.
 
 ## MASTER PLAN STATUS
 
@@ -229,8 +229,8 @@ This distinction is intentional and avoids allowing a partial/directed applicati
 
 ### CURRENT ENGINEERING CHECKPOINT
 
-Current checkpoint is maintained on `feature/scraping-performance-recovery`.
-The current functional HEAD is `12fc62e`; it includes the enrichment progress contract and its tests. The last runtime hash fix remains `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d`.
+Current checkpoint is maintained on `main`.
+The current release baseline is the merged recovery result; the enrichment progress contract and its tests are included in `main`. The last runtime hash fix remains `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d`.
 
 Local validation after synchronization:
 
@@ -260,7 +260,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 
 ### 4. Calidad
 
-- [x] Suite no-real-site actual: `436 passed, 2 deselected`
+- [x] Suite no-real-site actual: `437 passed, 2 deselected`
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`
@@ -282,7 +282,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Rollback validated
 - [x] Error-history/application-state validated
 - [x] Scope audited against observed timing
-- [ ] Optional contention/latency benchmark if evidence appears
+- [x] Benchmark aislado de contención/latencia SQLite ejecutado; no se justificó cambio de runtime
 
 ### 7. Performance
 

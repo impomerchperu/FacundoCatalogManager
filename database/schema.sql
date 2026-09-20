@@ -108,6 +108,15 @@ CREATE TABLE IF NOT EXISTS scraping_runs (
 
 -- Ocurrencia real encontrada por el scraper: una fila por producto dentro de una categoría.
 -- Se conserva aunque el SKU aparezca en más de una categoría.
+-- Conjunto exacto de categorías solicitadas por cada ejecución.
+CREATE TABLE IF NOT EXISTS scraping_run_categories (
+    run_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    PRIMARY KEY (run_id, category_id),
+    FOREIGN KEY (run_id) REFERENCES scraping_runs(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS scraping_product_occurrences (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id INTEGER NOT NULL,
@@ -190,6 +199,9 @@ ON scraping_runs(started_at);
 
 CREATE INDEX IF NOT EXISTS idx_scraping_runs_status
 ON scraping_runs(status);
+
+CREATE INDEX IF NOT EXISTS idx_scraping_run_categories_category_id
+ON scraping_run_categories(category_id);
 
 CREATE INDEX IF NOT EXISTS idx_scraping_occurrences_run_id
 ON scraping_product_occurrences(run_id);

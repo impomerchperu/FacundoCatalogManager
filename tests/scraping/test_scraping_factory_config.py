@@ -41,6 +41,7 @@ def test_factory_passes_transport_config_to_browser(monkeypatch):
         "http_workers": 19,
     }
     assert runner.config is config
+    assert callable(runner.scraping_service.image_cleanup)
 
 
 def test_factory_passes_configured_image_folder_to_downloader(monkeypatch):

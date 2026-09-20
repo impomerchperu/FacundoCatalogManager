@@ -39,6 +39,9 @@ def test_browser_fetch_uses_session_without_network():
     assert metrics["other_http_requests"] == 1
     assert metrics["other_semaphore_wait_count"] == 1
     assert metrics["other_semaphore_wait_seconds"] >= 0.0
+    assert metrics["http_max_in_flight_by_class"]["other"] == 1
+    assert metrics["http_latency_percentiles"]["other"]["p50"] >= 0.0
+    assert metrics["http_latency_percentiles"]["other"]["p95"] >= 0.0
 
 
 def test_browser_post_uses_metrics_pipeline():
@@ -76,6 +79,9 @@ def test_browser_classifies_jetsmartfilters_ajax_separately():
     assert metrics["jsf_http_total_seconds"] >= 0.0
     assert metrics["jsf_http_max_seconds"] >= 0.0
     assert metrics["jsf_semaphore_wait_count"] == 1
+    assert metrics["http_max_in_flight_by_class"]["jsf"] == 1
+    assert metrics["http_latency_percentiles"]["jsf"]["p50"] >= 0.0
+    assert metrics["http_latency_percentiles"]["jsf"]["p95"] >= 0.0
     assert metrics["jsf_semaphore_wait_seconds"] >= 0.0
     assert metrics["other_http_requests"] == 0
     assert metrics["retry_events"] == []

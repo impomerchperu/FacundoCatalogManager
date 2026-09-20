@@ -3,12 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from scrapers.images.image_downloader import ImageDownloader
+from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
 
 
 class ImageRepository:
     """Localiza imágenes por código y calcula su hash cuando es necesario."""
 
-    def __init__(self, output_dir: str | Path = "data/images/products"):
+    def __init__(self, output_dir: str | Path = IMAGE_PRODUCTS_DIR):
         self.output_dir = Path(output_dir)
 
     def find(self, code: str) -> dict | None:

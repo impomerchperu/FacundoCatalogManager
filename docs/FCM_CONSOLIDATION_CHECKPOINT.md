@@ -30,14 +30,15 @@ El snapshot histórico 534/530/4 permanece únicamente como referencia diagnóst
 
 ### Checkpoint actual — 2026-09-19
 
-- HEAD actual del checkpoint: `2e8bd7190a89da308a739dd3b84b1a3dc74b9d95`.
+- HEAD de código validado: `2e8bd7190a89da308a739dd3b84b1a3dc74b9d95`.
+- HEAD remoto actual del checkpoint documental: `173d560cf47694b2f5872bda2a43b5dfc234422a`.
 - Cambio funcional de runtime de este cierre: `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d` (idempotencia por `content_hash`).
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
 - Batería focal del checkpoint previa: `21 passed in 0.63s`.
 - Suite no-real-site más reciente: `436 passed, 2 deselected in 4.63s`.
 - Git working tree local: limpio después de sincronizar con `origin/feature/scraping-performance-recovery`.
-- GitHub Actions Quality `#1980`: `success` sobre `2e8bd71`, con Ruff, Pyright y Pytest verdes.
+- GitHub Actions Quality `#1987`: `success` sobre `173d560`, con Ruff, Pyright y Pytest verdes.
 - `live-catalog`: `skipped` en CI rápido; las validaciones FULL reales se ejecutaron manualmente contra el sitio.
 - Se deshabilitaron las rutas de limpieza destructiva directa de catálogo e imágenes; quedan solo como diagnóstico.
 - FULL real independiente de cobertura validado: `24 / 523 / 519 / 4`, con `523/523` apariciones, `0` gaps y `0` códigos sin código.
@@ -103,7 +104,7 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] No se ha cambiado la concurrencia productiva.
 - [x] No se ha cambiado el comportamiento funcional de prune; además se bloquearon herramientas legacy de borrado directo.
 - [x] Limpieza destructiva directa de imágenes bloqueada.
-- [x] Quality CI: success (#1980) sobre `2e8bd71`, con Ruff, Pyright y Pytest verdes.
+- [x] Quality CI: success (#1987) sobre `173d560`, con Ruff, Pyright y Pytest verdes; `live-catalog` quedó `skipped` de forma intencional.
 
 ## Estado maestro actual
 

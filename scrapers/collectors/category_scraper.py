@@ -28,7 +28,14 @@ class CategoryScraper:
     JSF_HTTP_CONCURRENCY = 4
     _JSF_HTTP_SEMAPHORE = BoundedSemaphore(JSF_HTTP_CONCURRENCY)
 
-    def __init__(self, browser: Any, parser: Any = None, category_extractor: Any = None, product_block_extractor: Any = None) -> None:
+    def __init__(
+        self,
+        browser: Any,
+        parser: Any = None,
+        category_extractor: Any = None,
+        product_block_extractor: Any = None,
+        jsf_http_concurrency: int | None = None,
+    ) -> None:
         self.parser = parser
         self.category_extractor = category_extractor
         self.product_block_extractor = product_block_extractor
@@ -43,6 +50,11 @@ class CategoryScraper:
             self.browser = None
         else:
             self.browser = browser
+        if jsf_http_concurrency is not None:
+            configured_concurrency = int(jsf_http_concurrency)
+            if configured_concurrency <= 0:
+                raise ValueError("jsf_http_concurrency debe ser mayor que cero.")
+            self._JSF_HTTP_SEMAPHORE = BoundedSemaphore(configured_concurrency)
 
     def close(self) -> None:
         """Cierra el transporte HTTP asociado al scraper."""

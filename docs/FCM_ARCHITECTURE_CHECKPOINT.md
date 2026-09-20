@@ -111,32 +111,23 @@ Validation performed:
 
 ## REAL FULL AND E2E VALIDATION
 
-A real FULL validation confirmed:
+A production-style E2E validation on 2026-09-20 confirmed the current live inventory path:
 
 - 24/24 categories
-- 534 occurrences
-- 530 unique products
+- 523 occurrences
+- 519 unique products
 - 4 multi-category products
 - 0 missing codes
-- no category errors
-- no page coverage errors
 - complete coverage
-- terminal HTTP errors: `0`
-
-A production-style E2E validation also confirmed:
-
-- 24 categories
-- 534 occurrences
-- 530 unique products
-- 4 multi-category products
-- DB products: `530`
-- DB relations: `534`
-- run occurrences: `534`
+- DB products: `519`
+- DB relations: `523`
+- run occurrences: `523`
 - successful history with `applied_at`
 - configured workers `8 / 16 / 28`
 - terminal HTTP errors: `0`
 - HTTP retries: `0`
-- total E2E wall time: `113.97s`
+- 337 HTTP requests
+- total E2E wall time: `90.78s`
 - SQLite database isolated to a temporary test database
 
 ## HTTP / DETAIL AUDIT

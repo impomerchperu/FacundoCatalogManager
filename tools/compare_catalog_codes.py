@@ -1,4 +1,4 @@
-"""Compare the persisted catalog against the most recent scraping code snapshot."""
+"""Compare the persisted catalog against the latest scraping result artifact."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = PROJECT_ROOT / "database" / "catalog.db"
-SNAPSHOT_PATH = PROJECT_ROOT / "data" / "last_scraping_codes.json"
+RESULT_PATH = PROJECT_ROOT / "data" / "scraping_result.json"
 
 
 def normalize_code(value: object) -> str:
@@ -17,19 +17,22 @@ def normalize_code(value: object) -> str:
     return str(value or "").strip().upper()
 
 
-def load_snapshot() -> dict:
-    if not SNAPSHOT_PATH.exists():
+def load_result(path: Path = RESULT_PATH) -> dict:
+    if not path.exists():
         raise SystemExit(
-            f"No existe {SNAPSHOT_PATH}. Ejecute primero un scraping completo."
+            f"No existe {path}. Ejecute primero un scraping."
         )
     try:
-        return json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise SystemExit(f"Snapshot inválido: {exc}") from exc
+        raise SystemExit(f"Resultado de scraping inválido: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise SystemExit("Resultado de scraping inválido: el documento no es un objeto JSON.")
+    return payload
 
 
-def load_catalog() -> dict[str, tuple[str, str]]:
-    with sqlite3.connect(DB_PATH) as db:
+def load_catalog(db_path: Path = DB_PATH) -> dict[str, tuple[str, str]]:
+    with sqlite3.connect(db_path) as db:
         rows = db.execute("SELECT code, name FROM products").fetchall()
     return {
         normalize_code(code): (str(code or ""), str(name or ""))
@@ -38,49 +41,61 @@ def load_catalog() -> dict[str, tuple[str, str]]:
     }
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--apply", action="store_true", help="Eliminar códigos ausentes del scraping.")
-    args = parser.parse_args()
-
-    snapshot = load_snapshot()
+def compare_catalog(
+    result: dict,
+    catalog: dict[str, tuple[str, str]],
+) -> tuple[list[str], list[str]]:
     scraped = {
         normalize_code(code)
-        for code in snapshot.get("codes", [])
+        for code in result.get("codes", [])
         if normalize_code(code)
     }
-    catalog = load_catalog()
     missing = sorted(set(catalog) - scraped)
     new_codes = sorted(scraped - set(catalog))
+    return missing, new_codes
 
-    print(f"Snapshot: {snapshot.get('scraped_at', 'desconocido')}")
-    print(f"Códigos scraping: {len(scraped)}")
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Compara el catálogo local con el último resultado de scraping."
+    )
+    parser.add_argument(
+        "--snapshot",
+        type=Path,
+        default=RESULT_PATH,
+        help="Ruta opcional a un scraping_result.json.",
+    )
+    args = parser.parse_args()
+
+    result = load_result(args.snapshot)
+    catalog = load_catalog()
+    missing, new_codes = compare_catalog(result, catalog)
+
+    print(f"Snapshot: {result.get('scraped_at', 'desconocido')}")
+    print(f"Resultado exitoso: {bool(result.get('success'))}")
+    print(f"Cobertura completa: {bool(result.get('coverage_complete'))}")
+    print(f"Códigos scraping: {len(result.get('codes', []))}")
     print(f"Códigos DB: {len(catalog)}")
     print(f"DB sin coincidencia exacta: {len(missing)}")
     for code in missing:
         original, name = catalog[code]
-        print(f"  ELIMINAR | {original!r} | {name}")
+        print(f"  AUSENTE EN SCRAPING | {original!r} | {name}")
     print(f"Códigos del scraping que no están en DB: {len(new_codes)}")
     for code in new_codes:
         print(f"  NUEVO | {code}")
 
-    expected = int(snapshot.get("expected_unique_products", 0) or 0)
-    complete = bool(snapshot.get("coverage_complete")) and len(scraped) >= expected
+    complete = bool(result.get("success")) and bool(result.get("coverage_complete"))
     if not complete:
-        print("ABORTADO: el snapshot no tiene cobertura completa y no se eliminará nada.")
+        print(
+            "ABORTADO: el resultado no representa un scraping FULL exitoso "
+            "y no se autoriza ninguna poda."
+        )
         return 2
 
-    if not args.apply:
-        print("SIMULACIÓN: no se modificó la base. Use --apply para eliminar los ausentes.")
-        return 0
-
-    if missing:
-        with sqlite3.connect(DB_PATH) as db:
-            db.execute("PRAGMA foreign_keys = ON")
-            for code in missing:
-                db.execute("DELETE FROM products WHERE UPPER(TRIM(code)) = ?", (code,))
-            db.commit()
-    print(f"ELIMINADOS: {len(missing)}")
+    print(
+        "SOLO DIAGNÓSTICO: esta herramienta no modifica la base de datos. "
+        "La poda se gestiona dentro del flujo normalizado."
+    )
     return 0
 
 

@@ -93,7 +93,7 @@ data/images puede conservar archivos legacy de ejecuciones anteriores y resource
 - [x] El scraping FULL ejecuta automáticamente esa limpieza después de un prune FULL válido; un scraping dirigido o incompleto no la ejecuta.
 - [x] La limpieza es no destructiva por defecto; --delete es una operación explícita.
 - [x] Auditoría real local: 1,037 imágenes encontradas en data/images y data/images/products, 530 referencias activas, 0 referencias activas inexistentes y 0 hash mismatches.
-- [ ] Auditar adicionalmente resources/images en el entorno local antes de ejecutar la limpieza completa.
+- [x] Auditar adicionalmente resources/images: el directorio no existe en el entorno local, por lo que no contiene archivos adicionales que auditar.
 - [x] Limpieza manual inicial ejecutada: se eliminaron 507 archivos no referenciados, liberando 64,009,379 bytes.
 - [x] Auditoría posterior: 530 archivos, 530 referencias activas, 0 huérfanos, 0 referencias activas inexistentes y 0 hash mismatches.
 - [x] El almacenamiento futuro queda protegido por limpieza automática posterior a un FULL completo.

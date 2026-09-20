@@ -31,6 +31,10 @@ SCRAPING_MAX_WORKERS = 16
 # at higher category concurrency.
 SCRAPING_CATEGORY_WORKERS = 8
 
+# Category pages are fetched sequentially by default. This remains the
+# production-safe value until an isolated live benchmark justifies overlap.
+SCRAPING_CATEGORY_PAGE_WORKERS = 1
+
 # Keep the shared HTTP budget at the validated live FULL baseline:
 # 24 categories, 534 occurrences, 530 unique products, 4 multi-category
 # products, 534 product-category relationships, complete coverage, and

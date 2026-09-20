@@ -159,7 +159,7 @@ Per-category enrichment now exposes diagnostic timing without changing scraping 
 
 `CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`.
 
-The contract is covered by a focused unit test and the current local no-real-site suite remains green at `429 passed, 2 deselected`.
+The contract is covered by a focused unit test and the current local no-real-site suite remains green at `434 passed, 2 deselected`.
 
 This instrumentation is diagnostic only. It does not change coverage, product selection, persistence, prune behavior or retry semantics.
 

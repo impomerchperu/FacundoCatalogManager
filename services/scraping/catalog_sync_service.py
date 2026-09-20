@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 from models.scraping.sync_result import SyncResult

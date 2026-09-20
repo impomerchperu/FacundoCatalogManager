@@ -85,6 +85,10 @@ def test_image_storage_audit_crosses_db_and_nested_roots(tmp_path: Path):
     assert report["referenced_files"] == 3
     assert report["orphan_files"] == 1
     assert report["missing_references"] == 1
+    assert report["missing_active_references"] == 0
+    assert report["active_referenced_files"] == 2
+    assert report["active_orphan_files"] == 2
+    assert report["legacy_only_files"] == 1
     assert report["hash_match_references"] == 1
     assert report["hash_missing_references"] == 2
     assert report["hash_mismatch_references"] == 0
@@ -137,3 +141,32 @@ def test_image_storage_audit_detects_same_code_with_multiple_extensions(tmp_path
     assert {
         record["path"].name for record in report["same_code_variant_groups"][0]
     } == {"P001.jpg", "P001.webp"}
+
+
+def test_image_storage_audit_reports_legacy_only_file(tmp_path: Path):
+    project = tmp_path
+    root = project / "data" / "images" / "products"
+    root.mkdir(parents=True)
+    (root / "legacy.webp").write_bytes(b"legacy")
+
+    db = project / "database" / "catalog.db"
+    db.parent.mkdir()
+    _create_db(db)
+
+    connection = sqlite3.connect(db)
+    connection.execute(
+        "INSERT INTO scraped_products VALUES (?, ?, ?, ?)",
+        (1, "LEG", "data/images/products/legacy.webp", "u1"),
+    )
+    connection.commit()
+    connection.close()
+
+    report = audit(
+        project_root=project,
+        db_path=db,
+        roots=[root],
+    )
+
+    assert report["active_referenced_files"] == 0
+    assert report["active_orphan_files"] == 1
+    assert report["legacy_only_files"] == 1

@@ -6,7 +6,7 @@ Branch oficial: `main`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Suite no-real-site actual: `437 passed, 2 deselected`
+- [x] Suite no-real-site actual: `437 passed, 8 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -237,7 +237,7 @@ Local validation after synchronization:
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
 - Focused checkpoint tests: `21 passed in 0.63s`
-- Full no-real-site suite at the current HEAD before the latest GitHub documentation commits: `437 passed, 2 deselected in 4.51s`
+- Full no-real-site suite at the current HEAD: `437 passed, 8 deselected in 9.95s`
 - Git working tree: clean
 - GitHub Actions Quality run `#2018`: success on `e45a4a4`; the enrichment progress change is locally and CI validated
 - CI `live-catalog`: skipped as intended for this audit checkpoint
@@ -313,4 +313,4 @@ Las validaciones reales documentadas en este checkpoint confirmaron `523` aparic
 
 ## RELEASE POSITION
 
-The correction, recovery, persistence, reconciliation, coverage, quality and production E2E work for `feature/scraping-performance-recovery` is validated. The functional release baseline is now validated against the live inventory at `24 / 523 / 519 / 4`, with complete coverage, DB `519 / 523`, applied history and green automated checks. The historical `24 / 534 / 530 / 4` snapshot remains diagnostic. Further runtime changes require controlled benchmark + FULL revalidation.
+The correction, recovery, persistence, reconciliation, coverage, quality and production E2E work is validated on `main`. The functional release baseline is now validated against the live inventory at `24 / 523 / 519 / 4`, with complete coverage, DB `519 / 523`, applied history and green automated checks. The historical `24 / 534 / 530 / 4` snapshot remains diagnostic. Further runtime changes require controlled benchmark + FULL revalidation.

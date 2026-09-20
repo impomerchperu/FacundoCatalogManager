@@ -1,6 +1,6 @@
 # Criterios de éxito del scraping FULL
 
-Fecha de validación: 2026-09-17  
+Fecha de validación del último checkpoint maestro: 2026-09-19  
 Branch: `feature/scraping-performance-recovery`
 
 ## Objetivo
@@ -75,7 +75,7 @@ Un benchmark específico de contención de SQLite no es requisito para la correc
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite completa: `392 passed, 1 skipped, 9 deselected`.
+- Suite no-real-site del checkpoint: `431 passed, 2 deselected`.
 - Pruebas de bootstrap/reconciliación: `15 passed`.
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
@@ -154,7 +154,7 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 - [ ] benchmark específico de contención/latencia SQLite;
 - [ ] mayor granularidad de callbacks de progreso durante enrichment;
 - [x] benchmark de red separado para detalle con comparación cruzada 16/24;
-- [ ] mantener las fábricas de compatibilidad mientras pueda existir consumo externo.
+- [x] fábricas de compatibilidad auditadas como delegados finos; se conservan por posible consumo externo.
 - [x] validación E2E real de producción después del cambio de concurrencia a 16 workers;
 
-Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes `24 / 534 / 530 / 4` y la relación DB `530 / 534`. El E2E real bajo `8 / 16 / 28` ya satisface la validación de cierre de esta etapa.
+Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes `24 / 534 / 530 / 4` y la relación DB `530 / 534`. El E2E real bajo `8 / 16 / 28` ya satisface la validación de cierre de esta etapa. La reorganización reciente de tres pruebas de imágenes y la corrección del comando documentado de pytest requieren volver a ejecutar la suite local antes de marcar el checkpoint de release como cerrado.

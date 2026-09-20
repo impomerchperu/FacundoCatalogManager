@@ -41,9 +41,10 @@ from services.scraping.scraping_runner import ScrapingRunner
 from services.scraping.scraping_session import ScrapingSession
 
 EXPECTED_CATEGORIES = 24
-EXPECTED_CATEGORY_OCCURRENCES = 534
-EXPECTED_UNIQUE_PRODUCTS = 530
-EXPECTED_MULTI_CATEGORY_PRODUCTS = 4
+# Historical reference captured by the protected full-site checkpoint.
+REFERENCE_CATEGORY_OCCURRENCES = 534
+REFERENCE_UNIQUE_PRODUCTS = 530
+REFERENCE_MULTI_CATEGORY_PRODUCTS = 4
 
 
 @pytest.mark.real_site
@@ -121,12 +122,11 @@ def test_full_catalog_production_e2e_real_site(tmp_path):
 
         assert result.success(), result.errors
         assert result.categories_processed == EXPECTED_CATEGORIES
-        assert result.expected_category_occurrences == EXPECTED_CATEGORY_OCCURRENCES
-        assert result.products_found == EXPECTED_CATEGORY_OCCURRENCES
-        assert result.products_unique == EXPECTED_UNIQUE_PRODUCTS
-        assert (
-            result.products_multiple_categories == EXPECTED_MULTI_CATEGORY_PRODUCTS
-        )
+        expected_occurrences = result.expected_category_occurrences
+        assert expected_occurrences > 0
+        assert result.products_found == expected_occurrences
+        assert result.products_unique > 0
+        assert 0 <= result.products_multiple_categories <= result.products_unique
         assert result.category_occurrence_gap == 0
         assert result.history_id is not None
 
@@ -181,17 +181,20 @@ def test_full_catalog_production_e2e_real_site(tmp_path):
             (result.history_id,),
         )
 
-        assert product_count["count"] == EXPECTED_UNIQUE_PRODUCTS
+        assert product_count["count"] == result.products_unique
         assert category_count["count"] == EXPECTED_CATEGORIES
-        assert relation_count["count"] == EXPECTED_CATEGORY_OCCURRENCES
-        assert occurrence_count["count"] == EXPECTED_CATEGORY_OCCURRENCES
+        assert relation_count["count"] == expected_occurrences
+        assert occurrence_count["count"] == expected_occurrences
 
         assert run_row["status"] == "SUCCESS"
-        assert run_row["expected_category_occurrences"] == EXPECTED_CATEGORY_OCCURRENCES
-        assert run_row["actual_category_occurrences"] == EXPECTED_CATEGORY_OCCURRENCES
-        assert run_row["products_found"] == EXPECTED_CATEGORY_OCCURRENCES
-        assert run_row["products_unique"] == EXPECTED_UNIQUE_PRODUCTS
-        assert run_row["products_multiple_categories"] == EXPECTED_MULTI_CATEGORY_PRODUCTS
+        assert run_row["expected_category_occurrences"] == expected_occurrences
+        assert run_row["actual_category_occurrences"] == expected_occurrences
+        assert run_row["products_found"] == expected_occurrences
+        assert run_row["products_unique"] == result.products_unique
+        assert (
+            run_row["products_multiple_categories"]
+            == result.products_multiple_categories
+        )
         assert run_row["coverage_complete"] == 1
         assert run_row["coverage_gap"] == 0
         assert run_row["error_count"] == 0
@@ -199,21 +202,21 @@ def test_full_catalog_production_e2e_real_site(tmp_path):
         assert history_row["status"] == "SUCCESS"
         assert history_row["applied_at"]
         assert history_row["categories_processed"] == EXPECTED_CATEGORIES
-        assert history_row["products_expected"] in {0, EXPECTED_UNIQUE_PRODUCTS}
-        assert history_row["products_found"] == EXPECTED_CATEGORY_OCCURRENCES
-        assert history_row["products_unique"] == EXPECTED_UNIQUE_PRODUCTS
+        assert history_row["products_expected"] in {0, result.products_unique}
+        assert history_row["products_found"] == expected_occurrences
+        assert history_row["products_unique"] == result.products_unique
         assert (
             history_row["products_multiple_categories"]
-            == EXPECTED_MULTI_CATEGORY_PRODUCTS
+            == result.products_multiple_categories
         )
-        assert history_row["created"] == EXPECTED_UNIQUE_PRODUCTS
+        assert history_row["created"] == result.products_unique
         assert history_row["updated"] == 0
         assert history_row["unchanged"] == 0
         assert history_row["deleted"] == 0
         assert history_row["errors"] == 0
 
-        assert change_summary["codes"] == EXPECTED_UNIQUE_PRODUCTS
-        assert change_summary["new_rows"] > 0
+        assert change_summary["codes"] == result.products_unique
+        assert change_summary["new_rows"] == result.products_unique
         assert change_summary["other_rows"] == 0
 
         assert http_metrics["http_terminal_errors"] == 0

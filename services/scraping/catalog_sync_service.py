@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, ClassVar
 
 from models.scraping.sync_result import SyncResult
@@ -175,7 +176,7 @@ class CatalogSyncService:
         cleanup = self.image_cleanup
         if not callable(cleanup):
             return
-        started = __import__("time").perf_counter()
+        started = time.perf_counter()
         try:
             deleted = cleanup()
         except Exception as error:  # noqa: BLE001
@@ -189,7 +190,7 @@ class CatalogSyncService:
         _log_timing(
             "SCRAPING TIMING | stage=image_cleanup | deleted=%d | seconds=%.3f",
             deleted_count,
-            __import__("time").perf_counter() - started,
+            time.perf_counter() - started,
         )
 
     def _remove_missing_products(

@@ -61,4 +61,7 @@ def test_incomplete_result_is_not_eligible_for_pruning(capsys):
         compare_catalog_codes.load_result(
             Path("tests") / "does-not-exist-scraping-result.json"
         )
-    assert error.value.code == 1
+    assert str(error.value) == (
+        "No existe tests\\does-not-exist-scraping-result.json. "
+        "Ejecute primero un scraping."
+    )

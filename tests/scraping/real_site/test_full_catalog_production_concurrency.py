@@ -21,6 +21,11 @@ from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_service import CategoryService
 
 EXPECTED_CATEGORIES = 24
+# Historical snapshot retained for diagnostics only; live category totals
+# remain the source of truth for this benchmark.
+REFERENCE_CATEGORY_OCCURRENCES = 534
+REFERENCE_UNIQUE_PRODUCTS = 530
+REFERENCE_MULTI_CATEGORY_PRODUCTS = 4
 REFERENCE_CATEGORY_OCCURRENCES = 534
 REFERENCE_UNIQUE_PRODUCTS = 530
 REFERENCE_MULTI_CATEGORY_PRODUCTS = 4

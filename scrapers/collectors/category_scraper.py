@@ -44,6 +44,12 @@ class CategoryScraper:
         else:
             self.browser = browser
 
+    def close(self) -> None:
+        """Cierra el transporte HTTP asociado al scraper."""
+        close_browser = getattr(self.browser, "close", None)
+        if callable(close_browser):
+            close_browser()
+
     def get_html(self, url: str) -> str:
         with self._category_html_cache_lock:
             cached_html = self._category_html_cache.pop(url, None)

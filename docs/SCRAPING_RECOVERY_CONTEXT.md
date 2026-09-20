@@ -49,7 +49,7 @@ Run/history 191 remains the latest applied history reference; the protected cove
 
 ## Latest repository validation
 
-- No-real-site suite at the checkpoint: `431 passed, 2 deselected`
+- No-real-site suite after the test cleanup: `437 passed, 8 deselected`
 - Architecture-boundary tests: `23 passed`
 - Targeted scraping coverage regressions: `8 passed`
 - Transaction/history/application-state tests: `8 passed`
@@ -84,7 +84,7 @@ The enrichment/detail timing telemetry is now in place. Controlled live measurem
 
 ## Progress contract
 
-The current FULL runner reports category progress `1..24`, then emits terminal `48/48` after enrichment/synchronization completes. Tests validate this behavior. Intermediate enrichment callbacks `25..47` remain an optional UI-contract change and have not been introduced.
+The current FULL runner reports category progress `1..24`, enrichment callbacks `25..47`, then emits terminal `48/48` after enrichment/synchronization completes. Tests validate this behavior.
 
 ## Persistence and safety
 

@@ -323,13 +323,14 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - tools/audit_image_storage.py provides a non-destructive filesystem/SQLite/SHA-256 audit.
 - products.image_path is the sole active allowlist for stored catalog images.
 - tools/clean_unused_images.py removes only image files not referenced by products.image_path; it is dry-run by default and requires --delete for physical removal.
+- The production FULL sync invokes the same cleanup automatically after a validated prune; directed and incomplete runs never invoke it.
 - The cleanup roots default to data/images and resources/images, so historical images outside the current catalog are treated as removable local storage.
 - The cleanup tool never removes a path present in products.image_path, even when it appears in a duplicate/hash group.
 - Quality CI previously validated the image-storage audit changes with 446 passed, 8 deselected.
 - [x] Real local audit completed for database/catalog.db, data/images and data/images/products.
 - [x] Current catalog image references are complete: 530/530 files present, 0 missing active references, 0 hash mismatches.
-- [ ] Execute the cleanup tool locally in dry-run mode and review its candidate count.
-- [ ] Execute the explicit deletion only after the dry-run confirms the expected set.
+- [x] Initial local cleanup executed: 507 unreferenced files removed, 64,009,379 bytes freed.
+- [x] Post-cleanup audit confirms 530 active image files, 0 active orphans, 0 missing active references and 0 hash mismatches.
 ## LIVE INVENTORY DRIFT
 
 Las validaciones reales documentadas en este checkpoint confirmaron `523` apariciones esperadas, `519` productos únicos y `4` multi-categoría en 24/24 categorías, con cobertura completa. El total publicado por las categorías en cada ejecución es ahora la fuente de verdad de cobertura; `534 / 530 / 4` permanece como referencia histórica.

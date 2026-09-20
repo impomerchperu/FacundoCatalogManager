@@ -41,6 +41,8 @@ La base de datos persistente es `database/catalog.db`. El bootstrap no inicia sc
 
 El historial no se elimina para reparar el catálogo. Las ejecuciones anteriores permanecen disponibles y cada `SUCCESS` puede marcarse como la versión actualmente aplicada mediante `applied_at`.
 
+Una repetición idéntica sobre la misma SQLite debe ser idempotente: la segunda sincronización no crea ni actualiza productos, clasifica los productos como `unchanged` y no genera filas en `download_changes`. Esta garantía está validada por el test de integración de SQLite y Quality #1966.
+
 La validación realizada sobre la base real confirmó:
 
 - integridad SQLite: `ok`;
@@ -126,6 +128,7 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 - [x] recuperación histórica.
 - [x] relaciones normalizadas.
 - [x] historial previo preservado.
+- [x] idempotencia de segunda ejecución sobre la misma SQLite.
 
 ### Consolidación arquitectónica
 

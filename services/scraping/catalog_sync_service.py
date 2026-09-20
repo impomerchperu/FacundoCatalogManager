@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from models.scraping.sync_result import SyncResult
@@ -9,6 +10,16 @@ from services.scraping.category_name_normalizer import (
     split_category_names,
 )
 from services.scraping.product_hash_service import ProductHashService
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+TIMING_LOG = PROJECT_ROOT / "data" / "scraping_timing.log"
+
+
+def _log_timing(message, *args):
+    TIMING_LOG.parent.mkdir(parents=True, exist_ok=True)
+    formatted = message % args if args else message
+    with TIMING_LOG.open("a", encoding="utf-8") as file:
+        file.write(f"{formatted}\n")
 
 if TYPE_CHECKING:
     from services.scraping.scraping_result_writer import ScrapingResultWriter

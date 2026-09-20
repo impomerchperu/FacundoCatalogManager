@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import hashlib
 import time
 from pathlib import Path
 
 import requests
+
+from scrapers.images.image_hash import ImageHash
 
 
 class ImageDownloader:
@@ -102,8 +103,7 @@ class ImageDownloader:
 
     @staticmethod
     def hash_file(path: str | Path) -> str:
-        digest = hashlib.sha256()
-        with Path(path).open("rb") as file:
-            for chunk in iter(lambda: file.read(1024 * 1024), b""):
-                digest.update(chunk)
-        return digest.hexdigest()
+        image_path = Path(path)
+        if not image_path.exists():
+            raise FileNotFoundError(image_path)
+        return ImageHash().calculate(image_path)

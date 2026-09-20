@@ -4,16 +4,27 @@
 
 La prioridad sigue siendo conservar la cobertura FULL real antes de optimizar o simplificar el runtime.
 
+### Snapshot histórico
+
 - 24 categorías.
 - 534 apariciones producto-categoría.
 - 530 productos únicos.
 - 4 productos presentes en múltiples categorías.
 - 534 relaciones producto-categoría.
+
+### Referencia operativa actual
+
+- 24 categorías.
+- 523 apariciones producto-categoría.
+- 519 productos únicos.
+- 4 productos presentes en múltiples categorías.
+- 523 relaciones producto-categoría.
 - `coverage_gap=0`.
 - 0 errores invalidantes.
-- Un FULL incompleto no puede ejecutar prune destructivo.
 
-Los pisos históricos menores no sustituyen la cobertura completa del inventario vivo.
+La cobertura del inventario vivo es válida cuando cada categoría cumple su `expected_count` vigente y la persistencia reproduce exactamente las cantidades observadas. Un FULL incompleto no puede ejecutar prune destructivo.
+
+El snapshot histórico 534/530/4 permanece únicamente como referencia diagnóstica.
 
 ## Evidencia reciente validada localmente
 

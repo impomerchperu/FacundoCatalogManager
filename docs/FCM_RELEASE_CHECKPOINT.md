@@ -49,10 +49,10 @@ Validación local reportada para el código anterior a la última normalización
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site: `431 passed, 2 deselected`.
+- Suite no-real-site: `434 passed, 2 deselected`.
 - Batería focal de imágenes: `10 passed`.
 
-Los últimos cambios de código desde ese resultado solo reorganizan tres pruebas para que sean funciones pytest convencionales y corrigen el comando de suite documentado en README. El estado final debe validarse nuevamente con Ruff, Pyright y la suite no-real-site.
+Los últimos cambios de código solo reorganizaron tres pruebas de imágenes para que sean funciones pytest convencionales, aislaron `ImageSync` del repositorio físico local y corrigieron el comando de suite documentado en README. La validación local posterior quedó verde: Ruff limpio, Pyright sin diagnósticos y `434 passed, 2 deselected`.
 
 ## Arquitectura
 
@@ -74,13 +74,14 @@ python -m pytest -q --ignore=tests/scraping/real_site
 
 La prueba FULL real sigue disponible por separado y no forma parte de la suite rápida de CI.
 
-## Pendientes antes de cerrar release
+## Cierre previo a release
 
-1. Sincronizar el último HEAD remoto.
-2. Ejecutar Ruff.
-3. Ejecutar Pyright.
-4. Ejecutar `python -m pytest -q --ignore=tests/scraping/real_site`.
-5. Confirmar `git status --short` vacío.
-6. Cuando se abra explícitamente la validación funcional final, repetir FULL real + validación de DB + historial + idempotencia.
+1. [x] Sincronizar el último HEAD remoto.
+2. [x] Ejecutar Ruff.
+3. [x] Ejecutar Pyright.
+4. [x] Ejecutar `python -m pytest -q --ignore=tests/scraping/real_site`.
+5. [x] Confirmar `git status --short` vacío.
+6. [x] Quality #1913: success; Ruff, Pyright y Pytest verdes; `live-catalog` skipped de forma intencional.
+7. [ ] Cuando se abra explícitamente la validación funcional final, repetir FULL real + validación de DB + historial + idempotencia.
 
 No se requiere otro cambio de runtime mientras las invariantes protegidas permanezcan verdes.

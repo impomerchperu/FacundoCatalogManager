@@ -300,7 +300,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Final production E2E: revalidate coverage and persistence under `8 / 16 / 28`
 - [x] Baseline concurrency benchmark `8 / 16 / 28` re-run with live coverage contract
 - [x] HTTP diagnostics expose max in-flight by request class and P50/P95/P99 by stage
-- [ ] Isolate category collection bottleneck with controlled worker comparison
+- [ ] Close category collection matrix with same-mode `8 / 12 / 16` comparison and controlled JSF test
 - [x] Explain HTTP max-in-flight `16` versus configured limit `28`
 - [ ] Re-run authoritative FULL after any runtime performance change
 

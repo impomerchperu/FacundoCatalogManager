@@ -178,6 +178,12 @@ El diagnóstico de transporte del 2026-09-20 quedó cerrado con cuatro corridas 
 
 ## Progreso de UI
 
+### Smoke operativo de GUI
+
+El 2026-09-20 se realizó y confirmó el smoke test manual del flujo de escritorio sobre `main`: arranque desde `app.py`, carga de `database/catalog.db` sin scraping automático, navegación de catálogo, búsqueda/filtros, apertura de **Actualizar catálogo** y **Historial**, ejecución FULL desde la GUI, progreso/tiempo durante la ejecución, resumen final, detalle e historial aplicado. No se observaron incidencias visibles.
+
+Esta comprobación es complementaria a la suite automatizada y al E2E real; no modifica los criterios de cobertura ni la configuración productiva.
+
 El pipeline FULL mantiene 48 pasos lógicos. La colección emite progreso por finalización de categorías (`1..24`), el enrichment emite callbacks intermedios (`25..47`) y el runner finaliza en `48/48`.
 
 Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia. La granularidad de progreso durante enrichment queda implementada y validada como una mejora de UX contenida.

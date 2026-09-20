@@ -41,6 +41,47 @@ def test_category_product_sync_service():
     assert len(result) == 2
 
 
+def test_sync_categories_reports_enrichment_progress():
+    class Product:
+        def __init__(self, code, category):
+            self.code = code
+            self.category = category
+
+    class FakeScraper:
+        def collect_category(self, category):
+            return [("card", "page", Product(f"PROGRESS-{category.name}", category.name))]
+
+        def enrich_category_products(self, products, category_name):
+            return [item[2] for item in products]
+
+    class FakeScrapingService:
+        def __init__(self):
+            self.scraper = FakeScraper()
+
+    class FakePersistence:
+        def save_products(self, products):
+            return products
+
+    progress = []
+    service = CategoryProductSyncService(
+        FakeScrapingService(),
+        FakePersistence(),
+        category_workers=2,
+    )
+
+    result = service.sync_categories(
+        [
+            Category("Categoria A", "https://example.com/a", 1),
+            Category("Categoria B", "https://example.com/b", 1),
+        ],
+        progress_callback=lambda current, total: progress.append((current, total)),
+    )
+
+    assert len(result) == 2
+    assert progress[:2] == [(1, 4), (2, 4)]
+    assert progress[2:] == [(3, 4), (4, 4)]
+
+
 def test_sync_categories_contains_category_request_exception():
     class Product:
         def __init__(self, code, category):

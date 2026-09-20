@@ -130,4 +130,5 @@ class ScrapingFactory:
             category_service=category_service,
             history_repository=history_repository,
             catalog_repository=product_repository,
+            owned_resources=(db,),
         )

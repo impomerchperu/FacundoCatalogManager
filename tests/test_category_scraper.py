@@ -51,6 +51,12 @@ def test_parse_jsf_response_reads_pagination_and_rendered_content():
     )
 
 
+def test_category_scraper_accepts_explicit_jsf_page_workers():
+    scraper = CategoryScraper(FakeBrowser({}), jsf_page_workers=4)
+
+    assert scraper.JSF_PAGE_WORKERS == 4
+
+
 def test_parse_jsf_response_reads_found_posts_without_declared_max_pages():
     payload = (
         '{"found_posts":51,'

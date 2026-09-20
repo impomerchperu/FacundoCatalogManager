@@ -61,6 +61,7 @@ def test_normalized_scraping_schema():
         "product_categories",
         "scraping_runs",
         "scraping_product_occurrences",
+        "scraping_run_categories",
     }
     rows = db.fetch_all(
         """

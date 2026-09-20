@@ -82,12 +82,30 @@ def test_collect_category_processes_every_discovered_page_and_deduplicates_produ
 
 
 class SlowPagesCategoryScraper(FakeCategoryScraper):
+    def __init__(self, pages):
+        super().__init__(pages)
+        from threading import Lock
+
+        self._active_requests = 0
+        self.max_active_requests = 0
+        self._active_lock = Lock()
+
     def get_html(self, page_url):
-        if page_url == self.pages[0]:
-            time.sleep(0.20)
-        else:
-            time.sleep(0.05)
-        return super().get_html(page_url)
+        with self._active_lock:
+            self._active_requests += 1
+            self.max_active_requests = max(
+                self.max_active_requests,
+                self._active_requests,
+            )
+        try:
+            if page_url == self.pages[0]:
+                time.sleep(0.20)
+            else:
+                time.sleep(0.05)
+            return super().get_html(page_url)
+        finally:
+            with self._active_lock:
+                self._active_requests -= 1
 
 
 def test_collect_category_can_fetch_pages_in_parallel_without_changing_result_order():
@@ -125,5 +143,6 @@ def test_collect_category_can_fetch_pages_in_parallel_without_changing_result_or
         "P003",
         "P004",
     ]
-    assert category_scraper.get_html_calls == pages
+    assert set(category_scraper.get_html_calls) == set(pages)
+    assert category_scraper.max_active_requests == 2
 

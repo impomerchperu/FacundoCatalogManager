@@ -298,6 +298,9 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Per-category enrichment timing telemetry instrumented and tested
 - [x] Benchmark: isolate detail worker behavior with crossed live runs
 - [x] Final production E2E: revalidate coverage and persistence under `8 / 16 / 28`
+- [x] Baseline concurrency benchmark `8 / 16 / 28` re-run with live coverage contract
+- [ ] Isolate category collection bottleneck with controlled worker comparison
+- [ ] Explain HTTP max-in-flight `16` versus configured limit `28`
 - [ ] Re-run authoritative FULL after any runtime performance change
 
 ## IMAGE AUDIT POSITION

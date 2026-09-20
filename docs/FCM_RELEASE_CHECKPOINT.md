@@ -1,11 +1,11 @@
 # FCM — Release checkpoint
 
-Fecha: 2026-09-19  
-Branch: `feature/scraping-performance-recovery`
+Fecha: 2026-09-20  
+Branch oficial: `main`
 
 ## Estado
 
-La rama se encuentra en fase de cierre previo a release. El baseline funcional está protegido; la última mejora funcional añade granularidad de progreso durante enrichment sin modificar las invariantes de scraping, persistencia o concurrencia.
+El baseline funcional está cerrado y protegido en `main`; la última mejora funcional añade granularidad de progreso durante enrichment sin modificar las invariantes de scraping, persistencia o concurrencia.
 
 ## Referencias funcionales
 
@@ -107,4 +107,4 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 
 Hallazgo de idempotencia: las altas iniciales podían quedar sin `content_hash`, mientras que la segunda sincronización calculaba ese hash antes de comparar. Se corrigió la inicialización del hash antes de la clasificación para evitar un `UPDATED` espurio. La idempotencia ya quedó validada en CI con una SQLite persistente compartida por dos sincronizaciones consecutivas; no se requiere otro FULL real para cerrar este punto.
 
-La mejora de progreso ya quedó validada localmente sin requerir otro FULL real. Cualquier futura modificación de scraping, persistencia o concurrencia deberá conservar las invariantes actuales y seguir el ciclo benchmark + validación FULL.
+La mejora de progreso ya quedó validada sin requerir otro FULL real. El benchmark aislado de contención/latencia SQLite también quedó ejecutado sin evidencia que justifique cambios transaccionales. Cualquier futura modificación de scraping, persistencia o concurrencia deberá conservar las invariantes actuales y seguir el ciclo benchmark + validación FULL.

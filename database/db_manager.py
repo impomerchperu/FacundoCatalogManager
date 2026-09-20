@@ -5,11 +5,12 @@ import sqlite3
 class DBManager:
     """Gestiona SQLite con inicialización, migraciones y persistencia segura."""
 
+    SCHEMA_VERSION = 2
+
     def __init__(self, db_path=None):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         if db_path is None:
             db_path = os.path.join(base_dir, "database", "catalog.db")
-
         self.connection = sqlite3.connect(db_path, timeout=30)
         self.connection.row_factory = sqlite3.Row
         self._transaction_active = False
@@ -28,83 +29,200 @@ class DBManager:
             os.path.dirname(os.path.abspath(__file__)),
             "schema.sql",
         )
-
         if os.path.exists(schema_path):
             with open(schema_path, "r", encoding="utf-8") as file:
                 self.connection.executescript(file.read())
-
         self._run_migrations()
         self.connection.commit()
 
     def _run_migrations(self):
-        """Completa y corrige estructuras necesarias en bases existentes."""
-        self._add_column_if_missing(
-            "products",
-            "color_stock",
-            "TEXT DEFAULT '{}'",
-        )
-        self._add_column_if_missing(
-            "scraped_products",
-            "color_stock",
-            "TEXT DEFAULT '{}'",
-        )
-        self._add_column_if_missing(
-            "sync_records",
-            "color_stock",
-            "TEXT DEFAULT '{}'",
-        )
-        self._remove_legacy_colors_column("products")
-        self._remove_legacy_colors_column("scraped_products")
-
-        self._migrate_download_changes()
-
+        """Aplica migraciones versionadas y repetibles de forma segura."""
         self.connection.execute(
             """
-            CREATE INDEX IF NOT EXISTS idx_scraping_history_finished_at
-            ON scraping_history(finished_at)
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                version INTEGER PRIMARY KEY,
+                applied_at TEXT NOT NULL,
+                description TEXT NOT NULL
+            )
             """
         )
 
+        current_version = self._schema_version()
+        if current_version > self.SCHEMA_VERSION:
+            raise RuntimeError(
+                "La base de datos requiere una versión más nueva de la aplicación: "
+                f"schema={current_version}, soportado={self.SCHEMA_VERSION}."
+            )
+
+        if current_version < 1:
+            self._migrate_to_v1()
+            self._record_schema_migration(
+                1,
+                "Estructura normalizada y migraciones heredadas consolidadas.",
+            )
+            current_version = 1
+
+        if current_version < 2:
+            self._migrate_to_v2()
+            self._record_schema_migration(
+                2,
+                "Relación explícita entre ejecuciones de scraping e historial.",
+            )
+
+    def _migrate_to_v2(self) -> None:
+        self.connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS scraping_run_history (
+                run_id INTEGER PRIMARY KEY,
+                history_id INTEGER NOT NULL UNIQUE,
+                FOREIGN KEY (run_id) REFERENCES scraping_runs(id) ON DELETE CASCADE,
+                FOREIGN KEY (history_id) REFERENCES scraping_history(id) ON DELETE CASCADE
+            )
+            """
+        )
+        self.connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_scraping_run_history_history_id
+            ON scraping_run_history(history_id)
+            """
+        )
+
+    def _schema_version(self) -> int:
+        row = self.connection.execute(
+            "SELECT MAX(version) AS version FROM schema_migrations"
+        ).fetchone()
+        return int(row["version"] or 0) if row else 0
+
+    def _record_schema_migration(self, version: int, description: str) -> None:
+        self.connection.execute(
+            """
+            INSERT INTO schema_migrations (version, applied_at, description)
+            VALUES (?, CURRENT_TIMESTAMP, ?)
+            """,
+            (version, description),
+        )
+
+    def _migrate_to_v1(self) -> None:
+        for table in ("products", "scraped_products", "sync_records"):
+            self._add_column_if_missing(table, "color_stock", "TEXT DEFAULT '{}'")
+        for column, definition in (
+            ("applied_at", "TEXT"),
+            ("deleted", "INTEGER DEFAULT 0"),
+            ("generated", "INTEGER DEFAULT 0"),
+            ("categories_processed", "INTEGER DEFAULT 0"),
+            ("products_expected", "INTEGER DEFAULT 0"),
+            ("products_found", "INTEGER DEFAULT 0"),
+            ("products_unique", "INTEGER DEFAULT 0"),
+            ("products_multiple_categories", "INTEGER DEFAULT 0"),
+            ("duplicate_occurrences", "INTEGER DEFAULT 0"),
+            ("category_summary", "TEXT DEFAULT '[]'"),
+            ("multiple_category_products", "TEXT DEFAULT '[]'"),
+            ("message", "TEXT DEFAULT ''"),
+        ):
+            self._add_column_if_missing("scraping_history", column, definition)
+        self._restore_applied_history_marker()
+        self._remove_legacy_colors_column("products")
+        self._remove_legacy_colors_column("scraped_products")
+        self._migrate_download_changes()
+        self._migrate_scraping_run_categories()
+        self._normalize_existing_product_categories()
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_scraping_history_finished_at "
+            "ON scraping_history(finished_at)"
+        )
+
+    def _migrate_scraping_run_categories(self):
+        """Crea y reconstruye el conjunto de categorías observado en cada ejecución."""
+        self.connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS scraping_run_categories (
+                run_id INTEGER NOT NULL,
+                category_id INTEGER NOT NULL,
+                PRIMARY KEY (run_id, category_id),
+                FOREIGN KEY (run_id) REFERENCES scraping_runs(id) ON DELETE CASCADE,
+                FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+            )
+            """
+        )
+        self.connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_scraping_run_categories_category_id
+            ON scraping_run_categories(category_id)
+            """
+        )
+        self.connection.execute(
+            """
+            INSERT OR IGNORE INTO scraping_run_categories (run_id, category_id)
+            SELECT DISTINCT run_id, category_id
+            FROM scraping_product_occurrences
+            """
+        )
+
+    def _restore_applied_history_marker(self) -> None:
+        """Marca la última descarga exitosa histórica como aplicada en bases antiguas."""
+        self.connection.execute(
+            """
+            UPDATE scraping_history
+            SET applied_at = finished_at
+            WHERE id = (
+                SELECT MAX(id)
+                FROM scraping_history
+                WHERE status = 'SUCCESS'
+            )
+            AND applied_at IS NULL
+            """
+        )
+
+    def _normalize_existing_product_categories(self) -> None:
+        """Consolida variantes históricas sin alterar relaciones normalizadas."""
+        from services.scraping.category_name_normalizer import merge_category_names
+
+        rows = self.fetch_all("SELECT id, category FROM products")
+        for row in rows:
+            current = str(row["category"] or "")
+            canonical = merge_category_names(current)
+            if canonical == current:
+                continue
+            self.connection.execute(
+                "UPDATE products SET category=? WHERE id=?",
+                (canonical, row["id"]),
+            )
+
     def _remove_legacy_colors_column(self, table_name: str) -> None:
-        """Elimina la columna antigua colors de bases existentes."""
         columns = self.fetch_all(f"PRAGMA table_info({table_name})")
         if "colors" not in {row["name"] for row in columns}:
             return
         self.connection.execute(f"ALTER TABLE {table_name} DROP COLUMN colors")
 
     def _migrate_download_changes(self):
-        """Garantiza la FK de download_changes hacia scraping_history."""
+        """Garantiza la FK y conserva cualquier detalle histórico existente."""
         if not self._table_exists("download_changes"):
             self._create_download_changes_table()
             self._create_download_changes_indexes()
+            self._restore_legacy_download_changes()
             return
 
-        foreign_keys = self.fetch_all(
-            "PRAGMA foreign_key_list(download_changes)"
-        )
-
+        foreign_keys = self.fetch_all("PRAGMA foreign_key_list(download_changes)")
         references_scraping_history = any(
             row["table"] == "scraping_history"
             and row["from"] == "history_id"
             and row["to"] == "id"
             for row in foreign_keys
         )
-
         if references_scraping_history:
             self._create_download_changes_indexes()
+            self._restore_legacy_download_changes()
             return
 
         self._backup_legacy_download_changes()
         self._create_download_changes_table()
         self._create_download_changes_indexes()
+        self._restore_legacy_download_changes()
 
     def _backup_legacy_download_changes(self):
-        """Conserva la tabla antigua antes de reconstruir su FK."""
         legacy_table = "download_changes_legacy"
-
         if self._table_exists(legacy_table):
             return
-
         self.connection.execute(
             "DROP INDEX IF EXISTS idx_download_changes_history_id"
         )
@@ -113,8 +231,64 @@ class DBManager:
             "ALTER TABLE download_changes RENAME TO download_changes_legacy"
         )
 
+    def _restore_legacy_download_changes(self):
+        legacy_table = "download_changes_legacy"
+        if not self._table_exists(legacy_table):
+            return
+
+        columns = {
+            row["name"]
+            for row in self.connection.execute(
+                f"PRAGMA table_info({legacy_table})"
+            ).fetchall()
+        }
+        required = {
+            "history_id",
+            "change_type",
+            "code",
+            "product_name",
+            "field_name",
+            "field_label",
+            "old_value",
+            "new_value",
+        }
+        if not required.issubset(columns):
+            return
+
+        self.connection.execute(
+            f"""
+            INSERT INTO download_changes (
+                history_id, change_type, code, product_name,
+                field_name, field_label, old_value, new_value
+            )
+            SELECT
+                legacy.history_id,
+                legacy.change_type,
+                legacy.code,
+                legacy.product_name,
+                legacy.field_name,
+                legacy.field_label,
+                legacy.old_value,
+                legacy.new_value
+            FROM {legacy_table} AS legacy
+            JOIN scraping_history AS history
+              ON history.id = legacy.history_id
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM download_changes current
+                WHERE current.history_id = legacy.history_id
+                  AND current.change_type = legacy.change_type
+                  AND current.code = legacy.code
+                  AND current.product_name = legacy.product_name
+                  AND current.field_name IS legacy.field_name
+                  AND current.field_label = legacy.field_label
+                  AND current.old_value IS legacy.old_value
+                  AND current.new_value IS legacy.new_value
+            )
+            """
+        )
+
     def _create_download_changes_table(self):
-        """Crea la tabla de detalles con la FK correcta."""
         self.connection.execute(
             """
             CREATE TABLE IF NOT EXISTS download_changes (
@@ -135,28 +309,18 @@ class DBManager:
         )
 
     def _create_download_changes_indexes(self):
-        """Crea índices para las consultas del historial."""
         self.connection.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_download_changes_history_id
-            ON download_changes(history_id)
-            """
+            "CREATE INDEX IF NOT EXISTS idx_download_changes_history_id "
+            "ON download_changes(history_id)"
         )
         self.connection.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_download_changes_code
-            ON download_changes(code)
-            """
+            "CREATE INDEX IF NOT EXISTS idx_download_changes_code "
+            "ON download_changes(code)"
         )
 
     def _table_exists(self, table_name: str) -> bool:
         row = self.connection.execute(
-            """
-            SELECT 1
-            FROM sqlite_master
-            WHERE type = 'table'
-              AND name = ?
-            """,
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
             (table_name,),
         ).fetchone()
         return row is not None
@@ -175,19 +339,16 @@ class DBManager:
         )
 
     def begin(self):
-        """Inicia una transacción explícita."""
         if self._transaction_active:
             raise RuntimeError("Ya existe una transacción activa.")
         self.connection.execute("BEGIN")
         self._transaction_active = True
 
     def commit(self):
-        """Confirma cualquier transacción abierta en la conexión."""
         self.connection.commit()
         self._transaction_active = False
 
     def rollback(self):
-        """Revierte cualquier transacción abierta en la conexión."""
         self.connection.rollback()
         self._transaction_active = False
 
@@ -209,7 +370,4 @@ class DBManager:
         return cursor.fetchone()
 
     def close(self):
-        if self.connection:
-            if self._transaction_active:
-                self.rollback()
-            self.connection.close()
+        self.connection.close()

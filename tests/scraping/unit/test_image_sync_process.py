@@ -10,40 +10,32 @@ class FakeImageManager:
         code,
         image_url,
     ):
-
         return {
             "image_path": "data/images/products/FB-1812.webp",
             "image_hash": "hash123",
         }
 
 
-sync = ImageSync(image_manager=FakeImageManager())
+class EmptyRepository:
+    def find(self, code):
+        return None
 
 
-product = ScrapedProduct(
-    code="FB-1812",
-    image_url="http://test.com/image.webp",
-)
+def test_image_sync_processes_products():
+    sync = ImageSync(
+        image_manager=FakeImageManager(),
+        image_repository=EmptyRepository(),
+    )
 
+    product = ScrapedProduct(
+        code="FB-1812",
+        image_url="http://test.com/image.webp",
+    )
 
-result = sync.process([product])
+    result = sync.process([product])
 
-
-print("=" * 80)
-print("IMAGE SYNC ENGINE")
-print("=" * 80)
-
-
-print(result[0])
-
-
-assert Path(result[0].image_path) == Path(
-    "data/images/products/FB-1812.webp"
-)
-
-
-assert hasattr(result[0], "image_hash")
-
-
-print()
-print("OK")
+    assert len(result) == 1
+    assert Path(result[0].image_path) == Path(
+        "data/images/products/FB-1812.webp"
+    )
+    assert result[0].image_hash == "hash123"

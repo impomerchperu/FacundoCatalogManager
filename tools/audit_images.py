@@ -15,18 +15,24 @@ def main() -> None:
     from services.scraping.image_audit_service import ImageAuditService
 
     parser = argparse.ArgumentParser(
-        description="Audita y limpia duplicados de imágenes."
+        description="Audita duplicados de imágenes sin borrar archivos."
     )
     parser.add_argument("--root", default="data/images/products")
     parser.add_argument(
         "--clean",
         action="store_true",
-        help="Elimina duplicados byte-a-byte.",
+        help="Obsoleto: la limpieza física está deshabilitada.",
     )
     args = parser.parse_args()
 
     service = ImageAuditService(args.root)
-    report = service.remove_duplicates() if args.clean else service.audit()
+    if args.clean:
+        raise RuntimeError(
+            "La limpieza destructiva de imágenes está deshabilitada; "
+            "use la sincronización normalizada del catálogo."
+        )
+
+    report = service.audit()
 
     print(f"Directorio: {report['root']}")
     print(f"Archivos: {report['files']}")
@@ -35,8 +41,6 @@ def main() -> None:
     print(f"Archivos duplicados: {report['duplicate_files']}")
     for paths in report["duplicates"]:
         print("  - " + " | ".join(paths))
-    if args.clean:
-        print(f"Eliminados: {len(report['removed'])}")
 
 
 if __name__ == "__main__":

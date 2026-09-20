@@ -1,23 +1,19 @@
+import pytest
+
 from database.db_manager import DBManager
 from models.product import Product
+from repositories.product_repository import ProductRepository
 from services.product_service import ProductService
 
 
-def clean_database():
-
-    db = DBManager()
-
-    db.execute_query("DELETE FROM products")
-
+@pytest.fixture
+def service():
+    db = DBManager(":memory:")
+    yield ProductService(ProductRepository(db))
     db.close()
 
 
-def test_create_product():
-
-    clean_database()
-
-    service = ProductService()
-
+def test_create_product(service):
     product = Product(
         code="TEST002",
         name="Segundo producto",
@@ -29,22 +25,14 @@ def test_create_product():
     )
 
     created = service.create_product(product)
-
     products = service.get_products()
 
     assert len(products) == 1
-
     assert created.code == "TEST002"
-
     assert products[0].name == "Segundo producto"
 
 
-def test_create_invalid_product():
-
-    clean_database()
-
-    service = ProductService()
-
+def test_create_invalid_product(service):
     product = Product(
         code="",
         name="",
@@ -55,21 +43,13 @@ def test_create_invalid_product():
         image_path="",
     )
 
-    try:
+    with pytest.raises(ValueError) as error:
         service.create_product(product)
 
-        raise AssertionError("Debió rechazar producto inválido")
-
-    except ValueError as error:
-        assert len(error.args[0]) > 0
+    assert len(error.value.args[0]) > 0
 
 
-def test_update_product():
-
-    clean_database()
-
-    service = ProductService()
-
+def test_update_product(service):
     product = Product(
         code="UP001",
         name="Producto original",
@@ -81,25 +61,17 @@ def test_update_product():
     )
 
     service.create_product(product)
-
     product.name = "Producto actualizado"
     product.price = 99
 
     service.update_product(product)
-
     products = service.get_products()
 
     assert products[0].name == "Producto actualizado"
-
     assert products[0].price == 99
 
 
-def test_delete_product():
-
-    clean_database()
-
-    service = ProductService()
-
+def test_delete_product(service):
     product = Product(
         code="DEL001",
         name="Eliminar",
@@ -111,7 +83,6 @@ def test_delete_product():
     )
 
     service.create_product(product)
-
     service.delete_product(product.id)
 
     products = service.get_products()

@@ -3,6 +3,12 @@
 -- Database Schema
 -- ==========================================================
 
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    applied_at TEXT NOT NULL,
+    description TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     code TEXT UNIQUE NOT NULL,
@@ -22,6 +28,7 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Fuente histórica/compatibilidad. El scraper normalizado no depende de esta tabla.
 CREATE TABLE IF NOT EXISTS scraped_products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source TEXT NOT NULL,
@@ -42,6 +49,7 @@ CREATE TABLE IF NOT EXISTS scraped_products (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Fuente histórica/compatibilidad. Las nuevas ejecuciones no dependen de esta tabla.
 CREATE TABLE IF NOT EXISTS sync_records (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     code TEXT UNIQUE NOT NULL,
@@ -62,18 +70,110 @@ CREATE TABLE IF NOT EXISTS sync_records (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Categorías descubiertas por el scraper. canonical_url es la identidad estable.
+CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    canonical_url TEXT NOT NULL UNIQUE,
+    expected_count INTEGER DEFAULT 0,
+    last_scraped_at TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Relación normalizada producto <-> categoría. Sustituye products.category como fuente de verdad.
+CREATE TABLE IF NOT EXISTS product_categories (
+    product_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    first_seen_at TEXT,
+    last_seen_at TEXT,
+    PRIMARY KEY (product_id, category_id),
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+);
+
+-- Una ejecución de scraping representa una observación completa o dirigida del sitio.
+CREATE TABLE IF NOT EXISTS scraping_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    mode TEXT NOT NULL DEFAULT 'directed',
+    status TEXT NOT NULL DEFAULT 'RUNNING',
+    categories_requested INTEGER DEFAULT 0,
+    expected_category_occurrences INTEGER DEFAULT 0,
+    actual_category_occurrences INTEGER DEFAULT 0,
+    products_found INTEGER DEFAULT 0,
+    products_unique INTEGER DEFAULT 0,
+    products_multiple_categories INTEGER DEFAULT 0,
+    duplicate_occurrences INTEGER DEFAULT 0,
+    coverage_complete INTEGER DEFAULT 0,
+    coverage_gap INTEGER DEFAULT 0,
+    error_count INTEGER DEFAULT 0,
+    message TEXT DEFAULT ''
+);
+
+-- Ocurrencia real encontrada por el scraper: una fila por producto dentro de una categoría.
+-- Se conserva aunque el SKU aparezca en más de una categoría.
+-- Conjunto exacto de categorías solicitadas por cada ejecución.
+CREATE TABLE IF NOT EXISTS scraping_run_categories (
+    run_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    PRIMARY KEY (run_id, category_id),
+    FOREIGN KEY (run_id) REFERENCES scraping_runs(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS scraping_product_occurrences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    product_id INTEGER,
+    code TEXT NOT NULL,
+    product_url TEXT NOT NULL,
+    page_number INTEGER DEFAULT 0,
+    position INTEGER DEFAULT 0,
+    name TEXT DEFAULT '',
+    discovered_at TEXT,
+    UNIQUE (run_id, category_id, code),
+    FOREIGN KEY (run_id) REFERENCES scraping_runs(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS scraping_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     started_at TEXT NOT NULL,
     finished_at TEXT NOT NULL,
+    applied_at TEXT,
     processed INTEGER DEFAULT 0,
     created INTEGER DEFAULT 0,
     updated INTEGER DEFAULT 0,
     unchanged INTEGER DEFAULT 0,
+    deleted INTEGER DEFAULT 0,
+    generated INTEGER DEFAULT 0,
+    categories_processed INTEGER DEFAULT 0,
+    products_expected INTEGER DEFAULT 0,
+    products_found INTEGER DEFAULT 0,
+    products_unique INTEGER DEFAULT 0,
+    products_multiple_categories INTEGER DEFAULT 0,
+    duplicate_occurrences INTEGER DEFAULT 0,
+    category_summary TEXT DEFAULT '[]',
+    multiple_category_products TEXT DEFAULT '[]',
     errors INTEGER DEFAULT 0,
     status TEXT DEFAULT 'SUCCESS',
     message TEXT DEFAULT ''
 );
+
+-- Relación 1:1 entre la ejecución técnica y su registro de historial.
+CREATE TABLE IF NOT EXISTS scraping_run_history (
+    run_id INTEGER PRIMARY KEY,
+    history_id INTEGER NOT NULL UNIQUE,
+    FOREIGN KEY (run_id) REFERENCES scraping_runs(id) ON DELETE CASCADE,
+    FOREIGN KEY (history_id) REFERENCES scraping_history(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_scraping_run_history_history_id
+ON scraping_run_history(history_id);
 
 CREATE TABLE IF NOT EXISTS download_changes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,3 +201,30 @@ ON download_changes(history_id);
 
 CREATE INDEX IF NOT EXISTS idx_download_changes_code
 ON download_changes(code);
+
+CREATE INDEX IF NOT EXISTS idx_categories_name
+ON categories(name);
+
+CREATE INDEX IF NOT EXISTS idx_product_categories_category_id
+ON product_categories(category_id);
+
+CREATE INDEX IF NOT EXISTS idx_product_categories_product_id
+ON product_categories(product_id);
+
+CREATE INDEX IF NOT EXISTS idx_scraping_runs_started_at
+ON scraping_runs(started_at);
+
+CREATE INDEX IF NOT EXISTS idx_scraping_runs_status
+ON scraping_runs(status);
+
+CREATE INDEX IF NOT EXISTS idx_scraping_run_categories_category_id
+ON scraping_run_categories(category_id);
+
+CREATE INDEX IF NOT EXISTS idx_scraping_occurrences_run_id
+ON scraping_product_occurrences(run_id);
+
+CREATE INDEX IF NOT EXISTS idx_scraping_occurrences_category_id
+ON scraping_product_occurrences(category_id);
+
+CREATE INDEX IF NOT EXISTS idx_scraping_occurrences_code
+ON scraping_product_occurrences(code);

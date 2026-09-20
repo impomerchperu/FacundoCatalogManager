@@ -1,27 +1,30 @@
 from dataclasses import dataclass, field
 
+from config.scraping_config import (
+    MAX_RETRIES,
+    REQUEST_TIMEOUT,
+    SCRAPING_CATEGORY_WORKERS,
+    SCRAPING_HTTP_WORKERS,
+    SCRAPING_JSF_HTTP_CONCURRENCY,
+    SCRAPING_MAX_WORKERS,
+    STORE_URL,
+)
+
 
 @dataclass
 class ScrapingConfig:
     """
-    Configuración central del motor scraping.
+    Configuración de ejecución del motor de scraping.
 
-    Contiene parámetros generales utilizados
-    por los servicios de extracción,
-    sincronización e imágenes.
+    Los valores de transporte y concurrencia se centralizan aquí y conservan
+    los valores de producción previamente validados como defaults.
     """
 
-    catalog_url: str = (
-        "https://stock.importacionesfacundo.com/tienda/"
-    )
+    catalog_url: str = STORE_URL
 
-    source_name: str = (
-        "importacionesfacundo"
-    )
+    source_name: str = "importacionesfacundo"
 
-    images_folder: str = (
-        "data/images"
-    )
+    images_folder: str = "data/images"
 
     download_images: bool = True
 
@@ -29,52 +32,46 @@ class ScrapingConfig:
 
     save_scraped_products: bool = True
 
-    max_retries: int = 3
+    max_retries: int = MAX_RETRIES
 
-    request_timeout: int = 20
+    request_timeout: int = REQUEST_TIMEOUT
 
-    enabled_categories: list[str] = field(
-        default_factory=list,
-    )
+    category_workers: int = SCRAPING_CATEGORY_WORKERS
 
-    def is_category_enabled(
-        self,
-        category: str,
-    ) -> bool:
-        """
-        Determina si una categoría debe procesarse.
+    http_workers: int = SCRAPING_HTTP_WORKERS
 
-        Si no hay categorías configuradas,
-        procesa todas.
-        """
+    detail_workers: int = SCRAPING_MAX_WORKERS
 
+    jsf_http_concurrency: int = SCRAPING_JSF_HTTP_CONCURRENCY
+
+    enabled_categories: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.request_timeout <= 0:
+            raise ValueError("request_timeout debe ser mayor que cero.")
+        if self.max_retries <= 0:
+            raise ValueError("max_retries debe ser mayor que cero.")
+        if self.category_workers <= 0:
+            raise ValueError("category_workers debe ser mayor que cero.")
+        if self.http_workers <= 0:
+            raise ValueError("http_workers debe ser mayor que cero.")
+        if self.detail_workers <= 0:
+            raise ValueError("detail_workers debe ser mayor que cero.")
+        if self.jsf_http_concurrency <= 0:
+            raise ValueError("jsf_http_concurrency debe ser mayor que cero.")
+
+    def is_category_enabled(self, category: str) -> bool:
+        """Determina si una categoría debe procesarse."""
         if not self.enabled_categories:
             return True
-
         return category in self.enabled_categories
 
-    def enable_category(
-        self,
-        category: str,
-    ):
-        """
-        Agrega una categoría al filtro.
-        """
-
+    def enable_category(self, category: str) -> None:
+        """Agrega una categoría al filtro."""
         if category not in self.enabled_categories:
-            self.enabled_categories.append(
-                category
-            )
+            self.enabled_categories.append(category)
 
-    def disable_category(
-        self,
-        category: str,
-    ):
-        """
-        Elimina una categoría del filtro.
-        """
-
+    def disable_category(self, category: str) -> None:
+        """Elimina una categoría del filtro."""
         if category in self.enabled_categories:
-            self.enabled_categories.remove(
-                category
-            )
+            self.enabled_categories.remove(category)

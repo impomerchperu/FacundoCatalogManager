@@ -9,38 +9,26 @@ class ScrapingHistoryRepository:
     """Persistencia del historial de descargas y sus cambios."""
 
     PRODUCT_FIELDS = (
-        "name",
-        "category",
-        "description",
-        "price",
-        "price_sample",
-        "price_hundred",
-        "price_thousand",
-        "stock",
-        "colors",
-        "color_stock",
-        "image_url",
-        "image_path",
-        "image_hash",
-        "content_hash",
+        "name", "category", "description", "price", "price_sample",
+        "price_hundred", "price_thousand", "stock", "colors", "color_stock",
+        "image_url", "image_path", "image_hash", "content_hash",
     )
-
     FIELD_LABELS: ClassVar[dict[str, str]] = {
-        "name": "Nombre",
-        "category": "Categoría",
-        "description": "Detalle",
-        "price": "Precio",
-        "price_sample": "Precio muestra",
-        "price_hundred": "Precio ciento",
-        "price_thousand": "Precio millar",
-        "stock": "Stock",
-        "colors": "Colores",
-        "color_stock": "Stock por color",
-        "image_url": "URL imagen",
-        "image_path": "Ruta imagen",
-        "image_hash": "Hash imagen",
-        "content_hash": "Hash contenido",
+        "code": "Código", "name": "Nombre", "category": "Categoría",
+        "description": "Detalle", "price": "Precio", "price_sample": "Precio muestra",
+        "price_hundred": "Precio ciento", "price_thousand": "Precio millar",
+        "stock": "Stock", "colors": "Colores", "color_stock": "Stock por color",
+        "image_url": "URL imagen", "image_path": "Ruta imagen",
+        "image_hash": "Hash imagen", "content_hash": "Hash contenido",
     }
+
+    _HISTORY_COLUMNS = """
+        id, started_at, finished_at, applied_at, processed, created, updated,
+        unchanged, deleted, generated, categories_processed, products_expected,
+        products_found, products_unique, products_multiple_categories,
+        duplicate_occurrences, category_summary, multiple_category_products,
+        errors, status, message
+    """
 
     def __init__(self, db):
         self.db = db
@@ -51,89 +39,119 @@ class ScrapingHistoryRepository:
         changes: list[dict] | None = None,
         products: list | None = None,
     ) -> int:
-        """Guarda una descarga ya aplicada y únicamente sus cambios."""
+        """Guarda una descarga y persiste si quedó aplicada al catálogo."""
+        if history.status == "SUCCESS":
+            applied_at = history.applied_at or history.finished_at
+            self.db.execute_query(
+                "UPDATE scraping_history SET applied_at = NULL WHERE applied_at IS NOT NULL"
+            )
+        else:
+            applied_at = None
+
         cursor = self.db.execute_query(
             """
             INSERT INTO scraping_history (
-                started_at, finished_at, processed, created, updated,
-                unchanged, errors, status, message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                started_at, finished_at, applied_at, processed, created, updated,
+                unchanged, deleted, generated, categories_processed,
+                products_expected, products_found, products_unique,
+                products_multiple_categories, duplicate_occurrences,
+                category_summary, multiple_category_products,
+                errors, status, message
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                history.started_at.isoformat(),
-                history.finished_at.isoformat(),
-                history.processed,
-                history.created,
-                history.updated,
-                history.unchanged,
-                history.errors,
-                history.status,
-                history.message,
+                history.started_at.isoformat(), history.finished_at.isoformat(),
+                applied_at.isoformat() if applied_at is not None else None,
+                history.processed, history.created, history.updated,
+                history.unchanged, history.deleted, history.generated,
+                history.categories_processed,
+                history.products_expected, history.products_found,
+                history.products_unique, history.products_multiple_categories,
+                history.duplicate_occurrences,
+                self._serialize(history.category_summary),
+                self._serialize(history.multiple_category_products),
+                history.errors, history.status, history.message,
             ),
         )
         history.history_id = int(cursor.lastrowid)
+        history.applied_at = applied_at
+
+        if changes:
+            self._assert_history_exists(history.history_id)
 
         product_map = {
             str(getattr(product, "code", "")): product
             for product in (products or [])
         }
-
         for item in changes or []:
             code = str(item.get("code", ""))
             name = str(item.get("name", ""))
-            if item.get("type") == "NEW":
+            item_type = item.get("type")
+            if item_type == "CODE_GENERATED":
+                self._insert_change(history.history_id, "CODE_GENERATED", code, name,
+                                    "code", "Código generado", "Sin código", code)
+                continue
+            if item_type == "NEW":
                 product = product_map.get(code)
                 if product is None:
-                    self._insert_change(
-                        history.history_id,
-                        "NEW",
-                        code,
-                        name,
-                        None,
-                        "Producto nuevo",
-                        None,
-                        "Alta",
-                    )
+                    self._insert_change(history.history_id, "NEW", code, name, None,
+                                        "Producto nuevo", None, "Alta")
                     continue
                 for field in self.PRODUCT_FIELDS:
                     self._insert_change(
-                        history.history_id,
-                        "NEW",
-                        code,
-                        name,
-                        field,
-                        self.FIELD_LABELS[field],
-                        None,
+                        history.history_id, "NEW", code, name, field,
+                        self.FIELD_LABELS[field], None,
                         self._serialize(self._value(product, field)),
                     )
                 continue
-
+            if item_type == "DELETED":
+                self._insert_change(history.history_id, "DELETED", code, name, None,
+                                    "Producto eliminado", "Presente en catálogo", "Ausente en origen")
+                continue
             for change in item.get("changes") or []:
                 field = str(change.get("field", ""))
                 self._insert_change(
-                    history.history_id,
-                    "UPDATED",
-                    code,
-                    name,
-                    field,
+                    history.history_id, "UPDATED", code, name, field,
                     str(change.get("label", self.FIELD_LABELS.get(field, field))),
-                    self._serialize(change.get("old")),
-                    self._serialize(change.get("new")),
+                    self._serialize(change.get("old")), self._serialize(change.get("new")),
                 )
-
         return history.history_id
 
-    def _insert_change(
-        self,
-        history_id: int,
-        change_type: str,
-        code: str,
-        name: str,
-        field: str | None,
-        label: str,
-        old_value,
-        new_value,
-    ) -> None:
+    def link_scraping_run(self, run_id: int, history_id: int) -> None:
+        """Relaciona exactamente una ejecución de scraping con su historial."""
+        if run_id <= 0 or history_id <= 0:
+            raise ValueError("run_id e history_id deben ser positivos.")
+        self._assert_history_exists(history_id)
+        run = self.db.fetch_one(
+            "SELECT id FROM scraping_runs WHERE id = ?",
+            (run_id,),
+        )
+        if run is None:
+            raise RuntimeError(
+                "No existe la ejecución de scraping para enlazar el historial: "
+                f"run_id={run_id}."
+            )
+        self.db.execute_query(
+            """
+            INSERT INTO scraping_run_history (run_id, history_id)
+            VALUES (?, ?)
+            """,
+            (run_id, history_id),
+        )
+
+    def _assert_history_exists(self, history_id: int) -> None:
+        parent = self.db.fetch_one(
+            "SELECT id FROM scraping_history WHERE id = ?",
+            (history_id,),
+        )
+        if parent is None:
+            raise RuntimeError(
+                "No existe el historial padre para registrar cambios: "
+                f"history_id={history_id}."
+            )
+
+    def _insert_change(self, history_id, change_type, code, name, field, label, old_value, new_value):
+        self._assert_history_exists(history_id)
         self.db.execute_query(
             """
             INSERT INTO download_changes (
@@ -141,47 +159,48 @@ class ScrapingHistoryRepository:
                 field_name, field_label, old_value, new_value
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (
-                history_id,
-                change_type,
-                code,
-                name,
-                field,
-                label,
-                old_value,
-                new_value,
-            ),
+            (history_id, change_type, code, name, field, label, old_value, new_value),
         )
 
+    @classmethod
+    def _history_select(cls) -> str:
+        return f"SELECT {cls._HISTORY_COLUMNS} FROM scraping_history"
+
     def get_all(self):
-        return self.get_latest(limit=1000)
+        self._reset_read_transaction()
+        rows = self.db.fetch_all(
+            f"{self._history_select()} ORDER BY id DESC"
+        )
+        return [self._map_row(row) for row in rows]
+
+    def get_currently_applied(self):
+        self._reset_read_transaction()
+        row = self.db.fetch_one(
+            f"{self._history_select()} "
+            "WHERE applied_at IS NOT NULL "
+            "ORDER BY applied_at DESC, id DESC "
+            "LIMIT 1"
+        )
+        return None if row is None else self._map_row(row)
 
     def get_latest(self, limit: int = 100):
+        self._reset_read_transaction()
         rows = self.db.fetch_all(
-            """
-            SELECT id, started_at, finished_at, processed, created,
-                   updated, unchanged, errors, status, message
-            FROM scraping_history
-            ORDER BY id DESC
-            LIMIT ?
-            """,
+            f"{self._history_select()} ORDER BY id DESC LIMIT ?",
             (limit,),
         )
         return [self._map_row(row) for row in rows]
 
     def get_by_id(self, history_id: int):
+        self._reset_read_transaction()
         row = self.db.fetch_one(
-            """
-            SELECT id, started_at, finished_at, processed, created,
-                   updated, unchanged, errors, status, message
-            FROM scraping_history
-            WHERE id = ?
-            """,
+            f"{self._history_select()} WHERE id = ?",
             (history_id,),
         )
         return None if row is None else self._map_row(row)
 
     def get_changes(self, history_id: int) -> list[dict]:
+        self._reset_read_transaction()
         rows = self.db.fetch_all(
             """
             SELECT change_type, code, product_name, field_name,
@@ -193,17 +212,20 @@ class ScrapingHistoryRepository:
             (history_id,),
         )
         return [
-            {
-                "type": row["change_type"],
-                "code": row["code"],
-                "name": row["product_name"],
-                "field": row["field_name"],
-                "label": row["field_label"],
-                "old": self._deserialize(row["old_value"]),
-                "new": self._deserialize(row["new_value"]),
-            }
+            {"type": row["change_type"], "code": row["code"], "name": row["product_name"],
+             "field": row["field_name"], "label": row["field_label"],
+             "old": self._deserialize(row["old_value"]), "new": self._deserialize(row["new_value"])}
             for row in rows
         ]
+
+    def _reset_read_transaction(self) -> None:
+        """Descarta un snapshot de lectura previo sin romper una transacción activa."""
+        connection = getattr(self.db, "connection", None)
+        if connection is None:
+            return
+        if getattr(self.db, "_transaction_active", False):
+            return
+        connection.rollback()
 
     @staticmethod
     def _value(product, field):
@@ -230,15 +252,22 @@ class ScrapingHistoryRepository:
 
     @staticmethod
     def _map_row(row) -> ScrapingHistory:
+        applied_at = row["applied_at"]
         return ScrapingHistory(
             history_id=row["id"],
             started_at=datetime.fromisoformat(row["started_at"]),
             finished_at=datetime.fromisoformat(row["finished_at"]),
-            processed=row["processed"],
-            created=row["created"],
-            updated=row["updated"],
-            unchanged=row["unchanged"],
-            errors=row["errors"],
-            status=row["status"],
-            message=row["message"],
+            applied_at=(datetime.fromisoformat(applied_at) if applied_at else None),
+            processed=row["processed"], created=row["created"], updated=row["updated"],
+            unchanged=row["unchanged"], deleted=row["deleted"], generated=row["generated"],
+            categories_processed=row["categories_processed"],
+            products_expected=row["products_expected"], products_found=row["products_found"],
+            products_unique=row["products_unique"],
+            products_multiple_categories=row["products_multiple_categories"],
+            duplicate_occurrences=row["duplicate_occurrences"],
+            category_summary=ScrapingHistoryRepository._deserialize(row["category_summary"]) or [],
+            multiple_category_products=(
+                ScrapingHistoryRepository._deserialize(row["multiple_category_products"]) or []
+            ),
+            errors=row["errors"], status=row["status"], message=row["message"],
         )

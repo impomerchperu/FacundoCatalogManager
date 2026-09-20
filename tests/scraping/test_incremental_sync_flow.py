@@ -1,6 +1,6 @@
-from repositories.scraping.sync_repository import SyncRepository
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.product_diff_service import ProductDiffService
+from tests.scraping.catalog_sync_test_doubles import InMemoryCatalogRepository
 
 
 class Product:
@@ -25,7 +25,7 @@ class Product:
 
 def test_incremental_sync_detects_new_product():
 
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
 
     service = CatalogSyncService(repository, ProductDiffService())
 
@@ -40,7 +40,7 @@ def test_incremental_sync_detects_new_product():
 
 def test_incremental_sync_detects_updated_product():
 
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
 
     old = Product("UP001", "Producto", 10, 5)
 
@@ -57,7 +57,7 @@ def test_incremental_sync_detects_updated_product():
 
 def test_incremental_sync_detects_unchanged_product():
 
-    repository = SyncRepository()
+    repository = InMemoryCatalogRepository()
 
     product = Product("SAME001", "Producto", 10, 5)
 

@@ -2,10 +2,7 @@ from scrapers.sync.image_sync import ImageSync
 
 
 class ImageSyncAdapter:
-    """
-    Adaptador entre FullScrapingService
-    y el motor moderno ImageSync.
-    """
+    """Adaptador del flujo de scraping al motor de sincronización de imágenes."""
 
     def __init__(
         self,

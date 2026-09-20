@@ -5,6 +5,9 @@ from scrapers.collectors.category_scraper import CategoryScraper
 from scrapers.collectors.product_collection_scraper import (
     ProductCollectionScraper,
 )
+from scrapers.extractors.category_product_extractor import CategoryProductExtractor
+from scrapers.extractors.product_card_extractor import ProductCardExtractor
+from scrapers.extractors.product_extractor import ProductExtractor
 
 pytestmark = pytest.mark.real_site
 
@@ -19,7 +22,6 @@ class Category:
 
 
 def test_product_collection_real():
-
     browser = Browser()
 
     category_scraper = CategoryScraper(
@@ -28,6 +30,9 @@ def test_product_collection_real():
 
     collection = ProductCollectionScraper(
         category_scraper,
+        ProductCardExtractor(),
+        CategoryProductExtractor(),
+        ProductExtractor(),
     )
 
     products = collection.scrape_category(

@@ -8,20 +8,44 @@ DEFAULT_HEADERS = {
         "Mozilla/5.0 "
         "(Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 "
-        "(KHTML, like Gecko) "
         "Chrome/120 Safari/537.36"
     )
 }
 
 
-REQUEST_TIMEOUT = 15
+REQUEST_TIMEOUT = 20
 
 MAX_RETRIES = 3
 
-# Number of concurrent HTTP workers used when enriching product detail pages.
-# Keep this conservative to avoid overloading the source site.
-SCRAPING_MAX_WORKERS = 8
+# Use lxml for the large number of HTML parses performed during catalog
+# extraction. category_scraper.py keeps a html.parser fallback for portability.
+SCRAPING_HTML_PARSER = "lxml"
 
-# Number of categories scraped concurrently. This is intentionally lower than
-# the per-category detail worker count to keep total HTTP concurrency bounded.
-SCRAPING_CATEGORY_WORKERS = 3
+# Detail enrichment is I/O-bound. Controlled live benchmarks with crossed
+# 16/24-worker runs showed comparable wall time while 16 workers reduced
+# aggregate detail HTTP work by roughly 29% and kept latency lower.
+SCRAPING_MAX_WORKERS = 16
+
+# The live production-concurrency benchmark repeatedly preserved complete
+# coverage with 8 category workers while avoiding the retry pressure observed
+# at higher category concurrency.
+SCRAPING_CATEGORY_WORKERS = 8
+
+# Keep the shared HTTP budget at the validated live FULL baseline:
+# 24 categories, 534 occurrences, 530 unique products, 4 multi-category
+# products, 534 product-category relationships, complete coverage, and
+# zero invalidating errors. Increasing this budget did not improve wall time.
+SCRAPING_HTTP_WORKERS = 28
+
+# JetSmartFilters/Bricks Query Loop request metadata observed on the live catalog.
+# Keep these values centralized so the scraper can reproduce the provider query
+# without hard-coding them inside the pagination implementation.
+JETSMARTFILTERS_AJAX_URL = f"{BASE_URL}/wp-admin/admin-ajax.php"
+JETSMARTFILTERS_ELEMENT_ID = "95dc8a"
+JETSMARTFILTERS_SIGNATURE = "83bc155b208a7b2c473d90a84cf5fe01"
+JETSMARTFILTERS_INDEXING_FILTERS = "434"
+
+# The canonical pagination engine uses bounded page parallelism. Keep the JSF
+# HTTP semaphore independently capped so pagination cannot consume the entire
+# shared HTTP worker budget.
+SCRAPING_JSF_HTTP_CONCURRENCY = 8

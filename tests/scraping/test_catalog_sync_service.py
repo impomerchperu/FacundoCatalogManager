@@ -385,3 +385,52 @@ def test_catalog_sync_is_idempotent_after_initial_create():
     stored = repository.get("P009")
     assert stored is not None
     assert stored.content_hash
+    
+def test_catalog_sync_cleans_unused_images_only_after_allowed_prune():
+    repository = InMemoryCatalogRepository()
+    repository.save(Product("OLD001", "Producto antiguo", 10))
+    cleanup_calls = []
+
+    def cleanup():
+        cleanup_calls.append(True)
+        return [{"path": "old.webp"}]
+
+    service = CatalogSyncService(
+        repository,
+        ProductDiffService(),
+        image_cleanup=cleanup,
+    )
+
+    result = service.sync(
+        [Product("KEEP001", "Producto vigente", 20)],
+        expected_products=1,
+    )
+
+    assert result.deleted == 1
+    assert cleanup_calls == [True]
+
+
+def test_catalog_sync_does_not_clean_images_when_full_prune_is_blocked():
+    repository = InMemoryCatalogRepository()
+    repository.save(Product("OLD001", "Producto antiguo", 10))
+    repository.save(Product("KEEP001", "Producto vigente", 20))
+    cleanup_calls = []
+
+    def cleanup():
+        cleanup_calls.append(True)
+        return [{"path": "old.webp"}]
+
+    service = CatalogSyncService(
+        repository,
+        ProductDiffService(),
+        image_cleanup=cleanup,
+    )
+
+    result = service.sync_full_catalog(
+        [Product("KEEP001", "Producto vigente", 20)],
+        expected_products=2,
+    )
+
+    assert result.deleted == 0
+    assert cleanup_calls == []
+

@@ -114,3 +114,26 @@ def test_image_storage_audit_detects_cross_root_duplicate(tmp_path: Path):
 
     assert report["files_total"] == 2
     assert len(report["cross_root_duplicate_groups"]) == 1
+
+
+def test_image_storage_audit_detects_same_code_with_multiple_extensions(tmp_path: Path):
+    project = tmp_path
+    root = project / "data" / "images" / "products"
+    root.mkdir(parents=True)
+    (root / "P001.jpg").write_bytes(b"old")
+    (root / "P001.webp").write_bytes(b"new")
+
+    db = project / "database" / "catalog.db"
+    db.parent.mkdir()
+    _create_db(db)
+
+    report = audit(
+        project_root=project,
+        db_path=db,
+        roots=[root],
+    )
+
+    assert len(report["same_code_variant_groups"]) == 1
+    assert {
+        record["path"].name for record in report["same_code_variant_groups"][0]
+    } == {"P001.jpg", "P001.webp"}

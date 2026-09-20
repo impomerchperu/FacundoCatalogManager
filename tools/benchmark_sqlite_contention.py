@@ -66,6 +66,7 @@ def run_writer(
     path: Path,
     batches: int,
     writes_per_batch: int,
+    products: int,
     barrier: threading.Barrier,
     latencies: list[float],
     errors: list[str],
@@ -79,7 +80,7 @@ def run_writer(
             try:
                 connection.execute("BEGIN")
                 for offset in range(writes_per_batch):
-                    index = ((batch * writes_per_batch + offset) % DEFAULT_PRODUCTS) + 1
+                    index = ((batch * writes_per_batch + offset) % products) + 1
                     connection.execute(
                         """
                         UPDATE products
@@ -171,6 +172,7 @@ def run_case(
                     db_path,
                     write_batches,
                     writes_per_batch,
+                    products,
                     barrier,
                     writer_latencies,
                     errors,

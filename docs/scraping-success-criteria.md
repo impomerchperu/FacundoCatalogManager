@@ -114,7 +114,7 @@ Se ejecutó un benchmark aislado sobre SQLite temporal con 530 productos, WAL, `
 
 ## Estado de ingeniería validado
 
-La última Quality CI sobre `main` es el run `#2194`, ejecutado sobre `ef8d9c8`, y terminó en `success`. La validación local del baseline funcional confirma Ruff limpio, Pyright con `0 errors, 0 warnings, 0 informations` y `453 passed, 8 deselected`.
+La última Quality CI sobre `main` es el run `#2201`, ejecutado sobre `9d60a3d`, y terminó en `success`. La validación local del baseline funcional confirma Ruff limpio, Pyright con `0 errors, 0 warnings, 0 informations` y `453 passed, 8 deselected`.
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
@@ -123,7 +123,7 @@ La última Quality CI sobre `main` es el run `#2194`, ejecutado sobre `ef8d9c8`,
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
 - FULL/E2E de producción más reciente: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, configuración `8 / 16 / 28`, `337` solicitudes HTTP, duración `100.33s`.
-- Quality CI del estado actual de `main`: run `#2194`, commit `ef8d9c8`, completado en `success`.
+- Quality CI del estado actual de `main`: run `#2201`, commit `9d60a3d`, completado en `success`.
 - Snapshot histórico preservado: `24 / 534 / 530 / 4`.
 - Smoke de bootstrap sobre copia de la base real: `530 / 534`, usando el FULL más reciente válido.
 

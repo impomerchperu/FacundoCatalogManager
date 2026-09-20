@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from scrapers.images.image_hash import ImageHash
+from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
 
 
 class ImageAuditService:
@@ -18,7 +19,7 @@ class ImageAuditService:
         ".gif",
     }
 
-    def __init__(self, image_root: str | Path = "data/images/products"):
+    def __init__(self, image_root: str | Path = IMAGE_PRODUCTS_DIR):
         self.image_root = Path(image_root)
 
     def audit(self) -> dict:

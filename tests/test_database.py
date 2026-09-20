@@ -62,6 +62,7 @@ def test_normalized_scraping_schema():
         "scraping_runs",
         "scraping_product_occurrences",
         "scraping_run_categories",
+        "scraping_run_history",
     }
     rows = db.fetch_all(
         """
@@ -226,5 +227,63 @@ def test_database_rejects_newer_schema_version():
         assert "versión más nueva" in str(error)
     else:
         raise AssertionError("Se esperaba rechazo de una versión futura.")
+
+    db.close()
+
+
+def test_scraping_run_history_enforces_one_to_one_execution_link():
+    db = DBManager(":memory:")
+
+    db.execute_query(
+        """
+        INSERT INTO categories (name, canonical_url)
+        VALUES ('Categoría vínculo', 'category-link')
+        """
+    )
+    db.execute_query(
+        """
+        INSERT INTO scraping_runs (started_at, mode, status, categories_requested)
+        VALUES (?, 'directed', 'SUCCESS', 1)
+        """,
+        ("2026-09-20T00:00:00+00:00",),
+    )
+    run_id = db.fetch_one(
+        "SELECT id FROM scraping_runs ORDER BY id DESC LIMIT 1"
+    )["id"]
+
+    db.execute_query(
+        """
+        INSERT INTO scraping_history
+            (started_at, finished_at, status, message)
+        VALUES (?, ?, 'SUCCESS', 'Aplicado')
+        """,
+        (
+            "2026-09-20T00:00:00+00:00",
+            "2026-09-20T00:00:01+00:00",
+        ),
+    )
+    history_id = db.fetch_one(
+        "SELECT id FROM scraping_history ORDER BY id DESC LIMIT 1"
+    )["id"]
+
+    db.execute_query(
+        """
+        INSERT INTO scraping_run_history (run_id, history_id)
+        VALUES (?, ?)
+        """,
+        (run_id, history_id),
+    )
+
+    relation = db.fetch_one(
+        """
+        SELECT run_id, history_id
+        FROM scraping_run_history
+        WHERE run_id=?
+        """,
+        (run_id,),
+    )
+
+    assert relation["run_id"] == run_id
+    assert relation["history_id"] == history_id
 
     db.close()

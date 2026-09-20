@@ -26,9 +26,6 @@ EXPECTED_CATEGORIES = 24
 REFERENCE_CATEGORY_OCCURRENCES = 534
 REFERENCE_UNIQUE_PRODUCTS = 530
 REFERENCE_MULTI_CATEGORY_PRODUCTS = 4
-REFERENCE_CATEGORY_OCCURRENCES = 534
-REFERENCE_UNIQUE_PRODUCTS = 530
-REFERENCE_MULTI_CATEGORY_PRODUCTS = 4
 
 
 def _worker_count(name: str, default: int) -> int:
@@ -49,6 +46,10 @@ def test_full_catalog_production_concurrency_real_site():
     )
     detail_workers = _worker_count("FCM_BENCH_DETAIL_WORKERS", SCRAPING_MAX_WORKERS)
     http_workers = _worker_count("FCM_BENCH_HTTP_WORKERS", SCRAPING_HTTP_WORKERS)
+    jsf_page_workers = _worker_count(
+        "FCM_BENCH_JSF_PAGE_WORKERS",
+        2,
+    )
 
     started = perf_counter()
     browser = Browser(http_workers=http_workers)
@@ -56,6 +57,7 @@ def test_full_catalog_production_concurrency_real_site():
         browser=browser,
         category_extractor=CategoryExtractor(),
     )
+    category_scraper.JSF_PAGE_WORKERS = jsf_page_workers
     category_service = CategoryService(category_scraper, STORE_URL)
     collection = ProductCollectionScraper(
         category_scraper,
@@ -179,8 +181,26 @@ def test_full_catalog_production_concurrency_real_site():
     print("CATEGORY WORKERS:", category_workers)
     print("DETAIL WORKERS:", detail_workers)
     print("HTTP WORKERS:", http_workers)
+    print("JSF PAGE WORKERS:", jsf_page_workers)
     print("HTTP REQUESTS:", http_metrics["http_requests"])
     print("HTTP MAX IN FLIGHT:", http_metrics["http_max_in_flight"])
+    print(
+        "HTTP MAX IN FLIGHT BY CLASS:",
+        http_metrics["http_max_in_flight_by_class"],
+    )
+    print(
+        "HTTP LATENCY P50/P95/P99:",
+        http_metrics["http_latency_percentiles"],
+    )
+    print(
+        "HTTP STAGE TOTALS:",
+        {
+            "category": http_metrics["category_http_total_seconds"],
+            "jsf": http_metrics["jsf_http_total_seconds"],
+            "detail": http_metrics["detail_http_total_seconds"],
+            "other": http_metrics["other_http_total_seconds"],
+        },
+    )
     print("HTTP RETRIES:", http_metrics["http_retries"])
     print("CATEGORY HTTP REQUESTS:", http_metrics["category_http_requests"])
     print("JSF HTTP REQUESTS:", http_metrics["jsf_http_requests"])

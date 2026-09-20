@@ -265,12 +265,11 @@ def test_reconcile_skips_inconsistent_latest_full_and_uses_previous_valid_run():
         ) VALUES ('full', 'SUCCESS', 1, 4, 4, 4, 4, 1, 0, 0)
         """
     )
+    invalid_latest_run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
     connection.execute(
         "INSERT INTO scraping_run_categories (run_id, category_id) VALUES (?, ?)",
         (invalid_latest_run_id, category_id),
     )
-
-    invalid_latest_run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
     connection.executemany(
         """
         INSERT INTO scraping_product_occurrences

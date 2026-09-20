@@ -128,7 +128,7 @@ Los requests más lentos del muestreo fueron páginas de categoría, aproximadam
 ### Próximo desarrollo controlado
 
 - [x] Benchmark productivo base `8 / 16 / 28` con cobertura viva `523 / 519 / 4`.
-- [ ] Aislar el coste de colección de categorías con comparación controlada de workers de categoría manteniendo detalle/HTTP constantes.
+- [ ] Aislar el coste de colección de categorías con comparación controlada de `FCM_BENCH_CATEGORY_WORKERS` y `FCM_BENCH_JSF_PAGE_WORKERS`, manteniendo detalle=`16` y HTTP=`28` constantes.
 - [x] Determinar por qué el máximo HTTP en vuelo del benchmark queda en `16` pese al límite configurado de `28`: lo limita la paralelización aguas arriba, no el semáforo global.
 - [x] Separar el coste de requests de categoría, JSF y detalle por percentiles y por etapa mediante telemetría de P50/P95/P99, máximos en vuelo por clase y tiempos agregados.
 - [ ] Solo después de identificar una oportunidad concreta, aplicar un cambio de runtime.

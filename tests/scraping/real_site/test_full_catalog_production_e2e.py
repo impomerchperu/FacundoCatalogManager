@@ -216,7 +216,9 @@ def test_full_catalog_production_e2e_real_site(tmp_path):
         assert history_row["errors"] == 0
 
         assert change_summary["codes"] == result.products_unique
-        assert change_summary["new_rows"] == result.products_unique
+        assert change_summary["new_rows"] == (
+            result.products_unique * len(ScrapingHistoryRepository.PRODUCT_FIELDS)
+        )
         assert change_summary["other_rows"] == 0
 
         assert http_metrics["http_terminal_errors"] == 0

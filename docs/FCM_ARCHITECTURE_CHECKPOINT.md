@@ -21,6 +21,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Per-category enrichment timing telemetry instrumented and tested
 - [x] Progress-contract tests validated
 - [x] Detail-cache concurrency tests validated
+- [x] SQLite idempotency validated on consecutive identical catalog syncs
 
 ## RUNTIME CONSOLIDATION
 
@@ -229,7 +230,7 @@ This distinction is intentional and avoids allowing a partial/directed applicati
 ### CURRENT ENGINEERING CHECKPOINT
 
 Current checkpoint is maintained on `feature/scraping-performance-recovery`.
-The last runtime/tooling checkpoint remains `28becc60b230ec0f43285e999932f4d6b2feee8d`; later commits are documentation-only.
+The last runtime checkpoint includes the idempotency fix at `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d`; subsequent commits in this closeout are tests/documentation.
 
 Local validation after synchronization:
 
@@ -241,13 +242,13 @@ Local validation after synchronization:
 - GitHub Actions Quality run `#1913`: success
 - CI `live-catalog`: skipped as intended for this audit checkpoint
 
-The audit also hardened two legacy maintenance tools so they cannot perform direct destructive deletion:
+The audit also hardened two legacy maintenance tools so they cannot perform direct destructive deletion, and the catalog sync now initializes `content_hash` before classification so an identical second run remains idempotent:
 
 - `tools/clean_catalog.py` remains diagnostic-only; `apply=True` is rejected.
 - `services/scraping/image_audit_service.py` remains diagnostic-only; physical duplicate removal is rejected.
 - `tools/audit_images.py --clean` is now treated as obsolete and rejected.
 
-No real scraping was executed in this checkpoint, so the protected authoritative FULL reference remains the previously validated `24 / 534 / 530 / 4` under production `8 / 16 / 28`.
+The independent FULL coverage validation and production-style E2E both confirmed the live operational reference `24 / 523 / 519 / 4`. The SQLite idempotency regression was then validated by Quality #1966 with Ruff, Pyright and Pytest green.
 
 ### 3. Consolidación y limpieza
 
@@ -308,8 +309,8 @@ No real scraping was executed in this checkpoint, so the protected authoritative
 
 ## LIVE INVENTORY DRIFT
 
-La validación real del 2026-09-20 observó `523` apariciones esperadas frente al snapshot histórico `534`. El test real se ajustó para tratar el total publicado por las categorías en cada ejecución como fuente de verdad de cobertura y conservar `534 / 530 / 4` como referencia histórica. Falta repetir la FULL real para obtener una nueva referencia operativa válida.
+Las validaciones reales del 2026-09-20 confirmaron `523` apariciones esperadas, `519` productos únicos y `4` multi-categoría en 24/24 categorías, con cobertura completa. El total publicado por las categorías en cada ejecución es ahora la fuente de verdad de cobertura; `534 / 530 / 4` permanece como referencia histórica.
 
 ## RELEASE POSITION
 
-The correction, recovery, persistence, reconciliation, coverage, quality and production E2E work for `feature/scraping-performance-recovery` is validated. Until a new complete FULL is validated against the live inventory, future changes should be treated as incremental improvements and must preserve the authoritative `24 / 534 / 530 / 4` result, complete coverage, DB `530 / 534`, applied history and the green automated suite.
+The correction, recovery, persistence, reconciliation, coverage, quality and production E2E work for `feature/scraping-performance-recovery` is validated. The functional release baseline is now validated against the live inventory at `24 / 523 / 519 / 4`, with complete coverage, DB `519 / 523`, applied history and green automated checks. The historical `24 / 534 / 530 / 4` snapshot remains diagnostic. Further runtime changes require controlled benchmark + FULL revalidation.

@@ -96,7 +96,8 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] Pyright limpio en el checkpoint actual.
 - [x] Batería focal de esta auditoría de hashing: 10/10; batería general previa 21/21.
 - [x] Suite no-real-site actual: 434/434 (2 deselected).
-- [x] FULL real de referencia: 24/534/530/4.
+- [x] Snapshot histórico FULL: 24/534/530/4.
+- [x] Referencia operativa actual FULL/E2E: 24/523/519/4.
 - [x] Correcciones del ledger y trazabilidad run/history validadas.
 - [x] No se ha cambiado la concurrencia productiva.
 - [x] No se ha cambiado el comportamiento funcional de prune; además se bloquearon herramientas legacy de borrado directo.

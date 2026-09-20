@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import time
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_name_normalizer import (
@@ -51,11 +50,9 @@ class CatalogSyncService:
         self,
         repository,
         diff_service,
-        image_cleanup: Callable[[], list[dict[str, Any]]] | None = None,
     ):
         self.repository = repository
         self.diff_service = diff_service
-        self.image_cleanup = image_cleanup
         self.last_sync_result = SyncResult()
         self.hash_service = ProductHashService()
         self.result_writer: ScrapingResultWriter | None = None
@@ -72,7 +69,6 @@ class CatalogSyncService:
         cleanup_generated: bool = True,
         expected_products: int | None = 0,
         expected_category_occurrences: int = 0,
-        cleanup_images: bool = False,
     ):
         """Sincroniza el catálogo usando códigos reales como identidad."""
         del cleanup_generated
@@ -167,8 +163,6 @@ class CatalogSyncService:
         )
         if prune_allowed:
             self._remove_missing_products(scraped_codes, result)
-            if cleanup_images:
-                self._cleanup_unused_images()
         result.finish()
         self.last_sync_result = result
         return result
@@ -180,38 +174,26 @@ class CatalogSyncService:
         expected_products: int | None = 0,
         expected_category_occurrences: int = 0,
     ):
-        return self.sync(
+        result = self.sync(
             products,
             prune_missing=prune_missing,
             expected_products=expected_products,
             expected_category_occurrences=expected_category_occurrences,
-            cleanup_images=True,
         )
+        if (
+            prune_missing
+            and result.coverage_complete
+            and not result.has_errors
+            and (
+                result.products_expected <= 0
+                or result.products_unique >= result.products_expected
+            )
+        ):
+            self._cleanup_unused_images()
+        return result
 
     def synchronize(self, products, prune_missing: bool = False):
         return self.sync(products, prune_missing=prune_missing)
-
-    def _cleanup_unused_images(self) -> None:
-        """Elimina imágenes no referenciadas tras un prune FULL válido."""
-        cleanup = self.image_cleanup
-        if not callable(cleanup):
-            return
-        started = time.perf_counter()
-        try:
-            deleted = cleanup()
-        except Exception as error:  # noqa: BLE001
-            _log_timing(
-                "SCRAPING TIMING | stage=image_cleanup_error | error_type=%s | error=%s",
-                type(error).__name__,
-                str(error),
-            )
-            return
-        deleted_count = len(deleted) if deleted is not None else 0
-        _log_timing(
-            "SCRAPING TIMING | stage=image_cleanup | deleted=%d | seconds=%.3f",
-            deleted_count,
-            time.perf_counter() - started,
-        )
 
     def _remove_missing_products(
         self, scraped_codes: set[str], result: SyncResult

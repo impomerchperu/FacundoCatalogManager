@@ -41,10 +41,6 @@ from services.scraping.scraping_runner import ScrapingRunner
 from services.scraping.scraping_session import ScrapingSession
 
 EXPECTED_CATEGORIES = 24
-# Historical reference captured by the protected full-site checkpoint.
-REFERENCE_CATEGORY_OCCURRENCES = 534
-REFERENCE_UNIQUE_PRODUCTS = 530
-REFERENCE_MULTI_CATEGORY_PRODUCTS = 4
 
 
 @pytest.mark.real_site

@@ -38,7 +38,7 @@ jobs:
         run: python -m pip install pyright==1.1.411 && python -m pyright
 
       - name: Pytest
-        run: python -m pytest -q --ignore=tests/scraping/real_site
+        run: python -m pytest -q
 
   live-catalog:
     if: github.event_name == 'workflow_dispatch'

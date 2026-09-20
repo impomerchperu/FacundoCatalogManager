@@ -1,7 +1,7 @@
 # Criterios de éxito del scraping FULL
 
-Fecha de validación del último checkpoint maestro: 2026-09-19  
-Branch: `feature/scraping-performance-recovery`
+Fecha de validación del último checkpoint maestro: 2026-09-20  
+Branch oficial: `main`
 
 ## Objetivo
 
@@ -80,6 +80,17 @@ Un benchmark específico de contención de SQLite no es requisito para la correc
 ## Deriva del inventario vivo
 
 La validación real más reciente observó `523` apariciones esperadas frente al snapshot histórico `534`. Esto no demuestra por sí mismo una regresión del scraper: `expected_count` se obtiene del sitio y puede cambiar legítimamente. El criterio de cobertura se basa ahora en la consistencia interna de la ejecución actual; el baseline histórico permanece visible para detectar desviaciones, no para bloquear el test por sí solo.
+
+## Resultado del benchmark SQLite
+
+Se ejecutó un benchmark aislado sobre SQLite temporal con 530 productos, WAL, `synchronous=NORMAL` y `busy_timeout=30000ms`.
+
+- 0 errores en los cuatro escenarios.
+- Escrituras P95: 0.58–5.70 ms.
+- Lecturas P95: <= 0.417 ms.
+- Máximo puntual de escritura observado: 16.52 ms.
+- No se modificó `database/catalog.db`.
+- No se modifica el alcance transaccional ni la configuración SQLite por este resultado.
 
 ## Estado de ingeniería validado
 
@@ -163,7 +174,7 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 
 ## Pendientes no bloqueantes
 
-- [ ] benchmark específico de contención/latencia SQLite;
+- [x] benchmark específico de contención/latencia SQLite ejecutado sin errores ni latencias que justifiquen cambios de runtime;
 - [x] mayor granularidad de callbacks de progreso durante enrichment;
 - [x] benchmark de red separado para detalle con comparación cruzada 16/24;
 - [x] fábricas de compatibilidad auditadas como delegados finos; se conservan por posible consumo externo.

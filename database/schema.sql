@@ -164,6 +164,17 @@ CREATE TABLE IF NOT EXISTS scraping_history (
     message TEXT DEFAULT ''
 );
 
+-- Relación 1:1 entre la ejecución técnica y su registro de historial.
+CREATE TABLE IF NOT EXISTS scraping_run_history (
+    run_id INTEGER PRIMARY KEY,
+    history_id INTEGER NOT NULL UNIQUE,
+    FOREIGN KEY (run_id) REFERENCES scraping_runs(id) ON DELETE CASCADE,
+    FOREIGN KEY (history_id) REFERENCES scraping_history(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_scraping_run_history_history_id
+ON scraping_run_history(history_id);
+
 CREATE TABLE IF NOT EXISTS download_changes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     history_id INTEGER NOT NULL,

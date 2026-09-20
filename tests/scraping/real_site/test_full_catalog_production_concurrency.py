@@ -21,9 +21,9 @@ from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_service import CategoryService
 
 EXPECTED_CATEGORIES = 24
-EXPECTED_CATEGORY_OCCURRENCES = 534
-EXPECTED_UNIQUE_PRODUCTS = 530
-EXPECTED_MULTI_CATEGORY_PRODUCTS = 4
+REFERENCE_CATEGORY_OCCURRENCES = 534
+REFERENCE_UNIQUE_PRODUCTS = 530
+REFERENCE_MULTI_CATEGORY_PRODUCTS = 4
 
 
 def _worker_count(name: str, default: int) -> int:

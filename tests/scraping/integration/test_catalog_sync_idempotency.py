@@ -68,8 +68,9 @@ def test_catalog_sync_is_idempotent_on_same_sqlite_and_history(tmp_path):
     )
 
     try:
+        first_products = _products()
         first = service.sync(
-            _products(),
+            first_products,
             prune_missing=False,
             expected_products=2,
             expected_category_occurrences=2,
@@ -78,11 +79,12 @@ def test_catalog_sync_is_idempotent_on_same_sqlite_and_history(tmp_path):
         first_history_id = history_repository.save(
             _history_from_result(first, first_finished_at),
             first.changes,
-            first and _products(),
+            first_products,
         )
 
+        second_products = _products()
         second = service.sync(
-            _products(),
+            second_products,
             prune_missing=False,
             expected_products=2,
             expected_category_occurrences=2,

@@ -89,14 +89,21 @@ class CatalogReconciliationService:
                 if occurrence_count
                 else 0
             )
-            if self._run_metrics_are_consistent(
+            if not self._run_metrics_are_consistent(
                 run,
                 total_occurrences=total_occurrences,
                 unique_codes=unique_codes,
                 unique_categories=unique_categories,
                 metric_columns=metric_columns,
             ):
-                return run
+                continue
+            if not self._run_category_set_is_consistent(
+                run_id,
+                categories_requested=int(run.get("categories_requested", 0) or 0),
+                unique_categories=unique_categories,
+            ):
+                continue
+            return run
         return None
 
     def reconcile_latest_successful_run(self) -> int:
@@ -227,6 +234,50 @@ class CatalogReconciliationService:
             "products_unique" in metric_columns
             and int(run.get("products_unique", 0) or 0) != unique_codes
         )
+
+    def _run_category_set_is_consistent(
+        self,
+        run_id: int,
+        *,
+        categories_requested: int,
+        unique_categories: int,
+    ) -> bool:
+        """Verifica que el conjunto solicitado coincide con las categorías observadas."""
+        if not self._table_exists("scraping_run_categories"):
+            return True
+        if categories_requested != unique_categories:
+            return False
+
+        requested = self.db.fetch_one(
+            """
+            SELECT COUNT(*) AS total
+            FROM scraping_run_categories
+            WHERE run_id=?
+            """,
+            (run_id,),
+        )
+        if requested is None or int(requested["total"] or 0) != categories_requested:
+            return False
+
+        unexpected = self.db.fetch_one(
+            """
+            SELECT COUNT(*) AS total
+            FROM scraping_product_occurrences o
+            LEFT JOIN scraping_run_categories rc
+              ON rc.run_id=o.run_id
+             AND rc.category_id=o.category_id
+            WHERE o.run_id=? AND rc.run_id IS NULL
+            """,
+            (run_id,),
+        )
+        return unexpected is not None and int(unexpected["total"] or 0) == 0
+
+    def _table_exists(self, table_name: str) -> bool:
+        row = self.db.fetch_one(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        )
+        return row is not None
 
     def _restore_missing_products_from_legacy_sources(self, run_id: int) -> None:
         missing = self.db.fetch_all(

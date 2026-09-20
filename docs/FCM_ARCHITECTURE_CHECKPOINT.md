@@ -249,7 +249,7 @@ The audit also hardened two legacy maintenance tools so they cannot perform dire
 - `services/scraping/image_audit_service.py` remains diagnostic-only; physical duplicate removal is rejected.
 - `tools/audit_images.py --clean` is now treated as obsolete and rejected.
 
-The independent FULL coverage validation and production-style E2E both confirmed the live operational reference `24 / 523 / 519 / 4`. The SQLite idempotency regression was then validated by Quality #1980 with Ruff, Pyright and Pytest green.
+The independent FULL coverage validation and production-style E2E both confirmed the live operational reference `24 / 523 / 519 / 4`. The SQLite idempotency regression was then validated by the Quality CI, with Ruff, Pyright and Pytest green.
 
 ### 3. Consolidación y limpieza
 
@@ -310,7 +310,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 
 ## LIVE INVENTORY DRIFT
 
-Las validaciones reales del 2026-09-20 confirmaron `523` apariciones esperadas, `519` productos únicos y `4` multi-categoría en 24/24 categorías, con cobertura completa. El total publicado por las categorías en cada ejecución es ahora la fuente de verdad de cobertura; `534 / 530 / 4` permanece como referencia histórica.
+Las validaciones reales documentadas en este checkpoint confirmaron `523` apariciones esperadas, `519` productos únicos y `4` multi-categoría en 24/24 categorías, con cobertura completa. El total publicado por las categorías en cada ejecución es ahora la fuente de verdad de cobertura; `534 / 530 / 4` permanece como referencia histórica.
 
 ## RELEASE POSITION
 

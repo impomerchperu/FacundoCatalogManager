@@ -6,7 +6,7 @@ Branch oficial: `main`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Última Quality CI: run `#2194` sobre `ef8d9c8` terminó en `success`; validación local del código funcional en el baseline: Ruff clean, Pyright `0 errors, 0 warnings, 0 informations`, `453 passed, 8 deselected`
+- [x] Última Quality CI: run `#2201` sobre `9d60a3d` terminó en `success`; validación local del código funcional en el baseline: Ruff clean, Pyright `0 errors, 0 warnings, 0 informations`, `453 passed, 8 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -160,7 +160,7 @@ Per-category enrichment now exposes diagnostic timing without changing scraping 
 
 `CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`. During the same phase it now emits progress callbacks through the enrichment range `25..47` for a 24-category FULL; `ScrapingRunner` reserves `48/48` as the terminal callback.
 
-The contract is covered by focused unit tests. Quality CI runs `#2135` and `#2186` are historical validation points; the current documentation baseline at `ef8d9c8` was subsequently confirmed by Quality run `#2194`.
+The contract is covered by focused unit tests. Quality CI runs `#2135` and `#2186` are historical validation points; the current `main` baseline at `9d60a3d` was subsequently confirmed by Quality run `#2201`.
 
 This instrumentation is diagnostic only. It does not change coverage, product selection, persistence, prune behavior or retry semantics.
 
@@ -238,7 +238,7 @@ The current release baseline is the merged recovery result; the enrichment progr
 - Pyright: `0 errors, 0 warnings, 0 informations`
 - Full no-real-site suite: `453 passed, 8 deselected in 6.79s`
 - Git working tree: clean
-- GitHub Actions Quality run `#2194`: success on `ef8d9c8`
+- GitHub Actions Quality run `#2201`: success on `9d60a3d`
 
 The older focused-checkpoint and live-catalog references above remain historical evidence for the earlier audit checkpoint.
 
@@ -260,7 +260,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 
 ### 4. Calidad
 
-- [x] Última Quality CI: `#2194` sobre `ef8d9c8` terminó en `success`; la validación local del baseline funcional quedó en `453 passed, 8 deselected`
+- [x] Última Quality CI: `#2201` sobre `9d60a3d` terminó en `success`; la validación local del baseline funcional quedó en `453 passed, 8 deselected`
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`

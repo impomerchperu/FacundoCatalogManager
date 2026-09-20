@@ -1,16 +1,18 @@
 # FCM Architecture Checkpoint
 
-Fecha: 2026-09-17  
+Fecha del checkpoint actual: 2026-09-19  
 Branch: `feature/scraping-performance-recovery`
 
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Full suite: `392 passed, 1 skipped, 9 deselected`
+- [x] Suite no-real-site actual: `429 passed, 2 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
 - [x] Product-code migration/cleanup validated
+- [x] Legacy destructive catalog cleanup disabled and covered
+- [x] Legacy destructive image duplicate cleanup disabled and covered
 - [x] Real FULL validated at `24 / 534 / 530 / 4`
 - [x] Bootstrap/reconciliation tests: `15 passed`
 - [x] HTTP/detail timing and retry telemetry audited
@@ -220,6 +222,28 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 - [x] Modern run-metric consistency guard validated
 - [x] Bootstrap smoke validated on a copy of the real DB
 
+### CURRENT ENGINEERING CHECKPOINT
+
+Current head: `28becc60b230ec0f43285e999932f4d6b2feee8d` (`style(tests): normalize image audit imports`).
+
+Local validation after synchronization:
+
+- Ruff: `All checks passed!`
+- Pyright: `0 errors, 0 warnings, 0 informations`
+- Focused checkpoint tests: `21 passed in 0.63s`
+- Full no-real-site suite: `429 passed, 2 deselected in 6.40s`
+- Git working tree: clean
+- GitHub Actions Quality run `#1867`: success
+- CI `live-catalog`: skipped as intended for this audit checkpoint
+
+The audit also hardened two legacy maintenance tools so they cannot perform direct destructive deletion:
+
+- `tools/clean_catalog.py` remains diagnostic-only; `apply=True` is rejected.
+- `services/scraping/image_audit_service.py` remains diagnostic-only; physical duplicate removal is rejected.
+- `tools/audit_images.py --clean` is now treated as obsolete and rejected.
+
+No real scraping was executed in this checkpoint, so the protected authoritative FULL reference remains the previously validated `24 / 534 / 530 / 4` under production `8 / 16 / 28`.
+
 ### 3. Consolidación y limpieza
 
 - [x] Single canonical implementation per responsibility
@@ -230,7 +254,7 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 
 ### 4. Calidad
 
-- [x] Full suite: `392 passed, 1 skipped, 9 deselected`
+- [x] Suite no-real-site actual: `429 passed, 2 deselected`
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`

@@ -6,7 +6,7 @@ Branch oficial: `main`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Última Quality CI: suite no-real-site `446 passed, 8 deselected`; validación local del nuevo código pendiente de sincronización
+- [x] Última Quality CI: run `#2186` sobre `280c32f` terminó en `success`; validación local actual: Ruff clean, Pyright `0 errors, 0 warnings, 0 informations`, `453 passed, 8 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -160,7 +160,7 @@ Per-category enrichment now exposes diagnostic timing without changing scraping 
 
 `CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`. During the same phase it now emits progress callbacks through the enrichment range `25..47` for a 24-category FULL; `ScrapingRunner` reserves `48/48` as the terminal callback.
 
-The contract is covered by focused unit tests. Quality CI run `#2135` validates the current image-audit changes with `446 passed, 8 deselected`; local synchronization is still required before declaring the PC baseline validated.
+The contract is covered by focused unit tests. Earlier Quality CI run `#2135` validated the image-audit changes with `446 passed, 8 deselected`; the current `main` state was subsequently validated locally and by Quality run `#2186`.
 
 This instrumentation is diagnostic only. It does not change coverage, product selection, persistence, prune behavior or retry semantics.
 
@@ -232,15 +232,15 @@ This distinction is intentional and avoids allowing a partial/directed applicati
 Current checkpoint is maintained on `main`.
 The current release baseline is the merged recovery result; the enrichment progress contract and its tests are included in `main`. The last runtime hash fix remains `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d`.
 
-Local validation after synchronization:
+Local validation at current HEAD (`280c32f`):
 
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
-- Focused checkpoint tests: `21 passed in 0.63s`
-- Full no-real-site suite at the current HEAD: `439 passed, 8 deselected in 9.95s`
+- Full no-real-site suite: `453 passed, 8 deselected in 6.79s`
 - Git working tree: clean
-- GitHub Actions Quality run `#2018`: success on `e45a4a4`; the enrichment progress change is locally and CI validated
-- CI `live-catalog`: skipped as intended for this audit checkpoint
+- GitHub Actions Quality run `#2186`: success on `280c32f`
+
+The older focused-checkpoint and live-catalog references above remain historical evidence for the earlier audit checkpoint.
 
 The audit also hardened two legacy maintenance tools so they cannot perform direct destructive deletion, and the catalog sync now initializes `content_hash` before classification so an identical second run remains idempotent:
 

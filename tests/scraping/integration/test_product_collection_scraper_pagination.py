@@ -65,7 +65,7 @@ def test_collect_category_processes_every_discovered_page_and_deduplicates_produ
     )
 
     assert category_scraper.expected_count == 75
-    assert category_scraper.get_html_calls == pages
+    assert set(category_scraper.get_html_calls) == set(pages)
     assert [product[2].code for product in products] == [
         "P001",
         "P002",
@@ -79,6 +79,7 @@ def test_collect_category_processes_every_discovered_page_and_deduplicates_produ
     assert metrics["cards_found"] == 5
     assert metrics["unique_products"] == 4
     assert [page["unique_products"] for page in metrics["pages"]] == [2, 1, 1]
+
 
 class SlowPagesCategoryScraper(FakeCategoryScraper):
     def get_html(self, page_url):

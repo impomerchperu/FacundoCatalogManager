@@ -8,6 +8,7 @@ import pytest
 from config.scraping_config import (
     SCRAPING_CATEGORY_WORKERS,
     SCRAPING_HTTP_WORKERS,
+    SCRAPING_JSF_PAGE_WORKERS,
     SCRAPING_MAX_WORKERS,
     STORE_URL,
 )
@@ -48,7 +49,7 @@ def test_full_catalog_production_concurrency_real_site():
     http_workers = _worker_count("FCM_BENCH_HTTP_WORKERS", SCRAPING_HTTP_WORKERS)
     jsf_page_workers = _worker_count(
         "FCM_BENCH_JSF_PAGE_WORKERS",
-        2,
+        SCRAPING_JSF_PAGE_WORKERS,
     )
     collection_only = os.getenv("FCM_BENCH_COLLECTION_ONLY") == "1"
 

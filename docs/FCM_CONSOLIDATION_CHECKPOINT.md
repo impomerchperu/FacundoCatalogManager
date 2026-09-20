@@ -1,6 +1,6 @@
 # FCM — Checkpoint de consolidación
 
-## Referencia funcional protegida
+## Referencias funcionales
 
 La prioridad sigue siendo conservar la cobertura FULL real antes de optimizar o simplificar el runtime.
 

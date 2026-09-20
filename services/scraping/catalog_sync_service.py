@@ -66,6 +66,7 @@ class CatalogSyncService:
         cleanup_generated: bool = True,
         expected_products: int | None = 0,
         expected_category_occurrences: int = 0,
+        cleanup_images: bool = False,
     ):
         """Sincroniza el catálogo usando códigos reales como identidad."""
         del cleanup_generated
@@ -160,7 +161,8 @@ class CatalogSyncService:
         )
         if prune_allowed:
             self._remove_missing_products(scraped_codes, result)
-            self._cleanup_unused_images()
+            if cleanup_images:
+                self._cleanup_unused_images()
         result.finish()
         self.last_sync_result = result
         return result
@@ -177,6 +179,7 @@ class CatalogSyncService:
             prune_missing=prune_missing,
             expected_products=expected_products,
             expected_category_occurrences=expected_category_occurrences,
+            cleanup_images=True,
         )
 
     def synchronize(self, products, prune_missing: bool = False):

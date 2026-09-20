@@ -41,8 +41,11 @@ from services.scraping.scraped_product_persistence_service import (
 )
 from services.scraping.scraping_config import ScrapingConfig
 from services.scraping.scraping_result_writer import ScrapingResultWriter
+from tools.clean_unused_images import clean_unused_images
 from services.scraping.scraping_runner import ScrapingRunner
 
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 class ScrapingFactory:
     """Construye el pipeline completo de scraping."""
@@ -112,6 +115,14 @@ class ScrapingFactory:
             collection_scraper,
         )
 
+        def cleanup_unused_images():
+            return clean_unused_images(
+                project_root=PROJECT_ROOT,
+                db_path=PROJECT_ROOT / "database" / "catalog.db",
+                roots=["data/images", "resources/images"],
+                delete=True,
+            )
+
         sync_service = NormalizedCategoryProductSyncService(
             product_scraping_service,
             scraped_persistence,
@@ -119,6 +130,7 @@ class ScrapingFactory:
             catalog_sync_service,
             image_sync_adapter,
             normalized_repository=normalized_repository,
+            image_cleanup=cleanup_unused_images,
             category_workers=config.category_workers,
         )
 

@@ -6,7 +6,7 @@ Branch: `feature/scraping-performance-recovery`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Suite no-real-site actual: `431 passed, 2 deselected`
+- [x] Suite no-real-site actual: `434 passed, 2 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -246,7 +246,7 @@ Local validation after synchronization:
 - Focused checkpoint tests: `21 passed in 0.63s`
 - Full no-real-site suite: `429 passed, 2 deselected in 6.40s`
 - Git working tree: clean
-- GitHub Actions Quality run `#1867`: success
+- GitHub Actions Quality run `#1913`: success
 - CI `live-catalog`: skipped as intended for this audit checkpoint
 
 The audit also hardened two legacy maintenance tools so they cannot perform direct destructive deletion:
@@ -267,7 +267,7 @@ No real scraping was executed in this checkpoint, so the protected authoritative
 
 ### 4. Calidad
 
-- [x] Suite no-real-site actual: `431 passed, 2 deselected`
+- [x] Suite no-real-site actual: `434 passed, 2 deselected`
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`

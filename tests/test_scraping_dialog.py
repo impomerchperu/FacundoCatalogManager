@@ -112,6 +112,7 @@ def test_main_window_creates_scraping_as_independent_window(monkeypatch):
     assert created == [()]
     assert isinstance(window.scraping_dialog, FakeDialog)
 
+
 def _main_window(monkeypatch, scheduled=None):
     _qapp()
 

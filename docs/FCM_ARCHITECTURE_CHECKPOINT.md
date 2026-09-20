@@ -6,7 +6,7 @@ Branch oficial: `main`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Última Quality CI: run `#2201` sobre `9d60a3d` terminó en `success`; validación local del código funcional en el baseline: Ruff clean, Pyright `0 errors, 0 warnings, 0 informations`, `453 passed, 8 deselected`
+- [x] Última Quality CI: run `#2210` sobre `aa412b1` terminó en `success`; validación local del baseline actual: Ruff clean, Pyright `0 errors, 0 warnings, 0 informations`, `454 passed, 8 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -160,7 +160,7 @@ Per-category enrichment now exposes diagnostic timing without changing scraping 
 
 `CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`. During the same phase it now emits progress callbacks through the enrichment range `25..47` for a 24-category FULL; `ScrapingRunner` reserves `48/48` as the terminal callback.
 
-The contract is covered by focused unit tests. Quality CI runs `#2135` and `#2186` are historical validation points; the current `main` baseline at `9d60a3d` was subsequently confirmed by Quality run `#2201`.
+The contract is covered by focused unit tests. Quality CI runs `#2135`, `#2186` and `#2201` are historical validation points; the current `main` baseline was subsequently confirmed by Quality run `#2210`.
 
 This instrumentation is diagnostic only. It does not change coverage, product selection, persistence, prune behavior or retry semantics.
 

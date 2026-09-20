@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QResizeEvent
+from PySide6.QtGui import QColor, QFont, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -23,7 +23,7 @@ from repositories.scraping.scraping_history_repository import ScrapingHistoryRep
 
 
 class ScrapingHistoryDialog(QDialog):
-    """Historial de descargas aplicadas automáticamente al catálogo."""
+    """Historial de descargas y versiones del catálogo."""
 
     APPLIED_BACKGROUND = "#b2ebf2"
     CONTENT_SIDE_PADDING = 4
@@ -47,7 +47,7 @@ class ScrapingHistoryDialog(QDialog):
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
-        title = QLabel("Historial de descargas aplicadas")
+        title = QLabel("Historial de descargas y versiones del catálogo")
         title.setStyleSheet("font-size: 16px; font-weight: bold;")
         layout.addWidget(title)
 
@@ -140,7 +140,7 @@ class ScrapingHistoryDialog(QDialog):
             self._set_item(row, 7, str(record.deleted))
             self._set_status_item(row, 8, record)
             self._set_detail_button(row, record.history_id)
-            self.table.setRowHeight(row, 44)
+            self.table.setRowHeight(row, 52)
 
         self._fit_table_to_content()
 
@@ -243,18 +243,37 @@ class ScrapingHistoryDialog(QDialog):
             widths[column] += additional
         return widths
 
-    @staticmethod
-    def _status_text(record) -> str:
-        return "APLICADO" if record.status == "SUCCESS" else "ERROR"
+    @classmethod
+    def _status_text(cls, record) -> str:
+        if record.status != "SUCCESS":
+            return "ERROR"
+        applied_at = getattr(record, "applied_at", None)
+        if applied_at is None:
+            return "NO APLICADO"
+        return f"APLICADO\n{cls._format_datetime(cls._parse_datetime(applied_at))}"
 
     def _set_status_item(self, row: int, column: int, record) -> None:
+        is_success = record.status == "SUCCESS"
+        applied_at = getattr(record, "applied_at", None)
+        is_applied = is_success and applied_at is not None
+
         item = QTableWidgetItem(self._status_text(record))
         item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        item.setToolTip(
-            "La descarga fue aplicada al catálogo."
-            if record.status == "SUCCESS"
-            else "La descarga terminó con error y no fue aplicada.",
-        )
+        if is_applied:
+            item.setToolTip(
+                "Esta versión está actualmente aplicada al catálogo."
+            )
+            item.setBackground(QColor(self.APPLIED_BACKGROUND))
+        elif is_success:
+            item.setToolTip(
+                "La descarga fue exitosa, pero esta versión ya no es la "
+                "actualmente aplicada."
+            )
+        else:
+            item.setToolTip(
+                "La descarga terminó con error y no fue aplicada."
+            )
+
         font = QFont(item.font())
         font.setBold(True)
         item.setFont(font)

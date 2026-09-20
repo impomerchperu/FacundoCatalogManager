@@ -110,8 +110,9 @@ La etapa funcional principal continúa cerrada y protegida. El trabajo posterior
 
 ### Cerrado
 
-- Cobertura FULL `24 / 534 / 530 / 4`.
-- Persistencia `530 / 534`.
+- Cobertura FULL histórica `24 / 534 / 530 / 4`.
+- Cobertura FULL/E2E operativa actual `24 / 523 / 519 / 4`.
+- Persistencia histórica validada en `530 / 534`.
 - `coverage_complete=1`, `coverage_gap=0`, `error_count=0`.
 - Recuperación y precedencia de FULL válido.
 - Ledger SQLite v2.

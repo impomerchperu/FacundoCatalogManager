@@ -68,6 +68,7 @@ def test_full_catalog_production_e2e_real_site(tmp_path):
         detail_workers=16,
         http_workers=28,
         jsf_http_concurrency=8,
+        jsf_page_workers=2,
     )
     browser = Browser(
         request_timeout=config.request_timeout,
@@ -77,9 +78,8 @@ def test_full_catalog_production_e2e_real_site(tmp_path):
     category_scraper = ResilientCategoryScraper(
         browser=browser,
         category_extractor=CategoryExtractor(),
-    )
-    category_scraper._JSF_HTTP_SEMAPHORE = BoundedSemaphore(
-        config.jsf_http_concurrency
+        jsf_http_concurrency=config.jsf_http_concurrency,
+        jsf_page_workers=config.jsf_page_workers,
     )
     category_service = CategoryService(category_scraper, config.catalog_url)
     collection_scraper = ProductCollectionScraper(

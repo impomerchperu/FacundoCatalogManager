@@ -1,4 +1,5 @@
 import time
+from threading import Lock
 from types import SimpleNamespace
 
 from models.scraping.category import Category
@@ -84,8 +85,6 @@ def test_collect_category_processes_every_discovered_page_and_deduplicates_produ
 class SlowPagesCategoryScraper(FakeCategoryScraper):
     def __init__(self, pages):
         super().__init__(pages)
-        from threading import Lock
-
         self._active_requests = 0
         self.max_active_requests = 0
         self._active_lock = Lock()

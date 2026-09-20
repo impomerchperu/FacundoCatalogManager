@@ -114,16 +114,16 @@ Se ejecutó un benchmark aislado sobre SQLite temporal con 530 productos, WAL, `
 
 ## Estado de ingeniería validado
 
-El último Quality CI sobre los cambios de auditoría de imágenes terminó en `success` con `446 passed, 8 deselected`. La validación local de ese mismo estado debe ejecutarse después de sincronizar `main`.
+La última Quality CI sobre `main` es el run `#2186`, ejecutado sobre `280c32f`, y terminó en `success`. La validación local posterior confirma Ruff limpio, Pyright con `0 errors, 0 warnings, 0 informations` y `453 passed, 8 deselected`.
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site actual: `439 passed, 8 deselected`.
+- Suite no-real-site actual: `453 passed, 8 deselected`.
 - Pruebas de bootstrap/reconciliación: `15 passed`.
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
 - FULL/E2E de producción: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, configuración `8 / 16 / 28`, `337` solicitudes HTTP, duración `90.78s`.
-- Quality CI reciente sobre `main`: ejecuciones `2032`–`2036` completadas en `success`; la revisión posterior del benchmark está siendo procesada por CI.
+- Quality CI de la referencia actual sobre `main`: run `#2186`, commit `280c32f`, completado en `success`.
 - Snapshot histórico preservado: `24 / 534 / 530 / 4`.
 - Smoke de bootstrap sobre copia de la base real: `530 / 534`, usando el FULL más reciente válido.
 

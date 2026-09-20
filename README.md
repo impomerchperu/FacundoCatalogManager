@@ -17,16 +17,9 @@ La aplicación usa `database/catalog.db` como fuente persistente del catálogo. 
 
 ## Scraping FULL
 
-Una ejecución FULL válida debe cubrir las 24 categorías y conservar estas invariantes:
+Una ejecución FULL válida debe cubrir las 24 categorías y alcanzar los totales publicados por las propias categorías en esa ejecución. La referencia operativa actual es 523 apariciones, 519 productos únicos, 4 productos presentes en múltiples categorías y 523 relaciones producto-categoría. El snapshot histórico 534/530/4 se conserva como referencia diagnóstica del inventario anterior, no como requisito rígido del inventario vivo.
 
-- 534 apariciones de productos por categoría.
-- 530 productos únicos.
-- 4 productos presentes en múltiples categorías.
-- 534 relaciones producto-categoría.
-- `coverage_gap=0`.
-- Sin errores invalidantes.
-
-Una ejecución incompleta o inconsistente no debe utilizarse para hacer un prune destructivo del catálogo persistido. La reconciliación de bootstrap selecciona la ejecución FULL exitosa más reciente que además sea consistente con sus métricas y sus ocurrencias reales.
+Una ejecución válida debe mantener `coverage_complete=1`, `coverage_gap=0` y cero errores invalidantes. Una ejecución incompleta o inconsistente no debe utilizarse para hacer un prune destructivo del catálogo persistido. La reconciliación de bootstrap selecciona la ejecución FULL exitosa más reciente que además sea consistente con sus métricas y sus ocurrencias reales.
 
 La configuración de producción actual es:
 

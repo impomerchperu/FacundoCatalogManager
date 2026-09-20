@@ -4,7 +4,7 @@ from database.db_manager import DBManager
 from models.product import Product
 from models.scraping.scraping_history import ScrapingHistory
 from repositories.product_repository import ProductRepository
-from repositories.scraping.scraping_history_repository import ScrapingHistoryRepository
+from repositories.scraping.scraping_history_repository import (\n    ScrapingHistoryRepository,\n)
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.product_diff_service import ProductDiffService
 
@@ -93,7 +93,7 @@ def test_catalog_sync_is_idempotent_on_same_sqlite_and_history(tmp_path):
         second_history_id = history_repository.save(
             _history_from_result(second, second_finished_at),
             second.changes,
-            _products(),
+            second_products,
         )
 
         product_count = db.fetch_one(
@@ -131,7 +131,7 @@ def test_catalog_sync_is_idempotent_on_same_sqlite_and_history(tmp_path):
         assert product_count["count"] == 2
         assert change_count["count"] == 0
         assert history_repository.get_by_id(first_history_id).applied_at is None
-        assert history_repository.get_by_id(second_history_id).applied_at == second_finished_at
+        assert (\n            history_repository.get_by_id(second_history_id).applied_at\n            == second_finished_at\n        )
         assert len(applied_rows) == 1
         assert applied_rows[0]["id"] == second_history_id
         assert applied_rows[0]["applied_at"] == second_finished_at.isoformat()

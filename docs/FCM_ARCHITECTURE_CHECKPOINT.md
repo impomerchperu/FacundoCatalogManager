@@ -170,7 +170,7 @@ Performance remains secondary to correctness. The current production configurati
 
 No single wall-clock number is treated as a functional requirement because the live site and network are variable. Any runtime optimization must be isolated, benchmarked and followed by another authoritative FULL validation.
 
-The enrichment instrumentation, crossed 16/24 worker benchmark, and intermediate progress callbacks are complete. Category concurrency has no justified increase. The first JSF page-worker measurements were not comparable because the benchmark harness did not propagate the production JSF HTTP concurrency of `8`; the harness is now corrected. Further performance work remains isolated from the validated release baseline.
+The enrichment instrumentation, crossed 16/24 worker benchmark, and intermediate progress callbacks are complete. Category concurrency has no justified increase. The initial JSF page-worker measurements were not comparable because the benchmark harness did not propagate the production JSF HTTP concurrency of `8`; the harness is now corrected. The first valid comparison with JSF HTTP concurrency `8` preserved `523/523` coverage and `0` errors: PAGE `4` measured `42.85s` collection wall versus `53.43s` with PAGE `2`, while category latency was also lower in the PAGE `4` run. This is a promising signal, but one paired run is insufficient to isolate the effect from live network variability. Further performance work remains isolated from the validated release baseline.
 
 SQLite transaction-scope optimization is not currently a correctness blocker. A dedicated contention/latency benchmark is optional and should be triggered only by concrete evidence of SQLite contention.
 
@@ -302,7 +302,8 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] HTTP diagnostics expose max in-flight by request class and P50/P95/P99 by stage
 - [x] JSF page workers centralized in `ScrapingConfig` with production default `2`
 - [x] Category worker comparison closed: `8` remains the validated production value; `12/16` showed no reproducible improvement
-- [ ] Repeat controlled JSF benchmark with `JSF HTTP=8` and `JSF PAGE=4` using the corrected harness
+- [x] First valid JSF worker comparison completed with `JSF HTTP=8`: PAGE `4` = `42.85s`, PAGE `2` = `53.43s`, both with complete `523/523` collection and `0` terminal errors
+- [ ] Repeat PAGE `4` under the same `8 / 8 / 16 / 28` contract before changing the production default
 - [x] Explain HTTP max-in-flight `16` versus configured limit `28`
 - [ ] Re-run authoritative FULL after any runtime performance change
 

@@ -302,7 +302,7 @@ def test_catalog_sync_prunes_every_unmatched_local_code_after_complete_coverage(
     repository.save(Product("KEEP001", "Producto vigente", 20))
 
     service = CatalogSyncService(repository, ProductDiffService())
-    result = service.sync(
+    result = service.sync_full_catalog(
         [Product("KEEP001", "Producto vigente", 20)],
         expected_products=1,
     )
@@ -408,6 +408,30 @@ def test_catalog_sync_cleans_unused_images_only_after_allowed_prune():
 
     assert result.deleted == 1
     assert cleanup_calls == [True]
+
+
+def test_catalog_sync_does_not_clean_images_for_generic_sync():
+    repository = InMemoryCatalogRepository()
+    repository.save(Product("OLD001", "Producto antiguo", 10))
+    cleanup_calls = []
+
+    def cleanup():
+        cleanup_calls.append(True)
+        return [{"path": "old.webp"}]
+
+    service = CatalogSyncService(
+        repository,
+        ProductDiffService(),
+        image_cleanup=cleanup,
+    )
+
+    result = service.sync(
+        [Product("KEEP001", "Producto vigente", 20)],
+        expected_products=1,
+    )
+
+    assert result.deleted == 1
+    assert cleanup_calls == []
 
 
 def test_catalog_sync_does_not_clean_images_when_full_prune_is_blocked():

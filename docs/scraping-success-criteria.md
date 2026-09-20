@@ -81,18 +81,20 @@ Un benchmark específico de contención de SQLite no es requisito para la correc
 
 ## Auditoría del almacenamiento de imágenes
 
-La ruta canónica del almacenamiento descargado es `data/images/products`. `resources/images` es un conjunto histórico versionado que proviene del antiguo `ImageManager` y no debe tratarse como caché actual sin comprobar sus referencias. `data/images` puede contener archivos legacy generados por versiones anteriores.
+La ruta canónica del almacenamiento descargado es data/images/products. La tabla products de database/catalog.db es la única fuente de verdad para decidir qué imágenes deben permanecer físicamente en el almacenamiento administrado por la aplicación: únicamente los paths presentes en products.image_path son activos.
 
-- [x] Ruta canónica centralizada en `data/images/products`.
-- [x] `ImageNamer` alineado con la ruta canónica y con extensiones soportadas.
-- [x] `ImageRepository` prefiere la extensión de la URL actual para evitar reutilizar una variante antigua por orden alfabético.
+data/images puede conservar archivos legacy de ejecuciones anteriores y resources/images contiene recursos históricos versionados. Ninguno de esos archivos se considera activo solo por existir, por tener un hash duplicado o por haber sido usado por una implementación anterior.
+
+- [x] Ruta canónica centralizada en data/images/products.
+- [x] ImageNamer, ImageDownloader, ImageRepository e ImageValidator comparten el contrato de almacenamiento.
 - [x] Auditoría no destructiva de filesystem + SQLite + SHA-256 implementada.
-- [x] El auditor distingue referencias activas de `products`, referencias solo legacy y archivos sin referencia.
-- [x] Limpieza destructiva permanece deshabilitada.
-- [ ] Ejecutar la auditoría sobre la `database/catalog.db` y las carpetas reales del PC.
-- [ ] Verificar referencias a `resources/images` y clasificar su contenido histórico antes de cualquier limpieza.
-- [ ] Definir una lista de archivos movibles/eliminables solo después de revisar el informe real.
-
+- [x] Auditoría dinámica de todas las tablas SQLite que contienen image_path.
+- [x] Limpieza basada exclusivamente en products.image_path implementada en tools/clean_unused_images.py.
+- [x] La limpieza es no destructiva por defecto; --delete es una operación explícita.
+- [x] Auditoría real local: 1,037 imágenes encontradas en data/images y data/images/products, 530 referencias activas, 0 referencias activas inexistentes y 0 hash mismatches.
+- [ ] Auditar adicionalmente resources/images en el entorno local antes de ejecutar la limpieza completa.
+- [ ] Ejecutar primero tools/clean_unused_images.py sin --delete y revisar las candidatas.
+- [ ] Ejecutar la eliminación explícita y repetir la auditoría para verificar que solo permanecen las imágenes referenciadas por products.
 ## Deriva del inventario vivo
 
 La validación real más reciente observó `523` apariciones esperadas frente al snapshot histórico `534`. Esto no demuestra por sí mismo una regresión del scraper: `expected_count` se obtiene del sitio y puede cambiar legítimamente. El criterio de cobertura se basa ahora en la consistencia interna de la ejecución actual; el baseline histórico permanece visible para detectar desviaciones, no para bloquear el test por sí solo.

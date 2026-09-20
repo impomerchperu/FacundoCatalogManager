@@ -63,6 +63,80 @@ class ScrapingFactory:
             scraped_repository,
         )
 
+        def cleanup_unused_images():
+            return clean_unused_images(
+                project_root=PROJECT_ROOT,
+                db_path=PROJECT_ROOT / "database" / "catalog.db",
+                roots=[
+                    Path("data/images"),
+                    Path(config.images_folder),
+                    Path("resources/images"),
+                ],
+                delete=True,
+            )
+
+        product_repository = ProductRepository(db)
+        catalog_sync_service = CatalogSyncService(
+            product_repository,
+            ProductDiffService(),
+            image_cleanup=cleanup_unused_images,
+        )
+        catalog_sync_service.result_writer = ScrapingResultWriter()
+        normalized_repository = NormalizedScrapingRepository(db)
+        mapper = ScrapedProductMapper()
+
+        history_repository = ScrapingHistoryRepository(db)
+
+        image_sync_adapter = None
+        if config.download_images:
+            image_output_dir = Path(config.images_folder)
+            if image_output_dir.name.casefold() != "products":
+                image_output_dir /= "products"
+
+            image_downloader = ImageDownloader(
+                output_dir=image_output_dir,
+                request_timeout=config.request_timeout,
+                max_retries=config.max_retries,
+            )
+            image_manager = SafeImageManager(downloader=image_downloader)
+            image_sync = ImageSync(image_manager=image_manager)
+            image_sync_adapter = ImageSyncAdapter(image_sync=image_sync)
+
+        browser = Browser(
+            request_timeout=config.request_timeout,
+            max_retries=config.max_retries,
+            http_workers=config.http_workers,
+        )
+        category_scraper = ResilientCategoryScraper(
+            browser=browser,
+            category_extractor=CategoryExtractor(),
+            jsf_http_concurrency=config.jsf_http_concurrency,
+            jsf_page_workers=config.jsf_page_workers,
+        )
+        category_service = CategoryService(
+            category_scraper,
+            config.catalog_url,
+        )
+
+        collection_scraper = ProductCollectionScraper(
+            category_scraper,
+            ProductCardExtractor(),
+            CategoryProductExtractor(),
+            ProductExtractor(),
+            max_workers=config.detail_workers,
+        )
+        product_scraping_service = CategoryProductScrapingService(
+            collection_scraper,
+        )
+
+        def cleanup_unused_images():
+            return clean_unused_images(
+                project_root=PROJECT_ROOT,
+                db_path=PROJECT_ROOT / "database" / "catalog.db",
+                roots=[Path(config.images_folder), Path("resources/images")],
+                delete=True,
+            )
+
         sync_service = NormalizedCategoryProductSyncService(
             product_scraping_service,
             scraped_persistence,
@@ -70,7 +144,6 @@ class ScrapingFactory:
             catalog_sync_service,
             image_sync_adapter,
             normalized_repository=normalized_repository,
-            image_cleanup=cleanup_unused_images,
             category_workers=config.category_workers,
         )
 

@@ -57,6 +57,23 @@ class ScrapingRunner:
                     type(error).__name__,
                     str(error),
                 )
+        else:
+            legacy_scraper_service = getattr(
+                self.scraping_service,
+                "scraper_service",
+                None,
+            )
+            close_legacy_scraper = getattr(legacy_scraper_service, "close", None)
+            if callable(close_legacy_scraper):
+                try:
+                    close_legacy_scraper()
+                except Exception as error:  # noqa: BLE001
+                    _log_timing(
+                        "SCRAPING TIMING | stage=resource_close_error | owner=legacy_scraper_service "
+                        "| error_type=%s | error=%s",
+                        type(error).__name__,
+                        str(error),
+                    )
 
         closed_ids: set[int] = set()
         for resource in reversed(self._owned_resources):

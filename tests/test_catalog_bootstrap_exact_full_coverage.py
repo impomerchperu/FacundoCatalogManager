@@ -82,6 +82,13 @@ def _db():
             error_count INTEGER DEFAULT 0,
             message TEXT DEFAULT ''
         );
+        CREATE TABLE scraping_run_categories (
+            run_id INTEGER NOT NULL,
+            category_id INTEGER NOT NULL,
+            PRIMARY KEY (run_id, category_id),
+            FOREIGN KEY (run_id) REFERENCES scraping_runs(id) ON DELETE CASCADE,
+            FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+        );
         CREATE TABLE scraping_product_occurrences (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             run_id INTEGER NOT NULL,
@@ -145,6 +152,11 @@ def test_reconcile_exact_full_coverage_preserves_530_masters_and_534_relations()
     connection.execute(
         "INSERT INTO products (code, name) VALUES (?, ?)",
         ("STALE", "Obsoleto"),
+    )
+
+    connection.executemany(
+        "INSERT INTO scraping_run_categories (run_id, category_id) VALUES (?, ?)",
+        [(run_id, category_a), (run_id, category_b)],
     )
 
     occurrences = [
@@ -223,6 +235,11 @@ def test_reconcile_skips_inconsistent_latest_full_and_uses_previous_valid_run():
         "INSERT INTO products (code, name) VALUES (?, ?)",
         valid_products,
     )
+    connection.executemany(
+        "INSERT INTO scraping_run_categories (run_id, category_id) VALUES (?, ?)",
+        [(valid_run_id, category_id)],
+    )
+
     valid_product_ids = {
         row["code"]: row["id"]
         for row in connection.execute("SELECT id, code FROM products")
@@ -248,6 +265,11 @@ def test_reconcile_skips_inconsistent_latest_full_and_uses_previous_valid_run():
         ) VALUES ('full', 'SUCCESS', 1, 4, 4, 4, 4, 1, 0, 0)
         """
     )
+    connection.execute(
+        "INSERT INTO scraping_run_categories (run_id, category_id) VALUES (?, ?)",
+        (invalid_latest_run_id, category_id),
+    )
+
     invalid_latest_run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
     connection.executemany(
         """

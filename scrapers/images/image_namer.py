@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
+from scrapers.images.image_paths import IMAGE_EXTENSIONS, IMAGE_PRODUCTS_DIR
 
 
 class ImageNamer:
@@ -18,4 +18,4 @@ class ImageNamer:
     @staticmethod
     def _extract_extension(image_url: str) -> str:
         suffix = Path(image_url.split("?", 1)[0]).suffix.lower()
-        return suffix or ".bin"
+        return suffix if suffix in IMAGE_EXTENSIONS else ".bin"

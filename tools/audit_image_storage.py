@@ -41,19 +41,28 @@ def _normalized_db_path(raw: Any, project_root: Path) -> Path | None:
     return _resolve_project_path(value.replace("\\", "/"), project_root)
 
 
+def _quote_identifier(identifier: str) -> str:
+    return '"' + identifier.replace('"', '""') + '"'
+
+
 def _table_columns(connection: sqlite3.Connection, table: str) -> set[str]:
-    rows = connection.execute(f"PRAGMA table_info({table})").fetchall()
+    rows = connection.execute(
+        f"PRAGMA table_info({_quote_identifier(table)})"
+    ).fetchall()
     return {str(row[1]) for row in rows}
 
 
-def _table_exists(connection: sqlite3.Connection, table: str) -> bool:
-    return (
-        connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
-            (table,),
-        ).fetchone()
-        is not None
-    )
+def _image_reference_tables(connection: sqlite3.Connection) -> list[str]:
+    rows = connection.execute(
+        "SELECT name FROM sqlite_master "
+        "WHERE type = 'table' AND name NOT LIKE 'sqlite_%' "
+        "ORDER BY name"
+    ).fetchall()
+    return [
+        str(row[0])
+        for row in rows
+        if "image_path" in _table_columns(connection, str(row[0]))
+    ]
 
 
 def _collect_db_references(
@@ -66,9 +75,7 @@ def _collect_db_references(
 
     connection = sqlite3.connect(db_path)
     try:
-        for table in ("products", "scraped_products", "sync_records"):
-            if not _table_exists(connection, table):
-                continue
+        for table in _image_reference_tables(connection):
             columns = _table_columns(connection, table)
             if "image_path" not in columns:
                 continue
@@ -196,7 +203,7 @@ def audit(
     legacy_references = [
         reference
         for reference in references
-        if reference["table"] in {"scraped_products", "sync_records"}
+        if reference["table"] != "products"
     ]
     active_referenced_paths = {
         reference["resolved_path"] for reference in active_references
@@ -275,7 +282,7 @@ def audit(
         "db_references_total": len(references),
         "db_references_by_table": {
             table: sum(reference["table"] == table for reference in references)
-            for table in ("products", "scraped_products", "sync_records")
+            for table in sorted({reference["table"] for reference in references})
         },
         "referenced_files": len(files) - len(orphan_files),
         "orphan_files": len(orphan_files),

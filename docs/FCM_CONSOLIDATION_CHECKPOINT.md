@@ -23,8 +23,8 @@ Los pisos históricos menores no sustituyen esta referencia.
 - Último HEAD con cambios de runtime/herramientas: `28becc60b230ec0f43285e999932f4d6b2feee8d`.
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Batería focal del checkpoint: `21 passed in 0.63s`.
-- Suite no-real-site: `429 passed, 2 deselected in 6.40s`.
+- Batería focal del checkpoint previa: `21 passed in 0.63s`.
+- Suite no-real-site: `431 passed, 2 deselected in 5.95s`.
 - Git working tree local: limpio después de sincronizar con `origin/feature/scraping-performance-recovery`.
 - GitHub Actions Quality `#1867`: `success`.
 - `live-catalog`: `skipped`, deliberadamente no ejecutado durante esta auditoría.
@@ -83,7 +83,7 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] Sincronización local con la rama remota.
 - [x] Ruff limpio en el checkpoint actual.
 - [x] Pyright limpio en el checkpoint actual.
-- [x] Batería focal actual: 21/21.
+- [x] Batería focal de esta auditoría de hashing: 10/10; batería general previa 21/21.
 - [x] Suite no-real-site actual: 429/429.
 - [x] FULL real de referencia: 24/534/530/4.
 - [x] Correcciones del ledger y trazabilidad run/history validadas.

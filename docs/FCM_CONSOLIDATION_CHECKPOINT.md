@@ -24,9 +24,9 @@ Los pisos históricos menores no sustituyen esta referencia.
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
 - Batería focal del checkpoint previa: `21 passed in 0.63s`.
-- Suite no-real-site: `431 passed, 2 deselected in 5.95s`.
+- Suite no-real-site: `434 passed, 2 deselected in 7.78s`.
 - Git working tree local: limpio después de sincronizar con `origin/feature/scraping-performance-recovery`.
-- GitHub Actions Quality `#1867`: `success`.
+- GitHub Actions Quality `#1913`: `success` en el último runtime validado (`17619e7`).
 - `live-catalog`: `skipped`, deliberadamente no ejecutado durante esta auditoría.
 - Se deshabilitaron las rutas de limpieza destructiva directa de catálogo e imágenes; quedan solo como diagnóstico.
 - No se ejecutó un nuevo scraping real durante este checkpoint.
@@ -84,13 +84,13 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] Ruff limpio en el checkpoint actual.
 - [x] Pyright limpio en el checkpoint actual.
 - [x] Batería focal de esta auditoría de hashing: 10/10; batería general previa 21/21.
-- [x] Suite no-real-site actual: 429/429.
+- [x] Suite no-real-site actual: 434/434 (2 deselected).
 - [x] FULL real de referencia: 24/534/530/4.
 - [x] Correcciones del ledger y trazabilidad run/history validadas.
 - [x] No se ha cambiado la concurrencia productiva.
 - [x] No se ha cambiado el comportamiento funcional de prune; además se bloquearon herramientas legacy de borrado directo.
 - [x] Limpieza destructiva directa de imágenes bloqueada.
-- [x] Quality CI actual: success.
+- [x] Quality CI actual: success (#1913).
 
 ## Estado maestro actual
 

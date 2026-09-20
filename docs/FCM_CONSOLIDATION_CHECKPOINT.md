@@ -38,9 +38,9 @@ El snapshot histórico 534/530/4 permanece únicamente como referencia diagnóst
 - Suite no-real-site: `434 passed, 2 deselected in 7.78s`.
 - Git working tree local: limpio después de sincronizar con `origin/feature/scraping-performance-recovery`.
 - GitHub Actions Quality `#1913`: `success` en el último runtime validado (`17619e7`).
-- `live-catalog`: `skipped`, deliberadamente no ejecutado durante esta auditoría.
+- `live-catalog`: `skipped` en CI rápido; las validaciones FULL reales se ejecutaron manualmente contra el sitio.
 - Se deshabilitaron las rutas de limpieza destructiva directa de catálogo e imágenes; quedan solo como diagnóstico.
-- No se ejecutó un nuevo scraping real durante este checkpoint.
+- FULL real independiente de cobertura validado: `24 / 523 / 519 / 4`, con `523/523` apariciones, `0` gaps y `0` códigos sin código.
 
 
 
@@ -98,11 +98,12 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] Suite no-real-site actual: 434/434 (2 deselected).
 - [x] Snapshot histórico FULL: 24/534/530/4.
 - [x] Referencia operativa actual FULL/E2E: 24/523/519/4.
+- [x] Idempotencia validada en la misma SQLite: segunda ejecución idéntica clasifica todos los productos como `unchanged` y no genera `download_changes`.
 - [x] Correcciones del ledger y trazabilidad run/history validadas.
 - [x] No se ha cambiado la concurrencia productiva.
 - [x] No se ha cambiado el comportamiento funcional de prune; además se bloquearon herramientas legacy de borrado directo.
 - [x] Limpieza destructiva directa de imágenes bloqueada.
-- [x] Quality CI actual: success (#1913).
+- [x] Quality CI: success (#1966) sobre la corrección de idempotencia, con Ruff, Pyright y Pytest verdes.
 
 ## Estado maestro actual
 
@@ -121,7 +122,7 @@ La etapa funcional principal continúa cerrada y protegida. El trabajo posterior
 - Configuración productiva `8 / 16 / 28`.
 - Consolidación de paginación/JSF/métricas/código.
 - Auditoría y bloqueo de herramientas legacy destructivas.
-- Calidad local y Quality CI verdes.
+- Calidad local, idempotencia sobre la misma SQLite y Quality CI verdes.
 
 ### En revisión
 
@@ -137,7 +138,7 @@ La etapa funcional principal continúa cerrada y protegida. El trabajo posterior
 
 ### No ejecutar en esta fase
 
-- Nuevo FULL real, salvo que se abra explícitamente el checkpoint de validación funcional.
+- Nuevo FULL real solo para repetir la cobertura ya validada; la referencia operativa `24 / 523 / 519 / 4` ya fue confirmada dos veces.
 - Cambios de extracción, paginación o límites de concurrencia sin benchmark + FULL posterior.
 
 ## Modelo de autoridad persistente
@@ -155,7 +156,7 @@ Una ejecución dirigida puede quedar aplicada en historial sin convertirse por e
 1. Mantener bajo observación las utilidades de imágenes conservadas por compatibilidad; no hay cambio funcional pendiente en hashing.
 2. Mantener la compatibilidad de factories mientras pueda existir consumo externo y ampliar cobertura de contrato solo cuando aporte valor.
 3. Revisar opcionalmente progreso UI de enrichment y contención SQLite, siempre fuera del baseline funcional.
-4. Preparar un checkpoint de release y, únicamente cuando se abra explícitamente la fase funcional, repetir FULL real + DB + historial + idempotencia.
+4. Mantener el checkpoint de release; no quedan validaciones funcionales bloqueantes en esta etapa.
 
 ## Regla de seguridad del plan
 

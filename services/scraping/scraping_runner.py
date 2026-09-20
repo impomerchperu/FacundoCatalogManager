@@ -30,12 +30,52 @@ class ScrapingRunner:
         category_service: CategoryService | None = None,
         history_repository: ScrapingHistoryRepository | None = None,
         catalog_repository: ProductRepository | None = None,
+        owned_resources=None,
     ):
         self.scraping_service = scraping_service
         self.config = config
         self.category_service = category_service
         self.history_repository = history_repository
         self.catalog_repository = catalog_repository
+        self._owned_resources = tuple(owned_resources or ())
+        self._closed = False
+
+    def close(self) -> None:
+        """Libera el pipeline completo una sola vez, incluido cualquier recurso propio."""
+        if self._closed:
+            return
+        self._closed = True
+
+        close_scraper_service = getattr(self.scraping_service, "close", None)
+        if callable(close_scraper_service):
+            try:
+                close_scraper_service()
+            except Exception as error:  # noqa: BLE001
+                _log_timing(
+                    "SCRAPING TIMING | stage=resource_close_error | owner=scraping_service "
+                    "| error_type=%s | error=%s",
+                    type(error).__name__,
+                    str(error),
+                )
+
+        closed_ids: set[int] = set()
+        for resource in reversed(self._owned_resources):
+            if id(resource) in closed_ids:
+                continue
+            closed_ids.add(id(resource))
+            close = getattr(resource, "close", None)
+            if not callable(close):
+                continue
+            try:
+                close()
+            except Exception as error:  # noqa: BLE001
+                _log_timing(
+                    "SCRAPING TIMING | stage=resource_close_error | owner=%s "
+                    "| error_type=%s | error=%s",
+                    type(resource).__name__,
+                    type(error).__name__,
+                    str(error),
+                )
 
     def run(
         self,

@@ -63,6 +63,8 @@ Los contadores HTTP, reintentos y tiempos agregados son métricas de diagnóstic
 ## Rendimiento
 
 La configuración de producción validada es:
+El número de workers internos de paginación JSF también está centralizado en `ScrapingConfig`; el valor productivo actual permanece en `2`.
+
 
 - categoría: `8` workers;
 - detalle: `16` workers;

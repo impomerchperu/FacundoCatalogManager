@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, ClassVar
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_name_normalizer import (
@@ -50,9 +51,11 @@ class CatalogSyncService:
         self,
         repository,
         diff_service,
+        image_cleanup: Callable[[], list[dict[str, Any]]] | None = None,
     ):
         self.repository = repository
         self.diff_service = diff_service
+        self.image_cleanup = image_cleanup
         self.last_sync_result = SyncResult()
         self.hash_service = ProductHashService()
         self.result_writer: ScrapingResultWriter | None = None
@@ -194,6 +197,27 @@ class CatalogSyncService:
 
     def synchronize(self, products, prune_missing: bool = False):
         return self.sync(products, prune_missing=prune_missing)
+
+    def _cleanup_unused_images(self) -> None:
+        """Limpia imágenes que ya no pertenecen a productos actuales."""
+        cleanup = self.image_cleanup
+        if not callable(cleanup):
+            return
+        started = time.perf_counter()
+        try:
+            deleted = cleanup()
+        except Exception as error:  # noqa: BLE001
+            _log_timing(
+                "SCRAPING TIMING | stage=image_cleanup_error | error_type=%s | error=%s",
+                type(error).__name__,
+                str(error),
+            )
+            return
+        _log_timing(
+            "SCRAPING TIMING | stage=image_cleanup | deleted=%d | seconds=%.3f",
+            len(deleted),
+            time.perf_counter() - started,
+        )
 
     def _remove_missing_products(
         self, scraped_codes: set[str], result: SyncResult

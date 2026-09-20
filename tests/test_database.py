@@ -287,3 +287,37 @@ def test_scraping_run_history_enforces_one_to_one_execution_link():
     assert relation["history_id"] == history_id
 
     db.close()
+
+
+def test_database_migrates_v2_run_history_relationship_from_v1():
+    db = DBManager(":memory:")
+
+    db.execute_query(
+        "DROP TABLE scraping_run_history"
+    )
+    db.execute_query(
+        "DELETE FROM schema_migrations WHERE version=2"
+    )
+
+    assert db.fetch_one(
+        """
+        SELECT COUNT(*) AS n
+        FROM sqlite_master
+        WHERE type='table' AND name='scraping_run_history'
+        """
+    )["n"] == 0
+
+    db._run_migrations()
+
+    assert db.fetch_one(
+        """
+        SELECT COUNT(*) AS n
+        FROM sqlite_master
+        WHERE type='table' AND name='scraping_run_history'
+        """
+    )["n"] == 1
+    assert db.fetch_one(
+        "SELECT MAX(version) AS version FROM schema_migrations"
+    )["version"] == DBManager.SCHEMA_VERSION
+
+    db.close()

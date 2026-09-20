@@ -56,10 +56,38 @@ class DBManager:
         self._remove_legacy_colors_column("products")
         self._remove_legacy_colors_column("scraped_products")
         self._migrate_download_changes()
+        self._migrate_scraping_run_categories()
         self._normalize_existing_product_categories()
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_scraping_history_finished_at "
             "ON scraping_history(finished_at)"
+        )
+
+    def _migrate_scraping_run_categories(self):
+        """Crea y reconstruye el conjunto de categorías observado en cada ejecución."""
+        self.connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS scraping_run_categories (
+                run_id INTEGER NOT NULL,
+                category_id INTEGER NOT NULL,
+                PRIMARY KEY (run_id, category_id),
+                FOREIGN KEY (run_id) REFERENCES scraping_runs(id) ON DELETE CASCADE,
+                FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+            )
+            """
+        )
+        self.connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_scraping_run_categories_category_id
+            ON scraping_run_categories(category_id)
+            """
+        )
+        self.connection.execute(
+            """
+            INSERT OR IGNORE INTO scraping_run_categories (run_id, category_id)
+            SELECT DISTINCT run_id, category_id
+            FROM scraping_product_occurrences
+            """
         )
 
     def _restore_applied_history_marker(self) -> None:

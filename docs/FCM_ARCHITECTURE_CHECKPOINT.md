@@ -14,7 +14,8 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Image hashing centralized without runtime semantic changes
 - [x] Legacy destructive catalog cleanup disabled and covered
 - [x] Legacy destructive image duplicate cleanup disabled and covered
-- [x] Real FULL reference previously validated at `24 / 534 / 530 / 4`
+- [x] Historical FULL reference preserved at `24 / 534 / 530 / 4`
+- [x] Current operational FULL/E2E reference validated at `24 / 523 / 519 / 4`
 - [x] Bootstrap/reconciliation tests: `15 passed`
 - [x] HTTP/detail timing and retry telemetry audited
 - [x] Per-category enrichment timing telemetry instrumented and tested

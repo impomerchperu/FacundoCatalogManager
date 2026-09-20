@@ -85,7 +85,7 @@ La validación real más reciente observó `523` apariciones esperadas frente al
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site actual: `436 passed, 2 deselected`.
+- Suite no-real-site actual: `437 passed, 2 deselected`.
 - Pruebas de bootstrap/reconciliación: `15 passed`.
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
@@ -96,9 +96,9 @@ La validación real más reciente observó `523` apariciones esperadas frente al
 
 ## Progreso de UI
 
-El pipeline FULL mantiene 48 pasos lógicos. La colección emite progreso por finalización de categorías y el runner finaliza en `48/48`. El enrichment no emite callbacks intermedios adicionales en este momento.
+El pipeline FULL mantiene 48 pasos lógicos. La colección emite progreso por finalización de categorías (`1..24`), el enrichment emite callbacks intermedios (`25..47`) y el runner finaliza en `48/48`.
 
-Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia. Mejorar la granularidad del progreso puede tratarse como una mejora de UX independiente.
+Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia. La granularidad de progreso durante enrichment queda implementada y validada como una mejora de UX contenida.
 
 ## Checklist maestro
 
@@ -148,6 +148,7 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 - [x] pruebas de bootstrap/reconciliación.
 - [x] pruebas de cache concurrente.
 - [x] pruebas de progreso runner.
+- [x] pruebas de progreso de enrichment y ejecución paralela.
 - [x] prueba de contrato de telemetría de enrichment.
 - [x] FULL real posterior a la consolidación.
 
@@ -163,7 +164,7 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 ## Pendientes no bloqueantes
 
 - [ ] benchmark específico de contención/latencia SQLite;
-- [ ] mayor granularidad de callbacks de progreso durante enrichment;
+- [x] mayor granularidad de callbacks de progreso durante enrichment;
 - [x] benchmark de red separado para detalle con comparación cruzada 16/24;
 - [x] fábricas de compatibilidad auditadas como delegados finos; se conservan por posible consumo externo.
 - [x] validación E2E real de producción después del cambio de concurrencia a 16 workers;

@@ -13,13 +13,15 @@ Una ejecución FULL válida cubre las 24 categorías y alcanza simultáneamente 
 
 La prueba real debe tratar una variación de inventario (altas/bajas/movimientos de productos) como deriva del sitio y comprobar en su lugar que cada categoría se extrae sin gaps respecto de su `expected_count`, que el total encontrado coincide con ese total vigente y que la persistencia mantiene las mismas cantidades observadas.
 
-- `534` apariciones de productos por categoría.
-- `530` productos únicos.
+- `523` apariciones observadas en la última referencia operativa.
+- `519` productos únicos observados en la última referencia operativa.
 - `4` productos presentes en múltiples categorías.
-- `534` relaciones producto-categoría.
+- `523` relaciones producto-categoría.
 - `coverage_complete=1`.
 - `coverage_gap=0`.
 - `error_count=0`.
+
+Estos números son la referencia operativa actual; `534 / 530 / 4` se conserva como snapshot histórico de diagnóstico.
 
 Los pisos históricos menores, como `529/525`, no sustituyen la cobertura completa.
 

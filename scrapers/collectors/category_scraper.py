@@ -15,6 +15,7 @@ from config.scraping_config import (
     JETSMARTFILTERS_INDEXING_FILTERS,
     JETSMARTFILTERS_SIGNATURE,
     SCRAPING_HTML_PARSER,
+    SCRAPING_JSF_PAGE_WORKERS,
 )
 
 
@@ -24,7 +25,7 @@ class CategoryScraper:
     PRODUCTS_PER_PAGE = 25
     MAX_HIDDEN_PAGE_PROBES = 100
     JSF_EMPTY_PAGE_RETRIES = 1
-    JSF_PAGE_WORKERS = 2
+    JSF_PAGE_WORKERS = SCRAPING_JSF_PAGE_WORKERS
     JSF_HTTP_CONCURRENCY = 4
     _JSF_HTTP_SEMAPHORE = BoundedSemaphore(JSF_HTTP_CONCURRENCY)
 
@@ -35,6 +36,7 @@ class CategoryScraper:
         category_extractor: Any = None,
         product_block_extractor: Any = None,
         jsf_http_concurrency: int | None = None,
+        jsf_page_workers: int | None = None,
     ) -> None:
         self.parser = parser
         self.category_extractor = category_extractor
@@ -50,6 +52,16 @@ class CategoryScraper:
             self.browser = None
         else:
             self.browser = browser
+
+        configured_page_workers = (
+            SCRAPING_JSF_PAGE_WORKERS
+            if jsf_page_workers is None
+            else int(jsf_page_workers)
+        )
+        if configured_page_workers <= 0:
+            raise ValueError("jsf_page_workers debe ser mayor que cero.")
+        self.JSF_PAGE_WORKERS = configured_page_workers
+
         if jsf_http_concurrency is not None:
             configured_concurrency = int(jsf_http_concurrency)
             if configured_concurrency <= 0:

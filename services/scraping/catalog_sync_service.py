@@ -93,6 +93,7 @@ class CatalogSyncService:
         }
 
         for product in consolidated:
+            product.content_hash = self.hash_service.generate(product)
             existing = self.repository.get(product.code)
             if existing is None:
                 result.created += 1
@@ -112,7 +113,6 @@ class CatalogSyncService:
                 getattr(product, "category", ""),
             )
             self._preserve_existing_prices(existing, product)
-            product.content_hash = self.hash_service.generate(product)
             comparison = self.diff_service.compare(existing, product)
             if comparison["changed"]:
                 result.updated += 1

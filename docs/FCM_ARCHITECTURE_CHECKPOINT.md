@@ -50,6 +50,7 @@ Branch: `feature/scraping-performance-recovery`
 - [x] Pagination, JSF-concurrency, page-metrics and product-code test consumers migrated to native APIs
 - [x] Canonical service-level scraping factory confirmed in production usage
 - [x] Compatibility scraping factories confirmed as thin delegates and retained only for possible external import compatibility
+- [x] Execution authority separated: `scraping_runs` for FULL recovery/reconciliation, `scraping_history.applied_at` for latest applied history
 
 ## AUTHORITATIVE FULL REFERENCE
 
@@ -221,6 +222,15 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 - [x] Catalog reconciled to `530 / 534`
 - [x] Modern run-metric consistency guard validated
 - [x] Bootstrap smoke validated on a copy of the real DB
+
+### AUTHORITY MODEL AUDIT
+
+- [x] `scraping_runs` is the recovery/reconciliation authority for the latest valid FULL.
+- [x] `scraping_history.applied_at` is the latest applied-history marker and is not used as the FULL recovery selector.
+- [x] `scraping_run_history` provides the explicit bridge between modern technical runs and history records.
+- [x] Directed runs may be applied without becoming the FULL recovery baseline.
+
+This distinction is intentional and avoids allowing a partial/directed application to silently replace the complete FULL reference used by bootstrap.
 
 ### CURRENT ENGINEERING CHECKPOINT
 

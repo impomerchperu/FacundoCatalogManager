@@ -34,3 +34,12 @@ def test_image_namer_builds_expected_paths():
 
     for code, url, expected in cases:
         assert namer.build(code, url) == expected
+
+
+def test_image_namer_maps_unsupported_url_extension_to_bin():
+    namer = ImageNamer()
+
+    assert namer.build(
+        "ABC123",
+        "https://site.com/image.svg",
+    ) == "data/images/products/ABC123.bin"

@@ -61,7 +61,7 @@ El E2E real de producción más reciente validó `24 / 523 / 519 / 4`, DB `519 /
 
 ## Calidad
 
-Validación local actual sobre `main` (`6ac1fdc`):
+Validación local del baseline funcional sobre `main` (`280c32f`, antes de los commits documentales posteriores):
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
@@ -99,12 +99,12 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 3. [x] Ejecutar Pyright.
 4. [x] Ejecutar `python -m pytest -q`.
 5. [x] Confirmar `git status --short` vacío.
-6. [x] Quality #2189: success sobre `6ac1fdc`; la validación local confirmó Ruff, Pyright y Pytest verdes (`453 passed, 8 deselected`).
+6. [x] Quality #2194: success sobre `ef8d9c8`; el baseline funcional mantiene Ruff, Pyright y Pytest verdes (`453 passed, 8 deselected`).
 7. [x] FULL real ejecutado y validado: el sitio publicó 523 apariciones esperadas, 11 menos que la referencia histórica 534.
 8. [x] Pruebas reales ajustadas para usar los totales publicados por las categorías como fuente de verdad de cobertura, conservando 534/530/4 como referencia histórica.
 9. [x] E2E productivo validado: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, cobertura completa y cero errores HTTP terminales.
 10. [x] FULL real independiente de cobertura completado: 24/24 categorías, 523/523 apariciones, 519 únicos, 4 multi-categoría, 0 gaps y 0 códigos sin código.
-11. [x] Idempotencia validada sobre la misma SQLite: segunda ejecución idéntica produce `0 created / 0 updated / 2 unchanged / 0 deleted`, sin filas nuevas en `download_changes`, y la segunda historia queda aplicada. El Quality CI del HEAD documental `e45a4a4` terminó `success`.
+11. [x] Idempotencia validada sobre la misma SQLite; el resultado quedó incorporado al baseline y posteriormente documentado en commits sin cambios de runtime. Quality CI de la documentación actual (`ef8d9c8`) terminó `success`.
 
 Hallazgo de idempotencia: las altas iniciales podían quedar sin `content_hash`, mientras que la segunda sincronización calculaba ese hash antes de comparar. Se corrigió la inicialización del hash antes de la clasificación para evitar un `UPDATED` espurio. La idempotencia ya quedó validada en CI con una SQLite persistente compartida por dos sincronizaciones consecutivas; no se requiere otro FULL real para cerrar este punto.
 

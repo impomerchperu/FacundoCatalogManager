@@ -7,7 +7,10 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
-from config.scraping_config import SCRAPING_MAX_WORKERS
+from config.scraping_config import (
+    SCRAPING_CATEGORY_PAGE_WORKERS,
+    SCRAPING_MAX_WORKERS,
+)
 from models.scraping.category import Category
 from scrapers.extractors.code_utils import normalize_code
 
@@ -34,12 +37,14 @@ class ProductCollectionScraper:
         product_extractor: Any,
         detail_extractor: Any = None,
         max_workers: int = SCRAPING_MAX_WORKERS,
+        category_page_workers: int = SCRAPING_CATEGORY_PAGE_WORKERS,
     ):
         self.category_scraper = category_scraper
         self.card_extractor = card_extractor
         self.product_extractor = product_extractor
         self.detail_extractor = detail_extractor
         self.max_workers = max(1, max_workers)
+        self.category_page_workers = max(1, int(category_page_workers))
         self._detail_cache: dict[str, Future[Any]] = {}
         self._detail_cache_lock = Lock()
         self._detail_requests = 0
@@ -108,10 +113,9 @@ class ProductCollectionScraper:
 
         page_load_seconds = 0.0
         page_metrics: list[dict[str, Any]] = []
-        for page_number, page in enumerate(pages, start=1):
-            page_started = time.perf_counter()
-            html = self.category_scraper.get_html(page)
-            page_load_seconds += time.perf_counter() - page_started
+        page_results = self._load_category_pages(pages)
+        for page_number, (page, html, elapsed) in enumerate(page_results, start=1):
+            page_load_seconds += elapsed
             if not html:
                 page_metrics.append(
                     self._build_page_metric(
@@ -169,6 +173,22 @@ class ProductCollectionScraper:
             page_load_seconds=page_load_seconds,
         )
         return products
+
+    def _load_category_pages(
+        self,
+        pages: list[str],
+    ) -> list[tuple[str, str, float]]:
+        def load(page: str) -> tuple[str, str, float]:
+            started = time.perf_counter()
+            html = self.category_scraper.get_html(page)
+            return page, html, time.perf_counter() - started
+
+        if self.category_page_workers <= 1 or len(pages) <= 1:
+            return [load(page) for page in pages]
+
+        worker_count = min(self.category_page_workers, len(pages))
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            return list(executor.map(load, pages))
 
     @staticmethod
     def _build_page_metric(

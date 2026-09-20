@@ -1,3 +1,4 @@
+import time
 from types import SimpleNamespace
 
 from models.scraping.category import Category
@@ -81,12 +82,10 @@ def test_collect_category_processes_every_discovered_page_and_deduplicates_produ
 
 class SlowPagesCategoryScraper(FakeCategoryScraper):
     def get_html(self, page_url):
-        import time
-
         if page_url == self.pages[0]:
-            time.sleep(0.03)
+            time.sleep(0.20)
         else:
-            time.sleep(0.01)
+            time.sleep(0.05)
         return super().get_html(page_url)
 
 
@@ -106,10 +105,13 @@ def test_collect_category_can_fetch_pages_in_parallel_without_changing_result_or
         category_page_workers=2,
     )
 
+    started = time.perf_counter()
     products = scraper.collect_category(
         Category(name="Catalogo", url=category_url, expected_count=75)
     )
+    elapsed = time.perf_counter() - started
 
+    assert elapsed < 0.28
     assert {product[2].code for product in products} == {
         "P001",
         "P002",
@@ -122,8 +124,5 @@ def test_collect_category_can_fetch_pages_in_parallel_without_changing_result_or
         "P003",
         "P004",
     ]
-    assert category_scraper.get_html_calls == [
-        category_scraper.pages[0],
-        category_scraper.pages[1],
-        category_scraper.pages[2],
-    ]
+    assert category_scraper.get_html_calls == pages
+

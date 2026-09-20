@@ -57,6 +57,24 @@ class Browser:
         self._http_max_seconds = 0.0
         self._http_in_flight = 0
         self._http_max_in_flight = 0
+        self._http_in_flight_by_class = {
+            "category": 0,
+            "jsf": 0,
+            "detail": 0,
+            "other": 0,
+        }
+        self._http_max_in_flight_by_class = {
+            "category": 0,
+            "jsf": 0,
+            "detail": 0,
+            "other": 0,
+        }
+        self._http_latencies_by_class = {
+            "category": [],
+            "jsf": [],
+            "detail": [],
+            "other": [],
+        }
         self._detail_http_requests = 0
         self._category_http_requests = 0
         self._jsf_http_requests = 0
@@ -349,6 +367,11 @@ class Browser:
             )
 
             request_class = self._request_class(url)
+            self._http_in_flight_by_class[request_class] += 1
+            self._http_max_in_flight_by_class[request_class] = max(
+                self._http_max_in_flight_by_class[request_class],
+                self._http_in_flight_by_class[request_class],
+            )
             if request_class == "detail":
                 self._detail_http_requests += 1
             elif request_class == "category":
@@ -368,6 +391,11 @@ class Browser:
             )
 
             request_class = self._request_class(url)
+            self._http_in_flight_by_class[request_class] = max(
+                0,
+                self._http_in_flight_by_class[request_class] - 1,
+            )
+            self._http_latencies_by_class[request_class].append(float(elapsed))
             if request_class == "detail":
                 self._detail_http_total_seconds += elapsed
                 self._detail_http_max_seconds = max(
@@ -447,6 +475,31 @@ class Browser:
         with self._metrics_lock:
             self._http_terminal_errors += 1
 
+    @staticmethod
+    def _percentile(values, percentile):
+        if not values:
+            return 0.0
+        ordered = sorted(values)
+        if len(ordered) == 1:
+            return float(ordered[0])
+        position = (len(ordered) - 1) * float(percentile)
+        lower = int(position)
+        upper = min(lower + 1, len(ordered) - 1)
+        weight = position - lower
+        return float(
+            ordered[lower] + (ordered[upper] - ordered[lower]) * weight
+        )
+
+    def _latency_percentiles(self):
+        return {
+            request_class: {
+                "p50": self._percentile(values, 0.50),
+                "p95": self._percentile(values, 0.95),
+                "p99": self._percentile(values, 0.99),
+            }
+            for request_class, values in self._http_latencies_by_class.items()
+        }
+
     def get_http_metrics(self):
         """Return accumulated HTTP timing and concurrency metrics."""
         with self._metrics_lock:
@@ -462,6 +515,10 @@ class Browser:
                 "http_max_seconds": self._http_max_seconds,
                 "http_in_flight": self._http_in_flight,
                 "http_max_in_flight": self._http_max_in_flight,
+                "http_max_in_flight_by_class": dict(
+                    self._http_max_in_flight_by_class
+                ),
+                "http_latency_percentiles": self._latency_percentiles(),
                 "max_concurrency": self._http_max_in_flight,
                 "http_concurrency_limit": self.http_workers,
                 "detail_http_requests": self._detail_http_requests,
@@ -507,6 +564,24 @@ class Browser:
             self._http_max_seconds = 0.0
             self._http_in_flight = 0
             self._http_max_in_flight = 0
+            self._http_in_flight_by_class = {
+                "category": 0,
+                "jsf": 0,
+                "detail": 0,
+                "other": 0,
+            }
+            self._http_max_in_flight_by_class = {
+                "category": 0,
+                "jsf": 0,
+                "detail": 0,
+                "other": 0,
+            }
+            self._http_latencies_by_class = {
+                "category": [],
+                "jsf": [],
+                "detail": [],
+                "other": [],
+            }
             self._detail_http_requests = 0
             self._category_http_requests = 0
             self._jsf_http_requests = 0

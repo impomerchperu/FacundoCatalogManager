@@ -129,14 +129,6 @@ class ScrapingFactory:
             collection_scraper,
         )
 
-        def cleanup_unused_images():
-            return clean_unused_images(
-                project_root=PROJECT_ROOT,
-                db_path=PROJECT_ROOT / "database" / "catalog.db",
-                roots=[Path(config.images_folder), Path("resources/images")],
-                delete=True,
-            )
-
         sync_service = NormalizedCategoryProductSyncService(
             product_scraping_service,
             scraped_persistence,

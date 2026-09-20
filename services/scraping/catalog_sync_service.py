@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_name_normalizer import (
@@ -20,6 +20,7 @@ def _log_timing(message, *args):
     formatted = message % args if args else message
     with TIMING_LOG.open("a", encoding="utf-8") as file:
         file.write(f"{formatted}\n")
+
 
 if TYPE_CHECKING:
     from services.scraping.scraping_result_writer import ScrapingResultWriter
@@ -46,7 +47,12 @@ class CatalogSyncService:
         "content_hash": "Hash contenido",
     }
 
-    def __init__(self, repository, diff_service, image_cleanup=None):
+    def __init__(
+        self,
+        repository,
+        diff_service,
+        image_cleanup: Callable[[], list[dict[str, Any]]] | None = None,
+    ):
         self.repository = repository
         self.diff_service = diff_service
         self.image_cleanup = image_cleanup

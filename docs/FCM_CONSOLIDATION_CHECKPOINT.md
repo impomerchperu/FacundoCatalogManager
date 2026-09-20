@@ -13,7 +13,7 @@ La prioridad sigue siendo conservar la cobertura FULL real antes de optimizar o 
 - 0 errores invalidantes.
 - Un FULL incompleto no puede ejecutar prune destructivo.
 
-Los pisos históricos menores no sustituyen esta referencia.
+Los pisos históricos menores no sustituyen la cobertura completa del inventario vivo.
 
 ## Evidencia reciente validada localmente
 

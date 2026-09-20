@@ -9,7 +9,9 @@ Una ejecución FULL del catálogo debe ser correcta, completa y segura para sinc
 
 ## Criterio funcional autorizado
 
-Una ejecución FULL válida cubre las 24 categorías y alcanza simultáneamente:
+Una ejecución FULL válida cubre las 24 categorías y alcanza simultáneamente los totales publicados por las propias categorías en esa ejecución. El snapshot histórico `534 / 530 / 4` se conserva como referencia diagnóstica, no como contrato rígido del inventario vivo.
+
+La prueba real debe tratar una variación de inventario (altas/bajas/movimientos de productos) como deriva del sitio y comprobar en su lugar que cada categoría se extrae sin gaps respecto de su `expected_count`, que el total encontrado coincide con ese total vigente y que la persistencia mantiene las mismas cantidades observadas.
 
 - `534` apariciones de productos por categoría.
 - `530` productos únicos.
@@ -70,6 +72,10 @@ La telemetría de enrichment por categoría registra `requested`, `skipped`, `to
 No existe una cifra única de tiempo de pared que deba tratarse como requisito funcional: los benchmarks dependen del estado del sitio remoto y de la red. Cualquier optimización debe conservar `24 / 534 / 530 / 4` y ser validada nuevamente.
 
 Un benchmark específico de contención de SQLite no es requisito para la corrección actual y queda como optimización futura, no como bloqueo de la funcionalidad validada.
+
+## Deriva del inventario vivo
+
+La validación del 2026-09-20 observó `523` apariciones esperadas frente al snapshot histórico `534`. Esto no demuestra por sí mismo una regresión del scraper: `expected_count` se obtiene del sitio y puede cambiar legítimamente. El criterio de cobertura se basa ahora en la consistencia interna de la ejecución actual; el baseline histórico permanece visible para detectar desviaciones, no para bloquear el test por sí solo.
 
 ## Estado de ingeniería validado
 

@@ -6,7 +6,7 @@ Branch: `feature/scraping-performance-recovery`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Suite no-real-site actual: `434 passed, 2 deselected`
+- [x] Suite no-real-site actual: `436 passed, 2 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -160,7 +160,7 @@ Per-category enrichment now exposes diagnostic timing without changing scraping 
 
 `CategoryProductSyncService` records these values from `ProductCollectionScraper.get_enrichment_metrics(category_name)` after each category enrichment and emits them through the existing timing logger as `stage=category_enrichment_summary`.
 
-The contract is covered by a focused unit test and the current local no-real-site suite remains green at `434 passed, 2 deselected`.
+The contract is covered by a focused unit test and the current local no-real-site suite remains green at `436 passed, 2 deselected`.
 
 This instrumentation is diagnostic only. It does not change coverage, product selection, persistence, prune behavior or retry semantics.
 
@@ -237,7 +237,7 @@ Local validation after synchronization:
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
 - Focused checkpoint tests: `21 passed in 0.63s`
-- Full no-real-site suite: `429 passed, 2 deselected in 6.40s`
+- Full no-real-site suite at the current HEAD: `436 passed, 2 deselected in 4.63s`
 - Git working tree: clean
 - GitHub Actions Quality run `#1913`: success
 - CI `live-catalog`: skipped as intended for this audit checkpoint
@@ -248,7 +248,7 @@ The audit also hardened two legacy maintenance tools so they cannot perform dire
 - `services/scraping/image_audit_service.py` remains diagnostic-only; physical duplicate removal is rejected.
 - `tools/audit_images.py --clean` is now treated as obsolete and rejected.
 
-The independent FULL coverage validation and production-style E2E both confirmed the live operational reference `24 / 523 / 519 / 4`. The SQLite idempotency regression was then validated by Quality #1966 with Ruff, Pyright and Pytest green.
+The independent FULL coverage validation and production-style E2E both confirmed the live operational reference `24 / 523 / 519 / 4`. The SQLite idempotency regression was then validated by Quality #1980 with Ruff, Pyright and Pytest green.
 
 ### 3. Consolidación y limpieza
 

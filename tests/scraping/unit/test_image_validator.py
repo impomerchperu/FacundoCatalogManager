@@ -14,3 +14,15 @@ def test_image_validator_rejects_missing_image(tmp_path):
     missing = tmp_path / "no-existe.webp"
 
     assert ImageValidator().validate(str(missing)) is False
+
+
+def test_image_validator_accepts_valid_gif_file(tmp_path):
+    from PIL import Image
+
+    image_path = tmp_path / "sample.gif"
+    Image.new("RGB", (8, 8), (255, 0, 0)).save(
+        image_path,
+        format="GIF",
+    )
+
+    assert ImageValidator().validate(str(image_path)) is True

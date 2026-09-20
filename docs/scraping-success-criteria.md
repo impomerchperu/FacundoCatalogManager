@@ -71,7 +71,7 @@ La evidencia disponible muestra que el coste principal está en red, especialmen
 
 La telemetría de enrichment por categoría registra `requested`, `skipped`, `total_seconds`, `submit_seconds` y `wait_seconds` sin modificar la semántica del scraping. Está cubierta por una prueba de contrato específica y permite separar el tiempo de cada categoría de las métricas agregadas.
 
-No existe una cifra única de tiempo de pared que deba tratarse como requisito funcional: los benchmarks dependen del estado del sitio remoto y de la red. Cualquier optimización debe conservar `24 / 534 / 530 / 4` y ser validada nuevamente.
+No existe una cifra única de tiempo de pared que deba tratarse como requisito funcional: los benchmarks dependen del estado del sitio remoto y de la red. Cualquier optimización debe conservar cobertura completa respecto del inventario vivo y ser validada nuevamente. El snapshot `24 / 534 / 530 / 4` sigue siendo diagnóstico, no contrato rígido.
 
 Un benchmark específico de contención de SQLite no es requisito para la corrección actual y queda como optimización futura, no como bloqueo de la funcionalidad validada.
 

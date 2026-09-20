@@ -58,7 +58,7 @@ En esa base, el FULL más reciente fue `run 34` y coincidió exactamente con `53
 
 La recuperación de categorías, paginación, JSF, páginas incompletas, códigos y detalle existe para aumentar la probabilidad de completar el FULL ante fallos transitorios. La cobertura final y la integridad del resultado son las condiciones que determinan si el run es utilizable.
 
-Los contadores HTTP, reintentos y tiempos agregados son métricas de diagnóstico. Los tiempos acumulados de solicitudes concurrentes no deben compararse directamente con el tiempo de pared.
+Los contadores HTTP, reintentos y tiempos agregados son métricas de diagnóstico. La instrumentación conserva máximo en vuelo por clase (`category`, `jsf`, `detail`, `other`), percentiles P50/P95/P99 y tiempos agregados por etapa. Los tiempos acumulados de solicitudes concurrentes no deben compararse directamente con el tiempo de pared.
 
 ## Rendimiento
 
@@ -123,14 +123,14 @@ La ejecución real más reciente del benchmark de concurrencia, sin modificar pr
 - `0` espera del semáforo de detalle.
 - `0` reintentos y `0` errores terminales.
 
-Los requests más lentos del muestreo fueron páginas de categoría, aproximadamente entre `8.19s` y `9.52s`. La evidencia actual desplaza el foco de optimización hacia la fase de colección/categorías y hacia la razón por la que el máximo HTTP observado queda en `16`, antes de aumentar workers o modificar el límite de `28`.
+Los requests más lentos del muestreo fueron páginas de categoría, aproximadamente entre `8.19s` y `9.52s`. La evidencia del código explica el máximo global de `16`: no representa saturación del semáforo de `28`, sino la capacidad de los productores aguas arriba. Con `8` workers de categoría y `2` workers JSF por categoría, la paginación JSF puede generar hasta `8 × 2 = 16` requests; el enrichment también tiene `16` workers de detalle.
 
 ### Próximo desarrollo controlado
 
 - [x] Benchmark productivo base `8 / 16 / 28` con cobertura viva `523 / 519 / 4`.
 - [ ] Aislar el coste de colección de categorías con comparación controlada de workers de categoría manteniendo detalle/HTTP constantes.
-- [ ] Determinar por qué el máximo HTTP en vuelo del benchmark queda en `16` pese al límite configurado de `28`.
-- [ ] Separar el coste de requests de categoría, JSF y detalle por percentiles y por etapa.
+- [x] Determinar por qué el máximo HTTP en vuelo del benchmark queda en `16` pese al límite configurado de `28`: lo limita la paralelización aguas arriba, no el semáforo global.
+- [x] Separar el coste de requests de categoría, JSF y detalle por percentiles y por etapa mediante telemetría de P50/P95/P99, máximos en vuelo por clase y tiempos agregados.
 - [ ] Solo después de identificar una oportunidad concreta, aplicar un cambio de runtime.
 - [ ] Reejecutar benchmark y FULL real después de cualquier cambio de runtime.
 - [ ] Revalidar persistencia, historial, cobertura y prune en un E2E productivo posterior.

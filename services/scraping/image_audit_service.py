@@ -32,17 +32,11 @@ class ImageAuditService:
         }
 
     def remove_duplicates(self) -> dict:
-        """Elimina solo duplicados byte-a-byte, conservando el primer archivo."""
-        report = self.audit()
-        removed = []
-        for paths in report["duplicates"]:
-            for path in sorted(paths)[1:]:
-                candidate = Path(path)
-                candidate.unlink()
-                removed.append(path)
-        report["removed"] = removed
-        report["duplicate_files"] = 0
-        return report
+        """Mantiene compatibilidad sin permitir borrado físico desde el auditor."""
+        raise RuntimeError(
+            "La limpieza destructiva de imágenes está deshabilitada; "
+            "use la sincronización normalizada del catálogo."
+        )
 
     @staticmethod
     def _hash(path: Path) -> str:

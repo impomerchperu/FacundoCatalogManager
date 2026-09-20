@@ -135,14 +135,16 @@ La comparación controlada de colección confirmó que `12` workers produjo `55.
 
 El benchmark real admite `FCM_BENCH_COLLECTION_ONLY=1` para ejecutar únicamente la colección y reportar su wall-clock, requests de categoría, máximo en vuelo por clase, percentiles P50/P95/P99 y tiempos agregados de categoría/JSF. También admite `FCM_BENCH_THREAD_SESSIONS=1` para aislar el efecto de usar una sesión HTTP por hilo durante la fase concurrente de colección; esta opción es solo diagnóstica y no cambia el runtime de producción por defecto. El benchmark imprime la finalización de cada categoría y de cada enrichment, de modo que una ejecución interrumpida identifica el último trabajo que no completó.
 
+El diagnóstico de transporte del 2026-09-20 quedó cerrado con cuatro corridas bajo el mismo contrato `8` workers de categoría, `16` de detalle, `28` HTTP y JSF `8/2`. Las sesiones por hilo produjeron `41.15s` y `52.79s`; los controles con sesión compartida produjeron `53.43s` y `43.93s`. Las cuatro ejecuciones completaron `523/523` y `0` errores terminales. La variación entre corridas supera la diferencia observada entre condiciones, por lo que no se estableció un beneficio reproducible atribuible al transporte por hilo y no se modifica el runtime de producción.
+
 ### Próximo desarrollo controlado
 
 - [x] Benchmark productivo base `8 / 16 / 28` con cobertura viva `523 / 519 / 4`.
 - [x] Comparación de workers de categoría cerrada: `8` conserva el valor validado; `12/16` no mostraron mejora reproducible.
 - [x] Comparación JSF cerrada: con `JSF HTTP=8`, las corridas `PAGE=4` midieron `42.85s` y `56.49s`, mientras `PAGE=2` midió `53.43s`; todas conservaron `523/523` y `0` errores.
 - [x] No se identificó beneficio reproducible de `PAGE=4`; se conserva `SCRAPING_JSF_PAGE_WORKERS=2` como default productivo validado.
-- [x] Primera prueba de sesiones HTTP por hilo: `41.15s` con `FCM_BENCH_THREAD_SESSIONS=1` frente a `53.43s` del control, cobertura completa y `0` errores.
-- [ ] Repetir sesiones por hilo bajo `8 / 16 / 28` + JSF `8 / 2` y obtener al menos una nueva corrida de control comparable antes de cambiar producción.
+- [x] Diagnóstico de sesiones HTTP por hilo cerrado: TRUE `41.15s` y `52.79s`; FALSE `53.43s` y `43.93s`; cuatro corridas con `523/523` y `0` errores.
+- [x] No se estableció beneficio reproducible de sesiones por hilo; producción conserva el transporte HTTP actual.
 - [x] Determinar por qué el máximo HTTP en vuelo del benchmark queda en `16` pese al límite configurado de `28`: lo limita la paralelización aguas arriba, no el semáforo global.
 - [x] Separar el coste de requests de categoría, JSF y detalle por percentiles y por etapa mediante telemetría de P50/P95/P99, máximos en vuelo por clase y tiempos agregados.
 - [ ] Solo después de identificar una oportunidad concreta y reproducible, aplicar un cambio de runtime.

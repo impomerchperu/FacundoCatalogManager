@@ -222,6 +222,14 @@ def test_recovery_rejects_full_run_missing_a_requested_category():
     )
     db.execute_query(
         """
+        INSERT INTO scraping_run_categories (run_id, category_id)
+        VALUES (?, ?)
+        """,
+        (run_id, category_id),
+    )
+
+    db.execute_query(
+        """
         INSERT INTO scraping_product_occurrences
             (run_id, category_id, product_id, code, product_url, discovered_at)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -241,6 +249,100 @@ def test_recovery_rejects_full_run_missing_a_requested_category():
         SET status='SUCCESS',
             actual_category_occurrences=1,
             products_found=1,
+            products_unique=1,
+            coverage_complete=1,
+            coverage_gap=0,
+            error_count=0
+        WHERE id=?
+        """,
+        (run_id,),
+    )
+
+    service = CatalogBootstrapService(db=db)
+
+    assert service.reconciliation_service.find_latest_successful_full_run() is None
+    db.close()
+
+
+def test_recovery_rejects_full_run_with_unexpected_category_identity():
+    from database.db_manager import DBManager
+    from models.product import Product
+    from repositories.product_repository import ProductRepository
+    from repositories.scraping.normalized_scraping_repository import (
+        NormalizedScrapingRepository,
+    )
+
+    db = DBManager(":memory:")
+    product_repository = ProductRepository(db)
+    normalized = NormalizedScrapingRepository(db)
+
+    category_a = normalized.upsert_category(
+        "Categoría A",
+        "https://example.test/categoria-a/",
+        expected_count=1,
+    )
+    category_b = normalized.upsert_category(
+        "Categoría B",
+        "https://example.test/categoria-b/",
+        expected_count=1,
+    )
+    category_c = normalized.upsert_category(
+        "Categoría C",
+        "https://example.test/categoria-c/",
+        expected_count=1,
+    )
+    product = Product(code="CURRENT", name="Producto actual")
+    product_repository.save(product)
+
+    run_id = normalized.start_run(
+        mode="full",
+        categories_requested=2,
+        expected_category_occurrences=2,
+    )
+    for category_id in (category_a, category_b):
+        db.execute_query(
+            """
+            INSERT INTO scraping_run_categories (run_id, category_id)
+            VALUES (?, ?)
+            """,
+            (run_id, category_id),
+        )
+    db.execute_query(
+        """
+        INSERT INTO scraping_product_occurrences
+            (run_id, category_id, product_id, code, product_url, discovered_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            run_id,
+            category_a,
+            product.product_id,
+            product.code,
+            "https://example.test/producto/current/",
+            "now",
+        ),
+    )
+    db.execute_query(
+        """
+        INSERT INTO scraping_product_occurrences
+            (run_id, category_id, product_id, code, product_url, discovered_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            run_id,
+            category_c,
+            product.product_id,
+            product.code,
+            "https://example.test/producto/current/",
+            "now",
+        ),
+    )
+    db.execute_query(
+        """
+        UPDATE scraping_runs
+        SET status='SUCCESS',
+            actual_category_occurrences=2,
+            products_found=2,
             products_unique=1,
             coverage_complete=1,
             coverage_gap=0,

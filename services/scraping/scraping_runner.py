@@ -163,12 +163,16 @@ class ScrapingRunner:
     ):
         pipeline_total = max(len(categories) * 2, 1)
 
-        def pipeline_progress(current, _total):
-            if progress_callback:
-                progress_callback(
-                    min(max(int(current), 0), len(categories)),
-                    pipeline_total,
-                )
+        def pipeline_progress(current, source_total):
+            if not progress_callback:
+                return
+            current_value = int(current)
+            source_total_value = int(source_total)
+            if source_total_value == pipeline_total:
+                normalized_current = min(max(current_value, 0), pipeline_total)
+            else:
+                normalized_current = min(max(current_value, 0), len(categories))
+            progress_callback(normalized_current, pipeline_total)
 
         result = sync_categories(categories, pipeline_progress)
         if progress_callback:

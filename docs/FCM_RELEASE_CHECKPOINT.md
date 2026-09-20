@@ -7,16 +7,32 @@ Branch: `feature/scraping-performance-recovery`
 
 La rama se encuentra en fase de cierre previo a release. El baseline funcional está protegido y las últimas modificaciones de esta etapa son de pruebas y documentación; deben quedar validadas localmente antes de cerrar el release checkpoint.
 
-## Baseline funcional protegido
+## Referencias funcionales
+
+### Snapshot histórico protegido
 
 - 24 categorías.
 - 534 apariciones producto-categoría.
 - 530 productos únicos.
 - 4 productos en múltiples categorías.
 - 534 relaciones producto-categoría.
+
+Este snapshot se conserva como referencia histórica y diagnóstico de deriva del inventario vivo.
+
+### Referencia operativa actual
+
+El último FULL productivo completo validado contra el inventario vivo confirmó:
+
+- 24 categorías.
+- 523 apariciones producto-categoría.
+- 519 productos únicos.
+- 4 productos en múltiples categorías.
+- 523 relaciones producto-categoría.
 - `coverage_complete=1`.
 - `coverage_gap=0`.
 - `error_count=0`.
+
+La regla operativa es ahora comparar cada FULL con los totales publicados por el sitio en esa ejecución; el snapshot 534/530/4 no bloquea por sí solo una ejecución válida.
 - Un FULL incompleto no ejecuta prune destructivo.
 - Un FULL fallido o incompleto no sustituye al último FULL válido para recuperación.
 
@@ -41,7 +57,7 @@ La validación de la base real documentada conserva:
 - Timeout: `20s`.
 - Reintentos máximos: `3`.
 
-El E2E real de producción ya validó `24 / 534 / 530 / 4`, DB `530 / 534`, historial aplicado y cero reintentos HTTP en SQLite aislada, con `113.97s` de wall-clock en esa ejecución concreta.
+El E2E real de producción más reciente validó `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, `337` solicitudes HTTP, `0` reintentos y `0` errores HTTP terminales, con `90.78s` de wall-clock en SQLite aislada. Esta es la referencia operativa actual; los `534 / 530 / 4` permanecen como snapshot histórico.
 
 ## Calidad
 
@@ -82,8 +98,9 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 4. [x] Ejecutar `python -m pytest -q --ignore=tests/scraping/real_site`.
 5. [x] Confirmar `git status --short` vacío.
 6. [x] Quality #1913: success; Ruff, Pyright y Pytest verdes; `live-catalog` skipped de forma intencional.
-7. [x] FULL real ejecutado: el sitio publicó 523 apariciones esperadas, 11 menos que la referencia histórica 534.
-8. [x] Diagnóstico confirmado: la prueba estaba tratando el inventario histórico como contrato fijo; se ajustó para validar cobertura contra los totales publicados por el sitio en cada ejecución, conservando 534 como referencia diagnóstica.
-9. [ ] Repetir FULL real + validación de DB + historial + idempotencia después de este ajuste.
+7. [x] FULL real ejecutado y validado: el sitio publicó 523 apariciones esperadas, 11 menos que la referencia histórica 534.
+8. [x] Pruebas reales ajustadas para usar los totales publicados por las categorías como fuente de verdad de cobertura, conservando 534/530/4 como referencia histórica.
+9. [x] E2E productivo validado: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, cobertura completa y cero errores HTTP terminales.
+10. [ ] Repetir el FULL real independiente de cobertura y la prueba de idempotencia antes del cierre definitivo del release.
 
 No se requiere otro cambio de runtime mientras las invariantes protegidas permanezcan verdes.

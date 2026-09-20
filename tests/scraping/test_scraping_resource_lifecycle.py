@@ -41,3 +41,24 @@ def test_scraping_session_delegates_close_to_runner() -> None:
     session.close()
 
     assert runner.close_calls == 2
+
+
+class RecordingScraperService:
+    def __init__(self) -> None:
+        self.close_calls = 0
+
+    def close(self) -> None:
+        self.close_calls += 1
+
+
+def test_scraping_runner_reaches_nested_scraper_service_close() -> None:
+    nested = RecordingScraperService()
+
+    class SyncService:
+        scraper_service = nested
+
+    runner = ScrapingRunner(SyncService())
+
+    runner.close()
+
+    assert nested.close_calls == 1

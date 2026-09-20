@@ -83,12 +83,12 @@ La validación del 2026-09-20 observó `523` apariciones esperadas frente al sna
 
 - Ruff: limpio.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site del checkpoint: `431 passed, 2 deselected`.
+- Suite no-real-site actual: `434 passed, 2 deselected`.
 - Pruebas de bootstrap/reconciliación: `15 passed`.
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
-- FULL real: `24 / 534 / 530 / 4`.
-- E2E de producción: `24 / 534 / 530 / 4`, DB `530 / 534`, historial aplicado, configuración `8 / 16 / 28`, duración `113.97s`.
+- FULL/E2E de producción: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, configuración `8 / 16 / 28`, `337` solicitudes HTTP, duración `90.78s`.
+- Snapshot histórico preservado: `24 / 534 / 530 / 4`.
 - Smoke de bootstrap sobre copia de la base real: `530 / 534`, usando el FULL más reciente válido.
 
 ## Progreso de UI
@@ -102,10 +102,9 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 ### Corrección funcional
 
 - [x] FULL real de 24 categorías.
-- [x] 534 apariciones.
-- [x] 530 productos únicos.
-- [x] 4 multiproducto.
-- [x] 534 relaciones producto-categoría.
+- [x] Cobertura completa contra `expected_count` vigente de cada categoría.
+- [x] Referencia operativa actual: 523 apariciones / 519 productos únicos / 4 multi-categoría / 523 relaciones.
+- [x] Snapshot histórico 534/530/4 preservado como diagnóstico.
 - [x] cobertura completa.
 - [x] `coverage_gap=0`.
 - [x] 0 errores invalidantes.
@@ -165,4 +164,4 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 - [x] fábricas de compatibilidad auditadas como delegados finos; se conservan por posible consumo externo.
 - [x] validación E2E real de producción después del cambio de concurrencia a 16 workers;
 
-Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes `24 / 534 / 530 / 4` y la relación DB `530 / 534`. El E2E real bajo `8 / 16 / 28` ya satisface la validación de cierre de esta etapa. La reorganización reciente de tres pruebas de imágenes y la corrección del comando documentado de pytest requieren volver a ejecutar la suite local antes de marcar el checkpoint de release como cerrado.
+Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes de cobertura del inventario vivo. La referencia operativa actual es `24 / 523 / 519 / 4` bajo `8 / 16 / 28`; el snapshot `24 / 534 / 530 / 4` se conserva como diagnóstico histórico.

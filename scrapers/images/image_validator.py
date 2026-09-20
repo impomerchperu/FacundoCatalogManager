@@ -5,16 +5,13 @@ from typing import ClassVar
 
 from PIL import Image
 
+from scrapers.images.image_paths import IMAGE_EXTENSIONS
+
 
 class ImageValidator:
     """Valida extensión, contenido y estructura de archivos de imagen."""
 
-    VALID_EXTENSIONS: ClassVar[set[str]] = {
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".webp",
-    }
+    VALID_EXTENSIONS: ClassVar[frozenset[str]] = IMAGE_EXTENSIONS
 
     def is_valid_extension(self, filename: str) -> bool:
         extension = Path(filename).suffix.lower()
@@ -28,6 +25,8 @@ class ImageValidator:
             b"\xff\xd8",
             b"\x89PNG",
             b"RIFF",
+            b"GIF87a",
+            b"GIF89a",
         )
         return any(content.startswith(signature) for signature in signatures)
 

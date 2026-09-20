@@ -57,17 +57,16 @@ La validación de la base real documentada conserva:
 - Timeout: `20s`.
 - Reintentos máximos: `3`.
 
-El E2E real de producción más reciente validó `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, `337` solicitudes HTTP, `0` reintentos y `0` errores HTTP terminales, con `90.78s` de wall-clock en SQLite aislada. Esta es la referencia operativa actual; los `534 / 530 / 4` permanecen como snapshot histórico.
+El E2E real de producción más reciente validó `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, `337` solicitudes HTTP, `0` reintentos y `0` errores HTTP terminales, con `100.33s` de wall-clock en SQLite aislada. Esta es la referencia operativa actual; los `534 / 530 / 4` permanecen como snapshot histórico.
 
 ## Calidad
 
-Validación local reportada para el código anterior a la última normalización de tres tests de imágenes:
+Validación local actual sobre `main` (`6ac1fdc`):
 
-- Ruff: limpio.
+- Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site actual: `437 passed, 8 deselected`.
-- Batería focal de imágenes: `10 passed`.
-- Contrato focal de progreso: `13 passed`.
+- Suite no-real-site: `453 passed, 8 deselected`.
+- E2E real: `1 passed`, cobertura `24 / 523 / 519 / 4`, historial aplicado y `0` errores HTTP terminales.
 
 Los últimos cambios de código solo reorganizaron tres pruebas de imágenes para que sean funciones pytest convencionales, aislaron `ImageSync` del repositorio físico local y corrigieron el comando de suite documentado en README. La validación documentada de la suite no-real-site quedó verde con `437 passed, 8 deselected`; las comprobaciones estáticas también quedaron limpias.
 
@@ -100,7 +99,7 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 3. [x] Ejecutar Pyright.
 4. [x] Ejecutar `python -m pytest -q`.
 5. [x] Confirmar `git status --short` vacío.
-6. [x] Quality #2186: success sobre `280c32f`; la validación local confirmó Ruff, Pyright y Pytest verdes (`453 passed, 8 deselected`).
+6. [x] Quality #2189: success sobre `6ac1fdc`; la validación local confirmó Ruff, Pyright y Pytest verdes (`453 passed, 8 deselected`).
 7. [x] FULL real ejecutado y validado: el sitio publicó 523 apariciones esperadas, 11 menos que la referencia histórica 534.
 8. [x] Pruebas reales ajustadas para usar los totales publicados por las categorías como fuente de verdad de cobertura, conservando 534/530/4 como referencia histórica.
 9. [x] E2E productivo validado: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, cobertura completa y cero errores HTTP terminales.

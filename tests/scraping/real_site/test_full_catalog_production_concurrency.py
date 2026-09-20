@@ -50,6 +50,7 @@ def test_full_catalog_production_concurrency_real_site():
         "FCM_BENCH_JSF_PAGE_WORKERS",
         2,
     )
+    collection_only = os.getenv("FCM_BENCH_COLLECTION_ONLY") == "1"
 
     started = perf_counter()
     browser = Browser(http_workers=http_workers)
@@ -97,10 +98,25 @@ def test_full_catalog_production_concurrency_real_site():
             index = futures[future]
             category = categories[index]
             try:
-                collected_by_index[index] = future.result()
+                collected = future.result()
+                collected_by_index[index] = collected
+                print(
+                    "COLLECTION CATEGORY:",
+                    category.name,
+                    "PRODUCTS:",
+                    len(collected),
+                    "ELAPSED:",
+                    f"{perf_counter() - collection_started:.2f}s",
+                )
             except Exception as error:  # noqa: BLE001
                 collection_errors.append(
                     f"{category.name}: {type(error).__name__}: {error}"
+                )
+                print(
+                    "COLLECTION ERROR:",
+                    category.name,
+                    type(error).__name__,
+                    str(error),
                 )
     collection_seconds = perf_counter() - collection_started
     assert not collection_errors, collection_errors
@@ -116,6 +132,23 @@ def test_full_catalog_production_concurrency_real_site():
         != max(int(categories[index].expected_count or 0), 0)
     ]
     assert not collection_coverage_errors, collection_coverage_errors
+
+    if collection_only:
+        collection_elapsed = perf_counter() - collection_started
+        print("COLLECTION-ONLY:", True)
+        print("COLLECTION WALL:", f"{collection_elapsed:.2f}s")
+        print("COLLECTION HTTP REQUESTS:", http_metrics := browser.get_http_metrics()["category_http_requests"])
+        print(
+            "COLLECTION HTTP MAX IN FLIGHT:",
+            browser.get_http_metrics()["http_max_in_flight_by_class"]["category"],
+        )
+        print(
+            "COLLECTION HTTP P95:",
+            f"{browser.get_http_metrics()["http_latency_percentiles"]["category"]["p95"]:.3f}s",
+        )
+        assert browser.get_http_metrics()["http_terminal_errors"] == 0
+        browser.close()
+        return
 
     enriched_by_index: list[list[object] | None] = [None] * len(categories)
     enrichment_errors: list[str] = []
@@ -135,10 +168,25 @@ def test_full_catalog_production_concurrency_real_site():
             index = futures[future]
             category = categories[index]
             try:
-                enriched_by_index[index] = future.result()
+                enriched = future.result()
+                enriched_by_index[index] = enriched
+                print(
+                    "ENRICHMENT CATEGORY:",
+                    category.name,
+                    "PRODUCTS:",
+                    len(enriched),
+                    "ELAPSED:",
+                    f"{perf_counter() - enrichment_started:.2f}s",
+                )
             except Exception as error:  # noqa: BLE001
                 enrichment_errors.append(
                     f"{category.name}: {type(error).__name__}: {error}"
+                )
+                print(
+                    "ENRICHMENT ERROR:",
+                    category.name,
+                    type(error).__name__,
+                    str(error),
                 )
     enrichment_seconds = perf_counter() - enrichment_started
     assert not enrichment_errors, enrichment_errors

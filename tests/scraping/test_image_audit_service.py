@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from services.scraping.image_audit_service import ImageAuditService
 
 
@@ -24,8 +26,6 @@ def test_image_audit_rejects_destructive_cleanup(tmp_path):
     (root / "P001.webp").write_bytes(b"same")
     (root / "legacy-P001.webp").write_bytes(b"same")
     (root / "P002.webp").write_bytes(b"different")
-
-    import pytest
 
     with pytest.raises(RuntimeError, match="deshabilitada"):
         ImageAuditService(root).remove_duplicates()

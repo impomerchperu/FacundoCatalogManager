@@ -90,7 +90,7 @@ La validación real más reciente observó `523` apariciones esperadas frente al
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
 - FULL/E2E de producción: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, configuración `8 / 16 / 28`, `337` solicitudes HTTP, duración `90.78s`.
-- Quality CI #1987: `success` sobre el HEAD actual `173d560`.
+- Quality CI #2018: `success` sobre el HEAD documental validado `e45a4a4`.
 - Snapshot histórico preservado: `24 / 534 / 530 / 4`.
 - Smoke de bootstrap sobre copia de la base real: `530 / 534`, usando el FULL más reciente válido.
 

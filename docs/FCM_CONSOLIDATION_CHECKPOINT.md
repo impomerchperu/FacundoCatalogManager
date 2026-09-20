@@ -112,7 +112,7 @@ La etapa funcional principal continúa cerrada y protegida. El trabajo posterior
 
 ### En revisión
 
-- Auditoría final de duplicación de hashing y componentes legacy de imágenes.
+- Auditoría residual de utilidades de imágenes sin dependencia canónica demostrada (`ImageNamer`, `ImageValidator`, `ImageSyncAdapter`): revisadas y conservadas por contratos propios; no se encontró justificación segura para eliminarlas.
 - Mejoras opcionales de granularidad de progreso UI.
 - Benchmark específico de contención/latencia SQLite solo si aparece evidencia concreta.
 
@@ -139,7 +139,7 @@ Una ejecución dirigida puede quedar aplicada en historial sin convertirse por e
 
 ## Próximo orden de trabajo
 
-1. Cerrar la auditoría residual de hashing/componentes legacy de imágenes y decidir solo cambios no destructivos.
+1. Mantener bajo observación las utilidades de imágenes conservadas por compatibilidad; no hay cambio funcional pendiente en hashing.
 2. Mantener la compatibilidad de factories mientras pueda existir consumo externo y ampliar cobertura de contrato solo cuando aporte valor.
 3. Revisar opcionalmente progreso UI de enrichment y contención SQLite, siempre fuera del baseline funcional.
 4. Preparar un checkpoint de release y, únicamente cuando se abra explícitamente la fase funcional, repetir FULL real + DB + historial + idempotencia.

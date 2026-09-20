@@ -199,7 +199,7 @@ A SQLite contention benchmark remains optional and non-blocking unless a concret
 ### 1. Corrección funcional
 
 - [x] FULL real de 24 categorías
-- [x] `534 / 530 / 4` as authoritative reference
+- [x] `523 / 519 / 4` as current live operational reference; `534 / 530 / 4` preserved as historical diagnostic snapshot
 - [x] `coverage_complete=1`
 - [x] `coverage_gap=0`
 - [x] zero invalidating errors

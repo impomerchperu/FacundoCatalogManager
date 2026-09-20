@@ -221,7 +221,7 @@ class CategoryProductSyncService:
                     index = futures[future]
                     enriched_by_index[index] = cast(list[Any], future.result())
                     enrichment_completed += 1
-                    if progress_callback:
+                    if progress_callback and enrichment_completed < len(categories):
                         progress_callback(
                             len(categories) + enrichment_completed,
                             len(categories) * 2,

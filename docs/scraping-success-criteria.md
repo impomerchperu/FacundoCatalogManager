@@ -122,8 +122,8 @@ La última Quality CI sobre `main` es el run `#2186`, ejecutado sobre `280c32f`,
 - Pruebas de bootstrap/reconciliación: `15 passed`.
 - Batería scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
-- FULL/E2E de producción: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, configuración `8 / 16 / 28`, `337` solicitudes HTTP, duración `90.78s`.
-- Quality CI de la referencia actual sobre `main`: run `#2186`, commit `280c32f`, completado en `success`.
+- FULL/E2E de producción más reciente: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, configuración `8 / 16 / 28`, `337` solicitudes HTTP, duración `100.33s`.
+- Quality CI de la referencia actual sobre `main`: run `#2189`, commit `6ac1fdc`, completado en `success`.
 - Snapshot histórico preservado: `24 / 534 / 530 / 4`.
 - Smoke de bootstrap sobre copia de la base real: `530 / 534`, usando el FULL más reciente válido.
 

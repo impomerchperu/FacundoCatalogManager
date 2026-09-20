@@ -97,7 +97,7 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 3. [x] Ejecutar Pyright.
 4. [x] Ejecutar `python -m pytest -q --ignore=tests/scraping/real_site`.
 5. [x] Confirmar `git status --short` vacío.
-6. [x] Quality #1980: success sobre `2e8bd71`; Ruff, Pyright y Pytest verdes; `live-catalog` skipped de forma intencional.
+6. [x] Quality #1987: success sobre `173d560`; Ruff, Pyright y Pytest verdes; `live-catalog` skipped de forma intencional.
 7. [x] FULL real ejecutado y validado: el sitio publicó 523 apariciones esperadas, 11 menos que la referencia histórica 534.
 8. [x] Pruebas reales ajustadas para usar los totales publicados por las categorías como fuente de verdad de cobertura, conservando 534/530/4 como referencia histórica.
 9. [x] E2E productivo validado: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, cobertura completa y cero errores HTTP terminales.
@@ -106,4 +106,4 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 
 Hallazgo de idempotencia: las altas iniciales podían quedar sin `content_hash`, mientras que la segunda sincronización calculaba ese hash antes de comparar. Se corrigió la inicialización del hash antes de la clasificación para evitar un `UPDATED` espurio. La idempotencia ya quedó validada en CI con una SQLite persistente compartida por dos sincronizaciones consecutivas; no se requiere otro FULL real para cerrar este punto.
 
-No se requiere otro cambio de runtime mientras las invariantes protegidas permanezcan verdes.
+No se requiere otro cambio de runtime mientras las invariantes protegidas permanezcan verdes. El HEAD remoto actual `173d560` contiene únicamente alineación documental posterior al último commit de código `2e8bd71`.

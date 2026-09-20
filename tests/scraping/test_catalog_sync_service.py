@@ -401,7 +401,7 @@ def test_catalog_sync_cleans_unused_images_only_after_allowed_prune():
         image_cleanup=cleanup,
     )
 
-    result = service.sync(
+    result = service.sync_full_catalog(
         [Product("KEEP001", "Producto vigente", 20)],
         expected_products=1,
     )

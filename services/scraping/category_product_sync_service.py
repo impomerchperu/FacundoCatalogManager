@@ -204,6 +204,7 @@ class CategoryProductSyncService:
 
         started = time.perf_counter()
         enriched_by_index: list[list[Any] | None] = [None] * len(categories)
+        enrichment_completed = 0
         if categories:
             worker_count = min(self.category_workers, len(categories))
             with ThreadPoolExecutor(max_workers=worker_count) as executor:
@@ -219,6 +220,12 @@ class CategoryProductSyncService:
                 for future in as_completed(futures):
                     index = futures[future]
                     enriched_by_index[index] = cast(list[Any], future.result())
+                    enrichment_completed += 1
+                    if progress_callback:
+                        progress_callback(
+                            len(categories) + enrichment_completed,
+                            len(categories) * 2,
+                        )
 
         products = []
         for index, category in enumerate(categories):

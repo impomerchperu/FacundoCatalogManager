@@ -125,7 +125,7 @@ def test_reconcile_exact_full_coverage_preserves_530_masters_and_534_relations()
             expected_category_occurrences, actual_category_occurrences,
             products_found, products_unique, products_multiple_categories,
             duplicate_occurrences, coverage_complete, coverage_gap, error_count
-        ) VALUES ('full', 'SUCCESS', 24, 534, 534, 534, 530, 4, 0, 1, 0, 0)
+        ) VALUES ('full', 'SUCCESS', 2, 534, 534, 534, 530, 4, 0, 1, 0, 0)
         """
     )
     run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -214,7 +214,7 @@ def test_reconcile_skips_inconsistent_latest_full_and_uses_previous_valid_run():
             mode, status, categories_requested,
             expected_category_occurrences, actual_category_occurrences,
             products_found, products_unique, coverage_complete, coverage_gap, error_count
-        ) VALUES ('full', 'SUCCESS', 24, 3, 3, 3, 3, 1, 0, 0)
+        ) VALUES ('full', 'SUCCESS', 1, 3, 3, 3, 3, 1, 0, 0)
         """
     )
     valid_run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -245,7 +245,7 @@ def test_reconcile_skips_inconsistent_latest_full_and_uses_previous_valid_run():
             mode, status, categories_requested,
             expected_category_occurrences, actual_category_occurrences,
             products_found, products_unique, coverage_complete, coverage_gap, error_count
-        ) VALUES ('full', 'SUCCESS', 24, 4, 4, 4, 4, 1, 0, 0)
+        ) VALUES ('full', 'SUCCESS', 1, 4, 4, 4, 4, 1, 0, 0)
         """
     )
     invalid_latest_run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]

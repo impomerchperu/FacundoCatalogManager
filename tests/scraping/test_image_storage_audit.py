@@ -170,3 +170,36 @@ def test_image_storage_audit_reports_legacy_only_file(tmp_path: Path):
     assert report["active_referenced_files"] == 0
     assert report["active_orphan_files"] == 1
     assert report["legacy_only_files"] == 1
+
+
+def test_image_storage_audit_discovers_new_image_reference_table(tmp_path: Path):
+    project = tmp_path
+    root = project / "data" / "images" / "products"
+    root.mkdir(parents=True)
+    image = root / "P010.webp"
+    image.write_bytes(b"image")
+
+    db = project / "database" / "catalog.db"
+    db.parent.mkdir()
+    _create_db(db)
+
+    connection = sqlite3.connect(db)
+    connection.execute(
+        "CREATE TABLE future_images "
+        "(id INTEGER PRIMARY KEY, code TEXT, image_path TEXT)"
+    )
+    connection.execute(
+        "INSERT INTO future_images VALUES (?, ?, ?)",
+        (1, "P010", "data/images/products/P010.webp"),
+    )
+    connection.commit()
+    connection.close()
+
+    report = audit(
+        project_root=project,
+        db_path=db,
+        roots=[root],
+    )
+
+    assert report["db_references_by_table"]["future_images"] == 1
+    assert report["legacy_only_files"] == 1

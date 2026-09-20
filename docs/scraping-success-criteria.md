@@ -125,6 +125,10 @@ La ejecución real más reciente del benchmark de concurrencia, sin modificar pr
 
 Los requests más lentos del muestreo fueron páginas de categoría, aproximadamente entre `8.19s` y `9.52s`. La evidencia del código explica el máximo global de `16`: no representa saturación del semáforo de `28`, sino la capacidad de los productores aguas arriba. Con `8` workers de categoría y `2` workers JSF por categoría, la paginación JSF puede generar hasta `8 × 2 = 16` requests; el enrichment también tiene `16` workers de detalle.
 
+### Instrumentación del benchmark controlado
+
+El benchmark real ahora admite `FCM_BENCH_COLLECTION_ONLY=1` para ejecutar únicamente la colección y reportar su wall-clock, requests de categoría, máximo en vuelo de categoría y P95 de latencia. También imprime la finalización de cada categoría y de cada enrichment, de modo que una ejecución interrumpida identifica el último trabajo que no completó. Esta instrumentación no cambia el runtime de producción.
+
 ### Próximo desarrollo controlado
 
 - [x] Benchmark productivo base `8 / 16 / 28` con cobertura viva `523 / 519 / 4`.

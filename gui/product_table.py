@@ -298,17 +298,12 @@ class ProductTable(QTableWidget):
     def _render_products(self, products: list[Product]) -> None:
         self.setSortingEnabled(False)
         self.clearContents()
-        self._max_stock_color_width = 0
         self._max_stock_value_width = self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN]
         metrics = QFontMetrics(self.font())
         for product in products:
             color_stock = self._ordered_color_stock(product)
             stock_values = [stock for _, stock in color_stock] or [product.stock]
-            for color, stock in color_stock:
-                self._max_stock_color_width = max(
-                    self._max_stock_color_width,
-                    metrics.horizontalAdvance(color),
-                )
+            for _, stock in color_stock:
                 self._max_stock_value_width = max(
                     self._max_stock_value_width,
                     metrics.horizontalAdvance(f"{stock:,}"),
@@ -440,7 +435,7 @@ class ProductTable(QTableWidget):
             color_label.setAlignment(
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             )
-            color_label.setWordWrap(False)
+            color_label.setWordWrap(True)
             color_label.setSizePolicy(
                 QSizePolicy.Policy.Expanding,
                 QSizePolicy.Policy.Preferred,
@@ -517,20 +512,15 @@ class ProductTable(QTableWidget):
             self.setRowHeight(row, row_height)
 
     def _stock_minimum_width(self) -> int:
-        """Garantiza ancho suficiente para colores y cantidades sin cortes."""
-        color_width = getattr(self, "_max_stock_color_width", 0)
+        """Garantiza solo el ancho mínimo para mostrar las cantidades completas."""
         value_width = getattr(
             self,
             "_max_stock_value_width",
             self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN],
         )
-        spacing = 8
         return max(
             self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN],
-            color_width
-            + value_width
-            + spacing
-            + (4 * self.CONTENT_SIDE_PADDING),
+            value_width + (2 * self.CONTENT_SIDE_PADDING),
         )
 
     def _category_minimum_width(self) -> int:

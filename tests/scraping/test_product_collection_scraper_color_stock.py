@@ -472,12 +472,7 @@ def test_category_extractor_does_not_guess_descriptive_color_stock():
     card = BeautifulSoup(html, "lxml").select_one("article")
     result = CategoryProductExtractor().extract(card)
 
-    assert result.color_stock == {
-        "azul": 2,
-        "negro": 3415,
-        "rojo": 0,
-        "gris": 1978,
-    }
+    assert result.color_stock == {}
     assert result.stock == 5395
 
 

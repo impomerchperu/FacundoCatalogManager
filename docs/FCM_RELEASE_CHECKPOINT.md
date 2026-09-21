@@ -104,6 +104,23 @@ La lectura independiente posterior desde SQLite confirmó exactamente esos valor
 
 Esta aplicación dirigida es una validación puntual del mecanismo de persistencia; no sustituye ni altera la referencia de cobertura FULL `24 / 523 / 519 / 4`.
 
+### Aplicación completa de stock por color sobre las 24 categorías
+
+El 2026-09-20 se ejecutó una sincronización dirigida conjunta sobre las 24 categorías reales contra `database/catalog.db`, sin habilitar prune FULL. El resultado fue:
+
+- `24/24` categorías procesadas.
+- `523/523` apariciones esperadas y encontradas.
+- `519` productos únicos.
+- `516` actualizados y `3` sin cambios.
+- `0` creados y `0` eliminados.
+- historia aplicada `history_id=201`.
+- `523` apariciones con `color_stock`.
+- `24/24` categorías con productos con stock por color.
+- `523` verificaciones posteriores contra SQLite.
+- `0` inconsistencias entre extracción y persistencia.
+
+Este resultado demuestra que el objetivo de stock por color quedó aplicado al flujo real del catálogo completo. La ausencia de `color_stock` en una ejecución futura sigue siendo válida únicamente cuando el origen no publique cantidades por color de forma demostrable; no se generan asociaciones artificiales.
+
 ## Arquitectura
 
 - `ImageHash` es la implementación canónica de SHA-256 para archivos de imagen.
@@ -158,6 +175,7 @@ Esta validación manual se completó el 2026-09-20 sobre `main` y no modificó e
 11. [x] Idempotencia validada sobre la misma SQLite; el resultado quedó incorporado al baseline y posteriormente documentado en commits sin cambios de runtime. Quality CI `#2194` confirmó el baseline en `ef8d9c8`; los commits documentales posteriores no cambiaron código funcional ni runtime.
 12. [x] Stock por color aplicado a la base real mediante sincronización dirigida de `Bolsas / Mochilas`; historia `200`, 3 productos con `color_stock` y verificación independiente posterior desde SQLite.
 13. [x] Pyright y suite completa local posteriores a la aplicación real: `0 errors, 0 warnings, 0 informations`; `470 passed, 10 deselected`.
+14. [x] Stock por color aplicado a las 24 categorías reales mediante sincronización dirigida conjunta: `24/24` categorías, `523/523` apariciones, `519` productos únicos, `0` errores, `0` eliminados, `523` apariciones con `color_stock`, `24/24` categorías con productos con stock por color, `523` verificaciones SQLite y `0` inconsistencias; historia `201`.
 
 Hallazgo de idempotencia: las altas iniciales podían quedar sin `content_hash`, mientras que la segunda sincronización calculaba ese hash antes de comparar. Se corrigió la inicialización del hash antes de la clasificación para evitar un `UPDATED` espurio. La idempotencia ya quedó validada en CI con una SQLite persistente compartida por dos sincronizaciones consecutivas; no se requiere otro FULL real para cerrar este punto.
 

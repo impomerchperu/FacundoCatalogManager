@@ -6,7 +6,7 @@ Branch oficial: `main`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Última Quality CI: run `#2213` sobre `6e9739f` terminó en `success`; validación local del baseline: Ruff clean, Pyright `0 errors, 0 warnings, 0 informations`, `454 passed, 8 deselected`
+- [x] Última Quality CI: run `#2227` sobre `ec5297e` terminó en `success`; la suite de esa ejecución quedó verde (`464 passed, 8 deselected`)
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -109,6 +109,17 @@ Validation performed:
 - Legacy fixtures without the modern metric columns remain supported using occurrence-count validation.
 - Bootstrap smoke on a copy of the real `catalog.db` rebuilt `530` products and `534` relations from the latest valid FULL run.
 - The real database was not modified by the smoke test.
+
+## COLOR STOCK CONTRACT
+
+- [x] `color_stock` remains part of the canonical product model and content hash.
+- [x] Category cards map multiple stock values to color labels only when cardinality matches.
+- [x] Detail pages support textual color declarations, singular `Color:` labels and WooCommerce variation metadata.
+- [x] Detail-only color names remain available for the category/detail enrichment join without replacing an authoritative total-only stock.
+- [x] ProductTable renders `color → stock` in the Stock cell while retaining numeric `product.stock` for sorting.
+- [x] No artificial distribution of a total stock across multiple colors.
+
+The live site currently demonstrates all of these source patterns: explicit `Colores disponibles` with multiple stocks, color names in detail combined with category stock, and products that list several colors but only one total stock. The extractor therefore treats exact cardinality as the evidence threshold rather than guessing.
 
 ## REAL FULL AND E2E VALIDATION
 

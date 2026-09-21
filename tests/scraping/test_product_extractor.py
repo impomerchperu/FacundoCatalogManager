@@ -67,7 +67,7 @@ def test_product_extractor_does_not_use_unrelated_model_text_as_code():
         assert ProductExtractor().extract_code(soup) == ""
 
 
-def test_product_extractor_maps_stock_to_visible_colors():
+def test_product_extractor_maps_stock_to_site_variant_color_order():
     html = """
     <div class="jsfb-filterable">
         <h2 class="brxe-heading">Producto por colores</h2>
@@ -81,11 +81,37 @@ def test_product_extractor_maps_stock_to_visible_colors():
     result = ProductExtractor().extract(soup)
 
     assert result["color_stock"] == {
-        "Rojo": 10,
-        "Azul": 20,
-        "Negro": 30,
+        "Azul": 10,
+        "Negro": 20,
+        "Rojo": 30,
     }
     assert result["stock"] == 60
+
+
+def test_product_extractor_maps_fb6005_stock_to_site_variant_color_order():
+    html = """
+    <html>
+        <h1>Lonchera de Neoprene</h1>
+        <p class="brxe-heading">FB-6005</p>
+        <div>
+            Colores disponibles: Azul, Rojo, Negro
+            Stock Disponible 330 4 1022
+        </div>
+    </html>
+    """
+
+    result = ProductExtractor().extract(
+        BeautifulSoup(html, "lxml"),
+        url="https://example.com/producto/lonchera-de-neoprene/",
+        category="Bolsas / Mochilas",
+    )
+
+    assert result["color_stock"] == {
+        "Azul": 330,
+        "Negro": 4,
+        "Rojo": 1022,
+    }
+    assert result["stock"] == 1356
 
 
 def test_product_extractor_reads_detail_page_color_links():
@@ -103,7 +129,7 @@ def test_product_extractor_reads_detail_page_color_links():
     soup = BeautifulSoup(html, "lxml")
     result = ProductExtractor().extract(soup)
 
-    assert list(result["color_stock"]) == ["Negro", "Azul", "Rojo"]
+    assert list(result["color_stock"]) == ["Azul", "Negro", "Rojo"]
     assert result["stock"] == 0
 
 
@@ -162,8 +188,8 @@ def test_product_extractor_ignores_script_text_as_color():
     result = ProductExtractor().extract(soup)
 
     assert result["color_stock"] == {
-        "Rojo": 10,
         "Azul": 20,
+        "Rojo": 10,
     }
     assert result["stock"] == 30
 

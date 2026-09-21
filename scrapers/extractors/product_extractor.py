@@ -41,9 +41,12 @@ class ProductExtractor:
     def extract(self, soup, url="", category=""):
         text = soup.get_text(" ", strip=True)
         color_stock = self.extract_color_stock(soup, text=text)
+        visible_stock = self._extract_visible_stock_values(soup, text=text)
         stock = self.stock_extractor.extract(soup, text=text)
         if color_stock:
-            stock = sum(color_stock.values())
+            color_total = sum(color_stock.values())
+            if color_total > 0 or len(color_stock) == len(visible_stock):
+                stock = color_total
         code = self.extract_code(soup)
         self._extracted_codes[id(soup)] = code
 
@@ -201,6 +204,9 @@ class ProductExtractor:
 
         if color_stock and len(color_stock) == len(color_names):
             return color_stock
+
+        if not color_stock and color_names:
+            return {color: 0 for color in color_names}
 
         if color_names and len(color_names) == len(visible_stock):
             return {

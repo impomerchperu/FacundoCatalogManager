@@ -458,3 +458,75 @@ def test_catalog_sync_does_not_clean_images_when_full_prune_is_blocked():
     assert result.deleted == 0
     assert cleanup_calls == []
 
+def test_catalog_sync_updates_color_stock_and_reports_the_changed_field():
+    repository = InMemoryCatalogRepository()
+    service = CatalogSyncService(repository, ProductDiffService())
+
+    service.synchronize(
+        [
+            Product(
+                "COLOR001",
+                "Producto por color",
+                10,
+                category="Categoria A",
+                color_stock={"Rojo": 4, "Azul": 6},
+            )
+        ]
+    )
+
+    incoming = Product(
+        "COLOR001",
+        "Producto por color",
+        10,
+        category="Categoria A",
+        color_stock={"Rojo": 8, "Azul": 6},
+    )
+    incoming.stock = 14
+
+    result = service.synchronize([incoming])
+    stored = repository.get("COLOR001")
+
+    assert stored is not None
+    assert result.updated == 1
+    assert result.counts_are_consistent
+    assert stored.color_stock == {"Rojo": 8, "Azul": 6}
+    assert stored.stock == 14
+    assert result.changes[0]["type"] == "UPDATED"
+    assert any(
+        change["field"] == "color_stock"
+        and change["label"] == "Stock por color"
+        for change in result.changes[0]["changes"]
+    )
+
+
+def test_catalog_sync_is_idempotent_when_color_stock_is_unchanged():
+    repository = InMemoryCatalogRepository()
+    service = CatalogSyncService(repository, ProductDiffService())
+
+    product = Product(
+        "COLOR002",
+        "Producto estable por color",
+        12,
+        category="Categoria A",
+        color_stock={"Negro": 5, "Blanco": 7},
+    )
+    product.stock = 12
+
+    first = service.synchronize([product])
+    second = service.synchronize(
+        [
+            Product(
+                "COLOR002",
+                "Producto estable por color",
+                12,
+                category="Categoria A",
+                color_stock={"Negro": 5, "Blanco": 7},
+            )
+        ]
+    )
+
+    assert first.created == 1
+    assert second.updated == 0
+    assert second.unchanged == 1
+    assert second.changes == []
+    assert second.counts_are_consistent

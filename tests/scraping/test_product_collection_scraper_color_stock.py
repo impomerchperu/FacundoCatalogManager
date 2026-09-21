@@ -649,8 +649,8 @@ def test_collection_scraper_uses_detail_color_names_for_multiple_card_stocks():
     assert len(products) == 1
     assert products[0].color_stock == {
         "azul": 2,
-        "rojo": 3415,
-        "negro": 0,
+        "negro": 3415,
+        "rojo": 0,
         "gris": 1978,
     }
     assert products[0].stock == 5395

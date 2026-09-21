@@ -65,7 +65,7 @@ Validación del baseline funcional actual sobre `main`:
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site: `470 passed, 10 deselected`.
+- Suite no-real-site: `473 passed, 10 deselected`.
 - E2E real: `1 passed`, cobertura `24 / 523 / 519 / 4`, historial aplicado y `0` errores HTTP terminales.
 
 Los cambios funcionales y de documentación posteriores quedaron cubiertos por validaciones locales y por Quality CI. En el último run de Quality asociado a `main`, Ruff, Pyright y Pytest terminaron correctamente; `live-catalog` quedó omitido de forma intencional en el CI rápido.
@@ -176,7 +176,7 @@ Esta validación manual se completó el 2026-09-20 sobre `main` y no modificó e
 12. [x] Stock por color aplicado a la base real mediante sincronización dirigida de `Bolsas / Mochilas`; historia `200`, 3 productos con `color_stock` y verificación independiente posterior desde SQLite.
 13. [x] Pyright y suite completa local posteriores a la aplicación real: `0 errors, 0 warnings, 0 informations`; `470 passed, 10 deselected`.
 14. [x] Stock por color aplicado a las 24 categorías reales mediante sincronización dirigida conjunta: `24/24` categorías, `523/523` apariciones, `519` productos únicos, `0` errores, `0` eliminados, `523` apariciones con `color_stock`, `24/24` categorías con productos con stock por color, `523` verificaciones SQLite y `0` inconsistencias; historia `201`.
-15. [x] La cobertura FULL real y el benchmark de concurrencia quedan protegidos por invariantes explícitas de `color_stock`: ningún producto extraído puede perder `color_stock`, el `stock` debe coincidir con la suma por color y las 24 categorías deben quedar representadas; Ruff, Pyright y la suite local posterior terminaron correctamente (`470 passed, 10 deselected`).
+15. [x] La cobertura FULL real y el benchmark de concurrencia quedan protegidos por invariantes explícitas de `color_stock`: ningún producto extraído puede perder `color_stock`, el `stock` debe coincidir con la suma por color y las 24 categorías deben quedar representadas; Ruff, Pyright y la suite local posterior terminaron correctamente (`473 passed, 10 deselected`).
 16. [x] Regresiones locales específicas de `color_stock` añadidas para detectar cambios de cantidades, reportarlos como `Stock por color` y preservar idempotencia cuando los valores no cambian; Ruff y Pyright limpios y suite local en `473 passed, 10 deselected`.
 
 Hallazgo de idempotencia: las altas iniciales podían quedar sin `content_hash`, mientras que la segunda sincronización calculaba ese hash antes de comparar. Se corrigió la inicialización del hash antes de la clasificación para evitar un `UPDATED` espurio. La idempotencia ya quedó validada en CI con una SQLite persistente compartida por dos sincronizaciones consecutivas; no se requiere otro FULL real para cerrar este punto.

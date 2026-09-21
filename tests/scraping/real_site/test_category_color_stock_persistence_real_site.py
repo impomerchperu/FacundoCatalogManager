@@ -7,7 +7,6 @@ import pytest
 from PySide6.QtWidgets import QApplication, QLabel
 
 from config.scraping_config import BASE_URL, STORE_URL
-from controllers.product_controller import ProductController
 from database.db_manager import DBManager
 from gui.product_table import ProductTable
 from models.scraping.category import Category
@@ -28,7 +27,6 @@ from scrapers.extractors.category_extractor import CategoryExtractor
 from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.product_card_extractor import ProductCardExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
-from services.product_service import ProductService
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,
@@ -181,11 +179,8 @@ def test_real_category_color_stock_is_persisted_and_rendered_in_product_table(
         assert repository_product.stock == expected_total_stock
         assert repository_product.color_stock == expected_color_stock
 
-        controller = ProductController(
-            ProductService(ProductRepository(db)),
-        )
-        table = ProductTable(controller)
-        table.load_products()
+        table = ProductTable(None)
+        table.load_products([repository_product])
 
         matching_rows = [
             row

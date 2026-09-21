@@ -200,14 +200,27 @@ class CategoryProductExtractor:
                 r"\b(?:\d+\s+)?colores?(?:\s+(?:disponibles?|de\s+tinta))?"
                 r"\s*[:|\-]\s*(.+?)"
                 r"(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
-                r"c[oó]digo|sku|categor[ií]as?)\b|$)",
+                r"c[oó]digo|sku|categor[ií]as?)\b|[.;]|$)",
+                flags=re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b(?:disponible|disponibles)\s+(?:en\s+)?"
+                r"(?:los\s+)?colores?\s+[^.;]*?\bcomo\b\s*(.+?)"
+                r"(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
+                r"c[oó]digo|sku|categor[ií]as?)\b|[.;]|$)",
                 flags=re.IGNORECASE,
             ),
             re.compile(
                 r"\b(?:disponible|disponibles)\s+(?:en\s+)?"
                 r"(?:los\s+)?colores?\s*[:|\-]?\s*(.+?)"
                 r"(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
-                r"c[oó]digo|sku|categor[ií]as?)\b|$)",
+                r"c[oó]digo|sku|categor[ií]as?)\b|[.;]|$)",
+                flags=re.IGNORECASE,
+            ),
+            re.compile(
+                r"\bcolor\s*[:|\-]\s*(.+?)"
+                r"(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
+                r"c[oó]digo|sku|categor[ií]as?)\b|[.;]|$)",
                 flags=re.IGNORECASE,
             ),
         )
@@ -229,6 +242,9 @@ class CategoryProductExtractor:
 
             normalized = match.group(1).strip(" .|-")
             normalized = re.sub(r"\s*\([^)]*\)\s*$", "", normalized)
+            casefolded = normalized.casefold()
+            if " como " in casefolded:
+                normalized = normalized[casefolded.rfind(" como ") + len(" como "):]
             normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
             for item in normalized.split(","):
                 add_color(item)

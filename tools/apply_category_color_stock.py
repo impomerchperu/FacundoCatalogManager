@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from config.scraping_config import BASE_URL
 from factories.scraping_factory import ScrapingFactory
-from repositories.product_repository import ProductRepository
 from models.scraping.category import Category
+from repositories.product_repository import ProductRepository
 from services.scraping.scraping_session import ScrapingSession
 
 CATEGORY_NAME = "Bolsas / Mochilas"
@@ -70,6 +75,7 @@ def main() -> int:
             if persisted_product is None:
                 print("VERIFICACIÓN BD: ERROR - producto no encontrado tras commit")
                 return 1
+
             print(
                 "VERIFICACIÓN BD:",
                 persisted_product.code,

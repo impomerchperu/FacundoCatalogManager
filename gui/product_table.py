@@ -298,7 +298,6 @@ class ProductTable(QTableWidget):
     def _render_products(self, products: list[Product]) -> None:
         self.setSortingEnabled(False)
         self.clearContents()
-        self._max_stock_value_width = self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN]
         self._max_stock_color_width = 0
         self._max_stock_value_width = self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN]
         metrics = QFontMetrics(self.font())

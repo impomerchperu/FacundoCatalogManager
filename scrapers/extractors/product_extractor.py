@@ -329,20 +329,37 @@ class ProductExtractor:
 
     @classmethod
     def _extract_text_colors(cls, soup) -> list[str]:
-        pattern = re.compile(
-            r"\bcolores?\s*[:|\-]\s*(.+?)(?="
-            r"\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
-            r"c[oó]digo|sku|categor[ií]as?)\b|$)",
-            flags=re.IGNORECASE,
+        patterns = (
+            re.compile(
+                r"\bcolores?(?:\s+(?:disponibles?|de\s+tinta))?"
+                r"\s*[:|\-]\s*(.+?)(?="
+                r"\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
+                r"c[oó]digo|sku|categor[ií]as?)\b|$)",
+                flags=re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b(?:disponible|disponibles)\s+(?:en\s+)?"
+                r"(?:los\s+)?colores?\s*[:|\-]?\s*(.+?)(?="
+                r"\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
+                r"c[oó]digo|sku|categor[ií]as?)\b|$)",
+                flags=re.IGNORECASE,
+            ),
         )
-        marker = re.compile(r"\bcolores?\s*[:|\-]", re.IGNORECASE)
+        marker = re.compile(
+            r"\b(?:colores?(?:\s+(?:disponibles?|de\s+tinta))?"
+            r"|(?:disponible|disponibles)\s+(?:en\s+)?"
+            r"(?:los\s+)?colores?)\s*[:|\-]?",
+            re.IGNORECASE,
+        )
         for element in soup.find_all(string=marker):
-            match = pattern.search(str(element).strip())
-            if match is None:
-                continue
-            colors = cls._split_color_text(match.group(1))
-            if colors:
-                return colors
+            element_text = str(element).strip()
+            for pattern in patterns:
+                match = pattern.search(element_text)
+                if match is None:
+                    continue
+                colors = cls._split_color_text(match.group(1))
+                if colors:
+                    return colors
 
         heading = re.compile(r"^\s*colores?\s*:?\s*$", re.IGNORECASE)
         for text_node in soup.find_all(string=heading):

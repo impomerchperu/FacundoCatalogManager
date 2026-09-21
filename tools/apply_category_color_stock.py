@@ -4,6 +4,7 @@ import sys
 
 from config.scraping_config import BASE_URL
 from factories.scraping_factory import ScrapingFactory
+from repositories.product_repository import ProductRepository
 from models.scraping.category import Category
 from services.scraping.scraping_session import ScrapingSession
 
@@ -60,6 +61,29 @@ def main() -> int:
                 "|",
                 product.color_stock,
             )
+
+        persisted_product = None
+        if color_products:
+            persisted_product = ProductRepository(
+                runner.catalog_repository.db,
+            ).get_by_code(color_products[0].code)
+            if persisted_product is None:
+                print("VERIFICACIÓN BD: ERROR - producto no encontrado tras commit")
+                return 1
+            print(
+                "VERIFICACIÓN BD:",
+                persisted_product.code,
+                "| STOCK=",
+                persisted_product.stock,
+                "|",
+                persisted_product.color_stock,
+            )
+            if (
+                persisted_product.stock != color_products[0].stock
+                or persisted_product.color_stock != color_products[0].color_stock
+            ):
+                print("VERIFICACIÓN BD: ERROR - datos persistidos no coinciden")
+                return 1
 
         if result.errors:
             print("ERRORES:")

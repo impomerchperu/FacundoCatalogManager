@@ -5,10 +5,10 @@ from urllib.parse import urljoin
 
 from scrapers.extractors.code_utils import extract_code_from_soup, normalize_code
 from scrapers.extractors.price_extractor import PriceExtractor
+from scrapers.extractors.stock_extractor import StockExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
 )
-from scrapers.extractors.stock_extractor import StockExtractor
 from scrapers.factories.scraped_product_factory import ScrapedProductFactory
 from scrapers.selectors import product_selectors
 
@@ -191,8 +191,6 @@ class ProductExtractor:
         self._collect_color_labels(soup, color_labels)
 
         explicit_colors = self._extract_text_colors(soup)
-        visible_stock = self._extract_visible_stock_values(soup, text=text)
-
         for color in explicit_colors:
             add_color(color)
 

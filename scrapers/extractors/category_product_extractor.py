@@ -197,13 +197,15 @@ class CategoryProductExtractor:
         """Extrae colores declarados en la descripción de la tarjeta."""
         patterns = (
             re.compile(
-                r"\b(?:\d+\s+)?colores?\s+de\s+tinta\s*[:|\-]\s*(.+?)"
+                r"\b(?:\d+\s+)?colores?(?:\s+(?:disponibles?|de\s+tinta))?"
+                r"\s*[:|\-]\s*(.+?)"
                 r"(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
                 r"c[oó]digo|sku|categor[ií]as?)\b|$)",
                 flags=re.IGNORECASE,
             ),
             re.compile(
-                r"\b(?:\d+\s+)?colores?\s*[:|\-]\s*(.+?)"
+                r"\b(?:disponible|disponibles)\s+(?:en\s+)?"
+                r"(?:los\s+)?colores?\s*[:|\-]?\s*(.+?)"
                 r"(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
                 r"c[oó]digo|sku|categor[ií]as?)\b|$)",
                 flags=re.IGNORECASE,

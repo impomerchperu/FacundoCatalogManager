@@ -65,7 +65,7 @@ Validación del baseline funcional actual sobre `main`:
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site: `454 passed, 8 deselected`.
+- Suite no-real-site: `470 passed, 10 deselected`.
 - E2E real: `1 passed`, cobertura `24 / 523 / 519 / 4`, historial aplicado y `0` errores HTTP terminales.
 
 Los cambios funcionales y de documentación posteriores quedaron cubiertos por validaciones locales y por Quality CI. En el último run de Quality asociado a `main`, Ruff, Pyright y Pytest terminaron correctamente; `live-catalog` quedó omitido de forma intencional en el CI rápido.
@@ -89,6 +89,20 @@ El 2026-09-20 se validó de extremo a extremo una categoría real (`Bolsas / Moc
 - historial de la ejecución en estado `SUCCESS` con `applied_at`.
 
 Resultado local: `1 passed in 6.86s`, con Ruff limpio y Pyright `0 errors, 0 warnings, 0 informations`.
+
+### Aplicación real dirigida sobre `database/catalog.db`
+
+El 2026-09-20 se ejecutó una sincronización dirigida de la categoría real `Bolsas / Mochilas` contra la base de producción local `database/catalog.db`, con respaldo previo de la base y sin prune FULL. La ejecución terminó en `SUCCESS` y creó la historia aplicada `history_id=200`.
+
+Se confirmaron 3 productos con stock explícito por color:
+
+- `FB-6001`: stock `13395`; Azul `4002`, Gris `3415`, Negro `4000`, Rojo `1978`.
+- `FB-6002`: stock `2693`; Azul `528`, Gris `124`, Negro `1686`, Rojo `355`.
+- `FB-6005`: stock `1356`; Azul `330`, Negro `4`, Rojo `1022`.
+
+La lectura independiente posterior desde SQLite confirmó exactamente esos valores y `3` productos con `color_stock` no vacío en la base real. La verificación integrada del utilitario también releyó `FB-6005` mediante `ProductRepository` después del commit y confirmó coincidencia exacta.
+
+Esta aplicación dirigida es una validación puntual del mecanismo de persistencia; no sustituye ni altera la referencia de cobertura FULL `24 / 523 / 519 / 4`.
 
 ## Arquitectura
 
@@ -142,6 +156,8 @@ Esta validación manual se completó el 2026-09-20 sobre `main` y no modificó e
 9. [x] E2E productivo validado: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, cobertura completa y cero errores HTTP terminales.
 10. [x] FULL real independiente de cobertura completado: 24/24 categorías, 523/523 apariciones, 519 únicos, 4 multi-categoría, 0 gaps y 0 códigos sin código.
 11. [x] Idempotencia validada sobre la misma SQLite; el resultado quedó incorporado al baseline y posteriormente documentado en commits sin cambios de runtime. Quality CI `#2194` confirmó el baseline en `ef8d9c8`; los commits documentales posteriores no cambiaron código funcional ni runtime.
+12. [x] Stock por color aplicado a la base real mediante sincronización dirigida de `Bolsas / Mochilas`; historia `200`, 3 productos con `color_stock` y verificación independiente posterior desde SQLite.
+13. [x] Pyright y suite completa local posteriores a la aplicación real: `0 errors, 0 warnings, 0 informations`; `470 passed, 10 deselected`.
 
 Hallazgo de idempotencia: las altas iniciales podían quedar sin `content_hash`, mientras que la segunda sincronización calculaba ese hash antes de comparar. Se corrigió la inicialización del hash antes de la clasificación para evitar un `UPDATED` espurio. La idempotencia ya quedó validada en CI con una SQLite persistente compartida por dos sincronizaciones consecutivas; no se requiere otro FULL real para cerrar este punto.
 

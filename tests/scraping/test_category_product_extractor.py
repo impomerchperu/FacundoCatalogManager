@@ -5,7 +5,7 @@ from scrapers.extractors.category_product_extractor import (
 )
 
 
-def test_category_product_extractor_maps_stock_to_colors():
+def test_category_product_extractor_does_not_guess_color_stock_from_text_order():
     html = """
     <article>
         <p class="brxe-a26f34">FB-4001-D</p>
@@ -21,10 +21,7 @@ def test_category_product_extractor_maps_stock_to_colors():
     card = BeautifulSoup(html, "lxml")
     product = CategoryProductExtractor().extract(card)
 
-    assert product.color_stock == {
-        "Dorado": 6646,
-        "Plateado": 7942,
-    }
+    assert product.color_stock == {}
     assert product.stock == 14588
 
 
@@ -43,11 +40,7 @@ def test_category_product_extractor_maps_visible_stock_to_colors():
     card = BeautifulSoup(html, "lxml")
     product = CategoryProductExtractor().extract(card)
 
-    assert product.color_stock == {
-        "Amarillo": 1520,
-        "Azul": 0,
-        "Blanco": 20,
-    }
+    assert product.color_stock == {}
     assert product.stock == 1540
 
 

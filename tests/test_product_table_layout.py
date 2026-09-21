@@ -2,7 +2,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics, QPixmap
-from PySide6.QtWidgets import QApplication, QHeaderView, QLabel
+from PySide6.QtWidgets import QApplication, QHeaderView, QLabel, QWidget
 
 from gui.product_table import ProductImageDelegate, ProductTable
 from models.product import Product
@@ -243,11 +243,20 @@ def test_product_table_renders_stock_by_color_in_stock_cell():
 
     widget = table.cellWidget(0, ProductTable.STOCK_COLUMN)
 
-    assert isinstance(widget, QLabel)
-    assert "Azul" in widget.text()
-    assert "528" in widget.text()
-    assert "Negro" in widget.text()
-    assert "1,686" in widget.text()
+    assert isinstance(widget, QWidget)
+    labels = widget.findChildren(QLabel)
+    rendered_texts = [label.text() for label in labels]
+
+    assert "Azul" in rendered_texts
+    assert "528" in rendered_texts
+    assert "Rojo" in rendered_texts
+    assert "124" in rendered_texts
+    assert "Negro" in rendered_texts
+    assert "1,686" in rendered_texts
+    assert "Gris" in rendered_texts
+    assert "355" in rendered_texts
+    assert all("\n" not in text for text in rendered_texts)
+    assert table.rowHeight(0) >= widget.sizeHint().height()
     assert widget.toolTip() == (
         "Azul: 528\n"
         "Rojo: 124\n"

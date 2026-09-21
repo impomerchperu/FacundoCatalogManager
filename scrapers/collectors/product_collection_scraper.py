@@ -596,17 +596,12 @@ class ProductCollectionScraper:
             return product
 
         if detail_color_stock:
-            colors = list(detail_color_stock)
-            if len(card_stock_values) == len(colors):
-                product.color_stock = dict(
-                    zip(colors, card_stock_values, strict=True)
-                )
-                product.stock = sum(product.color_stock.values())
+            if not card_stock_values:
+                product.color_stock = detail_color_stock
+                product.stock = sum(detail_color_stock.values())
             elif sum(detail_color_stock.values()) > 0:
                 product.color_stock = detail_color_stock
                 product.stock = sum(detail_color_stock.values())
-            elif not card_stock_values:
-                product.color_stock = {}
             return product
 
         if not card_stock_values:

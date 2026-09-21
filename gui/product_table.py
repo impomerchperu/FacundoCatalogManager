@@ -303,7 +303,7 @@ class ProductTable(QTableWidget):
         for product in products:
             color_stock = self._ordered_color_stock(product)
             stock_values = [stock for _, stock in color_stock] or [product.stock]
-            for _, stock in color_stock:
+            for stock in stock_values:
                 self._max_stock_value_width = max(
                     self._max_stock_value_width,
                     metrics.horizontalAdvance(f"{stock:,}"),

@@ -4,6 +4,9 @@ from models.scraping.scraped_product import ScrapedProduct
 from scrapers.extractors.code_utils import normalize_code_token
 from scrapers.extractors.color_stock_order import order_color_names
 from scrapers.extractors.price_extractor import PriceExtractor
+from scrapers.extractors.variant_color_stock_extractor import (
+    extract_variant_color_stock,
+)
 
 
 class CategoryProductExtractor:
@@ -138,6 +141,10 @@ class CategoryProductExtractor:
         return values
 
     def _color_stock(self, soup) -> dict[str, int]:
+        variant_color_stock = extract_variant_color_stock(soup)
+        if variant_color_stock:
+            return variant_color_stock
+
         color_stock: dict[str, int] = {}
         color_candidates: list[str] = []
         color_keys: set[str] = set()

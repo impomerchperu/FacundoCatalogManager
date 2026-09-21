@@ -568,10 +568,18 @@ class ProductCollectionScraper:
 
         detail_color_stock = dict(getattr(detailed_product, "color_stock", {}))
         card_stock_values = self._stock_values(card)
+        card_color_stock = dict(getattr(product, "color_stock", {}) or {})
+
+        if card_color_stock and len(card_color_stock) == len(card_stock_values):
+            product.stock = sum(card_color_stock.values())
+            return product
+
         if detail_color_stock:
             colors = list(detail_color_stock)
             if len(card_stock_values) == len(colors):
-                product.color_stock = dict(zip(colors, card_stock_values, strict=True))
+                product.color_stock = dict(
+                    zip(colors, card_stock_values, strict=True)
+                )
                 product.stock = sum(product.color_stock.values())
             elif sum(detail_color_stock.values()) > 0:
                 product.color_stock = detail_color_stock

@@ -6,6 +6,9 @@ from urllib.parse import urljoin
 from scrapers.extractors.code_utils import extract_code_from_soup, normalize_code
 from scrapers.extractors.color_stock_order import order_color_names
 from scrapers.extractors.price_extractor import PriceExtractor
+from scrapers.extractors.variant_color_stock_extractor import (
+    extract_variant_color_stock,
+)
 from scrapers.extractors.stock_extractor import StockExtractor
 from scrapers.factories.scraped_product_factory import ScrapedProductFactory
 from scrapers.selectors import product_selectors
@@ -173,6 +176,10 @@ class ProductExtractor:
 
     def extract_color_stock(self, soup, text: str | None = None) -> dict[str, int]:
         """Extrae exclusivamente el stock asociado a cada color visible."""
+        variant_color_stock = extract_variant_color_stock(soup)
+        if variant_color_stock:
+            return variant_color_stock
+
         color_stock: dict[str, int] = {}
         color_labels: dict[str, str] = {}
         color_names: list[str] = []

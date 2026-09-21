@@ -20,7 +20,14 @@ class CategoryProductExtractor:
         color_stock = self._color_stock(card)
         stock_values = self._stock_values(card)
         total_stock = sum(stock_values) if stock_values else self._stock(card)
-        if color_stock and len(color_stock) == len(stock_values):
+        if (
+            color_stock
+            and len(color_stock) == len(stock_values)
+            and (
+                sum(color_stock.values()) > 0
+                or sum(stock_values) == 0
+            )
+        ):
             total_stock = sum(color_stock.values())
 
         price_sample = self.price_extractor.extract_sample(card)

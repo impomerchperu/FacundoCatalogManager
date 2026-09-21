@@ -38,15 +38,29 @@ La regla operativa es ahora comparar cada FULL con los totales publicados por el
 
 ## Persistencia e historial
 
-La validación de la base real documentada conserva:
+### Referencia histórica protegida
+
+La validación histórica de la base real conserva:
 
 - SQLite `PRAGMA integrity_check = ok`.
-- Último FULL válido: run `34`.
-- Catálogo: `530` productos / `534` relaciones.
+- Snapshot de catálogo: `530` productos / `534` relaciones.
 - Historial preservado: `156` registros.
 - Detalles de cambios preservados: `52,816`.
-- Última historia aplicada validada: `history_id=191`.
-- Clasificación de la última historia aplicada: `0 created / 0 updated / 530 unchanged / 0 deleted`.
+- Última historia aplicada de ese checkpoint histórico: `history_id=191`.
+
+### Estado operativo más reciente de stock por color
+
+La aplicación dirigida conjunta sobre las 24 categorías actualizó la base real con:
+
+- `history_id=201`.
+- `516` productos actualizados.
+- `3` sin cambios.
+- `0` creados.
+- `0` eliminados.
+- `523` productos/apariciones verificadas con `color_stock`.
+- `523` verificaciones posteriores contra SQLite y `0` inconsistencias.
+
+Este estado corresponde a la aplicación dirigida de stock por color y no reemplaza la referencia histórica de cobertura FULL.
 
 ## Runtime validado
 
@@ -57,7 +71,7 @@ La validación de la base real documentada conserva:
 - Timeout: `20s`.
 - Reintentos máximos: `3`.
 
-El E2E real de producción más reciente validó `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, `337` solicitudes HTTP, `0` reintentos y `0` errores HTTP terminales, con `100.33s` de wall-clock en SQLite aislada. Esta es la referencia operativa actual; los `534 / 530 / 4` permanecen como snapshot histórico.
+El benchmark real de concurrencia más reciente validó `24 / 523 / 519 / 4`, `337` solicitudes HTTP, `0` reintentos, `0` errores HTTP terminales y `83.65s` de pipeline con el patrón `8/16/28`. El FULL real secuencial posterior validó las mismas `24 / 523 / 519 / 4` y las invariantes de stock por color en `335.34s`. Los `534 / 530 / 4` permanecen como snapshot histórico.
 
 ## Calidad
 
@@ -66,7 +80,8 @@ Validación del baseline funcional actual sobre `main`:
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
 - Suite no-real-site: `473 passed, 10 deselected`.
-- E2E real: `1 passed`, cobertura `24 / 523 / 519 / 4`, historial aplicado y `0` errores HTTP terminales.
+- E2E real: `1 passed`, cobertura `24 / 523 / 519 / 4`, `0` productos sin `color_stock`, `0` inconsistencias y `0` errores HTTP terminales.
+- Benchmark real de concurrencia: `1 passed` en `83.65s`, con `24 / 523 / 519 / 4`, `337` requests y `0` reintentos.
 
 Los cambios funcionales y de documentación posteriores quedaron cubiertos por validaciones locales y por Quality CI. En el último run de Quality asociado a `main`, Ruff, Pyright y Pytest terminaron correctamente; `live-catalog` quedó omitido de forma intencional en el CI rápido.
 
@@ -88,7 +103,7 @@ El 2026-09-20 se validó de extremo a extremo una categoría real (`Bolsas / Moc
 - representación del mismo `color → cantidad` en la columna **Stock** de `ProductTable`;
 - historial de la ejecución en estado `SUCCESS` con `applied_at`.
 
-Resultado local: `1 passed in 6.86s`, con Ruff limpio y Pyright `0 errors, 0 warnings, 0 informations`.
+Resultado local: `1 passed in 6.86s`, con Ruff limpio y Pyright `0 errors, 0 warnings, 0 informations`. La aplicación completa sobre las 24 categorías confirmó posteriormente `523` productos/apariciones con `color_stock`.
 
 ### Aplicación real dirigida sobre `database/catalog.db`
 

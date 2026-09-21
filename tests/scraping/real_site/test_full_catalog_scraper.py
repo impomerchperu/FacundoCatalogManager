@@ -186,6 +186,35 @@ def test_full_catalog_scraper_real_site():
         for product in products
         if not product.image_url
     ]
+    without_color_stock = [
+        product.code
+        for product in products
+        if not (getattr(product, "color_stock", {}) or {})
+    ]
+    invalid_color_stock_totals = [
+        (
+            product.code,
+            product.stock,
+            sum(
+                int(stock)
+                for stock in (getattr(product, "color_stock", {}) or {}).values()
+            ),
+        )
+        for product in products
+        if (getattr(product, "color_stock", {}) or {})
+        and product.stock
+        != sum(
+            int(stock)
+            for stock in (getattr(product, "color_stock", {}) or {}).values()
+        )
+    ]
+    color_stock_by_category = Counter()
+    for product in products:
+        if getattr(product, "color_stock", {}) or {}:
+            for category_name in split_category_names(
+                getattr(product, "category", "")
+            ):
+                color_stock_by_category[category_name] += 1
 
     print("=" * 80)
     print("CATEGORÍAS:", len(categories))
@@ -197,6 +226,16 @@ def test_full_catalog_scraper_real_site():
     print("DUPLICADOS POR CÓDIGO:", duplicate_codes)
     print("PRODUCTOS SIN PRECIO:", without_prices)
     print("PRODUCTOS SIN IMAGEN:", without_images)
+    print("PRODUCTOS SIN STOCK POR COLOR:", len(without_color_stock))
+    print("CÓDIGOS SIN STOCK POR COLOR:", without_color_stock)
+    print(
+        "INCONSISTENCIAS STOCK/COLOR_STOCK:",
+        invalid_color_stock_totals,
+    )
+    print(
+        "CATEGORÍAS CON STOCK POR COLOR:",
+        len(color_stock_by_category),
+    )
     print("ERRORES DE CATEGORÍA:", errors)
     print("ERRORES DE COBERTURA DE PÁGINAS:", [
         row for row in category_results if row["page_error"]
@@ -295,3 +334,6 @@ def test_full_catalog_scraper_real_site():
     assert len(products) == expected_total
     assert len(code_counts) > 0
     assert len(code_counts) <= len(products)
+    assert not without_color_stock
+    assert not invalid_color_stock_totals
+    assert len(color_stock_by_category) == len(categories)

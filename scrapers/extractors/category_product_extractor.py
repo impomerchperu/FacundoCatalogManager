@@ -2,7 +2,6 @@ import re
 
 from models.scraping.scraped_product import ScrapedProduct
 from scrapers.extractors.code_utils import normalize_code_token
-from scrapers.extractors.color_stock_order import order_color_names
 from scrapers.extractors.price_extractor import PriceExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
@@ -203,17 +202,6 @@ class CategoryProductExtractor:
         stock_values = self._stock_values(soup)
         if direct_stock_found and len(color_stock) == len(stock_values):
             return color_stock
-
-        if color_candidates and len(color_candidates) == len(stock_values):
-            ordered_colors = order_color_names(color_candidates)
-            return {
-                color: stock
-                for color, stock in zip(
-                    ordered_colors,
-                    stock_values,
-                    strict=True,
-                )
-            }
 
         return {}
 

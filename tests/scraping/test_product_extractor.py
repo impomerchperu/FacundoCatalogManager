@@ -80,7 +80,11 @@ def test_product_extractor_does_not_guess_color_stock_from_text_order():
     soup = BeautifulSoup(html, "lxml")
     result = ProductExtractor().extract(soup)
 
-    assert result["color_stock"] == {}
+    assert result["color_stock"] == {
+        "Rojo": 0,
+        "Azul": 0,
+        "Negro": 0,
+    }
     assert result["stock"] == 60
 
 

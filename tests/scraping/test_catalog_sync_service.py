@@ -513,17 +513,15 @@ def test_catalog_sync_is_idempotent_when_color_stock_is_unchanged():
     product.stock = 12
 
     first = service.synchronize([product])
-    second = service.synchronize(
-        [
-            Product(
-                "COLOR002",
-                "Producto estable por color",
-                12,
-                category="Categoria A",
-                color_stock={"Negro": 5, "Blanco": 7},
-            )
-        ]
+    incoming = Product(
+        "COLOR002",
+        "Producto estable por color",
+        12,
+        category="Categoria A",
+        color_stock={"Negro": 5, "Blanco": 7},
     )
+    incoming.stock = 12
+    second = service.synchronize([incoming])
 
     assert first.created == 1
     assert second.updated == 0

@@ -538,6 +538,64 @@ def test_category_extractor_maps_single_explicit_color_to_total_stock():
 
 
 
+def test_collection_scraper_maps_fb6005_category_stock_to_correct_colors():
+    class Fb6005CategoryScraper:
+        def get_category_pages(self, url):
+            return [url]
+
+        def get_html(self, url):
+            if "/producto/" in url:
+                return """
+                <html>
+                    <h1>Lonchera de Neoprene</h1>
+                    <p class="brxe-heading">FB-6005</p>
+                    <div>
+                        Colores disponibles: Azul, Rojo, Negro
+                    </div>
+                </html>
+                """
+            return """
+            <html>
+                <article class="jsfb-filterable">
+                    <a href="/producto/lonchera-de-neoprene/">
+                        <h2 class="brxe-f31760">Lonchera de Neoprene</h2>
+                    </a>
+                    <p class="brxe-a26f34">FB-6005</p>
+                    <div class="variaciones-producto">
+                        <p>330</p>
+                        <p>4</p>
+                        <p>1022</p>
+                    </div>
+                    <div class="text-content">
+                        Colores disponibles: Azul, Rojo, Negro
+                    </div>
+                </article>
+            </html>
+            """
+
+    scraper = ProductCollectionScraper(
+        Fb6005CategoryScraper(),
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+
+    products = scraper.scrape_category(
+        Category(
+            name="Bolsas / Mochilas",
+            url="https://example.com/categoria/",
+        ),
+    )
+
+    assert len(products) == 1
+    assert products[0].color_stock == {
+        "Azul": 330,
+        "Negro": 4,
+        "Rojo": 1022,
+    }
+    assert products[0].stock == 1356
+
+
 def test_collection_scraper_uses_detail_color_names_for_multiple_card_stocks():
     class DetailNamesCategoryScraper:
         def get_category_pages(self, url):

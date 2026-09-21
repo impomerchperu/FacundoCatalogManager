@@ -114,8 +114,12 @@ class ProductTable(QTableWidget):
     """Tabla principal del catálogo de productos."""
 
     CONTENT_SIDE_PADDING = 4
-    CATEGORY_MAX_WORDS = 4
-    CATEGORY_MAX_CHARACTERS = 30
+    CATEGORY_FORCED_LINES: ClassVar[dict[str, tuple[str, ...]]] = {
+        "Impresoras y Consumible Fotográficas Térmicas": (
+            "Impresoras y Consumible",
+            "Fotográficas Térmicas",
+        ),
+    }
     DEFAULT_IMAGE_CELL_SIZE = 160
     IMAGE_SIZE = DEFAULT_IMAGE_CELL_SIZE
 
@@ -368,41 +372,13 @@ class ProductTable(QTableWidget):
 
         lines: list[str] = []
         for category_name in categories:
-            lines.extend(cls._wrap_category_name(category_name))
-        return "\n".join(lines)
-
-    @classmethod
-    def _wrap_category_name(cls, category_name: str) -> list[str]:
-        words = category_name.split()
-        if not words:
-            return []
-
-        lines: list[str] = []
-        current_words: list[str] = []
-        current_length = 0
-
-        for word in words:
-            candidate_length = (
-                len(word)
-                if not current_words
-                else current_length + 1 + len(word)
+            lines.extend(
+                cls.CATEGORY_FORCED_LINES.get(
+                    category_name,
+                    (category_name,),
+                ),
             )
-            if current_words and (
-                len(current_words) >= cls.CATEGORY_MAX_WORDS
-                or candidate_length > cls.CATEGORY_MAX_CHARACTERS
-            ):
-                lines.append(" ".join(current_words))
-                current_words = [word]
-                current_length = len(word)
-                continue
-
-            current_words.append(word)
-            current_length = candidate_length
-
-        if current_words:
-            lines.append(" ".join(current_words))
-
-        return lines
+        return "\n".join(lines)
 
     def _set_stock_widget(self, row: int, product: Product) -> None:
         """Muestra cada color y su stock sin cortar texto ni cantidades."""

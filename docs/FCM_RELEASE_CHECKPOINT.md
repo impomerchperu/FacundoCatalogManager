@@ -78,6 +78,18 @@ No se reparte artificialmente un stock total entre colores. Cuando el sitio publ
 
 Quality `#2227` validó los nuevos patrones de etiquetas `Colores disponibles`, `disponible en colores`, `5 colores`, `Color:` y la unión de nombres de detalle con stock múltiple de categoría.
 
+### Validación real de stock por color y tabla de productos
+
+El 2026-09-20 se validó de extremo a extremo una categoría real (`Bolsas / Mochilas`) sobre una SQLite temporal, sin modificar `database/catalog.db`. La prueba confirmó:
+
+- extracción de al menos un producto con múltiples colores y stock explícito por color;
+- persistencia exacta de `products.color_stock` y del `stock` total como suma de sus cantidades;
+- lectura posterior mediante `ProductRepository`;
+- representación del mismo `color → cantidad` en la columna **Stock** de `ProductTable`;
+- historial de la ejecución en estado `SUCCESS` con `applied_at`.
+
+Resultado local: `1 passed in 6.86s`, con Ruff limpio y Pyright `0 errors, 0 warnings, 0 informations`.
+
 ## Arquitectura
 
 - `ImageHash` es la implementación canónica de SHA-256 para archivos de imagen.

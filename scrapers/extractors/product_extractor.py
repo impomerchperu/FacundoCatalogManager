@@ -216,14 +216,16 @@ class ProductExtractor:
 
     @staticmethod
     def _build_color_adder(color_stock, color_labels, color_names):
+        color_keys: set[str] = set()
+
         def add_color(name: str, stock: int | None = None) -> None:
             normalized = re.sub(r"\s+", " ", str(name)).strip(" .:-|")
             if not ProductExtractor._is_valid_color_name(normalized):
                 return
             normalized = color_labels.get(normalized.casefold(), normalized)
-            if normalized.casefold() not in {
-                existing.casefold() for existing in color_names
-            }:
+            key = normalized.casefold()
+            if key not in color_keys:
+                color_keys.add(key)
                 color_names.append(normalized)
             if stock is not None:
                 color_stock[normalized] = max(
@@ -327,14 +329,6 @@ class ProductExtractor:
                     add_color,
                     color_labels,
                 )
-
-    @staticmethod
-    def _apply_visible_color_stock(visible_stock, color_stock) -> None:
-        color_names = list(color_stock)
-        if len(visible_stock) != len(color_names) or not color_names:
-            return
-        for color, stock in zip(color_names, visible_stock, strict=True):
-            color_stock[color] = stock
 
     @staticmethod
     def _collect_color_labels(soup, color_labels: dict[str, str]) -> None:

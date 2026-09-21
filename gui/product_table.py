@@ -307,9 +307,9 @@ class ProductTable(QTableWidget):
                 for color, stock in color_stock:
                     self._max_stock_pair_width = max(
                         self._max_stock_pair_width,
-                        metrics.horizontalAdvance(
-                            f"{color}    {stock:,}",
-                        ),
+                        metrics.horizontalAdvance(color)
+                        + metrics.horizontalAdvance(f"{stock:,}")
+                        + 4,
                     )
             else:
                 for stock in stock_values:
@@ -317,11 +317,6 @@ class ProductTable(QTableWidget):
                         self._max_stock_pair_width,
                         metrics.horizontalAdvance(f"{stock:,}"),
                     )
-            for stock in stock_values:
-                self._max_stock_value_width = max(
-                    self._max_stock_value_width,
-                    metrics.horizontalAdvance(f"{stock:,}"),
-                )
 
         self.setRowCount(len(products))
         for row, product in enumerate(products):

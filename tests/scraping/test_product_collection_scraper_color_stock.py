@@ -300,8 +300,8 @@ def test_category_extractor_reads_colores_disponibles_and_maps_stock():
 
     assert result.color_stock == {
         "Azul": 528,
-        "Rojo": 124,
-        "Negro": 1686,
+        "Negro": 124,
+        "Rojo": 1686,
         "Gris": 355,
     }
     assert result.stock == 2693
@@ -359,8 +359,8 @@ def test_product_extractor_reads_colores_disponibles_from_detail_page():
 
     assert product.color_stock == {
         "Azul": 528,
-        "Rojo": 124,
-        "Negro": 1686,
+        "Negro": 124,
+        "Rojo": 1686,
         "Gris": 355,
     }
     assert product.stock == 2693
@@ -389,8 +389,8 @@ def test_product_extractor_keeps_total_stock_when_color_names_have_no_per_color_
 
     assert product.color_stock == {
         "Azul": 0,
-        "Rojo": 0,
         "Negro": 0,
+        "Rojo": 0,
     }
     assert product.stock == 330
 
@@ -472,8 +472,8 @@ def test_product_extractor_normalizes_descriptive_available_colors():
 
     assert product.color_stock == {
         "azul": 2,
-        "rojo": 3415,
-        "negro": 0,
+        "negro": 3415,
+        "rojo": 0,
         "gris": 1978,
     }
     assert product.stock == 5395
@@ -505,8 +505,8 @@ def test_category_extractor_maps_descriptive_available_colors_to_stock():
 
     assert result.color_stock == {
         "azul": 2,
-        "rojo": 3415,
-        "negro": 0,
+        "negro": 3415,
+        "rojo": 0,
         "gris": 1978,
     }
     assert result.stock == 5395

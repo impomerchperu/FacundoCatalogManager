@@ -366,6 +366,173 @@ def test_product_extractor_reads_colores_disponibles_from_detail_page():
     assert product.stock == 2693
 
 
+
+def test_product_extractor_keeps_total_stock_when_color_names_have_no_per_color_stock():
+    html = """
+    <html>
+        <h1>Lonchera de Neoprene</h1>
+        <p class="brxe-heading">FB-6005</p>
+        <div>
+            Colores: Azul, Rojo, Negro
+            Stock Disponible 330
+        </div>
+    </html>
+    """
+
+    from bs4 import BeautifulSoup
+
+    product = ProductExtractor().extract(
+        BeautifulSoup(html, "lxml"),
+        url="https://example.com/producto/fb-6005/",
+        category="Bolsas / Mochilas",
+    )
+
+    assert product.color_stock == {}
+    assert product.stock == 330
+
+
+def test_product_extractor_reads_numeric_prefix_in_color_label():
+    html = """
+    <html>
+        <h1>Resaltador Flor</h1>
+        <p class="brxe-heading">FB-1309</p>
+        <div>
+            5 colores: Fucsia, Naranja, Amarillo, Verde y Celeste
+            Stock Disponible 10 20 30 40 50
+        </div>
+    </html>
+    """
+
+    from bs4 import BeautifulSoup
+
+    product = ProductExtractor().extract(
+        BeautifulSoup(html, "lxml"),
+        url="https://example.com/producto/fb-1309/",
+        category="Resaltadores Publicitarios",
+    )
+
+    assert product.color_stock == {
+        "Fucsia": 10,
+        "Naranja": 20,
+        "Amarillo": 30,
+        "Verde": 40,
+        "Celeste": 50,
+    }
+    assert product.stock == 150
+
+
+def test_product_extractor_reads_single_explicit_color():
+    html = """
+    <html>
+        <h1>Estuche de Corcho</h1>
+        <p class="brxe-heading">FB-1601</p>
+        <div>
+            Color: Negro
+            Stock Disponible 0
+        </div>
+    </html>
+    """
+
+    from bs4 import BeautifulSoup
+
+    product = ProductExtractor().extract(
+        BeautifulSoup(html, "lxml"),
+        url="https://example.com/producto/fb-1601/",
+        category="Estuches",
+    )
+
+    assert product.color_stock == {"Negro": 0}
+    assert product.stock == 0
+
+
+def test_product_extractor_normalizes_descriptive_available_colors():
+    html = """
+    <html>
+        <h1>Mochila Plegable Multifunción 3 en 1</h1>
+        <p class="brxe-heading">FB-6001</p>
+        <div>
+            Esta mochila está disponible en colores modernos como
+            azul, rojo, negro y gris.
+            Stock Disponible 2 3415 0 1978
+        </div>
+    </html>
+    """
+
+    from bs4 import BeautifulSoup
+
+    product = ProductExtractor().extract(
+        BeautifulSoup(html, "lxml"),
+        url="https://example.com/producto/fb-6001/",
+        category="Bolsas / Mochilas",
+    )
+
+    assert product.color_stock == {
+        "azul": 2,
+        "rojo": 3415,
+        "negro": 0,
+        "gris": 1978,
+    }
+    assert product.stock == 5395
+
+
+def test_category_extractor_maps_descriptive_available_colors_to_stock():
+    html = """
+    <article>
+        <h2 class="brxe-f6001">Mochila Plegable Multifunción 3 en 1</h2>
+        <p class="brxe-a26f34">FB-6001</p>
+        <div class="text-content">
+            Esta mochila está disponible en colores modernos como
+            azul, rojo, negro y gris.
+            Presentación: Individual.
+        </div>
+        <div class="variaciones-producto">
+            <p>2</p>
+            <p>3415</p>
+            <p>0</p>
+            <p>1978</p>
+        </div>
+    </article>
+    """
+
+    from bs4 import BeautifulSoup
+
+    card = BeautifulSoup(html, "lxml").select_one("article")
+    result = CategoryProductExtractor().extract(card)
+
+    assert result.color_stock == {
+        "azul": 2,
+        "rojo": 3415,
+        "negro": 0,
+        "gris": 1978,
+    }
+    assert result.stock == 5395
+
+
+def test_category_extractor_maps_single_explicit_color_to_total_stock():
+    html = """
+    <article>
+        <h2 class="brxe-f6002">Estuche de Corcho</h2>
+        <p class="brxe-a26f34">FB-1601</p>
+        <div class="text-content">
+            Color: Negro
+            Presentación: Individual.
+        </div>
+        <div class="variaciones-producto">
+            <p>0</p>
+        </div>
+    </article>
+    """
+
+    from bs4 import BeautifulSoup
+
+    card = BeautifulSoup(html, "lxml").select_one("article")
+    result = CategoryProductExtractor().extract(card)
+
+    assert result.color_stock == {"Negro": 0}
+    assert result.stock == 0
+
+
+
 def test_collection_scraper_does_not_replace_total_stock_with_detail_color_names():
     class FakeTotalStockCategoryScraper:
         def get_category_pages(self, url):

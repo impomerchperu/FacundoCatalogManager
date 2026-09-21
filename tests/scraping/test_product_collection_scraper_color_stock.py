@@ -41,7 +41,7 @@ class FakeCategoryScraper:
         """
 
 
-def test_collection_scraper_enriches_color_stock_from_detail():
+def test_collection_scraper_preserves_total_stock_when_detail_has_only_color_names():
     scraper = ProductCollectionScraper(
         FakeCategoryScraper(),
         card_extractor=lambda soup: [soup.select_one("article")],
@@ -57,10 +57,7 @@ def test_collection_scraper_enriches_color_stock_from_detail():
     )
 
     assert len(products) == 1
-    assert products[0].color_stock == {
-        "Dorado": 6646,
-        "Plateado": 7942,
-    }
+    assert products[0].color_stock == {}
     assert products[0].stock == 14588
 
 
@@ -283,7 +280,7 @@ def test_category_extractor_reads_colores_disponibles_and_maps_stock():
     assert result.stock == 2693
 
 
-def test_category_extractor_reads_disponible_en_colores_and_maps_stock():
+def test_category_extractor_does_not_guess_disponible_en_colores_stock():
     html = """
     <article>
         <h2 class="brxe-f5021">Regla Plástica 20 cm</h2>
@@ -305,15 +302,11 @@ def test_category_extractor_reads_disponible_en_colores_and_maps_stock():
     card = BeautifulSoup(html, "lxml").select_one("article")
     result = CategoryProductExtractor().extract(card)
 
-    assert result.color_stock == {
-        "azul": 11,
-        "rojo": 22,
-        "blanco": 33,
-    }
+    assert result.color_stock == {}
     assert result.stock == 66
 
 
-def test_product_extractor_reads_colores_disponibles_from_detail_page():
+def test_product_extractor_does_not_guess_colores_disponibles_stock():
     html = """
     <html>
         <h1>Mochilas de Lona</h1>
@@ -334,10 +327,10 @@ def test_product_extractor_reads_colores_disponibles_from_detail_page():
     )
 
     assert product.color_stock == {
-        "Azul": 528,
-        "Negro": 124,
-        "Rojo": 1686,
-        "Gris": 355,
+        "Azul": 0,
+        "Rojo": 0,
+        "Negro": 0,
+        "Gris": 0,
     }
     assert product.stock == 2693
 
@@ -371,7 +364,7 @@ def test_product_extractor_keeps_total_stock_when_color_names_have_no_per_color_
     assert product.stock == 330
 
 
-def test_product_extractor_reads_numeric_prefix_in_color_label():
+def test_product_extractor_does_not_guess_numeric_prefix_color_stock():
     html = """
     <html>
         <h1>Resaltador Flor</h1>
@@ -392,11 +385,11 @@ def test_product_extractor_reads_numeric_prefix_in_color_label():
     )
 
     assert product.color_stock == {
-        "Fucsia": 10,
-        "Naranja": 20,
-        "Amarillo": 30,
-        "Verde": 40,
-        "Celeste": 50,
+        "Fucsia": 0,
+        "Naranja": 0,
+        "Amarillo": 0,
+        "Verde": 0,
+        "Celeste": 0,
     }
     assert product.stock == 150
 
@@ -425,7 +418,7 @@ def test_product_extractor_reads_single_explicit_color():
     assert product.stock == 0
 
 
-def test_product_extractor_normalizes_descriptive_available_colors():
+def test_product_extractor_does_not_guess_descriptive_color_stock():
     html = """
     <html>
         <h1>Mochila Plegable Multifunción 3 en 1</h1>
@@ -447,15 +440,15 @@ def test_product_extractor_normalizes_descriptive_available_colors():
     )
 
     assert product.color_stock == {
-        "azul": 2,
-        "negro": 3415,
+        "azul": 0,
         "rojo": 0,
-        "gris": 1978,
+        "negro": 0,
+        "gris": 0,
     }
     assert product.stock == 5395
 
 
-def test_category_extractor_maps_descriptive_available_colors_to_stock():
+def test_category_extractor_does_not_guess_descriptive_color_stock():
     html = """
     <article>
         <h2 class="brxe-f6001">Mochila Plegable Multifunción 3 en 1</h2>
@@ -488,7 +481,7 @@ def test_category_extractor_maps_descriptive_available_colors_to_stock():
     assert result.stock == 5395
 
 
-def test_category_extractor_maps_single_explicit_color_to_total_stock():
+def test_category_extractor_does_not_guess_single_explicit_color_stock():
     html = """
     <article>
         <h2 class="brxe-f6002">Estuche de Corcho</h2>
@@ -508,7 +501,7 @@ def test_category_extractor_maps_single_explicit_color_to_total_stock():
     card = BeautifulSoup(html, "lxml").select_one("article")
     result = CategoryProductExtractor().extract(card)
 
-    assert result.color_stock == {"Negro": 0}
+    assert result.color_stock == {}
     assert result.stock == 0
 
 

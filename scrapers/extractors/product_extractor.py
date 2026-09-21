@@ -44,7 +44,6 @@ class ProductExtractor:
     def extract(self, soup, url="", category=""):
         text = soup.get_text(" ", strip=True)
         color_stock = self.extract_color_stock(soup, text=text)
-        visible_stock = self._extract_visible_stock_values(soup, text=text)
         stock = self.stock_extractor.extract(soup, text=text)
         if color_stock:
             color_total = sum(color_stock.values())

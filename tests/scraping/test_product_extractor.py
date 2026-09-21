@@ -220,3 +220,39 @@ def test_product_extractor_ignores_javascript_like_color_attributes():
         "Azul": 87,
     }
     assert result["stock"] == 239
+
+
+def test_product_extractor_reads_stock_from_each_variant_node():
+    html = """
+    <html>
+        <h1>Lonchera de Neoprene</h1>
+        <p class="brxe-heading">FB-6005</p>
+        <div class="text-content">
+            Colores disponibles: Azul, Rojo, Negro
+        </div>
+        <div class="ctn-variation">
+            <div class="variaciones-producto tooltip-ui" title="Rojo" sku="FB-6005-R">
+                <p>1022</p>
+            </div>
+            <div class="variaciones-producto tooltip-ui" title="Negro" sku="FB-6005-N">
+                <p>4</p>
+            </div>
+            <div class="variaciones-producto tooltip-ui" title="Azul" sku="FB-6005-A">
+                <p>330</p>
+            </div>
+        </div>
+    </html>
+    """
+
+    result = ProductExtractor().extract(
+        BeautifulSoup(html, "lxml"),
+        url="https://example.com/producto/lonchera-de-neoprene/",
+        category="Bolsas / Mochilas",
+    )
+
+    assert result["color_stock"] == {
+        "Rojo": 1022,
+        "Negro": 4,
+        "Azul": 330,
+    }
+    assert result["stock"] == 1356

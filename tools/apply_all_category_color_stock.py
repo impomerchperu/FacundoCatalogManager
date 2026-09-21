@@ -40,7 +40,25 @@ def main() -> int:
     )
 
     try:
-        result = session.execute_all()
+        category_service = getattr(runner, "category_service", None)
+        if category_service is None:
+            print("VERIFICACIÓN CATEGORÍAS: ERROR - category service no disponible")
+            return 1
+
+        categories = list(category_service.scrape_all() or [])
+        print("CATEGORÍAS DESCUBIERTAS:", len(categories))
+        if len(categories) != EXPECTED_CATEGORIES:
+            print(
+                "VERIFICACIÓN CATEGORÍAS: ERROR -",
+                len(categories),
+                "!=",
+                EXPECTED_CATEGORIES,
+            )
+            return 1
+
+        # Todas las categorías se ejecutan como un sync dirigido conjunto:
+        # se aplica color_stock a todas sin habilitar prune FULL.
+        result = session.execute(categories)
 
         print("=" * 80)
         print("APLICACIÓN FULL DE STOCK POR COLOR")

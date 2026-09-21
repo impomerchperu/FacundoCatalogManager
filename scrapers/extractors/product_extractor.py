@@ -4,6 +4,7 @@ from typing import ClassVar
 from urllib.parse import urljoin
 
 from scrapers.extractors.code_utils import extract_code_from_soup, normalize_code
+from scrapers.extractors.color_stock_order import order_color_names
 from scrapers.extractors.price_extractor import PriceExtractor
 from scrapers.extractors.stock_extractor import StockExtractor
 from scrapers.factories.scraped_product_factory import ScrapedProductFactory
@@ -186,16 +187,17 @@ class ProductExtractor:
         explicit_colors = self._extract_text_colors(soup)
         visible_stock = self._extract_visible_stock_values(soup, text=text)
         if explicit_colors and len(explicit_colors) == len(visible_stock):
+            ordered_colors = order_color_names(explicit_colors)
             return {
                 color: stock
                 for color, stock in zip(
-                    explicit_colors,
+                    ordered_colors,
                     visible_stock,
                     strict=True,
                 )
             }
 
-        for color in explicit_colors:
+        for color in order_color_names(explicit_colors):
             add_color(color)
 
         self._extract_select_color_stock(soup, add_color)
@@ -209,10 +211,11 @@ class ProductExtractor:
             return {color: 0 for color in color_names}
 
         if color_names and len(color_names) == len(visible_stock):
+            ordered_colors = order_color_names(color_names)
             return {
                 color: stock
                 for color, stock in zip(
-                    color_names,
+                    ordered_colors,
                     visible_stock,
                     strict=True,
                 )

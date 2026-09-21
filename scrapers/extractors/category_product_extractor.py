@@ -2,6 +2,7 @@ import re
 
 from models.scraping.scraped_product import ScrapedProduct
 from scrapers.extractors.code_utils import normalize_code_token
+from scrapers.extractors.color_stock_order import order_color_names
 from scrapers.extractors.price_extractor import PriceExtractor
 
 
@@ -138,8 +139,12 @@ class CategoryProductExtractor:
 
     def _color_stock(self, soup) -> dict[str, int]:
         color_stock: dict[str, int] = {}
+        color_candidates: list[str] = []
+        color_keys: set[str] = set()
+        direct_stock_found = False
 
         def add_color(name: str, stock: int | None = None) -> None:
+            nonlocal direct_stock_found
             value = re.sub(r"\s+", " ", str(name)).strip(" :-.")
             if not value or value.casefold() in {
                 "color",
@@ -149,8 +154,14 @@ class CategoryProductExtractor:
                 "sin color",
             }:
                 return
-            color_stock.setdefault(value, 0)
+
+            key = value.casefold()
+            if key not in color_keys:
+                color_keys.add(key)
+                color_candidates.append(value)
+
             if stock is not None:
+                direct_stock_found = True
                 color_stock[value] = max(
                     color_stock.get(value, 0),
                     max(stock, 0),
@@ -183,14 +194,21 @@ class CategoryProductExtractor:
         self._extract_labeled_colors(soup, add_color)
 
         stock_values = self._stock_values(soup)
-        color_names = list(color_stock)
-        if len(stock_values) == len(color_names):
-            for color, stock in zip(color_names, stock_values, strict=True):
-                color_stock[color] = stock
-        else:
-            color_stock.clear()
+        if direct_stock_found and len(color_stock) == len(stock_values):
+            return color_stock
 
-        return color_stock
+        if color_candidates and len(color_candidates) == len(stock_values):
+            ordered_colors = order_color_names(color_candidates)
+            return {
+                color: stock
+                for color, stock in zip(
+                    ordered_colors,
+                    stock_values,
+                    strict=True,
+                )
+            }
+
+        return {}
 
     @staticmethod
     def _extract_labeled_colors(soup, add_color) -> None:

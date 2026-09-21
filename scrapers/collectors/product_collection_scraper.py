@@ -604,10 +604,7 @@ class ProductCollectionScraper:
             return product
 
         if detail_color_stock:
-            if not card_stock_values:
-                product.color_stock = detail_color_stock
-                product.stock = sum(detail_color_stock.values())
-            elif sum(detail_color_stock.values()) > 0:
+            if not card_stock_values or sum(detail_color_stock.values()) > 0:
                 product.color_stock = detail_color_stock
                 product.stock = sum(detail_color_stock.values())
             return product

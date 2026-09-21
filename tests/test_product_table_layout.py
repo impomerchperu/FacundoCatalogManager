@@ -2,7 +2,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics, QPixmap
-from PySide6.QtWidgets import QApplication, QHeaderView
+from PySide6.QtWidgets import QApplication, QHeaderView, QLabel
 
 from gui.product_table import ProductImageDelegate, ProductTable
 from models.product import Product
@@ -217,3 +217,44 @@ def test_product_table_columns_reflow_to_narrow_window_without_scroll():
     assert total_width <= table.viewport().width()
 
     table.close()
+
+def test_product_table_renders_stock_by_color_in_stock_cell():
+    _qapp()
+
+    table = ProductTable(_Controller())
+    table.resize(1800, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-6002",
+                name="Mochilas de Lona",
+                stock=2693,
+                color_stock={
+                    "Azul": 528,
+                    "Rojo": 124,
+                    "Negro": 1686,
+                    "Gris": 355,
+                },
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    widget = table.cellWidget(0, ProductTable.STOCK_COLUMN)
+
+    assert isinstance(widget, QLabel)
+    assert "Azul" in widget.text()
+    assert "528" in widget.text()
+    assert "Negro" in widget.text()
+    assert "1,686" in widget.text()
+    assert widget.toolTip() == (
+        "Azul: 528\n"
+        "Rojo: 124\n"
+        "Negro: 1686\n"
+        "Gris: 355"
+    )
+
+    table.close()
+
+

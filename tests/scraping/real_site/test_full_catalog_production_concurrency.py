@@ -21,6 +21,7 @@ from scrapers.extractors.category_extractor import CategoryExtractor
 from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.product_card_extractor import ProductCardExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
+from services.scraping.category_name_normalizer import split_category_names
 from services.scraping.category_service import CategoryService
 
 EXPECTED_CATEGORIES = 24
@@ -252,6 +253,36 @@ def test_full_catalog_production_concurrency_real_site():
     duplicate_codes = sorted(
         code for code, count in code_counts.items() if count > 1
     )
+    without_color_stock = [
+        product.code
+        for product in products
+        if not (getattr(product, "color_stock", {}) or {})
+    ]
+    invalid_color_stock_totals = [
+        (
+            product.code,
+            product.stock,
+            sum(
+                int(stock)
+                for stock in (getattr(product, "color_stock", {}) or {}).values()
+            ),
+        )
+        for product in products
+        if (getattr(product, "color_stock", {}) or {})
+        and product.stock
+        != sum(
+            int(stock)
+            for stock in (getattr(product, "color_stock", {}) or {}).values()
+        )
+    ]
+    color_stock_categories = {
+        category_name
+        for product in products
+        if getattr(product, "color_stock", {}) or {}
+        for category_name in split_category_names(
+            getattr(product, "category", "")
+        )
+    }
 
     http_metrics = browser.get_http_metrics()
     detail_metrics = collection.get_detail_metrics()
@@ -298,6 +329,9 @@ def test_full_catalog_production_concurrency_real_site():
     print("DETAIL CACHE HITS:", detail_metrics["detail_cache_hits"])
     print("DETAIL CACHE SIZE:", detail_metrics["detail_cache_size"])
     print("DETAIL SKIPPED:", detail_metrics["detail_skipped"])
+    print("PRODUCTOS SIN STOCK POR COLOR:", len(without_color_stock))
+    print("INCONSISTENCIAS STOCK/COLOR_STOCK:", invalid_color_stock_totals)
+    print("CATEGORÍAS CON STOCK POR COLOR:", len(color_stock_categories))
     print("DETAIL SEMAPHORE WAIT:", f"{http_metrics['detail_semaphore_wait_seconds']:.2f}s")
     print("TOP SLOW REQUESTS:", http_metrics["slowest_requests"])
     print("=" * 80)
@@ -305,6 +339,9 @@ def test_full_catalog_production_concurrency_real_site():
     assert len(products) == expected_occurrences
     assert len(code_counts) > 0
     assert len(code_counts) <= len(products)
+    assert not without_color_stock
+    assert not invalid_color_stock_totals
+    assert len(color_stock_categories) == len(categories)
     assert http_metrics["http_terminal_errors"] == 0
 
     if len(code_counts) != REFERENCE_UNIQUE_PRODUCTS:

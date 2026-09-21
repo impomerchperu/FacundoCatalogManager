@@ -298,16 +298,25 @@ class ProductTable(QTableWidget):
     def _render_products(self, products: list[Product]) -> None:
         self.setSortingEnabled(False)
         self.clearContents()
-        self._max_stock_value_width = self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN]
+        self._max_stock_pair_width = self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN]
         metrics = QFontMetrics(self.font())
         for product in products:
             color_stock = self._ordered_color_stock(product)
             stock_values = [stock for _, stock in color_stock] or [product.stock]
-            for stock in stock_values:
-                self._max_stock_value_width = max(
-                    self._max_stock_value_width,
-                    metrics.horizontalAdvance(f"{stock:,}"),
-                )
+            if color_stock:
+                for color, stock in color_stock:
+                    self._max_stock_pair_width = max(
+                        self._max_stock_pair_width,
+                        metrics.horizontalAdvance(
+                            f"{color}    {stock:,}",
+                        ),
+                    )
+            else:
+                for stock in stock_values:
+                    self._max_stock_pair_width = max(
+                        self._max_stock_pair_width,
+                        metrics.horizontalAdvance(f"{stock:,}"),
+                    )
             for stock in stock_values:
                 self._max_stock_value_width = max(
                     self._max_stock_value_width,
@@ -421,13 +430,9 @@ class ProductTable(QTableWidget):
             self.CONTENT_SIDE_PADDING,
             2,
         )
-        layout.setHorizontalSpacing(8)
+        layout.setHorizontalSpacing(4)
         layout.setVerticalSpacing(1)
         layout.setColumnStretch(0, 1)
-        layout.setColumnMinimumWidth(
-            1,
-            self._max_stock_value_width,
-        )
 
         for line, (color, stock) in enumerate(color_stock):
             color_label = QLabel(color)
@@ -435,7 +440,7 @@ class ProductTable(QTableWidget):
             color_label.setAlignment(
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             )
-            color_label.setWordWrap(True)
+            color_label.setWordWrap(False)
             color_label.setSizePolicy(
                 QSizePolicy.Policy.Expanding,
                 QSizePolicy.Policy.Preferred,
@@ -449,7 +454,7 @@ class ProductTable(QTableWidget):
             stock_label.setWordWrap(False)
             stock_label.setSizePolicy(
                 QSizePolicy.Policy.Minimum,
-                QSizePolicy.Policy.Preferred,
+                QSizePolicy.Policy.Fixed,
             )
 
             layout.addWidget(color_label, line, 0)
@@ -512,15 +517,15 @@ class ProductTable(QTableWidget):
             self.setRowHeight(row, row_height)
 
     def _stock_minimum_width(self) -> int:
-        """Garantiza solo el ancho mínimo para mostrar las cantidades completas."""
-        value_width = getattr(
+        """Garantiza que cada color y cantidad permanezcan en una sola línea."""
+        pair_width = getattr(
             self,
-            "_max_stock_value_width",
+            "_max_stock_pair_width",
             self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN],
         )
         return max(
             self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN],
-            value_width + (2 * self.CONTENT_SIDE_PADDING),
+            pair_width + (2 * self.CONTENT_SIDE_PADDING),
         )
 
     def _category_minimum_width(self) -> int:

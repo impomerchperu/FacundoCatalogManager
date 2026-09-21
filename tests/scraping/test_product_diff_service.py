@@ -25,3 +25,27 @@ def test_detect_no_changes():
     result = service.compare(product, product)
 
     assert result["changed"] is False
+
+def test_detect_color_stock_changes():
+    service = ProductDiffService()
+
+    old = {
+        "code": "P002",
+        "name": "Producto",
+        "stock": 10,
+        "color_stock": {"Rojo": 4, "Azul": 6},
+    }
+    new = {
+        "code": "P002",
+        "name": "Producto",
+        "stock": 12,
+        "color_stock": {"Rojo": 6, "Azul": 6},
+    }
+
+    result = service.compare(old, new)
+
+    assert result["changed"] is True
+    assert "stock" in result["fields"]
+    assert "color_stock" in result["fields"]
+    assert result["content_changed"] is True
+    assert result["image_changed"] is False

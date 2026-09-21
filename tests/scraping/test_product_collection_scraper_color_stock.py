@@ -245,6 +245,97 @@ def test_category_extractor_reads_colores_de_tinta_and_numeric_label():
     assert result.stock == 100
 
 
+def test_category_extractor_reads_colores_disponibles_and_maps_stock():
+    html = """
+    <article>
+        <h2 class="brxe-f6002">Mochilas de Lona</h2>
+        <p class="brxe-a26f34">FB-6002</p>
+        <div class="text-content">
+            Colores disponibles: Azul, Rojo, Negro, Gris
+            Presentación: Individual en bolsa.
+        </div>
+        <div class="variaciones-producto">
+            <p>528</p>
+            <p>124</p>
+            <p>1686</p>
+            <p>355</p>
+        </div>
+    </article>
+    """
+
+    from bs4 import BeautifulSoup
+
+    card = BeautifulSoup(html, "lxml").select_one("article")
+    result = CategoryProductExtractor().extract(card)
+
+    assert result.color_stock == {
+        "Azul": 528,
+        "Rojo": 124,
+        "Negro": 1686,
+        "Gris": 355,
+    }
+    assert result.stock == 2693
+
+
+def test_category_extractor_reads_disponible_en_colores_and_maps_stock():
+    html = """
+    <article>
+        <h2 class="brxe-f5021">Regla Plástica 20 cm</h2>
+        <p class="brxe-a26f34">FB-5021</p>
+        <div class="text-content">
+            Propiedades: disponible en colores azul, rojo y blanco.
+            Presentación: Individual.
+        </div>
+        <div class="variaciones-producto">
+            <p>11</p>
+            <p>22</p>
+            <p>33</p>
+        </div>
+    </article>
+    """
+
+    from bs4 import BeautifulSoup
+
+    card = BeautifulSoup(html, "lxml").select_one("article")
+    result = CategoryProductExtractor().extract(card)
+
+    assert result.color_stock == {
+        "azul": 11,
+        "rojo": 22,
+        "blanco": 33,
+    }
+    assert result.stock == 66
+
+
+def test_product_extractor_reads_colores_disponibles_from_detail_page():
+    html = """
+    <html>
+        <h1>Mochilas de Lona</h1>
+        <p class="brxe-heading">FB-6002</p>
+        <div>
+            Colores disponibles: Azul, Rojo, Negro, Gris
+        </div>
+        <div>Stock Disponible 528 124 1686 355</div>
+    </html>
+    """
+
+    from bs4 import BeautifulSoup
+
+    product = ProductExtractor().extract(
+        BeautifulSoup(html, "lxml"),
+        url="https://example.com/producto/fb-6002/",
+        category="Bolsas / Mochilas",
+    )
+
+    assert product.color_stock == {
+        "Azul": 528,
+        "Rojo": 124,
+        "Negro": 1686,
+        "Gris": 355,
+    }
+    assert product.stock == 2693
+
+
 def test_collection_scraper_does_not_replace_total_stock_with_detail_color_names():
     class FakeTotalStockCategoryScraper:
         def get_category_pages(self, url):

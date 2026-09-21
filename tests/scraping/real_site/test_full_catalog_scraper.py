@@ -11,6 +11,7 @@ from scrapers.extractors.category_extractor import CategoryExtractor
 from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.product_card_extractor import ProductCardExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
+from services.scraping.category_name_normalizer import split_category_names
 from services.scraping.category_service import CategoryService
 
 EXPECTED_CATEGORIES = 24

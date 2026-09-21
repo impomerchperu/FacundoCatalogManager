@@ -6,7 +6,7 @@ import os
 import pytest
 from PySide6.QtWidgets import QApplication, QLabel
 
-from config.scraping_config import STORE_URL
+from config.scraping_config import BASE_URL, STORE_URL
 from controllers.product_controller import ProductController
 from database.db_manager import DBManager
 from gui.product_table import ProductTable
@@ -47,10 +47,7 @@ from services.scraping.scraping_runner import ScrapingRunner
 from services.scraping.scraping_session import ScrapingSession
 
 CATEGORY_NAME = "Bolsas / Mochilas"
-CATEGORY_URL = (
-    f"{STORE_URL.rstrip('/')}/"
-    "categoria-producto/bolsas-mochilas/"
-)
+CATEGORY_URL = f"{BASE_URL}/categoria-producto/bolsas-mochilas/"
 
 
 def _qapp() -> QApplication:
@@ -58,7 +55,7 @@ def _qapp() -> QApplication:
     return QApplication.instance() or QApplication([])
 
 
-def _build_session(db: DBManager) -> tuple[ScrapingSession, Browser]:
+def _build_session(db: DBManager) -> ScrapingSession:
     config = ScrapingConfig(
         catalog_url=STORE_URL,
         download_images=False,
@@ -121,7 +118,7 @@ def _build_session(db: DBManager) -> tuple[ScrapingSession, Browser]:
         history_repository,
         product_repository,
     )
-    return session, browser
+    return session
 
 
 @pytest.mark.real_site
@@ -130,7 +127,7 @@ def test_real_category_color_stock_is_persisted_and_rendered_in_product_table(
 ) -> None:
     _qapp()
     db = DBManager(str(tmp_path / "catalog.db"))
-    session, browser = _build_session(db)
+    session = _build_session(db)
 
     try:
         result = session.execute(
@@ -229,5 +226,4 @@ def test_real_category_color_stock_is_persisted_and_rendered_in_product_table(
         assert history_row["products_found"] == result.products_found
     finally:
         session.close()
-        browser.close()
         db.close()

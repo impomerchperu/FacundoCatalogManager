@@ -134,6 +134,8 @@ La etapa funcional principal continúa cerrada y protegida en `main`. El benchma
 
 ### Auditorías cerradas en este avance
 
+- Stock por color: extracción de etiquetas de color ampliada, asociación segura de cantidades y representación `color → stock` en la columna Stock. Se conserva el stock total cuando no existe evidencia suficiente para dividirlo.
+
 - Recuperación de la UI de historial cerrada: estado `APLICADO` con timestamp, `NO APLICADO` para versiones superadas y `ERROR` para ejecuciones fallidas; prueba focal `9 passed` y Quality `#2210` verde.
 
 - Fábricas de compatibilidad: ambas son delegados finos al factory canónico; se conservan por compatibilidad potencial y no existe una implementación paralela.

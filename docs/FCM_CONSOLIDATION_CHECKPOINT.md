@@ -105,7 +105,7 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] No se ha cambiado la concurrencia productiva.
 - [x] No se ha cambiado el comportamiento funcional de prune; además se bloquearon herramientas legacy de borrado directo.
 - [x] Limpieza destructiva directa de imágenes bloqueada.
-- [x] Quality CI: success (`#2210` sobre `aa412b1`); Ruff, Pyright y Pytest permanecen verdes y `live-catalog` quedó `skipped` de forma intencional.
+- [x] Quality CI: success (`#2213` sobre `6e9739f`); Ruff, Pyright y Pytest permanecen verdes y `live-catalog` quedó `skipped` de forma intencional.
 
 ## Estado maestro actual
 

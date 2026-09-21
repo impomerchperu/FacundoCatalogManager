@@ -70,6 +70,14 @@ Validación del baseline funcional actual sobre `main`:
 
 Los cambios funcionales y de documentación posteriores quedaron cubiertos por validaciones locales y por Quality CI. En el último run de Quality asociado a `main`, Ruff, Pyright y Pytest terminaron correctamente; `live-catalog` quedó omitido de forma intencional en el CI rápido.
 
+## Stock por color
+
+La aplicación ya persiste `color_stock` como parte del producto y la columna **Stock** muestra `color → cantidad` cuando existe una asociación demostrable. La extracción usa, en este orden, datos directos de variantes/atributos, nombres de color declarados y los valores de stock de la tarjeta de categoría cuando sus cantidades pueden asociarse sin ambigüedad.
+
+No se reparte artificialmente un stock total entre colores. Cuando el sitio publica nombres de colores pero no publica cantidades por color, se conserva el stock total y no se inventan asociaciones. Cuando la tarjeta publica varias cantidades y la página de detalle permite identificar exactamente el mismo número de colores, el enriquecimiento combina ambas fuentes por orden y conserva la suma como `stock` total.
+
+Quality `#2227` validó los nuevos patrones de etiquetas `Colores disponibles`, `disponible en colores`, `5 colores`, `Color:` y la unión de nombres de detalle con stock múltiple de categoría.
+
 ## Arquitectura
 
 - `ImageHash` es la implementación canónica de SHA-256 para archivos de imagen.

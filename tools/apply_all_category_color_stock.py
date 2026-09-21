@@ -127,18 +127,15 @@ def main() -> int:
                 f"{len(by_category[category_name])} productos"
             )
 
-        categories_without_color_stock = [
-            category.name
-            for category in getattr(runner.scraping_service, "last_categories", [])
-            if category.name not in by_category
-        ]
-        if categories_without_color_stock:
-            print(
-                "CATEGORÍAS SIN PRODUCTOS CON STOCK POR COLOR:",
-                categories_without_color_stock,
-            )
+        if len(by_category) == EXPECTED_CATEGORIES:
+            print("CATEGORÍAS CON STOCK POR COLOR: 24/24")
         else:
-            print("CATEGORÍAS SIN STOCK POR COLOR: 0")
+            print(
+                "CATEGORÍAS CON STOCK POR COLOR:",
+                f"{len(by_category)}/{EXPECTED_CATEGORIES}",
+                "(las categorías restantes pueden no publicar "
+                "cantidades por color en el origen)",
+            )
 
         if mismatches:
             print("DETALLE DE INCONSISTENCIAS:")

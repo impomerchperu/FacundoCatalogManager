@@ -138,3 +138,36 @@ def test_category_product_extractor_prefers_real_title_over_package_label():
     assert product.price_sample == 8.0
     assert product.price_hundred == 16.0
     assert product.price_thousand == 152.0
+
+
+def test_category_product_extractor_reads_stock_from_each_variant_node():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-6005</p>
+        <h2 class="brxe-f31760">Lonchera de Neoprene</h2>
+        <div class="text-content">
+            Colores disponibles: Azul, Rojo, Negro
+        </div>
+        <div class="ctn-variation">
+            <div class="variaciones-producto tooltip-ui" title="Negro" sku="FB-6005-N">
+                <p>4</p>
+            </div>
+            <div class="variaciones-producto tooltip-ui" title="Rojo" sku="FB-6005-R">
+                <p>1022</p>
+            </div>
+            <div class="variaciones-producto tooltip-ui" title="Azul" sku="FB-6005-A">
+                <p>330</p>
+            </div>
+        </div>
+    </article>
+    """
+
+    card = BeautifulSoup(html, "lxml")
+    product = CategoryProductExtractor().extract(card)
+
+    assert product.color_stock == {
+        "Negro": 4,
+        "Rojo": 1022,
+        "Azul": 330,
+    }
+    assert product.stock == 1356

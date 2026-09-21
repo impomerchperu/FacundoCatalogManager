@@ -67,7 +67,7 @@ def test_product_extractor_does_not_use_unrelated_model_text_as_code():
         assert ProductExtractor().extract_code(soup) == ""
 
 
-def test_product_extractor_maps_stock_to_site_variant_color_order():
+def test_product_extractor_does_not_guess_color_stock_from_text_order():
     html = """
     <div class="jsfb-filterable">
         <h2 class="brxe-heading">Producto por colores</h2>
@@ -80,22 +80,28 @@ def test_product_extractor_maps_stock_to_site_variant_color_order():
     soup = BeautifulSoup(html, "lxml")
     result = ProductExtractor().extract(soup)
 
-    assert result["color_stock"] == {
-        "Azul": 10,
-        "Negro": 20,
-        "Rojo": 30,
-    }
+    assert result["color_stock"] == {}
     assert result["stock"] == 60
 
 
-def test_product_extractor_maps_fb6005_stock_to_site_variant_color_order():
+def test_product_extractor_maps_fb6005_stock_by_variant_identity():
     html = """
     <html>
         <h1>Lonchera de Neoprene</h1>
         <p class="brxe-heading">FB-6005</p>
-        <div>
+        <div class="text-content">
             Colores disponibles: Azul, Rojo, Negro
-            Stock Disponible 330 4 1022
+        </div>
+        <div class="ctn-variation">
+            <div class="variaciones-producto tooltip-ui" title="Negro" sku="FB-6005-N">
+                <p>4</p>
+            </div>
+            <div class="variaciones-producto tooltip-ui" title="Rojo" sku="FB-6005-R">
+                <p>1022</p>
+            </div>
+            <div class="variaciones-producto tooltip-ui" title="Azul" sku="FB-6005-A">
+                <p>330</p>
+            </div>
         </div>
     </html>
     """
@@ -129,7 +135,7 @@ def test_product_extractor_reads_detail_page_color_links():
     soup = BeautifulSoup(html, "lxml")
     result = ProductExtractor().extract(soup)
 
-    assert list(result["color_stock"]) == ["Azul", "Negro", "Rojo"]
+    assert list(result["color_stock"]) == ["Negro", "Azul", "Rojo"]
     assert result["stock"] == 0
 
 
@@ -188,8 +194,8 @@ def test_product_extractor_ignores_script_text_as_color():
     result = ProductExtractor().extract(soup)
 
     assert result["color_stock"] == {
-        "Azul": 20,
-        "Rojo": 10,
+        "Rojo": 0,
+        "Azul": 0,
     }
     assert result["stock"] == 30
 
@@ -216,13 +222,13 @@ def test_product_extractor_ignores_javascript_like_color_attributes():
     result = ProductExtractor().extract(soup)
 
     assert result["color_stock"] == {
-        "Amarillo": 152,
-        "Azul": 87,
+        "Amarillo": 0,
+        "Azul": 0,
     }
     assert result["stock"] == 239
 
 
-def test_product_extractor_reads_stock_from_each_variant_node():
+def test_product_extractor_reads_stock_from_each_variant_node_reverse_order():
     html = """
     <html>
         <h1>Lonchera de Neoprene</h1>

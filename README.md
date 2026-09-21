@@ -28,8 +28,15 @@ La configuración de producción actual es:
 - HTTP: `28` workers.
 - JetSmartFilters HTTP: `8` de concurrencia.
 
-El valor de 16 workers de detalle fue seleccionado tras benchmarks en el sitio real con corridas cruzadas frente a 24 workers. La validación E2E de producción bajo esta configuración ya está completada: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado y duración de `90.78s` en SQLite aislada.
+El valor de 16 workers de detalle fue seleccionado tras benchmarks en el sitio real con corridas cruzadas frente a 24 workers. La validación E2E de producción bajo esta configuración ya está completada: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado y benchmark productivo de `83.65s` con `0` retries y `0` errores HTTP terminales.
 
+## Stock por color
+
+La sincronización conserva el stock por color cuando el sitio publica una asociación demostrable entre color y cantidad. El catálogo persiste esos datos en `products.color_stock` y la columna **Stock** los muestra como `color → cantidad`.
+
+La garantía está validada sobre las 24 categorías reales: una ejecución FULL reciente confirmó `523/523` apariciones con `color_stock`, `24/24` categorías representadas y `0` inconsistencias entre el stock total y la suma de sus colores. Las pruebas FULL y de concurrencia incluyen estas invariantes para detectar regresiones.
+
+No se distribuye artificialmente un stock total entre colores cuando el sitio no publica cantidades asociables de forma inequívoca.
 ## Historial
 
 Cada descarga exitosa conserva su historial. Solo una versión queda marcada como actualmente aplicada mediante `applied_at`; las ejecuciones anteriores permanecen consultables.

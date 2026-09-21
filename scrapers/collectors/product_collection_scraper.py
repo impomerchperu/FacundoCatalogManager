@@ -499,6 +499,23 @@ class ProductCollectionScraper:
         return bool(explicit_color_nodes)
 
     @staticmethod
+    def _same_color_set(
+        card_color_stock: dict[str, int],
+        detail_color_stock: dict[str, int],
+    ) -> bool:
+        if not detail_color_stock:
+            return True
+
+        return {
+            str(color).strip().casefold()
+            for color in card_color_stock
+        } == {
+            str(color).strip().casefold()
+            for color in detail_color_stock
+        }
+
+
+    @staticmethod
     def _card_detail_url(card: Any, page_url: str, product: Any) -> str:
         link = card.select_one('a[href*="/producto/"]')
         href = link.get("href") if link else ""
@@ -570,7 +587,11 @@ class ProductCollectionScraper:
         card_stock_values = self._stock_values(card)
         card_color_stock = dict(getattr(product, "color_stock", {}) or {})
 
-        if card_color_stock and len(card_color_stock) == len(card_stock_values):
+        if (
+            card_color_stock
+            and len(card_color_stock) == len(card_stock_values)
+            and self._same_color_set(card_color_stock, detail_color_stock)
+        ):
             product.stock = sum(card_color_stock.values())
             return product
 

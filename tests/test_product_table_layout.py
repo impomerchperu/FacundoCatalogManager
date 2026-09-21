@@ -60,43 +60,24 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     table.close()
 
 
-def test_product_table_categories_wrap_at_four_words_or_30_characters():
-    category = (
-        "Impresoras y Consumible Fotográficas Térmicas, "
-        "Artículos de Escritorio"
-    )
+def test_product_table_category_uses_approved_two_line_layout():
+    category = "Impresoras y Consumible Fotográficas Térmicas"
 
     formatted = ProductTable._format_categories(category)
-    lines = formatted.splitlines()
 
-    assert lines == [
+    assert formatted.splitlines() == [
         "Impresoras y Consumible",
         "Fotográficas Térmicas",
-        "Artículos de Escritorio",
     ]
-    assert all(
-        len(line.split()) <= ProductTable.CATEGORY_MAX_WORDS
-        for line in lines
-    )
-    assert all(
-        len(line) <= ProductTable.CATEGORY_MAX_CHARACTERS
-        for line in lines
-    )
 
 
-def test_product_table_category_with_long_word_does_not_split_the_word():
+def test_product_table_category_with_long_word_stays_on_one_line():
     category = "Categoria extraordinariamenteLargaSinEspacios"
 
     formatted = ProductTable._format_categories(category)
 
-    lines = formatted.splitlines()
-
-    assert lines == [
-        "Categoria",
-        "extraordinariamenteLargaSinEspacios",
-    ]
-    assert "extraordinariamenteLargaSinEspacios" in formatted
-    assert all(word in formatted.split() for word in category.split())
+    assert formatted == category
+    assert "\n" not in formatted
 
 
 def test_product_table_category_sublimacion_stays_on_one_line():
@@ -125,26 +106,22 @@ def test_product_table_category_sublimacion_stays_on_one_line():
     assert table.columnWidth(ProductTable.CATEGORY_COLUMN) >= expected_width
 
 
-def test_product_table_category_wraps_after_four_words():
+def test_product_table_category_does_not_wrap_by_word_count():
     category = "Uno Dos Tres Cuatro Cinco Seis"
 
     formatted = ProductTable._format_categories(category)
 
-    assert formatted.splitlines() == [
-        "Uno Dos Tres Cuatro",
-        "Cinco Seis",
-    ]
+    assert formatted == category
+    assert "\n" not in formatted
 
 
-def test_product_table_category_wraps_before_31st_character():
+def test_product_table_category_does_not_wrap_by_character_count():
     category = "123456 123456 123456 123456 1234"
 
     formatted = ProductTable._format_categories(category)
 
-    assert formatted.splitlines() == [
-        "123456 123456 123456 123456",
-        "1234",
-    ]
+    assert formatted == category
+    assert "\n" not in formatted
 
 
 def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():

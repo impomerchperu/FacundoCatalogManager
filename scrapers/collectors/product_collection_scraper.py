@@ -13,6 +13,9 @@ from config.scraping_config import (
 )
 from models.scraping.category import Category
 from scrapers.extractors.code_utils import normalize_code
+from scrapers.extractors.variant_color_stock_extractor import (
+    extract_variant_color_stock,
+)
 
 
 class ProductCollectionScraper:
@@ -489,14 +492,19 @@ class ProductCollectionScraper:
             stock_values = ProductCollectionScraper._stock_values(card)
         if len(color_stock) != len(stock_values) or not stock_values:
             return False
-        variation = card.select_one(".variaciones-producto")
-        if variation is None:
+        variant_color_stock = extract_variant_color_stock(card)
+        if not variant_color_stock:
             return False
 
-        explicit_color_nodes = variation.select(
-            "[data-color], [data-value], [title], .color, .color-name, .swatch"
-        )
-        return bool(explicit_color_nodes)
+        normalized_variant_colors = {
+            str(color).strip().casefold()
+            for color in variant_color_stock
+        }
+        normalized_product_colors = {
+            str(color).strip().casefold()
+            for color in color_stock
+        }
+        return normalized_variant_colors == normalized_product_colors
 
     @staticmethod
     def _same_color_set(

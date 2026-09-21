@@ -6,7 +6,7 @@ Branch oficial: `main`
 ## QUALITY
 
 - [x] Targeted scraping coverage regressions validated
-- [x] Última Quality CI: run `#2210` sobre `aa412b1` terminó en `success`; validación local del baseline actual: Ruff clean, Pyright `0 errors, 0 warnings, 0 informations`, `454 passed, 8 deselected`
+- [x] Última Quality CI: run `#2213` sobre `6e9739f` terminó en `success`; validación local del baseline: Ruff clean, Pyright `0 errors, 0 warnings, 0 informations`, `454 passed, 8 deselected`
 - [x] Architecture-boundary tests validated
 - [x] Ruff: clean (`All checks passed!`)
 - [x] Pyright: `0 errors, 0 warnings, 0 informations`
@@ -232,13 +232,13 @@ This distinction is intentional and avoids allowing a partial/directed applicati
 Current checkpoint is maintained on `main`.
 The current release baseline is the merged recovery result; the enrichment progress contract and its tests are included in `main`. The last runtime hash fix remains `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d`.
 
-Última validación local del código funcional antes de los commits documentales posteriores (`280c32f`):
+Última validación local del código funcional del checkpoint actual:
 
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
-- Full no-real-site suite: `453 passed, 8 deselected in 6.79s`
+- Full no-real-site suite: `454 passed, 8 deselected`
 - Git working tree: clean
-- GitHub Actions Quality run `#2201`: success on `9d60a3d`
+- GitHub Actions Quality run `#2213`: success on `6e9739f`
 
 The older focused-checkpoint and live-catalog references above remain historical evidence for the earlier audit checkpoint.
 
@@ -260,7 +260,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 
 ### 4. Calidad
 
-- [x] Última Quality CI: `#2201` sobre `9d60a3d` terminó en `success`; la validación local del baseline funcional quedó en `453 passed, 8 deselected`
+- [x] Última Quality CI: `#2213` sobre `6e9739f` terminó en `success`; la validación local del baseline funcional quedó en `454 passed, 8 deselected`
 - [x] Ruff clean
 - [x] Pyright clean
 - [x] Bootstrap/reconciliation: `15 passed`

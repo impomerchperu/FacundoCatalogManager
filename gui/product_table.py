@@ -4,12 +4,15 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QFontMetrics, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QGridLayout,
     QHeaderView,
     QLabel,
+    QSizePolicy,
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QTableWidget,
     QTableWidgetItem,
+    QWidget,
 )
 
 from controllers.product_controller import ProductController
@@ -295,6 +298,18 @@ class ProductTable(QTableWidget):
     def _render_products(self, products: list[Product]) -> None:
         self.setSortingEnabled(False)
         self.clearContents()
+        self._max_stock_value_width = self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN]
+        metrics = QFontMetrics(self.font())
+        for product in products:
+            color_stock = self._ordered_color_stock(product)
+            stock_values = [stock for _, stock in color_stock] or [product.stock]
+            for stock in stock_values:
+                self._max_stock_value_width = max(
+                    self._max_stock_value_width,
+                    metrics.horizontalAdvance(f"{stock:,}")
+                    + (2 * self.CONTENT_SIDE_PADDING),
+                )
+
         self.setRowCount(len(products))
         for row, product in enumerate(products):
             self._add_product_row(row, product)
@@ -382,7 +397,7 @@ class ProductTable(QTableWidget):
         return lines
 
     def _set_stock_widget(self, row: int, product: Product) -> None:
-        """Muestra cada color y su stock en una fila dentro de Stock."""
+        """Muestra cada color y su stock sin cortar texto ni cantidades."""
         color_stock = self._ordered_color_stock(product)
         if not color_stock:
             item = NumericTableWidgetItem(str(product.stock), product.stock)
@@ -390,25 +405,56 @@ class ProductTable(QTableWidget):
             self.setItem(row, self.STOCK_COLUMN, item)
             return
 
-        label = QLabel()
-        label.setTextFormat(Qt.TextFormat.RichText)
-        label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-        label.setWordWrap(True)
+        container = QWidget()
+        container.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
+        layout = QGridLayout(container)
+        layout.setContentsMargins(
+            self.CONTENT_SIDE_PADDING,
+            2,
+            self.CONTENT_SIDE_PADDING,
+            2,
+        )
+        layout.setHorizontalSpacing(8)
+        layout.setVerticalSpacing(1)
+        layout.setColumnStretch(0, 1)
+        layout.setColumnMinimumWidth(
+            1,
+            self._max_stock_value_width,
+        )
 
-        rows = [
-            "<table width='100%' cellspacing='0' cellpadding='1'>",
-        ]
-        for color, stock in color_stock:
-            rows.append(
-                "<tr>"
-                f"<td align='left'>{self._escape_html(color)}</td>"
-                f"<td align='right'>{stock:,}</td>"
-                "</tr>"
+        for line, (color, stock) in enumerate(color_stock):
+            color_label = QLabel(color)
+            color_label.setTextFormat(Qt.TextFormat.PlainText)
+            color_label.setAlignment(
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             )
-        rows.append("</table>")
-        label.setText("".join(rows))
-        label.setToolTip("\n".join(f"{color}: {stock}" for color, stock in color_stock))
-        self.setCellWidget(row, self.STOCK_COLUMN, label)
+            color_label.setWordWrap(True)
+            color_label.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Preferred,
+            )
+
+            stock_label = QLabel(f"{stock:,}")
+            stock_label.setTextFormat(Qt.TextFormat.PlainText)
+            stock_label.setAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            )
+            stock_label.setWordWrap(False)
+            stock_label.setSizePolicy(
+                QSizePolicy.Policy.Minimum,
+                QSizePolicy.Policy.Preferred,
+            )
+
+            layout.addWidget(color_label, line, 0)
+            layout.addWidget(stock_label, line, 1)
+
+        container.setToolTip(
+            "\n".join(f"{color}: {stock}" for color, stock in color_stock),
+        )
+        self.setCellWidget(row, self.STOCK_COLUMN, container)
 
     @staticmethod
     def _ordered_color_stock(product: Product) -> list[tuple[str, int]]:
@@ -453,6 +499,17 @@ class ProductTable(QTableWidget):
                 max(image_size, self.rowHeight(row)),
             )
 
+    def _stock_minimum_width(self) -> int:
+        """Garantiza que las cantidades permanezcan completas en una sola línea."""
+        return max(
+            self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN],
+            getattr(
+                self,
+                "_max_stock_value_width",
+                self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN],
+            ),
+        )
+
     def _category_minimum_width(self) -> int:
         metrics = QFontMetrics(self.font())
         category_width = self.MIN_COLUMN_WIDTHS[self.CATEGORY_COLUMN]
@@ -476,6 +533,7 @@ class ProductTable(QTableWidget):
             for column in range(self.columnCount())
         ]
         minimum_widths[self.CATEGORY_COLUMN] = self._category_minimum_width()
+        minimum_widths[self.STOCK_COLUMN] = self._stock_minimum_width()
         return [
             max(
                 header.sectionSize(column),
@@ -497,6 +555,7 @@ class ProductTable(QTableWidget):
                 for column in range(self.columnCount())
             ]
             minimum_widths[self.CATEGORY_COLUMN] = self._category_minimum_width()
+            minimum_widths[self.STOCK_COLUMN] = self._stock_minimum_width()
             minimum_total = sum(minimum_widths)
             available_width = self.viewport().width()
             target_width = max(available_width, minimum_total)

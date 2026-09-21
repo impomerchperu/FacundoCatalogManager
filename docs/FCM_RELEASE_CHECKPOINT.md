@@ -5,7 +5,7 @@ Branch oficial: `main`
 
 ## Estado
 
-El baseline funcional está cerrado y protegido en `main`; la última mejora funcional añade granularidad de progreso durante enrichment sin modificar las invariantes de scraping, persistencia o concurrencia.
+El baseline funcional está cerrado y protegido en `main`; el cierre funcional más reciente recuperó la presentación del estado de aplicación del historial sin modificar las invariantes de scraping, persistencia ni concurrencia.
 
 ## Referencias funcionales
 
@@ -61,14 +61,14 @@ El E2E real de producción más reciente validó `24 / 523 / 519 / 4`, DB `519 /
 
 ## Calidad
 
-Validación local del baseline funcional sobre `main` (`280c32f`, antes de los commits documentales posteriores):
+Validación del baseline funcional actual sobre `main`:
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
 - Suite no-real-site: `454 passed, 8 deselected`.
 - E2E real: `1 passed`, cobertura `24 / 523 / 519 / 4`, historial aplicado y `0` errores HTTP terminales.
 
-Los últimos cambios de código solo reorganizaron tres pruebas de imágenes para que sean funciones pytest convencionales, aislaron `ImageSync` del repositorio físico local y corrigieron el comando de suite documentado en README. La validación documentada de la suite no-real-site quedó verde con `437 passed, 8 deselected`; las comprobaciones estáticas también quedaron limpias.
+Los cambios funcionales y de documentación posteriores quedaron cubiertos por validaciones locales y por Quality CI. En el último run de Quality asociado a `main`, Ruff, Pyright y Pytest terminaron correctamente; `live-catalog` quedó omitido de forma intencional en el CI rápido.
 
 ## Arquitectura
 
@@ -116,7 +116,7 @@ Esta validación manual se completó el 2026-09-20 sobre `main` y no modificó e
 3. [x] Ejecutar Pyright.
 4. [x] Ejecutar `python -m pytest -q`.
 5. [x] Confirmar `git status --short` vacío.
-6. [x] Quality #2210: success sobre `aa412b1`; el baseline actual mantiene Ruff, Pyright y Pytest verdes (`454 passed, 8 deselected`).
+6. [x] Quality #2213: success sobre `6e9739f`; el job `test` ejecutó correctamente Ruff, Pyright y Pytest. `live-catalog` quedó `skipped` de forma intencional.
 7. [x] FULL real ejecutado y validado: el sitio publicó 523 apariciones esperadas, 11 menos que la referencia histórica 534.
 8. [x] Pruebas reales ajustadas para usar los totales publicados por las categorías como fuente de verdad de cobertura, conservando 534/530/4 como referencia histórica.
 9. [x] E2E productivo validado: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, cobertura completa y cero errores HTTP terminales.

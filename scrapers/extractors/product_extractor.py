@@ -171,36 +171,60 @@ class ProductExtractor:
         """Extrae exclusivamente el stock asociado a cada color visible."""
         color_stock: dict[str, int] = {}
         color_labels: dict[str, str] = {}
-        add_color = self._build_color_adder(color_stock, color_labels)
+        color_names: list[str] = []
+        add_color = self._build_color_adder(
+            color_stock,
+            color_labels,
+            color_names,
+        )
 
         self._collect_color_labels(soup, color_labels)
 
         explicit_colors = self._extract_text_colors(soup)
         visible_stock = self._extract_visible_stock_values(soup, text=text)
-        if explicit_colors:
-            for color in explicit_colors:
-                add_color(color)
-            if len(explicit_colors) == len(visible_stock):
-                for color, stock in zip(explicit_colors, visible_stock, strict=True):
-                    add_color(color, stock)
-                return color_stock
-            if not visible_stock:
-                return color_stock
+        if explicit_colors and len(explicit_colors) == len(visible_stock):
+            return {
+                color: stock
+                for color, stock in zip(
+                    explicit_colors,
+                    visible_stock,
+                    strict=True,
+                )
+            }
+
+        for color in explicit_colors:
+            add_color(color)
 
         self._extract_select_color_stock(soup, add_color)
         self._extract_element_color_stock(soup, add_color)
         self._extract_variation_color_stock(soup, add_color, color_labels)
-        self._apply_visible_color_stock(visible_stock, color_stock)
-        return color_stock
+
+        if color_stock and len(color_stock) == len(color_names):
+            return color_stock
+
+        if color_names and len(color_names) == len(visible_stock):
+            return {
+                color: stock
+                for color, stock in zip(
+                    color_names,
+                    visible_stock,
+                    strict=True,
+                )
+            }
+
+        return {}
 
     @staticmethod
-    def _build_color_adder(color_stock, color_labels):
+    def _build_color_adder(color_stock, color_labels, color_names):
         def add_color(name: str, stock: int | None = None) -> None:
             normalized = re.sub(r"\s+", " ", str(name)).strip(" .:-|")
             if not ProductExtractor._is_valid_color_name(normalized):
                 return
             normalized = color_labels.get(normalized.casefold(), normalized)
-            color_stock.setdefault(normalized, 0)
+            if normalized.casefold() not in {
+                existing.casefold() for existing in color_names
+            }:
+                color_names.append(normalized)
             if stock is not None:
                 color_stock[normalized] = max(
                     color_stock.get(normalized, 0),
@@ -329,26 +353,40 @@ class ProductExtractor:
 
     @classmethod
     def _extract_text_colors(cls, soup) -> list[str]:
+        stop = (
+            r"(?=\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
+            r"c[oó]digo|sku|categor[ií]as?)\b|[.;]|$)"
+        )
         patterns = (
             re.compile(
-                r"\bcolores?(?:\s+(?:disponibles?|de\s+tinta))?"
-                r"\s*[:|\-]\s*(.+?)(?="
-                r"\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
-                r"c[oó]digo|sku|categor[ií]as?)\b|$)",
+                r"\b(?:\d+\s+)?colores?"
+                r"(?:\s+(?:disponibles?|de\s+tinta))?"
+                rf"\s*[:|\-]\s*(.+?){stop}",
                 flags=re.IGNORECASE,
             ),
             re.compile(
                 r"\b(?:disponible|disponibles)\s+(?:en\s+)?"
-                r"(?:los\s+)?colores?\s*[:|\-]?\s*(.+?)(?="
-                r"\s+(?:stock\s+disponible|precio|presentaci[oó]n|"
-                r"c[oó]digo|sku|categor[ií]as?)\b|$)",
+                r"(?:los\s+)?colores?\s+[^.;]*?\bcomo\b\s*(.+?)"
+                rf"{stop}",
+                flags=re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b(?:disponible|disponibles)\s+(?:en\s+)?"
+                r"(?:los\s+)?colores?\s*[:|\-]?\s*(.+?)"
+                rf"{stop}",
+                flags=re.IGNORECASE,
+            ),
+            re.compile(
+                rf"\bcolor\s*[:|\-]\s*(.+?){stop}",
                 flags=re.IGNORECASE,
             ),
         )
         marker = re.compile(
-            r"\b(?:colores?(?:\s+(?:disponibles?|de\s+tinta))?"
-            r"|(?:disponible|disponibles)\s+(?:en\s+)?"
-            r"(?:los\s+)?colores?)\s*[:|\-]?",
+            r"\b(?:\d+\s+)?colores?"
+            r"(?:\s+(?:disponibles?|de\s+tinta))?"
+            r"|\b(?:disponible|disponibles)\s+(?:en\s+)?"
+            r"(?:los\s+)?colores?"
+            r"|\bcolor\s*[:|\-]",
             re.IGNORECASE,
         )
         for element in soup.find_all(string=marker):
@@ -378,6 +416,10 @@ class ProductExtractor:
     @staticmethod
     def _split_color_text(value: str) -> list[str]:
         normalized = re.sub(r"\s+", " ", value).strip(" .|-")
+        normalized = re.sub(r"\s*\([^)]*\)\s*$", "", normalized)
+        casefolded = normalized.casefold()
+        if " como " in casefolded:
+            normalized = normalized[casefolded.rfind(" como ") + len(" como ") :]
         normalized = re.sub(r"\s+(?:y|e)\s+", ", ", normalized)
         colors: list[str] = []
         seen: set[str] = set()

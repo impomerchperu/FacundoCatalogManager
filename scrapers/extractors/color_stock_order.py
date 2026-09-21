@@ -11,22 +11,26 @@ IMPORTACIONES_FACUNDO_COLOR_ORDER = (
 
 
 def order_color_names(colors: list[str]) -> list[str]:
-    """Order known inventory colors without disturbing unknown colors."""
+    """Order the demonstrated multi-color inventory variants safely."""
     indexed = {
         color.casefold(): index
         for index, color in enumerate(
             IMPORTACIONES_FACUNDO_COLOR_ORDER,
         )
     }
-    known = [
-        color
-        for color in colors
-        if color.casefold() in indexed
-    ]
     unknown = [
         color
         for color in colors
         if color.casefold() not in indexed
     ]
+    known = [
+        color
+        for color in colors
+        if color.casefold() in indexed
+    ]
+
+    if unknown or len(known) < 3:
+        return list(colors)
+
     known.sort(key=lambda color: indexed[color.casefold()])
-    return known + unknown
+    return known

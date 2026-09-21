@@ -10,8 +10,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from factories.scraping_factory import ScrapingFactory
 from repositories.product_repository import ProductRepository
-from services.scraping.scraping_session import ScrapingSession
 from services.scraping.category_name_normalizer import split_category_names
+from services.scraping.scraping_session import ScrapingSession
 
 EXPECTED_CATEGORIES = 24
 
@@ -29,6 +29,109 @@ def _products_by_category(products) -> dict[str, list]:
             if category_name:
                 result[category_name].append(product)
     return dict(result)
+
+
+def _print_result_summary(result) -> None:
+    print("=" * 80)
+    print("APLICACIÓN FULL DE STOCK POR COLOR")
+    print("=" * 80)
+    print("ESTADO:", result.status())
+    print("CATEGORÍAS PROCESADAS:", result.categories_processed)
+    print("APARICIONES ESPERADAS:", result.expected_category_occurrences)
+    print("APARICIONES ENCONTRADAS:", result.products_found)
+    print("PRODUCTOS ÚNICOS:", result.products_unique)
+    print("CREADOS:", result.created)
+    print("ACTUALIZADOS:", result.updated)
+    print("SIN CAMBIOS:", result.unchanged)
+    print("ELIMINADOS:", result.deleted)
+    print("HISTORIAL ID:", result.history_id)
+    print("ERRORES:", len(result.errors))
+
+
+def _validate_run(result) -> bool:
+    if not result.success():
+        if result.errors:
+            print("DETALLE DE ERRORES:")
+            for error in result.errors:
+                print("-", error)
+        return False
+
+    if result.categories_processed != EXPECTED_CATEGORIES:
+        print(
+            "VERIFICACIÓN CATEGORÍAS: ERROR -",
+            result.categories_processed,
+            "!=",
+            EXPECTED_CATEGORIES,
+        )
+        return False
+
+    if result.category_occurrence_gap:
+        print(
+            "VERIFICACIÓN COBERTURA: ERROR - gap=",
+            result.category_occurrence_gap,
+        )
+        return False
+
+    return True
+
+
+def _persisted_products_by_code(repository) -> dict[str, object]:
+    products = repository.get_all()
+    return {
+        str(product.code).strip().upper(): product
+        for product in products
+        if str(getattr(product, "code", "")).strip()
+    }
+
+
+def _collect_mismatches(color_products, persisted_by_code) -> list[str]:
+    mismatches: list[str] = []
+    for product in color_products:
+        code = str(product.code).strip().upper()
+        persisted = persisted_by_code.get(code)
+        if persisted is None:
+            mismatches.append(f"{code}: producto no persistido")
+            continue
+
+        expected = dict(product.color_stock)
+        actual = dict(getattr(persisted, "color_stock", {}) or {})
+        if actual != expected:
+            mismatches.append(
+                f"{code}: esperado={expected} persistido={actual}"
+            )
+
+        expected_total = sum(expected.values())
+        if int(getattr(persisted, "stock", 0)) != expected_total:
+            mismatches.append(
+                f"{code}: stock esperado={expected_total} "
+                f"persistido={persisted.stock}"
+            )
+
+    return mismatches
+
+
+def _print_color_report(color_products) -> dict[str, list]:
+    by_category = _products_by_category(color_products)
+    print("PRODUCTOS CON STOCK POR COLOR:", len(color_products))
+    print("VERIFICACIONES BD:", len(color_products))
+
+    print("CATEGORÍAS CON STOCK POR COLOR:", len(by_category))
+    for category_name in sorted(by_category):
+        print(
+            f" - {category_name}: "
+            f"{len(by_category[category_name])} productos"
+        )
+
+    if len(by_category) == EXPECTED_CATEGORIES:
+        print("CATEGORÍAS CON STOCK POR COLOR: 24/24")
+    else:
+        print(
+            "CATEGORÍAS CON STOCK POR COLOR:",
+            f"{len(by_category)}/{EXPECTED_CATEGORIES}",
+            "(las categorías restantes pueden no publicar "
+            "cantidades por color en el origen)",
+        )
+    return by_category
 
 
 def main() -> int:
@@ -56,46 +159,9 @@ def main() -> int:
             )
             return 1
 
-        # Todas las categorías se ejecutan como un sync dirigido conjunto:
-        # se aplica color_stock a todas sin habilitar prune FULL.
         result = session.execute(categories)
-
-        print("=" * 80)
-        print("APLICACIÓN FULL DE STOCK POR COLOR")
-        print("=" * 80)
-        print("ESTADO:", result.status())
-        print("CATEGORÍAS PROCESADAS:", result.categories_processed)
-        print("APARICIONES ESPERADAS:", result.expected_category_occurrences)
-        print("APARICIONES ENCONTRADAS:", result.products_found)
-        print("PRODUCTOS ÚNICOS:", result.products_unique)
-        print("CREADOS:", result.created)
-        print("ACTUALIZADOS:", result.updated)
-        print("SIN CAMBIOS:", result.unchanged)
-        print("ELIMINADOS:", result.deleted)
-        print("HISTORIAL ID:", result.history_id)
-        print("ERRORES:", len(result.errors))
-
-        if not result.success():
-            if result.errors:
-                print("DETALLE DE ERRORES:")
-                for error in result.errors:
-                    print("-", error)
-            return 1
-
-        if result.categories_processed != EXPECTED_CATEGORIES:
-            print(
-                "VERIFICACIÓN CATEGORÍAS: ERROR -",
-                result.categories_processed,
-                "!=",
-                EXPECTED_CATEGORIES,
-            )
-            return 1
-
-        if result.category_occurrence_gap:
-            print(
-                "VERIFICACIÓN COBERTURA: ERROR - gap=",
-                result.category_occurrence_gap,
-            )
+        _print_result_summary(result)
+        if not _validate_run(result):
             return 1
 
         color_products = [
@@ -103,58 +169,12 @@ def main() -> int:
             for product in result.products
             if getattr(product, "color_stock", {}) or {}
         ]
+        repository = ProductRepository(runner.catalog_repository.db)
+        persisted_by_code = _persisted_products_by_code(repository)
+        mismatches = _collect_mismatches(color_products, persisted_by_code)
 
-        persisted_products = ProductRepository(
-            runner.catalog_repository.db,
-        ).get_all()
-        persisted_by_code = {
-            str(product.code).strip().upper(): product
-            for product in persisted_products
-            if str(getattr(product, "code", "")).strip()
-        }
-
-        mismatches: list[str] = []
-        for product in color_products:
-            code = str(product.code).strip().upper()
-            persisted = persisted_by_code.get(code)
-            if persisted is None:
-                mismatches.append(f"{code}: producto no persistido")
-                continue
-            expected = dict(product.color_stock)
-            actual = dict(getattr(persisted, "color_stock", {}) or {})
-            if actual != expected:
-                mismatches.append(
-                    f"{code}: esperado={expected} persistido={actual}"
-                )
-            expected_total = sum(expected.values())
-            if int(getattr(persisted, "stock", 0)) != expected_total:
-                mismatches.append(
-                    f"{code}: stock esperado={expected_total} "
-                    f"persistido={persisted.stock}"
-                )
-
-        print("PRODUCTOS CON STOCK POR COLOR:", len(color_products))
-        print("VERIFICACIONES BD:", len(color_products))
+        _print_color_report(color_products)
         print("INCONSISTENCIAS BD:", len(mismatches))
-
-        by_category = _products_by_category(color_products)
-        print("CATEGORÍAS CON STOCK POR COLOR:", len(by_category))
-        for category_name in sorted(by_category):
-            print(
-                f" - {category_name}: "
-                f"{len(by_category[category_name])} productos"
-            )
-
-        if len(by_category) == EXPECTED_CATEGORIES:
-            print("CATEGORÍAS CON STOCK POR COLOR: 24/24")
-        else:
-            print(
-                "CATEGORÍAS CON STOCK POR COLOR:",
-                f"{len(by_category)}/{EXPECTED_CATEGORIES}",
-                "(las categorías restantes pueden no publicar "
-                "cantidades por color en el origen)",
-            )
-
         if mismatches:
             print("DETALLE DE INCONSISTENCIAS:")
             for mismatch in mismatches:

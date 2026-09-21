@@ -387,7 +387,11 @@ def test_product_extractor_keeps_total_stock_when_color_names_have_no_per_color_
         category="Bolsas / Mochilas",
     )
 
-    assert product.color_stock == {}
+    assert product.color_stock == {
+        "Azul": 0,
+        "Rojo": 0,
+        "Negro": 0,
+    }
     assert product.stock == 330
 
 
@@ -530,6 +534,68 @@ def test_category_extractor_maps_single_explicit_color_to_total_stock():
 
     assert result.color_stock == {"Negro": 0}
     assert result.stock == 0
+
+
+
+
+def test_collection_scraper_uses_detail_color_names_for_multiple_card_stocks():
+    class DetailNamesCategoryScraper:
+        def get_category_pages(self, url):
+            return [url]
+
+        def get_html(self, url):
+            if "/producto/" in url:
+                return """
+                <html>
+                    <h1>Mochila Plegable Multifunción 3 en 1</h1>
+                    <p class="brxe-heading">FB-6001</p>
+                    <div>
+                        Esta mochila está disponible en colores modernos como
+                        azul, rojo, negro y gris.
+                    </div>
+                </html>
+                """
+            return """
+            <html>
+                <article class="jsfb-filterable">
+                    <a href="/producto/mochila-plegable-multifuncion-3-en-1/">
+                        <h2 class="brxe-f31760">
+                            Mochila Plegable Multifunción 3 en 1
+                        </h2>
+                    </a>
+                    <p class="brxe-a26f34">FB-6001</p>
+                    <div class="variaciones-producto">
+                        <p>2</p>
+                        <p>3415</p>
+                        <p>0</p>
+                        <p>1978</p>
+                    </div>
+                </article>
+            </html>
+            """
+
+    scraper = ProductCollectionScraper(
+        DetailNamesCategoryScraper(),
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+
+    products = scraper.scrape_category(
+        Category(
+            name="Bolsas / Mochilas",
+            url="https://example.com/categoria/",
+        ),
+    )
+
+    assert len(products) == 1
+    assert products[0].color_stock == {
+        "azul": 2,
+        "rojo": 3415,
+        "negro": 0,
+        "gris": 1978,
+    }
+    assert products[0].stock == 5395
 
 
 

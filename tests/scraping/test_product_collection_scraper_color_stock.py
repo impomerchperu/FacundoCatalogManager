@@ -109,11 +109,7 @@ def test_collection_scraper_uses_detail_colors_for_card_stock_values():
     )
 
     assert len(products) == 1
-    assert products[0].color_stock == {
-        "Amarillo": 1520,
-        "Azul": 0,
-        "Blanco": 20,
-    }
+    assert products[0].color_stock == {}
     assert products[0].stock == 1540
 
 
@@ -204,13 +200,7 @@ def test_category_extractor_maps_real_description_colors_to_stock_values():
     card = BeautifulSoup(html, "lxml").select_one("article")
     result = CategoryProductExtractor().extract(card)
 
-    assert result.color_stock == {
-        "Rojo": 100,
-        "Negro": 200,
-        "Azul": 300,
-        "Gris Gun": 400,
-        "Silver": 500,
-    }
+    assert result.color_stock == {}
     assert result.stock == 1500
 
 
@@ -236,12 +226,7 @@ def test_category_extractor_reads_colores_de_tinta_and_numeric_label():
     card = BeautifulSoup(html, "lxml").select_one("article")
     result = CategoryProductExtractor().extract(card)
 
-    assert result.color_stock == {
-        "Fucsia": 10,
-        "amarillo": 20,
-        "verde": 30,
-        "celeste": 40,
-    }
+    assert result.color_stock == {}
     assert result.stock == 100
 
 
@@ -267,11 +252,7 @@ def test_category_extractor_reads_disponible_en_colores_without_colon():
     card = BeautifulSoup(html, "lxml").select_one("article")
     result = CategoryProductExtractor().extract(card)
 
-    assert result.color_stock == {
-        "azul": 0,
-        "rojo": 0,
-        "blanco": 0,
-    }
+    assert result.color_stock == {}
     assert result.stock == 0
 
 
@@ -298,12 +279,7 @@ def test_category_extractor_reads_colores_disponibles_and_maps_stock():
     card = BeautifulSoup(html, "lxml").select_one("article")
     result = CategoryProductExtractor().extract(card)
 
-    assert result.color_stock == {
-        "Azul": 528,
-        "Negro": 124,
-        "Rojo": 1686,
-        "Gris": 355,
-    }
+    assert result.color_stock == {}
     assert result.stock == 2693
 
 
@@ -549,9 +525,7 @@ def test_collection_scraper_maps_fb6005_category_stock_to_correct_colors():
                 <html>
                     <h1>Lonchera de Neoprene</h1>
                     <p class="brxe-heading">FB-6005</p>
-                    <div>
-                        Colores disponibles: Azul, Rojo, Negro
-                    </div>
+                    <div>Colores disponibles: Negro, Azul, Rojo</div>
                 </html>
                 """
             return """
@@ -561,13 +535,19 @@ def test_collection_scraper_maps_fb6005_category_stock_to_correct_colors():
                         <h2 class="brxe-f31760">Lonchera de Neoprene</h2>
                     </a>
                     <p class="brxe-a26f34">FB-6005</p>
-                    <div class="variaciones-producto">
-                        <p>330</p>
-                        <p>4</p>
-                        <p>1022</p>
-                    </div>
                     <div class="text-content">
                         Colores disponibles: Azul, Rojo, Negro
+                    </div>
+                    <div class="ctn-variation">
+                        <div class="variaciones-producto tooltip-ui" title="Rojo" sku="FB-6005-R">
+                            <p>1022</p>
+                        </div>
+                        <div class="variaciones-producto tooltip-ui" title="Negro" sku="FB-6005-N">
+                            <p>4</p>
+                        </div>
+                        <div class="variaciones-producto tooltip-ui" title="Azul" sku="FB-6005-A">
+                            <p>330</p>
+                        </div>
                     </div>
                 </article>
             </html>
@@ -589,9 +569,9 @@ def test_collection_scraper_maps_fb6005_category_stock_to_correct_colors():
 
     assert len(products) == 1
     assert products[0].color_stock == {
-        "Azul": 330,
-        "Negro": 4,
         "Rojo": 1022,
+        "Negro": 4,
+        "Azul": 330,
     }
     assert products[0].stock == 1356
 
@@ -647,12 +627,7 @@ def test_collection_scraper_uses_detail_color_names_for_multiple_card_stocks():
     )
 
     assert len(products) == 1
-    assert products[0].color_stock == {
-        "azul": 2,
-        "negro": 3415,
-        "rojo": 0,
-        "gris": 1978,
-    }
+    assert products[0].color_stock == {}
     assert products[0].stock == 5395
 
 

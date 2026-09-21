@@ -245,6 +245,36 @@ def test_category_extractor_reads_colores_de_tinta_and_numeric_label():
     assert result.stock == 100
 
 
+def test_category_extractor_reads_disponible_en_colores_without_colon():
+    html = """
+    <article>
+        <h2 class="brxe-f5021">Regla Plástica 20 cm</h2>
+        <p class="brxe-a26f34">FB-5021</p>
+        <div class="text-content">
+            Propiedades: disponible en colores azul, rojo y blanco.
+            Presentación: Individual en bolsa plástica transparente.
+        </div>
+        <div class="variaciones-producto">
+            <p>0</p>
+            <p>0</p>
+            <p>0</p>
+        </div>
+    </article>
+    """
+
+    from bs4 import BeautifulSoup
+
+    card = BeautifulSoup(html, "lxml").select_one("article")
+    result = CategoryProductExtractor().extract(card)
+
+    assert result.color_stock == {
+        "azul": 0,
+        "rojo": 0,
+        "blanco": 0,
+    }
+    assert result.stock == 0
+
+
 def test_category_extractor_reads_colores_disponibles_and_maps_stock():
     html = """
     <article>

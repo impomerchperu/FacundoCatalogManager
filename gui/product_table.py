@@ -173,6 +173,7 @@ class ProductTable(QTableWidget):
         self.controller = controller
         self._sort_states: dict[int, Qt.SortOrder] = {}
         self._products: list[Product] = []
+        self._category_reference_products: list[Product] = []
         self._search_text = ""
         self.setColumnCount(len(self.HEADER_LABELS))
         self.setHorizontalHeaderLabels(self.HEADER_LABELS)
@@ -293,6 +294,12 @@ class ProductTable(QTableWidget):
     def set_search_text(self, text: str) -> None:
         """Conserva la API de búsqueda sin aplicar resaltado visual."""
         self._search_text = text.strip()
+
+    def set_category_reference_products(self, products: list[Product]) -> None:
+        """Conserva el ancho de categoría del catálogo completo al filtrar."""
+        self._category_reference_products = list(products)
+        self._fit_columns_to_content()
+        self._adjust_table_rows()
 
     def load_products(self, products: list[Product] | None = None) -> None:
         source = products if products is not None else self.controller.get_products()
@@ -502,11 +509,13 @@ class ProductTable(QTableWidget):
     def _category_minimum_width(self) -> int:
         metrics = QFontMetrics(self.font())
         category_width = self.MIN_COLUMN_WIDTHS[self.CATEGORY_COLUMN]
-        for row in range(self.rowCount()):
-            item = self.item(row, self.CATEGORY_COLUMN)
-            if item is None:
-                continue
-            for line in item.text().splitlines():
+        reference_products = (
+            self._category_reference_products
+            if self._category_reference_products
+            else self._products
+        )
+        for product in reference_products:
+            for line in self._format_categories(product.category).splitlines():
                 category_width = max(
                     category_width,
                     metrics.horizontalAdvance(line) + (

@@ -269,6 +269,7 @@ class MainWindow(QMainWindow):
 
     def refresh_catalog(self) -> None:
         self.all_products = self.controller.get_products()
+        self.table.set_category_reference_products(self.all_products)
         self.rebuild_category_filters()
         self.apply_filters()
 

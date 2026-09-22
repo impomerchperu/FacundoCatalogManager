@@ -1,7 +1,7 @@
 from typing import ClassVar
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QFont, QFontMetrics, QPainter, QPixmap
+from PySide6.QtGui import QFontMetrics, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QGridLayout,
@@ -114,7 +114,6 @@ class ProductTable(QTableWidget):
     """Tabla principal del catálogo de productos."""
 
     CONTENT_SIDE_PADDING = 4
-    CATEGORY_TEXT_PIXEL_SIZE = 16
     CATEGORY_FORCED_LINES: ClassVar[dict[str, tuple[str, ...]]] = {
         "Impresoras y Consumible Fotográficas Térmicas": (
             "Impresoras y Consumible",
@@ -508,9 +507,7 @@ class ProductTable(QTableWidget):
         )
 
     def _category_minimum_width(self) -> int:
-        category_font = QFont(self.font())
-        category_font.setPixelSize(self.CATEGORY_TEXT_PIXEL_SIZE)
-        metrics = QFontMetrics(category_font)
+        metrics = QFontMetrics(self.font())
         category_width = self.MIN_COLUMN_WIDTHS[self.CATEGORY_COLUMN]
         reference_products = (
             self._category_reference_products

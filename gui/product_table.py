@@ -130,7 +130,7 @@ class ProductTable(QTableWidget):
             "Fotográficas Térmicas",
         ),
     }
-    DEFAULT_IMAGE_CELL_SIZE = 160
+    DEFAULT_IMAGE_CELL_SIZE = ProductImageDelegate.DEFAULT_SIZE
     IMAGE_SIZE = DEFAULT_IMAGE_CELL_SIZE
 
     IMAGE_COLUMN = 0
@@ -453,6 +453,7 @@ class ProductTable(QTableWidget):
                 "QWidget#stockColorRow {"
                 f"background-color: {background};"
                 "border-radius: 2px;"
+                "color: #173f6d;"
                 "}"
             )
 
@@ -480,6 +481,7 @@ class ProductTable(QTableWidget):
 
             color_label = QLabel(color)
             color_label.setTextFormat(Qt.TextFormat.PlainText)
+            color_label.setStyleSheet("color: #173f6d;")
             color_label.setAlignment(
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             )
@@ -491,6 +493,7 @@ class ProductTable(QTableWidget):
 
             stock_label = QLabel(f"{stock:,}")
             stock_label.setTextFormat(Qt.TextFormat.PlainText)
+            stock_label.setStyleSheet("color: #173f6d;")
             stock_label.setAlignment(
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
             )
@@ -593,7 +596,7 @@ class ProductTable(QTableWidget):
         )
         return max(
             self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN],
-            pair_width + (2 * self.CONTENT_SIDE_PADDING),
+            pair_width,
             header_width,
         )
 

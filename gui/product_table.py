@@ -689,13 +689,18 @@ class ProductTable(QTableWidget):
         ]
         minimum_widths[self.CATEGORY_COLUMN] = self._category_minimum_width()
         minimum_widths[self.STOCK_COLUMN] = self._stock_minimum_width()
-        return [
+        preferred_widths = [
             max(
                 header.sectionSize(column),
                 minimum_widths[column],
             )
             for column in range(self.columnCount())
         ]
+        # Stock debe conservar exclusivamente el ancho calculado por su
+        # contenido, sin el margen adicional que Qt puede introducir al
+        # aplicar resizeColumnsToContents().
+        preferred_widths[self.STOCK_COLUMN] = minimum_widths[self.STOCK_COLUMN]
+        return preferred_widths
 
     def _fit_columns_to_content(self) -> None:
         if getattr(self, "_is_fitting_columns", False):

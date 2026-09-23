@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QStyleOptionViewItem,
     QTableWidget,
     QTableWidgetItem,
-    QWidget,
 )
 
 from controllers.product_controller import ProductController
@@ -115,6 +114,7 @@ class StockColorDelegate(QStyledItemDelegate):
     HORIZONTAL_PADDING = 4
     TEXT_GAP = 6
     MIN_LINE_HEIGHT = 24
+    MIN_WIDTH = 180
     TEXT_COLOR = "#173f6d"
 
     def paint(self, painter: QPainter, option, index) -> None:
@@ -215,11 +215,11 @@ class StockColorDelegate(QStyledItemDelegate):
         color_stock = index.data(self.STOCK_ROLE)
         if isinstance(color_stock, list) and color_stock:
             return QSize(
-                ProductTable.MIN_COLUMN_WIDTHS[ProductTable.STOCK_COLUMN],
+                self.MIN_WIDTH,
                 len(color_stock) * self.MIN_LINE_HEIGHT,
             )
         return QSize(
-            ProductTable.MIN_COLUMN_WIDTHS[ProductTable.STOCK_COLUMN],
+            self.MIN_WIDTH,
             self.MIN_LINE_HEIGHT,
         )
 
@@ -283,7 +283,7 @@ class ProductTable(QTableWidget):
         NAME_COLUMN: 120,
         DETAIL_COLUMN: 180,
         CATEGORY_COLUMN: 110,
-        STOCK_COLUMN: 180,
+        STOCK_COLUMN: StockColorDelegate.MIN_WIDTH,
         PRICE_SAMPLE_COLUMN: 105,
         PRICE_HUNDRED_COLUMN: 105,
         PRICE_THOUSAND_COLUMN: 105,

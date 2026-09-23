@@ -112,15 +112,19 @@ class StockColorDelegate(QStyledItemDelegate):
     STOCK_ROLE = int(Qt.ItemDataRole.UserRole) + 2
     INDICATOR_SIZE = 12
     HORIZONTAL_PADDING = 4
+    TEXT_HORIZONTAL_PADDING = 4
     TEXT_GAP = 6
     MIN_LINE_HEIGHT = 24
+    TEXT_PIXEL_SIZE = 16
     MIN_WIDTH = 180
     TEXT_COLOR = "#173f6d"
 
     def paint(self, painter: QPainter, option, index) -> None:
         color_stock = index.data(self.STOCK_ROLE)
         painter.save()
-        painter.setFont(option.font)
+        text_font = QFont(option.font)
+        text_font.setPixelSize(self.TEXT_PIXEL_SIZE)
+        painter.setFont(text_font)
         painter.setPen(QColor(self.TEXT_COLOR))
 
         if not isinstance(color_stock, list) or not color_stock:
@@ -179,13 +183,24 @@ class StockColorDelegate(QStyledItemDelegate):
             stock_width = metrics.horizontalAdvance(stock_text)
 
             stock_rect = QRect(
-                line_rect.right() - self.HORIZONTAL_PADDING - stock_width + 1,
+                line_rect.right()
+                - self.TEXT_HORIZONTAL_PADDING
+                - stock_width
+                + 1,
                 line_rect.top(),
                 stock_width,
                 line_rect.height(),
             )
-            color_left = indicator_rect.right() + self.TEXT_GAP
-            color_right = stock_rect.left() - self.TEXT_GAP
+            color_left = (
+                indicator_rect.right()
+                + self.TEXT_GAP
+                + self.TEXT_HORIZONTAL_PADDING
+            )
+            color_right = (
+                stock_rect.left()
+                - self.TEXT_GAP
+                - self.TEXT_HORIZONTAL_PADDING
+            )
             color_rect = QRect(
                 color_left,
                 line_rect.top(),
@@ -239,6 +254,7 @@ class ProductTable(QTableWidget):
     FONT_PIXEL_SIZE = 16
     STOCK_INDICATOR_SIZE = StockColorDelegate.INDICATOR_SIZE
     STOCK_ROW_CONTENT_HORIZONTAL_PADDING = StockColorDelegate.HORIZONTAL_PADDING
+    STOCK_TEXT_HORIZONTAL_PADDING = StockColorDelegate.TEXT_HORIZONTAL_PADDING
     STOCK_ROW_CONTENT_GAP = StockColorDelegate.TEXT_GAP
     STOCK_MIN_LINE_HEIGHT = StockColorDelegate.MIN_LINE_HEIGHT
     CATEGORY_FORCED_LINES: ClassVar[dict[str, tuple[str, ...]]] = {
@@ -481,6 +497,7 @@ class ProductTable(QTableWidget):
                         self._max_stock_pair_width,
                         self.STOCK_INDICATOR_SIZE
                         + (2 * self.STOCK_ROW_CONTENT_GAP)
+                        + (2 * self.STOCK_TEXT_HORIZONTAL_PADDING)
                         + metrics.horizontalAdvance(color)
                         + metrics.horizontalAdvance(f"{stock:,}")
                         + (2 * self.STOCK_ROW_CONTENT_HORIZONTAL_PADDING),
@@ -489,7 +506,8 @@ class ProductTable(QTableWidget):
                 for stock in stock_values:
                     self._max_stock_pair_width = max(
                         self._max_stock_pair_width,
-                        metrics.horizontalAdvance(f"{stock:,}"),
+                        metrics.horizontalAdvance(f"{stock:,}")
+                        + (2 * self.STOCK_TEXT_HORIZONTAL_PADDING),
                     )
 
         self.setRowCount(len(products))

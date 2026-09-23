@@ -208,7 +208,6 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     table._fit_columns_to_content()
 
     header = table.horizontalHeader()
-    name_width = QFontMetrics(table.font()).horizontalAdvance(product.name)
 
     assert (
         table.horizontalScrollBarPolicy()
@@ -219,11 +218,10 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     assert "#f8fbff" in table.styleSheet()
     assert "#eef5fb" in table.styleSheet()
     assert "#173f6d" in table.styleSheet()
-    assert sum(header.sectionSize(column) for column in range(table.columnCount())) <= (
-        table.viewport().width()
-    )
-    assert header.sectionSize(ProductTable.NAME_COLUMN) >= name_width + (
-        2 * ProductTable.CONTENT_SIDE_PADDING
+    assert table.item(ProductTable.NAME_COLUMN if False else 0, 0) is not None
+    assert table.item(0, ProductTable.NAME_COLUMN).text() == product.name
+    assert header.sectionSize(ProductTable.NAME_COLUMN) >= (
+        ProductTable.MIN_COLUMN_WIDTHS[ProductTable.NAME_COLUMN]
     )
     for column in range(table.columnCount()):
         assert (

@@ -1,7 +1,7 @@
 from typing import ClassVar
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QFontMetrics, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFontMetrics, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QGridLayout,
@@ -133,6 +133,20 @@ class ProductTable(QTableWidget):
     PRICE_HUNDRED_COLUMN = 7
     PRICE_THOUSAND_COLUMN = 8
 
+    STOCK_COLOR_STYLES: ClassVar[dict[str, tuple[str, str]]] = {
+        "amarillo": ("#fff7d6", "#f2c94c"),
+        "azul": ("#e7f1ff", "#2f80ed"),
+        "blanco": ("#f6f8fa", "#ffffff"),
+        "celeste": ("#e7f7ff", "#43a5e8"),
+        "morado": ("#f1e9ff", "#9b51e0"),
+        "naranja": ("#fff0df", "#f2994a"),
+        "negro": ("#edf0f3", "#343a40"),
+        "rojo": ("#ffe8e8", "#eb5757"),
+        "rosado": ("#ffeaf4", "#e66aa8"),
+        "verde claro": ("#eaf8e9", "#5cbd69"),
+        "verde oscuro": ("#e6f4ee", "#2f9e72"),
+    }
+
     MIN_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
         IMAGE_COLUMN: DEFAULT_IMAGE_CELL_SIZE,
         CODE_COLUMN: 80,
@@ -202,13 +216,18 @@ class ProductTable(QTableWidget):
         self.setStyleSheet(
             """
             QTableWidget {
-                gridline-color: #d9d9d9;
-                selection-background-color: #cceff1;
+                background-color: #f8fbff;
+                gridline-color: #dfe7ef;
+                selection-background-color: #dbeeff;
                 selection-color: #000000;
             }
             QTableWidget::item {
+                background-color: #fbfdff;
                 padding: 4px;
                 font-size: 16px;
+            }
+            QTableWidget::item:alternate {
+                background-color: #f4f8fc;
             }
             QHeaderView::section {
                 min-height: 64px;
@@ -216,6 +235,7 @@ class ProductTable(QTableWidget):
                 font-size: 18px;
                 font-weight: bold;
                 text-align: center;
+                background-color: #eef5fb;
             }
             """,
         )
@@ -388,7 +408,7 @@ class ProductTable(QTableWidget):
         return "\n".join(lines)
 
     def _set_stock_widget(self, row: int, product: Product) -> None:
-        """Muestra cada color y su stock sin cortar texto ni cantidades."""
+        """Muestra color y stock dentro de una única celda con resaltado suave."""
         color_stock = self._ordered_color_stock(product)
         if not color_stock:
             item = NumericTableWidgetItem(str(product.stock), product.stock)
@@ -408,11 +428,35 @@ class ProductTable(QTableWidget):
             self.CONTENT_SIDE_PADDING,
             2,
         )
-        layout.setHorizontalSpacing(4)
+        layout.setHorizontalSpacing(0)
         layout.setVerticalSpacing(1)
-        layout.setColumnStretch(0, 1)
 
         for line, (color, stock) in enumerate(color_stock):
+            background, indicator = self._stock_color_style(color)
+
+            row_widget = QWidget()
+            row_widget.setObjectName("stockColorRow")
+            row_widget.setStyleSheet(
+                "QWidget#stockColorRow {"
+                f"background-color: {background};"
+                "border-radius: 2px;"
+                "}"
+            )
+
+            row_layout = QGridLayout(row_widget)
+            row_layout.setContentsMargins(4, 1, 4, 1)
+            row_layout.setHorizontalSpacing(4)
+            row_layout.setVerticalSpacing(0)
+            row_layout.setColumnStretch(1, 1)
+
+            indicator_label = QLabel()
+            indicator_label.setFixedSize(12, 12)
+            indicator_label.setStyleSheet(
+                "border-radius: 6px;"
+                f"background-color: {indicator};"
+                "border: 1px solid rgba(0, 0, 0, 55);"
+            )
+
             color_label = QLabel(color)
             color_label.setTextFormat(Qt.TextFormat.PlainText)
             color_label.setAlignment(
@@ -435,13 +479,32 @@ class ProductTable(QTableWidget):
                 QSizePolicy.Policy.Fixed,
             )
 
-            layout.addWidget(color_label, line, 0)
-            layout.addWidget(stock_label, line, 1)
+            row_layout.addWidget(indicator_label, 0, 0)
+            row_layout.addWidget(color_label, 0, 1)
+            row_layout.addWidget(stock_label, 0, 2)
+
+            layout.addWidget(row_widget, line, 0)
 
         container.setToolTip(
             "\n".join(f"{color}: {stock}" for color, stock in color_stock),
         )
         self.setCellWidget(row, self.STOCK_COLUMN, container)
+
+    @classmethod
+    def _stock_color_style(cls, color: str) -> tuple[str, str]:
+        """Devuelve fondo e indicador para el color comercial recibido."""
+        normalized = " ".join(color.strip().casefold().split())
+        style = cls.STOCK_COLOR_STYLES.get(normalized)
+        if style is not None:
+            return style
+
+        fallback_indicator = "#8fa3b8"
+        fallback_background = "#eef3f7"
+        qcolor = QColor(color)
+        if qcolor.isValid():
+            fallback_indicator = qcolor.name().lower()
+            fallback_background = qcolor.lighter(185).name().lower()
+        return fallback_background, fallback_indicator
 
     @staticmethod
     def _ordered_color_stock(product: Product) -> list[tuple[str, int]]:

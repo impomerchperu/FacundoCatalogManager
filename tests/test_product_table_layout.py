@@ -371,10 +371,10 @@ def test_product_table_uses_reference_font_and_color():
     table = ProductTable(_Controller())
 
     assert table.font().family() == "Segoe UI"
-    assert table.font().pixelSize() == 12
+    assert table.font().pixelSize() == 13
     assert ProductTable.TABLE_TEXT_COLOR == "#173f6d"
     assert "font-family: \"Segoe UI\";" in table.styleSheet()
-    assert "font-size: 12px;" in table.styleSheet()
+    assert "font-size: 13px;" in table.styleSheet()
     assert "color: #173f6d;" in table.styleSheet()
 
     table.close()
@@ -404,15 +404,3 @@ def test_product_table_stock_width_stays_content_fitted_when_window_grows():
 
     table.close()
 
-
-def test_product_table_uses_13px_reference_body_text():
-    _qapp()
-
-    table = ProductTable(_Controller())
-
-    assert table.font().family() == "Segoe UI"
-    assert table.font().pixelSize() == 13
-    assert "font-family: \"Segoe UI\";" in table.styleSheet()
-    assert "font-size: 13px;" in table.styleSheet()
-
-    table.close()

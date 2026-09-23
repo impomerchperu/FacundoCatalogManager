@@ -248,7 +248,7 @@ class ProductTable(QTableWidget):
     TABLE_TEXT_COLOR = "#173f6d"
     TABLE_SELECTION_BACKGROUND = "#dbeeff"
     FONT_FAMILY = "Segoe UI"
-    FONT_PIXEL_SIZE = 14
+    FONT_PIXEL_SIZE = 12
     STOCK_INDICATOR_SIZE = StockColorDelegate.INDICATOR_SIZE
     STOCK_ROW_CONTENT_HORIZONTAL_PADDING = StockColorDelegate.HORIZONTAL_PADDING
     STOCK_TEXT_HORIZONTAL_PADDING = StockColorDelegate.TEXT_HORIZONTAL_PADDING
@@ -372,7 +372,7 @@ class ProductTable(QTableWidget):
                 background-color: #fbfdff;
                 padding: 4px;
                 font-family: "Segoe UI";
-                font-size: 14px;
+                font-size: 12px;
                 color: #173f6d;
             }
             QTableWidget::item:alternate {

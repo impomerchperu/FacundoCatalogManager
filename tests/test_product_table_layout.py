@@ -316,7 +316,7 @@ def test_product_table_stock_color_rows_have_no_outer_spacing():
     assert StockColorDelegate.HORIZONTAL_PADDING == 4
     assert StockColorDelegate.TEXT_HORIZONTAL_PADDING == 4
     assert StockColorDelegate.TEXT_GAP == 6
-    assert StockColorDelegate.TEXT_PIXEL_SIZE == 16
+    assert not hasattr(StockColorDelegate, "TEXT_PIXEL_SIZE")
     assert StockColorDelegate.MIN_LINE_HEIGHT == 24
 
     background, indicator = ProductTable._stock_color_style("Verde Oscuro")
@@ -362,9 +362,10 @@ def test_product_table_uses_reference_font_and_color():
     table = ProductTable(_Controller())
 
     assert table.font().family() == "Segoe UI"
-    assert table.font().pixelSize() == 16
+    assert table.font().pixelSize() == 14
     assert ProductTable.TABLE_TEXT_COLOR == "#173f6d"
     assert "font-family: \"Segoe UI\";" in table.styleSheet()
+    assert "font-size: 14px;" in table.styleSheet()
     assert "color: #173f6d;" in table.styleSheet()
 
     table.close()

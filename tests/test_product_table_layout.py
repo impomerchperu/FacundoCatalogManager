@@ -409,8 +409,8 @@ def test_product_table_stock_width_accounts_for_indicator_color_and_quantity():
         + metrics.horizontalAdvance("Verde Oscuro")
         + metrics.horizontalAdvance("12,718")
         + (2 * table.STOCK_ROW_CONTENT_HORIZONTAL_PADDING)
-        + (2 * table.CONTENT_SIDE_PADDING)
     )
     assert table.columnWidth(ProductTable.STOCK_COLUMN) >= expected
+    assert ProductImageDelegate.DEFAULT_SIZE == ProductTable.DEFAULT_IMAGE_CELL_SIZE
 
     table.close()

@@ -357,17 +357,28 @@ def test_product_table_stock_color_rows_fill_the_cell_without_outer_spacing():
 
     row_widgets = container.findChildren(QWidget, "stockColorRow")
     assert len(row_widgets) == 11
+    expected_backgrounds = {
+        color: background
+        for color, (background, _indicator) in ProductTable.STOCK_COLOR_STYLES.items()
+    }
     for row_widget in row_widgets:
         row_layout = row_widget.layout()
         assert row_layout is not None
         row_margins = row_layout.contentsMargins()
+        assert row_margins.left() == ProductTable.STOCK_ROW_CONTENT_HORIZONTAL_PADDING
         assert row_margins.top() == 0
+        assert row_margins.right() == ProductTable.STOCK_ROW_CONTENT_HORIZONTAL_PADDING
         assert row_margins.bottom() == 0
-        assert ProductTable.STOCK_COLOR_STYLES["amarillo"][0] in (
-            row_widget.styleSheet()
-            if "Amarillo" in [label.text() for label in row_widget.findChildren(QLabel)]
-            else ProductTable.STOCK_COLOR_STYLES["amarillo"][0]
-        )
+
+        labels = row_widget.findChildren(QLabel)
+        color_labels = [
+            label.text()
+            for label in labels
+            if label.text() and not label.text().replace(",", "").isdigit()
+        ]
+        assert len(color_labels) == 1
+        normalized_color = " ".join(color_labels[0].casefold().split())
+        assert expected_backgrounds[normalized_color] in row_widget.styleSheet()
 
     assert (
         table.columnWidth(ProductTable.STOCK_COLUMN)

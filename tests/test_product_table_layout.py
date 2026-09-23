@@ -216,6 +216,9 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     )
     assert table.textElideMode() == Qt.TextElideMode.ElideNone
     assert "padding: 4px" in table.styleSheet()
+    assert "#f8fbff" in table.styleSheet()
+    assert "#eef5fb" in table.styleSheet()
+    assert "#173f6d" in table.styleSheet()
     assert sum(header.sectionSize(column) for column in range(table.columnCount())) <= (
         table.viewport().width()
     )
@@ -311,3 +314,92 @@ def test_product_table_renders_stock_by_color_in_stock_cell():
     table.close()
 
 
+
+def test_product_table_stock_color_rows_fill_the_cell_without_outer_spacing():
+    _qapp()
+
+    table = ProductTable(_Controller())
+    table.resize(1800, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-6003",
+                name="Pelota Antiestrés",
+                color_stock={
+                    "Amarillo": 1031,
+                    "Azul": 0,
+                    "Blanco": 20,
+                    "Celeste": 9442,
+                    "Morado": 5939,
+                    "Naranja": 0,
+                    "Negro": 4340,
+                    "Rojo": 48,
+                    "Rosado": 14545,
+                    "Verde Claro": 6952,
+                    "Verde Oscuro": 12718,
+                },
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    container = table.cellWidget(0, ProductTable.STOCK_COLUMN)
+    assert isinstance(container, QWidget)
+    container_layout = container.layout()
+    assert container_layout is not None
+    margins = container_layout.contentsMargins()
+    assert margins.left() == 0
+    assert margins.top() == 0
+    assert margins.right() == 0
+    assert margins.bottom() == 0
+    assert container_layout.verticalSpacing() == 0
+
+    row_widgets = container.findChildren(QWidget, "stockColorRow")
+    assert len(row_widgets) == 11
+    for row_widget in row_widgets:
+        row_layout = row_widget.layout()
+        assert row_layout is not None
+        row_margins = row_layout.contentsMargins()
+        assert row_margins.top() == 0
+        assert row_margins.bottom() == 0
+        assert ProductTable.STOCK_COLOR_STYLES["amarillo"][0] in (
+            row_widget.styleSheet()
+            if "Amarillo" in [label.text() for label in row_widget.findChildren(QLabel)]
+            else ProductTable.STOCK_COLOR_STYLES["amarillo"][0]
+        )
+
+    assert (
+        table.columnWidth(ProductTable.STOCK_COLUMN)
+        >= table._stock_minimum_width()
+    )
+
+    table.close()
+
+
+def test_product_table_stock_width_accounts_for_indicator_color_and_quantity():
+    _qapp()
+
+    table = ProductTable(_Controller())
+    table.resize(1800, 700)
+    table.show()
+    product = Product(
+        code="FB-6004",
+        name="Producto",
+        color_stock={"Verde Oscuro": 12718},
+    )
+    table.load_products([product])
+    QApplication.processEvents()
+
+    metrics = QFontMetrics(table.font())
+    expected = (
+        table.STOCK_INDICATOR_SIZE
+        + (2 * table.STOCK_ROW_CONTENT_GAP)
+        + metrics.horizontalAdvance("Verde Oscuro")
+        + metrics.horizontalAdvance("12,718")
+        + (2 * table.STOCK_ROW_CONTENT_HORIZONTAL_PADDING)
+        + (2 * table.CONTENT_SIDE_PADDING)
+    )
+    assert table.columnWidth(ProductTable.STOCK_COLUMN) >= expected
+
+    table.close()

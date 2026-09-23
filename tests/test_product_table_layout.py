@@ -218,6 +218,8 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     assert "#f8fbff" in table.styleSheet()
     assert "#eef5fb" in table.styleSheet()
     assert "#173f6d" in table.styleSheet()
+    assert not table.alternatingRowColors()
+    assert "QTableWidget::item:alternate" not in table.styleSheet()
     name_item = table.item(0, ProductTable.NAME_COLUMN)
     assert name_item is not None
     assert name_item.text() == product.name
@@ -349,8 +351,15 @@ def test_product_table_stock_width_shows_verde_oscuro_completely():
         + (2 * StockColorDelegate.HORIZONTAL_PADDING)
     )
 
-    assert table.columnWidth(ProductTable.STOCK_COLUMN) >= expected
-    assert table.columnWidth(ProductTable.STOCK_COLUMN) >= 180
+    header_width = (
+        metrics.horizontalAdvance("Stock")
+        + (2 * ProductTable.CONTENT_SIDE_PADDING)
+    )
+    assert table.columnWidth(ProductTable.STOCK_COLUMN) == max(
+        expected,
+        header_width,
+        1,
+    )
     assert ProductImageDelegate.DEFAULT_SIZE == ProductTable.DEFAULT_IMAGE_CELL_SIZE
 
     table.close()
@@ -370,3 +379,40 @@ def test_product_table_uses_reference_font_and_color():
 
     table.close()
 
+
+
+def test_product_table_stock_width_stays_content_fitted_when_window_grows():
+    _qapp()
+
+    table = ProductTable(_Controller())
+    table.resize(1400, 700)
+    table.show()
+    product = Product(
+        code="FB-6005",
+        name="Producto",
+        color_stock={"Verde Oscuro": 12718},
+    )
+    table.load_products([product])
+    QApplication.processEvents()
+
+    initial_width = table.columnWidth(ProductTable.STOCK_COLUMN)
+
+    table.resize(2200, 700)
+    QApplication.processEvents()
+
+    assert table.columnWidth(ProductTable.STOCK_COLUMN) == initial_width
+
+    table.close()
+
+
+def test_product_table_uses_13px_reference_body_text():
+    _qapp()
+
+    table = ProductTable(_Controller())
+
+    assert table.font().family() == "Segoe UI"
+    assert table.font().pixelSize() == 13
+    assert "font-family: \"Segoe UI\";" in table.styleSheet()
+    assert "font-size: 13px;" in table.styleSheet()
+
+    table.close()

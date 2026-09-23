@@ -187,16 +187,8 @@ class StockColorDelegate(QStyledItemDelegate):
                 stock_width,
                 line_rect.height(),
             )
-            color_left = (
-                indicator_rect.right()
-                + self.TEXT_GAP
-                + self.TEXT_HORIZONTAL_PADDING
-            )
-            color_right = (
-                stock_rect.left()
-                - self.TEXT_GAP
-                - self.TEXT_HORIZONTAL_PADDING
-            )
+            color_left = indicator_rect.right() + self.TEXT_GAP + 1
+            color_right = stock_rect.left() - self.TEXT_GAP - 1
             color_rect = QRect(
                 color_left,
                 line_rect.top(),
@@ -489,9 +481,9 @@ class ProductTable(QTableWidget):
                     self._max_stock_pair_width = max(
                         self._max_stock_pair_width,
                         self.STOCK_INDICATOR_SIZE
-                        + (2 * self.STOCK_ROW_CONTENT_GAP)
-                        + (2 * self.STOCK_TEXT_HORIZONTAL_PADDING)
+                        + self.STOCK_ROW_CONTENT_GAP
                         + metrics.horizontalAdvance(color)
+                        + self.STOCK_ROW_CONTENT_GAP
                         + metrics.horizontalAdvance(f"{stock:,}")
                         + (2 * self.STOCK_ROW_CONTENT_HORIZONTAL_PADDING),
                     )
@@ -500,7 +492,7 @@ class ProductTable(QTableWidget):
                     self._max_stock_pair_width = max(
                         self._max_stock_pair_width,
                         metrics.horizontalAdvance(f"{stock:,}")
-                        + (2 * self.STOCK_TEXT_HORIZONTAL_PADDING),
+                        + (2 * self.STOCK_ROW_CONTENT_HORIZONTAL_PADDING),
                     )
 
         self.setRowCount(len(products))

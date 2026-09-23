@@ -115,16 +115,13 @@ class StockColorDelegate(QStyledItemDelegate):
     TEXT_HORIZONTAL_PADDING = 4
     TEXT_GAP = 6
     MIN_LINE_HEIGHT = 24
-    TEXT_PIXEL_SIZE = 16
     MIN_WIDTH = 180
     TEXT_COLOR = "#173f6d"
 
     def paint(self, painter: QPainter, option, index) -> None:
         color_stock = index.data(self.STOCK_ROLE)
         painter.save()
-        text_font = QFont(option.font)
-        text_font.setPixelSize(self.TEXT_PIXEL_SIZE)
-        painter.setFont(text_font)
+        painter.setFont(option.font)
         painter.setPen(QColor(self.TEXT_COLOR))
 
         if not isinstance(color_stock, list) or not color_stock:
@@ -251,7 +248,7 @@ class ProductTable(QTableWidget):
     TABLE_TEXT_COLOR = "#173f6d"
     TABLE_SELECTION_BACKGROUND = "#dbeeff"
     FONT_FAMILY = "Segoe UI"
-    FONT_PIXEL_SIZE = 16
+    FONT_PIXEL_SIZE = 14
     STOCK_INDICATOR_SIZE = StockColorDelegate.INDICATOR_SIZE
     STOCK_ROW_CONTENT_HORIZONTAL_PADDING = StockColorDelegate.HORIZONTAL_PADDING
     STOCK_TEXT_HORIZONTAL_PADDING = StockColorDelegate.TEXT_HORIZONTAL_PADDING
@@ -375,7 +372,7 @@ class ProductTable(QTableWidget):
                 background-color: #fbfdff;
                 padding: 4px;
                 font-family: "Segoe UI";
-                font-size: 16px;
+                font-size: 14px;
                 color: #173f6d;
             }
             QTableWidget::item:alternate {

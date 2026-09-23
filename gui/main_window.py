@@ -29,10 +29,17 @@ from services.scraping.category_name_normalizer import split_category_names
 class MainWindow(QMainWindow):
     """Ventana principal del catálogo."""
 
+    FONT_FAMILY = ProductTable.FONT_FAMILY
+    TEXT_COLOR = ProductTable.TABLE_TEXT_COLOR
     ACTIVE_BUTTON_STYLE = """
+        QPushButton {
+            color: #173f6d;
+            font-family: "Segoe UI";
+        }
         QPushButton:checked {
-            background-color: #b2ebf2;
-            border: 1px solid #4dd0e1;
+            background-color: #d8edf7;
+            border: 1px solid #a9cfe2;
+            color: #173f6d;
             font-weight: bold;
         }
     """
@@ -51,6 +58,10 @@ class MainWindow(QMainWindow):
         self.controller = ProductController()
         self.setWindowTitle("Facundo Catalog Manager")
         self.resize(1200, 700)
+
+        base_font = QFont(self.FONT_FAMILY)
+        base_font.setPixelSize(ProductTable.FONT_PIXEL_SIZE)
+        self.setFont(base_font)
 
         self.all_products: list[Product] = []
         self.selected_categories: set[str] = set()
@@ -71,7 +82,14 @@ class MainWindow(QMainWindow):
         self.search_box.setPlaceholderText("Buscar producto...")
         self.search_box.setMinimumHeight(42)
         self.search_box.setStyleSheet(
-            "QLineEdit { font-size: 18px; padding: 5px 8px; }",
+            "QLineEdit {"
+            ' font-family: "Segoe UI";'
+            " font-size: 18px;"
+            " color: #173f6d;"
+            " padding: 5px 8px;"
+            " background-color: #fbfdff;"
+            " border: 1px solid #cbddea;"
+            "}"
         )
         self.search_box.textChanged.connect(self.search_products)
         layout.addWidget(self.search_box)
@@ -86,7 +104,12 @@ class MainWindow(QMainWindow):
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
         )
         self.product_counter.setStyleSheet(
-            "QLabel { font-size: 14px; font-weight: bold; }",
+            "QLabel {"
+            ' font-family: "Segoe UI";'
+            " font-size: 14px;"
+            " font-weight: bold;"
+            " color: #173f6d;"
+            "}"
         )
         counter_layout.addWidget(self.product_counter)
         counter_layout.addStretch()
@@ -109,6 +132,9 @@ class MainWindow(QMainWindow):
             button.setSizePolicy(
                 QSizePolicy.Policy.Minimum,
                 QSizePolicy.Policy.Fixed,
+            )
+            button.setStyleSheet(
+                'QPushButton { font-family: "Segoe UI"; color: #173f6d; }'
             )
             button.clicked.connect(callback)
             buttons_layout.addWidget(button)
@@ -188,7 +214,8 @@ class MainWindow(QMainWindow):
         self.all_categories_button.setCheckable(True)
         self.all_categories_button.setProperty("category_text", "Todos")
         self.all_categories_button.setStyleSheet(
-            "QPushButton { padding: 0px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
+            'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 10px; }\n'
+            + self.ACTIVE_BUTTON_STYLE,
         )
         self.all_categories_button.clicked.connect(self.clear_category_filters)
         self.category_buttons = [self.all_categories_button]
@@ -204,7 +231,8 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Fixed,
         )
         button.setStyleSheet(
-            "QPushButton { padding: 0px 12px; }\n" + cls.ACTIVE_BUTTON_STYLE,
+            'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 12px; }\n'
+            + cls.ACTIVE_BUTTON_STYLE,
         )
         cls._set_toggle_button_width(button, *texts)
 
@@ -306,7 +334,8 @@ class MainWindow(QMainWindow):
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
             button.setStyleSheet(
-                "QPushButton { padding: 0px 10px; }\n" + self.ACTIVE_BUTTON_STYLE,
+                'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 10px; }\n'
+                + self.ACTIVE_BUTTON_STYLE,
             )
             button.clicked.connect(
                 lambda checked, value=category: self.toggle_category(

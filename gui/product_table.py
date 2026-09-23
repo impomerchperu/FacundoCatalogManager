@@ -115,7 +115,6 @@ class StockColorDelegate(QStyledItemDelegate):
     TEXT_HORIZONTAL_PADDING = 4
     TEXT_GAP = 6
     MIN_LINE_HEIGHT = 24
-    MIN_WIDTH = 180
     TEXT_COLOR = "#173f6d"
 
     def paint(self, painter: QPainter, option, index) -> None:
@@ -227,11 +226,11 @@ class StockColorDelegate(QStyledItemDelegate):
         color_stock = index.data(self.STOCK_ROLE)
         if isinstance(color_stock, list) and color_stock:
             return QSize(
-                self.MIN_WIDTH,
+                1,
                 len(color_stock) * self.MIN_LINE_HEIGHT,
             )
         return QSize(
-            self.MIN_WIDTH,
+            1,
             self.MIN_LINE_HEIGHT,
         )
 
@@ -242,13 +241,12 @@ class ProductTable(QTableWidget):
     CONTENT_SIDE_PADDING = 4
     TABLE_BACKGROUND = "#f8fbff"
     TABLE_CELL_BACKGROUND = "#fbfdff"
-    TABLE_ALTERNATE_BACKGROUND = "#f4f8fc"
     TABLE_HEADER_BACKGROUND = "#eef5fb"
     TABLE_GRID_COLOR = "#dce7f1"
     TABLE_TEXT_COLOR = "#173f6d"
     TABLE_SELECTION_BACKGROUND = "#dbeeff"
     FONT_FAMILY = "Segoe UI"
-    FONT_PIXEL_SIZE = 12
+    FONT_PIXEL_SIZE = 13
     STOCK_INDICATOR_SIZE = StockColorDelegate.INDICATOR_SIZE
     STOCK_ROW_CONTENT_HORIZONTAL_PADDING = StockColorDelegate.HORIZONTAL_PADDING
     STOCK_TEXT_HORIZONTAL_PADDING = StockColorDelegate.TEXT_HORIZONTAL_PADDING
@@ -296,7 +294,7 @@ class ProductTable(QTableWidget):
         NAME_COLUMN: 120,
         DETAIL_COLUMN: 180,
         CATEGORY_COLUMN: 110,
-        STOCK_COLUMN: StockColorDelegate.MIN_WIDTH,
+        STOCK_COLUMN: 1,
         PRICE_SAMPLE_COLUMN: 105,
         PRICE_HUNDRED_COLUMN: 105,
         PRICE_THOUSAND_COLUMN: 105,
@@ -342,7 +340,7 @@ class ProductTable(QTableWidget):
 
     def _setup_table(self) -> None:
         self.setSortingEnabled(False)
-        self.setAlternatingRowColors(True)
+        self.setAlternatingRowColors(False)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -372,11 +370,8 @@ class ProductTable(QTableWidget):
                 background-color: #fbfdff;
                 padding: 4px;
                 font-family: "Segoe UI";
-                font-size: 12px;
+                font-size: 13px;
                 color: #173f6d;
-            }
-            QTableWidget::item:alternate {
-                background-color: #f4f8fc;
             }
             QHeaderView::section {
                 min-height: 64px;
@@ -483,7 +478,7 @@ class ProductTable(QTableWidget):
     def _render_products(self, products: list[Product]) -> None:
         self.setSortingEnabled(False)
         self.clearContents()
-        self._max_stock_pair_width = self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN]
+        self._max_stock_pair_width = 0
         metrics = QFontMetrics(self.font())
         for product in products:
             color_stock = self._ordered_color_stock(product)
@@ -654,7 +649,7 @@ class ProductTable(QTableWidget):
         pair_width = getattr(
             self,
             "_max_stock_pair_width",
-            self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN],
+            0,
         )
         header_width = (
             QFontMetrics(self.font()).horizontalAdvance(
@@ -663,9 +658,9 @@ class ProductTable(QTableWidget):
             + (2 * self.CONTENT_SIDE_PADDING)
         )
         return max(
-            self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN],
             pair_width,
             header_width,
+            1,
         )
 
     def _category_minimum_width(self) -> int:

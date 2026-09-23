@@ -42,7 +42,7 @@ class NumericTableWidgetItem(QTableWidgetItem):
 class ProductHeader(QHeaderView):
     """Encabezado con resaltado de todas las columnas con orden activo."""
 
-    ACTIVE_COLOR = "#b2ebf2"
+    ACTIVE_COLOR = "#d8edf7"
 
     def __init__(self, parent: QTableWidget) -> None:
         super().__init__(Qt.Orientation.Horizontal, parent)
@@ -68,7 +68,7 @@ class ProductHeader(QHeaderView):
 class ProductImageDelegate(QStyledItemDelegate):
     """Pinta la imagen sobre todo el rectángulo visible de la celda."""
 
-    DEFAULT_SIZE = 160
+    DEFAULT_SIZE = 180
     IMAGE_ROLE = int(Qt.ItemDataRole.UserRole) + 1
 
     def paint(self, painter: QPainter, option, index) -> None:
@@ -84,21 +84,21 @@ class ProductImageDelegate(QStyledItemDelegate):
 
         scaled = pixmap.scaled(
             target_size,
-            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+            Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
-        left = max((scaled.width() - target_size.width()) // 2, 0)
-        top = max((scaled.height() - target_size.height()) // 2, 0)
-        cropped = scaled.copy(
-            left,
-            top,
-            target_size.width(),
-            target_size.height(),
+        x = option.rect.x() + max(
+            (target_size.width() - scaled.width()) // 2,
+            0,
+        )
+        y = option.rect.y() + max(
+            (target_size.height() - scaled.height()) // 2,
+            0,
         )
 
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-        painter.drawPixmap(option.rect, cropped)
+        painter.drawPixmap(x, y, scaled)
         painter.restore()
 
     def sizeHint(
@@ -114,6 +114,16 @@ class ProductTable(QTableWidget):
     """Tabla principal del catálogo de productos."""
 
     CONTENT_SIDE_PADDING = 4
+    TABLE_BACKGROUND = "#f8fbff"
+    TABLE_CELL_BACKGROUND = "#fbfdff"
+    TABLE_ALTERNATE_BACKGROUND = "#f4f8fc"
+    TABLE_HEADER_BACKGROUND = "#eef5fb"
+    TABLE_GRID_COLOR = "#dce7f1"
+    TABLE_TEXT_COLOR = "#173f6d"
+    TABLE_SELECTION_BACKGROUND = "#dbeeff"
+    STOCK_INDICATOR_SIZE = 12
+    STOCK_ROW_CONTENT_HORIZONTAL_PADDING = 4
+    STOCK_ROW_CONTENT_GAP = 4
     CATEGORY_FORCED_LINES: ClassVar[dict[str, tuple[str, ...]]] = {
         "Impresoras y Consumible Fotográficas Térmicas": (
             "Impresoras y Consumible",
@@ -145,6 +155,9 @@ class ProductTable(QTableWidget):
         "rosado": ("#ffeaf4", "#e66aa8"),
         "verde claro": ("#eaf8e9", "#5cbd69"),
         "verde oscuro": ("#e6f4ee", "#2f9e72"),
+        "gris": ("#f0f3f6", "#8d98a5"),
+        "gris claro": ("#f4f6f8", "#b4bec8"),
+        "gris oscuro": ("#e9edf1", "#5f6b78"),
     }
 
     MIN_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
@@ -217,14 +230,16 @@ class ProductTable(QTableWidget):
             """
             QTableWidget {
                 background-color: #f8fbff;
-                gridline-color: #dfe7ef;
+                gridline-color: #dce7f1;
                 selection-background-color: #dbeeff;
-                selection-color: #000000;
+                selection-color: #173f6d;
+                color: #173f6d;
             }
             QTableWidget::item {
                 background-color: #fbfdff;
                 padding: 4px;
                 font-size: 16px;
+                color: #173f6d;
             }
             QTableWidget::item:alternate {
                 background-color: #f4f8fc;
@@ -236,6 +251,7 @@ class ProductTable(QTableWidget):
                 font-weight: bold;
                 text-align: center;
                 background-color: #eef5fb;
+                color: #173f6d;
             }
             """,
         )
@@ -338,9 +354,11 @@ class ProductTable(QTableWidget):
                 for color, stock in color_stock:
                     self._max_stock_pair_width = max(
                         self._max_stock_pair_width,
-                        metrics.horizontalAdvance(color)
+                        self.STOCK_INDICATOR_SIZE
+                        + (2 * self.STOCK_ROW_CONTENT_GAP)
+                        + metrics.horizontalAdvance(color)
                         + metrics.horizontalAdvance(f"{stock:,}")
-                        + 4,
+                        + (2 * self.STOCK_ROW_CONTENT_HORIZONTAL_PADDING),
                     )
             else:
                 for stock in stock_values:
@@ -422,14 +440,9 @@ class ProductTable(QTableWidget):
             QSizePolicy.Policy.Preferred,
         )
         layout = QGridLayout(container)
-        layout.setContentsMargins(
-            self.CONTENT_SIDE_PADDING,
-            2,
-            self.CONTENT_SIDE_PADDING,
-            2,
-        )
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setHorizontalSpacing(0)
-        layout.setVerticalSpacing(1)
+        layout.setVerticalSpacing(0)
 
         for line, (color, stock) in enumerate(color_stock):
             background, indicator = self._stock_color_style(color)
@@ -444,15 +457,23 @@ class ProductTable(QTableWidget):
             )
 
             row_layout = QGridLayout(row_widget)
-            row_layout.setContentsMargins(4, 1, 4, 1)
-            row_layout.setHorizontalSpacing(4)
+            row_layout.setContentsMargins(
+                self.STOCK_ROW_CONTENT_HORIZONTAL_PADDING,
+                0,
+                self.STOCK_ROW_CONTENT_HORIZONTAL_PADDING,
+                0,
+            )
+            row_layout.setHorizontalSpacing(self.STOCK_ROW_CONTENT_GAP)
             row_layout.setVerticalSpacing(0)
             row_layout.setColumnStretch(1, 1)
 
             indicator_label = QLabel()
-            indicator_label.setFixedSize(12, 12)
+            indicator_label.setFixedSize(
+                self.STOCK_INDICATOR_SIZE,
+                self.STOCK_INDICATOR_SIZE,
+            )
             indicator_label.setStyleSheet(
-                "border-radius: 6px;"
+                f"border-radius: {self.STOCK_INDICATOR_SIZE // 2}px;"
                 f"background-color: {indicator};"
                 "border: 1px solid rgba(0, 0, 0, 55);"
             )
@@ -564,9 +585,16 @@ class ProductTable(QTableWidget):
             "_max_stock_pair_width",
             self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN],
         )
+        header_width = (
+            QFontMetrics(self.font()).horizontalAdvance(
+                self.HEADER_LABELS[self.STOCK_COLUMN],
+            )
+            + (2 * self.CONTENT_SIDE_PADDING)
+        )
         return max(
             self.MIN_COLUMN_WIDTHS[self.STOCK_COLUMN],
             pair_width + (2 * self.CONTENT_SIDE_PADDING),
+            header_width,
         )
 
     def _category_minimum_width(self) -> int:

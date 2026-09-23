@@ -365,6 +365,50 @@ def test_product_table_stock_width_shows_verde_oscuro_completely():
     table.close()
 
 
+def test_product_table_uses_compact_headers_and_renames_product_column():
+    _qapp()
+
+    table = ProductTable(_Controller())
+    header = table.horizontalHeader()
+
+    assert ProductTable.HEADER_LABELS[ProductTable.NAME_COLUMN] == "Producto"
+    assert table.horizontalHeaderItem(ProductTable.NAME_COLUMN).text() == "Producto"
+    assert header.minimumHeight() == ProductTable.HEADER_MIN_HEIGHT
+    assert ProductTable.HEADER_MIN_HEIGHT == 48
+    assert f"font-size: {ProductTable.HEADER_FONT_PIXEL_SIZE}px;" in table.styleSheet()
+    assert "min-height: 48px;" in table.styleSheet()
+
+    table.close()
+
+
+def test_product_table_prices_are_bold():
+    _qapp()
+
+    table = ProductTable(_Controller())
+    table.resize(1800, 700)
+    table.show()
+    product = Product(
+        code="FB-7001",
+        name="Producto",
+        price_sample=1.25,
+        price_hundred=2.50,
+        price_thousand=3.75,
+    )
+    table.load_products([product])
+    QApplication.processEvents()
+
+    for column in (
+        ProductTable.PRICE_SAMPLE_COLUMN,
+        ProductTable.PRICE_HUNDRED_COLUMN,
+        ProductTable.PRICE_THOUSAND_COLUMN,
+    ):
+        item = table.item(0, column)
+        assert item is not None
+        assert item.font().bold()
+
+    table.close()
+
+
 def test_product_table_uses_reference_font_and_color():
     _qapp()
 

@@ -1,13 +1,10 @@
 from typing import ClassVar
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QColor, QFontMetrics, QPainter, QPixmap
+from PySide6.QtCore import QRect, QSize, Qt
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QGridLayout,
     QHeaderView,
-    QLabel,
-    QSizePolicy,
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QTableWidget,
@@ -110,6 +107,123 @@ class ProductImageDelegate(QStyledItemDelegate):
         return QSize(self.DEFAULT_SIZE, self.DEFAULT_SIZE)
 
 
+class StockColorDelegate(QStyledItemDelegate):
+    """Pinta todos los colores del stock dentro de una única celda."""
+
+    STOCK_ROLE = int(Qt.ItemDataRole.UserRole) + 2
+    INDICATOR_SIZE = 12
+    HORIZONTAL_PADDING = 4
+    TEXT_GAP = 6
+    MIN_LINE_HEIGHT = 24
+    TEXT_COLOR = "#173f6d"
+
+    def paint(self, painter: QPainter, option, index) -> None:
+        color_stock = index.data(self.STOCK_ROLE)
+        painter.save()
+        painter.setFont(option.font)
+        painter.setPen(QColor(self.TEXT_COLOR))
+
+        if not isinstance(color_stock, list) or not color_stock:
+            painter.drawText(
+                option.rect.adjusted(
+                    self.HORIZONTAL_PADDING,
+                    0,
+                    -self.HORIZONTAL_PADDING,
+                    0,
+                ),
+                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignCenter,
+                str(index.data(Qt.ItemDataRole.DisplayRole) or ""),
+            )
+            painter.restore()
+            return
+
+        count = len(color_stock)
+        for line, entry in enumerate(color_stock):
+            if not (
+                isinstance(entry, (list, tuple))
+                and len(entry) == 2
+            ):
+                continue
+
+            color = str(entry[0])
+            stock = max(int(entry[1]), 0)
+            background, indicator = ProductTable._stock_color_style(color)
+
+            top = option.rect.top() + round(
+                option.rect.height() * line / count,
+            )
+            bottom = option.rect.top() + round(
+                option.rect.height() * (line + 1) / count,
+            )
+            line_rect = QRect(
+                option.rect.left(),
+                top,
+                option.rect.width(),
+                max(bottom - top, 1),
+            )
+            painter.fillRect(line_rect, QColor(background))
+
+            indicator_rect = QRect(
+                line_rect.left() + self.HORIZONTAL_PADDING,
+                line_rect.center().y() - self.INDICATOR_SIZE // 2,
+                self.INDICATOR_SIZE,
+                self.INDICATOR_SIZE,
+            )
+            painter.setBrush(QColor(indicator))
+            painter.setPen(QColor("#8c99a6"))
+            painter.drawEllipse(indicator_rect)
+
+            painter.setPen(QColor(self.TEXT_COLOR))
+            metrics = QFontMetrics(painter.font())
+            stock_text = f"{stock:,}"
+            stock_width = metrics.horizontalAdvance(stock_text)
+
+            stock_rect = QRect(
+                line_rect.right() - self.HORIZONTAL_PADDING - stock_width + 1,
+                line_rect.top(),
+                stock_width,
+                line_rect.height(),
+            )
+            color_left = indicator_rect.right() + self.TEXT_GAP
+            color_right = stock_rect.left() - self.TEXT_GAP
+            color_rect = QRect(
+                color_left,
+                line_rect.top(),
+                max(color_right - color_left + 1, 1),
+                line_rect.height(),
+            )
+
+            painter.drawText(
+                color_rect,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                color,
+            )
+            painter.drawText(
+                stock_rect,
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                stock_text,
+            )
+
+        painter.restore()
+
+    def sizeHint(
+        self,
+        option: QStyleOptionViewItem,
+        index,
+    ) -> QSize:
+        del option
+        color_stock = index.data(self.STOCK_ROLE)
+        if isinstance(color_stock, list) and color_stock:
+            return QSize(
+                ProductTable.MIN_COLUMN_WIDTHS[ProductTable.STOCK_COLUMN],
+                len(color_stock) * self.MIN_LINE_HEIGHT,
+            )
+        return QSize(
+            ProductTable.MIN_COLUMN_WIDTHS[ProductTable.STOCK_COLUMN],
+            self.MIN_LINE_HEIGHT,
+        )
+
+
 class ProductTable(QTableWidget):
     """Tabla principal del catálogo de productos."""
 
@@ -121,9 +235,12 @@ class ProductTable(QTableWidget):
     TABLE_GRID_COLOR = "#dce7f1"
     TABLE_TEXT_COLOR = "#173f6d"
     TABLE_SELECTION_BACKGROUND = "#dbeeff"
-    STOCK_INDICATOR_SIZE = 12
-    STOCK_ROW_CONTENT_HORIZONTAL_PADDING = 4
-    STOCK_ROW_CONTENT_GAP = 4
+    FONT_FAMILY = "Segoe UI"
+    FONT_PIXEL_SIZE = 16
+    STOCK_INDICATOR_SIZE = StockColorDelegate.INDICATOR_SIZE
+    STOCK_ROW_CONTENT_HORIZONTAL_PADDING = StockColorDelegate.HORIZONTAL_PADDING
+    STOCK_ROW_CONTENT_GAP = StockColorDelegate.TEXT_GAP
+    STOCK_MIN_LINE_HEIGHT = StockColorDelegate.MIN_LINE_HEIGHT
     CATEGORY_FORCED_LINES: ClassVar[dict[str, tuple[str, ...]]] = {
         "Impresoras y Consumible Fotográficas Térmicas": (
             "Impresoras y Consumible",
@@ -166,7 +283,7 @@ class ProductTable(QTableWidget):
         NAME_COLUMN: 120,
         DETAIL_COLUMN: 180,
         CATEGORY_COLUMN: 110,
-        STOCK_COLUMN: 120,
+        STOCK_COLUMN: 180,
         PRICE_SAMPLE_COLUMN: 105,
         PRICE_HUNDRED_COLUMN: 105,
         PRICE_THOUSAND_COLUMN: 105,
@@ -202,6 +319,9 @@ class ProductTable(QTableWidget):
         self._products: list[Product] = []
         self._category_reference_products: list[Product] = []
         self._search_text = ""
+        table_font = QFont(self.FONT_FAMILY)
+        table_font.setPixelSize(self.FONT_PIXEL_SIZE)
+        self.setFont(table_font)
         self.setColumnCount(len(self.HEADER_LABELS))
         self.setHorizontalHeaderLabels(self.HEADER_LABELS)
         self._setup_table()
@@ -238,6 +358,7 @@ class ProductTable(QTableWidget):
             QTableWidget::item {
                 background-color: #fbfdff;
                 padding: 4px;
+                font-family: "Segoe UI";
                 font-size: 16px;
                 color: #173f6d;
             }
@@ -262,6 +383,10 @@ class ProductTable(QTableWidget):
         self.setItemDelegateForColumn(
             self.IMAGE_COLUMN,
             ProductImageDelegate(self),
+        )
+        self.setItemDelegateForColumn(
+            self.STOCK_COLUMN,
+            StockColorDelegate(self),
         )
         header.sectionClicked.connect(self._handle_header_click)
         header.setStretchLastSection(False)
@@ -426,93 +551,23 @@ class ProductTable(QTableWidget):
         return "\n".join(lines)
 
     def _set_stock_widget(self, row: int, product: Product) -> None:
-        """Muestra color y stock dentro de una única celda con resaltado suave."""
+        """Configura el stock por color para pintarlo dentro de una única celda."""
         color_stock = self._ordered_color_stock(product)
-        if not color_stock:
-            item = NumericTableWidgetItem(str(product.stock), product.stock)
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.setItem(row, self.STOCK_COLUMN, item)
-            return
-
-        container = QWidget()
-        container.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Preferred,
+        item = NumericTableWidgetItem(
+            "" if color_stock else str(product.stock),
+            product.stock,
         )
-        layout = QGridLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setHorizontalSpacing(0)
-        layout.setVerticalSpacing(0)
-
-        for line, (color, stock) in enumerate(color_stock):
-            background, indicator = self._stock_color_style(color)
-
-            row_widget = QWidget()
-            row_widget.setObjectName("stockColorRow")
-            row_widget.setStyleSheet(
-                "QWidget#stockColorRow {"
-                f"background-color: {background};"
-                "border-radius: 2px;"
-                "color: #173f6d;"
-                "}"
-            )
-
-            row_layout = QGridLayout(row_widget)
-            row_layout.setContentsMargins(
-                self.STOCK_ROW_CONTENT_HORIZONTAL_PADDING,
-                0,
-                self.STOCK_ROW_CONTENT_HORIZONTAL_PADDING,
-                0,
-            )
-            row_layout.setHorizontalSpacing(self.STOCK_ROW_CONTENT_GAP)
-            row_layout.setVerticalSpacing(0)
-            row_layout.setColumnStretch(1, 1)
-
-            indicator_label = QLabel()
-            indicator_label.setFixedSize(
-                self.STOCK_INDICATOR_SIZE,
-                self.STOCK_INDICATOR_SIZE,
-            )
-            indicator_label.setStyleSheet(
-                f"border-radius: {self.STOCK_INDICATOR_SIZE // 2}px;"
-                f"background-color: {indicator};"
-                "border: 1px solid rgba(0, 0, 0, 55);"
-            )
-
-            color_label = QLabel(color)
-            color_label.setTextFormat(Qt.TextFormat.PlainText)
-            color_label.setStyleSheet("color: #173f6d;")
-            color_label.setAlignment(
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-            )
-            color_label.setWordWrap(False)
-            color_label.setSizePolicy(
-                QSizePolicy.Policy.Expanding,
-                QSizePolicy.Policy.Preferred,
-            )
-
-            stock_label = QLabel(f"{stock:,}")
-            stock_label.setTextFormat(Qt.TextFormat.PlainText)
-            stock_label.setStyleSheet("color: #173f6d;")
-            stock_label.setAlignment(
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-            )
-            stock_label.setWordWrap(False)
-            stock_label.setSizePolicy(
-                QSizePolicy.Policy.Minimum,
-                QSizePolicy.Policy.Fixed,
-            )
-
-            row_layout.addWidget(indicator_label, 0, 0)
-            row_layout.addWidget(color_label, 0, 1)
-            row_layout.addWidget(stock_label, 0, 2)
-
-            layout.addWidget(row_widget, line, 0)
-
-        container.setToolTip(
-            "\n".join(f"{color}: {stock}" for color, stock in color_stock),
+        item.setData(StockColorDelegate.STOCK_ROLE, color_stock)
+        item.setTextAlignment(
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignCenter,
         )
-        self.setCellWidget(row, self.STOCK_COLUMN, container)
+        if color_stock:
+            item.setToolTip(
+                "\n".join(
+                    f"{color}: {stock}" for color, stock in color_stock
+                ),
+            )
+        self.setItem(row, self.STOCK_COLUMN, item)
 
     @classmethod
     def _stock_color_style(cls, color: str) -> tuple[str, str]:
@@ -569,16 +624,14 @@ class ProductTable(QTableWidget):
         )
         for row in range(self.rowCount()):
             row_height = max(image_size, self.rowHeight(row))
-            stock_widget = self.cellWidget(row, self.STOCK_COLUMN)
-            if stock_widget is not None:
-                layout = stock_widget.layout()
-                if layout is not None:
-                    layout.activate()
-                stock_widget.adjustSize()
-                row_height = max(
-                    row_height,
-                    stock_widget.sizeHint().height(),
-                )
+            stock_item = self.item(row, self.STOCK_COLUMN)
+            if stock_item is not None:
+                color_stock = stock_item.data(StockColorDelegate.STOCK_ROLE)
+                if isinstance(color_stock, list) and color_stock:
+                    row_height = max(
+                        row_height,
+                        len(color_stock) * StockColorDelegate.MIN_LINE_HEIGHT,
+                    )
             self.setRowHeight(row, row_height)
 
     def _stock_minimum_width(self) -> int:

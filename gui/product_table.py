@@ -399,6 +399,7 @@ class ProductTable(QTableWidget):
         header.sectionClicked.connect(self._handle_header_click)
         header.setStretchLastSection(False)
         header.setDefaultSectionSize(110)
+        header.setMinimumSectionSize(1)
         for column in range(self.columnCount()):
             header.setSectionResizeMode(
                 column,

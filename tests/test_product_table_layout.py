@@ -2,9 +2,9 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics, QPixmap
-from PySide6.QtWidgets import QApplication, QHeaderView, QLabel, QWidget
+from PySide6.QtWidgets import QApplication, QHeaderView
 
-from gui.product_table import ProductImageDelegate, ProductTable
+from gui.product_table import ProductImageDelegate, ProductTable, StockColorDelegate
 from models.product import Product
 
 
@@ -288,23 +288,22 @@ def test_product_table_renders_stock_by_color_in_stock_cell():
     )
     QApplication.processEvents()
 
-    widget = table.cellWidget(0, ProductTable.STOCK_COLUMN)
+    item = table.item(0, ProductTable.STOCK_COLUMN)
+    delegate = table.itemDelegateForColumn(ProductTable.STOCK_COLUMN)
 
-    assert isinstance(widget, QWidget)
-    labels = widget.findChildren(QLabel)
-    rendered_texts = [label.text() for label in labels]
-
-    assert "Azul" in rendered_texts
-    assert "528" in rendered_texts
-    assert "Rojo" in rendered_texts
-    assert "124" in rendered_texts
-    assert "Negro" in rendered_texts
-    assert "1,686" in rendered_texts
-    assert "Gris" in rendered_texts
-    assert "355" in rendered_texts
-    assert all("\n" not in text for text in rendered_texts)
-    assert table.rowHeight(0) >= widget.sizeHint().height()
-    assert widget.toolTip() == (
+    assert item is not None
+    assert table.cellWidget(0, ProductTable.STOCK_COLUMN) is None
+    assert isinstance(delegate, StockColorDelegate)
+    assert item.data(StockColorDelegate.STOCK_ROLE) == [
+        ("Azul", 528),
+        ("Rojo", 124),
+        ("Negro", 1686),
+        ("Gris", 355),
+    ]
+    assert table.rowHeight(0) >= (
+        4 * StockColorDelegate.MIN_LINE_HEIGHT
+    )
+    assert item.toolTip() == (
         "Azul: 528\n"
         "Rojo: 124\n"
         "Negro: 1686\n"
@@ -314,81 +313,18 @@ def test_product_table_renders_stock_by_color_in_stock_cell():
     table.close()
 
 
+def test_product_table_stock_color_rows_have_no_outer_spacing():
+    assert StockColorDelegate.HORIZONTAL_PADDING == 4
+    assert StockColorDelegate.TEXT_GAP == 6
+    assert StockColorDelegate.MIN_LINE_HEIGHT == 24
 
-def test_product_table_stock_color_rows_fill_the_cell_without_outer_spacing():
-    _qapp()
+    background, indicator = ProductTable._stock_color_style("Verde Oscuro")
 
-    table = ProductTable(_Controller())
-    table.resize(1800, 700)
-    table.show()
-    table.load_products(
-        [
-            Product(
-                code="FB-6003",
-                name="Pelota Antiestrés",
-                color_stock={
-                    "Amarillo": 1031,
-                    "Azul": 0,
-                    "Blanco": 20,
-                    "Celeste": 9442,
-                    "Morado": 5939,
-                    "Naranja": 0,
-                    "Negro": 4340,
-                    "Rojo": 48,
-                    "Rosado": 14545,
-                    "Verde Claro": 6952,
-                    "Verde Oscuro": 12718,
-                },
-            ),
-        ],
-    )
-    QApplication.processEvents()
-
-    container = table.cellWidget(0, ProductTable.STOCK_COLUMN)
-    assert isinstance(container, QWidget)
-    container_layout = container.layout()
-    assert container_layout is not None
-    margins = container_layout.contentsMargins()
-    assert margins.left() == 0
-    assert margins.top() == 0
-    assert margins.right() == 0
-    assert margins.bottom() == 0
-    assert container_layout.verticalSpacing() == 0
-
-    row_widgets = container.findChildren(QWidget, "stockColorRow")
-    assert len(row_widgets) == 11
-    expected_backgrounds = {
-        color: background
-        for color, (background, _indicator) in ProductTable.STOCK_COLOR_STYLES.items()
-    }
-    for row_widget in row_widgets:
-        row_layout = row_widget.layout()
-        assert row_layout is not None
-        row_margins = row_layout.contentsMargins()
-        assert row_margins.left() == ProductTable.STOCK_ROW_CONTENT_HORIZONTAL_PADDING
-        assert row_margins.top() == 0
-        assert row_margins.right() == ProductTable.STOCK_ROW_CONTENT_HORIZONTAL_PADDING
-        assert row_margins.bottom() == 0
-
-        labels = row_widget.findChildren(QLabel)
-        color_labels = [
-            label.text()
-            for label in labels
-            if label.text() and not label.text().replace(",", "").isdigit()
-        ]
-        assert len(color_labels) == 1
-        normalized_color = " ".join(color_labels[0].casefold().split())
-        assert expected_backgrounds[normalized_color] in row_widget.styleSheet()
-
-    assert (
-        table.columnWidth(ProductTable.STOCK_COLUMN)
-        >= table._stock_minimum_width()
-    )
-
-    table.close()
+    assert background == "#e6f4ee"
+    assert indicator == "#2f9e72"
 
 
-def test_product_table_stock_width_accounts_for_indicator_color_and_quantity():
+def test_product_table_stock_width_shows_verde_oscuro_completely():
     _qapp()
 
     table = ProductTable(_Controller())
@@ -404,13 +340,31 @@ def test_product_table_stock_width_accounts_for_indicator_color_and_quantity():
 
     metrics = QFontMetrics(table.font())
     expected = (
-        table.STOCK_INDICATOR_SIZE
-        + (2 * table.STOCK_ROW_CONTENT_GAP)
+        StockColorDelegate.INDICATOR_SIZE
+        + StockColorDelegate.TEXT_GAP
         + metrics.horizontalAdvance("Verde Oscuro")
+        + StockColorDelegate.TEXT_GAP
         + metrics.horizontalAdvance("12,718")
-        + (2 * table.STOCK_ROW_CONTENT_HORIZONTAL_PADDING)
+        + (2 * StockColorDelegate.HORIZONTAL_PADDING)
     )
+
     assert table.columnWidth(ProductTable.STOCK_COLUMN) >= expected
+    assert table.columnWidth(ProductTable.STOCK_COLUMN) >= 180
     assert ProductImageDelegate.DEFAULT_SIZE == ProductTable.DEFAULT_IMAGE_CELL_SIZE
 
     table.close()
+
+
+def test_product_table_uses_reference_font_and_color():
+    _qapp()
+
+    table = ProductTable(_Controller())
+
+    assert table.font().family() == "Segoe UI"
+    assert table.font().pixelSize() == 16
+    assert ProductTable.TABLE_TEXT_COLOR == "#173f6d"
+    assert "font-family: \"Segoe UI\";" in table.styleSheet()
+    assert "color: #173f6d;" in table.styleSheet()
+
+    table.close()
+

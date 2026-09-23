@@ -43,7 +43,7 @@ class ProductHeader(QHeaderView):
     def __init__(self, parent: QTableWidget) -> None:
         super().__init__(Qt.Orientation.Horizontal, parent)
         self.active_sections: set[int] = set()
-        self.setMinimumHeight(64)
+        self.setMinimumHeight(48)
         self.setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setSectionsClickable(True)
         self.setSortIndicatorShown(False)
@@ -239,6 +239,8 @@ class ProductTable(QTableWidget):
     TABLE_SELECTION_BACKGROUND = "#dbeeff"
     FONT_FAMILY = "Segoe UI"
     FONT_PIXEL_SIZE = 13
+    HEADER_FONT_PIXEL_SIZE = 14
+    HEADER_MIN_HEIGHT = 48
     STOCK_INDICATOR_SIZE = StockColorDelegate.INDICATOR_SIZE
     STOCK_ROW_CONTENT_HORIZONTAL_PADDING = StockColorDelegate.HORIZONTAL_PADDING
     STOCK_TEXT_HORIZONTAL_PADDING = StockColorDelegate.TEXT_HORIZONTAL_PADDING
@@ -306,7 +308,7 @@ class ProductTable(QTableWidget):
     HEADER_LABELS: ClassVar[list[str]] = [
         "Imagen",
         "Código",
-        "Nombre",
+        "Producto",
         "Detalle",
         "Categoría",
         "Stock",
@@ -366,9 +368,9 @@ class ProductTable(QTableWidget):
                 color: #173f6d;
             }
             QHeaderView::section {
-                min-height: 64px;
+                min-height: 48px;
                 padding: 4px;
-                font-size: 18px;
+                font-size: 14px;
                 font-weight: bold;
                 text-align: center;
                 background-color: #eef5fb;
@@ -617,6 +619,9 @@ class ProductTable(QTableWidget):
         item.setTextAlignment(
             Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter,
         )
+        price_font = QFont(item.font())
+        price_font.setBold(True)
+        item.setFont(price_font)
         self.setItem(row, column, item)
 
     def _adjust_table_rows(self) -> None:

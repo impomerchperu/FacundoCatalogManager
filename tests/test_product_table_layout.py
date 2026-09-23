@@ -218,8 +218,9 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     assert "#f8fbff" in table.styleSheet()
     assert "#eef5fb" in table.styleSheet()
     assert "#173f6d" in table.styleSheet()
-    assert table.item(ProductTable.NAME_COLUMN if False else 0, 0) is not None
-    assert table.item(0, ProductTable.NAME_COLUMN).text() == product.name
+    name_item = table.item(0, ProductTable.NAME_COLUMN)
+    assert name_item is not None
+    assert name_item.text() == product.name
     assert header.sectionSize(ProductTable.NAME_COLUMN) >= (
         ProductTable.MIN_COLUMN_WIDTHS[ProductTable.NAME_COLUMN]
     )

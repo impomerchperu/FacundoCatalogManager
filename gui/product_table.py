@@ -718,7 +718,10 @@ class ProductTable(QTableWidget):
                 preferred_widths,
                 minimum_widths,
                 target_width,
-                growable_columns=set(range(1, self.columnCount())),
+                growable_columns=(
+                    set(range(1, self.columnCount()))
+                    - {self.STOCK_COLUMN}
+                ),
             )
 
             self.setMinimumWidth(

@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QThread, QTimer
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -21,6 +21,7 @@ from exporters.pdf_exporter import PDFExporter
 from gui.product_dialog import ProductDialog
 from gui.product_table import ProductTable
 from gui.scraping_dialog import ScrapingDialog
+from gui.workers.catalog_bootstrap_worker import CatalogBootstrapWorker
 from gui.scraping_history_dialog import ScrapingHistoryDialog
 from models.product import Product
 from services.scraping.category_name_normalizer import split_category_names
@@ -70,6 +71,10 @@ class MainWindow(QMainWindow):
         self.categories_visible = False
         self.scraping_dialog: ScrapingDialog | None = None
         self.history_dialog: ScrapingHistoryDialog | None = None
+        self.catalog_bootstrap_thread: QThread | None = None
+        self.catalog_bootstrap_worker: CatalogBootstrapWorker | None = None
+        self.catalog_bootstrap_running = False
+        self.catalog_bootstrap_blocked_buttons: list[QPushButton] = []
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -138,19 +143,84 @@ class MainWindow(QMainWindow):
             )
             button.clicked.connect(callback)
             buttons_layout.addWidget(button)
+            if text in {"Nuevo", "Editar", "Eliminar", "Actualizar catálogo"}:
+                self.catalog_bootstrap_blocked_buttons.append(button)
         buttons_layout.addStretch()
         layout.addLayout(buttons_layout)
 
-        # La ventana se muestra primero y la lectura/renderizado del catálogo
-        # se difiere al siguiente ciclo del event loop. Así la interfaz queda
-        # disponible inmediatamente y la base catalog.db sigue siendo la única
-        # fuente de datos del catálogo.
+        # El bootstrap histórico no debe bloquear la creación de la ventana.
+        # Ambos trabajos comienzan después de que Qt haya podido mostrarla:
+        # la lectura del catálogo persistido y la reparación opcional avanzan
+        # independientemente.
+        QTimer.singleShot(0, self._start_catalog_bootstrap)
         QTimer.singleShot(0, self._load_initial_catalog)
+
+    def _start_catalog_bootstrap(self) -> None:
+        """Ejecuta la reparación inicial en segundo plano."""
+        if (
+            self.catalog_bootstrap_thread is not None
+            and self.catalog_bootstrap_thread.isRunning()
+        ):
+            return
+
+        self.catalog_bootstrap_running = True
+        for button in self.catalog_bootstrap_blocked_buttons:
+            button.setEnabled(False)
+
+        self.catalog_bootstrap_thread = QThread(self)
+        self.catalog_bootstrap_worker = CatalogBootstrapWorker()
+        self.catalog_bootstrap_worker.moveToThread(self.catalog_bootstrap_thread)
+
+        self.catalog_bootstrap_thread.started.connect(
+            self.catalog_bootstrap_worker.run,
+        )
+        self.catalog_bootstrap_worker.finished.connect(
+            self._catalog_bootstrap_finished,
+        )
+        self.catalog_bootstrap_worker.error.connect(
+            self._catalog_bootstrap_error,
+        )
+        self.catalog_bootstrap_worker.finished.connect(
+            self.catalog_bootstrap_thread.quit,
+        )
+        self.catalog_bootstrap_worker.error.connect(
+            self.catalog_bootstrap_thread.quit,
+        )
+        self.catalog_bootstrap_thread.finished.connect(
+            self._cleanup_catalog_bootstrap,
+        )
+        self.catalog_bootstrap_thread.start()
 
     def _load_initial_catalog(self) -> None:
         """Carga el catálogo persistido después de mostrar la ventana."""
         if self.isVisible():
             self.refresh_catalog()
+
+    def _catalog_bootstrap_finished(self, _count: int, changed: bool) -> None:
+        self.catalog_bootstrap_running = False
+        for button in self.catalog_bootstrap_blocked_buttons:
+            button.setEnabled(True)
+
+        if changed:
+            # Esperamos al cierre de la conexión del worker antes de leer de
+            # nuevo para que la tabla refleje el catálogo ya consolidado.
+            QTimer.singleShot(0, self.refresh_catalog)
+
+    def _catalog_bootstrap_error(self, message: str) -> None:
+        self.catalog_bootstrap_running = False
+        for button in self.catalog_bootstrap_blocked_buttons:
+            button.setEnabled(True)
+        self.product_counter.setToolTip(
+            "La verificación inicial del catálogo falló: " + message,
+        )
+
+    def _cleanup_catalog_bootstrap(self) -> None:
+        if self.catalog_bootstrap_worker is not None:
+            self.catalog_bootstrap_worker.deleteLater()
+        if self.catalog_bootstrap_thread is not None:
+            self.catalog_bootstrap_thread.deleteLater()
+        self.catalog_bootstrap_worker = None
+        self.catalog_bootstrap_thread = None
 
     def create_filter_controls(self, layout: QVBoxLayout) -> None:
         filter_layout = QVBoxLayout()

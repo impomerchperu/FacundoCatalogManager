@@ -21,8 +21,8 @@ from exporters.pdf_exporter import PDFExporter
 from gui.product_dialog import ProductDialog
 from gui.product_table import ProductTable
 from gui.scraping_dialog import ScrapingDialog
-from gui.workers.catalog_bootstrap_worker import CatalogBootstrapWorker
 from gui.scraping_history_dialog import ScrapingHistoryDialog
+from gui.workers.catalog_bootstrap_worker import CatalogBootstrapWorker
 from models.product import Product
 from services.scraping.category_name_normalizer import split_category_names
 
@@ -74,6 +74,7 @@ class MainWindow(QMainWindow):
         self.catalog_bootstrap_thread: QThread | None = None
         self.catalog_bootstrap_worker: CatalogBootstrapWorker | None = None
         self.catalog_bootstrap_running = False
+        self.catalog_bootstrap_changed = False
         self.catalog_bootstrap_blocked_buttons: list[QPushButton] = []
 
         central = QWidget()
@@ -197,24 +198,25 @@ class MainWindow(QMainWindow):
             self.refresh_catalog()
 
     def _catalog_bootstrap_finished(self, _count: int, changed: bool) -> None:
-        self.catalog_bootstrap_running = False
-        for button in self.catalog_bootstrap_blocked_buttons:
-            button.setEnabled(True)
-
-        if changed:
-            # Esperamos al cierre de la conexión del worker antes de leer de
-            # nuevo para que la tabla refleje el catálogo ya consolidado.
-            QTimer.singleShot(0, self.refresh_catalog)
+        self.catalog_bootstrap_changed = changed
 
     def _catalog_bootstrap_error(self, message: str) -> None:
-        self.catalog_bootstrap_running = False
-        for button in self.catalog_bootstrap_blocked_buttons:
-            button.setEnabled(True)
         self.product_counter.setToolTip(
             "La verificación inicial del catálogo falló: " + message,
         )
 
     def _cleanup_catalog_bootstrap(self) -> None:
+        changed = self.catalog_bootstrap_changed
+        self.catalog_bootstrap_changed = False
+        self.catalog_bootstrap_running = False
+        for button in self.catalog_bootstrap_blocked_buttons:
+            button.setEnabled(True)
+
+        if changed:
+            # El hilo ya terminó y su conexión SQLite fue cerrada en el worker;
+            # ahora la tabla puede leer el catálogo consolidado con seguridad.
+            QTimer.singleShot(0, self.refresh_catalog)
+
         if self.catalog_bootstrap_worker is not None:
             self.catalog_bootstrap_worker.deleteLater()
         if self.catalog_bootstrap_thread is not None:
@@ -552,6 +554,8 @@ class MainWindow(QMainWindow):
         return any(search_text in str(value).casefold() for value in values)
 
     def open_scraping(self) -> None:
+        if self.catalog_bootstrap_running:
+            return
         if self.is_scraping_running():
             if self.scraping_dialog is not None:
                 if self.scraping_dialog.isMinimized():

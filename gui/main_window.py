@@ -554,7 +554,7 @@ class MainWindow(QMainWindow):
         return any(search_text in str(value).casefold() for value in values)
 
     def open_scraping(self) -> None:
-        if self.catalog_bootstrap_running:
+        if getattr(self, "catalog_bootstrap_running", False):
             return
         if self.is_scraping_running():
             if self.scraping_dialog is not None:

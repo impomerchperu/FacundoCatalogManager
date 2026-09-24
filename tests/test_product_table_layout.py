@@ -327,35 +327,62 @@ def test_product_table_stock_color_rows_have_no_outer_spacing():
     assert indicator == "#2f9e72"
 
 
-def test_product_table_stock_color_variants_use_distinct_expected_indicators():
+def test_product_table_stock_color_catalog_covers_all_site_variants():
     expected = {
-        "Azulino": "#4f64d8",
+        "Amarillo": "#f2c94c",
         "Amarillo Flurecente": "#efff00",
-        "Azul Full": "#0057ff",
-        "Fucsia": "#ff1493",
-        "Lila": "#c8a2c8",
-        "Rojo Full": "#ff1f1f",
-        "Verde Oscuro Full": "#006b3c",
-        "Verde Petróleo": "#006b5f",
-        "Azul Petróleo": "#006b73",
-        "Verde Militar": "#66743a",
+        "Azul": "#2f80ed",
+        "Azul Claro": "#6eb6ff",
+        "Azul Marino": "#123b6d",
+        "Azul Oscuro": "#1d3f91",
+        "Azulino": "#4f64d8",
+        "Azulino Full": "#3046ff",
+        "Bamboo": "#c8aa6e",
+        "Black": "#1a1a1a",
+        "Blanco": "#ffffff",
+        "Brillante": "#c8d2dc",
+        "Celeste": "#43a5e8",
+        "Champagne": "#e7cfa1",
+        "Crema": "#f4e7c3",
+        "Cyan": "#00a9c7",
         "Dorado": "#d4af37",
+        "Fucsia": "#ff1493",
+        "Gris": "#8d98a5",
+        "Kraft": "#b9895e",
+        "Lila": "#c8a2c8",
+        "Magenta": "#d600a9",
+        "Manila": "#e3c66b",
+        "Marron": "#795548",
+        "Mate": "#6b7280",
+        "Morado": "#9b51e0",
+        "Naranja": "#f2994a",
+        "Natural": "#cdb892",
+        "Negro": "#343a40",
+        "Negro Full": "#111111",
+        "Pavonado": "#56616d",
         "Plateado": "#a7afb8",
+        "Rojo": "#eb5757",
+        "Rojo Full": "#ff1f1f",
+        "Rosado": "#e66aa8",
+        "Verde": "#4caf50",
+        "Verde Claro": "#5cbd69",
+        "Verde Oscuro": "#2f9e72",
+        "Verde Oscuro Full": "#006b3c",
+        "Verde Petroleo": "#006b5f",
+        "Yellow": "#f2d21b",
     }
 
+    assert len(expected) == 41
     for name, indicator in expected.items():
         _background, actual = ProductTable._stock_color_style(name)
         assert actual == indicator
 
 
-def test_product_table_stock_color_variants_cover_common_catalog_synonyms():
+def test_product_table_stock_color_variants_normalize_common_aliases():
     expected_aliases = {
         "amarillo fluorescente": "amarillo flurecente",
         "amarillo neon": "amarillo fluorescente",
         "fuchsia": "fucsia",
-        "magenta": "fucsia",
-        "purpura": "púrpura",
-        "cafe": "café",
         "marron": "marrón",
         "verde limon": "verde limón",
         "azul electrico": "azul eléctrico",
@@ -369,6 +396,14 @@ def test_product_table_stock_color_variants_cover_common_catalog_synonyms():
             reference,
         )
         assert alias_indicator == reference_indicator
+
+
+def test_product_table_stock_color_variants_keep_magenta_and_fucsia_distinct():
+    _background, magenta = ProductTable._stock_color_style("Magenta")
+    _background, fucsia = ProductTable._stock_color_style("Fucsia")
+
+    assert magenta != fucsia
+
 
 
 def test_product_table_stock_width_shows_verde_oscuro_completely():

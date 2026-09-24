@@ -1,6 +1,6 @@
 from typing import ClassVar
 
-from PySide6.QtCore import QTimer, QRect, QSize, Qt
+from PySide6.QtCore import QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,

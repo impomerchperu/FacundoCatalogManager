@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from PySide6.QtCore import Qt, QThread, QTimer
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
@@ -15,16 +17,15 @@ from PySide6.QtWidgets import (
 )
 
 from controllers.product_controller import ProductController
-from exporters.csv_exporter import CSVExporter
-from exporters.excel_exporter import ExcelExporter
-from exporters.pdf_exporter import PDFExporter
-from gui.product_dialog import ProductDialog
 from gui.product_table import ProductTable
-from gui.scraping_dialog import ScrapingDialog
-from gui.scraping_history_dialog import ScrapingHistoryDialog
 from gui.workers.catalog_bootstrap_worker import CatalogBootstrapWorker
 from models.product import Product
 from services.scraping.category_name_normalizer import split_category_names
+
+if TYPE_CHECKING:
+    from gui.product_dialog import ProductDialog
+    from gui.scraping_dialog import ScrapingDialog
+    from gui.scraping_history_dialog import ScrapingHistoryDialog
 
 
 class MainWindow(QMainWindow):
@@ -563,6 +564,8 @@ class MainWindow(QMainWindow):
                 self.scraping_dialog.raise_()
                 self.scraping_dialog.activateWindow()
             return
+        from gui.scraping_dialog import ScrapingDialog
+
         # El progreso es una ventana independiente, no una ventana hija del
         # catálogo. Así puede alternarse con MainWindow mediante clic o Alt+Tab.
         self.scraping_dialog = ScrapingDialog()
@@ -581,6 +584,9 @@ class MainWindow(QMainWindow):
             self.history_dialog.raise_()
             self.history_dialog.activateWindow()
             return
+
+        from gui.scraping_history_dialog import ScrapingHistoryDialog
+
         self.history_dialog = ScrapingHistoryDialog(self)
         self.history_dialog.finished.connect(lambda: self._history_closed())
         self.history_dialog.setModal(False)
@@ -615,11 +621,15 @@ class MainWindow(QMainWindow):
         self.product_counter.setText(f"Mostrando {visible} de {total} productos")
 
     def new_product(self) -> None:
+        from gui.product_dialog import ProductDialog
+
         dialog = ProductDialog(self)
         if dialog.exec():
             self.refresh_catalog()
 
     def edit_product(self) -> None:
+        from gui.product_dialog import ProductDialog
+
         row = self.table.currentRow()
         if row < 0:
             QMessageBox.warning(self, "Editar", "Seleccione un producto.")
@@ -661,6 +671,8 @@ class MainWindow(QMainWindow):
         self.apply_filters()
 
     def export_excel(self) -> None:
+        from exporters.excel_exporter import ExcelExporter
+
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Guardar Excel",
@@ -671,6 +683,8 @@ class MainWindow(QMainWindow):
             ExcelExporter.export(self.controller.get_products(), filename)
 
     def export_pdf(self) -> None:
+        from exporters.pdf_exporter import PDFExporter
+
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Guardar PDF",
@@ -681,6 +695,8 @@ class MainWindow(QMainWindow):
             PDFExporter.export(self.controller.get_products(), filename)
 
     def export_csv(self) -> None:
+        from exporters.csv_exporter import CSVExporter
+
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Guardar CSV",

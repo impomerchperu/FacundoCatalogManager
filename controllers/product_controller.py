@@ -7,7 +7,12 @@ class ProductController:
         self,
         service: ProductService | None = None,
     ) -> None:
-        self.service = service or ProductService()
+        self.service = service
+
+    def _get_service(self) -> ProductService:
+        if self.service is None:
+            self.service = ProductService()
+        return self.service
 
     def _refresh_read_service(self) -> None:
         """Reabre la lectura del catálogo para recoger commits externos recientes."""
@@ -15,13 +20,13 @@ class ProductController:
 
     def get_products(self) -> list[Product]:
         self._refresh_read_service()
-        return self.service.get_products()
+        return self._get_service().get_products()
 
     def create_product(
         self,
         product: Product,
     ) -> Product:
-        return self.service.create_product(
+        return self._get_service().create_product(
             product,
         )
 
@@ -29,7 +34,7 @@ class ProductController:
         self,
         product: Product,
     ) -> Product:
-        return self.service.update_product(
+        return self._get_service().update_product(
             product,
         )
 
@@ -37,7 +42,7 @@ class ProductController:
         self,
         product: Product,
     ) -> Product:
-        return self.service.save_product(
+        return self._get_service().save_product(
             product,
         )
 
@@ -45,7 +50,7 @@ class ProductController:
         self,
         product_id: int,
     ) -> None:
-        self.service.delete_product(
+        self._get_service().delete_product(
             product_id,
         )
 
@@ -53,7 +58,7 @@ class ProductController:
         self,
         text: str,
     ) -> list[Product]:
-        return self.service.search_products(
+        return self._get_service().search_products(
             text,
         )
 
@@ -61,6 +66,6 @@ class ProductController:
         self,
         product_id: int,
     ) -> Product | None:
-        return self.service.get_product_by_id(
+        return self._get_service().get_product_by_id(
             product_id,
         )

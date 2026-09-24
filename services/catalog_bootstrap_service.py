@@ -12,6 +12,7 @@ class CatalogBootstrapService:
         self.db = db or DBManager()
         self.reconciliation_service = CatalogReconciliationService(self.db)
         self.history_recovery_service = CatalogHistoryRecoveryService(self.db)
+        self.last_bootstrap_changed = False
 
     def is_initialized(self) -> bool:
         row = self.db.fetch_all(
@@ -73,6 +74,7 @@ class CatalogBootstrapService:
 
     def bootstrap(self) -> int:
         """Repara instalaciones no validadas y deja intacto un catálogo ya consolidado."""
+        self.last_bootstrap_changed = False
         count = self.product_count()
         if self.is_initialized():
             return count
@@ -84,6 +86,7 @@ class CatalogBootstrapService:
         if restored <= 0 and count == 0:
             restored = self.restore_from_change_history()
         if restored > 0:
+            self.last_bootstrap_changed = True
             self.mark_initialized()
             self._mark_history_recovery_applied()
             self.db.commit()

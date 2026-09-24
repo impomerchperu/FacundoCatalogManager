@@ -1,6 +1,6 @@
 from typing import ClassVar
 
-from PySide6.QtCore import QRect, QSize, Qt
+from PySide6.QtCore import QTimer, QRect, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -252,6 +252,8 @@ class ProductTable(QTableWidget):
     }
     DEFAULT_IMAGE_CELL_SIZE = ProductImageDelegate.DEFAULT_SIZE
     IMAGE_SIZE = DEFAULT_IMAGE_CELL_SIZE
+    PROGRESSIVE_RENDER_THRESHOLD = 50
+    PROGRESSIVE_RENDER_BATCH_SIZE = 40
 
     IMAGE_COLUMN = 0
     CODE_COLUMN = 1
@@ -372,6 +374,9 @@ class ProductTable(QTableWidget):
         self._products: list[Product] = []
         self._category_reference_products: list[Product] = []
         self._search_text = ""
+        self._render_generation = 0
+        self._pending_render_products: list[Product] = []
+        self._pending_render_index = 0
         table_font = QFont(self.FONT_FAMILY)
         table_font.setPixelSize(self.FONT_PIXEL_SIZE)
         self.setFont(table_font)
@@ -463,6 +468,10 @@ class ProductTable(QTableWidget):
         self._apply_current_sort()
 
     def _apply_current_sort(self) -> None:
+        self._render_products(self._sorted_products())
+        self._update_sort_header_labels()
+
+    def _sorted_products(self) -> list[Product]:
         products = list(self._products)
         for column, order in reversed(list(self._sort_states.items())):
             products.sort(
@@ -472,8 +481,7 @@ class ProductTable(QTableWidget):
                 ),
                 reverse=order == Qt.SortOrder.DescendingOrder,
             )
-        self._render_products(products)
-        self._update_sort_header_labels()
+        return products
 
     def _product_sort_value(self, product: Product, column: int):
         values = {
@@ -519,17 +527,35 @@ class ProductTable(QTableWidget):
         self._apply_current_sort()
 
     def _render_products(self, products: list[Product]) -> None:
+        self._render_generation += 1
+        generation = self._render_generation
+        self._pending_render_products = list(products)
+        self._pending_render_index = 0
+
         self.setSortingEnabled(False)
         self.clearContents()
-        self._max_stock_pair_width = 0
+        self._max_stock_pair_width = self._calculate_stock_pair_width(products)
+        self.setRowCount(len(products))
+
+        if len(products) <= self.PROGRESSIVE_RENDER_THRESHOLD:
+            self._render_rows(0, len(products))
+            self._finish_render(generation)
+            return
+
+        QTimer.singleShot(
+            0,
+            lambda generation=generation: self._render_next_batch(generation),
+        )
+
+    def _calculate_stock_pair_width(self, products: list[Product]) -> int:
         metrics = QFontMetrics(self.font())
+        maximum = 0
         for product in products:
             color_stock = self._ordered_color_stock(product)
-            stock_values = [stock for _, stock in color_stock] or [product.stock]
             if color_stock:
                 for color, stock in color_stock:
-                    self._max_stock_pair_width = max(
-                        self._max_stock_pair_width,
+                    maximum = max(
+                        maximum,
                         self.STOCK_INDICATOR_SIZE
                         + self.STOCK_ROW_CONTENT_GAP
                         + metrics.horizontalAdvance(color)
@@ -537,19 +563,64 @@ class ProductTable(QTableWidget):
                         + metrics.horizontalAdvance(f"{stock:,}")
                         + (2 * self.STOCK_ROW_CONTENT_HORIZONTAL_PADDING),
                     )
-            else:
-                for stock in stock_values:
-                    self._max_stock_pair_width = max(
-                        self._max_stock_pair_width,
-                        metrics.horizontalAdvance(f"{stock:,}")
-                        + (2 * self.STOCK_ROW_CONTENT_HORIZONTAL_PADDING),
-                    )
+                continue
 
-        self.setRowCount(len(products))
-        for row, product in enumerate(products):
-            self._add_product_row(row, product)
+            maximum = max(
+                maximum,
+                metrics.horizontalAdvance(f"{product.stock:,}")
+                + (2 * self.STOCK_ROW_CONTENT_HORIZONTAL_PADDING),
+            )
+        return maximum
+
+    def _render_next_batch(self, generation: int) -> None:
+        if generation != self._render_generation:
+            return
+
+        total = len(self._pending_render_products)
+        start = self._pending_render_index
+        if start >= total:
+            self._finish_render(generation)
+            return
+
+        end = min(
+            start + self.PROGRESSIVE_RENDER_BATCH_SIZE,
+            total,
+        )
+        self._render_rows(start, end)
+        self._pending_render_index = end
+
+        if end < total:
+            QTimer.singleShot(
+                0,
+                lambda generation=generation: self._render_next_batch(generation),
+            )
+            return
+
+        QTimer.singleShot(
+            0,
+            lambda generation=generation: self._finish_render(generation),
+        )
+
+    def _render_rows(self, start: int, end: int) -> None:
+        self.setUpdatesEnabled(False)
+        try:
+            for row in range(start, end):
+                self._add_product_row(
+                    row,
+                    self._pending_render_products[row],
+                )
+                self._set_row_height(row)
+        finally:
+            self.setUpdatesEnabled(True)
+
+    def _finish_render(self, generation: int) -> None:
+        if generation != self._render_generation:
+            return
+
         self._fit_columns_to_content()
         self._adjust_table_rows()
+        self._pending_render_products = []
+        self._pending_render_index = 0
 
     def _add_product_row(self, row: int, product: Product) -> None:
         image_item = QTableWidgetItem()
@@ -669,23 +740,25 @@ class ProductTable(QTableWidget):
         )
         self.setItem(row, column, item)
 
-    def _adjust_table_rows(self) -> None:
-        self.resizeRowsToContents()
+    def _set_row_height(self, row: int) -> None:
         image_size = max(
             self.columnWidth(self.IMAGE_COLUMN),
             self.DEFAULT_IMAGE_CELL_SIZE,
         )
+        row_height = image_size
+        stock_item = self.item(row, self.STOCK_COLUMN)
+        if stock_item is not None:
+            color_stock = stock_item.data(StockColorDelegate.STOCK_ROLE)
+            if isinstance(color_stock, list) and color_stock:
+                row_height = max(
+                    row_height,
+                    len(color_stock) * StockColorDelegate.MIN_LINE_HEIGHT,
+                )
+        self.setRowHeight(row, row_height)
+
+    def _adjust_table_rows(self) -> None:
         for row in range(self.rowCount()):
-            row_height = max(image_size, self.rowHeight(row))
-            stock_item = self.item(row, self.STOCK_COLUMN)
-            if stock_item is not None:
-                color_stock = stock_item.data(StockColorDelegate.STOCK_ROLE)
-                if isinstance(color_stock, list) and color_stock:
-                    row_height = max(
-                        row_height,
-                        len(color_stock) * StockColorDelegate.MIN_LINE_HEIGHT,
-                    )
-            self.setRowHeight(row, row_height)
+            self._set_row_height(row)
 
     def _stock_minimum_width(self) -> int:
         """Garantiza que cada color y cantidad permanezcan en una sola línea."""

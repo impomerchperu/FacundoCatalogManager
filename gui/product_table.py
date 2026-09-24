@@ -378,6 +378,7 @@ class ProductTable(QTableWidget):
         self._pending_render_products: list[Product] = []
         self._pending_render_index = 0
         self._rendered_products: list[Product] = []
+        self._visible_product_keys: set[int] | None = None
         table_font = QFont(self.FONT_FAMILY)
         table_font.setPixelSize(self.FONT_PIXEL_SIZE)
         self.setFont(table_font)
@@ -518,14 +519,15 @@ class ProductTable(QTableWidget):
 
     def show_all_rows(self) -> None:
         """Muestra inmediatamente todas las filas ya renderizadas."""
+        self._visible_product_keys = None
         for row in range(self.rowCount()):
             self.setRowHidden(row, False)
 
     def show_only_products(self, products: list[Product]) -> None:
         """Filtra filas existentes sin reconstruir ni recargar la tabla."""
-        visible = {id(product) for product in products}
+        self._visible_product_keys = {id(product) for product in products}
         for row, product in enumerate(self._rendered_products):
-            self.setRowHidden(row, id(product) not in visible)
+            self.setRowHidden(row, id(product) not in self._visible_product_keys)
 
     def set_category_reference_products(self, products: list[Product]) -> None:
         """Conserva el ancho de categoría del catálogo completo al filtrar."""
@@ -555,6 +557,9 @@ class ProductTable(QTableWidget):
         self._rendered_products = list(products)
         self._max_stock_pair_width = self._calculate_stock_pair_width(products)
         self.setRowCount(len(products))
+        if self._visible_product_keys is not None:
+            for row in range(self.rowCount()):
+                self.setRowHidden(row, True)
 
         if len(products) <= self.PROGRESSIVE_RENDER_THRESHOLD:
             self._render_rows(0, len(products))
@@ -624,11 +629,14 @@ class ProductTable(QTableWidget):
         self.setUpdatesEnabled(False)
         try:
             for row in range(start, end):
-                self._add_product_row(
-                    row,
-                    self._pending_render_products[row],
-                )
+                product = self._pending_render_products[row]
+                self._add_product_row(row, product)
                 self._set_row_height(row)
+                if self._visible_product_keys is not None:
+                    self.setRowHidden(
+                        row,
+                        id(product) not in self._visible_product_keys,
+                    )
         finally:
             self.setUpdatesEnabled(True)
 

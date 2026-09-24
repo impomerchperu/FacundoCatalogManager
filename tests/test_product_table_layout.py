@@ -327,6 +327,50 @@ def test_product_table_stock_color_rows_have_no_outer_spacing():
     assert indicator == "#2f9e72"
 
 
+def test_product_table_stock_color_variants_use_distinct_expected_indicators():
+    expected = {
+        "Azulino": "#4f64d8",
+        "Amarillo Flurecente": "#efff00",
+        "Azul Full": "#0057ff",
+        "Fucsia": "#ff1493",
+        "Lila": "#c8a2c8",
+        "Rojo Full": "#ff1f1f",
+        "Verde Oscuro Full": "#006b3c",
+        "Verde Petróleo": "#006b5f",
+        "Azul Petróleo": "#006b73",
+        "Verde Militar": "#66743a",
+        "Dorado": "#d4af37",
+        "Plateado": "#a7afb8",
+    }
+
+    for name, indicator in expected.items():
+        _background, actual = ProductTable._stock_color_style(name)
+        assert actual == indicator
+
+
+def test_product_table_stock_color_variants_cover_common_catalog_synonyms():
+    expected_aliases = {
+        "amarillo fluorescente": "amarillo flurecente",
+        "amarillo neon": "amarillo fluorescente",
+        "fuchsia": "fucsia",
+        "magenta": "fucsia",
+        "purpura": "púrpura",
+        "cafe": "café",
+        "marron": "marrón",
+        "verde limon": "verde limón",
+        "azul electrico": "azul eléctrico",
+        "verde petroleo": "verde petróleo",
+        "azul petroleo": "azul petróleo",
+    }
+
+    for alias, reference in expected_aliases.items():
+        _background, alias_indicator = ProductTable._stock_color_style(alias)
+        _reference_background, reference_indicator = ProductTable._stock_color_style(
+            reference,
+        )
+        assert alias_indicator == reference_indicator
+
+
 def test_product_table_stock_width_shows_verde_oscuro_completely():
     _qapp()
 

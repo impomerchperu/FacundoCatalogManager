@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from controllers.product_controller import ProductController
 from gui.product_table import ProductTable
 from gui.workers.catalog_bootstrap_worker import CatalogBootstrapWorker
+from gui.workers.catalog_load_worker import CatalogLoadWorker
 from models.product import Product
 from services.scraping.category_name_normalizer import split_category_names
 
@@ -78,6 +79,8 @@ class MainWindow(QMainWindow):
         self.catalog_bootstrap_running = False
         self.catalog_bootstrap_changed = False
         self.catalog_bootstrap_blocked_buttons: list[QPushButton] = []
+        self.catalog_load_thread: QThread | None = None
+        self.catalog_load_worker: CatalogLoadWorker | None = None
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -195,9 +198,56 @@ class MainWindow(QMainWindow):
         self.catalog_bootstrap_thread.start()
 
     def _load_initial_catalog(self) -> None:
-        """Carga el catálogo persistido después de mostrar la ventana."""
+        """Inicia la lectura del catálogo sin bloquear el hilo de la interfaz."""
         if self.isVisible():
-            self.refresh_catalog()
+            self._start_catalog_load()
+
+    def _start_catalog_load(self) -> None:
+        if (
+            self.catalog_load_thread is not None
+            and self.catalog_load_thread.isRunning()
+        ):
+            return
+
+        self.catalog_load_thread = QThread(self)
+        self.catalog_load_worker = CatalogLoadWorker()
+        self.catalog_load_worker.moveToThread(self.catalog_load_thread)
+
+        self.catalog_load_thread.started.connect(
+            self.catalog_load_worker.run,
+        )
+        self.catalog_load_worker.finished.connect(
+            self._catalog_load_finished,
+        )
+        self.catalog_load_worker.error.connect(
+            self._catalog_load_error,
+        )
+        self.catalog_load_worker.finished.connect(
+            self.catalog_load_thread.quit,
+        )
+        self.catalog_load_worker.error.connect(
+            self.catalog_load_thread.quit,
+        )
+        self.catalog_load_thread.finished.connect(
+            self._cleanup_catalog_load,
+        )
+        self.catalog_load_thread.start()
+
+    def _catalog_load_finished(self, products: list[Product]) -> None:
+        self._apply_catalog_products(products)
+
+    def _catalog_load_error(self, message: str) -> None:
+        self.product_counter.setToolTip(
+            "No se pudo cargar el catálogo inicial: " + message,
+        )
+
+    def _cleanup_catalog_load(self) -> None:
+        if self.catalog_load_worker is not None:
+            self.catalog_load_worker.deleteLater()
+        if self.catalog_load_thread is not None:
+            self.catalog_load_thread.deleteLater()
+        self.catalog_load_worker = None
+        self.catalog_load_thread = None
 
     def _catalog_bootstrap_finished(self, _count: int, changed: bool) -> None:
         self.catalog_bootstrap_changed = changed
@@ -217,7 +267,7 @@ class MainWindow(QMainWindow):
         if changed:
             # El hilo ya terminó y su conexión SQLite fue cerrada en el worker;
             # ahora la tabla puede leer el catálogo consolidado con seguridad.
-            QTimer.singleShot(0, self.refresh_catalog)
+            QTimer.singleShot(0, self._start_catalog_load)
 
         if self.catalog_bootstrap_worker is not None:
             self.catalog_bootstrap_worker.deleteLater()
@@ -370,7 +420,10 @@ class MainWindow(QMainWindow):
             self.category_scroll.setFixedHeight(0)
 
     def refresh_catalog(self) -> None:
-        self.all_products = self.controller.get_products()
+        self._apply_catalog_products(self.controller.get_products())
+
+    def _apply_catalog_products(self, products: list[Product]) -> None:
+        self.all_products = list(products)
         self.table.set_category_reference_products(self.all_products)
         self.rebuild_category_filters()
         self.apply_filters()

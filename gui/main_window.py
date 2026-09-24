@@ -18,15 +18,13 @@ from PySide6.QtWidgets import (
 
 from controllers.product_controller import ProductController
 from gui.product_table import ProductTable
+from gui.scraping_dialog import ScrapingDialog
 from gui.workers.catalog_bootstrap_worker import CatalogBootstrapWorker
 from gui.workers.catalog_load_worker import CatalogLoadWorker
 from models.product import Product
 from services.scraping.category_name_normalizer import split_category_names
 
-ScrapingDialog = None
-
 if TYPE_CHECKING:
-    from gui.scraping_dialog import ScrapingDialog
     from gui.scraping_history_dialog import ScrapingHistoryDialog
 
 
@@ -618,15 +616,9 @@ class MainWindow(QMainWindow):
                 self.scraping_dialog.raise_()
                 self.scraping_dialog.activateWindow()
             return
-        dialog_class = ScrapingDialog
-        if dialog_class is None:
-            from gui.scraping_dialog import ScrapingDialog as dialog_class
-
-            globals()["ScrapingDialog"] = dialog_class
-
         # El progreso es una ventana independiente, no una ventana hija del
         # catálogo. Así puede alternarse con MainWindow mediante clic o Alt+Tab.
-        self.scraping_dialog = dialog_class()
+        self.scraping_dialog = ScrapingDialog()
         self.scraping_dialog.finished_success.connect(self.scraping_finished)
         self.scraping_dialog.finished.connect(self.scraping_dialog_closed)
         self.scraping_dialog.setModal(False)

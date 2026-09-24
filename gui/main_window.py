@@ -591,7 +591,7 @@ class MainWindow(QMainWindow):
             ]
         if self.stock_only:
             products = [product for product in products if product.stock > 0]
-        self.table.load_products(products)
+        self.table.show_only_products(products)
         self.table.set_search_text(search_text)
         self.update_product_counter(len(products))
 

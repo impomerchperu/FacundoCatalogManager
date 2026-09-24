@@ -377,6 +377,7 @@ class ProductTable(QTableWidget):
         self._render_generation = 0
         self._pending_render_products: list[Product] = []
         self._pending_render_index = 0
+        self._rendered_products: list[Product] = []
         table_font = QFont(self.FONT_FAMILY)
         table_font.setPixelSize(self.FONT_PIXEL_SIZE)
         self.setFont(table_font)
@@ -515,16 +516,33 @@ class ProductTable(QTableWidget):
         """Conserva la API de búsqueda sin aplicar resaltado visual."""
         self._search_text = text.strip()
 
+    def show_all_rows(self) -> None:
+        """Muestra inmediatamente todas las filas ya renderizadas."""
+        for row in range(self.rowCount()):
+            self.setRowHidden(row, False)
+
+    def show_only_products(self, products: list[Product]) -> None:
+        """Filtra filas existentes sin reconstruir ni recargar la tabla."""
+        visible = {id(product) for product in products}
+        for row, product in enumerate(self._rendered_products):
+            self.setRowHidden(row, id(product) not in visible)
+
     def set_category_reference_products(self, products: list[Product]) -> None:
         """Conserva el ancho de categoría del catálogo completo al filtrar."""
         self._category_reference_products = list(products)
         self._fit_columns_to_content()
         self._adjust_table_rows()
 
-    def load_products(self, products: list[Product] | None = None) -> None:
+    def load_products(
+        self,
+        products: list[Product] | None = None,
+        *,
+        progressive: bool = True,
+    ) -> None:
         source = products if products is not None else self.controller.get_products()
         self._products = list(source)
         self._apply_current_sort()
+
 
     def _render_products(self, products: list[Product]) -> None:
         self._render_generation += 1
@@ -534,6 +552,7 @@ class ProductTable(QTableWidget):
 
         self.setSortingEnabled(False)
         self.clearContents()
+        self._rendered_products = list(products)
         self._max_stock_pair_width = self._calculate_stock_pair_width(products)
         self.setRowCount(len(products))
 

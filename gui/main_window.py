@@ -423,6 +423,7 @@ class MainWindow(QMainWindow):
     def _apply_catalog_products(self, products: list[Product]) -> None:
         self.all_products = list(products)
         self.table.set_category_reference_products(self.all_products)
+        self.table.load_products(self.all_products)
         self.rebuild_category_filters()
         self.apply_filters()
 

@@ -28,6 +28,10 @@ En desarrollo normal, `DATA_DIR` continúa siendo la raíz del proyecto.
 
 PyInstaller 6.15.0 incorporó soporte para Python 3.14; el proyecto fija PyInstaller 6.22.3 en `requirements-build.txt`.
 
+## Versionado
+
+La versión de la aplicación se mantiene en `VERSION` con formato `MAJOR.MINOR.PATCH`. El script de build y el workflow de Windows leen ese archivo; el instalador recibe la misma versión como definición del preprocesador de Inno Setup.
+
 ## Build
 
 Desde PowerShell en la raíz del repositorio:
@@ -83,7 +87,8 @@ Las rutas de imagen almacenadas en SQLite conservan el formato relativo `data/im
 - [ ] Ejecutar instalador.
 - [ ] Confirmar actualización conservando datos existentes.
 - [ ] Confirmar desinstalación sin pérdida involuntaria del catálogo.
-- [ ] Definir y probar backup/restauración de `catalog.db`.
+- [x] Implementar backup/restauración de `catalog.db` y cubrirlo con pruebas automatizadas.
+- [ ] Validar el procedimiento sobre una base real de usuario antes de release.
 - [ ] Actualizar versión antes de una release.
 
 ## Estado

@@ -7,7 +7,7 @@ Branch oficial: `main`
 
 El baseline funcional permanece cerrado y protegido en `main`. El último estado validado incorpora las optimizaciones de arranque y GUI posteriores al cierre funcional, sin modificar las invariantes de scraping, persistencia ni cobertura.
 
-HEAD funcional actual: `4bee4fe7` (`test(gui): type catalog shutdown thread doubles`).
+HEAD funcional actual: `57a34711d3ddc0806d5d83685ef98de3a7e0451d` (`fix(test): organize scraping dialog imports`).
 
 ## Referencias funcionales
 
@@ -81,7 +81,7 @@ Validación del baseline funcional actual sobre `main`:
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite local actual: `487 passed, 10 deselected`.
+- Suite local actual: `488 passed, 10 deselected`.
 - Validación estática actual: Ruff limpio y Pyright `0 errors, 0 warnings, 0 informations`.
 - E2E real: `1 passed`, cobertura `24 / 523 / 519 / 4`, `0` productos sin `color_stock`, `0` inconsistencias y `0` errores HTTP terminales.
 - Benchmark real de concurrencia: `1 passed` en `83.65s`, con `24 / 523 / 519 / 4`, `337` requests y `0` reintentos.

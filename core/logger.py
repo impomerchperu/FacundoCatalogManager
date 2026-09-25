@@ -5,7 +5,7 @@ from config.settings import LOG_PATH
 
 def setup_logger():
 
-    LOG_PATH.parent.mkdir(exist_ok=True)
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     logging.basicConfig(
         filename=LOG_PATH,

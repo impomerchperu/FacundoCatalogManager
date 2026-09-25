@@ -5,6 +5,7 @@ from pathlib import Path
 
 import requests
 
+from config.runtime_paths import resolve_data_path, to_data_relative_path
 from scrapers.images.image_hash import ImageHash
 from scrapers.images.image_paths import IMAGE_EXTENSIONS, IMAGE_PRODUCTS_DIR
 
@@ -18,7 +19,7 @@ class ImageDownloader:
         request_timeout: int = 30,
         max_retries: int = 2,
     ):
-        self.output_dir = Path(output_dir)
+        self.output_dir = resolve_data_path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.request_timeout = int(request_timeout)
         self.max_retries = int(max_retries)
@@ -48,7 +49,7 @@ class ImageDownloader:
                 temporary = target.with_suffix(target.suffix + ".tmp")
                 temporary.write_bytes(response.content)
                 temporary.replace(target)
-                return target.as_posix()
+                return to_data_relative_path(target)
             except requests.exceptions.RequestException as error:
                 last_error = error
                 if not self._is_retryable_error(error):

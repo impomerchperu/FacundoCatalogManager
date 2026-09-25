@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
 )
 
+from config.runtime_paths import resolve_data_path
 from controllers.product_controller import ProductController
 from models.product import Product
 from services.scraping.category_name_normalizer import split_category_names
@@ -652,7 +653,7 @@ class ProductTable(QTableWidget):
     def _add_product_row(self, row: int, product: Product) -> None:
         image_item = QTableWidgetItem()
         if product.image_path:
-            pixmap = QPixmap(product.image_path)
+            pixmap = QPixmap(str(resolve_data_path(product.image_path)))
             if not pixmap.isNull():
                 image_item.setData(ProductImageDelegate.IMAGE_ROLE, pixmap)
         self.setItem(row, self.IMAGE_COLUMN, image_item)

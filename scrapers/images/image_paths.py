@@ -1,7 +1,8 @@
-from pathlib import Path
+from config.runtime_paths import DATA_DIR
 
-# Rutas relativas al proyecto para el almacenamiento local de imágenes.
-# data/images/products es la única ubicación canónica del catálogo descargado.
-IMAGE_ROOT = Path("data/images")
+# Rutas canónicas del almacenamiento persistente de imágenes del catálogo.
+# Se mantienen bajo DATA_DIR para que una instalación Windows no escriba
+# dentro del bundle interno de PyInstaller.
+IMAGE_ROOT = DATA_DIR / "data/images"
 IMAGE_PRODUCTS_DIR = IMAGE_ROOT / "products"
 IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif"})

@@ -1,5 +1,6 @@
-import os
 import sqlite3
+
+from config.runtime_paths import DATABASE_PATH, SCHEMA_PATH
 
 
 class DBManager:
@@ -8,9 +9,8 @@ class DBManager:
     SCHEMA_VERSION = 2
 
     def __init__(self, db_path=None):
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         if db_path is None:
-            db_path = os.path.join(base_dir, "database", "catalog.db")
+            db_path = DATABASE_PATH
         self.connection = sqlite3.connect(db_path, timeout=30)
         self.connection.row_factory = sqlite3.Row
         self._transaction_active = False
@@ -25,12 +25,9 @@ class DBManager:
         self.connection.commit()
 
     def initialize_database(self):
-        schema_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "schema.sql",
-        )
-        if os.path.exists(schema_path):
-            with open(schema_path, "r", encoding="utf-8") as file:
+        schema_path = SCHEMA_PATH
+        if schema_path.exists():
+            with schema_path.open("r", encoding="utf-8") as file:
                 self.connection.executescript(file.read())
         self._run_migrations()
         self.connection.commit()

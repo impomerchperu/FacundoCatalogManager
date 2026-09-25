@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from config.runtime_paths import resolve_data_path, to_data_relative_path
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_paths import IMAGE_EXTENSIONS, IMAGE_PRODUCTS_DIR
 
@@ -10,7 +11,7 @@ class ImageRepository:
     """Localiza imágenes por código y calcula su hash cuando es necesario."""
 
     def __init__(self, output_dir: str | Path = IMAGE_PRODUCTS_DIR):
-        self.output_dir = Path(output_dir)
+        self.output_dir = resolve_data_path(output_dir)
 
     def find(
         self,
@@ -27,7 +28,7 @@ class ImageRepository:
                 preferred = self.output_dir / f"{safe_code}{suffix}"
                 if preferred.is_file():
                     return {
-                        "image_path": preferred.as_posix(),
+                        "image_path": to_data_relative_path(preferred),
                         "image_hash": ImageDownloader.hash_file(preferred),
                     }
 
@@ -41,6 +42,6 @@ class ImageRepository:
 
         path = matches[0]
         return {
-            "image_path": path.as_posix(),
+            "image_path": to_data_relative_path(path),
             "image_hash": ImageDownloader.hash_file(path),
         }

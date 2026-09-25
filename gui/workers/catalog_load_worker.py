@@ -1,5 +1,6 @@
-import os
 import sqlite3
+
+from config.runtime_paths import DATABASE_PATH
 
 from PySide6.QtCore import QObject, Signal, Slot
 
@@ -15,12 +16,7 @@ class CatalogLoadWorker(QObject):
 
     @staticmethod
     def _database_path() -> str:
-        base_dir = os.path.dirname(
-            os.path.dirname(
-                os.path.dirname(os.path.abspath(__file__)),
-            ),
-        )
-        return os.path.join(base_dir, "database", "catalog.db")
+        return str(DATABASE_PATH)
 
     @staticmethod
     def _row_to_product(row: sqlite3.Row) -> Product:

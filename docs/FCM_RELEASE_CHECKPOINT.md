@@ -177,6 +177,12 @@ Las pruebas contra el sitio real se excluyen mediante el marcador `real_site`.
 
 La prueba FULL real sigue disponible por separado y no forma parte de la suite rápida de CI.
 
+## Distribución Windows
+
+La definición de distribución quedó implementada en `main`: rutas de datos persistentes fuera del bundle congelado, versión centralizada en `VERSION`, spec de PyInstaller, instalador Inno Setup, script PowerShell y workflow manual de Windows. La herramienta de backup/restauración de `catalog.db` y sus pruebas automatizadas también están incorporadas.
+
+La release Windows no se considera cerrada todavía. Falta producir y validar el bundle/instalador en Windows, comprobar actualización/desinstalación y ejecutar una validación operativa de backup/restauración.
+
 ## Cierre previo a release
 
 La recuperación visual del historial quedó cerrada en `main`: `APLICADO` con fecha/hora de aplicación, `NO APLICADO` para versiones exitosas superadas y `ERROR` para ejecuciones fallidas. La prueba focal quedó en `9 passed` y Quality `#2210` terminó en `success`.

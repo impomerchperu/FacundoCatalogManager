@@ -1,6 +1,6 @@
 # FCM Architecture Checkpoint
 
-Fecha del checkpoint actual: 2026-09-20  
+Fecha del checkpoint actualizado: 2026-09-24  
 Branch oficial: `main`
 
 ## QUALITY
@@ -22,6 +22,10 @@ Branch oficial: `main`
 - [x] Progress-contract tests validated
 - [x] Detail-cache concurrency tests validated
 - [x] SQLite idempotency validated on consecutive identical catalog syncs
+- [x] GUI startup bootstrap moved outside the UI thread
+- [x] GUI catalog read moved outside the UI thread
+- [x] Large-catalog rendering made progressive
+- [x] Search/stock/category filters made row-visibility operations instead of full table rebuilds
 
 ## RUNTIME CONSOLIDATION
 
@@ -55,6 +59,19 @@ Branch oficial: `main`
 - [x] Canonical service-level scraping factory confirmed in production usage
 - [x] Compatibility scraping factories confirmed as thin delegates and retained only for possible external import compatibility
 - [x] Execution authority separated: `scraping_runs` for FULL recovery/reconciliation, `scraping_history.applied_at` for latest applied history
+
+## GUI STARTUP AND FILTERING BOUNDARY
+
+The desktop UI now separates initial catalog acquisition from interaction-time filtering:
+
+- `CatalogBootstrapWorker` owns historical bootstrap/reconciliation work.
+- `CatalogLoadWorker` reads the persisted product rows without opening `DBManager` on the UI thread.
+- `ProductTable` performs progressive initial rendering for large catalogs.
+- `MainWindow.apply_filters()` computes matching products in memory and delegates visibility changes to `ProductTable.show_only_products()`.
+- Interactive filters therefore do not call `load_products()` and do not reconstruct 9 table cells per product.
+- The current GUI state was validated locally with 487 passing tests; these changes do not alter the scraping runtime.
+
+The remaining hardening item is an explicit shutdown test/contract for background GUI threads. It is non-blocking and should be treated separately from the validated functional baseline.
 
 ## AUTHORITATIVE FULL REFERENCE
 

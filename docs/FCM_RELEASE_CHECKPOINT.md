@@ -1,11 +1,13 @@
 # FCM — Release checkpoint
 
-Fecha: 2026-09-20  
+Fecha de actualización documental: 2026-09-24  
 Branch oficial: `main`
 
 ## Estado
 
-El baseline funcional está cerrado y protegido en `main`; el cierre funcional más reciente recuperó la presentación del estado de aplicación del historial sin modificar las invariantes de scraping, persistencia ni concurrencia.
+El baseline funcional permanece cerrado y protegido en `main`. El último estado validado incorpora las optimizaciones de arranque y GUI posteriores al cierre funcional, sin modificar las invariantes de scraping, persistencia ni cobertura.
+
+HEAD funcional actual: `75cce996` (`perf(gui): show category filters immediately`).
 
 ## Referencias funcionales
 
@@ -79,11 +81,26 @@ Validación del baseline funcional actual sobre `main`:
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site: `473 passed, 10 deselected`.
+- Suite local actual: `487 passed, 10 deselected`.
+- Validación estática actual: Ruff limpio y Pyright `0 errors, 0 warnings, 0 informations`.
 - E2E real: `1 passed`, cobertura `24 / 523 / 519 / 4`, `0` productos sin `color_stock`, `0` inconsistencias y `0` errores HTTP terminales.
 - Benchmark real de concurrencia: `1 passed` en `83.65s`, con `24 / 523 / 519 / 4`, `337` requests y `0` reintentos.
 
 Los cambios funcionales y de documentación posteriores quedaron cubiertos por validaciones locales y por Quality CI. En el último run de Quality asociado a `main`, Ruff, Pyright y Pytest terminaron correctamente; `live-catalog` quedó omitido de forma intencional en el CI rápido.
+
+## GUI y rendimiento de arranque
+
+La fase de rendimiento de escritorio quedó cerrada con las siguientes garantías:
+
+- El catálogo persistido se lee fuera del hilo de la interfaz.
+- El bootstrap de reconciliación se ejecuta fuera del hilo de la interfaz.
+- La tabla grande se renderiza progresivamente durante la carga inicial.
+- La ventana se muestra antes de finalizar esas operaciones.
+- Búsqueda, stock y categorías filtran filas ya renderizadas, sin reconstruir las 519+ filas en cada interacción.
+- El panel de categorías se refluye de forma síncrona al activar **Filtrar Categorías** para evitar el retraso visual de un ciclo de eventos.
+- Validación GUI posterior: la aplicación abrió correctamente y los filtros quedaron operativos.
+
+Estos cambios no modifican el scraping, la persistencia, el modelo de cobertura ni la política de prune.
 
 ## Stock por color
 

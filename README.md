@@ -13,7 +13,9 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
-La aplicación usa `database/catalog.db` como fuente persistente del catálogo. Al iniciar, primero muestra la ventana y después carga el catálogo persistido; el bootstrap no inicia scraping web. Las ejecuciones de scraping se lanzan desde **Actualizar catálogo**.
+La aplicación usa `database/catalog.db` como fuente persistente del catálogo. Al iniciar, primero muestra la ventana y después carga el catálogo persistido; el bootstrap y la lectura inicial del catálogo no bloquean el hilo de la interfaz y no inician scraping web. Las ejecuciones de scraping se lanzan desde **Actualizar catálogo**.
+
+La carga inicial de catálogos grandes utiliza renderizado progresivo. Una vez cargadas las filas, la búsqueda y los filtros de stock/categorías actúan sobre las filas existentes sin reconstruir la tabla completa.
 
 ## Scraping FULL
 
@@ -44,6 +46,13 @@ Cada descarga exitosa conserva su historial. Solo una versión queda marcada com
 El detalle de cambios se ordena por código de producto. La UI permite consultar cobertura, categorías, productos en múltiples categorías y cambios de cada ejecución.
 
 ## Validación
+
+Estado local validado en `main` el 2026-09-24:
+
+- Ruff: `All checks passed!`.
+- Pyright: `0 errors, 0 warnings, 0 informations`.
+- Pytest: `487 passed, 10 deselected`.
+
 
 Comprobaciones estáticas:
 

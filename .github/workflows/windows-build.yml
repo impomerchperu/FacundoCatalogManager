@@ -38,6 +38,11 @@ jobs:
       - name: Build installer
         shell: pwsh
         run: |
+          $version = (Get-Content "VERSION" -Raw).Trim()
+          if ($version -notmatch "^\d+\.\d+\.\d+$") {
+            throw "VERSION debe usar el formato MAJOR.MINOR.PATCH."
+          }
+
           $iscc = @(
             "$env:ProgramFiles(x86)\Inno Setup 7\ISCC.exe",
             "$env:ProgramFiles\Inno Setup 7\ISCC.exe"
@@ -47,14 +52,14 @@ jobs:
             throw "No se encontró Inno Setup 7 después de la instalación."
           }
 
-          & $iscc packaging\installer.iss
+          & $iscc "/DFCM_VERSION=$version" packaging\installer.iss
 
       - name: Generate checksums
         shell: pwsh
         run: |
           $files = @(
             "dist\Windows\FacundoCatalogManager\FacundoCatalogManager.exe",
-            "dist\Windows\FacundoCatalogManager-0.1.0-setup.exe"
+            "dist\Windows\FacundoCatalogManager-$version-setup.exe"
           )
 
           $hashes = foreach ($file in $files) {
@@ -71,9 +76,9 @@ jobs:
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: FacundoCatalogManager-Windows-0.1.0
+          name: FacundoCatalogManager-Windows-${{ github.run_number }}
           path: |
             dist/Windows/FacundoCatalogManager/**
-            dist/Windows/FacundoCatalogManager-0.1.0-setup.exe
+            dist/Windows/FacundoCatalogManager-*-setup.exe
             dist/Windows/SHA256SUMS.txt
           if-no-files-found: error

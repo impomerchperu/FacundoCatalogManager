@@ -51,7 +51,7 @@ Estado local validado en `main` el 2026-09-24:
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Pytest: `487 passed, 10 deselected`.
+- Pytest: `488 passed, 10 deselected`.
 
 
 Comprobaciones estáticas:

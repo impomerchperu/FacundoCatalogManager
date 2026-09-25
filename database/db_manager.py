@@ -11,6 +11,7 @@ class DBManager:
     def __init__(self, db_path=None):
         if db_path is None:
             db_path = DATABASE_PATH
+            DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
         self.connection = sqlite3.connect(db_path, timeout=30)
         self.connection.row_factory = sqlite3.Row
         self._transaction_active = False

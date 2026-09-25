@@ -111,3 +111,44 @@ def test_main_window_creates_scraping_as_independent_window(monkeypatch):
 
     assert created == [()]
     assert isinstance(window.scraping_dialog, FakeDialog)
+
+
+def test_main_window_waits_for_catalog_threads_before_closing():
+    class FakeThread:
+        def __init__(self):
+            self.calls = []
+
+        def isRunning(self):
+            self.calls.append("isRunning")
+            return True
+
+        def requestInterruption(self):
+            self.calls.append("requestInterruption")
+
+        def quit(self):
+            self.calls.append("quit")
+
+        def wait(self):
+            self.calls.append("wait")
+
+    load_thread = FakeThread()
+    bootstrap_thread = FakeThread()
+    window = MainWindow.__new__(MainWindow)
+    window.catalog_load_thread = load_thread
+    window.catalog_bootstrap_thread = bootstrap_thread
+
+    MainWindow._wait_for_thread(load_thread)
+    MainWindow._wait_for_thread(bootstrap_thread)
+
+    assert load_thread.calls == [
+        "isRunning",
+        "requestInterruption",
+        "quit",
+        "wait",
+    ]
+    assert bootstrap_thread.calls == [
+        "isRunning",
+        "requestInterruption",
+        "quit",
+        "wait",
+    ]

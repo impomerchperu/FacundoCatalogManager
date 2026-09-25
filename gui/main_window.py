@@ -762,9 +762,22 @@ class MainWindow(QMainWindow):
         if self.categories_visible:
             QTimer.singleShot(0, self._reflow_category_buttons)
 
+    @staticmethod
+    def _wait_for_thread(thread: QThread | None) -> None:
+        """Espera a que un worker de GUI termine antes de destruir la ventana."""
+        if thread is None or not thread.isRunning():
+            return
+        thread.requestInterruption()
+        thread.quit()
+        thread.wait()
+
     def closeEvent(self, event) -> None:
         if self.scraping_dialog is not None:
             self.scraping_dialog.close()
         if self.history_dialog is not None:
             self.history_dialog.close()
+
+        self._wait_for_thread(self.catalog_load_thread)
+        self._wait_for_thread(self.catalog_bootstrap_thread)
+
         super().closeEvent(event)

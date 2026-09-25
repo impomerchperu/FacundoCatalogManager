@@ -1,8 +1,8 @@
 import sqlite3
 
-from config.runtime_paths import DATABASE_PATH
-
 from PySide6.QtCore import QObject, Signal, Slot
+
+from config.runtime_paths import DATABASE_PATH
 
 from models.product import Product
 from repositories.product_repository import ProductRepository

@@ -71,7 +71,7 @@ The desktop UI now separates initial catalog acquisition from interaction-time f
 - Interactive filters therefore do not call `load_products()` and do not reconstruct 9 table cells per product.
 - The current GUI state was validated locally with 487 passing tests; these changes do not alter the scraping runtime.
 
-The remaining hardening item is an explicit shutdown test/contract for background GUI threads. It is non-blocking and should be treated separately from the validated functional baseline.
+The shutdown hardening for the catalog GUI workers is now implemented and covered by a focused test. `MainWindow.closeEvent()` waits for active catalog-load/bootstrap threads before window destruction; scraping itself remains an independently controlled operation.
 
 ## AUTHORITATIVE FULL REFERENCE
 

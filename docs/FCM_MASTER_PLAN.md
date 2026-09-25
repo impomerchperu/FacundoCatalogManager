@@ -2,7 +2,7 @@
 
 Fecha: 2026-09-24
 Branch oficial: `main`
-HEAD actual: `75cce996`
+HEAD actual: `4bee4fe7`
 
 ## 1. Objetivo del proyecto
 
@@ -147,7 +147,7 @@ Este snapshot es diagnóstico e histórico. No bloquea una ejecución válida cu
 - [x] Categorías sobre filas existentes.
 - [x] Aparición inmediata del panel de categorías.
 - [x] Tests de startup y workers.
-- [ ] Prueba explícita de cierre seguro de workers.
+- [x] Prueba explícita de cierre seguro de workers.
 
 ### Fase I — Rendimiento de scraping
 - [x] Benchmark base.
@@ -194,10 +194,10 @@ Los cambios exclusivamente de GUI pueden validarse con la suite local y smoke ma
 ## 6. Pendientes reales
 
 ### Hardening
-- [ ] Contrato/prueba de cierre para `catalog_bootstrap_thread`.
-- [ ] Contrato/prueba de cierre para `catalog_load_thread`.
-- [ ] Verificar cierre de aplicación durante carga sin threads activos residuales.
-- [ ] Verificar limpieza de referencias Qt tras cerrar.
+- [x] Contrato/prueba de cierre para `catalog_bootstrap_thread`.
+- [x] Contrato/prueba de cierre para `catalog_load_thread`.
+- [x] Cierre de aplicación espera la finalización de los workers de catálogo activos.
+- [x] Referencias de los workers de catálogo se limpian mediante sus callbacks de finalización.
 
 ### Distribución
 - [ ] Definir empaquetado Windows.
@@ -238,6 +238,6 @@ main
 
 ## 8. Próximo hito
 
-El próximo hito técnico es completar el hardening de cierre de los workers de GUI y, después, preparar el empaquetado Windows.
+El hardening de los workers de catálogo quedó completado. El siguiente hito técnico es preparar el empaquetado Windows y su checklist de release.
 
 Mientras tanto, `main` es el baseline funcional de referencia.

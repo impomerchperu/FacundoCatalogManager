@@ -7,7 +7,7 @@ Branch oficial: `main`
 
 El baseline funcional permanece cerrado y protegido en `main`. El último estado validado incorpora las optimizaciones de arranque y GUI posteriores al cierre funcional, sin modificar las invariantes de scraping, persistencia ni cobertura.
 
-HEAD funcional actual: `75cce996` (`perf(gui): show category filters immediately`).
+HEAD funcional actual: `4bee4fe7` (`test(gui): type catalog shutdown thread doubles`).
 
 ## Referencias funcionales
 
@@ -89,6 +89,8 @@ Validación del baseline funcional actual sobre `main`:
 Los cambios funcionales y de documentación posteriores quedaron cubiertos por validaciones locales y por Quality CI. En el último run de Quality asociado a `main`, Ruff, Pyright y Pytest terminaron correctamente; `live-catalog` quedó omitido de forma intencional en el CI rápido.
 
 ## GUI y rendimiento de arranque
+
+Hardening de cierre: el cierre de `MainWindow` espera la finalización de los workers de carga/bootstrap de catálogo activos y existe una prueba focal para este contrato.
 
 La fase de rendimiento de escritorio quedó cerrada con las siguientes garantías:
 

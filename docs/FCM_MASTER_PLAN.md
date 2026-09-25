@@ -202,9 +202,9 @@ Los cambios exclusivamente de GUI pueden validarse con la suite local y smoke ma
 ### Distribución
 - [ ] Definir empaquetado Windows.
 - [ ] Producir ejecutable.
-- [ ] Definir instalador.
-- [ ] Documentar actualización de versiones.
-- [ ] Definir backup/restauración de `catalog.db`.
+- [x] Definir instalador.
+- [x] Documentar actualización de versiones.
+- [x] Definir backup/restauración de `catalog.db`.
 - [ ] Preparar checklist de release.
 
 ### Documentación
@@ -241,3 +241,8 @@ main
 El hardening de los workers de catálogo quedó completado. El siguiente hito técnico es preparar el empaquetado Windows y su checklist de release.
 
 Mientras tanto, `main` es el baseline funcional de referencia.
+
+
+### Estado de distribución Windows
+
+La infraestructura de distribución está implementada en `main`: rutas persistentes para instalaciones congeladas, `VERSION`, spec de PyInstaller, instalador Inno Setup, script PowerShell, workflow manual de Windows y herramientas de backup/restauración. La producción física del bundle/instalador y su validación sobre Windows siguen pendientes.

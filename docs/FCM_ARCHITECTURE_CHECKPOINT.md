@@ -26,6 +26,8 @@ Branch oficial: `main`
 - [x] GUI catalog read moved outside the UI thread
 - [x] Large-catalog rendering made progressive
 - [x] Search/stock/category filters made row-visibility operations instead of full table rebuilds
+- [x] Category-filter panel reflow made immediate on activation
+- [x] Catalog worker shutdown wait contract implemented and covered by a focused test
 
 ## RUNTIME CONSOLIDATION
 
@@ -69,7 +71,7 @@ The desktop UI now separates initial catalog acquisition from interaction-time f
 - `ProductTable` performs progressive initial rendering for large catalogs.
 - `MainWindow.apply_filters()` computes matching products in memory and delegates visibility changes to `ProductTable.show_only_products()`.
 - Interactive filters therefore do not call `load_products()` and do not reconstruct 9 table cells per product.
-- The current GUI state was validated locally with 487 passing tests; these changes do not alter the scraping runtime.
+- The current GUI state was validated locally with 488 passing tests and 10 deselected; these changes do not alter the scraping runtime.
 
 The shutdown hardening for the catalog GUI workers is now implemented and covered by a focused test. `MainWindow.closeEvent()` waits for active catalog-load/bootstrap threads before window destruction; scraping itself remains an independently controlled operation.
 

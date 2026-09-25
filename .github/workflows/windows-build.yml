@@ -57,6 +57,7 @@ jobs:
       - name: Generate checksums
         shell: pwsh
         run: |
+          $version = (Get-Content "VERSION" -Raw).Trim()
           $files = @(
             "dist\Windows\FacundoCatalogManager\FacundoCatalogManager.exe",
             "dist\Windows\FacundoCatalogManager-$version-setup.exe"

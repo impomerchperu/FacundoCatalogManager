@@ -7,7 +7,7 @@ Branch oficial: `main`
 
 El baseline funcional permanece cerrado y protegido en `main`. El último estado validado incorpora las optimizaciones de arranque y GUI posteriores al cierre funcional, sin modificar las invariantes de scraping, persistencia ni cobertura.
 
-HEAD funcional actual: `57a34711d3ddc0806d5d83685ef98de3a7e0451d` (`fix(test): organize scraping dialog imports`).
+Último código funcional validado: `57a34711d3ddc0806d5d83685ef98de3a7e0451d` (`fix(test): organize scraping dialog imports`).
 
 ## Referencias funcionales
 

@@ -120,3 +120,17 @@ Para generar también el instalador:
 La versión inicial del instalador es `0.1.0`. El ejecutable, el instalador y los artefactos de build no se incorporan al repositorio.
 
 El checklist de validación está en `docs/FCM_WINDOWS_RELEASE.md`.
+
+
+## Backup y restauración
+
+La utilidad `tools/catalog_backup.py` permite crear y restaurar copias de `database/catalog.db` mediante la API de backup de SQLite. La restauración conserva primero una copia de seguridad del catálogo existente y valida la integridad antes y después de sustituir la base.
+
+Ejemplos:
+
+```powershell
+python -m tools.catalog_backup backup --output backups\catalog.bak
+python -m tools.catalog_backup restore backups\catalog.bak
+```
+
+La aplicación debe permanecer cerrada durante una restauración operativa. La herramienta no reemplaza el procedimiento de validación de release sobre una instalación Windows.

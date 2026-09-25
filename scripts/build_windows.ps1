@@ -7,7 +7,12 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
 
-Write-Host "== Facundo Catalog Manager / Windows build =="
+$Version = (Get-Content "VERSION" -Raw).Trim()
+if ($Version -notmatch "^\d+\.\d+\.\d+$") {
+    throw "VERSION debe usar el formato MAJOR.MINOR.PATCH."
+}
+
+Write-Host "== Facundo Catalog Manager / Windows build $Version =="
 
 $PythonVersion = python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
 if ($LASTEXITCODE -ne 0 -or $PythonVersion -ne "3.14") {
@@ -62,12 +67,12 @@ if (-not $Iscc) {
     throw "No se encontró Inno Setup 7. Instálalo con: winget install --id JRSoftware.InnoSetup.7 -e -s winget -i"
 }
 
-& $Iscc "packaging\installer.iss"
+& $Iscc "/DFCM_VERSION=$Version" "packaging\installer.iss"
 if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup no pudo generar el instalador."
 }
 
-$Installer = Join-Path $RepoRoot "dist\Windows\FacundoCatalogManager-0.1.0-setup.exe"
+$Installer = Join-Path $RepoRoot "dist\Windows\FacundoCatalogManager-$Version-setup.exe"
 if (-not (Test-Path $Installer)) {
     throw "No se encontró el instalador esperado: $Installer"
 }

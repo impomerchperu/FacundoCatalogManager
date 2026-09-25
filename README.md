@@ -99,3 +99,24 @@ El workflow de GitHub Actions ejecuta Ruff, Pyright y Pytest automáticamente. L
 El baseline validado en `main` cubre el flujo completo de scraping, persistencia y bootstrap con referencia operativa viva `523 / 519 / 4`, cobertura completa, catálogo reconciliado `519 / 523`, historial persistente, E2E de producción bajo `8 / 16 / 28` y suite automatizada en verde.
 
 El snapshot histórico `534 / 530 / 4` se conserva como referencia diagnóstica. Las optimizaciones de rendimiento posteriores deben conservar siempre las invariantes de cobertura del inventario vivo antes de considerarse válidas.
+
+
+## Distribución Windows
+
+La distribución Windows usa PyInstaller en modo **one-dir** e Inno Setup 7 para el instalador. El código y los recursos de solo lectura permanecen en el bundle; la aplicación guarda `database/catalog.db`, `data/images` y `logs` en `%LOCALAPPDATA%\FacundoCatalogManager` cuando está congelada.
+
+Build reproducible desde PowerShell:
+
+```powershell
+.\scripts\build_windows.ps1 -SkipInstaller
+```
+
+Para generar también el instalador:
+
+```powershell
+.\scripts\build_windows.ps1
+```
+
+La versión inicial del instalador es `0.1.0`. El ejecutable, el instalador y los artefactos de build no se incorporan al repositorio.
+
+El checklist de validación está en `docs/FCM_WINDOWS_RELEASE.md`.

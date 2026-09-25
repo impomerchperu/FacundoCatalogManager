@@ -1,6 +1,6 @@
 from typing import cast
 
-from PySide6.QtCore import QThread, Qt
+from PySide6.QtCore import Qt, QThread
 from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
 from gui.main_window import MainWindow

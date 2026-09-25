@@ -2,7 +2,7 @@
 
 Fecha: 2026-09-24
 Branch oficial: `main`
-HEAD actual: `57a34711d3ddc0806d5d83685ef98de3a7e0451d`
+Último código funcional validado: `57a34711d3ddc0806d5d83685ef98de3a7e0451d`
 
 ## 1. Objetivo del proyecto
 

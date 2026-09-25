@@ -1,5 +1,7 @@
 # Facundo Catalog Manager
 
+**Baseline funcional validado:** `57a34711d3ddc0806d5d83685ef98de3a7e0451d` (`fix(test): organize scraping dialog imports`). Los commits posteriores que actualizan esta documentación no modifican el código funcional.
+
 Aplicación de escritorio en Python + PySide6 para mantener el catálogo de Importaciones Facundo, ejecutar sincronizaciones FULL y exportar la información a Excel, PDF y CSV.
 
 ## Ejecución

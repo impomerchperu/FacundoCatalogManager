@@ -2,6 +2,7 @@
 
 Fecha del checkpoint actualizado: 2026-09-24  
 Branch oficial: `main`
+Último código funcional validado: `57a34711d3ddc0806d5d83685ef98de3a7e0451d` (`fix(test): organize scraping dialog imports`).
 
 ## QUALITY
 

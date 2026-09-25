@@ -1,5 +1,9 @@
 # FCM — Checkpoint de consolidación
 
+Fecha de alineación: 2026-09-24
+Branch oficial: `main`
+Último código funcional validado: `57a34711d3ddc0806d5d83685ef98de3a7e0451d` (`fix(test): organize scraping dialog imports`).
+
 ## Referencias funcionales
 
 La prioridad sigue siendo conservar la cobertura FULL real antes de optimizar o simplificar el runtime.
@@ -30,8 +34,8 @@ El snapshot histórico 534/530/4 permanece únicamente como referencia diagnóst
 
 ### Checkpoint actual — 2026-09-20
 
-- HEAD de código validado antes de la mejora de progreso: `2e8bd7190a89da308a739dd3b84b1a3dc74b9d95`.
-- HEAD funcional actual: `12fc62e96da0fe7f35a751cde911e681f8f8328a`.
+- HEAD de código del checkpoint histórico previo a la mejora de progreso: `2e8bd7190a89da308a739dd3b84b1a3dc74b9d95`.
+- HEAD funcional del checkpoint histórico del 2026-09-20: `12fc62e96da0fe7f35a751cde911e681f8f8328a`.
 - Los commits posteriores a `2e8bd71` incorporan el contrato de progreso de enrichment y su cobertura de pruebas.
 - Cambio funcional de runtime de este cierre: `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d` (idempotencia por `content_hash`).
 - Ruff: `All checks passed!`.

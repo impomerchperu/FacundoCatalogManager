@@ -375,3 +375,18 @@ El smoke test manual de la aplicación sobre el baseline actual fue completado e
 La validación manual confirma el contrato operativo de la GUI sobre el baseline existente; no implica cambios de runtime ni sustituye las pruebas automatizadas o el E2E real.
 
 The correction, recovery, persistence, reconciliation, coverage, performance diagnostics and automated quality work remain validated on `main`. The live functional reference remains `24 / 523 / 519 / 4`, with complete coverage, DB `519 / 523`, applied history and production-style E2E evidence. The historical `24 / 534 / 530 / 4` snapshot remains diagnostic. Image storage now follows a DB-backed allowlist: products.image_path is the sole active reference, resources/images historical assets have been removed from the repository, and local generated files outside that allowlist are cleaned explicitly with tools/clean_unused_images.py. No queda pendiente una acción de release para la auditoría de imágenes: la verificación local ya confirmó la ruta canónica activa, cero referencias activas inexistentes y cero archivos huérfanos; el reporte JSON generado durante la auditoría se mantiene fuera del repositorio.
+
+
+## WINDOWS DISTRIBUTION BOUNDARY
+
+- [x] Runtime data path abstraction separated from bundled application files
+- [x] SQLite schema remains packaged as read-only application data
+- [x] Database, images and logs resolve to persistent user data when frozen
+- [x] Relative image paths remain stable in SQLite and resolve through `DATA_DIR`
+- [x] PyInstaller one-dir specification defined
+- [x] Inno Setup installer defined
+- [x] Reproducible PowerShell build script defined
+- [x] Manual Windows packaging workflow defined
+- [x] Centralized release version in `VERSION`
+- [x] Catalog backup/restore tooling covered by automated tests
+- [ ] Windows bundle and installer produced and manually validated

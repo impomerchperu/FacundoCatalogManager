@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from config.runtime_paths import to_data_relative_path
 from scrapers.images.image_paths import IMAGE_EXTENSIONS, IMAGE_PRODUCTS_DIR
 
 
@@ -13,7 +14,7 @@ class ImageNamer:
 
     def build(self, code: str, image_url: str) -> str:
         extension = self._extract_extension(image_url)
-        return (self.base_dir / f"{code}{extension}").as_posix()
+        return to_data_relative_path(self.base_dir / f"{code}{extension}")
 
     @staticmethod
     def _extract_extension(image_url: str) -> str:

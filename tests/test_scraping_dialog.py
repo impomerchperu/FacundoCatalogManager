@@ -1,4 +1,6 @@
-from PySide6.QtCore import Qt
+from typing import cast
+
+from PySide6.QtCore import QThread, Qt
 from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
 from gui.main_window import MainWindow
@@ -137,8 +139,8 @@ def test_main_window_waits_for_catalog_threads_before_closing():
     window.catalog_load_thread = load_thread
     window.catalog_bootstrap_thread = bootstrap_thread
 
-    MainWindow._wait_for_thread(load_thread)
-    MainWindow._wait_for_thread(bootstrap_thread)
+    MainWindow._wait_for_thread(cast(QThread, load_thread))
+    MainWindow._wait_for_thread(cast(QThread, bootstrap_thread))
 
     assert load_thread.calls == [
         "isRunning",

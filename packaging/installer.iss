@@ -2,7 +2,10 @@
 ; Build the PyInstaller bundle first with scripts/build_windows.ps1.
 
 #define MyAppName "Facundo Catalog Manager"
-#define MyAppVersion "0.1.0"
+#ifndef FCM_VERSION
+#define FCM_VERSION "0.1.0"
+#endif
+#define MyAppVersion FCM_VERSION
 #define MyAppPublisher "Importaciones Facundo"
 #define MyAppExeName "FacundoCatalogManager.exe"
 
@@ -11,7 +14,7 @@ AppId={{4A3D9E16-8E3A-4F83-B3E8-4F3B76C3A4C1}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-DefaultDirName={localappdata}\FacundoCatalogManager
+DefaultDirName={localappdata}\Programs\FacundoCatalogManager
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -27,10 +30,6 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 [Files]
 Source="..\dist\Windows\FacundoCatalogManager\*"; DestDir="{app}"; Flags=ignoreversion recursesubdirs createallsubdirs
 
-[Dirs]
-Name="{app}\database"
-Name="{app}\data\images\products"
-Name="{app}\logs"
 
 [Icons]
 Name="{autoprograms}\{#MyAppName}"; Filename="{app}\{#MyAppExeName}"; WorkingDir="{app}"

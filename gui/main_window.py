@@ -413,7 +413,7 @@ class MainWindow(QMainWindow):
             "Ocultar Categorías",
         )
         if visible:
-            QTimer.singleShot(0, self._reflow_category_buttons)
+            self._reflow_category_buttons()
         else:
             self.category_scroll.setFixedHeight(0)
 

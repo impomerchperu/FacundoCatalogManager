@@ -1,6 +1,6 @@
 # Criterios de éxito del scraping FULL
 
-Fecha de validación del último checkpoint maestro: 2026-09-20  
+Fecha de validación del último checkpoint maestro: 2026-09-26  
 Branch oficial: `main`
 
 ## Objetivo
@@ -43,16 +43,15 @@ El historial no se elimina para reparar el catálogo. Las ejecuciones anteriores
 
 Una repetición idéntica sobre la misma SQLite debe ser idempotente: la segunda sincronización no crea ni actualiza productos, clasifica los productos como `unchanged` y no genera filas en `download_changes`. Esta garantía está validada por el test de integración de SQLite y el Quality CI actual.
 
-La validación realizada sobre la base real confirmó:
+La validación histórica de una base real que produjo `run 34` se conserva únicamente como evidencia de recuperación y reconciliación:
 
 - integridad SQLite: `ok`;
-- catálogo: `530` productos;
-- relaciones: `534` producto-categoría;
-- historiales: `156`;
-- detalles de cambios: `52.816`;
-- metadatos `initialized=1` y `history_recovery_applied=1`.
+- catálogo histórico: `530` productos;
+- relaciones históricas: `534` producto-categoría;
+- `coverage_complete=1` y `coverage_gap=0`;
+- `run 34`: `534 / 530 / 4`.
 
-En esa base, el FULL más reciente fue `run 34` y coincidió exactamente con `534 / 530 / 4`. Sus ocurrencias estuvieron enlazadas sin faltantes y el catálogo no tuvo productos ni relaciones extra respecto del run.
+Ese snapshot no representa el inventario vivo actual.
 
 ## Recuperación de red
 
@@ -114,18 +113,17 @@ Se ejecutó un benchmark aislado sobre SQLite temporal con 530 productos, WAL, `
 
 ## Estado de ingeniería validado
 
-La última Quality CI sobre `main` es el run `#2201`, ejecutado sobre `9d60a3d`, y terminó en `success`. La validación local del baseline funcional confirma Ruff limpio, Pyright con `0 errors, 0 warnings, 0 informations` y `453 passed, 8 deselected`.
+El estado actual de `main` fue validado localmente el 2026-09-26 y Quality CI volvió a quedar en `success` sobre el HEAD de release/documentación.
 
-- Ruff: limpio.
+- Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite no-real-site actual: `453 passed, 8 deselected`.
-- Pruebas de bootstrap/reconciliación: `15 passed`.
-- Batería scraping/runner/cache/progreso: validada.
-- Telemetría de enrichment por categoría: instrumentada y cubierta por prueba.
-- FULL/E2E de producción más reciente: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, configuración `8 / 16 / 28`, `337` solicitudes HTTP, duración `100.33s`.
-- Quality CI del estado actual de `main`: run `#2201`, commit `9d60a3d`, completado en `success`.
+- Pytest: `507 passed, 10 deselected`.
+- Bootstrap/reconciliación: `15 passed`.
+- Batería de scraping/runner/cache/progreso: validada.
+- Telemetría de enrichment por categoría: instrumentada y cubierta.
+- FULL/E2E de producción validado: `24 / 523 / 519 / 4`, DB `519 / 523`, configuración `8 / 16 / 28`, `337` solicitudes HTTP, `0` retries y `0` errores terminales.
 - Snapshot histórico preservado: `24 / 534 / 530 / 4`.
-- Smoke de bootstrap sobre copia de la base real: `530 / 534`, usando el FULL más reciente válido.
+- La release formal `v0.1.1` está publicada y el tag apunta a `4238a9f`.
 
 ## Benchmark de rendimiento actual
 
@@ -249,11 +247,13 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 - [x] indicador de versión actualmente aplicada.
 - [x] filtros de catálogo y stock.
 
-## Pendientes de rendimiento
+## Estado posterior a release
 
-El baseline funcional permanece protegido. El desarrollo activo continúa únicamente en diagnóstico y optimización controlada de red/categorías; no se modifica todavía la configuración productiva `8 / 16 / 28`.
+No existen pendientes técnicos bloqueantes en el baseline validado. La configuración productiva permanece `8 / 16 / 28` + JSF `2` + category-page `1`.
 
-## Pendientes no bloqueantes
+Cualquier optimización futura de red, scraping, persistencia o concurrencia se tratará como un cambio nuevo: benchmark controlado, validación de cobertura/persistencia y actualización del checkpoint antes de considerarlo parte del baseline.
+
+## Auditorías no bloqueantes cerradas
 
 - [x] benchmark específico de contención/latencia SQLite ejecutado sin errores ni latencias que justifiquen cambios de runtime;
 - [x] mayor granularidad de callbacks de progreso durante enrichment;

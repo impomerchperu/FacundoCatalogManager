@@ -6,7 +6,7 @@ from PyInstaller.config import CONF
 ROOT = Path.cwd()
 DIST_NAME = "FacundoCatalogManager"
 SCHEMA = ROOT / "database" / "schema.sql"
-SEED_ROOT = ROOT / "build" / "Windows" / "seed"
+SEED_ROOT = ROOT / "build" / "WindowsSeed"
 SEED_DATABASE = SEED_ROOT / "database" / "catalog.db"
 SEED_IMAGES = SEED_ROOT / "data" / "images"
 

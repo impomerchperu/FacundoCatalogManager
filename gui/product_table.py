@@ -1,7 +1,7 @@
 from typing import ClassVar
 
 from PySide6.QtCore import QRect, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPixmap, QPixmapCache
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -71,8 +71,12 @@ class ProductImageDelegate(QStyledItemDelegate):
     def paint(self, painter: QPainter, option, index) -> None:
         super().paint(painter, option, index)
 
-        pixmap = index.data(self.IMAGE_ROLE)
-        if not isinstance(pixmap, QPixmap) or pixmap.isNull():
+        image_path = index.data(self.IMAGE_ROLE)
+        if not isinstance(image_path, str) or not image_path:
+            return
+
+        pixmap = self._load_pixmap(image_path)
+        if pixmap.isNull():
             return
 
         target_size = option.rect.size()
@@ -97,6 +101,19 @@ class ProductImageDelegate(QStyledItemDelegate):
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         painter.drawPixmap(x, y, scaled)
         painter.restore()
+
+    @staticmethod
+    def _load_pixmap(image_path: str) -> QPixmap:
+        """Carga imágenes de forma diferida y usa la caché gráfica de Qt."""
+        cache_key = f"fcm-product-image:{image_path}"
+        pixmap = QPixmap()
+        if QPixmapCache.find(cache_key, pixmap):
+            return pixmap
+
+        pixmap.load(image_path)
+        if not pixmap.isNull():
+            QPixmapCache.insert(cache_key, pixmap)
+        return pixmap
 
     def sizeHint(
         self,
@@ -653,9 +670,11 @@ class ProductTable(QTableWidget):
     def _add_product_row(self, row: int, product: Product) -> None:
         image_item = QTableWidgetItem()
         if product.image_path:
-            pixmap = QPixmap(str(resolve_data_path(product.image_path)))
-            if not pixmap.isNull():
-                image_item.setData(ProductImageDelegate.IMAGE_ROLE, pixmap)
+            image_path = resolve_data_path(product.image_path)
+            image_item.setData(
+                ProductImageDelegate.IMAGE_ROLE,
+                str(image_path),
+            )
         self.setItem(row, self.IMAGE_COLUMN, image_item)
 
         item_code = QTableWidgetItem(product.code)

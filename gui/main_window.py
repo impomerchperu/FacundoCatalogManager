@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, QThread, QTimer
+from PySide6.QtCore import QEvent, Qt, QThread, QTimer
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -310,6 +310,9 @@ class MainWindow(QMainWindow):
 
         self.category_scroll = QScrollArea()
         self.category_scroll.setWidgetResizable(True)
+        self._category_reflow_running = False
+        self._category_last_viewport_width = 0
+        self.category_scroll.viewport().installEventFilter(self)
         self.category_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
@@ -456,9 +459,7 @@ class MainWindow(QMainWindow):
         )
         if visible:
             self.category_scroll.setVisible(True)
-            # Esperamos a que Qt aplique el ancho definitivo del panel antes
-            # de calcular los saltos de línea.
-            QTimer.singleShot(0, self._reflow_category_buttons)
+            self._reflow_category_buttons()
         else:
             self.category_scroll.setFixedHeight(0)
             self.category_scroll.setVisible(False)
@@ -539,11 +540,17 @@ class MainWindow(QMainWindow):
     def _reflow_category_buttons(self) -> None:
         if not hasattr(self, "category_layout"):
             return
-        self._clear_category_rows()
+        if self._category_reflow_running:
+            return
         viewport_width = self.category_scroll.viewport().width()
         if viewport_width <= 1 or not self.category_buttons:
             return
+        if viewport_width == self._category_last_viewport_width:
+            return
 
+        self._category_reflow_running = True
+        self._category_last_viewport_width = viewport_width
+        self._clear_category_rows()
         prepared = []
         for button in self.category_buttons:
             text = str(
@@ -586,12 +593,16 @@ class MainWindow(QMainWindow):
             min(self.CATEGORY_SCROLL_MAX_HEIGHT, content_height),
         )
 
-        # Si la barra vertical aparece al fijar la altura máxima, Qt reduce
-        # el viewport disponible. En ese caso repetimos una sola vez el reparto
-        # con el ancho definitivo para que la última fila quede alineada.
-        final_viewport_width = self.category_scroll.viewport().width()
-        if final_viewport_width != viewport_width:
-            QTimer.singleShot(0, self._reflow_category_buttons)
+
+    def eventFilter(self, watched, event) -> bool:
+        if (
+            getattr(self, "categories_visible", False)
+            and hasattr(self, "category_scroll")
+            and watched is self.category_scroll.viewport()
+            and event.type() == QEvent.Type.Resize
+        ):
+            self._reflow_category_buttons()
+        return super().eventFilter(watched, event)
 
     def _update_all_categories_button(self) -> None:
         self.all_categories_button.setChecked(not self.selected_categories)
@@ -812,8 +823,6 @@ class MainWindow(QMainWindow):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        if self.categories_visible:
-            QTimer.singleShot(0, self._reflow_category_buttons)
 
     @staticmethod
     def _wait_for_thread(thread: QThread | None) -> None:

@@ -67,25 +67,24 @@ class CatalogSeedService:
     @classmethod
     def _seed_database(cls, source: Path, destination: Path) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
-        temporary = destination.with_name(destination.name + ".seed.tmp")
-        temporary.unlink(missing_ok=True)
+        Path(str(destination) + "-wal").unlink(missing_ok=True)
+        Path(str(destination) + "-shm").unlink(missing_ok=True)
+        destination.unlink(missing_ok=True)
 
         try:
             with sqlite3.connect(source) as source_connection:
-                destination_connection = sqlite3.connect(temporary)
+                destination_connection = sqlite3.connect(destination)
                 try:
                     source_connection.backup(destination_connection)
                     destination_connection.commit()
                 finally:
                     destination_connection.close()
 
-            cls._integrity_check(temporary)
-            temporary.replace(destination)
-            Path(str(destination) + "-wal").unlink(missing_ok=True)
-            Path(str(destination) + "-shm").unlink(missing_ok=True)
             cls._integrity_check(destination)
         except Exception:
-            temporary.unlink(missing_ok=True)
+            destination.unlink(missing_ok=True)
+            Path(str(destination) + "-wal").unlink(missing_ok=True)
+            Path(str(destination) + "-shm").unlink(missing_ok=True)
             raise
 
     @staticmethod

@@ -203,7 +203,8 @@ def test_category_filter_toggle_shows_sidebar_and_gives_table_space_back():
 
     window.toggle_categories_visibility(False)
     assert not window.category_scroll.isVisible()
-    assert window.category_sidebar.width() == window._category_sidebar_closed_width
+    assert not window.category_sidebar.isVisible()
+    assert window.category_sidebar.width() == 0
     assert window.category_toggle_button.text() == "Filtrar Categorías"
 
     window.category_scroll.deleteLater()

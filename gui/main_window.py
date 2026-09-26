@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt, QThread, QTimer
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QFileDialog,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -68,6 +69,7 @@ class MainWindow(QMainWindow):
     TOP_CONTROLS_SPACING = 4
     CATEGORY_SPACING = 1
     CATEGORY_SIDEBAR_SPACING = 4
+    CATEGORY_SIDEBAR_HORIZONTAL_PADDING = 4
 
     def __init__(self) -> None:
         super().__init__()
@@ -282,9 +284,10 @@ class MainWindow(QMainWindow):
         filter_layout.setContentsMargins(0, 0, 0, 0)
         filter_layout.setSpacing(6)
 
-        top_controls = QHBoxLayout()
+        top_controls = QGridLayout()
         top_controls.setContentsMargins(0, 0, 0, 0)
-        top_controls.setSpacing(self.TOP_CONTROLS_SPACING)
+        top_controls.setHorizontalSpacing(self.TOP_CONTROLS_SPACING)
+        top_controls.setVerticalSpacing(0)
 
         self.category_toggle_button = QPushButton("Filtrar Categorías")
         self.category_toggle_button.setCheckable(True)
@@ -296,7 +299,7 @@ class MainWindow(QMainWindow):
         self.category_toggle_button.toggled.connect(
             self.toggle_categories_visibility,
         )
-        top_controls.addWidget(self.category_toggle_button)
+        top_controls.addWidget(self.category_toggle_button, 0, 0)
 
         self.stock_filter_button = QPushButton("Solo Stock Disponible")
         self.stock_filter_button.setCheckable(True)
@@ -308,9 +311,10 @@ class MainWindow(QMainWindow):
             "Mostrar únicamente productos con stock mayor a 0.",
         )
         self.stock_filter_button.toggled.connect(self.toggle_stock_filter)
-        top_controls.addWidget(self.stock_filter_button)
+        top_controls.addWidget(self.stock_filter_button, 0, 1)
 
-        top_controls.addWidget(self.search_box, 1)
+        top_controls.addWidget(self.search_box, 0, 2)
+        top_controls.setColumnStretch(2, 1)
 
         self.top_actions_container = QWidget()
         self.top_actions_container.setSizePolicy(
@@ -324,8 +328,7 @@ class MainWindow(QMainWindow):
         self.top_actions_container.setFixedWidth(
             action_layout.sizeHint().width(),
         )
-        top_controls.addWidget(self.top_actions_container)
-        top_controls.setStretch(2, 1)
+        top_controls.addWidget(self.top_actions_container, 0, 3)
         filter_layout.addLayout(top_controls)
 
         catalog_layout = QHBoxLayout()
@@ -500,17 +503,34 @@ class MainWindow(QMainWindow):
         ) + (2 * cls.CATEGORY_BUTTON_HORIZONTAL_PADDING) + 2
 
     @classmethod
-    def _fit_category_button(cls, button: QPushButton, text: str) -> int:
+    def _fit_category_button(
+        cls,
+        button: QPushButton,
+        text: str,
+        max_width: int | None = None,
+    ) -> int:
         font = button.font()
         font.setPixelSize(cls.CATEGORY_FONT_SIZE)
         button.setFont(font)
-        button.setText(text)
         button.setToolTip(text)
         button.setSizePolicy(
             QSizePolicy.Policy.Fixed,
             QSizePolicy.Policy.Fixed,
         )
+
         width = cls._category_button_width(button, text)
+        if max_width is not None:
+            width = max_width
+            text_width = max(
+                max_width - (2 * cls.CATEGORY_BUTTON_HORIZONTAL_PADDING),
+                1,
+            )
+            text = QFontMetrics(font).elidedText(
+                text,
+                Qt.TextElideMode.ElideRight,
+                text_width,
+            )
+        button.setText(text)
         button.setFixedWidth(width)
         button.setFixedHeight(cls.CATEGORY_BUTTON_HEIGHT)
         return width
@@ -607,20 +627,40 @@ class MainWindow(QMainWindow):
 
         self._clear_category_rows()
 
-        widths = []
+        reference_font = QFont(self.category_buttons[0].font())
+        reference_font.setPixelSize(self.CATEGORY_FONT_SIZE)
+        reference_bold_font = QFont(reference_font)
+        reference_bold_font.setBold(True)
+        reference_metrics = QFontMetrics(reference_font)
+        reference_bold_metrics = QFontMetrics(reference_bold_font)
+        reference_text_width = max(
+            reference_metrics.horizontalAdvance(self.CATEGORY_SIDEBAR_REFERENCE_TEXT),
+            reference_bold_metrics.horizontalAdvance(
+                self.CATEGORY_SIDEBAR_REFERENCE_TEXT,
+            ),
+        )
+        category_button_width = (
+            reference_text_width
+            + (2 * self.CATEGORY_BUTTON_HORIZONTAL_PADDING)
+        )
+        self._category_sidebar_open_width = (
+            category_button_width + (2 * self.CATEGORY_SIDEBAR_HORIZONTAL_PADDING)
+        )
+
         for button in self.category_buttons:
             text = str(
                 button.property("category_text") or button.text(),
             ).replace("\n", " ")
-            widths.append(self._fit_category_button(button, text))
+            self._fit_category_button(
+                button,
+                text,
+                max_width=category_button_width,
+            )
             self.category_layout.addWidget(
                 button,
                 0,
                 Qt.AlignmentFlag.AlignLeft,
             )
-
-        max_category_width = max(widths)
-        self._category_sidebar_open_width = max_category_width + 8
         if self.categories_visible:
             self.category_sidebar.setFixedWidth(
                 self._category_sidebar_open_width,

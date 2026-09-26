@@ -38,6 +38,11 @@ jobs:
           New-Item -ItemType Directory -Force "$seedRoot\\database" | Out-Null
           New-Item -ItemType Directory -Force $seedImages | Out-Null
 
+          $placeholderPng = [Convert]::FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+          )
+          [IO.File]::WriteAllBytes("$seedImages\\ci-placeholder.png", $placeholderPng)
+
           @'
           from pathlib import Path
           import sqlite3

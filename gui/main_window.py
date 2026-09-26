@@ -282,6 +282,18 @@ class MainWindow(QMainWindow):
         top_controls.setContentsMargins(0, 0, 0, 0)
         top_controls.setSpacing(self.TOP_CONTROLS_SPACING)
 
+        self.category_toggle_button = QPushButton("Filtrar Categorías")
+        self.category_toggle_button.setCheckable(True)
+        self._configure_toggle_button(
+            self.category_toggle_button,
+            "Filtrar Categorías",
+            "Ocultar Categorías",
+        )
+        self.category_toggle_button.toggled.connect(
+            self.toggle_categories_visibility,
+        )
+        top_controls.addWidget(self.category_toggle_button)
+
         self.stock_filter_button = QPushButton("Solo Stock Disponible")
         self.stock_filter_button.setCheckable(True)
         self._configure_toggle_button(
@@ -306,18 +318,6 @@ class MainWindow(QMainWindow):
         self.category_sidebar_layout = QVBoxLayout(self.category_sidebar)
         self.category_sidebar_layout.setContentsMargins(0, 0, 0, 0)
         self.category_sidebar_layout.setSpacing(self.CATEGORY_SIDEBAR_SPACING)
-
-        self.category_toggle_button = QPushButton("Filtrar Categorías")
-        self.category_toggle_button.setCheckable(True)
-        self._configure_toggle_button(
-            self.category_toggle_button,
-            "Filtrar Categorías",
-            "Ocultar Categorías",
-        )
-        self.category_toggle_button.toggled.connect(
-            self.toggle_categories_visibility,
-        )
-        self.category_sidebar_layout.addWidget(self.category_toggle_button)
 
         self.category_scroll = QScrollArea()
         self.category_scroll.setWidgetResizable(True)
@@ -354,8 +354,9 @@ class MainWindow(QMainWindow):
         )
         self.all_categories_button.clicked.connect(self.clear_category_filters)
         self.category_buttons = [self.all_categories_button]
-        self._category_sidebar_open_width = self.category_toggle_button.width()
-        self._category_sidebar_closed_width = self.category_toggle_button.width()
+        self._category_sidebar_open_width = 0
+        self._category_sidebar_closed_width = 0
+        self.category_sidebar.setVisible(False)
 
         catalog_layout.addWidget(self.category_sidebar, 0)
         catalog_layout.addWidget(self.table, 1)
@@ -474,11 +475,9 @@ class MainWindow(QMainWindow):
             "Filtrar Categorías",
             "Ocultar Categorías",
         )
-        self.category_scroll.setVisible(visible)
+        self.category_sidebar.setVisible(visible)
         self.category_sidebar.setFixedWidth(
-            self._category_sidebar_open_width
-            if visible
-            else self._category_sidebar_closed_width,
+            self._category_sidebar_open_width if visible else 0,
         )
 
     def refresh_catalog(self) -> None:
@@ -575,14 +574,13 @@ class MainWindow(QMainWindow):
         max_category_width = max(widths)
         scrollbar_width = self.category_scroll.verticalScrollBar().sizeHint().width()
         self._category_sidebar_open_width = max(
-            self.category_toggle_button.width(),
             max_category_width + scrollbar_width + 2,
+            self.category_sidebar.minimumWidth(),
         )
-        self.category_sidebar.setFixedWidth(
-            self._category_sidebar_open_width
-            if self.categories_visible
-            else self._category_sidebar_closed_width,
-        )
+        if self.categories_visible:
+            self.category_sidebar.setFixedWidth(
+                self._category_sidebar_open_width,
+            )
 
     def _update_all_categories_button(self) -> None:
         self.all_categories_button.setChecked(not self.selected_categories)

@@ -307,6 +307,33 @@ class ScrapingDialog(QDialog):
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setWordWrap(True)
+        table.setAlternatingRowColors(False)
+        table.setStyleSheet(
+            "QTableWidget {"
+            " background-color: #fbfdff;"
+            " gridline-color: #dce7f1;"
+            f" color: {self.TEXT_COLOR};"
+            " selection-background-color: #fbfdff;"
+            f" selection-color: {self.TEXT_COLOR};"
+            "}"
+            " QTableWidget::item {"
+            " padding: 4px;"
+            f' font-family: "{self.FONT_FAMILY}";'
+            f" font-size: {self.BODY_FONT_SIZE}px;"
+            "}"
+            " QTableWidget::item:selected {"
+            " background-color: #fbfdff;"
+            f" color: {self.TEXT_COLOR};"
+            "}"
+            " QHeaderView::section {"
+            " padding: 4px;"
+            f' font-family: "{self.FONT_FAMILY}";'
+            f" font-size: {self.BODY_FONT_SIZE}px;"
+            " font-weight: bold;"
+            " background-color: #eef5fb;"
+            f" color: {self.TEXT_COLOR};"
+            "}"
+        )
 
         rows = []
         for change in result.changes:
@@ -341,11 +368,10 @@ class ScrapingDialog(QDialog):
                 item = QTableWidgetItem(value)
                 if column in {0, 3}:
                     item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                if column in {0, 3, 4, 5}:
+                if column in {0, 3}:
                     font = QFont(item.font())
-                    font.setBold(column in {0, 3})
+                    font.setBold(True)
                     item.setFont(font)
-                    item.setBackground(table.palette().highlight())
                 table.setItem(row, column, item)
 
         if not rows:

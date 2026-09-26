@@ -38,6 +38,12 @@ class MainWindow(QMainWindow):
         QPushButton {
             color: #173f6d;
             font-family: "Segoe UI";
+            background-color: #fbfdff;
+            border: 1px solid #cbddea;
+            border-radius: 4px;
+        }
+        QPushButton:hover {
+            background-color: #eef5fb;
         }
         QPushButton:checked {
             background-color: #d8edf7;
@@ -50,9 +56,15 @@ class MainWindow(QMainWindow):
     TOGGLE_FONT_SIZE = 16
     TOGGLE_BUTTON_HORIZONTAL_PADDING = 24
     TOGGLE_BUTTON_HEIGHT = 40
+    SEARCH_FONT_SIZE = 16
+    SEARCH_HEIGHT = 38
+    COUNTER_FONT_SIZE = 13
+    ACTION_BUTTON_FONT_SIZE = 13
+    ACTION_BUTTON_HORIZONTAL_PADDING = 12
+    ACTION_BUTTON_HEIGHT = 34
     CATEGORY_FONT_SIZE = 13
-    CATEGORY_BUTTON_HORIZONTAL_PADDING = 20
-    CATEGORY_BUTTON_HEIGHT = 30
+    CATEGORY_BUTTON_HORIZONTAL_PADDING = 8
+    CATEGORY_BUTTON_HEIGHT = 28
     CATEGORY_SPACING = 1
     CATEGORY_SCROLL_MAX_HEIGHT = 220
 
@@ -90,15 +102,16 @@ class MainWindow(QMainWindow):
 
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Buscar producto...")
-        self.search_box.setMinimumHeight(42)
+        self.search_box.setMinimumHeight(self.SEARCH_HEIGHT)
         self.search_box.setStyleSheet(
             "QLineEdit {"
             ' font-family: "Segoe UI";'
-            " font-size: 18px;"
+            f" font-size: {self.SEARCH_FONT_SIZE}px;"
             " color: #173f6d;"
-            " padding: 5px 8px;"
+            " padding: 4px 8px;"
             " background-color: #fbfdff;"
             " border: 1px solid #cbddea;"
+            " border-radius: 4px;"
             "}"
         )
         self.search_box.textChanged.connect(self.search_products)
@@ -116,7 +129,7 @@ class MainWindow(QMainWindow):
         self.product_counter.setStyleSheet(
             "QLabel {"
             ' font-family: "Segoe UI";'
-            " font-size: 14px;"
+            f" font-size: {self.COUNTER_FONT_SIZE}px;"
             " font-weight: bold;"
             " color: #173f6d;"
             "}"
@@ -139,13 +152,7 @@ class MainWindow(QMainWindow):
         ]
         for text, callback in buttons:
             button = QPushButton(text)
-            button.setSizePolicy(
-                QSizePolicy.Policy.Minimum,
-                QSizePolicy.Policy.Fixed,
-            )
-            button.setStyleSheet(
-                'QPushButton { font-family: "Segoe UI"; color: #173f6d; }'
-            )
+            self._configure_action_button(button)
             button.clicked.connect(callback)
             buttons_layout.addWidget(button)
             if text in {"Nuevo", "Editar", "Eliminar", "Actualizar catálogo"}:
@@ -348,12 +355,37 @@ class MainWindow(QMainWindow):
         self.all_categories_button.setCheckable(True)
         self.all_categories_button.setProperty("category_text", "Todos")
         self.all_categories_button.setStyleSheet(
-            'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 10px; }\n'
+            'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 8px; }\n'
             + self.ACTIVE_BUTTON_STYLE,
         )
         self.all_categories_button.clicked.connect(self.clear_category_filters)
         self.category_buttons = [self.all_categories_button]
         layout.addLayout(filter_layout)
+
+    @classmethod
+    def _configure_action_button(cls, button: QPushButton) -> None:
+        font = button.font()
+        font.setPixelSize(cls.ACTION_BUTTON_FONT_SIZE)
+        button.setFont(font)
+        button.setSizePolicy(
+            QSizePolicy.Policy.Minimum,
+            QSizePolicy.Policy.Fixed,
+        )
+        button.setStyleSheet(
+            "QPushButton {"
+            ' font-family: "Segoe UI";'
+            f" font-size: {cls.ACTION_BUTTON_FONT_SIZE}px;"
+            " color: #173f6d;"
+            " background-color: #fbfdff;"
+            f" padding: 0px {cls.ACTION_BUTTON_HORIZONTAL_PADDING // 2}px;"
+            " border: 1px solid #cbddea;"
+            " border-radius: 4px;"
+            f" min-height: {cls.ACTION_BUTTON_HEIGHT}px;"
+            f" max-height: {cls.ACTION_BUTTON_HEIGHT}px;"
+            "}"
+            " QPushButton:hover { background-color: #eef5fb; }"
+            " QPushButton:pressed { background-color: #dbeeff; }"
+        )
 
     @classmethod
     def _configure_toggle_button(cls, button: QPushButton, *texts: str) -> None:
@@ -472,7 +504,7 @@ class MainWindow(QMainWindow):
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
             button.setStyleSheet(
-                'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 10px; }\n'
+                'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 8px; }\n'
                 + self.ACTIVE_BUTTON_STYLE,
             )
             button.clicked.connect(

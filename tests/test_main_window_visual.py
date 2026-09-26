@@ -2,6 +2,7 @@ from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
+    QLineEdit,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -56,6 +57,41 @@ def test_filter_toggle_width_allows_normal_and_bold_text():
     assert button.width() >= widest_text + 10
 
     button.deleteLater()
+
+
+def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
+    _qapp()
+
+    window = MainWindow.__new__(MainWindow)
+    window.catalog_bootstrap_blocked_buttons = []
+    window.search_box = QLineEdit()
+    window.table = QWidget()
+    host = QWidget()
+    layout = QVBoxLayout(host)
+
+    MainWindow.create_filter_controls(window, layout)
+
+    filter_layout = layout.itemAt(0).layout()
+    assert filter_layout is not None
+    top_controls = filter_layout.itemAt(0).layout()
+    assert top_controls is not None
+
+    widgets = [
+        top_controls.itemAt(index).widget()
+        for index in range(top_controls.count())
+    ]
+    assert widgets[0] is window.category_toggle_button
+    assert widgets[1] is window.stock_filter_button
+    assert widgets[2] is window.search_box
+    assert window.category_sidebar.isVisible() is False
+
+    for widget in widgets:
+        if widget is not None and widget is not window.search_box:
+            widget.deleteLater()
+    window.search_box.deleteLater()
+    window.category_sidebar.deleteLater()
+    window.table.deleteLater()
+    host.deleteLater()
 
 
 def test_action_buttons_are_grouped_for_top_right_layout():

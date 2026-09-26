@@ -95,6 +95,8 @@ class MainWindow(QMainWindow):
         self.catalog_load_worker: CatalogLoadWorker | None = None
 
         central = QWidget()
+        central.setObjectName("main_content")
+        central.setStyleSheet("#main_content { background-color: #ffffff; }")
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -307,7 +309,20 @@ class MainWindow(QMainWindow):
         top_controls.addWidget(self.stock_filter_button)
 
         top_controls.addWidget(self.search_box, 1)
-        self._add_action_buttons(top_controls)
+
+        self.top_actions_container = QWidget()
+        self.top_actions_container.setSizePolicy(
+            QSizePolicy.Policy.Fixed,
+            QSizePolicy.Policy.Fixed,
+        )
+        action_layout = QHBoxLayout(self.top_actions_container)
+        action_layout.setContentsMargins(0, 0, 0, 0)
+        action_layout.setSpacing(self.TOP_CONTROLS_SPACING)
+        self._add_action_buttons(action_layout)
+        self.top_actions_container.setFixedWidth(
+            action_layout.sizeHint().width(),
+        )
+        top_controls.addWidget(self.top_actions_container)
         filter_layout.addLayout(top_controls)
 
         catalog_layout = QHBoxLayout()
@@ -315,11 +330,18 @@ class MainWindow(QMainWindow):
         catalog_layout.setSpacing(self.CATEGORY_SIDEBAR_SPACING)
 
         self.category_sidebar = QWidget()
+        self.category_sidebar.setStyleSheet(
+            "QWidget { background-color: #ffffff; }"
+        )
         self.category_sidebar_layout = QVBoxLayout(self.category_sidebar)
         self.category_sidebar_layout.setContentsMargins(0, 0, 0, 0)
         self.category_sidebar_layout.setSpacing(self.CATEGORY_SIDEBAR_SPACING)
 
         self.category_scroll = QScrollArea()
+        self.category_scroll.setStyleSheet(
+            "QScrollArea { background-color: #ffffff; }"
+            " QScrollArea > QWidget { background-color: #ffffff; }"
+        )
         self.category_scroll.setWidgetResizable(True)
         self.category_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
@@ -337,6 +359,9 @@ class MainWindow(QMainWindow):
         self.category_sidebar_layout.addWidget(self.category_scroll, 1)
 
         self.category_container = QWidget()
+        self.category_container.setStyleSheet(
+            "QWidget { background-color: #ffffff; }"
+        )
         self.category_layout = QVBoxLayout(self.category_container)
         self.category_layout.setContentsMargins(0, 0, 0, 0)
         self.category_layout.setSpacing(self.CATEGORY_SPACING)
@@ -348,10 +373,7 @@ class MainWindow(QMainWindow):
         self.all_categories_button = QPushButton("Todos")
         self.all_categories_button.setCheckable(True)
         self.all_categories_button.setProperty("category_text", "Todos")
-        self.all_categories_button.setStyleSheet(
-            'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 4px; }\n'
-            + self.ACTIVE_BUTTON_STYLE,
-        )
+        self.all_categories_button.setStyleSheet(self._category_button_style())
         self.all_categories_button.clicked.connect(self.clear_category_filters)
         self.category_buttons = [self.all_categories_button]
         self._category_sidebar_open_width = 0
@@ -377,6 +399,7 @@ class MainWindow(QMainWindow):
         for text, callback in buttons:
             button = QPushButton(text)
             self._configure_action_button(button)
+            button.setFixedWidth(button.sizeHint().width())
             button.clicked.connect(callback)
             layout.addWidget(button)
             if text in {"Nuevo", "Editar", "Eliminar", "Actualizar catálogo"}:
@@ -435,6 +458,27 @@ class MainWindow(QMainWindow):
         ) + (2 * cls.TOGGLE_BUTTON_HORIZONTAL_PADDING) + 2
         button.setFixedWidth(required_width)
         button.setFixedHeight(cls.TOGGLE_BUTTON_HEIGHT)
+
+    @classmethod
+    def _category_button_style(cls) -> str:
+        return (
+            'QPushButton {'
+            ' font-family: "Segoe UI";'
+            f" font-size: {cls.CATEGORY_FONT_SIZE}px;"
+            " color: #173f6d;"
+            " padding: 0px 4px;"
+            " text-align: left;"
+            " border: none;"
+            " background: transparent;"
+            "}"
+            " QPushButton:hover { background-color: #eef5fb; }"
+            " QPushButton:checked {"
+            " background-color: #d8edf7;"
+            " color: #173f6d;"
+            " font-weight: bold;"
+            " border: none;"
+            "}"
+        )
 
     @classmethod
     def _category_button_width(cls, button: QPushButton, text: str) -> int:
@@ -523,10 +567,7 @@ class MainWindow(QMainWindow):
             button.setProperty("category_text", category)
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
-            button.setStyleSheet(
-                'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 4px; }\n'
-                + self.ACTIVE_BUTTON_STYLE,
-            )
+            button.setStyleSheet(self._category_button_style())
             button.clicked.connect(
                 lambda checked, value=category: self.toggle_category(
                     value,
@@ -574,9 +615,11 @@ class MainWindow(QMainWindow):
 
         max_category_width = max(widths)
         scrollbar_width = self.category_scroll.verticalScrollBar().sizeHint().width()
-        self._category_sidebar_open_width = max(
-            max_category_width + scrollbar_width + 2,
-            self.category_sidebar.minimumWidth(),
+        self._category_sidebar_open_width = (
+            max_category_width
+            + (2 * self.CATEGORY_BUTTON_HORIZONTAL_PADDING)
+            + scrollbar_width
+            + 2
         )
         if self.categories_visible:
             self.category_sidebar.setFixedWidth(

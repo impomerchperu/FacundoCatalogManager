@@ -34,6 +34,8 @@ La versión de la aplicación se mantiene en `VERSION` con formato `MAJOR.MINOR.
 
 La versión de validación actual es `0.1.1`.
 
+La release formal `v0.1.1` ya está publicada en GitHub.
+
 ## Semilla inicial
 
 Antes de ejecutar PyInstaller, el build ejecuta `tools/prepare_windows_seed.py`. Esta utilidad valida la base de desarrollo contra la referencia `24 / 523 / 519 / 4`, comprueba la integridad de SQLite y la existencia de las imágenes referenciadas, y genera una copia mediante la API de backup de SQLite para evitar pérdidas de páginas WAL. La semilla resultante se incorpora al bundle en un directorio de solo lectura.
@@ -321,6 +323,8 @@ El bundle PyInstaller, la semilla validada, el instalador Inno Setup y el ciclo 
 El procedimiento de backup/restore también fue validado sobre la base real de la instalación y restaurado hacia una ubicación aislada, conservando integridad y los conteos `519 / 24 / 523 / 169`.
 
 La validación en Windows Sandbox confirmó que el bundle `0.1.1` funciona en un entorno sin Python instalado y que crea su propia base persistente con `519 / 24 / 523`.
+
+La release formal `v0.1.1` está publicada en GitHub con el instalador `FacundoCatalogManager-0.1.1-setup.exe` y `SHA256SUMS.txt`.
 
 La versión de validación actual es `0.1.1`.
 

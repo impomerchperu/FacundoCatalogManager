@@ -28,12 +28,12 @@ La referencia funcional vigente es:
 ## Próxima etapa
 
 ### 1. Experiencia de instalación
-- [ ] Incorporar un icono de aplicación Windows propio y consistente.
-- [ ] Añadir acceso directo opcional en el Escritorio.
-- [ ] Mantener el acceso directo del menú Inicio.
+- [x] Incorporar un icono de aplicación Windows propio y consistente.
+- [x] Añadir acceso directo opcional en el Escritorio.
+- [x] Mantener el acceso directo del menú Inicio.
 - [ ] Validar icono, acceso directo e instalación en una nueva revisión del instalador.
 
-Estos cambios pertenecen a una futura versión y no modifican la release `0.1.1`.
+La identidad visual está implementada en el ejecutable, la ventana Qt y el instalador. La validación Windows queda pendiente de una nueva ejecución del build/instalador; la release `0.1.1` no se modifica.
 
 ### 2. Pulido de GUI
 - [ ] Revisar de forma agrupada tipografía, espaciados y anchos de columnas.

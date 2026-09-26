@@ -6,12 +6,15 @@ from PyInstaller.config import CONF
 ROOT = Path.cwd()
 DIST_NAME = "FacundoCatalogManager"
 SCHEMA = ROOT / "database" / "schema.sql"
+APP_ICON = ROOT / "resources" / "facundo.ico"
 SEED_ROOT = ROOT / "build" / "WindowsSeed"
 SEED_DATABASE = SEED_ROOT / "database" / "catalog.db"
 SEED_IMAGES = SEED_ROOT / "data" / "images"
 
 if not SCHEMA.is_file():
     raise RuntimeError(f"No se encontró el esquema SQLite: {SCHEMA}")
+if not APP_ICON.is_file():
+    raise RuntimeError(f"No se encontró el icono de la aplicación: {APP_ICON}")
 if not SEED_DATABASE.is_file():
     raise RuntimeError(
         f"No se encontró la base semilla preparada: {SEED_DATABASE}"
@@ -37,6 +40,7 @@ analysis = Analysis(
     binaries=[],
     datas=[
         (str(SCHEMA), "database"),
+        (str(APP_ICON), "resources"),
         (str(SEED_DATABASE), "seed/database"),
         (str(SEED_IMAGES), "seed/data/images"),
     ],
@@ -57,6 +61,7 @@ exe = EXE(
     analysis.datas,
     [],
     name=DIST_NAME,
+    icon=str(APP_ICON),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

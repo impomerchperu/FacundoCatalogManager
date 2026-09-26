@@ -28,11 +28,10 @@ WizardStyle=modern
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Files]
-Source="..\dist\Windows\FacundoCatalogManager\*"; DestDir="{app}"; Flags=ignoreversion recursesubdirs createallsubdirs
-
+Source: "..\dist\Windows\FacundoCatalogManager\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name="{autoprograms}\{#MyAppName}"; Filename="{app}\{#MyAppExeName}"; WorkingDir="{app}"
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
 
 [Run]
-Filename="{app}\{#MyAppExeName}"; Description="Iniciar {#MyAppName}"; Flags=nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "Iniciar {#MyAppName}"; Flags: nowait postinstall skipifsilent

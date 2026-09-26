@@ -87,6 +87,10 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
     assert widgets[2] is window.search_box
     assert widgets[3] is window.top_actions_container
     assert window.category_sidebar.isVisible() is False
+    assert window.search_box.minimumWidth() == 0
+    assert window.top_actions_container.sizePolicy().horizontalPolicy() == (
+        window.top_actions_container.sizePolicy().horizontalPolicy().Fixed
+    )
 
     action_widgets = [
         window.top_actions_container.layout().itemAt(index).widget()
@@ -181,6 +185,18 @@ def test_category_button_width_matches_real_horizontal_padding():
     button.deleteLater()
 
 
+def test_all_categories_button_uses_explicit_plural_label():
+    _qapp()
+
+    button = QPushButton("Todas las categorías")
+    button.setProperty("category_text", "Todas las categorías")
+
+    assert button.text() == "Todas las categorías"
+    assert button.property("category_text") == "Todas las categorías"
+
+    button.deleteLater()
+
+
 def test_category_filter_layout_is_vertical_and_prepared_while_closed():
     _qapp()
 
@@ -200,8 +216,8 @@ def test_category_filter_layout_is_vertical_and_prepared_while_closed():
     container = QWidget()
     window.category_layout = QVBoxLayout(container)
     window.category_layout.setContentsMargins(0, 0, 0, 0)
-    button = QPushButton("Todos")
-    button.setProperty("category_text", "Todos")
+    button = QPushButton("Todas las categorías")
+    button.setProperty("category_text", "Todas las categorías")
     window.category_buttons = [button]
     window.category_scroll.setWidget(container)
     window._category_sidebar_closed_width = window.category_toggle_button.width()

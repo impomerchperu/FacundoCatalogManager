@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INSTALLER_PATH = PROJECT_ROOT / "packaging" / "installer.iss"
 BUILD_SCRIPT_PATH = PROJECT_ROOT / "scripts" / "build_windows.ps1"

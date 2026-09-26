@@ -66,7 +66,7 @@ class ScrapingDialog(QDialog):
             f" color: {self.TEXT_COLOR};"
             "}"
             " QLabel {"
-            f" font-family: "{self.FONT_FAMILY}";"
+            f' font-family: "{self.FONT_FAMILY}";'
             f" font-size: {self.BODY_FONT_SIZE}px;"
             f" color: {self.TEXT_COLOR};"
             "}"

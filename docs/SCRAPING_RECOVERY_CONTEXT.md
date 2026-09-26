@@ -12,29 +12,36 @@ No production dependency remains for the retired recovery facades removed during
 
 The obsolete `missing_code_recovery_patch.py` facade and its facade-only test have also been removed. Missing-code recovery remains natively implemented in `CategoryProductSyncService` and is covered by the current contract test.
 
-## Authoritative real FULL checkpoint
+## Current operational FULL checkpoint
 
-The authoritative real-site reference is the latest validated successful FULL run, **history_id=191**.
+The current operational real-site reference is the latest validated successful complete FULL/E2E result:
 
-- `history_id=191`
-- `mode=full`
-- `status=SUCCESS`
-- `categories_requested=24`
-- `expected_category_occurrences=534`
-- `actual_category_occurrences=534`
-- `products_found=534`
-- `products_unique=530`
-- `products_multiple_categories=4`
-- `duplicate_occurrences=4`
+- categories: `24`
+- product appearances: `523`
+- unique products: `519`
+- multi-category products: `4`
+- product-category relations: `523`
 - `coverage_complete=true`
 - `coverage_gap=0`
 - `error_count=0`
-- `applied_at` populated
-- latest applied FULL classification: `created=0`, `updated=0`, `unchanged=530`, `deleted=0`.
-- final catalog: `530 products / 534 product_categories`.
-- latest history record is consistent with the protected master checkpoint and reports `0` errors.
+- production configuration: category `8`, detail `16`, HTTP `28`
+- latest production-style E2E: DB `519 / 523`, `337` HTTP requests, `0` retries, `0` terminal errors
 
-Future FULL validation must be governed by the latest successful complete run, not by a manually chosen historical coverage floor such as 529/525.
+Future FULL validation must be governed by the latest successful complete run and the current `expected_count` values published by the live categories, not by a manually chosen historical coverage floor such as 529/525.
+
+### Historical recovery reference
+
+The older `history_id=191` snapshot remains preserved for diagnostics:
+
+- `534` category occurrences
+- `530` unique products
+- `4` multi-category products
+- `534` product-category relations
+- `coverage_complete=true`
+- `coverage_gap=0`
+- `error_count=0`
+
+It is not the current operational catalog baseline.
 
 ## Current configuration baseline
 
@@ -45,42 +52,38 @@ Future FULL validation must be governed by the latest successful complete run, n
 - detail workers: `16`
 - HTML parser: `lxml`
 
-Run/history 191 remains the latest applied history reference; the protected coverage baseline is the latest valid FULL at `24 / 534 / 530 / 4`. A newer real-site production-style E2E under `8 / 16 / 28` has now validated the full scrape-to-SQLite-to-history path in an isolated SQLite database.
+The historical run/history 191 remains available for recovery diagnostics. The protected operational baseline is `24 / 523 / 519 / 4`. A real-site production-style E2E under `8 / 16 / 28` validated the full scrape-to-SQLite-to-history path in an isolated SQLite database.
 
 ## Latest repository validation
 
-- No-real-site suite after the test cleanup: `437 passed, 8 deselected`
-- Architecture-boundary tests: `23 passed`
-- Targeted scraping coverage regressions: `8 passed`
-- Transaction/history/application-state tests: `8 passed`
-- Runner/progress contract tests: `8 passed`
-- Retry/backoff metrics: `2 passed`
-- Ruff: clean
-- Pyright: `0 errors, 0 warnings, 0 informations`
-- Image hashing focused audit: `10 passed`
+- Local validation on 2026-09-26: Ruff clean
+- Local validation: Pyright `0 errors, 0 warnings, 0 informations`
+- Local validation: Pytest `507 passed, 10 deselected`
+- Quality CI on current release baseline: success
+- Architecture-boundary, bootstrap/reconciliation, runner/progress, retry/backoff and image-hashing contracts remain covered
 
 ## Performance audit status
 
+
 The current evidence continues to point to network/category/detail work as the main runtime area rather than SQLite persistence.
 
-Latest complete FULL HTTP sample:
+Current validated production-style E2E evidence:
 
-- `requests=349`
-- category requests: `26`
-- detail requests: `289`
-- other requests: `34`
-- retries: `2`
-- errors: `1`
-- terminal errors: `0`
-- `max_concurrency=28`
-- retry sleep count: `1`
-- retry sleep seconds: `1.000`
-- slowest observed request: approximately `20.422s`
-- aggregate request timing: approximately `2301.970s` (not wall-clock)
+- `337` HTTP requests
+- category workers: `8`
+- detail workers: `16`
+- HTTP budget: `28`
+- JetSmartFilters HTTP concurrency: `8`
+- `0` retries
+- `0` terminal HTTP errors
+- complete `523/523` collection
+- `24 / 523 / 519 / 4`
+- DB `519 / 523`
+- successful history application
 
-The detail cache showed `289` requests, `0` hits, and `289` cached entries in the latest complete sample. This indicates that the current enrichment phase is still dominated by real detail HTTP work within a FULL run.
+Historical diagnostics remain useful for profiling but are not treated as the current runtime baseline. In particular, older samples with `349` requests, `289` detail requests or `534 / 530` catalog counts are preserved as diagnostic evidence, not current state.
 
-The enrichment/detail timing telemetry is now in place. Controlled live measurements crossed 16 and 24 detail workers and showed comparable wall time, with 16 workers materially reducing aggregate detail HTTP work. The production detail-worker default is now `16`. A real production-style E2E under `8 / 16 / 28` completed in `113.97s` with `24 / 534 / 530 / 4`, `530 / 534` persisted records, successful history application, and zero HTTP retries.
+The enrichment/detail timing telemetry is now in place. Controlled live measurements crossed 16 and 24 detail workers and showed no reproducible wall-clock benefit for 24; the production detail-worker default remains `16`.
 
 ## Progress contract
 
@@ -89,3 +92,7 @@ The current FULL runner reports category progress `1..24`, enrichment callbacks 
 ## Persistence and safety
 
 FULL safety remains authoritative: incomplete or failed FULL runs must not perform destructive prune, and an unsuccessful run must not replace a previously valid complete applied state. Historical execution records remain preserved.
+
+## Post-release status
+
+The recovery architecture is considered complete for the current release baseline. There are no open recovery tasks blocking development. Future changes to scraping, persistence, concurrency or reconciliation must preserve the current operational invariants and be revalidated before becoming a new baseline.

@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from config.runtime_paths import is_frozen
 from controllers.product_controller import ProductController
 from gui.product_table import ProductTable
 from gui.scraping_dialog import ScrapingDialog
@@ -197,8 +198,19 @@ class MainWindow(QMainWindow):
 
     def _load_initial_catalog(self) -> None:
         """Inicia la lectura del catálogo sin bloquear el hilo de la interfaz."""
-        if self.isVisible():
-            self._start_catalog_load()
+        if not self.isVisible():
+            return
+
+        # En una distribución congelada la primera ejecución puede estar
+        # provisionando la semilla del catálogo. Esperamos a que ese trabajo
+        # termine antes de abrir una segunda conexión SQLite sobre el archivo
+        # que acaba de ser creado/reemplazado. La ventana ya está visible, por
+        # lo que esto no bloquea el arranque de la interfaz.
+        if is_frozen() and self.catalog_bootstrap_running:
+            QTimer.singleShot(25, self._load_initial_catalog)
+            return
+
+        self._start_catalog_load()
 
     def _start_catalog_load(self) -> None:
         if (

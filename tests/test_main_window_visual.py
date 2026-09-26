@@ -93,6 +93,17 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
     assert window.top_actions_container.sizePolicy().horizontalPolicy() == (
         window.top_actions_container.sizePolicy().horizontalPolicy().Fixed
     )
+    action_layout = window.top_actions_container.layout()
+    assert action_layout is not None
+    expected_action_width = (
+        sum(
+            action_layout.itemAt(index).widget().width()
+            for index in range(action_layout.count())
+            if action_layout.itemAt(index).widget() is not None
+        )
+        + max(0, action_layout.count() - 1) * MainWindow.TOP_CONTROLS_SPACING
+    )
+    assert window.top_actions_container.width() == expected_action_width
 
     action_widgets = [
         window.top_actions_container.layout().itemAt(index).widget()

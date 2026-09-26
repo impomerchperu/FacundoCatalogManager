@@ -32,6 +32,8 @@ PyInstaller 6.15.0 incorporó soporte para Python 3.14; el proyecto fija PyInsta
 
 La versión de la aplicación se mantiene en `VERSION` con formato `MAJOR.MINOR.PATCH`. El script de build y el workflow de Windows leen ese archivo; el instalador recibe la misma versión como definición del preprocesador de Inno Setup.
 
+La versión de validación actual es `0.1.1`.
+
 ## Semilla inicial
 
 Antes de ejecutar PyInstaller, el build ejecuta `tools/prepare_windows_seed.py`. Esta utilidad valida la base de desarrollo contra la referencia `24 / 523 / 519 / 4`, comprueba la integridad de SQLite y la existencia de las imágenes referenciadas, y genera una copia mediante la API de backup de SQLite para evitar pérdidas de páginas WAL. La semilla resultante se incorpora al bundle en un directorio de solo lectura.
@@ -56,9 +58,9 @@ Para generar también el instalador:
 .\scripts\build_windows.ps1
 ```
 
-El instalador generado en esta validación es:
+El instalador de validación actual es:
 
-`dist\Windows\FacundoCatalogManager-0.1.0-setup.exe`
+`dist\Windows\FacundoCatalogManager-0.1.1-setup.exe`
 
 Inno Setup 7 puede instalarse con:
 
@@ -136,29 +138,9 @@ junto a la base restaurada cuando la base destino ya existía.
 
 ### Validación real sin modificar la base del usuario
 
-Para validar el flujo con una base real sin reemplazarla, generar el backup desde la base persistente y restaurarlo hacia una ruta temporal separada:
+Para validar el flujo con una base real sin reemplazarla, generar el backup desde la base persistente y restaurarlo hacia una ruta temporal separada.
 
-```powershell
-$root = "$env:LOCALAPPDATA\FacundoCatalogManager"
-$validation = Join-Path $env:TEMP "FCM-backup-validation"
-$backup = Join-Path $validation "catalog-real.bak"
-$restored = Join-Path $validation "catalog-restored.db"
-
-Remove-Item $validation -Recurse -Force -ErrorAction SilentlyContinue
-New-Item $validation -ItemType Directory -Force | Out-Null
-
-python -m tools.catalog_backup backup --database "$root\database\catalog.db" --output $backup
-
-python -m tools.catalog_backup restore $backup --database $restored
-
-python -c "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); print('integrity:', c.execute('PRAGMA integrity_check').fetchone()[0]); print('products:', c.execute('SELECT COUNT(*) FROM products').fetchone()[0]); print('categories:', c.execute('SELECT COUNT(*) FROM categories').fetchone()[0]); print('relations:', c.execute('SELECT COUNT(*) FROM product_categories').fetchone()[0]); print('history:', c.execute('SELECT COUNT(*) FROM scraping_history').fetchone()[0]); c.close()" $restored
-```
-
-Para esta validación deben coincidir la integridad y los conteos entre la base real y la copia restaurada. Este procedimiento no modifica `%LOCALAPPDATA%\FacundoCatalogManager`.
-
-### Resultado de validación real
-
-El 25 de septiembre de 2026 se ejecutó el procedimiento sobre la base persistente de la instalación Windows:
+La validación realizada el 25 de septiembre de 2026 produjo:
 
 ```text
 Base real:
@@ -195,7 +177,7 @@ La restauración se realizó en `%TEMP%\FCM-backup-validation\catalog-restored.d
 - [x] Confirmar que `_internal` no recibe datos modificables.
 - [x] Confirmar arranque y carga del catálogo.
 - [x] Confirmar búsqueda y filtros.
-- [ ] Confirmar actualización del catálogo con una versión posterior.
+- [x] Confirmar actualización del catálogo mediante actualización real `0.1.0 → 0.1.1`.
 - [x] Confirmar historial.
 - [x] Confirmar Excel/PDF/CSV.
 - [x] Confirmar cierre limpio.
@@ -204,13 +186,19 @@ La restauración se realizó en `%TEMP%\FCM-backup-validation\catalog-restored.d
 - [x] Confirmar desinstalación sin pérdida involuntaria del catálogo.
 - [x] Implementar backup/restauración de `catalog.db` y cubrirlo con pruebas automatizadas.
 - [x] Validar backup/restore sobre una base real de usuario mediante el procedimiento aislado anterior.
-- [ ] Actualizar versión antes de una release.
+- [x] Actualizar versión de validación a `0.1.1`.
 
 ## Resultados Windows validados
 
-Instalador:
+### Instalador 0.1.1
 
-`dist\Windows\FacundoCatalogManager-0.1.0-setup.exe`
+`dist\Windows\FacundoCatalogManager-0.1.1-setup.exe`
+
+La compilación de Inno Setup terminó con:
+
+```text
+Successful compile
+```
 
 La instalación real confirmó:
 
@@ -223,7 +211,41 @@ La instalación real confirmó:
 - `523` relaciones;
 - `169` registros de historial.
 
-La reinstalación conservó el SHA256 de `catalog.db`, por lo que no sustituyó la base persistente del usuario.
+### Reinstalación
+
+La reinstalación de `0.1.0` conservó el SHA256 de `catalog.db`.
+
+### Actualización 0.1.0 → 0.1.1
+
+La actualización se ejecutó sin desinstalar la versión anterior.
+
+Antes de actualizar:
+
+```text
+SHA256: FDB2B62F9EA801D1D69B30A496F3B1F52...
+integrity: ok
+products: 519
+categories: 24
+relations: 523
+history: 169
+```
+
+Después de actualizar:
+
+```text
+SHA256: FDB2B62F9EA801D1D69B30A496F3B1F52...
+integrity: ok
+products: 519
+categories: 24
+relations: 523
+history: 169
+imagenes: 519
+ejecutable: True
+```
+
+El SHA256 permaneció idéntico, demostrando que la actualización no sustituyó la base persistente del usuario.
+
+### Desinstalación
 
 La desinstalación eliminó el programa de instalación y conservó:
 
@@ -235,8 +257,10 @@ La desinstalación eliminó el programa de instalación y conservó:
 
 ## Estado
 
-El bundle PyInstaller, la semilla validada, el instalador Inno Setup y el ciclo instalación/reinstalación/desinstalación ya fueron probados en Windows. El catálogo persistente se conserva fuera del directorio de instalación y no se pierde al reinstalar o desinstalar.
+El bundle PyInstaller, la semilla validada, el instalador Inno Setup y el ciclo instalación/reinstalación/actualización/desinstalación fueron probados en Windows.
 
 El procedimiento de backup/restore también fue validado sobre la base real de la instalación y restaurado hacia una ubicación aislada, conservando integridad y los conteos `519 / 24 / 523 / 169`.
 
-Las pendientes antes de una release formal son: ejecutar el bundle en una máquina sin Python instalado, probar una actualización real entre versiones y definir la versión de release.
+La versión de validación actual es `0.1.1`.
+
+La única pendiente de validación del entorno Windows es ejecutar el bundle en una máquina donde Python no esté instalado. Antes de publicar formalmente, esa prueba debe realizarse en una máquina física, VM o entorno Windows limpio.

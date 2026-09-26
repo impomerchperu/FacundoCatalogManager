@@ -618,8 +618,6 @@ class MainWindow(QMainWindow):
         else:
             self.selected_categories.discard(category)
         self._update_all_categories_button()
-        if self.categories_visible:
-            self._reflow_category_buttons()
         self.apply_filters()
 
     def toggle_stock_filter(self, checked: bool) -> None:

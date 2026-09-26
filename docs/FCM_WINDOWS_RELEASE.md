@@ -187,6 +187,7 @@ La restauración se realizó en `%TEMP%\FCM-backup-validation\catalog-restored.d
 - [x] Implementar backup/restauración de `catalog.db` y cubrirlo con pruebas automatizadas.
 - [x] Validar backup/restore sobre una base real de usuario mediante el procedimiento aislado anterior.
 - [x] Actualizar versión de validación a `0.1.1`.
+- [x] Alinear el workflow de Windows de GitHub con la semilla validada y la detección de Inno Setup usada en la validación local.
 - [x] Ejecutar validación final del repositorio en `main`: Ruff limpio.
 - [x] Ejecutar validación final del repositorio en `main`: Pyright sin errores, advertencias ni informaciones.
 - [x] Ejecutar validación final del repositorio en `main`: 507 pruebas aprobadas y 10 deselected.

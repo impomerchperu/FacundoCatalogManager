@@ -34,7 +34,7 @@ def test_frozen_bundle_root_uses_explicit_bundle_root(tmp_path: Path):
 
 
 def test_frozen_bundle_root_uses_meipass(monkeypatch, tmp_path: Path):
-    import config.runtime_paths as runtime_paths
+    from config import runtime_paths
 
     monkeypatch.setattr(
         runtime_paths.sys,

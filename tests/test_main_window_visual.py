@@ -27,6 +27,7 @@ def test_main_window_visual_metrics_keep_compact_hierarchy():
     assert MainWindow.CATEGORY_BUTTON_HORIZONTAL_PADDING == 4
     assert MainWindow.CATEGORY_BUTTON_HEIGHT == 28
     assert MainWindow.TOP_CONTROLS_SPACING == 4
+    assert MainWindow.CATEGORY_SIDEBAR_SPACING == 4
 
 
 def test_filter_toggle_width_allows_normal_and_bold_text():
@@ -107,44 +108,68 @@ def test_category_button_width_matches_real_horizontal_padding():
     button.deleteLater()
 
 
-def test_category_filter_layout_is_prepared_while_closed():
+def test_category_filter_layout_is_vertical_and_prepared_while_closed():
     _qapp()
 
     window = MainWindow.__new__(MainWindow)
     window.categories_visible = False
-    window._category_filter_height = 0
+    window.category_sidebar = QWidget()
+    window.category_sidebar.resize(120, 400)
+    window.category_toggle_button = QPushButton("Filtrar Categorías")
+    MainWindow._configure_toggle_button(
+        window.category_toggle_button,
+        "Filtrar Categorías",
+        "Ocultar Categorías",
+    )
     window.category_scroll = QScrollArea()
     window.category_scroll.setWidgetResizable(True)
-    window.category_scroll.resize(500, 0)
+    window.category_scroll.resize(120, 400)
     container = QWidget()
     window.category_layout = QVBoxLayout(container)
+    window.category_layout.setContentsMargins(0, 0, 0, 0)
     button = QPushButton("Todos")
     button.setProperty("category_text", "Todos")
     window.category_buttons = [button]
     window.category_scroll.setWidget(container)
+    window._category_sidebar_closed_width = window.category_toggle_button.width()
 
     window._prepare_category_filter_layout()
 
-    assert window._category_filter_height > 0
     assert window.category_layout.count() == 1
+    assert window.category_layout.itemAt(0).widget() is button
+    assert window._category_sidebar_open_width >= button.width()
 
     window.category_scroll.deleteLater()
+    window.category_sidebar.deleteLater()
 
 
-def test_category_filter_toggle_only_changes_panel_height():
+def test_category_filter_toggle_shows_sidebar_and_gives_table_space_back():
     _qapp()
 
     window = MainWindow.__new__(MainWindow)
     window.categories_visible = False
-    window._category_filter_height = 72
     window.category_toggle_button = QPushButton()
+    MainWindow._configure_toggle_button(
+        window.category_toggle_button,
+        "Filtrar Categorías",
+        "Ocultar Categorías",
+    )
     window.category_scroll = QScrollArea()
+    window.category_sidebar = QWidget()
+    window.category_sidebar.resize(100, 300)
+    window._category_sidebar_closed_width = window.category_toggle_button.width()
+    window._category_sidebar_open_width = 220
 
     window.toggle_categories_visibility(True)
-    assert window.category_scroll.height() == 72
+    assert window.category_scroll.isVisible()
+    assert window.category_sidebar.width() == 220
+    assert window.category_toggle_button.text() == "Ocultar Categorías"
 
     window.toggle_categories_visibility(False)
-    assert window.category_scroll.height() == 0
+    assert not window.category_scroll.isVisible()
+    assert window.category_sidebar.width() == window._category_sidebar_closed_width
+    assert window.category_toggle_button.text() == "Filtrar Categorías"
 
     window.category_scroll.deleteLater()
+    window.category_sidebar.deleteLater()
     window.category_toggle_button.deleteLater()

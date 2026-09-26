@@ -1,8 +1,8 @@
 # FCM Architecture Checkpoint
 
-Fecha del checkpoint actualizado: 2026-09-25  
+Fecha del checkpoint actualizado: 2026-09-26  
 Branch oficial: `main`
-Checkpoint de validación actual: `6be63da` (`docs(release): close final validation checklist`). El estado funcional de `main` fue revalidado localmente antes de este checkpoint.
+Checkpoint de documentación actual: `e17b26e` (`ci(release): preserve CI seed image directory`). El estado funcional de `main` continúa respaldado por las validaciones locales y Windows ya registradas.
 
 ## QUALITY
 
@@ -252,7 +252,7 @@ The current release baseline is the validated recovery result on `main`; the enr
 
 Última validación local del checkpoint de release:
 
-- HEAD: `6be63da`
+- HEAD de referencia documental: `e17b26e`
 - VERSION: `0.1.1`
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
@@ -262,6 +262,8 @@ The current release baseline is the validated recovery result on `main`; the enr
 La validación anterior de Quality CI queda como evidencia histórica; no se presenta como el resultado del checkpoint actual.
 
 The older focused-checkpoint and live-catalog references above remain historical evidence for the earlier audit checkpoint.
+
+El workflow Windows de GitHub Actions completó correctamente el smoke de empaquetado CI después de incorporar una imagen placeholder no funcional para impedir que el directorio de imágenes semilla desaparezca al empaquetar con PyInstaller.
 
 The audit also hardened two legacy maintenance tools so they cannot perform direct destructive deletion, and the catalog sync now initializes `content_hash` before classification so an identical second run remains idempotent:
 
@@ -394,5 +396,7 @@ The correction, recovery, persistence, reconciliation, coverage, performance dia
 - [x] Catalog backup/restore tooling covered by automated tests
 - [x] Windows bundle and installer produced and manually validated
 - [x] Windows workflow made self-contained for CI packaging smoke; real release seed remains validated locally because the runtime catalog DB/images are not versioned
-- [ ] Execute Windows Build manually after the self-contained workflow fix and validate the CI artifact
-- [ ] Ejecutar manualmente el workflow `Windows Build` en GitHub Actions sobre `main` y validar su artefacto CI
+- [x] Execute Windows Build manually after the self-contained workflow fix and validate the CI artifact
+- [x] Ejecutar manualmente el workflow `Windows Build` en GitHub Actions sobre `main` y validar su artefacto CI
+
+La ejecución manual posterior al ajuste terminó en `success`. La validación del job confirmó la presencia del ejecutable, la base semilla CI empaquetada y el directorio `seed/data/images`. Esta ejecución valida el empaquetado en GitHub Actions; no sustituye la validación funcional del bundle con catálogo real realizada en Windows y Windows Sandbox.

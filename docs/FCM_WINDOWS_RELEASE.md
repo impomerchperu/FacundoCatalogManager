@@ -156,6 +156,33 @@ python -c "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); print('integrity:
 
 Para esta validación deben coincidir la integridad y los conteos entre la base real y la copia restaurada. Este procedimiento no modifica `%LOCALAPPDATA%\FacundoCatalogManager`.
 
+### Resultado de validación real
+
+El 25 de septiembre de 2026 se ejecutó el procedimiento sobre la base persistente de la instalación Windows:
+
+```text
+Base real:
+integrity: ok
+products: 519
+categories: 24
+relations: 523
+history: 169
+
+Backup:
+integrity: ok
+13,733,888 bytes
+
+Copia restaurada:
+integrity: ok
+products: 519
+categories: 24
+relations: 523
+history: 169
+13,733,888 bytes
+```
+
+La restauración se realizó en `%TEMP%\FCM-backup-validation\catalog-restored.db`, por lo que la base persistente del usuario no fue modificada.
+
 ## Checklist previo a release
 
 - [x] Ruff.
@@ -176,7 +203,7 @@ Para esta validación deben coincidir la integridad y los conteos entre la base 
 - [x] Confirmar reinstalación conservando datos existentes.
 - [x] Confirmar desinstalación sin pérdida involuntaria del catálogo.
 - [x] Implementar backup/restauración de `catalog.db` y cubrirlo con pruebas automatizadas.
-- [ ] Validar backup/restore sobre una base real de usuario mediante el procedimiento aislado anterior.
+- [x] Validar backup/restore sobre una base real de usuario mediante el procedimiento aislado anterior.
 - [ ] Actualizar versión antes de una release.
 
 ## Resultados Windows validados
@@ -210,4 +237,6 @@ La desinstalación eliminó el programa de instalación y conservó:
 
 El bundle PyInstaller, la semilla validada, el instalador Inno Setup y el ciclo instalación/reinstalación/desinstalación ya fueron probados en Windows. El catálogo persistente se conserva fuera del directorio de instalación y no se pierde al reinstalar o desinstalar.
 
-Las pendientes antes de una release formal son: ejecutar el bundle en una máquina sin Python instalado, probar una actualización real entre versiones, validar backup/restore sobre una base real mediante el procedimiento aislado y definir la versión de release.
+El procedimiento de backup/restore también fue validado sobre la base real de la instalación y restaurado hacia una ubicación aislada, conservando integridad y los conteos `519 / 24 / 523 / 169`.
+
+Las pendientes antes de una release formal son: ejecutar el bundle en una máquina sin Python instalado, probar una actualización real entre versiones y definir la versión de release.

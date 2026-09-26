@@ -586,6 +586,13 @@ class MainWindow(QMainWindow):
             min(self.CATEGORY_SCROLL_MAX_HEIGHT, content_height),
         )
 
+        # Si la barra vertical aparece al fijar la altura máxima, Qt reduce
+        # el viewport disponible. En ese caso repetimos una sola vez el reparto
+        # con el ancho definitivo para que la última fila quede alineada.
+        final_viewport_width = self.category_scroll.viewport().width()
+        if final_viewport_width != viewport_width:
+            QTimer.singleShot(0, self._reflow_category_buttons)
+
     def _update_all_categories_button(self) -> None:
         self.all_categories_button.setChecked(not self.selected_categories)
         self.all_categories_button.setText("Todos")

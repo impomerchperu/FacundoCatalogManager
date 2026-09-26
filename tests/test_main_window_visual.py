@@ -1,4 +1,11 @@
+from PySide6.QtGui import QFont, QFontMetrics
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QPushButton, QWidget
+
 from gui.main_window import MainWindow
+
+
+def _qapp():
+    return QApplication.instance() or QApplication([])
 
 
 def test_main_window_visual_metrics_keep_compact_hierarchy():
@@ -8,5 +15,83 @@ def test_main_window_visual_metrics_keep_compact_hierarchy():
     assert MainWindow.ACTION_BUTTON_FONT_SIZE == 13
     assert MainWindow.ACTION_BUTTON_HEIGHT == 34
     assert MainWindow.CATEGORY_FONT_SIZE == 13
-    assert MainWindow.CATEGORY_BUTTON_HORIZONTAL_PADDING == 8
+    assert MainWindow.CATEGORY_BUTTON_HORIZONTAL_PADDING == 16
     assert MainWindow.CATEGORY_BUTTON_HEIGHT == 28
+
+
+def test_filter_toggle_width_allows_normal_and_bold_text():
+    _qapp()
+
+    button = QPushButton("Filtrar Categorías")
+    MainWindow._configure_toggle_button(
+        button,
+        "Filtrar Categorías",
+        "Ocultar Categorías",
+    )
+
+    normal_font = button.font()
+    bold_font = QFont(normal_font)
+    bold_font.setBold(True)
+    metrics = QFontMetrics(normal_font)
+    bold_metrics = QFontMetrics(bold_font)
+    widest_text = max(
+        metrics.horizontalAdvance("Filtrar Categorías"),
+        metrics.horizontalAdvance("Ocultar Categorías"),
+        bold_metrics.horizontalAdvance("Filtrar Categorías"),
+        bold_metrics.horizontalAdvance("Ocultar Categorías"),
+    )
+
+    assert MainWindow.TOGGLE_BUTTON_HORIZONTAL_PADDING == 32
+    assert button.width() >= widest_text + 32
+
+    button.deleteLater()
+
+
+def test_action_buttons_are_grouped_for_top_right_layout():
+    _qapp()
+
+    window = MainWindow.__new__(MainWindow)
+    window.catalog_bootstrap_blocked_buttons = []
+    host = QWidget()
+    layout = QHBoxLayout(host)
+
+    MainWindow._add_action_buttons(window, layout)
+
+    labels = [
+        layout.itemAt(index).widget().text()
+        for index in range(layout.count())
+        if layout.itemAt(index).widget() is not None
+    ]
+
+    assert labels == [
+        "Nuevo",
+        "Editar",
+        "Eliminar",
+        "Exportar Excel",
+        "Exportar PDF",
+        "Exportar CSV",
+        "Actualizar catálogo",
+        "Historial",
+    ]
+    assert len(window.catalog_bootstrap_blocked_buttons) == 4
+
+    host.deleteLater()
+
+
+def test_category_button_width_matches_real_horizontal_padding():
+    _qapp()
+
+    button = QPushButton()
+    text = "Enmicadoras / Laminadoras"
+    width = MainWindow._fit_category_button(button, text)
+
+    font = button.font()
+    bold_font = QFont(font)
+    bold_font.setBold(True)
+    bold_width = QFontMetrics(bold_font).horizontalAdvance(text)
+
+    assert MainWindow.CATEGORY_BUTTON_HORIZONTAL_PADDING == 16
+    assert width >= bold_width + 16
+    assert button.width() == width
+
+    button.deleteLater()

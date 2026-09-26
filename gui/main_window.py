@@ -54,7 +54,7 @@ class MainWindow(QMainWindow):
     """
 
     TOGGLE_FONT_SIZE = 16
-    TOGGLE_BUTTON_HORIZONTAL_PADDING = 24
+    TOGGLE_BUTTON_HORIZONTAL_PADDING = 32
     TOGGLE_BUTTON_HEIGHT = 40
     SEARCH_FONT_SIZE = 16
     SEARCH_HEIGHT = 38
@@ -395,7 +395,7 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Fixed,
         )
         button.setStyleSheet(
-            'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 12px; }\n'
+            'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 16px; }\n'
             + cls.ACTIVE_BUTTON_STYLE,
         )
         cls._set_toggle_button_width(button, *texts)

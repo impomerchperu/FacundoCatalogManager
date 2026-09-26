@@ -51,6 +51,20 @@ def test_scraping_dialog_shows_session_result_without_attribute_error(monkeypatc
     dialog.close()
 
 
+def test_scraping_dialog_uses_neutral_detail_table_selection():
+    _qapp()
+
+    dialog = ScrapingDialog()
+
+    stylesheet = dialog.styleSheet()
+
+    assert dialog.BODY_FONT_SIZE == 13
+    assert dialog.BUTTON_HEIGHT == 34
+    assert "selection-background-color: #fbfdff;" in stylesheet
+
+    dialog.close()
+
+
 def test_scraping_dialog_remains_visible_as_independent_window(monkeypatch):
     app = _qapp()
     main_window = QWidget()

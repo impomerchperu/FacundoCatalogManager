@@ -43,7 +43,7 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
 
     assert table.cellWidget(0, ProductTable.IMAGE_COLUMN) is None
     assert isinstance(delegate, ProductImageDelegate)
-    assert isinstance(item.data(ProductImageDelegate.IMAGE_ROLE), QPixmap)
+    assert item.data(ProductImageDelegate.IMAGE_ROLE) == str(image_path)
     assert table.columnWidth(ProductTable.IMAGE_COLUMN) >= (
         ProductImageDelegate.DEFAULT_SIZE
     )

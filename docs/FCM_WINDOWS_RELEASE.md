@@ -76,20 +76,20 @@ Las rutas de imagen almacenadas en SQLite conservan el formato relativo `data/im
 
 ## Checklist previo a release
 
-- [ ] Ruff.
-- [ ] Pyright.
-- [ ] Pytest.
-- [ ] Build PyInstaller en Windows.
+- [x] Ruff.
+- [x] Pyright.
+- [x] Pytest.
+- [x] Build PyInstaller en Windows.
 - [ ] Ejecutar bundle en una máquina Windows sin Python instalado.
-- [ ] Confirmar creación/lectura de `database/catalog.db` en `%LOCALAPPDATA%\FacundoCatalogManager`.
+- [x] Confirmar creación/lectura de `database/catalog.db` en `%LOCALAPPDATA%\FacundoCatalogManager`.
 - [ ] Confirmar imágenes en `data/images/products` después de la instalación.
-- [ ] Confirmar que `_internal` no recibe datos modificables.
-- [ ] Confirmar arranque y carga del catálogo.
-- [ ] Confirmar búsqueda y filtros.
+- [x] Confirmar que `_internal` no recibe datos modificables.
+- [x] Confirmar arranque y carga del catálogo.
+- [x] Confirmar búsqueda y filtros.
 - [ ] Confirmar actualización del catálogo.
-- [ ] Confirmar historial.
-- [ ] Confirmar Excel/PDF/CSV.
-- [ ] Confirmar cierre limpio.
+- [x] Confirmar historial.
+- [x] Confirmar Excel/PDF/CSV.
+- [x] Confirmar cierre limpio.
 - [ ] Ejecutar instalador.
 - [ ] Confirmar actualización conservando datos existentes.
 - [ ] Confirmar desinstalación sin pérdida involuntaria del catálogo.
@@ -99,4 +99,4 @@ Las rutas de imagen almacenadas en SQLite conservan el formato relativo `data/im
 
 ## Estado
 
-La arquitectura, el spec de PyInstaller, el instalador y el procedimiento de semilla están en el repositorio. El bundle ya fue producido en Windows; todavía falta validar la semilla en un build nuevo, generar el instalador y cerrar las pruebas de instalación/actualización y backup/restore con una base real.
+La arquitectura, el spec de PyInstaller, el instalador y el procedimiento de semilla están en el repositorio. El bundle fue producido y validado funcionalmente en Windows con la referencia `523 / 519 / 4`, `519` productos locales, `519` imágenes, historial persistente y cierre limpio. Todavía falta generar y validar el instalador, probar actualización/desinstalación sobre una instalación real y cerrar la validación del procedimiento backup/restore con una base real.

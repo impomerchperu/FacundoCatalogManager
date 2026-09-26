@@ -4,7 +4,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from config.runtime_paths import DATABASE_PATH, DATA_DIR, get_bundle_root, is_frozen
+from config.runtime_paths import DATA_DIR, DATABASE_PATH, get_bundle_root, is_frozen
 
 
 class CatalogSeedService:
@@ -71,12 +71,13 @@ class CatalogSeedService:
         temporary.unlink(missing_ok=True)
 
         try:
-            with (
-                sqlite3.connect(source) as source_connection,
-                sqlite3.connect(temporary) as destination_connection,
-            ):
-                source_connection.backup(destination_connection)
-                destination_connection.commit()
+            with sqlite3.connect(source) as source_connection:
+                destination_connection = sqlite3.connect(temporary)
+                try:
+                    source_connection.backup(destination_connection)
+                    destination_connection.commit()
+                finally:
+                    destination_connection.close()
 
             cls._integrity_check(temporary)
             temporary.replace(destination)

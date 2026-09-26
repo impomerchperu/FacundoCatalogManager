@@ -6,7 +6,6 @@ from PySide6.QtWidgets import QApplication
 from config.runtime_paths import get_bundle_root
 from gui.main_window import MainWindow
 
-
 APP_ICON_PATH = get_bundle_root() / "resources" / "facundo.ico"
 
 

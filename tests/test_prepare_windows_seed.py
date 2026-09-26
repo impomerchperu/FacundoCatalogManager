@@ -49,11 +49,20 @@ def _create_valid_database(path: Path, image_path: str) -> None:
         )
         connection.executemany(
             "INSERT INTO products (id, image_path) VALUES (?, ?)",
-            [(1, image_path)] * EXPECTED_PRODUCTS,
+            [
+                (index, image_path)
+                for index in range(1, EXPECTED_PRODUCTS + 1)
+            ],
         )
         connection.executemany(
             "INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)",
-            [(1, index) for index in range(EXPECTED_RELATIONS)],
+            [
+                (
+                    index % EXPECTED_PRODUCTS + 1,
+                    index % EXPECTED_CATEGORIES,
+                )
+                for index in range(EXPECTED_RELATIONS)
+            ],
         )
         connection.execute(
             """

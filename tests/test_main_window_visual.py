@@ -97,10 +97,6 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
         window.top_actions_container
     )
     assert window.category_sidebar.isVisible() is False
-    assert (
-        window.category_toggle_button.width()
-        == window._category_sidebar_open_width
-    )
     assert not hasattr(window, "category_sidebar_placeholder")
     assert (
         window.category_scroll.verticalScrollBarPolicy()
@@ -267,6 +263,43 @@ def test_category_sidebar_uses_reference_width_and_elides_long_labels():
     window.category_sidebar.deleteLater()
 
 
+def test_category_toggle_width_matches_sidebar_width_while_sidebar_is_hidden():
+    _qapp()
+
+    window = MainWindow.__new__(MainWindow)
+    window.categories_visible = False
+    window.category_sidebar = QWidget()
+    window.category_scroll = QScrollArea()
+    container = QWidget()
+    window.category_layout = QVBoxLayout(container)
+    reference = QPushButton("Enmicadoras / Laminadoras")
+    reference.setProperty(
+        "category_text",
+        "Enmicadoras / Laminadoras",
+    )
+    window.category_buttons = [reference]
+    window.category_toggle_button = QPushButton("Filtrar Categorías")
+    MainWindow._configure_toggle_button(
+        window.category_toggle_button,
+        "Filtrar Categorías",
+        "Ocultar Categorías",
+    )
+    window.category_scroll.setWidget(container)
+    window.category_sidebar.setVisible(False)
+
+    window._prepare_category_filter_layout()
+
+    assert not window.category_sidebar.isVisible()
+    assert (
+        window.category_toggle_button.width()
+        == window._category_sidebar_open_width
+    )
+
+    window.category_scroll.deleteLater()
+    window.category_sidebar.deleteLater()
+    window.category_toggle_button.deleteLater()
+
+
 def test_category_filter_layout_is_vertical_and_prepared_while_closed():
     _qapp()
 
@@ -347,9 +380,9 @@ def test_main_window_initial_geometry_includes_hidden_sidebar_width():
     _qapp()
 
     window = QMainWindow()
+    window.INITIAL_WINDOW_WIDTH = 1200
+    window.INITIAL_WINDOW_HEIGHT = 700
     window._category_sidebar_open_width = 220
-    MainWindow.INITIAL_WINDOW_WIDTH = 1200
-    MainWindow.INITIAL_WINDOW_HEIGHT = 700
 
     MainWindow._set_initial_window_geometry(window)
 

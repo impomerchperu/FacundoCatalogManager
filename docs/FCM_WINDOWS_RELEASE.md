@@ -171,7 +171,7 @@ La restauración se realizó en `%TEMP%\FCM-backup-validation\catalog-restored.d
 - [x] Pyright.
 - [x] Pytest.
 - [x] Build PyInstaller en Windows.
-- [ ] Ejecutar bundle en una máquina Windows sin Python instalado.
+- [x] Ejecutar bundle en una máquina Windows sin Python instalado.
 - [x] Confirmar creación/lectura de `database/catalog.db` en `%LOCALAPPDATA%\FacundoCatalogManager`.
 - [x] Confirmar imágenes en `data/images/products` después de la instalación.
 - [x] Confirmar que `_internal` no recibe datos modificables.
@@ -255,12 +255,44 @@ La desinstalación eliminó el programa de instalación y conservó:
 - integridad de SQLite;
 - `519 / 24 / 523`.
 
+### Validación en Windows Sandbox sin Python
+
+El 25 de septiembre de 2026 se ejecutó `dist\Windows\FacundoCatalogManager\FacundoCatalogManager.exe` dentro de Windows Sandbox con una carpeta del bundle montada en modo solo lectura.
+
+La instancia de Sandbox no tenía Python instalado:
+
+```text
+where.exe python
+→ no se pudo encontrar ningún archivo para los patrones dados.
+
+py -V
+→ The term 'py' is not recognized...
+
+python --version
+→ The term 'python' is not recognized...
+```
+
+La aplicación inició y la prueba funcional fue correcta, incluyendo catálogo, imágenes, búsqueda, filtros, historial y cierre.
+
+La base creada dentro de Sandbox quedó independiente del host y fue validada con:
+
+```text
+integrity: ok
+products: 519
+categories: 24
+product_categories: 523
+```
+
+Esto confirma que el bundle Windows `0.1.1` funciona sin depender de una instalación de Python en el sistema.
+
 ## Estado
 
 El bundle PyInstaller, la semilla validada, el instalador Inno Setup y el ciclo instalación/reinstalación/actualización/desinstalación fueron probados en Windows.
 
 El procedimiento de backup/restore también fue validado sobre la base real de la instalación y restaurado hacia una ubicación aislada, conservando integridad y los conteos `519 / 24 / 523 / 169`.
 
+La validación en Windows Sandbox confirmó que el bundle `0.1.1` funciona en un entorno sin Python instalado y que crea su propia base persistente con `519 / 24 / 523`.
+
 La versión de validación actual es `0.1.1`.
 
-La única pendiente de validación del entorno Windows es ejecutar el bundle en una máquina donde Python no esté instalado. Antes de publicar formalmente, esa prueba debe realizarse en una máquina física, VM o entorno Windows limpio.
+No quedan pendientes de validación técnica del entorno Windows descritos en este documento. La publicación formal de una release seguirá dependiendo de la decisión de versionado y publicación correspondiente.

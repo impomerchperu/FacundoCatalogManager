@@ -25,6 +25,11 @@ from repositories.scraping.scraping_history_repository import ScrapingHistoryRep
 class ScrapingHistoryDialog(QDialog):
     """Historial de descargas y versiones del catálogo."""
 
+    FONT_FAMILY = "Segoe UI"
+    TEXT_COLOR = "#173f6d"
+    BODY_FONT_SIZE = 13
+    TITLE_FONT_SIZE = 16
+    BUTTON_HEIGHT = 34
     APPLIED_BACKGROUND = "#b2ebf2"
     CONTENT_SIDE_PADDING = 4
 
@@ -47,8 +52,61 @@ class ScrapingHistoryDialog(QDialog):
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+        self.setStyleSheet(
+            "QDialog {"
+            f' font-family: "{self.FONT_FAMILY}";'
+            f" color: {self.TEXT_COLOR};"
+            "}"
+            " QLabel {"
+            f' font-family: "{self.FONT_FAMILY}";'
+            f" font-size: {self.BODY_FONT_SIZE}px;"
+            f" color: {self.TEXT_COLOR};"
+            "}"
+            " QTableWidget {"
+            " background-color: #fbfdff;"
+            " gridline-color: #dce7f1;"
+            f" color: {self.TEXT_COLOR};"
+            " selection-background-color: #fbfdff;"
+            f" selection-color: {self.TEXT_COLOR};"
+            "}"
+            " QTableWidget::item {"
+            " padding: 4px;"
+            f' font-family: "{self.FONT_FAMILY}";'
+            f" font-size: {self.BODY_FONT_SIZE}px;"
+            "}"
+            " QTableWidget::item:selected {"
+            " background-color: #fbfdff;"
+            f" color: {self.TEXT_COLOR};"
+            "}"
+            " QHeaderView::section {"
+            " padding: 4px;"
+            f' font-family: "{self.FONT_FAMILY}";'
+            f" font-size: {self.BODY_FONT_SIZE}px;"
+            " font-weight: bold;"
+            " background-color: #eef5fb;"
+            f" color: {self.TEXT_COLOR};"
+            "}"
+            " QPushButton {"
+            f' font-family: "{self.FONT_FAMILY}";'
+            f" font-size: {self.BODY_FONT_SIZE}px;"
+            f" color: {self.TEXT_COLOR};"
+            " background-color: #fbfdff;"
+            " border: 1px solid #cbddea;"
+            " border-radius: 4px;"
+            " padding: 0px 10px;"
+            f" min-height: {self.BUTTON_HEIGHT}px;"
+            f" max-height: {self.BUTTON_HEIGHT}px;"
+            "}"
+            " QPushButton:hover { background-color: #eef5fb; }"
+            " QPushButton:pressed { background-color: #dbeeff; }"
+        )
         title = QLabel("Historial de descargas y versiones del catálogo")
-        title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        title_font = QFont(self.FONT_FAMILY)
+        title_font.setPixelSize(self.TITLE_FONT_SIZE)
+        title_font.setBold(True)
+        title.setFont(title_font)
         layout.addWidget(title)
 
         self.table = QTableWidget()
@@ -140,7 +198,7 @@ class ScrapingHistoryDialog(QDialog):
             self._set_item(row, 7, str(record.deleted))
             self._set_status_item(row, 8, record)
             self._set_detail_button(row, record.history_id)
-            self.table.setRowHeight(row, 52)
+            self.table.setRowHeight(row, 48)
 
         self._fit_table_to_content()
 

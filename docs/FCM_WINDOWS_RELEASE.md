@@ -192,6 +192,7 @@ La restauración se realizó en `%TEMP%\FCM-backup-validation\catalog-restored.d
 - [x] Confirmar Excel/PDF/CSV.
 - [x] Confirmar cierre limpio.
 - [x] Ejecutar instalador.
+- [x] Cubrir automáticamente el contrato del instalador: icono, Inicio, acceso directo de Escritorio opcional y rutas de instalación.
 - [x] Confirmar reinstalación conservando datos existentes.
 - [x] Confirmar desinstalación sin pérdida involuntaria del catálogo.
 - [x] Implementar backup/restauración de `catalog.db` y cubrirlo con pruebas automatizadas.

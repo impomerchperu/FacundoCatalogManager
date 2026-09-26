@@ -22,8 +22,8 @@ from scrapers.extractors.category_product_extractor import CategoryProductExtrac
 from scrapers.extractors.product_card_extractor import ProductCardExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_name_normalizer import split_category_names
-from tools.benchmark_report import write_benchmark_report
 from services.scraping.category_service import CategoryService
+from tools.benchmark_report import write_benchmark_report
 
 EXPECTED_CATEGORIES = 24
 # Historical snapshot retained for diagnostics only; live category totals

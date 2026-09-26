@@ -55,6 +55,7 @@ def test_filter_toggle_width_allows_normal_and_bold_text():
 
     assert MainWindow.TOGGLE_BUTTON_HORIZONTAL_PADDING == 4
     assert button.width() >= widest_text + 10
+    assert "border: 1px solid #cbddea" in button.styleSheet()
 
     button.deleteLater()
 
@@ -136,6 +137,14 @@ def test_action_buttons_are_grouped_for_top_right_layout():
         "Historial",
     ]
     assert len(window.catalog_bootstrap_blocked_buttons) == 4
+    assert all(
+        "border: 1px solid #cbddea" in button.styleSheet()
+        for button in [
+            layout.itemAt(index).widget()
+            for index in range(layout.count())
+        ]
+        if layout.itemAt(index).widget() is not None
+    )
 
     host.deleteLater()
 

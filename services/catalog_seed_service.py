@@ -4,13 +4,13 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from config.runtime_paths import DATABASE_PATH, DATA_DIR, PROJECT_ROOT, is_frozen
+from config.runtime_paths import DATABASE_PATH, DATA_DIR, get_bundle_root, is_frozen
 
 
 class CatalogSeedService:
     """Provisiona el catálogo inicial de una distribución congelada."""
 
-    SEED_ROOT = PROJECT_ROOT / "seed"
+    SEED_ROOT = get_bundle_root() / "seed"
     SEED_DATABASE_PATH = SEED_ROOT / "database" / "catalog.db"
     SEED_IMAGES_PATH = SEED_ROOT / "data" / "images"
 

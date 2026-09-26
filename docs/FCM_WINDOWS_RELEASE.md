@@ -187,6 +187,10 @@ La restauración se realizó en `%TEMP%\FCM-backup-validation\catalog-restored.d
 - [x] Implementar backup/restauración de `catalog.db` y cubrirlo con pruebas automatizadas.
 - [x] Validar backup/restore sobre una base real de usuario mediante el procedimiento aislado anterior.
 - [x] Actualizar versión de validación a `0.1.1`.
+- [x] Ejecutar validación final del repositorio en `main`: Ruff limpio.
+- [x] Ejecutar validación final del repositorio en `main`: Pyright sin errores, advertencias ni informaciones.
+- [x] Ejecutar validación final del repositorio en `main`: 507 pruebas aprobadas y 10 deselected.
+- [x] Confirmar árbol de trabajo limpio después de sincronizar `main`.
 
 ## Resultados Windows validados
 
@@ -284,6 +288,21 @@ product_categories: 523
 ```
 
 Esto confirma que el bundle Windows `0.1.1` funciona sin depender de una instalación de Python en el sistema.
+
+## Cierre de validación técnica
+
+La validación final realizada el 25 de septiembre de 2026 sobre `main` quedó registrada con:
+
+```text
+HEAD: cb76a75 docs(release): record clean Windows Sandbox validation
+VERSION: 0.1.1
+Ruff: All checks passed!
+Pyright: 0 errors, 0 warnings, 0 informations
+Pytest: 507 passed, 10 deselected
+Working tree: limpio
+```
+
+La validación del bundle en Windows Sandbox se realizó sin Python instalado y la prueba funcional terminó correctamente. No quedan pendientes técnicos en el checklist de validación Windows.
 
 ## Estado
 

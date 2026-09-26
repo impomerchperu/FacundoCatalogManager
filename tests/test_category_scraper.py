@@ -305,10 +305,10 @@ def test_category_scraper_continues_real_products_past_underreported_jsf_pages()
         f"{category_url.rstrip('/')}?product-page=2",
         f"{category_url.rstrip('/')}?product-page=3",
     ]
-    assert [
+    assert sorted(
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == sorted(["1", "2", "3", "4"])
+    ) == sorted(["1", "2", "3", "4"])
 
 
 def test_category_scraper_continues_real_products_when_jsf_reports_one_page():

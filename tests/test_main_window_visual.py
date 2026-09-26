@@ -142,8 +142,8 @@ def test_action_buttons_are_grouped_for_top_right_layout():
         for button in [
             layout.itemAt(index).widget()
             for index in range(layout.count())
+            if layout.itemAt(index).widget() is not None
         ]
-        if layout.itemAt(index).widget() is not None
     )
 
     host.deleteLater()

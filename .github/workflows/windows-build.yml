@@ -29,7 +29,7 @@ jobs:
 
       - name: Build PyInstaller bundle
         shell: pwsh
-        run: python -m pyinstaller --clean --noconfirm packaging\fcm.spec
+        run: python -m PyInstaller --clean --noconfirm packaging\fcm.spec
 
       - name: Install Inno Setup
         shell: pwsh

@@ -98,3 +98,19 @@ def test_category_button_width_matches_real_horizontal_padding():
     assert button.width() == width
 
     button.deleteLater()
+
+def test_category_filter_uses_product_table_viewport_width():
+    _qapp()
+
+    from PySide6.QtWidgets import QScrollArea, QTableWidget
+
+    window = MainWindow.__new__(MainWindow)
+    window.table = QTableWidget()
+    window.category_scroll = QScrollArea()
+    window.table.resize(700, 200)
+    window.category_scroll.resize(300, 200)
+
+    assert window._category_filter_available_width() == window.table.viewport().width()
+
+    window.category_scroll.deleteLater()
+    window.table.deleteLater()

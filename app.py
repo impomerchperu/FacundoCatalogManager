@@ -1,7 +1,7 @@
 import sys
 
-from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication
 
 from config.runtime_paths import get_bundle_root
 from gui.main_window import MainWindow

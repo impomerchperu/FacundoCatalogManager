@@ -131,7 +131,7 @@ class StockColorDelegate(QStyledItemDelegate):
     INDICATOR_SIZE = 12
     HORIZONTAL_PADDING = 4
     TEXT_HORIZONTAL_PADDING = 4
-    TEXT_GAP = 6
+    TEXT_GAP = 4
     MIN_LINE_HEIGHT = 24
     TEXT_COLOR = "#173f6d"
 

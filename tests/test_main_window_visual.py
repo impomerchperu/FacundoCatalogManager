@@ -383,6 +383,9 @@ def test_main_window_initial_geometry_includes_hidden_sidebar_width():
     window.INITIAL_WINDOW_WIDTH = 1200
     window.INITIAL_WINDOW_HEIGHT = 700
     window._category_sidebar_open_width = 220
+    window._center_initial_window = (
+        lambda: MainWindow._center_initial_window(window)
+    )
 
     MainWindow._set_initial_window_geometry(window)
 

@@ -32,7 +32,7 @@ La configuración de producción actual es:
 - HTTP: `28` workers.
 - JetSmartFilters HTTP: `8` de concurrencia.
 
-El valor de 16 workers de detalle fue seleccionado tras benchmarks en el sitio real con corridas cruzadas frente a 24 workers. La validación E2E de producción bajo esta configuración ya está completada: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado y benchmark productivo de `83.65s` con `0` retries y `0` errores HTTP terminales.
+El valor de 16 workers de detalle fue seleccionado tras benchmarks en el sitio real con corridas cruzadas frente a 24 workers. La validación E2E de producción bajo esta configuración ya está completada: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado y `0` retries y `0` errores HTTP terminales.
 
 ## Stock por color
 
@@ -49,7 +49,7 @@ El detalle de cambios se ordena por código de producto. La UI permite consultar
 
 ## Validación
 
-Estado local validado en `main` el 2026-09-25:
+Estado local validado en `main` el 2026-09-26:
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
@@ -96,7 +96,7 @@ El workflow de GitHub Actions ejecuta Ruff, Pyright y Pytest automáticamente. L
 
 ## Estado validado de la rama
 
-El baseline validado en `main` cubre el flujo completo de scraping, persistencia y bootstrap con referencia operativa viva `523 / 519 / 4`, cobertura completa, catálogo reconciliado `519 / 523`, historial persistente, E2E de producción bajo `8 / 16 / 28` y suite automatizada en verde.
+El baseline validado cubre el flujo completo de scraping, persistencia y bootstrap con referencia operativa viva `523 / 519 / 4`, cobertura completa, catálogo reconciliado `519 / 523`, historial persistente, E2E de producción bajo `8 / 16 / 28` y suite automatizada en verde. La versión estable publicada es `v0.1.1`.
 
 El snapshot histórico `534 / 530 / 4` se conserva como referencia diagnóstica. Las optimizaciones de rendimiento posteriores deben conservar siempre las invariantes de cobertura del inventario vivo antes de considerarse válidas.
 
@@ -119,7 +119,7 @@ Para generar también el instalador:
 
 La versión de validación actual del instalador es `0.1.1`. El ejecutable, el instalador y los artefactos de build no se incorporan al repositorio. Antes de PyInstaller, `tools/prepare_windows_seed.py` valida la base `523 / 519 / 4`, comprueba las imágenes referenciadas y crea una copia SQLite consistente para el bundle.
 
-El checklist de validación está en `docs/FCM_WINDOWS_RELEASE.md`.
+El checklist de validación está en `docs/FCM_WINDOWS_RELEASE.md`. La release formal publicada es `v0.1.1` y su instalador oficial está adjunto en GitHub.
 
 
 ## Backup y restauración

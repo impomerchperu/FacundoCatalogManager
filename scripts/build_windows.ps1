@@ -32,6 +32,11 @@ if ($LASTEXITCODE -ne 0) {
 Remove-Item -Recurse -Force "build\Windows" -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force "dist\Windows" -ErrorAction SilentlyContinue
 
+python -m tools.prepare_windows_seed --output "build\Windows\seed"
+if ($LASTEXITCODE -ne 0) {
+    throw "No se pudo preparar la semilla validada del catálogo Windows."
+}
+
 python -m PyInstaller --clean --noconfirm packaging\fcm.spec
 if ($LASTEXITCODE -ne 0) {
     throw "PyInstaller no pudo generar el bundle Windows."

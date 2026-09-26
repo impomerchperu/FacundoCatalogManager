@@ -98,6 +98,11 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
     )
     assert window.category_sidebar.isVisible() is False
     assert (
+        window.category_toggle_button.width()
+        == window._category_sidebar_open_width
+    )
+    assert not hasattr(window, "category_sidebar_placeholder")
+    assert (
         window.category_scroll.verticalScrollBarPolicy()
         == Qt.ScrollBarPolicy.ScrollBarAsNeeded
     )
@@ -297,7 +302,7 @@ def test_category_filter_layout_is_vertical_and_prepared_while_closed():
     window.category_sidebar.deleteLater()
 
 
-def test_category_filter_toggle_swaps_sidebar_with_reserved_space():
+def test_category_filter_toggle_keeps_sidebar_hidden_until_activated():
     _qapp()
 
     window = MainWindow.__new__(MainWindow)
@@ -310,23 +315,27 @@ def test_category_filter_toggle_swaps_sidebar_with_reserved_space():
     )
     window.category_scroll = QScrollArea()
     window.category_sidebar = QWidget()
+    window.category_scroll.setParent(window.category_sidebar)
     window.category_sidebar.resize(100, 300)
-    window.category_sidebar_placeholder = QWidget()
-    window.category_sidebar_placeholder.setVisible(True)
-    window._category_sidebar_closed_width = window.category_toggle_button.width()
     window._category_sidebar_open_width = 220
+    window.category_toggle_button.setFixedWidth(220)
+    window.category_sidebar.setVisible(False)
+    window.category_scroll.setVisible(False)
+
+    assert not window.category_sidebar.isVisible()
+    assert window.category_toggle_button.width() == 220
 
     window.toggle_categories_visibility(True)
     assert window.category_scroll.isVisible()
+    assert window.category_sidebar.isVisible()
     assert window.category_sidebar.width() == 220
-    assert window.category_sidebar_placeholder.isVisible() is False
+    assert window.category_toggle_button.width() == 220
     assert window.category_toggle_button.text() == "Ocultar Categorías"
 
     window.toggle_categories_visibility(False)
     assert not window.category_scroll.isVisible()
     assert not window.category_sidebar.isVisible()
-    assert window.category_sidebar.width() == 220
-    assert window.category_sidebar_placeholder.isVisible() is True
+    assert window.category_toggle_button.width() == 220
     assert window.category_toggle_button.text() == "Filtrar Categorías"
 
     window.category_scroll.deleteLater()
@@ -334,17 +343,21 @@ def test_category_filter_toggle_swaps_sidebar_with_reserved_space():
     window.category_toggle_button.deleteLater()
 
 
-def test_main_window_initial_geometry_is_centered_on_available_screen():
+def test_main_window_initial_geometry_includes_hidden_sidebar_width():
     _qapp()
 
     window = QMainWindow()
-    window.resize(MainWindow.INITIAL_WINDOW_WIDTH, MainWindow.INITIAL_WINDOW_HEIGHT)
+    window._category_sidebar_open_width = 220
+    MainWindow.INITIAL_WINDOW_WIDTH = 1200
+    MainWindow.INITIAL_WINDOW_HEIGHT = 700
 
-    MainWindow._center_initial_window(window)
+    MainWindow._set_initial_window_geometry(window)
 
     screen = QApplication.primaryScreen()
     assert screen is not None
     available = screen.availableGeometry()
+    assert window.width() == 1420
+    assert window.height() == 700
     assert window.frameGeometry().center() == available.center()
 
     window.deleteLater()

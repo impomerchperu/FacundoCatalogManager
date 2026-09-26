@@ -70,6 +70,7 @@ class MainWindow(QMainWindow):
     CATEGORY_SPACING = 1
     CATEGORY_SIDEBAR_SPACING = 4
     CATEGORY_SIDEBAR_HORIZONTAL_PADDING = 4
+    CATEGORY_SIDEBAR_REFERENCE_TEXT = "Enmicadoras / Laminadoras"
 
     def __init__(self) -> None:
         super().__init__()
@@ -325,13 +326,20 @@ class MainWindow(QMainWindow):
         action_layout.setContentsMargins(0, 0, 0, 0)
         action_layout.setSpacing(self.TOP_CONTROLS_SPACING)
         self._add_action_buttons(action_layout)
-        action_width = (
-            sum(
-                action_layout.itemAt(index).widget().width()
-                for index in range(action_layout.count())
-                if action_layout.itemAt(index).widget() is not None
-            )
-            + max(0, action_layout.count() - 1) * self.TOP_CONTROLS_SPACING
+        action_width = 0
+        action_widgets = []
+        for index in range(action_layout.count()):
+            item = action_layout.itemAt(index)
+            if item is None:
+                continue
+            widget = item.widget()
+            if widget is None:
+                continue
+            action_widgets.append(widget)
+            action_width += widget.width()
+
+        action_width += (
+            max(0, len(action_widgets) - 1) * self.TOP_CONTROLS_SPACING
         )
         self.top_actions_container.setFixedWidth(action_width)
         top_controls.addWidget(self.top_actions_container, 0, 3)

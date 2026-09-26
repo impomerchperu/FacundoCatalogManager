@@ -252,7 +252,7 @@ The current release baseline is the validated recovery result on `main`; the enr
 
 Última validación local del checkpoint de release:
 
-- HEAD de referencia documental: `e17b26e`
+- HEAD de referencia documental: `4238a9f`
 - VERSION: `0.1.1`
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
@@ -369,9 +369,11 @@ La validación técnica de la distribución Windows `0.1.1` está cerrada. El bu
 - [x] Backup/restore validado
 - [x] Sandbox sin Python validado
 - [x] Checklist técnico Windows cerrado
-- [ ] Publicación formal de la release `0.1.1`
-- [ ] Creación/publicación del tag Git correspondiente
-- [ ] Publicación del instalador como artefacto de release
+- [x] Publicación formal de la release `0.1.1`
+- [x] Creación/publicación del tag Git correspondiente
+- [x] Publicación del instalador como artefacto de release
+
+La release `v0.1.1` fue publicada en GitHub y apunta al commit `4238a9f`. Incluye `FacundoCatalogManager-0.1.1-setup.exe` y `SHA256SUMS.txt`.
 
 ## GUI OPERATIONAL SMOKE TEST
 

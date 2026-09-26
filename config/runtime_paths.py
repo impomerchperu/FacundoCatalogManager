@@ -13,6 +13,26 @@ def is_frozen() -> bool:
     return bool(getattr(sys, "frozen", False))
 
 
+def get_bundle_root(
+    *,
+    frozen: bool | None = None,
+    bundle_root: str | Path | None = None,
+) -> Path:
+    """Obtiene la raíz de recursos de solo lectura del bundle."""
+    if frozen is None:
+        frozen = is_frozen()
+
+    if bundle_root is not None:
+        return Path(bundle_root)
+
+    if frozen:
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            return Path(meipass)
+
+    return PROJECT_ROOT
+
+
 def get_data_dir(
     *,
     frozen: bool | None = None,
@@ -42,7 +62,7 @@ def get_data_dir(
 DATA_DIR = get_data_dir()
 DATABASE_DIR = DATA_DIR / "database"
 DATABASE_PATH = DATABASE_DIR / "catalog.db"
-SCHEMA_PATH = PROJECT_ROOT / "database" / "schema.sql"
+SCHEMA_PATH = get_bundle_root() / "database" / "schema.sql"
 LOG_PATH = DATA_DIR / "logs" / "fcm.log"
 
 

@@ -7,8 +7,14 @@ ROOT = Path.cwd()
 DIST_NAME = "FacundoCatalogManager"
 SCHEMA = ROOT / "database" / "schema.sql"
 
-CONF["distpath"] = str(ROOT / "dist" / "Windows")
-CONF["workpath"] = str(ROOT / "build" / "Windows")
+DIST_PATH = ROOT / "dist" / "Windows"
+WORK_PATH = ROOT / "build" / "Windows"
+
+DIST_PATH.mkdir(parents=True, exist_ok=True)
+WORK_PATH.mkdir(parents=True, exist_ok=True)
+
+CONF["distpath"] = str(DIST_PATH)
+CONF["workpath"] = str(WORK_PATH)
 CONF["specpath"] = str(ROOT / "packaging")
 
 analysis = Analysis(

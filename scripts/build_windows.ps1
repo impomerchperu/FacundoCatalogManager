@@ -56,7 +56,8 @@ if ($SkipInstaller) {
 
 $IsccCandidates = @(
     "$env:ProgramFiles(x86)\Inno Setup 7\ISCC.exe",
-    "$env:ProgramFiles\Inno Setup 7\ISCC.exe"
+    "$env:ProgramFiles\Inno Setup 7\ISCC.exe",
+    "$env:LOCALAPPDATA\Programs\Inno Setup 7\ISCC.exe"
 )
 
 $Iscc = $IsccCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
@@ -71,6 +72,8 @@ if (-not $Iscc) {
 if (-not $Iscc) {
     throw "No se encontró Inno Setup 7. Instálalo con: winget install --id JRSoftware.InnoSetup.7 -e -s winget -i"
 }
+
+Write-Host "Inno Setup encontrado: $Iscc"
 
 & $Iscc "/DFCM_VERSION=$Version" "packaging\installer.iss"
 if ($LASTEXITCODE -ne 0) {

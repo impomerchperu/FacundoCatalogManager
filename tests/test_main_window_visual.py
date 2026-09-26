@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
     QScrollArea,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -105,16 +106,16 @@ def test_category_button_width_matches_real_horizontal_padding():
 
     button.deleteLater()
 
-def test_category_reflow_releases_running_guard():
+
+def test_category_filter_layout_is_prepared_while_closed():
     _qapp()
 
-    from PySide6.QtWidgets import QScrollArea, QVBoxLayout
-
     window = MainWindow.__new__(MainWindow)
-    window._category_reflow_running = False
-    window._category_last_viewport_width = 0
+    window.categories_visible = False
+    window._category_filter_height = 0
     window.category_scroll = QScrollArea()
-    window.category_scroll.resize(400, 80)
+    window.category_scroll.setWidgetResizable(True)
+    window.category_scroll.resize(500, 0)
     container = QWidget()
     window.category_layout = QVBoxLayout(container)
     button = QPushButton("Todos")
@@ -122,24 +123,28 @@ def test_category_reflow_releases_running_guard():
     window.category_buttons = [button]
     window.category_scroll.setWidget(container)
 
-    window._reflow_category_buttons()
+    window._prepare_category_filter_layout()
 
-    assert window._category_reflow_running is False
+    assert window._category_filter_height > 0
+    assert window.category_layout.count() == 1
 
     window.category_scroll.deleteLater()
 
-def test_hiding_category_filter_invalidates_layout_width_cache():
+
+def test_category_filter_toggle_only_changes_panel_height():
     _qapp()
 
     window = MainWindow.__new__(MainWindow)
-    window.categories_visible = True
-    window._category_last_viewport_width = 800
+    window.categories_visible = False
+    window._category_filter_height = 72
     window.category_toggle_button = QPushButton()
     window.category_scroll = QScrollArea()
 
-    window.toggle_categories_visibility(False)
+    window.toggle_categories_visibility(True)
+    assert window.category_scroll.height() == 72
 
-    assert window._category_last_viewport_width == 0
+    window.toggle_categories_visibility(False)
+    assert window.category_scroll.height() == 0
 
     window.category_scroll.deleteLater()
     window.category_toggle_button.deleteLater()

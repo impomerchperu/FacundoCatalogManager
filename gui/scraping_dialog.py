@@ -18,6 +18,12 @@ from gui.workers.scraping_worker import ScrapingWorker
 class ScrapingDialog(QDialog):
     """Ventana manual de actualización del catálogo."""
 
+    FONT_FAMILY = "Segoe UI"
+    TEXT_COLOR = "#173f6d"
+    BODY_FONT_SIZE = 13
+    STATUS_FONT_SIZE = 14
+    BUTTON_HEIGHT = 34
+
     finished_success = Signal()
 
     def __init__(self, parent=None) -> None:
@@ -51,8 +57,48 @@ class ScrapingDialog(QDialog):
 
     def build_ui(self) -> None:
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+
+        self.setStyleSheet(
+            "QDialog {"
+            f' font-family: "{self.FONT_FAMILY}";'
+            f" color: {self.TEXT_COLOR};"
+            "}"
+            " QLabel {"
+            f" font-family: "{self.FONT_FAMILY}";"
+            f" font-size: {self.BODY_FONT_SIZE}px;"
+            f" color: {self.TEXT_COLOR};"
+            "}"
+            " QProgressBar {"
+            " min-height: 20px;"
+            " max-height: 20px;"
+            " border: 1px solid #cbddea;"
+            " border-radius: 4px;"
+            " background-color: #f4f8fb;"
+            " text-align: center;"
+            f" color: {self.TEXT_COLOR};"
+            "}"
+            " QPushButton {"
+            f' font-family: "{self.FONT_FAMILY}";'
+            f" font-size: {self.BODY_FONT_SIZE}px;"
+            f" color: {self.TEXT_COLOR};"
+            " background-color: #fbfdff;"
+            " border: 1px solid #cbddea;"
+            " border-radius: 4px;"
+            " padding: 0px 10px;"
+            f" min-height: {self.BUTTON_HEIGHT}px;"
+            f" max-height: {self.BUTTON_HEIGHT}px;"
+            "}"
+            " QPushButton:hover { background-color: #eef5fb; }"
+            " QPushButton:pressed { background-color: #dbeeff; }"
+        )
 
         self.status_label = QLabel("Listo para actualizar catálogo.")
+        status_font = QFont(self.FONT_FAMILY)
+        status_font.setPixelSize(self.STATUS_FONT_SIZE)
+        status_font.setBold(True)
+        self.status_label.setFont(status_font)
         self.status_label.setWordWrap(True)
         layout.addWidget(self.status_label)
 

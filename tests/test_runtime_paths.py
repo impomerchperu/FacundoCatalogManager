@@ -32,6 +32,18 @@ def test_frozen_bundle_root_uses_explicit_bundle_root(tmp_path: Path):
         bundle_root=tmp_path,
     ) == tmp_path
 
+def test_frozen_bundle_root_uses_meipass(monkeypatch, tmp_path: Path):
+    import config.runtime_paths as runtime_paths
+
+    monkeypatch.setattr(
+        runtime_paths.sys,
+        "_MEIPASS",
+        str(tmp_path),
+        raising=False,
+    )
+
+    assert runtime_paths.get_bundle_root(frozen=True) == tmp_path
+
 
 def test_frozen_bundle_root_falls_back_to_project_root():
     assert get_bundle_root(frozen=True, bundle_root=None) == PROJECT_ROOT

@@ -1,6 +1,7 @@
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QApplication,
+    QGridLayout,
     QHBoxLayout,
     QLineEdit,
     QPushButton,
@@ -29,6 +30,7 @@ def test_main_window_visual_metrics_keep_compact_hierarchy():
     assert MainWindow.CATEGORY_BUTTON_HEIGHT == 28
     assert MainWindow.TOP_CONTROLS_SPACING == 4
     assert MainWindow.CATEGORY_SIDEBAR_SPACING == 4
+    assert MainWindow.CATEGORY_SIDEBAR_HORIZONTAL_PADDING == 4
 
 
 def test_filter_toggle_width_allows_normal_and_bold_text():
@@ -76,16 +78,16 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
     filter_layout = layout.itemAt(0).layout()
     assert filter_layout is not None
     top_controls = filter_layout.itemAt(0).layout()
-    assert top_controls is not None
+    assert isinstance(top_controls, QGridLayout)
 
-    widgets = [
-        top_controls.itemAt(index).widget()
-        for index in range(top_controls.count())
-    ]
-    assert widgets[0] is window.category_toggle_button
-    assert widgets[1] is window.stock_filter_button
-    assert widgets[2] is window.search_box
-    assert widgets[3] is window.top_actions_container
+    assert top_controls.itemAtPosition(0, 0).widget() is (
+        window.category_toggle_button
+    )
+    assert top_controls.itemAtPosition(0, 1).widget() is window.stock_filter_button
+    assert top_controls.itemAtPosition(0, 2).widget() is window.search_box
+    assert top_controls.itemAtPosition(0, 3).widget() is (
+        window.top_actions_container
+    )
     assert window.category_sidebar.isVisible() is False
     assert window.search_box.minimumWidth() == 0
     assert window.top_actions_container.sizePolicy().horizontalPolicy() == (
@@ -195,6 +197,43 @@ def test_all_categories_button_uses_explicit_plural_label():
     assert button.property("category_text") == "Todas las categorías"
 
     button.deleteLater()
+
+
+def test_category_sidebar_uses_reference_width_and_elides_long_labels():
+    _qapp()
+
+    window = MainWindow.__new__(MainWindow)
+    window.categories_visible = False
+    window.category_sidebar = QWidget()
+    window.category_scroll = QScrollArea()
+    container = QWidget()
+    window.category_layout = QVBoxLayout(container)
+    reference = QPushButton("Enmicadoras / Laminadoras")
+    reference.setProperty(
+        "category_text",
+        "Enmicadoras / Laminadoras",
+    )
+    long_button = QPushButton(
+        "Impresora y Consumible Fotográfico Profesional",
+    )
+    long_button.setProperty(
+        "category_text",
+        "Impresora y Consumible Fotográfico Profesional",
+    )
+    window.category_buttons = [reference, long_button]
+    window.category_scroll.setWidget(container)
+
+    window._prepare_category_filter_layout()
+
+    assert reference.width() == long_button.width()
+    assert window._category_sidebar_open_width == reference.width() + 8
+    assert long_button.toolTip() == (
+        "Impresora y Consumible Fotográfico Profesional"
+    )
+    assert long_button.text() != long_button.toolTip()
+
+    window.category_scroll.deleteLater()
+    window.category_sidebar.deleteLater()
 
 
 def test_category_filter_layout_is_vertical_and_prepared_while_closed():

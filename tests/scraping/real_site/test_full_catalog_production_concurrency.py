@@ -22,6 +22,7 @@ from scrapers.extractors.category_product_extractor import CategoryProductExtrac
 from scrapers.extractors.product_card_extractor import ProductCardExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_name_normalizer import split_category_names
+from tools.benchmark_report import write_benchmark_report
 from services.scraping.category_service import CategoryService
 
 EXPECTED_CATEGORIES = 24
@@ -64,6 +65,7 @@ def test_full_catalog_production_concurrency_real_site():
     )
     collection_only = os.getenv("FCM_BENCH_COLLECTION_ONLY") == "1"
     thread_sessions = os.getenv("FCM_BENCH_THREAD_SESSIONS") == "1"
+    benchmark_output = os.getenv("FCM_BENCH_OUTPUT_JSON", "").strip() or None
 
     started = perf_counter()
     browser = Browser(http_workers=http_workers)
@@ -187,6 +189,35 @@ def test_full_catalog_production_concurrency_real_site():
             },
         )
         assert collection_metrics["http_terminal_errors"] == 0
+        write_benchmark_report(
+            benchmark_output,
+            {
+                "schema_version": 1,
+                "mode": "collection_only",
+                "configuration": {
+                    "category_workers": category_workers,
+                    "detail_workers": detail_workers,
+                    "http_workers": http_workers,
+                    "jsf_http_concurrency": jsf_http_concurrency,
+                    "jsf_page_workers": jsf_page_workers,
+                    "category_page_workers": category_page_workers,
+                    "thread_sessions": thread_sessions,
+                },
+                "coverage": {
+                    "categories": len(categories),
+                    "expected_occurrences": expected_occurrences,
+                    "found_occurrences": sum(
+                        len(products)
+                        for products in collected_by_index
+                    ),
+                    "category_coverage_errors": collection_coverage_errors,
+                },
+                "timing": {
+                    "collection_seconds": collection_elapsed,
+                },
+                "http": collection_metrics,
+            },
+        )
         browser.close()
         return
 
@@ -286,6 +317,7 @@ def test_full_catalog_production_concurrency_real_site():
 
     http_metrics = browser.get_http_metrics()
     detail_metrics = collection.get_detail_metrics()
+    pipeline_seconds = perf_counter() - started
     print("=" * 80)
     print("FULL PRODUCCIÓN - BENCHMARK DE CONCURRENCIA")
     print("CATEGORÍAS:", len(categories))
@@ -295,7 +327,7 @@ def test_full_catalog_production_concurrency_real_site():
     print("PRODUCTOS MULTI-CATEGORÍA:", len(duplicate_codes))
     print("COLLECTION WALL:", f"{collection_seconds:.2f}s")
     print("ENRICHMENT WALL:", f"{enrichment_seconds:.2f}s")
-    print("TOTAL PIPELINE:", f"{perf_counter() - started:.2f}s")
+    print("TOTAL PIPELINE:", f"{pipeline_seconds:.2f}s")
     print("CATEGORY WORKERS:", category_workers)
     print("DETAIL WORKERS:", detail_workers)
     print("HTTP WORKERS:", http_workers)
@@ -358,3 +390,37 @@ def test_full_catalog_production_concurrency_real_site():
             "ACTUAL:",
             len(duplicate_codes),
         )
+
+    write_benchmark_report(
+        benchmark_output,
+        {
+            "schema_version": 1,
+            "mode": "full",
+            "configuration": {
+                "category_workers": category_workers,
+                "detail_workers": detail_workers,
+                "http_workers": http_workers,
+                "jsf_http_concurrency": jsf_http_concurrency,
+                "jsf_page_workers": jsf_page_workers,
+                "category_page_workers": category_page_workers,
+                "thread_sessions": thread_sessions,
+            },
+            "coverage": {
+                "categories": len(categories),
+                "expected_occurrences": expected_occurrences,
+                "found_occurrences": len(products),
+                "unique_products": len(code_counts),
+                "multi_category_products": len(duplicate_codes),
+                "color_stock_categories": len(color_stock_categories),
+                "products_without_color_stock": len(without_color_stock),
+                "invalid_color_stock_totals": invalid_color_stock_totals,
+            },
+            "timing": {
+                "collection_seconds": collection_seconds,
+                "enrichment_seconds": enrichment_seconds,
+                "pipeline_seconds": pipeline_seconds,
+            },
+            "http": http_metrics,
+            "detail": detail_metrics,
+        },
+    )

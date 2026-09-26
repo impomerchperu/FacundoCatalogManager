@@ -63,7 +63,7 @@ class MainWindow(QMainWindow):
     ACTION_BUTTON_HORIZONTAL_PADDING = 12
     ACTION_BUTTON_HEIGHT = 34
     CATEGORY_FONT_SIZE = 13
-    CATEGORY_BUTTON_HORIZONTAL_PADDING = 8
+    CATEGORY_BUTTON_HORIZONTAL_PADDING = 16
     CATEGORY_BUTTON_HEIGHT = 28
     CATEGORY_SPACING = 1
     CATEGORY_SCROLL_MAX_HEIGHT = 220
@@ -137,28 +137,6 @@ class MainWindow(QMainWindow):
         counter_layout.addWidget(self.product_counter)
         counter_layout.addStretch()
         layout.addLayout(counter_layout)
-
-        buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(6)
-        buttons = [
-            ("Nuevo", self.new_product),
-            ("Editar", self.edit_product),
-            ("Eliminar", self.delete_product),
-            ("Exportar Excel", self.export_excel),
-            ("Exportar PDF", self.export_pdf),
-            ("Exportar CSV", self.export_csv),
-            ("Actualizar catálogo", self.open_scraping),
-            ("Historial", self.open_scraping_history),
-        ]
-        for text, callback in buttons:
-            button = QPushButton(text)
-            self._configure_action_button(button)
-            button.clicked.connect(callback)
-            buttons_layout.addWidget(button)
-            if text in {"Nuevo", "Editar", "Eliminar", "Actualizar catálogo"}:
-                self.catalog_bootstrap_blocked_buttons.append(button)
-        buttons_layout.addStretch()
-        layout.addLayout(buttons_layout)
 
         # El bootstrap histórico no debe bloquear la creación de la ventana.
         # Ambos trabajos comienzan después de que Qt haya podido mostrarla:
@@ -326,6 +304,7 @@ class MainWindow(QMainWindow):
         self.stock_filter_button.toggled.connect(self.toggle_stock_filter)
         top_controls.addWidget(self.stock_filter_button)
         top_controls.addStretch()
+        self._add_action_buttons(top_controls)
         filter_layout.addLayout(top_controls)
 
         self.category_scroll = QScrollArea()
@@ -361,6 +340,25 @@ class MainWindow(QMainWindow):
         self.all_categories_button.clicked.connect(self.clear_category_filters)
         self.category_buttons = [self.all_categories_button]
         layout.addLayout(filter_layout)
+
+    def _add_action_buttons(self, layout: QHBoxLayout) -> None:
+        buttons = [
+            ("Nuevo", self.new_product),
+            ("Editar", self.edit_product),
+            ("Eliminar", self.delete_product),
+            ("Exportar Excel", self.export_excel),
+            ("Exportar PDF", self.export_pdf),
+            ("Exportar CSV", self.export_csv),
+            ("Actualizar catálogo", self.open_scraping),
+            ("Historial", self.open_scraping_history),
+        ]
+        for text, callback in buttons:
+            button = QPushButton(text)
+            self._configure_action_button(button)
+            button.clicked.connect(callback)
+            layout.addWidget(button)
+            if text in {"Nuevo", "Editar", "Eliminar", "Actualizar catálogo"}:
+                self.catalog_bootstrap_blocked_buttons.append(button)
 
     @classmethod
     def _configure_action_button(cls, button: QPushButton) -> None:

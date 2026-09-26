@@ -1,5 +1,12 @@
 from PySide6.QtGui import QFont, QFontMetrics
-from PySide6.QtWidgets import QApplication, QHBoxLayout, QPushButton, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QHBoxLayout,
+    QPushButton,
+    QScrollArea,
+    QTableWidget,
+    QWidget,
+)
 
 from gui.main_window import MainWindow
 
@@ -101,8 +108,6 @@ def test_category_button_width_matches_real_horizontal_padding():
 
 def test_category_filter_uses_product_table_viewport_width():
     _qapp()
-
-    from PySide6.QtWidgets import QScrollArea, QTableWidget
 
     window = MainWindow.__new__(MainWindow)
     window.table = QTableWidget()

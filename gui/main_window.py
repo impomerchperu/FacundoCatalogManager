@@ -446,7 +446,6 @@ class MainWindow(QMainWindow):
 
     def toggle_categories_visibility(self, visible: bool) -> None:
         self.categories_visible = visible
-        self.category_scroll.setVisible(visible)
         self.category_toggle_button.setText(
             "Ocultar Categorías" if visible else "Filtrar Categorías",
         )
@@ -456,9 +455,13 @@ class MainWindow(QMainWindow):
             "Ocultar Categorías",
         )
         if visible:
+            # Construimos y ajustamos las filas mientras el contenedor sigue
+            # oculto, para que el usuario vea el panel ya listo al abrirlo.
             self._reflow_category_buttons()
+            self.category_scroll.setVisible(True)
         else:
             self.category_scroll.setFixedHeight(0)
+            self.category_scroll.setVisible(False)
 
     def refresh_catalog(self) -> None:
         self._apply_catalog_products(self.controller.get_products())

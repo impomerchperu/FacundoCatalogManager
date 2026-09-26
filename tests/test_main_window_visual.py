@@ -126,3 +126,19 @@ def test_category_reflow_releases_running_guard():
     assert window._category_reflow_running is False
 
     window.category_scroll.deleteLater()
+
+def test_hiding_category_filter_invalidates_layout_width_cache():
+    _qapp()
+
+    window = MainWindow.__new__(MainWindow)
+    window.categories_visible = True
+    window._category_last_viewport_width = 800
+    window.category_toggle_button = QPushButton()
+    window.category_scroll = QScrollArea()
+
+    window.toggle_categories_visibility(False)
+
+    assert window._category_last_viewport_width == 0
+
+    window.category_scroll.deleteLater()
+    window.category_toggle_button.deleteLater()

@@ -461,6 +461,7 @@ class MainWindow(QMainWindow):
             self.category_scroll.setVisible(True)
             self._reflow_category_buttons()
         else:
+            self._category_last_viewport_width = 0
             self.category_scroll.setFixedHeight(0)
             self.category_scroll.setVisible(False)
 

@@ -49,11 +49,11 @@ El detalle de cambios se ordena por código de producto. La UI permite consultar
 
 ## Validación
 
-Estado local validado en `main` el 2026-09-24:
+Estado local validado en `main` el 2026-09-25:
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Pytest: `488 passed, 10 deselected`.
+- Pytest: `507 passed, 10 deselected`.
 
 
 Comprobaciones estáticas:

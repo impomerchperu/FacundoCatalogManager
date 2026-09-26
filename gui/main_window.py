@@ -73,6 +73,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.controller = ProductController()
         self.setWindowTitle("Facundo Catalog Manager")
+        self.setStyleSheet("QMainWindow { background-color: #ffffff; }")
         self.resize(1200, 700)
 
         base_font = QFont(self.FONT_FAMILY)
@@ -104,6 +105,7 @@ class MainWindow(QMainWindow):
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Buscar producto...")
         self.search_box.setMinimumHeight(self.SEARCH_HEIGHT)
+        self.search_box.setMinimumWidth(0)
         self.search_box.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
@@ -323,6 +325,7 @@ class MainWindow(QMainWindow):
             action_layout.sizeHint().width(),
         )
         top_controls.addWidget(self.top_actions_container)
+        top_controls.setStretch(2, 1)
         filter_layout.addLayout(top_controls)
 
         catalog_layout = QHBoxLayout()
@@ -334,7 +337,7 @@ class MainWindow(QMainWindow):
             "QWidget { background-color: #ffffff; }"
         )
         self.category_sidebar_layout = QVBoxLayout(self.category_sidebar)
-        self.category_sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        self.category_sidebar_layout.setContentsMargins(4, 0, 4, 0)
         self.category_sidebar_layout.setSpacing(self.CATEGORY_SIDEBAR_SPACING)
 
         self.category_scroll = QScrollArea()
@@ -347,7 +350,7 @@ class MainWindow(QMainWindow):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
         self.category_scroll.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded,
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
         self.category_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.category_scroll.setMinimumHeight(0)
@@ -370,9 +373,12 @@ class MainWindow(QMainWindow):
         )
         self.category_scroll.setWidget(self.category_container)
 
-        self.all_categories_button = QPushButton("Todos")
+        self.all_categories_button = QPushButton("Todas las categorías")
         self.all_categories_button.setCheckable(True)
-        self.all_categories_button.setProperty("category_text", "Todos")
+        self.all_categories_button.setProperty(
+            "category_text",
+            "Todas las categorías",
+        )
         self.all_categories_button.setStyleSheet(self._category_button_style())
         self.all_categories_button.clicked.connect(self.clear_category_filters)
         self.category_buttons = [self.all_categories_button]
@@ -614,10 +620,7 @@ class MainWindow(QMainWindow):
             )
 
         max_category_width = max(widths)
-        scrollbar_width = self.category_scroll.verticalScrollBar().sizeHint().width()
-        self._category_sidebar_open_width = (
-            max_category_width + scrollbar_width + 2
-        )
+        self._category_sidebar_open_width = max_category_width + 8
         if self.categories_visible:
             self.category_sidebar.setFixedWidth(
                 self._category_sidebar_open_width,
@@ -625,8 +628,11 @@ class MainWindow(QMainWindow):
 
     def _update_all_categories_button(self) -> None:
         self.all_categories_button.setChecked(not self.selected_categories)
-        self.all_categories_button.setText("Todos")
-        self.all_categories_button.setProperty("category_text", "Todos")
+        self.all_categories_button.setText("Todas las categorías")
+        self.all_categories_button.setProperty(
+            "category_text",
+            "Todas las categorías",
+        )
 
     def clear_category_filters(self) -> None:
         self.selected_categories.clear()

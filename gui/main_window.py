@@ -325,9 +325,15 @@ class MainWindow(QMainWindow):
         action_layout.setContentsMargins(0, 0, 0, 0)
         action_layout.setSpacing(self.TOP_CONTROLS_SPACING)
         self._add_action_buttons(action_layout)
-        self.top_actions_container.setFixedWidth(
-            action_layout.sizeHint().width(),
+        action_width = (
+            sum(
+                action_layout.itemAt(index).widget().width()
+                for index in range(action_layout.count())
+                if action_layout.itemAt(index).widget() is not None
+            )
+            + max(0, action_layout.count() - 1) * self.TOP_CONTROLS_SPACING
         )
+        self.top_actions_container.setFixedWidth(action_width)
         top_controls.addWidget(self.top_actions_container, 0, 3)
         filter_layout.addLayout(top_controls)
 

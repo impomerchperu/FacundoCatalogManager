@@ -137,7 +137,7 @@ def _validate_database(path: Path) -> None:
         if actual != expected:
             raise RuntimeError(
                 "La última ejecución FULL SUCCESS no coincide con la referencia "
-                f"23/519/4: actual={actual}, esperado={expected}."
+                f"24/523/519/4: actual={actual}, esperado={expected}."
             )
 
         image_paths = [

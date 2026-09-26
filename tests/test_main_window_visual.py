@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QApplication,
@@ -97,7 +98,7 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
     assert window.category_sidebar.isVisible() is False
     assert (
         window.category_scroll.verticalScrollBarPolicy()
-        == window.category_scroll.verticalScrollBarPolicy().ScrollBarAsNeeded
+        == Qt.ScrollBarPolicy.ScrollBarAsNeeded
     )
     assert window.search_box.minimumWidth() == 0
     assert window.top_actions_container.sizePolicy().horizontalPolicy() == (
@@ -295,7 +296,7 @@ def test_category_filter_layout_is_vertical_and_prepared_while_closed():
     window.category_sidebar.deleteLater()
 
 
-def test_category_filter_toggle_shows_sidebar_and_gives_table_space_back():
+def test_category_filter_toggle_swaps_sidebar_with_reserved_space():
     _qapp()
 
     window = MainWindow.__new__(MainWindow)

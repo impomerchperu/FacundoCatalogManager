@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt, QThread, QTimer
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QGridLayout,
     QHBoxLayout,
@@ -71,13 +72,15 @@ class MainWindow(QMainWindow):
     CATEGORY_SIDEBAR_SPACING = 4
     CATEGORY_SIDEBAR_HORIZONTAL_PADDING = 4
     CATEGORY_SIDEBAR_REFERENCE_TEXT = "Enmicadoras / Laminadoras"
+    INITIAL_WINDOW_WIDTH = 1200
+    INITIAL_WINDOW_HEIGHT = 700
 
     def __init__(self) -> None:
         super().__init__()
         self.controller = ProductController()
         self.setWindowTitle("Facundo Catalog Manager")
         self.setStyleSheet("QMainWindow { background-color: #ffffff; }")
-        self.resize(1200, 700)
+        self.resize(self.INITIAL_WINDOW_WIDTH, self.INITIAL_WINDOW_HEIGHT)
 
         base_font = QFont(self.FONT_FAMILY)
         base_font.setPixelSize(ProductTable.FONT_PIXEL_SIZE)
@@ -146,6 +149,9 @@ class MainWindow(QMainWindow):
         counter_layout.addWidget(self.product_counter)
         counter_layout.addStretch()
         layout.addLayout(counter_layout)
+
+        self._prepare_category_filter_layout()
+        self._center_initial_window()
 
         # El bootstrap histórico no debe bloquear la creación de la ventana.
         # Ambos trabajos comienzan después de que Qt haya podido mostrarla:
@@ -367,7 +373,7 @@ class MainWindow(QMainWindow):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
         self.category_scroll.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded,
         )
         self.category_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.category_scroll.setMinimumHeight(0)
@@ -401,8 +407,18 @@ class MainWindow(QMainWindow):
         self.category_buttons = [self.all_categories_button]
         self._category_sidebar_open_width = 0
         self._category_sidebar_closed_width = 0
+        self.category_sidebar_placeholder = QWidget()
+        self.category_sidebar_placeholder.setStyleSheet(
+            "QWidget { background-color: #ffffff; }"
+        )
+        self.category_sidebar_placeholder.setSizePolicy(
+            QSizePolicy.Policy.Fixed,
+            QSizePolicy.Policy.Expanding,
+        )
+        self.category_sidebar_placeholder.setVisible(True)
         self.category_sidebar.setVisible(False)
 
+        catalog_layout.addWidget(self.category_sidebar_placeholder, 0)
         catalog_layout.addWidget(self.category_sidebar, 0)
         catalog_layout.addWidget(self.table, 1)
         filter_layout.addLayout(catalog_layout, 1)
@@ -561,8 +577,12 @@ class MainWindow(QMainWindow):
         )
         self.category_sidebar.setVisible(visible)
         self.category_scroll.setVisible(visible)
+        self.category_sidebar_placeholder.setVisible(not visible)
+        self.category_sidebar_placeholder.setFixedWidth(
+            self._category_sidebar_open_width,
+        )
         self.category_sidebar.setFixedWidth(
-            self._category_sidebar_open_width if visible else 0,
+            self._category_sidebar_open_width,
         )
 
     def refresh_catalog(self) -> None:
@@ -675,6 +695,9 @@ class MainWindow(QMainWindow):
                 0,
                 Qt.AlignmentFlag.AlignLeft,
             )
+        self.category_sidebar_placeholder.setFixedWidth(
+            self._category_sidebar_open_width,
+        )
         if self.categories_visible:
             self.category_sidebar.setFixedWidth(
                 self._category_sidebar_open_width,
@@ -895,6 +918,15 @@ class MainWindow(QMainWindow):
         )
         if filename:
             CSVExporter.export(self.controller.get_products(), filename)
+
+    def _center_initial_window(self) -> None:
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            return
+        available_geometry = screen.availableGeometry()
+        frame_geometry = self.frameGeometry()
+        frame_geometry.moveCenter(available_geometry.center())
+        self.move(frame_geometry.topLeft())
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

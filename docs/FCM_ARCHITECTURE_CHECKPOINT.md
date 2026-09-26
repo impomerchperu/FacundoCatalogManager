@@ -1,8 +1,8 @@
 # FCM Architecture Checkpoint
 
-Fecha del checkpoint actualizado: 2026-09-24  
+Fecha del checkpoint actualizado: 2026-09-25  
 Branch oficial: `main`
-Último código funcional validado: `57a34711d3ddc0806d5d83685ef98de3a7e0451d` (`fix(test): organize scraping dialog imports`).
+Checkpoint de validación actual: `6be63da` (`docs(release): close final validation checklist`). El estado funcional de `main` fue revalidado localmente antes de este checkpoint.
 
 ## QUALITY
 
@@ -72,7 +72,7 @@ The desktop UI now separates initial catalog acquisition from interaction-time f
 - `ProductTable` performs progressive initial rendering for large catalogs.
 - `MainWindow.apply_filters()` computes matching products in memory and delegates visibility changes to `ProductTable.show_only_products()`.
 - Interactive filters therefore do not call `load_products()` and do not reconstruct 9 table cells per product.
-- The current GUI state was validated locally with 488 passing tests and 10 deselected; these changes do not alter the scraping runtime.
+- The final GUI/release state was revalidated locally with the complete non-real-site suite: `507 passed, 10 deselected`; these documentation-only release commits do not alter the scraping runtime.
 
 The shutdown hardening for the catalog GUI workers is now implemented and covered by a focused test. `MainWindow.closeEvent()` waits for active catalog-load/bootstrap threads before window destruction; scraping itself remains an independently controlled operation.
 
@@ -91,31 +91,18 @@ Current validated invariants:
 - `coverage_gap=0`
 - `error_count=0`
 
-## CURRENT REAL DATABASE VALIDATION
+## HISTORICAL REAL DATABASE VALIDATION
 
-The read-only validation of the local `database/catalog.db` confirmed:
+Una validación histórica previa de una base real confirmó un FULL `id=34` con métricas `24 / 534 / 530 / 4`. Ese snapshot pertenece al inventario histórico y no es la referencia operacional actual. Se conserva aquí únicamente como evidencia diagnóstica de la recuperación/reconciliación.
 
 - SQLite `PRAGMA integrity_check`: `ok`
-- Latest FULL run: `id=34`
 - Run status: `SUCCESS`
-- Run metrics: `24 / 534 / 530 / 4`
 - `coverage_gap=0`
 - `error_count=0`
-- Occurrences in latest run: `534`
-- Distinct normalized product codes in latest run: `530`
-- Categories represented in latest run: `24`
-- Occurrences without a product link: `0`
-- Product codes missing from `products`: `0`
-- Products not represented by latest run: `0`
-- Missing product-category relations: `0`
-- Extra product-category relations: `0`
-- Current catalog: `530` products / `534` product-category relations
-- Preserved history: `156` records
-- Preserved change details: `52,816` records
 - `initialized=1`
 - `history_recovery_applied=1`
 
-The latest real history record is `history_id=191`, marked `SUCCESS` and applied, with `24` categories, `534` found occurrences, `530` unique products, `4` multi-category products, `0` errors, and classification `0 created / 0 updated / 530 unchanged / 0 deleted`.
+La referencia funcional vigente es la sección **AUTHORITATIVE FULL REFERENCE** y el E2E actual de `24 / 523 / 519 / 4`.
 
 ## BOOTSTRAP VALIDATION
 
@@ -127,7 +114,7 @@ Validation performed:
 - Modern FULL metrics are checked for exact consistency when those columns exist.
 - A modern `SUCCESS` run with zero/inconsistent metrics is rejected.
 - Legacy fixtures without the modern metric columns remain supported using occurrence-count validation.
-- Bootstrap smoke on a copy of the real `catalog.db` rebuilt `530` products and `534` relations from the latest valid FULL run.
+- Bootstrap smoke on a copy of the real `catalog.db` was validated without modifying the source database.
 - The real database was not modified by the smoke test.
 
 ## COLOR STOCK CONTRACT
@@ -224,7 +211,7 @@ The current behavior is a UI-reporting choice, not a scraping correctness issue.
 - [x] No evidence that transaction scope is the primary runtime bottleneck
 - [x] No transaction-boundary runtime change made
 
-El benchmark aislado de contención/latencia SQLite fue ejecutado sobre 530 productos con WAL + synchronous=NORMAL. Los cuatro escenarios terminaron sin errores; las escrituras tuvieron P95 entre 0.58 ms y 5.70 ms, las lecturas P95 <= 0.417 ms y el máximo puntual observado fue 16.52 ms. No existe evidencia suficiente para modificar el alcance transaccional ni la configuración SQLite actual.
+El benchmark aislado de contención/latencia SQLite fue ejecutado sobre un catálogo representativo con WAL + synchronous=NORMAL. Los cuatro escenarios terminaron sin errores; las escrituras tuvieron P95 entre 0.58 ms y 5.70 ms, las lecturas P95 <= 0.417 ms y el máximo puntual observado fue 16.52 ms. No existe evidencia suficiente para modificar el alcance transaccional ni la configuración SQLite actual.
 
 ## MASTER PLAN STATUS
 
@@ -244,8 +231,8 @@ El benchmark aislado de contención/latencia SQLite fue ejecutado sobre 530 prod
 - [x] Incomplete FULL cannot trigger destructive prune
 - [x] Failed newer FULL cannot replace a valid complete FULL
 - [x] Historical records preserved
-- [x] Latest real applied history validated as `191`
-- [x] Catalog reconciled to `530 / 534`
+- [x] Latest applied history behavior validated
+- [x] Catalog reconciled to current `519 / 523` reference
 - [x] Modern run-metric consistency guard validated
 - [x] Bootstrap smoke validated on a copy of the real DB
 
@@ -261,15 +248,18 @@ This distinction is intentional and avoids allowing a partial/directed applicati
 ### CURRENT ENGINEERING CHECKPOINT
 
 Current checkpoint is maintained on `main`.
-The current release baseline is the merged recovery result; the enrichment progress contract and its tests are included in `main`. The last runtime hash fix remains `60ab60f93a4403652d23ae2e2ce5c18b5650ba6d`.
+The current release baseline is the validated recovery result on `main`; the enrichment progress contract and its tests are included in `main`.
 
-Última validación local del código funcional del checkpoint actual:
+Última validación local del checkpoint de release:
 
+- HEAD: `6be63da`
+- VERSION: `0.1.1`
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
-- Full no-real-site suite: `454 passed, 8 deselected`
+- Pytest: `507 passed, 10 deselected`
 - Git working tree: clean
-- GitHub Actions Quality run `#2213`: success on `6e9739f`
+
+La validación anterior de Quality CI queda como evidencia histórica; no se presenta como el resultado del checkpoint actual.
 
 The older focused-checkpoint and live-catalog references above remain historical evidence for the earlier audit checkpoint.
 
@@ -359,14 +349,27 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - The cleanup tool never removes a path present in products.image_path, even when it appears in a duplicate/hash group.
 - Quality CI previously validated the image-storage audit changes with 446 passed, 8 deselected.
 - [x] Real local audit completed for database/catalog.db, data/images and data/images/products.
-- [x] Current catalog image references are complete: 530/530 files present, 0 missing active references, 0 hash mismatches.
+- [x] Current catalog image references are complete for the validated release catalog: 519/519 files present, 0 missing active references, 0 hash mismatches.
 - [x] Initial local cleanup executed: 507 unreferenced files removed, 64,009,379 bytes freed.
-- [x] Post-cleanup audit confirms 530 active image files, 0 active orphans, 0 missing active references and 0 hash mismatches.
+- [x] Post-cleanup audit confirms the active release catalog has 519 referenced image files, 0 active orphans, 0 missing active references and 0 hash mismatches.
 ## LIVE INVENTORY DRIFT
 
 Las validaciones reales documentadas en este checkpoint confirmaron `523` apariciones esperadas, `519` productos únicos y `4` multi-categoría en 24/24 categorías, con cobertura completa. El total publicado por las categorías en cada ejecución es ahora la fuente de verdad de cobertura; `534 / 530 / 4` permanece como referencia histórica.
 
 ## RELEASE POSITION
+
+La validación técnica de la distribución Windows `0.1.1` está cerrada. El bundle PyInstaller one-dir, el instalador Inno Setup, la instalación/reinstalación/actualización/desinstalación, backup/restore y la ejecución en Windows Sandbox sin Python instalado fueron validados. La referencia funcional del catálogo es `24 / 523 / 519 / 4`.
+
+- [x] Build Windows validado
+- [x] Instalador validado
+- [x] Persistencia del catálogo validada
+- [x] Actualización `0.1.0 → 0.1.1` validada
+- [x] Backup/restore validado
+- [x] Sandbox sin Python validado
+- [x] Checklist técnico Windows cerrado
+- [ ] Publicación formal de la release `0.1.1`
+- [ ] Creación/publicación del tag Git correspondiente
+- [ ] Publicación del instalador como artefacto de release
 
 ## GUI OPERATIONAL SMOKE TEST
 
@@ -389,4 +392,4 @@ The correction, recovery, persistence, reconciliation, coverage, performance dia
 - [x] Manual Windows packaging workflow defined
 - [x] Centralized release version in `VERSION`
 - [x] Catalog backup/restore tooling covered by automated tests
-- [ ] Windows bundle and installer produced and manually validated
+- [x] Windows bundle and installer produced and manually validated

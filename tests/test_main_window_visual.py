@@ -31,6 +31,10 @@ def test_main_window_visual_metrics_keep_compact_hierarchy():
     assert MainWindow.TOP_CONTROLS_SPACING == 4
     assert MainWindow.CATEGORY_SIDEBAR_SPACING == 4
     assert MainWindow.CATEGORY_SIDEBAR_HORIZONTAL_PADDING == 4
+    assert (
+        MainWindow.CATEGORY_SIDEBAR_REFERENCE_TEXT
+        == "Enmicadoras / Laminadoras"
+    )
 
 
 def test_filter_toggle_width_allows_normal_and_bold_text():
@@ -237,7 +241,10 @@ def test_category_sidebar_uses_reference_width_and_elides_long_labels():
     window._prepare_category_filter_layout()
 
     assert reference.width() == long_button.width()
-    assert window._category_sidebar_open_width == reference.width() + 8
+    expected_sidebar_width = (
+        reference.width() + MainWindow.CATEGORY_SIDEBAR_HORIZONTAL_PADDING * 2
+    )
+    assert window._category_sidebar_open_width == expected_sidebar_width
     assert long_button.toolTip() == (
         "Impresora y Consumible Fotográfico Profesional"
     )

@@ -536,11 +536,22 @@ class MainWindow(QMainWindow):
                 if widget is not None:
                     widget.setParent(self.category_container)
 
+    def _category_filter_available_width(self) -> int:
+        table = getattr(self, "table", None)
+        if table is not None:
+            table_width = table.viewport().width()
+            if table_width > 1:
+                return table_width
+
+        if hasattr(self, "category_scroll"):
+            return self.category_scroll.viewport().width()
+        return 0
+
     def _reflow_category_buttons(self) -> None:
         if not hasattr(self, "category_layout"):
             return
         self._clear_category_rows()
-        viewport_width = self.category_scroll.viewport().width()
+        viewport_width = self._category_filter_available_width()
         if viewport_width <= 1 or not self.category_buttons:
             return
 

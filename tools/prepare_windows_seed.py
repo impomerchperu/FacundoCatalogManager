@@ -5,7 +5,6 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-
 EXPECTED_CATEGORIES = 24
 EXPECTED_OCCURRENCES = 523
 EXPECTED_PRODUCTS = 519

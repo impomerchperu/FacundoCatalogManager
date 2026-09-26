@@ -476,6 +476,7 @@ class MainWindow(QMainWindow):
             "Ocultar Categorías",
         )
         self.category_sidebar.setVisible(visible)
+        self.category_scroll.setVisible(visible)
         self.category_sidebar.setFixedWidth(
             self._category_sidebar_open_width if visible else 0,
         )

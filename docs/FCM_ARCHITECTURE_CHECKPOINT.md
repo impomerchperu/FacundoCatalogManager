@@ -393,5 +393,6 @@ The correction, recovery, persistence, reconciliation, coverage, performance dia
 - [x] Centralized release version in `VERSION`
 - [x] Catalog backup/restore tooling covered by automated tests
 - [x] Windows bundle and installer produced and manually validated
-- [x] Windows GitHub workflow aligned with the validated seed-preparation and Inno Setup detection path
+- [x] Windows workflow made self-contained for CI packaging smoke; real release seed remains validated locally because the runtime catalog DB/images are not versioned
+- [ ] Execute Windows Build manually after the self-contained workflow fix and validate the CI artifact
 - [ ] Ejecutar manualmente el workflow `Windows Build` en GitHub Actions sobre `main` y validar su artefacto CI

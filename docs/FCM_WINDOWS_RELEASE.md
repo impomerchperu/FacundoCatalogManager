@@ -80,6 +80,8 @@ El workflow `.github/workflows/windows-build.yml` valida el empaquetado reproduc
 
 La validación funcional y de datos del bundle de release `0.1.1` se realizó localmente en Windows y en Windows Sandbox con Python ausente.
 
+La ejecución manual del workflow `Windows Build` en GitHub Actions también terminó en `success`. El smoke CI confirmó el ejecutable, la semilla SQLite empaquetada y `seed/data/images`. La semilla utilizada por CI es sintética y sirve exclusivamente para validar el proceso de empaquetado; el bundle funcional de release continúa siendo el validado con el catálogo real.
+
 ## Datos de usuario
 
 Cuando la aplicación está congelada, `config.runtime_paths` dirige la base, imágenes y logs a `%LOCALAPPDATA%\FacundoCatalogManager`.
@@ -194,7 +196,7 @@ La restauración se realizó en `%TEMP%\FCM-backup-validation\catalog-restored.d
 - [x] Validar backup/restore sobre una base real de usuario mediante el procedimiento aislado anterior.
 - [x] Actualizar versión de validación a `0.1.1`.
 - [x] Alinear el workflow de Windows de GitHub con la ruta de empaquetado validada y la detección de Inno Setup usada en la validación local.
-- [ ] Ejecutar manualmente el workflow Windows de GitHub Actions y validar su artefacto de smoke de empaquetado.
+- [x] Ejecutar manualmente el workflow Windows de GitHub Actions y validar su artefacto de smoke de empaquetado.
 - [x] Ejecutar validación final del repositorio en `main`: Ruff limpio.
 - [x] Ejecutar validación final del repositorio en `main`: Pyright sin errores, advertencias ni informaciones.
 - [x] Ejecutar validación final del repositorio en `main`: 507 pruebas aprobadas y 10 deselected.
@@ -302,7 +304,7 @@ Esto confirma que el bundle Windows `0.1.1` funciona sin depender de una instala
 La validación final realizada el 25 de septiembre de 2026 sobre `main` quedó registrada con:
 
 ```text
-HEAD: cb76a75 docs(release): record clean Windows Sandbox validation
+HEAD de referencia de la validación documental: e17b26e (ajuste CI posterior al smoke Windows)
 VERSION: 0.1.1
 Ruff: All checks passed!
 Pyright: 0 errors, 0 warnings, 0 informations

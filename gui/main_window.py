@@ -335,7 +335,7 @@ class MainWindow(QMainWindow):
         self.all_categories_button.setCheckable(True)
         self.all_categories_button.setProperty("category_text", "Todos")
         self.all_categories_button.setStyleSheet(
-            'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 8px; }\n'
+            'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 4px; }\n'
             + self.ACTIVE_BUTTON_STYLE,
         )
         self.all_categories_button.clicked.connect(self.clear_category_filters)
@@ -396,7 +396,7 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Fixed,
         )
         button.setStyleSheet(
-            'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 16px; }\n'
+            'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 4px; }\n'
             + cls.ACTIVE_BUTTON_STYLE,
         )
         cls._set_toggle_button_width(button, *texts)
@@ -503,7 +503,7 @@ class MainWindow(QMainWindow):
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
             button.setStyleSheet(
-                'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 8px; }\n'
+                'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 4px; }\n'
                 + self.ACTIVE_BUTTON_STYLE,
             )
             button.clicked.connect(

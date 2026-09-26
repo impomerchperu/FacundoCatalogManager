@@ -1,6 +1,6 @@
 # Facundo Catalog Manager
 
-**Baseline funcional validado:** `57a34711d3ddc0806d5d83685ef98de3a7e0451d` (`fix(test): organize scraping dialog imports`). Los commits posteriores que actualizan esta documentación no modifican el código funcional.
+**Referencia funcional actual:** catálogo vivo validado en `main` con `523 / 519 / 4`, cobertura completa y suite automatizada en verde. El bloque de release Windows incorpora una semilla validada de catálogo e imágenes generada durante el build.
 
 Aplicación de escritorio en Python + PySide6 para mantener el catálogo de Importaciones Facundo, ejecutar sincronizaciones FULL y exportar la información a Excel, PDF y CSV.
 
@@ -117,7 +117,7 @@ Para generar también el instalador:
 .\scripts\build_windows.ps1
 ```
 
-La versión inicial del instalador es `0.1.0`. El ejecutable, el instalador y los artefactos de build no se incorporan al repositorio.
+La versión inicial del instalador es `0.1.0`. El ejecutable, el instalador y los artefactos de build no se incorporan al repositorio. Antes de PyInstaller, `tools/prepare_windows_seed.py` valida la base `523 / 519 / 4`, comprueba las imágenes referenciadas y crea una copia SQLite consistente para el bundle.
 
 El checklist de validación está en `docs/FCM_WINDOWS_RELEASE.md`.
 

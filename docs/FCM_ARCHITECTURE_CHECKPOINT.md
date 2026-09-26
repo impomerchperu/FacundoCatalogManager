@@ -394,3 +394,4 @@ The correction, recovery, persistence, reconciliation, coverage, performance dia
 - [x] Catalog backup/restore tooling covered by automated tests
 - [x] Windows bundle and installer produced and manually validated
 - [x] Windows GitHub workflow aligned with the validated seed-preparation and Inno Setup detection path
+- [ ] Ejecutar manualmente el workflow `Windows Build` en GitHub Actions sobre `main` y validar su artefacto CI

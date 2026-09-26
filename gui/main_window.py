@@ -455,10 +455,10 @@ class MainWindow(QMainWindow):
             "Ocultar Categorías",
         )
         if visible:
-            # Construimos y ajustamos las filas mientras el contenedor sigue
-            # oculto, para que el usuario vea el panel ya listo al abrirlo.
-            self._reflow_category_buttons()
             self.category_scroll.setVisible(True)
+            # Esperamos a que Qt aplique el ancho definitivo del panel antes
+            # de calcular los saltos de línea.
+            QTimer.singleShot(0, self._reflow_category_buttons)
         else:
             self.category_scroll.setFixedHeight(0)
             self.category_scroll.setVisible(False)
@@ -536,22 +536,11 @@ class MainWindow(QMainWindow):
                 if widget is not None:
                     widget.setParent(self.category_container)
 
-    def _category_filter_available_width(self) -> int:
-        table = getattr(self, "table", None)
-        if table is not None:
-            table_width = table.viewport().width()
-            if table_width > 1:
-                return table_width
-
-        if hasattr(self, "category_scroll"):
-            return self.category_scroll.viewport().width()
-        return 0
-
     def _reflow_category_buttons(self) -> None:
         if not hasattr(self, "category_layout"):
             return
         self._clear_category_rows()
-        viewport_width = self._category_filter_available_width()
+        viewport_width = self.category_scroll.viewport().width()
         if viewport_width <= 1 or not self.category_buttons:
             return
 

@@ -44,7 +44,7 @@ class ProductHeader(QHeaderView):
     def __init__(self, parent: QTableWidget) -> None:
         super().__init__(Qt.Orientation.Horizontal, parent)
         self.active_sections: set[int] = set()
-        self.setMinimumHeight(64)
+        self.setMinimumHeight(56)
         self.setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setSectionsClickable(True)
         self.setSortIndicatorShown(False)
@@ -429,7 +429,7 @@ class ProductTable(QTableWidget):
             QTableWidget {
                 background-color: #f8fbff;
                 gridline-color: #dce7f1;
-                selection-background-color: #dbeeff;
+                selection-background-color: #fbfdff;
                 selection-color: #173f6d;
                 color: #173f6d;
             }
@@ -440,10 +440,14 @@ class ProductTable(QTableWidget):
                 font-size: 13px;
                 color: #173f6d;
             }
+            QTableWidget::item:selected {
+                background-color: #fbfdff;
+                color: #173f6d;
+            }
             QHeaderView::section {
-                min-height: 64px;
+                min-height: 56px;
                 padding: 4px;
-                font-size: 18px;
+                font-size: 16px;
                 font-weight: bold;
                 text-align: center;
                 background-color: #eef5fb;

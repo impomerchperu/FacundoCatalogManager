@@ -51,17 +51,44 @@ def test_scraping_dialog_shows_session_result_without_attribute_error(monkeypatc
     dialog.close()
 
 
-def test_scraping_dialog_uses_neutral_detail_table_selection():
+def test_scraping_dialog_uses_neutral_detail_table_selection(monkeypatch):
     _qapp()
 
     dialog = ScrapingDialog()
+    result = _result()
+    dialog.pending_result = result
+    detail_dialogs = []
 
-    stylesheet = dialog.styleSheet()
+    original_dialog = __import__(
+        "PySide6.QtWidgets",
+        fromlist=["QDialog"],
+    ).QDialog
+
+    class TrackingDialog(original_dialog):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            detail_dialogs.append(self)
+
+    monkeypatch.setattr("gui.scraping_dialog.QDialog", TrackingDialog)
+
+    dialog.show_result_details()
+
+    assert detail_dialogs
+    detail_dialog = detail_dialogs[0]
+    tables = detail_dialog.findChildren(QWidget)
+    table_widgets = [
+        widget
+        for widget in tables
+        if widget.metaObject().className() == "QTableWidget"
+    ]
+    assert table_widgets
+    stylesheet = table_widgets[0].styleSheet()
 
     assert dialog.BODY_FONT_SIZE == 13
     assert dialog.BUTTON_HEIGHT == 34
     assert "selection-background-color: #fbfdff;" in stylesheet
 
+    detail_dialog.close()
     dialog.close()
 
 

@@ -26,7 +26,7 @@ def _create_seed_database(path: Path) -> None:
         )
 
 
-def test_seed_service_skips_development_mode(monkeypatch, tmp_path):
+def test_seed_service_skips_development_mode(monkeypatch):
     monkeypatch.setattr(
         "services.catalog_seed_service.is_frozen",
         lambda: False,
@@ -92,9 +92,7 @@ def test_seed_service_restores_database_and_images(monkeypatch, tmp_path):
 
     assert CatalogSeedService.seed_if_needed() is True
     assert destination_db.is_file()
-    assert (
-        destination_images / "products" / "sample.jpg"
-    ).is_file()
+    assert (destination_images / "products" / "sample.jpg").is_file()
 
     with sqlite3.connect(destination_db) as connection:
         assert connection.execute(

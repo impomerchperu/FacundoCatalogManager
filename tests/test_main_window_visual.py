@@ -66,6 +66,7 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
     window.catalog_bootstrap_blocked_buttons = []
     window.search_box = QLineEdit()
     window.table = QWidget()
+    window.catalog_bootstrap_blocked_buttons = []
     host = QWidget()
     layout = QVBoxLayout(host)
 
@@ -83,12 +84,26 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
     assert widgets[0] is window.category_toggle_button
     assert widgets[1] is window.stock_filter_button
     assert widgets[2] is window.search_box
+    assert widgets[3] is window.top_actions_container
     assert window.category_sidebar.isVisible() is False
 
-    for widget in widgets:
-        if widget is not None and widget is not window.search_box:
-            widget.deleteLater()
+    action_widgets = [
+        window.top_actions_container.layout().itemAt(index).widget()
+        for index in range(window.top_actions_container.layout().count())
+    ]
+    assert [widget.text() for widget in action_widgets] == [
+        "Nuevo",
+        "Editar",
+        "Eliminar",
+        "Exportar Excel",
+        "Exportar PDF",
+        "Exportar CSV",
+        "Actualizar catálogo",
+        "Historial",
+    ]
+
     window.search_box.deleteLater()
+    window.top_actions_container.deleteLater()
     window.category_sidebar.deleteLater()
     window.table.deleteLater()
     host.deleteLater()
@@ -123,6 +138,19 @@ def test_action_buttons_are_grouped_for_top_right_layout():
     assert len(window.catalog_bootstrap_blocked_buttons) == 4
 
     host.deleteLater()
+
+
+def test_category_buttons_are_borderless_and_left_aligned():
+    _qapp()
+
+    button = QPushButton("Artículos de Escritorio")
+    button.setStyleSheet(MainWindow._category_button_style())
+
+    assert "border: none" in button.styleSheet()
+    assert "text-align: left" in button.styleSheet()
+    assert "background: transparent" in button.styleSheet()
+
+    button.deleteLater()
 
 
 def test_category_button_width_matches_real_horizontal_padding():

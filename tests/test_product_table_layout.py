@@ -218,6 +218,7 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     assert "#f8fbff" in table.styleSheet()
     assert "#eef5fb" in table.styleSheet()
     assert "#173f6d" in table.styleSheet()
+    assert "selection-background-color: #fbfdff;" in table.styleSheet()
     assert not table.alternatingRowColors()
     assert "QTableWidget::item:alternate" not in table.styleSheet()
     name_item = table.item(0, ProductTable.NAME_COLUMN)
@@ -454,6 +455,10 @@ def test_product_table_uses_reference_font_and_color():
     assert ProductTable.TABLE_TEXT_COLOR == "#173f6d"
     assert "font-family: \"Segoe UI\";" in table.styleSheet()
     assert "font-size: 13px;" in table.styleSheet()
+    assert "font-size: 16px;" in table.styleSheet()
+    assert "min-height: 56px;" in table.styleSheet()
+    assert table.horizontalHeader().minimumHeight() == 56
+    assert "selection-background-color: #fbfdff;" in table.styleSheet()
     assert "color: #173f6d;" in table.styleSheet()
 
     table.close()

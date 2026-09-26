@@ -8,7 +8,7 @@ Preparar una distribución reproducible de Facundo Catalog Manager para Windows 
 
 El ejecutable se construye como **one-dir** con PyInstaller.
 
-El código y los recursos de solo lectura quedan dentro de la instalación. El almacenamiento persistente de usuario queda en:
+El código y los recursos de solo lectura quedan dentro de la instalación. El bundle también contiene una semilla validada del catálogo actual y sus imágenes, preparada durante el build. El almacenamiento persistente de usuario queda en:
 
 `%LOCALAPPDATA%\FacundoCatalogManager\`
 
@@ -31,6 +31,12 @@ PyInstaller 6.15.0 incorporó soporte para Python 3.14; el proyecto fija PyInsta
 ## Versionado
 
 La versión de la aplicación se mantiene en `VERSION` con formato `MAJOR.MINOR.PATCH`. El script de build y el workflow de Windows leen ese archivo; el instalador recibe la misma versión como definición del preprocesador de Inno Setup.
+
+## Semilla inicial
+
+Antes de ejecutar PyInstaller, el build ejecuta `tools/prepare_windows_seed.py`. Esta utilidad valida la base de desarrollo contra la referencia `24 / 523 / 519 / 4`, comprueba la integridad de SQLite y la existencia de las imágenes referenciadas, y genera una copia mediante la API de backup de SQLite para evitar pérdidas de páginas WAL. La semilla resultante se incorpora al bundle en un directorio de solo lectura.
+
+En el primer arranque congelado, `CatalogSeedService` copia la base semilla y `data/images` a `%LOCALAPPDATA%\\FacundoCatalogManager` solo cuando no existe un catálogo útil. Si ya hay productos o historial, no sustituye la información del usuario.
 
 ## Build
 
@@ -76,7 +82,7 @@ Las rutas de imagen almacenadas en SQLite conservan el formato relativo `data/im
 - [ ] Build PyInstaller en Windows.
 - [ ] Ejecutar bundle en una máquina Windows sin Python instalado.
 - [ ] Confirmar creación/lectura de `database/catalog.db` en `%LOCALAPPDATA%\FacundoCatalogManager`.
-- [ ] Confirmar imágenes en `data/images/products`.
+- [ ] Confirmar imágenes en `data/images/products` después de la instalación.
 - [ ] Confirmar que `_internal` no recibe datos modificables.
 - [ ] Confirmar arranque y carga del catálogo.
 - [ ] Confirmar búsqueda y filtros.
@@ -93,4 +99,4 @@ Las rutas de imagen almacenadas en SQLite conservan el formato relativo `data/im
 
 ## Estado
 
-La arquitectura, el spec de PyInstaller, el instalador y el script reproducible ya están en el repositorio. La release Windows todavía no está declarada: falta producir y probar el bundle/instalador en Windows y cerrar el procedimiento de backup/restauración.
+La arquitectura, el spec de PyInstaller, el instalador y el procedimiento de semilla están en el repositorio. El bundle ya fue producido en Windows; todavía falta validar la semilla en un build nuevo, generar el instalador y cerrar las pruebas de instalación/actualización y backup/restore con una base real.

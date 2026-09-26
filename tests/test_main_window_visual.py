@@ -310,6 +310,8 @@ def test_category_filter_toggle_swaps_sidebar_with_reserved_space():
     window.category_scroll = QScrollArea()
     window.category_sidebar = QWidget()
     window.category_sidebar.resize(100, 300)
+    window.category_sidebar_placeholder = QWidget()
+    window.category_sidebar_placeholder.setVisible(True)
     window._category_sidebar_closed_width = window.category_toggle_button.width()
     window._category_sidebar_open_width = 220
 

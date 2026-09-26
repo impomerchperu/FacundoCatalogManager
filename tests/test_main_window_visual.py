@@ -103,3 +103,26 @@ def test_category_button_width_matches_real_horizontal_padding():
     assert button.width() == width
 
     button.deleteLater()
+
+def test_category_reflow_releases_running_guard():
+    _qapp()
+
+    from PySide6.QtWidgets import QScrollArea, QVBoxLayout
+
+    window = MainWindow.__new__(MainWindow)
+    window._category_reflow_running = False
+    window._category_last_viewport_width = 0
+    window.category_scroll = QScrollArea()
+    window.category_scroll.resize(400, 80)
+    container = QWidget()
+    window.category_layout = QVBoxLayout(container)
+    button = QPushButton("Todos")
+    button.setProperty("category_text", "Todos")
+    window.category_buttons = [button]
+    window.category_scroll.setWidget(container)
+
+    window._reflow_category_buttons()
+
+    assert window._category_reflow_running is False
+
+    window.category_scroll.deleteLater()

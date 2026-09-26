@@ -550,48 +550,51 @@ class MainWindow(QMainWindow):
 
         self._category_reflow_running = True
         self._category_last_viewport_width = viewport_width
-        self._clear_category_rows()
-        prepared = []
-        for button in self.category_buttons:
-            text = str(
-                button.property("category_text") or button.text(),
-            ).replace("\n", " ")
-            prepared.append((button, self._fit_category_button(button, text)))
+        try:
+            self._clear_category_rows()
+            prepared = []
+            for button in self.category_buttons:
+                text = str(
+                    button.property("category_text") or button.text(),
+                ).replace("\n", " ")
+                prepared.append((button, self._fit_category_button(button, text)))
 
-        rows = [[]]
-        row_widths = [0]
-        spacing = self.CATEGORY_SPACING
-        for button, width in prepared:
-            current_row = len(rows) - 1
-            required_width = width + (spacing if rows[current_row] else 0)
-            if (
-                rows[current_row]
-                and row_widths[current_row] + required_width > viewport_width
-            ):
-                rows.append([])
-                row_widths.append(0)
-                current_row += 1
-            rows[current_row].append(button)
-            row_widths[current_row] += width
-            if len(rows[current_row]) > 1:
-                row_widths[current_row] += spacing
+            rows = [[]]
+            row_widths = [0]
+            spacing = self.CATEGORY_SPACING
+            for button, width in prepared:
+                current_row = len(rows) - 1
+                required_width = width + (spacing if rows[current_row] else 0)
+                if (
+                    rows[current_row]
+                    and row_widths[current_row] + required_width > viewport_width
+                ):
+                    rows.append([])
+                    row_widths.append(0)
+                    current_row += 1
+                rows[current_row].append(button)
+                row_widths[current_row] += width
+                if len(rows[current_row]) > 1:
+                    row_widths[current_row] += spacing
 
-        for buttons in rows:
-            row_layout = QHBoxLayout()
-            row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.setSpacing(spacing)
-            row_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-            for button in buttons:
-                row_layout.addWidget(button)
-            self.category_layout.addLayout(row_layout)
+            for buttons in rows:
+                row_layout = QHBoxLayout()
+                row_layout.setContentsMargins(0, 0, 0, 0)
+                row_layout.setSpacing(spacing)
+                row_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+                for button in buttons:
+                    row_layout.addWidget(button)
+                self.category_layout.addLayout(row_layout)
 
-        content_height = (
-            len(rows) * self.CATEGORY_BUTTON_HEIGHT
-            + max(0, len(rows) - 1) * self.CATEGORY_SPACING
-        )
-        self.category_scroll.setFixedHeight(
-            min(self.CATEGORY_SCROLL_MAX_HEIGHT, content_height),
-        )
+            content_height = (
+                len(rows) * self.CATEGORY_BUTTON_HEIGHT
+                + max(0, len(rows) - 1) * self.CATEGORY_SPACING
+            )
+            self.category_scroll.setFixedHeight(
+                min(self.CATEGORY_SCROLL_MAX_HEIGHT, content_height),
+            )
+        finally:
+            self._category_reflow_running = False
 
 
     def eventFilter(self, watched, event) -> bool:

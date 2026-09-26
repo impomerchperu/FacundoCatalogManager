@@ -54,17 +54,18 @@ class MainWindow(QMainWindow):
     """
 
     TOGGLE_FONT_SIZE = 16
-    TOGGLE_BUTTON_HORIZONTAL_PADDING = 32
+    TOGGLE_BUTTON_HORIZONTAL_PADDING = 4
     TOGGLE_BUTTON_HEIGHT = 40
     SEARCH_FONT_SIZE = 16
     SEARCH_HEIGHT = 38
     COUNTER_FONT_SIZE = 13
     ACTION_BUTTON_FONT_SIZE = 13
-    ACTION_BUTTON_HORIZONTAL_PADDING = 12
+    ACTION_BUTTON_HORIZONTAL_PADDING = 4
     ACTION_BUTTON_HEIGHT = 34
     CATEGORY_FONT_SIZE = 13
-    CATEGORY_BUTTON_HORIZONTAL_PADDING = 16
+    CATEGORY_BUTTON_HORIZONTAL_PADDING = 4
     CATEGORY_BUTTON_HEIGHT = 28
+    TOP_CONTROLS_SPACING = 4
     CATEGORY_SPACING = 1
     CATEGORY_SCROLL_MAX_HEIGHT = 220
 
@@ -278,7 +279,7 @@ class MainWindow(QMainWindow):
 
         top_controls = QHBoxLayout()
         top_controls.setContentsMargins(0, 0, 0, 0)
-        top_controls.setSpacing(8)
+        top_controls.setSpacing(self.TOP_CONTROLS_SPACING)
 
         self.category_toggle_button = QPushButton("Filtrar Categorías")
         self.category_toggle_button.setCheckable(True)
@@ -375,7 +376,7 @@ class MainWindow(QMainWindow):
             f" font-size: {cls.ACTION_BUTTON_FONT_SIZE}px;"
             " color: #173f6d;"
             " background-color: #fbfdff;"
-            f" padding: 0px {cls.ACTION_BUTTON_HORIZONTAL_PADDING // 2}px;"
+            f" padding: 0px {cls.ACTION_BUTTON_HORIZONTAL_PADDING}px;"
             " border: 1px solid #cbddea;"
             " border-radius: 4px;"
             f" min-height: {cls.ACTION_BUTTON_HEIGHT}px;"
@@ -410,7 +411,7 @@ class MainWindow(QMainWindow):
         required_width = max(
             max(metrics.horizontalAdvance(text), bold_metrics.horizontalAdvance(text))
             for text in texts
-        ) + cls.TOGGLE_BUTTON_HORIZONTAL_PADDING
+        ) + (2 * cls.TOGGLE_BUTTON_HORIZONTAL_PADDING) + 2
         button.setFixedWidth(required_width)
         button.setFixedHeight(cls.TOGGLE_BUTTON_HEIGHT)
 
@@ -425,7 +426,7 @@ class MainWindow(QMainWindow):
         return max(
             metrics.horizontalAdvance(text),
             bold_metrics.horizontalAdvance(text),
-        ) + cls.CATEGORY_BUTTON_HORIZONTAL_PADDING
+        ) + (2 * cls.CATEGORY_BUTTON_HORIZONTAL_PADDING) + 2
 
     @classmethod
     def _fit_category_button(cls, button: QPushButton, text: str) -> int:

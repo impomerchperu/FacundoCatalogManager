@@ -15,8 +15,11 @@ def test_main_window_visual_metrics_keep_compact_hierarchy():
     assert MainWindow.ACTION_BUTTON_FONT_SIZE == 13
     assert MainWindow.ACTION_BUTTON_HEIGHT == 34
     assert MainWindow.CATEGORY_FONT_SIZE == 13
-    assert MainWindow.CATEGORY_BUTTON_HORIZONTAL_PADDING == 16
+    assert MainWindow.ACTION_BUTTON_HORIZONTAL_PADDING == 4
+    assert MainWindow.TOGGLE_BUTTON_HORIZONTAL_PADDING == 4
+    assert MainWindow.CATEGORY_BUTTON_HORIZONTAL_PADDING == 4
     assert MainWindow.CATEGORY_BUTTON_HEIGHT == 28
+    assert MainWindow.TOP_CONTROLS_SPACING == 4
 
 
 def test_filter_toggle_width_allows_normal_and_bold_text():
@@ -41,8 +44,8 @@ def test_filter_toggle_width_allows_normal_and_bold_text():
         bold_metrics.horizontalAdvance("Ocultar Categorías"),
     )
 
-    assert MainWindow.TOGGLE_BUTTON_HORIZONTAL_PADDING == 32
-    assert button.width() >= widest_text + 32
+    assert MainWindow.TOGGLE_BUTTON_HORIZONTAL_PADDING == 4
+    assert button.width() >= widest_text + 10
 
     button.deleteLater()
 
@@ -90,8 +93,8 @@ def test_category_button_width_matches_real_horizontal_padding():
     bold_font.setBold(True)
     bold_width = QFontMetrics(bold_font).horizontalAdvance(text)
 
-    assert MainWindow.CATEGORY_BUTTON_HORIZONTAL_PADDING == 16
-    assert width >= bold_width + 16
+    assert MainWindow.CATEGORY_BUTTON_HORIZONTAL_PADDING == 4
+    assert width >= bold_width + 10
     assert button.width() == width
 
     button.deleteLater()

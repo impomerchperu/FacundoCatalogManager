@@ -67,7 +67,7 @@ class MainWindow(QMainWindow):
     CATEGORY_BUTTON_HEIGHT = 28
     TOP_CONTROLS_SPACING = 4
     CATEGORY_SPACING = 1
-    CATEGORY_SCROLL_MAX_HEIGHT = 220
+    CATEGORY_SIDEBAR_SPACING = 4
 
     def __init__(self) -> None:
         super().__init__()
@@ -99,11 +99,13 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
-        self.create_filter_controls(layout)
-
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Buscar producto...")
         self.search_box.setMinimumHeight(self.SEARCH_HEIGHT)
+        self.search_box.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
         self.search_box.setStyleSheet(
             "QLineEdit {"
             ' font-family: "Segoe UI";'
@@ -116,10 +118,9 @@ class MainWindow(QMainWindow):
             "}"
         )
         self.search_box.textChanged.connect(self.search_products)
-        layout.addWidget(self.search_box)
 
         self.table = ProductTable(self.controller)
-        layout.addWidget(self.table)
+        self.create_filter_controls(layout)
 
         counter_layout = QHBoxLayout()
         counter_layout.setContentsMargins(0, 0, 0, 0)
@@ -281,18 +282,6 @@ class MainWindow(QMainWindow):
         top_controls.setContentsMargins(0, 0, 0, 0)
         top_controls.setSpacing(self.TOP_CONTROLS_SPACING)
 
-        self.category_toggle_button = QPushButton("Filtrar Categorías")
-        self.category_toggle_button.setCheckable(True)
-        self._configure_toggle_button(
-            self.category_toggle_button,
-            "Filtrar Categorías",
-            "Ocultar Categorías",
-        )
-        self.category_toggle_button.toggled.connect(
-            self.toggle_categories_visibility,
-        )
-        top_controls.addWidget(self.category_toggle_button)
-
         self.stock_filter_button = QPushButton("Solo Stock Disponible")
         self.stock_filter_button.setCheckable(True)
         self._configure_toggle_button(
@@ -304,13 +293,34 @@ class MainWindow(QMainWindow):
         )
         self.stock_filter_button.toggled.connect(self.toggle_stock_filter)
         top_controls.addWidget(self.stock_filter_button)
-        top_controls.addStretch()
+
+        top_controls.addWidget(self.search_box, 1)
         self._add_action_buttons(top_controls)
         filter_layout.addLayout(top_controls)
 
+        catalog_layout = QHBoxLayout()
+        catalog_layout.setContentsMargins(0, 0, 0, 0)
+        catalog_layout.setSpacing(self.CATEGORY_SIDEBAR_SPACING)
+
+        self.category_sidebar = QWidget()
+        self.category_sidebar_layout = QVBoxLayout(self.category_sidebar)
+        self.category_sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        self.category_sidebar_layout.setSpacing(self.CATEGORY_SIDEBAR_SPACING)
+
+        self.category_toggle_button = QPushButton("Filtrar Categorías")
+        self.category_toggle_button.setCheckable(True)
+        self._configure_toggle_button(
+            self.category_toggle_button,
+            "Filtrar Categorías",
+            "Ocultar Categorías",
+        )
+        self.category_toggle_button.toggled.connect(
+            self.toggle_categories_visibility,
+        )
+        self.category_sidebar_layout.addWidget(self.category_toggle_button)
+
         self.category_scroll = QScrollArea()
         self.category_scroll.setWidgetResizable(True)
-        self._category_filter_height = 0
         self.category_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
@@ -319,11 +329,12 @@ class MainWindow(QMainWindow):
         )
         self.category_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.category_scroll.setMinimumHeight(0)
-        self.category_scroll.setMaximumHeight(self.CATEGORY_SCROLL_MAX_HEIGHT)
-        # El panel conserva su ancho dentro del layout, pero permanece cerrado
-        # con altura cero. Las filas se preparan mientras está oculto visualmente.
-        self.category_scroll.setFixedHeight(0)
-        filter_layout.addWidget(self.category_scroll)
+        self.category_scroll.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
+        self.category_scroll.setVisible(False)
+        self.category_sidebar_layout.addWidget(self.category_scroll, 1)
 
         self.category_container = QWidget()
         self.category_layout = QVBoxLayout(self.category_container)
@@ -343,6 +354,12 @@ class MainWindow(QMainWindow):
         )
         self.all_categories_button.clicked.connect(self.clear_category_filters)
         self.category_buttons = [self.all_categories_button]
+        self._category_sidebar_open_width = self.category_toggle_button.width()
+        self._category_sidebar_closed_width = self.category_toggle_button.width()
+
+        catalog_layout.addWidget(self.category_sidebar, 0)
+        catalog_layout.addWidget(self.table, 1)
+        filter_layout.addLayout(catalog_layout, 1)
         layout.addLayout(filter_layout)
 
     def _add_action_buttons(self, layout: QHBoxLayout) -> None:
@@ -457,8 +474,11 @@ class MainWindow(QMainWindow):
             "Filtrar Categorías",
             "Ocultar Categorías",
         )
-        self.category_scroll.setFixedHeight(
-            self._category_filter_height if visible else 0,
+        self.category_scroll.setVisible(visible)
+        self.category_sidebar.setFixedWidth(
+            self._category_sidebar_open_width
+            if visible
+            else self._category_sidebar_closed_width,
         )
 
     def refresh_catalog(self) -> None:
@@ -535,68 +555,33 @@ class MainWindow(QMainWindow):
                     widget.setParent(self.category_container)
 
     def _prepare_category_filter_layout(self) -> None:
-        if not hasattr(self, "category_layout"):
-            return
-        viewport_width = self.category_scroll.viewport().width()
-        if viewport_width <= 1 or not self.category_buttons:
+        if not hasattr(self, "category_layout") or not self.category_buttons:
             return
 
-        prepared = []
+        self._clear_category_rows()
+
+        widths = []
         for button in self.category_buttons:
             text = str(
                 button.property("category_text") or button.text(),
             ).replace("\n", " ")
-            prepared.append((button, self._fit_category_button(button, text)))
-
-        def build_rows(available_width: int) -> tuple[list[list[QPushButton]], int]:
-            rows = [[]]
-            row_widths = [0]
-            spacing = self.CATEGORY_SPACING
-            for button, width in prepared:
-                current_row = len(rows) - 1
-                required_width = width + (spacing if rows[current_row] else 0)
-                if (
-                    rows[current_row]
-                    and row_widths[current_row] + required_width > available_width
-                ):
-                    rows.append([])
-                    row_widths.append(0)
-                    current_row += 1
-                rows[current_row].append(button)
-                row_widths[current_row] += width
-                if len(rows[current_row]) > 1:
-                    row_widths[current_row] += spacing
-
-            content_height = (
-                len(rows) * self.CATEGORY_BUTTON_HEIGHT
-                + max(0, len(rows) - 1) * self.CATEGORY_SPACING
+            widths.append(self._fit_category_button(button, text))
+            self.category_layout.addWidget(
+                button,
+                0,
+                Qt.AlignmentFlag.AlignLeft,
             )
-            return rows, content_height
 
-        rows, content_height = build_rows(viewport_width)
-        # Mientras el panel está cerrado no hay barra vertical visible, pero
-        # al abrirlo puede aparecer por superar la altura máxima. Reservamos
-        # su ancho antes de construir las filas para que no haya un segundo
-        # reparto al desplegar.
-        if not self.categories_visible and content_height > self.CATEGORY_SCROLL_MAX_HEIGHT:
-            scrollbar_width = self.category_scroll.verticalScrollBar().sizeHint().width()
-            final_width = max(viewport_width - scrollbar_width, 1)
-            rows, content_height = build_rows(final_width)
-
-        self._clear_category_rows()
-        spacing = self.CATEGORY_SPACING
-        for buttons in rows:
-            row_layout = QHBoxLayout()
-            row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.setSpacing(spacing)
-            row_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-            for button in buttons:
-                row_layout.addWidget(button)
-            self.category_layout.addLayout(row_layout)
-
-        self._category_filter_height = min(
-            self.CATEGORY_SCROLL_MAX_HEIGHT,
-            content_height,
+        max_category_width = max(widths)
+        scrollbar_width = self.category_scroll.verticalScrollBar().sizeHint().width()
+        self._category_sidebar_open_width = max(
+            self.category_toggle_button.width(),
+            max_category_width + scrollbar_width + 2,
+        )
+        self.category_sidebar.setFixedWidth(
+            self._category_sidebar_open_width
+            if self.categories_visible
+            else self._category_sidebar_closed_width,
         )
 
     def _update_all_categories_button(self) -> None:
@@ -814,12 +799,6 @@ class MainWindow(QMainWindow):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        if not hasattr(self, "category_scroll"):
-            return
-
-        self._prepare_category_filter_layout()
-        if self.categories_visible:
-            self.category_scroll.setFixedHeight(self._category_filter_height)
 
     @staticmethod
     def _wait_for_thread(thread: QThread | None) -> None:

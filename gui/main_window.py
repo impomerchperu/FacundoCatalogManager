@@ -577,10 +577,10 @@ class MainWindow(QMainWindow):
         )
         self.category_sidebar.setVisible(visible)
         self.category_scroll.setVisible(visible)
-        self.category_sidebar_placeholder.setVisible(not visible)
-        self.category_sidebar_placeholder.setFixedWidth(
-            self._category_sidebar_open_width,
-        )
+        placeholder = getattr(self, "category_sidebar_placeholder", None)
+        if placeholder is not None:
+            placeholder.setVisible(not visible)
+            placeholder.setFixedWidth(self._category_sidebar_open_width)
         self.category_sidebar.setFixedWidth(
             self._category_sidebar_open_width,
         )
@@ -695,9 +695,9 @@ class MainWindow(QMainWindow):
                 0,
                 Qt.AlignmentFlag.AlignLeft,
             )
-        self.category_sidebar_placeholder.setFixedWidth(
-            self._category_sidebar_open_width,
-        )
+        placeholder = getattr(self, "category_sidebar_placeholder", None)
+        if placeholder is not None:
+            placeholder.setFixedWidth(self._category_sidebar_open_width)
         if self.categories_visible:
             self.category_sidebar.setFixedWidth(
                 self._category_sidebar_open_width,

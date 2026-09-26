@@ -5,6 +5,11 @@ def test_catalog_bootstrap_worker_emits_result_and_closes_database(monkeypatch):
     events = []
     fake_db = type("FakeDB", (), {"close": lambda self: events.append("closed")})()
 
+    monkeypatch.setattr(
+        "gui.workers.catalog_bootstrap_worker.CatalogSeedService.seed_if_needed",
+        lambda: False,
+    )
+
     class FakeService:
         def __init__(self):
             self.db = fake_db
@@ -35,6 +40,11 @@ def test_catalog_bootstrap_worker_emits_result_and_closes_database(monkeypatch):
 def test_catalog_bootstrap_worker_emits_errors_and_closes_database(monkeypatch):
     events = []
     fake_db = type("FakeDB", (), {"close": lambda self: events.append("closed")})()
+
+    monkeypatch.setattr(
+        "gui.workers.catalog_bootstrap_worker.CatalogSeedService.seed_if_needed",
+        lambda: False,
+    )
 
     class FakeService:
         def __init__(self):

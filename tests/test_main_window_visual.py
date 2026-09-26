@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLineEdit,
+    QMainWindow,
     QPushButton,
     QScrollArea,
     QVBoxLayout,

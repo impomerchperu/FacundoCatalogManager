@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
     QPushButton,
+    QScrollArea,
     QWidget,
 )
 

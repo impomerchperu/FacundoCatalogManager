@@ -318,7 +318,7 @@ def test_product_table_renders_stock_by_color_in_stock_cell():
 def test_product_table_stock_color_rows_have_no_outer_spacing():
     assert StockColorDelegate.HORIZONTAL_PADDING == 4
     assert StockColorDelegate.TEXT_HORIZONTAL_PADDING == 4
-    assert StockColorDelegate.TEXT_GAP == 6
+    assert StockColorDelegate.TEXT_GAP == 4
     assert not hasattr(StockColorDelegate, "TEXT_PIXEL_SIZE")
     assert StockColorDelegate.MIN_LINE_HEIGHT == 24
 

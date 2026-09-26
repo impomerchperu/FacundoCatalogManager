@@ -74,6 +74,12 @@ La instalación por usuario puede quedar en:
 
 El script de build contempla esa ruta además de las instalaciones globales.
 
+### Workflow Windows de GitHub Actions
+
+El workflow `.github/workflows/windows-build.yml` valida el empaquetado reproducible en un runner Windows. La base persistente real de desarrollo y las imágenes locales no están versionadas, por lo que el workflow utiliza una **semilla CI sintética**, creada desde `database/schema.sql`, únicamente para comprobar PyInstaller, el instalador y la generación de checksums. El instalador generado por CI no sustituye al bundle de release validado con el catálogo real.
+
+La validación funcional y de datos del bundle de release `0.1.1` se realizó localmente en Windows y en Windows Sandbox con Python ausente.
+
 ## Datos de usuario
 
 Cuando la aplicación está congelada, `config.runtime_paths` dirige la base, imágenes y logs a `%LOCALAPPDATA%\FacundoCatalogManager`.
@@ -187,7 +193,8 @@ La restauración se realizó en `%TEMP%\FCM-backup-validation\catalog-restored.d
 - [x] Implementar backup/restauración de `catalog.db` y cubrirlo con pruebas automatizadas.
 - [x] Validar backup/restore sobre una base real de usuario mediante el procedimiento aislado anterior.
 - [x] Actualizar versión de validación a `0.1.1`.
-- [x] Alinear el workflow de Windows de GitHub con la semilla validada y la detección de Inno Setup usada en la validación local.
+- [x] Alinear el workflow de Windows de GitHub con la ruta de empaquetado validada y la detección de Inno Setup usada en la validación local.
+- [ ] Ejecutar manualmente el workflow Windows de GitHub Actions y validar su artefacto de smoke de empaquetado.
 - [x] Ejecutar validación final del repositorio en `main`: Ruff limpio.
 - [x] Ejecutar validación final del repositorio en `main`: Pyright sin errores, advertencias ni informaciones.
 - [x] Ejecutar validación final del repositorio en `main`: 507 pruebas aprobadas y 10 deselected.

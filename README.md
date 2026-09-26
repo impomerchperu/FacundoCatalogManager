@@ -117,7 +117,7 @@ Para generar también el instalador:
 .\scripts\build_windows.ps1
 ```
 
-La versión inicial del instalador es `0.1.0`. El ejecutable, el instalador y los artefactos de build no se incorporan al repositorio. Antes de PyInstaller, `tools/prepare_windows_seed.py` valida la base `523 / 519 / 4`, comprueba las imágenes referenciadas y crea una copia SQLite consistente para el bundle.
+La versión de validación actual del instalador es `0.1.1`. El ejecutable, el instalador y los artefactos de build no se incorporan al repositorio. Antes de PyInstaller, `tools/prepare_windows_seed.py` valida la base `523 / 519 / 4`, comprueba las imágenes referenciadas y crea una copia SQLite consistente para el bundle.
 
 El checklist de validación está en `docs/FCM_WINDOWS_RELEASE.md`.
 

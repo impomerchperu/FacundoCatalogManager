@@ -151,7 +151,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(counter_layout)
 
         self._prepare_category_filter_layout()
-        self._center_initial_window()
+        self._set_initial_window_geometry()
 
         # El bootstrap histórico no debe bloquear la creación de la ventana.
         # Ambos trabajos comienzan después de que Qt haya podido mostrarla:
@@ -407,18 +407,8 @@ class MainWindow(QMainWindow):
         self.category_buttons = [self.all_categories_button]
         self._category_sidebar_open_width = 0
         self._category_sidebar_closed_width = 0
-        self.category_sidebar_placeholder = QWidget()
-        self.category_sidebar_placeholder.setStyleSheet(
-            "QWidget { background-color: #ffffff; }"
-        )
-        self.category_sidebar_placeholder.setSizePolicy(
-            QSizePolicy.Policy.Fixed,
-            QSizePolicy.Policy.Expanding,
-        )
-        self.category_sidebar_placeholder.setVisible(True)
         self.category_sidebar.setVisible(False)
 
-        catalog_layout.addWidget(self.category_sidebar_placeholder, 0)
         catalog_layout.addWidget(self.category_sidebar, 0)
         catalog_layout.addWidget(self.table, 1)
         filter_layout.addLayout(catalog_layout, 1)
@@ -570,17 +560,11 @@ class MainWindow(QMainWindow):
         self.category_toggle_button.setText(
             "Ocultar Categorías" if visible else "Filtrar Categorías",
         )
-        self._set_toggle_button_width(
-            self.category_toggle_button,
-            "Filtrar Categorías",
-            "Ocultar Categorías",
+        self.category_toggle_button.setFixedWidth(
+            self._category_sidebar_open_width,
         )
         self.category_sidebar.setVisible(visible)
         self.category_scroll.setVisible(visible)
-        placeholder = getattr(self, "category_sidebar_placeholder", None)
-        if placeholder is not None:
-            placeholder.setVisible(not visible)
-            placeholder.setFixedWidth(self._category_sidebar_open_width)
         self.category_sidebar.setFixedWidth(
             self._category_sidebar_open_width,
         )
@@ -695,9 +679,9 @@ class MainWindow(QMainWindow):
                 0,
                 Qt.AlignmentFlag.AlignLeft,
             )
-        placeholder = getattr(self, "category_sidebar_placeholder", None)
-        if placeholder is not None:
-            placeholder.setFixedWidth(self._category_sidebar_open_width)
+        toggle_button = getattr(self, "category_toggle_button", None)
+        if toggle_button is not None:
+            toggle_button.setFixedWidth(self._category_sidebar_open_width)
         if self.categories_visible:
             self.category_sidebar.setFixedWidth(
                 self._category_sidebar_open_width,
@@ -918,6 +902,13 @@ class MainWindow(QMainWindow):
         )
         if filename:
             CSVExporter.export(self.controller.get_products(), filename)
+
+    def _set_initial_window_geometry(self) -> None:
+        initial_width = (
+            self.INITIAL_WINDOW_WIDTH + self._category_sidebar_open_width
+        )
+        self.resize(initial_width, self.INITIAL_WINDOW_HEIGHT)
+        self._center_initial_window()
 
     def _center_initial_window(self) -> None:
         screen = QApplication.primaryScreen()

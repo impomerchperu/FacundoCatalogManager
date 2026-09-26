@@ -616,10 +616,7 @@ class MainWindow(QMainWindow):
         max_category_width = max(widths)
         scrollbar_width = self.category_scroll.verticalScrollBar().sizeHint().width()
         self._category_sidebar_open_width = (
-            max_category_width
-            + (2 * self.CATEGORY_BUTTON_HORIZONTAL_PADDING)
-            + scrollbar_width
-            + 2
+            max_category_width + scrollbar_width + 2
         )
         if self.categories_visible:
             self.category_sidebar.setFixedWidth(

@@ -728,10 +728,13 @@ class ScrapingHistoryDialog(QDialog):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
-        self._fit_change_table_row_heights(table)
+        table.resizeRowsToContents()
         header_height = max(header.height(), header.sizeHint().height())
         rows_height = sum(
-            table.rowHeight(row)
+            max(
+                table.rowHeight(row),
+                table.sizeHintForRow(row),
+            )
             for row in range(table.rowCount())
         )
         frame_height = 2 * table.frameWidth()
@@ -800,13 +803,10 @@ class ScrapingHistoryDialog(QDialog):
                 base_flexible + (1 if index < remainder else 0),
             )
 
-        table.resizeRowsToContents()
+        self._fit_change_table_row_heights(table)
         header_height = max(header.height(), header.sizeHint().height())
         rows_height = sum(
-            max(
-                table.rowHeight(row),
-                table.sizeHintForRow(row),
-            )
+            table.rowHeight(row)
             for row in range(table.rowCount())
         )
         frame_height = 2 * table.frameWidth()
@@ -853,7 +853,7 @@ class ScrapingHistoryDialog(QDialog):
                         table.columnWidth(column),
                     ),
                 )
-            table.setRowHeight(row, required_height + 2)
+            table.setRowHeight(row, required_height + 8)
 
     @staticmethod
     def _available_detail_table_height(

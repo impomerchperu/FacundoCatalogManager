@@ -58,7 +58,7 @@ El número de workers internos de paginación JSF también está centralizado en
 
 
 - categoría: `8` workers;
-- detalle: `16` workers;
+- detalle: `24` workers;
 - HTTP: `28` workers;
 - JetSmartFilters HTTP: `8` concurrentes.
 
@@ -113,12 +113,12 @@ El estado actual de `main` fue validado localmente el 2026-09-26 y Quality CI vo
 - Bootstrap/reconciliación: `15 passed`.
 - Batería de scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta.
-- FULL/E2E de producción validado: `24 / 523 / 519 / 4`, DB `519 / 523`, configuración `8 / 16 / 28`, `337` solicitudes HTTP, `0` retries y `0` errores terminales.
+- FULL/E2E de producción validado: `24 / 523 / 519 / 4`, DB `519 / 523`, configuración `8 / 24 / 28`, `333` solicitudes HTTP, `0` retries y `0` errores terminales.
 - La release formal `v0.1.1` está publicada y el tag apunta a `4238a9f`.
 
 ## Benchmark de rendimiento actual
 
-La última referencia de benchmark de concurrencia para la configuración productiva `8 / 16 / 28` usó `8` workers de categoría, `16` de detalle y `28` HTTP:
+La última referencia de benchmark de concurrencia utilizada para decidir el cambio de runtime comparó `8 / 16 / 28` contra `8 / 24 / 28`; la configuración productiva resultante es `8 / 24 / 28`:
 
 - `24` categorías.
 - `523` apariciones esperadas y encontradas.
@@ -134,7 +134,7 @@ La última referencia de benchmark de concurrencia para la configuración produc
 - `0` espera del semáforo de detalle.
 - `0` reintentos y `0` errores terminales.
 
-La última corrida controlada con `24` workers de detalle, manteniendo `8` workers de categoría, `28` HTTP y JSF `8 / 2`, también verificó `523/523`, `519` únicos, `4` multi-categoría, `0` reintentos y `0` errores terminales, con collection `47.55s`, enrichment `46.90s` y pipeline `96.49s`.
+La última corrida controlada con `24` workers de detalle, manteniendo `8` workers de categoría, `28` HTTP y JSF `8 / 2`, verificó `523/523`, `519` únicos, `4` multi-categoría, `0` reintentos y `0` errores terminales, con collection `47.55s`, enrichment `46.90s` y pipeline `96.49s`. El E2E productivo posterior, ya con `24` workers de detalle, confirmó `523/523`, persistencia DB `519/523`, historial aplicado, `333` requests, `0` retries y `0` errores terminales en `100.25s`.
 
 Los requests más lentos del muestreo fueron páginas de categoría, aproximadamente entre `8.19s` y `9.52s`. La evidencia del código explica el máximo global de `16`: no representa saturación del semáforo de `28`, sino la capacidad de los productores aguas arriba. Con `8` workers de categoría y `2` workers JSF por categoría, la paginación JSF puede generar hasta `8 × 2 = 16` requests; el enrichment también tiene `16` workers de detalle.
 
@@ -165,9 +165,9 @@ El diagnóstico de transporte del 2026-09-20 quedó cerrado con cuatro corridas 
 - [x] Cerrar la comparación de `FCM_BENCH_CATEGORY_PAGE_WORKERS` bajo `8 / 16 / 28` + JSF `8 / 2`: tres corridas por condición, cobertura completa y `0` errores; no se estableció beneficio reproducible
 - [x] Determinar por qué el máximo HTTP en vuelo del benchmark queda en `16` pese al límite configurado de `28`: lo limita la paralelización aguas arriba, no el semáforo global.
 - [x] Separar el coste de requests de categoría, JSF y detalle por percentiles y por etapa mediante telemetría de P50/P95/P99, máximos en vuelo por clase y tiempos agregados.
-- [x] Los diagnósticos controlados no identificaron una oportunidad reproducible que justificara un cambio de runtime; producción conserva `8 / 16 / 28` + JSF `8 / 2` + category-page `1`.
-- [x] No hubo cambio de runtime posterior a los diagnósticos; por tanto no se activa una nueva validación FULL post-cambio.
-- [x] La última validación E2E productiva existente sigue siendo la referencia porque no hubo cambio de runtime que requiriera otro E2E.
+- [x] Los diagnósticos controlados justificaron elevar detail workers a `24`: ambas parejas reales redujeron el wall-clock y mantuvieron cobertura completa y cero errores.
+- [x] El E2E productivo completo con `24` workers validó scraping, SQLite, relaciones, run metrics e historial.
+- [ ] Ejecutar una nueva validación FULL de referencia con el runtime productivo `8 / 24 / 28` para cerrar el cambio como baseline operativo.
 
 ## Progreso de UI
 
@@ -244,7 +244,7 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 
 ## Estado posterior a release
 
-No existen pendientes técnicos bloqueantes en el baseline validado. La configuración productiva permanece `8 / 16 / 28` + JSF `2` + category-page `1`.
+No existen pendientes técnicos bloqueantes en el baseline validado. La configuración productiva queda establecida en `8 / 24 / 28` + JSF `2` + category-page `1`, pendiente únicamente la siguiente FULL de referencia post-cambio.
 
 Cualquier optimización futura de red, scraping, persistencia o concurrencia se tratará como un cambio nuevo: benchmark controlado, validación de cobertura/persistencia y actualización del checkpoint antes de considerarlo parte del baseline.
 
@@ -254,6 +254,6 @@ Cualquier optimización futura de red, scraping, persistencia o concurrencia se 
 - [x] mayor granularidad de callbacks de progreso durante enrichment;
 - [x] benchmark de red separado para detalle con comparación cruzada 16/24;
 - [x] fábricas de compatibilidad auditadas como delegados finos; se conservan por posible consumo externo.
-- [x] validación E2E real de producción después del cambio de concurrencia a 16 workers;
+- [x] validación E2E real de producción con 24 workers de detalle;
 
-Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes de cobertura del inventario vivo. La referencia operativa actual es `24 / 523 / 519 / 4` bajo `8 / 16 / 28`. Esta referencia debe actualizarse después de cada FULL completo, consistente y sin errores verificado.
+Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes de cobertura del inventario vivo. La referencia operativa actual es `24 / 523 / 519 / 4` bajo `8 / 24 / 28`; esta referencia debe actualizarse después de cada FULL completo, consistente y sin errores verificado.

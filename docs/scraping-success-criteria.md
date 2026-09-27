@@ -9,7 +9,7 @@ Una ejecución FULL del catálogo debe ser correcta, completa y segura para sinc
 
 ## Criterio funcional autorizado
 
-Una ejecución FULL válida cubre las 24 categorías y alcanza simultáneamente los totales publicados por las propias categorías en esa ejecución. El snapshot histórico `534 / 530 / 4` se conserva como referencia diagnóstica, no como contrato rígido del inventario vivo.
+Una ejecución FULL válida cubre las 24 categorías y alcanza simultáneamente los totales publicados por las propias categorías en esa ejecución. La referencia histórica es móvil y se actualiza al último FULL completo, consistente y sin errores que haya sido verificado.
 
 La prueba real debe tratar una variación de inventario (altas/bajas/movimientos de productos) como deriva del sitio y comprobar en su lugar que cada categoría se extrae sin gaps respecto de su `expected_count`, que el total encontrado coincide con ese total vigente y que la persistencia mantiene las mismas cantidades observadas.
 
@@ -21,7 +21,7 @@ La prueba real debe tratar una variación de inventario (altas/bajas/movimientos
 - `coverage_gap=0`.
 - `error_count=0`.
 
-Estos números son la referencia operativa actual; `534 / 530 / 4` se conserva como snapshot histórico de diagnóstico.
+Estos números constituyen la referencia operativa actualmente verificada. Cuando un FULL posterior termina completo, consistente y sin errores, sus totales pasan a ser la nueva referencia.
 
 Los pisos históricos menores, como `529/525`, no sustituyen la cobertura completa.
 
@@ -43,15 +43,7 @@ El historial no se elimina para reparar el catálogo. Las ejecuciones anteriores
 
 Una repetición idéntica sobre la misma SQLite debe ser idempotente: la segunda sincronización no crea ni actualiza productos, clasifica los productos como `unchanged` y no genera filas en `download_changes`. Esta garantía está validada por el test de integración de SQLite y el Quality CI actual.
 
-La validación histórica de una base real que produjo `run 34` se conserva únicamente como evidencia de recuperación y reconciliación:
-
-- integridad SQLite: `ok`;
-- catálogo histórico: `530` productos;
-- relaciones históricas: `534` producto-categoría;
-- `coverage_complete=1` y `coverage_gap=0`;
-- `run 34`: `534 / 530 / 4`.
-
-Ese snapshot no representa el inventario vivo actual.
+Las validaciones anteriores de bases reales se conservan solo como archivo de auditoría. No establecen un piso de cobertura ni sustituyen la referencia viva del último FULL verificado.
 
 ## Recuperación de red
 
@@ -74,7 +66,7 @@ La evidencia disponible muestra que el coste principal está en red, especialmen
 
 La telemetría de enrichment por categoría registra `requested`, `skipped`, `total_seconds`, `submit_seconds` y `wait_seconds` sin modificar la semántica del scraping. Está cubierta por una prueba de contrato específica y permite separar el tiempo de cada categoría de las métricas agregadas.
 
-No existe una cifra única de tiempo de pared que deba tratarse como requisito funcional: los benchmarks dependen del estado del sitio remoto y de la red. Cualquier optimización debe conservar cobertura completa respecto del inventario vivo y ser validada nuevamente. El snapshot `24 / 534 / 530 / 4` sigue siendo diagnóstico, no contrato rígido.
+No existe una cifra única de tiempo de pared que deba tratarse como requisito funcional: los benchmarks dependen del estado del sitio remoto y de la red. Cualquier optimización debe conservar cobertura completa respecto del inventario vivo y ser validada nuevamente.
 
 Un benchmark específico de contención de SQLite no es requisito para la corrección actual y queda como optimización futura, no como bloqueo de la funcionalidad validada.
 
@@ -98,7 +90,7 @@ data/images puede conservar archivos legacy de ejecuciones anteriores y resource
 - [x] El almacenamiento futuro queda protegido por limpieza automática posterior a un FULL completo.
 ## Deriva del inventario vivo
 
-La validación real más reciente observó `523` apariciones esperadas frente al snapshot histórico `534`. Esto no demuestra por sí mismo una regresión del scraper: `expected_count` se obtiene del sitio y puede cambiar legítimamente. El criterio de cobertura se basa ahora en la consistencia interna de la ejecución actual; el baseline histórico permanece visible para detectar desviaciones, no para bloquear el test por sí solo.
+La validación real más reciente estableció `523` apariciones esperadas. El criterio de cobertura se basa en la consistencia interna de la ejecución actual y esta referencia se reemplazará automáticamente a nivel de documentación de ingeniería cuando un FULL posterior, completo y sin errores, establezca nuevos totales verificados.
 
 ## Resultado del benchmark SQLite
 
@@ -122,7 +114,6 @@ El estado actual de `main` fue validado localmente el 2026-09-26 y Quality CI vo
 - Batería de scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta.
 - FULL/E2E de producción validado: `24 / 523 / 519 / 4`, DB `519 / 523`, configuración `8 / 16 / 28`, `337` solicitudes HTTP, `0` retries y `0` errores terminales.
-- Snapshot histórico preservado: `24 / 534 / 530 / 4`.
 - La release formal `v0.1.1` está publicada y el tag apunta a `4238a9f`.
 
 ## Benchmark de rendimiento actual
@@ -263,4 +254,4 @@ Cualquier optimización futura de red, scraping, persistencia o concurrencia se 
 - [x] fábricas de compatibilidad auditadas como delegados finos; se conservan por posible consumo externo.
 - [x] validación E2E real de producción después del cambio de concurrencia a 16 workers;
 
-Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes de cobertura del inventario vivo. La referencia operativa actual es `24 / 523 / 519 / 4` bajo `8 / 16 / 28`; el snapshot `24 / 534 / 530 / 4` se conserva como diagnóstico histórico.
+Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes de cobertura del inventario vivo. La referencia operativa actual es `24 / 523 / 519 / 4` bajo `8 / 16 / 28`. Esta referencia debe actualizarse después de cada FULL completo, consistente y sin errores verificado.

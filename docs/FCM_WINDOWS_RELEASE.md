@@ -80,7 +80,7 @@ El script de build contempla esa ruta además de las instalaciones globales.
 
 El workflow `.github/workflows/windows-build.yml` valida el empaquetado reproducible en un runner Windows. La base persistente real de desarrollo y las imágenes locales no están versionadas, por lo que el workflow utiliza una **semilla CI sintética**, creada desde `database/schema.sql`, únicamente para comprobar PyInstaller, el instalador y la generación de checksums. El instalador generado por CI no sustituye al bundle de release validado con el catálogo real.
 
-La validación funcional y de datos del bundle de release `0.1.1` se realizó localmente en Windows y en Windows Sandbox con Python ausente.
+La validación funcional y de datos del bundle de release `0.1.1` se conserva como evidencia histórica. Para `0.2.0` se repitió la validación local del bundle, instalador, actualización, reinstalación, desinstalación y Windows Sandbox con Python ausente.
 
 La ejecución manual del workflow `Windows Build` en GitHub Actions también terminó en `success`. El smoke CI confirmó el ejecutable, la semilla SQLite empaquetada y `seed/data/images`. La semilla utilizada por CI es sintética y sirve exclusivamente para validar el proceso de empaquetado; el bundle funcional de release continúa siendo el validado con el catálogo real.
 

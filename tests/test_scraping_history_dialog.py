@@ -1,4 +1,3 @@
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QHeaderView
 
 from gui.scraping_history_dialog import ScrapingHistoryDialog
@@ -32,7 +31,7 @@ def test_history_keeps_unrelated_product_changes_as_separate_rows():
     assert rows[0]["code"] == "ABC-001"
     assert rows[0]["variation"] == "Stock"
     assert rows[0]["old"] == "20"
-    assert rows[0]["new"] == "18"
+    assert rows[0]["new"] == "18 (-2)"
     assert rows[1]["variation"] == "Precio"
     assert rows[1]["old"] == "10"
     assert rows[1]["new"] == "12"
@@ -65,7 +64,7 @@ def test_history_uses_stock_for_single_color_and_does_not_duplicate_it():
     assert len(rows) == 1
     assert rows[0]["variation"] == "Stock"
     assert rows[0]["old"] == "500"
-    assert rows[0]["new"] == "400"
+    assert rows[0]["new"] == "400 (-100)"
 
 
 def test_history_uses_stock_by_color_for_multi_color_products():
@@ -95,7 +94,7 @@ def test_history_uses_stock_by_color_for_multi_color_products():
     assert len(rows) == 1
     assert rows[0]["variation"] == "Stock por color"
     assert rows[0]["old"] == "Azul: 500\nVerde: 1000"
-    assert rows[0]["new"] == "Azul: 400 (-100)\nVerde: 825 (+825)"
+    assert rows[0]["new"] == "Azul: 400 (-100)\nVerde: 825 (-175)"
 
 
 def test_history_stock_new_value_shows_signed_delta_for_single_stock():
@@ -137,6 +136,8 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
         ]
     )
 
+    table.show()
+    QApplication.processEvents()
     header = table.horizontalHeader()
     assert table.verticalHeader().isVisible()
     assert table.verticalHeader().sectionSize(0) >= 32

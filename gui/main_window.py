@@ -565,9 +565,9 @@ class MainWindow(QMainWindow):
             ' font-family: "Segoe UI";'
             f" font-size: {cls.CATEGORY_FONT_SIZE}px;"
             " color: #173f6d;"
-            " padding: 0px 4px;"
+            " padding: 0px 3px;"
             " text-align: left;"
-            " border: none;"
+            " border: 1px solid transparent;"
             " background: transparent;"
             "}"
             " QPushButton:hover { background-color: #eef5fb; }"
@@ -575,12 +575,12 @@ class MainWindow(QMainWindow):
             " background-color: #d8edf7;"
             " color: #173f6d;"
             " font-weight: bold;"
-            " border: none;"
+            " border: 1px solid transparent;"
+            " padding: 0px 3px;"
             "}"
             " QPushButton:focus {"
             " border: 1px solid #cbddea;"
             " padding: 0px 3px;"
-            " background-color: #fbfdff;"
             "}"
             " QPushButton:checked:focus {"
             " border: 1px solid #a9cfe2;"
@@ -693,7 +693,6 @@ class MainWindow(QMainWindow):
         for category in categories:
             button = CategoryFilterButton(category)
             button.setProperty("category_text", category)
-            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
             button.setStyleSheet(self._category_button_style())

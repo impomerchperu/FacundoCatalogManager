@@ -47,7 +47,7 @@ if (-not (Test-Path $BundleExe)) {
     throw "No se encontró el ejecutable esperado: $BundleExe"
 }
 
-$BundleVersionFile = Join-Path $RepoRoot "dist\\Windows\\FacundoCatalogManager\\_internal\\VERSION"
+$BundleVersionFile = Join-Path $RepoRoot "dist\Windows\FacundoCatalogManager\_internal\VERSION"
 if (-not (Test-Path $BundleVersionFile)) {
     throw "No se encontró la versión empaquetada: $BundleVersionFile"
 }

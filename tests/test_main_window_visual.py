@@ -278,6 +278,7 @@ def test_category_toggle_width_matches_sidebar_width_while_sidebar_is_hidden():
     )
     window.category_buttons = [reference]
     window.category_toggle_button = QPushButton("Filtrar Categorías")
+    window.category_toggle_button.setCheckable(True)
     MainWindow._configure_toggle_button(
         window.category_toggle_button,
         "Filtrar Categorías",

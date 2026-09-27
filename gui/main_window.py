@@ -365,6 +365,10 @@ class MainWindow(QMainWindow):
         catalog_layout.setSpacing(self.CATEGORY_SIDEBAR_SPACING)
 
         self.category_sidebar = QWidget()
+        self.category_sidebar.setObjectName("category_sidebar")
+        self.category_sidebar.setStyleSheet(
+            "#category_sidebar { background-color: #ffffff; }"
+        )
         self.category_sidebar_layout = QVBoxLayout(self.category_sidebar)
         self.category_sidebar_layout.setContentsMargins(4, 0, 4, 0)
         self.category_sidebar_layout.setSpacing(self.CATEGORY_SIDEBAR_SPACING)
@@ -394,6 +398,10 @@ class MainWindow(QMainWindow):
         self.category_sidebar_layout.addWidget(self.category_scroll, 1)
 
         self.category_container = QWidget()
+        self.category_container.setObjectName("category_container")
+        self.category_container.setStyleSheet(
+            "#category_container { background-color: #ffffff; }"
+        )
         self.category_layout = QVBoxLayout(self.category_container)
         self.category_layout.setContentsMargins(0, 0, 0, 0)
         self.category_layout.setSpacing(self.CATEGORY_SPACING)

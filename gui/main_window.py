@@ -44,6 +44,7 @@ class CategoryFilterButton(QPushButton):
     """Botón de categoría con navegación vertical por teclado."""
 
     def paintEvent(self, event: QPaintEvent) -> None:
+        del event
         option = QStyleOptionButton()
         self.initStyleOption(option)
         option.state &= ~QStyle.StateFlag.State_HasFocus

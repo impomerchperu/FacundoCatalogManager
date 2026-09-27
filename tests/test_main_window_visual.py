@@ -335,21 +335,23 @@ def test_category_buttons_support_arrow_navigation_and_focus_frame():
     third_width = third.width()
 
     category_style = MainWindow._category_button_style()
-    assert "border: 1px solid transparent" in category_style
-    assert "QPushButton:focus" in category_style
-    assert "border: 1px solid #cbddea" in category_style
-    assert category_style.count("padding: 0px 3px") == 4
-    focus_rule = category_style.split(
-        " QPushButton:focus {",
-        1,
-    )[1].split("}", 1)[0]
-    assert "background-color" not in focus_rule
+    assert "border: none" in category_style
+    assert "padding: 0px 4px" in category_style
+    assert "text-align: left" in category_style
+    assert "QPushButton:focus" not in category_style
+    assert "border: 1px solid #000000" not in category_style
 
     assert first.focusPolicy() == Qt.FocusPolicy.StrongFocus
 
     first.setFocus()
     _qapp().processEvents()
     assert first.hasFocus()
+
+    focus_image = first.grab().toImage()
+    focus_color = focus_image.pixelColor(first.width() // 2, 0)
+    assert focus_color.red() == 0
+    assert focus_color.green() == 0
+    assert focus_color.blue() == 0
 
     down_event = QKeyEvent(
         QKeyEvent.Type.KeyPress,
@@ -386,6 +388,56 @@ def test_category_buttons_support_arrow_navigation_and_focus_frame():
     second.deleteLater()
     third.deleteLater()
     host.deleteLater()
+
+
+def test_category_keyboard_navigation_never_scrolls_horizontally():
+    _qapp()
+
+    scroll = CategoryScrollArea()
+    content = QWidget()
+    layout = QVBoxLayout(content)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(1)
+    buttons = []
+
+    for index in range(12):
+        button = CategoryFilterButton(f"Categoría {index:02d}")
+        button.setStyleSheet(MainWindow._category_button_style())
+        button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        button.setFixedWidth(210)
+        button.setFixedHeight(MainWindow.CATEGORY_BUTTON_HEIGHT)
+        layout.addWidget(button)
+        buttons.append(button)
+
+    content.adjustSize()
+    scroll.setWidgetResizable(False)
+    scroll.setWidget(content)
+    scroll.resize(230, 100)
+    scroll.show()
+    _qapp().processEvents()
+
+    assert scroll.verticalScrollBar().isVisible()
+
+    first_x = buttons[0].x()
+    first = buttons[0]
+    first.setFocus()
+    _qapp().processEvents()
+
+    for index in range(1, 10):
+        event = QKeyEvent(
+            QKeyEvent.Type.KeyPress,
+            Qt.Key.Key_Down,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        buttons[index - 1].keyPressEvent(event)
+        assert buttons[index].hasFocus()
+        assert buttons[index].x() == first_x
+        assert scroll.horizontalScrollBar().value() == 0
+
+    assert scroll.verticalScrollBar().value() > 0
+
+    scroll.deleteLater()
+    content.deleteLater()
 
 def test_category_scroll_area_rejects_horizontal_content_drift():
     _qapp()

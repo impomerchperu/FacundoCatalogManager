@@ -1202,7 +1202,7 @@ class ScrapingHistoryDialog(QDialog):
         if len(changed_prices) == 1 and "price" in changed_prices:
             change = changed_prices["price"]
             return (
-                change.get("label", "Precio"),
+                "Precio",
                 cls._display_value(change.get("old")),
                 cls._display_value(change.get("new")),
                 "",
@@ -1243,11 +1243,7 @@ class ScrapingHistoryDialog(QDialog):
                 )
             )
 
-        variation = (
-            next(iter(changed_prices.values())).get("label", "Precio")
-            if len(changed_prices) == 1
-            else "Precios"
-        )
+        variation = "Precio" if len(changed_prices) == 1 else "Precios"
         return (
             variation,
             "\n".join(old_lines),
@@ -1369,7 +1365,7 @@ class ScrapingHistoryDialog(QDialog):
         old_amount = cls._numeric_stock(old_value)
         new_amount = cls._numeric_stock(new_value)
         if cls._values_equal(old_value, new_value):
-            return str(new_amount) if new_amount is not None else "—"
+            return "—"
         delta = (
             new_amount - old_amount
             if new_amount is not None and old_amount is not None

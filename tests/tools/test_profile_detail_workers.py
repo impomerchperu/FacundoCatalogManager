@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 
 import tools.profile_detail_workers as profiler
@@ -107,7 +109,7 @@ def test_run_enrichment_builds_isolated_transport_for_each_variant(monkeypatch):
         lambda category_scraper, max_workers: FakeCollection(),
     )
 
-    category = Category(
+    category = SimpleNamespace(
         name="Demo",
         url="https://example.test/categoria-producto/demo/",
     )

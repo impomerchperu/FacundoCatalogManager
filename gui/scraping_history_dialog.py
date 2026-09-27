@@ -33,7 +33,8 @@ class ScrapingHistoryDialog(QDialog):
     APPLIED_BACKGROUND = "#b2ebf2"
     CONTENT_SIDE_PADDING = 4
     DETAIL_CHANGE_DIALOG_WIDTH = 1100
-    DETAIL_CHANGE_COLUMN_WIDTHS = (78, 96, 250, 150, 225, 225)
+    DETAIL_CHANGE_MIN_DIALOG_WIDTH = 820
+    DETAIL_CHANGE_FIXED_COLUMN_WIDTHS = {0: 78, 1: 96, 3: 135}
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -411,6 +412,7 @@ class ScrapingHistoryDialog(QDialog):
         dialog = QDialog(self)
         self.detail_dialog = dialog
         dialog.setWindowTitle("Detalle de la descarga")
+        dialog.setMinimumWidth(self.DETAIL_CHANGE_MIN_DIALOG_WIDTH)
         dialog.resize(self.DETAIL_CHANGE_DIALOG_WIDTH, 800)
         dialog.setModal(False)
         dialog.finished.connect(self._detail_dialog_closed)
@@ -565,12 +567,15 @@ class ScrapingHistoryDialog(QDialog):
         table.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
-        table.verticalHeader().setVisible(False)
+
+        vertical_header = table.verticalHeader()
+        vertical_header.setVisible(True)
+        vertical_header.setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
+        vertical_header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        vertical_header.setMinimumWidth(32)
 
         header = table.horizontalHeader()
-        for column, width in enumerate(self.DETAIL_CHANGE_COLUMN_WIDTHS):
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
-            header.resizeSection(column, width)
+        self._configure_change_table_columns(header)
 
         table.setRowCount(max(len(changes), 1))
         if changes:
@@ -598,6 +603,17 @@ class ScrapingHistoryDialog(QDialog):
 
         table.resizeRowsToContents()
         return table
+
+    @classmethod
+    def _configure_change_table_columns(cls, header: QHeaderView) -> None:
+        """Hace que las columnas variables ocupen siempre el ancho disponible."""
+        for column in range(6):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
+        for column, width in cls.DETAIL_CHANGE_FIXED_COLUMN_WIDTHS.items():
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
+            header.resizeSection(column, width)
+        for column in (2, 4, 5):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
 
     @classmethod
     def _prepare_change_rows(cls, changes: list[dict]) -> list[dict]:
@@ -682,7 +698,11 @@ class ScrapingHistoryDialog(QDialog):
             return (
                 "Stock por color",
                 cls._display_value(old_value),
-                cls._display_value(new_value),
+                cls._format_stock_new_value(
+                    old_value,
+                    new_value,
+                    by_color=True,
+                ),
             )
 
         old_value = (
@@ -698,8 +718,65 @@ class ScrapingHistoryDialog(QDialog):
         return (
             "Stock",
             cls._display_value(old_value),
-            cls._display_value(new_value),
+            cls._format_stock_new_value(old_value, new_value),
         )
+
+    @classmethod
+    def _format_stock_new_value(cls, old_value, new_value, *, by_color=False) -> str:
+        if by_color:
+            old_stock = cls._as_color_stock(old_value)
+            new_stock = cls._as_color_stock(new_value)
+            if not new_stock and not old_stock:
+                return cls._display_value(new_value)
+            lines = []
+            colors = sorted(
+                set(old_stock) | set(new_stock),
+                key=lambda item: str(item).casefold(),
+            )
+            for color in colors:
+                old_amount = cls._numeric_stock(old_stock.get(color))
+                new_amount = cls._numeric_stock(new_stock.get(color))
+                lines.append(
+                    cls._format_stock_line(
+                        color,
+                        new_stock.get(color),
+                        old_amount,
+                        new_amount,
+                    )
+                )
+            return "\n".join(lines)
+
+        old_amount = cls._numeric_stock(old_value)
+        new_amount = cls._numeric_stock(new_value)
+        if old_amount is None or new_amount is None:
+            return cls._display_value(new_value)
+        return cls._format_stock_delta_value(new_amount, new_amount - old_amount)
+
+    @staticmethod
+    def _numeric_stock(value) -> int | None:
+        if isinstance(value, bool):
+            return int(value)
+        try:
+            return int(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _format_stock_line(color, raw_new_value, old_amount, new_amount) -> str:
+        if new_amount is None:
+            return f"{color}: {ScrapingHistoryDialog._display_value(raw_new_value)}"
+        delta = new_amount - old_amount if old_amount is not None else None
+        value = str(new_amount)
+        if delta is not None and delta != 0:
+            value += f" ({delta:+d})"
+        return f"{color}: {value}"
+
+    @staticmethod
+    def _format_stock_delta_value(new_amount: int, delta: int) -> str:
+        value = str(new_amount)
+        if delta != 0:
+            value += f" ({delta:+d})"
+        return value
 
     @staticmethod
     def _as_color_stock(value) -> dict:

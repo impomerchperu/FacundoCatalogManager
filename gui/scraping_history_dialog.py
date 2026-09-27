@@ -466,36 +466,30 @@ class ScrapingHistoryDialog(QDialog):
         dialog = _HistoryDetailDialog(self)
         self.detail_dialog = dialog
         dialog.setWindowTitle("Detalle de la descarga")
-        dialog.setWindowFlags(
-            Qt.WindowType.Window
-            | Qt.WindowType.WindowTitleHint
-            | Qt.WindowType.WindowSystemMenuHint
-            | Qt.WindowType.WindowMinimizeButtonHint
-            | Qt.WindowType.WindowMaximizeButtonHint
-            | Qt.WindowType.WindowCloseButtonHint
-        )
-        dialog.setSizeGripEnabled(True)
         screen = dialog.screen() or QApplication.primaryScreen()
         if screen is not None:
             available = screen.availableGeometry()
-            dialog_width = min(
+            max_width = min(
+                self.DETAIL_CHANGE_DIALOG_WIDTH,
+                max(480, available.width() - self.DETAIL_DETAIL_MARGIN),
+            )
+            max_height = min(
+                800,
                 max(
-                    self.DETAIL_CHANGE_MIN_DIALOG_WIDTH,
-                    self.DETAIL_CHANGE_DIALOG_WIDTH,
+                    400,
+                    available.height() - self.DETAIL_DETAIL_MARGIN,
                 ),
-                available.width() - self.DETAIL_DETAIL_MARGIN,
             )
-            dialog_height = min(800, available.height() - self.DETAIL_DETAIL_MARGIN)
-            dialog.setMinimumSize(
-                min(self.DETAIL_CHANGE_MIN_DIALOG_WIDTH, available.width()),
-                min(self.DETAIL_DETAIL_MIN_HEIGHT, dialog_height),
+            dialog.setMinimumWidth(
+                min(self.DETAIL_CHANGE_MIN_DIALOG_WIDTH, max_width)
             )
-            dialog.resize(dialog_width, dialog_height)
+            dialog.setMaximumSize(max_width, max_height)
+            dialog.resize(
+                min(self.DETAIL_CHANGE_DIALOG_WIDTH, max_width),
+                min(800, max_height),
+            )
         else:
-            dialog.setMinimumSize(
-                self.DETAIL_CHANGE_MIN_DIALOG_WIDTH,
-                self.DETAIL_DETAIL_MIN_HEIGHT,
-            )
+            dialog.setMinimumWidth(self.DETAIL_CHANGE_MIN_DIALOG_WIDTH)
             dialog.resize(self.DETAIL_CHANGE_DIALOG_WIDTH, 800)
         dialog.setModal(False)
         dialog.finished.connect(self._detail_dialog_closed)
@@ -535,14 +529,11 @@ class ScrapingHistoryDialog(QDialog):
             f"Brecha: {expected_gap}",
         )
         coverage.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        coverage.setWordWrap(False)
-        coverage.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         coverage.setStyleSheet(
             "background:#fff3cd; color:#664d03; border:1px solid #ffda6a; "
             "border-radius:5px; padding:8px;"
         )
         layout.addWidget(coverage)
-        self._size_detail_dialog_for_coverage(dialog, coverage)
 
         multiple = getattr(history, "multiple_category_products", []) or []
         valid_multiple = [item for item in multiple if isinstance(item, dict)]
@@ -725,10 +716,13 @@ class ScrapingHistoryDialog(QDialog):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
-        self._fit_change_table_row_heights(table)
+        table.resizeRowsToContents()
         header_height = max(header.height(), header.sizeHint().height())
         rows_height = sum(
-            table.rowHeight(row)
+            max(
+                table.rowHeight(row),
+                table.sizeHintForRow(row),
+            )
             for row in range(table.rowCount())
         )
         frame_height = 2 * table.frameWidth()
@@ -858,66 +852,6 @@ class ScrapingHistoryDialog(QDialog):
         )
         return max(160, available)
 
-    @staticmethod
-    def _widget_content_height(widget: QWidget, width: int) -> int:
-        if width > 0:
-            widget.setFixedWidth(width)
-        widget.adjustSize()
-        height_for_width = widget.heightForWidth(width) if width > 0 else -1
-        return max(
-            widget.sizeHint().height(),
-            height_for_width,
-        )
-
-    def _fit_change_table_row_heights(self, table: QTableWidget) -> None:
-        table.doItemsLayout()
-        for row in range(table.rowCount()):
-            required_height = table.sizeHintForRow(row)
-            for column in range(table.columnCount()):
-                widget = table.cellWidget(row, column)
-                if widget is None:
-                    continue
-                required_height = max(
-                    required_height,
-                    self._widget_content_height(
-                        widget,
-                        table.columnWidth(column),
-                    ),
-                )
-            table.setRowHeight(row, required_height + 2)
-
-    def _size_detail_dialog_for_coverage(
-        self,
-        dialog: QDialog,
-        coverage: QLabel,
-    ) -> None:
-        screen = dialog.screen() or QApplication.primaryScreen()
-        layout = dialog.layout()
-        if screen is None or layout is None:
-            return
-
-        margins = layout.contentsMargins()
-        required_width = (
-            coverage.sizeHint().width()
-            + margins.left()
-            + margins.right()
-            + 8
-        )
-        available_width = (
-            screen.availableGeometry().width() - self.DETAIL_DETAIL_MARGIN
-        )
-        if required_width <= available_width:
-            coverage.setWordWrap(False)
-            target_width = max(dialog.width(), required_width)
-            if target_width > dialog.width():
-                dialog.resize(target_width, dialog.height())
-            return
-
-        coverage.setWordWrap(True)
-        coverage.setMinimumWidth(
-            max(320, available_width - margins.left() - margins.right() - 2)
-        )
-
     @classmethod
     def _format_product_name_for_table(cls, value: str) -> str:
         text = str(value or "").strip()
@@ -964,26 +898,25 @@ class ScrapingHistoryDialog(QDialog):
         if not rich_text and column == 5:
             rich_text = self._format_delta_value_html(value)
 
-        label = QLabel()
-        label.setTextFormat(
-            Qt.TextFormat.RichText if rich_text else Qt.TextFormat.PlainText
-        )
-        label.setText(rich_text or value)
-        label.setWordWrap(True)
-        label.setAlignment(
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        )
-        label.setToolTip(value.replace("\n", " · "))
-        label.setStyleSheet(
-            f'font-family: "{self.FONT_FAMILY}"; '
-            f"font-size: {self.BODY_FONT_SIZE}px; "
-            f"color: {self.TEXT_COLOR}; padding: 4px;"
-        )
-        table.setCellWidget(row, column, label)
-        label.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Preferred,
-        )
+        if rich_text:
+            label = QLabel()
+            label.setTextFormat(Qt.TextFormat.RichText)
+            label.setText(rich_text)
+            label.setWordWrap(True)
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            label.setToolTip(value.replace("\n", " · "))
+            label.setStyleSheet(
+                f'font-family: "{self.FONT_FAMILY}"; '
+                f"font-size: {self.BODY_FONT_SIZE}px; "
+                f"color: {self.TEXT_COLOR}; padding: 4px;"
+            )
+            table.setCellWidget(row, column, label)
+            return
+
+        item = QTableWidgetItem(value)
+        item.setToolTip(value.replace("\n", " · "))
+        item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        table.setItem(row, column, item)
 
     @classmethod
     def _format_delta_value_html(cls, value: str) -> str:

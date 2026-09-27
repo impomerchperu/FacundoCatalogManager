@@ -151,6 +151,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(counter_layout)
 
         self._prepare_category_filter_layout()
+        self.toggle_categories_visibility(True)
         self._set_initial_window_geometry()
 
         # El bootstrap histórico no debe bloquear la creación de la ventana.
@@ -416,9 +417,6 @@ class MainWindow(QMainWindow):
 
     def _add_action_buttons(self, layout: QHBoxLayout) -> None:
         buttons = [
-            ("Nuevo", self.new_product),
-            ("Editar", self.edit_product),
-            ("Eliminar", self.delete_product),
             ("Exportar Excel", self.export_excel),
             ("Exportar PDF", self.export_pdf),
             ("Exportar CSV", self.export_csv),
@@ -431,7 +429,7 @@ class MainWindow(QMainWindow):
             button.setFixedWidth(button.sizeHint().width())
             button.clicked.connect(callback)
             layout.addWidget(button)
-            if text in {"Nuevo", "Editar", "Eliminar", "Actualizar catálogo"}:
+            if text == "Actualizar catálogo":
                 self.catalog_bootstrap_blocked_buttons.append(button)
 
     @classmethod

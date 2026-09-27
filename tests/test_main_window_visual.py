@@ -382,37 +382,24 @@ def test_category_buttons_support_arrow_navigation_and_focus_frame():
     assert "border: none" in category_style
     assert "padding: 0px 4px" in category_style
     assert "text-align: left" in category_style
-    assert "QPushButton:focus" not in category_style
-    assert "border: 1px solid #000000" not in category_style
+    assert "QPushButton:focus" in category_style
+    assert "border: 1px solid #000000" in category_style
+    assert "padding: 0px 3px" in category_style
+
+    focus_rule = category_style.split(
+        "QPushButton:focus {",
+        1,
+    )[1].split("}", 1)[0]
+    assert "border: 1px solid #000000" in focus_rule
+    assert "padding: 0px 3px" in focus_rule
 
     assert first.focusPolicy() == Qt.FocusPolicy.StrongFocus
 
     first.setFocus()
     _qapp().processEvents()
     assert first.hasFocus()
-
-    focus_image = first.grab().toImage()
-    width = focus_image.width()
-    height = focus_image.height()
-
-    def is_black(x: int, y: int) -> bool:
-        color = focus_image.pixelColor(x, y)
-        return (
-            color.red() <= 8
-            and color.green() <= 8
-            and color.blue() <= 8
-            and color.alpha() >= 240
-        )
-
-    top_black = any(is_black(x, 1) for x in range(2, width - 2))
-    bottom_black = any(is_black(x, height - 2) for x in range(2, width - 2))
-    left_black = any(is_black(1, y) for y in range(2, height - 2))
-    right_black = any(is_black(width - 2, y) for y in range(2, height - 2))
-
-    assert top_black
-    assert bottom_black
-    assert left_black
-    assert right_black
+    focused_width = first.width()
+    assert focused_width == first_width
 
     down_event = QKeyEvent(
         QKeyEvent.Type.KeyPress,

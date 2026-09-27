@@ -124,7 +124,7 @@ def _run_enrichment(category, collected, max_workers):
 
 
 def main() -> int:
-    browser, category_scraper = _build_benchmark_transport()
+    _browser, category_scraper = _build_benchmark_transport()
     category_service = CategoryService(category_scraper, STORE_URL)
 
     categories = category_service.scrape_all()

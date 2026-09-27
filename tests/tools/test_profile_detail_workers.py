@@ -70,6 +70,7 @@ def test_select_category_accepts_override(monkeypatch):
 
     assert profiler._select_category(categories) is categories[0]
 
+
 def test_run_enrichment_builds_isolated_transport_for_each_variant(monkeypatch):
     transports = []
     closed_collections = []

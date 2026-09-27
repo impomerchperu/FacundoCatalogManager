@@ -64,7 +64,7 @@ def test_history_uses_stock_for_single_color_and_does_not_duplicate_it():
     assert len(rows) == 1
     assert rows[0]["variation"] == "Stock"
     assert rows[0]["old"] == "500"
-    assert rows[0]["new"] == "400 (-100)"
+    assert rows[0]["new"] == "Azul: 400 (-100)"
 
 
 def test_history_uses_stock_by_color_for_multi_color_products():
@@ -93,8 +93,67 @@ def test_history_uses_stock_by_color_for_multi_color_products():
 
     assert len(rows) == 1
     assert rows[0]["variation"] == "Stock por color"
-    assert rows[0]["old"] == "Azul: 500\nVerde: 1000"
+    assert rows[0]["old"] == "Azul: 500\nVerde: 1,000"
     assert rows[0]["new"] == "Azul: 400 (-100)\nVerde: 825 (-175)"
+
+
+def test_history_uses_spanish_change_type_labels():
+    assert ScrapingHistoryDialog._change_type_text("UPDATED") == "ACTUALIZADO"
+    assert ScrapingHistoryDialog._change_type_text("NEW") == "NUEVO"
+    assert ScrapingHistoryDialog._change_type_text("DELETED") == "ELIMINADO"
+
+
+def test_history_groups_price_changes_into_one_vertical_variation():
+    changes = [
+        {
+            "type": "UPDATED",
+            "code": "ABC-005",
+            "name": "Producto con precios",
+            "field": "price_sample",
+            "label": "Precio muestra",
+            "old": 3.50,
+            "new": 4.00,
+        },
+        {
+            "type": "UPDATED",
+            "code": "ABC-005",
+            "name": "Producto con precios",
+            "field": "price_hundred",
+            "label": "Precio ciento",
+            "old": 3.50,
+            "new": 2.00,
+        },
+    ]
+
+    rows = ScrapingHistoryDialog._prepare_change_rows(changes)
+
+    assert len(rows) == 1
+    assert rows[0]["variation"] == "Precios"
+    assert rows[0]["old"] == "muestra: s/3.50\nciento: s/3.50"
+    assert rows[0]["new"] == "muestra: s/4.00 (+s/0.50)\nciento: s/2.00 (-s/1.50)"
+    assert "#188038" in rows[0]["new_html"]
+    assert "#d93025" in rows[0]["new_html"]
+
+
+def test_history_formats_category_values_vertically():
+    changes = [
+        {
+            "type": "UPDATED",
+            "code": "ABC-006",
+            "name": "Producto con categoría",
+            "field": "category",
+            "label": "Categoría",
+            "old": "Azul",
+            "new": "Azul, Verde",
+        }
+    ]
+
+    rows = ScrapingHistoryDialog._prepare_change_rows(changes)
+
+    assert len(rows) == 1
+    assert rows[0]["variation"] == "Categoría"
+    assert rows[0]["old"] == "Azul"
+    assert rows[0]["new"] == "Azul\nVerde"
 
 
 def test_history_stock_new_value_shows_signed_delta_for_single_stock():
@@ -143,7 +202,8 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     assert table.verticalHeader().sectionSize(0) >= 32
     assert header.sectionResizeMode(0) == QHeaderView.ResizeMode.Fixed
     assert header.sectionResizeMode(1) == QHeaderView.ResizeMode.Fixed
-    assert header.sectionResizeMode(2) == QHeaderView.ResizeMode.Stretch
+    assert header.sectionResizeMode(2) == QHeaderView.ResizeMode.ResizeToContents
+    assert table.item(0, 0).text() == "ACTUALIZADO"
     assert header.sectionResizeMode(3) == QHeaderView.ResizeMode.Fixed
     assert header.sectionResizeMode(4) == QHeaderView.ResizeMode.Stretch
     assert header.sectionResizeMode(5) == QHeaderView.ResizeMode.Stretch

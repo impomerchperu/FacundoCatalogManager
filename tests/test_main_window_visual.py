@@ -123,9 +123,6 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
         for index in range(window.top_actions_container.layout().count())
     ]
     assert [widget.text() for widget in action_widgets] == [
-        "Nuevo",
-        "Editar",
-        "Eliminar",
         "Exportar Excel",
         "Exportar PDF",
         "Exportar CSV",
@@ -157,16 +154,13 @@ def test_action_buttons_are_grouped_for_top_right_layout():
     ]
 
     assert labels == [
-        "Nuevo",
-        "Editar",
-        "Eliminar",
         "Exportar Excel",
         "Exportar PDF",
         "Exportar CSV",
         "Actualizar catálogo",
         "Historial",
     ]
-    assert len(window.catalog_bootstrap_blocked_buttons) == 4
+    assert len(window.catalog_bootstrap_blocked_buttons) == 1
     assert all(
         "border: 1px solid #cbddea" in button.styleSheet()
         for button in [
@@ -395,5 +389,36 @@ def test_main_window_initial_geometry_includes_hidden_sidebar_width():
     assert window.width() == 1420
     assert window.height() == 700
     assert window.frameGeometry().center() == available.center()
+
+    window.deleteLater()
+
+
+def test_main_window_starts_with_categories_active_and_expected_geometry():
+    _qapp()
+
+    window = MainWindow.__new__(MainWindow)
+    window.categories_visible = False
+    window._category_sidebar_open_width = 220
+    window.INITIAL_WINDOW_WIDTH = 1200
+    window.INITIAL_WINDOW_HEIGHT = 700
+    window.category_toggle_button = QPushButton("Filtrar Categorías")
+    MainWindow._configure_toggle_button(
+        window.category_toggle_button,
+        "Filtrar Categorías",
+        "Ocultar Categorías",
+    )
+    window.category_sidebar = QWidget()
+    window.category_scroll = QScrollArea()
+    window.category_sidebar.setVisible(False)
+    window.category_scroll.setVisible(False)
+
+    MainWindow.toggle_categories_visibility(window, True)
+
+    assert window.categories_visible is True
+    assert window.category_sidebar.isVisible() is True
+    assert window.category_scroll.isVisible() is True
+    assert window.category_toggle_button.text() == "Ocultar Categorías"
+    assert window.category_toggle_button.width() == 220
+    assert window.category_sidebar.width() == 220
 
     window.deleteLater()

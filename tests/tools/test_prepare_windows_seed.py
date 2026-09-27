@@ -7,7 +7,6 @@ import pytest
 
 from tools.prepare_windows_seed import prepare_seed
 
-
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "database" / "schema.sql"
 

@@ -24,7 +24,7 @@ The current operational real-site reference is the latest validated successful c
 - `coverage_complete=true`
 - `coverage_gap=0`
 - `error_count=0`
-- production configuration: category `8`, detail `16`, HTTP `28`
+- production configuration: category `8`, detail `24`, HTTP `28`
 - latest production-style E2E: DB `519 / 523`, `337` HTTP requests, `0` retries, `0` terminal errors
 
 Future FULL validation must be governed by the latest successful complete run and the current `expected_count` values published by the live categories, not by a manually chosen historical coverage floor such as 529/525.
@@ -49,10 +49,10 @@ It is not the current operational catalog baseline.
 - max retries: `3`
 - category workers: `8`
 - shared HTTP workers: `28`
-- detail workers: `16`
+- detail workers: `24`
 - HTML parser: `lxml`
 
-The historical run/history 191 remains available for recovery diagnostics. The protected operational baseline is `24 / 523 / 519 / 4`. A real-site production-style E2E under `8 / 16 / 28` validated the full scrape-to-SQLite-to-history path in an isolated SQLite database.
+The historical run/history 191 remains available for recovery diagnostics. The protected operational baseline is `24 / 523 / 519 / 4`. A real-site production-style E2E under `8 / 24 / 28` validated the full scrape-to-SQLite-to-history path in an isolated SQLite database.
 
 ## Latest repository validation
 
@@ -83,7 +83,7 @@ Current validated production-style E2E evidence:
 
 Historical diagnostics remain useful for profiling but are not treated as the current runtime baseline. In particular, older samples with `349` requests, `289` detail requests or `534 / 530` catalog counts are preserved as diagnostic evidence, not current state.
 
-The enrichment/detail timing telemetry is now in place. Controlled live measurements crossed 16 and 24 detail workers and showed no reproducible wall-clock benefit for 24; the production detail-worker default remains `16`.
+The enrichment/detail timing telemetry is now in place. Two controlled live 16-vs-24 worker pairs both reduced wall time with `24` while preserving complete coverage and zero errors; the subsequent production-style E2E validated `24` end-to-end, so the production detail-worker default is now `24`.
 
 ## Progress contract
 

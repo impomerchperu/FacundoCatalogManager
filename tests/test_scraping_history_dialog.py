@@ -403,6 +403,10 @@ def test_history_change_value_columns_share_metrics_and_fit_row_height():
         + 2 * owner.DETAIL_CHANGE_SELECTION_FRAME_VERTICAL_CLEARANCE
     )
     assert table.rowHeight(0) >= expected_row_height
+    assert (
+        table.verticalHeader().sectionResizeMode(0)
+        == QHeaderView.ResizeMode.Interactive
+    )
 
     fitted_row_height = table.rowHeight(0)
     owner._fit_changes_table_to_dialog(dialog, table)

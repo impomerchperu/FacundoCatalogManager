@@ -15,7 +15,7 @@ Checkpoint de documentación actualizado: revisión del `2026-09-26` sobre `main
 - [x] Image hashing centralized without runtime semantic changes
 - [x] Legacy destructive catalog cleanup disabled and covered
 - [x] Legacy destructive image duplicate cleanup disabled and covered
-- [x] Historical FULL reference preserved at `24 / 534 / 530 / 4`
+- [x] Latest verified FULL reference updated to `24 / 523 / 519 / 4`
 - [x] Current operational FULL/E2E reference validated at `24 / 523 / 519 / 4`
 - [x] Bootstrap/reconciliation tests: `15 passed`
 - [x] HTTP/detail timing and retry telemetry audited
@@ -78,13 +78,13 @@ The desktop UI now separates initial catalog acquisition from interaction-time f
 - `ProductTable` performs progressive initial rendering for large catalogs.
 - `MainWindow.apply_filters()` computes matching products in memory and delegates visibility changes to `ProductTable.show_only_products()`.
 - Interactive filters therefore do not call `load_products()` and do not reconstruct 9 table cells per product.
-- The final GUI/release state was revalidated locally with the complete non-real-site suite: `534 passed, 10 deselected`; the recent GUI focus/scroll work does not alter the scraping runtime.
+- The final GUI/release state was revalidated locally with the complete non-real-site suite: `542 passed, 10 deselected`; the recent GUI focus/scroll work does not alter the scraping runtime.
 
 The shutdown hardening for the catalog GUI workers is now implemented and covered by a focused test. `MainWindow.closeEvent()` waits for active catalog-load/bootstrap threads before window destruction; scraping itself remains an independently controlled operation.
 
 ## AUTHORITATIVE FULL REFERENCE
 
-The governing functional reference is the latest successful complete FULL execution against the live inventory. The previous `24 / 534 / 530 / 4` remains a historical diagnostic snapshot.
+The governing functional reference is always the latest successful complete FULL execution against the live inventory. The currently verified reference is `24 / 523 / 519 / 4`.
 
 Current validated invariants:
 
@@ -99,7 +99,7 @@ Current validated invariants:
 
 ## HISTORICAL REAL DATABASE VALIDATION
 
-Una validación histórica previa de una base real confirmó un FULL `id=34` con métricas `24 / 534 / 530 / 4`. Ese snapshot pertenece al inventario histórico y no es la referencia operacional actual. Se conserva aquí únicamente como evidencia diagnóstica de la recuperación/reconciliación.
+Una validación anterior de una base real queda archivada únicamente como evidencia de recuperación/reconciliación. Sus métricas históricas no forman parte del baseline operativo ni se usan como piso de cobertura.
 
 - SQLite `PRAGMA integrity_check`: `ok`
 - Run status: `SUCCESS`
@@ -108,7 +108,7 @@ Una validación histórica previa de una base real confirmó un FULL `id=34` con
 - `initialized=1`
 - `history_recovery_applied=1`
 
-La referencia funcional vigente es la sección **AUTHORITATIVE FULL REFERENCE** y el E2E actual de `24 / 523 / 519 / 4`.
+La referencia funcional vigente es la sección **AUTHORITATIVE FULL REFERENCE**, actualmente `24 / 523 / 519 / 4`.
 
 ## BOOTSTRAP VALIDATION
 
@@ -190,7 +190,7 @@ This instrumentation is diagnostic only. It does not change coverage, product se
 
 ## PERFORMANCE STATUS
 
-Performance remains secondary to correctness. The current production configuration is `8 / 16 / 28`. A real production-style E2E has now validated the complete scrape-to-SQLite-to-history path under this configuration with `24 / 523 / 519 / 4` and DB `519 / 523`; the historical `24 / 534 / 530 / 4` remains diagnostic.
+Performance remains secondary to correctness. The current production configuration is `8 / 16 / 28`. A real production-style E2E has validated the complete scrape-to-SQLite-to-history path under this configuration with `24 / 523 / 519 / 4` and DB `519 / 523`.
 
 No single wall-clock number is treated as a functional requirement because the live site and network are variable. Any runtime optimization must be isolated, benchmarked and followed by another authoritative FULL validation.
 
@@ -224,7 +224,7 @@ El benchmark aislado de contención/latencia SQLite fue ejecutado sobre un catá
 ### 1. Corrección funcional
 
 - [x] FULL real de 24 categorías
-- [x] `523 / 519 / 4` as current live operational reference; `534 / 530 / 4` preserved as historical diagnostic snapshot
+- [x] `523 / 519 / 4` como referencia viva verificada y móvil; se actualiza tras cada FULL completo, consistente y sin errores
 - [x] `coverage_complete=1`
 - [x] `coverage_gap=0`
 - [x] zero invalidating errors
@@ -262,13 +262,13 @@ The current release baseline is the validated recovery result on `main`; the enr
 - VERSION: `0.1.1`
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
-- Pytest: `534 passed, 10 deselected`
+- Pytest: `542 passed, 10 deselected`
 - Focused GUI layout test: `19 passed`
 - Git working tree: clean
 
 La validación anterior de Quality CI queda como evidencia histórica; no se presenta como el resultado del checkpoint actual.
 
-The older focused-checkpoint and live-catalog references above remain historical evidence for the earlier audit checkpoint.
+Los snapshots anteriores del inventario quedan, cuando existen, como archivo de auditoría únicamente; nunca sustituyen la referencia viva verificada.
 
 El workflow Windows de GitHub Actions completó correctamente el smoke de empaquetado CI después de incorporar una imagen placeholder no funcional para impedir que el directorio de imágenes semilla desaparezca al empaquetar con PyInstaller.
 

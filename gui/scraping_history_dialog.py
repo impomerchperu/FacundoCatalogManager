@@ -901,7 +901,6 @@ class ScrapingHistoryDialog(QDialog):
             coverage.sizeHint().width()
             + margins.left()
             + margins.right()
-            + 2 * dialog.frameWidth()
             + 8
         )
         available_width = (

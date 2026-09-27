@@ -503,6 +503,20 @@ def test_product_table_reuses_cached_widths_when_window_resizes():
 
     assert table.resize_to_contents_calls == calls_after_render
 
+    table._sort_states = {
+        ProductTable.NAME_COLUMN: Qt.SortOrder.DescendingOrder,
+    }
+    table._apply_current_sort()
+    QApplication.processEvents()
+
+    calls_after_sort = table.resize_to_contents_calls
+    assert table._preferred_widths_cache is None
+
+    table.resize(2100, 700)
+    QApplication.processEvents()
+
+    assert table.resize_to_contents_calls > calls_after_sort
+
     table.load_products(
         [
             Product(

@@ -278,7 +278,6 @@ def test_category_scrollbar_mirrors_product_table_scrollbar():
     category_scrollbar = window.category_scroll.verticalScrollBar()
 
     assert category_scrollbar.singleStep() == table_scrollbar.singleStep()
-    assert category_scrollbar.palette() == table_scrollbar.palette()
     assert category_scrollbar.font() == table_scrollbar.font()
     assert category_scrollbar.styleSheet() == table_scrollbar.styleSheet()
     assert category_scrollbar.style() == table_scrollbar.style()

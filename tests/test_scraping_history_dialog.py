@@ -422,7 +422,7 @@ def test_history_window_has_no_footer_buttons_and_fits_table_width():
         "APLICADO",
     ]
     for column, value in enumerate(values):
-        dialog.table.setItem(row=0, column=column, item=QTableWidgetItem(value))
+        dialog.table.setItem(0, column, QTableWidgetItem(value))
     dialog.table.setItem(0, 9, QTableWidgetItem(""))
 
     dialog._fit_table_to_content()

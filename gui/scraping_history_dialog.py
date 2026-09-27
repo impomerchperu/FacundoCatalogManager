@@ -840,7 +840,10 @@ class ScrapingHistoryDialog(QDialog):
 
         non_table_height = 0
         for index in range(layout.count()):
-            widget = layout.itemAt(index).widget()
+            item = layout.itemAt(index)
+            if item is None:
+                continue
+            widget = item.widget()
             if widget is None or widget is table:
                 continue
             non_table_height += widget.sizeHint().height()

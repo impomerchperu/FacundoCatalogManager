@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QFontMetrics
+from PySide6.QtGui import QFont, QFontMetrics, QKeyEvent
 from PySide6.QtWidgets import (
     QApplication,
     QGridLayout,
@@ -310,29 +310,75 @@ def test_category_scrollbar_mirrors_product_table_scrollbar():
     host.deleteLater()
 
 
-def test_category_buttons_do_not_take_focus_while_scrolling():
+def test_category_buttons_support_arrow_navigation_and_focus_frame():
     _qapp()
 
-    window = MainWindow.__new__(MainWindow)
-    window.search_box = QLineEdit()
-    window.table = QTableWidget()
-    window.catalog_bootstrap_blocked_buttons = []
     host = QWidget()
     layout = QVBoxLayout(host)
+    buttons = [
+        CategoryFilterButton("Todas las categorías"),
+        CategoryFilterButton("Artículos de Escritorio"),
+        CategoryFilterButton("Enmicadoras / Laminadoras"),
+    ]
+    for button in buttons:
+        button.setStyleSheet(MainWindow._category_button_style())
+        layout.addWidget(button)
 
-    MainWindow.create_filter_controls(window, layout)
+    host.show()
+    _qapp().processEvents()
 
-    assert window.category_scroll.focusPolicy() == Qt.FocusPolicy.StrongFocus
-    assert (
-        window.all_categories_button.focusPolicy()
-        == Qt.FocusPolicy.NoFocus
+    first = buttons[0]
+    second = buttons[1]
+    third = buttons[2]
+    first_width = first.width()
+    second_width = second.width()
+    third_width = third.width()
+
+    assert first.focusPolicy() == Qt.FocusPolicy.StrongFocus
+    assert "QPushButton:focus" in first.styleSheet()
+    assert "border: 1px solid #cbddea" in first.styleSheet()
+    assert "padding: 0px 3px" in first.styleSheet()
+
+    first.setFocus()
+    _qapp().processEvents()
+    assert first.hasFocus()
+
+    down_event = QKeyEvent(
+        QKeyEvent.Type.KeyPress,
+        Qt.Key.Key_Down,
+        Qt.KeyboardModifier.NoModifier,
     )
+    first.keyPressEvent(down_event)
+    assert second.hasFocus()
 
-    window.category_scroll.deleteLater()
-    window.category_sidebar.deleteLater()
-    window.table.deleteLater()
-    window.search_box.deleteLater()
+    down_event = QKeyEvent(
+        QKeyEvent.Type.KeyPress,
+        Qt.Key.Key_Down,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    second.keyPressEvent(down_event)
+    assert third.hasFocus()
+
+    up_event = QKeyEvent(
+        QKeyEvent.Type.KeyPress,
+        Qt.Key.Key_Up,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    third.keyPressEvent(up_event)
+    assert second.hasFocus()
+
+    assert first.width() == first_width
+    assert second.width() == second_width
+    assert third.width() == third_width
+    assert first.text() == "Todas las categorías"
+    assert second.text() == "Artículos de Escritorio"
+    assert third.text() == "Enmicadoras / Laminadoras"
+
+    first.deleteLater()
+    second.deleteLater()
+    third.deleteLater()
     host.deleteLater()
+
 def test_category_scroll_area_rejects_horizontal_content_drift():
     _qapp()
 

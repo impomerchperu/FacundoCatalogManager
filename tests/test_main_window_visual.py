@@ -294,6 +294,14 @@ def test_category_scrollbar_mirrors_product_table_scrollbar():
         window.category_scroll.viewport().styleSheet()
         == "background-color: #ffffff;"
     )
+    assert (
+        window.category_sidebar.styleSheet()
+        == "#category_sidebar { background-color: #ffffff; }"
+    )
+    assert (
+        window.category_container.styleSheet()
+        == "#category_container { background-color: #ffffff; }"
+    )
 
     window.category_scroll.deleteLater()
     window.category_sidebar.deleteLater()
@@ -302,6 +310,25 @@ def test_category_scrollbar_mirrors_product_table_scrollbar():
     host.deleteLater()
 
 
+def test_category_buttons_do_not_take_focus_while_scrolling():
+    _qapp()
+
+    window = MainWindow.__new__(MainWindow)
+    window.search_box = QLineEdit()
+    window.table = QTableWidget()
+    window.catalog_bootstrap_blocked_buttons = []
+    host = QWidget()
+    layout = QVBoxLayout(host)
+
+    MainWindow.create_filter_controls(window, layout)
+
+    assert window.category_scroll.focusPolicy() == Qt.FocusPolicy.StrongFocus
+    assert (
+        window.all_categories_button.focusPolicy()
+        == Qt.FocusPolicy.NoFocus
+    )
+
+    window.deleteLater()
 def test_category_scroll_area_rejects_horizontal_content_drift():
     _qapp()
 

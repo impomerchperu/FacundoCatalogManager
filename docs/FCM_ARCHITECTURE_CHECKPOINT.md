@@ -190,7 +190,7 @@ This instrumentation is diagnostic only. It does not change coverage, product se
 
 ## PERFORMANCE STATUS
 
-Performance remains secondary to correctness. The current production configuration is `8 / 24 / 28`. A real production-style E2E has now validated the complete scrape-to-SQLite-to-history path under this configuration with `24 / 523 / 519 / 4`, DB `519 / 523`, applied history, `333` HTTP requests, `0` retries and `0` terminal HTTP errors.
+Performance remains secondary to correctness. The current production configuration is `8 / 24 / 28`. Two real production-style E2E validations have now confirmed the complete scrape-to-SQLite-to-history path under this configuration with `24 / 523 / 519 / 4`, DB `519 / 523`, applied history, `333` HTTP requests, `0` retries and `0` terminal HTTP errors; the latest wall time was `121.48s`.
 
 No single wall-clock number is treated as a functional requirement because the live site and network are variable. Any runtime optimization must be isolated, benchmarked and followed by another authoritative FULL validation.
 
@@ -327,7 +327,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Authoritative real-site scrape validated under production `8 / 24 / 28`
 - [x] Per-category enrichment timing telemetry instrumented and tested
 - [x] Benchmark: isolate detail worker behavior with two crossed live run pairs
-- [x] Final production E2E: revalidate coverage and persistence under `8 / 24 / 28`
+- [x] Final production E2E: revalidate coverage and persistence under `8 / 24 / 28` twice; latest run `121.48s`, with `333` requests, `0` retries and `0` terminal errors
 - [x] Baseline concurrency benchmark `8 / 16 / 28` re-run with live coverage contract; `24` detail workers subsequently validated
 - [x] HTTP diagnostics expose max in-flight by request class and P50/P95/P99 by stage
 - [x] JSF page workers centralized in `ScrapingConfig` with production default `2`
@@ -342,6 +342,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Close the category-page worker comparison under the current `8 / 16 / 28` + JSF `8 / 2` contract after repeat controls; `PAGE=1` mean `45.78s` vs `PAGE=2` mean `44.53s`, no reproducible benefit
 - [x] Explain HTTP max-in-flight `16` versus configured limit `28`
 - [x] Runtime detail concurrency was promoted from `16` to `24` after the controlled comparison and production-style E2E. The E2E harness now follows `ScrapingConfig` by default and can still override through `FCM_E2E_DETAIL_WORKERS`.
+- [x] Post-change FULL E2E repeated successfully with the production default; no functional regression was observed.
 
 ## IMAGE STORAGE AUDIT POSITION
 

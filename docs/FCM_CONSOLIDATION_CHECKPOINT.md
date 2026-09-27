@@ -2,7 +2,7 @@
 
 Fecha de alineación: 2026-09-26
 Branch oficial: `main`
-Último código funcional validado: `57a34711d3ddc0806d5d83685ef98de3a7e0451d` (`fix(test): organize scraping dialog imports`).
+Último estado de código y validación: `926c7653c1e7402ce505ccab665cd83593a5787a`.
 
 ## Referencias funcionales
 
@@ -106,7 +106,7 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - [x] Referencia operativa actual FULL/E2E: 24/523/519/4.
 - [x] Idempotencia validada en la misma SQLite: segunda ejecución idéntica clasifica todos los productos como `unchanged` y no genera `download_changes`.
 - [x] Correcciones del ledger y trazabilidad run/history validadas.
-- [x] La concurrencia productiva de detalle fue actualizada a `24` después de benchmark cruzado y E2E completo.
+- [x] La concurrencia productiva de detalle fue actualizada a `24` después de benchmark cruzado y dos E2E completos.
 - [x] No se ha cambiado el comportamiento funcional de prune; además se bloquearon herramientas legacy de borrado directo.
 - [x] Limpieza destructiva directa de imágenes bloqueada.
 - [x] Quality CI: success (`#2227` sobre `ec5297e`); Ruff, Pyright y Pytest permanecen verdes y `live-catalog` quedó `skipped` de forma intencional.
@@ -128,7 +128,7 @@ La etapa funcional principal continúa cerrada y protegida en `main`. El benchma
 - Configuración productiva `8 / 24 / 28`.
 - Consolidación de paginación/JSF/métricas/código.
 - Auditoría y bloqueo de herramientas legacy destructivas.
-- Calidad local, idempotencia sobre la misma SQLite, granularidad de progreso de enrichment y Quality CI base verdes.
+- Calidad local, idempotencia sobre la misma SQLite, granularidad de progreso de enrichment, cambio a `24` workers y Quality CI verdes.
 
 ### En revisión
 
@@ -148,7 +148,7 @@ La etapa funcional principal continúa cerrada y protegida en `main`. El benchma
 
 ### No ejecutar en esta fase
 
-- Nuevo FULL real solo para repetir la cobertura ya validada; la referencia operativa `24 / 523 / 519 / 4` ya fue confirmada dos veces.
+- No repetir FULL únicamente para demostrar nuevamente la misma cobertura, salvo que cambie el inventario vivo o exista evidencia de regresión.
 - Cambios de extracción, paginación o límites de concurrencia sin benchmark + FULL posterior.
 
 ## Modelo de autoridad persistente

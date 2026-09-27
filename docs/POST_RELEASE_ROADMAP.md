@@ -51,12 +51,13 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 - [x] Mantener JSF page workers en `2` y category-page workers en `1`.
 - [x] Comparar `detail_workers=16` vs `24` con dos parejas reales y cobertura completa.
 - [x] Validar `detail_workers=24` en el E2E productivo completo, incluyendo SQLite e historial.
-- [ ] Ejecutar la siguiente validación FULL con el runtime productivo ya establecido en `8 / 24 / 28`.
+- [x] Ejecutar la validación FULL post-cambio con el runtime productivo `8 / 24 / 28`.
 - [ ] Mantener la regla de no aceptar una optimización únicamente por una corrida rápida: debe conservar cobertura, persistencia e historial.
 - [x] Disponer de un comparador reproducible de artefactos benchmark para revisar configuración, cobertura y deltas de tiempo/HTTP sin interpretar manualmente los resultados.
 - [x] Ejecutar dos parejas reales `detail_workers=16` vs `24` con cobertura completa y cero errores; `24` redujo el tiempo de pared en ambas parejas.
-- [x] Validar `detail_workers=24` en E2E real de extremo a extremo: `24/523/519/4`, DB `519/523`, historial aplicado, `333` requests, `0` retries, `0` errores terminales.
+- [x] Validar `detail_workers=24` en E2E real de extremo a extremo y repetirlo con el default productivo: `24/523/519/4`, DB `519/523`, historial aplicado, `333` requests, `0` retries, `0` errores terminales; última corrida `121.48s`.
 - [x] Preparar el E2E productivo real para ejecutar `detail_workers` configurable mediante `FCM_E2E_DETAIL_WORKERS`, tomando ahora el default productivo de `ScrapingConfig` (`24`).
+- [x] Repetir el E2E sin override para confirmar que el valor productivo efectivo permanece en `24`.
 - [x] Validar localmente el comparador con la suite y dos parejas reales de artefactos benchmark.
 
 

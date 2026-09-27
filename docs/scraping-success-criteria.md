@@ -113,7 +113,7 @@ El estado actual de `main` fue validado localmente el 2026-09-26 y Quality CI vo
 - Bootstrap/reconciliación: `15 passed`.
 - Batería de scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta.
-- FULL/E2E de producción validado: `24 / 523 / 519 / 4`, DB `519 / 523`, configuración `8 / 24 / 28`, `333` solicitudes HTTP, `0` retries y `0` errores terminales.
+- FULL/E2E de producción validado: `24 / 523 / 519 / 4`, DB `519 / 523`, configuración `8 / 24 / 28`, `333` solicitudes HTTP, `0` retries y `0` errores terminales; última corrida `121.48s`.
 - La release formal `v0.1.1` está publicada y el tag apunta a `4238a9f`.
 
 ## Benchmark de rendimiento actual
@@ -167,7 +167,7 @@ El diagnóstico de transporte del 2026-09-20 quedó cerrado con cuatro corridas 
 - [x] Separar el coste de requests de categoría, JSF y detalle por percentiles y por etapa mediante telemetría de P50/P95/P99, máximos en vuelo por clase y tiempos agregados.
 - [x] Los diagnósticos controlados justificaron elevar detail workers a `24`: ambas parejas reales redujeron el wall-clock y mantuvieron cobertura completa y cero errores.
 - [x] El E2E productivo completo con `24` workers validó scraping, SQLite, relaciones, run metrics e historial.
-- [ ] Ejecutar una nueva validación FULL de referencia con el runtime productivo `8 / 24 / 28` para cerrar el cambio como baseline operativo.
+- [x] Ejecutar y repetir la validación FULL de referencia con el runtime productivo `8 / 24 / 28`; ambas ejecuciones mantuvieron cobertura completa, persistencia consistente, historial aplicado, `0` retries y `0` errores terminales.
 
 ## Progreso de UI
 
@@ -244,7 +244,7 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 
 ## Estado posterior a release
 
-No existen pendientes técnicos bloqueantes en el baseline validado. La configuración productiva queda establecida en `8 / 24 / 28` + JSF `2` + category-page `1`, pendiente únicamente la siguiente FULL de referencia post-cambio.
+No existen pendientes técnicos bloqueantes en el baseline validado. La configuración productiva queda establecida en `8 / 24 / 28` + JSF `2` + category-page `1`; el cambio de concurrencia quedó cerrado con E2E post-cambio repetido.
 
 Cualquier optimización futura de red, scraping, persistencia o concurrencia se tratará como un cambio nuevo: benchmark controlado, validación de cobertura/persistencia y actualización del checkpoint antes de considerarlo parte del baseline.
 

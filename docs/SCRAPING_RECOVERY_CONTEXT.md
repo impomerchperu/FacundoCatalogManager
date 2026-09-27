@@ -25,7 +25,7 @@ The current operational real-site reference is the latest validated successful c
 - `coverage_gap=0`
 - `error_count=0`
 - production configuration: category `8`, detail `24`, HTTP `28`
-- latest production-style E2E: DB `519 / 523`, `337` HTTP requests, `0` retries, `0` terminal errors
+- latest production-style E2E: DB `519 / 523`, `333` HTTP requests, `0` retries, `0` terminal errors, `121.48s`
 
 Future FULL validation must be governed by the latest successful complete run and the current `expected_count` values published by the live categories, not by a manually chosen historical coverage floor such as 529/525.
 
@@ -58,7 +58,7 @@ The historical run/history 191 remains available for recovery diagnostics. The p
 
 - Local validation on 2026-09-26: Ruff clean
 - Local validation: Pyright `0 errors, 0 warnings, 0 informations`
-- Local validation: Pytest `507 passed, 10 deselected`
+- Local validation: Pytest `542 passed, 10 deselected`
 - Quality CI on current release baseline: success
 - Architecture-boundary, bootstrap/reconciliation, runner/progress, retry/backoff and image-hashing contracts remain covered
 
@@ -69,7 +69,7 @@ The current evidence continues to point to network/category/detail work as the m
 
 Current validated production-style E2E evidence:
 
-- `337` HTTP requests
+- `333` HTTP requests
 - category workers: `8`
 - detail workers: `16`
 - HTTP budget: `28`
@@ -83,7 +83,7 @@ Current validated production-style E2E evidence:
 
 Historical diagnostics remain useful for profiling but are not treated as the current runtime baseline. In particular, older samples with `349` requests, `289` detail requests or `534 / 530` catalog counts are preserved as diagnostic evidence, not current state.
 
-The enrichment/detail timing telemetry is now in place. Two controlled live 16-vs-24 worker pairs both reduced wall time with `24` while preserving complete coverage and zero errors; the subsequent production-style E2E validated `24` end-to-end, so the production detail-worker default is now `24`.
+The enrichment/detail timing telemetry is now in place. Two controlled live 16-vs-24 worker pairs both reduced wall time with `24` while preserving complete coverage and zero errors; two subsequent production-style E2E runs validated `24` end-to-end, so the production detail-worker default is now `24`.
 
 ## Progress contract
 

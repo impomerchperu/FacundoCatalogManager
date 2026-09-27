@@ -1,8 +1,8 @@
 # FCM — Plan Maestro
 
-Fecha: 2026-09-24
+Fecha: 2026-09-26
 Branch oficial: `main`
-Último código funcional validado: `57a34711d3ddc0806d5d83685ef98de3a7e0451d`
+Último estado de código y validación: `926c7653c1e7402ce505ccab665cd83593a5787a`
 
 ## 1. Objetivo del proyecto
 
@@ -176,13 +176,15 @@ Este snapshot es diagnóstico e histórico. No bloquea una ejecución válida cu
 
 ## 4. Validación actual
 
-Estado local validado por el usuario en `main` el 2026-09-24:
+Estado local validado por el usuario en `main` el 2026-09-26:
 
 ```
 Ruff    → All checks passed!
 Pyright → 0 errors, 0 warnings, 0 informations
-Pytest  → 488 passed, 10 deselected
+Pytest  → 542 passed, 10 deselected
 ```
+
+E2E real post-cambio `8 / 24 / 28`, ejecutado dos veces, confirmó `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, `333` requests, `0` retries y `0` errores terminales.
 
 La validación real del catálogo permanece gobernada por `24 / 523 / 519 / 4` y por las invariantes de cobertura, persistencia e integridad de stock por color.
 

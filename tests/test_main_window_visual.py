@@ -263,6 +263,45 @@ def test_category_sidebar_uses_reference_width_and_elides_long_labels():
     window.category_sidebar.deleteLater()
 
 
+def test_category_sidebar_reserves_scrollbar_width_when_visible():
+    _qapp()
+
+    window = MainWindow.__new__(MainWindow)
+    window.categories_visible = True
+    window.category_sidebar = QWidget()
+    window.category_scroll = CategoryScrollArea()
+    window.category_scroll.setWidgetResizable(True)
+    container = QWidget()
+    window.category_scroll.setWidget(container)
+    window.category_sidebar.resize(240, 220)
+    window.category_sidebar_layout = QVBoxLayout(window.category_sidebar)
+    window.category_sidebar_layout.setContentsMargins(4, 0, 4, 0)
+    window.category_sidebar_layout.addWidget(window.category_scroll)
+
+    window._category_button_width = 190
+    window._category_sidebar_open_width = 198
+    window.category_sidebar.show()
+    window.category_scroll.show()
+    _qapp().processEvents()
+
+    scrollbar = window.category_scroll.verticalScrollBar()
+    scrollbar.setRange(0, 100)
+    _qapp().processEvents()
+
+    MainWindow._sync_category_sidebar_width_with_scrollbar(window, True)
+
+    expected_width = (
+        window._category_button_width
+        + (2 * MainWindow.CATEGORY_SIDEBAR_HORIZONTAL_PADDING)
+        + scrollbar.sizeHint().width()
+    )
+    assert window._category_sidebar_open_width == expected_width
+    assert window.category_sidebar.width() == expected_width
+
+    window.category_scroll.deleteLater()
+    window.category_sidebar.deleteLater()
+
+
 def test_category_scrollbar_mirrors_product_table_scrollbar():
     _qapp()
 

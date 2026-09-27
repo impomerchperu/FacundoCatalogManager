@@ -960,31 +960,6 @@ class ScrapingHistoryDialog(QDialog):
         base = escape(text[:base_length])
         suffix = escape(text[base_length:])
         return f'{base}{suffix} <span style="color:{color}; font-weight:600;">({escape(sign_text)})</span>'
-    @classmethod
-    def _format_stock_new_value(
-        cls,
-        old_value,
-        new_value,
-        *,
-        by_color: bool = False,
-    ) -> str:
-        if by_color:
-            return cls._format_stock_values(
-                cls._as_color_stock(old_value),
-                cls._as_color_stock(new_value),
-            )[1]
-        old_amount = cls._numeric_stock(old_value)
-        new_amount = cls._numeric_stock(new_value)
-        delta = (
-            new_amount - old_amount
-            if old_amount is not None and new_amount is not None
-            else None
-        )
-        return cls._format_delta_text(
-            cls._format_stock_scalar(new_value),
-            delta,
-        )
-
     @staticmethod
     def _numeric_stock(value) -> int | None:
         if isinstance(value, bool):
@@ -993,29 +968,6 @@ class ScrapingHistoryDialog(QDialog):
             return int(value) if value is not None else None
         except (TypeError, ValueError):
             return None
-
-    @classmethod
-    def _format_stock_line(
-        cls,
-        color,
-        raw_new_value,
-        old_amount,
-        new_amount,
-    ) -> str:
-        if new_amount is None:
-            return f"{color}: {cls._display_value(raw_new_value)}"
-        delta = new_amount - old_amount if old_amount is not None else None
-        value = str(new_amount)
-        if delta is not None and delta != 0:
-            value += f" ({delta:+d})"
-        return f"{color}: {value}"
-
-    @staticmethod
-    def _format_stock_delta_value(new_amount: int, delta: int) -> str:
-        value = str(new_amount)
-        if delta != 0:
-            value += f" ({delta:+d})"
-        return value
 
     @staticmethod
     def _as_color_stock(value) -> dict:

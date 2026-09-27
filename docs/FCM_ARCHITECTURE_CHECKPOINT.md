@@ -49,7 +49,7 @@ Checkpoint de documentación actualizado: revisión del `2026-09-26` sobre `main
 - [x] FULL/prune safety preserved natively in canonical sync/coverage policy
 - [x] Bootstrap/reconciliation preserved
 - [x] `ScrapingConfig` unified
-- [x] Production workers validated: category `8`, HTTP `28`, detail baseline benchmarked at `16`
+- [x] Production workers validated: category `8`, HTTP `28`, detail `24` validated end-to-end
 - [x] Product-code extraction and authoritative detail-code backfill preserved natively
 - [x] Retry/backoff metrics observable without changing retry semantics
 
@@ -148,7 +148,7 @@ A production-style E2E validation documented in this checkpoint confirmed the cu
 - DB relations: `523`
 - run occurrences: `523`
 - successful history with `applied_at`
-- configured workers `8 / 16 / 28`
+- configured workers `8 / 24 / 28`
 - terminal HTTP errors: `0`
 - HTTP retries: `0`
 - 337 HTTP requests
@@ -162,7 +162,7 @@ Recent complete FULL samples show that network work, especially category extract
 Current production configuration:
 
 - category workers: `8`
-- detail workers: `16`
+- detail workers: `24`
 - HTTP workers: `28`
 - JetSmartFilters HTTP concurrency: `8`
 - request timeout: `20s`
@@ -190,11 +190,11 @@ This instrumentation is diagnostic only. It does not change coverage, product se
 
 ## PERFORMANCE STATUS
 
-Performance remains secondary to correctness. The current production configuration is `8 / 16 / 28`. A real production-style E2E has validated the complete scrape-to-SQLite-to-history path under this configuration with `24 / 523 / 519 / 4` and DB `519 / 523`.
+Performance remains secondary to correctness. The current production configuration is `8 / 24 / 28`. A real production-style E2E has now validated the complete scrape-to-SQLite-to-history path under this configuration with `24 / 523 / 519 / 4`, DB `519 / 523`, applied history, `333` HTTP requests, `0` retries and `0` terminal HTTP errors.
 
 No single wall-clock number is treated as a functional requirement because the live site and network are variable. Any runtime optimization must be isolated, benchmarked and followed by another authoritative FULL validation.
 
-The enrichment instrumentation, crossed 16/24 worker benchmark, and intermediate progress callbacks are complete. Category concurrency has no justified increase. The initial JSF page-worker measurements were not comparable because the benchmark harness did not propagate the production JSF HTTP concurrency of `8`; the harness was corrected before the final comparison. Under the corrected contract, both PAGE `4` runs preserved `523/523` coverage and `0` terminal errors, but measured `42.85s` and `56.49s`, while PAGE `2` measured `53.43s`. The conflicting PAGE `4` results do not establish a reproducible wall-clock benefit, so the validated production default remains PAGE `2`. The isolated transport diagnostic is now closed: two collection runs with per-thread sessions measured `41.15s` and `52.79s`, while two comparable shared-session controls measured `53.43s` and `43.93s`. All four runs preserved `523/523` collection and `0` terminal errors. The aggregate difference is small relative to the observed run-to-run variability, and the direction is not consistent across paired observations; therefore no reproducible production benefit was established for `FCM_BENCH_THREAD_SESSIONS=1`. Production HTTP transport remains unchanged. The isolated category-page fetch diagnostic is closed. The category-page fetch comparison under the same `8 / 16 / 28` + JSF `8 / 2` contract now has three runs per condition. `PAGE=1`: `42.52s`, `51.15s`, `43.66s` (mean `45.78s`); `PAGE=2`: `45.59s`, `41.14s`, `46.85s` (mean `44.53s`). Every run preserved `523/523` collection and `0` terminal errors. The paired direction is not consistent (`PAGE=2` was slower once and faster twice), and the mean difference is only `1.25s` (`~2.7%`) within substantial run-to-run network variability. Therefore no reproducible production benefit is established and the validated production default remains `SCRAPING_CATEGORY_PAGE_WORKERS=1`. The benchmark diagnostic is closed without a runtime change. Quality CI runs `2093`–`2100` are green, including the stabilized concurrency test. `ProductCollectionScraper` now accepts benchmark-only `category_page_workers`, with production default `1`, and the live benchmark exposes `FCM_BENCH_CATEGORY_PAGE_WORKERS`. The default `1` preserves the pre-diagnostic behavior; values above `1` are not yet validated for production.
+The enrichment instrumentation, crossed 16/24 worker benchmark, and intermediate progress callbacks are complete. Category concurrency has no justified increase. The initial JSF page-worker measurements were not comparable because the benchmark harness did not propagate the production JSF HTTP concurrency of `8`; the harness was corrected before the final comparison. Under the corrected contract, both PAGE `4` runs preserved `523/523` coverage and `0` terminal errors, but measured `42.85s` and `56.49s`, while PAGE `2` measured `53.43s`. The conflicting PAGE `4` results do not establish a reproducible wall-clock benefit, so the validated production default remains PAGE `2`. The isolated transport diagnostic is now closed: two collection runs with per-thread sessions measured `41.15s` and `52.79s`, while two comparable shared-session controls measured `53.43s` and `43.93s`. All four runs preserved `523/523` collection and `0` terminal errors. The aggregate difference is small relative to the observed run-to-run variability, and the direction is not consistent across paired observations; therefore no reproducible production benefit was established for `FCM_BENCH_THREAD_SESSIONS=1`. Production HTTP transport remains unchanged. The isolated category-page fetch diagnostic is closed. The category-page fetch comparison was executed under the previously validated `8 / 16 / 28` + JSF `8 / 2` contract and remains historical evidence. `PAGE=1`: `42.52s`, `51.15s`, `43.66s` (mean `45.78s`); `PAGE=2`: `45.59s`, `41.14s`, `46.85s` (mean `44.53s`). Every run preserved `523/523` collection and `0` terminal errors. The paired direction is not consistent (`PAGE=2` was slower once and faster twice), and the mean difference is only `1.25s` (`~2.7%`) within substantial run-to-run network variability. Therefore no reproducible production benefit is established and the validated production default remains `SCRAPING_CATEGORY_PAGE_WORKERS=1`. The benchmark diagnostic is closed without a runtime change. Quality CI runs `2093`–`2100` are green, including the stabilized concurrency test. `ProductCollectionScraper` now accepts benchmark-only `category_page_workers`, with production default `1`, and the live benchmark exposes `FCM_BENCH_CATEGORY_PAGE_WORKERS`. The default `1` preserves the pre-diagnostic behavior; values above `1` are not yet validated for production.
 
 SQLite transaction-scope optimization is not currently a correctness blocker. A dedicated contention/latency benchmark is optional and should be triggered only by concrete evidence of SQLite contention.
 
@@ -323,12 +323,12 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Shared HTTP budget configured at `28`; observed peak `16` explained by upstream stage parallelism
 - [x] Retry/backoff telemetry available
 - [x] Category/HTTP workers `8 / 28` remain validated
-- [x] Detail workers `16` remain the production value; two controlled `16 vs 24` pairs show lower wall time with `24`, but higher aggregate HTTP time, so `24` remains a candidate pending production-style E2E
-- [x] Authoritative real-site scrape validated under production `8 / 16 / 28`
+- [x] Detail workers `24` are now the production value after two controlled `16 vs 24` pairs reduced wall time and a full production-style E2E validated persistence and history
+- [x] Authoritative real-site scrape validated under production `8 / 24 / 28`
 - [x] Per-category enrichment timing telemetry instrumented and tested
 - [x] Benchmark: isolate detail worker behavior with two crossed live run pairs
-- [x] Final production E2E: revalidate coverage and persistence under `8 / 16 / 28`
-- [x] Baseline concurrency benchmark `8 / 16 / 28` re-run with live coverage contract
+- [x] Final production E2E: revalidate coverage and persistence under `8 / 24 / 28`
+- [x] Baseline concurrency benchmark `8 / 16 / 28` re-run with live coverage contract; `24` detail workers subsequently validated
 - [x] HTTP diagnostics expose max in-flight by request class and P50/P95/P99 by stage
 - [x] JSF page workers centralized in `ScrapingConfig` with production default `2`
 - [x] Category worker comparison closed: `8` remains the validated production value; `12/16` showed no reproducible improvement
@@ -341,7 +341,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Validate the stabilized category-page concurrency test in the local suite and Quality CI
 - [x] Close the category-page worker comparison under the current `8 / 16 / 28` + JSF `8 / 2` contract after repeat controls; `PAGE=1` mean `45.78s` vs `PAGE=2` mean `44.53s`, no reproducible benefit
 - [x] Explain HTTP max-in-flight `16` versus configured limit `28`
-- [x] No runtime performance change was applied after the controlled diagnostics; production remains `8 / 16 / 28` while the `24` detail-worker candidate awaits a production-style E2E decision. The E2E harness now accepts `FCM_E2E_DETAIL_WORKERS` with `16` as default.
+- [x] Runtime detail concurrency was promoted from `16` to `24` after the controlled comparison and production-style E2E. The E2E harness now follows `ScrapingConfig` by default and can still override through `FCM_E2E_DETAIL_WORKERS`.
 
 ## IMAGE STORAGE AUDIT POSITION
 

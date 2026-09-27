@@ -2,11 +2,12 @@ import json
 import re
 import sqlite3
 from datetime import datetime
+from math import ceil
 from html import escape
 from typing import Callable, ClassVar
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QResizeEvent
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QResizeEvent, QTextDocument
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -60,6 +61,8 @@ class ScrapingHistoryDialog(QDialog):
     BUTTON_HEIGHT = 34
     APPLIED_BACKGROUND = "#b2ebf2"
     CONTENT_SIDE_PADDING = 4
+    DETAIL_CHANGE_VALUE_VERTICAL_PADDING = 8
+    DETAIL_CHANGE_ROW_HEIGHT_BUFFER = 2
     DETAIL_CHANGE_DIALOG_WIDTH = 1100
     DETAIL_CHANGE_MIN_DIALOG_WIDTH = 820
     DETAIL_CHANGE_FIXED_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
@@ -836,16 +839,42 @@ class ScrapingHistoryDialog(QDialog):
             )
             for column in (4, 5):
                 widget = table.cellWidget(row, column)
-                if widget is None:
+                if not isinstance(widget, QLabel):
                     continue
                 column_width = table.columnWidth(column)
                 if column_width <= 0:
                     continue
-                widget_height = widget.heightForWidth(column_width)
-                if widget_height < 0:
-                    widget_height = widget.sizeHint().height()
-                required_height = max(required_height, widget_height)
+                required_height = max(
+                    required_height,
+                    self._measure_change_value_height(widget, column_width),
+                )
             table.setRowHeight(row, required_height)
+
+    def _measure_change_value_height(
+        self,
+        widget: QLabel,
+        column_width: int,
+    ) -> int:
+        padding = self.DETAIL_CHANGE_VALUE_VERTICAL_PADDING
+        content_width = max(
+            column_width - (2 * self.CONTENT_SIDE_PADDING) - 2,
+            1,
+        )
+
+        document = QTextDocument()
+        document.setDefaultFont(widget.font())
+        document.setDocumentMargin(0)
+        document.setTextWidth(content_width)
+        document.setHtml(widget.text())
+        rendered_height = ceil(document.documentLayout().documentSize().height())
+
+        line_count = max(widget.text().count("<br>") + 1, 1)
+        minimum_text_height = line_count * QFontMetrics(widget.font()).lineSpacing()
+        return (
+            max(rendered_height, minimum_text_height)
+            + padding
+            + self.DETAIL_CHANGE_ROW_HEIGHT_BUFFER
+        )
 
     @staticmethod
     def _available_detail_table_height(

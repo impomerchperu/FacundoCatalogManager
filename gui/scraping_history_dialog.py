@@ -10,11 +10,9 @@ from PySide6.QtGui import QColor, QFont, QFontMetrics, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
-    QHBoxLayout,
     QHeaderView,
     QLabel,
     QMessageBox,
-    QPushButton,
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
@@ -211,19 +209,6 @@ class ScrapingHistoryDialog(QDialog):
 
         layout.addWidget(self.table)
 
-        buttons = QHBoxLayout()
-        refresh_button = QPushButton("Actualizar")
-        refresh_button.clicked.connect(self.load_history)
-        buttons.addWidget(refresh_button)
-        detail_button = QPushButton("Ver detalle")
-        detail_button.clicked.connect(self.show_selected_details)
-        buttons.addWidget(detail_button)
-        buttons.addStretch()
-        close_button = QPushButton("Cerrar")
-        close_button.clicked.connect(self.close)
-        buttons.addWidget(close_button)
-        layout.addLayout(buttons)
-
     def load_history(self) -> None:
         if not self.isVisible():
             return
@@ -283,7 +268,7 @@ class ScrapingHistoryDialog(QDialog):
                 layout.contentsMargins(),
             )
             self.setMinimumWidth(required_width)
-            if expand_window and self.width() < required_width:
+            if expand_window:
                 self.resize(required_width, self.height())
 
             available_width = max(self.table.viewport().width(), content_width)

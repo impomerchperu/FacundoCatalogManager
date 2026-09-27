@@ -10,12 +10,12 @@ from PySide6.QtGui import QColor, QFont, QFontMetrics, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
-    QSizePolicy,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,

@@ -22,9 +22,10 @@ MAX_RETRIES = 3
 SCRAPING_HTML_PARSER = "lxml"
 
 # Detail enrichment is I/O-bound. Controlled live benchmarks with crossed
-# 16/24-worker runs showed comparable wall time while 16 workers reduced
-# aggregate detail HTTP work by roughly 29% and kept latency lower.
-SCRAPING_MAX_WORKERS = 16
+# 16/24-worker runs repeatedly preserved complete coverage and zero errors;
+# 24 workers reduced end-to-end wall time in both final comparison pairs.
+# Production uses the validated 24-worker setting.
+SCRAPING_MAX_WORKERS = 24
 
 # The live production-concurrency benchmark repeatedly preserved complete
 # coverage with 8 category workers while avoiding the retry pressure observed
@@ -36,8 +37,8 @@ SCRAPING_CATEGORY_WORKERS = 8
 SCRAPING_CATEGORY_PAGE_WORKERS = 1
 
 # Keep the shared HTTP budget at the validated live FULL baseline:
-# 24 categories, 534 occurrences, 530 unique products, 4 multi-category
-# products, 534 product-category relationships, complete coverage, and
+# 24 categories, 523 occurrences, 519 unique products, 4 multi-category
+# products, 523 product-category relationships, complete coverage, and
 # zero invalidating errors. Increasing this budget did not improve wall time.
 SCRAPING_HTTP_WORKERS = 28
 

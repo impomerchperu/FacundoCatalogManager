@@ -34,27 +34,51 @@ if TYPE_CHECKING:
 class CategoryFilterButton(QPushButton):
     """Botón de categoría con navegación vertical por teclado."""
 
+    def _navigation_buttons(self) -> list["CategoryFilterButton"]:
+        parent = self.parentWidget()
+        if parent is None:
+            return []
+
+        layout = parent.layout()
+        if layout is None:
+            return []
+
+        buttons: list[CategoryFilterButton] = []
+        for index in range(layout.count()):
+            item = layout.itemAt(index)
+            if item is None:
+                continue
+            widget = item.widget()
+            if isinstance(widget, CategoryFilterButton):
+                buttons.append(widget)
+        return buttons
+
+    def _category_scroll_area(self) -> QScrollArea | None:
+        parent = self.parentWidget()
+        while parent is not None:
+            if isinstance(parent, QScrollArea):
+                return parent
+            parent = parent.parentWidget()
+        return None
+
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
-            parent = self.parentWidget()
-            while parent is not None and not isinstance(parent, MainWindow):
-                parent = parent.parentWidget()
+            buttons = self._navigation_buttons()
+            try:
+                index = buttons.index(self)
+            except ValueError:
+                index = -1
 
-            if isinstance(parent, MainWindow):
-                buttons = parent.category_buttons
-                try:
-                    index = buttons.index(self)
-                except ValueError:
-                    index = -1
-
-                step = -1 if event.key() == Qt.Key.Key_Up else 1
-                target_index = index + step
-                if 0 <= target_index < len(buttons):
-                    target = buttons[target_index]
-                    target.setFocus(Qt.FocusReason.OtherFocusReason)
-                    parent.category_scroll.ensureWidgetVisible(target)
-                    event.accept()
-                    return
+            step = -1 if event.key() == Qt.Key.Key_Up else 1
+            target_index = index + step
+            if 0 <= target_index < len(buttons):
+                target = buttons[target_index]
+                target.setFocus(Qt.FocusReason.OtherFocusReason)
+                scroll_area = self._category_scroll_area()
+                if scroll_area is not None:
+                    scroll_area.ensureWidgetVisible(target)
+                event.accept()
+                return
 
         super().keyPressEvent(event)
 
@@ -514,6 +538,7 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Fixed,
             QSizePolicy.Policy.Fixed,
         )
+        button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         button.setStyleSheet(
             'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 4px; }\n'
             + cls.ACTIVE_BUTTON_STYLE,

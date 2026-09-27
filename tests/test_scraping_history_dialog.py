@@ -378,9 +378,21 @@ def test_history_change_value_columns_share_metrics_and_fit_row_height():
     assert old_widget.text().count("<br>") == 2
     assert new_widget.text().count("<br>") == 2
 
-    old_height = old_widget.heightForWidth(table.columnWidth(4))
-    new_height = new_widget.heightForWidth(table.columnWidth(5))
-    assert table.rowHeight(0) >= max(old_height, new_height)
+    line_height = old_widget.fontMetrics().lineSpacing()
+    expected_minimum_height = (
+        3 * line_height
+        + owner.DETAIL_CHANGE_VALUE_VERTICAL_PADDING
+        + owner.DETAIL_CHANGE_ROW_HEIGHT_BUFFER
+    )
+    assert old_widget.height() >= expected_minimum_height
+    assert new_widget.height() >= expected_minimum_height
+    assert table.rowHeight(0) >= expected_minimum_height
+    assert old_widget.geometry().bottom() <= table.visualRect(
+        table.model().index(0, 4)
+    ).bottom()
+    assert new_widget.geometry().bottom() <= table.visualRect(
+        table.model().index(0, 5)
+    ).bottom()
 
     dialog.close()
     table.deleteLater()

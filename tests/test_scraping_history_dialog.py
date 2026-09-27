@@ -3,8 +3,8 @@ from PySide6.QtWidgets import (
     QApplication,
     QDialog,
     QHeaderView,
-    QPushButton,
     QLabel,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -396,9 +396,7 @@ def test_multiple_category_table_shows_every_row_without_partial_clipping():
 
 def test_history_window_has_no_footer_buttons_and_fits_table_width():
     app = QApplication.instance() or QApplication([])
-    dialog = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
-    dialog._is_fitting_columns = False
-    dialog._build_ui()
+    dialog = ScrapingHistoryDialog()
 
     layout = dialog.layout()
     assert layout is not None

@@ -398,10 +398,17 @@ def test_history_change_value_columns_share_metrics_and_fit_row_height():
     )
     table.selectRow(0)
     assert table.currentRow() == 0
-    assert table.rowHeight(0) >= (
+    expected_row_height = (
         expected_minimum_height
-        + owner.DETAIL_CHANGE_SELECTION_FRAME_VERTICAL_CLEARANCE
+        + 2 * owner.DETAIL_CHANGE_SELECTION_FRAME_VERTICAL_CLEARANCE
     )
+    assert table.rowHeight(0) >= expected_row_height
+
+    fitted_row_height = table.rowHeight(0)
+    owner._fit_changes_table_to_dialog(dialog, table)
+    app.processEvents()
+    assert table.rowHeight(0) == fitted_row_height
+
     assert old_widget.geometry().bottom() <= table.visualRect(
         table.model().index(0, 4)
     ).bottom()

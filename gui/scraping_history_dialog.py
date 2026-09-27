@@ -1050,12 +1050,25 @@ class ScrapingHistoryDialog(QDialog):
         new_color_stock = cls._as_color_stock(color_stock_data.get("new"))
 
         if old_color_stock or new_color_stock:
-            old_text, new_text, new_html = cls._format_stock_values(
-                old_color_stock,
-                new_color_stock,
-            )
-            variation = "Stock por color" if max(len(old_color_stock), len(new_color_stock)) > 1 else "Stock"
-            return (variation, old_text, new_text, new_html, "stock")
+            changed_colors = [
+                color
+                for color in set(old_color_stock) | set(new_color_stock)
+                if not cls._values_equal(
+                    old_color_stock.get(color),
+                    new_color_stock.get(color),
+                )
+            ]
+            if changed_colors:
+                old_text, new_text, new_html = cls._format_stock_values(
+                    old_color_stock,
+                    new_color_stock,
+                )
+                variation = (
+                    "Stock por color"
+                    if max(len(old_color_stock), len(new_color_stock)) > 1
+                    else "Stock"
+                )
+                return (variation, old_text, new_text, new_html, "stock")
 
         old_value = stock_data.get("old")
         new_value = stock_data.get("new")
@@ -1311,6 +1324,11 @@ class ScrapingHistoryDialog(QDialog):
             for color in colors:
                 old_amount = cls._numeric_stock(old_stock.get(color))
                 new_amount = cls._numeric_stock(new_stock.get(color))
+                if cls._values_equal(
+                    old_stock.get(color),
+                    new_stock.get(color),
+                ):
+                    continue
                 delta = (
                     new_amount - old_amount
                     if old_amount is not None and new_amount is not None
@@ -1336,6 +1354,8 @@ class ScrapingHistoryDialog(QDialog):
 
         old_amount = cls._numeric_stock(old_value)
         new_amount = cls._numeric_stock(new_value)
+        if cls._values_equal(old_value, new_value):
+            return str(new_amount) if new_amount is not None else "—"
         delta = (
             new_amount - old_amount
             if new_amount is not None and old_amount is not None

@@ -377,6 +377,12 @@ def test_history_change_value_columns_share_metrics_and_fit_row_height():
     assert old_widget.styleSheet() == new_widget.styleSheet()
     assert old_widget.text().count("<br>") == 2
     assert new_widget.text().count("<br>") == 2
+    assert old_widget.margin() == 0
+    assert new_widget.margin() == 0
+    assert old_widget.contentsMargins().top() == 4
+    assert old_widget.contentsMargins().bottom() == 4
+    assert new_widget.contentsMargins().top() == 4
+    assert new_widget.contentsMargins().bottom() == 4
 
     line_height = old_widget.fontMetrics().lineSpacing()
     expected_minimum_height = (

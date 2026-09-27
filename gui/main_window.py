@@ -494,7 +494,7 @@ class MainWindow(QMainWindow):
         self.category_scroll.setAlignment(
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
         )
-        self.category_scroll.verticalScrollBar().visibilityChanged.connect(
+        self.category_scroll.verticalScrollBar().rangeChanged.connect(
             self._sync_category_sidebar_width_with_scrollbar,
         )
         self.category_scroll.setMinimumHeight(0)
@@ -544,17 +544,21 @@ class MainWindow(QMainWindow):
         category_scrollbar.setSingleStep(table_scrollbar.singleStep())
         category_scrollbar.setFont(table_scrollbar.font())
 
-    def _sync_category_sidebar_width_with_scrollbar(self, visible: bool) -> None:
-        if not hasattr(self, "_category_button_width"):
+    def _sync_category_sidebar_width_with_scrollbar(
+        self,
+        _minimum: int = 0,
+        maximum: int = 0,
+    ) -> None:
+        if not hasattr(self, "_category_sidebar_button_width"):
             return
 
         scrollbar_width = (
             self.category_scroll.verticalScrollBar().sizeHint().width()
-            if visible
+            if maximum > 0
             else 0
         )
         self._category_sidebar_open_width = (
-            self._category_button_width
+            self._category_sidebar_button_width
             + (2 * self.CATEGORY_SIDEBAR_HORIZONTAL_PADDING)
             + scrollbar_width
         )
@@ -814,7 +818,7 @@ class MainWindow(QMainWindow):
             reference_text_width
             + (2 * self.CATEGORY_BUTTON_HORIZONTAL_PADDING)
         )
-        self._category_button_width = category_button_width
+        self._category_sidebar_button_width = category_button_width
         self._category_sidebar_open_width = (
             category_button_width + (2 * self.CATEGORY_SIDEBAR_HORIZONTAL_PADDING)
         )
@@ -841,6 +845,9 @@ class MainWindow(QMainWindow):
         toggle_button = getattr(self, "category_toggle_button", None)
         if toggle_button is not None:
             toggle_button.setFixedWidth(self._category_sidebar_open_width)
+        self._sync_category_sidebar_width_with_scrollbar(
+            maximum=self.category_scroll.verticalScrollBar().maximum(),
+        )
         if self.categories_visible:
             self.category_sidebar.setFixedWidth(
                 self._category_sidebar_open_width,

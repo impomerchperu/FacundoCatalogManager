@@ -195,3 +195,61 @@ def test_main_window_waits_for_catalog_threads_before_closing():
         "quit",
         "wait",
     ]
+
+def test_main_window_refreshes_catalog_and_history_after_successful_scraping():
+    calls = []
+
+    class FakeHistoryDialog:
+        def load_history(self):
+            calls.append("history")
+
+    class FakeScrapingDialog:
+        def setWindowTitle(self, title):
+            calls.append(("title", title))
+
+        def raise_(self):
+            calls.append("raise")
+
+        def activateWindow(self):
+            calls.append("activate")
+
+    window = MainWindow.__new__(MainWindow)
+    window.refresh_catalog = lambda: calls.append("catalog")
+    window.history_dialog = FakeHistoryDialog()
+    window.scraping_dialog = FakeScrapingDialog()
+
+    MainWindow.scraping_finished(window)
+
+    assert calls == [
+        "catalog",
+        "history",
+        ("title", "Actualización completada"),
+        "raise",
+        "activate",
+    ]
+
+
+def test_main_window_does_not_open_duplicate_scraping_window(monkeypatch):
+    calls = []
+
+    class FakeDialog:
+        def isMinimized(self):
+            return True
+
+        def showNormal(self):
+            calls.append("showNormal")
+
+        def raise_(self):
+            calls.append("raise")
+
+        def activateWindow(self):
+            calls.append("activate")
+
+    window = MainWindow.__new__(MainWindow)
+    window.catalog_bootstrap_running = False
+    window.scraping_dialog = FakeDialog()
+    monkeypatch.setattr(window, "is_scraping_running", lambda: True)
+
+    MainWindow.open_scraping(window)
+
+    assert calls == ["showNormal", "raise", "activate"]

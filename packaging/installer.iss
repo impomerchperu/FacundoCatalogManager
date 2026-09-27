@@ -3,7 +3,7 @@
 
 #define MyAppName "Facundo Catalog Manager"
 #ifndef FCM_VERSION
-#define FCM_VERSION "0.1.0"
+#error "FCM_VERSION debe ser suministrada por el script de build."
 #endif
 #define MyAppVersion FCM_VERSION
 #define MyAppPublisher "Importaciones Facundo"

@@ -52,6 +52,9 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 - [ ] Si aparece una regresión real de runtime, aislarla primero con benchmark controlado.
 - [ ] No aceptar una optimización únicamente por una corrida rápida: debe conservar cobertura, persistencia e historial.
 - [ ] Repetir FULL/E2E después de cualquier cambio de runtime que afecte scraping o concurrencia.
+- [x] Disponer de un comparador reproducible de artefactos benchmark para revisar configuración, cobertura y deltas de tiempo/HTTP sin interpretar manualmente los resultados.
+- [ ] Validar localmente el comparador con la suite y una pareja real de artefactos benchmark.
+
 
 ### 4. Observabilidad y mantenimiento
 - [ ] Mantener las métricas de cobertura, retries, tiempos y progreso como evidencia de diagnóstico.

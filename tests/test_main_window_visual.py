@@ -390,9 +390,7 @@ def test_main_window_initial_geometry_includes_hidden_sidebar_width():
     assert window.height() == 700
     assert window.frameGeometry().center() == available.center()
 
-    window.category_scroll.deleteLater()
-    window.category_sidebar.deleteLater()
-    window.category_toggle_button.deleteLater()
+    window.deleteLater()
 
 
 def test_main_window_starts_with_categories_active_and_expected_geometry():
@@ -423,4 +421,6 @@ def test_main_window_starts_with_categories_active_and_expected_geometry():
     assert window.category_toggle_button.width() == 220
     assert window.category_sidebar.width() == 220
 
-    window.deleteLater()
+    window.category_scroll.deleteLater()
+    window.category_sidebar.deleteLater()
+    window.category_toggle_button.deleteLater()

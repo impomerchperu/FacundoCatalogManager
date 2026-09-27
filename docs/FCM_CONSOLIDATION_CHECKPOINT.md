@@ -2,7 +2,7 @@
 
 Fecha de alineación: 2026-09-27
 Branch oficial: `main`
-Último estado de código funcional antes de esta actualización documental: `e36c7af0848018036cb83a467bd17bc3adf8b004`.
+Último estado de código funcional antes de esta actualización documental: `4a7a956f574626610e3ce80a50059b1dc28fd4da`.
 
 ## Referencias funcionales
 
@@ -185,13 +185,15 @@ Ninguna limpieza, refactor o optimización se considera válida si reduce la cob
 Los archivos locales `data/scraping_category_profile.json` y `data/scraping_detail_profile.json` son artefactos de profiling generados por las pruebas/diagnósticos; no forman parte de esta etapa de código y no deben añadirse al commit salvo decisión explícita posterior.
 \n\n## CURRENT MAIN VALIDATION — 2026-09-27
 
-La validación local del commit `e36c7af` quedó completamente verde:
+La validación local del commit `4a7a956` quedó completamente verde:
 
 - `tests/test_scraping_history_dialog.py`: **18 passed**.
-- `tests/tools/test_compare_benchmark_reports.py`: **12 passed**.
+- `tests/tools/test_compare_benchmark_reports.py`: **16 passed**.
 - Ruff: **All checks passed!**
 - Pyright: **0 errors, 0 warnings, 0 informations**.
-- Suite completa: **572 passed, 10 deselected**.
+- Suite completa: **577 passed, 10 deselected**.
 
 Esta sección representa el estado actual de `main`; las cifras anteriores del documento permanecen como evidencia histórica del momento en que fueron ejecutadas.
+
+La preparación de la semilla Windows cuenta además con **5 pruebas focalizadas** y no modifica el runtime productivo ni la validación física ya realizada para `v0.1.1`.
 

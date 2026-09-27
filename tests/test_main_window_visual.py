@@ -392,8 +392,8 @@ def test_category_buttons_support_arrow_navigation_and_focus_frame():
     assert first.hasFocus()
 
     focus_image = first.grab().toImage()
-    width = first.width()
-    height = first.height()
+    width = focus_image.width()
+    height = focus_image.height()
 
     def is_black(x: int, y: int) -> bool:
         color = focus_image.pixelColor(x, y)

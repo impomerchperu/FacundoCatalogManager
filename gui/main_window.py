@@ -1,7 +1,14 @@
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QPoint, Qt, QThread, QTimer
-from PySide6.QtGui import QFont, QFontMetrics, QKeyEvent
+from PySide6.QtGui import (
+    QFont,
+    QFontMetrics,
+    QKeyEvent,
+    QPainter,
+    QPaintEvent,
+    QPen,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -14,6 +21,8 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QStyle,
+    QStyleOptionButton,
     QVBoxLayout,
     QWidget,
 )
@@ -33,6 +42,26 @@ if TYPE_CHECKING:
 
 class CategoryFilterButton(QPushButton):
     """Botón de categoría con navegación vertical por teclado."""
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        del event
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        option.state &= ~QStyle.StateFlag.State_HasFocus
+
+        painter = QPainter(self)
+        self.style().drawControl(
+            QStyle.ControlElement.CE_PushButton,
+            option,
+            painter,
+            self,
+        )
+
+        if self.hasFocus():
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+            painter.setPen(QPen(Qt.GlobalColor.black))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
 
     def _navigation_buttons(self) -> list["CategoryFilterButton"]:
         parent = self.parentWidget()
@@ -632,17 +661,6 @@ class MainWindow(QMainWindow):
             " color: #173f6d;"
             " font-weight: bold;"
             " border: none;"
-            "}"
-            " QPushButton:focus {"
-            " border: 1px solid #000000;"
-            " padding: 0px 3px;"
-            "}"
-            " QPushButton:checked:focus {"
-            " border: 1px solid #000000;"
-            " padding: 0px 3px;"
-            " background-color: #d8edf7;"
-            " color: #173f6d;"
-            " font-weight: bold;"
             "}"
         )
 

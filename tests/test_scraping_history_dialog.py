@@ -336,6 +336,53 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     table.deleteLater()
 
 
+def test_history_change_value_columns_share_metrics_and_fit_row_height():
+    app = QApplication.instance() or QApplication([])
+    owner = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
+    table = owner._build_changes_table(
+        [
+            {
+                "type": "UPDATED",
+                "code": "FB-1200",
+                "name": "Posavasos con Abridor",
+                "variation": "Stock por color",
+                "old": "Amarillo: 8,521\nBlanco: 6,133\nNegro: 3,090",
+                "new": "Amarillo: 8,520 (-1)\nBlanco: 6,132 (-1)\nNegro: 2,770 (-320)",
+            }
+        ]
+    )
+
+    dialog = QDialog()
+    layout = QVBoxLayout(dialog)
+    layout.addWidget(table)
+    dialog.resize(1200, 400)
+    dialog.show()
+    table.show()
+    app.processEvents()
+
+    owner._fit_changes_table_to_dialog(dialog, table)
+    app.processEvents()
+
+    old_widget = table.cellWidget(0, 4)
+    new_widget = table.cellWidget(0, 5)
+    assert isinstance(old_widget, QLabel)
+    assert isinstance(new_widget, QLabel)
+    assert old_widget.textFormat() == Qt.TextFormat.RichText
+    assert new_widget.textFormat() == Qt.TextFormat.RichText
+    assert old_widget.wordWrap()
+    assert new_widget.wordWrap()
+    assert old_widget.styleSheet() == new_widget.styleSheet()
+    assert old_widget.text().count("<br>") == 2
+    assert new_widget.text().count("<br>") == 2
+
+    old_height = old_widget.heightForWidth(table.columnWidth(4))
+    new_height = new_widget.heightForWidth(table.columnWidth(5))
+    assert table.rowHeight(0) >= max(old_height, new_height)
+
+    dialog.close()
+    table.deleteLater()
+
+
 def test_multiple_category_table_shows_every_row_without_partial_clipping():
     QApplication.instance() or QApplication([])
     owner = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)

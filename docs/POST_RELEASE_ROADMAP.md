@@ -4,6 +4,7 @@ Fecha: 2026-09-27
 Baseline estable: `v0.1.1`  
 Tag: `v0.1.1`  
 Commit de release: `4238a9f`  
+Siguiente versión en preparación: `0.2.0`  
 Rama de desarrollo: `main`
 
 ## Estado
@@ -21,7 +22,7 @@ La referencia funcional vigente es:
 - `coverage_gap=0`
 - 0 errores invalidantes
 - Producción: 8 workers de categoría / 24 de detalle / 28 HTTP
-- Suite local validada el 2026-09-27: 577 passed, 10 deselected
+- Última suite local confirmada antes de los cambios de `0.2.0`: 577 passed, 10 deselected
 - Ruff limpio
 - Pyright sin errores, advertencias ni informaciones
 
@@ -46,7 +47,7 @@ La identidad visual, acceso directo del menú Inicio, acceso directo opcional de
 - [x] Validar el ajuste de caché con tests locales y completar el smoke manual final.
 - [x] Ajustar el historial: marco de selección con holgura vertical simétrica, PRODUCTO envuelto al ancho disponible y CÓDIGO ordenado alfanuméricamente.
 
-La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficiente para alterar arbitrariamente los anchos de Imagen, Código, Producto, Detalle o Precios. Los contratos existentes de Categoría y Stock se conservan sin cambios. Como mejora de rendimiento de bajo riesgo, `ProductTable` ahora reutiliza las mediciones de ancho preferido durante los `resizeEvent` y las invalida cuando cambia el contenido, la referencia completa del catálogo o el contenido dinámico del encabezado. La prueba focalizada pasó localmente (`19 passed`) y la suite completa quedó en `568 passed, 10 deselected`; el smoke manual final también fue completado sobre `main`.
+El bloque GUI de `main` está cerrado. La evidencia más reciente anterior a la candidata `0.2.0` fue la revisión visual del historial, incluyendo holgura vertical simétrica, wrapping de PRODUCTO al ancho disponible y ordenamiento alfanumérico de CÓDIGO.
 
 ### 3. Scraping y rendimiento
 - [x] Mantener category workers en `8` y HTTP workers en `28`.
@@ -72,6 +73,9 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 
 ### 5. Versionado y releases
 - [x] Baseline estable `v0.1.1` publicado.
+- [x] Centralizar la versión de aplicación en `VERSION` y propagarla a la aplicación y al bundle Windows.
+- [x] Eliminar fallback de versión antigua en Inno Setup.
+- [x] Alinear Pyright de CI con `requirements.txt`.
 - [x] Tag `v0.1.1` publicado.
 - [x] Instalador y SHA256 publicados.
 - [ ] Acumular futuros cambios sobre `main` y publicar una nueva versión solo cuando el conjunto de cambios esté validado.
@@ -79,7 +83,7 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 
 ## Próximo punto de desarrollo
 
-Con el pulido de GUI y la protección de evidencia benchmark cerrados, el siguiente trabajo no debe cambiar el runtime por intuición. El siguiente bloque es **mantenimiento operativo y preparación de la próxima versión**: mantener los contratos de observabilidad, revisar el comportamiento real solo ante evidencia y acumular cambios en `main` hasta que exista un conjunto funcional que justifique una nueva release. La validación del 2026-09-27 deja este baseline en `577 passed, 10 deselected`, con Ruff y Pyright limpios. La preparación de la semilla Windows cuenta ahora con una batería focal de integridad que cubre catálogo, FULL SUCCESS, cobertura y referencias de imágenes.
+Con la GUI, observabilidad y hardening de distribución cerrados, `main` contiene ahora la preparación técnica de `v0.2.0`: versión centralizada, validación de semilla Windows consolidada y CI alineado. La última suite local confirmada antes de la candidata fue `577 passed, 10 deselected`, con Ruff y Pyright limpios.
 
 ## Regla de seguridad del desarrollo
 

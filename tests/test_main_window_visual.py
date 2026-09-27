@@ -408,6 +408,7 @@ def test_main_window_starts_with_categories_active_and_expected_geometry():
     window.INITIAL_WINDOW_WIDTH = 1200
     window.INITIAL_WINDOW_HEIGHT = 700
     window.category_toggle_button = QPushButton("Filtrar Categorías")
+    window.category_toggle_button.setCheckable(True)
     MainWindow._configure_toggle_button(
         window.category_toggle_button,
         "Filtrar Categorías",

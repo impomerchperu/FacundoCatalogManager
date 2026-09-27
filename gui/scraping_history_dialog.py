@@ -723,6 +723,7 @@ class ScrapingHistoryDialog(QDialog):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
         table.resizeRowsToContents()
+        self._fit_change_table_row_heights(table)
         header_height = max(header.height(), header.sizeHint().height())
         rows_height = sum(
             max(
@@ -826,6 +827,25 @@ class ScrapingHistoryDialog(QDialog):
             else Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
         table.setFixedHeight(min(required_height, max_height))
+
+    def _fit_change_table_row_heights(self, table: QTableWidget) -> None:
+        for row in range(table.rowCount()):
+            required_height = max(
+                table.rowHeight(row),
+                table.sizeHintForRow(row),
+            )
+            for column in (4, 5):
+                widget = table.cellWidget(row, column)
+                if widget is None:
+                    continue
+                column_width = table.columnWidth(column)
+                if column_width <= 0:
+                    continue
+                widget_height = widget.heightForWidth(column_width)
+                if widget_height < 0:
+                    widget_height = widget.sizeHint().height()
+                required_height = max(required_height, widget_height)
+            table.setRowHeight(row, required_height)
 
     @staticmethod
     def _available_detail_table_height(
@@ -951,26 +971,25 @@ class ScrapingHistoryDialog(QDialog):
     ) -> None:
         if not rich_text and column == 5:
             rich_text = self._format_delta_value_html(value)
+        if not rich_text:
+            rich_text = self._format_plain_value_html(value)
 
-        if rich_text:
-            label = QLabel()
-            label.setTextFormat(Qt.TextFormat.RichText)
-            label.setText(rich_text)
-            label.setWordWrap(True)
-            label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            label.setToolTip(value.replace("\n", " · "))
-            label.setStyleSheet(
-                f'font-family: "{self.FONT_FAMILY}"; '
-                f"font-size: {self.BODY_FONT_SIZE}px; "
-                f"color: {self.TEXT_COLOR}; padding: 4px;"
-            )
-            table.setCellWidget(row, column, label)
-            return
+        label = QLabel()
+        label.setTextFormat(Qt.TextFormat.RichText)
+        label.setText(rich_text)
+        label.setWordWrap(True)
+        label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        label.setToolTip(value.replace("\n", " · "))
+        label.setStyleSheet(
+            f'font-family: "{self.FONT_FAMILY}"; '
+            f"font-size: {self.BODY_FONT_SIZE}px; "
+            f"color: {self.TEXT_COLOR}; padding: 4px;"
+        )
+        table.setCellWidget(row, column, label)
 
-        item = QTableWidgetItem(value)
-        item.setToolTip(value.replace("\n", " · "))
-        item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        table.setItem(row, column, item)
+    @staticmethod
+    def _format_plain_value_html(value: str) -> str:
+        return "<br>".join(escape(line) for line in str(value or "").split("\n"))
 
     @classmethod
     def _format_delta_value_html(cls, value: str) -> str:

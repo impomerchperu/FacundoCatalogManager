@@ -1,6 +1,6 @@
 # FCM — Post-release roadmap
 
-Fecha: 2026-09-26  
+Fecha: 2026-09-27  
 Baseline estable: `v0.1.1`  
 Tag: `v0.1.1`  
 Commit de release: `4238a9f`  
@@ -43,6 +43,7 @@ La identidad visual, acceso directo del menú Inicio, acceso directo opcional de
 - [x] Revisar de forma agrupada los anchos restantes de columnas de la tabla, aplicando cambios solo donde exista evidencia visual concreta.
 - [x] Evitar recalcular las métricas completas de ancho durante cada redimensionamiento de ventana.
 - [x] Validar el ajuste de caché con tests locales y completar el smoke manual final.
+- [x] Ajustar el historial: marco de selección con holgura vertical simétrica, PRODUCTO envuelto al ancho disponible y CÓDIGO ordenado alfanuméricamente.
 
 La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficiente para alterar arbitrariamente los anchos de Imagen, Código, Producto, Detalle o Precios. Los contratos existentes de Categoría y Stock se conservan sin cambios. Como mejora de rendimiento de bajo riesgo, `ProductTable` ahora reutiliza las mediciones de ancho preferido durante los `resizeEvent` y las invalida cuando cambia el contenido, la referencia completa del catálogo o el contenido dinámico del encabezado. La prueba focalizada pasó localmente (`19 passed`) y la suite completa quedó en `542 passed, 10 deselected`; el smoke manual final también fue completado sobre `main`.
 
@@ -52,6 +53,7 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 - [x] Comparar `detail_workers=16` vs `24` con dos parejas reales y cobertura completa.
 - [x] Validar `detail_workers=24` en el E2E productivo completo, incluyendo SQLite e historial.
 - [x] Ejecutar la validación FULL post-cambio con el runtime productivo `8 / 24 / 28`.
+- [x] Convertir la regla de evidencia en una validación automática: el comparador rechaza cobertura incompleta y errores HTTP terminales.
 - [ ] Mantener la regla de no aceptar una optimización únicamente por una corrida rápida: debe conservar cobertura, persistencia e historial.
 - [x] Disponer de un comparador reproducible de artefactos benchmark para revisar configuración, cobertura y deltas de tiempo/HTTP sin interpretar manualmente los resultados.
 - [x] Ejecutar dos parejas reales `detail_workers=16` vs `24` con cobertura completa y cero errores; `24` redujo el tiempo de pared en ambas parejas.
@@ -62,10 +64,10 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 
 
 ### 4. Observabilidad y mantenimiento
-- [ ] Mantener las métricas de cobertura, retries, tiempos y progreso como evidencia de diagnóstico.
-- [ ] Mantener las herramientas destructivas legacy bloqueadas o explícitamente controladas.
+- [x] Mantener las métricas de cobertura, retries, tiempos y progreso como evidencia de diagnóstico; el pipeline ya dispone de telemetría y artefactos comparables.
+- [x] Mantener las herramientas destructivas legacy bloqueadas o explícitamente controladas.
 - [x] Revisar y normalizar la documentación para que el baseline vivo no quede mezclado con snapshots antiguos.
-- [ ] Mantener backup/restore cubierto antes de cambios sobre persistencia.
+- [x] Mantener backup/restore cubierto antes de cambios sobre persistencia.
 
 ### 5. Versionado y releases
 - [x] Baseline estable `v0.1.1` publicado.
@@ -73,6 +75,10 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 - [x] Instalador y SHA256 publicados.
 - [ ] Acumular futuros cambios sobre `main` y publicar una nueva versión solo cuando el conjunto de cambios esté validado.
 - [ ] Para una futura release, repetir la cadena: tests → validación funcional → Windows Build → artefactos → tag → release.
+
+## Próximo punto de desarrollo
+
+Con el pulido de GUI y la protección de evidencia benchmark cerrados, el siguiente trabajo no debe cambiar el runtime por intuición. El siguiente bloque es **mantenimiento operativo y preparación de la próxima versión**: mantener los contratos de observabilidad, revisar el comportamiento real solo ante evidencia y acumular cambios en `main` hasta que exista un conjunto funcional que justifique una nueva release.
 
 ## Regla de seguridad del desarrollo
 

@@ -2,7 +2,8 @@
 
 Estado: **en preparación**  
 Versión central: `VERSION = 0.2.0`  
-Release publicada anterior: `v0.1.1`
+Release publicada anterior: `v0.1.1`  
+HEAD candidato actual de `main`: `84c4947`
 
 ## Alcance
 

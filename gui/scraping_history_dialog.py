@@ -601,7 +601,7 @@ class ScrapingHistoryDialog(QDialog):
 
     @classmethod
     def _prepare_change_rows(cls, changes: list[dict]) -> list[dict]:
-        """Agrupa cambios por producto y consolida Stock/Stock por color."""
+        """Consolida solo las variaciones de stock equivalentes."""
         grouped: dict[tuple[str, str, str], dict] = {}
         order: list[tuple[str, str, str]] = []
 
@@ -638,90 +638,26 @@ class ScrapingHistoryDialog(QDialog):
         rows = []
         for key in order:
             group = grouped[key]
-            entries = list(group["entries"])
             stock_entry = cls._build_stock_entry(
                 group["stock"],
                 group["color_stock"],
             )
+            entries = list(group["entries"])
             if stock_entry is not None:
                 entries.insert(0, stock_entry)
 
-            variation = "\n".join(entry[0] for entry in entries)
-            old_value = "\n".join(entry[1] for entry in entries)
-            new_value = "\n".join(entry[2] for entry in entries)
-            rows.append(
-                {
-                    "type": group["type"],
-                    "code": group["code"],
-                    "name": group["name"],
-                    "variation": variation,
-                    "old": old_value,
-                    "new": new_value,
-                }
-            )
+            for variation, old_value, new_value in entries:
+                rows.append(
+                    {
+                        "type": group["type"],
+                        "code": group["code"],
+                        "name": group["name"],
+                        "variation": variation,
+                        "old": old_value,
+                        "new": new_value,
+                    }
+                )
         return rows
-
-    @classmethod
-    def _build_stock_entry(cls, stock_change, color_stock_change):
-        if stock_change is None and color_stock_change is None:
-            return None
-
-        old_color_stock = cls._as_color_stock(
-            color_stock_change.get("old") if color_stock_change else None
-        )
-        new_color_stock = cls._as_color_stock(
-            color_stock_change.get("new") if color_stock_change else None
-        )
-        color_count = max(len(old_color_stock), len(new_color_stock))
-
-        if color_count > 1:
-            old_value = (
-                color_stock_change.get("old")
-                if color_stock_change is not None
-                else stock_change.get("old")
-            )
-            new_value = (
-                color_stock_change.get("new")
-                if color_stock_change is not None
-                else stock_change.get("new")
-            )
-            return (
-                "Stock por color",
-                cls._display_value(old_value),
-                cls._display_value(new_value),
-            )
-
-        old_value = (
-            stock_change.get("old")
-            if stock_change is not None
-            else cls._single_color_stock_value(old_color_stock)
-        )
-        new_value = (
-            stock_change.get("new")
-            if stock_change is not None
-            else cls._single_color_stock_value(new_color_stock)
-        )
-        return (
-            "Stock",
-            cls._display_value(old_value),
-            cls._display_value(new_value),
-        )
-
-    @staticmethod
-    def _as_color_stock(value) -> dict:
-        if not isinstance(value, dict):
-            return {}
-        return {
-            str(color).strip(): stock
-            for color, stock in value.items()
-            if str(color).strip()
-        }
-
-    @staticmethod
-    def _single_color_stock_value(value):
-        if len(value) == 1:
-            return next(iter(value.values()))
-        return None
 
     def _detail_dialog_closed(self) -> None:
         self.detail_dialog = None

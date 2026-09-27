@@ -1,9 +1,9 @@
 # Facundo Catalog Manager v0.2.0 — Release candidate
 
-Estado: **en preparación**  
+Estado: **release candidate validada técnicamente**  
 Versión central: `VERSION = 0.2.0`  
 Release publicada anterior: `v0.1.1`  
-HEAD de referencia de estas notas: `2665fd0` (limpieza profunda del repositorio).
+HEAD de referencia de estas notas: `874eba3`.
 
 ## Alcance
 
@@ -44,7 +44,7 @@ La versión `0.2.0` consolida el cierre técnico posterior a `v0.1.1` sin altera
 
 ## Referencia funcional protegida
 
-La referencia viva continúa siendo:
+La referencia operativa validada continúa siendo:
 
 `24 categorías / 523 apariciones / 519 productos únicos / 4 multi-categoría / 523 relaciones`
 
@@ -76,7 +76,8 @@ La versión `0.2.0` no se considera publicada hasta completar:
 3. Windows Build;
 4. validación del bundle/instalador;
 5. artefactos y SHA-256;
-6. creación del tag `v0.2.0`;
-7. publicación de la release de GitHub.
+6. validación Windows de instalación, actualización, desinstalación, reinstalación y Sandbox;
+7. creación del tag `v0.2.0`;
+8. publicación de la release de GitHub.
 
 La infraestructura de distribución existente se reutiliza; `v0.1.1` permanece intacta.

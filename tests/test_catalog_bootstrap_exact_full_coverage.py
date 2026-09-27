@@ -132,7 +132,7 @@ def test_reconcile_exact_full_coverage_preserves_unique_products_and_relations()
             expected_category_occurrences, actual_category_occurrences,
             products_found, products_unique, products_multiple_categories,
             duplicate_occurrences, coverage_complete, coverage_gap, error_count
-        ) VALUES ('full', 'SUCCESS', 2, 8, 8, 8, 6, 2, 0, 1, 0, 0)
+        ) VALUES ('full', 'SUCCESS', 2, 10, 10, 10, 6, 4, 0, 1, 0, 0)
         """
     )
     run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -164,7 +164,7 @@ def test_reconcile_exact_full_coverage_preserves_unique_products_and_relations()
         for code, _ in products
     ] + [
         (run_id, category_b, product_ids[f"FB-{index:04d}"], f"FB-{index:04d}")
-        for index in range(1, 3)
+        for index in range(1, 5)
     ]
     connection.executemany(
         """
@@ -183,7 +183,7 @@ def test_reconcile_exact_full_coverage_preserves_unique_products_and_relations()
     assert connection.execute(
         "SELECT COUNT(*) FROM scraping_product_occurrences WHERE run_id=?",
         (run_id,),
-    ).fetchone()[0] == 8
+    ).fetchone()[0] == 10
     assert connection.execute(
         """
         SELECT COUNT(*)
@@ -191,7 +191,7 @@ def test_reconcile_exact_full_coverage_preserves_unique_products_and_relations()
         WHERE run_id=? AND product_id IS NOT NULL
         """,
         (run_id,),
-    ).fetchone()[0] == 8
+    ).fetchone()[0] == 10
     assert connection.execute("SELECT COUNT(*) FROM product_categories").fetchone()[0] == 8
     assert connection.execute(
         "SELECT COUNT(*) FROM products WHERE code='STALE'"

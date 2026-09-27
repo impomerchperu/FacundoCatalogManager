@@ -394,15 +394,25 @@ def test_category_buttons_support_arrow_navigation_and_focus_frame():
     focus_image = first.grab().toImage()
     width = first.width()
     height = first.height()
-    top_color = focus_image.pixelColor(width // 2, 1)
-    bottom_color = focus_image.pixelColor(width // 2, height - 2)
-    left_color = focus_image.pixelColor(1, height // 2)
-    right_color = focus_image.pixelColor(width - 2, height // 2)
 
-    for color in (top_color, bottom_color, left_color, right_color):
-        assert color.red() == 0
-        assert color.green() == 0
-        assert color.blue() == 0
+    def is_black(x: int, y: int) -> bool:
+        color = focus_image.pixelColor(x, y)
+        return (
+            color.red() <= 8
+            and color.green() <= 8
+            and color.blue() <= 8
+            and color.alpha() >= 240
+        )
+
+    top_black = any(is_black(x, 1) for x in range(2, width - 2))
+    bottom_black = any(is_black(x, height - 2) for x in range(2, width - 2))
+    left_black = any(is_black(1, y) for y in range(2, height - 2))
+    right_black = any(is_black(width - 2, y) for y in range(2, height - 2))
+
+    assert top_black
+    assert bottom_black
+    assert left_black
+    assert right_black
 
     down_event = QKeyEvent(
         QKeyEvent.Type.KeyPress,

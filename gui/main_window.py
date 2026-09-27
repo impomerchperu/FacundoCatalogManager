@@ -423,6 +423,7 @@ class MainWindow(QMainWindow):
         category_scrollbar.setSingleStep(table_scrollbar.singleStep())
         category_scrollbar.setPalette(table_scrollbar.palette())
         category_scrollbar.setFont(table_scrollbar.font())
+        category_scrollbar.setStyle(table_scrollbar.style())
         category_scrollbar.setStyleSheet(table_scrollbar.styleSheet())
 
     def _add_action_buttons(self, layout: QHBoxLayout) -> None:

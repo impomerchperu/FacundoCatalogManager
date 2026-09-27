@@ -32,7 +32,7 @@ Checkpoint de documentación actualizado: revisión del `2026-09-26` sobre `main
 - [x] Category keyboard focus navigation, single black focus frame and vertical-only scrolling validated
 - [x] Category sidebar width accounts for the native vertical scrollbar when visible
 - [x] Stock content spacing and content-fit behavior validated
-- [x] Preferred table-width measurements are cached across window resize; cache invalidation is tied to content/reference changes.
+- [x] Preferred table-width measurements are cached across window resize; cache invalidation is tied to content/reference/header changes.
 
 ## RUNTIME CONSOLIDATION
 
@@ -412,7 +412,7 @@ La ejecución manual posterior al ajuste terminó en `success`. La validación d
 
 The grouped table-width audit on 2026-09-26 found no evidence-based reason to change the established visual widths for Image, Code, Product, Detail or Prices. Category and Stock contracts remain unchanged.
 
-`ProductTable` now caches its preferred content widths after a content render and reuses them during window resize. The cache is invalidated when the catalog content or category-reference catalog changes. A focused regression test protects the behavior; local validation of the new test remains pending after synchronization.
+`ProductTable` now caches its preferred content widths after a content render and reuses them during window resize. The cache is invalidated when the catalog content, category-reference catalog or dynamic header labels change. A focused regression test protects the behavior; local validation of the new test remains pending after synchronization.
 
 
 The category-filter interaction is now treated as a stable visual contract on `main`:

@@ -33,6 +33,8 @@ Checkpoint de documentación actualizado: revisión del `2026-09-26` sobre `main
 - [x] Category sidebar width accounts for the native vertical scrollbar when visible
 - [x] Stock content spacing and content-fit behavior validated
 - [x] Preferred table-width measurements are cached across window resize; cache invalidation is tied to content/reference/header changes.
+- [x] Benchmark comparison tooling compares compatible JSON artifacts without classifying a winner.
+- [x] Detail-worker benchmark resource lifetime is isolated per measured variant.
 
 ## RUNTIME CONSOLIDATION
 

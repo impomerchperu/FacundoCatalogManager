@@ -42,6 +42,9 @@ class ScrapingHistoryDialog(QDialog):
         1: 110,
         3: 150,
     }
+    DETAIL_CHANGE_PRODUCT_MAX_LINES = 2
+    DETAIL_CHANGE_PRODUCT_MIN_WIDTH = 220
+    DETAIL_CHANGE_PRODUCT_MAX_WIDTH = 360
     CHANGE_TYPE_LABELS: ClassVar[dict[str, str]] = {
         "UPDATED": "ACTUALIZADO",
         "NEW": "NUEVO",
@@ -479,38 +482,6 @@ class ScrapingHistoryDialog(QDialog):
         )
         layout.addWidget(coverage)
 
-        category_summary = getattr(history, "category_summary", []) or []
-        valid_categories = [
-            item for item in category_summary if isinstance(item, dict)
-        ]
-        category_title = QLabel(
-            f"PRODUCTOS POR CATEGORÍA ({len(valid_categories)} categorías)",
-        )
-        category_title.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        layout.addWidget(category_title)
-
-        category_table = QTableWidget()
-        category_table.setColumnCount(3)
-        category_table.setHorizontalHeaderLabels(
-            ["Categoría", "Productos", "Productos únicos"],
-        )
-        category_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        category_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        category_table.setRowCount(len(valid_categories))
-        for row, item in enumerate(valid_categories):
-            values = [
-                str(item.get("category", "")),
-                str(item.get("products", 0)),
-                str(item.get("unique_products", 0)),
-            ]
-            for column, value in enumerate(values):
-                category_table.setItem(row, column, QTableWidgetItem(value))
-        category_header = category_table.horizontalHeader()
-        category_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        category_header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        category_header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        layout.addWidget(category_table)
-
         multiple = getattr(history, "multiple_category_products", []) or []
         valid_multiple = [item for item in multiple if isinstance(item, dict)]
         multiple_title = QLabel(
@@ -584,7 +555,7 @@ class ScrapingHistoryDialog(QDialog):
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setWordWrap(True)
-        table.setTextElideMode(Qt.TextElideMode.ElideRight)
+        table.setTextElideMode(Qt.TextElideMode.ElideNone)
         table.setAlternatingRowColors(False)
         table.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
@@ -603,15 +574,18 @@ class ScrapingHistoryDialog(QDialog):
         if changes:
             for row, change in enumerate(changes):
                 type_text = self._change_type_text(change.get("type"))
+                product_name = str(change.get("name", ""))
                 values = [
                     type_text,
                     str(change.get("code", "")),
-                    str(change.get("name", "")),
+                    self._format_product_name_for_table(product_name),
                     str(change.get("variation", "")),
                 ]
                 for column, value in enumerate(values):
                     item = QTableWidgetItem(value)
-                    item.setToolTip(value)
+                    item.setToolTip(
+                        product_name if column == 2 else value
+                    )
                     item.setTextAlignment(
                         Qt.AlignmentFlag.AlignCenter
                         if column in (0, 1)
@@ -640,6 +614,44 @@ class ScrapingHistoryDialog(QDialog):
         self._configure_change_table_columns(header)
         table.resizeRowsToContents()
         return table
+
+    @classmethod
+    def _format_product_name_for_table(cls, value: str) -> str:
+        text = str(value or "").strip()
+        if not text:
+            return "—"
+        font = QFont(cls.FONT_FAMILY)
+        font.setPixelSize(cls.BODY_FONT_SIZE)
+        metrics = QApplication.fontMetrics()
+        metrics = metrics if metrics is not None else None
+        if metrics is None:
+            return text
+
+        words = text.split()
+        if len(words) <= 1:
+            return text
+
+        max_width = cls.DETAIL_CHANGE_PRODUCT_MAX_WIDTH
+        best_split = None
+        best_width = None
+        for split_index in range(1, len(words)):
+            first = " ".join(words[:split_index])
+            second = " ".join(words[split_index:])
+            width = max(metrics.horizontalAdvance(first), metrics.horizontalAdvance(second))
+            if best_width is None or width < best_width:
+                best_width = width
+                best_split = split_index
+
+        if best_split is None or best_width is None:
+            return text
+        if best_width <= cls.DETAIL_CHANGE_PRODUCT_MAX_WIDTH:
+            return "\n".join(
+                [
+                    " ".join(words[:best_split]),
+                    " ".join(words[best_split:]),
+                ]
+            )
+        return text
 
     def _set_change_value_cell(
         self,
@@ -705,9 +717,10 @@ class ScrapingHistoryDialog(QDialog):
         for column, width in cls.DETAIL_CHANGE_FIXED_COLUMN_WIDTHS.items():
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
             header.resizeSection(column, width)
-        # Producto conserva el ancho natural de su contenido; Anterior/Nuevo
-        # absorben dinámicamente el espacio restante de la ventana.
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        # Producto queda limitado a dos líneas para liberar espacio horizontal
+        # a Anterior/Nuevo y evitar que Nuevo quede recortado.
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        header.resizeSection(2, cls.DETAIL_CHANGE_PRODUCT_MIN_WIDTH)
         for column in (4, 5):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
 

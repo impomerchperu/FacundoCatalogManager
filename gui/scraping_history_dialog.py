@@ -676,6 +676,8 @@ class ScrapingHistoryDialog(QDialog):
         for column, width in cls.DETAIL_CHANGE_FIXED_COLUMN_WIDTHS.items():
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
             header.resizeSection(column, width)
+        # Producto conserva el ancho natural de su contenido; Anterior/Nuevo
+        # absorben dinámicamente el espacio restante de la ventana.
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         for column in (4, 5):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
@@ -902,8 +904,13 @@ class ScrapingHistoryDialog(QDialog):
                     prefix_length=len(f"{label}: "),
                 )
             )
+        variation = (
+            next(iter(changes.values())).get("label", "Precio")
+            if len(changes) == 1
+            else "Precios"
+        )
         return (
-            "Precios",
+            variation,
             "\n".join(old_lines),
             "\n".join(new_lines),
             "<br>".join(new_html_lines),
@@ -960,6 +967,31 @@ class ScrapingHistoryDialog(QDialog):
         base = escape(text[:base_length])
         suffix = escape(text[base_length:])
         return f'{base}{suffix} <span style="color:{color}; font-weight:600;">({escape(sign_text)})</span>'
+    @classmethod
+    def _format_stock_new_value(
+        cls,
+        old_value,
+        new_value,
+        *,
+        by_color: bool = False,
+    ) -> str:
+        if by_color:
+            return cls._format_stock_values(
+                cls._as_color_stock(old_value),
+                cls._as_color_stock(new_value),
+            )[1]
+        old_amount = cls._numeric_stock(old_value)
+        new_amount = cls._numeric_stock(new_value)
+        delta = (
+            new_amount - old_amount
+            if old_amount is not None and new_amount is not None
+            else None
+        )
+        return cls._format_delta_text(
+            cls._format_stock_scalar(new_value),
+            delta,
+        )
+
     @staticmethod
     def _numeric_stock(value) -> int | None:
         if isinstance(value, bool):

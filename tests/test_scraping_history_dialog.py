@@ -1,4 +1,4 @@
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -439,6 +439,23 @@ def test_history_window_refits_after_layout_activation_on_open():
 
     dialog.close()
     dialog.deleteLater()
+
+
+def test_history_window_cancels_deferred_fit_when_closed():
+    app = QApplication.instance() or QApplication([])
+    dialog = ScrapingHistoryDialog()
+
+    dialog.load_history = lambda: None
+    dialog.show()
+    assert dialog._initial_fit_timer.isActive()
+
+    dialog.close()
+    assert not dialog._initial_fit_timer.isActive()
+
+    # No callback diferido debe ejecutarse contra el diálogo ya cerrado.
+    app.processEvents()
+    dialog.deleteLater()
+    app.processEvents()
 
 
 def test_history_window_has_no_footer_buttons_and_fits_table_width():

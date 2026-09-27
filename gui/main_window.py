@@ -121,19 +121,25 @@ class CategoryScrollArea(QScrollArea):
         widget_top = top_left.y()
         widget_bottom = widget_top + widget.height()
         viewport_height = viewport.height()
+        vertical_scrollbar = self.verticalScrollBar()
+        horizontal_scrollbar = self.horizontalScrollBar()
 
+        horizontal_scrollbar.setValue(0)
         if widget_top < 0:
-            scrollbar = self.verticalScrollBar()
-            scrollbar.setValue(scrollbar.value() + widget_top)
-        elif widget_bottom > viewport_height:
-            scrollbar = self.verticalScrollBar()
-            scrollbar.setValue(
-                scrollbar.value() + widget_bottom - viewport_height,
+            vertical_scrollbar.setValue(
+                vertical_scrollbar.value() + widget_top,
             )
+        elif widget_bottom > viewport_height:
+            vertical_scrollbar.setValue(
+                vertical_scrollbar.value() + widget_bottom - viewport_height,
+            )
+        horizontal_scrollbar.setValue(0)
 
     def scrollContentsBy(self, dx: int, dy: int) -> None:
         del dx
+        self.horizontalScrollBar().setValue(0)
         super().scrollContentsBy(0, dy)
+        self.horizontalScrollBar().setValue(0)
 
 
 class MainWindow(QMainWindow):
@@ -485,6 +491,9 @@ class MainWindow(QMainWindow):
             Qt.ScrollBarPolicy.ScrollBarAsNeeded,
         )
         self.category_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.category_scroll.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
+        )
         self.category_scroll.setMinimumHeight(0)
         self.category_scroll.setSizePolicy(
             QSizePolicy.Policy.Expanding,

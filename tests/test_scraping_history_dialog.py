@@ -493,8 +493,13 @@ def test_history_detail_rows_fit_cell_content_with_shared_spacing():
     assert isinstance(new_widget, QLabel)
     assert old_widget.styleSheet() == new_widget.styleSheet()
     assert "padding: 4px;" in old_widget.styleSheet()
-    assert table.rowHeight(0) >= old_widget.sizeHint().height()
-    assert table.rowHeight(0) >= new_widget.sizeHint().height()
+    required_height = max(
+        old_widget.sizeHint().height(),
+        new_widget.sizeHint().height(),
+    )
+    assert table.rowHeight(0) >= required_height + 8
+    assert new_widget.geometry().height() <= table.rowHeight(0)
+    assert old_widget.geometry().height() <= table.rowHeight(0)
     assert table.rowHeight(0) > table.rowHeight(1)
 
     dialog.close()

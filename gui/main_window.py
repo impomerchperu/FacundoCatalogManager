@@ -557,11 +557,7 @@ class MainWindow(QMainWindow):
         return width
 
     def toggle_categories_visibility(self, visible: bool) -> None:
-        if self.category_toggle_button.isChecked() != visible:
-            self.category_toggle_button.blockSignals(True)
-            self.category_toggle_button.setChecked(visible)
-            self.category_toggle_button.blockSignals(False)
-
+        self.category_toggle_button.setChecked(visible)
         self.categories_visible = visible
         self.category_toggle_button.setText(
             "Ocultar Categorías" if visible else "Filtrar Categorías",

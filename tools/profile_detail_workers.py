@@ -91,9 +91,24 @@ def _build_collection(category_scraper, max_workers):
     )
 
 
-def _run_enrichment(browser, category_scraper, category, collected, max_workers):
+def _build_benchmark_transport():
+    browser = Browser(
+        http_workers=_positive_int(
+            "FCM_PROFILE_HTTP_WORKERS",
+            SCRAPING_HTTP_WORKERS,
+        )
+    )
+    browser.enable_thread_sessions()
+    category_scraper = ResilientCategoryScraper(
+        browser=browser,
+        category_extractor=CategoryExtractor(),
+    )
+    return browser, category_scraper
+
+
+def _run_enrichment(category, collected, max_workers):
+    browser, category_scraper = _build_benchmark_transport()
     collection = _build_collection(category_scraper, max_workers)
-    browser.reset_http_metrics()
     started = perf_counter()
     try:
         products = collection.enrich_category_products(
@@ -109,18 +124,7 @@ def _run_enrichment(browser, category_scraper, category, collected, max_workers)
 
 
 def main() -> int:
-    browser = Browser(
-        http_workers=_positive_int(
-            "FCM_PROFILE_HTTP_WORKERS",
-            SCRAPING_HTTP_WORKERS,
-        )
-    )
-    browser.enable_thread_sessions()
-
-    category_scraper = ResilientCategoryScraper(
-        browser=browser,
-        category_extractor=CategoryExtractor(),
-    )
+    browser, category_scraper = _build_benchmark_transport()
     category_service = CategoryService(category_scraper, STORE_URL)
 
     categories = category_service.scrape_all()
@@ -156,8 +160,6 @@ def main() -> int:
             metrics,
             http_metrics,
         ) = _run_enrichment(
-            browser,
-            category_scraper,
             category,
             collected,
             max_workers,

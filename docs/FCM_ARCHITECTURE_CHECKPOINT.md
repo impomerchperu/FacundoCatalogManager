@@ -34,6 +34,7 @@ Checkpoint de documentación actualizado: revisión del `2026-09-26` sobre `main
 - [x] Stock content spacing and content-fit behavior validated
 - [x] Preferred table-width measurements are cached across window resize; cache invalidation is tied to content/reference/header changes.
 - [x] Benchmark comparison tooling compares compatible JSON artifacts without classifying a winner.
+- [x] Benchmark comparison rejects incomplete coverage and non-zero terminal HTTP errors before calculating performance deltas.
 - [x] Detail-worker benchmark resource lifetime is isolated per measured variant.
 
 ## RUNTIME CONSOLIDATION
@@ -421,9 +422,11 @@ The grouped table-width audit on 2026-09-26 found no evidence-based reason to ch
 
 The category-filter interaction is now treated as a stable visual contract on `main`:
 
+The history dialog visual contract was extended after the 2026-09-26 review: change-table rows reserve symmetric vertical clearance for the selection frame, product names wrap only to the available PRODUCTO column width, and CÓDIGO rows use natural alphanumeric ordering. These changes are GUI-only and do not alter scraping, persistence or concurrency.
+
 - Category buttons use Segoe UI 13 px and retain the established 4 px horizontal content padding.
 - Arrow Up/Down navigation moves category-by-category and automatically reveals the focused category without horizontal scrolling.
 - The focused category displays a single black focus frame without changing the button geometry or shifting its text.
 - The category panel reserves the native vertical scrollbar width when scrolling is required, keeping the category frame inside the visible viewport.
 - Stock rendering retains 4 px content-side spacing and content-fitted width.
-- Remaining GUI polish is limited to a grouped review of the other table column widths where a concrete visual discrepancy is identified.
+- Remaining GUI polish is limited to grouped review only when a concrete visual discrepancy is identified; the history-table layout and ordering adjustments are now part of the established contract.

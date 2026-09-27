@@ -677,7 +677,7 @@ class ScrapingHistoryDialog(QDialog):
     def _format_delta_value_html(cls, value: str) -> str:
         lines = str(value or "").split("\n")
         html_lines = []
-        pattern = re.compile(r"(\\([+-](?:s/)?[0-9][0-9,]*(?:\\.[0-9]+)?\\))$")
+        pattern = re.compile(r"(\([+-](?:s/)?[0-9][0-9,]*(?:\.[0-9]+)?\))$")
         has_delta = False
 
         for line in lines:

@@ -107,8 +107,10 @@ def test_run_enrichment_builds_isolated_transport_for_each_variant(monkeypatch):
         lambda category_scraper, max_workers: FakeCollection(),
     )
 
-    category = Category("https://example.test/categoria-producto/demo/")
-    category.name = "Demo"
+    category = Category(
+        name="Demo",
+        url="https://example.test/categoria-producto/demo/",
+    )
     collected = [("card", "page", object())]
 
     first = profiler._run_enrichment(category, collected, 16)

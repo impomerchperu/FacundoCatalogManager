@@ -292,10 +292,13 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
         + table.columnWidth(1)
         + table.columnWidth(2)
     ) > table.verticalHeader().width()
-    assert table.item(0, 4).toolTip() == "Azul: 500 · Verde: 1000"
+    old_widget = table.cellWidget(0, 4)
+    assert isinstance(old_widget, QLabel)
+    assert old_widget.toolTip() == "Azul: 500 · Verde: 1000"
     new_widget = table.cellWidget(0, 5)
     assert isinstance(new_widget, QLabel)
     assert new_widget.toolTip() == "Azul: 400 (-100) · Verde: 825 (+825)"
+    assert old_widget.styleSheet() == new_widget.styleSheet()
     assert "#188038" in new_widget.text()
 
     detail_dialog = QDialog()

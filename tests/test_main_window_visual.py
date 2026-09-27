@@ -184,7 +184,8 @@ def test_category_buttons_reserve_focus_border_and_stay_left_aligned():
     button = QPushButton("Artículos de Escritorio")
     button.setStyleSheet(MainWindow._category_button_style())
 
-    assert "border: 1px solid transparent" in button.styleSheet()
+    assert "border: none" in button.styleSheet()
+    assert "padding: 0px 4px" in button.styleSheet()
     assert "text-align: left" in button.styleSheet()
     assert "background: transparent" in button.styleSheet()
 

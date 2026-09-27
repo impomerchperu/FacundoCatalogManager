@@ -278,7 +278,7 @@ def test_category_sidebar_reserves_scrollbar_width_when_visible():
     window.category_sidebar_layout.setContentsMargins(4, 0, 4, 0)
     window.category_sidebar_layout.addWidget(window.category_scroll)
 
-    window._category_button_width = 190
+    window._category_sidebar_button_width = 190
     window._category_sidebar_open_width = 198
     window.category_sidebar.show()
     window.category_scroll.show()
@@ -288,10 +288,13 @@ def test_category_sidebar_reserves_scrollbar_width_when_visible():
     scrollbar.setRange(0, 100)
     _qapp().processEvents()
 
-    MainWindow._sync_category_sidebar_width_with_scrollbar(window, True)
+    MainWindow._sync_category_sidebar_width_with_scrollbar(
+        window,
+        maximum=scrollbar.maximum(),
+    )
 
     expected_width = (
-        window._category_button_width
+        window._category_sidebar_button_width
         + (2 * MainWindow.CATEGORY_SIDEBAR_HORIZONTAL_PADDING)
         + scrollbar.sizeHint().width()
     )

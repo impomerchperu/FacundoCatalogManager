@@ -103,6 +103,10 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
         window.category_scroll.verticalScrollBarPolicy()
         == Qt.ScrollBarPolicy.ScrollBarAsNeeded
     )
+    assert (
+        window.category_scroll.verticalScrollBar().singleStep()
+        == window.table.verticalScrollBar().singleStep()
+    )
     assert window.search_box.minimumWidth() == 0
     assert window.top_actions_container.sizePolicy().horizontalPolicy() == (
         window.top_actions_container.sizePolicy().horizontalPolicy().Fixed
@@ -424,5 +428,6 @@ def test_main_window_starts_with_categories_active_and_expected_geometry():
     assert window.category_toggle_button.isChecked() is True
 
     window.toggle_categories_visibility(False)
+    window.category_scroll.deleteLater()
     window.category_sidebar.deleteLater()
     window.category_toggle_button.deleteLater()

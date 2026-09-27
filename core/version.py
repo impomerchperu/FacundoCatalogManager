@@ -3,20 +3,18 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from config.runtime_paths import get_bundle_root
-
-
 VERSION_FILENAME = "VERSION"
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 
 
 def load_app_version(version_file: str | Path | None = None) -> str:
     """Carga y valida la versión central de la aplicación."""
-    path = (
-        Path(version_file)
-        if version_file is not None
-        else get_bundle_root() / VERSION_FILENAME
-    )
+    if version_file is not None:
+        path = Path(version_file)
+    else:
+        from config.runtime_paths import get_bundle_root
+
+        path = get_bundle_root() / VERSION_FILENAME
 
     try:
         version = path.read_text(encoding="utf-8").strip()

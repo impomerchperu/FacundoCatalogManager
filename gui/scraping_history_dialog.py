@@ -3,9 +3,9 @@ import re
 import sqlite3
 from datetime import datetime
 from html import escape
-from typing import ClassVar
+from typing import Callable, ClassVar
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -24,6 +24,30 @@ from PySide6.QtWidgets import (
 
 from database.db_manager import DBManager
 from repositories.scraping.scraping_history_repository import ScrapingHistoryRepository
+
+
+class _HistoryDetailDialog(QDialog):
+    """Dialog secundario con reajuste de sus tablas al redimensionar."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self._resize_handler: Callable[[], None] | None = None
+        self._resize_timer_active = False
+
+    def set_resize_handler(self, handler: Callable[[], None]) -> None:
+        self._resize_handler = handler
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if self._resize_handler is None or self._resize_timer_active:
+            return
+        self._resize_timer_active = True
+        QTimer.singleShot(0, self._run_resize_handler)
+
+    def _run_resize_handler(self) -> None:
+        self._resize_timer_active = False
+        if self._resize_handler is not None and self.isVisible():
+            self._resize_handler()
 
 
 class ScrapingHistoryDialog(QDialog):
@@ -49,6 +73,8 @@ class ScrapingHistoryDialog(QDialog):
     DETAIL_CHANGE_VALUE_MIN_WIDTH = 180
     DETAIL_CHANGE_VALUE_MAX_WIDTH = 300
     DETAIL_CHANGE_TABLE_TARGET_WIDTH = 1040
+    DETAIL_DETAIL_MARGIN = 32
+    DETAIL_DETAIL_MIN_HEIGHT = 600
     CHANGE_TYPE_LABELS: ClassVar[dict[str, str]] = {
         "UPDATED": "ACTUALIZADO",
         "NEW": "NUEVO",
@@ -437,11 +463,34 @@ class ScrapingHistoryDialog(QDialog):
         if self.detail_dialog is not None:
             self.detail_dialog.close()
 
-        dialog = QDialog(self)
+        dialog = _HistoryDetailDialog(self)
         self.detail_dialog = dialog
         dialog.setWindowTitle("Detalle de la descarga")
-        dialog.setMinimumWidth(self.DETAIL_CHANGE_MIN_DIALOG_WIDTH)
-        dialog.resize(self.DETAIL_CHANGE_DIALOG_WIDTH, 800)
+        screen = dialog.screen() or QApplication.primaryScreen()
+        if screen is not None:
+            available = screen.availableGeometry()
+            max_width = max(
+                self.DETAIL_CHANGE_MIN_DIALOG_WIDTH,
+                min(
+                    self.DETAIL_CHANGE_DIALOG_WIDTH,
+                    available.width() - self.DETAIL_DETAIL_MARGIN,
+                ),
+            )
+            max_height = max(
+                self.DETAIL_DETAIL_MIN_HEIGHT,
+                available.height() - self.DETAIL_DETAIL_MARGIN,
+            )
+            dialog.setMinimumWidth(
+                min(self.DETAIL_CHANGE_MIN_DIALOG_WIDTH, max_width)
+            )
+            dialog.setMaximumSize(max_width, max_height)
+            dialog.resize(
+                min(self.DETAIL_CHANGE_DIALOG_WIDTH, max_width),
+                min(800, max_height),
+            )
+        else:
+            dialog.setMinimumWidth(self.DETAIL_CHANGE_MIN_DIALOG_WIDTH)
+            dialog.resize(self.DETAIL_CHANGE_DIALOG_WIDTH, 800)
         dialog.setModal(False)
         dialog.finished.connect(self._detail_dialog_closed)
         layout = QVBoxLayout(dialog)
@@ -499,7 +548,7 @@ class ScrapingHistoryDialog(QDialog):
         multiple_table.setWordWrap(True)
         multiple_table.setTextElideMode(Qt.TextElideMode.ElideNone)
         multiple_table.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded,
         )
         multiple_table.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
@@ -527,8 +576,13 @@ class ScrapingHistoryDialog(QDialog):
         multiple_header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         multiple_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         multiple_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        multiple_table.resizeRowsToContents()
-        self._fit_table_height_to_contents(multiple_table)
+        multiple_table.verticalHeader().setVisible(True)
+        multiple_table.verticalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignCenter,
+        )
+        multiple_table.verticalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.ResizeToContents,
+        )
         layout.addWidget(multiple_table)
 
         relation = (
@@ -560,9 +614,24 @@ class ScrapingHistoryDialog(QDialog):
         close_layout.addWidget(close_button)
         layout.addLayout(close_layout)
 
+        dialog.set_resize_handler(
+            lambda: self._fit_detail_tables(
+                dialog,
+                multiple_table,
+                table,
+            )
+        )
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
+        QTimer.singleShot(
+            0,
+            lambda: self._fit_detail_tables(
+                dialog,
+                multiple_table,
+                table,
+            ),
+        )
 
     def _build_changes_table(self, changes: list[dict]) -> QTableWidget:
         table = QTableWidget()
@@ -638,17 +707,32 @@ class ScrapingHistoryDialog(QDialog):
         )
         return table
 
-    @staticmethod
-    def _fit_table_height_to_contents(table: QTableWidget) -> None:
+    def _fit_detail_tables(
+        self,
+        dialog: QDialog,
+        multiple_table: QTableWidget,
+        changes_table: QTableWidget,
+    ) -> None:
+        self._fit_multiple_category_table(dialog, multiple_table)
+        self._fit_changes_table_to_dialog(dialog, changes_table)
+
+    def _fit_multiple_category_table(
+        self,
+        dialog: QDialog,
+        table: QTableWidget,
+    ) -> None:
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+
         table.resizeRowsToContents()
-
-        horizontal_header = table.horizontalHeader()
-        header_height = horizontal_header.height()
-        if header_height <= 0:
-            header_height = horizontal_header.sizeHint().height()
-
+        header_height = max(header.height(), header.sizeHint().height())
         rows_height = sum(
-            table.rowHeight(row)
+            max(
+                table.rowHeight(row),
+                table.sizeHintForRow(row),
+            )
             for row in range(table.rowCount())
         )
         frame_height = 2 * table.frameWidth()
@@ -657,111 +741,102 @@ class ScrapingHistoryDialog(QDialog):
             if table.horizontalScrollBar().isVisible()
             else 0
         )
-        content_height = (
+        required_height = (
             header_height
             + rows_height
             + frame_height
             + scrollbar_height
-        )
-        table.setFixedHeight(max(content_height, header_height + frame_height))
-
-    @classmethod
-    def _fit_change_table_to_content(cls, table: QTableWidget) -> None:
-        header = table.horizontalHeader()
-        fixed_width = sum(
-            cls.DETAIL_CHANGE_FIXED_COLUMN_WIDTHS.get(column, 0)
-            for column in range(table.columnCount())
-        )
-        natural_widths = {
-            column: max(header.sectionSize(column), 1)
-            for column in (2, 4, 5)
-        }
-        natural_product = natural_widths[2]
-        natural_values = natural_widths[4] + natural_widths[5]
-
-        flexible_width = max(
-            cls.DETAIL_CHANGE_TABLE_TARGET_WIDTH - fixed_width,
-            cls.DETAIL_CHANGE_PRODUCT_MIN_WIDTH
-            + 2 * cls.DETAIL_CHANGE_VALUE_MIN_WIDTH,
-        )
-
-        preferred_product = max(
-            cls.DETAIL_CHANGE_PRODUCT_MIN_WIDTH,
-            min(cls.DETAIL_CHANGE_PRODUCT_MAX_WIDTH, natural_product),
-        )
-        remaining = max(
-            flexible_width - preferred_product,
-            2 * cls.DETAIL_CHANGE_VALUE_MIN_WIDTH,
-        )
-
-        if natural_values > 0:
-            old_width = round(
-                remaining * natural_widths[4] / natural_values,
-            )
-        else:
-            old_width = remaining // 2
-
-        old_width = max(
-            cls.DETAIL_CHANGE_VALUE_MIN_WIDTH,
-            min(cls.DETAIL_CHANGE_VALUE_MAX_WIDTH, old_width),
-        )
-        new_width = remaining - old_width
-
-        if new_width < cls.DETAIL_CHANGE_VALUE_MIN_WIDTH:
-            new_width = cls.DETAIL_CHANGE_VALUE_MIN_WIDTH
-            old_width = max(
-                cls.DETAIL_CHANGE_VALUE_MIN_WIDTH,
-                remaining - new_width,
-            )
-
-        if new_width > cls.DETAIL_CHANGE_VALUE_MAX_WIDTH:
-            new_width = cls.DETAIL_CHANGE_VALUE_MAX_WIDTH
-            old_width = remaining - new_width
-
-        product_width = min(
-            preferred_product,
-            flexible_width - old_width - new_width,
-        )
-
-        if product_width < cls.DETAIL_CHANGE_PRODUCT_MIN_WIDTH:
-            product_width = cls.DETAIL_CHANGE_PRODUCT_MIN_WIDTH
-            total_flexible = product_width + old_width + new_width
-            overflow = total_flexible - flexible_width
-            if overflow > 0:
-                reducible_old = old_width - cls.DETAIL_CHANGE_VALUE_MIN_WIDTH
-                reduction = min(overflow, reducible_old)
-                old_width -= reduction
-                overflow -= reduction
-
-                reducible_new = new_width - cls.DETAIL_CHANGE_VALUE_MIN_WIDTH
-                reduction = min(overflow, reducible_new)
-                new_width -= reduction
-
-        widths = {
-            2: product_width,
-            4: old_width,
-            5: new_width,
-        }
-        for column, width in widths.items():
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
-            header.resizeSection(column, width)
-
-        total_width = sum(
-            header.sectionSize(column)
-            for column in range(table.columnCount())
-        )
-        vertical_header = table.verticalHeader()
-        vertical_header_width = max(
-            vertical_header.width(),
-            vertical_header.sizeHint().width(),
-        )
-        required_width = (
-            total_width
-            + vertical_header_width
-            + 2 * table.frameWidth()
             + 2
         )
-        table.setMinimumWidth(min(required_width, cls.DETAIL_CHANGE_TABLE_TARGET_WIDTH + 40))
+
+        max_height = self._available_detail_table_height(dialog, table)
+        if required_height <= max_height:
+            table.setVerticalScrollBarPolicy(
+                Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+            )
+            table.setFixedHeight(required_height)
+        else:
+            table.setVerticalScrollBarPolicy(
+                Qt.ScrollBarPolicy.ScrollBarAsNeeded,
+            )
+            table.setFixedHeight(max_height)
+
+    def _fit_changes_table_to_dialog(
+        self,
+        dialog: QDialog,
+        table: QTableWidget,
+    ) -> None:
+        header = table.horizontalHeader()
+        fixed_columns = self.DETAIL_CHANGE_FIXED_COLUMN_WIDTHS
+        for column in range(table.columnCount()):
+            header.setSectionResizeMode(
+                column,
+                (
+                    QHeaderView.ResizeMode.Fixed
+                    if column in fixed_columns
+                    else QHeaderView.ResizeMode.Stretch
+                ),
+            )
+        for column, width in fixed_columns.items():
+            header.resizeSection(column, width)
+
+        table.resizeRowsToContents()
+        header_height = max(header.height(), header.sizeHint().height())
+        rows_height = sum(
+            max(
+                table.rowHeight(row),
+                table.sizeHintForRow(row),
+            )
+            for row in range(table.rowCount())
+        )
+        frame_height = 2 * table.frameWidth()
+        horizontal_scrollbar_height = (
+            table.horizontalScrollBar().height()
+            if table.horizontalScrollBar().isVisible()
+            else 0
+        )
+        required_height = (
+            header_height
+            + rows_height
+            + frame_height
+            + horizontal_scrollbar_height
+            + 2
+        )
+        max_height = self._available_detail_table_height(dialog, table)
+        table.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+            if required_height > max_height
+            else Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
+        table.setFixedHeight(min(required_height, max_height))
+
+    @staticmethod
+    def _available_detail_table_height(
+        dialog: QDialog,
+        table: QTableWidget,
+    ) -> int:
+        maximum_height = dialog.maximumHeight()
+        layout = dialog.layout()
+        if layout is None or maximum_height <= 0:
+            return max(160, table.sizeHint().height())
+
+        non_table_height = 0
+        for index in range(layout.count()):
+            widget = layout.itemAt(index).widget()
+            if widget is None or widget is table:
+                continue
+            non_table_height += widget.sizeHint().height()
+
+        spacing = layout.spacing() * max(layout.count() - 1, 0)
+        margins = layout.contentsMargins()
+        available = (
+            maximum_height
+            - non_table_height
+            - spacing
+            - margins.top()
+            - margins.bottom()
+        )
+        return max(160, available)
 
     @classmethod
     def _format_product_name_for_table(cls, value: str) -> str:
@@ -857,15 +932,14 @@ class ScrapingHistoryDialog(QDialog):
     @classmethod
     def _configure_change_table_columns(cls, header: QHeaderView) -> None:
         for column in range(6):
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
-
+            header.setSectionResizeMode(
+                column,
+                QHeaderView.ResizeMode.Fixed
+                if column in cls.DETAIL_CHANGE_FIXED_COLUMN_WIDTHS
+                else QHeaderView.ResizeMode.Stretch,
+            )
         for column, width in cls.DETAIL_CHANGE_FIXED_COLUMN_WIDTHS.items():
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
             header.resizeSection(column, width)
-
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-        for column in (4, 5):
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
 
     @classmethod
     def _change_type_text(cls, value) -> str:

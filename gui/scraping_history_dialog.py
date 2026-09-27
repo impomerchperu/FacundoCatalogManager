@@ -1005,6 +1005,7 @@ class ScrapingHistoryDialog(QDialog):
             rich_text = self._format_plain_value_html(value)
 
         label = QLabel()
+        label.setMargin(0)
         label.setTextFormat(Qt.TextFormat.RichText)
         label.setText(rich_text)
         label.setWordWrap(True)

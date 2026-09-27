@@ -169,10 +169,10 @@ def test_prepare_seed_rejects_catalog_count_mismatch(tmp_path: Path):
     output = tmp_path / "seed"
     images.mkdir()
 
-    _create_valid_database(
-        database,
-        run_override={"products_unique": 518},
-    )
+    _create_valid_database(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute("DELETE FROM products WHERE id=519")
+        connection.commit()
 
     with pytest.raises(RuntimeError, match="catálogo validado"):
         prepare_seed(database, images, output)

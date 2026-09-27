@@ -528,13 +528,25 @@ class ProductTable(QTableWidget):
         return header
 
     def _update_sort_header_labels(self) -> None:
-        self._preferred_widths_cache = None
         labels = self.HEADER_LABELS.copy()
         for column, order in self._sort_states.items():
             labels[column] += (
                 " ↑" if order == Qt.SortOrder.AscendingOrder else " ↓"
             )
+
+        current_labels = [
+            item.text() if item is not None else ""
+            for item in (
+                self.horizontalHeaderItem(column)
+                for column in range(self.columnCount())
+            )
+        ]
+        labels_changed = current_labels != labels
+
         self.setHorizontalHeaderLabels(labels)
+        if labels_changed:
+            self._preferred_widths_cache = None
+
         self.product_header().set_active_sections(set(self._sort_states))
 
     def set_search_text(self, text: str) -> None:

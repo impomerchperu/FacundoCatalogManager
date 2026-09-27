@@ -452,3 +452,50 @@ def test_history_detail_coverage_row_prevents_horizontal_cutoff():
 
     dialog.close()
     dialog.deleteLater()
+
+def test_history_detail_rows_fit_cell_content_with_shared_spacing():
+    QApplication.instance() or QApplication([])
+    owner = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
+    table = owner._build_changes_table(
+        [
+            {
+                "type": "UPDATED",
+                "code": "FB-4028",
+                "name": "Producto con dos valores",
+                "variation": "Stock por color",
+                "old": "Azul: 500\nVerde: 1,000",
+                "new": "Azul: 400 (-100)\nVerde: 825 (+825)",
+            },
+            {
+                "type": "UPDATED",
+                "code": "FB-1060",
+                "name": "Producto de una línea",
+                "variation": "Precio",
+                "old": "muestra: s/3.00",
+                "new": "muestra: s/3.50 (+s/0.50)",
+            },
+        ],
+    )
+
+    dialog = _HistoryDetailDialog()
+    layout = QVBoxLayout(dialog)
+    layout.addWidget(table)
+    dialog.resize(1100, 700)
+    dialog.show()
+    QApplication.processEvents()
+
+    owner._fit_changes_table_to_dialog(dialog, table)
+    QApplication.processEvents()
+
+    old_widget = table.cellWidget(0, 4)
+    new_widget = table.cellWidget(0, 5)
+    assert isinstance(old_widget, QLabel)
+    assert isinstance(new_widget, QLabel)
+    assert old_widget.styleSheet() == new_widget.styleSheet()
+    assert "padding: 4px;" in old_widget.styleSheet()
+    assert table.rowHeight(0) >= old_widget.sizeHint().height()
+    assert table.rowHeight(0) >= new_widget.sizeHint().height()
+    assert table.rowHeight(0) > table.rowHeight(1)
+
+    dialog.close()
+    dialog.deleteLater()

@@ -17,6 +17,16 @@ class _Controller:
         return []
 
 
+class _TrackingProductTable(ProductTable):
+    def __init__(self, controller: _Controller) -> None:
+        self.resize_to_contents_calls = 0
+        super().__init__(controller)
+
+    def resizeColumnsToContents(self) -> None:
+        self.resize_to_contents_calls += 1
+        super().resizeColumnsToContents()
+
+
 def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     _qapp()
 
@@ -463,6 +473,52 @@ def test_product_table_uses_reference_font_and_color():
 
     table.close()
 
+
+
+def test_product_table_reuses_cached_widths_when_window_resizes():
+    _qapp()
+
+    table = _TrackingProductTable(_Controller())
+    table.resize(1400, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-6006",
+                name="Producto con nombre suficientemente largo",
+                description="Detalle " * 20,
+                category="Categoria de prueba",
+                color_stock={"Verde Oscuro": 12718},
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    calls_after_render = table.resize_to_contents_calls
+    assert calls_after_render >= 1
+    assert table._preferred_widths_cache is not None
+
+    table.resize(2200, 700)
+    QApplication.processEvents()
+
+    assert table.resize_to_contents_calls == calls_after_render
+
+    table.load_products(
+        [
+            Product(
+                code="FB-6007",
+                name="Producto todavía más largo " * 4,
+                description="Detalle nuevo " * 30,
+                category="Enmicadoras / Laminadoras",
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    assert table.resize_to_contents_calls > calls_after_render
+    assert table._preferred_widths_cache is not None
+
+    table.close()
 
 
 def test_product_table_stock_width_stays_content_fitted_when_window_grows():

@@ -203,12 +203,14 @@ Los cambios exclusivamente de GUI pueden validarse con la suite local y smoke ma
 - [x] Referencias de los workers de catálogo se limpian mediante sus callbacks de finalización.
 
 ### Distribución
-- [ ] Definir empaquetado Windows.
-- [ ] Producir ejecutable.
+- [x] Definir empaquetado Windows.
+- [x] Producir ejecutable.
 - [x] Definir instalador.
 - [x] Documentar actualización de versiones.
 - [x] Definir backup/restauración de `catalog.db`.
-- [ ] Preparar checklist de release.
+- [x] Preparar checklist de release.
+- [x] Validar bundle, instalador, actualización, reinstalación, desinstalación y backup/restore para `v0.1.1`.
+- [x] Validar Windows Build CI y su artefacto de smoke de empaquetado.
 
 ### Documentación
 - [x] Plan maestro.
@@ -241,7 +243,7 @@ main
 
 ## 8. Próximo hito
 
-El hardening de los workers de catálogo quedó completado. El siguiente hito técnico es preparar el empaquetado Windows y su checklist de release.
+El hardening de los workers de catálogo y la validación de concurrencia de detalle `24` quedaron completados. El siguiente hito operativo es repetir el smoke manual de la GUI sobre el runtime `8 / 24 / 28` y, si permanece limpio, preparar la siguiente cadena de release sobre `main` sin modificar el tag `v0.1.1`.
 
 Mientras tanto, `main` es el baseline funcional de referencia.
 

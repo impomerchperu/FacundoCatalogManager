@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QDialog,
     QHeaderView,
+    QPushButton,
     QLabel,
     QTableWidget,
     QTableWidgetItem,
@@ -398,9 +399,6 @@ def test_history_window_has_no_footer_buttons_and_fits_table_width():
     dialog = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
     dialog._is_fitting_columns = False
     dialog._build_ui()
-
-    dialog.show()
-    app.processEvents()
 
     layout = dialog.layout()
     assert layout is not None

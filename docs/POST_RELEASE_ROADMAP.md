@@ -51,9 +51,10 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 - [ ] Mantener JSF page workers en `2` y category-page workers en `1`.
 - [ ] Si aparece una regresión real de runtime, aislarla primero con benchmark controlado.
 - [ ] No aceptar una optimización únicamente por una corrida rápida: debe conservar cobertura, persistencia e historial.
-- [ ] Repetir FULL/E2E después de cualquier cambio de runtime que afecte scraping o concurrencia.
+- [ ] Repetir FULL/E2E antes y después de cualquier cambio de runtime que afecte scraping o concurrencia.
 - [x] Disponer de un comparador reproducible de artefactos benchmark para revisar configuración, cobertura y deltas de tiempo/HTTP sin interpretar manualmente los resultados.
-- [x] Validar localmente el comparador con la suite y una pareja real de artefactos benchmark.
+- [x] Ejecutar dos parejas reales `detail_workers=16` vs `24` con cobertura completa y cero errores; `24` redujo el tiempo de pared en ambas parejas.
+- [x] Validar localmente el comparador con la suite y dos parejas reales de artefactos benchmark.
 
 
 ### 4. Observabilidad y mantenimiento

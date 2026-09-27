@@ -628,7 +628,6 @@ class ScrapingHistoryDialog(QDialog):
         if len(words) <= 1:
             return text
 
-        max_width = cls.DETAIL_CHANGE_PRODUCT_MAX_WIDTH
         best_split = None
         best_width = None
         for split_index in range(1, len(words)):

@@ -466,30 +466,40 @@ class ScrapingHistoryDialog(QDialog):
         dialog = _HistoryDetailDialog(self)
         self.detail_dialog = dialog
         dialog.setWindowTitle("Detalle de la descarga")
+        dialog.setWindowFlags(
+            Qt.WindowType.Window
+            | Qt.WindowType.WindowTitleHint
+            | Qt.WindowType.WindowSystemMenuHint
+            | Qt.WindowType.WindowMinimizeButtonHint
+            | Qt.WindowType.WindowMaximizeButtonHint
+            | Qt.WindowType.WindowCloseButtonHint
+        )
+        dialog.setSizeGripEnabled(True)
         screen = dialog.screen() or QApplication.primaryScreen()
         if screen is not None:
             available = screen.availableGeometry()
-            max_width = min(
+            available_width = max(
+                480,
+                available.width() - self.DETAIL_DETAIL_MARGIN,
+            )
+            initial_width = min(
                 self.DETAIL_CHANGE_DIALOG_WIDTH,
-                max(480, available.width() - self.DETAIL_DETAIL_MARGIN),
+                available_width,
             )
-            max_height = min(
+            initial_height = min(
                 800,
-                max(
-                    400,
-                    available.height() - self.DETAIL_DETAIL_MARGIN,
-                ),
+                max(400, available.height() - self.DETAIL_DETAIL_MARGIN),
             )
-            dialog.setMinimumWidth(
-                min(self.DETAIL_CHANGE_MIN_DIALOG_WIDTH, max_width)
+            dialog.setMinimumSize(
+                min(self.DETAIL_CHANGE_MIN_DIALOG_WIDTH, available_width),
+                min(self.DETAIL_DETAIL_MIN_HEIGHT, initial_height),
             )
-            dialog.setMaximumSize(max_width, max_height)
-            dialog.resize(
-                min(self.DETAIL_CHANGE_DIALOG_WIDTH, max_width),
-                min(800, max_height),
-            )
+            dialog.resize(initial_width, initial_height)
         else:
-            dialog.setMinimumWidth(self.DETAIL_CHANGE_MIN_DIALOG_WIDTH)
+            dialog.setMinimumSize(
+                self.DETAIL_CHANGE_MIN_DIALOG_WIDTH,
+                self.DETAIL_DETAIL_MIN_HEIGHT,
+            )
             dialog.resize(self.DETAIL_CHANGE_DIALOG_WIDTH, 800)
         dialog.setModal(False)
         dialog.finished.connect(self._detail_dialog_closed)
@@ -529,11 +539,13 @@ class ScrapingHistoryDialog(QDialog):
             f"Brecha: {expected_gap}",
         )
         coverage.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        coverage.setWordWrap(False)
         coverage.setStyleSheet(
             "background:#fff3cd; color:#664d03; border:1px solid #ffda6a; "
             "border-radius:5px; padding:8px;"
         )
         layout.addWidget(coverage)
+        self._size_detail_dialog_for_coverage(dialog, coverage)
 
         multiple = getattr(history, "multiple_category_products", []) or []
         valid_multiple = [item for item in multiple if isinstance(item, dict)]
@@ -826,7 +838,13 @@ class ScrapingHistoryDialog(QDialog):
         dialog: QDialog,
         table: QTableWidget,
     ) -> int:
-        maximum_height = dialog.maximumHeight()
+        maximum_height = dialog.height()
+        screen = dialog.screen() or QApplication.primaryScreen()
+        if screen is not None:
+            maximum_height = min(
+                maximum_height,
+                screen.availableGeometry().height(),
+            )
         layout = dialog.layout()
         if layout is None or maximum_height <= 0:
             return max(160, table.sizeHint().height())
@@ -851,6 +869,48 @@ class ScrapingHistoryDialog(QDialog):
             - margins.bottom()
         )
         return max(160, available)
+
+    def _size_detail_dialog_for_coverage(
+        self,
+        dialog: QDialog,
+        coverage: QLabel,
+    ) -> None:
+        screen = dialog.screen() or QApplication.primaryScreen()
+        layout = dialog.layout()
+        if screen is None or layout is None:
+            return
+
+        margins = layout.contentsMargins()
+        coverage.setWordWrap(False)
+        coverage.adjustSize()
+        required_width = (
+            coverage.sizeHint().width()
+            + margins.left()
+            + margins.right()
+            + 8
+        )
+        available_width = (
+            screen.availableGeometry().width() - self.DETAIL_DETAIL_MARGIN
+        )
+
+        if required_width <= available_width:
+            dialog.setMinimumWidth(
+                max(self.DETAIL_CHANGE_MIN_DIALOG_WIDTH, required_width)
+            )
+            if dialog.width() < required_width:
+                dialog.resize(required_width, dialog.height())
+            return
+
+        coverage.setWordWrap(True)
+        coverage.setMinimumWidth(
+            max(320, available_width - margins.left() - margins.right() - 2)
+        )
+        dialog.setMinimumWidth(
+            min(
+                max(self.DETAIL_CHANGE_MIN_DIALOG_WIDTH, 320),
+                available_width,
+            )
+        )
 
     @classmethod
     def _format_product_name_for_table(cls, value: str) -> str:

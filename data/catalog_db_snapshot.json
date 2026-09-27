@@ -1,5 +1,8 @@
 {
   "generated_from": "database/catalog.db",
+  "snapshot_status": "historical_diagnostic",
+  "operational_reference": "24 / 523 / 519 / 4",
+  "operational_use": false,
   "products_count": 656,
   "products": [
     {

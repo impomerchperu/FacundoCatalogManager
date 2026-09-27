@@ -2,8 +2,8 @@ import json
 import re
 import sqlite3
 from datetime import datetime
-from math import ceil
 from html import escape
+from math import ceil
 from typing import Callable, ClassVar
 
 from PySide6.QtCore import Qt, QTimer

@@ -323,10 +323,10 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Shared HTTP budget configured at `28`; observed peak `16` explained by upstream stage parallelism
 - [x] Retry/backoff telemetry available
 - [x] Category/HTTP workers `8 / 28` remain validated
-- [x] Detail workers `16` selected after crossed live benchmark against `24`
+- [x] Detail workers `16` remain the production value; two controlled `16 vs 24` pairs show lower wall time with `24`, but higher aggregate HTTP time, so `24` remains a candidate pending production-style E2E
 - [x] Authoritative real-site scrape validated under production `8 / 16 / 28`
 - [x] Per-category enrichment timing telemetry instrumented and tested
-- [x] Benchmark: isolate detail worker behavior with crossed live runs
+- [x] Benchmark: isolate detail worker behavior with two crossed live run pairs
 - [x] Final production E2E: revalidate coverage and persistence under `8 / 16 / 28`
 - [x] Baseline concurrency benchmark `8 / 16 / 28` re-run with live coverage contract
 - [x] HTTP diagnostics expose max in-flight by request class and P50/P95/P99 by stage
@@ -341,7 +341,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Validate the stabilized category-page concurrency test in the local suite and Quality CI
 - [x] Close the category-page worker comparison under the current `8 / 16 / 28` + JSF `8 / 2` contract after repeat controls; `PAGE=1` mean `45.78s` vs `PAGE=2` mean `44.53s`, no reproducible benefit
 - [x] Explain HTTP max-in-flight `16` versus configured limit `28`
-- [x] No runtime performance change was applied after the controlled diagnostics; the existing authoritative FULL remains the active release reference
+- [x] No runtime performance change was applied after the controlled diagnostics; production remains `8 / 16 / 28` while the `24` detail-worker candidate awaits a production-style E2E decision
 
 ## IMAGE STORAGE AUDIT POSITION
 

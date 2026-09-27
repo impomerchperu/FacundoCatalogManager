@@ -1,13 +1,13 @@
 # FCM — Release checkpoint
 
-Fecha de actualización documental: 2026-09-24  
+Fecha de actualización documental: 2026-09-27  
 Branch oficial: `main`
 
 ## Estado
 
-El baseline funcional permanece cerrado y protegido en `main`. El último estado validado incorpora las optimizaciones de arranque y GUI posteriores al cierre funcional, sin modificar las invariantes de scraping, persistencia ni cobertura.
+El baseline funcional de `v0.1.1` permanece cerrado y protegido en `main`. La siguiente versión en preparación es `v0.2.0`; sus cambios actuales son de hardening, observabilidad, distribución y metadatos de versión, sin modificar las invariantes de scraping, persistencia ni cobertura.
 
-Último código funcional validado: `57a34711d3ddc0806d5d83685ef98de3a7e0451d` (`fix(test): organize scraping dialog imports`).
+Último código funcional validado localmente antes de la candidata: `4a7a956f574626610e3ce80a50059b1dc28fd4da` (`style(distribution): match ruff import spacing`).
 
 ## Referencias funcionales
 
@@ -67,7 +67,7 @@ Este estado corresponde a la aplicación dirigida de stock por color y no reempl
 ## Runtime validado
 
 - Categorías: `8` workers.
-- Detalle: `16` workers.
+- Detalle: `24` workers.
 - HTTP: `28` workers.
 - JetSmartFilters HTTP: `8`.
 - Timeout: `20s`.
@@ -81,7 +81,7 @@ Validación del baseline funcional actual sobre `main`:
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Suite local actual: `488 passed, 10 deselected`.
+- Última suite local confirmada antes de la candidata: `577 passed, 10 deselected`.
 - Validación estática actual: Ruff limpio y Pyright `0 errors, 0 warnings, 0 informations`.
 - E2E real: `1 passed`, cobertura `24 / 523 / 519 / 4`, `0` productos sin `color_stock`, `0` inconsistencias y `0` errores HTTP terminales.
 - Benchmark real de concurrencia: `1 passed` en `83.65s`, con `24 / 523 / 519 / 4`, `337` requests y `0` reintentos.
@@ -179,9 +179,12 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 
 ## Distribución Windows
 
+La release `v0.1.1` quedó técnicamente cerrada y publicada. La candidata `v0.2.0` hereda esta infraestructura y añade validación automatizada de la semilla y versión centralizada; todavía requiere un nuevo build Windows, validación del artefacto y publicación formal.
+
+
 La definición de distribución quedó implementada en `main`: rutas de datos persistentes fuera del bundle congelado, versión centralizada en `VERSION`, spec de PyInstaller, instalador Inno Setup, script PowerShell y workflow manual de Windows. La herramienta de backup/restauración de `catalog.db` y sus pruebas automatizadas también están incorporadas.
 
-La release Windows no se considera cerrada todavía. Falta producir y validar el bundle/instalador en Windows, comprobar actualización/desinstalación y ejecutar una validación operativa de backup/restauración.
+La validación Windows histórica de `v0.1.1` está cerrada. Para `v0.2.0` permanece únicamente la repetición del build, smoke funcional, artefactos y publicación de la nueva versión.
 
 ## Cierre previo a release
 

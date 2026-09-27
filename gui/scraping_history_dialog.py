@@ -659,6 +659,68 @@ class ScrapingHistoryDialog(QDialog):
                 )
         return rows
 
+    @classmethod
+    def _build_stock_entry(cls, stock_change, color_stock_change):
+        if stock_change is None and color_stock_change is None:
+            return None
+
+        old_color_stock = cls._as_color_stock(
+            color_stock_change.get("old") if color_stock_change else None
+        )
+        new_color_stock = cls._as_color_stock(
+            color_stock_change.get("new") if color_stock_change else None
+        )
+        color_count = max(len(old_color_stock), len(new_color_stock))
+
+        if color_count > 1:
+            old_value = (
+                color_stock_change.get("old")
+                if color_stock_change is not None
+                else stock_change.get("old")
+            )
+            new_value = (
+                color_stock_change.get("new")
+                if color_stock_change is not None
+                else stock_change.get("new")
+            )
+            return (
+                "Stock por color",
+                cls._display_value(old_value),
+                cls._display_value(new_value),
+            )
+
+        old_value = (
+            stock_change.get("old")
+            if stock_change is not None
+            else cls._single_color_stock_value(old_color_stock)
+        )
+        new_value = (
+            stock_change.get("new")
+            if stock_change is not None
+            else cls._single_color_stock_value(new_color_stock)
+        )
+        return (
+            "Stock",
+            cls._display_value(old_value),
+            cls._display_value(new_value),
+        )
+
+    @staticmethod
+    def _as_color_stock(value) -> dict:
+        if not isinstance(value, dict):
+            return {}
+        return {
+            str(color).strip(): stock
+            for color, stock in value.items()
+            if str(color).strip()
+        }
+
+    @staticmethod
+    def _single_color_stock_value(value):
+        if len(value) == 1:
+            return next(iter(value.values()))
+        return None
+
     def _detail_dialog_closed(self) -> None:
         self.detail_dialog = None
 

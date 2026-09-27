@@ -585,7 +585,7 @@ class ScrapingHistoryDialog(QDialog):
                 ]
                 for column, value in enumerate(values):
                     item = QTableWidgetItem(value)
-                    item.setToolTip(value.replace("\\n", " · "))
+                    item.setToolTip(value.replace("\n", " · "))
                     item.setTextAlignment(
                         Qt.AlignmentFlag.AlignLeft
                         | Qt.AlignmentFlag.AlignVCenter,

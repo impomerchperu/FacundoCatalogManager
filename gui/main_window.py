@@ -59,9 +59,21 @@ class CategoryFilterButton(QPushButton):
 
         if self.hasFocus():
             painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-            painter.setPen(QPen(Qt.GlobalColor.black))
+            painter.setPen(
+                QPen(
+                    Qt.GlobalColor.black,
+                    1,
+                    Qt.PenStyle.SolidLine,
+                    Qt.PenCapStyle.SquareCap,
+                    Qt.PenJoinStyle.MiterJoin,
+                ),
+            )
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
+            frame = self.rect().adjusted(1, 1, -2, -2)
+            painter.drawLine(frame.left(), frame.top(), frame.right(), frame.top())
+            painter.drawLine(frame.right(), frame.top(), frame.right(), frame.bottom())
+            painter.drawLine(frame.right(), frame.bottom(), frame.left(), frame.bottom())
+            painter.drawLine(frame.left(), frame.bottom(), frame.left(), frame.top())
 
     def _navigation_buttons(self) -> list["CategoryFilterButton"]:
         parent = self.parentWidget()

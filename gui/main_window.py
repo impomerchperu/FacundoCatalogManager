@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, QThread, QTimer
+from PySide6.QtCore import QPoint, Qt, QThread, QTimer
 from PySide6.QtGui import QFont, QFontMetrics, QKeyEvent
 from PySide6.QtWidgets import (
     QApplication,

@@ -428,6 +428,12 @@ def test_main_window_starts_with_categories_active_and_expected_geometry():
     assert window.category_toggle_button.isChecked() is True
 
     window.toggle_categories_visibility(False)
+    assert window.categories_visible is False
+    assert window.category_toggle_button.isChecked() is False
+    assert window.category_toggle_button.text() == "Filtrar Categorías"
+    assert not window.category_sidebar.isVisible()
+    assert not window.category_scroll.isVisible()
+
     window.category_scroll.deleteLater()
     window.category_sidebar.deleteLater()
     window.category_toggle_button.deleteLater()

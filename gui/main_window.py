@@ -85,7 +85,7 @@ class CategoryFilterButton(QPushButton):
     def _category_scroll_area(self) -> "CategoryScrollArea | None":
         parent = self.parentWidget()
         while parent is not None:
-            if isinstance(parent, QScrollArea):
+            if isinstance(parent, CategoryScrollArea):
                 return parent
             parent = parent.parentWidget()
         return None

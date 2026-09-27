@@ -69,7 +69,7 @@ class CategoryFilterButton(QPushButton):
                 ),
             )
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            frame = self.rect().adjusted(1, 1, -2, -2)
+            frame = self.rect().adjusted(1, 1, -1, -1)
             painter.drawLine(frame.topLeft(), frame.topRight())
             painter.drawLine(frame.topRight(), frame.bottomRight())
             painter.drawLine(frame.bottomRight(), frame.bottomLeft())

@@ -17,7 +17,7 @@ def test_load_app_version_rejects_invalid_version(tmp_path: Path, value: str):
     version_file = tmp_path / "VERSION"
     version_file.write_text(value, encoding="utf-8")
 
-    with pytest.raises(RuntimeError, match="MAJOR.MINOR.PATCH"):
+    with pytest.raises(RuntimeError, match=r"MAJOR\.MINOR\.PATCH"):
         load_app_version(version_file)
 
 

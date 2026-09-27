@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QThread, QTimer
-from PySide6.QtGui import QFont, QFontMetrics
+from PySide6.QtGui import QFont, QFontMetrics, QKeyEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -29,6 +29,34 @@ from services.scraping.category_name_normalizer import split_category_names
 
 if TYPE_CHECKING:
     from gui.scraping_history_dialog import ScrapingHistoryDialog
+
+
+class CategoryFilterButton(QPushButton):
+    """Botón de categoría con navegación vertical por teclado."""
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
+            parent = self.parentWidget()
+            while parent is not None and not isinstance(parent, MainWindow):
+                parent = parent.parentWidget()
+
+            if isinstance(parent, MainWindow):
+                buttons = parent.category_buttons
+                try:
+                    index = buttons.index(self)
+                except ValueError:
+                    index = -1
+
+                step = -1 if event.key() == Qt.Key.Key_Up else 1
+                target_index = index + step
+                if 0 <= target_index < len(buttons):
+                    target = buttons[target_index]
+                    target.setFocus(Qt.FocusReason.OtherFocusReason)
+                    parent.category_scroll.ensureWidgetVisible(target)
+                    event.accept()
+                    return
+
+        super().keyPressEvent(event)
 
 
 class CategoryScrollArea(QScrollArea):
@@ -410,9 +438,8 @@ class MainWindow(QMainWindow):
         )
         self.category_scroll.setWidget(self.category_container)
 
-        self.all_categories_button = QPushButton("Todas las categorías")
+        self.all_categories_button = CategoryFilterButton("Todas las categorías")
         self.all_categories_button.setCheckable(True)
-        self.all_categories_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.all_categories_button.setProperty(
             "category_text",
             "Todas las categorías",
@@ -526,6 +553,16 @@ class MainWindow(QMainWindow):
             " font-weight: bold;"
             " border: none;"
             "}"
+            " QPushButton:focus {"
+            " border: 1px solid #cbddea;"
+            " background-color: #fbfdff;"
+            "}"
+            " QPushButton:checked:focus {"
+            " border: 1px solid #a9cfe2;"
+            " background-color: #d8edf7;"
+            " color: #173f6d;"
+            " font-weight: bold;"
+            "}"
         )
 
     @classmethod
@@ -627,7 +664,7 @@ class MainWindow(QMainWindow):
         self.selected_categories.intersection_update(set(categories))
 
         for category in categories:
-            button = QPushButton(category)
+            button = CategoryFilterButton(category)
             button.setProperty("category_text", category)
             button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             button.setCheckable(True)

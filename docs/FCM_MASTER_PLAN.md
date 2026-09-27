@@ -2,7 +2,7 @@
 
 Fecha: 2026-09-27
 Branch oficial: `main`
-Estado de código: el baseline incorpora el pulido reciente de la UI de historial y el guard de evidencia de benchmarks.
+Estado de código: `main` está validado en `9a03ae7`, con el pulido reciente de la UI de historial y el guard de evidencia de benchmarks.
 
 ## 1. Objetivo del proyecto
 
@@ -176,12 +176,12 @@ Este snapshot es diagnóstico e histórico. No bloquea una ejecución válida cu
 
 ## 4. Validación actual
 
-Estado local validado por el usuario en `main` el 2026-09-26:
+Estado local validado por el usuario en `main` el 2026-09-27:
 
 ```
 Ruff    → All checks passed!
 Pyright → 0 errors, 0 warnings, 0 informations
-Pytest  → 542 passed, 10 deselected
+Pytest  → 568 passed, 10 deselected
 ```
 
 E2E real post-cambio `8 / 24 / 28`, ejecutado dos veces, confirmó `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, `333` requests, `0` retries y `0` errores terminales.
@@ -250,4 +250,4 @@ Mientras tanto, `main` es el baseline funcional de referencia.
 
 ### Estado de distribución Windows
 
-La infraestructura de distribución está implementada en `main`: rutas persistentes para instalaciones congeladas, `VERSION`, spec de PyInstaller, instalador Inno Setup, script PowerShell, workflow manual de Windows y herramientas de backup/restauración. La producción física del bundle/instalador y su validación sobre Windows siguen pendientes.
+La infraestructura de distribución está implementada en `main`: rutas persistentes para instalaciones congeladas, `VERSION`, spec de PyInstaller, instalador Inno Setup, script PowerShell, workflow manual de Windows y herramientas de backup/restauración. La producción física del bundle/instalador y su validación sobre Windows ya fueron completadas y validadas para `v0.1.1`.

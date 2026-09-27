@@ -26,12 +26,8 @@ from services.scraping.category_service import CategoryService
 from tools.benchmark_report import write_benchmark_report
 
 EXPECTED_CATEGORIES = 24
-# Historical snapshot retained for diagnostics only; live category totals
-# remain the source of truth for this benchmark.
-REFERENCE_CATEGORY_OCCURRENCES = 534
-REFERENCE_UNIQUE_PRODUCTS = 530
-REFERENCE_MULTI_CATEGORY_PRODUCTS = 4
-
+# Coverage is evaluated against the live totals published by each category.
+# No historical coverage floor is encoded in the benchmark.
 
 def _worker_count(name: str, default: int) -> int:
     raw = os.getenv(name)
@@ -93,14 +89,6 @@ def test_full_catalog_production_concurrency_real_site():
         max(int(category.expected_count or 0), 0)
         for category in categories
     )
-    if expected_occurrences != REFERENCE_CATEGORY_OCCURRENCES:
-        print(
-            "BASELINE HISTÓRICO DE APARICIONES:",
-            REFERENCE_CATEGORY_OCCURRENCES,
-            "ACTUAL:",
-            expected_occurrences,
-        )
-
     collected_by_index: list[list[tuple[object, str, object]]] = [
         [] for _ in categories
     ]
@@ -375,21 +363,6 @@ def test_full_catalog_production_concurrency_real_site():
     assert not invalid_color_stock_totals
     assert len(color_stock_categories) == len(categories)
     assert http_metrics["http_terminal_errors"] == 0
-
-    if len(code_counts) != REFERENCE_UNIQUE_PRODUCTS:
-        print(
-            "BASELINE HISTÓRICO DE PRODUCTOS ÚNICOS:",
-            REFERENCE_UNIQUE_PRODUCTS,
-            "ACTUAL:",
-            len(code_counts),
-        )
-    if len(duplicate_codes) != REFERENCE_MULTI_CATEGORY_PRODUCTS:
-        print(
-            "BASELINE HISTÓRICO MULTI-CATEGORÍA:",
-            REFERENCE_MULTI_CATEGORY_PRODUCTS,
-            "ACTUAL:",
-            len(duplicate_codes),
-        )
 
     write_benchmark_report(
         benchmark_output,

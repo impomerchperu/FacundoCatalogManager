@@ -31,6 +31,14 @@ if TYPE_CHECKING:
     from gui.scraping_history_dialog import ScrapingHistoryDialog
 
 
+class CategoryScrollArea(QScrollArea):
+    """Área de categorías que solo permite desplazamiento vertical."""
+
+    def scrollContentsBy(self, dx: int, dy: int) -> None:
+        del dx
+        super().scrollContentsBy(0, dy)
+
+
 class MainWindow(QMainWindow):
     """Ventana principal del catálogo."""
 
@@ -361,7 +369,7 @@ class MainWindow(QMainWindow):
         self.category_sidebar_layout.setContentsMargins(4, 0, 4, 0)
         self.category_sidebar_layout.setSpacing(self.CATEGORY_SIDEBAR_SPACING)
 
-        self.category_scroll = QScrollArea()
+        self.category_scroll = CategoryScrollArea()
         self.category_scroll.setWidgetResizable(True)
         self.category_scroll.setFocusPolicy(
             Qt.FocusPolicy.StrongFocus,

@@ -7,19 +7,9 @@ Branch oficial: `main`
 
 El baseline funcional de `v0.1.1` permanece cerrado y protegido en `main`. La siguiente versión en preparación es `v0.2.0`; sus cambios actuales son de hardening, observabilidad, distribución y metadatos de versión, sin modificar las invariantes de scraping, persistencia ni cobertura.
 
-Último código funcional validado localmente antes de la candidata: `4a7a956f574626610e3ce80a50059b1dc28fd4da` (`style(distribution): match ruff import spacing`).
+HEAD validado de la candidata: `874eba3` (`test(fix): align synthetic relation count with occurrences`).
 
 ## Referencias funcionales
-
-### Snapshot histórico protegido
-
-- 24 categorías.
-- 534 apariciones producto-categoría.
-- 530 productos únicos.
-- 4 productos en múltiples categorías.
-- 534 relaciones producto-categoría.
-
-Este snapshot se conserva como referencia histórica y diagnóstico de deriva del inventario vivo.
 
 ### Referencia operativa actual
 
@@ -42,13 +32,7 @@ La regla operativa es ahora comparar cada FULL con los totales publicados por el
 
 ### Referencia histórica protegida
 
-La validación histórica de la base real conserva:
-
-- SQLite `PRAGMA integrity_check = ok`.
-- Snapshot de catálogo: `530` productos / `534` relaciones.
-- Historial preservado: `156` registros.
-- Detalles de cambios preservados: `52,816`.
-- Última historia aplicada de ese checkpoint histórico: `history_id=191`.
+El seed y la instalación `0.2.0` entregan una base persistente validada con `PRAGMA integrity_check = ok`, `519` productos, `24` categorías y `523` relaciones. La instalación upgradeada conservó `47` ejecuciones y `54244` detalles de `download_changes`, además de `519` imágenes.
 
 ### Estado operativo más reciente de stock por color
 
@@ -81,12 +65,14 @@ Validación del baseline funcional actual sobre `main`:
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Última suite local confirmada antes de la candidata: `577 passed, 10 deselected`.
-- Validación estática actual: Ruff limpio y Pyright `0 errors, 0 warnings, 0 informations`.
+- Suite final local: `582 passed, 10 deselected`.
+- Ruff: `All checks passed!`.
+- Pyright: `0 errors, 0 warnings, 0 informations`.
+- Quality CI sobre `874eba3`: `success`.
 - E2E real: `1 passed`, cobertura `24 / 523 / 519 / 4`, `0` productos sin `color_stock`, `0` inconsistencias y `0` errores HTTP terminales.
 - Benchmark real de concurrencia: `1 passed` en `83.65s`, con `24 / 523 / 519 / 4`, `337` requests y `0` reintentos.
 
-Los cambios funcionales y de documentación posteriores quedaron cubiertos por validaciones locales y por Quality CI. En el último run de Quality asociado a `main`, Ruff, Pyright y Pytest terminaron correctamente; `live-catalog` quedó omitido de forma intencional en el CI rápido.
+Los cambios funcionales y de documentación posteriores quedaron cubiertos por validaciones locales y por Quality CI. El run asociado a `874eba3` terminó en `success`; `live-catalog` continúa omitido de forma intencional en el CI rápido.
 
 ## GUI y rendimiento de arranque
 

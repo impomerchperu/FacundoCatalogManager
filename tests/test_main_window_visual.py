@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.main_window import CategoryScrollArea, MainWindow
+from gui.main_window import CategoryFilterButton, CategoryScrollArea, MainWindow
 
 
 def _qapp():

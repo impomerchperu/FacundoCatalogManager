@@ -383,6 +383,9 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Expanding,
         )
         self.category_scroll.setVisible(False)
+        self.category_scroll.verticalScrollBar().setSingleStep(
+            self.table.verticalScrollBar().singleStep(),
+        )
         self.category_sidebar_layout.addWidget(self.category_scroll, 1)
 
         self.category_container = QWidget()
@@ -554,6 +557,11 @@ class MainWindow(QMainWindow):
         return width
 
     def toggle_categories_visibility(self, visible: bool) -> None:
+        if self.category_toggle_button.isChecked() != visible:
+            self.category_toggle_button.blockSignals(True)
+            self.category_toggle_button.setChecked(visible)
+            self.category_toggle_button.blockSignals(False)
+
         self.categories_visible = visible
         self.category_toggle_button.setText(
             "Ocultar Categorías" if visible else "Filtrar Categorías",

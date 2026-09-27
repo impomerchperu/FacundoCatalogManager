@@ -1,3 +1,6 @@
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication
+
 from gui.scraping_history_dialog import ScrapingHistoryDialog
 
 
@@ -92,7 +95,8 @@ def test_history_uses_stock_by_color_for_multi_color_products():
     assert rows[0]["new"] == "Azul: 400\nVerde: 825"
 
 
-def test_history_change_table_uses_compact_fixed_visual_widths(qtbot):
+def test_history_change_table_uses_compact_fixed_visual_widths():
+    QApplication.instance() or QApplication([])
     dialog = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
     table = dialog._build_changes_table(
         [
@@ -109,7 +113,7 @@ def test_history_change_table_uses_compact_fixed_visual_widths(qtbot):
 
     expected = dialog.DETAIL_CHANGE_COLUMN_WIDTHS
     assert tuple(table.columnWidth(index) for index in range(6)) == expected
-    assert table.horizontalScrollBarPolicy() == table.horizontalScrollBarPolicy().ScrollBarAlwaysOff
+    assert table.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
     assert table.item(0, 2).toolTip() == (
         "Producto con nombre suficientemente largo"
     )

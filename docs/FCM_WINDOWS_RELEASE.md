@@ -197,17 +197,17 @@ La restauración se realizó en `%TEMP%\FCM-backup-validation\catalog-restored.d
 - [x] Confirmar desinstalación sin pérdida involuntaria del catálogo.
 - [x] Implementar backup/restauración de `catalog.db` y cubrirlo con pruebas automatizadas.
 - [x] Validar backup/restore sobre una base real de usuario mediante el procedimiento aislado anterior.
-- [x] Actualizar versión de validación a `0.1.1`.
+- [x] Actualizar versión de validación a `0.1.1` para la release histórica publicada.
 - [x] Alinear el workflow de Windows de GitHub con la ruta de empaquetado validada y la detección de Inno Setup usada en la validación local.
 - [x] Ejecutar manualmente el workflow Windows de GitHub Actions y validar su artefacto de smoke de empaquetado.
 - [x] Ejecutar validación final del repositorio en `main`: Ruff limpio.
 - [x] Ejecutar validación final del repositorio en `main`: Pyright sin errores, advertencias ni informaciones.
-- [x] Validación local previa a la candidata: 577 pruebas aprobadas y 10 deselected.
+- [x] Última validación local confirmada antes de los cambios de la candidata: 577 pruebas aprobadas y 10 deselected.
 - [x] Confirmar árbol de trabajo limpio después de sincronizar `main`.
 
 ## Resultados Windows validados
 
-### Instalador 0.1.1
+### Evidencia histórica — instalador 0.1.1
 
 `dist\Windows\FacundoCatalogManager-0.1.1-setup.exe`
 
@@ -302,7 +302,7 @@ product_categories: 523
 
 Esto confirma que el bundle Windows `0.1.1` funciona sin depender de una instalación de Python en el sistema.
 
-## Cierre de validación técnica
+## Cierre de validación técnica de v0.1.1
 
 La validación final realizada el 25 de septiembre de 2026 sobre `main` quedó registrada con:
 

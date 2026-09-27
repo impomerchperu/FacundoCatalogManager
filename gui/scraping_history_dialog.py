@@ -63,7 +63,7 @@ class ScrapingHistoryDialog(QDialog):
     CONTENT_SIDE_PADDING = 4
     DETAIL_CHANGE_VALUE_VERTICAL_PADDING = 8
     DETAIL_CHANGE_ROW_HEIGHT_BUFFER = 2
-    DETAIL_CHANGE_SELECTION_FRAME_CLEARANCE = 4
+    DETAIL_CHANGE_SELECTION_FRAME_VERTICAL_CLEARANCE = 4
     DETAIL_CHANGE_DIALOG_WIDTH = 1100
     DETAIL_CHANGE_MIN_DIALOG_WIDTH = 820
     DETAIL_CHANGE_FIXED_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
@@ -849,7 +849,24 @@ class ScrapingHistoryDialog(QDialog):
                     required_height,
                     self._measure_change_value_height(widget, column_width),
                 )
-            table.setRowHeight(row, required_height)
+
+            # La fila debe contener el marco de selección con la misma
+            # holgura visual arriba y abajo del contenido.
+            target_height = (
+                required_height
+                + 2 * self.DETAIL_CHANGE_SELECTION_FRAME_VERTICAL_CLEARANCE
+            )
+            table.setRowHeight(row, target_height)
+
+            # Qt puede normalizar la altura de una sección en el primer
+            # cálculo. Reaplicar solo la diferencia garantiza que la reserva
+            # vertical solicitada sea la altura efectiva de la fila.
+            actual_height = table.rowHeight(row)
+            if actual_height < target_height:
+                table.setRowHeight(
+                    row,
+                    target_height + target_height - actual_height,
+                )
 
     def _measure_change_value_height(
         self,
@@ -1037,7 +1054,6 @@ class ScrapingHistoryDialog(QDialog):
             + label.contentsMargins().top()
             + label.contentsMargins().bottom()
             + self.DETAIL_CHANGE_ROW_HEIGHT_BUFFER
-            + self.DETAIL_CHANGE_SELECTION_FRAME_CLEARANCE
         )
 
     @staticmethod

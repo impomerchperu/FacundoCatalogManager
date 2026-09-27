@@ -76,7 +76,7 @@ The desktop UI now separates initial catalog acquisition from interaction-time f
 - `ProductTable` performs progressive initial rendering for large catalogs.
 - `MainWindow.apply_filters()` computes matching products in memory and delegates visibility changes to `ProductTable.show_only_products()`.
 - Interactive filters therefore do not call `load_products()` and do not reconstruct 9 table cells per product.
-- The final GUI/release state was revalidated locally with the complete non-real-site suite: `533 passed, 10 deselected`; the recent GUI focus/scroll work does not alter the scraping runtime.
+- The final GUI/release state was revalidated locally with the complete non-real-site suite: `534 passed, 10 deselected`; the recent GUI focus/scroll work does not alter the scraping runtime.
 
 The shutdown hardening for the catalog GUI workers is now implemented and covered by a focused test. `MainWindow.closeEvent()` waits for active catalog-load/bootstrap threads before window destruction; scraping itself remains an independently controlled operation.
 
@@ -256,11 +256,12 @@ The current release baseline is the validated recovery result on `main`; the enr
 
 Última validación local del checkpoint de release:
 
-- HEAD de referencia documental: `4238a9f`
+- HEAD de referencia documental: `3c4c614`
 - VERSION: `0.1.1`
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
-- Pytest: `507 passed, 10 deselected`
+- Pytest: `534 passed, 10 deselected`
+- Focused GUI layout test: `19 passed`
 - Git working tree: clean
 
 La validación anterior de Quality CI queda como evidencia histórica; no se presenta como el resultado del checkpoint actual.
@@ -412,7 +413,7 @@ La ejecución manual posterior al ajuste terminó en `success`. La validación d
 
 The grouped table-width audit on 2026-09-26 found no evidence-based reason to change the established visual widths for Image, Code, Product, Detail or Prices. Category and Stock contracts remain unchanged.
 
-`ProductTable` now caches its preferred content widths after a content render and reuses them during window resize. The cache is invalidated when the catalog content, category-reference catalog or dynamic header labels change. A focused regression test protects the behavior; local validation of the new test remains pending after synchronization.
+`ProductTable` now caches its preferred content widths after a content render and reuses them during window resize. The cache is invalidated when the catalog content, category-reference catalog or dynamic header labels change. The focused regression test passed locally, and the complete non-real-site suite now reports `534 passed, 10 deselected`. Manual smoke validation remains pending.
 
 
 The category-filter interaction is now treated as a stable visual contract on `main`:

@@ -47,6 +47,16 @@ if (-not (Test-Path $BundleExe)) {
     throw "No se encontró el ejecutable esperado: $BundleExe"
 }
 
+$BundleVersionFile = Join-Path $RepoRoot "dist\\Windows\\FacundoCatalogManager\\_internal\\VERSION"
+if (-not (Test-Path $BundleVersionFile)) {
+    throw "No se encontró la versión empaquetada: $BundleVersionFile"
+}
+
+$BundleVersion = (Get-Content $BundleVersionFile -Raw).Trim()
+if ($BundleVersion -ne $Version) {
+    throw "La versión del bundle ($BundleVersion) no coincide con VERSION ($Version)."
+}
+
 Write-Host "Bundle generado: $BundleExe"
 
 if ($SkipInstaller) {

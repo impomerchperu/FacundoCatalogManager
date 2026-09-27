@@ -363,6 +363,12 @@ class MainWindow(QMainWindow):
 
         self.category_scroll = QScrollArea()
         self.category_scroll.setWidgetResizable(True)
+        self.category_scroll.setFocusPolicy(
+            Qt.FocusPolicy.StrongFocus,
+        )
+        self.category_scroll.viewport().setStyleSheet(
+            "background-color: #ffffff;"
+        )
         self.category_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
@@ -390,6 +396,7 @@ class MainWindow(QMainWindow):
 
         self.all_categories_button = QPushButton("Todas las categorías")
         self.all_categories_button.setCheckable(True)
+        self.all_categories_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.all_categories_button.setProperty(
             "category_text",
             "Todas las categorías",
@@ -606,6 +613,7 @@ class MainWindow(QMainWindow):
         for category in categories:
             button = QPushButton(category)
             button.setProperty("category_text", category)
+            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
             button.setStyleSheet(self._category_button_style())

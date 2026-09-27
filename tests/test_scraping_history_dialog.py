@@ -131,7 +131,7 @@ def test_history_hides_unchanged_price_lines():
     rows = ScrapingHistoryDialog._prepare_change_rows(changes)
 
     assert len(rows) == 1
-    assert rows[0]["variation"] == "Precios"
+    assert rows[0]["variation"] == "Precio"
     assert rows[0]["old"] == "muestra: s/3.00"
     assert rows[0]["new"] == "muestra: s/3.50 (+s/0.50)"
     assert "ciento" not in rows[0]["old"]
@@ -232,7 +232,7 @@ def test_history_formats_category_values_vertically():
 def test_history_stock_new_value_shows_signed_delta_for_single_stock():
     assert ScrapingHistoryDialog._format_stock_new_value(500, 400) == "400 (-100)"
     assert ScrapingHistoryDialog._format_stock_new_value(1000, 1825) == "1825 (+825)"
-    assert ScrapingHistoryDialog._format_stock_new_value(500, 500) == "500"
+    assert ScrapingHistoryDialog._format_stock_new_value(500, 500) == "—"
 
 
 def test_history_stock_new_value_shows_signed_delta_by_color():

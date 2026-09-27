@@ -106,6 +106,70 @@ def test_history_uses_stock_by_color_for_multi_color_products():
     assert rows[0]["new"] == "Azul: 400 (-100)\nVerde: 825 (-175)"
 
 
+def test_history_hides_unchanged_price_lines():
+    changes = [
+        {
+            "type": "UPDATED",
+            "code": "ABC-007",
+            "name": "Producto con precios parcialmente cambiados",
+            "field": "price_sample",
+            "label": "Precio muestra",
+            "old": 3.00,
+            "new": 3.50,
+        },
+        {
+            "type": "UPDATED",
+            "code": "ABC-007",
+            "name": "Producto con precios parcialmente cambiados",
+            "field": "price_hundred",
+            "label": "Precio ciento",
+            "old": 4.00,
+            "new": 4.00,
+        },
+    ]
+
+    rows = ScrapingHistoryDialog._prepare_change_rows(changes)
+
+    assert len(rows) == 1
+    assert rows[0]["variation"] == "Precios"
+    assert rows[0]["old"] == "muestra: s/3.00"
+    assert rows[0]["new"] == "muestra: s/3.50 (+s/0.50)"
+    assert "ciento" not in rows[0]["old"]
+    assert "ciento" not in rows[0]["new"]
+
+
+def test_history_hides_unchanged_stock_colors():
+    changes = [
+        {
+            "type": "UPDATED",
+            "code": "ABC-008",
+            "name": "Producto multicolor parcialmente cambiado",
+            "field": "stock",
+            "label": "Stock",
+            "old": 900,
+            "new": 850,
+        },
+        {
+            "type": "UPDATED",
+            "code": "ABC-008",
+            "name": "Producto multicolor parcialmente cambiado",
+            "field": "color_stock",
+            "label": "Stock por color",
+            "old": {"Azul": 500, "Verde": 400},
+            "new": {"Azul": 450, "Verde": 400},
+        },
+    ]
+
+    rows = ScrapingHistoryDialog._prepare_change_rows(changes)
+
+    assert len(rows) == 1
+    assert rows[0]["variation"] == "Stock por color"
+    assert rows[0]["old"] == "Azul: 500"
+    assert rows[0]["new"] == "Azul: 450 (-50)"
+    assert "Verde" not in rows[0]["old"]
+    assert "Verde" not in rows[0]["new"]
+
+
 def test_history_uses_spanish_change_type_labels():
     assert ScrapingHistoryDialog._change_type_text("UPDATED") == "ACTUALIZADO"
     assert ScrapingHistoryDialog._change_type_text("NEW") == "NUEVO"

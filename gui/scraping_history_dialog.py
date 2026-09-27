@@ -1,4 +1,5 @@
 import json
+import re
 import sqlite3
 from datetime import datetime
 from html import escape
@@ -649,6 +650,9 @@ class ScrapingHistoryDialog(QDialog):
         *,
         rich_text: str = "",
     ) -> None:
+        if not rich_text and column == 5:
+            rich_text = self._format_delta_value_html(value)
+
         if rich_text:
             label = QLabel()
             label.setTextFormat(Qt.TextFormat.RichText)
@@ -668,6 +672,31 @@ class ScrapingHistoryDialog(QDialog):
         item.setToolTip(value.replace("\n", " · "))
         item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         table.setItem(row, column, item)
+
+    @classmethod
+    def _format_delta_value_html(cls, value: str) -> str:
+        lines = str(value or "").split("\n")
+        html_lines = []
+        pattern = re.compile(r"(\\([+-](?:s/)?[0-9][0-9,]*(?:\\.[0-9]+)?\\))$")
+        has_delta = False
+
+        for line in lines:
+            escaped_line = escape(line)
+            match = pattern.search(escaped_line)
+            if match is None:
+                html_lines.append(escaped_line)
+                continue
+
+            has_delta = True
+            prefix = escaped_line[:match.start(1)]
+            delta_text = escaped_line[match.start(1):]
+            sign = "+" if delta_text.startswith("(+") else "-"
+            color = cls.DELTA_INCREASE_COLOR if sign == "+" else cls.DELTA_DECREASE_COLOR
+            html_lines.append(
+                f'{prefix}<span style="color:{color}; font-weight:600;">{delta_text}</span>'
+            )
+
+        return "<br>".join(html_lines) if has_delta else ""
 
     @classmethod
     def _configure_change_table_columns(cls, header: QHeaderView) -> None:
@@ -871,6 +900,16 @@ class ScrapingHistoryDialog(QDialog):
 
     @classmethod
     def _build_price_entry(cls, changes: dict[str, dict]):
+        if len(changes) == 1 and "price" in changes:
+            change = changes["price"]
+            return (
+                change.get("label", "Precio"),
+                cls._display_value(change.get("old")),
+                cls._display_value(change.get("new")),
+                "",
+                "price",
+            )
+
         old_lines = []
         new_lines = []
         new_html_lines = []
@@ -976,21 +1015,48 @@ class ScrapingHistoryDialog(QDialog):
         by_color: bool = False,
     ) -> str:
         if by_color:
-            return cls._format_stock_values(
-                cls._as_color_stock(old_value),
-                cls._as_color_stock(new_value),
-            )[1]
+            old_stock = cls._as_color_stock(old_value)
+            new_stock = cls._as_color_stock(new_value)
+            colors = sorted(
+                set(old_stock) | set(new_stock),
+                key=lambda item: str(item).casefold(),
+            )
+            lines = []
+            for color in colors:
+                old_amount = cls._numeric_stock(old_stock.get(color))
+                new_amount = cls._numeric_stock(new_stock.get(color))
+                delta = (
+                    new_amount - old_amount
+                    if old_amount is not None and new_amount is not None
+                    else (
+                        new_amount
+                        if old_amount is None and new_amount is not None
+                        else (
+                            -old_amount
+                            if old_amount is not None and new_amount is None
+                            else None
+                        )
+                    )
+                )
+                base = (
+                    str(new_amount)
+                    if new_amount is not None
+                    else "—"
+                )
+                lines.append(
+                    f"{color}: {cls._format_delta_text(base, delta)}"
+                )
+            return "\n".join(lines) if lines else "—"
+
         old_amount = cls._numeric_stock(old_value)
         new_amount = cls._numeric_stock(new_value)
         delta = (
             new_amount - old_amount
-            if old_amount is not None and new_amount is not None
+            if new_amount is not None and old_amount is not None
             else None
         )
-        return cls._format_delta_text(
-            cls._format_stock_scalar(new_value),
-            delta,
-        )
+        base = str(new_amount) if new_amount is not None else "—"
+        return cls._format_delta_text(base, delta)
 
     @staticmethod
     def _numeric_stock(value) -> int | None:

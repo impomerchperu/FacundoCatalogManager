@@ -2,7 +2,7 @@
 
 Fecha: 2026-09-27
 Branch oficial: `main`
-Estado de código: `main` está validado en `4a7a956`, con el pulido reciente de la UI de historial y el guard de evidencia de benchmarks.
+Estado de código: `main` prepara `v0.2.0` con versionado centralizado, hardening de observabilidad y distribución Windows; la última validación local confirmada antes de estos cambios fue `4a7a956`.
 
 ## 1. Objetivo del proyecto
 

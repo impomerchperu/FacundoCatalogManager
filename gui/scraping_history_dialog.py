@@ -833,6 +833,13 @@ class ScrapingHistoryDialog(QDialog):
         table.setFixedHeight(min(required_height, max_height))
 
     def _fit_change_table_row_heights(self, table: QTableWidget) -> None:
+        # El encabezado vertical en ResizeToContents vuelve a imponer la
+        # altura calculada por Qt y descarta la holgura necesaria para que el
+        # marco de selección quede separado del texto. Desde aquí las filas
+        # quedan bajo control explícito de este ajuste.
+        vertical_header = table.verticalHeader()
+        vertical_header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+
         for row in range(table.rowCount()):
             required_height = table.sizeHintForRow(row)
             for column in (4, 5):

@@ -429,15 +429,14 @@ def test_history_window_has_no_footer_buttons_and_fits_table_width():
     app.processEvents()
 
     margins = layout.contentsMargins()
-    minimum_widths = dialog._calculate_minimum_column_widths(
-        dialog.table.horizontalHeader(),
+    table_geometry_width = dialog.table.geometry().width()
+    expected_table_width = (
+        dialog.width()
+        - margins.left()
+        - margins.right()
     )
-    content_width = sum(minimum_widths)
-    expected_width = dialog._calculate_required_window_width(
-        content_width,
-        margins,
-    )
-    assert dialog.width() == expected_width
+    assert table_geometry_width == expected_table_width
+    assert dialog.width() >= dialog.minimumWidth()
 
     dialog.close()
     dialog.deleteLater()

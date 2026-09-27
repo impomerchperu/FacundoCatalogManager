@@ -259,7 +259,7 @@ The current release baseline is the validated recovery result on `main`; the enr
 
 Última validación local del checkpoint de release:
 
-- HEAD de referencia documental: `9a03ae7`
+- HEAD de referencia documental: `e36c7af`
 - VERSION: `0.1.1`
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
@@ -435,3 +435,8 @@ The history dialog visual contract was extended after the 2026-09-26 review: cha
 ## Current main validation — 2026-09-27
 
 El commit actual de `main` es `9a03ae7`. La validación local más reciente quedó completamente verde: historial **18 passed**, comparador de benchmarks **12 passed**, Ruff limpio, Pyright sin diagnósticos y suite completa **568 passed, 10 deselected**. Estos resultados son el estado vigente; los resultados anteriores del documento se conservan como evidencia histórica.
+
+
+## Current main validation — 2026-09-27
+
+El HEAD actual de `main` es `e36c7af`. La validación local más reciente quedó completamente verde: historial **18 passed**, comparador de benchmarks **16 passed**, Ruff limpio, Pyright sin diagnósticos y suite completa **572 passed, 10 deselected**. Estos resultados son el estado vigente; las cifras anteriores del documento se conservan como evidencia histórica de sus respectivas ejecuciones.

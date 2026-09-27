@@ -1,5 +1,13 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QHeaderView, QLabel
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QHeaderView,
+    QLabel,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+)
 
 from gui.scraping_history_dialog import ScrapingHistoryDialog
 
@@ -201,9 +209,9 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     header = table.horizontalHeader()
     assert table.verticalHeader().isVisible()
     assert table.verticalHeader().sectionSize(0) >= 32
-    assert header.sectionResizeMode(0) == QHeaderView.ResizeMode.Fixed
-    assert header.sectionResizeMode(1) == QHeaderView.ResizeMode.Fixed
-    assert header.sectionResizeMode(2) == QHeaderView.ResizeMode.Fixed
+    assert header.sectionResizeMode(0) == QHeaderView.ResizeMode.ResizeToContents
+    assert header.sectionResizeMode(1) == QHeaderView.ResizeMode.ResizeToContents
+    assert header.sectionResizeMode(2) == QHeaderView.ResizeMode.Stretch
     product_item = table.item(0, 2)
     assert product_item is not None
     assert product_item.toolTip() == "Producto con nombre suficientemente largo"
@@ -211,12 +219,9 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     assert " ".join(product_item.text().splitlines()) == product_item.toolTip()
     assert table.textElideMode() == Qt.TextElideMode.ElideNone
     assert table.item(0, 0).text() == "ACTUALIZADO"
-    assert header.sectionResizeMode(3) == QHeaderView.ResizeMode.Fixed
-    assert header.sectionResizeMode(4) == QHeaderView.ResizeMode.Fixed
-    assert header.sectionResizeMode(5) == QHeaderView.ResizeMode.Fixed
-    assert table.columnWidth(2) >= ScrapingHistoryDialog.DETAIL_CHANGE_PRODUCT_MIN_WIDTH
-    assert table.columnWidth(4) >= ScrapingHistoryDialog.DETAIL_CHANGE_VALUE_MIN_WIDTH
-    assert table.columnWidth(5) >= ScrapingHistoryDialog.DETAIL_CHANGE_VALUE_MIN_WIDTH
+    assert header.sectionResizeMode(3) == QHeaderView.ResizeMode.ResizeToContents
+    assert header.sectionResizeMode(4) == QHeaderView.ResizeMode.Stretch
+    assert header.sectionResizeMode(5) == QHeaderView.ResizeMode.Stretch
     assert table.maximumHeight() == table.minimumHeight()
     assert (
         table.columnWidth(0)
@@ -242,16 +247,74 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     large_old_width = table.columnWidth(4)
     large_new_width = table.columnWidth(5)
 
-    assert large_product_width == small_product_width
-    assert large_old_width == small_old_width
-    assert large_new_width == small_new_width
+    assert large_product_width > small_product_width
+    assert large_old_width > small_old_width
+    assert large_new_width > small_new_width
     assert table.columnWidth(4) > 0
     assert table.columnWidth(5) > 0
     assert table.height() == table.minimumHeight()
-    assert table.minimumWidth() <= ScrapingHistoryDialog.DETAIL_CHANGE_TABLE_TARGET_WIDTH + 40
     assert (
         sum(table.columnWidth(column) for column in range(table.columnCount()))
-        <= ScrapingHistoryDialog.DETAIL_CHANGE_TABLE_TARGET_WIDTH
+        <= table.viewport().width() + table.verticalHeader().width() + 4
     )
 
     table.deleteLater()
+
+
+def test_multiple_category_table_shows_every_row_without_partial_clipping():
+    QApplication.instance() or QApplication([])
+    owner = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
+    dialog = QDialog()
+    dialog.setMaximumHeight(800)
+    layout = QVBoxLayout(dialog)
+    table = QTableWidget()
+    table.setColumnCount(3)
+    table.setHorizontalHeaderLabels(["Código", "Producto", "Categorías"])
+    table.setRowCount(4)
+    table.setWordWrap(True)
+    table.setTextElideMode(Qt.TextElideMode.ElideNone)
+    for row, code in enumerate(["FB-4028", "FB-1060", "FB-9000", "FB-5003"]):
+        table.setItem(row, 0, QTableWidgetItem(code))
+        table.setItem(row, 1, QTableWidgetItem(f"Producto {code}"))
+        table.setItem(
+            row,
+            2,
+            QTableWidgetItem("Enmicadoras / Laminadoras, Oficina"),
+        )
+    table.horizontalHeader().setSectionResizeMode(
+        0,
+        QHeaderView.ResizeMode.ResizeToContents,
+    )
+    table.horizontalHeader().setSectionResizeMode(
+        1,
+        QHeaderView.ResizeMode.Stretch,
+    )
+    table.horizontalHeader().setSectionResizeMode(
+        2,
+        QHeaderView.ResizeMode.Stretch,
+    )
+    layout.addWidget(table)
+
+    dialog.resize(900, 500)
+    dialog.show()
+    table.show()
+    QApplication.processEvents()
+
+    owner._fit_multiple_category_table(dialog, table)
+    QApplication.processEvents()
+
+    assert table.verticalScrollBar().maximum() == 0
+    assert all(
+        table.visualItemRect(table.item(row, 0)).bottom()
+        < table.viewport().height()
+        for row in range(4)
+    )
+    expected_height = (
+        table.horizontalHeader().height()
+        + sum(table.rowHeight(row) for row in range(4))
+        + 2 * table.frameWidth()
+        + 2
+    )
+    assert table.height() >= expected_height
+
+    dialog.close()

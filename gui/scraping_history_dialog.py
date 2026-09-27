@@ -855,9 +855,9 @@ class ScrapingHistoryDialog(QDialog):
         widget: QLabel,
         column_width: int,
     ) -> int:
-        padding = self.DETAIL_CHANGE_VALUE_VERTICAL_PADDING
+        margins = widget.contentsMargins()
         content_width = max(
-            column_width - (2 * self.CONTENT_SIDE_PADDING) - 2,
+            column_width - margins.left() - margins.right(),
             1,
         )
 
@@ -868,12 +868,13 @@ class ScrapingHistoryDialog(QDialog):
         document.setHtml(widget.text())
         rendered_height = ceil(document.documentLayout().documentSize().height())
 
-        line_count = max(widget.text().count("<br>") + 1, 1)
-        minimum_text_height = line_count * QFontMetrics(widget.font()).lineSpacing()
-        return (
-            max(rendered_height, minimum_text_height)
-            + padding
-            + self.DETAIL_CHANGE_ROW_HEIGHT_BUFFER
+        minimum_height = self._minimum_change_value_label_height(widget)
+        return max(
+            rendered_height
+            + margins.top()
+            + margins.bottom()
+            + self.DETAIL_CHANGE_ROW_HEIGHT_BUFFER,
+            minimum_height,
         )
 
     @staticmethod
@@ -1008,13 +1009,33 @@ class ScrapingHistoryDialog(QDialog):
         label.setText(rich_text)
         label.setWordWrap(True)
         label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        label.setContentsMargins(
+            self.CONTENT_SIDE_PADDING,
+            4,
+            self.CONTENT_SIDE_PADDING,
+            4,
+        )
         label.setToolTip(value.replace("\n", " · "))
+        font = QFont(self.FONT_FAMILY)
+        font.setPixelSize(self.BODY_FONT_SIZE)
+        label.setFont(font)
         label.setStyleSheet(
             f'font-family: "{self.FONT_FAMILY}"; '
             f"font-size: {self.BODY_FONT_SIZE}px; "
-            f"color: {self.TEXT_COLOR}; padding: 4px;"
+            f"color: {self.TEXT_COLOR};"
         )
+        label.setMinimumHeight(self._minimum_change_value_label_height(label))
         table.setCellWidget(row, column, label)
+
+    def _minimum_change_value_label_height(self, label: QLabel) -> int:
+        line_count = max(label.text().count("<br>") + 1, 1)
+        line_height = label.fontMetrics().lineSpacing()
+        return (
+            line_count * line_height
+            + label.contentsMargins().top()
+            + label.contentsMargins().bottom()
+            + self.DETAIL_CHANGE_ROW_HEIGHT_BUFFER
+        )
 
     @staticmethod
     def _format_plain_value_html(value: str) -> str:

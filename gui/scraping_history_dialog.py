@@ -96,6 +96,9 @@ class ScrapingHistoryDialog(QDialog):
         self.repository = ScrapingHistoryRepository(self.db)
         self.detail_dialog: QDialog | None = None
         self._is_fitting_columns = False
+        self._initial_fit_timer = QTimer(self)
+        self._initial_fit_timer.setSingleShot(True)
+        self._initial_fit_timer.timeout.connect(self._fit_table_to_content)
         self.setWindowTitle("Historial de descargas")
         self.resize(940, 660)
         self._build_ui()

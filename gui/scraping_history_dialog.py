@@ -723,7 +723,6 @@ class ScrapingHistoryDialog(QDialog):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
         table.resizeRowsToContents()
-        self._fit_change_table_row_heights(table)
         header_height = max(header.height(), header.sizeHint().height())
         rows_height = sum(
             max(
@@ -799,6 +798,7 @@ class ScrapingHistoryDialog(QDialog):
             )
 
         table.resizeRowsToContents()
+        self._fit_change_table_row_heights(table)
         header_height = max(header.height(), header.sizeHint().height())
         rows_height = sum(
             max(

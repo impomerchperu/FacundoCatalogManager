@@ -60,9 +60,9 @@ Para generar también el instalador:
 .\scripts\build_windows.ps1
 ```
 
-El instalador de validación actual es:
+El instalador de la candidata `0.2.0` se generará como:
 
-`dist\Windows\FacundoCatalogManager-0.1.1-setup.exe`
+`dist\Windows\FacundoCatalogManager-0.2.0-setup.exe`
 
 Inno Setup 7 puede instalarse con:
 

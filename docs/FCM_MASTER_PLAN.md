@@ -1,8 +1,8 @@
 # FCM — Plan Maestro
 
-Fecha: 2026-09-26
+Fecha: 2026-09-27
 Branch oficial: `main`
-Último estado de código y validación: `926c7653c1e7402ce505ccab665cd83593a5787a`
+Estado de código: el baseline incorpora el pulido reciente de la UI de historial y el guard de evidencia de benchmarks.
 
 ## 1. Objetivo del proyecto
 
@@ -217,7 +217,7 @@ Los cambios exclusivamente de GUI pueden validarse con la suite local y smoke ma
 - [x] README alineado con el comportamiento actual.
 - [x] Release checkpoint alineado.
 - [x] Architecture checkpoint alineado.
-- [ ] Mantener estos documentos actualizados ante cambios estructurales.
+- [x] Mantener estos documentos actualizados ante cambios estructurales.
 
 ## 7. Regla de estabilidad
 
@@ -243,7 +243,7 @@ main
 
 ## 8. Próximo hito
 
-El hardening de los workers de catálogo y la validación de concurrencia de detalle `24` quedaron completados. El siguiente hito operativo es repetir el smoke manual de la GUI sobre el runtime `8 / 24 / 28` y, si permanece limpio, preparar la siguiente cadena de release sobre `main` sin modificar el tag `v0.1.1`.
+El hardening de workers, la cobertura FULL, el historial y el pulido visual reciente quedaron consolidados. El siguiente bloque operativo es mantener la evidencia de observabilidad y acumular sobre `main` únicamente cambios validados. Una nueva release se prepara solo cuando exista un conjunto funcional coherente y vuelva a completarse la cadena de validación correspondiente.
 
 Mientras tanto, `main` es el baseline funcional de referencia.
 

@@ -3,7 +3,7 @@
 Estado: **en preparación**  
 Versión central: `VERSION = 0.2.0`  
 Release publicada anterior: `v0.1.1`  
-HEAD candidato actual de `main`: `d543f12`
+HEAD de referencia de estas notas: `d543f12`
 
 ## Alcance
 

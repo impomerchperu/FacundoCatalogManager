@@ -53,13 +53,13 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 - [ ] No aceptar una optimización únicamente por una corrida rápida: debe conservar cobertura, persistencia e historial.
 - [ ] Repetir FULL/E2E después de cualquier cambio de runtime que afecte scraping o concurrencia.
 - [x] Disponer de un comparador reproducible de artefactos benchmark para revisar configuración, cobertura y deltas de tiempo/HTTP sin interpretar manualmente los resultados.
-- [ ] Validar localmente el comparador con la suite y una pareja real de artefactos benchmark.
+- [x] Validar localmente el comparador con la suite y una pareja real de artefactos benchmark.
 
 
 ### 4. Observabilidad y mantenimiento
 - [ ] Mantener las métricas de cobertura, retries, tiempos y progreso como evidencia de diagnóstico.
 - [ ] Mantener las herramientas destructivas legacy bloqueadas o explícitamente controladas.
-- [ ] Revisar periódicamente que la documentación no mezcle snapshots históricos con el baseline vivo.
+- [x] Revisar y normalizar la documentación para que el baseline vivo no quede mezclado con snapshots antiguos.
 - [ ] Mantener backup/restore cubierto antes de cambios sobre persistencia.
 
 ### 5. Versionado y releases
@@ -71,7 +71,7 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 
 ## Regla de seguridad del desarrollo
 
-Todo cambio que afecte scraping, persistencia, concurrencia, imágenes o reconciliación debe preservar las invariantes del baseline:
+Todo cambio que afecte scraping, persistencia, concurrencia, imágenes o reconciliación debe preservar las invariantes del baseline vivo:
 
 `24 categorías + cobertura completa + 0 errores invalidantes + persistencia consistente + historial correcto`
 

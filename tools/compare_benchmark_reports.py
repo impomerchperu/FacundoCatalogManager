@@ -142,44 +142,76 @@ def _coverage_signature(report: dict[str, typing.Any]) -> dict[str, int]:
     return signature
 
 
-def _validate_report_for_comparison(report: dict[str, typing.Any], label: str) -> None:
+def _validate_required_coverage_counts(
+    coverage: dict[str, typing.Any],
+    label: str,
+) -> tuple[int, int, int]:
+    values = tuple(
+        coverage.get(key)
+        for key in ("categories", "expected_occurrences", "found_occurrences")
+    )
+    if not all(
+        isinstance(value, int) and not isinstance(value, bool)
+        for value in values
+    ):
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} no tiene una firma de cobertura válida."
+        )
+
+    categories, expected, found = typing.cast(tuple[int, int, int], values)
+    if any(value < 0 for value in values):
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} tiene métricas de cobertura negativas."
+        )
+    return categories, expected, found
+
+
+def _validate_optional_nonnegative_int(
+    mapping: dict[str, typing.Any],
+    key: str,
+    label: str,
+    *,
+    invalid_message: str,
+    negative_message: str,
+) -> int | None:
+    value = mapping.get(key)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise BenchmarkComparisonError(invalid_message.format(label=label))
+    if value < 0:
+        raise BenchmarkComparisonError(negative_message.format(label=label))
+    return value
+
+
+def _validate_coverage_for_comparison(
+    report: dict[str, typing.Any],
+    label: str,
+) -> None:
     coverage = report.get("coverage")
     if not isinstance(coverage, dict):
         raise BenchmarkComparisonError(
             f"El benchmark {label} no declara métricas de cobertura."
         )
 
-    categories = coverage.get("categories")
-    expected = coverage.get("expected_occurrences")
-    found = coverage.get("found_occurrences")
-    if not all(
-        isinstance(value, int) and not isinstance(value, bool)
-        for value in (categories, expected, found)
-    ):
-        raise BenchmarkComparisonError(
-            f"El benchmark {label} no tiene una firma de cobertura válida."
-        )
-    if any(value < 0 for value in (categories, expected, found)):
-        raise BenchmarkComparisonError(
-            f"El benchmark {label} tiene métricas de cobertura negativas."
-        )
+    _, expected, found = _validate_required_coverage_counts(coverage, label)
     if expected != found:
         raise BenchmarkComparisonError(
             f"El benchmark {label} tiene cobertura incompleta: "
             f"esperados={expected}, encontrados={found}."
         )
 
-    coverage_gap = coverage.get("coverage_gap")
-    if coverage_gap is not None and (
-        not isinstance(coverage_gap, int) or isinstance(coverage_gap, bool)
-    ):
-        raise BenchmarkComparisonError(
-            f"El benchmark {label} tiene un 'coverage_gap' inválido."
-        )
-    if coverage_gap is not None and coverage_gap < 0:
-        raise BenchmarkComparisonError(
-            f"El benchmark {label} tiene un 'coverage_gap' negativo."
-        )
+    coverage_gap = _validate_optional_nonnegative_int(
+        coverage,
+        "coverage_gap",
+        label,
+        invalid_message=(
+            "El benchmark {label} tiene un 'coverage_gap' inválido."
+        ),
+        negative_message=(
+            "El benchmark {label} tiene un 'coverage_gap' negativo."
+        ),
+    )
     if coverage_gap is not None and coverage_gap != 0:
         raise BenchmarkComparisonError(
             f"El benchmark {label} declara coverage_gap={coverage_gap}."
@@ -191,41 +223,55 @@ def _validate_report_for_comparison(report: dict[str, typing.Any], label: str) -
             f"El benchmark {label} no declara coverage_complete=True."
         )
 
-    error_count = coverage.get("error_count")
-    if error_count is not None and (
-        not isinstance(error_count, int) or isinstance(error_count, bool)
-    ):
-        raise BenchmarkComparisonError(
-            f"El benchmark {label} tiene un 'error_count' inválido."
-        )
-    if error_count is not None and error_count < 0:
-        raise BenchmarkComparisonError(
-            f"El benchmark {label} tiene un 'error_count' negativo."
-        )
+    error_count = _validate_optional_nonnegative_int(
+        coverage,
+        "error_count",
+        label,
+        invalid_message=(
+            "El benchmark {label} tiene un 'error_count' inválido."
+        ),
+        negative_message=(
+            "El benchmark {label} tiene un 'error_count' negativo."
+        ),
+    )
     if error_count is not None and error_count != 0:
         raise BenchmarkComparisonError(
             f"El benchmark {label} declara error_count={error_count}."
         )
 
+
+def _validate_http_for_comparison(
+    report: dict[str, typing.Any],
+    label: str,
+) -> None:
     http = report.get("http")
-    if isinstance(http, dict):
-        terminal_errors = http.get("http_terminal_errors")
-        if terminal_errors is not None and (
-            not isinstance(terminal_errors, int)
-            or isinstance(terminal_errors, bool)
-        ):
-            raise BenchmarkComparisonError(
-                f"El benchmark {label} tiene http_terminal_errors inválido."
-            )
-        if terminal_errors is not None and terminal_errors < 0:
-            raise BenchmarkComparisonError(
-                f"El benchmark {label} tiene http_terminal_errors negativo."
-            )
-        if terminal_errors is not None and terminal_errors != 0:
-            raise BenchmarkComparisonError(
-                f"El benchmark {label} declara "
-                f"http_terminal_errors={terminal_errors}."
-            )
+    if not isinstance(http, dict):
+        return
+
+    terminal_errors = _validate_optional_nonnegative_int(
+        http,
+        "http_terminal_errors",
+        label,
+        invalid_message=(
+            "El benchmark {label} tiene http_terminal_errors inválido."
+        ),
+        negative_message=(
+            "El benchmark {label} tiene http_terminal_errors negativo."
+        ),
+    )
+    if terminal_errors is not None and terminal_errors != 0:
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} declara "
+            f"http_terminal_errors={terminal_errors}."
+        )
+
+
+def _validate_report_for_comparison(
+    report: dict[str, typing.Any],
+    label: str,
+) -> None:
+    _validate_coverage_for_comparison(report, label)
+    _validate_http_for_comparison(report, label)
 
 
 def compare_benchmark_reports(

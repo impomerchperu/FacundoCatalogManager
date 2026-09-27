@@ -67,3 +67,15 @@ def test_windows_spec_embeds_application_icon_and_version():
     assert 'VERSION_FILE = ROOT / "VERSION"' in content
     assert '(str(VERSION_FILE), ".")' in content
     assert '#error "FCM_VERSION debe ser suministrada por el script de build."' in _read(INSTALLER_PATH)
+
+
+def test_windows_workflow_pins_release_toolchain_and_checks_bundle_version():
+    workflow_path = PROJECT_ROOT / ".github" / "workflows" / "windows-build.yml"
+    content = _read(workflow_path)
+
+    assert (
+        "winget install --id JRSoftware.InnoSetup.7 -e --version 7.1.0"
+        in content
+    )
+    assert '$bundleVersion = (Get-Content "dist\\Windows\\FacundoCatalogManager\\_internal\\VERSION" -Raw).Trim()' in content
+    assert 'if ($bundleVersion -ne $version)' in content

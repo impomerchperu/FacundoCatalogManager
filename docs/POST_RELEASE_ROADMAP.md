@@ -21,7 +21,7 @@ La referencia funcional vigente es:
 - `coverage_gap=0`
 - 0 errores invalidantes
 - Producción: 8 workers de categoría / 16 de detalle / 28 HTTP
-- Suite local: 507 passed, 10 deselected
+- Suite local: 533 passed, 10 deselected
 - Ruff limpio
 - Pyright sin errores, advertencias ni informaciones
 
@@ -31,15 +31,17 @@ La referencia funcional vigente es:
 - [x] Incorporar un icono de aplicación Windows propio y consistente.
 - [x] Añadir acceso directo opcional en el Escritorio.
 - [x] Mantener el acceso directo del menú Inicio.
-- [ ] Validar icono, acceso directo e instalación en una nueva revisión del instalador.
+- [x] Validar icono, acceso directo e instalación en una nueva revisión del instalador.
 
-La identidad visual está implementada en el ejecutable, la ventana Qt y el instalador. La validación Windows queda pendiente de una nueva ejecución del build/instalador; la release `0.1.1` no se modifica.
+La identidad visual, acceso directo del menú Inicio, acceso directo opcional del Escritorio y ciclo de instalación/reinstalación/actualización/desinstalación quedaron validados en Windows para `v0.1.1`. La release `0.1.1` se conserva sin modificaciones.
 
 ### 2. Pulido de GUI
-- [ ] Revisar de forma agrupada tipografía, espaciados y anchos de columnas.
-- [ ] Revisar la presentación de Stock y categorías sin alterar los contratos funcionales ya validados.
-- [ ] Mantener el renderizado progresivo y los filtros sin reconstrucción masiva de la tabla.
-- [ ] Validar cada ajuste visual con tests y smoke manual cuando corresponda.
+- [x] Validar la tipografía base de la tabla y categorías: Segoe UI con 13 px para contenido.
+- [x] Validar el espaciado interno de celdas y el contrato de 4 px para contenido de Stock/categorías.
+- [x] Validar navegación ↑/↓ de categorías con foco visible, marco negro único y desplazamiento exclusivamente vertical.
+- [x] Mantener el renderizado progresivo y los filtros sin reconstrucción masiva de la tabla.
+- [ ] Revisar de forma agrupada los anchos restantes de columnas de la tabla, aplicando cambios solo donde exista evidencia visual concreta.
+- [ ] Validar cada ajuste nuevo con tests y smoke manual cuando corresponda.
 
 ### 3. Scraping y rendimiento
 - [ ] No modificar todavía la configuración productiva `8 / 16 / 28`.

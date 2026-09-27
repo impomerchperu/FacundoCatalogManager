@@ -607,13 +607,6 @@ class ScrapingHistoryDialog(QDialog):
         table = self._build_changes_table(display_changes)
         layout.addWidget(table)
 
-        close_layout = QHBoxLayout()
-        close_layout.addStretch()
-        close_button = QPushButton("Cerrar")
-        close_button.clicked.connect(dialog.close)
-        close_layout.addWidget(close_button)
-        layout.addLayout(close_layout)
-
         dialog.set_resize_handler(
             lambda: self._fit_detail_tables(
                 dialog,
@@ -1009,10 +1002,14 @@ class ScrapingHistoryDialog(QDialog):
                 rows.append(cls._row_from_entry(group, stock_entry))
 
             if group["prices"]:
-                rows.append(cls._row_from_entry(group, cls._build_price_entry(group["prices"])))
+                price_entry = cls._build_price_entry(group["prices"])
+                if price_entry is not None:
+                    rows.append(cls._row_from_entry(group, price_entry))
 
             if group["category"] is not None:
-                rows.append(cls._row_from_entry(group, cls._build_category_entry(group["category"])))
+                category_entry = cls._build_category_entry(group["category"])
+                if category_entry is not None:
+                    rows.append(cls._row_from_entry(group, category_entry))
 
             for change in group["entries"]:
                 rows.append(
@@ -1062,6 +1059,8 @@ class ScrapingHistoryDialog(QDialog):
 
         old_value = stock_data.get("old")
         new_value = stock_data.get("new")
+        if cls._values_equal(old_value, new_value):
+            return None
         new_amount = cls._numeric_stock(new_value)
         old_amount = cls._numeric_stock(old_value)
         delta = (
@@ -1085,10 +1084,18 @@ class ScrapingHistoryDialog(QDialog):
         old_lines = []
         new_lines = []
         new_html_lines = []
-        colors = sorted(set(old_stock) | set(new_stock), key=lambda item: str(item).casefold())
+        colors = sorted(
+            set(old_stock) | set(new_stock),
+            key=lambda item: str(item).casefold(),
+        )
         for color in colors:
-            old_amount = cls._numeric_stock(old_stock.get(color))
-            new_amount = cls._numeric_stock(new_stock.get(color))
+            old_value = old_stock.get(color)
+            new_value = new_stock.get(color)
+            if cls._values_equal(old_value, new_value):
+                continue
+
+            old_amount = cls._numeric_stock(old_value)
+            new_amount = cls._numeric_stock(new_value)
             old_text = cls._format_stock_number(old_amount)
             new_text = cls._format_stock_number(new_amount)
             old_lines.append(f"{color}: {old_text}")
@@ -1098,7 +1105,11 @@ class ScrapingHistoryDialog(QDialog):
                 else (
                     new_amount
                     if old_amount is None and new_amount is not None
-                    else (-old_amount if old_amount is not None and new_amount is None else None)
+                    else (
+                        -old_amount
+                        if old_amount is not None and new_amount is None
+                        else None
+                    )
                 )
             )
             base_new_line = f"{color}: {new_text}"
@@ -1151,8 +1162,18 @@ class ScrapingHistoryDialog(QDialog):
 
     @classmethod
     def _build_price_entry(cls, changes: dict[str, dict]):
-        if len(changes) == 1 and "price" in changes:
-            change = changes["price"]
+        changed_prices = {}
+        for field, change in changes.items():
+            if not isinstance(change, dict):
+                continue
+            if not cls._values_equal(change.get("old"), change.get("new")):
+                changed_prices[field] = change
+
+        if not changed_prices:
+            return None
+
+        if len(changed_prices) == 1 and "price" in changed_prices:
+            change = changed_prices["price"]
             return (
                 change.get("label", "Precio"),
                 cls._display_value(change.get("old")),
@@ -1165,7 +1186,7 @@ class ScrapingHistoryDialog(QDialog):
         new_lines = []
         new_html_lines = []
         for field, label in cls.PRICE_FIELD_LABELS.items():
-            change = changes.get(field)
+            change = changed_prices.get(field)
             if change is None:
                 continue
             old_amount = cls._numeric_price(change.get("old"))
@@ -1173,12 +1194,12 @@ class ScrapingHistoryDialog(QDialog):
             old_text = cls._format_currency(old_amount)
             new_text = cls._format_currency(new_amount)
             old_lines.append(f"{label}: {old_text}")
-            base_new_line = f"{label}: {new_text}"
             delta = (
                 new_amount - old_amount
-                if old_amount is not None and new_amount is not None
+                if new_amount is not None and old_amount is not None
                 else None
             )
+            base_new_line = f"{label}: {new_text}"
             new_lines.append(
                 cls._format_delta_text(
                     base_new_line,
@@ -1194,9 +1215,10 @@ class ScrapingHistoryDialog(QDialog):
                     prefix_length=len(f"{label}: "),
                 )
             )
+
         variation = (
-            next(iter(changes.values())).get("label", "Precio")
-            if len(changes) == 1
+            next(iter(changed_prices.values())).get("label", "Precio")
+            if len(changed_prices) == 1
             else "Precios"
         )
         return (
@@ -1209,10 +1231,14 @@ class ScrapingHistoryDialog(QDialog):
 
     @classmethod
     def _build_category_entry(cls, change: dict):
+        old_value = change.get("old")
+        new_value = change.get("new")
+        if cls._values_equal(old_value, new_value):
+            return None
         return (
             "Categoría",
-            cls._format_category_value(change.get("old")),
-            cls._format_category_value(change.get("new")),
+            cls._format_category_value(old_value),
+            cls._format_category_value(new_value),
             "",
             "category",
         )
@@ -1229,6 +1255,15 @@ class ScrapingHistoryDialog(QDialog):
             return categories
         text = str(value or "").strip()
         return [text] if text else []
+
+    @staticmethod
+    def _values_equal(old_value, new_value) -> bool:
+        if isinstance(old_value, (int, float)) and isinstance(
+            new_value,
+            (int, float),
+        ):
+            return float(old_value) == float(new_value)
+        return old_value == new_value
 
     @staticmethod
     def _numeric_price(value) -> float | None:

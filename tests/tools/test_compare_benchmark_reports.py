@@ -79,6 +79,13 @@ def test_compare_reports_rejects_incomplete_coverage():
         )
 
 
+def test_compare_reports_rejects_negative_coverage_counts():
+    report = _report(expected_occurrences=-1, found_occurrences=-1)
+
+    with pytest.raises(BenchmarkComparisonError, match="cobertura negativas"):
+        compare_benchmark_reports(report, _report())
+
+
 def test_compare_reports_rejects_nonzero_coverage_gap():
     report = _report()
     report["coverage"]["coverage_gap"] = 1
@@ -98,11 +105,27 @@ def test_compare_reports_rejects_noncomplete_coverage_flag():
         compare_benchmark_reports(report, _report())
 
 
+def test_compare_reports_rejects_negative_coverage_gap():
+    report = _report()
+    report["coverage"]["coverage_gap"] = -1
+
+    with pytest.raises(BenchmarkComparisonError, match="coverage_gap.*negativo"):
+        compare_benchmark_reports(report, _report())
+
+
 def test_compare_reports_rejects_coverage_errors():
     report = _report()
     report["coverage"]["error_count"] = 1
 
     with pytest.raises(BenchmarkComparisonError, match="error_count=1"):
+        compare_benchmark_reports(report, _report())
+
+
+def test_compare_reports_rejects_negative_error_count():
+    report = _report()
+    report["coverage"]["error_count"] = -1
+
+    with pytest.raises(BenchmarkComparisonError, match="error_count.*negativo"):
         compare_benchmark_reports(report, _report())
 
 
@@ -112,6 +135,16 @@ def test_compare_reports_rejects_terminal_http_errors():
     with pytest.raises(
         BenchmarkComparisonError,
         match="http_terminal_errors=2",
+    ):
+        compare_benchmark_reports(report, _report())
+
+
+def test_compare_reports_rejects_negative_terminal_http_errors():
+    report = _report(http_terminal_errors=-1)
+
+    with pytest.raises(
+        BenchmarkComparisonError,
+        match="http_terminal_errors.*negativo",
     ):
         compare_benchmark_reports(report, _report())
 

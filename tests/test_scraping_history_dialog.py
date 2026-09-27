@@ -9,7 +9,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from gui.scraping_history_dialog import ScrapingHistoryDialog
+from gui.scraping_history_dialog import (
+    ScrapingHistoryDialog,
+    _HistoryDetailDialog,
+)
 
 
 def test_history_keeps_unrelated_product_changes_as_separate_rows():
@@ -242,6 +245,60 @@ def test_history_stock_new_value_shows_signed_delta_by_color():
         by_color=True,
     )
     assert value == "Azul: 400 (-100)\nVerde: 1825 (+825)"
+
+
+def test_history_detail_value_columns_share_spacing_and_row_fits_content():
+    QApplication.instance() or QApplication([])
+    owner = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
+    table = owner._build_changes_table(
+        [
+            {
+                "type": "UPDATED",
+                "code": "FB-4028",
+                "name": "Producto con dos valores",
+                "variation": "Precio",
+                "old": "muestra: s/3.00",
+                "new": "muestra: s/3.50 (+s/0.50)",
+            }
+        ]
+    )
+    table.show()
+    QApplication.processEvents()
+
+    old_widget = table.cellWidget(0, 4)
+    new_widget = table.cellWidget(0, 5)
+    assert isinstance(old_widget, QLabel)
+    assert isinstance(new_widget, QLabel)
+    assert old_widget.styleSheet() == new_widget.styleSheet()
+    assert "padding: 4px;" in old_widget.styleSheet()
+
+    detail_dialog = QDialog()
+    layout = QVBoxLayout(detail_dialog)
+    layout.addWidget(table)
+    detail_dialog.resize(1100, 700)
+    detail_dialog.show()
+    QApplication.processEvents()
+
+    owner._fit_changes_table_to_dialog(detail_dialog, table)
+    QApplication.processEvents()
+    row_height = table.rowHeight(0)
+    assert row_height >= old_widget.sizeHint().height()
+    assert row_height >= new_widget.sizeHint().height()
+
+    detail_dialog.close()
+    table.deleteLater()
+
+
+def test_history_detail_dialog_supports_manual_resize_and_window_controls():
+    dialog = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
+    detail_dialog = _HistoryDetailDialog(dialog)
+
+    flags = detail_dialog.windowFlags()
+    assert flags & Qt.WindowType.WindowMinimizeButtonHint
+    assert flags & Qt.WindowType.WindowMaximizeButtonHint
+    assert detail_dialog.minimumSize().width() == 0
+    detail_dialog.setSizeGripEnabled(True)
+    assert detail_dialog.isSizeGripEnabled()
 
 
 def test_history_change_table_has_row_numbers_and_dynamic_columns():

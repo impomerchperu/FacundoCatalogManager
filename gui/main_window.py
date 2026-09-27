@@ -538,7 +538,6 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Fixed,
             QSizePolicy.Policy.Fixed,
         )
-        button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         button.setStyleSheet(
             'QPushButton { font-family: "Segoe UI"; color: #173f6d; padding: 0px 4px; }\n'
             + cls.ACTIVE_BUTTON_STYLE,
@@ -620,6 +619,7 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Fixed,
             QSizePolicy.Policy.Fixed,
         )
+        button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         width = cls._category_button_width(button, text)
         if max_width is not None:

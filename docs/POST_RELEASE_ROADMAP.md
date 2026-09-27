@@ -20,7 +20,7 @@ La referencia funcional vigente es:
 - `coverage_complete=1`
 - `coverage_gap=0`
 - 0 errores invalidantes
-- Producción: 8 workers de categoría / 16 de detalle / 28 HTTP
+- Producción: 8 workers de categoría / 24 de detalle / 28 HTTP
 - Suite local: 542 passed, 10 deselected
 - Ruff limpio
 - Pyright sin errores, advertencias ni informaciones
@@ -47,14 +47,16 @@ La identidad visual, acceso directo del menú Inicio, acceso directo opcional de
 La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficiente para alterar arbitrariamente los anchos de Imagen, Código, Producto, Detalle o Precios. Los contratos existentes de Categoría y Stock se conservan sin cambios. Como mejora de rendimiento de bajo riesgo, `ProductTable` ahora reutiliza las mediciones de ancho preferido durante los `resizeEvent` y las invalida cuando cambia el contenido, la referencia completa del catálogo o el contenido dinámico del encabezado. La prueba focalizada pasó localmente (`19 passed`) y la suite completa quedó en `542 passed, 10 deselected`; el smoke manual final también fue completado sobre `main`.
 
 ### 3. Scraping y rendimiento
-- [ ] No modificar todavía la configuración productiva `8 / 16 / 28`.
-- [ ] Mantener JSF page workers en `2` y category-page workers en `1`.
-- [ ] Si aparece una regresión real de runtime, aislarla primero con benchmark controlado.
-- [ ] No aceptar una optimización únicamente por una corrida rápida: debe conservar cobertura, persistencia e historial.
-- [ ] Repetir FULL/E2E antes y después de cualquier cambio de runtime que afecte scraping o concurrencia.
+- [x] Mantener category workers en `8` y HTTP workers en `28`.
+- [x] Mantener JSF page workers en `2` y category-page workers en `1`.
+- [x] Comparar `detail_workers=16` vs `24` con dos parejas reales y cobertura completa.
+- [x] Validar `detail_workers=24` en el E2E productivo completo, incluyendo SQLite e historial.
+- [ ] Ejecutar la siguiente validación FULL con el runtime productivo ya establecido en `8 / 24 / 28`.
+- [ ] Mantener la regla de no aceptar una optimización únicamente por una corrida rápida: debe conservar cobertura, persistencia e historial.
 - [x] Disponer de un comparador reproducible de artefactos benchmark para revisar configuración, cobertura y deltas de tiempo/HTTP sin interpretar manualmente los resultados.
 - [x] Ejecutar dos parejas reales `detail_workers=16` vs `24` con cobertura completa y cero errores; `24` redujo el tiempo de pared en ambas parejas.
-- [x] Preparar el E2E productivo real para ejecutar `detail_workers` configurable mediante `FCM_E2E_DETAIL_WORKERS`, conservando `16` como valor por defecto.
+- [x] Validar `detail_workers=24` en E2E real de extremo a extremo: `24/523/519/4`, DB `519/523`, historial aplicado, `333` requests, `0` retries, `0` errores terminales.
+- [x] Preparar el E2E productivo real para ejecutar `detail_workers` configurable mediante `FCM_E2E_DETAIL_WORKERS`, tomando ahora el default productivo de `ScrapingConfig` (`24`).
 - [x] Validar localmente el comparador con la suite y dos parejas reales de artefactos benchmark.
 
 

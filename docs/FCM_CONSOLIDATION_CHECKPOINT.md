@@ -1,8 +1,8 @@
 # FCM — Checkpoint de consolidación
 
-Fecha de alineación: 2026-09-26
+Fecha de alineación: 2026-09-27
 Branch oficial: `main`
-Último estado de código y validación: `926c7653c1e7402ce505ccab665cd83593a5787a`.
+Último estado de código funcional antes de esta actualización documental: `0159339c73c24b72adf03a5ea167373da22aa643`.
 
 ## Referencias funcionales
 
@@ -96,6 +96,9 @@ Además incorpora un job `live-catalog` activable mediante `workflow_dispatch`, 
 - Los tests del ledger fueron alineados con esta semántica: FULL incompleto se registra, pero no escribe datos del catálogo.
 
 ## Estado de esta etapa
+- [x] Pulido de la UI de historial: filas con holgura simétrica para el marco de selección, nombres de PRODUCTO ajustados al ancho disponible y orden alfanumérico natural de CÓDIGO.
+- [x] El comparador de benchmarks exige cobertura encontrada igual a esperada y rechaza coverage_gap, error_count o errores HTTP terminales distintos de cero cuando están presentes.
+- [ ] Quality CI posterior a estos cambios: pendiente de cierre sobre los últimos commits; no se considera verde hasta completar la ejecución automatizada.
 
 - [x] Sincronización local con la rama remota.
 - [x] Ruff limpio en el checkpoint actual.
@@ -131,12 +134,15 @@ La etapa funcional principal continúa cerrada y protegida en `main`. El benchma
 - Calidad local, idempotencia sobre la misma SQLite, granularidad de progreso de enrichment, cambio a `24` workers y Quality CI verdes.
 
 ### En revisión
+- Validación automática final de los últimos cambios de GUI y del guard de benchmarks; la implementación está en `main`, pero el último pipeline todavía está en ejecución.
 
 - Auditoría residual de utilidades de imágenes sin dependencia canónica demostrada (`ImageNamer`, `ImageValidator`, `ImageSyncAdapter`): revisadas y conservadas por contratos propios; no se encontró justificación segura para eliminarlas.
 - Granularidad de progreso UI: callbacks intermedios `25..47` implementados y cubiertos por pruebas; el runner conserva el cierre `48/48`.
 - Benchmark específico de contención/latencia SQLite solo si aparece evidencia concreta.
 
 ### Auditorías cerradas en este avance
+- Pulido final de la tabla de historial: el marco de selección queda contenido con holgura vertical simétrica, PRODUCTO se envuelve únicamente cuando el ancho disponible no alcanza y CÓDIGO se presenta en orden alfanumérico natural.
+- Observabilidad de benchmarks reforzada: las comparaciones ya no aceptan una corrida con cobertura incompleta ni errores HTTP terminales, evitando comparar rendimiento de ejecuciones que no cumplen el contrato funcional.
 
 - Stock por color: extracción de etiquetas de color ampliada, asociación segura de cantidades y representación `color → stock` en la columna Stock. Se conserva el stock total cuando no existe evidencia suficiente para dividirlo.
 
@@ -145,6 +151,10 @@ La etapa funcional principal continúa cerrada y protegida en `main`. El benchma
 - Fábricas de compatibilidad: ambas son delegados finos al factory canónico; se conservan por compatibilidad potencial y no existe una implementación paralela.
 - Autoridad de ejecución: `scraping_runs` gobierna recuperación/reconciliación del último FULL válido; `scraping_history.applied_at` representa la última aplicación de historial y puede corresponder a una ejecución dirigida. `scraping_run_history` mantiene el vínculo entre ambos.
 - La mejora de progreso se incorporó sin alterar cobertura, persistencia, prune, concurrencia ni semántica de scraping.
+
+### Próximo punto de desarrollo
+
+El siguiente bloque después de cerrar el pipeline de calidad actual es **Observabilidad y mantenimiento operativo**: conservar métricas de cobertura, retries, tiempos y progreso como evidencia reutilizable y mantener las herramientas destructivas legacy bloqueadas. No se prevé cambiar scraping, concurrencia o persistencia sin evidencia reproducible.
 
 ### No ejecutar en esta fase
 

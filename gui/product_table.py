@@ -397,6 +397,7 @@ class ProductTable(QTableWidget):
         self._pending_render_index = 0
         self._rendered_products: list[Product] = []
         self._visible_product_keys: set[int] | None = None
+        self._preferred_widths_cache: list[int] | None = None
         table_font = QFont(self.FONT_FAMILY)
         table_font.setPixelSize(self.FONT_PIXEL_SIZE)
         self.setFont(table_font)
@@ -554,6 +555,7 @@ class ProductTable(QTableWidget):
     def set_category_reference_products(self, products: list[Product]) -> None:
         """Conserva el ancho de categoría del catálogo completo al filtrar."""
         self._category_reference_products = list(products)
+        self._preferred_widths_cache = None
         self._fit_columns_to_content()
         self._adjust_table_rows()
 
@@ -571,6 +573,7 @@ class ProductTable(QTableWidget):
     def _render_products(self, products: list[Product]) -> None:
         self._render_generation += 1
         generation = self._render_generation
+        self._preferred_widths_cache = None
         self._pending_render_products = list(products)
         self._pending_render_index = 0
 
@@ -849,25 +852,29 @@ class ProductTable(QTableWidget):
         return category_width
 
     def _preferred_column_widths(self, header: QHeaderView) -> list[int]:
-        self.resizeColumnsToContents()
-        minimum_widths = [
-            self.MIN_COLUMN_WIDTHS[column]
-            for column in range(self.columnCount())
-        ]
-        minimum_widths[self.CATEGORY_COLUMN] = self._category_minimum_width()
-        minimum_widths[self.STOCK_COLUMN] = self._stock_minimum_width()
-        preferred_widths = [
-            max(
-                header.sectionSize(column),
-                minimum_widths[column],
-            )
-            for column in range(self.columnCount())
-        ]
-        # Stock debe conservar exclusivamente el ancho calculado por su
-        # contenido, sin el margen adicional que Qt puede introducir al
-        # aplicar resizeColumnsToContents().
-        preferred_widths[self.STOCK_COLUMN] = minimum_widths[self.STOCK_COLUMN]
-        return preferred_widths
+        cached = self._preferred_widths_cache
+        if cached is None:
+            self.resizeColumnsToContents()
+            minimum_widths = [
+                self.MIN_COLUMN_WIDTHS[column]
+                for column in range(self.columnCount())
+            ]
+            minimum_widths[self.CATEGORY_COLUMN] = self._category_minimum_width()
+            minimum_widths[self.STOCK_COLUMN] = self._stock_minimum_width()
+            preferred_widths = [
+                max(
+                    header.sectionSize(column),
+                    minimum_widths[column],
+                )
+                for column in range(self.columnCount())
+            ]
+            # Stock debe conservar exclusivamente el ancho calculado por su
+            # contenido, sin el margen adicional que Qt puede introducir al
+            # aplicar resizeColumnsToContents().
+            preferred_widths[self.STOCK_COLUMN] = minimum_widths[self.STOCK_COLUMN]
+            self._preferred_widths_cache = preferred_widths
+            cached = preferred_widths
+        return cached.copy()
 
     def _fit_columns_to_content(self) -> None:
         if getattr(self, "_is_fitting_columns", False):

@@ -849,11 +849,6 @@ class ScrapingHistoryDialog(QDialog):
                     required_height,
                     self._measure_change_value_height(widget, column_width),
                 )
-            # El foco de selección de QTableWidget ocupa unos píxeles dentro
-            # del rectángulo visual de la fila. Reservar holgura adicional
-            # evita que las descendentes de la última línea queden demasiado
-            # pegadas o visualmente cortadas por ese marco.
-            required_height += self.DETAIL_CHANGE_SELECTION_FRAME_CLEARANCE
             table.setRowHeight(row, required_height)
 
     def _measure_change_value_height(
@@ -1042,6 +1037,7 @@ class ScrapingHistoryDialog(QDialog):
             + label.contentsMargins().top()
             + label.contentsMargins().bottom()
             + self.DETAIL_CHANGE_ROW_HEIGHT_BUFFER
+            + self.DETAIL_CHANGE_SELECTION_FRAME_CLEARANCE
         )
 
     @staticmethod

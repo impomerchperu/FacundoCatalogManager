@@ -28,11 +28,14 @@ def test_history_groups_product_changes_into_one_display_row():
 
     rows = ScrapingHistoryDialog._prepare_change_rows(changes)
 
-    assert len(rows) == 1
+    assert len(rows) == 2
     assert rows[0]["code"] == "ABC-001"
-    assert rows[0]["variation"] == "Stock\nPrecio"
-    assert rows[0]["old"] == "20\n10"
-    assert rows[0]["new"] == "18\n12"
+    assert rows[0]["variation"] == "Stock"
+    assert rows[0]["old"] == "20"
+    assert rows[0]["new"] == "18"
+    assert rows[1]["variation"] == "Precio"
+    assert rows[1]["old"] == "10"
+    assert rows[1]["new"] == "12"
 
 
 def test_history_uses_stock_for_single_color_and_does_not_duplicate_it():

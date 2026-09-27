@@ -6,7 +6,7 @@ from html import escape
 from typing import ClassVar
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QFont, QResizeEvent
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -622,10 +622,7 @@ class ScrapingHistoryDialog(QDialog):
             return "—"
         font = QFont(cls.FONT_FAMILY)
         font.setPixelSize(cls.BODY_FONT_SIZE)
-        metrics = QApplication.fontMetrics()
-        metrics = metrics if metrics is not None else None
-        if metrics is None:
-            return text
+        metrics = QFontMetrics(font)
 
         words = text.split()
         if len(words) <= 1:

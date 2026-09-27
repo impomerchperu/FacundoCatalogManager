@@ -110,7 +110,19 @@ La limpieza no modifica:
 - `coverage_gap=0`;
 - cero errores invalidantes.
 
-## 8. Gate de cierre
+## 8. Higiene del historial Git
+
+El repositorio mantiene referencias históricas fuera del árbol de código:
+
+- `main` es la rama operativa.
+- Existen ramas históricas de desarrollo, auditoría y pruebas temporales; no forman parte del contenido distribuido de la versión.
+- Existe un tag `v1.0.0` que apunta a un commit anterior al actual ciclo de releases.
+- La release oficial de referencia sigue siendo `v0.1.1`, cuyo tag permanece apuntando al commit de release validado.
+- Estas referencias no se eliminan automáticamente porque borrar refs es una operación destructiva de historial. La limpieza del código no depende de ellas.
+
+Cuando se decida purgar refs históricas, debe hacerse explícitamente después de comprobar que no se necesite rollback ni trazabilidad.
+
+## 9. Gate de cierre
 
 El cierre requiere confirmar localmente:
 
@@ -121,7 +133,7 @@ El cierre requiere confirmar localmente:
 
 La suite debe conservar los 582 tests ejecutados y 10 deselected.
 
-## 9. Regla permanente
+## 10. Regla permanente
 
 No incorporar al repositorio:
 

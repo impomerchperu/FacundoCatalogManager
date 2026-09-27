@@ -114,10 +114,6 @@ class ScrapingHistoryDialog(QDialog):
         # la ventana quede dimensionada con las geometrías finales al abrirse.
         self._initial_fit_timer.start(0)
 
-    def closeEvent(self, event) -> None:
-        self._initial_fit_timer.stop()
-        super().closeEvent(event)
-
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -1519,6 +1515,7 @@ class ScrapingHistoryDialog(QDialog):
         return f"{remaining_seconds}s"
 
     def closeEvent(self, event) -> None:
+        self._initial_fit_timer.stop()
         try:
             if self.detail_dialog is not None:
                 self.detail_dialog.close()

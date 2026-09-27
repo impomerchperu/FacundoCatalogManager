@@ -473,6 +473,15 @@ def test_category_keyboard_navigation_never_scrolls_horizontally():
         assert buttons[index].x() == first_x
         assert scroll.horizontalScrollBar().value() == 0
 
+        top = buttons[index].mapTo(scroll.viewport(), buttons[index].rect().topLeft()).y()
+        bottom = buttons[index].mapTo(
+            scroll.viewport(),
+            buttons[index].rect().bottomLeft(),
+        ).y()
+        margin = CategoryScrollArea.FOCUS_FRAME_MARGIN
+        assert top >= margin
+        assert bottom <= scroll.viewport().height() - margin
+
     assert scroll.verticalScrollBar().value() > 0
 
     scroll.deleteLater()

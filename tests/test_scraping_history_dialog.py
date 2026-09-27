@@ -63,7 +63,7 @@ def test_history_uses_stock_for_single_color_and_does_not_duplicate_it():
 
     assert len(rows) == 1
     assert rows[0]["variation"] == "Stock"
-    assert rows[0]["old"] == "500"
+    assert rows[0]["old"] == "Azul: 500"
     assert rows[0]["new"] == "Azul: 400 (-100)"
 
 

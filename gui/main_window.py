@@ -2,16 +2,18 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QPoint, Qt, QThread, QTimer
 from PySide6.QtGui import (
+    QFocusEvent,
     QFont,
     QFontMetrics,
     QKeyEvent,
     QPainter,
     QPaintEvent,
-    QPen,
+    QResizeEvent,
 )
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
+    QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -43,6 +45,46 @@ if TYPE_CHECKING:
 class CategoryFilterButton(QPushButton):
     """Botón de categoría con navegación vertical por teclado."""
 
+    def __init__(
+        self,
+        text: str = "",
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(text, parent)
+        self._focus_frame = QFrame(self)
+        self._focus_frame.setObjectName("category_focus_frame")
+        self._focus_frame.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents,
+            True,
+        )
+        self._focus_frame.setStyleSheet(
+            "#category_focus_frame {"
+            " border: 1px solid #000000;"
+            " background: transparent;"
+            "}"
+        )
+        self._focus_frame.hide()
+        self._focus_frame.raise_()
+
+    def _update_focus_frame(self) -> None:
+        self._focus_frame.setGeometry(
+            self.rect().adjusted(1, 1, -2, -2),
+        )
+        self._focus_frame.setVisible(self.hasFocus())
+        self._focus_frame.raise_()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._update_focus_frame()
+
+    def focusInEvent(self, event: QFocusEvent) -> None:
+        super().focusInEvent(event)
+        self._update_focus_frame()
+
+    def focusOutEvent(self, event: QFocusEvent) -> None:
+        super().focusOutEvent(event)
+        self._update_focus_frame()
+
     def paintEvent(self, event: QPaintEvent) -> None:
         del event
         option = QStyleOptionButton()
@@ -56,24 +98,6 @@ class CategoryFilterButton(QPushButton):
             painter,
             self,
         )
-
-        if self.hasFocus():
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-            painter.setPen(
-                QPen(
-                    Qt.GlobalColor.black,
-                    1,
-                    Qt.PenStyle.SolidLine,
-                    Qt.PenCapStyle.SquareCap,
-                    Qt.PenJoinStyle.MiterJoin,
-                ),
-            )
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            frame = self.rect().adjusted(1, 1, -2, -2)
-            painter.drawLine(frame.left(), frame.top(), frame.right(), frame.top())
-            painter.drawLine(frame.right(), frame.top(), frame.right(), frame.bottom())
-            painter.drawLine(frame.right(), frame.bottom(), frame.left(), frame.bottom())
-            painter.drawLine(frame.left(), frame.bottom(), frame.left(), frame.top())
 
     def _navigation_buttons(self) -> list["CategoryFilterButton"]:
         parent = self.parentWidget()

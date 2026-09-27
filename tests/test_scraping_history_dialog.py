@@ -392,7 +392,16 @@ def test_history_change_value_columns_share_metrics_and_fit_row_height():
     )
     assert old_widget.height() >= expected_minimum_height
     assert new_widget.height() >= expected_minimum_height
-    assert table.rowHeight(0) >= expected_minimum_height
+    assert table.rowHeight(0) >= (
+        expected_minimum_height
+        + owner.DETAIL_CHANGE_SELECTION_FRAME_CLEARANCE
+    )
+    table.selectRow(0)
+    assert table.currentRow() == 0
+    assert table.rowHeight(0) >= (
+        expected_minimum_height
+        + owner.DETAIL_CHANGE_SELECTION_FRAME_CLEARANCE
+    )
     assert old_widget.geometry().bottom() <= table.visualRect(
         table.model().index(0, 4)
     ).bottom()

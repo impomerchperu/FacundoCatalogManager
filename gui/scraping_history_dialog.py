@@ -7,7 +7,7 @@ from math import ceil
 from typing import Callable, ClassVar
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QResizeEvent, QTextDocument
+from PySide6.QtGui import QColor, QFont, QResizeEvent, QTextDocument
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -71,9 +71,6 @@ class ScrapingHistoryDialog(QDialog):
         1: 110,
         3: 150,
     }
-    DETAIL_CHANGE_PRODUCT_MAX_LINES = 2
-    DETAIL_CHANGE_PRODUCT_MIN_WIDTH = 220
-    DETAIL_CHANGE_PRODUCT_MAX_WIDTH = 300
     DETAIL_CHANGE_VALUE_MIN_WIDTH = 180
     DETAIL_CHANGE_VALUE_MAX_WIDTH = 300
     DETAIL_CHANGE_TABLE_TARGET_WIDTH = 1040
@@ -668,7 +665,7 @@ class ScrapingHistoryDialog(QDialog):
                 values = [
                     type_text,
                     str(change.get("code", "")),
-                    self._format_product_name_for_table(product_name),
+                    product_name or "—",
                     str(change.get("variation", "")),
                 ]
                 for column, value in enumerate(values):
@@ -977,40 +974,6 @@ class ScrapingHistoryDialog(QDialog):
                 available_width,
             )
         )
-
-    @classmethod
-    def _format_product_name_for_table(cls, value: str) -> str:
-        text = str(value or "").strip()
-        if not text:
-            return "—"
-        font = QFont(cls.FONT_FAMILY)
-        font.setPixelSize(cls.BODY_FONT_SIZE)
-        metrics = QFontMetrics(font)
-
-        words = text.split()
-        if len(words) <= 1:
-            return text
-
-        best_split = None
-        best_width = None
-        for split_index in range(1, len(words)):
-            first = " ".join(words[:split_index])
-            second = " ".join(words[split_index:])
-            width = max(metrics.horizontalAdvance(first), metrics.horizontalAdvance(second))
-            if best_width is None or width < best_width:
-                best_width = width
-                best_split = split_index
-
-        if best_split is None or best_width is None:
-            return text
-        if best_width <= cls.DETAIL_CHANGE_PRODUCT_MAX_WIDTH:
-            return "\n".join(
-                [
-                    " ".join(words[:best_split]),
-                    " ".join(words[best_split:]),
-                ]
-            )
-        return text
 
     def _set_change_value_cell(
         self,

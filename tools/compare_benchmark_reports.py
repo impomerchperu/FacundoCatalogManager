@@ -142,11 +142,84 @@ def _coverage_signature(report: dict[str, typing.Any]) -> dict[str, int]:
     return signature
 
 
+def _validate_report_for_comparison(report: dict[str, typing.Any], label: str) -> None:
+    coverage = report.get("coverage")
+    if not isinstance(coverage, dict):
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} no declara métricas de cobertura."
+        )
+
+    categories = coverage.get("categories")
+    expected = coverage.get("expected_occurrences")
+    found = coverage.get("found_occurrences")
+    if not all(
+        isinstance(value, int) and not isinstance(value, bool)
+        for value in (categories, expected, found)
+    ):
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} no tiene una firma de cobertura válida."
+        )
+    if expected != found:
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} tiene cobertura incompleta: "
+            f"esperados={expected}, encontrados={found}."
+        )
+
+    coverage_gap = coverage.get("coverage_gap")
+    if coverage_gap is not None and (
+        not isinstance(coverage_gap, int) or isinstance(coverage_gap, bool)
+    ):
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} tiene un 'coverage_gap' inválido."
+        )
+    if coverage_gap is not None and coverage_gap != 0:
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} declara coverage_gap={coverage_gap}."
+        )
+
+    coverage_complete = coverage.get("coverage_complete")
+    if coverage_complete is not None and coverage_complete is not True:
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} no declara coverage_complete=True."
+        )
+
+    error_count = coverage.get("error_count")
+    if error_count is not None and (
+        not isinstance(error_count, int) or isinstance(error_count, bool)
+    ):
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} tiene un 'error_count' inválido."
+        )
+    if error_count is not None and error_count != 0:
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} declara error_count={error_count}."
+        )
+
+    http = report.get("http")
+    if isinstance(http, dict):
+        terminal_errors = http.get("http_terminal_errors")
+        if terminal_errors is not None and (
+            not isinstance(terminal_errors, int)
+            or isinstance(terminal_errors, bool)
+        ):
+            raise BenchmarkComparisonError(
+                f"El benchmark {label} tiene http_terminal_errors inválido."
+            )
+        if terminal_errors is not None and terminal_errors != 0:
+            raise BenchmarkComparisonError(
+                f"El benchmark {label} declara "
+                f"http_terminal_errors={terminal_errors}."
+            )
+
+
 def compare_benchmark_reports(
     baseline: dict[str, typing.Any],
     candidate: dict[str, typing.Any],
 ) -> dict[str, typing.Any]:
     """Compara dos benchmarks sin convertir sus deltas en una clasificación."""
+    _validate_report_for_comparison(baseline, "baseline")
+    _validate_report_for_comparison(candidate, "candidate")
+
     if baseline.get("schema_version") != candidate.get("schema_version"):
         raise BenchmarkComparisonError(
             "Los benchmarks usan versiones de esquema distintas."

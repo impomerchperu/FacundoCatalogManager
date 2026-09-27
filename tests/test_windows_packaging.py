@@ -5,6 +5,7 @@ INSTALLER_PATH = PROJECT_ROOT / "packaging" / "installer.iss"
 BUILD_SCRIPT_PATH = PROJECT_ROOT / "scripts" / "build_windows.ps1"
 SPEC_PATH = PROJECT_ROOT / "packaging" / "fcm.spec"
 ICON_PATH = PROJECT_ROOT / "resources" / "facundo.ico"
+VERSION_PATH = PROJECT_ROOT / "VERSION"
 
 
 def _read(path: Path) -> str:
@@ -15,6 +16,7 @@ def test_windows_installer_uses_facundo_icon_and_persistent_install_paths():
     content = _read(INSTALLER_PATH)
 
     assert ICON_PATH.is_file()
+    assert VERSION_PATH.is_file()
     assert 'SetupIconFile=..\\resources\\facundo.ico' in content
     assert 'UninstallDisplayIcon={app}\\{#MyAppExeName}' in content
     assert r"DefaultDirName={localappdata}\Programs\FacundoCatalogManager" in content
@@ -54,9 +56,11 @@ def test_windows_build_passes_version_to_inno_setup_and_validates_outputs():
     assert 'if (-not (Test-Path $Installer))' in content
 
 
-def test_windows_spec_embeds_application_icon():
+def test_windows_spec_embeds_application_icon_and_version():
     content = _read(SPEC_PATH)
 
     assert 'APP_ICON = ROOT / "resources" / "facundo.ico"' in content
     assert 'icon=str(APP_ICON)' in content
     assert '(str(APP_ICON), "resources")' in content
+    assert 'VERSION_FILE = ROOT / "VERSION"' in content
+    assert '(str(VERSION_FILE), ".")' in content

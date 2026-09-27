@@ -528,6 +528,7 @@ class ProductTable(QTableWidget):
         return header
 
     def _update_sort_header_labels(self) -> None:
+        self._preferred_widths_cache = None
         labels = self.HEADER_LABELS.copy()
         for column, order in self._sort_states.items():
             labels[column] += (

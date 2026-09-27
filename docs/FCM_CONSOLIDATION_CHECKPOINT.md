@@ -2,7 +2,7 @@
 
 Fecha de alineación: 2026-09-27
 Branch oficial: `main`
-Último estado de código funcional antes de esta actualización documental: `4a7a956f574626610e3ce80a50059b1dc28fd4da`.
+Último estado de código funcional antes de la candidata `v0.2.0`: `4a7a956f574626610e3ce80a50059b1dc28fd4da`.
 
 ## Referencias funcionales
 
@@ -185,7 +185,7 @@ Ninguna limpieza, refactor o optimización se considera válida si reduce la cob
 Los archivos locales `data/scraping_category_profile.json` y `data/scraping_detail_profile.json` son artefactos de profiling generados por las pruebas/diagnósticos; no forman parte de esta etapa de código y no deben añadirse al commit salvo decisión explícita posterior.
 \n\n## CURRENT MAIN VALIDATION — 2026-09-27
 
-La validación local del commit `4a7a956` quedó completamente verde:
+La última validación local confirmada antes de la candidata quedó completamente verde en `4a7a956`:
 
 - `tests/test_scraping_history_dialog.py`: **18 passed**.
 - `tests/tools/test_compare_benchmark_reports.py`: **16 passed**.

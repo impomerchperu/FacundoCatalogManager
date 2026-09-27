@@ -425,6 +425,8 @@ def test_history_window_has_no_footer_buttons_and_fits_table_width():
         dialog.table.setItem(0, column, QTableWidgetItem(value))
     dialog.table.setItem(0, 9, QTableWidgetItem(""))
 
+    dialog.show()
+    app.processEvents()
     dialog._fit_table_to_content()
     app.processEvents()
 

@@ -42,9 +42,9 @@ La identidad visual, acceso directo del menú Inicio, acceso directo opcional de
 - [x] Mantener el renderizado progresivo y los filtros sin reconstrucción masiva de la tabla.
 - [x] Revisar de forma agrupada los anchos restantes de columnas de la tabla, aplicando cambios solo donde exista evidencia visual concreta.
 - [x] Evitar recalcular las métricas completas de ancho durante cada redimensionamiento de ventana.
-- [x] Validar el ajuste de caché con tests locales; el smoke manual final sigue pendiente.
+- [x] Validar el ajuste de caché con tests locales y completar el smoke manual final.
 
-La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficiente para alterar arbitrariamente los anchos de Imagen, Código, Producto, Detalle o Precios. Los contratos existentes de Categoría y Stock se conservan sin cambios. Como mejora de rendimiento de bajo riesgo, `ProductTable` ahora reutiliza las mediciones de ancho preferido durante los `resizeEvent` y las invalida cuando cambia el contenido, la referencia completa del catálogo o el contenido dinámico del encabezado. La prueba focalizada pasó localmente (`19 passed`) y la suite completa quedó en `534 passed, 10 deselected`; el smoke manual final sigue pendiente.
+La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficiente para alterar arbitrariamente los anchos de Imagen, Código, Producto, Detalle o Precios. Los contratos existentes de Categoría y Stock se conservan sin cambios. Como mejora de rendimiento de bajo riesgo, `ProductTable` ahora reutiliza las mediciones de ancho preferido durante los `resizeEvent` y las invalida cuando cambia el contenido, la referencia completa del catálogo o el contenido dinámico del encabezado. La prueba focalizada pasó localmente (`19 passed`) y la suite completa quedó en `534 passed, 10 deselected`; el smoke manual final también fue completado sobre `main`.
 
 ### 3. Scraping y rendimiento
 - [ ] No modificar todavía la configuración productiva `8 / 16 / 28`.

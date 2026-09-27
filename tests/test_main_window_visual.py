@@ -392,33 +392,18 @@ def test_category_buttons_support_arrow_navigation_and_focus_frame():
     focused_width = first.width()
     assert focused_width == first_width
 
-    focus_image = first.grab().toImage()
-    image_width = focus_image.width()
-    image_height = focus_image.height()
+    focus_frame = first.findChild(QFrame, "category_focus_frame")
+    assert focus_frame is not None
+    assert focus_frame.isVisible()
+    assert focus_frame.geometry() == first.rect().adjusted(1, 1, -2, -2)
+    assert focus_frame.testAttribute(
+        Qt.WidgetAttribute.WA_TransparentForMouseEvents,
+    )
+    assert "border: 1px solid #000000" in focus_frame.styleSheet()
 
-    def is_black(x: int, y: int) -> bool:
-        color = focus_image.pixelColor(x, y)
-        return (
-            color.red() < 32
-            and color.green() < 32
-            and color.blue() < 32
-            and color.alpha() > 200
-        )
-
-    assert any(
-        is_black(x, 1) for x in range(2, image_width - 2)
-    )
-    assert any(
-        is_black(x, image_height - 2) for x in range(2, image_width - 2)
-    )
-    assert any(
-        is_black(1, y)
-        for y in range(2, image_height - 2)
-    )
-    assert any(
-        is_black(image_width - 2, y)
-        for y in range(2, image_height - 2)
-    )
+    first.clearFocus()
+    _qapp().processEvents()
+    assert not focus_frame.isVisible()
 
     down_event = QKeyEvent(
         QKeyEvent.Type.KeyPress,

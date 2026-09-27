@@ -600,41 +600,89 @@ class ScrapingHistoryDialog(QDialog):
         table.setRowCount(max(len(changes), 1))
         if changes:
             for row, change in enumerate(changes):
+                type_text = self._change_type_text(change.get("type"))
                 values = [
-                    str(change.get("type", "")),
+                    type_text,
                     str(change.get("code", "")),
                     str(change.get("name", "")),
                     str(change.get("variation", "")),
-                    str(change.get("old", "")),
-                    str(change.get("new", "")),
                 ]
                 for column, value in enumerate(values):
                     item = QTableWidgetItem(value)
-                    item.setToolTip(value.replace("\n", " · "))
+                    item.setToolTip(value)
                     item.setTextAlignment(
-                        Qt.AlignmentFlag.AlignLeft
-                        | Qt.AlignmentFlag.AlignVCenter,
+                        Qt.AlignmentFlag.AlignCenter
+                        if column in (0, 1)
+                        else (Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                     )
+                    if column == 0:
+                        font = QFont(item.font())
+                        font.setBold(True)
+                        item.setFont(font)
                     table.setItem(row, column, item)
+
+                self._set_change_value_cell(table, row, 4, str(change.get("old", "")))
+                self._set_change_value_cell(
+                    table,
+                    row,
+                    5,
+                    str(change.get("new", "")),
+                    rich_text=str(change.get("new_html", "")),
+                )
         else:
             item = QTableWidgetItem("Sin cambios de campos registrados")
             item.setToolTip(item.text())
             table.setItem(0, 0, item)
 
+        table.resizeColumnsToContents()
+        self._configure_change_table_columns(header)
         table.resizeRowsToContents()
         return table
 
+    def _set_change_value_cell(
+        self,
+        table: QTableWidget,
+        row: int,
+        column: int,
+        value: str,
+        *,
+        rich_text: str = "",
+    ) -> None:
+        if rich_text:
+            label = QLabel()
+            label.setTextFormat(Qt.TextFormat.RichText)
+            label.setText(rich_text)
+            label.setWordWrap(True)
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            label.setToolTip(value.replace("\n", " · "))
+            label.setStyleSheet(
+                f'font-family: "{self.FONT_FAMILY}"; '
+                f"font-size: {self.BODY_FONT_SIZE}px; "
+                f"color: {self.TEXT_COLOR}; padding: 4px;"
+            )
+            table.setCellWidget(row, column, label)
+            return
+
+        item = QTableWidgetItem(value)
+        item.setToolTip(value.replace("\n", " · "))
+        item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        table.setItem(row, column, item)
+
     @classmethod
     def _configure_change_table_columns(cls, header: QHeaderView) -> None:
-        """Hace que las columnas variables ocupen siempre el ancho disponible."""
         for column in range(6):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
         for column, width in cls.DETAIL_CHANGE_FIXED_COLUMN_WIDTHS.items():
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
             header.resizeSection(column, width)
-        for column in (2, 4, 5):
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        for column in (4, 5):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
 
+    @classmethod
+    def _change_type_text(cls, value) -> str:
+        normalized = str(value or "").strip().upper()
+        return cls.CHANGE_TYPE_LABELS.get(normalized, normalized)
     @classmethod
     def _prepare_change_rows(cls, changes: list[dict]) -> list[dict]:
         """Consolida solo las variaciones de stock equivalentes."""

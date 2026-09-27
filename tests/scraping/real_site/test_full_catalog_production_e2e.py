@@ -1,3 +1,4 @@
+import os
 from time import perf_counter
 
 import pytest
@@ -40,6 +41,15 @@ from services.scraping.scraping_runner import ScrapingRunner
 from services.scraping.scraping_session import ScrapingSession
 
 EXPECTED_CATEGORIES = 24
+DEFAULT_DETAIL_WORKERS = 16
+
+
+def _detail_workers() -> int:
+    raw = os.getenv("FCM_E2E_DETAIL_WORKERS", str(DEFAULT_DETAIL_WORKERS)).strip()
+    value = int(raw)
+    if value < 1:
+        raise ValueError("FCM_E2E_DETAIL_WORKERS must be >= 1")
+    return value
 
 
 @pytest.mark.real_site
@@ -64,7 +74,7 @@ def test_full_catalog_production_e2e_real_site(tmp_path):
         catalog_url=STORE_URL,
         download_images=False,
         category_workers=8,
-        detail_workers=16,
+        detail_workers=_detail_workers(),
         http_workers=28,
         jsf_http_concurrency=8,
         jsf_page_workers=2,

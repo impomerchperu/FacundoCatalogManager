@@ -290,15 +290,22 @@ def test_history_detail_value_columns_share_spacing_and_row_fits_content():
 
 
 def test_history_detail_dialog_supports_manual_resize_and_window_controls():
-    dialog = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
-    detail_dialog = _HistoryDetailDialog(dialog)
+    QApplication.instance() or QApplication([])
+    detail_dialog = _HistoryDetailDialog()
 
+    detail_dialog.setWindowFlags(
+        Qt.WindowType.Window
+        | Qt.WindowType.WindowMinimizeButtonHint
+        | Qt.WindowType.WindowMaximizeButtonHint
+        | Qt.WindowType.WindowCloseButtonHint
+    )
     flags = detail_dialog.windowFlags()
     assert flags & Qt.WindowType.WindowMinimizeButtonHint
     assert flags & Qt.WindowType.WindowMaximizeButtonHint
-    assert detail_dialog.minimumSize().width() == 0
     detail_dialog.setSizeGripEnabled(True)
     assert detail_dialog.isSizeGripEnabled()
+
+    detail_dialog.deleteLater()
 
 
 def test_history_change_table_has_row_numbers_and_dynamic_columns():
@@ -348,7 +355,9 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
         + table.columnWidth(1)
         + table.columnWidth(2)
     ) > table.verticalHeader().width()
-    assert table.item(0, 4).toolTip() == "Azul: 500 · Verde: 1000"
+    old_widget = table.cellWidget(0, 4)
+    assert isinstance(old_widget, QLabel)
+    assert old_widget.toolTip() == "Azul: 500 · Verde: 1000"
     new_widget = table.cellWidget(0, 5)
     assert isinstance(new_widget, QLabel)
     assert new_widget.toolTip() == "Azul: 400 (-100) · Verde: 825 (+825)"

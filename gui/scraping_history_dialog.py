@@ -1,7 +1,7 @@
 import json
-from html import escape
 import sqlite3
 from datetime import datetime
+from html import escape
 from typing import ClassVar
 
 from PySide6.QtCore import Qt
@@ -960,6 +960,31 @@ class ScrapingHistoryDialog(QDialog):
         base = escape(text[:base_length])
         suffix = escape(text[base_length:])
         return f'{base}{suffix} <span style="color:{color}; font-weight:600;">({escape(sign_text)})</span>'
+    @classmethod
+    def _format_stock_new_value(
+        cls,
+        old_value,
+        new_value,
+        *,
+        by_color: bool = False,
+    ) -> str:
+        if by_color:
+            return cls._format_stock_values(
+                cls._as_color_stock(old_value),
+                cls._as_color_stock(new_value),
+            )[1]
+        old_amount = cls._numeric_stock(old_value)
+        new_amount = cls._numeric_stock(new_value)
+        delta = (
+            new_amount - old_amount
+            if old_amount is not None and new_amount is not None
+            else None
+        )
+        return cls._format_delta_text(
+            cls._format_stock_scalar(new_value),
+            delta,
+        )
+
     @staticmethod
     def _numeric_stock(value) -> int | None:
         if isinstance(value, bool):

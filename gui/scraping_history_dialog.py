@@ -725,13 +725,10 @@ class ScrapingHistoryDialog(QDialog):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
-        table.resizeRowsToContents()
+        self._fit_change_table_row_heights(table)
         header_height = max(header.height(), header.sizeHint().height())
         rows_height = sum(
-            max(
-                table.rowHeight(row),
-                table.sizeHintForRow(row),
-            )
+            table.rowHeight(row)
             for row in range(table.rowCount())
         )
         frame_height = 2 * table.frameWidth()
@@ -865,6 +862,7 @@ class ScrapingHistoryDialog(QDialog):
     def _widget_content_height(widget: QWidget, width: int) -> int:
         if width > 0:
             widget.setFixedWidth(width)
+        widget.adjustSize()
         height_for_width = widget.heightForWidth(width) if width > 0 else -1
         return max(
             widget.sizeHint().height(),
@@ -906,13 +904,20 @@ class ScrapingHistoryDialog(QDialog):
             + 2 * dialog.frameWidth()
             + 8
         )
-        available_width = screen.availableGeometry().width() - self.DETAIL_DETAIL_MARGIN
-        target_width = min(
-            max(dialog.width(), required_width),
-            available_width,
+        available_width = (
+            screen.availableGeometry().width() - self.DETAIL_DETAIL_MARGIN
         )
-        if target_width > dialog.width():
-            dialog.resize(target_width, dialog.height())
+        if required_width <= available_width:
+            coverage.setWordWrap(False)
+            target_width = max(dialog.width(), required_width)
+            if target_width > dialog.width():
+                dialog.resize(target_width, dialog.height())
+            return
+
+        coverage.setWordWrap(True)
+        coverage.setMinimumWidth(
+            max(320, available_width - margins.left() - margins.right() - 2)
+        )
 
     @classmethod
     def _format_product_name_for_table(cls, value: str) -> str:
@@ -976,6 +981,10 @@ class ScrapingHistoryDialog(QDialog):
             f"color: {self.TEXT_COLOR}; padding: 4px;"
         )
         table.setCellWidget(row, column, label)
+        label.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
 
     @classmethod
     def _format_delta_value_html(cls, value: str) -> str:

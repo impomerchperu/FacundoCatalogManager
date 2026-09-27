@@ -54,6 +54,7 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 - [ ] Repetir FULL/E2E antes y después de cualquier cambio de runtime que afecte scraping o concurrencia.
 - [x] Disponer de un comparador reproducible de artefactos benchmark para revisar configuración, cobertura y deltas de tiempo/HTTP sin interpretar manualmente los resultados.
 - [x] Ejecutar dos parejas reales `detail_workers=16` vs `24` con cobertura completa y cero errores; `24` redujo el tiempo de pared en ambas parejas.
+- [x] Preparar el E2E productivo real para ejecutar `detail_workers` configurable mediante `FCM_E2E_DETAIL_WORKERS`, conservando `16` como valor por defecto.
 - [x] Validar localmente el comparador con la suite y dos parejas reales de artefactos benchmark.
 
 

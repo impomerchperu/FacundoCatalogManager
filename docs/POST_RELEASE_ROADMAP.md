@@ -44,7 +44,7 @@ La identidad visual, acceso directo del menú Inicio, acceso directo opcional de
 - [x] Evitar recalcular las métricas completas de ancho durante cada redimensionamiento de ventana.
 - [ ] Validar cada ajuste nuevo con tests y smoke manual cuando corresponda.
 
-La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficiente para alterar arbitrariamente los anchos de Imagen, Código, Producto, Detalle o Precios. Los contratos existentes de Categoría y Stock se conservan sin cambios. Como mejora de rendimiento de bajo riesgo, `ProductTable` ahora reutiliza las mediciones de ancho preferido durante los `resizeEvent` y las invalida únicamente cuando cambia el contenido o la referencia completa del catálogo. Se añadió una prueba focalizada para proteger este comportamiento; la validación local posterior a este cambio queda pendiente.
+La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficiente para alterar arbitrariamente los anchos de Imagen, Código, Producto, Detalle o Precios. Los contratos existentes de Categoría y Stock se conservan sin cambios. Como mejora de rendimiento de bajo riesgo, `ProductTable` ahora reutiliza las mediciones de ancho preferido durante los `resizeEvent` y las invalida cuando cambia el contenido, la referencia completa del catálogo o el contenido dinámico del encabezado. Se añadió una prueba focalizada para proteger este comportamiento; la validación local posterior a este cambio queda pendiente.
 
 ### 3. Scraping y rendimiento
 - [ ] No modificar todavía la configuración productiva `8 / 16 / 28`.

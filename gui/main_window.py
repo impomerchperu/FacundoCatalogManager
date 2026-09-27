@@ -938,6 +938,8 @@ class MainWindow(QMainWindow):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
+        if hasattr(self, "category_scroll") and hasattr(self, "table"):
+            self._sync_category_scrollbar_with_table()
 
     @staticmethod
     def _wait_for_thread(thread: QThread | None) -> None:

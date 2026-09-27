@@ -178,13 +178,13 @@ def test_action_buttons_are_grouped_for_top_right_layout():
     host.deleteLater()
 
 
-def test_category_buttons_are_borderless_and_left_aligned():
+def test_category_buttons_reserve_focus_border_and_stay_left_aligned():
     _qapp()
 
     button = QPushButton("Artículos de Escritorio")
     button.setStyleSheet(MainWindow._category_button_style())
 
-    assert "border: none" in button.styleSheet()
+    assert "border: 1px solid transparent" in button.styleSheet()
     assert "text-align: left" in button.styleSheet()
     assert "background: transparent" in button.styleSheet()
 

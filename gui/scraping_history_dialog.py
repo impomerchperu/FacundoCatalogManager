@@ -761,10 +761,16 @@ class ScrapingHistoryDialog(QDialog):
         except (TypeError, ValueError):
             return None
 
-    @staticmethod
-    def _format_stock_line(color, raw_new_value, old_amount, new_amount) -> str:
+    @classmethod
+    def _format_stock_line(
+        cls,
+        color,
+        raw_new_value,
+        old_amount,
+        new_amount,
+    ) -> str:
         if new_amount is None:
-            return f"{color}: {ScrapingHistoryDialog._display_value(raw_new_value)}"
+            return f"{color}: {cls._display_value(raw_new_value)}"
         delta = new_amount - old_amount if old_amount is not None else None
         value = str(new_amount)
         if delta is not None and delta != 0:

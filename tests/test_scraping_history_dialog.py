@@ -392,3 +392,56 @@ def test_multiple_category_table_shows_every_row_without_partial_clipping():
     assert table.height() >= expected_height
 
     dialog.close()
+
+def test_history_window_has_no_footer_buttons_and_fits_table_width():
+    app = QApplication.instance() or QApplication([])
+    dialog = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
+    dialog._is_fitting_columns = False
+    dialog._build_ui()
+
+    dialog.show()
+    app.processEvents()
+
+    layout = dialog.layout()
+    assert layout is not None
+    assert layout.count() == 2
+    assert layout.itemAt(0).widget() is not None
+    assert layout.itemAt(1).widget() is dialog.table
+    assert all(
+        not isinstance(layout.itemAt(index).widget(), QPushButton)
+        for index in range(layout.count())
+        if layout.itemAt(index).widget() is not None
+    )
+
+    dialog.table.setRowCount(1)
+    values = [
+        "12",
+        "27/09/2026 02:24:00",
+        "15s",
+        "534",
+        "4",
+        "12",
+        "518",
+        "0",
+        "APLICADO",
+    ]
+    for column, value in enumerate(values):
+        dialog.table.setItem(row=0, column=column, item=QTableWidgetItem(value))
+    dialog.table.setItem(0, 9, QTableWidgetItem(""))
+
+    dialog._fit_table_to_content()
+    app.processEvents()
+
+    margins = layout.contentsMargins()
+    minimum_widths = dialog._calculate_minimum_column_widths(
+        dialog.table.horizontalHeader(),
+    )
+    content_width = sum(minimum_widths)
+    expected_width = dialog._calculate_required_window_width(
+        content_width,
+        margins,
+    )
+    assert dialog.width() == expected_width
+
+    dialog.close()
+    dialog.deleteLater()

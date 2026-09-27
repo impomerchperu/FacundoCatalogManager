@@ -71,6 +71,51 @@ def test_compare_reports_preserves_configuration_and_calculates_deltas():
     assert comparison["http"]["http_requests"]["delta"] == 10
 
 
+def test_compare_reports_rejects_incomplete_coverage():
+    with pytest.raises(BenchmarkComparisonError, match="cobertura incompleta"):
+        compare_benchmark_reports(
+            _report(found_occurrences=522),
+            _report(),
+        )
+
+
+def test_compare_reports_rejects_nonzero_coverage_gap():
+    report = _report()
+    report["coverage"]["coverage_gap"] = 1
+
+    with pytest.raises(BenchmarkComparisonError, match="coverage_gap=1"):
+        compare_benchmark_reports(report, _report())
+
+
+def test_compare_reports_rejects_noncomplete_coverage_flag():
+    report = _report()
+    report["coverage"]["coverage_complete"] = False
+
+    with pytest.raises(
+        BenchmarkComparisonError,
+        match="coverage_complete=True",
+    ):
+        compare_benchmark_reports(report, _report())
+
+
+def test_compare_reports_rejects_coverage_errors():
+    report = _report()
+    report["coverage"]["error_count"] = 1
+
+    with pytest.raises(BenchmarkComparisonError, match="error_count=1"):
+        compare_benchmark_reports(report, _report())
+
+
+def test_compare_reports_rejects_terminal_http_errors():
+    report = _report(http_terminal_errors=2)
+
+    with pytest.raises(
+        BenchmarkComparisonError,
+        match="http_terminal_errors=2",
+    ):
+        compare_benchmark_reports(report, _report())
+
+
 def test_compare_reports_rejects_different_modes():
     with pytest.raises(BenchmarkComparisonError, match="mismo modo"):
         compare_benchmark_reports(

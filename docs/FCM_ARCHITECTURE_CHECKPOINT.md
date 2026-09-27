@@ -79,7 +79,7 @@ The desktop UI now separates initial catalog acquisition from interaction-time f
 - `ProductTable` performs progressive initial rendering for large catalogs.
 - `MainWindow.apply_filters()` computes matching products in memory and delegates visibility changes to `ProductTable.show_only_products()`.
 - Interactive filters therefore do not call `load_products()` and do not reconstruct 9 table cells per product.
-- The final GUI/release state was revalidated locally with the complete non-real-site suite: `542 passed, 10 deselected`; the recent GUI focus/scroll work does not alter the scraping runtime.
+- The final GUI/release state was revalidated locally with the complete non-real-site suite: `568 passed, 10 deselected`; the recent GUI focus/scroll work does not alter the scraping runtime.
 
 The shutdown hardening for the catalog GUI workers is now implemented and covered by a focused test. `MainWindow.closeEvent()` waits for active catalog-load/bootstrap threads before window destruction; scraping itself remains an independently controlled operation.
 
@@ -259,11 +259,11 @@ The current release baseline is the validated recovery result on `main`; the enr
 
 Última validación local del checkpoint de release:
 
-- HEAD de referencia documental: `3c4c614`
+- HEAD de referencia documental: `9a03ae7`
 - VERSION: `0.1.1`
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
-- Pytest: `542 passed, 10 deselected`
+- Pytest: `568 passed, 10 deselected`
 - Focused GUI layout test: `19 passed`
 - Git working tree: clean
 
@@ -417,7 +417,7 @@ La ejecución manual posterior al ajuste terminó en `success`. La validación d
 
 The grouped table-width audit on 2026-09-26 found no evidence-based reason to change the established visual widths for Image, Code, Product, Detail or Prices. Category and Stock contracts remain unchanged.
 
-`ProductTable` now caches its preferred content widths after a content render and reuses them during window resize. The cache is invalidated when the catalog content, category-reference catalog or dynamic header labels change. The focused regression test passed locally, and the complete non-real-site suite now reports `542 passed, 10 deselected`. Manual GUI smoke validation was completed on 2026-09-26 after the cached-width regression fix. The validated flow included startup without automatic scraping, persisted catalog loading, category keyboard navigation, single black focus frame, vertical category scrolling, search/filter interaction, column sorting, window resize, catalog update entry point and history access.
+`ProductTable` now caches its preferred content widths after a content render and reuses them during window resize. The cache is invalidated when the catalog content, category-reference catalog or dynamic header labels change. The focused regression test passed locally, and the complete non-real-site suite now reports `568 passed, 10 deselected`. Manual GUI smoke validation was completed on 2026-09-26 after the cached-width regression fix. The validated flow included startup without automatic scraping, persisted catalog loading, category keyboard navigation, single black focus frame, vertical category scrolling, search/filter interaction, column sorting, window resize, catalog update entry point and history access.
 
 
 The category-filter interaction is now treated as a stable visual contract on `main`:
@@ -430,3 +430,8 @@ The history dialog visual contract was extended after the 2026-09-26 review: cha
 - The category panel reserves the native vertical scrollbar width when scrolling is required, keeping the category frame inside the visible viewport.
 - Stock rendering retains 4 px content-side spacing and content-fitted width.
 - Remaining GUI polish is limited to grouped review only when a concrete visual discrepancy is identified; the history-table layout and ordering adjustments are now part of the established contract.
+
+
+## Current main validation — 2026-09-27
+
+El commit actual de `main` es `9a03ae7`. La validación local más reciente quedó completamente verde: historial **18 passed**, comparador de benchmarks **12 passed**, Ruff limpio, Pyright sin diagnósticos y suite completa **568 passed, 10 deselected**. Estos resultados son el estado vigente; los resultados anteriores del documento se conservan como evidencia histórica.

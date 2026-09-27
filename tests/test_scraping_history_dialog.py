@@ -344,18 +344,6 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     assert "\n" not in product_item.text()
     assert table.textElideMode() == Qt.TextElideMode.ElideNone
 
-    header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
-    header.resizeSection(2, 500)
-    table.resizeRowsToContents()
-    QApplication.processEvents()
-    wide_row_height = table.rowHeight(0)
-
-    header.resizeSection(2, 180)
-    table.resizeRowsToContents()
-    QApplication.processEvents()
-    narrow_row_height = table.rowHeight(0)
-
-    assert narrow_row_height > wide_row_height
     assert table.item(0, 0).text() == "ACTUALIZADO"
     assert header.sectionResizeMode(3) == QHeaderView.ResizeMode.ResizeToContents
     assert header.sectionResizeMode(4) == QHeaderView.ResizeMode.Stretch
@@ -409,6 +397,47 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     )
 
     detail_dialog.close()
+    table.deleteLater()
+
+
+def test_history_product_name_wraps_only_when_column_is_narrow():
+    app = QApplication.instance() or QApplication([])
+    owner = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
+    table = owner._build_changes_table(
+        [
+            {
+                "type": "UPDATED",
+                "code": "FB-1200",
+                "name": "Máquina plastificadora profesional A4",
+                "variation": "Precio",
+                "old": "s/120.00",
+                "new": "s/135.00 (+s/15.00)",
+            }
+        ]
+    )
+
+    table.show()
+    app.processEvents()
+    header = table.horizontalHeader()
+    header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
+
+    header.resizeSection(2, 500)
+    table.resizeRowsToContents()
+    app.processEvents()
+    wide_row_height = table.rowHeight(0)
+    assert table.item(0, 2).text() == "Máquina plastificadora profesional A4"
+    assert "\n" not in table.item(0, 2).text()
+
+    header.resizeSection(2, 180)
+    table.resizeRowsToContents()
+    app.processEvents()
+    narrow_row_height = table.rowHeight(0)
+
+    assert narrow_row_height > wide_row_height
+    assert table.item(0, 2).text() == "Máquina plastificadora profesional A4"
+    assert table.item(0, 2).toolTip() == table.item(0, 2).text()
+    assert table.wordWrap()
+
     table.deleteLater()
 
 

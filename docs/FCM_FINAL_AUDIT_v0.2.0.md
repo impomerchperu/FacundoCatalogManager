@@ -3,7 +3,7 @@
 Fecha: 2026-09-27  
 Rama oficial: `main`  
 Versión en preparación: `0.2.0`  
-HEAD de referencia de esta acta: `2fedeb8`  
+HEAD de referencia de esta acta: `2665fd0`  
 Release estable anterior: `v0.1.1` → `4238a9f`
 
 ## 1. Gobierno del repositorio

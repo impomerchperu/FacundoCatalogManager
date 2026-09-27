@@ -383,9 +383,7 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Expanding,
         )
         self.category_scroll.setVisible(False)
-        self.category_scroll.verticalScrollBar().setSingleStep(
-            self.table.verticalScrollBar().singleStep(),
-        )
+        self._sync_category_scrollbar_with_table()
         self.category_sidebar_layout.addWidget(self.category_scroll, 1)
 
         self.category_container = QWidget()
@@ -417,6 +415,23 @@ class MainWindow(QMainWindow):
         catalog_layout.addWidget(self.table, 1)
         filter_layout.addLayout(catalog_layout, 1)
         layout.addLayout(filter_layout)
+
+    def _sync_category_scrollbar_with_table(self) -> None:
+        table_scrollbar = self.table.verticalScrollBar()
+        category_scrollbar = self.category_scroll.verticalScrollBar()
+
+        category_scrollbar.setSingleStep(table_scrollbar.singleStep())
+        category_scrollbar.setPageStep(table_scrollbar.pageStep())
+        category_scrollbar.setTracking(table_scrollbar.hasTracking())
+        category_scrollbar.setInvertedAppearance(
+            table_scrollbar.invertedAppearance(),
+        )
+        category_scrollbar.setInvertedControls(
+            table_scrollbar.invertedControls(),
+        )
+        category_scrollbar.setPalette(table_scrollbar.palette())
+        category_scrollbar.setFont(table_scrollbar.font())
+        category_scrollbar.setStyleSheet(table_scrollbar.styleSheet())
 
     def _add_action_buttons(self, layout: QHBoxLayout) -> None:
         buttons = [

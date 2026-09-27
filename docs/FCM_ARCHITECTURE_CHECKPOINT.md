@@ -1,8 +1,8 @@
 # FCM Architecture Checkpoint
 
-Fecha del checkpoint actualizado: 2026-09-26  
+Fecha del checkpoint actualizado: 2026-09-27  
 Branch oficial: `main`
-Checkpoint de documentación actualizado: revisión del `2026-09-26` sobre `main`. El estado funcional de la release continúa respaldado por las validaciones locales y Windows ya registradas.
+Checkpoint de documentación actualizado: revisión del `2026-09-27` sobre `main`. El estado funcional de la release continúa respaldado por las validaciones locales y Windows ya registradas.
 
 ## QUALITY
 
@@ -263,7 +263,7 @@ The current release baseline is the validated recovery result on `main`; the enr
 - VERSION: `0.1.1`
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
-- Pytest: `568 passed, 10 deselected`
+- Pytest: `577 passed, 10 deselected`
 - Focused GUI layout test: `19 passed`
 - Git working tree: clean
 
@@ -434,9 +434,9 @@ The history dialog visual contract was extended after the 2026-09-26 review: cha
 
 ## Current main validation — 2026-09-27
 
-El commit actual de `main` es `9a03ae7`. La validación local más reciente quedó completamente verde: historial **18 passed**, comparador de benchmarks **12 passed**, Ruff limpio, Pyright sin diagnósticos y suite completa **568 passed, 10 deselected**. Estos resultados son el estado vigente; los resultados anteriores del documento se conservan como evidencia histórica.
+El commit actual de `main` es `4a7a956`. La validación local más reciente quedó completamente verde: historial **18 passed**, comparador de benchmarks **12 passed**, Ruff limpio, Pyright sin diagnósticos y suite completa **577 passed, 10 deselected**. Estos resultados son el estado vigente; los resultados anteriores del documento se conservan como evidencia histórica.
 
 
 ## Current main validation — 2026-09-27
 
-El HEAD actual de `main` es `e36c7af`. La validación local más reciente quedó completamente verde: historial **18 passed**, comparador de benchmarks **16 passed**, Ruff limpio, Pyright sin diagnósticos y suite completa **572 passed, 10 deselected**. Estos resultados son el estado vigente; las cifras anteriores del documento se conservan como evidencia histórica de sus respectivas ejecuciones.
+El HEAD actual de `main` es `4a7a956`. La validación local más reciente quedó completamente verde: historial **18 passed**, comparador de benchmarks **16 passed**, semilla Windows **5 passed**, Ruff limpio, Pyright sin diagnósticos y suite completa **577 passed, 10 deselected**. Estos resultados son el estado vigente; las cifras anteriores del documento se conservan como evidencia histórica de sus respectivas ejecuciones.

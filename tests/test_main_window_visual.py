@@ -3,6 +3,7 @@ from PySide6.QtGui import QFont, QFontMetrics, QKeyEvent
 from PySide6.QtWidgets import (
     QApplication,
     QGridLayout,
+    QFrame,
     QHBoxLayout,
     QLineEdit,
     QMainWindow,

@@ -131,7 +131,7 @@ def test_compare_reports_rejects_different_structural_coverage():
     ):
         compare_benchmark_reports(
             _report(expected_occurrences=523),
-            _report(expected_occurrences=522),
+            _report(expected_occurrences=522, found_occurrences=522),
         )
 
 

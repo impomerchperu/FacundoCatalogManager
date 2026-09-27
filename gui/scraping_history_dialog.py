@@ -10,6 +10,7 @@ from PySide6.QtGui import QColor, QFont, QFontMetrics, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
+    QSizePolicy,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -44,9 +45,10 @@ class ScrapingHistoryDialog(QDialog):
     }
     DETAIL_CHANGE_PRODUCT_MAX_LINES = 2
     DETAIL_CHANGE_PRODUCT_MIN_WIDTH = 220
-    DETAIL_CHANGE_PRODUCT_MAX_WIDTH = 360
+    DETAIL_CHANGE_PRODUCT_MAX_WIDTH = 300
     DETAIL_CHANGE_VALUE_MIN_WIDTH = 180
-    DETAIL_CHANGE_VALUE_MAX_WIDTH = 420
+    DETAIL_CHANGE_VALUE_MAX_WIDTH = 300
+    DETAIL_CHANGE_TABLE_TARGET_WIDTH = 1040
     CHANGE_TYPE_LABELS: ClassVar[dict[str, str]] = {
         "UPDATED": "ACTUALIZADO",
         "NEW": "NUEVO",
@@ -494,6 +496,18 @@ class ScrapingHistoryDialog(QDialog):
 
         multiple_table = QTableWidget()
         multiple_table.setColumnCount(3)
+        multiple_table.setWordWrap(True)
+        multiple_table.setTextElideMode(Qt.TextElideMode.ElideNone)
+        multiple_table.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
+        multiple_table.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
+        multiple_table.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
         multiple_table.setHorizontalHeaderLabels(
             ["Código", "Producto", "Categorías"],
         )
@@ -618,6 +632,10 @@ class ScrapingHistoryDialog(QDialog):
         self._configure_change_table_columns(header)
         self._fit_change_table_to_content(table)
         self._fit_table_height_to_contents(table)
+        table.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
         return table
 
     @staticmethod
@@ -647,8 +665,87 @@ class ScrapingHistoryDialog(QDialog):
         )
         table.setFixedHeight(max(content_height, header_height + frame_height))
 
-    def _fit_change_table_to_content(self, table: QTableWidget) -> None:
+    @classmethod
+    def _fit_change_table_to_content(cls, table: QTableWidget) -> None:
         header = table.horizontalHeader()
+        fixed_width = sum(
+            cls.DETAIL_CHANGE_FIXED_COLUMN_WIDTHS.get(column, 0)
+            for column in range(table.columnCount())
+        )
+        natural_widths = {
+            column: max(header.sectionSize(column), 1)
+            for column in (2, 4, 5)
+        }
+        natural_product = natural_widths[2]
+        natural_values = natural_widths[4] + natural_widths[5]
+
+        flexible_width = max(
+            cls.DETAIL_CHANGE_TABLE_TARGET_WIDTH - fixed_width,
+            cls.DETAIL_CHANGE_PRODUCT_MIN_WIDTH
+            + 2 * cls.DETAIL_CHANGE_VALUE_MIN_WIDTH,
+        )
+
+        preferred_product = max(
+            cls.DETAIL_CHANGE_PRODUCT_MIN_WIDTH,
+            min(cls.DETAIL_CHANGE_PRODUCT_MAX_WIDTH, natural_product),
+        )
+        remaining = max(
+            flexible_width - preferred_product,
+            2 * cls.DETAIL_CHANGE_VALUE_MIN_WIDTH,
+        )
+
+        if natural_values > 0:
+            old_width = round(
+                remaining * natural_widths[4] / natural_values,
+            )
+        else:
+            old_width = remaining // 2
+
+        old_width = max(
+            cls.DETAIL_CHANGE_VALUE_MIN_WIDTH,
+            min(cls.DETAIL_CHANGE_VALUE_MAX_WIDTH, old_width),
+        )
+        new_width = remaining - old_width
+
+        if new_width < cls.DETAIL_CHANGE_VALUE_MIN_WIDTH:
+            new_width = cls.DETAIL_CHANGE_VALUE_MIN_WIDTH
+            old_width = max(
+                cls.DETAIL_CHANGE_VALUE_MIN_WIDTH,
+                remaining - new_width,
+            )
+
+        if new_width > cls.DETAIL_CHANGE_VALUE_MAX_WIDTH:
+            new_width = cls.DETAIL_CHANGE_VALUE_MAX_WIDTH
+            old_width = remaining - new_width
+
+        product_width = min(
+            preferred_product,
+            flexible_width - old_width - new_width,
+        )
+
+        if product_width < cls.DETAIL_CHANGE_PRODUCT_MIN_WIDTH:
+            product_width = cls.DETAIL_CHANGE_PRODUCT_MIN_WIDTH
+            total_flexible = product_width + old_width + new_width
+            overflow = total_flexible - flexible_width
+            if overflow > 0:
+                reducible_old = old_width - cls.DETAIL_CHANGE_VALUE_MIN_WIDTH
+                reduction = min(overflow, reducible_old)
+                old_width -= reduction
+                overflow -= reduction
+
+                reducible_new = new_width - cls.DETAIL_CHANGE_VALUE_MIN_WIDTH
+                reduction = min(overflow, reducible_new)
+                new_width -= reduction
+
+        widths = {
+            2: product_width,
+            4: old_width,
+            5: new_width,
+        }
+        for column, width in widths.items():
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
+            header.resizeSection(column, width)
+
         total_width = sum(
             header.sectionSize(column)
             for column in range(table.columnCount())
@@ -664,7 +761,7 @@ class ScrapingHistoryDialog(QDialog):
             + 2 * table.frameWidth()
             + 2
         )
-        table.setMinimumWidth(required_width)
+        table.setMinimumWidth(min(required_width, cls.DETAIL_CHANGE_TABLE_TARGET_WIDTH + 40))
 
     @classmethod
     def _format_product_name_for_table(cls, value: str) -> str:
@@ -759,12 +856,6 @@ class ScrapingHistoryDialog(QDialog):
 
     @classmethod
     def _configure_change_table_columns(cls, header: QHeaderView) -> None:
-        natural_product_width = header.sectionSize(2)
-        natural_value_widths = {
-            column: header.sectionSize(column)
-            for column in (4, 5)
-        }
-
         for column in range(6):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
 
@@ -772,26 +863,9 @@ class ScrapingHistoryDialog(QDialog):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
             header.resizeSection(column, width)
 
-        product_width = max(
-            cls.DETAIL_CHANGE_PRODUCT_MIN_WIDTH,
-            min(
-                cls.DETAIL_CHANGE_PRODUCT_MAX_WIDTH,
-                natural_product_width,
-            ),
-        )
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-        header.resizeSection(2, product_width)
-
         for column in (4, 5):
-            value_width = max(
-                cls.DETAIL_CHANGE_VALUE_MIN_WIDTH,
-                min(
-                    cls.DETAIL_CHANGE_VALUE_MAX_WIDTH,
-                    natural_value_widths[column],
-                ),
-            )
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
-            header.resizeSection(column, value_width)
 
     @classmethod
     def _change_type_text(cls, value) -> str:

@@ -21,7 +21,7 @@ La referencia funcional vigente es:
 - `coverage_gap=0`
 - 0 errores invalidantes
 - Producción: 8 workers de categoría / 24 de detalle / 28 HTTP
-- Suite local validada el 2026-09-27: 568 passed, 10 deselected
+- Suite local validada el 2026-09-27: 572 passed, 10 deselected
 - Ruff limpio
 - Pyright sin errores, advertencias ni informaciones
 
@@ -54,7 +54,7 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 - [x] Validar `detail_workers=24` en el E2E productivo completo, incluyendo SQLite e historial.
 - [x] Ejecutar la validación FULL post-cambio con el runtime productivo `8 / 24 / 28`.
 - [x] Convertir la regla de evidencia en una validación automática: el comparador rechaza cobertura incompleta y errores HTTP terminales.
-- [ ] Mantener la regla de no aceptar una optimización únicamente por una corrida rápida: debe conservar cobertura, persistencia e historial.
+- [x] Mantener la regla de no aceptar una optimización únicamente por una corrida rápida: debe conservar cobertura, persistencia e historial.
 - [x] Disponer de un comparador reproducible de artefactos benchmark para revisar configuración, cobertura y deltas de tiempo/HTTP sin interpretar manualmente los resultados.
 - [x] Ejecutar dos parejas reales `detail_workers=16` vs `24` con cobertura completa y cero errores; `24` redujo el tiempo de pared en ambas parejas.
 - [x] Validar `detail_workers=24` en E2E real de extremo a extremo y repetirlo con el default productivo: `24/523/519/4`, DB `519/523`, historial aplicado, `333` requests, `0` retries, `0` errores terminales; última corrida `121.48s`.
@@ -78,7 +78,7 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 
 ## Próximo punto de desarrollo
 
-Con el pulido de GUI y la protección de evidencia benchmark cerrados, el siguiente trabajo no debe cambiar el runtime por intuición. El siguiente bloque es **mantenimiento operativo y preparación de la próxima versión**: mantener los contratos de observabilidad, revisar el comportamiento real solo ante evidencia y acumular cambios en `main` hasta que exista un conjunto funcional que justifique una nueva release.
+Con el pulido de GUI y la protección de evidencia benchmark cerrados, el siguiente trabajo no debe cambiar el runtime por intuición. El siguiente bloque es **mantenimiento operativo y preparación de la próxima versión**: mantener los contratos de observabilidad, revisar el comportamiento real solo ante evidencia y acumular cambios en `main` hasta que exista un conjunto funcional que justifique una nueva release. La validación del 2026-09-27 deja este baseline en `572 passed, 10 deselected`, con Ruff y Pyright limpios.
 
 ## Regla de seguridad del desarrollo
 

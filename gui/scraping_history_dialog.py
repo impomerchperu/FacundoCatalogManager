@@ -697,10 +697,7 @@ class ScrapingHistoryDialog(QDialog):
             item.setToolTip(item.text())
             table.setItem(0, 0, item)
 
-        table.resizeColumnsToContents()
         self._configure_change_table_columns(header)
-        self._fit_change_table_to_content(table)
-        self._fit_table_height_to_contents(table)
         table.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
@@ -772,13 +769,34 @@ class ScrapingHistoryDialog(QDialog):
             header.setSectionResizeMode(
                 column,
                 (
-                    QHeaderView.ResizeMode.Fixed
+                    QHeaderView.ResizeMode.ResizeToContents
                     if column in fixed_columns
                     else QHeaderView.ResizeMode.Stretch
                 ),
             )
-        for column, width in fixed_columns.items():
-            header.resizeSection(column, width)
+        table.resizeColumnsToContents()
+
+        table_width = table.viewport().width()
+        fixed_width = sum(
+            header.sectionSize(column)
+            for column in fixed_columns
+        )
+        flexible_columns = [2, 4, 5]
+        flexible_width = max(
+            table_width - fixed_width,
+            3 * 120,
+        )
+        base_flexible = flexible_width // len(flexible_columns)
+        remainder = flexible_width - base_flexible * len(flexible_columns)
+        for index, column in enumerate(flexible_columns):
+            header.setSectionResizeMode(
+                column,
+                QHeaderView.ResizeMode.Stretch,
+            )
+            header.resizeSection(
+                column,
+                base_flexible + (1 if index < remainder else 0),
+            )
 
         table.resizeRowsToContents()
         header_height = max(header.height(), header.sizeHint().height())
@@ -934,12 +952,12 @@ class ScrapingHistoryDialog(QDialog):
         for column in range(6):
             header.setSectionResizeMode(
                 column,
-                QHeaderView.ResizeMode.Fixed
-                if column in cls.DETAIL_CHANGE_FIXED_COLUMN_WIDTHS
-                else QHeaderView.ResizeMode.Stretch,
+                (
+                    QHeaderView.ResizeMode.ResizeToContents
+                    if column in cls.DETAIL_CHANGE_FIXED_COLUMN_WIDTHS
+                    else QHeaderView.ResizeMode.Stretch
+                ),
             )
-        for column, width in cls.DETAIL_CHANGE_FIXED_COLUMN_WIDTHS.items():
-            header.resizeSection(column, width)
 
     @classmethod
     def _change_type_text(cls, value) -> str:

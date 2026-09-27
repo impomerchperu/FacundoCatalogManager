@@ -3,7 +3,7 @@
 Fecha: 2026-09-27  
 Rama oficial: `main`  
 Versión en preparación: `0.2.0`  
-HEAD candidato actual de `main`: `d543f12`  
+HEAD de referencia de esta acta: `d543f12`  
 Release estable anterior: `v0.1.1` → `4238a9f`
 
 ## 1. Gobierno del repositorio

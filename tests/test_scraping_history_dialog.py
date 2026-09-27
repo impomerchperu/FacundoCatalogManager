@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QHeaderView, QLabel
 
 from gui.scraping_history_dialog import ScrapingHistoryDialog
@@ -202,7 +203,13 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     assert table.verticalHeader().sectionSize(0) >= 32
     assert header.sectionResizeMode(0) == QHeaderView.ResizeMode.Fixed
     assert header.sectionResizeMode(1) == QHeaderView.ResizeMode.Fixed
-    assert header.sectionResizeMode(2) == QHeaderView.ResizeMode.ResizeToContents
+    assert header.sectionResizeMode(2) == QHeaderView.ResizeMode.Fixed
+    product_item = table.item(0, 2)
+    assert product_item is not None
+    assert product_item.toolTip() == "Producto con nombre suficientemente largo"
+    assert len(product_item.text().splitlines()) <= 2
+    assert " ".join(product_item.text().splitlines()) == product_item.toolTip()
+    assert table.textElideMode() == Qt.TextElideMode.ElideNone
     assert table.item(0, 0).text() == "ACTUALIZADO"
     assert header.sectionResizeMode(3) == QHeaderView.ResizeMode.Fixed
     assert header.sectionResizeMode(4) == QHeaderView.ResizeMode.Stretch

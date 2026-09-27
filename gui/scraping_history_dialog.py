@@ -584,6 +584,7 @@ class ScrapingHistoryDialog(QDialog):
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setWordWrap(True)
         table.setTextElideMode(Qt.TextElideMode.ElideRight)
+        table.setAlternatingRowColors(False)
         table.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
@@ -779,10 +780,20 @@ class ScrapingHistoryDialog(QDialog):
 
         old_value = stock_data.get("old")
         new_value = stock_data.get("new")
+        new_amount = cls._numeric_stock(new_value)
+        old_amount = cls._numeric_stock(old_value)
+        delta = (
+            new_amount - old_amount
+            if new_amount is not None and old_amount is not None
+            else None
+        )
         return (
             "Stock",
             cls._format_stock_scalar(old_value),
-            cls._format_stock_scalar(new_value),
+            cls._format_delta_text(
+                cls._format_stock_scalar(new_value),
+                delta,
+            ),
             cls._format_stock_scalar_html(old_value, new_value),
             "stock",
         )
@@ -808,8 +819,17 @@ class ScrapingHistoryDialog(QDialog):
                     else (-old_amount if old_amount is not None and new_amount is None else None)
                 )
             )
-            new_lines.append(f"{color}: {new_text}")
-            new_html_lines.append(cls._format_delta_line(f"{color}: {new_text}", delta, prefix_length=len(f"{color}: ")))
+            base_new_line = f"{color}: {new_text}"
+            new_lines.append(
+                cls._format_delta_text(base_new_line, delta)
+            )
+            new_html_lines.append(
+                cls._format_delta_line(
+                    base_new_line,
+                    delta,
+                    prefix_length=len(f"{color}: "),
+                )
+            )
         return (
             "\n".join(old_lines) if old_lines else "—",
             "\n".join(new_lines) if new_lines else "—",
@@ -834,20 +854,54 @@ class ScrapingHistoryDialog(QDialog):
         return f"{value:,}" if value is not None else "—"
 
     @classmethod
+    def _format_delta_text(
+        cls,
+        text: str,
+        delta,
+        *,
+        currency: bool = False,
+    ) -> str:
+        if delta is None or delta == 0:
+            return text
+        if currency:
+            return f"{text} ({'+' if delta > 0 else '-'}s/{abs(delta):.2f})"
+        return f"{text} ({delta:+d})"
+
+    @classmethod
     def _build_price_entry(cls, changes: dict[str, dict]):
         old_lines = []
         new_lines = []
         new_html_lines = []
-        for field, change in changes.items():
-            label = cls.PRICE_FIELD_LABELS[field]
+        for field, label in cls.PRICE_FIELD_LABELS.items():
+            change = changes.get(field)
+            if change is None:
+                continue
             old_amount = cls._numeric_price(change.get("old"))
             new_amount = cls._numeric_price(change.get("new"))
             old_text = cls._format_currency(old_amount)
             new_text = cls._format_currency(new_amount)
             old_lines.append(f"{label}: {old_text}")
-            new_lines.append(f"{label}: {new_text}")
-            delta = new_amount - old_amount if old_amount is not None and new_amount is not None else None
-            new_html_lines.append(cls._format_delta_line(f"{label}: {new_text}", delta, delta_suffix="currency", prefix_length=len(f"{label}: ")))
+            base_new_line = f"{label}: {new_text}"
+            delta = (
+                new_amount - old_amount
+                if old_amount is not None and new_amount is not None
+                else None
+            )
+            new_lines.append(
+                cls._format_delta_text(
+                    base_new_line,
+                    delta,
+                    currency=True,
+                )
+            )
+            new_html_lines.append(
+                cls._format_delta_line(
+                    base_new_line,
+                    delta,
+                    delta_suffix="currency",
+                    prefix_length=len(f"{label}: "),
+                )
+            )
         return (
             "Precios",
             "\n".join(old_lines),

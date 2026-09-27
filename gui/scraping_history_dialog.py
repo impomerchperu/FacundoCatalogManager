@@ -1,4 +1,5 @@
 import json
+from html import escape
 import sqlite3
 from datetime import datetime
 from typing import ClassVar
@@ -36,9 +37,23 @@ class ScrapingHistoryDialog(QDialog):
     DETAIL_CHANGE_DIALOG_WIDTH = 1100
     DETAIL_CHANGE_MIN_DIALOG_WIDTH = 820
     DETAIL_CHANGE_FIXED_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
-        0: 78,
-        1: 96,
-        3: 135,
+        0: 100,
+        1: 110,
+        3: 150,
+    }
+    CHANGE_TYPE_LABELS: ClassVar[dict[str, str]] = {
+        "UPDATED": "ACTUALIZADO",
+        "NEW": "NUEVO",
+        "DELETED": "ELIMINADO",
+        "CODE_GENERATED": "CÓDIGO GENERADO",
+    }
+    DELTA_INCREASE_COLOR = "#188038"
+    DELTA_DECREASE_COLOR = "#d93025"
+    PRICE_FIELD_LABELS: ClassVar[dict[str, str]] = {
+        "price": "precio",
+        "price_sample": "muestra",
+        "price_hundred": "ciento",
+        "price_thousand": "millar",
     }
 
     def __init__(self, parent=None) -> None:

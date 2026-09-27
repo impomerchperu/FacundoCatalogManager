@@ -2,7 +2,7 @@
 
 Fecha de alineación: 2026-09-27
 Branch oficial: `main`
-Último estado de código funcional antes de esta actualización documental: `0159339c73c24b72adf03a5ea167373da22aa643`.
+Último estado de código funcional antes de esta actualización documental: `9a03ae7dd3e6a509273ad4892f1165390c11ce09`.
 
 ## Referencias funcionales
 
@@ -183,3 +183,15 @@ Una ejecución dirigida puede quedar aplicada en historial sin convertirse por e
 Ninguna limpieza, refactor o optimización se considera válida si reduce la cobertura FULL, cambia la precedencia de la última ejecución completa válida, borra historial existente o habilita prune con cobertura no demostrada.
 
 Los archivos locales `data/scraping_category_profile.json` y `data/scraping_detail_profile.json` son artefactos de profiling generados por las pruebas/diagnósticos; no forman parte de esta etapa de código y no deben añadirse al commit salvo decisión explícita posterior.
+\n\n## CURRENT MAIN VALIDATION — 2026-09-27
+
+La validación local del commit `9a03ae7` quedó completamente verde:
+
+- `tests/test_scraping_history_dialog.py`: **18 passed**.
+- `tests/tools/test_compare_benchmark_reports.py`: **12 passed**.
+- Ruff: **All checks passed!**
+- Pyright: **0 errors, 0 warnings, 0 informations**.
+- Suite completa: **568 passed, 10 deselected**.
+
+Esta sección representa el estado actual de `main`; las cifras anteriores del documento permanecen como evidencia histórica del momento en que fueron ejecutadas.
+

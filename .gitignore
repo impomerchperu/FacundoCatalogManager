@@ -85,6 +85,8 @@ generated/
 data/scraping_result.json
 data/scraping_timing.log
 data/scraping_*_profile.json
+# Benchmarks reales/controlados generados localmente
+data/benchmark-*.json
 
 
 # ==========================================================

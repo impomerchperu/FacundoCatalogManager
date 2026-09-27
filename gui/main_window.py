@@ -823,11 +823,6 @@ class MainWindow(QMainWindow):
             category_button_width + (2 * self.CATEGORY_SIDEBAR_HORIZONTAL_PADDING)
         )
 
-        if self.category_scroll.verticalScrollBar().isVisible():
-            self._category_sidebar_open_width += (
-                self.category_scroll.verticalScrollBar().sizeHint().width()
-            )
-
         for button in self.category_buttons:
             text = str(
                 button.property("category_text") or button.text(),

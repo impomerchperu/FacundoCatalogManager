@@ -685,12 +685,11 @@ class ScrapingHistoryDialog(QDialog):
         return cls.CHANGE_TYPE_LABELS.get(normalized, normalized)
     @classmethod
     def _prepare_change_rows(cls, changes: list[dict]) -> list[dict]:
-        """Consolida solo las variaciones de stock equivalentes."""
         grouped: dict[tuple[str, str, str], dict] = {}
         order: list[tuple[str, str, str]] = []
 
         for change in changes:
-            change_type = str(change.get("type", "")).strip()
+            change_type = str(change.get("type", "")).strip().upper()
             code = str(change.get("code", "")).strip()
             name = str(change.get("name", "")).strip()
             key = (change_type, code.casefold(), name.casefold())
@@ -702,6 +701,8 @@ class ScrapingHistoryDialog(QDialog):
                     "entries": [],
                     "stock": None,
                     "color_stock": None,
+                    "prices": {},
+                    "category": None,
                 }
                 order.append(key)
 
@@ -710,116 +711,201 @@ class ScrapingHistoryDialog(QDialog):
                 grouped[key]["stock"] = change
             elif field == "color_stock":
                 grouped[key]["color_stock"] = change
+            elif field in cls.PRICE_FIELD_LABELS:
+                grouped[key]["prices"][field] = change
+            elif field == "category":
+                grouped[key]["category"] = change
             else:
-                grouped[key]["entries"].append(
-                    (
-                        str(change.get("label", change.get("field", ""))),
-                        cls._display_value(change.get("old")),
-                        cls._display_value(change.get("new")),
-                    )
-                )
+                grouped[key]["entries"].append(change)
 
         rows = []
         for key in order:
             group = grouped[key]
-            stock_entry = cls._build_stock_entry(
-                group["stock"],
-                group["color_stock"],
-            )
-            entries = list(group["entries"])
+            stock_entry = cls._build_stock_entry(group["stock"], group["color_stock"])
             if stock_entry is not None:
-                entries.insert(0, stock_entry)
+                rows.append(cls._row_from_entry(group, stock_entry))
 
-            for variation, old_value, new_value in entries:
+            if group["prices"]:
+                rows.append(cls._row_from_entry(group, cls._build_price_entry(group["prices"])))
+
+            if group["category"] is not None:
+                rows.append(cls._row_from_entry(group, cls._build_category_entry(group["category"])))
+
+            for change in group["entries"]:
                 rows.append(
-                    {
-                        "type": group["type"],
-                        "code": group["code"],
-                        "name": group["name"],
-                        "variation": variation,
-                        "old": old_value,
-                        "new": new_value,
-                    }
+                    cls._row_from_entry(
+                        group,
+                        (
+                            str(change.get("label", change.get("field", ""))),
+                            cls._display_value(change.get("old")),
+                            cls._display_value(change.get("new")),
+                            "",
+                            "plain",
+                        ),
+                    )
                 )
         return rows
 
+    @staticmethod
+    def _row_from_entry(group: dict, entry: tuple[str, str, str, str, str]):
+        variation, old_value, new_value, new_html, kind = entry
+        return {
+            "type": group["type"],
+            "code": group["code"],
+            "name": group["name"],
+            "variation": variation,
+            "old": old_value,
+            "new": new_value,
+            "new_html": new_html,
+            "kind": kind,
+        }
     @classmethod
     def _build_stock_entry(cls, stock_change, color_stock_change):
         if stock_change is None and color_stock_change is None:
             return None
 
         stock_data = stock_change if isinstance(stock_change, dict) else {}
-        color_stock_data = (
-            color_stock_change if isinstance(color_stock_change, dict) else {}
-        )
-        old_color_stock = cls._as_color_stock(
-            color_stock_data.get("old")
-        )
-        new_color_stock = cls._as_color_stock(
-            color_stock_data.get("new")
-        )
-        color_count = max(len(old_color_stock), len(new_color_stock))
+        color_stock_data = color_stock_change if isinstance(color_stock_change, dict) else {}
+        old_color_stock = cls._as_color_stock(color_stock_data.get("old"))
+        new_color_stock = cls._as_color_stock(color_stock_data.get("new"))
 
-        if color_count > 1:
-            old_value = color_stock_data.get("old", stock_data.get("old"))
-            new_value = color_stock_data.get("new", stock_data.get("new"))
-            return (
-                "Stock por color",
-                cls._display_value(old_value),
-                cls._format_stock_new_value(
-                    old_value,
-                    new_value,
-                    by_color=True,
-                ),
+        if old_color_stock or new_color_stock:
+            old_text, new_text, new_html = cls._format_stock_values(
+                old_color_stock,
+                new_color_stock,
             )
+            variation = "Stock por color" if max(len(old_color_stock), len(new_color_stock)) > 1 else "Stock"
+            return (variation, old_text, new_text, new_html, "stock")
 
-        old_value = (
-            stock_data.get("old")
-            if stock_data
-            else cls._single_color_stock_value(old_color_stock)
-        )
-        new_value = (
-            stock_data.get("new")
-            if stock_data
-            else cls._single_color_stock_value(new_color_stock)
-        )
+        old_value = stock_data.get("old")
+        new_value = stock_data.get("new")
         return (
             "Stock",
-            cls._display_value(old_value),
-            cls._format_stock_new_value(old_value, new_value),
+            cls._format_stock_scalar(old_value),
+            cls._format_stock_scalar(new_value),
+            cls._format_stock_scalar_html(old_value, new_value),
+            "stock",
         )
 
     @classmethod
-    def _format_stock_new_value(cls, old_value, new_value, *, by_color=False) -> str:
-        if by_color:
-            old_stock = cls._as_color_stock(old_value)
-            new_stock = cls._as_color_stock(new_value)
-            if not new_stock and not old_stock:
-                return cls._display_value(new_value)
-            lines = []
-            colors = sorted(
-                set(old_stock) | set(new_stock),
-                key=lambda item: str(item).casefold(),
-            )
-            for color in colors:
-                old_amount = cls._numeric_stock(old_stock.get(color))
-                new_amount = cls._numeric_stock(new_stock.get(color))
-                lines.append(
-                    cls._format_stock_line(
-                        color,
-                        new_stock.get(color),
-                        old_amount,
-                        new_amount,
-                    )
+    def _format_stock_values(cls, old_stock: dict, new_stock: dict):
+        old_lines = []
+        new_lines = []
+        new_html_lines = []
+        colors = sorted(set(old_stock) | set(new_stock), key=lambda item: str(item).casefold())
+        for color in colors:
+            old_amount = cls._numeric_stock(old_stock.get(color))
+            new_amount = cls._numeric_stock(new_stock.get(color))
+            old_text = cls._format_stock_number(old_amount)
+            new_text = cls._format_stock_number(new_amount)
+            old_lines.append(f"{color}: {old_text}")
+            delta = (
+                new_amount - old_amount
+                if old_amount is not None and new_amount is not None
+                else (
+                    new_amount
+                    if old_amount is None and new_amount is not None
+                    else (-old_amount if old_amount is not None and new_amount is None else None)
                 )
-            return "\n".join(lines)
+            )
+            new_lines.append(f"{color}: {new_text}")
+            new_html_lines.append(cls._format_delta_line(f"{color}: {new_text}", delta, prefix_length=len(f"{color}: ")))
+        return (
+            "\n".join(old_lines) if old_lines else "—",
+            "\n".join(new_lines) if new_lines else "—",
+            "<br>".join(new_html_lines) if new_html_lines else "—",
+        )
 
-        old_amount = cls._numeric_stock(old_value)
+    @classmethod
+    def _format_stock_scalar_html(cls, old_value, new_value) -> str:
         new_amount = cls._numeric_stock(new_value)
-        if old_amount is None or new_amount is None:
-            return cls._display_value(new_value)
-        return cls._format_stock_delta_value(new_amount, new_amount - old_amount)
+        old_amount = cls._numeric_stock(old_value)
+        if new_amount is None:
+            return escape(cls._format_stock_scalar(new_value))
+        delta = new_amount - old_amount if old_amount is not None else None
+        return cls._format_delta_line(cls._format_stock_scalar(new_value), delta)
 
+    @classmethod
+    def _format_stock_scalar(cls, value) -> str:
+        return cls._format_stock_number(cls._numeric_stock(value))
+
+    @staticmethod
+    def _format_stock_number(value: int | None) -> str:
+        return f"{value:,}" if value is not None else "—"
+
+    @classmethod
+    def _build_price_entry(cls, changes: dict[str, dict]):
+        old_lines = []
+        new_lines = []
+        new_html_lines = []
+        for field, change in changes.items():
+            label = cls.PRICE_FIELD_LABELS[field]
+            old_amount = cls._numeric_price(change.get("old"))
+            new_amount = cls._numeric_price(change.get("new"))
+            old_text = cls._format_currency(old_amount)
+            new_text = cls._format_currency(new_amount)
+            old_lines.append(f"{label}: {old_text}")
+            new_lines.append(f"{label}: {new_text}")
+            delta = new_amount - old_amount if old_amount is not None and new_amount is not None else None
+            new_html_lines.append(cls._format_delta_line(f"{label}: {new_text}", delta, delta_suffix="currency", prefix_length=len(f"{label}: ")))
+        return (
+            "Precios",
+            "\n".join(old_lines),
+            "\n".join(new_lines),
+            "<br>".join(new_html_lines),
+            "price",
+        )
+
+    @classmethod
+    def _build_category_entry(cls, change: dict):
+        return (
+            "Categoría",
+            cls._format_category_value(change.get("old")),
+            cls._format_category_value(change.get("new")),
+            "",
+            "category",
+        )
+
+    @classmethod
+    def _format_category_value(cls, value) -> str:
+        return "\n".join(cls._split_categories(value)) or "—"
+
+    @staticmethod
+    def _split_categories(value) -> list[str]:
+        from services.scraping.category_name_normalizer import split_category_names
+        categories = split_category_names(value)
+        if categories:
+            return categories
+        text = str(value or "").strip()
+        return [text] if text else []
+
+    @staticmethod
+    def _numeric_price(value) -> float | None:
+        if isinstance(value, bool):
+            return float(int(value))
+        try:
+            return float(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _format_currency(value: float | None) -> str:
+        return f"s/{value:.2f}" if value is not None else "—"
+
+    @classmethod
+    def _format_delta_line(cls, text: str, delta, *, delta_suffix: str = "stock", prefix_length: int = 0) -> str:
+        escaped_text = escape(text)
+        if delta is None or delta == 0:
+            return escaped_text
+        if delta_suffix == "currency":
+            sign_text = f"{'+' if delta > 0 else '-'}s/{abs(delta):.2f}"
+        else:
+            sign_text = f"{delta:+d}"
+        color = cls.DELTA_INCREASE_COLOR if delta > 0 else cls.DELTA_DECREASE_COLOR
+        base_length = prefix_length if prefix_length > 0 else len(text)
+        base = escape(text[:base_length])
+        suffix = escape(text[base_length:])
+        return f'{base}{suffix} <span style="color:{color}; font-weight:600;">({escape(sign_text)})</span>'
     @staticmethod
     def _numeric_stock(value) -> int | None:
         if isinstance(value, bool):

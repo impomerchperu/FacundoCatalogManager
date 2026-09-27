@@ -186,7 +186,7 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 - [x] FULL real de 24 categorías.
 - [x] Cobertura completa contra `expected_count` vigente de cada categoría.
 - [x] Referencia operativa actual: 523 apariciones / 519 productos únicos / 4 multi-categoría / 523 relaciones.
-- [x] Snapshot histórico 534/530/4 preservado como diagnóstico.
+- [x] Referencia viva verificada: `523 / 519 / 4`; se reemplaza cuando un FULL posterior, completo, consistente y sin errores queda verificado.
 - [x] cobertura completa.
 - [x] `coverage_gap=0`.
 - [x] 0 errores invalidantes.

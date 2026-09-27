@@ -98,9 +98,19 @@ jobs:
             throw "No se encontró el directorio de imágenes semilla: $seedImages"
           }
 
+          $version = (Get-Content "VERSION" -Raw).Trim()
+          if ($version -notmatch "^\\d+\\.\\d+\\.\\d+$") {
+            throw "VERSION debe usar el formato MAJOR.MINOR.PATCH."
+          }
+
+          $bundleVersion = (Get-Content "dist\\Windows\\FacundoCatalogManager\\_internal\\VERSION" -Raw).Trim()
+          if ($bundleVersion -ne $version) {
+            throw "La versión del bundle ($bundleVersion) no coincide con VERSION ($version)."
+          }
+
       - name: Install Inno Setup
         shell: pwsh
-        run: winget install --id JRSoftware.InnoSetup.7 -e --accept-source-agreements --accept-package-agreements --silent
+        run: winget install --id JRSoftware.InnoSetup.7 -e --version 7.1.0 --accept-source-agreements --accept-package-agreements --silent
 
       - name: Build installer
         shell: pwsh

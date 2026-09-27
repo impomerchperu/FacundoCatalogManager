@@ -428,7 +428,7 @@ def test_history_product_name_wraps_only_when_column_is_narrow():
     assert table.item(0, 2).text() == "Máquina plastificadora profesional A4"
     assert "\n" not in table.item(0, 2).text()
 
-    header.resizeSection(2, 180)
+    header.resizeSection(2, 120)
     table.resizeRowsToContents()
     app.processEvents()
     narrow_row_height = table.rowHeight(0)

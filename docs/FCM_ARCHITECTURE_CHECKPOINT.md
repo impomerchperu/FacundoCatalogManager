@@ -413,7 +413,7 @@ La ejecución manual posterior al ajuste terminó en `success`. La validación d
 
 The grouped table-width audit on 2026-09-26 found no evidence-based reason to change the established visual widths for Image, Code, Product, Detail or Prices. Category and Stock contracts remain unchanged.
 
-`ProductTable` now caches its preferred content widths after a content render and reuses them during window resize. The cache is invalidated when the catalog content, category-reference catalog or dynamic header labels change. The focused regression test passed locally, and the complete non-real-site suite now reports `534 passed, 10 deselected`. Manual smoke validation remains pending.
+`ProductTable` now caches its preferred content widths after a content render and reuses them during window resize. The cache is invalidated when the catalog content, category-reference catalog or dynamic header labels change. The focused regression test passed locally, and the complete non-real-site suite now reports `534 passed, 10 deselected`. Manual GUI smoke validation was completed on 2026-09-26 after the cached-width regression fix. The validated flow included startup without automatic scraping, persisted catalog loading, category keyboard navigation, single black focus frame, vertical category scrolling, search/filter interaction, column sorting, window resize, catalog update entry point and history access.
 
 
 The category-filter interaction is now treated as a stable visual contract on `main`:

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
-from typing import Any
+import pathlib
+import typing
 
 
 SUPPORTED_SCHEMA_VERSION = 1
@@ -47,9 +47,9 @@ class BenchmarkComparisonError(ValueError):
     """Indica que dos artefactos de benchmark no son comparables."""
 
 
-def load_benchmark_report(path: str | Path) -> dict[str, Any]:
+def load_benchmark_report(path: str | pathlib.Path) -> dict[str, typing.Any]:
     """Carga y valida la forma mínima de un artefacto benchmark."""
-    report_path = Path(path).expanduser()
+    report_path = pathlib.Path(path).expanduser()
     try:
         payload = json.loads(report_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
@@ -78,7 +78,7 @@ def load_benchmark_report(path: str | Path) -> dict[str, Any]:
     return payload
 
 
-def _numeric_value(mapping: dict[str, Any], key: str) -> float | int | None:
+def _numeric_value(mapping: dict[str, typing.Any], key: str) -> float | int | None:
     value = mapping.get(key)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
@@ -86,8 +86,8 @@ def _numeric_value(mapping: dict[str, Any], key: str) -> float | int | None:
 
 
 def _numeric_deltas(
-    baseline: dict[str, Any],
-    candidate: dict[str, Any],
+    baseline: dict[str, typing.Any],
+    candidate: dict[str, typing.Any],
     keys: tuple[str, ...],
 ) -> dict[str, dict[str, float | int]]:
     result: dict[str, dict[str, float | int]] = {}
@@ -112,7 +112,7 @@ def _numeric_deltas(
     return result
 
 
-def _configuration(report: dict[str, Any]) -> dict[str, Any]:
+def _configuration(report: dict[str, typing.Any]) -> dict[str, typing.Any]:
     raw = report.get("configuration")
     if not isinstance(raw, dict):
         return {}
@@ -123,7 +123,7 @@ def _configuration(report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _coverage_signature(report: dict[str, Any]) -> dict[str, int]:
+def _coverage_signature(report: dict[str, typing.Any]) -> dict[str, int]:
     coverage = report.get("coverage")
     if not isinstance(coverage, dict):
         return {}
@@ -143,9 +143,9 @@ def _coverage_signature(report: dict[str, Any]) -> dict[str, int]:
 
 
 def compare_benchmark_reports(
-    baseline: dict[str, Any],
-    candidate: dict[str, Any],
-) -> dict[str, Any]:
+    baseline: dict[str, typing.Any],
+    candidate: dict[str, typing.Any],
+) -> dict[str, typing.Any]:
     """Compara dos benchmarks sin convertir sus deltas en una clasificación."""
     if baseline.get("schema_version") != candidate.get("schema_version"):
         raise BenchmarkComparisonError(
@@ -213,9 +213,9 @@ def compare_benchmark_reports(
 
 
 def compare_benchmark_files(
-    baseline_path: str | Path,
-    candidate_path: str | Path,
-) -> dict[str, Any]:
+    baseline_path: str | pathlib.Path,
+    candidate_path: str | pathlib.Path,
+) -> dict[str, typing.Any]:
     """Carga dos artefactos JSON y devuelve una comparación estructurada."""
     baseline = load_benchmark_report(baseline_path)
     candidate = load_benchmark_report(candidate_path)
@@ -240,7 +240,7 @@ def _format_metric_line(
     )
 
 
-def _print_comparison(comparison: dict[str, Any]) -> None:
+def _print_comparison(comparison: dict[str, typing.Any]) -> None:
     print("BENCHMARK COMPARISON")
     print(f"MODE: {comparison['mode']}")
     print("CONFIGURATION BASELINE:", comparison["configuration"]["baseline"])
@@ -264,8 +264,8 @@ def main(argv: list[str] | None = None) -> int:
             "como ganadores o perdedores."
         )
     )
-    parser.add_argument("baseline", type=Path)
-    parser.add_argument("candidate", type=Path)
+    parser.add_argument("baseline", type=pathlib.Path)
+    parser.add_argument("candidate", type=pathlib.Path)
     args = parser.parse_args(argv)
 
     try:

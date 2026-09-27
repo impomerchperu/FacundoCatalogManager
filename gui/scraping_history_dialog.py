@@ -110,9 +110,13 @@ class ScrapingHistoryDialog(QDialog):
         self.activateWindow()
         self.load_history()
         # El primer cálculo puede ocurrir antes de que Qt termine de activar
-        # el layout de la tabla; repetirlo encolado garantiza que la ventana
-        # quede dimensionada con las geometrías finales al abrirse.
-        QTimer.singleShot(0, self._fit_table_to_content)
+        # el layout de la tabla; repetirlo con un QTimer propio garantiza que
+        # la ventana quede dimensionada con las geometrías finales al abrirse.
+        self._initial_fit_timer.start(0)
+
+    def closeEvent(self, event) -> None:
+        self._initial_fit_timer.stop()
+        super().closeEvent(event)
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)

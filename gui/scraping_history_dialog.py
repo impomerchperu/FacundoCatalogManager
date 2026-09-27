@@ -664,25 +664,21 @@ class ScrapingHistoryDialog(QDialog):
         if stock_change is None and color_stock_change is None:
             return None
 
+        stock_data = stock_change if isinstance(stock_change, dict) else {}
+        color_stock_data = (
+            color_stock_change if isinstance(color_stock_change, dict) else {}
+        )
         old_color_stock = cls._as_color_stock(
-            color_stock_change.get("old") if color_stock_change else None
+            color_stock_data.get("old")
         )
         new_color_stock = cls._as_color_stock(
-            color_stock_change.get("new") if color_stock_change else None
+            color_stock_data.get("new")
         )
         color_count = max(len(old_color_stock), len(new_color_stock))
 
         if color_count > 1:
-            old_value = (
-                color_stock_change.get("old")
-                if color_stock_change is not None
-                else stock_change.get("old")
-            )
-            new_value = (
-                color_stock_change.get("new")
-                if color_stock_change is not None
-                else stock_change.get("new")
-            )
+            old_value = color_stock_data.get("old", stock_data.get("old"))
+            new_value = color_stock_data.get("new", stock_data.get("new"))
             return (
                 "Stock por color",
                 cls._display_value(old_value),
@@ -690,13 +686,13 @@ class ScrapingHistoryDialog(QDialog):
             )
 
         old_value = (
-            stock_change.get("old")
-            if stock_change is not None
+            stock_data.get("old")
+            if stock_data
             else cls._single_color_stock_value(old_color_stock)
         )
         new_value = (
-            stock_change.get("new")
-            if stock_change is not None
+            stock_data.get("new")
+            if stock_data
             else cls._single_color_stock_value(new_color_stock)
         )
         return (

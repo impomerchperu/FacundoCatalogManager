@@ -1,14 +1,7 @@
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QPoint, Qt, QThread, QTimer
-from PySide6.QtGui import (
-    QFont,
-    QFontMetrics,
-    QKeyEvent,
-    QPainter,
-    QPaintEvent,
-    QPen,
-)
+from PySide6.QtCore import Qt, QThread, QTimer
+from PySide6.QtGui import QFont, QFontMetrics, QKeyEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -21,8 +14,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
-    QStyle,
-    QStyleOptionButton,
     QVBoxLayout,
     QWidget,
 )
@@ -42,38 +33,6 @@ if TYPE_CHECKING:
 
 class CategoryFilterButton(QPushButton):
     """Botón de categoría con navegación vertical por teclado."""
-
-    def paintEvent(self, event: QPaintEvent) -> None:
-        del event
-        option = QStyleOptionButton()
-        self.initStyleOption(option)
-        option.state &= ~QStyle.StateFlag.State_HasFocus
-
-        painter = QPainter(self)
-        self.style().drawControl(
-            QStyle.ControlElement.CE_PushButton,
-            option,
-            painter,
-            self,
-        )
-
-        if self.hasFocus():
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-            painter.setPen(
-                QPen(
-                    Qt.GlobalColor.black,
-                    1,
-                    Qt.PenStyle.SolidLine,
-                    Qt.PenCapStyle.FlatCap,
-                    Qt.PenJoinStyle.MiterJoin,
-                ),
-            )
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            frame = self.rect().adjusted(1, 1, -1, -1)
-            painter.drawLine(frame.topLeft(), frame.topRight())
-            painter.drawLine(frame.topRight(), frame.bottomRight())
-            painter.drawLine(frame.bottomRight(), frame.bottomLeft())
-            painter.drawLine(frame.bottomLeft(), frame.topLeft())
 
     def _navigation_buttons(self) -> list["CategoryFilterButton"]:
         parent = self.parentWidget()
@@ -673,6 +632,17 @@ class MainWindow(QMainWindow):
             " color: #173f6d;"
             " font-weight: bold;"
             " border: none;"
+            "}"
+            " QPushButton:focus {"
+            " border: 1px solid #000000;"
+            " padding: 0px 3px;"
+            "}"
+            " QPushButton:checked:focus {"
+            " border: 1px solid #000000;"
+            " padding: 0px 3px;"
+            " background-color: #d8edf7;"
+            " color: #173f6d;"
+            " font-weight: bold;"
             "}"
         )
 

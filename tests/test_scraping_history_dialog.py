@@ -95,10 +95,25 @@ def test_history_uses_stock_by_color_for_multi_color_products():
     assert len(rows) == 1
     assert rows[0]["variation"] == "Stock por color"
     assert rows[0]["old"] == "Azul: 500\nVerde: 1000"
-    assert rows[0]["new"] == "Azul: 400\nVerde: 825"
+    assert rows[0]["new"] == "Azul: 400 (-100)\nVerde: 825 (+825)"
 
 
-def test_history_change_table_uses_compact_fixed_visual_widths():
+def test_history_stock_new_value_shows_signed_delta_for_single_stock():
+    assert ScrapingHistoryDialog._format_stock_new_value(500, 400) == "400 (-100)"
+    assert ScrapingHistoryDialog._format_stock_new_value(1000, 1825) == "1825 (+825)"
+    assert ScrapingHistoryDialog._format_stock_new_value(500, 500) == "500"
+
+
+def test_history_stock_new_value_shows_signed_delta_by_color():
+    value = ScrapingHistoryDialog._format_stock_new_value(
+        {"Azul": 500, "Verde": 1000},
+        {"Azul": 400, "Verde": 1825},
+        by_color=True,
+    )
+    assert value == "Azul: 400 (-100)\nVerde: 1825 (+825)"
+
+
+def test_history_change_table_has_row_numbers_and_dynamic_columns():
     QApplication.instance() or QApplication([])
     dialog = ScrapingHistoryDialog.__new__(ScrapingHistoryDialog)
     table = dialog._build_changes_table(
@@ -109,17 +124,44 @@ def test_history_change_table_uses_compact_fixed_visual_widths():
                 "name": "Producto con nombre suficientemente largo",
                 "variation": "Stock por color",
                 "old": "Azul: 500\nVerde: 1000",
-                "new": "Azul: 400\nVerde: 825",
-            }
+                "new": "Azul: 400 (-100)\nVerde: 825 (+825)",
+            },
+            {
+                "type": "UPDATED",
+                "code": "ABC-004",
+                "name": "Segundo producto",
+                "variation": "Stock por color",
+                "old": "Rojo: 100",
+                "new": "Rojo: 80 (-20)",
+            },
         ]
     )
 
-    expected = dialog.DETAIL_CHANGE_COLUMN_WIDTHS
-    assert tuple(table.columnWidth(index) for index in range(6)) == expected
-    assert table.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-    assert table.item(0, 2).toolTip() == (
-        "Producto con nombre suficientemente largo"
-    )
+    header = table.horizontalHeader()
+    assert table.verticalHeader().isVisible()
+    assert table.verticalHeader().sectionSize(0) >= 32
+    assert header.sectionResizeMode(0) == QHeaderView.ResizeMode.Fixed
+    assert header.sectionResizeMode(1) == QHeaderView.ResizeMode.Fixed
+    assert header.sectionResizeMode(2) == QHeaderView.ResizeMode.Stretch
+    assert header.sectionResizeMode(3) == QHeaderView.ResizeMode.Fixed
+    assert header.sectionResizeMode(4) == QHeaderView.ResizeMode.Stretch
+    assert header.sectionResizeMode(5) == QHeaderView.ResizeMode.Stretch
     assert table.item(0, 4).toolTip() == "Azul: 500 · Verde: 1000"
+    assert table.item(0, 5).toolTip() == (
+        "Azul: 400 (-100) · Verde: 825 (+825)"
+    )
+
+    table.resize(900, 220)
+    table.show()
+    QApplication.processEvents()
+    small_width = table.columnWidth(2)
+
+    table.resize(1200, 220)
+    QApplication.processEvents()
+    large_width = table.columnWidth(2)
+
+    assert large_width > small_width
+    assert table.columnWidth(4) > 0
+    assert table.columnWidth(5) > 0
 
     table.deleteLater()

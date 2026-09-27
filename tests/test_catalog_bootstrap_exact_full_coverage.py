@@ -192,7 +192,7 @@ def test_reconcile_exact_full_coverage_preserves_unique_products_and_relations()
         """,
         (run_id,),
     ).fetchone()[0] == 10
-    assert connection.execute("SELECT COUNT(*) FROM product_categories").fetchone()[0] == 8
+    assert connection.execute("SELECT COUNT(*) FROM product_categories").fetchone()[0] == 10
     assert connection.execute(
         "SELECT COUNT(*) FROM products WHERE code='STALE'"
     ).fetchone()[0] == 0

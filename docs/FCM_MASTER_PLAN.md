@@ -2,7 +2,7 @@
 
 Fecha: 2026-09-27
 Branch oficial: `main`
-Estado de código: `main` prepara `v0.2.0` con versionado centralizado, hardening de observabilidad y distribución Windows; la última validación local confirmada antes de estos cambios fue `4a7a956`.
+Estado: `main` prepara `v0.2.0` con versionado centralizado, hardening de observabilidad, distribución Windows y limpieza profunda del repositorio.
 
 ## 1. Objetivo del proyecto
 
@@ -32,15 +32,6 @@ La autoridad funcional se divide de forma explícita:
 - `coverage_complete=1`.
 - `coverage_gap=0`.
 - 0 errores invalidantes.
-
-### Snapshot histórico protegido
-- 24 categorías.
-- 534 apariciones.
-- 530 productos únicos.
-- 4 multi-categoría.
-- 534 relaciones.
-
-Este snapshot es diagnóstico e histórico. No bloquea una ejecución válida cuando los conteos publicados actualmente por el sitio han cambiado.
 
 ### Runtime de scraping validado
 - Categorías: 8 workers.
@@ -181,7 +172,7 @@ Estado local validado por el usuario en `main` el 2026-09-27:
 ```
 Ruff    → All checks passed!
 Pyright → 0 errors, 0 warnings, 0 informations
-Pytest  → 577 passed, 10 deselected
+Pytest  → 582 passed, 10 deselected
 ```
 
 E2E real post-cambio `8 / 24 / 28`, ejecutado dos veces, confirmó `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, `333` requests, `0` retries y `0` errores terminales.
@@ -194,7 +185,7 @@ Un cambio de scraping, persistencia o concurrencia debe conservar cobertura comp
 
 Los cambios exclusivamente de GUI pueden validarse con la suite local y smoke manual cuando no alteren el runtime de scraping o persistencia.
 
-## 6. Pendientes reales
+## 6. Estado de cierre técnico
 
 ### Hardening
 - [x] Contrato/prueba de cierre para `catalog_bootstrap_thread`.
@@ -212,12 +203,14 @@ Los cambios exclusivamente de GUI pueden validarse con la suite local y smoke ma
 - [x] Validar bundle, instalador, actualización, reinstalación, desinstalación y backup/restore para `v0.1.1`.
 - [x] Validar Windows Build CI y su artefacto de smoke de empaquetado.
 
-### Documentación
-- [x] Plan maestro.
+### Documentación y mantenimiento
+- [x] Plan maestro vigente.
 - [x] README alineado con el comportamiento actual.
-- [x] Release checkpoint alineado.
-- [x] Architecture checkpoint alineado.
-- [x] Mantener estos documentos actualizados ante cambios estructurales.
+- [x] Criterios operativos de scraping.
+- [x] Documentación de release y Windows.
+- [x] Auditoría final de release.
+- [x] Auditoría de limpieza profunda del repositorio.
+- [x] Contextos históricos redundantes consolidados o retirados.
 
 ## 7. Regla de estabilidad
 
@@ -243,7 +236,7 @@ main
 
 ## 8. Próximo hito
 
-El hardening de workers, la cobertura FULL, el historial y el pulido visual reciente quedaron consolidados. El siguiente bloque operativo es mantener la evidencia de observabilidad y acumular sobre `main` únicamente cambios validados. Una nueva release se prepara solo cuando exista un conjunto funcional coherente y vuelva a completarse la cadena de validación correspondiente.
+El hardening de workers, la cobertura FULL, el historial, la distribución y el pulido visual quedaron consolidados. La siguiente acción de release es ejecutar el build Windows de `0.2.0`, validar sus artefactos y completar tag/release.
 
 Mientras tanto, `main` es el baseline funcional de referencia.
 

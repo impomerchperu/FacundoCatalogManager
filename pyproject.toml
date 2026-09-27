@@ -4,8 +4,6 @@ target-version = "py314"
 line-length = 88
 
 exclude = [
-    "tools/inspection",
-    "tools/inspect_real_scraping.py",
 ]
 
 [tool.ruff.lint]

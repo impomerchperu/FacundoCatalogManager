@@ -21,7 +21,7 @@ La aplicación publica el nombre y la versión mediante los metadatos estándar 
 
 ## Scraping FULL
 
-Una ejecución FULL válida debe cubrir las 24 categorías y alcanzar los totales publicados por las propias categorías en esa ejecución. La referencia operativa actual es 523 apariciones, 519 productos únicos, 4 productos presentes en múltiples categorías y 523 relaciones producto-categoría. El snapshot histórico 534/530/4 se conserva como referencia diagnóstica del inventario anterior, no como requisito rígido del inventario vivo. El archivo `data/catalog_db_snapshot.json` también está marcado explícitamente como snapshot histórico y no se utiliza como fuente operativa.
+Una ejecución FULL válida debe cubrir las 24 categorías y alcanzar los totales publicados por las propias categorías en esa ejecución. La referencia operativa actual es 523 apariciones, 519 productos únicos, 4 productos presentes en múltiples categorías y 523 relaciones producto-categoría. La referencia histórica 534/530/4 queda registrada únicamente como evidencia de auditoría e historial Git; no se mantiene un snapshot operativo dentro del repositorio.
 
 Una ejecución válida debe mantener `coverage_complete=1`, `coverage_gap=0` y cero errores invalidantes. Una ejecución incompleta o inconsistente no debe utilizarse para hacer un prune destructivo del catálogo persistido. La reconciliación de bootstrap selecciona la ejecución FULL exitosa más reciente que además sea consistente con sus métricas y sus ocurrencias reales.
 
@@ -53,7 +53,7 @@ El detalle de cambios se ordena por código de producto. La UI permite consultar
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Pytest: `577 passed, 10 deselected`.
+- Pytest: `582 passed, 10 deselected`.
 
 
 Comprobaciones estáticas:
@@ -92,13 +92,13 @@ El workflow de GitHub Actions ejecuta Ruff, Pyright y Pytest automáticamente. L
 - `repositories/`: persistencia del scraping e historial.
 - `database/`: SQLite, esquema y migraciones.
 - `tests/`: pruebas unitarias, integración y pruebas opcionales contra el sitio real.
-- `docs/`: criterios de cobertura, arquitectura y recuperación.
+- `docs/`: criterios operativos, releases y auditorías vigentes.
 
 ## Estado validado de la rama
 
 El baseline validado cubre el flujo completo de scraping, persistencia y bootstrap con referencia operativa viva `523 / 519 / 4`, cobertura completa, catálogo reconciliado `519 / 523`, historial persistente y E2E de producción bajo `8 / 24 / 28`. La versión estable publicada es `v0.1.1` y `VERSION` se encuentra en `0.2.0` para la siguiente release candidate.
 
-El snapshot histórico `534 / 530 / 4` se conserva como referencia diagnóstica. Las optimizaciones de rendimiento posteriores deben conservar siempre las invariantes de cobertura del inventario vivo antes de considerarse válidas.
+La referencia funcional es móvil: cada FULL completo, consistente y sin errores sustituye la referencia anterior con los conteos publicados por el sitio. Las invariantes de cobertura deben preservarse en toda optimización posterior.
 
 
 ## Distribución Windows

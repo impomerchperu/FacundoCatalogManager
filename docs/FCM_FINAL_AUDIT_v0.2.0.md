@@ -27,7 +27,7 @@ Release estable anterior: `v0.1.1` → `4238a9f`
 - [x] 0 errores invalidantes.
 - [x] Runtime productivo conservado en `8 / 24 / 28`.
 
-El snapshot histórico `534 / 530 / 4` permanece como diagnóstico. El archivo `data/catalog_db_snapshot.json` también queda identificado explícitamente como snapshot histórico y no como fuente operativa.
+Las métricas históricas `534 / 530 / 4` quedan solo como contexto de auditoría; el repositorio ya no distribuye un snapshot operativo del catálogo.
 
 ## 3. Scraping y persistencia
 
@@ -82,17 +82,29 @@ El snapshot histórico `534 / 530 / 4` permanece como diagnóstico. El archivo `
 
 - Ruff: limpio.
 - Pyright: 0 errores, 0 advertencias, 0 informaciones.
-- Pytest: 577 passed, 10 deselected.
+- Pytest: 582 passed, 10 deselected.
 
 La candidata `v0.2.0` añadió nuevas pruebas de versión y endurecimiento del empaquetado. El conteo final debe ser confirmado con una nueva ejecución local completa antes de publicar.
 
-## 8. Hallazgos no bloqueantes
+## 8. Limpieza profunda del repositorio
+
+- [x] Retirados 58 artefactos de inspección histórica bajo `tools/inspection/`.
+- [x] Retirados scripts diagnósticos ad hoc que dependían de APIs/módulos antiguos o duplicaban verificaciones ya cubiertas por tests.
+- [x] Retirado `data/catalog_db_snapshot.json`, que ya no tenía función operativa.
+- [x] Retirada la envoltura `tools/audit_images.py`, redundante frente a la auditoría de almacenamiento vigente.
+- [x] Consolidadas las pruebas solapadas de `CategoryExtractor` e `ImageValidator` en sus ubicaciones canónicas.
+- [x] Retirados documentos de recuperación/checkpoint absorbidos por la documentación vigente.
+- [x] Retirado `LICENSE` vacío; no se declara una licencia de código abierto en esta limpieza.
+- [x] No se modificó el runtime de scraping ni las invariantes de persistencia/cobertura durante la limpieza.
+- [x] Las fábricas y configuraciones de compatibilidad se conservaron deliberadamente.
+
+## 9. Hallazgos no bloqueantes
 
 - Se conservan ramas históricas además de `main`; no se modifican durante esta auditoría porque el cierre funcional se gobierna exclusivamente por `main`.
 - La elección de una licencia para el repositorio no se altera automáticamente como parte de esta auditoría.
 - La release formal `v0.2.0` aún no se considera publicada hasta completar la validación Windows, artefactos, tag y release de GitHub.
 
-## 9. Gate final de publicación
+## 10. Gate final de publicación
 
 La publicación de `v0.2.0` queda condicionada a:
 

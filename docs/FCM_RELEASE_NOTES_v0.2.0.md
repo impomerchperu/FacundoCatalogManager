@@ -3,7 +3,7 @@
 Estado: **en preparación**  
 Versión central: `VERSION = 0.2.0`  
 Release publicada anterior: `v0.1.1`  
-HEAD de referencia de estas notas: `d543f12`
+HEAD de referencia de estas notas: limpieza profunda posterior a `33a33d3`.
 
 ## Alcance
 
@@ -30,6 +30,13 @@ La versión `0.2.0` consolida el cierre técnico posterior a `v0.1.1` sin altera
 - La preparación de la semilla de Windows queda cubierta con pruebas focalizadas para catálogo, FULL válido, cobertura e imágenes.
 - Se elimina la duplicación de pruebas de la semilla y se conserva una única batería de responsabilidad.
 - La versión de aplicación queda centralizada en `VERSION`.
+
+### Higiene del repositorio
+
+- Eliminados artefactos de inspección histórica y scripts diagnósticos obsoletos.
+- Consolidada cobertura de tests solapada sin reducir casos ejecutados.
+- Retirados snapshots y documentos históricos que ya no participan en el flujo operativo.
+- Conservados deliberadamente los utilitarios de backup, auditoría, benchmark y compatibilidad que siguen aportando valor.
 - PyInstaller incorpora `VERSION` al bundle.
 - La aplicación publica nombre y versión mediante los metadatos estándar de `QApplication`.
 - El workflow de calidad utiliza el Pyright fijado por `requirements.txt`.
@@ -54,11 +61,11 @@ La release `v0.1.1` sigue siendo el punto de rollback y no se modifica.
 
 Última validación local confirmada antes de estos cambios de release candidate:
 
-- 577 tests aprobados.
+- 582 tests aprobados.
 - Ruff limpio.
 - Pyright sin diagnósticos.
 
-La candidata `v0.2.0` incorpora nuevas pruebas de versionado y consolida la cobertura de semilla Windows; su conteo final queda sujeto a la siguiente validación local completa.
+La candidata `v0.2.0` incorpora nuevas pruebas de versionado y consolida la cobertura de semilla Windows; su conteo final queda validado localmente con la suite completa.
 
 ## Cierre de la release candidate
 

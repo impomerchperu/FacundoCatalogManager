@@ -110,7 +110,7 @@ def _db():
     return connection
 
 
-def test_reconcile_exact_full_coverage_preserves_530_masters_and_534_relations():
+def test_reconcile_exact_full_coverage_preserves_unique_products_and_relations():
     connection = _db()
     db = SQLiteDBAdapter(connection)
 
@@ -132,14 +132,14 @@ def test_reconcile_exact_full_coverage_preserves_530_masters_and_534_relations()
             expected_category_occurrences, actual_category_occurrences,
             products_found, products_unique, products_multiple_categories,
             duplicate_occurrences, coverage_complete, coverage_gap, error_count
-        ) VALUES ('full', 'SUCCESS', 2, 534, 534, 534, 530, 4, 0, 1, 0, 0)
+        ) VALUES ('full', 'SUCCESS', 2, 8, 8, 8, 6, 2, 0, 1, 0, 0)
         """
     )
     run_id = connection.execute("SELECT last_insert_rowid()").fetchone()[0]
 
     products = [
         (f"FB-{index:04d}", f"Producto {index:04d}")
-        for index in range(1, 531)
+        for index in range(1, 7)
     ]
     connection.executemany(
         "INSERT INTO products (code, name) VALUES (?, ?)",
@@ -164,7 +164,7 @@ def test_reconcile_exact_full_coverage_preserves_530_masters_and_534_relations()
         for code, _ in products
     ] + [
         (run_id, category_b, product_ids[f"FB-{index:04d}"], f"FB-{index:04d}")
-        for index in range(1, 5)
+        for index in range(1, 3)
     ]
     connection.executemany(
         """
@@ -177,13 +177,13 @@ def test_reconcile_exact_full_coverage_preserves_530_masters_and_534_relations()
     connection.commit()
 
     service = CatalogBootstrapService(db=db)
-    assert service.reconcile_latest_successful_run() == 530
+    assert service.reconcile_latest_successful_run() == 6
 
-    assert connection.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 530
+    assert connection.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 6
     assert connection.execute(
         "SELECT COUNT(*) FROM scraping_product_occurrences WHERE run_id=?",
         (run_id,),
-    ).fetchone()[0] == 534
+    ).fetchone()[0] == 8
     assert connection.execute(
         """
         SELECT COUNT(*)

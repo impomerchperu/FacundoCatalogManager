@@ -54,6 +54,8 @@ def test_windows_build_passes_version_to_inno_setup_and_validates_outputs():
     )
     assert 'if (-not (Test-Path $BundleExe))' in content
     assert 'if (-not (Test-Path $Installer))' in content
+    assert '$BundleVersionFile = Join-Path $RepoRoot "dist\\Windows\\FacundoCatalogManager\\_internal\\VERSION"' in content
+    assert 'if ($BundleVersion -ne $Version)' in content
 
 
 def test_windows_spec_embeds_application_icon_and_version():
@@ -64,3 +66,4 @@ def test_windows_spec_embeds_application_icon_and_version():
     assert '(str(APP_ICON), "resources")' in content
     assert 'VERSION_FILE = ROOT / "VERSION"' in content
     assert '(str(VERSION_FILE), ".")' in content
+    assert '#error "FCM_VERSION debe ser suministrada por el script de build."' in _read(INSTALLER_PATH)

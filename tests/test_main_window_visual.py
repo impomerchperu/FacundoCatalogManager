@@ -281,10 +281,7 @@ def test_category_scrollbar_mirrors_product_table_scrollbar():
     assert category_scrollbar.palette() == table_scrollbar.palette()
     assert category_scrollbar.font() == table_scrollbar.font()
     assert category_scrollbar.styleSheet() == table_scrollbar.styleSheet()
-    assert (
-        category_scrollbar.pageStep() != table_scrollbar.pageStep()
-        or category_scrollbar.pageStep() == table_scrollbar.pageStep()
-    )
+    assert category_scrollbar.style() == table_scrollbar.style()
     assert (
         window.category_scroll.verticalScrollBarPolicy()
         == Qt.ScrollBarPolicy.ScrollBarAsNeeded

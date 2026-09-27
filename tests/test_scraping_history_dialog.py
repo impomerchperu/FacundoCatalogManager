@@ -212,8 +212,12 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     assert table.textElideMode() == Qt.TextElideMode.ElideNone
     assert table.item(0, 0).text() == "ACTUALIZADO"
     assert header.sectionResizeMode(3) == QHeaderView.ResizeMode.Fixed
-    assert header.sectionResizeMode(4) == QHeaderView.ResizeMode.Stretch
-    assert header.sectionResizeMode(5) == QHeaderView.ResizeMode.Stretch
+    assert header.sectionResizeMode(4) == QHeaderView.ResizeMode.Fixed
+    assert header.sectionResizeMode(5) == QHeaderView.ResizeMode.Fixed
+    assert table.columnWidth(2) >= ScrapingHistoryDialog.DETAIL_CHANGE_PRODUCT_MIN_WIDTH
+    assert table.columnWidth(4) >= ScrapingHistoryDialog.DETAIL_CHANGE_VALUE_MIN_WIDTH
+    assert table.columnWidth(5) >= ScrapingHistoryDialog.DETAIL_CHANGE_VALUE_MIN_WIDTH
+    assert table.maximumHeight() == table.minimumHeight()
     assert table.item(0, 4).toolTip() == "Azul: 500 · Verde: 1000"
     new_widget = table.cellWidget(0, 5)
     assert isinstance(new_widget, QLabel)
@@ -234,9 +238,10 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     large_new_width = table.columnWidth(5)
 
     assert large_product_width == small_product_width
-    assert large_old_width > small_old_width
-    assert large_new_width > small_new_width
+    assert large_old_width == small_old_width
+    assert large_new_width == small_new_width
     assert table.columnWidth(4) > 0
     assert table.columnWidth(5) > 0
+    assert table.height() == table.minimumHeight()
 
     table.deleteLater()

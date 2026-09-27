@@ -3,7 +3,7 @@ from time import perf_counter
 
 import pytest
 
-from config.scraping_config import STORE_URL
+from config.scraping_config import SCRAPING_MAX_WORKERS, STORE_URL
 from database.db_manager import DBManager
 from repositories.product_repository import ProductRepository
 from repositories.scraping.normalized_scraping_repository import (
@@ -41,7 +41,7 @@ from services.scraping.scraping_runner import ScrapingRunner
 from services.scraping.scraping_session import ScrapingSession
 
 EXPECTED_CATEGORIES = 24
-DEFAULT_DETAIL_WORKERS = 16
+DEFAULT_DETAIL_WORKERS = SCRAPING_MAX_WORKERS
 
 
 def _detail_workers() -> int:

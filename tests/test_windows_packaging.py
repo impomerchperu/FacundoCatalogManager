@@ -54,7 +54,11 @@ def test_windows_build_passes_version_to_inno_setup_and_validates_outputs():
     )
     assert 'if (-not (Test-Path $BundleExe))' in content
     assert 'if (-not (Test-Path $Installer))' in content
-    assert '$BundleVersionFile = Join-Path $RepoRoot "dist\\Windows\\FacundoCatalogManager\\_internal\\VERSION"' in content
+    assert (
+        '$BundleVersionFile = Join-Path $RepoRoot '
+        '"dist\\Windows\\FacundoCatalogManager\\_internal\\VERSION"'
+        in content
+    )
     assert 'if ($BundleVersion -ne $Version)' in content
 
 
@@ -77,5 +81,8 @@ def test_windows_workflow_pins_release_toolchain_and_checks_bundle_version():
         "winget install --id JRSoftware.InnoSetup.7 -e --version 7.1.0"
         in content
     )
-    assert '$bundleVersion = (Get-Content "dist\\Windows\\FacundoCatalogManager\\_internal\\VERSION" -Raw).Trim()' in content
+    assert (
+        '$bundleVersion = (Get-Content "dist\\Windows\\FacundoCatalogManager\\_internal\\VERSION" -Raw).Trim()'
+        in content
+    )
     assert 'if ($bundleVersion -ne $version)' in content

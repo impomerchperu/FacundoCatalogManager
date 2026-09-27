@@ -51,6 +51,12 @@ def test_parse_jsf_response_reads_pagination_and_rendered_content():
     )
 
 
+def test_category_scraper_default_jsf_http_concurrency_matches_config():
+    from config.scraping_config import SCRAPING_JSF_HTTP_CONCURRENCY
+
+    assert CategoryScraper.JSF_HTTP_CONCURRENCY == SCRAPING_JSF_HTTP_CONCURRENCY
+
+
 def test_category_scraper_accepts_explicit_jsf_page_workers():
     scraper = CategoryScraper(FakeBrowser({}), jsf_page_workers=4)
 

@@ -10,6 +10,12 @@ def test_app_main_shows_window_before_entering_event_loop(monkeypatch):
         def __init__(self, argv):
             events.append(("application", argv))
 
+        def setApplicationName(self, name):
+            events.append(("application_name", name))
+
+        def setApplicationVersion(self, version):
+            events.append(("application_version", version))
+
         def setWindowIcon(self, icon):
             events.append(("icon", icon))
 
@@ -32,8 +38,13 @@ def test_app_main_shows_window_before_entering_event_loop(monkeypatch):
         app_module.main()
 
     assert exc_info.value.code == 0
+    assert events[1] == ("application_name", "Facundo Catalog Manager")
+    assert events[2][0] == "application_version"
+    assert events[2][1] == app_module.APP_VERSION
     assert [entry[0] for entry in events] == [
         "application",
+        "application_name",
+        "application_version",
         "icon",
         "window",
         "show",

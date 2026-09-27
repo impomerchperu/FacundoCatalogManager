@@ -218,6 +218,11 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     assert table.columnWidth(4) >= ScrapingHistoryDialog.DETAIL_CHANGE_VALUE_MIN_WIDTH
     assert table.columnWidth(5) >= ScrapingHistoryDialog.DETAIL_CHANGE_VALUE_MIN_WIDTH
     assert table.maximumHeight() == table.minimumHeight()
+    assert (
+        table.columnWidth(0)
+        + table.columnWidth(1)
+        + table.columnWidth(2)
+    ) > table.verticalHeader().width()
     assert table.item(0, 4).toolTip() == "Azul: 500 · Verde: 1000"
     new_widget = table.cellWidget(0, 5)
     assert isinstance(new_widget, QLabel)
@@ -243,5 +248,10 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     assert table.columnWidth(4) > 0
     assert table.columnWidth(5) > 0
     assert table.height() == table.minimumHeight()
+    assert table.minimumWidth() <= ScrapingHistoryDialog.DETAIL_CHANGE_TABLE_TARGET_WIDTH + 40
+    assert (
+        sum(table.columnWidth(column) for column in range(table.columnCount()))
+        <= ScrapingHistoryDialog.DETAIL_CHANGE_TABLE_TARGET_WIDTH
+    )
 
     table.deleteLater()

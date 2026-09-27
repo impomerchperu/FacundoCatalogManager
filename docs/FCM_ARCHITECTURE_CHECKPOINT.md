@@ -363,7 +363,7 @@ The independent FULL coverage validation and production-style E2E both confirmed
 - [x] Post-cleanup audit confirms the active release catalog has 519 referenced image files, 0 active orphans, 0 missing active references and 0 hash mismatches.
 ## LIVE INVENTORY DRIFT
 
-Las validaciones reales documentadas en este checkpoint confirmaron `523` apariciones esperadas, `519` productos únicos y `4` multi-categoría en 24/24 categorías, con cobertura completa. El total publicado por las categorías en cada ejecución es ahora la fuente de verdad de cobertura; `534 / 530 / 4` permanece como referencia histórica.
+Las validaciones reales documentadas en este checkpoint confirman `523` apariciones esperadas, `519` productos únicos y `4` multi-categoría en 24/24 categorías, con cobertura completa. El total publicado por las categorías en cada ejecución es la fuente de verdad de cobertura y la referencia verificada se actualiza al último FULL completo, consistente y sin errores.
 
 ## RELEASE POSITION
 
@@ -388,7 +388,7 @@ El smoke test manual de la aplicación sobre el baseline actual fue completado e
 
 La validación manual confirma el contrato operativo de la GUI sobre el baseline existente; no implica cambios de runtime ni sustituye las pruebas automatizadas o el E2E real.
 
-The correction, recovery, persistence, reconciliation, coverage, performance diagnostics and automated quality work remain validated on `main`. The live functional reference remains `24 / 523 / 519 / 4`, with complete coverage, DB `519 / 523`, applied history and production-style E2E evidence. The historical `24 / 534 / 530 / 4` snapshot remains diagnostic. Image storage now follows a DB-backed allowlist: products.image_path is the sole active reference, resources/images historical assets have been removed from the repository, and local generated files outside that allowlist are cleaned explicitly with tools/clean_unused_images.py. No queda pendiente una acción de release para la auditoría de imágenes: la verificación local ya confirmó la ruta canónica activa, cero referencias activas inexistentes y cero archivos huérfanos; el reporte JSON generado durante la auditoría se mantiene fuera del repositorio.
+The correction, recovery, persistence, reconciliation, coverage, performance diagnostics and automated quality work remain validated on `main`. The live functional reference is `24 / 523 / 519 / 4`, with complete coverage, DB `519 / 523`, applied history and production-style E2E evidence. The coverage reference is rolling and must be replaced by the next complete, consistent and error-free verified FULL. Image storage now follows a DB-backed allowlist: products.image_path is the sole active reference, resources/images historical assets have been removed from the repository, and local generated files outside that allowlist are cleaned explicitly with tools/clean_unused_images.py. No queda pendiente una acción de release para la auditoría de imágenes: la verificación local ya confirmó la ruta canónica activa, cero referencias activas inexistentes y cero archivos huérfanos; el reporte JSON generado durante la auditoría se mantiene fuera del repositorio.
 
 
 ## WINDOWS DISTRIBUTION BOUNDARY
@@ -415,7 +415,7 @@ La ejecución manual posterior al ajuste terminó en `success`. La validación d
 
 The grouped table-width audit on 2026-09-26 found no evidence-based reason to change the established visual widths for Image, Code, Product, Detail or Prices. Category and Stock contracts remain unchanged.
 
-`ProductTable` now caches its preferred content widths after a content render and reuses them during window resize. The cache is invalidated when the catalog content, category-reference catalog or dynamic header labels change. The focused regression test passed locally, and the complete non-real-site suite now reports `534 passed, 10 deselected`. Manual GUI smoke validation was completed on 2026-09-26 after the cached-width regression fix. The validated flow included startup without automatic scraping, persisted catalog loading, category keyboard navigation, single black focus frame, vertical category scrolling, search/filter interaction, column sorting, window resize, catalog update entry point and history access.
+`ProductTable` now caches its preferred content widths after a content render and reuses them during window resize. The cache is invalidated when the catalog content, category-reference catalog or dynamic header labels change. The focused regression test passed locally, and the complete non-real-site suite now reports `542 passed, 10 deselected`. Manual GUI smoke validation was completed on 2026-09-26 after the cached-width regression fix. The validated flow included startup without automatic scraping, persisted catalog loading, category keyboard navigation, single black focus frame, vertical category scrolling, search/filter interaction, column sorting, window resize, catalog update entry point and history access.
 
 
 The category-filter interaction is now treated as a stable visual contract on `main`:

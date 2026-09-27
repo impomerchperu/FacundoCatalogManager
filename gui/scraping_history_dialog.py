@@ -32,6 +32,8 @@ class ScrapingHistoryDialog(QDialog):
     BUTTON_HEIGHT = 34
     APPLIED_BACKGROUND = "#b2ebf2"
     CONTENT_SIDE_PADDING = 4
+    DETAIL_CHANGE_DIALOG_WIDTH = 1100
+    DETAIL_CHANGE_COLUMN_WIDTHS = (78, 96, 250, 150, 225, 225)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -409,7 +411,7 @@ class ScrapingHistoryDialog(QDialog):
         dialog = QDialog(self)
         self.detail_dialog = dialog
         dialog.setWindowTitle("Detalle de la descarga")
-        dialog.resize(1200, 800)
+        dialog.resize(self.DETAIL_CHANGE_DIALOG_WIDTH, 800)
         dialog.setModal(False)
         dialog.finished.connect(self._detail_dialog_closed)
         layout = QVBoxLayout(dialog)
@@ -528,43 +530,15 @@ class ScrapingHistoryDialog(QDialog):
         relation_label.setStyleSheet("padding: 2px 4px; font-style: italic;")
         layout.addWidget(relation_label)
 
-        changes_title = QLabel(f"CAMBIOS DETECTADOS ({len(changes)})")
+        display_changes = self._prepare_change_rows(changes)
+        changes_title = QLabel(
+            f"CAMBIOS DETECTADOS ({len(changes)} cambios · "
+            f"{len(display_changes)} filas)",
+        )
         changes_title.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         layout.addWidget(changes_title)
 
-        table = QTableWidget()
-        table.setColumnCount(6)
-        table.setHorizontalHeaderLabels(
-            ["Tipo", "Código", "Producto", "Campo", "Anterior", "Nuevo"],
-        )
-        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        table.setWordWrap(True)
-        header = table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        for column in (2, 3, 4, 5):
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
-
-        table.setRowCount(max(len(changes), 1))
-        if changes:
-            for row, change in enumerate(changes):
-                values = [
-                    str(change.get("type", "")),
-                    str(change.get("code", "")),
-                    str(change.get("name", "")),
-                    str(change.get("label", change.get("field", ""))),
-                    self._display_value(change.get("old")),
-                    self._display_value(change.get("new")),
-                ]
-                for column, value in enumerate(values):
-                    table.setItem(row, column, QTableWidgetItem(value))
-        else:
-            table.setItem(
-                0,
-                0,
-                QTableWidgetItem("Sin cambios de campos registrados"),
-            )
+        table = self._build_changes_table(display_changes)
         layout.addWidget(table)
 
         close_layout = QHBoxLayout()
@@ -578,13 +552,200 @@ class ScrapingHistoryDialog(QDialog):
         dialog.raise_()
         dialog.activateWindow()
 
+    def _build_changes_table(self, changes: list[dict]) -> QTableWidget:
+        table = QTableWidget()
+        table.setColumnCount(6)
+        table.setHorizontalHeaderLabels(
+            ["Tipo", "Código", "Producto", "Variación", "Anterior", "Nuevo"],
+        )
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setWordWrap(True)
+        table.setTextElideMode(Qt.TextElideMode.ElideRight)
+        table.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
+        table.verticalHeader().setVisible(False)
+
+        header = table.horizontalHeader()
+        for column, width in enumerate(self.DETAIL_CHANGE_COLUMN_WIDTHS):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
+            header.resizeSection(column, width)
+
+        table.setRowCount(max(len(changes), 1))
+        if changes:
+            for row, change in enumerate(changes):
+                values = [
+                    str(change.get("type", "")),
+                    str(change.get("code", "")),
+                    str(change.get("name", "")),
+                    str(change.get("variation", "")),
+                    str(change.get("old", "")),
+                    str(change.get("new", "")),
+                ]
+                for column, value in enumerate(values):
+                    item = QTableWidgetItem(value)
+                    item.setToolTip(value.replace("\\n", " · "))
+                    item.setTextAlignment(
+                        Qt.AlignmentFlag.AlignLeft
+                        | Qt.AlignmentFlag.AlignVCenter,
+                    )
+                    table.setItem(row, column, item)
+        else:
+            item = QTableWidgetItem("Sin cambios de campos registrados")
+            item.setToolTip(item.text())
+            table.setItem(0, 0, item)
+
+        table.resizeRowsToContents()
+        return table
+
+    @classmethod
+    def _prepare_change_rows(cls, changes: list[dict]) -> list[dict]:
+        """Agrupa cambios por producto y consolida Stock/Stock por color."""
+        grouped: dict[tuple[str, str, str], dict] = {}
+        order: list[tuple[str, str, str]] = []
+
+        for change in changes:
+            change_type = str(change.get("type", "")).strip()
+            code = str(change.get("code", "")).strip()
+            name = str(change.get("name", "")).strip()
+            key = (change_type, code.casefold(), name.casefold())
+            if key not in grouped:
+                grouped[key] = {
+                    "type": change_type,
+                    "code": code,
+                    "name": name,
+                    "entries": [],
+                    "stock": None,
+                    "color_stock": None,
+                }
+                order.append(key)
+
+            field = str(change.get("field", "")).strip().casefold()
+            if field == "stock":
+                grouped[key]["stock"] = change
+            elif field == "color_stock":
+                grouped[key]["color_stock"] = change
+            else:
+                grouped[key]["entries"].append(
+                    (
+                        str(change.get("label", change.get("field", ""))),
+                        cls._display_value(change.get("old")),
+                        cls._display_value(change.get("new")),
+                    )
+                )
+
+        rows = []
+        for key in order:
+            group = grouped[key]
+            entries = list(group["entries"])
+            stock_entry = cls._build_stock_entry(
+                group["stock"],
+                group["color_stock"],
+            )
+            if stock_entry is not None:
+                entries.insert(0, stock_entry)
+
+            variation = "\n".join(entry[0] for entry in entries)
+            old_value = "\n".join(entry[1] for entry in entries)
+            new_value = "\n".join(entry[2] for entry in entries)
+            rows.append(
+                {
+                    "type": group["type"],
+                    "code": group["code"],
+                    "name": group["name"],
+                    "variation": variation,
+                    "old": old_value,
+                    "new": new_value,
+                }
+            )
+        return rows
+
+    @classmethod
+    def _build_stock_entry(cls, stock_change, color_stock_change):
+        if stock_change is None and color_stock_change is None:
+            return None
+
+        old_color_stock = cls._as_color_stock(
+            color_stock_change.get("old") if color_stock_change else None
+        )
+        new_color_stock = cls._as_color_stock(
+            color_stock_change.get("new") if color_stock_change else None
+        )
+        color_count = max(len(old_color_stock), len(new_color_stock))
+
+        if color_count > 1:
+            old_value = (
+                color_stock_change.get("old")
+                if color_stock_change is not None
+                else stock_change.get("old")
+            )
+            new_value = (
+                color_stock_change.get("new")
+                if color_stock_change is not None
+                else stock_change.get("new")
+            )
+            return (
+                "Stock por color",
+                cls._display_value(old_value),
+                cls._display_value(new_value),
+            )
+
+        old_value = (
+            stock_change.get("old")
+            if stock_change is not None
+            else cls._single_color_stock_value(old_color_stock)
+        )
+        new_value = (
+            stock_change.get("new")
+            if stock_change is not None
+            else cls._single_color_stock_value(new_color_stock)
+        )
+        return (
+            "Stock",
+            cls._display_value(old_value),
+            cls._display_value(new_value),
+        )
+
+    @staticmethod
+    def _as_color_stock(value) -> dict:
+        if not isinstance(value, dict):
+            return {}
+        return {
+            str(color).strip(): stock
+            for color, stock in value.items()
+            if str(color).strip()
+        }
+
+    @staticmethod
+    def _single_color_stock_value(value):
+        if len(value) == 1:
+            return next(iter(value.values()))
+        return None
+
     def _detail_dialog_closed(self) -> None:
         self.detail_dialog = None
 
     @staticmethod
     def _display_value(value) -> str:
-        if isinstance(value, (dict, list)):
-            return json.dumps(value, ensure_ascii=False, sort_keys=True)
+        if isinstance(value, dict):
+            if not value:
+                return "—"
+            lines = []
+            for key in sorted(value, key=lambda item: str(item).casefold()):
+                rendered = value[key]
+                if isinstance(rendered, (dict, list)):
+                    rendered_text = json.dumps(
+                        rendered,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                else:
+                    rendered_text = str(rendered)
+                lines.append(f"{key}: {rendered_text}")
+            return "\n".join(lines)
+        if isinstance(value, list):
+            return ", ".join(str(item) for item in value) if value else "—"
         if value is None:
             return "—"
         return str(value)

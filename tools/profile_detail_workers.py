@@ -117,7 +117,7 @@ def _run_enrichment(category, collected, max_workers):
         )
         elapsed = perf_counter() - started
         metrics = collection.get_enrichment_metrics(category.name)
-        http_metrics = browser.get_http_metrics()
+        http_metrics = _browser.get_http_metrics()
         return products, elapsed, metrics, http_metrics
     finally:
         collection.close()

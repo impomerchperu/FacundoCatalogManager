@@ -5,8 +5,8 @@ from PySide6.QtGui import (
     QFont,
     QFontMetrics,
     QKeyEvent,
-    QPaintEvent,
     QPainter,
+    QPaintEvent,
     QPen,
 )
 from PySide6.QtWidgets import (
@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QStyle,
+    QStyleOptionButton,
     QVBoxLayout,
     QWidget,
 )
@@ -42,15 +44,23 @@ class CategoryFilterButton(QPushButton):
     """Botón de categoría con navegación vertical por teclado."""
 
     def paintEvent(self, event: QPaintEvent) -> None:
-        super().paintEvent(event)
-        if not self.hasFocus():
-            return
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        option.state &= ~QStyle.StateFlag.State_HasFocus
 
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-        painter.setPen(QPen(Qt.GlobalColor.black))
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
+        self.style().drawControl(
+            QStyle.ControlElement.CE_PushButton,
+            option,
+            painter,
+            self,
+        )
+
+        if self.hasFocus():
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+            painter.setPen(QPen(Qt.GlobalColor.black))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
 
     def _navigation_buttons(self) -> list["CategoryFilterButton"]:
         parent = self.parentWidget()
@@ -71,7 +81,7 @@ class CategoryFilterButton(QPushButton):
                 buttons.append(widget)
         return buttons
 
-    def _category_scroll_area(self) -> QScrollArea | None:
+    def _category_scroll_area(self) -> "CategoryScrollArea | None":
         parent = self.parentWidget()
         while parent is not None:
             if isinstance(parent, QScrollArea):

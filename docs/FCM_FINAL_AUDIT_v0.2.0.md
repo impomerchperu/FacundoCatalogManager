@@ -3,7 +3,7 @@
 Fecha: 2026-09-27  
 Rama oficial: `main`  
 Versión en preparación: `0.2.0`  
-HEAD de referencia de esta acta: `2665fd0`  
+HEAD de referencia de esta acta: `874eba3`  
 Release estable anterior: `v0.1.1` → `4238a9f`
 
 ## 1. Gobierno del repositorio
@@ -27,7 +27,7 @@ Release estable anterior: `v0.1.1` → `4238a9f`
 - [x] 0 errores invalidantes.
 - [x] Runtime productivo conservado en `8 / 24 / 28`.
 
-Las métricas históricas `534 / 530 / 4` quedan solo como contexto de auditoría; el repositorio ya no distribuye un snapshot operativo del catálogo.
+Las métricas operativas de release se gobiernan por los conteos publicados por el sitio en cada ejecución FULL; no se utiliza un snapshot histórico como piso de cobertura.
 
 ## 3. Scraping y persistencia
 
@@ -78,13 +78,14 @@ Las métricas históricas `534 / 530 / 4` quedan solo como contexto de auditorí
 
 ## 7. Calidad
 
-Última validación local confirmada antes de la candidata:
+Validación final confirmada para `874eba3`:
 
 - Ruff: limpio.
 - Pyright: 0 errores, 0 advertencias, 0 informaciones.
 - Pytest: 582 passed, 10 deselected.
+- Quality CI: `success`.
 
-La candidata `v0.2.0` añadió nuevas pruebas de versión y endurecimiento del empaquetado. El conteo final debe ser confirmado con una nueva ejecución local completa antes de publicar.
+La validación local y CI quedó cerrada antes de la publicación.
 
 ## 8. Limpieza profunda del repositorio
 
@@ -98,11 +99,25 @@ La candidata `v0.2.0` añadió nuevas pruebas de versión y endurecimiento del e
 - [x] No se modificó el runtime de scraping ni las invariantes de persistencia/cobertura durante la limpieza.
 - [x] Las fábricas y configuraciones de compatibilidad se conservaron deliberadamente.
 
-## 9. Hallazgos no bloqueantes
+## 9. Validación de distribución Windows
+
+La candidata `0.2.0` fue validada en Windows sobre el instalador real y el bundle construido localmente:
+
+- instalación limpia: ejecutable presente, versión `0.2.0`, DB persistente y 519 imágenes;
+- catálogo persistente: `519` productos, `24` categorías, `523` relaciones;
+- última FULL: `SUCCESS`, `24 / 523 / 519 / 4`, `coverage_complete=1`, `coverage_gap=0`, `error_count=0`;
+- upgrade real `v0.1.1 → v0.2.0`: `519 / 24 / 523`, `47` runs, `54244` download changes y `519` imágenes preservados;
+- desinstalación: binarios eliminados y datos persistentes conservados;
+- reinstalación: `0.2.0` restaurado sin pérdida de datos;
+- Sandbox sin Python: `python` y `py` no disponibles; GUI ejecutada correctamente;
+- Sandbox: DB persistente creada y `519` imágenes persistentes presentes;
+- smoke visual/funcional de GUI en Sandbox: correcto.
+
+## 10. Hallazgos no bloqueantes
 
 - Se conservan ramas históricas además de `main`; no se modifican durante esta auditoría porque el cierre funcional se gobierna exclusivamente por `main`.
 - La elección de una licencia para el repositorio no se altera automáticamente como parte de esta auditoría.
-- La release formal `v0.2.0` aún no se considera publicada hasta completar la validación Windows, artefactos, tag y release de GitHub.
+- Los gates técnicos de Windows, artefactos y validación funcional ya están cerrados. `v0.2.0` todavía no se considera publicada hasta crear el tag y la release de GitHub.
 
 ## 10. Gate final de publicación
 

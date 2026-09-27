@@ -421,14 +421,6 @@ class MainWindow(QMainWindow):
         category_scrollbar = self.category_scroll.verticalScrollBar()
 
         category_scrollbar.setSingleStep(table_scrollbar.singleStep())
-        category_scrollbar.setPageStep(table_scrollbar.pageStep())
-        category_scrollbar.setTracking(table_scrollbar.hasTracking())
-        category_scrollbar.setInvertedAppearance(
-            table_scrollbar.invertedAppearance(),
-        )
-        category_scrollbar.setInvertedControls(
-            table_scrollbar.invertedControls(),
-        )
         category_scrollbar.setPalette(table_scrollbar.palette())
         category_scrollbar.setFont(table_scrollbar.font())
         category_scrollbar.setStyleSheet(table_scrollbar.styleSheet())

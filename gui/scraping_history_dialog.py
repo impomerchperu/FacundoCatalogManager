@@ -834,10 +834,7 @@ class ScrapingHistoryDialog(QDialog):
 
     def _fit_change_table_row_heights(self, table: QTableWidget) -> None:
         for row in range(table.rowCount()):
-            required_height = max(
-                table.rowHeight(row),
-                table.sizeHintForRow(row),
-            )
+            required_height = table.sizeHintForRow(row)
             for column in (4, 5):
                 widget = table.cellWidget(row, column)
                 if not isinstance(widget, QLabel):

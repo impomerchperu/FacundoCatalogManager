@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.main_window import MainWindow
+from gui.main_window import CategoryScrollArea, MainWindow
 
 
 def _qapp():
@@ -289,12 +289,41 @@ def test_category_scrollbar_mirrors_product_table_scrollbar():
         window.category_scroll.horizontalScrollBarPolicy()
         == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
     )
+    assert isinstance(window.category_scroll, CategoryScrollArea)
+    assert (
+        window.category_scroll.viewport().styleSheet()
+        == "background-color: #ffffff;"
+    )
 
     window.category_scroll.deleteLater()
     window.category_sidebar.deleteLater()
     window.table.deleteLater()
     window.search_box.deleteLater()
     host.deleteLater()
+
+
+def test_category_scroll_area_rejects_horizontal_content_drift():
+    _qapp()
+
+    scroll = CategoryScrollArea()
+    content = QWidget()
+    content.setMinimumWidth(600)
+    content.setMinimumHeight(1200)
+    scroll.setWidgetResizable(False)
+    scroll.setWidget(content)
+    scroll.resize(220, 300)
+    scroll.show()
+    _qapp().processEvents()
+
+    horizontal_bar = scroll.horizontalScrollBar()
+    horizontal_bar.setValue(0)
+    scroll.scrollContentsBy(25, 30)
+
+    assert horizontal_bar.value() == 0
+    assert scroll.verticalScrollBar().value() >= 0
+
+    scroll.deleteLater()
+    content.deleteLater()
 
 
 def test_category_toggle_width_matches_sidebar_width_while_sidebar_is_hidden():

@@ -2,7 +2,7 @@
 
 Fecha: 2026-09-27
 Branch oficial: `main`
-Estado de código: `main` está validado en `e36c7af`, con el pulido reciente de la UI de historial y el guard de evidencia de benchmarks.
+Estado de código: `main` está validado en `4a7a956`, con el pulido reciente de la UI de historial y el guard de evidencia de benchmarks.
 
 ## 1. Objetivo del proyecto
 
@@ -181,7 +181,7 @@ Estado local validado por el usuario en `main` el 2026-09-27:
 ```
 Ruff    → All checks passed!
 Pyright → 0 errors, 0 warnings, 0 informations
-Pytest  → 572 passed, 10 deselected
+Pytest  → 577 passed, 10 deselected
 ```
 
 E2E real post-cambio `8 / 24 / 28`, ejecutado dos veces, confirmó `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, `333` requests, `0` retries y `0` errores terminales.

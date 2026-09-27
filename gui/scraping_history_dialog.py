@@ -983,48 +983,62 @@ class ScrapingHistoryDialog(QDialog):
                 order.append(key)
 
             field = str(change.get("field", "")).strip().casefold()
-            if field == "stock":
-                grouped[key]["stock"] = change
-            elif field == "color_stock":
-                grouped[key]["color_stock"] = change
+            specialized_fields = {
+                "stock": "stock",
+                "color_stock": "color_stock",
+                "category": "category",
+            }
+            target = specialized_fields.get(field)
+            if target is not None:
+                grouped[key][target] = change
             elif field in cls.PRICE_FIELD_LABELS:
                 grouped[key]["prices"][field] = change
-            elif field == "category":
-                grouped[key]["category"] = change
             else:
                 grouped[key]["entries"].append(change)
 
         rows = []
         for key in order:
             group = grouped[key]
-            stock_entry = cls._build_stock_entry(group["stock"], group["color_stock"])
-            if stock_entry is not None:
-                rows.append(cls._row_from_entry(group, stock_entry))
+            stock_entry = cls._build_stock_entry(
+                group["stock"],
+                group["color_stock"],
+            )
+            cls._append_optional_row(rows, group, stock_entry)
 
             if group["prices"]:
-                price_entry = cls._build_price_entry(group["prices"])
-                if price_entry is not None:
-                    rows.append(cls._row_from_entry(group, price_entry))
+                cls._append_optional_row(
+                    rows,
+                    group,
+                    cls._build_price_entry(group["prices"]),
+                )
 
             if group["category"] is not None:
-                category_entry = cls._build_category_entry(group["category"])
-                if category_entry is not None:
-                    rows.append(cls._row_from_entry(group, category_entry))
-
-            for change in group["entries"]:
-                rows.append(
-                    cls._row_from_entry(
-                        group,
-                        (
-                            str(change.get("label", change.get("field", ""))),
-                            cls._display_value(change.get("old")),
-                            cls._display_value(change.get("new")),
-                            "",
-                            "plain",
-                        ),
-                    )
+                cls._append_optional_row(
+                    rows,
+                    group,
+                    cls._build_category_entry(group["category"]),
                 )
+
+            rows.extend(
+                cls._row_from_entry(group, cls._entry_from_change(change))
+                for change in group["entries"]
+            )
         return rows
+
+    @staticmethod
+    def _append_optional_row(rows: list[dict], group: dict, entry) -> None:
+        if entry is not None:
+            rows.append(ScrapingHistoryDialog._row_from_entry(group, entry))
+
+    @classmethod
+    def _entry_from_change(cls, change: dict):
+        return (
+            str(change.get("label", change.get("field", ""))),
+            cls._display_value(change.get("old")),
+            cls._display_value(change.get("new")),
+            "",
+            "plain",
+        )
 
     @staticmethod
     def _row_from_entry(group: dict, entry: tuple[str, str, str, str, str]):

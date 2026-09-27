@@ -21,13 +21,14 @@ La referencia funcional vigente es:
 - `coverage_gap=0`
 - 0 errores invalidantes
 - Producción: 8 workers de categoría / 24 de detalle / 28 HTTP
-- Suite local validada el 2026-09-27: 572 passed, 10 deselected
+- Suite local validada el 2026-09-27: 577 passed, 10 deselected
 - Ruff limpio
 - Pyright sin errores, advertencias ni informaciones
 
 ## Próxima etapa
 
 ### 1. Experiencia de instalación
+- [x] Cubrir con tests focalizados la validación de la semilla SQLite/imágenes usada por el empaquetado Windows.
 - [x] Incorporar un icono de aplicación Windows propio y consistente.
 - [x] Añadir acceso directo opcional en el Escritorio.
 - [x] Mantener el acceso directo del menú Inicio.
@@ -78,7 +79,7 @@ La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficient
 
 ## Próximo punto de desarrollo
 
-Con el pulido de GUI y la protección de evidencia benchmark cerrados, el siguiente trabajo no debe cambiar el runtime por intuición. El siguiente bloque es **mantenimiento operativo y preparación de la próxima versión**: mantener los contratos de observabilidad, revisar el comportamiento real solo ante evidencia y acumular cambios en `main` hasta que exista un conjunto funcional que justifique una nueva release. La validación del 2026-09-27 deja este baseline en `572 passed, 10 deselected`, con Ruff y Pyright limpios.
+Con el pulido de GUI y la protección de evidencia benchmark cerrados, el siguiente trabajo no debe cambiar el runtime por intuición. El siguiente bloque es **mantenimiento operativo y preparación de la próxima versión**: mantener los contratos de observabilidad, revisar el comportamiento real solo ante evidencia y acumular cambios en `main` hasta que exista un conjunto funcional que justifique una nueva release. La validación del 2026-09-27 deja este baseline en `577 passed, 10 deselected`, con Ruff y Pyright limpios. La preparación de la semilla Windows cuenta ahora con una batería focal de integridad que cubre catálogo, FULL SUCCESS, cobertura y referencias de imágenes.
 
 ## Regla de seguridad del desarrollo
 

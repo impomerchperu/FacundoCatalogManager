@@ -469,16 +469,16 @@ class ScrapingHistoryDialog(QDialog):
         screen = dialog.screen() or QApplication.primaryScreen()
         if screen is not None:
             available = screen.availableGeometry()
-            max_width = max(
-                self.DETAIL_CHANGE_MIN_DIALOG_WIDTH,
-                min(
-                    self.DETAIL_CHANGE_DIALOG_WIDTH,
-                    available.width() - self.DETAIL_DETAIL_MARGIN,
-                ),
+            max_width = min(
+                self.DETAIL_CHANGE_DIALOG_WIDTH,
+                max(480, available.width() - self.DETAIL_DETAIL_MARGIN),
             )
-            max_height = max(
-                self.DETAIL_DETAIL_MIN_HEIGHT,
-                available.height() - self.DETAIL_DETAIL_MARGIN,
+            max_height = min(
+                800,
+                max(
+                    400,
+                    available.height() - self.DETAIL_DETAIL_MARGIN,
+                ),
             )
             dialog.setMinimumWidth(
                 min(self.DETAIL_CHANGE_MIN_DIALOG_WIDTH, max_width)

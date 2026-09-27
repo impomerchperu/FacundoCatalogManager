@@ -2,8 +2,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QFontMetrics, QKeyEvent
 from PySide6.QtWidgets import (
     QApplication,
-    QGridLayout,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLineEdit,
     QMainWindow,

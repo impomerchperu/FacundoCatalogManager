@@ -272,6 +272,7 @@ def test_category_sidebar_reserves_scrollbar_width_when_visible():
     window.category_scroll = CategoryScrollArea()
     window.category_scroll.setWidgetResizable(True)
     container = QWidget()
+    container.setMinimumHeight(1200)
     window.category_scroll.setWidget(container)
     window.category_sidebar.resize(240, 220)
     window.category_sidebar_layout = QVBoxLayout(window.category_sidebar)
@@ -285,8 +286,8 @@ def test_category_sidebar_reserves_scrollbar_width_when_visible():
     _qapp().processEvents()
 
     scrollbar = window.category_scroll.verticalScrollBar()
-    scrollbar.setRange(0, 100)
     _qapp().processEvents()
+    assert scrollbar.maximum() > 0
 
     MainWindow._sync_category_sidebar_width_with_scrollbar(
         window,

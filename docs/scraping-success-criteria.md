@@ -109,7 +109,7 @@ El estado actual de `main` fue validado localmente el 2026-09-26 y Quality CI vo
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Pytest: `507 passed, 10 deselected`.
+- Pytest: `542 passed, 10 deselected`.
 - Bootstrap/reconciliación: `15 passed`.
 - Batería de scraping/runner/cache/progreso: validada.
 - Telemetría de enrichment por categoría: instrumentada y cubierta.
@@ -118,7 +118,7 @@ El estado actual de `main` fue validado localmente el 2026-09-26 y Quality CI vo
 
 ## Benchmark de rendimiento actual
 
-La ejecución real más reciente del benchmark de concurrencia, sin modificar producción, usó `8` workers de categoría, `16` de detalle y `28` HTTP:
+La última referencia de benchmark de concurrencia para la configuración productiva `8 / 16 / 28` usó `8` workers de categoría, `16` de detalle y `28` HTTP:
 
 - `24` categorías.
 - `523` apariciones esperadas y encontradas.
@@ -133,6 +133,8 @@ La ejecución real más reciente del benchmark de concurrencia, sin modificar pr
 - `245` productos omitieron detalle.
 - `0` espera del semáforo de detalle.
 - `0` reintentos y `0` errores terminales.
+
+La comparación posterior `detail_workers=24`, con los mismos `8 / 28` y JSF `8 / 2`, también completó `523/523`, `519/4`, sin reintentos ni errores terminales. En dos parejas independientes, `24` workers redujo el pipeline de `108.21s` a `102.31s` y de `98.39s` a `96.49s`. El tiempo HTTP acumulado fue mayor con `24`, por lo que el cambio de runtime permanece pendiente de validación E2E antes de adoptarse.
 
 Los requests más lentos del muestreo fueron páginas de categoría, aproximadamente entre `8.19s` y `9.52s`. La evidencia del código explica el máximo global de `16`: no representa saturación del semáforo de `28`, sino la capacidad de los productores aguas arriba. Con `8` workers de categoría y `2` workers JSF por categoría, la paginación JSF puede generar hasta `8 × 2 = 16` requests; el enrichment también tiene `16` workers de detalle.
 

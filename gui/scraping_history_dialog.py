@@ -1,6 +1,7 @@
 import json
 import sqlite3
 from datetime import datetime
+from typing import ClassVar
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QResizeEvent
@@ -34,7 +35,11 @@ class ScrapingHistoryDialog(QDialog):
     CONTENT_SIDE_PADDING = 4
     DETAIL_CHANGE_DIALOG_WIDTH = 1100
     DETAIL_CHANGE_MIN_DIALOG_WIDTH = 820
-    DETAIL_CHANGE_FIXED_COLUMN_WIDTHS = {0: 78, 1: 96, 3: 135}
+    DETAIL_CHANGE_FIXED_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
+        0: 78,
+        1: 96,
+        3: 135,
+    }
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)

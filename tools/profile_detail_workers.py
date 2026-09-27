@@ -107,7 +107,7 @@ def _build_benchmark_transport():
 
 
 def _run_enrichment(category, collected, max_workers):
-    browser, category_scraper = _build_benchmark_transport()
+    _browser, category_scraper = _build_benchmark_transport()
     collection = _build_collection(category_scraper, max_workers)
     started = perf_counter()
     try:

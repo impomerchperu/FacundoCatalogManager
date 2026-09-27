@@ -3,6 +3,7 @@ from config.scraping_config import (
     REQUEST_TIMEOUT,
     SCRAPING_CATEGORY_WORKERS,
     SCRAPING_HTTP_WORKERS,
+    SCRAPING_MAX_WORKERS,
     STORE_URL,
 )
 from services.scraping.scraping_config import ScrapingConfig
@@ -23,6 +24,7 @@ def test_high_level_config_uses_canonical_transport_defaults():
     assert config.request_timeout == REQUEST_TIMEOUT
     assert config.max_retries == MAX_RETRIES
     assert config.category_workers == 8
-    assert config.detail_workers == 16
+    assert config.detail_workers == SCRAPING_MAX_WORKERS
+    assert config.detail_workers == 24
     assert config.http_workers == 28
     assert config.jsf_http_concurrency == 8

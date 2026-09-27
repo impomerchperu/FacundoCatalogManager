@@ -3,7 +3,7 @@
 Estado: **en preparación**  
 Versión central: `VERSION = 0.2.0`  
 Release publicada anterior: `v0.1.1`  
-HEAD de referencia de estas notas: limpieza profunda posterior a `33a33d3`.
+HEAD de referencia de estas notas: `2fedeb8` (limpieza profunda del repositorio).
 
 ## Alcance
 

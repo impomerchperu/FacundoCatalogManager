@@ -32,9 +32,9 @@ PyInstaller 6.15.0 incorporó soporte para Python 3.14; el proyecto fija PyInsta
 
 La versión de la aplicación se mantiene en `VERSION` con formato `MAJOR.MINOR.PATCH`. El script de build y el workflow de Windows leen ese archivo; el instalador recibe la misma versión como definición del preprocesador de Inno Setup.
 
-La versión de validación actual es `0.1.1`.
+La release formal publicada sigue siendo `v0.1.1`.
 
-La release formal `v0.1.1` ya está publicada en GitHub.
+La versión en preparación para la siguiente release es `0.2.0`, centralizada en `VERSION`.
 
 ## Semilla inicial
 
@@ -202,7 +202,7 @@ La restauración se realizó en `%TEMP%\FCM-backup-validation\catalog-restored.d
 - [x] Ejecutar manualmente el workflow Windows de GitHub Actions y validar su artefacto de smoke de empaquetado.
 - [x] Ejecutar validación final del repositorio en `main`: Ruff limpio.
 - [x] Ejecutar validación final del repositorio en `main`: Pyright sin errores, advertencias ni informaciones.
-- [x] Ejecutar validación final del repositorio en `main`: 507 pruebas aprobadas y 10 deselected.
+- [x] Validación local previa a la candidata: 577 pruebas aprobadas y 10 deselected.
 - [x] Confirmar árbol de trabajo limpio después de sincronizar `main`.
 
 ## Resultados Windows validados
@@ -327,6 +327,6 @@ La validación en Windows Sandbox confirmó que el bundle `0.1.1` funciona en un
 
 La release formal `v0.1.1` está publicada en GitHub con el instalador `FacundoCatalogManager-0.1.1-setup.exe` y `SHA256SUMS.txt`.
 
-La versión de validación actual es `0.1.1`.
+La versión publicada de referencia es `0.1.1`; la candidata actual es `0.2.0`.
 
-No quedan pendientes de validación técnica del entorno Windows descritos en este documento. La publicación formal de una release seguirá dependiendo de la decisión de versionado y publicación correspondiente.
+No quedan pendientes técnicos heredados de la validación Windows de `v0.1.1`. La publicación formal de `v0.2.0` requiere repetir la cadena de build, validación y artefactos sobre esa nueva versión.

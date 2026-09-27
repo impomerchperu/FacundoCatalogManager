@@ -8,8 +8,7 @@
         "models",
         "repositories",
         "services",
-        "scrapers",
-        "utils"
+        "scrapers"
     ],
     "exclude": [
         "**/__pycache__",

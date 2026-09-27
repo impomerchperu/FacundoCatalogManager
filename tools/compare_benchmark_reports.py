@@ -159,6 +159,10 @@ def _validate_report_for_comparison(report: dict[str, typing.Any], label: str) -
         raise BenchmarkComparisonError(
             f"El benchmark {label} no tiene una firma de cobertura válida."
         )
+    if any(value < 0 for value in (categories, expected, found)):
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} tiene métricas de cobertura negativas."
+        )
     if expected != found:
         raise BenchmarkComparisonError(
             f"El benchmark {label} tiene cobertura incompleta: "
@@ -171,6 +175,10 @@ def _validate_report_for_comparison(report: dict[str, typing.Any], label: str) -
     ):
         raise BenchmarkComparisonError(
             f"El benchmark {label} tiene un 'coverage_gap' inválido."
+        )
+    if coverage_gap is not None and coverage_gap < 0:
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} tiene un 'coverage_gap' negativo."
         )
     if coverage_gap is not None and coverage_gap != 0:
         raise BenchmarkComparisonError(
@@ -190,6 +198,10 @@ def _validate_report_for_comparison(report: dict[str, typing.Any], label: str) -
         raise BenchmarkComparisonError(
             f"El benchmark {label} tiene un 'error_count' inválido."
         )
+    if error_count is not None and error_count < 0:
+        raise BenchmarkComparisonError(
+            f"El benchmark {label} tiene un 'error_count' negativo."
+        )
     if error_count is not None and error_count != 0:
         raise BenchmarkComparisonError(
             f"El benchmark {label} declara error_count={error_count}."
@@ -204,6 +216,10 @@ def _validate_report_for_comparison(report: dict[str, typing.Any], label: str) -
         ):
             raise BenchmarkComparisonError(
                 f"El benchmark {label} tiene http_terminal_errors inválido."
+            )
+        if terminal_errors is not None and terminal_errors < 0:
+            raise BenchmarkComparisonError(
+                f"El benchmark {label} tiene http_terminal_errors negativo."
             )
         if terminal_errors is not None and terminal_errors != 0:
             raise BenchmarkComparisonError(

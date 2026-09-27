@@ -1,7 +1,14 @@
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, QThread, QTimer
-from PySide6.QtGui import QFont, QFontMetrics, QKeyEvent
+from PySide6.QtCore import QPoint, Qt, QThread, QTimer
+from PySide6.QtGui import (
+    QFont,
+    QFontMetrics,
+    QKeyEvent,
+    QPaintEvent,
+    QPainter,
+    QPen,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -33,6 +40,17 @@ if TYPE_CHECKING:
 
 class CategoryFilterButton(QPushButton):
     """Botón de categoría con navegación vertical por teclado."""
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        super().paintEvent(event)
+        if not self.hasFocus():
+            return
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        painter.setPen(QPen(Qt.GlobalColor.black))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
 
     def _navigation_buttons(self) -> list["CategoryFilterButton"]:
         parent = self.parentWidget()
@@ -76,7 +94,7 @@ class CategoryFilterButton(QPushButton):
                 target.setFocus(Qt.FocusReason.OtherFocusReason)
                 scroll_area = self._category_scroll_area()
                 if scroll_area is not None:
-                    scroll_area.ensureWidgetVisible(target)
+                    scroll_area.ensure_widget_visible_vertically(target)
                 event.accept()
                 return
 
@@ -85,6 +103,22 @@ class CategoryFilterButton(QPushButton):
 
 class CategoryScrollArea(QScrollArea):
     """Área de categorías que solo permite desplazamiento vertical."""
+
+    def ensure_widget_visible_vertically(self, widget: QWidget) -> None:
+        viewport = self.viewport()
+        top_left = widget.mapTo(viewport, QPoint(0, 0))
+        widget_top = top_left.y()
+        widget_bottom = widget_top + widget.height()
+        viewport_height = viewport.height()
+
+        if widget_top < 0:
+            scrollbar = self.verticalScrollBar()
+            scrollbar.setValue(scrollbar.value() + widget_top)
+        elif widget_bottom > viewport_height:
+            scrollbar = self.verticalScrollBar()
+            scrollbar.setValue(
+                scrollbar.value() + widget_bottom - viewport_height,
+            )
 
     def scrollContentsBy(self, dx: int, dy: int) -> None:
         del dx
@@ -565,9 +599,9 @@ class MainWindow(QMainWindow):
             ' font-family: "Segoe UI";'
             f" font-size: {cls.CATEGORY_FONT_SIZE}px;"
             " color: #173f6d;"
-            " padding: 0px 3px;"
+            " padding: 0px 4px;"
             " text-align: left;"
-            " border: 1px solid transparent;"
+            " border: none;"
             " background: transparent;"
             "}"
             " QPushButton:hover { background-color: #eef5fb; }"
@@ -575,19 +609,7 @@ class MainWindow(QMainWindow):
             " background-color: #d8edf7;"
             " color: #173f6d;"
             " font-weight: bold;"
-            " border: 1px solid transparent;"
-            " padding: 0px 3px;"
-            "}"
-            " QPushButton:focus {"
-            " border: 1px solid #cbddea;"
-            " padding: 0px 3px;"
-            "}"
-            " QPushButton:checked:focus {"
-            " border: 1px solid #a9cfe2;"
-            " padding: 0px 3px;"
-            " background-color: #d8edf7;"
-            " color: #173f6d;"
-            " font-weight: bold;"
+            " border: none;"
             "}"
         )
 

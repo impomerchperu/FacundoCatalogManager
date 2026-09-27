@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QPushButton,
     QScrollArea,
+    QTableWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -76,7 +77,7 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
     window = MainWindow.__new__(MainWindow)
     window.catalog_bootstrap_blocked_buttons = []
     window.search_box = QLineEdit()
-    window.table = QWidget()
+    window.table = QTableWidget()
     window.catalog_bootstrap_blocked_buttons = []
     host = QWidget()
     layout = QVBoxLayout(host)
@@ -420,7 +421,8 @@ def test_main_window_starts_with_categories_active_and_expected_geometry():
     assert window.category_toggle_button.text() == "Ocultar Categorías"
     assert window.category_toggle_button.width() == 220
     assert window.category_sidebar.width() == 220
+    assert window.category_toggle_button.isChecked() is True
 
-    window.category_scroll.deleteLater()
+    window.toggle_categories_visibility(False)
     window.category_sidebar.deleteLater()
     window.category_toggle_button.deleteLater()

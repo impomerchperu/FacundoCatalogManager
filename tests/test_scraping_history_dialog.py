@@ -4,7 +4,7 @@ from PySide6.QtWidgets import QApplication
 from gui.scraping_history_dialog import ScrapingHistoryDialog
 
 
-def test_history_groups_product_changes_into_one_display_row():
+def test_history_keeps_unrelated_product_changes_as_separate_rows():
     changes = [
         {
             "type": "UPDATED",

@@ -1169,7 +1169,19 @@ class ScrapingHistoryDialog(QDialog):
                 cls._row_from_entry(group, cls._entry_from_change(change))
                 for change in group["entries"]
             )
-        return rows
+        return sorted(
+            rows,
+            key=lambda row: cls._alphanumeric_sort_key(row.get("code", "")),
+        )
+
+    @staticmethod
+    def _alphanumeric_sort_key(value) -> tuple[tuple[int, object], ...]:
+        parts = re.split(r"(\d+)", str(value or "").strip().casefold())
+        return tuple(
+            (1, int(part)) if part.isdigit() else (0, part)
+            for part in parts
+            if part
+        )
 
     @staticmethod
     def _append_optional_row(rows: list[dict], group: dict, entry) -> None:

@@ -115,23 +115,28 @@ class CategoryFilterButton(QPushButton):
 class CategoryScrollArea(QScrollArea):
     """Área de categorías que solo permite desplazamiento vertical."""
 
+    FOCUS_FRAME_MARGIN = 2
+
     def ensure_widget_visible_vertically(self, widget: QWidget) -> None:
         viewport = self.viewport()
         top_left = widget.mapTo(viewport, QPoint(0, 0))
         widget_top = top_left.y()
         widget_bottom = widget_top + widget.height()
         viewport_height = viewport.height()
+        margin = self.FOCUS_FRAME_MARGIN
         vertical_scrollbar = self.verticalScrollBar()
         horizontal_scrollbar = self.horizontalScrollBar()
 
         horizontal_scrollbar.setValue(0)
-        if widget_top < 0:
+        if widget_top < margin:
             vertical_scrollbar.setValue(
-                vertical_scrollbar.value() + widget_top,
+                vertical_scrollbar.value() + widget_top - margin,
             )
-        elif widget_bottom > viewport_height:
+        elif widget_bottom > viewport_height - margin:
             vertical_scrollbar.setValue(
-                vertical_scrollbar.value() + widget_bottom - viewport_height,
+                vertical_scrollbar.value()
+                + widget_bottom
+                - (viewport_height - margin),
             )
         horizontal_scrollbar.setValue(0)
 

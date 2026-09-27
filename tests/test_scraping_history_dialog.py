@@ -340,9 +340,22 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     product_item = table.item(0, 2)
     assert product_item is not None
     assert product_item.toolTip() == "Producto con nombre suficientemente largo"
-    assert len(product_item.text().splitlines()) <= 2
-    assert " ".join(product_item.text().splitlines()) == product_item.toolTip()
+    assert product_item.text() == product_item.toolTip()
+    assert "\n" not in product_item.text()
     assert table.textElideMode() == Qt.TextElideMode.ElideNone
+
+    header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
+    header.resizeSection(2, 500)
+    table.resizeRowsToContents()
+    QApplication.processEvents()
+    wide_row_height = table.rowHeight(0)
+
+    header.resizeSection(2, 180)
+    table.resizeRowsToContents()
+    QApplication.processEvents()
+    narrow_row_height = table.rowHeight(0)
+
+    assert narrow_row_height > wide_row_height
     assert table.item(0, 0).text() == "ACTUALIZADO"
     assert header.sectionResizeMode(3) == QHeaderView.ResizeMode.ResizeToContents
     assert header.sectionResizeMode(4) == QHeaderView.ResizeMode.Stretch

@@ -21,7 +21,7 @@ La referencia funcional vigente es:
 - `coverage_gap=0`
 - 0 errores invalidantes
 - Producción: 8 workers de categoría / 16 de detalle / 28 HTTP
-- Suite local: 534 passed, 10 deselected
+- Suite local: 542 passed, 10 deselected
 - Ruff limpio
 - Pyright sin errores, advertencias ni informaciones
 
@@ -44,7 +44,7 @@ La identidad visual, acceso directo del menú Inicio, acceso directo opcional de
 - [x] Evitar recalcular las métricas completas de ancho durante cada redimensionamiento de ventana.
 - [x] Validar el ajuste de caché con tests locales y completar el smoke manual final.
 
-La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficiente para alterar arbitrariamente los anchos de Imagen, Código, Producto, Detalle o Precios. Los contratos existentes de Categoría y Stock se conservan sin cambios. Como mejora de rendimiento de bajo riesgo, `ProductTable` ahora reutiliza las mediciones de ancho preferido durante los `resizeEvent` y las invalida cuando cambia el contenido, la referencia completa del catálogo o el contenido dinámico del encabezado. La prueba focalizada pasó localmente (`19 passed`) y la suite completa quedó en `534 passed, 10 deselected`; el smoke manual final también fue completado sobre `main`.
+La revisión agrupada del 2026-09-26 confirmó que no existe evidencia suficiente para alterar arbitrariamente los anchos de Imagen, Código, Producto, Detalle o Precios. Los contratos existentes de Categoría y Stock se conservan sin cambios. Como mejora de rendimiento de bajo riesgo, `ProductTable` ahora reutiliza las mediciones de ancho preferido durante los `resizeEvent` y las invalida cuando cambia el contenido, la referencia completa del catálogo o el contenido dinámico del encabezado. La prueba focalizada pasó localmente (`19 passed`) y la suite completa quedó en `542 passed, 10 deselected`; el smoke manual final también fue completado sobre `main`.
 
 ### 3. Scraping y rendimiento
 - [ ] No modificar todavía la configuración productiva `8 / 16 / 28`.

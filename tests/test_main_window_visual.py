@@ -107,6 +107,22 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
         window.category_scroll.verticalScrollBar().singleStep()
         == window.table.verticalScrollBar().singleStep()
     )
+    assert (
+        window.category_scroll.verticalScrollBar().pageStep()
+        == window.table.verticalScrollBar().pageStep()
+    )
+    assert (
+        window.category_scroll.verticalScrollBar().hasTracking()
+        == window.table.verticalScrollBar().hasTracking()
+    )
+    assert (
+        window.category_scroll.verticalScrollBar().invertedAppearance()
+        == window.table.verticalScrollBar().invertedAppearance()
+    )
+    assert (
+        window.category_scroll.verticalScrollBar().invertedControls()
+        == window.table.verticalScrollBar().invertedControls()
+    )
     assert window.search_box.minimumWidth() == 0
     assert window.top_actions_container.sizePolicy().horizontalPolicy() == (
         window.top_actions_container.sizePolicy().horizontalPolicy().Fixed
@@ -260,6 +276,51 @@ def test_category_sidebar_uses_reference_width_and_elides_long_labels():
 
     window.category_scroll.deleteLater()
     window.category_sidebar.deleteLater()
+
+
+def test_category_scrollbar_mirrors_product_table_scrollbar():
+    _qapp()
+
+    window = MainWindow.__new__(MainWindow)
+    window.search_box = QLineEdit()
+    window.table = QTableWidget()
+    window.catalog_bootstrap_blocked_buttons = []
+    host = QWidget()
+    layout = QVBoxLayout(host)
+
+    MainWindow.create_filter_controls(window, layout)
+
+    table_scrollbar = window.table.verticalScrollBar()
+    category_scrollbar = window.category_scroll.verticalScrollBar()
+
+    assert category_scrollbar.singleStep() == table_scrollbar.singleStep()
+    assert category_scrollbar.pageStep() == table_scrollbar.pageStep()
+    assert category_scrollbar.hasTracking() == table_scrollbar.hasTracking()
+    assert (
+        category_scrollbar.invertedAppearance()
+        == table_scrollbar.invertedAppearance()
+    )
+    assert (
+        category_scrollbar.invertedControls()
+        == table_scrollbar.invertedControls()
+    )
+    assert category_scrollbar.palette() == table_scrollbar.palette()
+    assert category_scrollbar.font() == table_scrollbar.font()
+    assert category_scrollbar.styleSheet() == table_scrollbar.styleSheet()
+    assert (
+        window.category_scroll.verticalScrollBarPolicy()
+        == Qt.ScrollBarPolicy.ScrollBarAsNeeded
+    )
+    assert (
+        window.category_scroll.horizontalScrollBarPolicy()
+        == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    )
+
+    window.category_scroll.deleteLater()
+    window.category_sidebar.deleteLater()
+    window.table.deleteLater()
+    window.search_box.deleteLater()
+    host.deleteLater()
 
 
 def test_category_toggle_width_matches_sidebar_width_while_sidebar_is_hidden():

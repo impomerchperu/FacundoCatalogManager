@@ -171,6 +171,66 @@ def test_history_hides_unchanged_stock_colors():
     assert "Verde" not in rows[0]["new"]
 
 
+def test_history_sorts_change_codes_alphanumerically():
+    changes = [
+        {
+            "type": "UPDATED",
+            "code": "FB-10",
+            "name": "Producto 10",
+            "field": "price",
+            "label": "Precio",
+            "old": 10,
+            "new": 11,
+        },
+        {
+            "type": "UPDATED",
+            "code": "FB-2",
+            "name": "Producto 2",
+            "field": "price",
+            "label": "Precio",
+            "old": 20,
+            "new": 21,
+        },
+        {
+            "type": "UPDATED",
+            "code": "AB-20",
+            "name": "Producto 20",
+            "field": "price",
+            "label": "Precio",
+            "old": 30,
+            "new": 31,
+        },
+        {
+            "type": "UPDATED",
+            "code": "AB-3",
+            "name": "Producto 3",
+            "field": "price",
+            "label": "Precio",
+            "old": 40,
+            "new": 41,
+        },
+        {
+            "type": "UPDATED",
+            "code": "FB-1A",
+            "name": "Producto 1A",
+            "field": "price",
+            "label": "Precio",
+            "old": 50,
+            "new": 51,
+        },
+    ]
+
+    rows = ScrapingHistoryDialog._prepare_change_rows(changes)
+
+    assert [row["code"] for row in rows] == [
+        "AB-3",
+        "AB-20",
+        "FB-1A",
+        "FB-2",
+        "FB-10",
+    ]
+
+
 def test_history_uses_spanish_change_type_labels():
     assert ScrapingHistoryDialog._change_type_text("UPDATED") == "ACTUALIZADO"
     assert ScrapingHistoryDialog._change_type_text("NEW") == "NUEVO"

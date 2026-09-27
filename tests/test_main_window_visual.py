@@ -382,17 +382,8 @@ def test_category_buttons_support_arrow_navigation_and_focus_frame():
     assert "border: none" in category_style
     assert "padding: 0px 4px" in category_style
     assert "text-align: left" in category_style
-    assert "QPushButton:focus" in category_style
-    assert "border: 1px solid #000000" in category_style
-    assert "padding: 0px 3px" in category_style
-
-    focus_rule = category_style.split(
-        "QPushButton:focus {",
-        1,
-    )[1].split("}", 1)[0]
-    assert "border: 1px solid #000000" in focus_rule
-    assert "padding: 0px 3px" in focus_rule
-
+    assert "QPushButton:focus" not in category_style
+    assert "border: 1px solid #000000" not in category_style
     assert first.focusPolicy() == Qt.FocusPolicy.StrongFocus
 
     first.setFocus()

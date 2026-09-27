@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -393,6 +393,53 @@ def test_multiple_category_table_shows_every_row_without_partial_clipping():
     assert table.height() >= expected_height
 
     dialog.close()
+
+def test_history_window_refits_after_layout_activation_on_open():
+    app = QApplication.instance() or QApplication([])
+    dialog = ScrapingHistoryDialog()
+
+    # Mantener los datos de prueba y aislar el paso que sucede al mostrar la ventana.
+    dialog.load_history = lambda: None
+    dialog.table.setRowCount(1)
+    values = [
+        "12",
+        "27/09/2026 02:24:00",
+        "15s",
+        "534",
+        "4",
+        "12",
+        "518",
+        "0",
+        "APLICADO",
+    ]
+    for column, value in enumerate(values):
+        dialog.table.setItem(0, column, QTableWidgetItem(value))
+    dialog.table.setItem(0, 9, QTableWidgetItem(""))
+
+    initial_width = dialog.width()
+    QTimer.singleShot(
+        0,
+        lambda: dialog.table.setHorizontalHeaderItem(
+            0,
+            QTableWidgetItem(
+                "ID de descarga con un encabezado deliberadamente muy "
+                "ancho para validar el reajuste posterior al layout"
+            ),
+        ),
+    )
+
+    dialog.show()
+    app.processEvents()
+
+    assert dialog.table.horizontalHeaderItem(0).text().startswith(
+        "ID de descarga con un encabezado deliberadamente muy ancho"
+    )
+    assert dialog.width() > initial_width
+    assert dialog.table.columnWidth(0) > 400
+
+    dialog.close()
+    dialog.deleteLater()
+
 
 def test_history_window_has_no_footer_buttons_and_fits_table_width():
     app = QApplication.instance() or QApplication([])

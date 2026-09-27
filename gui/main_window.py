@@ -151,7 +151,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(counter_layout)
 
         self._prepare_category_filter_layout()
-        self.toggle_categories_visibility(True)
+        self.category_toggle_button.setChecked(True)
         self._set_initial_window_geometry()
 
         # El bootstrap histórico no debe bloquear la creación de la ventana.

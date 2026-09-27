@@ -44,7 +44,7 @@ Este snapshot es diagnóstico e histórico. No bloquea una ejecución válida cu
 
 ### Runtime de scraping validado
 - Categorías: 8 workers.
-- Detalle: 16 workers.
+- Detalle: 24 workers.
 - HTTP: 28 workers.
 - JetSmartFilters: 8.
 - Timeout: 20 s.
@@ -153,11 +153,12 @@ Este snapshot es diagnóstico e histórico. No bloquea una ejecución válida cu
 - [x] Benchmark base.
 - [x] Comparación de workers de categoría.
 - [x] Comparación de workers de detalle.
+- [x] Validación E2E productiva completa con `24` workers de detalle.
 - [x] Comparación JSF page workers.
 - [x] Diagnóstico de transporte HTTP.
 - [x] Telemetría P50/P95/P99.
 - [x] Benchmark SQLite.
-- [x] Mantener `8 / 16 / 28` como runtime productivo.
+- [x] Mantener `8 / 24 / 28` como runtime productivo.
 - [x] No cambiar runtime sin evidencia reproducible.
 
 ### Fase J — Calidad

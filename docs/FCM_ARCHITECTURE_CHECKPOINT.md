@@ -260,7 +260,8 @@ The current release baseline is the validated recovery result on `main`; the enr
 Última validación local del checkpoint de release:
 
 - HEAD de referencia documental: `e36c7af`
-- VERSION: `0.1.1`
+- VERSION publicada de referencia: `0.1.1`
+- VERSION en preparación: `0.2.0`
 - Ruff: `All checks passed!`
 - Pyright: `0 errors, 0 warnings, 0 informations`
 - Pytest: `577 passed, 10 deselected`
@@ -434,9 +435,9 @@ The history dialog visual contract was extended after the 2026-09-26 review: cha
 
 ## Current main validation — 2026-09-27
 
-El commit actual de `main` es `4a7a956`. La validación local más reciente quedó completamente verde: historial **18 passed**, comparador de benchmarks **12 passed**, Ruff limpio, Pyright sin diagnósticos y suite completa **577 passed, 10 deselected**. Estos resultados son el estado vigente; los resultados anteriores del documento se conservan como evidencia histórica.
+La última validación local confirmada antes de la candidata quedó completamente verde en `4a7a956`: historial **18 passed**, comparador de benchmarks **12 passed**, Ruff limpio, Pyright sin diagnósticos y suite completa **577 passed, 10 deselected**. Las validaciones de la candidata `v0.2.0` quedan pendientes de ejecución local tras sincronización.
 
 
 ## Current main validation — 2026-09-27
 
-El HEAD actual de `main` es `4a7a956`. La validación local más reciente quedó completamente verde: historial **18 passed**, comparador de benchmarks **16 passed**, semilla Windows **5 passed**, Ruff limpio, Pyright sin diagnósticos y suite completa **577 passed, 10 deselected**. Estos resultados son el estado vigente; las cifras anteriores del documento se conservan como evidencia histórica de sus respectivas ejecuciones.
+El HEAD documentado del último checkpoint funcional previo a la candidata es `4a7a956`. La candidata `v0.2.0` añade versionado centralizado, semilla Windows consolidada y hardening del comparador; su suite final queda pendiente de la validación local posterior.

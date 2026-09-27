@@ -7,12 +7,15 @@ ROOT = Path.cwd()
 DIST_NAME = "FacundoCatalogManager"
 SCHEMA = ROOT / "database" / "schema.sql"
 APP_ICON = ROOT / "resources" / "facundo.ico"
+VERSION_FILE = ROOT / "VERSION"
 SEED_ROOT = ROOT / "build" / "WindowsSeed"
 SEED_DATABASE = SEED_ROOT / "database" / "catalog.db"
 SEED_IMAGES = SEED_ROOT / "data" / "images"
 
 if not SCHEMA.is_file():
     raise RuntimeError(f"No se encontró el esquema SQLite: {SCHEMA}")
+if not VERSION_FILE.is_file():
+    raise RuntimeError(f"No se encontró el archivo de versión: {VERSION_FILE}")
 if not APP_ICON.is_file():
     raise RuntimeError(f"No se encontró el icono de la aplicación: {APP_ICON}")
 if not SEED_DATABASE.is_file():
@@ -41,6 +44,7 @@ analysis = Analysis(
     datas=[
         (str(SCHEMA), "database"),
         (str(APP_ICON), "resources"),
+        (str(VERSION_FILE), "."),
         (str(SEED_DATABASE), "seed/database"),
         (str(SEED_IMAGES), "seed/data/images"),
     ],

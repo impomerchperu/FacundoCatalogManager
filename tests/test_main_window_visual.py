@@ -328,7 +328,11 @@ def test_category_buttons_do_not_take_focus_while_scrolling():
         == Qt.FocusPolicy.NoFocus
     )
 
-    window.deleteLater()
+    window.category_scroll.deleteLater()
+    window.category_sidebar.deleteLater()
+    window.table.deleteLater()
+    window.search_box.deleteLater()
+    host.deleteLater()
 def test_category_scroll_area_rejects_horizontal_content_drift():
     _qapp()
 

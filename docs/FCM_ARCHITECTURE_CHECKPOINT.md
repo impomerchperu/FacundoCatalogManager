@@ -2,7 +2,7 @@
 
 Fecha del checkpoint actualizado: 2026-09-26  
 Branch oficial: `main`
-Checkpoint de documentación actual: `e17b26e` (`ci(release): preserve CI seed image directory`). El estado funcional de `main` continúa respaldado por las validaciones locales y Windows ya registradas.
+Checkpoint de documentación actualizado: revisión del `2026-09-26` sobre `main`. El estado funcional de la release continúa respaldado por las validaciones locales y Windows ya registradas.
 
 ## QUALITY
 
@@ -32,6 +32,7 @@ Checkpoint de documentación actual: `e17b26e` (`ci(release): preserve CI seed i
 - [x] Category keyboard focus navigation, single black focus frame and vertical-only scrolling validated
 - [x] Category sidebar width accounts for the native vertical scrollbar when visible
 - [x] Stock content spacing and content-fit behavior validated
+- [x] Preferred table-width measurements are cached across window resize; cache invalidation is tied to content/reference changes.
 
 ## RUNTIME CONSOLIDATION
 
@@ -408,6 +409,11 @@ La ejecución manual posterior al ajuste terminó en `success`. La validación d
 
 
 ## GUI VISUAL POLISH CHECKPOINT
+
+The grouped table-width audit on 2026-09-26 found no evidence-based reason to change the established visual widths for Image, Code, Product, Detail or Prices. Category and Stock contracts remain unchanged.
+
+`ProductTable` now caches its preferred content widths after a content render and reuses them during window resize. The cache is invalidated when the catalog content or category-reference catalog changes. A focused regression test protects the behavior; local validation of the new test remains pending after synchronization.
+
 
 The category-filter interaction is now treated as a stable visual contract on `main`:
 

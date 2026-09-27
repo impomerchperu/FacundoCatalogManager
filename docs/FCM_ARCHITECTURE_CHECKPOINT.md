@@ -29,6 +29,9 @@ Checkpoint de documentación actual: `e17b26e` (`ci(release): preserve CI seed i
 - [x] Search/stock/category filters made row-visibility operations instead of full table rebuilds
 - [x] Category-filter panel reflow made immediate on activation
 - [x] Catalog worker shutdown wait contract implemented and covered by a focused test
+- [x] Category keyboard focus navigation, single black focus frame and vertical-only scrolling validated
+- [x] Category sidebar width accounts for the native vertical scrollbar when visible
+- [x] Stock content spacing and content-fit behavior validated
 
 ## RUNTIME CONSOLIDATION
 
@@ -72,7 +75,7 @@ The desktop UI now separates initial catalog acquisition from interaction-time f
 - `ProductTable` performs progressive initial rendering for large catalogs.
 - `MainWindow.apply_filters()` computes matching products in memory and delegates visibility changes to `ProductTable.show_only_products()`.
 - Interactive filters therefore do not call `load_products()` and do not reconstruct 9 table cells per product.
-- The final GUI/release state was revalidated locally with the complete non-real-site suite: `507 passed, 10 deselected`; these documentation-only release commits do not alter the scraping runtime.
+- The final GUI/release state was revalidated locally with the complete non-real-site suite: `533 passed, 10 deselected`; the recent GUI focus/scroll work does not alter the scraping runtime.
 
 The shutdown hardening for the catalog GUI workers is now implemented and covered by a focused test. `MainWindow.closeEvent()` waits for active catalog-load/bootstrap threads before window destruction; scraping itself remains an independently controlled operation.
 
@@ -402,3 +405,15 @@ The correction, recovery, persistence, reconciliation, coverage, performance dia
 - [x] Ejecutar manualmente el workflow `Windows Build` en GitHub Actions sobre `main` y validar su artefacto CI
 
 La ejecución manual posterior al ajuste terminó en `success`. La validación del job confirmó la presencia del ejecutable, la base semilla CI empaquetada y el directorio `seed/data/images`. Esta ejecución valida el empaquetado en GitHub Actions; no sustituye la validación funcional del bundle con catálogo real realizada en Windows y Windows Sandbox.
+
+
+## GUI VISUAL POLISH CHECKPOINT
+
+The category-filter interaction is now treated as a stable visual contract on `main`:
+
+- Category buttons use Segoe UI 13 px and retain the established 4 px horizontal content padding.
+- Arrow Up/Down navigation moves category-by-category and automatically reveals the focused category without horizontal scrolling.
+- The focused category displays a single black focus frame without changing the button geometry or shifting its text.
+- The category panel reserves the native vertical scrollbar width when scrolling is required, keeping the category frame inside the visible viewport.
+- Stock rendering retains 4 px content-side spacing and content-fitted width.
+- Remaining GUI polish is limited to a grouped review of the other table column widths where a concrete visual discrepancy is identified.

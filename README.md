@@ -1,6 +1,6 @@
 # Facundo Catalog Manager
 
-**Referencia funcional actual:** catálogo vivo validado en `main` con `523 / 519 / 4`, cobertura completa y suite automatizada en verde. El bloque de release Windows incorpora una semilla validada de catálogo e imágenes generada durante el build.
+**Referencia funcional actual:** catálogo vivo validado en `main` con `523 / 519 / 4`, cobertura completa y runtime productivo `8 / 24 / 28`. La versión en preparación es `0.2.0`; la release publicada de referencia continúa siendo `v0.1.1`.
 
 Aplicación de escritorio en Python + PySide6 para mantener el catálogo de Importaciones Facundo, ejecutar sincronizaciones FULL y exportar la información a Excel, PDF y CSV.
 
@@ -17,7 +17,7 @@ python app.py
 
 La aplicación usa `database/catalog.db` como fuente persistente del catálogo. Al iniciar, primero muestra la ventana y después carga el catálogo persistido; el bootstrap y la lectura inicial del catálogo no bloquean el hilo de la interfaz y no inician scraping web. Las ejecuciones de scraping se lanzan desde **Actualizar catálogo**.
 
-La carga inicial de catálogos grandes utiliza renderizado progresivo. Una vez cargadas las filas, la búsqueda y los filtros de stock/categorías actúan sobre las filas existentes sin reconstruir la tabla completa.
+La aplicación publica el nombre y la versión mediante los metadatos estándar de `QApplication`; `VERSION` se incorpora también al bundle Windows. Una vez cargadas las filas, la búsqueda y los filtros de stock/categorías actúan sobre las filas existentes sin reconstruir la tabla completa.
 
 ## Scraping FULL
 
@@ -25,14 +25,14 @@ Una ejecución FULL válida debe cubrir las 24 categorías y alcanzar los totale
 
 Una ejecución válida debe mantener `coverage_complete=1`, `coverage_gap=0` y cero errores invalidantes. Una ejecución incompleta o inconsistente no debe utilizarse para hacer un prune destructivo del catálogo persistido. La reconciliación de bootstrap selecciona la ejecución FULL exitosa más reciente que además sea consistente con sus métricas y sus ocurrencias reales.
 
-La configuración de producción actual es:
+La configuración de producción actual, validada y preservada para `0.2.0`, es:
 
 - Categorías: `8` workers.
-- Detalle: `16` workers.
+- Detalle: `24` workers.
 - HTTP: `28` workers.
 - JetSmartFilters HTTP: `8` de concurrencia.
 
-El valor de 16 workers de detalle fue seleccionado tras benchmarks en el sitio real con corridas cruzadas frente a 24 workers. La validación E2E de producción bajo esta configuración ya está completada: `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado y `0` retries y `0` errores HTTP terminales.
+El valor de 24 workers de detalle fue seleccionado tras benchmarks controlados en el sitio real frente a 16 workers. La validación E2E de producción bajo `8 / 24 / 28` confirmó `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, `0` retries y `0` errores HTTP terminales.
 
 ## Stock por color
 
@@ -49,11 +49,11 @@ El detalle de cambios se ordena por código de producto. La UI permite consultar
 
 ## Validación
 
-Estado local validado en `main` el 2026-09-26:
+Última validación local confirmada en `main` antes de las mejoras de la candidata `0.2.0`:
 
 - Ruff: `All checks passed!`.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Pytest: `507 passed, 10 deselected`.
+- Pytest: `577 passed, 10 deselected`.
 
 
 Comprobaciones estáticas:
@@ -96,7 +96,7 @@ El workflow de GitHub Actions ejecuta Ruff, Pyright y Pytest automáticamente. L
 
 ## Estado validado de la rama
 
-El baseline validado cubre el flujo completo de scraping, persistencia y bootstrap con referencia operativa viva `523 / 519 / 4`, cobertura completa, catálogo reconciliado `519 / 523`, historial persistente, E2E de producción bajo `8 / 16 / 28` y suite automatizada en verde. La versión estable publicada es `v0.1.1`.
+El baseline validado cubre el flujo completo de scraping, persistencia y bootstrap con referencia operativa viva `523 / 519 / 4`, cobertura completa, catálogo reconciliado `519 / 523`, historial persistente y E2E de producción bajo `8 / 24 / 28`. La versión estable publicada es `v0.1.1` y `VERSION` se encuentra en `0.2.0` para la siguiente release candidate.
 
 El snapshot histórico `534 / 530 / 4` se conserva como referencia diagnóstica. Las optimizaciones de rendimiento posteriores deben conservar siempre las invariantes de cobertura del inventario vivo antes de considerarse válidas.
 
@@ -117,9 +117,9 @@ Para generar también el instalador:
 .\scripts\build_windows.ps1
 ```
 
-La versión de validación actual del instalador es `0.1.1`. El instalador usa el icono de aplicación de `resources/facundo.ico`, lo incorpora al ejecutable PyInstaller y mantiene el acceso directo del menú Inicio. Durante la instalación puede crearse también un acceso directo en el Escritorio. El ejecutable, el instalador y los artefactos de build no se incorporan al repositorio. Antes de PyInstaller, `tools/prepare_windows_seed.py` valida la base `523 / 519 / 4`, comprueba las imágenes referenciadas y crea una copia SQLite consistente para el bundle.
+La release publicada validada es `0.1.1`; la versión en preparación para la siguiente release es `0.2.0`. El instalador usa el icono de aplicación de `resources/facundo.ico`, lo incorpora al ejecutable PyInstaller y mantiene el acceso directo del menú Inicio. Durante la instalación puede crearse también un acceso directo en el Escritorio. El ejecutable, el instalador y los artefactos de build no se incorporan al repositorio. Antes de PyInstaller, `tools/prepare_windows_seed.py` valida la base `523 / 519 / 4`, comprueba las imágenes referenciadas y crea una copia SQLite consistente para el bundle.
 
-El checklist de validación está en `docs/FCM_WINDOWS_RELEASE.md`. La release formal publicada es `v0.1.1` y su instalador oficial está adjunto en GitHub.
+El checklist de validación está en `docs/FCM_WINDOWS_RELEASE.md`. La release formal publicada es `v0.1.1`; la candidata `0.2.0` aún requiere Build Windows, validación del instalador y publicación formal.
 
 
 ## Backup y restauración

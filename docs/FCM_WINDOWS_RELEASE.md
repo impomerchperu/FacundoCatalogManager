@@ -24,7 +24,7 @@ En desarrollo normal, `DATA_DIR` continúa siendo la raíz del proyecto.
 
 - Python 3.14.
 - PyInstaller 6.22.3.
-- Inno Setup 7.
+- Inno Setup 7.1.0.
 
 PyInstaller 6.15.0 incorporó soporte para Python 3.14; el proyecto fija PyInstaller 6.22.3 en `requirements-build.txt`.
 
@@ -38,7 +38,7 @@ La versión en preparación para la siguiente release es `0.2.0`, centralizada e
 
 ## Semilla inicial
 
-Antes de ejecutar PyInstaller, el build ejecuta `tools/prepare_windows_seed.py`. Esta utilidad valida la base de desarrollo contra la referencia `24 / 523 / 519 / 4`, comprueba la integridad de SQLite y la existencia de las imágenes referenciadas, y genera una copia mediante la API de backup de SQLite para evitar pérdidas de páginas WAL. La semilla resultante se incorpora al bundle en un directorio de solo lectura.
+Antes de ejecutar PyInstaller, el build ejecuta `tools/prepare_windows_seed.py`. Esta utilidad valida la base de desarrollo contra la referencia `24 / 523 / 519 / 4`, comprueba la integridad de SQLite y la existencia de las imágenes referenciadas, y genera una copia mediante la API de backup de SQLite para evitar pérdidas de páginas WAL. La semilla resultante se incorpora al bundle en un directorio de solo lectura. El archivo `VERSION` también se incorpora al bundle y el build verifica que coincida con la versión del repositorio.
 
 En el primer arranque congelado, `CatalogSeedService` copia la base semilla y `data/images` a `%LOCALAPPDATA%\\FacundoCatalogManager` solo cuando no existe un catálogo útil. Si ya hay productos o historial, no sustituye la información del usuario.
 
@@ -67,7 +67,7 @@ El instalador de validación actual es:
 Inno Setup 7 puede instalarse con:
 
 ```powershell
-winget install --id JRSoftware.InnoSetup.7 -e -s winget -i
+winget install --id JRSoftware.InnoSetup.7 -e --version 7.1.0 -s winget -i
 ```
 
 La instalación por usuario puede quedar en:

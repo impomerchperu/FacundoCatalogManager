@@ -222,7 +222,6 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     assert header.sectionResizeMode(3) == QHeaderView.ResizeMode.ResizeToContents
     assert header.sectionResizeMode(4) == QHeaderView.ResizeMode.Stretch
     assert header.sectionResizeMode(5) == QHeaderView.ResizeMode.Stretch
-    assert table.maximumHeight() == table.minimumHeight()
     assert (
         table.columnWidth(0)
         + table.columnWidth(1)
@@ -234,9 +233,17 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     assert new_widget.toolTip() == "Azul: 400 (-100) · Verde: 825 (+825)"
     assert "#188038" in new_widget.text()
 
-    table.resize(900, 220)
+    detail_dialog = QDialog()
+    detail_layout = QVBoxLayout(detail_dialog)
+    detail_layout.addWidget(table)
+    detail_dialog.setMaximumHeight(800)
+    detail_dialog.resize(900, 500)
+    detail_dialog.show()
     table.show()
     QApplication.processEvents()
+    dialog._fit_changes_table_to_dialog(detail_dialog, table)
+    QApplication.processEvents()
+    assert table.height() == table.minimumHeight()
     small_product_width = table.columnWidth(2)
     small_old_width = table.columnWidth(4)
     small_new_width = table.columnWidth(5)
@@ -252,12 +259,15 @@ def test_history_change_table_has_row_numbers_and_dynamic_columns():
     assert large_new_width > small_new_width
     assert table.columnWidth(4) > 0
     assert table.columnWidth(5) > 0
+    dialog._fit_changes_table_to_dialog(detail_dialog, table)
+    QApplication.processEvents()
     assert table.height() == table.minimumHeight()
     assert (
         sum(table.columnWidth(column) for column in range(table.columnCount()))
         <= table.viewport().width() + table.verticalHeader().width() + 4
     )
 
+    detail_dialog.close()
     table.deleteLater()
 
 

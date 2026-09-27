@@ -30,18 +30,18 @@ jobs:
       - name: Prepare CI packaging seed
         shell: pwsh
         run: |
-          $seedRoot = "build\\WindowsSeed"
-          $seedDatabase = "$seedRoot\\database\\catalog.db"
-          $seedImages = "$seedRoot\\data\\images"
+          $seedRoot = "build\WindowsSeed"
+          $seedDatabase = "$seedRoot\database\catalog.db"
+          $seedImages = "$seedRoot\data\images"
 
           Remove-Item -Recurse -Force $seedRoot -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Force "$seedRoot\\database" | Out-Null
+          New-Item -ItemType Directory -Force "$seedRoot\database" | Out-Null
           New-Item -ItemType Directory -Force $seedImages | Out-Null
 
           $placeholderPng = [Convert]::FromBase64String(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
           )
-          [IO.File]::WriteAllBytes("$seedImages\\ci-placeholder.png", $placeholderPng)
+          [IO.File]::WriteAllBytes("$seedImages\ci-placeholder.png", $placeholderPng)
 
           @'
           from pathlib import Path
@@ -77,14 +77,14 @@ jobs:
 
       - name: Build PyInstaller bundle
         shell: pwsh
-        run: python -m PyInstaller --clean --noconfirm packaging\\fcm.spec
+        run: python -m PyInstaller --clean --noconfirm packaging\fcm.spec
 
       - name: Validate Windows bundle
         shell: pwsh
         run: |
-          $exe = "dist\\Windows\\FacundoCatalogManager\\FacundoCatalogManager.exe"
-          $seedDatabase = "dist\\Windows\\FacundoCatalogManager\\_internal\\seed\\database\\catalog.db"
-          $seedImages = "dist\\Windows\\FacundoCatalogManager\\_internal\\seed\\data\\images"
+          $exe = "dist\Windows\FacundoCatalogManager\FacundoCatalogManager.exe"
+          $seedDatabase = "dist\Windows\FacundoCatalogManager\_internal\seed\database\catalog.db"
+          $seedImages = "dist\Windows\FacundoCatalogManager\_internal\seed\data\images"
 
           if (-not (Test-Path $exe)) {
             throw "No se encontró el ejecutable esperado: $exe"
@@ -99,11 +99,11 @@ jobs:
           }
 
           $version = (Get-Content "VERSION" -Raw).Trim()
-          if ($version -notmatch "^\\d+\\.\\d+\\.\\d+$") {
+          if ($version -notmatch "^\d+\.\d+\.\d+$") {
             throw "VERSION debe usar el formato MAJOR.MINOR.PATCH."
           }
 
-          $bundleVersion = (Get-Content "dist\\Windows\\FacundoCatalogManager\\_internal\\VERSION" -Raw).Trim()
+          $bundleVersion = (Get-Content "dist\Windows\FacundoCatalogManager\_internal\VERSION" -Raw).Trim()
           if ($bundleVersion -ne $version) {
             throw "La versión del bundle ($bundleVersion) no coincide con VERSION ($version)."
           }
@@ -121,9 +121,9 @@ jobs:
           }
 
           $iscc = @(
-            "$env:ProgramFiles(x86)\\Inno Setup 7\\ISCC.exe",
-            "$env:ProgramFiles\\Inno Setup 7\\ISCC.exe",
-            "$env:LOCALAPPDATA\\Programs\\Inno Setup 7\\ISCC.exe"
+            "$env:ProgramFiles(x86)\Inno Setup 7\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 7\ISCC.exe",
+            "$env:LOCALAPPDATA\Programs\Inno Setup 7\ISCC.exe"
           ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 
           if (-not $iscc) {
@@ -137,7 +137,7 @@ jobs:
             throw "No se encontró Inno Setup 7 después de la instalación."
           }
 
-          & $iscc "/DFCM_VERSION=$version" packaging\\installer.iss
+          & $iscc "/DFCM_VERSION=$version" packaging\installer.iss
           if ($LASTEXITCODE -ne 0) {
             throw "Inno Setup no pudo generar el instalador."
           }
@@ -147,8 +147,8 @@ jobs:
         run: |
           $version = (Get-Content "VERSION" -Raw).Trim()
           $files = @(
-            "dist\\Windows\\FacundoCatalogManager\\FacundoCatalogManager.exe",
-            "dist\\Windows\\FacundoCatalogManager-$version-setup.exe"
+            "dist\Windows\FacundoCatalogManager\FacundoCatalogManager.exe",
+            "dist\Windows\FacundoCatalogManager-$version-setup.exe"
           )
 
           $hashes = foreach ($file in $files) {
@@ -160,7 +160,7 @@ jobs:
             "$($hash.Hash)  $file"
           }
 
-          $hashes | Set-Content dist\\Windows\\SHA256SUMS.txt
+          $hashes | Set-Content dist\Windows\SHA256SUMS.txt
 
       - name: Upload Windows CI artifacts
         uses: actions/upload-artifact@v6

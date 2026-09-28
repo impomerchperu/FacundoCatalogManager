@@ -309,6 +309,7 @@ class ProductCollectionScraper:
             browser.enable_thread_sessions()
 
         results = list(products)
+        skipped_count = 0
         with self._detail_cache_lock:
             preexisting_cache_keys = set(self._detail_cache)
         counted_cache_hits: set[str] = set()
@@ -317,6 +318,7 @@ class ProductCollectionScraper:
         for index, (card, page_url, product) in enumerate(products):
             skip_reason = self._detail_skip_reason(card, product)
             if skip_reason is not None:
+                skipped_count += 1
                 product.url = self._card_detail_url(card, page_url, product)
                 with self._detail_metrics_lock:
                     self._detail_skipped += 1
@@ -369,11 +371,7 @@ class ProductCollectionScraper:
             submit_seconds=submit_seconds,
             wait_seconds=wait_seconds,
             requested=len(futures),
-            skipped=sum(
-                1
-                for index, (card, page_url, product) in enumerate(products)
-                if self._detail_skip_reason(card, product) is not None
-            ),
+            skipped=skipped_count,
         )
 
         return [

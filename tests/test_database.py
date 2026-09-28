@@ -158,6 +158,25 @@ def test_normalized_scraping_schema():
     db.close()
 
 
+def test_execute_many_persists_multiple_rows():
+    db = DBManager(":memory:")
+
+    db.execute_many(
+        "INSERT INTO products (code, name) VALUES (?, ?)",
+        [
+            ("BATCH-001", "Producto 1"),
+            ("BATCH-002", "Producto 2"),
+        ],
+    )
+
+    rows = db.fetch_all(
+        "SELECT code FROM products WHERE code LIKE 'BATCH-%' ORDER BY code"
+    )
+
+    assert [row["code"] for row in rows] == ["BATCH-001", "BATCH-002"]
+    db.close()
+
+
 def test_product_repository_round_trips_all_catalog_prices():
     db = DBManager(":memory:")
     db.initialize_database()

@@ -100,6 +100,8 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         catalog_sync_service = self.catalog_sync_service
         if catalog_sync_service is None:
             return
+        if getattr(catalog_sync_service, "guarantees_product_masters", False):
+            return
         product_repository = catalog_sync_service.repository
         seen = set()
         for product in products or []:
@@ -182,7 +184,6 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
                 return
             self._pending_full_run_failure = None
         else:
-            self._ensure_full_catalog_masters(products, mode=mode)
             run_id = repository.start_run(
                 mode=mode,
                 categories_requested=len(categories),

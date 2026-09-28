@@ -251,5 +251,5 @@ def test_compare_reports_includes_image_worker_and_timing_metrics():
         "baseline": 12.0,
         "candidate": 4.0,
         "delta": -8.0,
-        "relative_percent": -66.66666666666667,
+        "relative_percent": pytest.approx(-66.66666666666667),
     }

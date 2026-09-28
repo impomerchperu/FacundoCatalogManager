@@ -290,6 +290,32 @@ def test_full_catalog_production_image_benchmark(tmp_path):
         print("IMAGE WORKERS:", image_workers)
         print("IMAGE LIMIT:", image_limit or "FULL")
         print("HTTP REQUESTS:", http_metrics["http_requests"])
+        print("  JSF REQUESTS:", http_metrics["jsf_http_requests"])
+        print(
+            "  JSF HTTP TOTAL:",
+            f"{http_metrics["jsf_http_total_seconds"]:.2f}s",
+        )
+        print(
+            "  JSF HTTP MAX:",
+            f"{http_metrics["jsf_http_max_seconds"]:.2f}s",
+        )
+        print("  DETAIL REQUESTS:", http_metrics["detail_http_requests"])
+        print(
+            "  DETAIL HTTP TOTAL:",
+            f"{http_metrics["detail_http_total_seconds"]:.2f}s",
+        )
+        print(
+            "  DETAIL HTTP MAX:",
+            f"{http_metrics["detail_http_max_seconds"]:.2f}s",
+        )
+        print(
+            "  DETAIL SEMAPHORE WAIT:",
+            f"{http_metrics["detail_semaphore_wait_seconds"]:.2f}s",
+        )
+        print(
+            "  JSF SEMAPHORE WAIT:",
+            f"{http_metrics["jsf_semaphore_wait_seconds"]:.2f}s",
+        )
         print("HTTP RETRIES:", http_metrics["http_retries"])
         print("HTTP TERMINAL ERRORS:", http_metrics["http_terminal_errors"])
         print("=" * 80)

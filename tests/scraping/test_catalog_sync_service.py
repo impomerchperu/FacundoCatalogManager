@@ -594,3 +594,62 @@ def test_catalog_sync_bulk_lookup_preserves_case_insensitive_identity():
     assert repository.get_calls == 0
     assert repository.products["p200".casefold()].name == "Producto actualizado"
 
+class TransactionTracker:
+    def __init__(self):
+        self._transaction_active = False
+        self.begins = 0
+        self.commits = 0
+        self.rollbacks = 0
+
+    def begin(self):
+        if self._transaction_active:
+            raise RuntimeError("transaction already active")
+        self._transaction_active = True
+        self.begins += 1
+
+    def commit(self):
+        if not self._transaction_active:
+            raise RuntimeError("no active transaction")
+        self._transaction_active = False
+        self.commits += 1
+
+    def rollback(self):
+        self._transaction_active = False
+        self.rollbacks += 1
+
+
+class TransactionAwareRepository(BulkLookupRepository):
+    def __init__(self):
+        super().__init__()
+        self.db = TransactionTracker()
+
+
+def test_catalog_sync_groups_canonical_repository_writes_in_one_transaction():
+    repository = TransactionAwareRepository()
+    service = CatalogSyncService(repository, ProductDiffService())
+
+    result = service.synchronize(
+        [
+            Product("TX001", "Producto A", 10),
+            Product("TX002", "Producto B", 20),
+        ]
+    )
+
+    assert result.created == 2
+    assert repository.db.begins == 1
+    assert repository.db.commits == 1
+    assert repository.db.rollbacks == 0
+
+
+def test_catalog_sync_does_not_start_a_nested_transaction():
+    repository = TransactionAwareRepository()
+    repository.db._transaction_active = True
+    service = CatalogSyncService(repository, ProductDiffService())
+
+    result = service.synchronize([Product("TX003", "Producto", 10)])
+
+    assert result.created == 1
+    assert repository.db.begins == 0
+    assert repository.db.commits == 0
+    assert repository.db.rollbacks == 0
+

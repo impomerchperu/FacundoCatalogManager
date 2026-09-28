@@ -298,6 +298,10 @@ def test_full_catalog_production_image_benchmark(tmp_path):
         print("HTTP REQUESTS:", http_metrics["http_requests"])
         print("  JSF REQUESTS:", http_metrics["jsf_http_requests"])
         print(
+            "  JSF MAX IN-FLIGHT:",
+            http_metrics["http_max_in_flight_by_class"]["jsf"],
+        )
+        print(
             "  JSF HTTP TOTAL:",
             f"{http_metrics["jsf_http_total_seconds"]:.2f}s",
         )

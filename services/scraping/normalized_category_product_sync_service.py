@@ -182,7 +182,6 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
                 return
             self._pending_full_run_failure = None
         else:
-            self._ensure_full_catalog_masters(products, mode=mode)
             run_id = repository.start_run(
                 mode=mode,
                 categories_requested=len(categories),

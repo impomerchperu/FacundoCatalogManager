@@ -257,6 +257,29 @@ class CatalogSyncService:
             for code in codes
         }
 
+    def _begin_repository_transaction(self) -> bool:
+        db = getattr(self.repository, "db", None)
+        begin = getattr(db, "begin", None)
+        if not callable(begin):
+            return False
+        if getattr(db, "_transaction_active", False):
+            return False
+        begin()
+        return True
+
+    def _commit_repository_transaction(self) -> None:
+        db = getattr(self.repository, "db", None)
+        commit = getattr(db, "commit", None)
+        if not callable(commit):
+            raise RuntimeError("El repositorio no permite confirmar la transacción.")
+        commit()
+
+    def _rollback_repository_transaction(self) -> None:
+        db = getattr(self.repository, "db", None)
+        rollback = getattr(db, "rollback", None)
+        if callable(rollback):
+            rollback()
+
     def _save_catalog_product(self, product, existing=None):
         """Evita una segunda lectura cuando el repositorio conoce el registro actual."""
         save_with_existing = getattr(self.repository, "save_with_existing", None)

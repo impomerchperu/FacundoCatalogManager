@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import ClassVar
 
 from models.scraping.scraped_product import ScrapedProduct
 from scrapers.sync.image_sync import ImageSync
@@ -57,7 +58,7 @@ def test_image_sync_processes_products_in_input_order_with_bounded_workers(
 
     class RecordingExecutor:
         max_workers = None
-        submitted = []
+        submitted: ClassVar[list[str]] = []
 
         def __init__(self, max_workers):
             type(self).max_workers = max_workers
@@ -81,7 +82,6 @@ def test_image_sync_processes_products_in_input_order_with_bounded_workers(
     class FakeRepository:
         def find(self, code, image_url=None):
             del code, image_url
-            return None
 
     class FakeManager:
         def process(self, code, image_url):

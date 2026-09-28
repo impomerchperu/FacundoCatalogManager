@@ -19,6 +19,8 @@ CONFIGURATION_KEYS = (
 
 TIMING_KEYS = (
     "collection_seconds",
+    "collection_discovery_seconds",
+    "collection_page_load_seconds",
     "enrichment_seconds",
     "image_seconds",
     "pipeline_seconds",

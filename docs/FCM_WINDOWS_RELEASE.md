@@ -32,9 +32,9 @@ PyInstaller 6.15.0 incorporó soporte para Python 3.14; el proyecto fija PyInsta
 
 La versión de la aplicación se mantiene en `VERSION` con formato `MAJOR.MINOR.PATCH`. El script de build y el workflow de Windows leen ese archivo; el instalador recibe la misma versión como definición del preprocesador de Inno Setup.
 
-La release formal publicada sigue siendo `v0.1.1`.
+La release formal publicada anterior es `v0.1.1`; la release actual publicada es `v0.2.0`.
 
-La versión en preparación para la siguiente release es `0.2.0`, centralizada en `VERSION`.
+La versión publicada actual es `0.2.0`, centralizada en `VERSION`. La siguiente versión deberá incrementar el número de versión antes de su release.
 
 ## Semilla inicial
 
@@ -60,7 +60,7 @@ Para generar también el instalador:
 .\scripts\build_windows.ps1
 ```
 
-El instalador de la candidata `0.2.0` se generará como:
+El instalador publicado de `0.2.0` se genera como:
 
 `dist\Windows\FacundoCatalogManager-0.2.0-setup.exe`
 
@@ -80,7 +80,7 @@ El script de build contempla esa ruta además de las instalaciones globales.
 
 El workflow `.github/workflows/windows-build.yml` valida el empaquetado reproducible en un runner Windows. La base persistente real de desarrollo y las imágenes locales no están versionadas, por lo que el workflow utiliza una **semilla CI sintética**, creada desde `database/schema.sql`, únicamente para comprobar PyInstaller, el instalador y la generación de checksums. El instalador generado por CI no sustituye al bundle de release validado con el catálogo real.
 
-La validación funcional y de datos del bundle de release `0.1.1` se conserva como evidencia histórica. Para `0.2.0` se repitió la validación local del bundle, instalador, actualización, reinstalación, desinstalación y Windows Sandbox con Python ausente.
+La validación funcional y de datos del bundle de release `0.1.1` se conserva como evidencia histórica. Para `0.2.0` se repitió y cerró la validación local del bundle, instalador, actualización, reinstalación, desinstalación y Windows Sandbox con Python ausente.
 
 La ejecución manual del workflow `Windows Build` en GitHub Actions también terminó en `success`. El smoke CI confirmó el ejecutable, la semilla SQLite empaquetada y `seed/data/images`. La semilla utilizada por CI es sintética y sirve exclusivamente para validar el proceso de empaquetado; el bundle funcional de release continúa siendo el validado con el catálogo real.
 
@@ -325,8 +325,10 @@ El procedimiento de backup/restore también fue validado sobre la base real de l
 
 La validación en Windows Sandbox confirmó que el bundle `0.1.1` funciona en un entorno sin Python instalado y que crea su propia base persistente con `519 / 24 / 523`.
 
-La release formal `v0.1.1` está publicada en GitHub con el instalador `FacundoCatalogManager-0.1.1-setup.exe` y `SHA256SUMS.txt`.
+La release formal `v0.1.1` permanece publicada en GitHub con sus artefactos históricos.
 
-La versión publicada de referencia es `0.1.1`; la candidata actual es `0.2.0`.
+La versión publicada actual de referencia es `v0.2.0`, con el instalador `FacundoCatalogManager-0.2.0-setup.exe` y `SHA256SUMS.txt`.
 
-No quedan pendientes técnicos heredados de la validación Windows de `v0.1.1`. La publicación formal de `v0.2.0` requiere repetir la cadena de build, validación y artefactos sobre esa nueva versión.
+La documentación de esta página conserva deliberadamente la evidencia histórica de `v0.1.1` separada de la validación de `v0.2.0`.
+
+No quedan pendientes técnicos heredados de la validación Windows de `v0.1.1`. La cadena de build, validación, artefactos y publicación de `v0.2.0` ya fue completada.

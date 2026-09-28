@@ -204,7 +204,6 @@ def test_complete_full_skips_redundant_master_verification_when_guaranteed():
 
         def get(self, code):
             self.get_calls += 1
-            return None
 
         def save(self, product):
             self.saved.append(product)

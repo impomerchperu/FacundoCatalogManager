@@ -1,4 +1,4 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import argparse
 import json
@@ -15,11 +15,13 @@ CONFIGURATION_KEYS = (
     "jsf_page_workers",
     "category_page_workers",
     "thread_sessions",
+    "image_workers",
 )
 
 TIMING_KEYS = (
     "collection_seconds",
     "enrichment_seconds",
+    "image_seconds",
     "pipeline_seconds",
 )
 
@@ -128,13 +130,8 @@ def _coverage_signature(report: dict[str, typing.Any]) -> dict[str, int]:
     if not isinstance(coverage, dict):
         return {}
 
-    keys = (
-        "categories",
-        "expected_occurrences",
-        "found_occurrences",
-    )
     signature: dict[str, int] = {}
-    for key in keys:
+    for key in ("categories", "expected_occurrences", "found_occurrences"):
         value = coverage.get(key)
         if isinstance(value, bool) or not isinstance(value, int):
             continue
@@ -417,4 +414,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main)

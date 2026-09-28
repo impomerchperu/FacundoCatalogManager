@@ -115,6 +115,7 @@ def test_full_catalog_production_image_benchmark(tmp_path):
             [] for _ in categories
         ]
         collection_workers = min(category_workers, len(categories))
+        collection_started = perf_counter()
         with ThreadPoolExecutor(max_workers=collection_workers) as executor:
             futures = {
                 executor.submit(collection.collect_category, category): index
@@ -122,6 +123,7 @@ def test_full_catalog_production_image_benchmark(tmp_path):
             }
             for future in as_completed(futures):
                 collected_by_index[futures[future]] = future.result()
+        collection_seconds = perf_counter() - collection_started
 
         expected_occurrences = sum(
             max(int(category.expected_count or 0), 0)
@@ -131,6 +133,7 @@ def test_full_catalog_production_image_benchmark(tmp_path):
         assert collected_count == expected_occurrences
 
         enriched_by_index: list[list[object] | None] = [None] * len(categories)
+        enrichment_started = perf_counter()
         with ThreadPoolExecutor(max_workers=collection_workers) as executor:
             futures = {
                 executor.submit(
@@ -142,6 +145,7 @@ def test_full_catalog_production_image_benchmark(tmp_path):
             }
             for future in as_completed(futures):
                 enriched_by_index[futures[future]] = future.result()
+        enrichment_seconds = perf_counter() - enrichment_started
 
         products = [
             product
@@ -239,6 +243,8 @@ def test_full_catalog_production_image_benchmark(tmp_path):
         print("PRODUCTOS ÚNICOS:", len(unique_codes))
         print("MULTI-CATEGORÍA:", len(duplicate_codes))
         print("PRODUCTOS CON IMAGEN:", len(products_with_images))
+        print("COLLECTION:", f"{collection_seconds:.2f}s")
+        print("ENRICHMENT:", f"{enrichment_seconds:.2f}s")
         print(
             "SCRAPING + PREPARACIÓN:",
             f"{pipeline_seconds - image_seconds:.2f}s",
@@ -276,6 +282,8 @@ def test_full_catalog_production_image_benchmark(tmp_path):
                     "found_occurrences": len(products),
                 },
                 "timing": {
+                    "collection_seconds": collection_seconds,
+                    "enrichment_seconds": enrichment_seconds,
                     "image_seconds": image_seconds,
                     "pipeline_seconds": pipeline_seconds,
                 },

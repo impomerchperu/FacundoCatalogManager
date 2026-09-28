@@ -528,3 +528,69 @@ def test_catalog_sync_is_idempotent_when_color_stock_is_unchanged():
     assert second.unchanged == 1
     assert second.changes == []
     assert second.counts_are_consistent
+
+class BulkLookupRepository:
+    def __init__(self):
+        self.products = {}
+        self.bulk_calls = []
+        self.get_calls = 0
+        self.save_with_existing_calls = 0
+
+    def get_by_codes(self, codes):
+        self.bulk_calls.append(list(codes))
+        return {
+            code.casefold(): self.products[code.casefold()]
+            for code in codes
+            if code.casefold() in self.products
+        }
+
+    def get(self, code):
+        self.get_calls += 1
+        return self.products.get(code.casefold())
+
+    def save_with_existing(self, product, existing=None):
+        self.save_with_existing_calls += 1
+        if existing is not None:
+            product.product_id = existing.product_id
+        self.products[product.code.casefold()] = product
+        return product
+
+    def get_all(self):
+        return list(self.products.values())
+
+    def delete_by_code(self, code):
+        self.products.pop(code.casefold(), None)
+
+
+def test_catalog_sync_uses_one_bulk_lookup_for_existing_products():
+    repository = BulkLookupRepository()
+    repository.save_with_existing(Product("P100", "Producto A", 10))
+    repository.save_with_existing(Product("P101", "Producto B", 11))
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize(
+        [
+            Product("P100", "Producto A actualizado", 12),
+            Product("P101", "Producto B actualizado", 13),
+        ]
+    )
+
+    assert result.updated == 2
+    assert repository.bulk_calls == [["P100", "P101"]]
+    assert repository.get_calls == 0
+    assert repository.save_with_existing_calls == 4
+    assert result.counts_are_consistent
+
+
+def test_catalog_sync_bulk_lookup_preserves_case_insensitive_identity():
+    repository = BulkLookupRepository()
+    repository.save_with_existing(Product("p200", "Producto", 10))
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([Product("P200", "Producto actualizado", 11)])
+
+    assert result.updated == 1
+    assert repository.bulk_calls == [["P200"]]
+    assert repository.get_calls == 0
+    assert repository.products["p200".casefold()].name == "Producto actualizado"
+

@@ -271,7 +271,7 @@ class CatalogSyncService:
         db = getattr(self.repository, "db", None)
         commit = getattr(db, "commit", None)
         if not callable(commit):
-            raise RuntimeError("El repositorio no permite confirmar la transacción.")
+            raise TypeError("El repositorio no permite confirmar la transacción.")
         commit()
 
     def _rollback_repository_transaction(self) -> None:

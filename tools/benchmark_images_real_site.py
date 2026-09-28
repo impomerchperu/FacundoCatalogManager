@@ -81,8 +81,14 @@ def test_full_catalog_production_image_benchmark(tmp_path):
     category_workers = SCRAPING_CATEGORY_WORKERS
     detail_workers = SCRAPING_MAX_WORKERS
     http_workers = SCRAPING_HTTP_WORKERS
-    jsf_http_concurrency = SCRAPING_JSF_HTTP_CONCURRENCY
-    jsf_page_workers = SCRAPING_JSF_PAGE_WORKERS
+    jsf_http_concurrency = _worker_count(
+        "FCM_JSF_HTTP_BENCH_CONCURRENCY",
+        SCRAPING_JSF_HTTP_CONCURRENCY,
+    )
+    jsf_page_workers = _worker_count(
+        "FCM_JSF_PAGE_BENCH_WORKERS",
+        SCRAPING_JSF_PAGE_WORKERS,
+    )
     category_page_workers = _worker_count(
         "FCM_CATEGORY_PAGE_BENCH_WORKERS",
         SCRAPING_CATEGORY_PAGE_WORKERS,

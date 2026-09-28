@@ -26,9 +26,9 @@ from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_repository import ImageRepository
 from scrapers.images.safe_image_manager import SafeImageManager
 from scrapers.sync.image_sync import ImageSync
+from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.category_name_normalizer import split_category_names
 from services.scraping.category_service import CategoryService
-from services.scraping.catalog_sync_service import CatalogSyncService
 from tools.benchmark_report import write_benchmark_report
 
 EXPECTED_CATEGORIES = 24

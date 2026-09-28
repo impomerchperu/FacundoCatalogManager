@@ -2,6 +2,7 @@ import os
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
+from threading import Lock
 from time import perf_counter
 
 import pytest
@@ -34,6 +35,25 @@ from tools.benchmark_report import write_benchmark_report
 EXPECTED_CATEGORIES = 24
 
 
+class _ProgressImageManager:
+    """Añade progreso visible sin alterar la implementación productiva."""
+
+    def __init__(self, manager, total: int):
+        self._manager = manager
+        self._total = total
+        self._completed = 0
+        self._lock = Lock()
+
+    def process(self, code, url, force=False):
+        result = self._manager.process(code, url, force=force)
+        with self._lock:
+            self._completed += 1
+            completed = self._completed
+        if completed == 1 or completed % 10 == 0 or completed == self._total:
+            print("IMAGE PROGRESS:", f"{completed}/{self._total}")
+        return result
+
+
 def _worker_count(name: str, default: int) -> int:
     raw = os.getenv(name)
     if raw is None:
@@ -48,6 +68,16 @@ def _worker_count(name: str, default: int) -> int:
 def test_full_catalog_production_image_benchmark(tmp_path):
     """Mide el costo real de sincronizar las imágenes del catálogo FULL."""
     image_workers = _worker_count("FCM_IMAGE_BENCH_WORKERS", 8)
+    raw_image_limit = os.getenv("FCM_IMAGE_BENCH_LIMIT", "").strip()
+    image_limit = int(raw_image_limit) if raw_image_limit else 0
+    if image_limit < 0:
+        raise ValueError("FCM_IMAGE_BENCH_LIMIT must be >= 0")
+    if image_workers == 1 and image_limit == 0:
+        raise ValueError(
+            "FCM_IMAGE_BENCH_LIMIT es obligatorio cuando "
+            "FCM_IMAGE_BENCH_WORKERS=1; no se permite un benchmark "
+            "secuencial FULL no acotado."
+        )
     category_workers = SCRAPING_CATEGORY_WORKERS
     detail_workers = SCRAPING_MAX_WORKERS
     http_workers = SCRAPING_HTTP_WORKERS
@@ -131,9 +161,15 @@ def test_full_catalog_production_image_benchmark(tmp_path):
 
         products_with_images = [
             product
-            for product in consolidated
+            for product in sorted(
+                consolidated,
+                key=lambda item: str(getattr(item, "code", "")).strip().casefold(),
+            )
             if str(getattr(product, "image_url", "")).strip()
         ]
+        assert products_with_images
+        if image_limit > 0:
+            products_with_images = products_with_images[:image_limit]
         assert products_with_images
 
         image_output_dir = tmp_path / "images"
@@ -147,8 +183,12 @@ def test_full_catalog_production_image_benchmark(tmp_path):
             downloader=image_downloader,
             repository=image_repository,
         )
+        progress_manager = _ProgressImageManager(
+            image_manager,
+            len(products_with_images),
+        )
         image_sync = ImageSync(
-            image_manager=image_manager,
+            image_manager=progress_manager,
             image_repository=image_repository,
             max_workers=image_workers,
         )
@@ -203,6 +243,7 @@ def test_full_catalog_production_image_benchmark(tmp_path):
         print("IMAGE SYNC:", f"{image_seconds:.2f}s")
         print("TOTAL:", f"{pipeline_seconds:.2f}s")
         print("IMAGE WORKERS:", image_workers)
+        print("IMAGE LIMIT:", image_limit or "FULL")
         print("HTTP REQUESTS:", http_metrics["http_requests"])
         print("HTTP RETRIES:", http_metrics["http_retries"])
         print("HTTP TERMINAL ERRORS:", http_metrics["http_terminal_errors"])

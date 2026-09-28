@@ -1,6 +1,6 @@
 # FCM — Release checkpoint
 
-Fecha de actualización documental: 2026-09-28  
+Fecha de actualización documental: 2026-09-27  
 Branch oficial: `main`
 
 ## Estado

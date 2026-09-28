@@ -112,10 +112,13 @@ class CatalogSyncService:
         scraped_codes = {
             self._normalize_code(p.code).casefold() for p in consolidated
         }
+        existing_by_code = self._load_existing_products(consolidated)
 
         for product in consolidated:
             product.content_hash = self.hash_service.generate(product)
-            existing = self.repository.get(product.code)
+            existing = existing_by_code.get(
+                self._normalize_code(product.code).casefold()
+            )
             if existing is None:
                 result.created += 1
                 result.changes.append(
@@ -220,6 +223,33 @@ class CatalogSyncService:
             len(deleted),
             time.perf_counter() - started,
         )
+
+    def _load_existing_products(self, products) -> dict[str, object]:
+        """Carga los productos existentes evitando una consulta por producto."""
+        codes = [
+            self._normalize_code(getattr(product, "code", ""))
+            for product in products
+        ]
+        codes = [code for code in codes if code]
+        bulk_lookup = getattr(self.repository, "get_by_codes", None)
+        if callable(bulk_lookup):
+            loaded = bulk_lookup(codes) or {}
+            if isinstance(loaded, dict):
+                return {
+                    self._normalize_code(code).casefold(): product
+                    for code, product in loaded.items()
+                    if self._normalize_code(code)
+                }
+            return {
+                self._normalize_code(getattr(product, "code", "")).casefold(): product
+                for product in loaded
+                if self._normalize_code(getattr(product, "code", ""))
+            }
+
+        return {
+            self._normalize_code(code).casefold(): self.repository.get(code)
+            for code in codes
+        }
 
     def _save_catalog_product(self, product, existing=None):
         """Evita una segunda lectura cuando el repositorio conoce el registro actual."""

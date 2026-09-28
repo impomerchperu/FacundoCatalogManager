@@ -240,11 +240,6 @@ class CatalogSyncService:
                     for code, product in loaded.items()
                     if self._normalize_code(code)
                 }
-            return {
-                self._normalize_code(getattr(product, "code", "")).casefold(): product
-                for product in loaded
-                if self._normalize_code(getattr(product, "code", ""))
-            }
 
         return {
             self._normalize_code(code).casefold(): self.repository.get(code)

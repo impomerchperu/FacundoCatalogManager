@@ -76,7 +76,9 @@ class ScrapingHistoryRepository:
         history.history_id = int(cursor.lastrowid)
         history.applied_at = applied_at
 
+        change_rows = []
         if changes:
+            # La fila padre acaba de insertarse; una sola validación es suficiente.
             self._assert_history_exists(history.history_id)
 
         product_map = {
@@ -88,33 +90,88 @@ class ScrapingHistoryRepository:
             name = str(item.get("name", ""))
             item_type = item.get("type")
             if item_type == "CODE_GENERATED":
-                self._insert_change(history.history_id, "CODE_GENERATED", code, name,
-                                    "code", "Código generado", "Sin código", code)
+                change_rows.append(
+                    self._change_row(
+                        history.history_id,
+                        "CODE_GENERATED",
+                        code,
+                        name,
+                        "code",
+                        "Código generado",
+                        "Sin código",
+                        code,
+                    )
+                )
                 continue
             if item_type == "NEW":
                 product = product_map.get(code)
                 if product is None:
-                    self._insert_change(history.history_id, "NEW", code, name, None,
-                                        "Producto nuevo", None, "Alta")
+                    change_rows.append(
+                        self._change_row(
+                            history.history_id,
+                            "NEW",
+                            code,
+                            name,
+                            None,
+                            "Producto nuevo",
+                            None,
+                            "Alta",
+                        )
+                    )
                     continue
                 for field in self.PRODUCT_FIELDS:
-                    self._insert_change(
-                        history.history_id, "NEW", code, name, field,
-                        self.FIELD_LABELS[field], None,
-                        self._serialize(self._value(product, field)),
+                    change_rows.append(
+                        self._change_row(
+                            history.history_id,
+                            "NEW",
+                            code,
+                            name,
+                            field,
+                            self.FIELD_LABELS[field],
+                            None,
+                            self._serialize(self._value(product, field)),
+                        )
                     )
                 continue
             if item_type == "DELETED":
-                self._insert_change(history.history_id, "DELETED", code, name, None,
-                                    "Producto eliminado", "Presente en catálogo", "Ausente en origen")
+                change_rows.append(
+                    self._change_row(
+                        history.history_id,
+                        "DELETED",
+                        code,
+                        name,
+                        None,
+                        "Producto eliminado",
+                        "Presente en catálogo",
+                        "Ausente en origen",
+                    )
+                )
                 continue
             for change in item.get("changes") or []:
                 field = str(change.get("field", ""))
-                self._insert_change(
-                    history.history_id, "UPDATED", code, name, field,
-                    str(change.get("label", self.FIELD_LABELS.get(field, field))),
-                    self._serialize(change.get("old")), self._serialize(change.get("new")),
+                change_rows.append(
+                    self._change_row(
+                        history.history_id,
+                        "UPDATED",
+                        code,
+                        name,
+                        field,
+                        str(change.get("label", self.FIELD_LABELS.get(field, field))),
+                        self._serialize(change.get("old")),
+                        self._serialize(change.get("new")),
+                    )
                 )
+
+        if change_rows:
+            self.db.execute_many(
+                """
+                INSERT INTO download_changes (
+                    history_id, change_type, code, product_name,
+                    field_name, field_label, old_value, new_value
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                change_rows,
+            )
         return history.history_id
 
     def link_scraping_run(self, run_id: int, history_id: int) -> None:
@@ -149,6 +206,19 @@ class ScrapingHistoryRepository:
                 "No existe el historial padre para registrar cambios: "
                 f"history_id={history_id}."
             )
+
+    @staticmethod
+    def _change_row(history_id, change_type, code, name, field, label, old_value, new_value):
+        return (
+            history_id,
+            change_type,
+            code,
+            name,
+            field,
+            label,
+            old_value,
+            new_value,
+        )
 
     def _insert_change(self, history_id, change_type, code, name, field, label, old_value, new_value):
         self._assert_history_exists(history_id)

@@ -22,6 +22,8 @@ def _report(
     http_requests: int = 337,
     http_terminal_errors: int = 0,
     detail_requests: int = 200,
+    image_workers: int | None = None,
+    image_seconds: float | None = None,
 ) -> dict:
     return {
         "schema_version": 1,
@@ -34,6 +36,7 @@ def _report(
             "jsf_page_workers": 2,
             "category_page_workers": 1,
             "thread_sessions": False,
+            **({} if image_workers is None else {"image_workers": image_workers}),
         },
         "coverage": {
             "categories": categories,
@@ -42,6 +45,7 @@ def _report(
         },
         "timing": {
             "pipeline_seconds": pipeline_seconds,
+            **({} if image_seconds is None else {"image_seconds": image_seconds}),
         },
         "http": {
             "http_requests": http_requests,
@@ -233,3 +237,19 @@ def test_cli_prints_comparison_for_valid_reports(tmp_path, capsys):
     assert "BENCHMARK COMPARISON" in output
     assert "timing.pipeline_seconds" in output
     assert "delta=-10" in output
+
+
+def test_compare_reports_includes_image_worker_and_timing_metrics():
+    baseline = _report(image_workers=1, image_seconds=12.0)
+    candidate = _report(image_workers=8, image_seconds=4.0)
+
+    comparison = compare_benchmark_reports(baseline, candidate)
+
+    assert comparison["configuration"]["baseline"]["image_workers"] == 1
+    assert comparison["configuration"]["candidate"]["image_workers"] == 8
+    assert comparison["timing"]["image_seconds"] == {
+        "baseline": 12.0,
+        "candidate": 4.0,
+        "delta": -8.0,
+        "relative_percent": -66.66666666666667,
+    }

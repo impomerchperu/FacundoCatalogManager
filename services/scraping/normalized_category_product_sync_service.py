@@ -100,6 +100,8 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
         catalog_sync_service = self.catalog_sync_service
         if catalog_sync_service is None:
             return
+        if getattr(catalog_sync_service, "guarantees_product_masters", False):
+            return
         product_repository = catalog_sync_service.repository
         seen = set()
         for product in products or []:

@@ -3,7 +3,6 @@ import json
 import pathlib
 import typing
 
-
 SUPPORTED_SCHEMA_VERSION = 1
 CONFIGURATION_KEYS = (
     "category_workers",

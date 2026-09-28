@@ -7,6 +7,7 @@ from config.scraping_config import (
     SCRAPING_HTTP_WORKERS,
     SCRAPING_JSF_HTTP_CONCURRENCY,
     SCRAPING_JSF_PAGE_WORKERS,
+    SCRAPING_IMAGE_WORKERS,
     SCRAPING_MAX_WORKERS,
     STORE_URL,
 )
@@ -47,6 +48,8 @@ class ScrapingConfig:
 
     jsf_page_workers: int = SCRAPING_JSF_PAGE_WORKERS
 
+    image_workers: int = SCRAPING_IMAGE_WORKERS
+
     enabled_categories: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -64,6 +67,8 @@ class ScrapingConfig:
             raise ValueError("jsf_http_concurrency debe ser mayor que cero.")
         if self.jsf_page_workers <= 0:
             raise ValueError("jsf_page_workers debe ser mayor que cero.")
+        if self.image_workers <= 0:
+            raise ValueError("image_workers debe ser mayor que cero.")
 
     def is_category_enabled(self, category: str) -> bool:
         """Determina si una categoría debe procesarse."""

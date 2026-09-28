@@ -3,6 +3,7 @@ from config.scraping_config import (
     REQUEST_TIMEOUT,
     SCRAPING_CATEGORY_WORKERS,
     SCRAPING_HTTP_WORKERS,
+    SCRAPING_IMAGE_WORKERS,
     SCRAPING_MAX_WORKERS,
     STORE_URL,
 )
@@ -28,3 +29,4 @@ def test_high_level_config_uses_canonical_transport_defaults():
     assert config.detail_workers == 24
     assert config.http_workers == 28
     assert config.jsf_http_concurrency == 8
+    assert config.image_workers == SCRAPING_IMAGE_WORKERS == 8

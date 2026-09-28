@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 class CatalogSyncService:
     """Compara productos obtenidos contra el catálogo persistido."""
 
+    guarantees_product_masters = True
+
     FIELD_LABELS: ClassVar[dict[str, str]] = {
         "code": "Código",
         "name": "Nombre",

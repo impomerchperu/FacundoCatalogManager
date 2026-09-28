@@ -1,13 +1,13 @@
 # FCM — Release checkpoint
 
-Fecha de actualización documental: 2026-09-27  
+Fecha de actualización documental: 2026-09-28  
 Branch oficial: `main`
 
 ## Estado
 
-El baseline funcional de `v0.1.1` permanece cerrado y protegido en `main`. La siguiente versión en preparación es `v0.2.0`; sus cambios actuales son de hardening, observabilidad, distribución y metadatos de versión, sin modificar las invariantes de scraping, persistencia ni cobertura.
+El baseline funcional de `v0.1.1` permanece cerrado y protegido en `main`. La release `v0.2.0` está publicada y toma como referencia exacta el commit `a95647f`.
 
-HEAD validado de la candidata: `874eba3` (`test(fix): align synthetic relation count with occurrences`).
+HEAD de la release publicada: `a95647f` (`docs(windows): record final v0.2.0 validation`).
 
 ## Referencias funcionales
 
@@ -72,7 +72,7 @@ Validación del baseline funcional actual sobre `main`:
 - E2E real: `1 passed`, cobertura `24 / 523 / 519 / 4`, `0` productos sin `color_stock`, `0` inconsistencias y `0` errores HTTP terminales.
 - Benchmark real de concurrencia: `1 passed` en `83.65s`, con `24 / 523 / 519 / 4`, `337` requests y `0` reintentos.
 
-Los cambios funcionales y de documentación posteriores quedaron cubiertos por validaciones locales y por Quality CI. El run asociado a `874eba3` terminó en `success`; `live-catalog` continúa omitido de forma intencional en el CI rápido.
+Los cambios funcionales y de documentación previos al cierre quedaron cubiertos por validaciones locales y por Quality CI. El run asociado al HEAD de cierre `a95647f` terminó en `success`; `live-catalog` continúa omitido de forma intencional en el CI rápido.
 
 ## GUI y rendimiento de arranque
 
@@ -165,14 +165,14 @@ La prueba FULL real sigue disponible por separado y no forma parte de la suite r
 
 ## Distribución Windows
 
-La release `v0.1.1` quedó técnicamente cerrada y publicada. La candidata `v0.2.0` hereda esta infraestructura y añade validación automatizada de la semilla y versión centralizada; todavía requiere un nuevo build Windows, validación del artefacto y publicación formal.
+La release `v0.1.1` quedó técnicamente cerrada y publicada. `v0.2.0` hereda esta infraestructura y ya completó build Windows, validación del artefacto, instalación, actualización, desinstalación, reinstalación, Sandbox, tag y publicación formal.
 
 
-La definición de distribución quedó implementada en `main`: rutas de datos persistentes fuera del bundle congelado, versión centralizada en `VERSION`, spec de PyInstaller, instalador Inno Setup, script PowerShell y workflow manual de Windows. La herramienta de backup/restauración de `catalog.db` y sus pruebas automatizadas también están incorporadas.
+La definición de distribución quedó implementada en `main`: rutas de datos persistentes fuera del bundle congelado, versión centralizada en `VERSION`, spec de PyInstaller, instalador Inno Setup y workflow manual de Windows. La herramienta de backup/restauración de `catalog.db` y sus pruebas automatizadas también están incorporadas.
 
-La validación Windows histórica de `v0.1.1` está cerrada. Para `v0.2.0` permanece únicamente la repetición del build, smoke funcional, artefactos y publicación de la nueva versión.
+La validación Windows histórica de `v0.1.1` está cerrada. Para `v0.2.0` también quedó cerrada la repetición del build, smoke funcional, artefactos, instalación, actualización, desinstalación, reinstalación y Sandbox, junto con la publicación de la release.
 
-## Cierre previo a release
+## Cierre de v0.2.0
 
 La recuperación visual del historial quedó cerrada en `main`: `APLICADO` con fecha/hora de aplicación, `NO APLICADO` para versiones exitosas superadas y `ERROR` para ejecuciones fallidas. La prueba focal quedó en `9 passed` y Quality `#2210` terminó en `success`.
 

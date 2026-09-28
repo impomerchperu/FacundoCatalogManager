@@ -641,6 +641,28 @@ def test_catalog_sync_groups_canonical_repository_writes_in_one_transaction():
     assert repository.db.rollbacks == 0
 
 
+class FailingTransactionRepository(TransactionAwareRepository):
+    def save_with_existing(self, product, existing=None):
+        del product, existing
+        raise RuntimeError("simulated persistence failure")
+
+
+def test_catalog_sync_rolls_back_when_persistence_fails():
+    repository = FailingTransactionRepository()
+    service = CatalogSyncService(repository, ProductDiffService())
+
+    try:
+        service.synchronize([Product("TX004", "Producto", 10)])
+    except RuntimeError as error:
+        assert str(error) == "simulated persistence failure"
+    else:
+        raise AssertionError("se esperaba RuntimeError")
+
+    assert repository.db.begins == 1
+    assert repository.db.commits == 0
+    assert repository.db.rollbacks == 1
+
+
 def test_catalog_sync_does_not_start_a_nested_transaction():
     repository = TransactionAwareRepository()
     repository.db._transaction_active = True

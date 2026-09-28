@@ -114,6 +114,32 @@ class ProductRepository:
     def get(self, code: str) -> Product | None:
         return self.get_by_code(code)
 
+    def get_by_codes(self, codes: list[str]) -> dict[str, Product]:
+        """Carga múltiples productos con una sola consulta por lote."""
+        normalized = list(
+            dict.fromkeys(
+                str(code).strip()
+                for code in (codes or [])
+                if str(code).strip()
+            )
+        )
+        if not normalized:
+            return {}
+
+        result: dict[str, Product] = {}
+        for start in range(0, len(normalized), 500):
+            batch = normalized[start : start + 500]
+            placeholders = ", ".join("?" for _ in batch)
+            rows = self.db.fetch_all(
+                "SELECT * FROM products "
+                f"WHERE code COLLATE NOCASE IN ({placeholders})",
+                tuple(batch),
+            )
+            for row in rows:
+                product = self._row_to_product(row)
+                result[str(product.code).strip().casefold()] = product
+        return result
+
     def get_by_id(self, product_id: int) -> Product | None:
         rows = self.db.fetch_all(
             "SELECT * FROM products WHERE id=?",

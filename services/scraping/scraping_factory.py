@@ -98,7 +98,10 @@ class ScrapingFactory:
                 max_retries=config.max_retries,
             )
             image_manager = SafeImageManager(downloader=image_downloader)
-            image_sync = ImageSync(image_manager=image_manager)
+            image_sync = ImageSync(
+                image_manager=image_manager,
+                max_workers=config.image_workers,
+            )
             image_sync_adapter = ImageSyncAdapter(image_sync=image_sync)
 
         browser = Browser(

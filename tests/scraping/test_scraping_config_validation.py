@@ -22,3 +22,13 @@ def test_scraping_config_accepts_custom_http_settings():
 
     assert config.request_timeout == 7
     assert config.max_retries == 4
+
+def test_scraping_config_rejects_non_positive_image_workers():
+    try:
+        ScrapingConfig(image_workers=0)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("image_workers debe ser mayor que cero")
+
+

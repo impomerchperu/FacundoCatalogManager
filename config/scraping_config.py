@@ -59,3 +59,7 @@ SCRAPING_JSF_HTTP_CONCURRENCY = 8
 # JSF HTTP concurrency fixed at 8 did not show a reproducible wall-clock
 # benefit from increasing this value; keep the validated production default.
 SCRAPING_JSF_PAGE_WORKERS = 2
+
+# Image synchronization is I/O-bound; keep its worker pool separate from
+# the shared catalog HTTP budget.
+SCRAPING_IMAGE_WORKERS = 8

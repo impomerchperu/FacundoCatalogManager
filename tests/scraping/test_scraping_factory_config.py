@@ -73,8 +73,9 @@ def test_factory_passes_configured_image_folder_to_downloader(monkeypatch):
             captured["downloader"] = downloader
 
     class FakeImageSync:
-        def __init__(self, image_manager):
+        def __init__(self, image_manager, max_workers=None):
             captured["image_manager"] = image_manager
+            captured["image_workers"] = max_workers
 
     class FakeImageSyncAdapter:
         def __init__(self, image_sync=None, **kwargs):

@@ -91,17 +91,25 @@ class ProductRepository:
 
     def save(self, product: Product) -> Product:
         existing = self.get_by_code(product.code)
+        return self.save_with_existing(product, existing)
+
+    def save_with_existing(
+        self,
+        product: Product,
+        existing: Product | None = None,
+    ) -> Product:
+        """Persiste un producto reutilizando una búsqueda ya realizada."""
         if existing is not None:
             product.product_id = existing.product_id
             return self.update(product)
         return self.create(product)
 
     def get_by_code(self, code: str) -> Product | None:
-        rows = self.db.fetch_all(
+        row = self.db.fetch_one(
             "SELECT * FROM products WHERE code = ? COLLATE NOCASE",
             (code,),
         )
-        return self._row_to_product(rows[0]) if rows else None
+        return self._row_to_product(row) if row else None
 
     def get(self, code: str) -> Product | None:
         return self.get_by_code(code)

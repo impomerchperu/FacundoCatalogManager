@@ -113,64 +113,75 @@ class CatalogSyncService:
             self._normalize_code(p.code).casefold() for p in consolidated
         }
         existing_by_code = self._load_existing_products(consolidated)
+        transaction_started = self._begin_repository_transaction()
 
-        for product in consolidated:
-            product.content_hash = self.hash_service.generate(product)
-            existing = existing_by_code.get(
-                self._normalize_code(product.code).casefold()
-            )
-            if existing is None:
-                result.created += 1
-                result.changes.append(
-                    {
-                        "type": "NEW",
-                        "code": product.code,
-                        "name": product.name,
-                        "changes": [],
-                    }
+        try:
+            for product in consolidated:
+                product.content_hash = self.hash_service.generate(product)
+                existing = existing_by_code.get(
+                    self._normalize_code(product.code).casefold()
                 )
-                self._save_catalog_product(product)
-                continue
+                if existing is None:
+                    result.created += 1
+                    result.changes.append(
+                        {
+                            "type": "NEW",
+                            "code": product.code,
+                            "name": product.name,
+                            "changes": [],
+                        }
+                    )
+                    self._save_catalog_product(product)
+                    continue
 
-            product.category = self._merge_categories(
-                self._value(existing, "category"),
-                getattr(product, "category", ""),
-            )
-            self._preserve_existing_prices(existing, product)
-            comparison = self.diff_service.compare(existing, product)
-            if comparison["changed"]:
-                result.updated += 1
-                result.changes.append(
-                    {
-                        "type": "UPDATED",
-                        "code": product.code,
-                        "name": product.name,
-                        "changes": [
-                            {
-                                "field": field,
-                                "label": self.FIELD_LABELS.get(field, field),
-                                "old": self._value(existing, field),
-                                "new": self._value(product, field),
-                            }
-                            for field in comparison["fields"]
-                        ],
-                    }
+                product.category = self._merge_categories(
+                    self._value(existing, "category"),
+                    getattr(product, "category", ""),
                 )
-                self._save_catalog_product(product, existing)
-            else:
-                result.unchanged += 1
+                self._preserve_existing_prices(existing, product)
+                comparison = self.diff_service.compare(existing, product)
+                if comparison["changed"]:
+                    result.updated += 1
+                    result.changes.append(
+                        {
+                            "type": "UPDATED",
+                            "code": product.code,
+                            "name": product.name,
+                            "changes": [
+                                {
+                                    "field": field,
+                                    "label": self.FIELD_LABELS.get(field, field),
+                                    "old": self._value(existing, field),
+                                    "new": self._value(product, field),
+                                }
+                                for field in comparison["fields"]
+                            ],
+                        }
+                    )
+                    self._save_catalog_product(product, existing)
+                else:
+                    result.unchanged += 1
 
-        expected_unique = result.products_expected
-        actual_unique = len(scraped_codes)
-        expected_complete = expected_unique <= 0 or actual_unique >= expected_unique
-        prune_allowed = (
-            prune_missing
-            and result.coverage_complete
-            and expected_complete
-            and not result.has_errors
-        )
-        if prune_allowed:
-            self._remove_missing_products(scraped_codes, result)
+            expected_unique = result.products_expected
+            actual_unique = len(scraped_codes)
+            expected_complete = (
+                expected_unique <= 0 or actual_unique >= expected_unique
+            )
+            prune_allowed = (
+                prune_missing
+                and result.coverage_complete
+                and expected_complete
+                and not result.has_errors
+            )
+            if prune_allowed:
+                self._remove_missing_products(scraped_codes, result)
+            if transaction_started:
+                self._commit_repository_transaction()
+        except Exception:
+            if transaction_started:
+                self._rollback_repository_transaction()
+            raise
+
         result.finish()
         self.last_sync_result = result
         return result

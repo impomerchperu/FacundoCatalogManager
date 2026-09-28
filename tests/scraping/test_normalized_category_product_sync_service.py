@@ -257,4 +257,4 @@ def test_complete_full_skips_redundant_master_verification_when_guaranteed():
             "message": "",
         }
     ]
-\n
+

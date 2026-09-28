@@ -551,7 +551,7 @@ class BulkLookupRepository:
     def save_with_existing(self, product, existing=None):
         self.save_with_existing_calls += 1
         if existing is not None:
-            product.product_id = existing.product_id
+            product.product_id = getattr(existing, "product_id", None)
         self.products[product.code.casefold()] = product
         return product
 

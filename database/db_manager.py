@@ -357,6 +357,14 @@ class DBManager:
             self.connection.commit()
         return cursor
 
+    def execute_many(self, query, params_seq=()):
+        """Ejecuta una sentencia parametrizada sobre múltiples filas."""
+        cursor = self.connection.cursor()
+        cursor.executemany(query, params_seq)
+        if not self._transaction_active:
+            self.connection.commit()
+        return cursor
+
     def fetch_all(self, query, params=()):
         cursor = self.connection.cursor()
         cursor.execute(query, params)

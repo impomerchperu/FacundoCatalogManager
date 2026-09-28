@@ -124,7 +124,7 @@ class CatalogSyncService:
                         "changes": [],
                     }
                 )
-                self.repository.save(product)
+                self._save_catalog_product(product)
                 continue
 
             product.category = self._merge_categories(
@@ -151,7 +151,7 @@ class CatalogSyncService:
                         ],
                     }
                 )
-                self.repository.save(product)
+                self._save_catalog_product(product, existing)
             else:
                 result.unchanged += 1
 
@@ -218,6 +218,13 @@ class CatalogSyncService:
             len(deleted),
             time.perf_counter() - started,
         )
+
+    def _save_catalog_product(self, product, existing=None):
+        """Evita una segunda lectura cuando el repositorio conoce el registro actual."""
+        save_with_existing = getattr(self.repository, "save_with_existing", None)
+        if callable(save_with_existing):
+            return save_with_existing(product, existing)
+        return self.repository.save(product)
 
     def _remove_missing_products(
         self, scraped_codes: set[str], result: SyncResult

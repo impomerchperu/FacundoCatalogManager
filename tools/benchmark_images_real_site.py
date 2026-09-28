@@ -219,6 +219,28 @@ def test_full_catalog_production_image_benchmark(tmp_path):
         ]
         assert len(image_files) == len(products_with_images)
 
+        page_metrics = collection.get_page_metrics()
+        collection_discovery_seconds = sum(
+            float(metrics.get("discovery_seconds", 0.0) or 0.0)
+            for metrics in page_metrics.values()
+        )
+        collection_page_load_seconds = sum(
+            float(metrics.get("page_load_seconds", 0.0) or 0.0)
+            for metrics in page_metrics.values()
+        )
+        collection_pages_requested = sum(
+            int(metrics.get("pages_requested", 0) or 0)
+            for metrics in page_metrics.values()
+        )
+        collection_pages_loaded = sum(
+            int(metrics.get("pages_loaded", 0) or 0)
+            for metrics in page_metrics.values()
+        )
+        collection_cards_found = sum(
+            int(metrics.get("cards_found", 0) or 0)
+            for metrics in page_metrics.values()
+        )
+        detail_metrics = collection.get_detail_metrics()
         http_metrics = browser.get_http_metrics()
         color_stock_categories = {
             category_name
@@ -244,7 +266,21 @@ def test_full_catalog_production_image_benchmark(tmp_path):
         print("MULTI-CATEGORÍA:", len(duplicate_codes))
         print("PRODUCTOS CON IMAGEN:", len(products_with_images))
         print("COLLECTION:", f"{collection_seconds:.2f}s")
+        print(
+            "  COLLECTION DISCOVERY:",
+            f"{collection_discovery_seconds:.2f}s",
+        )
+        print(
+            "  COLLECTION PAGE LOAD:",
+            f"{collection_page_load_seconds:.2f}s",
+        )
+        print("  COLLECTION PAGES:", collection_pages_requested)
+        print("  COLLECTION PAGES LOADED:", collection_pages_loaded)
+        print("  COLLECTION CARDS:", collection_cards_found)
         print("ENRICHMENT:", f"{enrichment_seconds:.2f}s")
+        print("  DETAIL REQUESTS:", detail_metrics["detail_requests"])
+        print("  DETAIL SKIPPED:", detail_metrics["detail_skipped"])
+        print("  DETAIL CACHE HITS:", detail_metrics["detail_cache_hits"])
         print(
             "SCRAPING + PREPARACIÓN:",
             f"{pipeline_seconds - image_seconds:.2f}s",
@@ -283,12 +319,19 @@ def test_full_catalog_production_image_benchmark(tmp_path):
                 },
                 "timing": {
                     "collection_seconds": collection_seconds,
+                    "collection_discovery_seconds": collection_discovery_seconds,
+                    "collection_page_load_seconds": collection_page_load_seconds,
                     "enrichment_seconds": enrichment_seconds,
                     "image_seconds": image_seconds,
                     "pipeline_seconds": pipeline_seconds,
                 },
+                "collection": {
+                    "pages_requested": collection_pages_requested,
+                    "pages_loaded": collection_pages_loaded,
+                    "cards_found": collection_cards_found,
+                },
                 "http": http_metrics,
-                "detail": collection.get_detail_metrics(),
+                "detail": detail_metrics,
             },
         )
     finally:

@@ -299,6 +299,14 @@ def test_full_catalog_production_image_benchmark(tmp_path):
             "  JSF HTTP MAX:",
             f"{http_metrics["jsf_http_max_seconds"]:.2f}s",
         )
+        jsf_percentiles = http_metrics["http_latency_percentiles"]["jsf"]
+        detail_percentiles = http_metrics["http_latency_percentiles"]["detail"]
+        print(
+            "  JSF LATENCY P50/P95/P99:",
+            f"{jsf_percentiles["p50"]:.2f}s/"
+            f"{jsf_percentiles["p95"]:.2f}s/"
+            f"{jsf_percentiles["p99"]:.2f}s",
+        )
         print("  DETAIL REQUESTS:", http_metrics["detail_http_requests"])
         print(
             "  DETAIL HTTP TOTAL:",
@@ -307,6 +315,12 @@ def test_full_catalog_production_image_benchmark(tmp_path):
         print(
             "  DETAIL HTTP MAX:",
             f"{http_metrics["detail_http_max_seconds"]:.2f}s",
+        )
+        print(
+            "  DETAIL LATENCY P50/P95/P99:",
+            f"{detail_percentiles["p50"]:.2f}s/"
+            f"{detail_percentiles["p95"]:.2f}s/"
+            f"{detail_percentiles["p99"]:.2f}s",
         )
         print(
             "  DETAIL SEMAPHORE WAIT:",

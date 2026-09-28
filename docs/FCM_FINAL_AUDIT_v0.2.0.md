@@ -2,8 +2,8 @@
 
 Fecha: 2026-09-27  
 Rama oficial: `main`  
-Versión en preparación: `0.2.0`  
-HEAD de referencia de esta acta: `874eba3`  
+Versión publicada: `0.2.0`  
+HEAD de referencia de esta acta: `a95647f`  
 Release estable anterior: `v0.1.1` → `4238a9f`
 
 ## 1. Gobierno del repositorio
@@ -117,12 +117,10 @@ La candidata `0.2.0` fue validada en Windows sobre el instalador real y el bundl
 
 - Se conservan ramas históricas además de `main`; no se modifican durante esta auditoría porque el cierre funcional se gobierna exclusivamente por `main`.
 - La elección de una licencia para el repositorio no se altera automáticamente como parte de esta auditoría.
-- Los gates técnicos de Windows, artefactos y validación funcional ya están cerrados. `v0.2.0` todavía no se considera publicada hasta crear el tag y la release de GitHub.
+- Los gates técnicos de Windows, artefactos y validación funcional están cerrados y `v0.2.0` está publicada en GitHub con el tag `v0.2.0` apuntando a `a95647f`.
 
 ## 10. Gate final de publicación
 
-La publicación de `v0.2.0` queda condicionada a:
+El gate de publicación de `v0.2.0` quedó satisfecho: suite verde + Ruff limpio + Pyright limpio + validación funcional + Windows Build + bundle/installer + SHA-256 + tag `v0.2.0` + release de GitHub publicada.
 
-`suite verde + Ruff limpio + Pyright limpio + validación funcional + Windows Build + bundle/installer + SHA-256 + tag v0.2.0 + release GitHub`
-
-La infraestructura de release de `v0.1.1` se reutiliza sin modificar su tag ni sus artefactos.
+La infraestructura de release de `v0.1.1` se conserva sin modificar su tag ni sus artefactos. El siguiente ciclo de desarrollo parte desde `main` después de `v0.2.0`.

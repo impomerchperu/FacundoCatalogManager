@@ -192,3 +192,69 @@ def test_occurrence_metadata_uses_normalized_category_keys_and_preserves_multi_c
         ("cocina mesa y hogar", "fb-1000"): (1, 1),
         ("oficina", "fb-1000"): (2, 1),
     }
+
+def test_complete_full_skips_redundant_master_verification_when_guaranteed():
+    repository = FakeNormalizedRepository()
+    service = _build_service(repository)
+
+    class CountingProductRepository:
+        def __init__(self):
+            self.get_calls = 0
+            self.saved = []
+
+        def get(self, code):
+            self.get_calls += 1
+            return None
+
+        def save(self, product):
+            self.saved.append(product)
+            return product
+
+    product_repository = CountingProductRepository()
+
+    class GuaranteedCatalogSync:
+        guarantees_product_masters = True
+
+        def __init__(self):
+            self.repository = product_repository
+
+    service.catalog_sync_service = GuaranteedCatalogSync()
+    service.last_sync_result = SyncResult(
+        expected_category_occurrences=1,
+        products_found=1,
+        products_unique=1,
+    )
+    service.last_sync_result.category_summary = [
+        {
+            "category": "Categoria",
+            "expected": 1,
+            "products": 1,
+            "unique_products": 1,
+            "gap": 0,
+        }
+    ]
+    service.last_sync_result.errors = []
+    repository.persist_occurrences = lambda *_args, **_kwargs: 1
+
+    service._persist_normalized(
+        [
+            Category(
+                name="Categoria",
+                url="https://example.test/categoria/",
+                expected_count=1,
+            )
+        ],
+        [type("Product", (), {"code": "FB-001"})()],
+        mode="full",
+    )
+
+    assert product_repository.get_calls == 0
+    assert product_repository.saved == []
+    assert repository.finished == [
+        {
+            "run_id": 1,
+            "actual_category_occurrences": 1,
+            "message": "",
+        }
+    ]
+\n

@@ -14,6 +14,7 @@ CONFIGURATION_KEYS = (
     "jsf_page_workers",
     "category_page_workers",
     "thread_sessions",
+    "skip_boundary_probe",
     "image_workers",
 )
 

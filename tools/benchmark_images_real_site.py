@@ -19,6 +19,7 @@ from config.scraping_config import (
 from scrapers.browser import Browser
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 from scrapers.collectors.resilient_category_scraper import ResilientCategoryScraper
+from scrapers.collectors import category_pagination_engine
 from scrapers.extractors.category_extractor import CategoryExtractor
 from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.product_card_extractor import ProductCardExtractor
@@ -64,8 +65,18 @@ def _worker_count(name: str, default: int) -> int:
     return value
 
 
+def _skip_boundary_probe(
+    scraper,
+    category_url,
+    category_id,
+    page,
+    seen_product_keys,
+):
+    return False, set(), 0, 0
+
+
 @pytest.mark.real_site
-def test_full_catalog_production_image_benchmark(tmp_path):
+def test_full_catalog_production_image_benchmark(tmp_path, monkeypatch):
     """Mide el costo real de sincronizar las imágenes del catálogo FULL."""
     image_workers = _worker_count("FCM_IMAGE_BENCH_WORKERS", 8)
     raw_image_limit = os.getenv("FCM_IMAGE_BENCH_LIMIT", "").strip()
@@ -93,6 +104,17 @@ def test_full_catalog_production_image_benchmark(tmp_path):
         "FCM_CATEGORY_PAGE_BENCH_WORKERS",
         SCRAPING_CATEGORY_PAGE_WORKERS,
     )
+    skip_boundary_probe = os.getenv(
+        "FCM_JSF_BENCH_SKIP_BOUNDARY_PROBE",
+        "",
+    ).strip().casefold() in {"1", "true", "yes"}
+
+    if skip_boundary_probe:
+        monkeypatch.setattr(
+            category_pagination_engine,
+            "_probe_boundary_page",
+            _skip_boundary_probe,
+        )
 
     started = perf_counter()
     browser = Browser(http_workers=http_workers)
@@ -301,6 +323,7 @@ def test_full_catalog_production_image_benchmark(tmp_path):
             "  JSF MAX IN-FLIGHT:",
             http_metrics["http_max_in_flight_by_class"]["jsf"],
         )
+        print("  JSF BOUNDARY PROBE SKIPPED:", skip_boundary_probe)
         print(
             "  JSF HTTP TOTAL:",
             f"{http_metrics["jsf_http_total_seconds"]:.2f}s",
@@ -360,6 +383,7 @@ def test_full_catalog_production_image_benchmark(tmp_path):
                     "jsf_page_workers": jsf_page_workers,
                     "category_page_workers": category_page_workers,
                     "thread_sessions": True,
+                    "skip_boundary_probe": skip_boundary_probe,
                     "image_workers": image_workers,
                 },
                 "coverage": {

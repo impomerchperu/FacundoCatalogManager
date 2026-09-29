@@ -17,9 +17,9 @@ from config.scraping_config import (
     STORE_URL,
 )
 from scrapers.browser import Browser
+from scrapers.collectors import category_pagination_engine
 from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
 from scrapers.collectors.resilient_category_scraper import ResilientCategoryScraper
-from scrapers.collectors import category_pagination_engine
 from scrapers.extractors.category_extractor import CategoryExtractor
 from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.product_card_extractor import ProductCardExtractor

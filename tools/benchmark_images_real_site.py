@@ -66,12 +66,13 @@ def _worker_count(name: str, default: int) -> int:
 
 
 def _skip_boundary_probe(
-    scraper,
-    category_url,
-    category_id,
-    page,
-    seen_product_keys,
-):
+    scraper: object,
+    category_url: str,
+    category_id: int,
+    page: int,
+    seen_product_keys: set[str],
+) -> tuple[bool, set[str], int, int]:
+    del scraper, category_url, category_id, page, seen_product_keys
     return False, set(), 0, 0
 
 

@@ -1,4 +1,6 @@
 import json
+
+import pytest
 from threading import RLock
 
 from scrapers.collectors import category_pagination_engine
@@ -85,4 +87,114 @@ def test_visible_jetsmartfilters_pagination_is_honored():
         f"{category_url.rstrip('/')}?product-page=2",
         f"{category_url.rstrip('/')}?product-page=3",
         f"{category_url.rstrip('/')}?product-page=4",
+    ]
+
+
+
+@pytest.mark.parametrize(
+    ("expected_count", "seen_count", "should_probe"),
+    [
+        (0, 0, True),
+        (25, 25, False),
+        (25, 24, True),
+        (25, 26, True),
+    ],
+)
+def test_boundary_probe_guard_requires_exact_expected_count(
+    expected_count,
+    seen_count,
+    should_probe,
+):
+    seen = {
+        f"https://example.test/product/{index}"
+        for index in range(seen_count)
+    }
+    assert (
+        category_pagination_engine._should_probe_boundary_page(
+            expected_count,
+            seen,
+        )
+        is should_probe
+    )
+
+
+def test_boundary_probe_is_skipped_when_expected_count_is_exact(monkeypatch):
+    scraper = _new_scraper()
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+    category_html = _products(1, 25)
+
+    monkeypatch.setattr(
+        category_pagination_engine,
+        "_initial_jsf_page",
+        lambda *args, **kwargs: (25, 1, category_html),
+    )
+
+    def fail_probe(*args, **kwargs):
+        raise AssertionError("boundary probe must be skipped")
+
+    monkeypatch.setattr(
+        category_pagination_engine,
+        "_probe_boundary_page",
+        fail_probe,
+    )
+
+    result = category_pagination_engine._jsf_category_pages_with_probe(
+        scraper,
+        category_url,
+        category_id=127,
+        expected_count=25,
+        category_html=category_html,
+    )
+
+    assert result == [category_url]
+
+
+def test_boundary_probe_is_retained_when_expected_count_is_not_reached(monkeypatch):
+    scraper = _new_scraper()
+    category_url = (
+        "https://stock.importacionesfacundo.com/"
+        "categoria-producto/catalogo/"
+    )
+    category_html = _products(1, 25)
+    probe_called = False
+
+    monkeypatch.setattr(
+        category_pagination_engine,
+        "_initial_jsf_page",
+        lambda *args, **kwargs: (30, 2, category_html),
+    )
+    monkeypatch.setattr(
+        category_pagination_engine,
+        "_walk_jsf_page_batch",
+        lambda *args, **kwargs: {
+            2: (29, 2, _products(26, 4)),
+        },
+    )
+
+    def record_probe(*args, **kwargs):
+        nonlocal probe_called
+        probe_called = True
+        return False, set(), 0, 0
+
+    monkeypatch.setattr(
+        category_pagination_engine,
+        "_probe_boundary_page",
+        record_probe,
+    )
+
+    result = category_pagination_engine._jsf_category_pages_with_probe(
+        scraper,
+        category_url,
+        category_id=127,
+        expected_count=30,
+        category_html=category_html,
+    )
+
+    assert probe_called is True
+    assert result == [
+        category_url,
+        f"{category_url.rstrip('/')}?product-page=2",
     ]

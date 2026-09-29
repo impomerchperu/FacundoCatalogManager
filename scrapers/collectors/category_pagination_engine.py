@@ -303,6 +303,18 @@ def _probe_boundary_page(
     return True, new_product_keys, found_posts, max_num_pages
 
 
+
+def _should_probe_boundary_page(
+    expected_count: int,
+    seen_product_keys: set[str],
+) -> bool:
+    """Keep the boundary guard unless the declared category count is exact."""
+    target = max(int(expected_count or 0), 0)
+    if target == 0:
+        return True
+    return len(seen_product_keys) != target
+
+
 def _candidate_page_urls(
     scraper: CategoryScraper,
     category_url: str,
@@ -500,6 +512,9 @@ def _jsf_category_pages_with_probe(  # noqa: PLR0912
                 scraper._pagination_max_page(rendered_html),
             )
         page_number = batch_end + 1
+
+    if not _should_probe_boundary_page(expected_count, seen_product_keys):
+        return pages
 
     boundary_page = known_pages + 1
     has_new_products, new_product_keys, boundary_found, boundary_max = _probe_boundary_page(

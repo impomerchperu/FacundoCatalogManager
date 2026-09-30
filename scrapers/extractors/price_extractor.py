@@ -11,18 +11,84 @@ class PriceExtractor:
         "Precio Millar",
         "Precio Caja",
         "Precio Por Caja",
+        "Precio por 01 Paquete",
+        "Precio por Paquete",
+        "Precio por Unidad",
+        "Precio Unidad",
+        "Precio por 01 Caja",
+        "Precio por Caja",
+        "Precio Mayorista",
+        "Precio por 01 Millar",
+        "Precio por Millar",
     )
+    _PRICE_FIELDS: ClassVar[tuple[str, ...]] = (
+        "sample",
+        "hundred",
+        "thousand",
+    )
+    _PRICE_FIELD_ALIASES: ClassVar[dict[str, tuple[str, ...]]] = {
+        "sample": (
+            "precio muestra",
+            "precio por 01 paquete",
+            "precio por paquete",
+            "precio por unidad",
+            "precio unidad",
+        ),
+        "hundred": (
+            "precio ciento",
+            "precio caja",
+            "precio por caja",
+            "precio por 01 caja",
+            "precio mayorista",
+        ),
+        "thousand": (
+            "precio millar",
+            "precio por 01 millar",
+            "precio por millar",
+        ),
+    }
+    _CANONICAL_LABELS: ClassVar[dict[str, str]] = {
+        "sample": "precio muestra",
+        "hundred": "precio ciento",
+        "thousand": "precio millar",
+    }
+
+    @classmethod
+    def _field_key(cls, field_or_label: str) -> str:
+        normalized = str(field_or_label).casefold().strip()
+        if normalized in cls._PRICE_FIELD_ALIASES:
+            return normalized
+        for field, aliases in cls._PRICE_FIELD_ALIASES.items():
+            if normalized in aliases:
+                return field
+        return normalized
+
+    @classmethod
+    def _field_aliases(cls, field_or_label: str) -> tuple[str, ...]:
+        field = cls._field_key(field_or_label)
+        aliases = cls._PRICE_FIELD_ALIASES.get(field)
+        if aliases is not None:
+            return aliases
+        return (field,)
 
     def _extract_price_block(self, soup, label):
-        """Extrae el precio manteniendo la estrategia histórica del scraper."""
-        label_normalized = label.casefold()
+        """Extrae un nivel de precio con las etiquetas actuales e históricas."""
+        value = self._find_price_value(soup, label)
+        return 0.0 if value is None else value
+
+    def _find_price_value(self, soup, field_or_label) -> float | None:
+        field = self._field_key(field_or_label)
+        aliases = self._field_aliases(field)
 
         heading = soup.find(
             lambda tag: tag.name in ["h3", "h4"]
-            and label_normalized in tag.get_text(" ", strip=True).casefold()
+            and any(
+                alias in tag.get_text(" ", strip=True).casefold()
+                for alias in aliases
+            )
         )
         if heading is not None:
-            price = self._next_labeled_price(heading, label_normalized)
+            price = self._next_labeled_price(heading, set(aliases))
             if price is not None:
                 return price
 
@@ -31,8 +97,8 @@ class PriceExtractor:
             title = block.find(["h3", "h4"])
             if title is None:
                 continue
-            title_text = " ".join(title.get_text(" ", strip=True).split())
-            if label_normalized not in title_text.casefold():
+            title_text = " ".join(title.get_text(" ", strip=True).split()).casefold()
+            if not any(alias in title_text for alias in aliases):
                 continue
             price = self._price_from_elements(block.find_all(["h3", "h4"]))
             if price is not None:
@@ -41,17 +107,32 @@ class PriceExtractor:
             if price is not None:
                 return price
 
-        table_price = self._extract_table_row_price(soup, label_normalized)
+        table_price = self._extract_table_row_price(
+            soup,
+            self._CANONICAL_LABELS.get(field, field),
+        )
         if table_price is not None:
             return table_price
 
-        return self._extract_labeled_price_from_text(soup, label)
+        return self._extract_labeled_price_from_text(soup, aliases)
 
-    def _next_labeled_price(self, heading, label_normalized):
-        """Busca el valor siguiente sin saltar al siguiente nivel de precio."""
+    def price_field_needs_recovery(self, soup, field: str) -> bool:
+        """Indica si el HTML anuncia un nivel sin proporcionar un importe."""
+        field_key = self._field_key(field)
+        if self._find_price_value(soup, field_key) is not None:
+            return False
+
+        aliases = self._field_aliases(field_key)
+        return any(
+            alias in " ".join(soup.stripped_strings).casefold()
+            for alias in aliases
+        )
+
+    def _next_labeled_price(self, heading, current_aliases):
+        """Busca el importe siguiente sin saltar a otro nivel de precio."""
         for element in heading.find_all_next(["h3", "h4", "div", "span"]):
             text = " ".join(element.get_text(" ", strip=True).split())
-            if self._contains_other_price_label(text, label_normalized):
+            if self._contains_other_price_label(text, current_aliases):
                 break
             if element.name in ["h3", "h4"]:
                 price = self._parse_price(element.get_text(" ", strip=True))
@@ -64,11 +145,12 @@ class PriceExtractor:
         return None
 
     @classmethod
-    def _contains_other_price_label(cls, text, current_label):
+    def _contains_other_price_label(cls, text, current_aliases):
         normalized = text.casefold()
         return any(
-            label.casefold() != current_label and label.casefold() in normalized
-            for label in cls._PRICE_LABELS
+            alias not in current_aliases and alias in normalized
+            for aliases in cls._PRICE_FIELD_ALIASES.values()
+            for alias in aliases
         )
 
     @staticmethod
@@ -152,18 +234,22 @@ class PriceExtractor:
             return price_cells[position][1]
         return None
 
-    def _extract_labeled_price_from_text(self, soup, label):
-        """Recupera el importe aunque la plantilla no conserve clases CSS."""
+    def _extract_labeled_price_from_text(self, soup, aliases):
+        """Recupera el importe cuando solo queda texto etiquetado."""
         text = " ".join(soup.stripped_strings)
+        alternatives = "|".join(
+            re.escape(alias)
+            for alias in sorted(aliases, key=len, reverse=True)
+        )
         pattern = re.compile(
-            rf"{re.escape(label)}\s*[:\-]?\s*"
+            rf"(?:{alternatives})\s*[:\-]?\s*"
             rf"(?:S/|US\$|USD|\$)?\s*([\d][\d,.]*)",
             re.IGNORECASE,
         )
         match = pattern.search(text)
         if match is None:
-            return 0.0
-        return self._parse_price(match.group(1)) or 0.0
+            return None
+        return self._parse_price(match.group(1))
 
     @staticmethod
     def _parse_price(text):
@@ -193,16 +279,10 @@ class PriceExtractor:
             return None
 
     def extract_sample(self, soup):
-        return self._extract_price_block(soup, "Precio Muestra")
+        return self._extract_price_block(soup, "sample")
 
     def extract_hundred(self, soup):
-        price = self._extract_price_block(soup, "Precio Ciento")
-        if price:
-            return price
-        price = self._extract_price_block(soup, "Precio Caja")
-        if price:
-            return price
-        return self._extract_price_block(soup, "Precio Por Caja")
+        return self._extract_price_block(soup, "hundred")
 
     def extract_thousand(self, soup):
-        return self._extract_price_block(soup, "Precio Millar")
+        return self._extract_price_block(soup, "thousand")

@@ -337,8 +337,11 @@ def test_price_extractor_does_not_request_absent_price_tiers():
     extractor = PriceExtractor()
 
     assert extractor.price_field_needs_recovery(soup, "sample") is False
+    assert extractor.price_field_needs_recovery(soup, "price_sample") is False
     assert extractor.price_field_needs_recovery(soup, "hundred") is False
+    assert extractor.price_field_needs_recovery(soup, "price_hundred") is False
     assert extractor.price_field_needs_recovery(soup, "thousand") is False
+    assert extractor.price_field_needs_recovery(soup, "price_thousand") is False
 
 
 def test_price_extractor_requests_an_advertised_but_empty_price():
@@ -355,3 +358,20 @@ def test_price_extractor_requests_an_advertised_but_empty_price():
     extractor = PriceExtractor()
 
     assert extractor.price_field_needs_recovery(soup, "hundred") is True
+
+
+
+def test_price_extractor_normalizes_persisted_price_field_names():
+    html = """
+    <article>
+        <h3>Precio Muestra</h3>
+        <h4>S/ 8.00</h4>
+    </article>
+    """
+    soup = BeautifulSoup(html, "lxml")
+    extractor = PriceExtractor()
+
+    assert extractor._field_key("price_sample") == "sample"
+    assert extractor._field_key("price_hundred") == "hundred"
+    assert extractor._field_key("price_thousand") == "thousand"
+    assert extractor._field_key("Precio Muestra") == "sample"

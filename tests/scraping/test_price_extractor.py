@@ -259,3 +259,99 @@ def test_price_extractor_maps_precio_por_caja_to_hundred():
     assert extractor.extract_sample(soup) == 4.0
     assert extractor.extract_hundred(soup) == 3.3
     assert extractor.extract_thousand(soup) == 0.0
+
+
+
+def test_price_extractor_supports_package_and_box_labels():
+    html = """
+    <article>
+        <div class="content-precio">
+            <h3>Precio por 01 Paquete</h3>
+            <h4>S/ 12.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio por 01 Caja</h3>
+            <h4>S/ 10.80</h4>
+        </div>
+    </article>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    extractor = PriceExtractor()
+
+    assert extractor.extract_sample(soup) == 12.0
+    assert extractor.extract_hundred(soup) == 10.8
+    assert extractor.extract_thousand(soup) == 0.0
+
+
+def test_price_extractor_supports_unit_and_wholesale_labels():
+    html = """
+    <article>
+        <div class="content-precio">
+            <h3>Precio por Unidad</h3>
+            <h4>S/ 270.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Mayorista</h3>
+            <h4>S/ 243.00</h4>
+        </div>
+    </article>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    extractor = PriceExtractor()
+
+    assert extractor.extract_sample(soup) == 270.0
+    assert extractor.extract_hundred(soup) == 243.0
+    assert extractor.extract_thousand(soup) == 0.0
+
+
+def test_price_extractor_accepts_explicit_zero_as_a_real_value():
+    html = """
+    <article>
+        <div class="content-precio">
+            <h3>Precio Muestra</h3>
+            <h4>S/ 0.00</h4>
+        </div>
+    </article>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    extractor = PriceExtractor()
+
+    assert extractor.extract_sample(soup) == 0.0
+    assert extractor.price_field_needs_recovery(soup, "sample") is False
+
+
+def test_price_extractor_does_not_request_absent_price_tiers():
+    html = """
+    <article>
+        <div class="content-precio">
+            <h3>Precio Muestra</h3>
+            <h4>S/ 2130.00</h4>
+        </div>
+    </article>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    extractor = PriceExtractor()
+
+    assert extractor.price_field_needs_recovery(soup, "sample") is False
+    assert extractor.price_field_needs_recovery(soup, "hundred") is False
+    assert extractor.price_field_needs_recovery(soup, "thousand") is False
+
+
+def test_price_extractor_requests_an_advertised_but_empty_price():
+    html = """
+    <article>
+        <div class="content-precio">
+            <h3>Precio Ciento</h3>
+            <h4>Consultar</h4>
+        </div>
+    </article>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    extractor = PriceExtractor()
+
+    assert extractor.price_field_needs_recovery(soup, "hundred") is True

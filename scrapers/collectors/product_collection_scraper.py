@@ -13,6 +13,7 @@ from config.scraping_config import (
 )
 from models.scraping.category import Category
 from scrapers.extractors.code_utils import normalize_code
+from scrapers.extractors.price_extractor import PriceExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
 )
@@ -461,11 +462,13 @@ class ProductCollectionScraper:
 
     @classmethod
     def _missing_price_fields(cls, card: Any, product: Any) -> tuple[str, ...]:
-        """Treat every non-positive catalog price as missing for recovery."""
+        """Solo considera recuperable un precio anunciado sin importe."""
+        extractor = PriceExtractor()
         return tuple(
             field
             for field in cls._PRICE_FIELDS
             if float(getattr(product, field, 0.0) or 0.0) <= 0
+            and extractor.price_field_needs_recovery(card, field)
         )
 
     @classmethod

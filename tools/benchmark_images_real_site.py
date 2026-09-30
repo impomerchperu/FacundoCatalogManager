@@ -1,6 +1,6 @@
 import os
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import CancelledError, ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from threading import Lock
 from time import perf_counter
@@ -132,10 +132,15 @@ def _measure_detail_extractor_output(
 
     for future in detail_cache.values():
         try:
-            detailed_product = future.result()
-        except Exception:
+            future_error = future.exception()
+        except CancelledError:
             error_count += 1
             continue
+        if future_error is not None:
+            error_count += 1
+            continue
+
+        detailed_product = future.result()
         if detailed_product is None:
             none_count += 1
             continue

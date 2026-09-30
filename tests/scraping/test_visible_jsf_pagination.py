@@ -1,7 +1,7 @@
 import json
+from threading import RLock
 
 import pytest
-from threading import RLock
 
 from scrapers.collectors import category_pagination_engine
 from scrapers.collectors.category_scraper import CategoryScraper
@@ -88,7 +88,6 @@ def test_visible_jetsmartfilters_pagination_is_honored():
         f"{category_url.rstrip('/')}?product-page=3",
         f"{category_url.rstrip('/')}?product-page=4",
     ]
-
 
 
 @pytest.mark.parametrize(

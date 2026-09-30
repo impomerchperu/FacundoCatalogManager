@@ -307,12 +307,20 @@ def _probe_boundary_page(
 def _should_probe_boundary_page(
     expected_count: int,
     seen_product_keys: set[str],
+    found_posts: int,
+    known_pages: int,
+    products_per_page: int,
 ) -> bool:
-    """Keep the boundary guard unless the declared category count is exact."""
+    """Keep the boundary guard unless independent coverage metadata agrees."""
     target = max(int(expected_count or 0), 0)
     if target == 0:
         return True
-    return len(seen_product_keys) != target
+    expected_pages = pages_required(target, products_per_page)
+    return not (
+        len(seen_product_keys) == target
+        and int(found_posts or 0) == target
+        and int(known_pages or 0) == expected_pages
+    )
 
 
 
@@ -514,10 +522,13 @@ def _jsf_category_pages_with_probe(  # noqa: PLR0912
             )
         page_number = batch_end + 1
 
-    if not _should_probe_boundary_page(expected_count, seen_product_keys):
-        return pages
-
-    if not _should_probe_boundary_page(expected_count, seen_product_keys):
+    if not _should_probe_boundary_page(
+        expected_count,
+        seen_product_keys,
+        found_posts,
+        known_pages,
+        scraper.PRODUCTS_PER_PAGE,
+    ):
         return pages
 
     boundary_page = known_pages + 1

@@ -91,17 +91,27 @@ def test_visible_jetsmartfilters_pagination_is_honored():
 
 
 @pytest.mark.parametrize(
-    ("expected_count", "seen_count", "should_probe"),
+    (
+        "expected_count",
+        "seen_count",
+        "found_posts",
+        "known_pages",
+        "should_probe",
+    ),
     [
-        (0, 0, True),
-        (25, 25, False),
-        (25, 24, True),
-        (25, 26, True),
+        (0, 0, 0, 0, True),
+        (25, 25, 25, 1, False),
+        (25, 25, 24, 1, True),
+        (25, 25, 25, 2, True),
+        (25, 24, 25, 1, True),
+        (25, 26, 26, 2, True),
     ],
 )
-def test_boundary_probe_guard_requires_exact_expected_count(
+def test_boundary_probe_guard_requires_independent_exact_coverage(
     expected_count,
     seen_count,
+    found_posts,
+    known_pages,
     should_probe,
 ):
     seen = {
@@ -112,6 +122,9 @@ def test_boundary_probe_guard_requires_exact_expected_count(
         category_pagination_engine._should_probe_boundary_page(
             expected_count,
             seen,
+            found_posts,
+            known_pages,
+            products_per_page=25,
         )
         is should_probe
     )

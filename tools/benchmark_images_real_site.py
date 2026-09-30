@@ -121,6 +121,51 @@ def _measure_detail_field_recovery(
     return detail_missing_before, detail_recovered
 
 
+def _measure_detail_extractor_output(
+    collection: object,
+) -> tuple[int, int, Counter[str]]:
+    """Mide qué campos devuelve realmente cada future de detalle."""
+    detail_cache = getattr(collection, "_detail_cache", {})
+    counts: Counter[str] = Counter()
+    none_count = 0
+    error_count = 0
+
+    for future in detail_cache.values():
+        try:
+            detailed_product = future.result()
+        except Exception:
+            error_count += 1
+            continue
+        if detailed_product is None:
+            none_count += 1
+            continue
+
+        counts["products"] += 1
+        for field in ("sample", "hundred", "thousand", "description", "image"):
+            is_price_field = field in {"sample", "hundred", "thousand"}
+            attribute = (
+                f"price_{field}"
+                if is_price_field
+                else f"{field}_url" if field == "image" else field
+            )
+            value = getattr(
+                detailed_product,
+                attribute,
+                0 if is_price_field else "",
+            )
+            present = (
+                float(value or 0) > 0
+                if is_price_field
+                else bool(str(value or "").strip())
+            )
+            if present:
+                counts[field] += 1
+
+    counts["none"] = none_count
+    counts["errors"] = error_count
+    return len(detail_cache), none_count, counts
+
+
 @pytest.mark.real_site
 def test_full_catalog_production_image_benchmark(tmp_path, monkeypatch):
     """Mide el costo real de sincronizar las imágenes del catálogo FULL."""
@@ -322,6 +367,9 @@ def test_full_catalog_production_image_benchmark(tmp_path, monkeypatch):
             for metrics in page_metrics.values()
         )
         detail_metrics = collection.get_detail_metrics()
+        detail_cache_size, detail_none_count, detail_extractor_counts = (
+            _measure_detail_extractor_output(collection)
+        )
         detail_reason_counts = dict(
             detail_metrics.get("detail_reason_counts", {})
         )
@@ -365,6 +413,13 @@ def test_full_catalog_production_image_benchmark(tmp_path, monkeypatch):
         print("  DETAIL REQUESTS:", detail_metrics["detail_requests"])
         print("  DETAIL SKIPPED:", detail_metrics["detail_skipped"])
         print("  DETAIL CACHE HITS:", detail_metrics["detail_cache_hits"])
+        print("  DETAIL EXTRACTOR OUTPUT:")
+        print("    CACHE ENTRIES:", detail_cache_size)
+        print("    NONE:", detail_none_count)
+        print("    ERRORS:", detail_extractor_counts["errors"])
+        print("    NONEMPTY PRODUCTS:", detail_extractor_counts["products"])
+        for field in ("sample", "hundred", "thousand", "description", "image"):
+            print(f"    {field}: {detail_extractor_counts[field]}")
         print("  DETAIL REQUEST REASONS:")
         for reason, count in sorted(
             detail_reason_counts.items(),
@@ -474,7 +529,10 @@ def test_full_catalog_production_image_benchmark(tmp_path, monkeypatch):
                     "cards_found": collection_cards_found,
                 },
                 "http": http_metrics,
-                "detail": detail_metrics,
+                "detail": {
+                    **detail_metrics,
+                    "extractor_output": dict(detail_extractor_counts),
+                },
             },
         )
     finally:

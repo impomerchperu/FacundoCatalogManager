@@ -58,6 +58,10 @@ class PriceExtractor:
         normalized = str(field_or_label).casefold().strip()
         if normalized in cls._PRICE_FIELD_ALIASES:
             return normalized
+        if normalized.startswith("price_"):
+            short_field = normalized.removeprefix("price_")
+            if short_field in cls._PRICE_FIELD_ALIASES:
+                return short_field
         for field, aliases in cls._PRICE_FIELD_ALIASES.items():
             if normalized in aliases:
                 return field

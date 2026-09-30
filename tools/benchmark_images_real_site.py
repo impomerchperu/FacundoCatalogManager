@@ -270,6 +270,9 @@ def test_full_catalog_production_image_benchmark(tmp_path, monkeypatch):
             for metrics in page_metrics.values()
         )
         detail_metrics = collection.get_detail_metrics()
+        detail_reason_counts = dict(
+            detail_metrics.get("detail_reason_counts", {})
+        )
         http_metrics = browser.get_http_metrics()
         color_stock_categories = {
             category_name
@@ -310,6 +313,12 @@ def test_full_catalog_production_image_benchmark(tmp_path, monkeypatch):
         print("  DETAIL REQUESTS:", detail_metrics["detail_requests"])
         print("  DETAIL SKIPPED:", detail_metrics["detail_skipped"])
         print("  DETAIL CACHE HITS:", detail_metrics["detail_cache_hits"])
+        print("  DETAIL REQUEST REASONS:")
+        for reason, count in sorted(
+            detail_reason_counts.items(),
+            key=lambda item: (-item[1], item[0]),
+        ):
+            print(f"    {reason}: {count}")
         print(
             "SCRAPING + PREPARACIÓN:",
             f"{pipeline_seconds - image_seconds:.2f}s",

@@ -360,12 +360,6 @@ def test_price_extractor_requests_an_advertised_but_empty_price():
 
 
 def test_price_extractor_normalizes_persisted_price_field_names():
-    html = """
-    <article>
-        <h3>Precio Muestra</h3>
-        <h4>S/ 8.00</h4>
-    </article>
-    """
     extractor = PriceExtractor()
 
     assert extractor._field_key("price_sample") == "sample"

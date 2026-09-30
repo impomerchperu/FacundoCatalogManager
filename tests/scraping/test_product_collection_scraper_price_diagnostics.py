@@ -52,16 +52,14 @@ def test_detail_reason_metrics_identify_parser_missed_sample_price():
     }
 
 
-def test_missing_price_is_requested_even_without_price_label_on_card():
+def test_absent_price_tiers_do_not_trigger_detail_recovery():
     metrics = _run_missing_price_case(
         "<h3>Precio Por Caja</h3><h4>S/ 650.00</h4>"
     )
 
-    assert metrics["detail_requests"] == 1
+    assert metrics["detail_requests"] == 0
     assert metrics["detail_reason_counts"] == {
-        "requested_missing_prices": 1,
-        "requested_missing_sample": 1,
-        "requested_missing_thousand": 1,
+        "skipped_complete_single_stock": 1,
     }
 
 

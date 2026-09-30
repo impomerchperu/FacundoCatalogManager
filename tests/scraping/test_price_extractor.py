@@ -261,7 +261,6 @@ def test_price_extractor_maps_precio_por_caja_to_hundred():
     assert extractor.extract_thousand(soup) == 0.0
 
 
-
 def test_price_extractor_supports_package_and_box_labels():
     html = """
     <article>
@@ -360,7 +359,6 @@ def test_price_extractor_requests_an_advertised_but_empty_price():
     assert extractor.price_field_needs_recovery(soup, "hundred") is True
 
 
-
 def test_price_extractor_normalizes_persisted_price_field_names():
     html = """
     <article>
@@ -368,7 +366,6 @@ def test_price_extractor_normalizes_persisted_price_field_names():
         <h4>S/ 8.00</h4>
     </article>
     """
-    soup = BeautifulSoup(html, "lxml")
     extractor = PriceExtractor()
 
     assert extractor._field_key("price_sample") == "sample"

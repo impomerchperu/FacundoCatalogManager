@@ -76,6 +76,51 @@ def _skip_boundary_probe(
     return False, set(), 0, 0
 
 
+def _measure_detail_field_recovery(
+    pre_enrichment_by_index: list[list[tuple[object, str, object]]],
+    enriched_by_index: list[list[object] | None],
+) -> tuple[Counter[str], Counter[str]]:
+    detail_recovered: Counter[str] = Counter()
+    detail_missing_before: Counter[str] = Counter()
+
+    for index, category_products in enumerate(pre_enrichment_by_index):
+        enriched_products = enriched_by_index[index] or []
+        for (_, _, before), after in zip(
+            category_products,
+            enriched_products,
+            strict=True,
+        ):
+            for field in ("sample", "hundred", "thousand", "description", "image"):
+                is_price_field = field in {"sample", "hundred", "thousand"}
+                before_field = (
+                    f"price_{field}"
+                    if is_price_field
+                    else f"{field}_url" if field == "image" else field
+                )
+                before_default = 0 if is_price_field else ""
+                before_value = getattr(before, before_field, before_default)
+                after_value = getattr(after, before_field, before_default)
+
+                before_missing = (
+                    float(before_value or 0) <= 0
+                    if is_price_field
+                    else not str(before_value or "").strip()
+                )
+                if not before_missing:
+                    continue
+
+                detail_missing_before[field] += 1
+                recovered = (
+                    float(after_value or 0) > 0
+                    if is_price_field
+                    else bool(str(after_value or "").strip())
+                )
+                if recovered:
+                    detail_recovered[field] += 1
+
+    return detail_missing_before, detail_recovered
+
+
 @pytest.mark.real_site
 def test_full_catalog_production_image_benchmark(tmp_path, monkeypatch):
     """Mide el costo real de sincronizar las imágenes del catálogo FULL."""
@@ -183,32 +228,10 @@ def test_full_catalog_production_image_benchmark(tmp_path, monkeypatch):
             for product in (enriched or [])
         ]
 
-        detail_recovered = Counter()
-        detail_missing_before = Counter()
-        for index, category_products in enumerate(pre_enrichment_by_index):
-            enriched_products = enriched_by_index[index] or []
-            for (_, _, before), after in zip(category_products, enriched_products):
-                for field in ("sample", "hundred", "thousand", "description", "image"):
-                    before_field = (
-                        f"price_{field}"
-                        if field in {"sample", "hundred", "thousand"}
-                        else f"{field}_url" if field == "image" else field
-                    )
-                    before_value = getattr(before, before_field, 0 if field in {"sample", "hundred", "thousand"} else "")
-                    after_value = getattr(after, before_field, 0 if field in {"sample", "hundred", "thousand"} else "")
-                    if (
-                        float(before_value or 0) <= 0
-                        if field in {"sample", "hundred", "thousand"}
-                        else not str(before_value or "").strip()
-                    ):
-                        detail_missing_before[field] += 1
-                        recovered = (
-                            float(after_value or 0) > 0
-                            if field in {"sample", "hundred", "thousand"}
-                            else bool(str(after_value or "").strip())
-                        )
-                        if recovered:
-                            detail_recovered[field] += 1
+        detail_missing_before, detail_recovered = _measure_detail_field_recovery(
+            pre_enrichment_by_index,
+            enriched_by_index,
+        )
 
         codes = [
             str(product.code).strip().upper()

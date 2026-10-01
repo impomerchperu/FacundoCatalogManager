@@ -71,3 +71,51 @@ def test_category_progress_tracks_completion_without_reordering_results():
         ]
     finally:
         release_slow.set()
+
+def test_category_enrichment_overlaps_remaining_category_collection():
+    slow_started = Event()
+    release_slow = Event()
+    fast_enrichment_started = Event()
+    release_fast_enrichment = Event()
+
+    class FakeScraper:
+        def collect_category(self, category):
+            if category.name == "Categoria Lenta":
+                slow_started.set()
+                assert release_slow.wait(timeout=5)
+            return [(None, category.url, Product(category.name))]
+
+        def enrich_category_products(self, products, category_name):
+            if category_name == "Categoria Rápida":
+                fast_enrichment_started.set()
+                assert release_fast_enrichment.wait(timeout=5)
+            return [item[2] for item in products]
+
+    persistence = SimpleNamespace(save_products=lambda products: products)
+    service = CategoryProductSyncService(
+        SimpleNamespace(scraper=FakeScraper()),
+        persistence_service=persistence,
+        category_workers=2,
+    )
+    categories = [
+        Category("Categoria Lenta", "https://example.com/lenta/", expected_count=1),
+        Category("Categoria Rápida", "https://example.com/rapida/", expected_count=1),
+    ]
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            run_future = executor.submit(service.sync_categories, categories)
+            assert slow_started.wait(timeout=5)
+            assert fast_enrichment_started.wait(timeout=5)
+            assert not release_slow.is_set()
+            release_slow.set()
+            release_fast_enrichment.set()
+            result = run_future.result(timeout=5)
+
+        assert [product.category for product in result] == [
+            "Categoria Lenta",
+            "Categoria Rápida",
+        ]
+    finally:
+        release_slow.set()
+        release_fast_enrichment.set()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, cast
@@ -256,11 +256,12 @@ class CategoryProductSyncService:
                     )
 
                 started = enrichment_started or time.perf_counter()
-                enrichment_completed = 0
-                for future in as_completed(enrichment_futures):
+                for enrichment_completed, future in enumerate(
+                    as_completed(enrichment_futures),
+                    start=1,
+                ):
                     index = enrichment_futures[future]
                     enriched_by_index[index] = cast(list[Any], future.result())
-                    enrichment_completed += 1
                     if progress_callback and enrichment_completed < len(categories):
                         progress_callback(
                             len(categories) + enrichment_completed,

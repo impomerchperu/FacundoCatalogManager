@@ -72,8 +72,10 @@ def test_category_progress_tracks_completion_without_reordering_results():
     finally:
         release_slow.set()
 
+
 def test_category_enrichment_overlaps_remaining_category_collection():
     slow_started = Event()
+    slow_finished = Event()
     release_slow = Event()
     fast_enrichment_started = Event()
     release_fast_enrichment = Event()
@@ -83,6 +85,7 @@ def test_category_enrichment_overlaps_remaining_category_collection():
             if category.name == "Categoria Lenta":
                 slow_started.set()
                 assert release_slow.wait(timeout=5)
+                slow_finished.set()
             return [(None, category.url, Product(category.name))]
 
         def enrich_category_products(self, products, category_name):
@@ -107,7 +110,7 @@ def test_category_enrichment_overlaps_remaining_category_collection():
             run_future = executor.submit(service.sync_categories, categories)
             assert slow_started.wait(timeout=5)
             assert fast_enrichment_started.wait(timeout=5)
-            assert not release_slow.is_set()
+            assert not slow_finished.is_set()
             release_slow.set()
             release_fast_enrichment.set()
             result = run_future.result(timeout=5)

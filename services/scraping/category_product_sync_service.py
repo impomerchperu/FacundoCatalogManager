@@ -120,105 +120,145 @@ class CategoryProductSyncService:
         self.last_sync_result.expected_category_occurrences = expected_category_occurrences
 
         collected_by_index: list[list[Any]] = [[] for _ in categories]
+        enriched_by_index: list[list[Any] | None] = [None] * len(categories)
         failed_category_errors: dict[int, str] = {}
+        enrichment_futures: dict[Future[Any], int] = {}
+        enrichment_started: float | None = None
+
+        def submit_enrichment(executor: ThreadPoolExecutor, index: int) -> None:
+            nonlocal enrichment_started
+            if enrichment_started is None:
+                enrichment_started = time.perf_counter()
+            future = executor.submit(
+                self._enrich_category,
+                index,
+                categories[index],
+                collected_by_index[index],
+            )
+            enrichment_futures[future] = index
+
         started = time.perf_counter()
         self._enable_thread_sessions()
         if categories:
             worker_count = min(self.category_workers, len(categories))
-            with ThreadPoolExecutor(max_workers=worker_count) as executor:
-                futures = {
-                    executor.submit(self._collect_category, index, category): index
-                    for index, category in enumerate(categories)
-                }
-                for completed_count, future in enumerate(as_completed(futures), start=1):
-                    index = futures[future]
-                    category = categories[index]
-                    try:
-                        collected_by_index[index] = cast(list[Any], future.result())
-                    except requests.exceptions.RequestException as error:
-                        collected_by_index[index] = []
-                        category_name = str(getattr(category, "name", "")).strip() or "(sin nombre)"
-                        message = f"Error de red en categoría '{category_name}': {error}"
-                        failed_category_errors[index] = message
-                        self.last_sync_result.errors.append(message)
-                        _log_timing(
-                            "SCRAPING TIMING | stage=category_error | category=%s | error_type=%s | error=%s",
-                            category_name,
-                            type(error).__name__,
-                            str(error),
-                        )
-                    if progress_callback:
-                        progress_callback(completed_count, len(categories))
+            with ThreadPoolExecutor(max_workers=worker_count) as enrichment_executor:
+                with ThreadPoolExecutor(max_workers=worker_count) as collection_executor:
+                    futures = {
+                        collection_executor.submit(
+                            self._collect_category,
+                            index,
+                            category,
+                        ): index
+                        for index, category in enumerate(categories)
+                    }
+                    for completed_count, future in enumerate(
+                        as_completed(futures),
+                        start=1,
+                    ):
+                        index = futures[future]
+                        category = categories[index]
+                        try:
+                            collected_by_index[index] = cast(
+                                list[Any],
+                                future.result(),
+                            )
+                        except requests.exceptions.RequestException as error:
+                            collected_by_index[index] = []
+                            category_name = (
+                                str(getattr(category, "name", "")).strip()
+                                or "(sin nombre)"
+                            )
+                            message = (
+                                f"Error de red en categoría '{category_name}': {error}"
+                            )
+                            failed_category_errors[index] = message
+                            self.last_sync_result.errors.append(message)
+                            _log_timing(
+                                "SCRAPING TIMING | stage=category_error | category=%s | error_type=%s | error=%s",
+                                category_name,
+                                type(error).__name__,
+                                str(error),
+                            )
+                        else:
+                            submit_enrichment(enrichment_executor, index)
+                        if progress_callback:
+                            progress_callback(completed_count, len(categories))
 
-        if failed_category_errors:
-            recovery_started = time.perf_counter()
-            recovered = 0
-            recovery_worker_count = min(self.category_workers, len(failed_category_errors))
-            with ThreadPoolExecutor(max_workers=recovery_worker_count) as executor:
-                futures = {
-                    executor.submit(self._collect_category, index, categories[index]): index
-                    for index in failed_category_errors
-                }
-                for future in as_completed(futures):
-                    index = futures[future]
-                    category = categories[index]
-                    original_error = failed_category_errors[index]
-                    category_name = str(getattr(category, "name", "")).strip() or "(sin nombre)"
-                    try:
-                        collected_by_index[index] = cast(list[Any], future.result())
-                    except requests.exceptions.RequestException as error:
+                    if failed_category_errors:
+                        recovery_started = time.perf_counter()
+                        recovered = 0
+                        recovery_worker_count = min(
+                            self.category_workers,
+                            len(failed_category_errors),
+                        )
+                        with ThreadPoolExecutor(
+                            max_workers=recovery_worker_count,
+                        ) as recovery_executor:
+                            recovery_futures = {
+                                recovery_executor.submit(
+                                    self._collect_category,
+                                    index,
+                                    categories[index],
+                                ): index
+                                for index in failed_category_errors
+                            }
+                            for future in as_completed(recovery_futures):
+                                index = recovery_futures[future]
+                                category = categories[index]
+                                original_error = failed_category_errors[index]
+                                category_name = (
+                                    str(getattr(category, "name", "")).strip()
+                                    or "(sin nombre)"
+                                )
+                                try:
+                                    collected_by_index[index] = cast(
+                                        list[Any],
+                                        future.result(),
+                                    )
+                                except requests.exceptions.RequestException as error:
+                                    _log_timing(
+                                        "SCRAPING TIMING | stage=category_recovery_error | category=%s | error_type=%s | error=%s",
+                                        category_name,
+                                        type(error).__name__,
+                                        str(error),
+                                    )
+                                    self.last_sync_result.errors.append(
+                                        f"Reintento fallido en categoría "
+                                        f"'{category_name}': {error}"
+                                    )
+                                else:
+                                    recovered += 1
+                                    self.last_sync_result.errors = [
+                                        message
+                                        for message in self.last_sync_result.errors
+                                        if message != original_error
+                                    ]
+                                    _log_timing(
+                                        "SCRAPING TIMING | stage=category_recovered | category=%s | products=%d",
+                                        category_name,
+                                        len(collected_by_index[index]),
+                                    )
                         _log_timing(
-                            "SCRAPING TIMING | stage=category_recovery_error | category=%s | error_type=%s | error=%s",
-                            category_name,
-                            type(error).__name__,
-                            str(error),
+                            "SCRAPING TIMING | stage=category_recovery | attempted=%d | recovered=%d | seconds=%.3f",
+                            len(failed_category_errors),
+                            recovered,
+                            time.perf_counter() - recovery_started,
                         )
-                        self.last_sync_result.errors.append(
-                            f"Reintento fallido en categoría '{category_name}': {error}"
-                        )
-                    else:
-                        recovered += 1
-                        self.last_sync_result.errors = [
-                            message for message in self.last_sync_result.errors
-                            if message != original_error
-                        ]
-                        _log_timing(
-                            "SCRAPING TIMING | stage=category_recovered | category=%s | products=%d",
-                            category_name,
-                            len(collected_by_index[index]),
-                        )
-            _log_timing(
-                "SCRAPING TIMING | stage=category_recovery | attempted=%d | recovered=%d | seconds=%.3f",
-                len(failed_category_errors),
-                recovered,
-                time.perf_counter() - recovery_started,
-            )
+                        for index in failed_category_errors:
+                            submit_enrichment(enrichment_executor, index)
 
-        _log_timing(
-            "SCRAPING TIMING | stage=category_listing | categories=%d | products=%d | expected_category_occurrences=%d | seconds=%.3f",
-            len(categories),
-            sum(len(items) for items in collected_by_index),
-            expected_category_occurrences,
-            time.perf_counter() - started,
-        )
+                    _log_timing(
+                        "SCRAPING TIMING | stage=category_listing | categories=%d | products=%d | expected_category_occurrences=%d | seconds=%.3f",
+                        len(categories),
+                        sum(len(items) for items in collected_by_index),
+                        expected_category_occurrences,
+                        time.perf_counter() - started,
+                    )
 
-        started = time.perf_counter()
-        enriched_by_index: list[list[Any] | None] = [None] * len(categories)
-        enrichment_completed = 0
-        if categories:
-            worker_count = min(self.category_workers, len(categories))
-            with ThreadPoolExecutor(max_workers=worker_count) as executor:
-                futures = {
-                    executor.submit(
-                        self._enrich_category,
-                        index,
-                        category,
-                        collected_by_index[index],
-                    ): index
-                    for index, category in enumerate(categories)
-                }
-                for future in as_completed(futures):
-                    index = futures[future]
+                started = enrichment_started or time.perf_counter()
+                enrichment_completed = 0
+                for future in as_completed(enrichment_futures):
+                    index = enrichment_futures[future]
                     enriched_by_index[index] = cast(list[Any], future.result())
                     enrichment_completed += 1
                     if progress_callback and enrichment_completed < len(categories):
@@ -226,6 +266,12 @@ class CategoryProductSyncService:
                             len(categories) + enrichment_completed,
                             len(categories) * 2,
                         )
+        else:
+            _log_timing(
+                "SCRAPING TIMING | stage=category_listing | categories=0 | products=0 | expected_category_occurrences=0 | seconds=%.3f",
+                time.perf_counter() - started,
+            )
+            started = time.perf_counter()
 
         products = []
         for index, category in enumerate(categories):

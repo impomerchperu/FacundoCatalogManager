@@ -1,40 +1,35 @@
 import csv
 
+from exporters.catalog_export_schema import EXPORT_HEADERS, export_rows
+
 
 class CSVExporter:
-    """Exporta el catálogo en CSV UTF-8 compatible con hojas de cálculo."""
+    """Exporta el catálogo con el mismo contenido de la tabla principal."""
 
-    FIELDNAMES = (
-        "Código",
-        "Imagen",
-        "Producto(s)",
-        "Detalle",
-        "Stock disponible",
-        "Precio muestra",
-        "Precio ciento",
-        "Precio millar",
-    )
+    FIELDNAMES = EXPORT_HEADERS
 
     @classmethod
     def export(cls, products, filename) -> None:
+        rows = export_rows(products)
         with open(filename, "w", encoding="utf-8-sig", newline="") as file:
-            writer = csv.DictWriter(
+            writer = csv.writer(
                 file,
-                fieldnames=cls.FIELDNAMES,
                 delimiter=";",
-                extrasaction="ignore",
+                quoting=csv.QUOTE_MINIMAL,
             )
-            writer.writeheader()
-            for product in products:
+            writer.writerow(cls.FIELDNAMES)
+            for row in rows:
                 writer.writerow(
-                    {
-                        "Código": product.code,
-                        "Imagen": product.image_path or product.image_url,
-                        "Producto(s)": product.name,
-                        "Detalle": product.description,
-                        "Stock disponible": product.stock,
-                        "Precio muestra": product.price_sample,
-                        "Precio ciento": product.price_hundred,
-                        "Precio millar": product.price_thousand,
-                    }
+                    [
+                        row["image"],
+                        row["code"],
+                        row["name"],
+                        row["description"],
+                        row["category"],
+                        row["stock"],
+                        row["stock_by_color"],
+                        row["price_sample"],
+                        row["price_hundred"],
+                        row["price_thousand"],
+                    ]
                 )

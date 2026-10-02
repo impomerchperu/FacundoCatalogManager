@@ -1,10 +1,11 @@
 import csv
 
+from exporters.catalog_export_schema import EXPORT_HEADERS
 from exporters.csv_exporter import CSVExporter
 from models.product import Product
 
 
-def test_export_writes_catalog_fields(tmp_path):
+def test_export_writes_current_catalog_fields(tmp_path):
     filename = tmp_path / "catalogo.csv"
     products = [
         Product(
@@ -13,6 +14,7 @@ def test_export_writes_catalog_fields(tmp_path):
             category="Categoría",
             description="Detalle",
             stock=12,
+            color_stock={"Rojo": 5, "Azul": 7},
             price_sample=2.5,
             price_hundred=180,
             price_thousand=1600,
@@ -23,17 +25,18 @@ def test_export_writes_catalog_fields(tmp_path):
     CSVExporter.export(products, filename)
 
     with filename.open("r", encoding="utf-8-sig", newline="") as file:
-        rows = list(csv.DictReader(file, delimiter=";"))
+        rows = list(csv.reader(file, delimiter=";"))
 
-    assert rows == [
-        {
-            "Código": "FB-5013",
-            "Imagen": "images/FB-5013.jpg",
-            "Producto(s)": "Producto de prueba",
-            "Detalle": "Detalle",
-            "Stock disponible": "12",
-            "Precio muestra": "2.5",
-            "Precio ciento": "180",
-            "Precio millar": "1600",
-        }
+    assert rows[0] == list(EXPORT_HEADERS)
+    assert rows[1] == [
+        "images/FB-5013.jpg",
+        "FB-5013",
+        "Producto de prueba",
+        "Detalle",
+        "Categoría",
+        "12",
+        "Rojo: 5\nAzul: 7",
+        "2.5",
+        "180.0",
+        "1600.0",
     ]

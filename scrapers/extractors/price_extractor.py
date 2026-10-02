@@ -154,7 +154,7 @@ class PriceExtractor:
         normalized = " ".join(str(text).split()).casefold()
         return any(
             re.search(
-                rf"(?<!\\w){re.escape(alias)}(?!\\w)",
+                rf"(?<!\w){re.escape(alias)}(?!\w)",
                 normalized,
             )
             for alias in aliases

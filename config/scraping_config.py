@@ -27,10 +27,12 @@ SCRAPING_HTML_PARSER = "lxml"
 # Production uses the validated 24-worker setting.
 SCRAPING_MAX_WORKERS = 24
 
-# The live production-concurrency benchmark repeatedly preserved complete
-# coverage with 8 category workers while avoiding the retry pressure observed
-# at higher category concurrency.
-SCRAPING_CATEGORY_WORKERS = 8
+# Controlled live FULL image benchmarks with balanced run order completed all
+# eight 8/12-worker runs with complete coverage and zero retries/errors.
+# 12 workers was faster than 8 in all four paired comparisons, with a
+# four-run average pipeline reduction of 12.1%. Use 12 as the current
+# validated production candidate while main remains unchanged.
+SCRAPING_CATEGORY_WORKERS = 12
 
 # Category pages are fetched sequentially by default. This remains the
 # production-safe value until an isolated live benchmark justifies overlap.

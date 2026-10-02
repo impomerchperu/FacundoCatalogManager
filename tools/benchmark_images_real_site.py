@@ -549,4 +549,3 @@ def test_full_catalog_production_image_benchmark(tmp_path, monkeypatch):
         )
     finally:
         collection.close()
-        browser.close()

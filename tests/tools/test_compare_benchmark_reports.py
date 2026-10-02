@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 
 import pytest
 
@@ -218,6 +220,34 @@ def test_cli_returns_nonzero_for_incomparable_reports(tmp_path):
     )
 
     assert main([str(baseline_path), str(candidate_path)]) == 2
+
+
+def test_cli_entrypoint_executes_valid_reports(tmp_path):
+    baseline_path = tmp_path / "baseline.json"
+    candidate_path = tmp_path / "candidate.json"
+    baseline_path.write_text(
+        json.dumps(_report(pipeline_seconds=100.0)),
+        encoding="utf-8",
+    )
+    candidate_path.write_text(
+        json.dumps(_report(pipeline_seconds=90.0)),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "tools/compare_benchmark_reports.py",
+            str(baseline_path),
+            str(candidate_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "BENCHMARK COMPARISON" in result.stdout
 
 
 def test_cli_prints_comparison_for_valid_reports(tmp_path, capsys):

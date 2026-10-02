@@ -160,3 +160,17 @@ Los JSON producidos por ejecuciones locales bajo \`data/\` son artefactos tempor
 El \`.gitignore\` de esta rama ahora excluye \`data/*.json\`, cubriendo tanto nombres con guion como \`benchmark-*.json\` y nombres con guion bajo como \`benchmark_detail24.json\`.
 
 Antes del cierre de la auditoría se debe limpiar físicamente el contenido JSON generado en el entorno local.
+
+### Validación local posterior a los últimos ajustes
+
+La validación ejecutada sobre el head \`205cd0f\` produjo:
+
+- test de concurrencia/reintento corregido: 1 passed;
+- tests específicos de auditoría: 32 passed;
+- Ruff: sin errores;
+- Pyright: 0 errors, 0 warnings, 0 informations;
+- suite completa: 619 passed, 10 deselected.
+
+El directorio local \`data/\` fue limpiado y quedó sin archivos JSON generados. El worktree quedó limpio después de la sincronización con \`origin/perf/real-image-benchmark\`.
+
+No hay JSON bajo \`data/\` versionados en el head remoto.

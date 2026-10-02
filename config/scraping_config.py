@@ -62,6 +62,11 @@ SCRAPING_JSF_HTTP_CONCURRENCY = 8
 # benefit from increasing this value; keep the validated production default.
 SCRAPING_JSF_PAGE_WORKERS = 2
 
-# Image synchronization is I/O-bound; keep its worker pool separate from
-# the shared catalog HTTP budget.
-SCRAPING_IMAGE_WORKERS = 8
+# Controlled live FULL image benchmarks completed four comparable runs:
+# image_workers=8 and image_workers=16 both preserved 523/523 coverage,
+# 519/519 images, zero retries, and zero terminal errors. Across two runs
+# per setting, Image Sync averaged 41.08s at 8 workers versus 24.25s at
+# 16 workers (-40.98%). End-to-end wall time remained sensitive to upstream
+# collection variance, so 16 is the current validated ImageSync candidate
+# while main remains unchanged.
+SCRAPING_IMAGE_WORKERS = 16

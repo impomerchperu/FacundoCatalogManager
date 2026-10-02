@@ -48,10 +48,11 @@ def test_pdf_exporter_uses_current_catalog_fields(tmp_path, monkeypatch):
 
     PDFExporter.export([product], str(output))
 
-    assert captured["data"][0] == [
-        PDFExporter._header_text(label)
-        for label in EXPORT_HEADERS
+    header = [
+        cell.getPlainText()
+        for cell in captured["data"][0]
     ]
+    assert header == list(EXPORT_HEADERS)
 
     row = captured["data"][1]
     assert row[1].getPlainText() == "FB-100"

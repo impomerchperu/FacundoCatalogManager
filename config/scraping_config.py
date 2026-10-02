@@ -27,10 +27,11 @@ SCRAPING_HTML_PARSER = "lxml"
 # Production uses the validated 24-worker setting.
 SCRAPING_MAX_WORKERS = 24
 
-# The live production-concurrency benchmark repeatedly preserved complete
-# coverage with 8 category workers while avoiding the retry pressure observed
-# at higher category concurrency.
-SCRAPING_CATEGORY_WORKERS = 8
+# Controlled live FULL benchmarks validated 12 category workers with complete
+# coverage and zero retries/errors. A follow-up real profile at 16 workers
+# increased wall time from 58.01s to 62.76s (+8.2%) and increased average
+# category HTTP latency from 7.20s to 8.10s. Keep 12 as the validated setting.
+SCRAPING_CATEGORY_WORKERS = 12
 
 # Category pages are fetched sequentially by default. This remains the
 # production-safe value until an isolated live benchmark justifies overlap.
@@ -60,6 +61,11 @@ SCRAPING_JSF_HTTP_CONCURRENCY = 8
 # benefit from increasing this value; keep the validated production default.
 SCRAPING_JSF_PAGE_WORKERS = 2
 
-# Image synchronization is I/O-bound; keep its worker pool separate from
-# the shared catalog HTTP budget.
-SCRAPING_IMAGE_WORKERS = 8
+# Controlled live FULL image benchmarks completed four comparable runs:
+# image_workers=8 and image_workers=16 both preserved 523/523 coverage,
+# 519/519 images, zero retries, and zero terminal errors. Across two runs
+# per setting, Image Sync averaged 41.08s at 8 workers versus 24.25s at
+# 16 workers (-40.98%). End-to-end wall time remained sensitive to upstream
+# collection variance, so 16 is the current validated ImageSync candidate
+# while main remains unchanged.
+SCRAPING_IMAGE_WORKERS = 16

@@ -82,11 +82,11 @@ generated/
 *.cache
 
 # Artefactos generados por la ejecución del scraper
-data/scraping_result.json
 data/scraping_timing.log
-data/scraping_*_profile.json
-# Benchmarks reales/controlados generados localmente
-data/benchmark-*.json
+# JSON de ejecución, perfiles y benchmarks generados localmente.
+# Incluye archivos directos y subdirectorios como data/benchmarks/.
+# El directorio data no contiene artefactos JSON versionados.
+data/**/*.json
 
 
 # ==========================================================

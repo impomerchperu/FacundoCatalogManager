@@ -13,7 +13,7 @@ from services.scraping.scraping_config import ScrapingConfig
 def test_scraping_configuration():
     assert REQUEST_TIMEOUT > 0
     assert MAX_RETRIES > 0
-    assert SCRAPING_CATEGORY_WORKERS == 8
+    assert SCRAPING_CATEGORY_WORKERS == 12
     assert SCRAPING_HTTP_WORKERS == 28
     assert SCRAPING_HTTP_WORKERS >= SCRAPING_CATEGORY_WORKERS
 
@@ -24,9 +24,9 @@ def test_high_level_config_uses_canonical_transport_defaults():
     assert config.catalog_url == STORE_URL
     assert config.request_timeout == REQUEST_TIMEOUT
     assert config.max_retries == MAX_RETRIES
-    assert config.category_workers == 8
+    assert config.category_workers == 12
     assert config.detail_workers == SCRAPING_MAX_WORKERS
     assert config.detail_workers == 24
     assert config.http_workers == 28
     assert config.jsf_http_concurrency == 8
-    assert config.image_workers == SCRAPING_IMAGE_WORKERS == 8
+    assert config.image_workers == SCRAPING_IMAGE_WORKERS == 16

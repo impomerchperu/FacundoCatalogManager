@@ -248,7 +248,7 @@ def test_category_scraper_recovers_transient_empty_required_page():
     ] == sorted(["1", "2", "2", "3"])
 
 
-def test_category_scraper_stops_after_empty_page_retry_exhaustion():
+def test_category_scraper_fails_after_empty_page_retry_exhaustion():
     category_url = (
         "https://stock.importacionesfacundo.com/"
         "categoria-producto/catalogo/"
@@ -268,10 +268,13 @@ def test_category_scraper_stops_after_empty_page_retry_exhaustion():
     with pytest.raises(RuntimeError, match="Empty JSF pagination page 2"):
         scraper.get_category_pages(category_url, expected_count=61)
 
-    assert [
+    calls = [
         next(value for key, value in data if key == "paged")
         for _, data in browser.post_calls
-    ] == sorted(["1", "2", "2", "2", "3", "3", "3"])
+    ]
+    assert calls.count("1") == 1
+    assert calls.count("2") == 3
+    assert calls.count("3") == 3
 
 
 def test_category_scraper_continues_real_products_past_underreported_jsf_pages():

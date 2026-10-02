@@ -54,12 +54,25 @@ def _env_positive_int(name: str) -> int | None:
     return value
 
 
+def _profile_category_workers() -> int | None:
+    return _env_positive_int("FCM_PROFILE_CATEGORY_WORKERS")
+
+
 def _profile_http_workers() -> int | None:
     return _env_positive_int("FCM_PROFILE_HTTP_WORKERS")
 
 
 def _profile_jsf_http_concurrency() -> int | None:
     return _env_positive_int("FCM_PROFILE_JSF_HTTP_CONCURRENCY")
+
+
+def _enable_thread_sessions(browser: Any) -> bool:
+    """Activa sesiones HTTP por hilo y devuelve si la capacidad está disponible."""
+    enable_thread_sessions = getattr(browser, "enable_thread_sessions", None)
+    if not callable(enable_thread_sessions):
+        return False
+    enable_thread_sessions()
+    return True
 
 
 def _average(total: float, count: int) -> float:
@@ -150,14 +163,21 @@ def _build_http_payload(http_metrics: dict[str, Any]) -> dict[str, Any]:
 
 
 def main() -> int:
+    profile_category_workers = _profile_category_workers()
     profile_http_workers = _profile_http_workers()
     profile_jsf_http_concurrency = _profile_jsf_http_concurrency()
     config = ScrapingConfig(download_images=False)
+    if profile_category_workers is not None:
+        config.category_workers = profile_category_workers
     if profile_http_workers is not None:
         config.http_workers = profile_http_workers
     if profile_jsf_http_concurrency is not None:
         config.jsf_http_concurrency = profile_jsf_http_concurrency
-    if profile_http_workers is not None or profile_jsf_http_concurrency is not None:
+    if (
+        profile_category_workers is not None
+        or profile_http_workers is not None
+        or profile_jsf_http_concurrency is not None
+    ):
         config.__post_init__()
 
     runner = ScrapingFactory.create_runner(config)
@@ -170,6 +190,7 @@ def main() -> int:
     scraper = getattr(category_product_service, "scraper", None)
     category_scraper = getattr(scraper, "category_scraper", None)
     browser = getattr(category_scraper, "browser", None)
+    thread_sessions = _enable_thread_sessions(browser)
 
     started = time.perf_counter()
     categories = list(category_service.scrape_all() or [])
@@ -249,6 +270,7 @@ def main() -> int:
         "jsf_http_concurrency": config.jsf_http_concurrency,
         "request_timeout": config.request_timeout,
         "download_images": config.download_images,
+        "thread_sessions": thread_sessions,
         "discovery_seconds": round(discovery_seconds, 3),
         "profile_seconds": round(time.perf_counter() - profile_started, 3),
         "http": http_payload,
@@ -264,6 +286,7 @@ def main() -> int:
     print(f"categories={len(categories)}")
     print(f"discovery_seconds={discovery_seconds:.3f}")
     print(f"profile_seconds={payload['profile_seconds']:.3f}")
+    print(f"category_workers={config.category_workers}")
     print(f"http_workers={config.http_workers}")
     print(f"jsf_http_concurrency={config.jsf_http_concurrency}")
     print(f"output={OUTPUT_PATH}")

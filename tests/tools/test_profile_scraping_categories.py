@@ -1,4 +1,8 @@
-from tools.profile_scraping_categories import _build_http_payload
+from tools.profile_scraping_categories import (
+    _build_http_payload,
+    _enable_thread_sessions,
+    _profile_category_workers,
+)
 
 
 def test_build_http_payload_preserves_semaphore_metrics_by_request_class():
@@ -52,3 +56,40 @@ def test_build_http_payload_preserves_semaphore_metrics_by_request_class():
         "detail": 5,
         "other": 1,
     }
+
+
+class _FakeBrowser:
+    def __init__(self) -> None:
+        self.enabled = False
+
+    def enable_thread_sessions(self) -> None:
+        self.enabled = True
+
+
+class _FakeBrowserWithoutThreadSessions:
+    pass
+
+
+def test_profile_enables_thread_sessions_when_available():
+    browser = _FakeBrowser()
+
+    assert _enable_thread_sessions(browser) is True
+    assert browser.enabled is True
+
+
+def test_profile_detects_missing_thread_sessions_support():
+    browser = _FakeBrowserWithoutThreadSessions()
+
+    assert _enable_thread_sessions(browser) is False
+
+
+def test_profile_category_workers_reads_positive_override(monkeypatch):
+    monkeypatch.setenv("FCM_PROFILE_CATEGORY_WORKERS", "12")
+
+    assert _profile_category_workers() == 12
+
+
+def test_profile_category_workers_defaults_to_none(monkeypatch):
+    monkeypatch.delenv("FCM_PROFILE_CATEGORY_WORKERS", raising=False)
+
+    assert _profile_category_workers() is None

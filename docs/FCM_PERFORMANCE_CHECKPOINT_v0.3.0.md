@@ -149,3 +149,5 @@ Después de la ronda inicial de benchmarks y antes de cerrar el gate de v0.3.0 s
 Las nuevas pruebas cubren tanto el caso negativo de texto incidental como la integración con ProductCollectionScraper.
 
 La auditoría permanece abierta hasta ejecutar en el entorno local de referencia Ruff, Pyright y la suite completa sobre el head actualizado.
+
+En la siguiente ejecución local apareció un único fallo en \`tests/test_category_scraper.py::test_category_scraper_stops_after_empty_page_retry_exhaustion\`. La implementación concurrente de JSF (\`JSF_PAGE_WORKERS=2\`) puede intercalar las llamadas de las páginas 2 y 3, por lo que el test no debe imponer un orden global de POST. El test fue ajustado para validar el contrato estable: una solicitud inicial de página 1 y tres intentos para cada una de las páginas 2 y 3, independientemente del orden de intercalado.

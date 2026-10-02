@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from xml.sax.saxutils import escape
 
@@ -110,11 +110,12 @@ class PDFExporter:
             fontName="Helvetica-Bold",
         )
 
+        generated_at = datetime.now(timezone.utc).astimezone()
         elements: list[Any] = [
             Paragraph("Catálogo de Productos", title_style),
             Paragraph(
                 f"{len(products)} productos · Generado "
-                f"{datetime.now().strftime('%d/%m/%Y %H:%M')}",
+                f"{generated_at.strftime('%d/%m/%Y %H:%M')}",
                 meta_style,
             ),
             Spacer(1, 2),
@@ -206,7 +207,8 @@ class PDFExporter:
 
     @staticmethod
     def _price(value: object) -> str:
-        return f"S/ {float(value or 0):,.2f}"
+        amount = float(value) if isinstance(value, (int, float)) else 0.0
+        return f"S/ {amount:,.2f}"
 
     @staticmethod
     def _header_text(value: str) -> str:

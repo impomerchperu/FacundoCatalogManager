@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from models.product import Product
+if TYPE_CHECKING:
+    from models.product import Product
 
 
 EXPORT_COLUMNS: tuple[tuple[str, str], ...] = (

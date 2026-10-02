@@ -170,6 +170,10 @@ def main() -> int:
     scraper = getattr(category_product_service, "scraper", None)
     category_scraper = getattr(scraper, "category_scraper", None)
     browser = getattr(category_scraper, "browser", None)
+    enable_thread_sessions = getattr(browser, "enable_thread_sessions", None)
+    if callable(enable_thread_sessions):
+        enable_thread_sessions()
+    thread_sessions = callable(enable_thread_sessions)
 
     started = time.perf_counter()
     categories = list(category_service.scrape_all() or [])
@@ -249,6 +253,7 @@ def main() -> int:
         "jsf_http_concurrency": config.jsf_http_concurrency,
         "request_timeout": config.request_timeout,
         "download_images": config.download_images,
+        "thread_sessions": thread_sessions,
         "discovery_seconds": round(discovery_seconds, 3),
         "profile_seconds": round(time.perf_counter() - profile_started, 3),
         "http": http_payload,

@@ -54,6 +54,10 @@ def _env_positive_int(name: str) -> int | None:
     return value
 
 
+def _profile_category_workers() -> int | None:
+    return _env_positive_int("FCM_PROFILE_CATEGORY_WORKERS")
+
+
 def _profile_http_workers() -> int | None:
     return _env_positive_int("FCM_PROFILE_HTTP_WORKERS")
 
@@ -159,14 +163,21 @@ def _build_http_payload(http_metrics: dict[str, Any]) -> dict[str, Any]:
 
 
 def main() -> int:
+    profile_category_workers = _profile_category_workers()
     profile_http_workers = _profile_http_workers()
     profile_jsf_http_concurrency = _profile_jsf_http_concurrency()
     config = ScrapingConfig(download_images=False)
+    if profile_category_workers is not None:
+        config.category_workers = profile_category_workers
     if profile_http_workers is not None:
         config.http_workers = profile_http_workers
     if profile_jsf_http_concurrency is not None:
         config.jsf_http_concurrency = profile_jsf_http_concurrency
-    if profile_http_workers is not None or profile_jsf_http_concurrency is not None:
+    if (
+        profile_category_workers is not None
+        or profile_http_workers is not None
+        or profile_jsf_http_concurrency is not None
+    ):
         config.__post_init__()
 
     runner = ScrapingFactory.create_runner(config)
@@ -275,6 +286,7 @@ def main() -> int:
     print(f"categories={len(categories)}")
     print(f"discovery_seconds={discovery_seconds:.3f}")
     print(f"profile_seconds={payload['profile_seconds']:.3f}")
+    print(f"category_workers={config.category_workers}")
     print(f"http_workers={config.http_workers}")
     print(f"jsf_http_concurrency={config.jsf_http_concurrency}")
     print(f"output={OUTPUT_PATH}")

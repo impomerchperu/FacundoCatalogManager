@@ -62,6 +62,15 @@ def _profile_jsf_http_concurrency() -> int | None:
     return _env_positive_int("FCM_PROFILE_JSF_HTTP_CONCURRENCY")
 
 
+def _enable_thread_sessions(browser: Any) -> bool:
+    """Activa sesiones HTTP por hilo y devuelve si la capacidad está disponible."""
+    enable_thread_sessions = getattr(browser, "enable_thread_sessions", None)
+    if not callable(enable_thread_sessions):
+        return False
+    enable_thread_sessions()
+    return True
+
+
 def _average(total: float, count: int) -> float:
     return total / count if count else 0.0
 
@@ -170,10 +179,7 @@ def main() -> int:
     scraper = getattr(category_product_service, "scraper", None)
     category_scraper = getattr(scraper, "category_scraper", None)
     browser = getattr(category_scraper, "browser", None)
-    enable_thread_sessions = getattr(browser, "enable_thread_sessions", None)
-    if callable(enable_thread_sessions):
-        enable_thread_sessions()
-    thread_sessions = callable(enable_thread_sessions)
+    thread_sessions = _enable_thread_sessions(browser)
 
     started = time.perf_counter()
     categories = list(category_service.scrape_all() or [])

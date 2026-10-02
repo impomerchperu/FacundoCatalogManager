@@ -29,4 +29,4 @@ def test_high_level_config_uses_canonical_transport_defaults():
     assert config.detail_workers == 24
     assert config.http_workers == 28
     assert config.jsf_http_concurrency == 8
-    assert config.image_workers == SCRAPING_IMAGE_WORKERS == 8
+    assert config.image_workers == SCRAPING_IMAGE_WORKERS == 16

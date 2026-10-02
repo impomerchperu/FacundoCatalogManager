@@ -366,3 +366,38 @@ def test_price_extractor_normalizes_persisted_price_field_names():
     assert extractor._field_key("price_hundred") == "hundred"
     assert extractor._field_key("price_thousand") == "thousand"
     assert extractor._field_key("Precio Muestra") == "sample"
+
+def test_price_extractor_does_not_treat_description_text_as_price_label():
+    html = """
+    <article>
+        <h2>Producto de prueba</h2>
+        <p>
+            Este producto tiene precio ciento y precio por caja según volumen.
+            Consulte las condiciones comerciales.
+        </p>
+    </article>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    extractor = PriceExtractor()
+
+    assert extractor.price_field_needs_recovery(soup, "hundred") is False
+    assert extractor.price_field_needs_recovery(soup, "sample") is False
+    assert extractor.price_field_needs_recovery(soup, "thousand") is False
+
+
+def test_price_extractor_recovery_accepts_structured_price_label_with_suffix():
+    html = """
+    <article>
+        <div class="content-precio">
+            <h3>Precio Ciento (mayorista)</h3>
+            <h4>Consultar</h4>
+        </div>
+    </article>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    extractor = PriceExtractor()
+
+    assert extractor.price_field_needs_recovery(soup, "hundred") is True
+

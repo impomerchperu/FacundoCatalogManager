@@ -52,3 +52,32 @@ def test_build_http_payload_preserves_semaphore_metrics_by_request_class():
         "detail": 5,
         "other": 1,
     }
+
+
+class _FakeBrowser:
+    def __init__(self) -> None:
+        self.enabled = False
+
+    def enable_thread_sessions(self) -> None:
+        self.enabled = True
+
+
+class _FakeBrowserWithoutThreadSessions:
+    pass
+
+
+def test_profile_enables_thread_sessions_when_available():
+    browser = _FakeBrowser()
+
+    enable = getattr(browser, "enable_thread_sessions", None)
+    assert callable(enable)
+
+    enable()
+    assert browser.enabled is True
+
+
+def test_profile_detects_missing_thread_sessions_support():
+    browser = _FakeBrowserWithoutThreadSessions()
+
+    enable = getattr(browser, "enable_thread_sessions", None)
+    assert not callable(enable)

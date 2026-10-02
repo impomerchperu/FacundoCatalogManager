@@ -86,9 +86,9 @@ class PriceExtractor:
 
         heading = soup.find(
             lambda tag: tag.name in ["h3", "h4"]
-            and any(
-                alias in tag.get_text(" ", strip=True).casefold()
-                for alias in aliases
+            and self._text_matches_aliases(
+                tag.get_text(" ", strip=True),
+                aliases,
             )
         )
         if heading is not None:
@@ -101,8 +101,8 @@ class PriceExtractor:
             title = block.find(["h3", "h4"])
             if title is None:
                 continue
-            title_text = " ".join(title.get_text(" ", strip=True).split()).casefold()
-            if not any(alias in title_text for alias in aliases):
+            title_text = " ".join(title.get_text(" ", strip=True).split())
+            if not self._text_matches_aliases(title_text, aliases):
                 continue
             price = self._price_from_elements(block.find_all(["h3", "h4"]))
             if price is not None:
@@ -127,8 +127,36 @@ class PriceExtractor:
             return False
 
         aliases = self._field_aliases(field_key)
+        return self._has_announced_price_label(soup, aliases)
+
+    @classmethod
+    def _has_announced_price_label(cls, soup, aliases: tuple[str, ...]) -> bool:
+        """Detecta una etiqueta tarifaria solo en estructuras de precio conocidas."""
+        for heading in soup.find_all(["h3", "h4"]):
+            if cls._text_matches_aliases(
+                heading.get_text(" ", strip=True),
+                aliases,
+            ):
+                return True
+
+        for block in soup.select(".content-precio"):
+            title = block.find(["h3", "h4"])
+            if title is not None and cls._text_matches_aliases(
+                title.get_text(" ", strip=True),
+                aliases,
+            ):
+                return True
+
+        return False
+
+    @staticmethod
+    def _text_matches_aliases(text: str, aliases: tuple[str, ...]) -> bool:
+        normalized = " ".join(str(text).split()).casefold()
         return any(
-            alias in " ".join(soup.stripped_strings).casefold()
+            re.search(
+                rf"(?<!\\w){re.escape(alias)}(?!\\w)",
+                normalized,
+            )
             for alias in aliases
         )
 
@@ -150,9 +178,9 @@ class PriceExtractor:
 
     @classmethod
     def _contains_other_price_label(cls, text, current_aliases):
-        normalized = text.casefold()
         return any(
-            alias not in current_aliases and alias in normalized
+            alias not in current_aliases
+            and cls._text_matches_aliases(text, (alias,))
             for aliases in cls._PRICE_FIELD_ALIASES.values()
             for alias in aliases
         )

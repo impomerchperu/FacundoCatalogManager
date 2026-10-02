@@ -212,4 +212,4 @@ class PDFExporter:
 
     @staticmethod
     def _header_text(value: str) -> str:
-        return value.replace(" ", "<br/>", 1)
+        return value.replace(" ", " <br/>", 1)

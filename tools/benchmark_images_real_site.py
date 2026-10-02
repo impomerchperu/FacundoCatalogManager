@@ -185,7 +185,10 @@ def test_full_catalog_production_image_benchmark(tmp_path, monkeypatch):
             "FCM_IMAGE_BENCH_WORKERS=1; no se permite un benchmark "
             "secuencial FULL no acotado."
         )
-    category_workers = SCRAPING_CATEGORY_WORKERS
+    category_workers = _worker_count(
+        "FCM_BENCH_CATEGORY_WORKERS",
+        SCRAPING_CATEGORY_WORKERS,
+    )
     detail_workers = SCRAPING_MAX_WORKERS
     http_workers = SCRAPING_HTTP_WORKERS
     jsf_http_concurrency = _worker_count(

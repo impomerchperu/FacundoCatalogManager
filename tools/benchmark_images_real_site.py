@@ -11,6 +11,7 @@ from config.scraping_config import (
     SCRAPING_CATEGORY_PAGE_WORKERS,
     SCRAPING_CATEGORY_WORKERS,
     SCRAPING_HTTP_WORKERS,
+    SCRAPING_IMAGE_WORKERS,
     SCRAPING_JSF_HTTP_CONCURRENCY,
     SCRAPING_JSF_PAGE_WORKERS,
     SCRAPING_MAX_WORKERS,
@@ -174,7 +175,10 @@ def _measure_detail_extractor_output(
 @pytest.mark.real_site
 def test_full_catalog_production_image_benchmark(tmp_path, monkeypatch):
     """Mide el costo real de sincronizar las imágenes del catálogo FULL."""
-    image_workers = _worker_count("FCM_IMAGE_BENCH_WORKERS", 8)
+    image_workers = _worker_count(
+        "FCM_IMAGE_BENCH_WORKERS",
+        SCRAPING_IMAGE_WORKERS,
+    )
     raw_image_limit = os.getenv("FCM_IMAGE_BENCH_LIMIT", "").strip()
     image_limit = int(raw_image_limit) if raw_image_limit else 0
     if image_limit < 0:

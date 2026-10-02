@@ -132,9 +132,9 @@ Estos valores pertenecen a la rama de benchmark y todavía no se han promovido a
 
 ## 7. Próximos gates
 
-1. Ejecutar validación local completa después de los cambios de documentación/configuración.
-2. Consolidar los artefactos JSON definitivos.
-3. Repetir FULL final únicamente si se implementa una optimización adicional.
+1. Validación local completa posterior a los últimos ajustes: 619 passed, 10 deselected; Ruff y Pyright limpios.
+2. Limpiar los JSON locales generados durante la fase de benchmarks.
+3. Consolidar únicamente los artefactos JSON que deban conservarse como evidencia.
 4. Revisar el diff completo de la rama frente a `main`.
 5. Completar auditoría pre-v0.3.0.
 6. Promover a `main` solamente después del cierre de todos los gates.
@@ -148,6 +148,15 @@ Después de la ronda inicial de benchmarks y antes de cerrar el gate de v0.3.0 s
 
 Las nuevas pruebas cubren tanto el caso negativo de texto incidental como la integración con ProductCollectionScraper.
 
-La auditoría permanece abierta hasta ejecutar en el entorno local de referencia Ruff, Pyright y la suite completa sobre el head actualizado.
+La suite local posterior a estos ajustes quedó en 619 passed, 10 deselected, con Ruff y Pyright limpios.
 
-En la siguiente ejecución local apareció un único fallo en \`tests/test_category_scraper.py::test_category_scraper_stops_after_empty_page_retry_exhaustion\`. La implementación concurrente de JSF (\`JSF_PAGE_WORKERS=2\`) puede intercalar las llamadas de las páginas 2 y 3, por lo que el test no debe imponer un orden global de POST. El test fue ajustado para validar el contrato estable: una solicitud inicial de página 1 y tres intentos para cada una de las páginas 2 y 3, independientemente del orden de intercalado.
+En la primera ejecución posterior a los ajustes apareció un único fallo en \`tests/test_category_scraper.py::test_category_scraper_stops_after_empty_page_retry_exhaustion\`. La implementación concurrente de JSF (\`JSF_PAGE_WORKERS=2\`) puede intercalar las llamadas de las páginas 2 y 3, por lo que el test no debe imponer un orden global de POST. El test fue ajustado para validar el contrato estable: una solicitud inicial de página 1 y tres intentos para cada una de las páginas 2 y 3, independientemente del orden de intercalado.
+
+
+## Higiene de artefactos de benchmark
+
+Los JSON producidos por ejecuciones locales bajo \`data/\` son artefactos temporales y no forman parte del código ni de la evidencia versionada de \`main\`.
+
+El \`.gitignore\` de esta rama ahora excluye \`data/*.json\`, cubriendo tanto nombres con guion como \`benchmark-*.json\` y nombres con guion bajo como \`benchmark_detail24.json\`.
+
+Antes del cierre de la auditoría se debe limpiar físicamente el contenido JSON generado en el entorno local.

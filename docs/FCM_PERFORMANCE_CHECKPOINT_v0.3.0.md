@@ -1,6 +1,6 @@
 # FCM — Checkpoint de rendimiento pre-v0.3.0
 
-Fecha de referencia: 2026-10-02
+Fecha de referencia: 2026-10-01
 Rama: `perf/real-image-benchmark`
 Estado: checkpoint de trabajo; `main` permanece sin modificar por esta fase.
 

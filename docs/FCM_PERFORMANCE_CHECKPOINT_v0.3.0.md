@@ -139,3 +139,13 @@ Estos valores pertenecen a la rama de benchmark y todavía no se han promovido a
 5. Completar auditoría pre-v0.3.0.
 6. Promover a `main` solamente después del cierre de todos los gates.
 
+## Ajustes incorporados durante la auditoría previa al cierre
+
+Después de la ronda inicial de benchmarks y antes de cerrar el gate de v0.3.0 se incorporaron dos correcciones de robustez:
+
+1. La recuperación de precios anunciados quedó acotada a etiquetas encontradas en estructuras de precio conocidas (h3/h4 y bloques .content-precio). Ya no se considera suficiente que una descripción comercial contenga expresiones como "precio ciento" o "precio por caja".
+2. El benchmark FULL de imágenes dejó de realizar un doble cierre del Browser: ProductCollectionScraper.close() ya cierra el CategoryScraper y su transporte asociado.
+
+Las nuevas pruebas cubren tanto el caso negativo de texto incidental como la integración con ProductCollectionScraper.
+
+La auditoría permanece abierta hasta ejecutar en el entorno local de referencia Ruff, Pyright y la suite completa sobre el head actualizado.

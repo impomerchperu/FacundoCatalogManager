@@ -1,4 +1,7 @@
-from tools.profile_scraping_categories import _build_http_payload
+from tools.profile_scraping_categories import (
+    _build_http_payload,
+    _enable_thread_sessions,
+)
 
 
 def test_build_http_payload_preserves_semaphore_metrics_by_request_class():
@@ -69,15 +72,11 @@ class _FakeBrowserWithoutThreadSessions:
 def test_profile_enables_thread_sessions_when_available():
     browser = _FakeBrowser()
 
-    enable = getattr(browser, "enable_thread_sessions", None)
-    assert callable(enable)
-
-    enable()
+    assert _enable_thread_sessions(browser) is True
     assert browser.enabled is True
 
 
 def test_profile_detects_missing_thread_sessions_support():
     browser = _FakeBrowserWithoutThreadSessions()
 
-    enable = getattr(browser, "enable_thread_sessions", None)
-    assert not callable(enable)
+    assert _enable_thread_sessions(browser) is False

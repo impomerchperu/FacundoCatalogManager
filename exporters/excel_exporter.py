@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -10,13 +12,13 @@ from exporters.catalog_export_schema import EXPORT_HEADERS, export_rows
 class ExcelExporter:
     """Exporta el catálogo respetando la estructura de la tabla principal."""
 
-    CURRENCY_COLUMNS = {
+    CURRENCY_COLUMNS: ClassVar[set[str]] = {
         "Precio muestra",
         "Precio ciento",
         "Precio millar",
     }
 
-    COLUMN_WIDTHS = {
+    COLUMN_WIDTHS: ClassVar[dict[str, int]] = {
         "Imagen": 28,
         "Código": 14,
         "Producto": 42,
@@ -29,10 +31,10 @@ class ExcelExporter:
         "Precio millar": 18,
     }
 
-    HEADER_FILL = "EAF3FA"
-    HEADER_TEXT = "173F6D"
-    BORDER_COLOR = "CBDDEA"
-    ALT_ROW_FILL = "F8FBFF"
+    HEADER_FILL: ClassVar[str] = "EAF3FA"
+    HEADER_TEXT: ClassVar[str] = "173F6D"
+    BORDER_COLOR: ClassVar[str] = "CBDDEA"
+    ALT_ROW_FILL: ClassVar[str] = "F8FBFF"
 
     @classmethod
     def export(cls, products, filename) -> None:
@@ -89,9 +91,11 @@ class ExcelExporter:
         sheet.freeze_panes = "A2"
         sheet.auto_filter.ref = sheet.dimensions
 
-        header_index = {
-            cell.value: cell.column for cell in sheet[1] if cell.value
-        }
+        header_index: dict[str, int] = {}
+        for cell in sheet[1]:
+            if cell.value is None or cell.column is None:
+                continue
+            header_index[str(cell.value)] = cell.column
 
         for row in range(2, sheet.max_row + 1):
             if row % 2 == 0:

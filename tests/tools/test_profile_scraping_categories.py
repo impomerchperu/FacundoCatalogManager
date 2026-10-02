@@ -1,6 +1,7 @@
 from tools.profile_scraping_categories import (
     _build_http_payload,
     _enable_thread_sessions,
+    _profile_category_workers,
 )
 
 
@@ -80,3 +81,15 @@ def test_profile_detects_missing_thread_sessions_support():
     browser = _FakeBrowserWithoutThreadSessions()
 
     assert _enable_thread_sessions(browser) is False
+
+
+def test_profile_category_workers_reads_positive_override(monkeypatch):
+    monkeypatch.setenv("FCM_PROFILE_CATEGORY_WORKERS", "12")
+
+    assert _profile_category_workers() == 12
+
+
+def test_profile_category_workers_defaults_to_none(monkeypatch):
+    monkeypatch.delenv("FCM_PROFILE_CATEGORY_WORKERS", raising=False)
+
+    assert _profile_category_workers() is None

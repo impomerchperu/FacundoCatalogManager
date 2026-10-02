@@ -4,7 +4,10 @@ from scrapers.extractors.category_product_extractor import CategoryProductExtrac
 from scrapers.extractors.product_extractor import ProductExtractor
 
 
-def _run_missing_price_case(price_html: str):
+def _run_missing_price_case(
+    price_html: str,
+    description: str = "Producto con precios parciales.",
+):
     class CategoryScraper:
         def get_category_pages(self, url):
             return [url]
@@ -18,7 +21,7 @@ def _run_missing_price_case(price_html: str):
                         <h2 class="brxe-f31760">Producto precios</h2>
                     </a>
                     <p class="brxe-a26f34">FB-1237</p>
-                    <div class="text-content">Producto con precios parciales.</div>
+                    <div class="text-content">{description}</div>
                     <div class="variaciones-producto"><p>10</p></div>
                     {price_html}
                 </article>
@@ -90,3 +93,18 @@ def test_missing_multiple_advertised_prices_are_all_recorded():
         "requested_missing_sample": 1,
         "requested_missing_thousand": 1,
     }
+
+def test_description_text_does_not_trigger_price_detail_recovery():
+    metrics = _run_missing_price_case(
+        "",
+        description=(
+            "Precio ciento y precio por caja según volumen; "
+            "consulte las condiciones comerciales."
+        ),
+    )
+
+    assert metrics["detail_requests"] == 0
+    assert metrics["detail_reason_counts"] == {
+        "skipped_complete_single_stock": 1,
+    }
+

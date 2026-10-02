@@ -84,8 +84,9 @@ generated/
 # Artefactos generados por la ejecución del scraper
 data/scraping_timing.log
 # JSON de ejecución, perfiles y benchmarks generados localmente.
+# Incluye archivos directos y subdirectorios como data/benchmarks/.
 # El directorio data no contiene artefactos JSON versionados.
-data/*.json
+data/**/*.json
 
 
 # ==========================================================

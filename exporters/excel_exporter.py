@@ -253,7 +253,7 @@ class ExcelExporter:
     ) -> None:
         image_column = cls._header_column(sheet, "Imagen")
 
-        for offset, (product, row) in enumerate(zip(products, rows)):
+        for offset, (product, row) in enumerate(zip(products, rows, strict=True)):
             reference = str(row.get("image", "") or "").strip()
             fallback_url = str(
                 getattr(product, "image_url", "") or "",

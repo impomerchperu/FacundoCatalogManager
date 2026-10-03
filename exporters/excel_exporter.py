@@ -66,8 +66,6 @@ class ExcelExporter:
         sheet.title = "Productos"
         sheet.sheet_view.showGridLines = False
 
-        for row in rows:
-            row.pop("image_url", None)
 
         sheet.append(list(EXPORT_HEADERS))
         for row in rows:
@@ -276,9 +274,7 @@ class ExcelExporter:
             if image is None:
                 continue
 
-            image.anchor = (
-                f"{get_column_letter(image_column)}{target_row}",
-            )
+            image.anchor = f"{get_column_letter(image_column)}{target_row}"
             sheet.add_image(image)
 
             image_height_points = (

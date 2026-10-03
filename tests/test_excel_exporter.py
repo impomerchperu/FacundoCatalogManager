@@ -1,4 +1,3 @@
-from pathlib import Path
 from zipfile import ZipFile
 
 from openpyxl import load_workbook

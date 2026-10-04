@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any, ClassVar
 from urllib.request import Request, urlopen
 
 from openpyxl import Workbook
@@ -18,7 +19,7 @@ from exporters.catalog_export_schema import export_rows
 
 
 class ExcelExporter:
-    """Exporta el catálogo de productos a un libro XLSX sencillo y editable."""
+    """Exporta un catálogo XLSX sencillo, editable y sin automatización externa."""
 
     EXCEL_HEADERS: ClassVar[tuple[str, ...]] = (
         "Imagen",
@@ -37,17 +38,32 @@ class ExcelExporter:
         {"Producto", "Detalle", "Categoría", "Color"}
     )
     RIGHT_INDENT_HEADERS: ClassVar[frozenset[str]] = frozenset({"Stock"})
-    CENTER_HEADERS: ClassVar[frozenset[str]] = frozenset(
-        {"Imagen", "Código", "Precio muestra", "Precio ciento", "Precio millar"}
+    PRICE_HEADERS: ClassVar[frozenset[str]] = frozenset(
+        {"Precio muestra", "Precio ciento", "Precio millar"}
     )
-    INDENT_LEVEL = 1
-    IMAGE_COLUMN_WIDTH = 20.0
-    HEADER_ROW_HEIGHT = 22.0
-    LINE_HEIGHT_POINTS = 15.0
-    IMAGE_CELL_PADDING_PX = 4
-    EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT = 7.0
-    EXCEL_DPI = 96.0
-    POINTS_PER_INCH = 72.0
+    INDENT_LEVEL: ClassVar[int] = 1
+
+    COLUMN_WIDTHS: ClassVar[dict[str, float]] = {
+        "Imagen": 20.0,
+        "Código": 14.0,
+        "Producto": 32.0,
+        "Detalle": 40.0,
+        "Categoría": 26.0,
+        "Color": 20.0,
+        "Stock": 12.0,
+        "Precio muestra": 16.0,
+        "Precio ciento": 16.0,
+        "Precio millar": 16.0,
+    }
+
+    LOCAL_CURRENCY_FORMAT: ClassVar[str] = '"S/" #,##0.00'
+    HEADER_ROW_HEIGHT: ClassVar[float] = 22.0
+    BASE_ROW_HEIGHT: ClassVar[float] = 18.0
+    LINE_HEIGHT: ClassVar[float] = 15.0
+    IMAGE_CELL_PADDING_PX: ClassVar[int] = 4
+    EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT: ClassVar[float] = 7.0
+    EXCEL_DPI: ClassVar[float] = 96.0
+    POINTS_PER_INCH: ClassVar[float] = 72.0
 
     @classmethod
     def export(cls, products: Iterable, filename) -> None:
@@ -55,13 +71,12 @@ class ExcelExporter:
         rows = export_rows(product_list)
 
         workbook = Workbook()
-        active_sheet = workbook.active
-        if active_sheet is None:
+        sheet = workbook.active
+        if sheet is None:
             raise RuntimeError("No se pudo crear la hoja Excel")
 
-        sheet: Worksheet = active_sheet
         sheet.title = "Productos"
-        cls._initialize_sheet(sheet)
+        sheet.append(list(cls.EXCEL_HEADERS))
 
         for row in rows:
             colors, stocks = cls._split_color_stock(
@@ -95,37 +110,35 @@ class ExcelExporter:
             workbook.save(filename)
 
     @classmethod
-    def _initialize_sheet(cls, sheet: Worksheet) -> None:
-        sheet.auto_filter.ref = None
-        sheet.append(list(cls.EXCEL_HEADERS))
-        sheet.row_dimensions[1].height = cls.HEADER_ROW_HEIGHT
-
-    @classmethod
     def _set_column_widths(cls, sheet: Worksheet) -> None:
-        sheet.column_dimensions["A"].width = cls.IMAGE_COLUMN_WIDTH
+        for index, header in enumerate(cls.EXCEL_HEADERS, start=1):
+            sheet.column_dimensions[get_column_letter(index)].width = (
+                cls.COLUMN_WIDTHS[header]
+            )
 
     @classmethod
     def _style_sheet(cls, sheet: Worksheet) -> None:
         header_font = Font(bold=True)
-        header_index = cls._header_index()
 
         for cell in sheet[1]:
             cell.font = header_font
             cell.alignment = Alignment(
                 horizontal="center",
                 vertical="center",
-                wrap_text=True,
             )
+        sheet.row_dimensions[1].height = cls.HEADER_ROW_HEIGHT
 
         for row in range(2, sheet.max_row + 1):
-            for header, column in header_index.items():
+            for header, column in cls._header_index().items():
                 cell = sheet.cell(row=row, column=column)
                 cell.alignment = cls._data_alignment(header)
-            color_lines = str(
-                sheet.cell(row=row, column=header_index["Color"]).value or ""
-            ).splitlines()
-            line_count = max(len(color_lines), 1)
-            sheet.row_dimensions[row].height = line_count * cls.LINE_HEIGHT_POINTS
+
+                if header in cls.PRICE_HEADERS:
+                    cell.number_format = cls.LOCAL_CURRENCY_FORMAT
+                elif header == "Stock":
+                    cell.number_format = "#,##0"
+
+            sheet.row_dimensions[row].height = cls._row_height(sheet, row)
 
     @classmethod
     def _data_alignment(cls, header: str) -> Alignment:
@@ -143,23 +156,58 @@ class ExcelExporter:
                 indent=cls.INDENT_LEVEL,
                 wrap_text=True,
             )
+        if header in cls.PRICE_HEADERS:
+            return Alignment(
+                horizontal="center",
+                vertical="center",
+            )
         return Alignment(
             horizontal="center",
             vertical="center",
-            wrap_text=True,
+        )
+
+    @classmethod
+    def _row_height(cls, sheet: Worksheet, row: int) -> float:
+        header_index = cls._header_index()
+        max_lines = 1
+
+        for header in ("Producto", "Detalle", "Categoría", "Color", "Stock"):
+            value = str(
+                sheet.cell(row=row, column=header_index[header]).value or ""
+            )
+            width = cls.COLUMN_WIDTHS[header]
+            max_lines = max(
+                max_lines,
+                cls._estimate_lines(value, width),
+            )
+
+        return max(
+            cls.BASE_ROW_HEIGHT,
+            max_lines * cls.LINE_HEIGHT,
+        )
+
+    @staticmethod
+    def _estimate_lines(text: str, width: float) -> int:
+        if not text:
+            return 1
+
+        max_chars = max(int(width * 0.9), 1)
+        return sum(
+            max(1, (len(line) + max_chars - 1) // max_chars)
+            for line in text.splitlines() or [""]
         )
 
     @classmethod
     def _embed_product_images(
         cls,
         sheet: Worksheet,
-        products: list,
+        products: list[Any],
         rows: list[dict[str, object]],
         temp_dir: Path,
     ) -> None:
         image_column = cls._header_index()["Imagen"]
 
-        for offset, (product, row) in enumerate(
+        for row_number, (product, row) in enumerate(
             zip(products, rows, strict=True),
             start=2,
         ):
@@ -172,17 +220,22 @@ class ExcelExporter:
             if source_path is None and fallback_url:
                 source_path = cls._download_image(
                     fallback_url,
-                    temp_dir / f"source_{offset}",
+                    temp_dir / f"source_{row_number}",
                 )
             if source_path is None:
                 continue
 
-            image_path = temp_dir / f"product_{offset}.png"
-            image = cls._prepare_image(source_path, image_path, sheet, offset)
+            target_path = temp_dir / f"product_{row_number}.png"
+            image = cls._prepare_image(
+                source_path,
+                target_path,
+                sheet,
+                row_number,
+            )
             if image is None:
                 continue
 
-            image.anchor = cls._two_cell_anchor(image_column, offset)
+            image.anchor = cls._two_cell_anchor(image_column, row_number)
             sheet.add_image(image)
 
     @classmethod
@@ -239,14 +292,14 @@ class ExcelExporter:
             sheet.column_dimensions[
                 get_column_letter(image_column)
             ].width
-            or cls.IMAGE_COLUMN_WIDTH,
+            or cls.COLUMN_WIDTHS["Imagen"],
         )
         cell_width = max(
             int(column_width * cls.EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT),
             cls.IMAGE_CELL_PADDING_PX + 1,
         )
 
-        row_height = sheet.row_dimensions[row].height or cls.DEFAULT_ROW_HEIGHT
+        row_height = sheet.row_dimensions[row].height or cls.BASE_ROW_HEIGHT
         cell_height = max(
             int(row_height * cls.EXCEL_DPI / cls.POINTS_PER_INCH),
             cls.IMAGE_CELL_PADDING_PX + 1,
@@ -305,6 +358,7 @@ class ExcelExporter:
             stock_text = stock_text.strip()
             if not color_name:
                 continue
+
             colors.append(color_name)
             stocks.append(stock_text)
 

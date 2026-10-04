@@ -12,8 +12,8 @@ from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
 from openpyxl.drawing.xdr import XDRPositiveSize2D
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
-from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils.units import pixels_to_EMU
+from openpyxl.worksheet.worksheet import Worksheet
 from PIL import Image
 
 from config.runtime_paths import resolve_data_path

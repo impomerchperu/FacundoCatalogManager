@@ -783,7 +783,7 @@ class ExcelExporter:
             "2006/spreadsheetDrawing"
         )
         root_match = re.match(
-            rf'<wsDr\\s+xmlns="{re.escape(namespace)}">',
+            rf'<wsDr\s+xmlns="{re.escape(namespace)}">',
             xml,
         )
         if root_match:
@@ -793,8 +793,8 @@ class ExcelExporter:
             )
 
         return re.sub(
-            r"<(/?)(?![A-Za-z_][\\w.-]*:)([A-Za-z_][\\w.-]*)(?=[ >])",
-            r"<\\1xdr:\\2",
+            r"<(/?)(?![A-Za-z_][\w.-]*:)([A-Za-z_][\w.-]*)(?=[ >])",
+            r"<\1xdr:\2",
             xml,
         )
 

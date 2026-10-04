@@ -69,11 +69,13 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     assert sheet["A2"].value is None
     assert sheet.freeze_panes == "B2"
     assert sheet.sheet_view.zoomScale == 85
-    assert sheet.column_dimensions["D"].width >= 42.0
-    assert sheet.column_dimensions["E"].width == 42.0
-    assert sheet.column_dimensions["F"].width >= 25.0
-    assert sheet.column_dimensions["G"].width >= 14.0
-    assert sheet.column_dimensions["B"].width >= 24.0
+    assert sheet.column_dimensions["C"].width == 12.11
+    assert sheet.column_dimensions["D"].width == 31.67
+    assert sheet.column_dimensions["E"].width == 41.22
+    assert sheet.column_dimensions["F"].width == 25.22
+    assert sheet.column_dimensions["G"].width == 16.89
+    assert sheet.column_dimensions["H"].width == 9.44
+    assert sheet.column_dimensions["B"].width == 25.0
 
     assert sheet["C1"].font.name == "Segoe UI"
     assert sheet["C1"].font.size == 14
@@ -107,7 +109,7 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     assert image.anchor._from.row == 1
     assert image.anchor.to.col == 2
     assert image.anchor.to.row == 2
-    assert image.width >= int(ExcelExporter.COLUMN_MIN_WIDTHS["Imagen"] * 7)
+    assert image.width >= int(ExcelExporter.COLUMN_WIDTHS["Imagen"] * 7)
     assert image.height > 0
 
 
@@ -137,11 +139,7 @@ def test_export_adjusts_row_height_to_long_text(tmp_path):
     detail_letter = sheet.cell(row=1, column=detail_column).column_letter
     detail_width = sheet.column_dimensions[detail_letter].width
     assert detail_width is not None
-    assert (
-        ExcelExporter.COLUMN_MIN_WIDTHS["Detalle"]
-        <= detail_width
-        <= ExcelExporter.COLUMN_MAX_WIDTHS["Detalle"]
-    )
+    assert detail_width == ExcelExporter.COLUMN_WIDTHS["Detalle"]
 
 
 def test_export_with_no_products_creates_only_headers(tmp_path):

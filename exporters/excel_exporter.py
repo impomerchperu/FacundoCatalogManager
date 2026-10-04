@@ -59,8 +59,10 @@ class ExcelExporter:
     }
 
     LOCAL_CURRENCY_FORMAT: ClassVar[str] = '"S/" #,##0.00'
-    HEADER_ROW_HEIGHT: ClassVar[float] = 22.0
-    BASE_ROW_HEIGHT: ClassVar[float] = 18.0
+    HEADER_ROW_HEIGHT: ClassVar[float] = 44.0
+    BASE_ROW_HEIGHT: ClassVar[float] = 36.0
+    HEADER_FONT_SIZE: ClassVar[float] = 14.0
+    INITIAL_ROWS: ClassVar[int] = 2
     LINE_HEIGHT: ClassVar[float] = 15.0
     EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT: ClassVar[float] = 7.0
     EXCEL_DPI: ClassVar[float] = 96.0
@@ -78,6 +80,8 @@ class ExcelExporter:
             raise RuntimeError("No se pudo crear la hoja Excel")
 
         sheet.title = "Productos"
+        for _ in range(cls.INITIAL_ROWS):
+            sheet.append([None] * len(cls.EXCEL_HEADERS))
         sheet.append(list(cls.EXCEL_HEADERS))
 
         for row in rows:
@@ -122,15 +126,17 @@ class ExcelExporter:
     def _style_sheet(cls, sheet: Worksheet) -> None:
         header_font = Font(bold=True)
 
-        for cell in sheet[1]:
+        header_font = Font(bold=True, size=cls.HEADER_FONT_SIZE)
+
+        for cell in sheet[cls.INITIAL_ROWS + 1]:
             cell.font = header_font
             cell.alignment = Alignment(
                 horizontal="center",
                 vertical="center",
             )
-        sheet.row_dimensions[1].height = cls.HEADER_ROW_HEIGHT
+        sheet.row_dimensions[cls.INITIAL_ROWS + 1].height = cls.HEADER_ROW_HEIGHT
 
-        for row in range(2, sheet.max_row + 1):
+        for row in range(cls.INITIAL_ROWS + 2, sheet.max_row + 1):
             for header, column in cls._header_index().items():
                 cell = sheet.cell(row=row, column=column)
                 cell.alignment = cls._data_alignment(header)
@@ -209,7 +215,7 @@ class ExcelExporter:
     ) -> None:
         for row_number, (product, row) in enumerate(
             zip(products, rows, strict=True),
-            start=2,
+            start=cls.INITIAL_ROWS + 2,
         ):
             reference = str(row.get("image", "") or "").strip()
             fallback_url = str(

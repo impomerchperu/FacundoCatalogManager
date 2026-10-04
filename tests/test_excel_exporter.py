@@ -50,12 +50,20 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     ]
 
     assert sheet.column_dimensions["A"].width == ExcelExporter.SIDEBAR_COLUMN_WIDTH
-    for header, column in ExcelExporter._header_index().items():
-        letter = sheet.cell(row=1, column=column).column_letter
-        width = sheet.column_dimensions[letter].width
-        assert width is not None
-        assert ExcelExporter.COLUMN_MIN_WIDTHS[header] <= width
-        assert width <= ExcelExporter.COLUMN_MAX_WIDTHS[header]
+    expected_widths = {
+        "B": 25.0,
+        "C": 12.11,
+        "D": 31.67,
+        "E": 41.22,
+        "F": 25.22,
+        "G": 16.89,
+        "H": 9.44,
+        "I": 12.11,
+        "J": 12.11,
+        "K": 12.11,
+    }
+    for column, width in expected_widths.items():
+        assert sheet.column_dimensions[column].width == width
 
     assert sheet["A1"].value is None
     assert sheet["A2"].value is None

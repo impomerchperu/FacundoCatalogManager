@@ -22,7 +22,7 @@ from services.stock_color_palette import known_stock_color_style
 
 
 class ExcelExporter:
-    """Exporta el catálogo en una tabla Excel interactiva y compatible."""
+    """Exporta el catálogo con tabla, imágenes y segmentación por categoría."""
 
     EXCEL_HEADERS: ClassVar[tuple[str, ...]] = (
         "Imagen",
@@ -62,7 +62,7 @@ class ExcelExporter:
     BORDER_COLOR: ClassVar[str] = "CBDDEA"
     ALT_ROW_FILL: ClassVar[str] = "F8FBFF"
 
-    IMAGE_MAX_SIZE_PX: ClassVar[int] = 180
+    IMAGE_MAX_SIZE_PX: ClassVar[int] = 118
     MIN_ROW_HEIGHT_POINTS: ClassVar[float] = 92.0
     TEXT_LINE_HEIGHT_POINTS: ClassVar[float] = 15.0
     ROW_VERTICAL_PADDING_POINTS: ClassVar[float] = 8.0
@@ -70,7 +70,7 @@ class ExcelExporter:
     SLICER_CACHE_NAME: ClassVar[str] = "SegmentaciónDeDatos_Categoría"
     SLICER_NAME: ClassVar[str] = "Categoría"
     SLICER_STYLE: ClassVar[str] = "SlicerStyleLight5"
-    SLICER_DRAWING_ID: ClassVar[int] = 2000
+    SLICER_DRAWING_ID: ClassVar[int] = 521
 
     @classmethod
     def export(cls, products: Iterable, filename) -> None:
@@ -94,13 +94,14 @@ class ExcelExporter:
                 cls.COLUMN_WIDTHS[header]
             )
 
-        sheet.append(list(cls.EXCEL_HEADERS))
+        sheet.append([None, *cls.EXCEL_HEADERS])
         for row in rows:
             colors, stocks = cls._split_color_stock(
                 str(row.get("stock_by_color", "") or ""),
             )
             sheet.append(
                 [
+                    None,
                     None,
                     row["code"],
                     row["name"],
@@ -136,9 +137,10 @@ class ExcelExporter:
         header_index = cls._header_index()
 
         for cell in sheet[1]:
-            cell.fill = PatternFill(
-                "solid",
-                fgColor=cls.HEADER_FILL,
+            cell.fill = (
+                PatternFill("solid", fgColor=cls.HEADER_FILL)
+                if cell.column != 1
+                else PatternFill("solid", fgColor="FFFFFF")
             )
             cell.font = Font(
                 name="Segoe UI",
@@ -156,14 +158,13 @@ class ExcelExporter:
         sheet.row_dimensions[1].height = 32
 
         for row_number in range(2, sheet.max_row + 1):
-            if row_number % 2 == 0:
-                for cell in sheet[row_number]:
+            for column in range(1, sheet.max_column + 1):
+                cell = sheet.cell(row=row_number, column=column)
+                if row_number % 2 == 0 and column != 1:
                     cell.fill = PatternFill(
                         "solid",
                         fgColor=cls.ALT_ROW_FILL,
                     )
-
-            for cell in sheet[row_number]:
                 cell.font = Font(
                     name="Segoe UI",
                     size=10,
@@ -293,20 +294,24 @@ class ExcelExporter:
 
             row_index = target_row - 1
             col_index = image_column - 1
+            width_emu = int((image.width or 0) / 96 * 914400)
+            height_emu = int((image.height or 0) / 96 * 914400)
             image.anchor = TwoCellAnchor(
                 editAs="twoCell",
                 _from=AnchorMarker(
                     col=col_index,
                     row=row_index,
+                    colOff=0,
+                    rowOff=0,
                 ),
                 to=AnchorMarker(
-                    col=col_index + 1,
-                    row=row_index + 1,
+                    col=col_index,
+                    row=row_index,
+                    colOff=width_emu,
+                    rowOff=height_emu,
                 ),
             )
             sheet.add_image(image)
-
-        return
 
     @staticmethod
     def _local_image_path(reference: str) -> Path | None:
@@ -377,7 +382,7 @@ class ExcelExporter:
             if not value:
                 continue
 
-            cell = sheet.cell(
+            stock_cell = sheet.cell(
                 row=2 + offset,
                 column=stock_index,
             )
@@ -389,7 +394,7 @@ class ExcelExporter:
             if background is None:
                 continue
 
-            for target in (color_cell, cell):
+            for target in (color_cell, stock_cell):
                 target.fill = PatternFill(
                     "solid",
                     fgColor=background,
@@ -405,7 +410,7 @@ class ExcelExporter:
                 vertical="center",
                 wrap_text=True,
             )
-            cell.alignment = Alignment(
+            stock_cell.alignment = Alignment(
                 horizontal="center",
                 vertical="center",
                 wrap_text=True,
@@ -664,6 +669,19 @@ class ExcelExporter:
         xml: str,
         cache_rel_id: str,
     ) -> str:
+        namespace = (
+            ' xmlns:r="http://schemas.openxmlformats.org/'
+            'officeDocument/2006/relationships"'
+        )
+        if 'xmlns:r="http://schemas.openxmlformats.org/'
+        'officeDocument/2006/relationships"' not in xml:
+            xml = xml.replace(
+                '<workbook xmlns="http://schemas.openxmlformats.org/'
+                'spreadsheetml/2006/main"',
+                '<workbook xmlns="http://schemas.openxmlformats.org/'
+                f'spreadsheetml/2006/main"{namespace}',
+            )
+
         if "<definedNames>" not in xml:
             defined_names = (
                 "<definedNames>"
@@ -727,9 +745,9 @@ class ExcelExporter:
     @classmethod
     def _append_slicer_drawing(cls, xml: str) -> str:
         fragment = (
-            '<xdr:twoCellAnchor>'
+            '<xdr:twoCellAnchor editAs="absolute">'
             '<xdr:from>'
-            '<xdr:col>0</xdr:col><xdr:colOff>38100</xdr:colOff>'
+            '<xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff>'
             '<xdr:row>0</xdr:row><xdr:rowOff>38100</xdr:rowOff>'
             '</xdr:from>'
             '<xdr:to>'
@@ -798,13 +816,13 @@ class ExcelExporter:
             'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '
             'mc:Ignorable="x" '
             'xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
-            'name="SegmentaciónDeDatos_Categoría" sourceName="Categoría">'
+            f'name="{cls.SLICER_CACHE_NAME}" sourceName="Categoría">'
             '<extLst>'
-            '<ext uri="{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}" '
+            '<x:ext uri="{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}" '
             'xmlns:x15="http://schemas.microsoft.com/office/'
             'spreadsheetml/2010/11/main">'
             '<x15:tableSlicerCache tableId="1" column="5"/>'
-            '</ext>'
+            '</x:ext>'
             '</extLst>'
             '</slicerCacheDefinition>'
         )
@@ -819,10 +837,10 @@ class ExcelExporter:
             'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '
             'mc:Ignorable="x" '
             'xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-            '<slicer name="Categoría" '
-            'cache="SegmentaciónDeDatos_Categoría" '
+            f'<slicer name="{cls.SLICER_NAME}" '
+            f'cache="{cls.SLICER_CACHE_NAME}" '
             'caption="Categoría" '
-            'style="SlicerStyleLight5" rowHeight="234950"/>'
+            f'style="{cls.SLICER_STYLE}" rowHeight="234950"/>'
             '</slicers>'
         )
         return xml.encode("utf-8")

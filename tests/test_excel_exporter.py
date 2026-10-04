@@ -85,10 +85,8 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path, monkeypatc
     assert image_anchor.to.colOff > 0
     assert image_anchor.to.rowOff > 0
 
-    assert sheet["G2"].fill.fill_type == "solid"
-    assert sheet["G2"].fill.fgColor.rgb == "FFFFE8E8"
-    assert sheet["H2"].fill.fill_type == "solid"
-    assert sheet["H2"].fill.fgColor.rgb == "FFFFE8E8"
+    assert sheet["G2"].fill.fill_type is None
+    assert sheet["H2"].fill.fill_type is None
 
     assert sheet["C2"].alignment.horizontal == "center"
     assert sheet["H2"].alignment.horizontal == "center"
@@ -181,6 +179,36 @@ def test_export_auto_delegates_slicer_to_native_helper(tmp_path, monkeypatch):
     assert captured["filename"] == filename
     assert captured["table_name"] == "CatalogoProductos"
     assert captured["field_name"] == "Categoría"
+
+
+def test_export_removes_file_when_native_slicer_fails(
+    tmp_path,
+    monkeypatch,
+):
+    filename = tmp_path / "catalogo.xlsx"
+    product = Product(
+        code="FB-500",
+        name="Producto con fallo de slicer",
+        category="Categoría",
+    )
+
+    def fail_add_category_slicer(*_args, **_kwargs):
+        raise RuntimeError("No se pudo crear la segmentación.")
+
+    monkeypatch.setattr(
+        excel_module,
+        "add_category_slicer",
+        fail_add_category_slicer,
+    )
+
+    try:
+        ExcelExporter.export([product], filename)
+    except RuntimeError as exc:
+        assert str(exc) == "No se pudo crear la segmentación."
+    else:
+        raise AssertionError("La exportación debía fallar.")
+
+    assert not filename.exists()
 
 
 def test_export_disabled_slicer_does_not_inject_unsupported_ooxml(

@@ -774,8 +774,33 @@ class ExcelExporter:
             additions + "</Types>",
         )
 
+    @staticmethod
+    def _normalize_drawing_prefixes(xml: str) -> str:
+        import re
+
+        namespace = (
+            "http://schemas.openxmlformats.org/drawingml/"
+            "2006/spreadsheetDrawing"
+        )
+        root_match = re.match(
+            rf'<wsDr\\s+xmlns="{re.escape(namespace)}">',
+            xml,
+        )
+        if root_match:
+            xml = (
+                f'<xdr:wsDr xmlns:xdr="{namespace}">'
+                + xml[root_match.end():]
+            )
+
+        return re.sub(
+            r"<(/?)(?![A-Za-z_][\\w.-]*:)([A-Za-z_][\\w.-]*)(?=[ >])",
+            r"<\\1xdr:\\2",
+            xml,
+        )
+
     @classmethod
     def _append_slicer_drawing(cls, xml: str) -> str:
+        xml = cls._normalize_drawing_prefixes(xml)
         fragment = (
             '<xdr:twoCellAnchor editAs="absolute">'
             '<xdr:from>'

@@ -29,9 +29,9 @@ def test_export_writes_requested_layout_and_embeds_image(tmp_path):
     workbook = load_workbook(filename, read_only=False)
     sheet = workbook["Productos"]
 
-    assert sheet.max_row == 2
+    assert sheet.max_row == 4
     assert sheet.max_column == len(ExcelExporter.EXCEL_HEADERS)
-    assert [cell.value for cell in sheet[1]] == list(ExcelExporter.EXCEL_HEADERS)
+    assert [cell.value for cell in sheet[3]] == list(ExcelExporter.EXCEL_HEADERS)
     assert [cell.value for cell in sheet[2]] == [
         None,
         "FB-100",
@@ -45,13 +45,13 @@ def test_export_writes_requested_layout_and_embeds_image(tmp_path):
         800.0,
     ]
 
-    for cell in sheet[1]:
+    for cell in sheet[3]:
         assert cell.font.bold is True
         assert cell.alignment.horizontal == "center"
 
     for header in ("Producto", "Detalle", "Categoría", "Color"):
         cell = sheet.cell(
-            row=2,
+            row=4,
             column=ExcelExporter._header_index()[header],
         )
         assert cell.alignment.horizontal == "left"
@@ -59,19 +59,19 @@ def test_export_writes_requested_layout_and_embeds_image(tmp_path):
         assert cell.alignment.vertical == "center"
         assert cell.alignment.wrap_text is True
 
-    stock = sheet["G2"]
+    stock = sheet["G4"]
     assert stock.alignment.horizontal == "right"
     assert stock.alignment.indent == ExcelExporter.INDENT_LEVEL
     assert stock.alignment.vertical == "center"
     assert stock.alignment.wrap_text is True
 
-    for coordinate in ("H2", "I2", "J2"):
+    for coordinate in ("H4", "I4", "J4"):
         cell = sheet[coordinate]
         assert cell.alignment.horizontal == "center"
         assert cell.alignment.vertical == "center"
         assert cell.number_format == ExcelExporter.LOCAL_CURRENCY_FORMAT
 
-    color = sheet["F2"]
+    color = sheet["F4"]
     assert color.alignment.vertical == "center"
     assert color.alignment.wrap_text is True
     assert stock.value.count("\n") == color.value.count("\n")
@@ -190,7 +190,7 @@ def test_export_preserves_multiple_color_stock_lines_at_same_height(tmp_path):
     assert sheet["G2"].alignment.horizontal == "right"
     assert sheet["F2"].alignment.indent == ExcelExporter.INDENT_LEVEL
     assert sheet["G2"].alignment.indent == ExcelExporter.INDENT_LEVEL
-    assert sheet.row_dimensions[2].height >= 45
+    assert sheet.row_dimensions[4].height >= 45
 
 
 def test_export_with_no_products_creates_only_headers(tmp_path):
@@ -201,8 +201,8 @@ def test_export_with_no_products_creates_only_headers(tmp_path):
     workbook = load_workbook(filename)
     sheet = workbook["Productos"]
 
-    assert [cell.value for cell in sheet[1]] == list(ExcelExporter.EXCEL_HEADERS)
+    assert [cell.value for cell in sheet[3]] == list(ExcelExporter.EXCEL_HEADERS)
     assert sheet.max_column == len(ExcelExporter.EXCEL_HEADERS)
-    assert sheet.max_row == 1
+    assert sheet.max_row == 3
     assert len(sheet.tables) == 0
     assert sheet.auto_filter.ref is None

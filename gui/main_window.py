@@ -1079,7 +1079,14 @@ class MainWindow(QMainWindow):
             "Excel (*.xlsx)",
         )
         if filename:
-            ExcelExporter.export(self.controller.get_products(), filename)
+            try:
+                ExcelExporter.export(self.controller.get_products(), filename)
+            except RuntimeError as exc:
+                QMessageBox.critical(
+                    self,
+                    "Exportación de Excel",
+                    str(exc),
+                )
 
     def export_pdf(self) -> None:
         from exporters.pdf_exporter import PDFExporter

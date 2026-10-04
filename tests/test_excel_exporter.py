@@ -41,7 +41,7 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
         "FB-100",
         "Producto",
         "Detalle",
-        "Categoría",
+        "Enmicadoras / Laminadoras",
         "Rojo\nAzul",
         "3\n2",
         10.0,

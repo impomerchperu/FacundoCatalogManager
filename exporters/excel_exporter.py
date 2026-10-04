@@ -62,7 +62,6 @@ class ExcelExporter:
     HEADER_ROW_HEIGHT: ClassVar[float] = 22.0
     BASE_ROW_HEIGHT: ClassVar[float] = 18.0
     LINE_HEIGHT: ClassVar[float] = 15.0
-    IMAGE_CELL_PADDING_PX: ClassVar[int] = 4
     EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT: ClassVar[float] = 7.0
     EXCEL_DPI: ClassVar[float] = 96.0
     POINTS_PER_INCH: ClassVar[float] = 72.0
@@ -207,8 +206,6 @@ class ExcelExporter:
         rows: list[dict[str, object]],
         temp_dir: Path,
     ) -> None:
-        image_column = cls._header_index()["Imagen"]
-
         for row_number, (product, row) in enumerate(
             zip(products, rows, strict=True),
             start=2,

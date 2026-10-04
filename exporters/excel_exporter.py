@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import ClassVar
 from urllib.request import Request, urlopen
 
 from openpyxl import Workbook
@@ -41,23 +40,14 @@ class ExcelExporter:
     CENTER_HEADERS: ClassVar[frozenset[str]] = frozenset(
         {"Imagen", "Código", "Precio muestra", "Precio ciento", "Precio millar"}
     )
-    CURRENCY_COLUMNS: ClassVar[frozenset[str]] = frozenset(
-        {"Precio muestra", "Precio ciento", "Precio millar"}
-    )
-
-    HEADER_FONT_NAME: ClassVar[str] = "Segoe UI"
-    HEADER_FONT_SIZE: ClassVar[int] = 11
-    DATA_FONT_SIZE: ClassVar[int] = 10
-    HEADER_TEXT_COLOR: ClassVar[str] = "173F6D"
-    INDENT_LEVEL: ClassVar[int] = 1
-    IMAGE_COLUMN_WIDTH: ClassVar[float] = 28.0
-    DEFAULT_ROW_HEIGHT: ClassVar[float] = 90.0
-    HEADER_ROW_HEIGHT: ClassVar[float] = 30.0
-    IMAGE_CELL_PADDING_PX: ClassVar[int] = 4
-    EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT: ClassVar[float] = 7.0
-    EXCEL_DPI: ClassVar[float] = 96.0
-    POINTS_PER_INCH: ClassVar[float] = 72.0
-    LOCAL_CURRENCY_FORMAT: ClassVar[str] = '"S/" #,##0.00'
+    INDENT_LEVEL = 1
+    IMAGE_COLUMN_WIDTH = 20.0
+    HEADER_ROW_HEIGHT = 22.0
+    LINE_HEIGHT_POINTS = 15.0
+    IMAGE_CELL_PADDING_PX = 4
+    EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT = 7.0
+    EXCEL_DPI = 96.0
+    POINTS_PER_INCH = 72.0
 
     @classmethod
     def export(cls, products: Iterable, filename) -> None:
@@ -71,7 +61,6 @@ class ExcelExporter:
 
         sheet: Worksheet = active_sheet
         sheet.title = "Productos"
-        sheet.sheet_format.defaultRowHeight = cls.DEFAULT_ROW_HEIGHT
         cls._initialize_sheet(sheet)
 
         for row in rows:
@@ -113,34 +102,11 @@ class ExcelExporter:
 
     @classmethod
     def _set_column_widths(cls, sheet: Worksheet) -> None:
-        widths = (
-            cls.IMAGE_COLUMN_WIDTH,
-            14.0,
-            34.0,
-            42.0,
-            28.0,
-            18.0,
-            12.0,
-            16.0,
-            16.0,
-            16.0,
-        )
-        for column_index, width in enumerate(widths, start=1):
-            sheet.column_dimensions[get_column_letter(column_index)].width = width
+        sheet.column_dimensions["A"].width = cls.IMAGE_COLUMN_WIDTH
 
     @classmethod
     def _style_sheet(cls, sheet: Worksheet) -> None:
-        header_font = Font(
-            name=cls.HEADER_FONT_NAME,
-            size=cls.HEADER_FONT_SIZE,
-            bold=True,
-            color=cls.HEADER_TEXT_COLOR,
-        )
-        data_font = Font(
-            name=cls.HEADER_FONT_NAME,
-            size=cls.DATA_FONT_SIZE,
-        )
-
+        header_font = Font(bold=True)
         header_index = cls._header_index()
 
         for cell in sheet[1]:
@@ -152,15 +118,14 @@ class ExcelExporter:
             )
 
         for row in range(2, sheet.max_row + 1):
-            sheet.row_dimensions[row].height = cls.DEFAULT_ROW_HEIGHT
             for header, column in header_index.items():
                 cell = sheet.cell(row=row, column=column)
-                cell.font = data_font
                 cell.alignment = cls._data_alignment(header)
-                if header in cls.CURRENCY_COLUMNS:
-                    cell.number_format = cls.LOCAL_CURRENCY_FORMAT
-                elif header == "Stock":
-                    cell.number_format = "#,##0"
+            color_lines = str(
+                sheet.cell(row=row, column=header_index["Color"]).value or ""
+            ).splitlines()
+            line_count = max(len(color_lines), 1)
+            sheet.row_dimensions[row].height = line_count * cls.LINE_HEIGHT_POINTS
 
     @classmethod
     def _data_alignment(cls, header: str) -> Alignment:

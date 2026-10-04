@@ -85,14 +85,14 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path):
 
     with ZipFile(filename) as archive:
         names = set(archive.namelist())
-        assert "xl/slicerCaches/slicerCache1.xml" in names
-        assert "xl/slicers/slicer1.xml" in names
+        assert "xl/slicerCaches/slicerCache.xml" in names
+        assert "xl/slicers/slicer.xml" in names
 
         cache_xml = archive.read(
-            "xl/slicerCaches/slicerCache1.xml",
+            "xl/slicerCaches/slicerCache.xml",
         ).decode("utf-8")
         slicer_xml = archive.read(
-            "xl/slicers/slicer1.xml",
+            "xl/slicers/slicer.xml",
         ).decode("utf-8")
         workbook_xml = archive.read("xl/workbook.xml").decode("utf-8")
         sheet_xml = archive.read(
@@ -125,11 +125,38 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path):
 
         table_root = ElementTree.fromstring(table_xml)
 
-        assert '<x:ext uri="{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}"' in cache_xml
-        assert '<x15:tableSlicerCache tableId="1" column="5"/>' in cache_xml
-        assert 'sourceName="Categoría"' in cache_xml
-        assert 'name="Categoría"' in slicer_xml
-        assert 'cache="SegmentaciónDeDatos_Categoría"' in slicer_xml
+        cache_root = ElementTree.fromstring(cache_xml)
+        slicer_root = ElementTree.fromstring(slicer_xml)
+        drawing_root = ElementTree.fromstring(drawing_xml)
+
+        assert (
+            cache_root.tag
+            == "{http://schemas.microsoft.com/office/spreadsheetml/2009/9/main}"
+            "slicerCacheDefinition"
+        )
+        assert cache_root.attrib["name"] == "SegmentaciónDeDatos_Categoría"
+        assert cache_root.attrib["sourceName"] == "Categoría"
+        assert (
+            cache_root.find(
+                "{http://schemas.microsoft.com/office/spreadsheetml/2009/9/main}"
+                "data/{http://schemas.microsoft.com/office/spreadsheetml/2009/9/main}"
+                "tabular",
+            )
+            is not None
+        )
+
+        assert (
+            slicer_root.tag
+            == "{http://schemas.microsoft.com/office/spreadsheetml/2009/9/main}"
+            "slicers"
+        )
+        slicer_element = slicer_root.find(
+            "{http://schemas.microsoft.com/office/spreadsheetml/2009/9/main}"
+            "slicer",
+        )
+        assert slicer_element is not None
+        assert slicer_element.attrib["name"] == "Categoría"
+        assert slicer_element.attrib["cache"] == "SegmentaciónDeDatos_Categoría"
         relationship_namespace = (
             'xmlns:r="http://schemas.openxmlformats.org/'
             'officeDocument/2006/relationships"'
@@ -140,12 +167,25 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path):
         assert "slicerCaches" in workbook_xml
         assert "slicerList" in sheet_xml
         assert "slicerCache" in workbook_rels
+        assert "/xl/slicerCaches/slicerCache.xml" in workbook_rels
         assert "relationships/slicer" in sheet_rels
-        assert '<xdr:twoCellAnchor editAs="twoCell">' in drawing_xml
-        assert '<xdr:twoCellAnchor editAs="absolute">' in drawing_xml
-        assert '<xdr:col>0</xdr:col>' in drawing_xml
-        assert '<xdr:row>12</xdr:row>' in drawing_xml
-        assert "Categoría" in drawing_xml
+        assert "/xl/slicers/slicer.xml" in sheet_rels
+        assert (
+            drawing_root.tag
+            == "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}"
+            "wsDr"
+        )
+        anchor_elements = drawing_root.findall(
+            "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}"
+            "twoCellAnchor",
+        )
+        assert len(anchor_elements) == 1
+        assert anchor_elements[0].attrib["editAs"] == "twoCell"
+        assert not drawing_root.findall(
+            "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}"
+            "graphicFrame",
+        )
+        assert "tableSlicerCache" not in drawing_xml
         assert (
             table_root.tag
             == "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}table"

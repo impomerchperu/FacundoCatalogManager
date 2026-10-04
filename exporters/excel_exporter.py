@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from pathlib import Path
 import re
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, ClassVar
 from urllib.request import Request, urlopen

@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as ExcelImage
-from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
 from openpyxl.drawing.xdr import XDRPositiveSize2D
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
@@ -60,6 +60,7 @@ class ExcelExporter:
 
     LOCAL_CURRENCY_FORMAT: ClassVar[str] = '"S/" #,##0.00'
     HEADER_ROW_HEIGHT: ClassVar[float] = 44.0
+    INITIAL_ROW_HEIGHT: ClassVar[float] = 78.0
     BASE_ROW_HEIGHT: ClassVar[float] = 36.0
     HEADER_FONT_SIZE: ClassVar[float] = 14.0
     INITIAL_ROWS: ClassVar[int] = 2
@@ -133,6 +134,7 @@ class ExcelExporter:
                 vertical="center",
             )
         sheet.row_dimensions[cls.INITIAL_ROWS + 1].height = cls.HEADER_ROW_HEIGHT
+        sheet.row_dimensions[2].height = cls.INITIAL_ROW_HEIGHT
 
         for row in range(cls.INITIAL_ROWS + 2, sheet.max_row + 1):
             for header, column in cls._header_index().items():
@@ -334,22 +336,32 @@ class ExcelExporter:
         width: int,
         height: int,
         row_height_points: float,
-    ) -> OneCellAnchor:
+    ) -> TwoCellAnchor:
         row_height_px = max(
             round(row_height_points * cls.EXCEL_DPI / cls.POINTS_PER_INCH),
             height,
         )
         vertical_offset_px = max((row_height_px - height) // 2, cls.IMAGE_MARGIN_PIXELS)
-        return OneCellAnchor(
+        start_col = column - 1
+        start_row = row - 1
+        start_col_offset = pixels_to_EMU(cls.IMAGE_MARGIN_PIXELS)
+        start_row_offset = pixels_to_EMU(vertical_offset_px)
+        end_col_offset = start_col_offset + pixels_to_EMU(width)
+        end_row_offset = start_row_offset + pixels_to_EMU(height)
+
+        return TwoCellAnchor(
+            editAs="twoCell",
             _from=AnchorMarker(
-                col=column - 1,
-                row=row - 1,
-                colOff=pixels_to_EMU(cls.IMAGE_MARGIN_PIXELS),
-                rowOff=pixels_to_EMU(vertical_offset_px),
+                col=start_col,
+                row=start_row,
+                colOff=start_col_offset,
+                rowOff=start_row_offset,
             ),
-            ext=XDRPositiveSize2D(
-                cx=pixels_to_EMU(width),
-                cy=pixels_to_EMU(height),
+            to=AnchorMarker(
+                col=start_col,
+                row=start_row,
+                colOff=end_col_offset,
+                rowOff=end_row_offset,
             ),
         )
 

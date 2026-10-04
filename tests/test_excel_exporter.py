@@ -80,7 +80,7 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     assert image.anchor._from.row == 1
     assert image.width <= ExcelExporter.IMAGE_MAX_SIZE_PX
     assert image.height <= ExcelExporter.IMAGE_MAX_SIZE_PX
-    assert image.width <= int(17 * 7) - 4
+    assert image.width <= (17 * 7) - 4
     assert image.height <= int(92 * 96 / 72) - 4
 
 

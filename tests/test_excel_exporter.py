@@ -221,7 +221,7 @@ def test_export_row_height_uses_largest_text_or_image(tmp_path):
     tall_image_path = tmp_path / "tall.jpg"
     Image.new("RGB", (100, 300), "white").save(tall_image_path)
 
-    long_description = "Detalle muy extenso " * 30
+    long_description = "Detalle muy extenso " * 100
     products = [
         Product(
             code="FB-300",
@@ -270,4 +270,4 @@ def test_export_row_height_uses_largest_text_or_image(tmp_path):
 
     assert image_row_height == image_required_height
     assert text_row_height == text_required_height
-    assert image_row_height > text_row_height
+    assert text_row_height > image_row_height

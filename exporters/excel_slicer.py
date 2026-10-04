@@ -801,9 +801,6 @@ try {
     if ($book -eq $null) {
         throw "Excel no devolvió el libro abierto."
     }
-    if ($book -eq $null) {
-        throw "Excel no devolvió el libro abierto."
-    }
     if ($book.ReadOnly) {
         throw "Excel abrió el libro como solo lectura."
     }

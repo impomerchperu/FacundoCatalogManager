@@ -722,6 +722,26 @@ class ExcelExporter:
         xml: str,
         slicer_rel_id: str,
     ) -> str:
+        namespace = (
+            ' xmlns:r="http://schemas.openxmlformats.org/'
+            'officeDocument/2006/relationships"'
+        )
+        worksheet_start = xml.find("<worksheet")
+        worksheet_end = xml.find(">", worksheet_start)
+        worksheet_tag = (
+            xml[worksheet_start:worksheet_end]
+            if worksheet_start >= 0 and worksheet_end >= 0
+            else ""
+        )
+        if 'xmlns:r="http://schemas.openxmlformats.org/' not in worksheet_tag:
+            xml = xml.replace(
+                '<worksheet xmlns="http://schemas.openxmlformats.org/'
+                'spreadsheetml/2006/main"',
+                '<worksheet xmlns="http://schemas.openxmlformats.org/'
+                f'spreadsheetml/2006/main"{namespace}',
+                1,
+            )
+
         extension = (
             '<extLst><ext '
             'uri="{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}" '

@@ -792,25 +792,14 @@ try {
     $excel.DisplayAlerts = $false
     $excel.ScreenUpdating = $false
 
-    $book = $excel.Workbooks.Open(
+    [void]$excel.Workbooks.Open(
         [string]$path,
         0,
-        $false,
-        51,
-        $null,
-        $null,
-        $true,
-        $null,
-        $null,
-        $false,
-        $false,
-        $null,
-        $false,
-        $true,
-        0
+        $false
     )
+    $book = $excel.ActiveWorkbook
     if ($book -eq $null) {
-        $book = $excel.ActiveWorkbook
+        throw "Excel no devolvió el libro abierto."
     }
     if ($book -eq $null) {
         throw "Excel no devolvió el libro abierto."

@@ -910,21 +910,13 @@ def add_category_slicer(
         return
 
     if mode == "ooxml":
-        _add_category_slicer_ooxml(
-            filename,
-            table_name=table_name,
-            field_name=field_name,
-        )
-        return
-
-    if os.name != "nt":
-        return
-
-    if mode == "ooxml":
         raise RuntimeError(
             "La generación manual de segmentaciones OOXML está deshabilitada "
             "porque puede producir libros rechazados por Excel."
         )
+
+    if os.name != "nt":
+        return
 
     try:
         _add_category_slicer_with_excel(

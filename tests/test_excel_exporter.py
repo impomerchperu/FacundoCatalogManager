@@ -107,6 +107,48 @@ def test_export_writes_requested_layout_and_embeds_image(tmp_path):
     )
 
 
+def test_export_starts_with_alphanumeric_category_order(tmp_path):
+    filename = tmp_path / "catalogo.xlsx"
+    products = [
+        Product(
+            code="B-10",
+            name="Producto 10",
+            category="10 Accesorios",
+        ),
+        Product(
+            code="A-2",
+            name="Producto 2",
+            category="2 Accesorios",
+        ),
+        Product(
+            code="C-1",
+            name="Producto C",
+            category="Bolsas / Mochilas",
+        ),
+        Product(
+            code="D-1",
+            name="Producto D",
+            category="Antiestres",
+        ),
+    ]
+
+    ExcelExporter.export(products, filename)
+
+    workbook = load_workbook(filename)
+    sheet = workbook["Productos"]
+
+    categories = [
+        sheet.cell(row=row, column=5).value
+        for row in range(4, 8)
+    ]
+    assert categories == [
+        "2 Accesorios",
+        "10 Accesorios",
+        "Antiestres",
+        "Bolsas / Mochilas",
+    ]
+
+
 def test_export_scales_images_to_column_width_preserving_ratio(tmp_path):
     filename = tmp_path / "catalogo.xlsx"
     image_path_a = tmp_path / "FB-200.jpg"

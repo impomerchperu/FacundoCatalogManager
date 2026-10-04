@@ -66,7 +66,6 @@ class ExcelExporter:
     LINE_HEIGHT: ClassVar[float] = 15.0
     EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT: ClassVar[float] = 7.0
     EXCEL_DPI: ClassVar[float] = 96.0
-    IMAGE_MARGIN_PIXELS: ClassVar[int] = 4
     POINTS_PER_INCH: ClassVar[float] = 72.0
 
     @classmethod
@@ -251,10 +250,7 @@ class ExcelExporter:
         row: int,
     ) -> ExcelImage | None:
         cell_width, current_cell_height = cls._image_cell_size(sheet, row)
-        image_width = max(
-            cell_width - (2 * cls.IMAGE_MARGIN_PIXELS),
-            1,
-        )
+        image_width = max(cell_width, 1)
 
         try:
             with Image.open(source_path) as source:
@@ -267,7 +263,7 @@ class ExcelExporter:
                     1,
                 )
                 required_row_height = (
-                    (image_height + (2 * cls.IMAGE_MARGIN_PIXELS))
+                    image_height
                     * cls.POINTS_PER_INCH
                     / cls.EXCEL_DPI
                 )
@@ -340,12 +336,12 @@ class ExcelExporter:
             round(row_height_points * cls.EXCEL_DPI / cls.POINTS_PER_INCH),
             height,
         )
-        vertical_offset_px = max((row_height_px - height) // 2, cls.IMAGE_MARGIN_PIXELS)
+        vertical_offset_px = max((row_height_px - height) // 2, 0)
         start_col = column - 1
         start_row = row - 1
-        start_col_offset = pixels_to_EMU(cls.IMAGE_MARGIN_PIXELS)
+        start_col_offset = 0
         start_row_offset = pixels_to_EMU(vertical_offset_px)
-        end_col_offset = start_col_offset + pixels_to_EMU(width)
+        end_col_offset = pixels_to_EMU(width)
         end_row_offset = start_row_offset + pixels_to_EMU(height)
 
         return TwoCellAnchor(

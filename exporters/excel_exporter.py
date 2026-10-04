@@ -161,13 +161,13 @@ class ExcelExporter:
 
     @classmethod
     def _add_product_table(cls, sheet: Worksheet) -> None:
-        """Convierte el rango de productos en una tabla Excel sencilla."""
+        """Inserta una tabla nativa de Excel con filtros ocultos."""
         if sheet.max_row < 2:
             return
 
         table_ref = f"B1:K{sheet.max_row}"
         table = Table(
-            displayName="CatalogoProductos",
+            displayName="TablaProductos",
             ref=table_ref,
         )
         table.tableStyleInfo = TableStyleInfo(

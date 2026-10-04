@@ -358,3 +358,10 @@ documentación
   ↓
 main
 ```
+
+
+### Validación manual Excel cerrada
+
+El 2026-10-04 se completó satisfactoriamente el smoke funcional real del exportador Excel. Se verificaron selección individual y múltiple de categorías, cancelación sin exportación, apertura sin reparación de XLSX, imágenes visibles y proporcionales, anclaje/redimensionamiento con celdas, ausencia de filtros/tablas/fondos y exactitud de encabezados, precios, COLOR y STOCK.
+
+El gate funcional del exportador queda **cerrado**. La PR #20 puede pasar a revisión final e integración; no se requieren más cambios de diseño en Excel salvo defecto reproducible.

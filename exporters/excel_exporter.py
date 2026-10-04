@@ -11,6 +11,8 @@ from openpyxl.drawing.image import Image as ExcelImage
 from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.filters import AutoFilter, FilterColumn
+from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.worksheet.worksheet import Worksheet
 from PIL import Image
 
@@ -126,6 +128,7 @@ class ExcelExporter:
 
         cls._set_column_widths(sheet)
         cls._style_sheet(sheet)
+        cls._add_product_table(sheet)
 
         with TemporaryDirectory(prefix="fcm_excel_") as temp_dir:
             cls._embed_product_images(
@@ -155,6 +158,36 @@ class ExcelExporter:
                 get_column_letter(column)
             ].width = width
 
+
+    @classmethod
+    def _add_product_table(cls, sheet: Worksheet) -> None:
+        """Convierte el rango de productos en una tabla Excel sencilla."""
+        if sheet.max_row < 2:
+            return
+
+        table_ref = f"B1:K{sheet.max_row}"
+        table = Table(
+            displayName="CatalogoProductos",
+            ref=table_ref,
+        )
+        table.tableStyleInfo = TableStyleInfo(
+            name="TableStyleLight1",
+            showFirstColumn=False,
+            showLastColumn=False,
+            showRowStripes=False,
+            showColumnStripes=False,
+        )
+        table.autoFilter = AutoFilter(
+            ref=table_ref,
+            filterColumn=[
+                FilterColumn(
+                    colId=column_id,
+                    showButton=False,
+                )
+                for column_id in range(len(cls.EXCEL_HEADERS))
+            ],
+        )
+        sheet.add_table(table)
 
     @classmethod
     def _style_sheet(cls, sheet: Worksheet) -> None:

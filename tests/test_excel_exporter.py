@@ -92,7 +92,7 @@ def test_export_writes_requested_layout_and_embeds_image(tmp_path):
     assert image.width == expected_width
     assert image.height == expected_height
     assert image.anchor._from.col == 0
-    assert image.anchor._from.row == 1
+    assert image.anchor._from.row == 3
     assert image.anchor._from.colOff == pixels_to_EMU(ExcelExporter.IMAGE_MARGIN_PIXELS)
     assert image.anchor._from.rowOff == pixels_to_EMU(ExcelExporter.IMAGE_MARGIN_PIXELS)
     assert image.anchor.ext.cx == pixels_to_EMU(expected_width)
@@ -184,12 +184,12 @@ def test_export_preserves_multiple_color_stock_lines_at_same_height(tmp_path):
 
     assert sheet["F4"].value == "Rojo\nAzul\nVerde"
     assert sheet["G4"].value == "100\n25\n8"
-    assert sheet["F2"].alignment.vertical == "center"
-    assert sheet["G2"].alignment.vertical == "center"
-    assert sheet["F2"].alignment.horizontal == "left"
-    assert sheet["G2"].alignment.horizontal == "right"
-    assert sheet["F2"].alignment.indent == ExcelExporter.INDENT_LEVEL
-    assert sheet["G2"].alignment.indent == ExcelExporter.INDENT_LEVEL
+    assert sheet["F4"].alignment.vertical == "center"
+    assert sheet["G4"].alignment.vertical == "center"
+    assert sheet["F4"].alignment.horizontal == "left"
+    assert sheet["G4"].alignment.horizontal == "right"
+    assert sheet["F4"].alignment.indent == ExcelExporter.INDENT_LEVEL
+    assert sheet["G4"].alignment.indent == ExcelExporter.INDENT_LEVEL
     assert sheet.row_dimensions[4].height >= 45
 
 

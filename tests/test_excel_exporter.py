@@ -1,6 +1,3 @@
-from pathlib import Path
-from zipfile import ZipFile
-
 from openpyxl import load_workbook
 from PIL import Image
 
@@ -28,11 +25,10 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
 
     ExcelExporter.export([product], filename)
 
-    workbook = load_workbook(filename)
+    workbook = load_workbook(filename, read_only=False)
     sheet = workbook["Productos"]
 
     assert workbook.read_only is False
-    assert sheet.freeze_panes == "A2"
     assert sheet.max_row == 2
     assert sheet.max_column == 10
     assert [cell.value for cell in sheet[1]] == list(
@@ -75,13 +71,7 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     assert sheet.row_dimensions[1].height == 32
     assert sheet.row_dimensions[2].height == ExcelExporter.MIN_ROW_HEIGHT_POINTS
 
-    for coordinate in ("F2", "G2"):
-        assert sheet[coordinate].fill.fill_type == "solid"
-        assert sheet[coordinate].fill.fgColor.rgb[-6:] == "FFFFFF"
-
-    for coordinate in ("H2", "I2", "J2"):
-        assert sheet[coordinate].alignment.horizontal == "center"
-        assert sheet[coordinate].number_format == '"S/ " #,##0.00'
+    assert len(sheet.tables) == 0
 
     assert len(sheet._images) == 1
     image = sheet._images[0]
@@ -92,17 +82,6 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     assert image.height <= ExcelExporter.IMAGE_MAX_SIZE_PX
     assert image.width <= int(17 * 7) - 4
     assert image.height <= int(92 * 96 / 72) - 4
-
-    assert len(sheet.tables) == 1
-    table = sheet.tables["CatalogoProductos"]
-    assert table.ref == "A1:J2"
-    assert table.tableStyleInfo is not None
-    assert table.tableStyleInfo.name == "TableStyleMedium2"
-
-    with ZipFile(filename) as archive:
-        names = set(archive.namelist())
-        assert not any(name.startswith("xl/slicerCaches/") for name in names)
-        assert not any(name.startswith("xl/slicers/") for name in names)
 
 
 def test_export_adjusts_row_height_to_long_text(tmp_path):

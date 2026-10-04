@@ -815,7 +815,7 @@ try {
         $cache = $book.SlicerCaches.Add2(
             $table,
             $env:FCM_EXCEL_SLICER_FIELD,
-            "Slicer_Categoria",
+            "SegmentaciónDeDatos_Categoría",
             1
         )
     }
@@ -823,14 +823,14 @@ try {
         $cache = $book.SlicerCaches.Add(
             $table,
             $env:FCM_EXCEL_SLICER_FIELD,
-            "Slicer_Categoria"
+            "SegmentaciónDeDatos_Categoría"
         )
     }
 
     $slicer = $cache.Slicers.Add(
         $sheet,
         $null,
-        "Slicer_Categoria_View",
+        "Categoría",
         "Categoría",
         4,
         4,

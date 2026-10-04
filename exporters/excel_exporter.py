@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
+import re
 from tempfile import TemporaryDirectory
 from typing import Any, ClassVar
 from urllib.request import Request, urlopen
@@ -71,7 +72,12 @@ class ExcelExporter:
 
     @classmethod
     def export(cls, products: Iterable, filename) -> None:
-        product_list = list(products)
+        product_list = sorted(
+            products,
+            key=lambda product: cls._alphanumeric_key(
+                getattr(product, "category", ""),
+            ),
+        )
         rows = export_rows(product_list)
 
         workbook = Workbook()
@@ -191,6 +197,15 @@ class ExcelExporter:
         return max(
             cls.BASE_ROW_HEIGHT,
             max_lines * cls.LINE_HEIGHT,
+        )
+
+    @staticmethod
+    def _alphanumeric_key(value: object) -> tuple[tuple[int, object], ...]:
+        text = str(value or "").strip().casefold()
+        return tuple(
+            (0, int(part)) if part.isdigit() else (1, part)
+            for part in re.split(r"(\d+)", text)
+            if part
         )
 
     @staticmethod

@@ -1,15 +1,14 @@
-from xml.etree import ElementTree
+from pathlib import Path
 from zipfile import ZipFile
 
 from openpyxl import load_workbook
 from PIL import Image
 
-from exporters import excel_exporter as excel_module
 from exporters.excel_exporter import ExcelExporter
 from models.product import Product
 
 
-def test_export_writes_table_images_color_and_stock_columns(tmp_path, monkeypatch):
+def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     filename = tmp_path / "catalogo.xlsx"
     image_path = tmp_path / "FB-100.jpg"
     Image.new("RGB", (120, 180), "white").save(image_path)
@@ -27,41 +26,19 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path, monkeypatc
         image_path=str(image_path),
     )
 
-    monkeypatch.setenv("FCM_EXCEL_SLICER_MODE", "disabled")
     ExcelExporter.export([product], filename)
 
     workbook = load_workbook(filename)
     sheet = workbook["Productos"]
 
-    assert sheet.sheet_format.defaultRowHeight == ExcelExporter.DEFAULT_ROW_HEIGHT_POINTS
-    assert sheet.row_dimensions[1].height == 32
-    expected_widths = {
-        "A": ExcelExporter.SLICER_COLUMN_WIDTH,
-        "B": 17,
-        "C": ExcelExporter.COLUMN_WIDTHS["Código"],
-        "D": ExcelExporter.COLUMN_WIDTHS["Producto"],
-        "E": ExcelExporter.COLUMN_WIDTHS["Detalle"],
-        "F": ExcelExporter.COLUMN_WIDTHS["Categoría"],
-        "G": ExcelExporter.COLUMN_WIDTHS["Color"],
-        "H": ExcelExporter.COLUMN_WIDTHS["Stock"],
-        "I": ExcelExporter.COLUMN_WIDTHS["Precio muestra"],
-        "J": ExcelExporter.COLUMN_WIDTHS["Precio ciento"],
-        "K": ExcelExporter.COLUMN_WIDTHS["Precio millar"],
-    }
-    for column, width in expected_widths.items():
-        assert sheet.column_dimensions[column].width == width
-
-    assert sheet["B1"].font.name == "Segoe UI"
-    assert sheet["B1"].font.size == 11
-    assert sheet["B1"].font.bold is True
-    assert sheet["C2"].font.name == "Segoe UI"
-    assert sheet["C2"].font.size == 10
-
-    assert sheet[1][0].value is None
-    assert [cell.value for cell in sheet[1][1:11]] == list(
+    assert workbook.read_only is False
+    assert sheet.freeze_panes == "A2"
+    assert sheet.max_row == 2
+    assert sheet.max_column == 10
+    assert [cell.value for cell in sheet[1]] == list(
         ExcelExporter.EXCEL_HEADERS,
     )
-    assert [cell.value for cell in sheet[2][1:11]] == [
+    assert [cell.value for cell in sheet[2]] == [
         None,
         "FB-100",
         "Producto",
@@ -74,175 +51,60 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path, monkeypatc
         800.0,
     ]
 
-    assert len(sheet._images) == 1
-    image_anchor = sheet._images[0].anchor
-    assert type(image_anchor).__name__ == "TwoCellAnchor"
-    assert image_anchor.editAs == "twoCell"
-    assert image_anchor._from.col == 1
-    assert image_anchor._from.row == 1
-    assert image_anchor.to.col == 1
-    assert image_anchor.to.row == 1
-    assert image_anchor.to.colOff > 0
-    assert image_anchor.to.rowOff > 0
+    expected_widths = {
+        "A": 17,
+        "B": 14,
+        "C": 42,
+        "D": 48,
+        "E": 28,
+        "F": 24,
+        "G": 12,
+        "H": 18,
+        "I": 18,
+        "J": 18,
+    }
+    for column, width in expected_widths.items():
+        assert sheet.column_dimensions[column].width == width
 
-    assert sheet["G2"].fill.fill_type == "solid"
-    assert sheet["G2"].fill.fgColor.rgb[-6:] == "FFFFFF"
-    assert sheet["H2"].fill.fill_type == "solid"
-    assert sheet["H2"].fill.fgColor.rgb[-6:] == "FFFFFF"
+    assert sheet["A1"].font.name == "Segoe UI"
+    assert sheet["A1"].font.size == 11
+    assert sheet["A1"].font.bold is True
+    assert sheet["B2"].font.name == "Segoe UI"
+    assert sheet["B2"].font.size == 10
 
-    assert sheet["C2"].alignment.horizontal == "center"
-    assert sheet["H2"].alignment.horizontal == "center"
-    for coordinate in ("I2", "J2", "K2"):
+    assert sheet.row_dimensions[1].height == 32
+    assert sheet.row_dimensions[2].height == ExcelExporter.MIN_ROW_HEIGHT_POINTS
+
+    for coordinate in ("F2", "G2"):
+        assert sheet[coordinate].fill.fill_type == "solid"
+        assert sheet[coordinate].fill.fgColor.rgb[-6:] == "FFFFFF"
+
+    for coordinate in ("H2", "I2", "J2"):
         assert sheet[coordinate].alignment.horizontal == "center"
         assert sheet[coordinate].number_format == '"S/ " #,##0.00'
 
-    assert sheet["G2"].alignment.horizontal == "left"
-    assert sheet["G2"].alignment.vertical == "center"
-    assert sheet["H2"].alignment.vertical == "center"
-    assert sheet.freeze_panes == "B2"
-    assert sheet.auto_filter.ref is None
+    assert len(sheet._images) == 1
+    image = sheet._images[0]
+    assert image.anchor == "A2"
+    assert image.width <= ExcelExporter.IMAGE_MAX_SIZE_PX
+    assert image.height <= ExcelExporter.IMAGE_MAX_SIZE_PX
+    assert image.width <= int(17 * 7) - 4
+    assert image.height <= int(92 * 96 / 72) - 4
 
     assert len(sheet.tables) == 1
     table = sheet.tables["CatalogoProductos"]
-    assert table.ref == "B1:K2"
-    assert table.autoFilter is not None
+    assert table.ref == "A1:J2"
     assert table.tableStyleInfo is not None
-    assert table.tableStyleInfo.name == "TableStyleLight2"
+    assert table.tableStyleInfo.name == "TableStyleMedium2"
 
     with ZipFile(filename) as archive:
         names = set(archive.namelist())
-        assert "xl/slicerCaches/slicerCache.xml" not in names
-        assert "xl/slicers/slicer.xml" not in names
-
-        workbook_xml = archive.read("xl/workbook.xml").decode("utf-8")
-        sheet_xml = archive.read(
-            "xl/worksheets/sheet1.xml",
-        ).decode("utf-8")
-        drawing_xml = archive.read(
-            "xl/drawings/drawing1.xml",
-        ).decode("utf-8")
-        table_xml = archive.read(
-            "xl/tables/table1.xml",
-        ).decode("utf-8")
-
-        for xml in (
-            workbook_xml,
-            sheet_xml,
-            drawing_xml,
-            table_xml,
-        ):
-            ElementTree.fromstring(xml)
-
-        drawing_root = ElementTree.fromstring(drawing_xml)
-        table_root = ElementTree.fromstring(table_xml)
-
-        assert (
-            drawing_root.tag
-            == "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}"
-            "wsDr"
-        )
-        anchor_elements = drawing_root.findall(
-            "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}"
-            "twoCellAnchor",
-        )
-        assert len(anchor_elements) == 1
-        assert anchor_elements[0].attrib["editAs"] == "twoCell"
-
-        assert (
-            table_root.tag
-            == "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}table"
-        )
-        assert 'ref="B1:K2"' in table_xml
-        assert '<autoFilter ref="B1:K2"' in table_xml
+        assert not any(name.startswith("xl/slicerCaches/") for name in names)
+        assert not any(name.startswith("xl/slicers/") for name in names)
 
 
-def test_export_auto_delegates_slicer_to_native_helper(tmp_path, monkeypatch):
+def test_export_adjusts_row_height_to_long_text(tmp_path):
     filename = tmp_path / "catalogo.xlsx"
-    product = Product(
-        code="FB-300",
-        name="Producto",
-        category="Categoría",
-    )
-    captured = {}
-
-    def fake_add_category_slicer(filename_arg, *, table_name, field_name):
-        captured["filename"] = filename_arg
-        captured["table_name"] = table_name
-        captured["field_name"] = field_name
-
-    monkeypatch.setattr(
-        excel_module,
-        "add_category_slicer",
-        fake_add_category_slicer,
-    )
-
-    ExcelExporter.export([product], filename)
-
-    assert captured["filename"] == filename
-    assert captured["table_name"] == "CatalogoProductos"
-    assert captured["field_name"] == "Categoría"
-
-
-def test_export_removes_file_when_native_slicer_fails(
-    tmp_path,
-    monkeypatch,
-):
-    filename = tmp_path / "catalogo.xlsx"
-    product = Product(
-        code="FB-500",
-        name="Producto con fallo de slicer",
-        category="Categoría",
-    )
-
-    def fail_add_category_slicer(*_args, **_kwargs):
-        raise RuntimeError("No se pudo crear la segmentación.")
-
-    monkeypatch.setattr(
-        excel_module,
-        "add_category_slicer",
-        fail_add_category_slicer,
-    )
-
-    try:
-        ExcelExporter.export([product], filename)
-    except RuntimeError as exc:
-        assert str(exc) == "No se pudo crear la segmentación."
-    else:
-        raise AssertionError("La exportación debía fallar.")
-
-    assert not filename.exists()
-
-
-def test_export_disabled_slicer_does_not_inject_unsupported_ooxml(
-    tmp_path,
-    monkeypatch,
-):
-    filename = tmp_path / "catalogo.xlsx"
-    product = Product(
-        code="FB-400",
-        name="Producto seguro",
-        category="Categoría",
-    )
-
-    monkeypatch.setenv("FCM_EXCEL_SLICER_MODE", "disabled")
-    ExcelExporter.export([product], filename)
-
-    with ZipFile(filename) as archive:
-        names = set(archive.namelist())
-        assert not any(
-            name.startswith("xl/slicerCaches/")
-            for name in names
-        )
-        assert not any(
-            name.startswith("xl/slicers/")
-            for name in names
-        )
-
-
-def test_export_adjusts_row_height_for_text(tmp_path, monkeypatch):
-    filename = tmp_path / "catalogo.xlsx"
-    monkeypatch.setenv("FCM_EXCEL_SLICER_MODE", "disabled")
-
     product = Product(
         code="FB-200",
         name="Producto con un nombre suficientemente largo para envolver",
@@ -272,10 +134,9 @@ def test_export_with_no_products_creates_only_headers(tmp_path):
     workbook = load_workbook(filename)
     sheet = workbook["Productos"]
 
-    assert sheet[1][0].value is None
-    assert [cell.value for cell in sheet[1][1:11]] == list(
+    assert [cell.value for cell in sheet[1]] == list(
         ExcelExporter.EXCEL_HEADERS,
     )
-    assert sheet.max_column == 11
+    assert sheet.max_column == 10
     assert sheet.max_row == 1
     assert len(sheet.tables) == 0

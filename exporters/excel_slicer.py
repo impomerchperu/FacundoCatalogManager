@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -798,7 +799,8 @@ try {
         $cache = $book.SlicerCaches.Add2(
             $table,
             $env:FCM_EXCEL_SLICER_FIELD,
-            "Slicer_Categoria"
+            "Slicer_Categoria",
+            1
         )
     }
     catch {
@@ -854,23 +856,47 @@ try {
     catch {
     }
 
-    $book.Save()
-}
-finally {
-    if ($book -ne $null) {
-        $book.Close($false)
-    }
-    if ($excel -ne $null) {
-        $excel.Quit()
+    $items = $cache.SlicerItems
+    if ($items -eq $null -or $items.Count -lt 1) {
+        throw "La segmentación fue creada, pero no contiene categorías."
     }
 
-    foreach ($object in @($slicer, $cache, $table, $sheet, $book, $excel)) {
+    $book.SaveCopyAs($env:FCM_EXCEL_SLICER_OUTPUT)
+}
+finally {
+    foreach ($object in @($items, $slicer, $cache, $table, $sheet)) {
         if ($object -ne $null) {
             try {
-                [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($object)
+                [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($object)
             }
             catch {
             }
+        }
+    }
+
+    if ($book -ne $null) {
+        try {
+            $book.Close($false)
+        }
+        catch {
+        }
+        try {
+            [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($book)
+        }
+        catch {
+        }
+    }
+
+    if ($excel -ne $null) {
+        try {
+            $excel.Quit()
+        }
+        catch {
+        }
+        try {
+            [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($excel)
+        }
+        catch {
         }
     }
 
@@ -878,8 +904,18 @@ finally {
     [GC]::WaitForPendingFinalizers()
 }
 """
+    fd, temporary_output_name = tempfile.mkstemp(
+        prefix=".fcm_excel_slicer_",
+        suffix=".xlsx",
+        dir=path.parent,
+    )
+    os.close(fd)
+    temporary_output = Path(temporary_output_name)
+    temporary_output.unlink(missing_ok=True)
+
     env = os.environ.copy()
     env["FCM_EXCEL_SLICER_FILE"] = str(path)
+    env["FCM_EXCEL_SLICER_OUTPUT"] = str(temporary_output)
     env["FCM_EXCEL_SLICER_FIELD"] = field_name
 
     try:
@@ -906,8 +942,19 @@ finally {
         ) from exc
 
     if result.returncode == 0:
+        if not temporary_output.exists():
+            raise RuntimeError(
+                "Excel informó que creó la segmentación, "
+                "pero no generó el archivo de salida."
+            )
+        try:
+            os.replace(temporary_output, path)
+            os.chmod(path, 0o666)
+        finally:
+            temporary_output.unlink(missing_ok=True)
         return True
 
+    temporary_output.unlink(missing_ok=True)
     details = (result.stderr or result.stdout or "").strip()
     raise RuntimeError(
         "Excel no pudo crear la segmentación nativa. "

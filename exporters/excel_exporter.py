@@ -250,7 +250,7 @@ class ExcelExporter:
         sheet: Worksheet,
         row: int,
     ) -> ExcelImage | None:
-        cell_width, current_cell_height = cls._image_cell_size(sheet, row)
+        cell_width, _current_cell_height = cls._image_cell_size(sheet, row)
         image_width = max(
             cell_width - (2 * cls.IMAGE_MARGIN_PIXELS),
             1,
@@ -271,14 +271,11 @@ class ExcelExporter:
                     * cls.POINTS_PER_INCH
                     / cls.EXCEL_DPI
                 )
-                current_row_height = (
-                    current_cell_height
-                    * cls.POINTS_PER_INCH
-                    / cls.EXCEL_DPI
-                )
+                text_row_height = cls._row_height(sheet, row)
                 final_row_height = max(
-                    current_row_height,
+                    text_row_height,
                     required_row_height,
+                    cls.BASE_ROW_HEIGHT,
                 )
                 sheet.row_dimensions[row].height = final_row_height
 

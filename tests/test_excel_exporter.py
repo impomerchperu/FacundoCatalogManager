@@ -32,7 +32,7 @@ def test_export_writes_requested_layout_and_embeds_image(tmp_path):
     assert sheet.max_row == 4
     assert sheet.max_column == len(ExcelExporter.EXCEL_HEADERS)
     assert [cell.value for cell in sheet[3]] == list(ExcelExporter.EXCEL_HEADERS)
-    assert [cell.value for cell in sheet[2]] == [
+    assert [cell.value for cell in sheet[4]] == [
         None,
         "FB-100",
         "Producto",
@@ -75,7 +75,7 @@ def test_export_writes_requested_layout_and_embeds_image(tmp_path):
     assert color.alignment.vertical == "center"
     assert color.alignment.wrap_text is True
     assert stock.value.count("\n") == color.value.count("\n")
-    assert sheet.row_dimensions[2].height >= 30
+    assert sheet.row_dimensions[4].height >= 30
 
     assert sheet.auto_filter.ref is None
     assert len(sheet.tables) == 0
@@ -145,12 +145,12 @@ def test_export_scales_images_to_column_width_preserving_ratio(tmp_path):
     assert sheet._images[1].height == expected_second_height
 
     first_row_height_px = round(
-        (sheet.row_dimensions[2].height or 0)
+        (sheet.row_dimensions[4].height or 0)
         * ExcelExporter.EXCEL_DPI
         / ExcelExporter.POINTS_PER_INCH
     )
     second_row_height_px = round(
-        (sheet.row_dimensions[3].height or 0)
+        (sheet.row_dimensions[5].height or 0)
         * ExcelExporter.EXCEL_DPI
         / ExcelExporter.POINTS_PER_INCH
     )
@@ -182,8 +182,8 @@ def test_export_preserves_multiple_color_stock_lines_at_same_height(tmp_path):
     workbook = load_workbook(filename)
     sheet = workbook["Productos"]
 
-    assert sheet["F2"].value == "Rojo\nAzul\nVerde"
-    assert sheet["G2"].value == "100\n25\n8"
+    assert sheet["F4"].value == "Rojo\nAzul\nVerde"
+    assert sheet["G4"].value == "100\n25\n8"
     assert sheet["F2"].alignment.vertical == "center"
     assert sheet["G2"].alignment.vertical == "center"
     assert sheet["F2"].alignment.horizontal == "left"

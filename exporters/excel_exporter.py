@@ -8,6 +8,7 @@ from urllib.request import Request, urlopen
 
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as ExcelImage
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
@@ -33,18 +34,62 @@ class ExcelExporter:
         "Precio millar",
     )
 
-    COLUMN_WIDTHS: ClassVar[dict[str, int]] = {
-        "Imagen": 17,
-        "Código": 14,
-        "Producto": 42,
-        "Detalle": 48,
-        "Categoría": 28,
-        "Color": 24,
-        "Stock": 12,
-        "Precio muestra": 18,
-        "Precio ciento": 18,
-        "Precio millar": 18,
+    SIDEBAR_COLUMN_WIDTH: ClassVar[float] = 34.89
+    DATA_WIDTH_BUDGET: ClassVar[float] = 136.0
+
+    COLUMN_MIN_WIDTHS: ClassVar[dict[str, float]] = {
+        "Imagen": 11.0,
+        "Código": 11.0,
+        "Producto": 18.0,
+        "Detalle": 21.0,
+        "Categoría": 13.0,
+        "Color": 10.0,
+        "Stock": 8.0,
+        "Precio muestra": 11.5,
+        "Precio ciento": 11.5,
+        "Precio millar": 11.5,
     }
+
+    COLUMN_MAX_WIDTHS: ClassVar[dict[str, float]] = {
+        "Imagen": 13.0,
+        "Código": 13.0,
+        "Producto": 23.0,
+        "Detalle": 26.0,
+        "Categoría": 16.0,
+        "Color": 13.0,
+        "Stock": 9.0,
+        "Precio muestra": 13.0,
+        "Precio ciento": 13.0,
+        "Precio millar": 13.0,
+    }
+
+    # Mantiene una referencia pública de anchos de diseño para compatibilidad
+    # con código externo que pueda consultar esta configuración.
+    COLUMN_WIDTHS: ClassVar[dict[str, float]] = {
+        header: (COLUMN_MIN_WIDTHS[header] + COLUMN_MAX_WIDTHS[header]) / 2
+        for header in EXCEL_HEADERS
+    }
+
+    CENTER_HEADERS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "Código",
+            "Color",
+            "Stock",
+            "Precio muestra",
+            "Precio ciento",
+            "Precio millar",
+        }
+    )
+
+    CURRENCY_COLUMNS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "Precio muestra",
+            "Precio ciento",
+            "Precio millar",
+        }
+    )
+
+    LOCAL_CURRENCY_FORMAT: ClassVar[str] = '"S/" #,##0.00'
 
     HEADER_TEXT: ClassVar[str] = "173F6D"
 
@@ -55,7 +100,10 @@ class ExcelExporter:
     ROW_VERTICAL_PADDING_POINTS: ClassVar[float] = 8.0
 
     IMAGE_MAX_SIZE_PX: ClassVar[int] = 118
-    IMAGE_CELL_PADDING_PX: ClassVar[int] = 2
+    IMAGE_CELL_PADDING_PX: ClassVar[int] = 4
+    EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT: ClassVar[float] = 7.0
+    EXCEL_DPI: ClassVar[float] = 96.0
+    POINTS_PER_INCH: ClassVar[float] = 72.0
 
     @classmethod
     def export(cls, products: Iterable, filename) -> None:
@@ -70,20 +118,19 @@ class ExcelExporter:
         sheet: Worksheet = active_sheet
         sheet.title = "Productos"
         sheet.sheet_view.showGridLines = False
+        sheet.sheet_view.zoomScale = 85
+        sheet.sheet_view.zoomScaleNormal = 85
         sheet.sheet_format.defaultRowHeight = cls.DEFAULT_ROW_HEIGHT_POINTS
 
-        for index, header in enumerate(cls.EXCEL_HEADERS, start=1):
-            sheet.column_dimensions[get_column_letter(index)].width = (
-                cls.COLUMN_WIDTHS[header]
-            )
+        cls._initialize_sheet_layout(sheet)
 
-        sheet.append(list(cls.EXCEL_HEADERS))
         for row in rows:
             colors, stocks = cls._split_color_stock(
                 str(row.get("stock_by_color", "") or ""),
             )
             sheet.append(
                 [
+                    None,
                     None,
                     row["code"],
                     row["name"],
@@ -97,6 +144,7 @@ class ExcelExporter:
                 ]
             )
 
+        cls._set_column_widths(sheet)
         cls._style_sheet(sheet)
 
         with TemporaryDirectory(prefix="fcm_excel_") as temp_dir:
@@ -107,6 +155,69 @@ class ExcelExporter:
                 Path(temp_dir),
             )
             workbook.save(filename)
+
+    @classmethod
+    def _initialize_sheet_layout(cls, sheet: Worksheet) -> None:
+        """Reserva la columna lateral A y deja la tabla de datos desde B."""
+        sheet.column_dimensions["A"].width = cls.SIDEBAR_COLUMN_WIDTH
+        sheet.freeze_panes = "B2"
+        sheet.auto_filter.ref = None
+        sheet.sheet_properties.pageSetUpPr.fitToPage = True
+        sheet.page_setup.fitToWidth = 1
+        sheet.page_setup.fitToHeight = 0
+
+        sheet.append([None, *cls.EXCEL_HEADERS])
+
+    @classmethod
+    def _set_column_widths(cls, sheet: Worksheet) -> None:
+        """Ajusta anchos según el contenido, dentro de un presupuesto compacto."""
+        header_index = cls._header_index()
+        desired_widths: dict[str, float] = {}
+
+        for header in cls.EXCEL_HEADERS:
+            column = header_index[header]
+            max_line_length = len(header)
+
+            for row_number in range(2, sheet.max_row + 1):
+                value = sheet.cell(
+                    row=row_number,
+                    column=column,
+                ).value
+                if value is None:
+                    continue
+
+                for line in str(value).splitlines() or [""]:
+                    max_line_length = max(max_line_length, len(line))
+
+            desired = max_line_length * 0.90 + 1.5
+            desired_widths[header] = min(
+                max(cls.COLUMN_MIN_WIDTHS[header], desired),
+                cls.COLUMN_MAX_WIDTHS[header],
+            )
+
+        if sum(desired_widths.values()) > cls.DATA_WIDTH_BUDGET:
+            excess = sum(desired_widths.values()) - cls.DATA_WIDTH_BUDGET
+            capacity = sum(
+                desired_widths[header] - cls.COLUMN_MIN_WIDTHS[header]
+                for header in cls.EXCEL_HEADERS
+            )
+            if capacity > 0:
+                for header in cls.EXCEL_HEADERS:
+                    reducible = (
+                        desired_widths[header]
+                        - cls.COLUMN_MIN_WIDTHS[header]
+                    )
+                    desired_widths[header] = round(
+                        desired_widths[header]
+                        - excess * reducible / capacity,
+                        2,
+                    )
+
+        for header in cls.EXCEL_HEADERS:
+            column = header_index[header]
+            sheet.column_dimensions[
+                get_column_letter(column)
+            ].width = desired_widths[header]
 
     @classmethod
     def _style_sheet(cls, sheet: Worksheet) -> None:
@@ -121,8 +232,11 @@ class ExcelExporter:
             size=10,
             color=cls.HEADER_TEXT,
         )
+        header_index = cls._header_index()
 
         for cell in sheet[1]:
+            if cell.value is None:
+                continue
             cell.font = header_font
             cell.alignment = Alignment(
                 horizontal="center",
@@ -133,34 +247,47 @@ class ExcelExporter:
         sheet.row_dimensions[1].height = cls.HEADER_ROW_HEIGHT_POINTS
 
         for row_number in range(2, sheet.max_row + 1):
-            for column in range(1, sheet.max_column + 1):
+            for header, column in header_index.items():
                 cell = sheet.cell(row=row_number, column=column)
                 cell.font = data_font
                 cell.alignment = Alignment(
+                    horizontal=(
+                        "center"
+                        if header in cls.CENTER_HEADERS
+                        else "left"
+                    ),
                     vertical="center",
                     wrap_text=True,
                 )
-            cls._set_row_height(sheet, row_number)
+                if header in cls.CURRENCY_COLUMNS:
+                    cell.number_format = cls.LOCAL_CURRENCY_FORMAT
 
+            cls._set_row_height(sheet, row_number)
 
     @classmethod
     def _set_row_height(cls, sheet: Worksheet, row: int) -> None:
-        widths = {
-            "Producto": cls.COLUMN_WIDTHS["Producto"],
-            "Detalle": cls.COLUMN_WIDTHS["Detalle"],
-            "Categoría": cls.COLUMN_WIDTHS["Categoría"],
-            "Color": cls.COLUMN_WIDTHS["Color"],
-        }
-        lines = 1
         header_index = cls._header_index()
+        lines = 1
 
-        for header, width in widths.items():
+        for header in (
+            "Producto",
+            "Detalle",
+            "Categoría",
+            "Color",
+        ):
+            column = header_index[header]
             value = str(
                 sheet.cell(
                     row=row,
-                    column=header_index[header],
+                    column=column,
                 ).value
                 or "",
+            )
+            width = float(
+                sheet.column_dimensions[
+                    get_column_letter(column)
+                ].width
+                or cls.COLUMN_WIDTHS[header],
             )
             lines = max(
                 lines,
@@ -186,9 +313,10 @@ class ExcelExporter:
         )
 
     @staticmethod
-    def _estimate_wrapped_lines(text: str, width: int) -> int:
+    def _estimate_wrapped_lines(text: str, width: float) -> int:
         if not text:
             return 1
+
         max_chars = max(int(width * 0.92), 1)
         return sum(
             max(1, (len(line) + max_chars - 1) // max_chars)
@@ -224,63 +352,130 @@ class ExcelExporter:
                 continue
 
             image_path = temp_dir / f"product_{offset + 1}.png"
-            image = cls._prepare_image(source_path, image_path)
-            if image is None:
-                continue
-
-            target_width, target_height = cls._image_size_for_cell(
+            image_size = cls._image_canvas_size(
                 sheet,
                 target_row,
             )
-            cls._fit_image(image, target_width, target_height)
-            image.anchor = sheet.cell(
-                row=target_row,
-                column=image_column,
-            ).coordinate
+            image = cls._prepare_image(
+                source_path,
+                image_path,
+                image_size,
+            )
+            if image is None:
+                continue
+
+            image.anchor = cls._two_cell_anchor(
+                image_column,
+                target_row,
+            )
             sheet.add_image(image)
 
     @classmethod
-    def _image_size_for_cell(
+    def _image_canvas_size(
         cls,
         sheet: Worksheet,
         row: int,
     ) -> tuple[int, int]:
-        column_width = cls.COLUMN_WIDTHS["Imagen"]
-        available_width = max(
-            int(column_width * 7) - cls.IMAGE_CELL_PADDING_PX * 2,
-            1,
+        image_column = cls._header_index()["Imagen"]
+        column_width = float(
+            sheet.column_dimensions[
+                get_column_letter(image_column)
+            ].width
+            or cls.COLUMN_WIDTHS["Imagen"],
         )
+        cell_width = max(
+            int(
+                column_width
+                * cls.EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT
+            ),
+            cls.IMAGE_CELL_PADDING_PX + 1,
+        )
+
         row_height = sheet.row_dimensions[row].height
         if row_height is None:
             row_height = cls.DEFAULT_ROW_HEIGHT_POINTS
-        available_height = max(
-            int(row_height * 96 / 72) - cls.IMAGE_CELL_PADDING_PX * 2,
-            1,
+        cell_height = max(
+            int(
+                row_height
+                * cls.EXCEL_DPI
+                / cls.POINTS_PER_INCH
+            ),
+            cls.IMAGE_CELL_PADDING_PX + 1,
         )
 
-        return (
-            min(cls.IMAGE_MAX_SIZE_PX, available_width),
-            min(cls.IMAGE_MAX_SIZE_PX, available_height),
-        )
+        return cell_width, cell_height
 
     @staticmethod
-    def _fit_image(
-        image: ExcelImage,
-        max_width: int,
-        max_height: int,
-    ) -> None:
-        source_width = int(image.width or 0)
-        source_height = int(image.height or 0)
-        if source_width <= 0 or source_height <= 0:
-            return
-
-        scale = min(
-            max_width / source_width,
-            max_height / source_height,
-            1.0,
+    def _two_cell_anchor(
+        column: int,
+        row: int,
+    ) -> TwoCellAnchor:
+        start = AnchorMarker(
+            col=column - 1,
+            row=row - 1,
         )
-        image.width = max(int(source_width * scale), 1)
-        image.height = max(int(source_height * scale), 1)
+        end = AnchorMarker(
+            col=column,
+            row=row,
+        )
+        return TwoCellAnchor(
+            editAs="twoCell",
+            _from=start,
+            to=end,
+        )
+
+    @classmethod
+    def _prepare_image(
+        cls,
+        source_path: Path,
+        target_path: Path,
+        canvas_size: tuple[int, int],
+    ) -> ExcelImage | None:
+        canvas_width, canvas_height = canvas_size
+        try:
+            with Image.open(source_path) as source:
+                prepared = source.convert("RGBA")
+                inner_width = max(
+                    canvas_width - cls.IMAGE_CELL_PADDING_PX * 2,
+                    1,
+                )
+                inner_height = max(
+                    canvas_height - cls.IMAGE_CELL_PADDING_PX * 2,
+                    1,
+                )
+                prepared.thumbnail(
+                    (
+                        min(inner_width, cls.IMAGE_MAX_SIZE_PX),
+                        min(inner_height, cls.IMAGE_MAX_SIZE_PX),
+                    ),
+                    Image.Resampling.LANCZOS,
+                )
+
+                canvas = Image.new(
+                    "RGBA",
+                    (canvas_width, canvas_height),
+                    (255, 255, 255, 0),
+                )
+                left = max(
+                    (canvas_width - prepared.width) // 2,
+                    0,
+                )
+                top = max(
+                    (canvas_height - prepared.height) // 2,
+                    0,
+                )
+                canvas.alpha_composite(prepared, (left, top))
+                canvas.save(target_path, format="PNG")
+        except (OSError, ValueError):
+            return None
+
+        if canvas_width <= 0 or canvas_height <= 0:
+            return None
+
+        image = ExcelImage(str(target_path))
+        image.width = canvas_width
+        image.height = canvas_height
+        return image
 
     @staticmethod
     def _local_image_path(reference: str) -> Path | None:
@@ -309,34 +504,6 @@ class ExcelExporter:
             return None
         return target
 
-    @classmethod
-    def _prepare_image(
-        cls,
-        source_path: Path,
-        target_path: Path,
-    ) -> ExcelImage | None:
-        try:
-            with Image.open(source_path) as source:
-                prepared = source.convert(
-                    "RGBA" if "A" in source.getbands() else "RGB",
-                )
-                prepared.thumbnail(
-                    (cls.IMAGE_MAX_SIZE_PX, cls.IMAGE_MAX_SIZE_PX),
-                    Image.Resampling.LANCZOS,
-                )
-                prepared.save(target_path, format="PNG")
-                width, height = prepared.size
-        except (OSError, ValueError):
-            return None
-
-        if width <= 0 or height <= 0:
-            return None
-
-        image = ExcelImage(str(target_path))
-        image.width = width
-        image.height = height
-        return image
-
     @staticmethod
     def _split_color_stock(value: str) -> tuple[str, str]:
         colors: list[str] = []
@@ -361,5 +528,5 @@ class ExcelExporter:
     def _header_index(cls) -> dict[str, int]:
         return {
             header: index
-            for index, header in enumerate(cls.EXCEL_HEADERS, start=1)
+            for index, header in enumerate(cls.EXCEL_HEADERS, start=2)
         }

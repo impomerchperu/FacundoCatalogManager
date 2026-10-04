@@ -784,7 +784,7 @@ try {
     $excel = New-Object -ComObject Excel.Application
     $majorVersion = [int][double]$excel.Version
     if ($majorVersion -lt 15) {
-        exit 0
+        throw "La versión de Excel no admite segmentaciones de datos de tabla."
     }
 
     $excel.Visible = $false
@@ -792,6 +792,10 @@ try {
     $excel.ScreenUpdating = $false
 
     $book = $excel.Workbooks.Open($path, 0, $false)
+    if ($book.ReadOnly) {
+        throw "Excel abrió el libro como solo lectura."
+    }
+
     $sheet = $book.Worksheets.Item("Productos")
     $table = $sheet.ListObjects.Item("CatalogoProductos")
 
@@ -816,11 +820,21 @@ try {
         $null,
         "Slicer_Categoria_View",
         "Categoría",
-        0,
-        0,
-        190,
+        4,
+        4,
+        250,
         540
     )
+    if ($cache -eq $null) {
+        throw "Excel no creó la caché de la segmentación."
+    }
+
+    try {
+        $cache.ClearAllFilters()
+    }
+    catch {
+    }
+
     if ($cache.Slicers.Count -lt 1) {
         throw "Excel no creó ningún objeto Slicer."
     }
@@ -828,9 +842,12 @@ try {
     $slicer.NumberOfColumns = 1
     $slicer.DisplayHeader = $true
     $slicer.Top = 0
-    $slicer.Left = 0
-    $slicer.Width = 190
+    $slicer.Left = 4
+    $slicer.Width = 250
     $slicer.Height = 540
+    $slicer.Locked = $false
+    $slicer.DisableMoveResizeUI = $false
+    $slicer.Shape.Visible = $true
 
     try {
         $slicer.RowHeight = 18.5

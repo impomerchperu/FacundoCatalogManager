@@ -214,3 +214,31 @@ Esta validación manual se completó el 2026-09-20 sobre `main` y no modificó e
 Hallazgo de idempotencia: las altas iniciales podían quedar sin `content_hash`, mientras que la segunda sincronización calculaba ese hash antes de comparar. Se corrigió la inicialización del hash antes de la clasificación para evitar un `UPDATED` espurio. La idempotencia ya quedó validada en CI con una SQLite persistente compartida por dos sincronizaciones consecutivas; no se requiere otro FULL real para cerrar este punto.
 
 La mejora de progreso ya quedó validada sin requerir otro FULL real. El benchmark aislado de contención/latencia SQLite también quedó ejecutado sin evidencia que justifique cambios transaccionales. Cualquier futura modificación de scraping, persistencia o concurrencia deberá conservar las invariantes actuales y seguir el ciclo benchmark + validación FULL.
+
+
+## Seguimiento v0.3.0 — Exportador Excel
+
+Actualización: 2026-10-04  
+Rama de trabajo: `fix/excel-table-repair`
+
+El bloque de ajustes del exportador Excel queda **cerrado temporalmente**. El estado validado y conservado es:
+
+- sin hoja auxiliar de filtros;
+- sin filtros automáticos de Excel;
+- sin objetos `Table`;
+- sin fondos de colores añadidos por el exportador;
+- imágenes embebidas con proporción preservada;
+- imágenes ancladas con `TwoCellAnchor` y `editAs="twoCell"`, para **mover y cambiar tamaño con las celdas**;
+- margen interno de imagen conservado en **4 px**, tras probar y revertir el intento de encaje a ancho completo;
+- fila inicial 2 con altura de **78 pt**;
+- fila de encabezados con altura de **44 pt**;
+- pruebas específicas del exportador: **4 passed**;
+- suite completa local: **626 passed, 10 deselected**;
+- Ruff y Pyright quedaron limpios después de retirar el import no utilizado.
+
+Se probó una implementación basada en segmentación/slicer para filtrar categorías directamente dentro de Excel, pero produjo el aviso de reparación de `/xl/worksheets/sheet1.xml` al abrir el archivo. Ese enfoque queda descartado por ahora y **no forma parte del estado final**.
+
+Cualquier nuevo ajuste del exportador deberá partir de este estado estable y validarse nuevamente antes de incorporarse al checklist de cierre.
+
+
+20. [x] Exportador Excel cerrado temporalmente en estado estable: sin filtros automáticos ni tablas, imágenes con anclaje `TwoCellAnchor`, margen interno de 4 px conservado, 4 pruebas específicas y suite local en 626 passed / 10 deselected.

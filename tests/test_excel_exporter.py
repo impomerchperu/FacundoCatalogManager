@@ -36,6 +36,7 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path):
         ExcelExporter.EXCEL_HEADERS,
     )
     assert [cell.value for cell in sheet[2][1:11]] == [
+        None,
         "FB-100",
         "Producto",
         "Detalle",

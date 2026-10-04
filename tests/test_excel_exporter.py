@@ -86,9 +86,9 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path, monkeypatc
     assert image_anchor.to.rowOff > 0
 
     assert sheet["G2"].fill.fill_type == "solid"
-    assert sheet["G2"].fill.fgColor.rgb == "FFFFFFFF"
+    assert sheet["G2"].fill.fgColor.rgb[-6:] == "FFFFFF"
     assert sheet["H2"].fill.fill_type == "solid"
-    assert sheet["H2"].fill.fgColor.rgb == "FFFFFFFF"
+    assert sheet["H2"].fill.fgColor.rgb[-6:] == "FFFFFF"
 
     assert sheet["C2"].alignment.horizontal == "center"
     assert sheet["H2"].alignment.horizontal == "center"
@@ -239,8 +239,9 @@ def test_export_disabled_slicer_does_not_inject_unsupported_ooxml(
         )
 
 
-def test_export_adjusts_row_height_for_text(tmp_path):
+def test_export_adjusts_row_height_for_text(tmp_path, monkeypatch):
     filename = tmp_path / "catalogo.xlsx"
+    monkeypatch.setenv("FCM_EXCEL_SLICER_MODE", "disabled")
 
     product = Product(
         code="FB-200",

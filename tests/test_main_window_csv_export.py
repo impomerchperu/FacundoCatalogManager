@@ -106,9 +106,8 @@ def test_main_window_excel_dialog_inherits_active_category_and_stock_filters(
             return result
 
     monkeypatch.setattr(
-        "gui.main_window.ExcelCategorySelectionDialog",
+        "gui.excel_category_dialog.ExcelCategorySelectionDialog",
         FakeDialog,
-        raising=False,
     )
     monkeypatch.setattr(
         "gui.main_window.QFileDialog.getSaveFileName",

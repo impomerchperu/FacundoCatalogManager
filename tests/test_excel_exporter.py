@@ -161,6 +161,7 @@ def test_export_auto_delegates_slicer_to_native_helper(tmp_path, monkeypatch):
 
 def test_export_disabled_slicer_does_not_inject_unsupported_ooxml(
     tmp_path,
+    monkeypatch,
 ):
     filename = tmp_path / "catalogo.xlsx"
     product = Product(
@@ -169,17 +170,8 @@ def test_export_disabled_slicer_does_not_inject_unsupported_ooxml(
         category="Categoría",
     )
 
-    import os
-
-    previous = os.environ.get("FCM_EXCEL_SLICER_MODE")
-    os.environ["FCM_EXCEL_SLICER_MODE"] = "disabled"
-    try:
-        ExcelExporter.export([product], filename)
-    finally:
-        if previous is None:
-            os.environ.pop("FCM_EXCEL_SLICER_MODE", None)
-        else:
-            os.environ["FCM_EXCEL_SLICER_MODE"] = previous
+    monkeypatch.setenv("FCM_EXCEL_SLICER_MODE", "disabled")
+    ExcelExporter.export([product], filename)
 
     with ZipFile(filename) as archive:
         names = set(archive.namelist())

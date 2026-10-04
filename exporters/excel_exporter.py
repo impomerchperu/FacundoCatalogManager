@@ -246,39 +246,63 @@ class ExcelExporter:
         sheet: Worksheet,
         row: int,
     ) -> ExcelImage | None:
-        width, height = cls._image_cell_size(sheet, row)
+        cell_width, current_cell_height = cls._image_cell_size(sheet, row)
+        image_width = max(
+            cell_width - cls.IMAGE_CELL_PADDING_PX * 2,
+            1,
+        )
 
         try:
             with Image.open(source_path) as source:
                 prepared = source.convert("RGBA")
-                inner_width = max(
-                    width - cls.IMAGE_CELL_PADDING_PX * 2,
+                if prepared.width <= 0 or prepared.height <= 0:
+                    return None
+
+                image_height = max(
+                    round(image_width * prepared.height / prepared.width),
                     1,
                 )
-                inner_height = max(
-                    height - cls.IMAGE_CELL_PADDING_PX * 2,
-                    1,
+                required_cell_height = (
+                    image_height + cls.IMAGE_CELL_PADDING_PX * 2
                 )
-                prepared.thumbnail(
-                    (inner_width, inner_height),
+                required_row_height = (
+                    required_cell_height
+                    * cls.POINTS_PER_INCH
+                    / cls.EXCEL_DPI
+                )
+                final_row_height = max(
+                    current_cell_height * cls.POINTS_PER_INCH / cls.EXCEL_DPI,
+                    required_row_height,
+                )
+                sheet.row_dimensions[row].height = final_row_height
+
+                final_cell_height = max(
+                    round(final_row_height * cls.EXCEL_DPI / cls.POINTS_PER_INCH),
+                    required_cell_height,
+                )
+                prepared = prepared.resize(
+                    (image_width, image_height),
                     Image.Resampling.LANCZOS,
                 )
 
                 canvas = Image.new(
                     "RGBA",
-                    (width, height),
+                    (cell_width, final_cell_height),
                     (255, 255, 255, 0),
                 )
-                left = max((width - prepared.width) // 2, 0)
-                top = max((height - prepared.height) // 2, 0)
+                left = (cell_width - image_width) // 2
+                top = max(
+                    (final_cell_height - image_height) // 2,
+                    cls.IMAGE_CELL_PADDING_PX,
+                )
                 canvas.alpha_composite(prepared, (left, top))
                 canvas.save(target_path, format="PNG")
         except (OSError, ValueError):
             return None
 
         image = ExcelImage(str(target_path))
-        image.width = width
-        image.height = height
+        image.width = cell_width
+        image.height = final_cell_height
         return image
 
     @classmethod
@@ -296,13 +320,13 @@ class ExcelExporter:
         )
         cell_width = max(
             int(column_width * cls.EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT),
-            cls.IMAGE_CELL_PADDING_PX + 1,
+            cls.IMAGE_CELL_PADDING_PX * 2 + 1,
         )
 
         row_height = sheet.row_dimensions[row].height or cls.BASE_ROW_HEIGHT
         cell_height = max(
             int(row_height * cls.EXCEL_DPI / cls.POINTS_PER_INCH),
-            cls.IMAGE_CELL_PADDING_PX + 1,
+            cls.IMAGE_CELL_PADDING_PX * 2 + 1,
         )
         return cell_width, cell_height
 

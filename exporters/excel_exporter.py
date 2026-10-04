@@ -673,7 +673,13 @@ class ExcelExporter:
             ' xmlns:r="http://schemas.openxmlformats.org/'
             'officeDocument/2006/relationships"'
         )
-        workbook_tag = xml.split(">", 1)[0]
+        workbook_start = xml.find("<workbook")
+        workbook_end = xml.find(">", workbook_start)
+        workbook_tag = (
+            xml[workbook_start:workbook_end]
+            if workbook_start >= 0 and workbook_end >= 0
+            else ""
+        )
         if 'xmlns:r="http://schemas.openxmlformats.org/' not in workbook_tag:
             xml = xml.replace(
                 '<workbook xmlns="http://schemas.openxmlformats.org/'

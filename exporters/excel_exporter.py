@@ -500,7 +500,6 @@ class ExcelExporter:
             "w",
             ZIP_DEFLATED,
         ) as output:
-            names = set(archive.namelist())
             workbook_xml = archive.read("xl/workbook.xml").decode("utf-8")
             workbook_rels = archive.read(
                 "xl/_rels/workbook.xml.rels",
@@ -515,17 +514,6 @@ class ExcelExporter:
                 "[Content_Types].xml",
             ).decode("utf-8")
 
-            (
-                drawing_name,
-                _drawing_rel_id,
-                sheet_xml,
-                sheet_rels,
-            ) = cls._ensure_drawing_part(
-                names,
-                sheet_xml,
-                sheet_rels,
-            )
-
             workbook_cache_rel_id = cls._next_rel_id(workbook_rels)
             sheet_slicer_rel_id = cls._next_rel_id(sheet_rels)
 
@@ -533,13 +521,13 @@ class ExcelExporter:
                 workbook_rels,
                 workbook_cache_rel_id,
                 "http://schemas.microsoft.com/office/2007/relationships/slicerCache",
-                "slicerCaches/slicerCache1.xml",
+                "/xl/slicerCaches/slicerCache.xml",
             )
             sheet_rels = cls._append_relationship(
                 sheet_rels,
                 sheet_slicer_rel_id,
                 "http://schemas.microsoft.com/office/2007/relationships/slicer",
-                "../slicers/slicer1.xml",
+                "/xl/slicers/slicer.xml",
             )
 
             workbook_xml = cls._append_workbook_slicer_parts(
@@ -550,25 +538,7 @@ class ExcelExporter:
                 sheet_xml,
                 sheet_slicer_rel_id,
             )
-            content_types = cls._append_content_types(
-                content_types,
-            )
-
-            if drawing_name in names:
-                drawing_xml = archive.read(
-                    drawing_name,
-                ).decode("utf-8")
-            else:
-                drawing_xml = (
-                    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-                    '<xdr:wsDr '
-                    'xmlns:xdr="http://schemas.openxmlformats.org/drawingml/'
-                    '2006/spreadsheetDrawing" '
-                    'xmlns:a="http://schemas.openxmlformats.org/drawingml/'
-                    '2006/main"/>'
-                )
-
-            drawing_xml = cls._append_slicer_drawing(drawing_xml)
+            content_types = cls._append_content_types(content_types)
 
             rewritten = {
                 "xl/workbook.xml": workbook_xml.encode("utf-8"),
@@ -576,9 +546,8 @@ class ExcelExporter:
                 "xl/worksheets/sheet1.xml": sheet_xml.encode("utf-8"),
                 "xl/worksheets/_rels/sheet1.xml.rels": sheet_rels.encode("utf-8"),
                 "[Content_Types].xml": content_types.encode("utf-8"),
-                drawing_name: drawing_xml.encode("utf-8"),
-                "xl/slicerCaches/slicerCache1.xml": cls._slicer_cache_xml(),
-                "xl/slicers/slicer1.xml": cls._slicer_xml(),
+                "xl/slicerCaches/slicerCache.xml": cls._slicer_cache_xml(),
+                "xl/slicers/slicer.xml": cls._slicer_xml(),
             }
 
             for item in archive.infolist():
@@ -673,26 +642,6 @@ class ExcelExporter:
         xml: str,
         cache_rel_id: str,
     ) -> str:
-        namespace = (
-            ' xmlns:r="http://schemas.openxmlformats.org/'
-            'officeDocument/2006/relationships"'
-        )
-        workbook_start = xml.find("<workbook")
-        workbook_end = xml.find(">", workbook_start)
-        workbook_tag = (
-            xml[workbook_start:workbook_end]
-            if workbook_start >= 0 and workbook_end >= 0
-            else ""
-        )
-        if 'xmlns:r="http://schemas.openxmlformats.org/' not in workbook_tag:
-            xml = xml.replace(
-                '<workbook xmlns="http://schemas.openxmlformats.org/'
-                'spreadsheetml/2006/main"',
-                '<workbook xmlns="http://schemas.openxmlformats.org/'
-                f'spreadsheetml/2006/main"{namespace}',
-                1,
-            )
-
         if "<definedNames>" not in xml:
             defined_names = (
                 "<definedNames>"
@@ -700,206 +649,75 @@ class ExcelExporter:
                 "</definedName>"
                 "</definedNames>"
             )
-            xml = xml.replace(
-                "</sheets>",
-                f"</sheets>{defined_names}",
-            )
+            xml = xml.replace("</sheets>", f"</sheets>{defined_names}")
 
         extension = (
             '<extLst><ext '
-            'uri="{46BE6895-7355-4a93-B00E-2C351335B9C9}" '
-            'xmlns:x15="http://schemas.microsoft.com/office/'
-            'spreadsheetml/2010/11/main">'
-            '<x15:slicerCaches '
+            'uri="{BBE1A952-AA13-448e-AADC-164F8A28A991}">'
+            '<x14:slicerCaches '
             'xmlns:x14="http://schemas.microsoft.com/office/'
             'spreadsheetml/2009/9/main">'
-            f'<x14:slicerCache r:id="{cache_rel_id}"/>'
-            "</x15:slicerCaches></ext></extLst>"
+            f'<x14:slicerCache r:id="{cache_rel_id}" '
+            'xmlns:r="http://schemas.openxmlformats.org/'
+            'officeDocument/2006/relationships" />'
+            "</x14:slicerCaches></ext></extLst>"
         )
-        return xml.replace(
-            "</workbook>",
-            extension + "</workbook>",
-        )
+        return xml.replace("</workbook>", extension + "</workbook>")
 
     @staticmethod
     def _append_sheet_slicer_parts(
         xml: str,
         slicer_rel_id: str,
     ) -> str:
-        namespace = (
-            ' xmlns:r="http://schemas.openxmlformats.org/'
-            'officeDocument/2006/relationships"'
-        )
-        worksheet_start = xml.find("<worksheet")
-        worksheet_end = xml.find(">", worksheet_start)
-        worksheet_tag = (
-            xml[worksheet_start:worksheet_end]
-            if worksheet_start >= 0 and worksheet_end >= 0
-            else ""
-        )
-        if 'xmlns:r="http://schemas.openxmlformats.org/' not in worksheet_tag:
-            xml = xml.replace(
-                '<worksheet xmlns="http://schemas.openxmlformats.org/'
-                'spreadsheetml/2006/main"',
-                '<worksheet xmlns="http://schemas.openxmlformats.org/'
-                f'spreadsheetml/2006/main"{namespace}',
-                1,
-            )
-
         extension = (
             '<extLst><ext '
-            'uri="{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}" '
-            'xmlns:x15="http://schemas.microsoft.com/office/'
-            'spreadsheetml/2010/11/main">'
+            'uri="{A8765BA9-456A-4dab-B4F3-ACF838C121DE}">'
             '<x14:slicerList xmlns:x14="http://schemas.microsoft.com/office/'
             'spreadsheetml/2009/9/main">'
-            f'<x14:slicer r:id="{slicer_rel_id}"/>'
+            f'<x14:slicer r:id="{slicer_rel_id}" '
+            'xmlns:r="http://schemas.openxmlformats.org/'
+            'officeDocument/2006/relationships" />'
             "</x14:slicerList></ext></extLst>"
         )
-        return xml.replace(
-            "</worksheet>",
-            extension + "</worksheet>",
-        )
+        return xml.replace("</worksheet>", extension + "</worksheet>")
 
     @staticmethod
     def _append_content_types(xml: str) -> str:
         additions = (
-            '<Override PartName="/xl/slicerCaches/slicerCache1.xml" '
+            '<Override PartName="/xl/slicerCaches/slicerCache.xml" '
             'ContentType="application/vnd.ms-excel.slicerCache+xml"/>'
-            '<Override PartName="/xl/slicers/slicer1.xml" '
+            '<Override PartName="/xl/slicers/slicer.xml" '
             'ContentType="application/vnd.ms-excel.slicer+xml"/>'
         )
-        return xml.replace(
-            "</Types>",
-            additions + "</Types>",
-        )
-
-    @staticmethod
-    def _normalize_drawing_prefixes(xml: str) -> str:
-        import re
-
-        namespace = (
-            "http://schemas.openxmlformats.org/drawingml/"
-            "2006/spreadsheetDrawing"
-        )
-        root_match = re.match(
-            rf'<wsDr\s+xmlns="{re.escape(namespace)}">',
-            xml,
-        )
-        if root_match:
-            xml = (
-                f'<xdr:wsDr '
-                f'xmlns:xdr="{namespace}" '
-                'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
-                + xml[root_match.end():]
-            )
-
-        return re.sub(
-            r"<(/?)(?![A-Za-z_][\w.-]*:)([A-Za-z_][\w.-]*)(?=[ >])",
-            r"<\1xdr:\2",
-            xml,
-        )
-
-    @classmethod
-    def _append_slicer_drawing(cls, xml: str) -> str:
-        xml = cls._normalize_drawing_prefixes(xml)
-        fragment = (
-            '<xdr:twoCellAnchor editAs="absolute">'
-            '<xdr:from>'
-            '<xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff>'
-            '<xdr:row>0</xdr:row><xdr:rowOff>38100</xdr:rowOff>'
-            '</xdr:from>'
-            '<xdr:to>'
-            '<xdr:col>0</xdr:col><xdr:colOff>2621280</xdr:colOff>'
-            '<xdr:row>12</xdr:row><xdr:rowOff>656665</xdr:rowOff>'
-            '</xdr:to>'
-            '<mc:AlternateContent '
-            'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">'
-            '<mc:Choice '
-            'xmlns:sle15="http://schemas.microsoft.com/office/drawing/2012/slicer" '
-            'Requires="sle15">'
-            '<xdr:graphicFrame macro="">'
-            '<xdr:nvGraphicFramePr>'
-            f'<xdr:cNvPr id="{cls.SLICER_DRAWING_ID}" name="Categoría"/>'
-            '<xdr:cNvGraphicFramePr/>'
-            '</xdr:nvGraphicFramePr>'
-            '<xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>'
-            '<a:graphic>'
-            '<a:graphicData '
-            'uri="http://schemas.microsoft.com/office/drawing/2010/slicer">'
-            '<sle:slicer '
-            'xmlns:sle="http://schemas.microsoft.com/office/drawing/2010/slicer" '
-            'name="Categoría"/>'
-            '</a:graphicData>'
-            '</a:graphic>'
-            '</xdr:graphicFrame>'
-            '</mc:Choice>'
-            '<mc:Fallback>'
-            '<xdr:sp macro="" textlink="">'
-            '<xdr:nvSpPr>'
-            '<xdr:cNvPr id="0" name=""/>'
-            '<xdr:cNvSpPr><a:spLocks noTextEdit="1"/></xdr:cNvSpPr>'
-            '</xdr:nvSpPr>'
-            '<xdr:spPr>'
-            '<a:xfrm><a:off x="0" y="38100"/>'
-            '<a:ext cx="2621280" cy="7342094"/></a:xfrm>'
-            '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
-            '<a:solidFill><a:prstClr val="white"/></a:solidFill>'
-            '<a:ln w="1"><a:solidFill><a:prstClr val="green"/>'
-            '</a:solidFill></a:ln>'
-            '</xdr:spPr>'
-            '<xdr:txBody>'
-            '<a:bodyPr vertOverflow="clip" horzOverflow="clip"/>'
-            '<a:lstStyle/>'
-            '<a:p><a:r><a:rPr lang="en-US" sz="1100"/>'
-            '<a:t>Esta forma representa una segmentación de datos de tabla. La segmentación de datos de tabla se admite en Excel o versiones posteriores.\n\nSi la forma se modificó en una versión anterior de Excel o si el libro se guardó en Excel 2007 o una versión anterior, no se puede usar la segmentación de datos.</a:t>'
-            '</a:r></a:p>'
-            '</xdr:txBody>'
-            '</xdr:sp>'
-            '</mc:Fallback>'
-            '</mc:AlternateContent>'
-            '<xdr:clientData/>'
-            '</xdr:twoCellAnchor>'
-        )
-        return xml.replace(
-            "</xdr:wsDr>",
-            fragment + "</xdr:wsDr>",
-        )
+        return xml.replace("</Types>", additions + "</Types>")
 
     @classmethod
     def _slicer_cache_xml(cls) -> bytes:
         xml = (
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<slicerCacheDefinition '
-            'xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" '
-            'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '
-            'mc:Ignorable="x" '
-            'xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
-            f'name="{cls.SLICER_CACHE_NAME}" sourceName="Categoría">'
-            '<extLst>'
-            '<x:ext uri="{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}" '
-            'xmlns:x15="http://schemas.microsoft.com/office/'
-            'spreadsheetml/2010/11/main">'
-            '<x15:tableSlicerCache tableId="1" column="5"/>'
-            '</x:ext>'
-            '</extLst>'
-            '</slicerCacheDefinition>'
+            '<?xml version="1.0" encoding="utf-8"?>'
+            '<x14:slicerCacheDefinition '
+            'name="' + cls.SLICER_CACHE_NAME + '" '
+            'sourceName="Categoría" '
+            'xmlns:x14="http://schemas.microsoft.com/office/'
+            'spreadsheetml/2009/9/main">'
+            '<x14:data><x14:tabular /></x14:data>'
+            '</x14:slicerCacheDefinition>'
         )
         return xml.encode("utf-8")
 
     @classmethod
     def _slicer_xml(cls) -> bytes:
         xml = (
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<slicers '
-            'xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" '
-            'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '
-            'mc:Ignorable="x" '
-            'xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-            f'<slicer name="{cls.SLICER_NAME}" '
-            f'cache="{cls.SLICER_CACHE_NAME}" '
+            '<?xml version="1.0" encoding="utf-8"?>'
+            '<x14:slicers '
+            'xmlns:x14="http://schemas.microsoft.com/office/'
+            'spreadsheetml/2009/9/main">'
+            '<x14:slicer '
+            'name="' + cls.SLICER_NAME + '" '
+            'cache="' + cls.SLICER_CACHE_NAME + '" '
             'caption="Categoría" '
-            f'style="{cls.SLICER_STYLE}" rowHeight="234950"/>'
-            '</slicers>'
+            'style="' + cls.SLICER_STYLE + '" '
+            'rowHeight="234950" />'
+            '</x14:slicers>'
         )
         return xml.encode("utf-8")

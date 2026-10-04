@@ -82,16 +82,19 @@ def test_export_writes_requested_layout_and_embeds_image(tmp_path):
 
     assert len(sheet._images) == 1
     image = sheet._images[0]
-    expected_width = int(
+    expected_cell_width = int(
         ExcelExporter.COLUMN_WIDTHS["Imagen"]
         * ExcelExporter.EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT
     )
+    expected_width = expected_cell_width - (2 * ExcelExporter.IMAGE_MARGIN_PIXELS)
     expected_height = round(expected_width * 180 / 120)
     assert type(image.anchor).__name__ == "OneCellAnchor"
     assert image.width == expected_width
     assert image.height == expected_height
     assert image.anchor._from.col == 0
     assert image.anchor._from.row == 1
+    assert image.anchor._from.colOff == pixels_to_EMU(ExcelExporter.IMAGE_MARGIN_PIXELS)
+    assert image.anchor._from.rowOff == pixels_to_EMU(ExcelExporter.IMAGE_MARGIN_PIXELS)
     assert image.anchor.ext.cx == pixels_to_EMU(expected_width)
     assert image.anchor.ext.cy == pixels_to_EMU(expected_height)
 
@@ -129,12 +132,15 @@ def test_export_scales_images_to_column_width_preserving_ratio(tmp_path):
         ExcelExporter.COLUMN_WIDTHS["Imagen"]
         * ExcelExporter.EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT
     )
-    expected_first_height = round(expected_cell_width * 200 / 100)
-    expected_second_height = round(expected_cell_width * 100 / 200)
+    expected_image_width = expected_cell_width - (
+        2 * ExcelExporter.IMAGE_MARGIN_PIXELS
+    )
+    expected_first_height = round(expected_image_width * 200 / 100)
+    expected_second_height = round(expected_image_width * 100 / 200)
 
     assert len(sheet._images) == 2
-    assert sheet._images[0].width == expected_cell_width
-    assert sheet._images[1].width == expected_cell_width
+    assert sheet._images[0].width == expected_image_width
+    assert sheet._images[1].width == expected_image_width
     assert sheet._images[0].height == expected_first_height
     assert sheet._images[1].height == expected_second_height
 
@@ -148,8 +154,12 @@ def test_export_scales_images_to_column_width_preserving_ratio(tmp_path):
         * ExcelExporter.EXCEL_DPI
         / ExcelExporter.POINTS_PER_INCH
     )
-    assert first_row_height_px == expected_first_height
-    assert second_row_height_px == expected_second_height
+    assert first_row_height_px == expected_first_height + (
+        2 * ExcelExporter.IMAGE_MARGIN_PIXELS
+    )
+    assert second_row_height_px == expected_second_height + (
+        2 * ExcelExporter.IMAGE_MARGIN_PIXELS
+    )
     assert first_row_height_px > second_row_height_px
 
 

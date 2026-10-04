@@ -242,3 +242,18 @@ Cualquier nuevo ajuste del exportador deberá partir de este estado estable y va
 
 
 20. [x] Exportador Excel cerrado temporalmente en estado estable: sin filtros automáticos ni tablas, imágenes con anclaje `TwoCellAnchor`, margen interno de 4 px conservado, 4 pruebas específicas y suite local en 626 passed / 10 deselected.
+
+
+### Estado de CI del HEAD documental actual
+
+HEAD actual de la rama: `5895f870` (`docs: extend v0.3.0 audit with Excel follow-up`).
+
+GitHub Actions creó el workflow **Quality** para este SHA:
+
+- run: **#3211**;
+- workflow: `Quality`;
+- estado al momento de esta actualización: **in_progress**.
+
+Por tanto, el `test=success` documentado previamente corresponde al SHA `a3e3fb97` y no se debe reutilizar como evidencia del HEAD `5895f870` hasta que el nuevo workflow finalice.
+
+`live-catalog` continúa siendo un job omitido intencionalmente para el flujo rápido de PR.

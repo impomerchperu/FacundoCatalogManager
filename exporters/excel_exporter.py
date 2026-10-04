@@ -100,7 +100,7 @@ class ExcelExporter:
 
     HEADER_TEXT: ClassVar[str] = "173F6D"
 
-    HEADER_ROW_HEIGHT_POINTS: ClassVar[float] = 32.0
+    HEADER_ROW_HEIGHT_POINTS: ClassVar[float] = 42.0
     MIN_ROW_HEIGHT_POINTS: ClassVar[float] = 92.0
     DEFAULT_ROW_HEIGHT_POINTS: ClassVar[float] = 14.4
     TEXT_LINE_HEIGHT_POINTS: ClassVar[float] = 15.0
@@ -227,7 +227,7 @@ class ExcelExporter:
     def _style_sheet(cls, sheet: Worksheet) -> None:
         header_font = Font(
             name="Segoe UI",
-            size=11,
+            size=14,
             bold=True,
             color=cls.HEADER_TEXT,
         )
@@ -277,6 +277,7 @@ class ExcelExporter:
             "Producto",
             "Detalle",
             "Categoría",
+            "Color",
         ):
             column = header_index[header]
             value = str(

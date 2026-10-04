@@ -262,6 +262,7 @@ class ExcelExporter:
                     ),
                     vertical="center",
                     wrap_text=header != "Color",
+                    shrink_to_fit=header == "Color",
                 )
                 if header in cls.CURRENCY_COLUMNS:
                     cell.number_format = cls.LOCAL_CURRENCY_FORMAT

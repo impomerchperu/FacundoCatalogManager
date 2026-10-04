@@ -792,7 +792,29 @@ try {
     $excel.DisplayAlerts = $false
     $excel.ScreenUpdating = $false
 
-    $book = $excel.Workbooks.Open($path, 0, $false)
+    $book = $excel.Workbooks.Open(
+        [string]$path,
+        0,
+        $false,
+        51,
+        $null,
+        $null,
+        $true,
+        $null,
+        $null,
+        $false,
+        $false,
+        $null,
+        $false,
+        $true,
+        0
+    )
+    if ($book -eq $null) {
+        $book = $excel.ActiveWorkbook
+    }
+    if ($book -eq $null) {
+        throw "Excel no devolvió el libro abierto."
+    }
     if ($book.ReadOnly) {
         throw "Excel abrió el libro como solo lectura."
     }

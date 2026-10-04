@@ -48,7 +48,15 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path):
     ]
 
     assert len(sheet._images) == 1
-    assert type(sheet._images[0].anchor).__name__ == "TwoCellAnchor"
+    image_anchor = sheet._images[0].anchor
+    assert type(image_anchor).__name__ == "TwoCellAnchor"
+    assert image_anchor.editAs == "twoCell"
+    assert image_anchor._from.col == 1
+    assert image_anchor._from.row == 1
+    assert image_anchor.to.col == 1
+    assert image_anchor.to.row == 1
+    assert image_anchor.to.colOff > 0
+    assert image_anchor.to.rowOff > 0
 
     assert sheet["G2"].fill.fill_type == "solid"
     assert sheet["G2"].fill.fgColor.rgb == "FFFFE8E8"
@@ -114,7 +122,8 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path):
         ):
             ElementTree.fromstring(xml)
 
-        assert 'tableId="1" column="5"' in cache_xml
+        assert '<x:ext uri="{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}"' in cache_xml
+        assert '<x15:tableSlicerCache tableId="1" column="5"/>' in cache_xml
         assert 'sourceName="Categoría"' in cache_xml
         assert 'name="Categoría"' in slicer_xml
         assert 'cache="SegmentaciónDeDatos_Categoría"' in slicer_xml

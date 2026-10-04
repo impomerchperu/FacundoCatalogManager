@@ -13,7 +13,7 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     product = Product(
         code="FB-100",
         name="Producto",
-        category="Categoría",
+        category="Enmicadoras / Laminadoras",
         description="Detalle",
         stock=5,
         color_stock={"Rojo": 3, "Azul": 2},
@@ -61,6 +61,9 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     assert sheet["A2"].value is None
     assert sheet.freeze_panes == "B2"
     assert sheet.sheet_view.zoomScale == 85
+    assert sheet.column_dimensions["F"].width >= 25.0
+    assert sheet.column_dimensions["G"].width >= 14.0
+    assert sheet.column_dimensions["B"].width >= 24.0
 
     assert sheet["C1"].font.name == "Segoe UI"
     assert sheet["C1"].font.size == 11
@@ -69,7 +72,9 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     assert sheet["D2"].font.size == 10
 
     assert sheet["C2"].alignment.horizontal == "center"
-    assert sheet["G2"].alignment.horizontal == "center"
+    assert sheet["F2"].value == "Enmicadoras / Laminadoras"
+    assert sheet["G2"].alignment.horizontal == "left"
+    assert sheet["G2"].alignment.wrap_text is False
     assert sheet["H2"].alignment.horizontal == "center"
     for coordinate in ("I2", "J2", "K2"):
         assert sheet[coordinate].alignment.horizontal == "center"
@@ -91,7 +96,7 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     assert image.anchor._from.row == 1
     assert image.anchor.to.col == 2
     assert image.anchor.to.row == 2
-    assert image.width <= ExcelExporter.IMAGE_MAX_SIZE_PX
+    assert image.width >= int(ExcelExporter.COLUMN_MIN_WIDTHS["Imagen"] * 7)
     assert image.height > 0
 
 

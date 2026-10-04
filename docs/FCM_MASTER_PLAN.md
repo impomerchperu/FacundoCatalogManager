@@ -1,8 +1,8 @@
 # FCM — Plan Maestro
 
-Fecha: 2026-09-27
+Fecha de actualización: 2026-10-04
 Branch oficial: `main`
-Estado: `main` prepara `v0.2.0` con versionado centralizado, hardening de observabilidad, distribución Windows y limpieza profunda del repositorio.
+Estado: `main` mantiene el baseline funcional de `v0.2.0`; la siguiente línea de trabajo es el cierre y promoción controlada del conjunto pre-`v0.3.0`, con la PR #20 dedicada al exportador Excel.
 
 ## 1. Objetivo del proyecto
 
@@ -34,12 +34,16 @@ La autoridad funcional se divide de forma explícita:
 - 0 errores invalidantes.
 
 ### Runtime de scraping validado
-- Categorías: 8 workers.
+- Categorías: 12 workers.
 - Detalle: 24 workers.
 - HTTP: 28 workers.
-- JetSmartFilters: 8.
+- JetSmartFilters: 8 solicitudes concurrentes.
+- Páginas de categoría: 1 worker.
+- Páginas JSF: 2 workers.
+- Sesiones HTTP por hilo: activadas en el benchmark validado.
 - Timeout: 20 s.
 - Reintentos máximos: 3.
+- ImageSync: 16 workers en el benchmark final validado.
 
 ## 3. Plan por fases
 
@@ -149,7 +153,9 @@ La autoridad funcional se divide de forma explícita:
 - [x] Diagnóstico de transporte HTTP.
 - [x] Telemetría P50/P95/P99.
 - [x] Benchmark SQLite.
-- [x] Mantener `8 / 24 / 28` como runtime productivo.
+- [x] Validación de `12 / 24 / 28` para categoría/detalle/HTTP.
+- [x] Validación de `1` worker de página de categoría y `2` workers de páginas JSF.
+- [x] Validación de `16` image workers para ImageSync.
 - [x] No cambiar runtime sin evidencia reproducible.
 
 ### Fase J — Calidad
@@ -167,15 +173,18 @@ La autoridad funcional se divide de forma explícita:
 
 ## 4. Validación actual
 
-Estado local validado por el usuario en `main` el 2026-09-27:
+La última validación local completa informada durante la línea de trabajo Excel alcanzó:
 
 ```
-Ruff    → All checks passed!
-Pyright → 0 errors, 0 warnings, 0 informations
-Pytest  → 582 passed, 10 deselected
+Ruff    → limpio
+Pyright → 0 errors
+Pytest  → 626 passed, 10 deselected
+Excel   → 4 pruebas específicas pasadas
 ```
 
-E2E real post-cambio `8 / 24 / 28`, ejecutado dos veces, confirmó `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, `333` requests, `0` retries y `0` errores terminales.
+El conteo de 626 corresponde al estado estable anterior al experimento temporal de encaje a ancho completo; dicho experimento fue revertido. El estado actual conserva la implementación con margen interno de imagen de 4 px.
+
+La referencia real del catálogo continúa siendo `24 / 523 / 519 / 4`, con cobertura completa e invariantes de stock por color. El benchmark final pre-`v0.3.0` validó además `43/43` requests HTTP exitosas, `0` retries y `0` errores terminales.
 
 La validación real del catálogo permanece gobernada por `24 / 523 / 519 / 4` y por las invariantes de cobertura, persistencia e integridad de stock por color.
 
@@ -244,3 +253,106 @@ Mientras tanto, `main` es el baseline funcional de referencia.
 ### Estado de distribución Windows
 
 La infraestructura de distribución está implementada en `main`: rutas persistentes para instalaciones congeladas, `VERSION`, spec de PyInstaller, instalador Inno Setup, script PowerShell, workflow manual de Windows y herramientas de backup/restauración. La producción física del bundle/instalador y su validación sobre Windows ya fueron completadas y validadas para `v0.1.1`.
+
+
+## 9. Estado actual de exportadores y promoción
+
+### Excel
+
+La PR #19 ya fue integrada en `main` y dejó alineados los exportadores con el contrato actual del catálogo. La PR #20, actualmente abierta contra `main`, contiene el rediseño estable del exportador Excel y la selección de categorías.
+
+Estado documentado del exportador en la rama activa:
+
+- [x] selección de categorías antes de exportar;
+- [x] exportar únicamente productos de las categorías seleccionadas;
+- [x] XLSX estándar y editable mediante `openpyxl`;
+- [x] imágenes embebidas;
+- [x] imágenes con `TwoCellAnchor` y `editAs="twoCell"`;
+- [x] proporción de imagen preservada;
+- [x] margen interno de 4 px conservado como estado visual estable;
+- [x] fila 2 con 78 pt;
+- [x] encabezados en 44 pt, centrados y en negrita;
+- [x] alineaciones y formato monetario actuales;
+- [x] sin `Table`;
+- [x] sin filtros automáticos;
+- [x] sin fondos de colores;
+- [x] sin COM ni inyección OOXML;
+- [x] intento de slicer/segmentación descartado tras producir reparación de `/xl/worksheets/sheet1.xml`;
+- [x] pruebas específicas del exportador: 4 passed en la última validación informada.
+
+El bloque Excel se considera cerrado temporalmente. Nuevas mejoras visuales o de filtrado deben ser una nueva iteración aislada y no deben reabrir este baseline sin evidencia.
+
+### Estado de PR
+
+- PR #20: abierta;
+- base: `main`;
+- head: `fix/excel-table-repair`;
+- mergeable: true;
+- estado de merge actual: limpio;
+- check `test`: success en el HEAD documental `a3e3fb97`;
+- `live-catalog`: skipped intencionalmente.
+
+La promoción a `main` no se considera completada hasta cerrar la validación local y revisar el diff completo de la PR.
+
+### Gate de promoción
+
+Antes de fusionar cualquier cambio pre-`v0.3.0`:
+
+1. sincronizar la rama local exactamente con su remoto;
+2. ejecutar Ruff y Pyright;
+3. ejecutar la prueba focal de Excel y la suite completa;
+4. revisar que `git status --short` esté limpio;
+5. verificar apertura del XLSX real sin advertencias de reparación;
+6. confirmar que la selección de categorías exporta exactamente el subconjunto esperado;
+7. revisar el estado de los checks de GitHub;
+8. solo después decidir merge a `main`.
+
+La validación FULL real no debe repetirse por cambios puramente de Excel que no toquen scraping, persistencia, cobertura ni runtime; el benchmark real sigue siendo obligatorio para futuros cambios de esas áreas.
+
+## 10. Ruta hacia v0.3.0
+
+El camino de cierre queda deliberadamente separado en capas:
+
+### Capa 1 — Integración funcional
+- [ ] cerrar y fusionar PR #20 cuando la validación local y el artefacto Excel sean aceptados;
+- [ ] confirmar que `main` conserva el baseline de scraping, persistencia, stock por color e imágenes;
+- [ ] ejecutar suite completa sobre el HEAD resultante de `main`.
+
+### Capa 2 — Regresión operativa
+- [ ] smoke test GUI completo sobre el HEAD integrado;
+- [ ] verificar actualización, historial, filtros de categorías y exportadores;
+- [ ] confirmar apertura real de Excel, PDF y CSV generados;
+- [ ] verificar que la selección de categorías no altera el catálogo persistido.
+
+### Capa 3 — Release
+- [ ] actualizar versión de desarrollo/release según el criterio de `v0.3.0`;
+- [ ] actualizar notas de release y auditoría final;
+- [ ] ejecutar build Windows;
+- [ ] validar bundle e instalador;
+- [ ] validar instalación/actualización/desinstalación;
+- [ ] validar backup/restore de `catalog.db`;
+- [ ] publicar tag y release `v0.3.0`.
+
+Estos gates deben mantenerse separados: un cambio de exportación no debe desbloquear por sí solo la publicación sin la regresión de release correspondiente.
+
+## 11. Regla para continuar
+
+La fase Excel queda cerrada temporalmente. La siguiente iteración debe avanzar por validación e integración, no por nuevas modificaciones de diseño, salvo que aparezca un defecto reproducible.
+
+Para scraping, persistencia, concurrencia o cobertura, mantener siempre:
+
+```
+cambio
+  ↓
+tests
+  ↓
+benchmark controlado
+  ↓
+FULL real
+  ↓
+validación DB/historial
+  ↓
+documentación
+  ↓
+main
+```

@@ -66,8 +66,16 @@ class ExcelExporter:
     # Mantiene una referencia pública de anchos de diseño para compatibilidad
     # con código externo que pueda consultar esta configuración.
     COLUMN_WIDTHS: ClassVar[dict[str, float]] = {
-        header: (COLUMN_MIN_WIDTHS[header] + COLUMN_MAX_WIDTHS[header]) / 2
-        for header in EXCEL_HEADERS
+        "Imagen": 12.0,
+        "Código": 12.0,
+        "Producto": 20.5,
+        "Detalle": 23.5,
+        "Categoría": 14.5,
+        "Color": 11.5,
+        "Stock": 8.5,
+        "Precio muestra": 12.25,
+        "Precio ciento": 12.25,
+        "Precio millar": 12.25,
     }
 
     CENTER_HEADERS: ClassVar[frozenset[str]] = frozenset(

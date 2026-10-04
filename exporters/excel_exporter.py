@@ -8,10 +8,12 @@ from urllib.request import Request, urlopen
 
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as ExcelImage
-from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
+from openpyxl.drawing.xdr import XDRPositiveSize2D
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
+from openpyxl.utils.units import pixels_to_EMU
 from PIL import Image
 
 from config.runtime_paths import resolve_data_path
@@ -235,7 +237,6 @@ class ExcelExporter:
             if image is None:
                 continue
 
-            image.anchor = cls._two_cell_anchor(image_column, row_number)
             sheet.add_image(image)
 
     @classmethod
@@ -247,10 +248,7 @@ class ExcelExporter:
         row: int,
     ) -> ExcelImage | None:
         cell_width, current_cell_height = cls._image_cell_size(sheet, row)
-        image_width = max(
-            cell_width - cls.IMAGE_CELL_PADDING_PX * 2,
-            1,
-        )
+        image_width = cell_width
 
         try:
             with Image.open(source_path) as source:
@@ -262,47 +260,40 @@ class ExcelExporter:
                     round(image_width * prepared.height / prepared.width),
                     1,
                 )
-                required_cell_height = (
-                    image_height + cls.IMAGE_CELL_PADDING_PX * 2
-                )
                 required_row_height = (
-                    required_cell_height
+                    image_height
+                    * cls.POINTS_PER_INCH
+                    / cls.EXCEL_DPI
+                )
+                current_row_height = (
+                    current_cell_height
                     * cls.POINTS_PER_INCH
                     / cls.EXCEL_DPI
                 )
                 final_row_height = max(
-                    current_cell_height * cls.POINTS_PER_INCH / cls.EXCEL_DPI,
+                    current_row_height,
                     required_row_height,
                 )
                 sheet.row_dimensions[row].height = final_row_height
 
-                final_cell_height = max(
-                    round(final_row_height * cls.EXCEL_DPI / cls.POINTS_PER_INCH),
-                    required_cell_height,
-                )
                 prepared = prepared.resize(
                     (image_width, image_height),
                     Image.Resampling.LANCZOS,
                 )
-
-                canvas = Image.new(
-                    "RGBA",
-                    (cell_width, final_cell_height),
-                    (255, 255, 255, 0),
-                )
-                left = (cell_width - image_width) // 2
-                top = max(
-                    (final_cell_height - image_height) // 2,
-                    cls.IMAGE_CELL_PADDING_PX,
-                )
-                canvas.alpha_composite(prepared, (left, top))
-                canvas.save(target_path, format="PNG")
+                prepared.save(target_path, format="PNG")
         except (OSError, ValueError):
             return None
 
         image = ExcelImage(str(target_path))
-        image.width = cell_width
-        image.height = final_cell_height
+        image.width = image_width
+        image.height = image_height
+        image.anchor = cls._one_cell_anchor(
+            cls._header_index()["Imagen"],
+            row,
+            image_width,
+            image_height,
+            final_row_height,
+        )
         return image
 
     @classmethod
@@ -320,22 +311,40 @@ class ExcelExporter:
         )
         cell_width = max(
             int(column_width * cls.EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT),
-            cls.IMAGE_CELL_PADDING_PX * 2 + 1,
+            1,
         )
 
         row_height = sheet.row_dimensions[row].height or cls.BASE_ROW_HEIGHT
         cell_height = max(
             int(row_height * cls.EXCEL_DPI / cls.POINTS_PER_INCH),
-            cls.IMAGE_CELL_PADDING_PX * 2 + 1,
+            1,
         )
         return cell_width, cell_height
 
-    @staticmethod
-    def _two_cell_anchor(column: int, row: int) -> TwoCellAnchor:
-        return TwoCellAnchor(
-            editAs="twoCell",
-            _from=AnchorMarker(col=column - 1, row=row - 1),
-            to=AnchorMarker(col=column, row=row),
+    @classmethod
+    def _one_cell_anchor(
+        cls,
+        column: int,
+        row: int,
+        width: int,
+        height: int,
+        row_height_points: float,
+    ) -> OneCellAnchor:
+        row_height_px = max(
+            round(row_height_points * cls.EXCEL_DPI / cls.POINTS_PER_INCH),
+            height,
+        )
+        vertical_offset_px = max((row_height_px - height) // 2, 0)
+        return OneCellAnchor(
+            _from=AnchorMarker(
+                col=column - 1,
+                row=row - 1,
+                rowOff=pixels_to_EMU(vertical_offset_px),
+            ),
+            ext=XDRPositiveSize2D(
+                cx=pixels_to_EMU(width),
+                cy=pixels_to_EMU(height),
+            ),
         )
 
     @staticmethod

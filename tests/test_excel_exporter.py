@@ -1,4 +1,5 @@
 from openpyxl import load_workbook
+from openpyxl.utils.units import pixels_to_EMU
 from PIL import Image
 
 from exporters.excel_exporter import ExcelExporter
@@ -81,15 +82,21 @@ def test_export_writes_requested_layout_and_embeds_image(tmp_path):
 
     assert len(sheet._images) == 1
     image = sheet._images[0]
-    assert type(image.anchor).__name__ == "TwoCellAnchor"
-    assert image.anchor.editAs == "twoCell"
+    expected_width = int(
+        ExcelExporter.COLUMN_WIDTHS["Imagen"]
+        * ExcelExporter.EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT
+    )
+    expected_height = round(expected_width * 180 / 120)
+    assert type(image.anchor).__name__ == "OneCellAnchor"
+    assert image.width == expected_width
+    assert image.height == expected_height
     assert image.anchor._from.col == 0
     assert image.anchor._from.row == 1
-    assert image.anchor.to.col == 1
-    assert image.anchor.to.row == 2
+    assert image.anchor.ext.cx == pixels_to_EMU(expected_width)
+    assert image.anchor.ext.cy == pixels_to_EMU(expected_height)
 
 
-def test_export_scales_images_to_image_column_width_preserving_ratio(tmp_path):
+def test_export_scales_images_to_column_width_preserving_ratio(tmp_path):
     filename = tmp_path / "catalogo.xlsx"
     image_path_a = tmp_path / "FB-200.jpg"
     image_path_b = tmp_path / "FB-201.jpg"
@@ -122,12 +129,14 @@ def test_export_scales_images_to_image_column_width_preserving_ratio(tmp_path):
         ExcelExporter.COLUMN_WIDTHS["Imagen"]
         * ExcelExporter.EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT
     )
-    expected_inner_width = (
-        expected_cell_width - ExcelExporter.IMAGE_CELL_PADDING_PX * 2
-    )
+    expected_first_height = round(expected_cell_width * 200 / 100)
+    expected_second_height = round(expected_cell_width * 100 / 200)
 
     assert len(sheet._images) == 2
-    assert all(image.width == expected_cell_width for image in sheet._images)
+    assert sheet._images[0].width == expected_cell_width
+    assert sheet._images[1].width == expected_cell_width
+    assert sheet._images[0].height == expected_first_height
+    assert sheet._images[1].height == expected_second_height
 
     first_row_height_px = round(
         (sheet.row_dimensions[2].height or 0)
@@ -139,8 +148,8 @@ def test_export_scales_images_to_image_column_width_preserving_ratio(tmp_path):
         * ExcelExporter.EXCEL_DPI
         / ExcelExporter.POINTS_PER_INCH
     )
-    assert first_row_height_px >= expected_inner_width * 2 + 2 * ExcelExporter.IMAGE_CELL_PADDING_PX
-    assert second_row_height_px >= expected_inner_width / 2 + 2 * ExcelExporter.IMAGE_CELL_PADDING_PX
+    assert first_row_height_px == expected_first_height
+    assert second_row_height_px == expected_second_height
     assert first_row_height_px > second_row_height_px
 
 

@@ -920,7 +920,21 @@ def add_category_slicer(
     if os.name != "nt":
         return
 
-    _add_category_slicer_with_excel(
-        filename,
-        field_name=field_name,
-    )
+    if mode == "ooxml":
+        raise RuntimeError(
+            "La generación manual de segmentaciones OOXML está deshabilitada "
+            "porque puede producir libros rechazados por Excel."
+        )
+
+    try:
+        _add_category_slicer_with_excel(
+            filename,
+            field_name=field_name,
+        )
+    except RuntimeError:
+        if mode == "excel":
+            raise
+        # En modo automático, la ausencia o incompatibilidad de Excel no
+        # debe volver inválida la exportación. El libro queda con su tabla
+        # nativa y sus filtros integrados.
+        return

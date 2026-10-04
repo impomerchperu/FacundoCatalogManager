@@ -81,6 +81,7 @@ class ExcelExporter:
     CENTER_HEADERS: ClassVar[frozenset[str]] = frozenset(
         {
             "Código",
+            "Color",
             "Stock",
             "Precio muestra",
             "Precio ciento",

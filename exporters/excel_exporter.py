@@ -44,7 +44,7 @@ class ExcelExporter:
     }
 
     COLUMN_WIDTHS: ClassVar[dict[str, int]] = {
-        "Imagen": 18,
+        "Imagen": 17,
         "Código": 14,
         "Producto": 42,
         "Detalle": 48,
@@ -61,6 +61,7 @@ class ExcelExporter:
     HEADER_TEXT: ClassVar[str] = "173F6D"
     BORDER_COLOR: ClassVar[str] = "CBDDEA"
     ALT_ROW_FILL: ClassVar[str] = "F8FBFF"
+    DEFAULT_ROW_HEIGHT_POINTS: ClassVar[float] = 14.4
 
     IMAGE_MAX_SIZE_PX: ClassVar[int] = 118
     MIN_ROW_HEIGHT_POINTS: ClassVar[float] = 92.0
@@ -85,6 +86,7 @@ class ExcelExporter:
         sheet: Worksheet = active_sheet
         sheet.title = "Productos"
         sheet.sheet_view.showGridLines = False
+        sheet.sheet_format.defaultRowHeight = cls.DEFAULT_ROW_HEIGHT_POINTS
         sheet.sheet_view.zoomScale = 85
         sheet.freeze_panes = "B2"
 

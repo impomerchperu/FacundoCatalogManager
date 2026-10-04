@@ -75,6 +75,7 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     assert sheet["F2"].value == "Enmicadoras / Laminadoras"
     assert sheet["G2"].alignment.horizontal == "left"
     assert sheet["G2"].alignment.wrap_text is False
+    assert sheet["G2"].alignment.shrink_to_fit is True
     assert sheet["H2"].alignment.horizontal == "center"
     for coordinate in ("I2", "J2", "K2"):
         assert sheet[coordinate].alignment.horizontal == "center"

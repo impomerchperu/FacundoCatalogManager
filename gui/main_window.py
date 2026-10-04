@@ -921,7 +921,7 @@ class MainWindow(QMainWindow):
         )
         self.apply_filters()
 
-    def apply_filters(self) -> None:
+    def _filtered_products(self) -> list[Product]:
         products = list(self.all_products)
         search_text = self.search_box.text().strip().casefold()
         if search_text:
@@ -940,6 +940,11 @@ class MainWindow(QMainWindow):
             ]
         if self.stock_only:
             products = [product for product in products if product.stock > 0]
+        return products
+
+    def apply_filters(self) -> None:
+        search_text = self.search_box.text().strip().casefold()
+        products = self._filtered_products()
         self.table.show_only_products(products)
         self.table.set_search_text(search_text)
         self.update_product_counter(len(products))
@@ -1071,6 +1076,58 @@ class MainWindow(QMainWindow):
 
     def export_excel(self) -> None:
         from exporters.excel_exporter import ExcelExporter
+        from gui.excel_category_dialog import ExcelCategorySelectionDialog
+
+        products = list(self.all_products)
+        if not products:
+            QMessageBox.information(
+                self,
+                "Exportar Excel",
+                "No hay productos disponibles para exportar.",
+            )
+            return
+
+        categories = {
+            category
+            for product in products
+            for category in self._product_categories(product)
+        }
+        filtered_products = self._filtered_products()
+        filtered_categories = {
+            category
+            for product in filtered_products
+            for category in self._product_categories(product)
+        }
+        if self.selected_categories:
+            initial_selected = set(self.selected_categories)
+        elif self.stock_only or self.search_box.text().strip():
+            initial_selected = filtered_categories
+        else:
+            initial_selected = categories
+
+        category_dialog = ExcelCategorySelectionDialog(
+            categories,
+            products,
+            self,
+            initial_selected_categories=initial_selected,
+            stock_only=self.stock_only,
+        )
+        if not category_dialog.exec():
+            return
+
+        selected_categories = category_dialog.selected_categories()
+        export_products = ExcelCategorySelectionDialog.filter_products(
+            products,
+            selected_categories,
+            stock_only=self.stock_only,
+        )
+        if not export_products:
+            QMessageBox.warning(
+                self,
+                "Exportar Excel",
+                "Las categorías seleccionadas no contienen productos.",
+            )
+            return
 
         filename, _ = QFileDialog.getSaveFileName(
             self,
@@ -1079,7 +1136,7 @@ class MainWindow(QMainWindow):
             "Excel (*.xlsx)",
         )
         if filename:
-            ExcelExporter.export(self.controller.get_products(), filename)
+            ExcelExporter.export(export_products, filename)
 
     def export_pdf(self) -> None:
         from exporters.pdf_exporter import PDFExporter

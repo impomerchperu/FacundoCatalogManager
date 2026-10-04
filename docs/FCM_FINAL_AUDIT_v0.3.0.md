@@ -314,3 +314,65 @@ No se reportan checks CI asociados al HEAD auditado. Por ello, el cierre de cali
 ```
 
 La rama no se fusiona como parte de esta acta. La promoción y la publicación permanecen como pasos separados y deliberados.
+
+
+## 12. Seguimiento posterior — Exportador Excel
+
+Actualización: 2026-10-04
+
+La fase de rendimiento de scraping permanece cerrada con la evidencia documentada en esta auditoría. Posteriormente se trabajó de forma aislada sobre el exportador Excel mediante la PR #20, sin modificar el runtime de scraping ni la política de cobertura.
+
+Estado del HEAD documental actual de la PR #20:
+
+- PR #20 abierta contra `main`;
+- base: `47a840f5`;
+- head: `a3e3fb97`;
+- `mergeable=true`;
+- `mergeable_state=clean`;
+- check `test`: **success**;
+- check `live-catalog`: **skipped** de forma intencional.
+
+El exportador queda temporalmente cerrado en este estado:
+
+- selección de categorías antes de exportar;
+- exportación únicamente del subconjunto seleccionado;
+- XLSX estándar editable;
+- imágenes embebidas con proporción preservada;
+- `TwoCellAnchor` con `editAs="twoCell"`;
+- margen interno de imagen de 4 px conservado;
+- fila 2 de 78 pt;
+- encabezado de 44 pt;
+- sin tablas estructuradas;
+- sin filtros automáticos;
+- sin fondos de colores;
+- sin COM ni inyección OOXML.
+
+El intento de segmentación/slicer fue descartado después de producir el aviso de reparación de `/xl/worksheets/sheet1.xml` al abrir el XLSX. No forma parte del baseline final de esta iteración.
+
+La última validación local informada antes del experimento temporal de ancho completo fue Ruff limpio, Pyright sin errores, 4 pruebas específicas de Excel pasadas y 626 pruebas de la suite con 10 deselected. El experimento temporal fue revertido y no debe considerarse un cambio funcional pendiente.
+
+Este seguimiento no reabre la auditoría de scraping. Cualquier cambio posterior de exportación debe preservar la separación de responsabilidades: no alterar scraping, persistencia, cobertura ni concurrencia sin ejecutar nuevamente sus gates específicos.
+
+## 13. Gate actualizado de promoción
+
+A partir de este seguimiento, la publicación de `v0.3.0` queda condicionada por tres niveles:
+
+```
+Excel estable
+    ↓
+PR #20 validada + revisión del XLSX real
+    ↓
+merge controlado a main
+    ↓
+suite completa + smoke GUI
+    ↓
+regresión de exportadores
+    ↓
+build Windows
+    ↓
+validación del instalador
+    ↓
+tag/release v0.3.0
+```
+
+El hecho de que la PR #20 esté `mergeable` y tenga `test=success` no equivale todavía a una publicación de `v0.3.0`.

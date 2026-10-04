@@ -127,7 +127,12 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path):
         assert 'sourceName="Categoría"' in cache_xml
         assert 'name="Categoría"' in slicer_xml
         assert 'cache="SegmentaciónDeDatos_Categoría"' in slicer_xml
-        assert 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"' in workbook_xml
+        relationship_namespace = (
+            'xmlns:r="http://schemas.openxmlformats.org/'
+            'officeDocument/2006/relationships"'
+        )
+        assert relationship_namespace in workbook_xml
+        assert relationship_namespace in sheet_xml
         assert "SegmentaciónDeDatos_Categoría" in workbook_xml
         assert "slicerCaches" in workbook_xml
         assert "slicerList" in sheet_xml

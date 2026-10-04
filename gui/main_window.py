@@ -921,7 +921,7 @@ class MainWindow(QMainWindow):
         )
         self.apply_filters()
 
-    def apply_filters(self) -> None:
+    def _filtered_products(self) -> list[Product]:
         products = list(self.all_products)
         search_text = self.search_box.text().strip().casefold()
         if search_text:
@@ -940,6 +940,11 @@ class MainWindow(QMainWindow):
             ]
         if self.stock_only:
             products = [product for product in products if product.stock > 0]
+        return products
+
+    def apply_filters(self) -> None:
+        search_text = self.search_box.text().strip().casefold()
+        products = self._filtered_products()
         self.table.show_only_products(products)
         self.table.set_search_text(search_text)
         self.update_product_counter(len(products))
@@ -1087,12 +1092,25 @@ class MainWindow(QMainWindow):
             for product in products
             for category in self._product_categories(product)
         }
-        initial_selected = self.selected_categories or categories
+        filtered_products = self._filtered_products()
+        filtered_categories = {
+            category
+            for product in filtered_products
+            for category in self._product_categories(product)
+        }
+        if self.selected_categories:
+            initial_selected = set(self.selected_categories)
+        elif self.stock_only or self.search_box.text().strip():
+            initial_selected = filtered_categories
+        else:
+            initial_selected = categories
+
         category_dialog = ExcelCategorySelectionDialog(
             categories,
             products,
             self,
             initial_selected_categories=initial_selected,
+            stock_only=self.stock_only,
         )
         if not category_dialog.exec():
             return
@@ -1101,6 +1119,7 @@ class MainWindow(QMainWindow):
         export_products = ExcelCategorySelectionDialog.filter_products(
             products,
             selected_categories,
+            stock_only=self.stock_only,
         )
         if not export_products:
             QMessageBox.warning(

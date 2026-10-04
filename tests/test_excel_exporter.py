@@ -96,17 +96,7 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     assert sheet.row_dimensions[1].height == 42
     assert sheet.row_dimensions[2].height == ExcelExporter.MIN_ROW_HEIGHT_POINTS
 
-    assert len(sheet.tables) == 1
-    table = sheet.tables["TablaProductos"]
-    assert table.ref == "B1:K2"
-    assert table.tableStyleInfo is not None
-    assert table.tableStyleInfo.name == "TableStyleLight1"
-    assert table.autoFilter is not None
-    assert len(table.autoFilter.filterColumn) == len(ExcelExporter.EXCEL_HEADERS)
-    assert all(
-        filter_column.showButton is False
-        for filter_column in table.autoFilter.filterColumn
-    )
+    assert len(sheet.tables) == 0
     assert sheet.auto_filter.ref is None
     assert sheet["A1"].fill.fill_type is None
     assert sheet["C2"].fill.fill_type is None

@@ -61,27 +61,29 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     assert sheet["A2"].value is None
     assert sheet.freeze_panes == "B2"
     assert sheet.sheet_view.zoomScale == 85
+    assert sheet.column_dimensions["D"].width >= 42.0
+    assert sheet.column_dimensions["E"].width == 42.0
     assert sheet.column_dimensions["F"].width >= 25.0
     assert sheet.column_dimensions["G"].width >= 14.0
     assert sheet.column_dimensions["B"].width >= 24.0
 
     assert sheet["C1"].font.name == "Segoe UI"
-    assert sheet["C1"].font.size == 11
+    assert sheet["C1"].font.size == 14
     assert sheet["C1"].font.bold is True
     assert sheet["D2"].font.name == "Segoe UI"
     assert sheet["D2"].font.size == 10
 
     assert sheet["C2"].alignment.horizontal == "center"
     assert sheet["F2"].value == "Enmicadoras / Laminadoras"
-    assert sheet["G2"].alignment.horizontal == "left"
-    assert sheet["G2"].alignment.wrap_text is False
-    assert sheet["G2"].alignment.shrink_to_fit is True
+    assert sheet["G2"].alignment.horizontal == "center"
+    assert sheet["G2"].alignment.wrap_text is True
+    assert sheet["G2"].alignment.shrink_to_fit is None
     assert sheet["H2"].alignment.horizontal == "center"
     for coordinate in ("I2", "J2", "K2"):
         assert sheet[coordinate].alignment.horizontal == "center"
         assert sheet[coordinate].number_format == ExcelExporter.LOCAL_CURRENCY_FORMAT
 
-    assert sheet.row_dimensions[1].height == 32
+    assert sheet.row_dimensions[1].height == 42
     assert sheet.row_dimensions[2].height == ExcelExporter.MIN_ROW_HEIGHT_POINTS
 
     assert len(sheet.tables) == 0

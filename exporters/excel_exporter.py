@@ -8,9 +8,8 @@ from urllib.request import Request, urlopen
 
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as ExcelImage
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
-from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.worksheet.worksheet import Worksheet
 from PIL import Image
 
@@ -34,12 +33,6 @@ class ExcelExporter:
         "Precio millar",
     )
 
-    CURRENCY_HEADERS: ClassVar[set[str]] = {
-        "Precio muestra",
-        "Precio ciento",
-        "Precio millar",
-    }
-
     COLUMN_WIDTHS: ClassVar[dict[str, int]] = {
         "Imagen": 17,
         "Código": 14,
@@ -53,10 +46,7 @@ class ExcelExporter:
         "Precio millar": 18,
     }
 
-    HEADER_FILL: ClassVar[str] = "EAF3FA"
     HEADER_TEXT: ClassVar[str] = "173F6D"
-    BORDER_COLOR: ClassVar[str] = "CBDDEA"
-    ALT_ROW_FILL: ClassVar[str] = "F8FBFF"
 
     HEADER_ROW_HEIGHT_POINTS: ClassVar[float] = 32.0
     MIN_ROW_HEIGHT_POINTS: ClassVar[float] = 92.0
@@ -81,7 +71,6 @@ class ExcelExporter:
         sheet.title = "Productos"
         sheet.sheet_view.showGridLines = False
         sheet.sheet_format.defaultRowHeight = cls.DEFAULT_ROW_HEIGHT_POINTS
-        sheet.freeze_panes = "A2"
 
         for index, header in enumerate(cls.EXCEL_HEADERS, start=1):
             sheet.column_dimensions[get_column_letter(index)].width = (
@@ -121,82 +110,38 @@ class ExcelExporter:
 
     @classmethod
     def _style_sheet(cls, sheet: Worksheet) -> None:
-        thin = Side(style="thin", color=cls.BORDER_COLOR)
-        border = Border(bottom=thin)
-        header_index = cls._header_index()
+        header_font = Font(
+            name="Segoe UI",
+            size=11,
+            bold=True,
+            color=cls.HEADER_TEXT,
+        )
+        data_font = Font(
+            name="Segoe UI",
+            size=10,
+            color=cls.HEADER_TEXT,
+        )
 
         for cell in sheet[1]:
-            cell.fill = PatternFill("solid", fgColor=cls.HEADER_FILL)
-            cell.font = Font(
-                name="Segoe UI",
-                size=11,
-                bold=True,
-                color=cls.HEADER_TEXT,
-            )
+            cell.font = header_font
             cell.alignment = Alignment(
                 horizontal="center",
                 vertical="center",
                 wrap_text=True,
             )
-            cell.border = border
 
         sheet.row_dimensions[1].height = cls.HEADER_ROW_HEIGHT_POINTS
 
         for row_number in range(2, sheet.max_row + 1):
             for column in range(1, sheet.max_column + 1):
                 cell = sheet.cell(row=row_number, column=column)
-                if row_number % 2 == 0:
-                    cell.fill = PatternFill(
-                        "solid",
-                        fgColor=cls.ALT_ROW_FILL,
-                    )
-                cell.font = Font(
-                    name="Segoe UI",
-                    size=10,
-                    color=cls.HEADER_TEXT,
-                )
+                cell.font = data_font
                 cell.alignment = Alignment(
                     vertical="center",
                     wrap_text=True,
                 )
-                cell.border = border
-
-            centered_headers = {"Código", "Stock"} | cls.CURRENCY_HEADERS
-            for header in centered_headers:
-                cell = sheet.cell(
-                    row=row_number,
-                    column=header_index[header],
-                )
-                cell.alignment = Alignment(
-                    horizontal="center",
-                    vertical="center",
-                    wrap_text=True,
-                )
-                if header in cls.CURRENCY_HEADERS:
-                    cell.number_format = '"S/ " #,##0.00'
-
             cls._set_row_height(sheet, row_number)
 
-        color_index = header_index["Color"]
-        stock_index = header_index["Stock"]
-        white_fill = PatternFill("solid", fgColor="FFFFFF")
-        for row_number in range(2, sheet.max_row + 1):
-            for column in (color_index, stock_index):
-                sheet.cell(row=row_number, column=column).fill = white_fill
-
-        if sheet.max_row >= 2:
-            table = Table(
-                displayName="CatalogoProductos",
-                ref=f"A1:J{sheet.max_row}",
-            )
-            table.tableStyleInfo = TableStyleInfo(
-                name="TableStyleMedium2",
-                showFirstColumn=False,
-                showLastColumn=False,
-                showRowStripes=True,
-                showColumnStripes=False,
-            )
-            sheet.add_table(table)
 
     @classmethod
     def _set_row_height(cls, sheet: Worksheet, row: int) -> None:

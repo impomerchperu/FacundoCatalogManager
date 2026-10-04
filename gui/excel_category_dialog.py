@@ -4,6 +4,7 @@ from collections.abc import Iterable
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QDialog,
     QHBoxLayout,
     QLabel,
@@ -53,7 +54,7 @@ class ExcelCategorySelectionDialog(QDialog):
 
         self.category_list = QListWidget()
         self.category_list.setSelectionMode(
-            QListWidget.SelectionMode.NoSelection,
+            QAbstractItemView.SelectionMode.NoSelection,
         )
         self.category_list.setSizePolicy(
             QSizePolicy.Policy.Expanding,

@@ -214,3 +214,60 @@ def test_export_with_no_products_creates_only_headers(tmp_path):
     assert sheet.max_row == 3
     assert len(sheet.tables) == 0
     assert sheet.auto_filter.ref is None
+
+
+def test_export_row_height_uses_largest_text_or_image(tmp_path):
+    filename = tmp_path / "catalogo.xlsx"
+    tall_image_path = tmp_path / "tall.jpg"
+    Image.new("RGB", (100, 300), "white").save(tall_image_path)
+
+    long_description = "Detalle muy extenso " * 30
+    products = [
+        Product(
+            code="FB-300",
+            name="Producto imagen",
+            description="Corto",
+            category="Categoría",
+            image_path=str(tall_image_path),
+        ),
+        Product(
+            code="FB-301",
+            name="Producto texto",
+            description=long_description,
+            category="Categoría",
+        ),
+    ]
+
+    ExcelExporter.export(products, filename)
+
+    workbook = load_workbook(filename)
+    sheet = workbook["Productos"]
+
+    expected_cell_width = int(
+        ExcelExporter.COLUMN_WIDTHS["Imagen"]
+        * ExcelExporter.EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT
+    )
+    image_width = expected_cell_width - (
+        2 * ExcelExporter.IMAGE_MARGIN_PIXELS
+    )
+    image_height = round(image_width * 300 / 100)
+    image_required_height = (
+        (image_height + (2 * ExcelExporter.IMAGE_MARGIN_PIXELS))
+        * ExcelExporter.POINTS_PER_INCH
+        / ExcelExporter.EXCEL_DPI
+    )
+    text_lines = ExcelExporter._estimate_lines(
+        long_description,
+        ExcelExporter.COLUMN_WIDTHS["Detalle"],
+    )
+    text_required_height = max(
+        ExcelExporter.BASE_ROW_HEIGHT,
+        text_lines * ExcelExporter.LINE_HEIGHT,
+    )
+
+    image_row_height = sheet.row_dimensions[4].height or 0
+    text_row_height = sheet.row_dimensions[5].height or 0
+
+    assert image_row_height == image_required_height
+    assert text_row_height == text_required_height
+    assert image_row_height > text_row_height

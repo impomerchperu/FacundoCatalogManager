@@ -510,7 +510,7 @@ class ExcelExporter:
 
             (
                 drawing_name,
-                drawing_rel_id,
+                _drawing_rel_id,
                 sheet_xml,
                 sheet_rels,
             ) = cls._ensure_drawing_part(

@@ -72,6 +72,9 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
     assert sheet.row_dimensions[2].height == ExcelExporter.MIN_ROW_HEIGHT_POINTS
 
     assert len(sheet.tables) == 0
+    assert sheet.auto_filter.ref is None
+    assert sheet["A1"].fill.fill_type is None
+    assert sheet["B2"].fill.fill_type is None
 
     assert len(sheet._images) == 1
     image = sheet._images[0]

@@ -123,6 +123,8 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path):
         ):
             ElementTree.fromstring(xml)
 
+        table_root = ElementTree.fromstring(table_xml)
+
         assert '<x:ext uri="{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}"' in cache_xml
         assert '<x15:tableSlicerCache tableId="1" column="5"/>' in cache_xml
         assert 'sourceName="Categoría"' in cache_xml
@@ -144,7 +146,10 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path):
         assert '<xdr:col>0</xdr:col>' in drawing_xml
         assert '<xdr:row>12</xdr:row>' in drawing_xml
         assert "Categoría" in drawing_xml
-        assert '<table xmlns=' in table_xml
+        assert (
+            table_root.tag
+            == "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}table"
+        )
         assert 'ref="B1:K2"' in table_xml
         assert '<autoFilter ref="B1:K2"' in table_xml
 

@@ -779,6 +779,7 @@ $sheet = $null
 $table = $null
 $cache = $null
 $slicer = $null
+$items = $null
 
 try {
     $excel = New-Object -ComObject Excel.Application
@@ -841,7 +842,7 @@ try {
 
     $slicer.NumberOfColumns = 1
     $slicer.DisplayHeader = $true
-    $slicer.Top = 0
+    $slicer.Top = 4
     $slicer.Left = 4
     $slicer.Width = 250
     $slicer.Height = 540

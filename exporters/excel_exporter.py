@@ -5,9 +5,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import ClassVar
 from urllib.request import Request, urlopen
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as ExcelImage
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
@@ -15,14 +17,27 @@ from openpyxl.worksheet.worksheet import Worksheet
 from PIL import Image
 
 from config.runtime_paths import resolve_data_path
-from exporters.catalog_export_schema import EXPORT_HEADERS, export_rows
+from exporters.catalog_export_schema import export_rows
 from services.stock_color_palette import known_stock_color_style
 
 
 class ExcelExporter:
-    """Exporta únicamente la tabla del catálogo con imágenes incrustadas."""
+    """Exporta el catálogo en una tabla Excel interactiva y compatible."""
 
-    CURRENCY_COLUMNS: ClassVar[set[str]] = {
+    EXCEL_HEADERS: ClassVar[tuple[str, ...]] = (
+        "Imagen",
+        "Código",
+        "Producto",
+        "Detalle",
+        "Categoría",
+        "Color",
+        "Stock",
+        "Precio muestra",
+        "Precio ciento",
+        "Precio millar",
+    )
+
+    CURRENCY_HEADERS: ClassVar[set[str]] = {
         "Precio muestra",
         "Precio ciento",
         "Precio millar",
@@ -34,23 +49,28 @@ class ExcelExporter:
         "Producto": 42,
         "Detalle": 48,
         "Categoría": 28,
+        "Color": 24,
         "Stock": 12,
-        "Stock por color": 28,
         "Precio muestra": 18,
         "Precio ciento": 18,
         "Precio millar": 18,
     }
 
+    SLICER_COLUMN_WIDTH: ClassVar[int] = 39
     HEADER_FILL: ClassVar[str] = "EAF3FA"
     HEADER_TEXT: ClassVar[str] = "173F6D"
     BORDER_COLOR: ClassVar[str] = "CBDDEA"
     ALT_ROW_FILL: ClassVar[str] = "F8FBFF"
 
-    IMAGE_MAX_SIZE_PX: ClassVar[int] = 118
-    IMAGE_ROW_PADDING_POINTS: ClassVar[float] = 4.0
-    MIN_ROW_HEIGHT_POINTS: ClassVar[float] = 36.0
+    IMAGE_MAX_SIZE_PX: ClassVar[int] = 180
+    MIN_ROW_HEIGHT_POINTS: ClassVar[float] = 92.0
     TEXT_LINE_HEIGHT_POINTS: ClassVar[float] = 15.0
     ROW_VERTICAL_PADDING_POINTS: ClassVar[float] = 8.0
+
+    SLICER_CACHE_NAME: ClassVar[str] = "SegmentaciónDeDatos_Categoría"
+    SLICER_NAME: ClassVar[str] = "Categoría"
+    SLICER_STYLE: ClassVar[str] = "SlicerStyleLight5"
+    SLICER_DRAWING_ID: ClassVar[int] = 2000
 
     @classmethod
     def export(cls, products: Iterable, filename) -> None:
@@ -65,10 +85,20 @@ class ExcelExporter:
         sheet: Worksheet = active_sheet
         sheet.title = "Productos"
         sheet.sheet_view.showGridLines = False
+        sheet.sheet_view.zoomScale = 85
+        sheet.freeze_panes = "B2"
 
+        sheet.column_dimensions["A"].width = cls.SLICER_COLUMN_WIDTH
+        for index, header in enumerate(cls.EXCEL_HEADERS, start=2):
+            sheet.column_dimensions[get_column_letter(index)].width = (
+                cls.COLUMN_WIDTHS[header]
+            )
 
-        sheet.append(list(EXPORT_HEADERS))
+        sheet.append(list(cls.EXCEL_HEADERS))
         for row in rows:
+            colors, stocks = cls._split_color_stock(
+                str(row.get("stock_by_color", "") or ""),
+            )
             sheet.append(
                 [
                     None,
@@ -76,8 +106,8 @@ class ExcelExporter:
                     row["name"],
                     row["description"],
                     row["category"],
-                    row["stock"],
-                    row["stock_by_color"],
+                    colors,
+                    stocks,
                     row["price_sample"],
                     row["price_hundred"],
                     row["price_thousand"],
@@ -96,13 +126,20 @@ class ExcelExporter:
             cls._style_stock_cells(sheet, rows)
             workbook.save(filename)
 
+        if rows:
+            cls._inject_category_slicer(Path(filename))
+
     @classmethod
     def _style_sheet(cls, sheet: Worksheet) -> None:
         thin = Side(style="thin", color=cls.BORDER_COLOR)
         border = Border(bottom=thin)
+        header_index = cls._header_index()
 
         for cell in sheet[1]:
-            cell.fill = PatternFill("solid", fgColor=cls.HEADER_FILL)
+            cell.fill = PatternFill(
+                "solid",
+                fgColor=cls.HEADER_FILL,
+            )
             cell.font = Font(
                 name="Segoe UI",
                 size=11,
@@ -117,25 +154,16 @@ class ExcelExporter:
             cell.border = border
 
         sheet.row_dimensions[1].height = 32
-        sheet.freeze_panes = "A2"
-        sheet.auto_filter.ref = sheet.dimensions
-        sheet.sheet_view.zoomScale = 80
 
-        header_index: dict[str, int] = {}
-        for cell in sheet[1]:
-            if cell.value is None or cell.column is None:
-                continue
-            header_index[str(cell.value)] = cell.column
-
-        for row in range(2, sheet.max_row + 1):
-            if row % 2 == 0:
-                for cell in sheet[row]:
+        for row_number in range(2, sheet.max_row + 1):
+            if row_number % 2 == 0:
+                for cell in sheet[row_number]:
                     cell.fill = PatternFill(
                         "solid",
                         fgColor=cls.ALT_ROW_FILL,
                     )
 
-            for cell in sheet[row]:
+            for cell in sheet[row_number]:
                 cell.font = Font(
                     name="Segoe UI",
                     size=10,
@@ -147,89 +175,76 @@ class ExcelExporter:
                 )
                 cell.border = border
 
-            for header in cls.CURRENCY_COLUMNS:
-                column = header_index[header]
-                cell = sheet.cell(row=row, column=column)
-                cell.number_format = '"S/ " #,##0.00'
+            centered_headers = {
+                "Código",
+                "Stock",
+            } | cls.CURRENCY_HEADERS
+            for header in centered_headers:
+                cell = sheet.cell(
+                    row=row_number,
+                    column=header_index[header],
+                )
                 cell.alignment = Alignment(
-                    horizontal="right",
+                    horizontal="center",
                     vertical="center",
+                    wrap_text=True,
                 )
 
-            stock_cell = sheet.cell(
-                row=row,
-                column=header_index["Stock"],
-            )
-            stock_cell.number_format = "#,##0"
-            stock_cell.alignment = Alignment(
-                horizontal="right",
-                vertical="center",
-            )
-
-            stock_color_cell = sheet.cell(
-                row=row,
-                column=header_index["Stock por color"],
-            )
-            stock_color_cell.alignment = Alignment(
-                horizontal="left",
-                vertical="center",
-                wrap_text=True,
-            )
-
-            cls._set_row_height(sheet, row)
-
-        for header, width in cls.COLUMN_WIDTHS.items():
-            column = header_index[header]
-            sheet.column_dimensions[get_column_letter(column)].width = width
+            cls._set_row_height(sheet, row_number)
 
         if sheet.max_row >= 2:
             table = Table(
                 displayName="CatalogoProductos",
-                ref=sheet.dimensions,
+                ref=f"B1:K{sheet.max_row}",
             )
             table.tableStyleInfo = TableStyleInfo(
-                name="TableStyleMedium2",
+                name="TableStyleLight2",
                 showFirstColumn=False,
                 showLastColumn=False,
-                showRowStripes=False,
+                showRowStripes=True,
                 showColumnStripes=False,
             )
             sheet.add_table(table)
 
     @classmethod
     def _set_row_height(cls, sheet: Worksheet, row: int) -> None:
-        text_widths = {
+        widths = {
             "Producto": cls.COLUMN_WIDTHS["Producto"],
             "Detalle": cls.COLUMN_WIDTHS["Detalle"],
             "Categoría": cls.COLUMN_WIDTHS["Categoría"],
+            "Color": cls.COLUMN_WIDTHS["Color"],
         }
-        text_lines = 1
-        for header, width in text_widths.items():
+        lines = 1
+        header_index = cls._header_index()
+
+        for header, width in widths.items():
             value = str(
                 sheet.cell(
                     row=row,
-                    column=cls._header_column(sheet, header),
+                    column=header_index[header],
                 ).value
                 or "",
             )
-            text_lines = max(
-                text_lines,
+            lines = max(
+                lines,
                 cls._estimate_wrapped_lines(value, width),
             )
 
         stock_text = str(
             sheet.cell(
                 row=row,
-                column=cls._header_column(sheet, "Stock por color"),
+                column=header_index["Stock"],
             ).value
             or "",
         )
-        stock_lines = len(stock_text.splitlines()) if stock_text else 0
-        total_lines = max(text_lines, stock_lines or 1)
+        lines = max(
+            lines,
+            len(stock_text.splitlines()) if stock_text else 1,
+        )
 
         sheet.row_dimensions[row].height = max(
             cls.MIN_ROW_HEIGHT_POINTS,
-            total_lines * cls.TEXT_LINE_HEIGHT_POINTS
+            lines * cls.TEXT_LINE_HEIGHT_POINTS
             + cls.ROW_VERTICAL_PADDING_POINTS,
         )
 
@@ -251,9 +266,11 @@ class ExcelExporter:
         rows: list[dict[str, object]],
         temp_dir: Path,
     ) -> None:
-        image_column = cls._header_column(sheet, "Imagen")
+        image_column = cls._header_index()["Imagen"]
 
-        for offset, (product, row) in enumerate(zip(products, rows, strict=True)):
+        for offset, (product, row) in enumerate(
+            zip(products, rows, strict=True),
+        ):
             reference = str(row.get("image", "") or "").strip()
             fallback_url = str(
                 getattr(product, "image_url", "") or "",
@@ -274,49 +291,38 @@ class ExcelExporter:
             if image is None:
                 continue
 
-            image.anchor = f"{get_column_letter(image_column)}{target_row}"
+            row_index = target_row - 1
+            col_index = image_column - 1
+            image.anchor = TwoCellAnchor(
+                editAs="twoCell",
+                _from=AnchorMarker(
+                    col=col_index,
+                    row=row_index,
+                ),
+                to=AnchorMarker(
+                    col=col_index + 1,
+                    row=row_index + 1,
+                ),
+            )
             sheet.add_image(image)
 
-            image_height_points = (
-                float(image.height or 0) * 0.75
-                + cls.IMAGE_ROW_PADDING_POINTS
-            )
-            current_height = (
-                sheet.row_dimensions[target_row].height or 0
-            )
-            sheet.row_dimensions[target_row].height = max(
-                current_height,
-                image_height_points,
-            )
-
-            image_cell = sheet.cell(
-                row=target_row,
-                column=image_column,
-            )
-            image_cell.alignment = Alignment(
-                horizontal="center",
-                vertical="center",
-            )
+        return
 
     @staticmethod
     def _local_image_path(reference: str) -> Path | None:
         if not reference:
             return None
-
         candidate = Path(reference)
         if not candidate.is_absolute():
             candidate = resolve_data_path(candidate)
-
         if candidate.exists() and candidate.is_file():
             return candidate
-
         return None
 
     @staticmethod
     def _download_image(url: str, target_base: Path) -> Path | None:
         if not url.startswith(("http://", "https://")):
             return None
-
         target = target_base.with_suffix(".download")
         request = Request(
             url,
@@ -363,19 +369,46 @@ class ExcelExporter:
         sheet: Worksheet,
         rows: list[dict[str, object]],
     ) -> None:
-        column = cls._header_column(sheet, "Stock por color")
+        stock_index = cls._header_index()["Stock"]
+        color_index = cls._header_index()["Color"]
+
         for offset, row in enumerate(rows):
             value = str(row.get("stock_by_color", "") or "").strip()
-            cell = sheet.cell(row=2 + offset, column=column)
+            if not value:
+                continue
+
+            cell = sheet.cell(
+                row=2 + offset,
+                column=stock_index,
+            )
+            color_cell = sheet.cell(
+                row=2 + offset,
+                column=color_index,
+            )
             background, text_color = cls._stock_cell_colors(value)
             if background is None:
                 continue
 
-            cell.fill = PatternFill("solid", fgColor=background)
-            cell.font = Font(
-                name="Segoe UI",
-                size=10,
-                color=text_color,
+            for target in (color_cell, cell):
+                target.fill = PatternFill(
+                    "solid",
+                    fgColor=background,
+                )
+                target.font = Font(
+                    name="Segoe UI",
+                    size=10,
+                    color=text_color,
+                )
+
+            color_cell.alignment = Alignment(
+                horizontal="left",
+                vertical="center",
+                wrap_text=True,
+            )
+            cell.alignment = Alignment(
+                horizontal="center",
+                vertical="center",
+                wrap_text=True,
             )
 
     @staticmethod
@@ -402,7 +435,10 @@ class ExcelExporter:
                 first_color = color_name
 
             try:
-                stock = max(int(stock_text.strip().replace(",", "")), 0)
+                stock = max(
+                    int(stock_text.strip().replace(",", "")),
+                    0,
+                )
             except ValueError:
                 stock = 0
 
@@ -421,8 +457,372 @@ class ExcelExporter:
         return background, "173F6D"
 
     @staticmethod
-    def _header_column(sheet: Worksheet, header: str) -> int:
-        for cell in sheet[1]:
-            if cell.value == header and cell.column is not None:
-                return cell.column
-        raise KeyError(f"Encabezado no encontrado: {header}")
+    def _split_color_stock(value: str) -> tuple[str, str]:
+        colors: list[str] = []
+        stocks: list[str] = []
+
+        for line in value.splitlines():
+            try:
+                color_name, stock_text = line.rsplit(":", 1)
+            except ValueError:
+                color_name = line.strip()
+                stock_text = ""
+            color_name = color_name.strip()
+            stock_text = stock_text.strip()
+            if not color_name:
+                continue
+            colors.append(color_name)
+            stocks.append(stock_text)
+
+        return "\n".join(colors), "\n".join(stocks)
+
+    @classmethod
+    def _header_index(cls) -> dict[str, int]:
+        return {
+            header: index
+            for index, header in enumerate(cls.EXCEL_HEADERS, start=2)
+        }
+
+    @classmethod
+    def _inject_category_slicer(cls, filename: Path) -> None:
+        source = filename
+        temp = filename.with_suffix(".slicer.tmp")
+
+        with ZipFile(source, "r") as archive, ZipFile(
+            temp,
+            "w",
+            ZIP_DEFLATED,
+        ) as output:
+            names = set(archive.namelist())
+            workbook_xml = archive.read("xl/workbook.xml").decode("utf-8")
+            workbook_rels = archive.read(
+                "xl/_rels/workbook.xml.rels",
+            ).decode("utf-8")
+            sheet_xml = archive.read(
+                "xl/worksheets/sheet1.xml",
+            ).decode("utf-8")
+            sheet_rels = archive.read(
+                "xl/worksheets/_rels/sheet1.xml.rels",
+            ).decode("utf-8")
+            content_types = archive.read(
+                "[Content_Types].xml",
+            ).decode("utf-8")
+
+            (
+                drawing_name,
+                drawing_rel_id,
+                sheet_xml,
+                sheet_rels,
+            ) = cls._ensure_drawing_part(
+                names,
+                sheet_xml,
+                sheet_rels,
+            )
+
+            workbook_cache_rel_id = cls._next_rel_id(workbook_rels)
+            sheet_slicer_rel_id = cls._next_rel_id(sheet_rels)
+
+            workbook_rels = cls._append_relationship(
+                workbook_rels,
+                workbook_cache_rel_id,
+                "http://schemas.microsoft.com/office/2007/relationships/slicerCache",
+                "slicerCaches/slicerCache1.xml",
+            )
+            sheet_rels = cls._append_relationship(
+                sheet_rels,
+                sheet_slicer_rel_id,
+                "http://schemas.microsoft.com/office/2007/relationships/slicer",
+                "../slicers/slicer1.xml",
+            )
+
+            workbook_xml = cls._append_workbook_slicer_parts(
+                workbook_xml,
+                workbook_cache_rel_id,
+            )
+            sheet_xml = cls._append_sheet_slicer_parts(
+                sheet_xml,
+                sheet_slicer_rel_id,
+            )
+            content_types = cls._append_content_types(
+                content_types,
+            )
+
+            if drawing_name in names:
+                drawing_xml = archive.read(
+                    drawing_name,
+                ).decode("utf-8")
+            else:
+                drawing_xml = (
+                    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                    '<xdr:wsDr '
+                    'xmlns:xdr="http://schemas.openxmlformats.org/drawingml/'
+                    '2006/spreadsheetDrawing" '
+                    'xmlns:a="http://schemas.openxmlformats.org/drawingml/'
+                    '2006/main"/>'
+                )
+
+            drawing_xml = cls._append_slicer_drawing(drawing_xml)
+
+            rewritten = {
+                "xl/workbook.xml": workbook_xml.encode("utf-8"),
+                "xl/_rels/workbook.xml.rels": workbook_rels.encode("utf-8"),
+                "xl/worksheets/sheet1.xml": sheet_xml.encode("utf-8"),
+                "xl/worksheets/_rels/sheet1.xml.rels": sheet_rels.encode("utf-8"),
+                "[Content_Types].xml": content_types.encode("utf-8"),
+                drawing_name: drawing_xml.encode("utf-8"),
+                "xl/slicerCaches/slicerCache1.xml": cls._slicer_cache_xml(),
+                "xl/slicers/slicer1.xml": cls._slicer_xml(),
+            }
+
+            for item in archive.infolist():
+                if item.filename in rewritten:
+                    continue
+                output.writestr(item, archive.read(item.filename))
+
+            for name, data in rewritten.items():
+                output.writestr(name, data)
+
+        temp.replace(source)
+
+    @staticmethod
+    def _next_rel_id(xml: str) -> str:
+        import re
+
+        ids = [
+            int(match)
+            for match in re.findall(r'Id="rId([0-9]+)"', xml)
+        ]
+        return f"rId{max(ids, default=0) + 1}"
+
+    @staticmethod
+    def _append_relationship(
+        xml: str,
+        rel_id: str,
+        relationship_type: str,
+        target: str,
+    ) -> str:
+        payload = (
+            f'<Relationship Id="{rel_id}" '
+            f'Type="{relationship_type}" '
+            f'Target="{target}"/>'
+        )
+        return xml.replace(
+            "</Relationships>",
+            payload + "</Relationships>",
+        )
+
+    @classmethod
+    def _ensure_drawing_part(
+        cls,
+        names: set[str],
+        sheet_xml: str,
+        sheet_rels: str,
+    ) -> tuple[str, str, str, str]:
+        for relationship in sheet_rels.split("<Relationship")[1:]:
+            if "drawing" not in relationship:
+                continue
+            target_start = relationship.find('Target="../drawings/')
+            if target_start < 0:
+                continue
+            target_start += len('Target="../drawings/')
+            target_end = relationship.find('"', target_start)
+            if target_end < 0:
+                continue
+            drawing_name = (
+                f"xl/drawings/{relationship[target_start:target_end]}"
+            )
+            id_start = relationship.find('Id="')
+            if id_start < 0:
+                continue
+            id_start += 4
+            id_end = relationship.find('"', id_start)
+            if id_end < 0:
+                continue
+            return (
+                drawing_name,
+                relationship[id_start:id_end],
+                sheet_xml,
+                sheet_rels,
+            )
+
+        drawing_name = "xl/drawings/drawing1.xml"
+        rel_id = cls._next_rel_id(sheet_rels)
+        sheet_rels = cls._append_relationship(
+            sheet_rels,
+            rel_id,
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing",
+            "../drawings/drawing1.xml",
+        )
+        sheet_xml = sheet_xml.replace(
+            "</pageMargins>",
+            f'</pageMargins><drawing r:id="{rel_id}"/>',
+        )
+        return drawing_name, rel_id, sheet_xml, sheet_rels
+
+    @staticmethod
+    def _append_workbook_slicer_parts(
+        xml: str,
+        cache_rel_id: str,
+    ) -> str:
+        if "<definedNames>" not in xml:
+            defined_names = (
+                "<definedNames>"
+                '<definedName name="SegmentaciónDeDatos_Categoría">#N/A'
+                "</definedName>"
+                "</definedNames>"
+            )
+            xml = xml.replace(
+                "</sheets>",
+                f"</sheets>{defined_names}",
+            )
+
+        extension = (
+            '<extLst><ext '
+            'uri="{46BE6895-7355-4a93-B00E-2C351335B9C9}" '
+            'xmlns:x15="http://schemas.microsoft.com/office/'
+            'spreadsheetml/2010/11/main">'
+            '<x15:slicerCaches '
+            'xmlns:x14="http://schemas.microsoft.com/office/'
+            'spreadsheetml/2009/9/main">'
+            f'<x14:slicerCache r:id="{cache_rel_id}"/>'
+            "</x15:slicerCaches></ext></extLst>"
+        )
+        return xml.replace(
+            "</workbook>",
+            extension + "</workbook>",
+        )
+
+    @staticmethod
+    def _append_sheet_slicer_parts(
+        xml: str,
+        slicer_rel_id: str,
+    ) -> str:
+        extension = (
+            '<extLst><ext '
+            'uri="{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}" '
+            'xmlns:x14="http://schemas.microsoft.com/office/'
+            'spreadsheetml/2009/9/main">'
+            '<x14:slicerList>'
+            f'<x14:slicer r:id="{slicer_rel_id}"/>'
+            "</x14:slicerList></ext></extLst>"
+        )
+        return xml.replace(
+            "</worksheet>",
+            extension + "</worksheet>",
+        )
+
+    @staticmethod
+    def _append_content_types(xml: str) -> str:
+        additions = (
+            '<Override PartName="/xl/slicerCaches/slicerCache1.xml" '
+            'ContentType="application/vnd.ms-excel.slicerCache+xml"/>'
+            '<Override PartName="/xl/slicers/slicer1.xml" '
+            'ContentType="application/vnd.ms-excel.slicer+xml"/>'
+        )
+        return xml.replace(
+            "</Types>",
+            additions + "</Types>",
+        )
+
+    @classmethod
+    def _append_slicer_drawing(cls, xml: str) -> str:
+        fragment = (
+            '<xdr:twoCellAnchor>'
+            '<xdr:from>'
+            '<xdr:col>0</xdr:col><xdr:colOff>38100</xdr:colOff>'
+            '<xdr:row>0</xdr:row><xdr:rowOff>38100</xdr:rowOff>'
+            '</xdr:from>'
+            '<xdr:to>'
+            '<xdr:col>0</xdr:col><xdr:colOff>2621280</xdr:colOff>'
+            '<xdr:row>12</xdr:row><xdr:rowOff>656665</xdr:rowOff>'
+            '</xdr:to>'
+            '<mc:AlternateContent '
+            'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">'
+            '<mc:Choice '
+            'xmlns:sle15="http://schemas.microsoft.com/office/drawing/2012/slicer" '
+            'Requires="sle15">'
+            '<xdr:graphicFrame macro="">'
+            '<xdr:nvGraphicFramePr>'
+            f'<xdr:cNvPr id="{cls.SLICER_DRAWING_ID}" name="Categoría"/>'
+            '<xdr:cNvGraphicFramePr/>'
+            '</xdr:nvGraphicFramePr>'
+            '<xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>'
+            '<a:graphic>'
+            '<a:graphicData '
+            'uri="http://schemas.microsoft.com/office/drawing/2010/slicer">'
+            '<sle:slicer '
+            'xmlns:sle="http://schemas.microsoft.com/office/drawing/2010/slicer" '
+            'name="Categoría"/>'
+            '</a:graphicData>'
+            '</a:graphic>'
+            '</xdr:graphicFrame>'
+            '</mc:Choice>'
+            '<mc:Fallback>'
+            '<xdr:sp macro="" textlink="">'
+            '<xdr:nvSpPr>'
+            '<xdr:cNvPr id="0" name=""/>'
+            '<xdr:cNvSpPr><a:spLocks noTextEdit="1"/></xdr:cNvSpPr>'
+            '</xdr:nvSpPr>'
+            '<xdr:spPr>'
+            '<a:xfrm><a:off x="0" y="38100"/>'
+            '<a:ext cx="2621280" cy="7342094"/></a:xfrm>'
+            '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
+            '<a:solidFill><a:prstClr val="white"/></a:solidFill>'
+            '<a:ln w="1"><a:solidFill><a:prstClr val="green"/>'
+            '</a:solidFill></a:ln>'
+            '</xdr:spPr>'
+            '<xdr:txBody>'
+            '<a:bodyPr vertOverflow="clip" horzOverflow="clip"/>'
+            '<a:lstStyle/>'
+            '<a:p><a:r><a:rPr lang="en-US" sz="1100"/>'
+            '<a:t>Segmentación de datos de Categoría</a:t>'
+            '</a:r></a:p>'
+            '</xdr:txBody>'
+            '</xdr:sp>'
+            '</mc:Fallback>'
+            '</mc:AlternateContent>'
+            '<xdr:clientData/>'
+            '</xdr:twoCellAnchor>'
+        )
+        return xml.replace(
+            "</xdr:wsDr>",
+            fragment + "</xdr:wsDr>",
+        )
+
+    @classmethod
+    def _slicer_cache_xml(cls) -> bytes:
+        xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<slicerCacheDefinition '
+            'xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" '
+            'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '
+            'mc:Ignorable="x" '
+            'xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            'name="SegmentaciónDeDatos_Categoría" sourceName="Categoría">'
+            '<extLst>'
+            '<ext uri="{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}" '
+            'xmlns:x15="http://schemas.microsoft.com/office/'
+            'spreadsheetml/2010/11/main">'
+            '<x15:tableSlicerCache tableId="1" column="5"/>'
+            '</ext>'
+            '</extLst>'
+            '</slicerCacheDefinition>'
+        )
+        return xml.encode("utf-8")
+
+    @classmethod
+    def _slicer_xml(cls) -> bytes:
+        xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<slicers '
+            'xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" '
+            'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '
+            'mc:Ignorable="x" '
+            'xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            '<slicer name="Categoría" '
+            'cache="SegmentaciónDeDatos_Categoría" '
+            'caption="Categoría" '
+            'style="SlicerStyleLight5" rowHeight="234950"/>'
+            '</slicers>'
+        )
+        return xml.encode("utf-8")

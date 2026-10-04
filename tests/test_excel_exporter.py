@@ -85,8 +85,10 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path, monkeypatc
     assert image_anchor.to.colOff > 0
     assert image_anchor.to.rowOff > 0
 
-    assert sheet["G2"].fill.fill_type is None
-    assert sheet["H2"].fill.fill_type is None
+    assert sheet["G2"].fill.fill_type == "solid"
+    assert sheet["G2"].fill.fgColor.rgb == "FFFFFFFF"
+    assert sheet["H2"].fill.fill_type == "solid"
+    assert sheet["H2"].fill.fgColor.rgb == "FFFFFFFF"
 
     assert sheet["C2"].alignment.horizontal == "center"
     assert sheet["H2"].alignment.horizontal == "center"

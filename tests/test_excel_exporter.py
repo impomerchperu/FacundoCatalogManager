@@ -1,14 +1,14 @@
 from zipfile import ZipFile
+from xml.etree import ElementTree
 
 from openpyxl import load_workbook
 from PIL import Image
 
-from exporters.catalog_export_schema import EXPORT_HEADERS
 from exporters.excel_exporter import ExcelExporter
 from models.product import Product
 
 
-def test_export_embeds_images_and_keeps_one_stock_cell(tmp_path):
+def test_export_writes_table_images_color_and_stock_columns(tmp_path):
     filename = tmp_path / "catalogo.xlsx"
     image_path = tmp_path / "FB-100.jpg"
     Image.new("RGB", (120, 180), "white").save(image_path)
@@ -31,59 +31,109 @@ def test_export_embeds_images_and_keeps_one_stock_cell(tmp_path):
     workbook = load_workbook(filename)
     sheet = workbook["Productos"]
 
-    assert [cell.value for cell in sheet[1]] == list(EXPORT_HEADERS)
-    assert sheet["A2"].value is None
-    assert [cell.value for cell in sheet[2]][1:] == [
+    assert sheet[1][0].value is None
+    assert [cell.value for cell in sheet[1][1:11]] == list(
+        ExcelExporter.EXCEL_HEADERS,
+    )
+    assert [cell.value for cell in sheet[2][1:11]] == [
         "FB-100",
         "Producto",
         "Detalle",
         "Categoría",
-        5,
-        "Rojo: 3\nAzul: 2",
+        "Rojo\nAzul",
+        "3\n2",
         10.0,
         90.0,
         800.0,
     ]
+
     assert len(sheet._images) == 1
+    assert type(sheet._images[0].anchor).__name__ == "TwoCellAnchor"
 
-    image = sheet._images[0]
-    assert image.width <= ExcelExporter.IMAGE_MAX_SIZE_PX
-    assert image.height <= ExcelExporter.IMAGE_MAX_SIZE_PX
-    assert sheet.row_dimensions[2].height is not None
-    assert sheet.row_dimensions[2].height >= image.height * 0.75
+    assert sheet["G2"].fill.fill_type == "solid"
+    assert sheet["G2"].fill.fgColor.rgb == "FFFFE8E8"
+    assert sheet["H2"].fill.fill_type == "solid"
+    assert sheet["H2"].fill.fgColor.rgb == "FFFFE8E8"
 
-    stock_cell = sheet["G2"]
-    assert stock_cell.alignment.horizontal == "left"
-    assert stock_cell.alignment.vertical == "center"
-    assert stock_cell.alignment.wrap_text is True
-    assert stock_cell.fill.fill_type == "solid"
-    assert stock_cell.fill.fgColor.rgb == "FFFFE8E8"
-    assert len(
-        [image for image in sheet._images if image.anchor._from.col == 6]
-    ) == 0
+    assert sheet["C2"].alignment.horizontal == "center"
+    assert sheet["H2"].alignment.horizontal == "center"
+    for coordinate in ("I2", "J2", "K2"):
+        assert sheet[coordinate].alignment.horizontal == "center"
+        assert sheet[coordinate].number_format == '"S/ " #,##0.00'
 
-    assert sheet.freeze_panes == "A2"
-    assert sheet.auto_filter.ref == "A1:J2"
+    assert sheet["G2"].alignment.horizontal == "left"
+    assert sheet["G2"].alignment.vertical == "center"
+    assert sheet["H2"].alignment.vertical == "center"
+    assert sheet.freeze_panes == "B2"
+    assert sheet.auto_filter.ref is None
 
     assert len(sheet.tables) == 1
     table = sheet.tables["CatalogoProductos"]
-    assert table.ref == "A1:J2"
+    assert table.ref == "B1:K2"
     assert table.autoFilter is not None
+    assert table.tableStyleInfo is not None
+    assert table.tableStyleInfo.name == "TableStyleLight2"
 
     with ZipFile(filename) as archive:
         names = set(archive.namelist())
-        assert not any(
-            name.startswith("xl/slicers/") for name in names
-        )
-        assert not any(
-            name.startswith("xl/slicerCaches/") for name in names
-        )
+        assert "xl/slicerCaches/slicerCache1.xml" in names
+        assert "xl/slicers/slicer1.xml" in names
+
+        cache_xml = archive.read(
+            "xl/slicerCaches/slicerCache1.xml",
+        ).decode("utf-8")
+        slicer_xml = archive.read(
+            "xl/slicers/slicer1.xml",
+        ).decode("utf-8")
+        workbook_xml = archive.read("xl/workbook.xml").decode("utf-8")
+        sheet_xml = archive.read(
+            "xl/worksheets/sheet1.xml",
+        ).decode("utf-8")
+        workbook_rels = archive.read(
+            "xl/_rels/workbook.xml.rels",
+        ).decode("utf-8")
+        sheet_rels = archive.read(
+            "xl/worksheets/_rels/sheet1.xml.rels",
+        ).decode("utf-8")
+        drawing_xml = archive.read(
+            "xl/drawings/drawing1.xml",
+        ).decode("utf-8")
+        table_xml = archive.read(
+            "xl/tables/table1.xml",
+        ).decode("utf-8")
+
+        for xml in (
+            cache_xml,
+            slicer_xml,
+            workbook_xml,
+            sheet_xml,
+            workbook_rels,
+            sheet_rels,
+            drawing_xml,
+            table_xml,
+        ):
+            ElementTree.fromstring(xml)
+
+        assert 'tableId="1" column="5"' in cache_xml
+        assert 'sourceName="Categoría"' in cache_xml
+        assert 'name="Categoría"' in slicer_xml
+        assert 'cache="SegmentaciónDeDatos_Categoría"' in slicer_xml
+        assert "SegmentaciónDeDatos_Categoría" in workbook_xml
+        assert "slicerCaches" in workbook_xml
+        assert "slicerList" in sheet_xml
+        assert "slicerCache" in workbook_rels
+        assert "relationships/slicer" in sheet_rels
+        assert '<xdr:twoCellAnchor>' in drawing_xml
+        assert '<xdr:col>0</xdr:col>' in drawing_xml
+        assert '<xdr:row>12</xdr:row>' in drawing_xml
+        assert "Categoría" in drawing_xml
+        assert '<table xmlns=' in table_xml
+        assert 'ref="B1:K2"' in table_xml
+        assert '<autoFilter ref="B1:K2"' in table_xml
 
 
-def test_export_adjusts_row_height_for_text_and_images(tmp_path):
+def test_export_adjusts_row_height_for_text(tmp_path):
     filename = tmp_path / "catalogo.xlsx"
-    image_path = tmp_path / "FB-200.jpg"
-    Image.new("RGB", (400, 100), "white").save(image_path)
 
     product = Product(
         code="FB-200",
@@ -94,7 +144,7 @@ def test_export_adjusts_row_height_for_text_and_images(tmp_path):
         )
         * 4,
         category="Categoría extensa",
-        image_path=str(image_path),
+        color_stock={"Rojo": 5, "Azul": 2},
     )
 
     ExcelExporter.export([product], filename)
@@ -114,7 +164,10 @@ def test_export_with_no_products_creates_only_headers(tmp_path):
     workbook = load_workbook(filename)
     sheet = workbook["Productos"]
 
-    assert [cell.value for cell in sheet[1]] == list(EXPORT_HEADERS)
-    assert sheet.max_column == len(EXPORT_HEADERS)
+    assert sheet[1][0].value is None
+    assert [cell.value for cell in sheet[1][1:11]] == list(
+        ExcelExporter.EXCEL_HEADERS,
+    )
+    assert sheet.max_column == 11
     assert sheet.max_row == 1
     assert len(sheet.tables) == 0

@@ -673,15 +673,14 @@ class ExcelExporter:
             ' xmlns:r="http://schemas.openxmlformats.org/'
             'officeDocument/2006/relationships"'
         )
-        if (
-            'xmlns:r="http://schemas.openxmlformats.org/'
-            'officeDocument/2006/relationships"'
-        ) not in xml:
+        workbook_tag = xml.split(">", 1)[0]
+        if 'xmlns:r="http://schemas.openxmlformats.org/' not in workbook_tag:
             xml = xml.replace(
                 '<workbook xmlns="http://schemas.openxmlformats.org/'
                 'spreadsheetml/2006/main"',
                 '<workbook xmlns="http://schemas.openxmlformats.org/'
                 f'spreadsheetml/2006/main"{namespace}',
+                1,
             )
 
         if "<definedNames>" not in xml:

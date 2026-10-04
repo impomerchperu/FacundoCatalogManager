@@ -35,15 +35,15 @@ class ExcelExporter:
     )
 
     SIDEBAR_COLUMN_WIDTH: ClassVar[float] = 34.89
-    DATA_WIDTH_BUDGET: ClassVar[float] = 136.0
+    DATA_WIDTH_BUDGET: ClassVar[float] = 152.0
 
     COLUMN_MIN_WIDTHS: ClassVar[dict[str, float]] = {
-        "Imagen": 11.0,
+        "Imagen": 24.0,
         "Código": 11.0,
         "Producto": 18.0,
         "Detalle": 21.0,
-        "Categoría": 13.0,
-        "Color": 10.0,
+        "Categoría": 23.0,
+        "Color": 14.0,
         "Stock": 8.0,
         "Precio muestra": 11.5,
         "Precio ciento": 11.5,
@@ -51,12 +51,12 @@ class ExcelExporter:
     }
 
     COLUMN_MAX_WIDTHS: ClassVar[dict[str, float]] = {
-        "Imagen": 13.0,
+        "Imagen": 26.0,
         "Código": 13.0,
         "Producto": 23.0,
         "Detalle": 26.0,
-        "Categoría": 16.0,
-        "Color": 13.0,
+        "Categoría": 26.0,
+        "Color": 24.0,
         "Stock": 9.0,
         "Precio muestra": 13.0,
         "Precio ciento": 13.0,
@@ -66,12 +66,12 @@ class ExcelExporter:
     # Mantiene una referencia pública de anchos de diseño para compatibilidad
     # con código externo que pueda consultar esta configuración.
     COLUMN_WIDTHS: ClassVar[dict[str, float]] = {
-        "Imagen": 12.0,
+        "Imagen": 25.0,
         "Código": 12.0,
         "Producto": 20.5,
         "Detalle": 23.5,
-        "Categoría": 14.5,
-        "Color": 11.5,
+        "Categoría": 24.5,
+        "Color": 19.0,
         "Stock": 8.5,
         "Precio muestra": 12.25,
         "Precio ciento": 12.25,
@@ -81,7 +81,6 @@ class ExcelExporter:
     CENTER_HEADERS: ClassVar[frozenset[str]] = frozenset(
         {
             "Código",
-            "Color",
             "Stock",
             "Precio muestra",
             "Precio ciento",
@@ -107,7 +106,7 @@ class ExcelExporter:
     TEXT_LINE_HEIGHT_POINTS: ClassVar[float] = 15.0
     ROW_VERTICAL_PADDING_POINTS: ClassVar[float] = 8.0
 
-    IMAGE_MAX_SIZE_PX: ClassVar[int] = 118
+    IMAGE_MAX_SIZE_PX: ClassVar[int] = 180
     IMAGE_CELL_PADDING_PX: ClassVar[int] = 4
     EXCEL_COLUMN_PIXELS_PER_WIDTH_UNIT: ClassVar[float] = 7.0
     EXCEL_DPI: ClassVar[float] = 96.0
@@ -262,7 +261,7 @@ class ExcelExporter:
                         else "left"
                     ),
                     vertical="center",
-                    wrap_text=True,
+                    wrap_text=header != "Color",
                 )
                 if header in cls.CURRENCY_COLUMNS:
                     cell.number_format = cls.LOCAL_CURRENCY_FORMAT
@@ -278,7 +277,6 @@ class ExcelExporter:
             "Producto",
             "Detalle",
             "Categoría",
-            "Color",
         ):
             column = header_index[header]
             value = str(
@@ -450,8 +448,8 @@ class ExcelExporter:
                 )
                 prepared.thumbnail(
                     (
-                        min(inner_width, cls.IMAGE_MAX_SIZE_PX),
-                        min(inner_height, cls.IMAGE_MAX_SIZE_PX),
+                        inner_width,
+                        inner_height,
                     ),
                     Image.Resampling.LANCZOS,
                 )

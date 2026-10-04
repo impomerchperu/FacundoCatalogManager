@@ -718,9 +718,10 @@ class ExcelExporter:
         extension = (
             '<extLst><ext '
             'uri="{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}" '
-            'xmlns:x14="http://schemas.microsoft.com/office/'
+            'xmlns:x15="http://schemas.microsoft.com/office/'
+            'spreadsheetml/2010/11/main">'
+            '<x14:slicerList xmlns:x14="http://schemas.microsoft.com/office/'
             'spreadsheetml/2009/9/main">'
-            '<x14:slicerList>'
             f'<x14:slicer r:id="{slicer_rel_id}"/>'
             "</x14:slicerList></ext></extLst>"
         )
@@ -793,7 +794,7 @@ class ExcelExporter:
             '<a:bodyPr vertOverflow="clip" horzOverflow="clip"/>'
             '<a:lstStyle/>'
             '<a:p><a:r><a:rPr lang="en-US" sz="1100"/>'
-            '<a:t>Segmentación de datos de Categoría</a:t>'
+            '<a:t>Esta forma representa una segmentación de datos de tabla. La segmentación de datos de tabla se admite en Excel o versiones posteriores.\n\nSi la forma se modificó en una versión anterior de Excel o si el libro se guardó en Excel 2007 o una versión anterior, no se puede usar la segmentación de datos.</a:t>'
             '</a:r></a:p>'
             '</xdr:txBody>'
             '</xdr:sp>'

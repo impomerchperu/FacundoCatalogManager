@@ -623,32 +623,34 @@ class ExcelExporter:
         sheet_xml: str,
         sheet_rels: str,
     ) -> tuple[str, str, str, str]:
+        import re
+
         for relationship in sheet_rels.split("<Relationship")[1:]:
-            if "drawing" not in relationship:
+            type_match = re.search(r'Type="([^"]+)"', relationship)
+            target_match = re.search(r'Target="([^"]+)"', relationship)
+            id_match = re.search(r'Id="([^"]+)"', relationship)
+            if not type_match or "drawing" not in type_match.group(1):
                 continue
-            target_start = relationship.find('Target="../drawings/')
-            if target_start < 0:
+            if not target_match or not id_match:
                 continue
-            target_start += len('Target="../drawings/')
-            target_end = relationship.find('"', target_start)
-            if target_end < 0:
+
+            target = target_match.group(1)
+            if target.startswith("/xl/drawings/"):
+                drawing_name = target.lstrip("/")
+            elif target.startswith("../drawings/"):
+                drawing_name = (
+                    f"xl/drawings/{target[len('../drawings/'):]}"
+                )
+            else:
                 continue
-            drawing_name = (
-                f"xl/drawings/{relationship[target_start:target_end]}"
-            )
-            id_start = relationship.find('Id="')
-            if id_start < 0:
-                continue
-            id_start += 4
-            id_end = relationship.find('"', id_start)
-            if id_end < 0:
-                continue
-            return (
-                drawing_name,
-                relationship[id_start:id_end],
-                sheet_xml,
-                sheet_rels,
-            )
+
+            if drawing_name in names:
+                return (
+                    drawing_name,
+                    id_match.group(1),
+                    sheet_xml,
+                    sheet_rels,
+                )
 
         drawing_name = "xl/drawings/drawing1.xml"
         rel_id = cls._next_rel_id(sheet_rels)

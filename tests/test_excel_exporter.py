@@ -4,11 +4,12 @@ from zipfile import ZipFile
 from openpyxl import load_workbook
 from PIL import Image
 
+from exporters import excel_exporter as excel_module
 from exporters.excel_exporter import ExcelExporter
 from models.product import Product
 
 
-def test_export_writes_table_images_color_and_stock_columns(tmp_path):
+def test_export_writes_table_images_color_and_stock_columns(tmp_path, monkeypatch):
     filename = tmp_path / "catalogo.xlsx"
     image_path = tmp_path / "FB-100.jpg"
     Image.new("RGB", (120, 180), "white").save(image_path)
@@ -26,6 +27,7 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path):
         image_path=str(image_path),
     )
 
+    monkeypatch.setenv("FCM_EXCEL_SLICER_MODE", "disabled")
     ExcelExporter.export([product], filename)
 
     workbook = load_workbook(filename)
@@ -85,24 +87,12 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path):
 
     with ZipFile(filename) as archive:
         names = set(archive.namelist())
-        assert "xl/slicerCaches/slicerCache.xml" in names
-        assert "xl/slicers/slicer.xml" in names
+        assert "xl/slicerCaches/slicerCache.xml" not in names
+        assert "xl/slicers/slicer.xml" not in names
 
-        cache_xml = archive.read(
-            "xl/slicerCaches/slicerCache.xml",
-        ).decode("utf-8")
-        slicer_xml = archive.read(
-            "xl/slicers/slicer.xml",
-        ).decode("utf-8")
         workbook_xml = archive.read("xl/workbook.xml").decode("utf-8")
         sheet_xml = archive.read(
             "xl/worksheets/sheet1.xml",
-        ).decode("utf-8")
-        workbook_rels = archive.read(
-            "xl/_rels/workbook.xml.rels",
-        ).decode("utf-8")
-        sheet_rels = archive.read(
-            "xl/worksheets/_rels/sheet1.xml.rels",
         ).decode("utf-8")
         drawing_xml = archive.read(
             "xl/drawings/drawing1.xml",
@@ -112,64 +102,16 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path):
         ).decode("utf-8")
 
         for xml in (
-            cache_xml,
-            slicer_xml,
             workbook_xml,
             sheet_xml,
-            workbook_rels,
-            sheet_rels,
             drawing_xml,
             table_xml,
         ):
             ElementTree.fromstring(xml)
 
+        drawing_root = ElementTree.fromstring(drawing_xml)
         table_root = ElementTree.fromstring(table_xml)
 
-        cache_root = ElementTree.fromstring(cache_xml)
-        slicer_root = ElementTree.fromstring(slicer_xml)
-        drawing_root = ElementTree.fromstring(drawing_xml)
-
-        assert (
-            cache_root.tag
-            == "{http://schemas.microsoft.com/office/spreadsheetml/2009/9/main}"
-            "slicerCacheDefinition"
-        )
-        assert cache_root.attrib["name"] == "SegmentaciónDeDatos_Categoría"
-        assert cache_root.attrib["sourceName"] == "Categoría"
-        assert (
-            cache_root.find(
-                "{http://schemas.microsoft.com/office/spreadsheetml/2009/9/main}"
-                "data/{http://schemas.microsoft.com/office/spreadsheetml/2009/9/main}"
-                "tabular",
-            )
-            is not None
-        )
-
-        assert (
-            slicer_root.tag
-            == "{http://schemas.microsoft.com/office/spreadsheetml/2009/9/main}"
-            "slicers"
-        )
-        slicer_element = slicer_root.find(
-            "{http://schemas.microsoft.com/office/spreadsheetml/2009/9/main}"
-            "slicer",
-        )
-        assert slicer_element is not None
-        assert slicer_element.attrib["name"] == "Categoría"
-        assert slicer_element.attrib["cache"] == "SegmentaciónDeDatos_Categoría"
-        relationship_namespace = (
-            'xmlns:r="http://schemas.openxmlformats.org/'
-            'officeDocument/2006/relationships"'
-        )
-        assert relationship_namespace in workbook_xml
-        assert relationship_namespace in sheet_xml
-        assert "SegmentaciónDeDatos_Categoría" in workbook_xml
-        assert "slicerCaches" in workbook_xml
-        assert "slicerList" in sheet_xml
-        assert "slicerCache" in workbook_rels
-        assert "/xl/slicerCaches/slicerCache.xml" in workbook_rels
-        assert "relationships/slicer" in sheet_rels
-        assert "/xl/slicers/slicer.xml" in sheet_rels
         assert (
             drawing_root.tag
             == "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}"
@@ -181,17 +123,74 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path):
         )
         assert len(anchor_elements) == 1
         assert anchor_elements[0].attrib["editAs"] == "twoCell"
-        assert not drawing_root.findall(
-            "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}"
-            "graphicFrame",
-        )
-        assert "tableSlicerCache" not in drawing_xml
+
         assert (
             table_root.tag
             == "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}table"
         )
         assert 'ref="B1:K2"' in table_xml
         assert '<autoFilter ref="B1:K2"' in table_xml
+
+
+def test_export_auto_delegates_slicer_to_native_helper(tmp_path, monkeypatch):
+    filename = tmp_path / "catalogo.xlsx"
+    product = Product(
+        code="FB-300",
+        name="Producto",
+        category="Categoría",
+    )
+    captured = {}
+
+    def fake_add_category_slicer(filename_arg, *, table_name, field_name):
+        captured["filename"] = filename_arg
+        captured["table_name"] = table_name
+        captured["field_name"] = field_name
+
+    monkeypatch.setattr(
+        excel_module,
+        "add_category_slicer",
+        fake_add_category_slicer,
+    )
+
+    ExcelExporter.export([product], filename)
+
+    assert captured["filename"] == filename
+    assert captured["table_name"] == "CatalogoProductos"
+    assert captured["field_name"] == "Categoría"
+
+
+def test_export_disabled_slicer_does_not_inject_unsupported_ooxml(
+    tmp_path,
+):
+    filename = tmp_path / "catalogo.xlsx"
+    product = Product(
+        code="FB-400",
+        name="Producto seguro",
+        category="Categoría",
+    )
+
+    import os
+
+    previous = os.environ.get("FCM_EXCEL_SLICER_MODE")
+    os.environ["FCM_EXCEL_SLICER_MODE"] = "disabled"
+    try:
+        ExcelExporter.export([product], filename)
+    finally:
+        if previous is None:
+            os.environ.pop("FCM_EXCEL_SLICER_MODE", None)
+        else:
+            os.environ["FCM_EXCEL_SLICER_MODE"] = previous
+
+    with ZipFile(filename) as archive:
+        names = set(archive.namelist())
+        assert not any(
+            name.startswith("xl/slicerCaches/")
+            for name in names
+        )
+        assert not any(
+            name.startswith("xl/slicers/")
+            for name in names
+        )
 
 
 def test_export_adjusts_row_height_for_text(tmp_path):

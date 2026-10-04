@@ -257,3 +257,29 @@ GitHub Actions creó el workflow **Quality** para este SHA:
 Por tanto, el `test=success` documentado previamente corresponde al SHA `a3e3fb97` y no se debe reutilizar como evidencia del HEAD `5895f870` hasta que el nuevo workflow finalice.
 
 `live-catalog` continúa siendo un job omitido intencionalmente para el flujo rápido de PR.
+
+
+## Validación manual final del exportador Excel — 2026-10-04
+
+La validación funcional manual del flujo real de **Exportar Excel** quedó completada correctamente sobre la rama `fix/excel-table-repair`.
+
+Resultado:
+
+- [x] Selección de una sola categoría.
+- [x] Solo se exportan productos de la categoría seleccionada.
+- [x] Selección de varias categorías.
+- [x] Se exportan los productos de todas las categorías seleccionadas.
+- [x] Cancelación del diálogo sin generar exportación.
+- [x] Apertura del XLSX generado.
+- [x] Excel abre el archivo sin mensaje de reparación.
+- [x] Imágenes visibles correctamente.
+- [x] Proporción de imágenes conservada.
+- [x] Imágenes pueden moverse y redimensionarse junto con las celdas.
+- [x] No existen filtros automáticos.
+- [x] No existe una tabla estructurada de Excel.
+- [x] Encabezados y precios correctos.
+- [x] COLOR y STOCK correctos.
+
+Con esta validación queda cerrado el gate funcional del exportador Excel. No quedan incidencias conocidas en este bloque.
+
+El siguiente paso es exclusivamente de integración: revisión final de la PR #20 y posterior merge controlado a `main`.

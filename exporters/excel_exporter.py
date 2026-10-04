@@ -35,14 +35,14 @@ class ExcelExporter:
     )
 
     SIDEBAR_COLUMN_WIDTH: ClassVar[float] = 34.89
-    DATA_WIDTH_BUDGET: ClassVar[float] = 152.0
+    DATA_WIDTH_BUDGET: ClassVar[float] = 160.0
 
     COLUMN_MIN_WIDTHS: ClassVar[dict[str, float]] = {
         "Imagen": 24.0,
         "Código": 11.0,
         "Producto": 18.0,
         "Detalle": 21.0,
-        "Categoría": 23.0,
+        "Categoría": 25.0,
         "Color": 14.0,
         "Stock": 8.0,
         "Precio muestra": 11.5,
@@ -56,7 +56,7 @@ class ExcelExporter:
         "Producto": 23.0,
         "Detalle": 26.0,
         "Categoría": 26.0,
-        "Color": 24.0,
+        "Color": 28.0,
         "Stock": 9.0,
         "Precio muestra": 13.0,
         "Precio ciento": 13.0,
@@ -70,7 +70,7 @@ class ExcelExporter:
         "Código": 12.0,
         "Producto": 20.5,
         "Detalle": 23.5,
-        "Categoría": 24.5,
+        "Categoría": 25.0,
         "Color": 19.0,
         "Stock": 8.5,
         "Precio muestra": 12.25,

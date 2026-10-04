@@ -30,6 +30,7 @@ def test_export_writes_requested_layout_and_embeds_image(tmp_path):
     sheet = workbook["Productos"]
 
     assert sheet.max_row == 4
+    assert sheet.row_dimensions[2].height == ExcelExporter.INITIAL_ROW_HEIGHT
     assert sheet.max_column == len(ExcelExporter.EXCEL_HEADERS)
     assert [cell.value for cell in sheet[3]] == list(ExcelExporter.EXCEL_HEADERS)
     assert [cell.value for cell in sheet[4]] == [
@@ -88,15 +89,22 @@ def test_export_writes_requested_layout_and_embeds_image(tmp_path):
     )
     expected_width = expected_cell_width - (2 * ExcelExporter.IMAGE_MARGIN_PIXELS)
     expected_height = round(expected_width * 180 / 120)
-    assert type(image.anchor).__name__ == "OneCellAnchor"
+    assert type(image.anchor).__name__ == "TwoCellAnchor"
+    assert image.anchor.editAs == "twoCell"
     assert image.width == expected_width
     assert image.height == expected_height
     assert image.anchor._from.col == 0
     assert image.anchor._from.row == 3
     assert image.anchor._from.colOff == pixels_to_EMU(ExcelExporter.IMAGE_MARGIN_PIXELS)
     assert image.anchor._from.rowOff == pixels_to_EMU(ExcelExporter.IMAGE_MARGIN_PIXELS)
-    assert image.anchor.ext.cx == pixels_to_EMU(expected_width)
-    assert image.anchor.ext.cy == pixels_to_EMU(expected_height)
+    assert image.anchor.to.col == 0
+    assert image.anchor.to.row == 3
+    assert image.anchor.to.colOff == pixels_to_EMU(
+        ExcelExporter.IMAGE_MARGIN_PIXELS + expected_width
+    )
+    assert image.anchor.to.rowOff == pixels_to_EMU(
+        ExcelExporter.IMAGE_MARGIN_PIXELS + expected_height
+    )
 
 
 def test_export_scales_images_to_column_width_preserving_ratio(tmp_path):

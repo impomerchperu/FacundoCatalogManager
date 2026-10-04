@@ -35,48 +35,20 @@ class ExcelExporter:
     )
 
     SIDEBAR_COLUMN_WIDTH: ClassVar[float] = 34.89
-    DATA_WIDTH_BUDGET: ClassVar[float] = 230.0
-
-    COLUMN_MIN_WIDTHS: ClassVar[dict[str, float]] = {
-        "Imagen": 24.0,
-        "Código": 11.0,
-        "Producto": 42.0,
-        "Detalle": 42.0,
-        "Categoría": 25.0,
-        "Color": 14.0,
-        "Stock": 8.0,
-        "Precio muestra": 11.5,
-        "Precio ciento": 11.5,
-        "Precio millar": 11.5,
-    }
-
-    COLUMN_MAX_WIDTHS: ClassVar[dict[str, float]] = {
-        "Imagen": 26.0,
-        "Código": 13.0,
-        "Producto": 42.0,
-        "Detalle": 42.0,
-        "Categoría": 26.0,
-        "Color": 28.0,
-        "Stock": 9.0,
-        "Precio muestra": 13.0,
-        "Precio ciento": 13.0,
-        "Precio millar": 13.0,
-    }
-
-    # Mantiene una referencia pública de anchos de diseño para compatibilidad
-    # con código externo que pueda consultar esta configuración.
+    # Anchos finales solicitados para la tabla de productos.
     COLUMN_WIDTHS: ClassVar[dict[str, float]] = {
         "Imagen": 25.0,
-        "Código": 12.0,
-        "Producto": 42.0,
-        "Detalle": 42.0,
-        "Categoría": 25.0,
-        "Color": 19.0,
-        "Stock": 8.5,
-        "Precio muestra": 12.25,
-        "Precio ciento": 12.25,
-        "Precio millar": 12.25,
+        "Código": 12.11,
+        "Producto": 31.67,
+        "Detalle": 41.22,
+        "Categoría": 25.22,
+        "Color": 16.89,
+        "Stock": 9.44,
+        "Precio muestra": 12.11,
+        "Precio ciento": 12.11,
+        "Precio millar": 12.11,
     }
+
 
     CENTER_HEADERS: ClassVar[frozenset[str]] = frozenset(
         {
@@ -175,54 +147,14 @@ class ExcelExporter:
 
     @classmethod
     def _set_column_widths(cls, sheet: Worksheet) -> None:
-        """Ajusta anchos según el contenido, dentro de un presupuesto compacto."""
+        """Aplica los anchos exactos definidos para la exportación."""
         header_index = cls._header_index()
-        desired_widths: dict[str, float] = {}
-
-        for header in cls.EXCEL_HEADERS:
-            column = header_index[header]
-            max_line_length = len(header)
-
-            for row_number in range(2, sheet.max_row + 1):
-                value = sheet.cell(
-                    row=row_number,
-                    column=column,
-                ).value
-                if value is None:
-                    continue
-
-                for line in str(value).splitlines() or [""]:
-                    max_line_length = max(max_line_length, len(line))
-
-            desired = max_line_length * 0.90 + 1.5
-            desired_widths[header] = min(
-                max(cls.COLUMN_MIN_WIDTHS[header], desired),
-                cls.COLUMN_MAX_WIDTHS[header],
-            )
-
-        if sum(desired_widths.values()) > cls.DATA_WIDTH_BUDGET:
-            excess = sum(desired_widths.values()) - cls.DATA_WIDTH_BUDGET
-            capacity = sum(
-                desired_widths[header] - cls.COLUMN_MIN_WIDTHS[header]
-                for header in cls.EXCEL_HEADERS
-            )
-            if capacity > 0:
-                for header in cls.EXCEL_HEADERS:
-                    reducible = (
-                        desired_widths[header]
-                        - cls.COLUMN_MIN_WIDTHS[header]
-                    )
-                    desired_widths[header] = round(
-                        desired_widths[header]
-                        - excess * reducible / capacity,
-                        2,
-                    )
-
-        for header in cls.EXCEL_HEADERS:
+        for header, width in cls.COLUMN_WIDTHS.items():
             column = header_index[header]
             sheet.column_dimensions[
                 get_column_letter(column)
-            ].width = desired_widths[header]
+            ].width = width
+
 
     @classmethod
     def _style_sheet(cls, sheet: Worksheet) -> None:

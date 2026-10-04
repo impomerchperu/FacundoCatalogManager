@@ -788,7 +788,9 @@ class ExcelExporter:
         )
         if root_match:
             xml = (
-                f'<xdr:wsDr xmlns:xdr="{namespace}">'
+                f'<xdr:wsDr '
+                f'xmlns:xdr="{namespace}" '
+                'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
                 + xml[root_match.end():]
             )
 

@@ -8,7 +8,6 @@ from urllib.request import Request, urlopen
 
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as ExcelImage
-from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
@@ -17,11 +16,10 @@ from PIL import Image
 
 from config.runtime_paths import resolve_data_path
 from exporters.catalog_export_schema import export_rows
-from exporters.excel_slicer import add_category_slicer
 
 
 class ExcelExporter:
-    """Exporta el catálogo con tabla, imágenes y segmentación por categoría."""
+    """Exporta el catálogo completo a un libro XLSX estándar y editable."""
 
     EXCEL_HEADERS: ClassVar[tuple[str, ...]] = (
         "Imagen",
@@ -55,22 +53,19 @@ class ExcelExporter:
         "Precio millar": 18,
     }
 
-    SLICER_COLUMN_WIDTH: ClassVar[int] = 39
     HEADER_FILL: ClassVar[str] = "EAF3FA"
     HEADER_TEXT: ClassVar[str] = "173F6D"
     BORDER_COLOR: ClassVar[str] = "CBDDEA"
     ALT_ROW_FILL: ClassVar[str] = "F8FBFF"
-    DEFAULT_ROW_HEIGHT_POINTS: ClassVar[float] = 14.4
 
-    IMAGE_MAX_SIZE_PX: ClassVar[int] = 118
+    HEADER_ROW_HEIGHT_POINTS: ClassVar[float] = 32.0
     MIN_ROW_HEIGHT_POINTS: ClassVar[float] = 92.0
+    DEFAULT_ROW_HEIGHT_POINTS: ClassVar[float] = 14.4
     TEXT_LINE_HEIGHT_POINTS: ClassVar[float] = 15.0
     ROW_VERTICAL_PADDING_POINTS: ClassVar[float] = 8.0
 
-    SLICER_CACHE_NAME: ClassVar[str] = "SegmentaciónDeDatos_Categoría"
-    SLICER_NAME: ClassVar[str] = "Categoría"
-    SLICER_STYLE: ClassVar[str] = "SlicerStyleLight5"
-    SLICER_DRAWING_ID: ClassVar[int] = 521
+    IMAGE_MAX_SIZE_PX: ClassVar[int] = 118
+    IMAGE_CELL_PADDING_PX: ClassVar[int] = 2
 
     @classmethod
     def export(cls, products: Iterable, filename) -> None:
@@ -86,23 +81,20 @@ class ExcelExporter:
         sheet.title = "Productos"
         sheet.sheet_view.showGridLines = False
         sheet.sheet_format.defaultRowHeight = cls.DEFAULT_ROW_HEIGHT_POINTS
-        sheet.sheet_view.zoomScale = 85
-        sheet.freeze_panes = "B2"
+        sheet.freeze_panes = "A2"
 
-        sheet.column_dimensions["A"].width = cls.SLICER_COLUMN_WIDTH
-        for index, header in enumerate(cls.EXCEL_HEADERS, start=2):
+        for index, header in enumerate(cls.EXCEL_HEADERS, start=1):
             sheet.column_dimensions[get_column_letter(index)].width = (
                 cls.COLUMN_WIDTHS[header]
             )
 
-        sheet.append([None, *cls.EXCEL_HEADERS])
+        sheet.append(list(cls.EXCEL_HEADERS))
         for row in rows:
             colors, stocks = cls._split_color_stock(
                 str(row.get("stock_by_color", "") or ""),
             )
             sheet.append(
                 [
-                    None,
                     None,
                     row["code"],
                     row["name"],
@@ -125,19 +117,7 @@ class ExcelExporter:
                 rows,
                 Path(temp_dir),
             )
-            cls._style_stock_cells(sheet, rows)
             workbook.save(filename)
-
-        if rows:
-            try:
-                add_category_slicer(
-                    Path(filename),
-                    table_name="CatalogoProductos",
-                    field_name="Categoría",
-                )
-            except RuntimeError:
-                Path(filename).unlink(missing_ok=True)
-                raise
 
     @classmethod
     def _style_sheet(cls, sheet: Worksheet) -> None:
@@ -146,11 +126,7 @@ class ExcelExporter:
         header_index = cls._header_index()
 
         for cell in sheet[1]:
-            cell.fill = (
-                PatternFill("solid", fgColor=cls.HEADER_FILL)
-                if cell.column != 1
-                else PatternFill("solid", fgColor="FFFFFF")
-            )
+            cell.fill = PatternFill("solid", fgColor=cls.HEADER_FILL)
             cell.font = Font(
                 name="Segoe UI",
                 size=11,
@@ -164,12 +140,12 @@ class ExcelExporter:
             )
             cell.border = border
 
-        sheet.row_dimensions[1].height = 32
+        sheet.row_dimensions[1].height = cls.HEADER_ROW_HEIGHT_POINTS
 
         for row_number in range(2, sheet.max_row + 1):
             for column in range(1, sheet.max_column + 1):
                 cell = sheet.cell(row=row_number, column=column)
-                if row_number % 2 == 0 and column != 1:
+                if row_number % 2 == 0:
                     cell.fill = PatternFill(
                         "solid",
                         fgColor=cls.ALT_ROW_FILL,
@@ -185,11 +161,7 @@ class ExcelExporter:
                 )
                 cell.border = border
 
-            centered_headers = {
-                "Código",
-                "Stock",
-            } | cls.CURRENCY_HEADERS
-            for header in centered_headers:
+            for header in ("Código", "Stock") | cls.CURRENCY_HEADERS:
                 cell = sheet.cell(
                     row=row_number,
                     column=header_index[header],
@@ -204,13 +176,20 @@ class ExcelExporter:
 
             cls._set_row_height(sheet, row_number)
 
+        color_index = header_index["Color"]
+        stock_index = header_index["Stock"]
+        white_fill = PatternFill("solid", fgColor="FFFFFF")
+        for row_number in range(2, sheet.max_row + 1):
+            for column in (color_index, stock_index):
+                sheet.cell(row=row_number, column=column).fill = white_fill
+
         if sheet.max_row >= 2:
             table = Table(
                 displayName="CatalogoProductos",
-                ref=f"B1:K{sheet.max_row}",
+                ref=f"A1:J{sheet.max_row}",
             )
             table.tableStyleInfo = TableStyleInfo(
-                name="TableStyleLight2",
+                name="TableStyleMedium2",
                 showFirstColumn=False,
                 showLastColumn=False,
                 showRowStripes=True,
@@ -303,26 +282,59 @@ class ExcelExporter:
             if image is None:
                 continue
 
-            row_index = target_row - 1
-            col_index = image_column - 1
-            width_emu = int((image.width or 0) / 96 * 914400)
-            height_emu = int((image.height or 0) / 96 * 914400)
-            image.anchor = TwoCellAnchor(
-                editAs="twoCell",
-                _from=AnchorMarker(
-                    col=col_index,
-                    row=row_index,
-                    colOff=0,
-                    rowOff=0,
-                ),
-                to=AnchorMarker(
-                    col=col_index,
-                    row=row_index,
-                    colOff=width_emu,
-                    rowOff=height_emu,
-                ),
+            target_width, target_height = cls._image_size_for_cell(
+                sheet,
+                target_row,
             )
+            cls._fit_image(image, target_width, target_height)
+            image.anchor = sheet.cell(
+                row=target_row,
+                column=image_column,
+            ).coordinate
             sheet.add_image(image)
+
+    @classmethod
+    def _image_size_for_cell(
+        cls,
+        sheet: Worksheet,
+        row: int,
+    ) -> tuple[int, int]:
+        column_width = cls.COLUMN_WIDTHS["Imagen"]
+        available_width = max(
+            int(column_width * 7) - cls.IMAGE_CELL_PADDING_PX * 2,
+            1,
+        )
+        row_height = sheet.row_dimensions[row].height
+        if row_height is None:
+            row_height = cls.DEFAULT_ROW_HEIGHT_POINTS
+        available_height = max(
+            int(row_height * 96 / 72) - cls.IMAGE_CELL_PADDING_PX * 2,
+            1,
+        )
+
+        return (
+            min(cls.IMAGE_MAX_SIZE_PX, available_width),
+            min(cls.IMAGE_MAX_SIZE_PX, available_height),
+        )
+
+    @staticmethod
+    def _fit_image(
+        image: ExcelImage,
+        max_width: int,
+        max_height: int,
+    ) -> None:
+        source_width = int(image.width or 0)
+        source_height = int(image.height or 0)
+        if source_width <= 0 or source_height <= 0:
+            return
+
+        scale = min(
+            max_width / source_width,
+            max_height / source_height,
+            1.0,
+        )
+        image.width = max(int(source_width * scale), 1)
+        image.height = max(int(source_height * scale), 1)
 
     @staticmethod
     def _local_image_path(reference: str) -> Path | None:
@@ -379,45 +391,6 @@ class ExcelExporter:
         image.height = height
         return image
 
-    @classmethod
-    def _style_stock_cells(
-        cls,
-        sheet: Worksheet,
-        rows: list[dict[str, object]],
-    ) -> None:
-        stock_index = cls._header_index()["Stock"]
-        color_index = cls._header_index()["Color"]
-        no_fill = PatternFill("solid", fgColor="FFFFFF")
-
-        for offset in range(len(rows)):
-            stock_cell = sheet.cell(
-                row=2 + offset,
-                column=stock_index,
-            )
-            color_cell = sheet.cell(
-                row=2 + offset,
-                column=color_index,
-            )
-
-            for target in (color_cell, stock_cell):
-                target.fill = no_fill
-                target.font = Font(
-                    name="Segoe UI",
-                    size=10,
-                    color=cls.HEADER_TEXT,
-                )
-
-            color_cell.alignment = Alignment(
-                horizontal="left",
-                vertical="center",
-                wrap_text=True,
-            )
-            stock_cell.alignment = Alignment(
-                horizontal="center",
-                vertical="center",
-                wrap_text=True,
-            )
-
     @staticmethod
     def _split_color_stock(value: str) -> tuple[str, str]:
         colors: list[str] = []
@@ -442,6 +415,5 @@ class ExcelExporter:
     def _header_index(cls) -> dict[str, int]:
         return {
             header: index
-            for index, header in enumerate(cls.EXCEL_HEADERS, start=2)
+            for index, header in enumerate(cls.EXCEL_HEADERS, start=1)
         }
-

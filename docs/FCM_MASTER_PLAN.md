@@ -282,6 +282,8 @@ Estado documentado del exportador en la rama activa:
 
 El bloque Excel se considera cerrado temporalmente. Nuevas mejoras visuales o de filtrado deben ser una nueva iteración aislada y no deben reabrir este baseline sin evidencia.
 
+La PR #20 no modifica scraping, persistencia, cobertura ni concurrencia; por ello su aceptación no requiere repetir el benchmark FULL real, salvo que una futura modificación salga de ese alcance.
+
 ### Estado de PR
 
 - PR #20: abierta;
@@ -289,7 +291,7 @@ El bloque Excel se considera cerrado temporalmente. Nuevas mejoras visuales o de
 - head: `fix/excel-table-repair`;
 - mergeable: true;
 - estado de merge actual: limpio;
-- check `test`: success en el HEAD documental `a3e3fb97`;
+- check `test` fue success en `a3e3fb97`; los commits documentales posteriores (`5895f870` y `ca782a65`) generan nuevos workflows Quality sobre sus respectivos HEAD y deben validarse por separado;
 - `live-catalog`: skipped intencionalmente.
 
 La promoción a `main` no se considera completada hasta cerrar la validación local y revisar el diff completo de la PR.

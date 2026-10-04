@@ -190,6 +190,8 @@ class ExcelExporter:
                     vertical="center",
                     wrap_text=True,
                 )
+                if header in cls.CURRENCY_HEADERS:
+                    cell.number_format = '"S/ " #,##0.00'
 
             cls._set_row_height(sheet, row_number)
 

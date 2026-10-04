@@ -30,6 +30,7 @@ class ExcelCategorySelectionDialog(QDialog):
         parent: QWidget | None = None,
         *,
         initial_selected_categories: Iterable[str] | None = None,
+        stock_only: bool = False,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Seleccionar categorías para Excel")
@@ -38,6 +39,7 @@ class ExcelCategorySelectionDialog(QDialog):
 
         self._products = list(products)
         self._categories = self._normalize_categories(categories)
+        self._stock_only = stock_only
         initial = {
             str(value).strip().casefold()
             for value in (initial_selected_categories or [])
@@ -52,6 +54,13 @@ class ExcelCategorySelectionDialog(QDialog):
         title.setWordWrap(True)
         layout.addWidget(title)
 
+        stock_label = QLabel(
+            "Solo Stock Disponible: "
+            + ("ACTIVADO" if self._stock_only else "desactivado")
+        )
+        stock_label.setWordWrap(True)
+        layout.addWidget(stock_label)
+
         self.category_list = QListWidget()
         self.category_list.setSelectionMode(
             QAbstractItemView.SelectionMode.NoSelection,
@@ -65,7 +74,11 @@ class ExcelCategorySelectionDialog(QDialog):
             item.setFlags(
                 item.flags() | Qt.ItemFlag.ItemIsUserCheckable,
             )
-            is_checked = not initial or category.casefold() in initial
+            is_checked = (
+                True
+                if initial_selected_categories is None
+                else category.casefold() in initial
+            )
             item.setCheckState(
                 Qt.CheckState.Checked
                 if is_checked
@@ -126,8 +139,10 @@ class ExcelCategorySelectionDialog(QDialog):
         cls,
         products: Iterable[Product],
         categories: Iterable[str],
+        *,
+        stock_only: bool = False,
     ) -> list[Product]:
-        """Devuelve productos pertenecientes a cualquiera de las categorías."""
+        """Devuelve productos pertenecientes a cualquier categoría seleccionada."""
         selected = {
             str(category).strip().casefold()
             for category in categories
@@ -145,8 +160,11 @@ class ExcelCategorySelectionDialog(QDialog):
                 )
                 if category
             }
-            if selected.intersection(product_categories):
-                result.append(product)
+            if not selected.intersection(product_categories):
+                continue
+            if stock_only and product.stock <= 0:
+                continue
+            result.append(product)
         return result
 
     def select_all_categories(self) -> None:
@@ -170,6 +188,7 @@ class ExcelCategorySelectionDialog(QDialog):
         selected_products = self.filter_products(
             self._products,
             selected,
+            stock_only=self._stock_only,
         )
         self.summary_label.setText(
             f"Categorías seleccionadas: {len(selected)} de "

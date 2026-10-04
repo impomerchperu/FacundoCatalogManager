@@ -85,7 +85,9 @@ def test_export_writes_complete_editable_catalog_with_image(tmp_path):
 
     assert len(sheet._images) == 1
     image = sheet._images[0]
-    assert image.anchor == "A2"
+    assert type(image.anchor).__name__ == "OneCellAnchor"
+    assert image.anchor._from.col == 0
+    assert image.anchor._from.row == 1
     assert image.width <= ExcelExporter.IMAGE_MAX_SIZE_PX
     assert image.height <= ExcelExporter.IMAGE_MAX_SIZE_PX
     assert image.width <= int(17 * 7) - 4

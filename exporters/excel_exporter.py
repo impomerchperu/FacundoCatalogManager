@@ -387,7 +387,7 @@ class ExcelExporter:
     ) -> None:
         stock_index = cls._header_index()["Stock"]
         color_index = cls._header_index()["Color"]
-        no_fill = PatternFill(fill_type=None)
+        no_fill = PatternFill("solid", fgColor="FFFFFF")
 
         for offset in range(len(rows)):
             stock_cell = sheet.cell(

@@ -1,5 +1,5 @@
-from zipfile import ZipFile
 from xml.etree import ElementTree
+from zipfile import ZipFile
 
 from openpyxl import load_workbook
 from PIL import Image

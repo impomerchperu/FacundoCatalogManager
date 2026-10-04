@@ -33,6 +33,30 @@ def test_export_writes_table_images_color_and_stock_columns(tmp_path, monkeypatc
     workbook = load_workbook(filename)
     sheet = workbook["Productos"]
 
+    assert sheet.sheet_format.defaultRowHeight == ExcelExporter.DEFAULT_ROW_HEIGHT_POINTS
+    assert sheet.row_dimensions[1].height == 32
+    expected_widths = {
+        "A": ExcelExporter.SLICER_COLUMN_WIDTH,
+        "B": 17,
+        "C": ExcelExporter.COLUMN_WIDTHS["Código"],
+        "D": ExcelExporter.COLUMN_WIDTHS["Producto"],
+        "E": ExcelExporter.COLUMN_WIDTHS["Detalle"],
+        "F": ExcelExporter.COLUMN_WIDTHS["Categoría"],
+        "G": ExcelExporter.COLUMN_WIDTHS["Color"],
+        "H": ExcelExporter.COLUMN_WIDTHS["Stock"],
+        "I": ExcelExporter.COLUMN_WIDTHS["Precio muestra"],
+        "J": ExcelExporter.COLUMN_WIDTHS["Precio ciento"],
+        "K": ExcelExporter.COLUMN_WIDTHS["Precio millar"],
+    }
+    for column, width in expected_widths.items():
+        assert sheet.column_dimensions[column].width == width
+
+    assert sheet["B1"].font.name == "Segoe UI"
+    assert sheet["B1"].font.size == 11
+    assert sheet["B1"].font.bold is True
+    assert sheet["C2"].font.name == "Segoe UI"
+    assert sheet["C2"].font.size == 10
+
     assert sheet[1][0].value is None
     assert [cell.value for cell in sheet[1][1:11]] == list(
         ExcelExporter.EXCEL_HEADERS,

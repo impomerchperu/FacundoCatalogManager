@@ -1071,6 +1071,44 @@ class MainWindow(QMainWindow):
 
     def export_excel(self) -> None:
         from exporters.excel_exporter import ExcelExporter
+        from gui.excel_category_dialog import ExcelCategorySelectionDialog
+
+        products = list(self.all_products)
+        if not products:
+            QMessageBox.information(
+                self,
+                "Exportar Excel",
+                "No hay productos disponibles para exportar.",
+            )
+            return
+
+        categories = {
+            category
+            for product in products
+            for category in self._product_categories(product)
+        }
+        initial_selected = self.selected_categories or categories
+        category_dialog = ExcelCategorySelectionDialog(
+            categories,
+            products,
+            self,
+            initial_selected_categories=initial_selected,
+        )
+        if not category_dialog.exec():
+            return
+
+        selected_categories = category_dialog.selected_categories()
+        export_products = ExcelCategorySelectionDialog.filter_products(
+            products,
+            selected_categories,
+        )
+        if not export_products:
+            QMessageBox.warning(
+                self,
+                "Exportar Excel",
+                "Las categorías seleccionadas no contienen productos.",
+            )
+            return
 
         filename, _ = QFileDialog.getSaveFileName(
             self,
@@ -1079,7 +1117,7 @@ class MainWindow(QMainWindow):
             "Excel (*.xlsx)",
         )
         if filename:
-            ExcelExporter.export(self.controller.get_products(), filename)
+            ExcelExporter.export(export_products, filename)
 
     def export_pdf(self) -> None:
         from exporters.pdf_exporter import PDFExporter

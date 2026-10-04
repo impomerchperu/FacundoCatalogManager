@@ -18,7 +18,6 @@ from PIL import Image
 from config.runtime_paths import resolve_data_path
 from exporters.catalog_export_schema import export_rows
 from exporters.excel_slicer import add_category_slicer
-from services.stock_color_palette import known_stock_color_style
 
 
 class ExcelExporter:
@@ -130,11 +129,15 @@ class ExcelExporter:
             workbook.save(filename)
 
         if rows:
-            add_category_slicer(
-                Path(filename),
-                table_name="CatalogoProductos",
-                field_name="Categoría",
-            )
+            try:
+                add_category_slicer(
+                    Path(filename),
+                    table_name="CatalogoProductos",
+                    field_name="Categoría",
+                )
+            except RuntimeError:
+                Path(filename).unlink(missing_ok=True)
+                raise
 
     @classmethod
     def _style_sheet(cls, sheet: Worksheet) -> None:
@@ -384,12 +387,9 @@ class ExcelExporter:
     ) -> None:
         stock_index = cls._header_index()["Stock"]
         color_index = cls._header_index()["Color"]
+        no_fill = PatternFill(fill_type=None)
 
-        for offset, row in enumerate(rows):
-            value = str(row.get("stock_by_color", "") or "").strip()
-            if not value:
-                continue
-
+        for offset in range(len(rows)):
             stock_cell = sheet.cell(
                 row=2 + offset,
                 column=stock_index,
@@ -398,19 +398,13 @@ class ExcelExporter:
                 row=2 + offset,
                 column=color_index,
             )
-            background, text_color = cls._stock_cell_colors(value)
-            if background is None:
-                continue
 
             for target in (color_cell, stock_cell):
-                target.fill = PatternFill(
-                    "solid",
-                    fgColor=background,
-                )
+                target.fill = no_fill
                 target.font = Font(
                     name="Segoe UI",
                     size=10,
-                    color=text_color,
+                    color=cls.HEADER_TEXT,
                 )
 
             color_cell.alignment = Alignment(
@@ -423,51 +417,6 @@ class ExcelExporter:
                 vertical="center",
                 wrap_text=True,
             )
-
-    @staticmethod
-    def _stock_cell_colors(
-        value: str,
-    ) -> tuple[str | None, str]:
-        if not value:
-            return None, "173F6D"
-
-        best_color = ""
-        best_stock = -1
-        first_color = ""
-
-        for line in value.splitlines():
-            try:
-                color_name, stock_text = line.rsplit(":", 1)
-            except ValueError:
-                continue
-
-            color_name = color_name.strip()
-            if not color_name:
-                continue
-            if not first_color:
-                first_color = color_name
-
-            try:
-                stock = max(
-                    int(stock_text.strip().replace(",", "")),
-                    0,
-                )
-            except ValueError:
-                stock = 0
-
-            if stock > best_stock:
-                best_stock = stock
-                best_color = color_name
-
-        color_name = best_color or first_color
-        style = known_stock_color_style(color_name)
-        if style is None:
-            return "EEF3F7", "173F6D"
-
-        background = style[0].lstrip("#").upper()
-        if len(background) == 6:
-            background = f"FF{background}"
-        return background, "173F6D"
 
     @staticmethod
     def _split_color_stock(value: str) -> tuple[str, str]:

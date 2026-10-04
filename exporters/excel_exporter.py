@@ -161,7 +161,8 @@ class ExcelExporter:
                 )
                 cell.border = border
 
-            for header in ("Código", "Stock") | cls.CURRENCY_HEADERS:
+            centered_headers = {"Código", "Stock"} | cls.CURRENCY_HEADERS
+            for header in centered_headers:
                 cell = sheet.cell(
                     row=row_number,
                     column=header_index[header],

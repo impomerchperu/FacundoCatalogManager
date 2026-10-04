@@ -813,7 +813,7 @@ try {
         $sheet,
         $null,
         "Slicer_Categoria_View",
-        "Categorías",
+        "Categoría",
         0,
         0,
         190,
@@ -824,12 +824,28 @@ try {
     }
 
     $slicer.NumberOfColumns = 1
+    $slicer.DisplayHeader = $true
+    $slicer.Top = 0
+    $slicer.Left = 0
+    $slicer.Width = 190
+    $slicer.Height = 540
 
     try {
-        $slicer.Style = "SlicerStyleLight2"
+        $slicer.RowHeight = 18.5
     }
     catch {
-        $slicer.Style = "SlicerStyleLight1"
+    }
+
+    try {
+        $slicer.Style = "SlicerStyleLight5"
+    }
+    catch {
+        try {
+            $slicer.Style = "SlicerStyleLight2"
+        }
+        catch {
+            $slicer.Style = "SlicerStyleLight1"
+        }
     }
 
     try {

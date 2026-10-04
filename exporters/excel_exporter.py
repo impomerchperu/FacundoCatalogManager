@@ -124,8 +124,6 @@ class ExcelExporter:
 
     @classmethod
     def _style_sheet(cls, sheet: Worksheet) -> None:
-        header_font = Font(bold=True)
-
         header_font = Font(bold=True, size=cls.HEADER_FONT_SIZE)
 
         for cell in sheet[cls.INITIAL_ROWS + 1]:

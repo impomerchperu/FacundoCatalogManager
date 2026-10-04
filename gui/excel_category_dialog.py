@@ -59,8 +59,6 @@ class ExcelCategorySelectionDialog(QDialog):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding,
         )
-        self.category_list.itemChanged.connect(self._update_summary)
-
         for category in self._categories:
             item = QListWidgetItem(category)
             item.setFlags(
@@ -74,6 +72,7 @@ class ExcelCategorySelectionDialog(QDialog):
             )
             self.category_list.addItem(item)
 
+        self.category_list.itemChanged.connect(self._update_summary)
         layout.addWidget(self.category_list, 1)
 
         selection_actions = QHBoxLayout()

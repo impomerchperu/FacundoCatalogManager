@@ -170,9 +170,6 @@ class ExcelExporter:
         sheet.column_dimensions["A"].width = cls.SIDEBAR_COLUMN_WIDTH
         sheet.freeze_panes = "B2"
         sheet.auto_filter.ref = None
-        sheet.sheet_properties.pageSetUpPr.fitToPage = True
-        sheet.page_setup.fitToWidth = 1
-        sheet.page_setup.fitToHeight = 0
 
         sheet.append([None, *cls.EXCEL_HEADERS])
 

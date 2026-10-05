@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import PurePosixPath
-from urllib.parse import urljoin, urlsplit
+from urllib import parse
 
 
 BASE_URL = "https://stock.importacionesfacundo.com"
@@ -123,7 +123,7 @@ def _add_candidate(
     if not normalized_url or normalized_url.startswith("data:image"):
         return sequence
 
-    filename = PurePosixPath(urlsplit(normalized_url).path).name
+    filename = PurePosixPath(parse.urlsplit(normalized_url).path).name
     if _is_generic_asset(filename, code):
         return sequence
 
@@ -147,7 +147,7 @@ def _code_score(url: str, filename: str, code: str) -> int:
         return 0
     if _contains_catalog_code(filename, code):
         return 10000
-    if _contains_catalog_code(urlsplit(url).path, code):
+    if _contains_catalog_code(parse.urlsplit(url).path, code):
         return 7000
     return 0
 
@@ -193,10 +193,10 @@ def _normalize_image_url(url: str) -> str:
     if value.startswith("//"):
         return "https:" + value
     if value.startswith("/"):
-        return urljoin(BASE_URL, value)
+        return parse.urljoin(BASE_URL, value)
     if value.startswith(("http://", "https://")):
         return value
-    return urljoin(BASE_URL + "/", value)
+    return parse.urljoin(BASE_URL + "/", value)
 
 
 def _is_generic_asset(filename: str, code: str) -> bool:

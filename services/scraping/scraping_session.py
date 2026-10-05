@@ -56,6 +56,7 @@ class ScrapingSession:
         self.history_repository = history_repository
         self.catalog_repository = catalog_repository
         self.result = ScrapingSessionResult()
+        self._image_review_batch: str | None = None
 
     def execute(self, categories=None, progress_callback=None):
         return self._execute(lambda: self.runner.run(categories or [], progress_callback))
@@ -82,6 +83,7 @@ class ScrapingSession:
         db = getattr(self.history_repository, "db", None)
         transaction_started = False
         try:
+            self._begin_image_review_batch()
             if db is not None:
                 db.begin()
                 transaction_started = True
@@ -98,12 +100,14 @@ class ScrapingSession:
             if self.result.errors:
                 self._rollback_transaction(db, transaction_started)
                 transaction_started = False
+                self._discard_image_review_batch()
                 self.result.finished_at = datetime.now(timezone.utc)
                 self._write_error_result_artifact()
                 self._save_history_in_clean_transaction(db)
                 return self.result
 
             self._persist_catalog_products()
+            self._finalize_image_review_batch()
 
             self.result.finished_at = datetime.now(timezone.utc)
             self._save_history()
@@ -113,6 +117,7 @@ class ScrapingSession:
         except Exception as error:  # noqa: BLE001
             self._rollback_transaction(db, transaction_started)
             transaction_started = False
+            self._discard_image_review_batch()
             self.result.errors.append(str(error))
             self.result.finished_at = datetime.now(timezone.utc)
             self._write_error_result_artifact()
@@ -123,6 +128,32 @@ class ScrapingSession:
                     f"No se pudo registrar el historial del error: {history_error}"
                 )
         return self.result
+
+    def _image_review_service(self):
+        sync_service = getattr(self.runner, "scraping_service", None)
+        adapter = getattr(sync_service, "image_sync_adapter", None)
+        image_sync = getattr(adapter, "image_sync", None)
+        return getattr(image_sync, "review_service", None)
+
+    def _begin_image_review_batch(self) -> None:
+        service = self._image_review_service()
+        begin = getattr(service, "begin_batch", None)
+        if callable(begin):
+            self._image_review_batch = begin()
+
+    def _finalize_image_review_batch(self) -> None:
+        service = self._image_review_service()
+        finalize = getattr(service, "finalize_batch", None)
+        if callable(finalize):
+            finalize(self._image_review_batch)
+        self._image_review_batch = None
+
+    def _discard_image_review_batch(self) -> None:
+        service = self._image_review_service()
+        discard = getattr(service, "discard_batch", None)
+        if callable(discard):
+            discard(self._image_review_batch)
+        self._image_review_batch = None
 
     def _only_coverage_error(self):
         coverage_errors = [

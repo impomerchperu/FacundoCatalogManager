@@ -266,3 +266,40 @@ def test_product_extractor_reads_stock_from_each_variant_node_reverse_order():
         "Azul": 330,
     }
     assert result["stock"] == 1356
+
+
+def test_product_extractor_prefers_exact_product_code_image_over_logo_and_srcset():
+    html = """
+    <article class="product">
+        <p class="brxe-heading">FB-7082</p>
+        <h1>Laminado en Frio Tela Transparente A4 – 20 Hojas</h1>
+        <div class="woocommerce-product-gallery">
+            <img
+                src="/wp-content/uploads/2026/06/Logo_PAMUNDO-300x294.webp"
+                srcset="/wp-content/uploads/2026/08/FB-7082-300x300.webp 300w"
+                alt="Laminado en Frio Tela Transparente A4"
+            >
+        </div>
+    </article>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    assert result["image_url"] == (
+        "https://stock.importacionesfacundo.com/"
+        "wp-content/uploads/2026/08/FB-7082-300x300.webp"
+    )
+
+
+def test_product_extractor_reads_lazy_image_attributes_before_falling_back():
+    html = """
+    <div class="woocommerce-product-gallery">
+        <p class="brxe-heading">FB-9001</p>
+        <img
+            src="/wp-content/uploads/2026/06/Logo_PAMUNDO-300x294.webp"
+            data-src="/wp-content/uploads/2026/08/FB-9001-300x300.webp"
+        >
+    </div>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    assert result["image_url"].endswith(
+        "/wp-content/uploads/2026/08/FB-9001-300x300.webp"
+    )

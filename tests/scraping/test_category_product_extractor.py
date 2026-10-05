@@ -164,3 +164,23 @@ def test_category_product_extractor_reads_stock_from_each_variant_node():
         "Azul": 330,
     }
     assert product.stock == 1356
+
+
+def test_category_product_extractor_prefers_exact_code_from_product_srcset():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-7082</p>
+        <h2 class="brxe-f31760">Laminado en Frio Tela Transparente A4</h2>
+        <a href="/producto/laminado-en-frio-tela-transparente-a4-20-hojas/">
+            <img
+                src="/wp-content/uploads/2026/06/Logo_PAMUNDO-300x294.webp"
+                data-srcset="/wp-content/uploads/2026/08/FB-7082-300x300.webp 300w"
+            >
+        </a>
+    </article>
+    """
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    assert product.image_url == (
+        "https://stock.importacionesfacundo.com/"
+        "wp-content/uploads/2026/08/FB-7082-300x300.webp"
+    )

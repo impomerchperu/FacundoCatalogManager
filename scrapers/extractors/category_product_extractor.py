@@ -2,6 +2,7 @@ import re
 
 from models.scraping.scraped_product import ScrapedProduct
 from scrapers.extractors.code_utils import normalize_code_token
+from scrapers.extractors.image_url_resolver import resolve_image_url
 from scrapers.extractors.price_extractor import PriceExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
@@ -279,24 +280,13 @@ class CategoryProductExtractor:
         return None
 
     def _image(self, soup):
-        images = soup.select('a[href*="/producto/"] img')
-        for image in images:
-            url = image.get("data-src") or image.get("src") or ""
-            if not url or "data:image" in url:
-                continue
-            if "Proximo" in url or "Logo" in url:
-                continue
-            return self._normalize_image_url(url)
-        return ""
+        return resolve_image_url(
+            soup,
+            code=self._code(soup),
+            name=self._name(soup),
+            selectors=(
+                'a[href*="/producto/"] img',
+                'a[href*="/producto/"] source',
+            ),
+        )
 
-    @staticmethod
-    def _normalize_image_url(url):
-        for item in (
-            "-150x150",
-            "-300x300",
-            "-600x600",
-            "-768x768",
-            "-1024x1024",
-        ):
-            url = url.replace(item, "")
-        return url

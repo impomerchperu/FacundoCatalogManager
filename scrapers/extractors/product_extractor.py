@@ -10,6 +10,7 @@ from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
 )
 from scrapers.factories.scraped_product_factory import ScrapedProductFactory
+from scrapers.extractors.image_url_resolver import resolve_image_url
 from scrapers.selectors import product_selectors
 
 
@@ -497,32 +498,15 @@ class ProductExtractor:
         code = self._extracted_codes.pop(id(soup), None)
         if code is None:
             code = self.extract_code(soup)
-        candidates = []
-        for img in soup.find_all("img"):
-            url = img.get("data-src") or img.get("data-lazy-src") or img.get("src") or ""
-            if not url or url.startswith("data:image"):
-                continue
-            if "Logo" in url or "Proximo" in url:
-                continue
-            candidates.append(self._normalize_image_url(url))
-        if not candidates:
-            return ""
-        if code:
-            for url in candidates:
-                if code.lower() in url.lower():
-                    return url
-        for url in candidates:
-            if "/uploads/" in url:
-                return url
-        return candidates[0]
+        return resolve_image_url(
+            soup,
+            code=code,
+            name=self.extract_name(soup),
+            selectors=(
+                ".woocommerce-product-gallery img",
+                ".woocommerce-product-gallery source",
+                ".product .images img",
+                ".product .images source",
+            ),
+        )
 
-    def _normalize_image_url(self, url):
-        if not url:
-            return ""
-        if url.startswith("//"):
-            return "https:" + url
-        if url.startswith("/"):
-            return urljoin(self.BASE_URL, url)
-        if not url.startswith(("http://", "https://")):
-            return urljoin(self.BASE_URL + "/", url)
-        return url

@@ -215,6 +215,7 @@ def test_main_window_refreshes_catalog_and_history_after_successful_scraping():
 
     window = MainWindow.__new__(MainWindow)
     window.refresh_catalog = lambda: calls.append("catalog")
+    window.open_pending_image_review = lambda: calls.append("image_review")
     window.history_dialog = FakeHistoryDialog()
     window.scraping_dialog = FakeScrapingDialog()
 
@@ -223,6 +224,7 @@ def test_main_window_refreshes_catalog_and_history_after_successful_scraping():
     assert calls == [
         "catalog",
         "history",
+        "image_review",
         ("title", "Actualización completada"),
         "raise",
         "activate",

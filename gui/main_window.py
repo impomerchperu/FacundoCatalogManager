@@ -39,6 +39,7 @@ from models.product import Product
 from services.scraping.category_name_normalizer import split_category_names
 
 if TYPE_CHECKING:
+    from gui.image_review_dialog import ImageReviewDialog
     from gui.scraping_history_dialog import ScrapingHistoryDialog
 
 
@@ -245,6 +246,7 @@ class MainWindow(QMainWindow):
         self.categories_visible = False
         self.scraping_dialog: ScrapingDialog | None = None
         self.history_dialog: ScrapingHistoryDialog | None = None
+        self.image_review_dialog: ImageReviewDialog | None = None
         self.catalog_bootstrap_thread: QThread | None = None
         self.catalog_bootstrap_worker: CatalogBootstrapWorker | None = None
         self.catalog_bootstrap_running = False
@@ -1001,10 +1003,36 @@ class MainWindow(QMainWindow):
     def _history_closed(self) -> None:
         self.history_dialog = None
 
+    def open_pending_image_review(self) -> None:
+        if self.image_review_dialog is not None:
+            self.image_review_dialog.raise_()
+            self.image_review_dialog.activateWindow()
+            return
+
+        from gui.image_review_dialog import ImageReviewDialog
+
+        dialog = ImageReviewDialog(
+            on_catalog_changed=self.refresh_catalog,
+            parent=self,
+        )
+        if not dialog.records:
+            dialog.close()
+            return
+
+        self.image_review_dialog = dialog
+        dialog.finished.connect(self._image_review_dialog_closed)
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def _image_review_dialog_closed(self) -> None:
+        self.image_review_dialog = None
+
     def scraping_finished(self) -> None:
         self.refresh_catalog()
         if self.history_dialog is not None:
             self.history_dialog.load_history()
+        QTimer.singleShot(0, self.open_pending_image_review)
         if self.scraping_dialog is not None:
             self.scraping_dialog.setWindowTitle("Actualización completada")
             self.scraping_dialog.raise_()
@@ -1098,107 +1126,3 @@ class MainWindow(QMainWindow):
             for product in filtered_products
             for category in self._product_categories(product)
         }
-        if self.selected_categories:
-            initial_selected = set(self.selected_categories)
-        elif self.stock_only or self.search_box.text().strip():
-            initial_selected = filtered_categories
-        else:
-            initial_selected = categories
-
-        category_dialog = ExcelCategorySelectionDialog(
-            categories,
-            products,
-            self,
-            initial_selected_categories=initial_selected,
-            stock_only=self.stock_only,
-        )
-        if not category_dialog.exec():
-            return
-
-        selected_categories = category_dialog.selected_categories()
-        export_products = ExcelCategorySelectionDialog.filter_products(
-            products,
-            selected_categories,
-            stock_only=self.stock_only,
-        )
-        if not export_products:
-            QMessageBox.warning(
-                self,
-                "Exportar Excel",
-                "Las categorías seleccionadas no contienen productos.",
-            )
-            return
-
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            "Guardar Excel",
-            "catalogo.xlsx",
-            "Excel (*.xlsx)",
-        )
-        if filename:
-            ExcelExporter.export(export_products, filename)
-
-    def export_pdf(self) -> None:
-        from exporters.pdf_exporter import PDFExporter
-
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            "Guardar PDF",
-            "catalogo.pdf",
-            "PDF (*.pdf)",
-        )
-        if filename:
-            PDFExporter.export(self.controller.get_products(), filename)
-
-    def export_csv(self) -> None:
-        from exporters.csv_exporter import CSVExporter
-
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            "Guardar CSV",
-            "catalogo.csv",
-            "CSV (*.csv)",
-        )
-        if filename:
-            CSVExporter.export(self.controller.get_products(), filename)
-
-    def _set_initial_window_geometry(self) -> None:
-        initial_width = (
-            self.INITIAL_WINDOW_WIDTH + self._category_sidebar_open_width
-        )
-        self.resize(initial_width, self.INITIAL_WINDOW_HEIGHT)
-        self._center_initial_window()
-
-    def _center_initial_window(self) -> None:
-        screen = QApplication.primaryScreen()
-        if screen is None:
-            return
-        available_geometry = screen.availableGeometry()
-        frame_geometry = self.frameGeometry()
-        frame_geometry.moveCenter(available_geometry.center())
-        self.move(frame_geometry.topLeft())
-
-    def resizeEvent(self, event) -> None:
-        super().resizeEvent(event)
-        if hasattr(self, "category_scroll") and hasattr(self, "table"):
-            self._sync_category_scrollbar_with_table()
-
-    @staticmethod
-    def _wait_for_thread(thread: QThread | None) -> None:
-        """Espera a que un worker de GUI termine antes de destruir la ventana."""
-        if thread is None or not thread.isRunning():
-            return
-        thread.requestInterruption()
-        thread.quit()
-        thread.wait()
-
-    def closeEvent(self, event) -> None:
-        if self.scraping_dialog is not None:
-            self.scraping_dialog.close()
-        if self.history_dialog is not None:
-            self.history_dialog.close()
-
-        self._wait_for_thread(self.catalog_load_thread)
-        self._wait_for_thread(self.catalog_bootstrap_thread)
-
-        super().closeEvent(event)

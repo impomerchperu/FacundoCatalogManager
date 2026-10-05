@@ -167,14 +167,13 @@ class ImageSync:
             product.image_url = current_url
             product.image_path = existing["image_path"]
             product.image_hash = existing_hash
-            return product
         except (OSError, ValueError, RuntimeError):
             product.image_url = str(
                 getattr(current_product, "image_url", "") or ""
             )
             product.image_path = existing["image_path"]
             product.image_hash = existing.get("image_hash", "")
-            return product
+        return product
 
     def _load_current_products(self, products) -> dict[str, Any]:
         if self.review_service is None:

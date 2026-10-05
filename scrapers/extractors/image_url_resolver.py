@@ -4,7 +4,6 @@ import re
 import urllib.parse
 from pathlib import PurePosixPath
 
-
 BASE_URL = "https://stock.importacionesfacundo.com"
 
 _IMAGE_ATTRIBUTES = (

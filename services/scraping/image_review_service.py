@@ -36,7 +36,10 @@ class ImageReviewService:
             records = self._read()
             changed = False
             for record in records:
-                if record.get("batch_id") == batch_id and record.get("status") == "staged":
+                if (
+                    record.get("batch_id") == batch_id
+                    and record.get("status") == "staged"
+                ):
                     record["status"] = "pending"
                     record["updated_at"] = self._now()
                     changed = True
@@ -187,7 +190,8 @@ class ImageReviewService:
             product = self.repository.get_by_code(str(record.get("code", "")))
             if product is None:
                 raise ValueError(
-                    f"No existe el producto {record.get('code', '')} en la base de datos."
+                    "No existe el producto "
+                    f"{record.get('code', '')} en la base de datos."
                 )
 
             if action == "keep":
@@ -210,7 +214,9 @@ class ImageReviewService:
                 if source is None or not source.is_file():
                     raise ValueError("La imagen seleccionada no existe.")
                 if source.suffix.lower() not in IMAGE_EXTENSIONS:
-                    raise ValueError("El archivo seleccionado no es una imagen compatible.")
+                    raise ValueError(
+                        "El archivo seleccionado no es una imagen compatible."
+                    )
 
                 image_products_dir = resolve_data_path(IMAGE_PRODUCTS_DIR)
                 image_products_dir.mkdir(parents=True, exist_ok=True)

@@ -1048,3 +1048,187 @@ class MainWindow(QMainWindow):
         return bool(thread is not None and thread.isRunning())
 
     def update_product_counter(self, filtered_count: int | None = None) -> None:
+        total = len(self.all_products)
+        visible = total if filtered_count is None else filtered_count
+        self.product_counter.setText(f"Mostrando {visible} de {total} productos")
+
+    def new_product(self) -> None:
+        from gui.product_dialog import ProductDialog
+
+        dialog = ProductDialog(self)
+        if dialog.exec():
+            self.refresh_catalog()
+
+    def edit_product(self) -> None:
+        from gui.product_dialog import ProductDialog
+
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Editar", "Seleccione un producto.")
+            return
+        item = self.table.item(row, 1)
+        if item is None:
+            return
+        product_id = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(product_id, int):
+            return
+        product = self.controller.get_product_by_id(product_id)
+        if product is None:
+            return
+        dialog = ProductDialog(self, product)
+        if dialog.exec():
+            self.refresh_catalog()
+
+    def delete_product(self) -> None:
+        row = self.table.currentRow()
+        if row < 0:
+            return
+        item = self.table.item(row, 1)
+        if item is None:
+            return
+        product_id = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(product_id, int):
+            return
+        response = QMessageBox.question(
+            self,
+            "Confirmar eliminación",
+            "¿Desea eliminar este producto?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if response == QMessageBox.StandardButton.Yes:
+            self.controller.delete_product(product_id)
+            self.refresh_catalog()
+
+    def search_products(self, _text: str) -> None:
+        self.apply_filters()
+
+    def export_excel(self) -> None:
+        from exporters.excel_exporter import ExcelExporter
+        from gui.excel_category_dialog import ExcelCategorySelectionDialog
+
+        products = list(self.all_products)
+        if not products:
+            QMessageBox.information(
+                self,
+                "Exportar Excel",
+                "No hay productos disponibles para exportar.",
+            )
+            return
+
+        categories = {
+            category
+            for product in products
+            for category in self._product_categories(product)
+        }
+        filtered_products = self._filtered_products()
+        filtered_categories = {
+            category
+            for product in filtered_products
+            for category in self._product_categories(product)
+        }
+        if self.selected_categories:
+            initial_selected = set(self.selected_categories)
+        elif self.stock_only or self.search_box.text().strip():
+            initial_selected = filtered_categories
+        else:
+            initial_selected = categories
+
+        category_dialog = ExcelCategorySelectionDialog(
+            categories,
+            products,
+            self,
+            initial_selected_categories=initial_selected,
+            stock_only=self.stock_only,
+        )
+        if not category_dialog.exec():
+            return
+
+        selected_categories = category_dialog.selected_categories()
+        export_products = ExcelCategorySelectionDialog.filter_products(
+            products,
+            selected_categories,
+            stock_only=self.stock_only,
+        )
+        if not export_products:
+            QMessageBox.warning(
+                self,
+                "Exportar Excel",
+                "Las categorías seleccionadas no contienen productos.",
+            )
+            return
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Guardar Excel",
+            "catalogo.xlsx",
+            "Excel (*.xlsx)",
+        )
+        if filename:
+            ExcelExporter.export(export_products, filename)
+
+    def export_pdf(self) -> None:
+        from exporters.pdf_exporter import PDFExporter
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Guardar PDF",
+            "catalogo.pdf",
+            "PDF (*.pdf)",
+        )
+        if filename:
+            PDFExporter.export(self.controller.get_products(), filename)
+
+    def export_csv(self) -> None:
+        from exporters.csv_exporter import CSVExporter
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Guardar CSV",
+            "catalogo.csv",
+            "CSV (*.csv)",
+        )
+        if filename:
+            CSVExporter.export(self.controller.get_products(), filename)
+
+    def _set_initial_window_geometry(self) -> None:
+        initial_width = (
+            self.INITIAL_WINDOW_WIDTH + self._category_sidebar_open_width
+        )
+        self.resize(initial_width, self.INITIAL_WINDOW_HEIGHT)
+        self._center_initial_window()
+
+    def _center_initial_window(self) -> None:
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            return
+        available_geometry = screen.availableGeometry()
+        frame_geometry = self.frameGeometry()
+        frame_geometry.moveCenter(available_geometry.center())
+        self.move(frame_geometry.topLeft())
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "category_scroll") and hasattr(self, "table"):
+            self._sync_category_scrollbar_with_table()
+
+    @staticmethod
+    def _wait_for_thread(thread: QThread | None) -> None:
+        """Espera a que un worker de GUI termine antes de destruir la ventana."""
+        if thread is None or not thread.isRunning():
+            return
+        thread.requestInterruption()
+        thread.quit()
+        thread.wait()
+
+    def closeEvent(self, event) -> None:
+        if self.scraping_dialog is not None:
+            self.scraping_dialog.close()
+        if self.history_dialog is not None:
+            self.history_dialog.close()
+        if self.image_review_dialog is not None:
+            self.image_review_dialog.close()
+
+        self._wait_for_thread(self.catalog_load_thread)
+        self._wait_for_thread(self.catalog_bootstrap_thread)
+
+        super().closeEvent(event)

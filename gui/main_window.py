@@ -1032,7 +1032,7 @@ class MainWindow(QMainWindow):
         self.refresh_catalog()
         if self.history_dialog is not None:
             self.history_dialog.load_history()
-        QTimer.singleShot(0, self.open_pending_image_review)
+        self.open_pending_image_review()
         if self.scraping_dialog is not None:
             self.scraping_dialog.setWindowTitle("Actualización completada")
             self.scraping_dialog.raise_()
@@ -1048,81 +1048,3 @@ class MainWindow(QMainWindow):
         return bool(thread is not None and thread.isRunning())
 
     def update_product_counter(self, filtered_count: int | None = None) -> None:
-        total = len(self.all_products)
-        visible = total if filtered_count is None else filtered_count
-        self.product_counter.setText(f"Mostrando {visible} de {total} productos")
-
-    def new_product(self) -> None:
-        from gui.product_dialog import ProductDialog
-
-        dialog = ProductDialog(self)
-        if dialog.exec():
-            self.refresh_catalog()
-
-    def edit_product(self) -> None:
-        from gui.product_dialog import ProductDialog
-
-        row = self.table.currentRow()
-        if row < 0:
-            QMessageBox.warning(self, "Editar", "Seleccione un producto.")
-            return
-        item = self.table.item(row, 1)
-        if item is None:
-            return
-        product_id = item.data(Qt.ItemDataRole.UserRole)
-        if not isinstance(product_id, int):
-            return
-        product = self.controller.get_product_by_id(product_id)
-        if product is None:
-            return
-        dialog = ProductDialog(self, product)
-        if dialog.exec():
-            self.refresh_catalog()
-
-    def delete_product(self) -> None:
-        row = self.table.currentRow()
-        if row < 0:
-            return
-        item = self.table.item(row, 1)
-        if item is None:
-            return
-        product_id = item.data(Qt.ItemDataRole.UserRole)
-        if not isinstance(product_id, int):
-            return
-        response = QMessageBox.question(
-            self,
-            "Confirmar eliminación",
-            "¿Desea eliminar este producto?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if response == QMessageBox.StandardButton.Yes:
-            self.controller.delete_product(product_id)
-            self.refresh_catalog()
-
-    def search_products(self, _text: str) -> None:
-        self.apply_filters()
-
-    def export_excel(self) -> None:
-        from exporters.excel_exporter import ExcelExporter
-        from gui.excel_category_dialog import ExcelCategorySelectionDialog
-
-        products = list(self.all_products)
-        if not products:
-            QMessageBox.information(
-                self,
-                "Exportar Excel",
-                "No hay productos disponibles para exportar.",
-            )
-            return
-
-        categories = {
-            category
-            for product in products
-            for category in self._product_categories(product)
-        }
-        filtered_products = self._filtered_products()
-        filtered_categories = {
-            category
-            for product in filtered_products
-            for category in self._product_categories(product)
-        }

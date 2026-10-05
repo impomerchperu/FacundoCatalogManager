@@ -110,7 +110,10 @@ def test_image_sync_stages_changed_image_without_replacing_current():
     assert result[0].image_path == current.image_path
     assert result[0].image_hash == current.image_hash
     assert len(review.registered) == 1
-    assert review.registered[0]["candidate_url"] == product.image_url
+    assert (
+        review.registered[0]["candidate_url"]
+        == "https://example.test/FB-100-new.jpg"
+    )
     assert review.registered[0]["current_path"] == current.image_path
     assert review.registered[0]["current_hash"] == current.image_hash
 

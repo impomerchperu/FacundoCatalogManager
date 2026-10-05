@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from scrapers.images.image_repository import ImageRepository
 from scrapers.images.safe_image_manager import SafeImageManager
+from services.scraping.image_review_service import ImageReviewService
 
 
 class ImageSync:
@@ -14,9 +15,13 @@ class ImageSync:
         image_manager=None,
         image_repository=None,
         max_workers=8,
+        review_service=None,
+        image_downloader=None,
     ):
         self.image_manager = image_manager or SafeImageManager()
         self.image_repository = image_repository or ImageRepository()
+        self.review_service = review_service
+        self.image_downloader = image_downloader
         self.max_workers = int(max_workers)
         if self.max_workers <= 0:
             raise ValueError("max_workers debe ser mayor que cero.")
@@ -44,11 +49,19 @@ class ImageSync:
             return [future.result() for future in futures]
 
     def sync_product(self, product, old_product=None):
-        image_url = getattr(product, "image_url", "")
+        image_url = str(getattr(product, "image_url", "") or "").strip()
         if not image_url:
             return product
 
-        existing = self.image_repository.find(product.code, image_url)
+        existing = self.image_repository.find(product.code)
+
+        if (
+            existing is not None
+            and self.review_service is not None
+            and self.image_downloader is not None
+        ):
+            return self._stage_changed_image(product, image_url, existing)
+
         old_url = self._get(old_product, "image_url")
         url_changed = bool(old_product and old_url and old_url != image_url)
 
@@ -57,21 +70,55 @@ class ImageSync:
             product.image_hash = existing.get("image_hash", "")
             return product
 
-        if url_changed:
-            image_data = self.image_manager.process(
-                product.code,
-                image_url,
-                force=True,
-            )
-        else:
-            image_data = self.image_manager.process(
-                product.code,
-                image_url,
-            )
-
+        image_data = self.image_manager.process(
+            product.code,
+            image_url,
+            force=url_changed,
+        )
         product.image_path = image_data.get("image_path", "")
         product.image_hash = image_data.get("image_hash", "")
         return product
+
+    def _stage_changed_image(self, product, image_url, existing):
+        try:
+            staged = self.review_service.stage_candidate(
+                self.image_downloader,
+                str(product.code),
+                image_url,
+            )
+            candidate_path = str(staged.get("image_path", "") or "")
+            candidate_hash = str(staged.get("image_hash", "") or "")
+            existing_hash = str(existing.get("image_hash", "") or "")
+            if not candidate_hash or candidate_hash == existing_hash:
+                self.review_service.discard_staged(candidate_path)
+                product.image_path = existing["image_path"]
+                product.image_hash = existing_hash
+                return product
+
+            current_product = self.review_service.repository.get_by_code(
+                str(product.code),
+            )
+            review = self.review_service.register_candidate(
+                code=str(product.code),
+                product_name=str(getattr(product, "name", "") or ""),
+                current_path=str(existing.get("image_path", "") or ""),
+                current_hash=existing_hash,
+                current_url=str(
+                    getattr(current_product, "image_url", "") or ""
+                ),
+                candidate_path=candidate_path,
+                candidate_hash=candidate_hash,
+                candidate_url=image_url,
+            )
+            if review is None:
+                self.review_service.discard_staged(candidate_path)
+            product.image_path = existing["image_path"]
+            product.image_hash = existing_hash
+            return product
+        except Exception:
+            product.image_path = existing["image_path"]
+            product.image_hash = existing.get("image_hash", "")
+            return product
 
     @staticmethod
     def _get(product, field):

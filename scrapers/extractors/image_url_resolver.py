@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-from pathlib import PurePosixPath
 import urllib.parse
+from pathlib import PurePosixPath
 
 
 BASE_URL = "https://stock.importacionesfacundo.com"

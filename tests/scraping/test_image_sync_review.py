@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from models.product import Product
 from scrapers.sync.image_sync import ImageSync
 

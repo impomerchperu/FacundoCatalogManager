@@ -1,3 +1,4 @@
+import re
 from collections import Counter
 from time import perf_counter
 
@@ -192,6 +193,21 @@ def test_full_catalog_scraper_real_site():
         for product in products
         if not (getattr(product, "color_stock", {}) or {})
     ]
+    images_without_product_code = [
+        (
+            product.code,
+            product.image_url,
+        )
+        for product in products
+        if product.image_url
+        and not re.search(
+            r"(?<![a-z0-9])"
+            + re.escape(str(product.code).strip())
+            + r"(?![a-z0-9])",
+            str(product.image_url),
+            flags=re.IGNORECASE,
+        )
+    ]
     invalid_color_stock_totals = [
         (
             product.code,
@@ -228,6 +244,7 @@ def test_full_catalog_scraper_real_site():
     print("PRODUCTOS SIN PRECIO:", without_prices)
     print("PRODUCTOS SIN IMAGEN:", without_images)
     print("PRODUCTOS SIN STOCK POR COLOR:", len(without_color_stock))
+    print("IMÁGENES SIN CÓDIGO DEL PRODUCTO:", images_without_product_code)
     print("CÓDIGOS SIN STOCK POR COLOR:", without_color_stock)
     print(
         "INCONSISTENCIAS STOCK/COLOR_STOCK:",
@@ -336,5 +353,6 @@ def test_full_catalog_scraper_real_site():
     assert len(code_counts) > 0
     assert len(code_counts) <= len(products)
     assert not without_color_stock
+    assert not images_without_product_code
     assert not invalid_color_stock_totals
     assert len(color_stock_by_category) == len(categories)

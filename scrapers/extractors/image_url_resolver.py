@@ -19,7 +19,7 @@ _IMAGE_ATTRIBUTES = (
 )
 _SRCSET_ATTRIBUTES = ("data-srcset", "srcset")
 _STYLE_URL_RE = re.compile(
-    r"url\\(\\s*["']?([^"')]+)["']?\\s*\\)",
+    r"url\(\s*["']?([^"')]+)["']?\s*\)",
     re.IGNORECASE,
 )
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
@@ -32,7 +32,7 @@ def resolve_image_url(
     name: str = "",
     selectors: tuple[str, ...] = (),
 ) -> str:
-    """Resuelve la imagen del producto priorizando la coincidencia por código."""
+    """Resuelve la imagen del producto priorizando la coincidencia exacta por código."""
     elements = _select_elements(soup, selectors)
     candidates: list[tuple[int, int, str]] = []
     seen: set[str] = set()
@@ -46,6 +46,7 @@ def resolve_image_url(
                 str(element.get("aria-label") or ""),
             )
         )
+
         for attribute_rank, attribute in enumerate(_IMAGE_ATTRIBUTES):
             raw = element.get(attribute)
             if not isinstance(raw, str) or not raw.strip():
@@ -101,7 +102,8 @@ def resolve_image_url(
 
 def _select_elements(soup, selectors: tuple[str, ...]) -> list:
     if not selectors:
-        return list(soup.find_all(("img", "source")))
+        return list(soup.find_all(("img", "source", "meta", "link")))
+
     result = []
     seen_ids: set[int] = set()
     for selector in selectors:
@@ -156,20 +158,18 @@ def _add_candidate(
 
 
 def _code_score(url: str, filename: str, code: str) -> int:
-    normalized_code = _alnum_key(code)
-    if not normalized_code:
+    if not code.strip():
         return 0
-    if normalized_code in _alnum_key(filename):
+    if _contains_catalog_code(filename, code):
         return 10000
-    if normalized_code in _alnum_key(url):
+    if _contains_catalog_code(urlsplit(url).path, code):
         return 7000
     return 0
 
 
 def _context_score(context: str, code: str, name: str) -> int:
     score = 0
-    normalized_code = _alnum_key(code)
-    if normalized_code and normalized_code in _alnum_key(context):
+    if code.strip() and _contains_catalog_code(context, code):
         score += 3000
 
     name_tokens = {
@@ -186,8 +186,19 @@ def _context_score(context: str, code: str, name: str) -> int:
     return score
 
 
-def _alnum_key(value: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", str(value).casefold())
+def _contains_catalog_code(value: str, code: str) -> bool:
+    tokens = [
+        token
+        for token in _NON_ALNUM_RE.split(str(code).casefold())
+        if token
+    ]
+    if not tokens:
+        return False
+
+    pattern = r"(?<![a-z0-9])" + r"[^a-z0-9]*".join(
+        re.escape(token) for token in tokens
+    ) + r"(?![a-z0-9])"
+    return re.search(pattern, str(value).casefold()) is not None
 
 
 def _normalize_image_url(url: str) -> str:

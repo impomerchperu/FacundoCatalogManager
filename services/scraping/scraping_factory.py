@@ -105,9 +105,9 @@ class ScrapingFactory:
             image_sync = ImageSync(
                 image_manager=image_manager,
                 max_workers=config.image_workers,
-                review_service=image_review_service,
-                image_downloader=image_downloader,
             )
+            image_sync.review_service = image_review_service
+            image_sync.image_downloader = image_downloader
             image_sync_adapter = ImageSyncAdapter(image_sync=image_sync)
 
         browser = Browser(

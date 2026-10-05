@@ -31,4 +31,4 @@ def test_extract_product_main_image():
     soup = BeautifulSoup(html, "html.parser")
     product = CategoryProductExtractor().extract(soup)
 
-    assert product.image_url == "https://site.com/FB-1812.webp"
+    assert product.image_url == "https://site.com/FB-1812-300x300.webp"

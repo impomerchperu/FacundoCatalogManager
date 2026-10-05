@@ -28,7 +28,7 @@ def resolve_image_url(
     name: str = "",
     selectors: tuple[str, ...] = (),
 ) -> str:
-    """Resuelve la imagen del producto priorizando la coincidencia exacta por código."""
+    """Resuelve la imagen priorizando la coincidencia exacta del código."""
     elements = _select_elements(soup, selectors)
     candidates: list[tuple[int, int, str]] = []
     seen: set[str] = set()
@@ -123,12 +123,15 @@ def _add_candidate(
     if not normalized_url or normalized_url.startswith("data:image"):
         return sequence
 
+    filename = PurePosixPath(urlsplit(normalized_url).path).name
+    if _is_generic_asset(filename, code):
+        return sequence
+
     key = normalized_url.casefold()
     if key in seen:
         return sequence
     seen.add(key)
 
-    filename = PurePosixPath(urlsplit(normalized_url).path).name
     score = (
         _code_score(normalized_url, filename, code)
         + _context_score(context, code, name)
@@ -194,3 +197,27 @@ def _normalize_image_url(url: str) -> str:
     if value.startswith(("http://", "https://")):
         return value
     return urljoin(BASE_URL + "/", value)
+
+
+def _is_generic_asset(filename: str, code: str) -> bool:
+    if _contains_catalog_code(filename, code):
+        return False
+    return any(
+        marker in filename.casefold()
+        for marker in (
+            "logo",
+            "marca-",
+            "marca_",
+            "brand-",
+            "brand_",
+            "proximo",
+            "box-product",
+            "placeholder",
+            "no-image",
+            "no_image",
+            "default-image",
+            "default_image",
+            "sin-imagen",
+            "sin_imagen",
+        )
+    )

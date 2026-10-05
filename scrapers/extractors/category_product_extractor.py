@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urlsplit
 
 from models.scraping.scraped_product import ScrapedProduct
 from scrapers.extractors.code_utils import normalize_code_token
@@ -280,9 +281,10 @@ class CategoryProductExtractor:
         return None
 
     def _image(self, soup):
+        code = self._code(soup) or self._code_from_product_url(soup)
         return resolve_image_url(
             soup,
-            code=self._code(soup),
+            code=code,
             name=self._name(soup),
             selectors=(
                 'a[href*="/producto/"] img',
@@ -290,3 +292,17 @@ class CategoryProductExtractor:
             ),
         )
 
+
+
+    @classmethod
+    def _code_from_product_url(cls, soup):
+        element = soup.select_one('a[href*="/producto/"]')
+        if element is None:
+            return ""
+        path = urlsplit(str(element.get("href") or "")).path.rstrip("/")
+        slug = path.rsplit("/", 1)[-1]
+        match = re.search(
+            r"(?i)^(?:.*?)([a-z][a-z0-9]*-[0-9]+(?:-[a-z0-9]+)*)$",
+            slug,
+        )
+        return cls._normalize_code(match.group(1)) if match else ""

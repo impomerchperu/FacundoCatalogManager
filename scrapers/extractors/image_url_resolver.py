@@ -18,10 +18,6 @@ _IMAGE_ATTRIBUTES = (
     "content",
 )
 _SRCSET_ATTRIBUTES = ("data-srcset", "srcset")
-_STYLE_URL_RE = re.compile(
-    r"url\(\s*["']?([^"')]+)["']?\s*\)",
-    re.IGNORECASE,
-)
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -76,20 +72,6 @@ def resolve_image_url(
                     code=code,
                     name=name,
                     attribute_rank=attribute_rank,
-                    sequence=sequence,
-                )
-
-        style = element.get("style")
-        if isinstance(style, str):
-            for url in _STYLE_URL_RE.findall(style):
-                sequence = _add_candidate(
-                    candidates,
-                    seen,
-                    url,
-                    context=context,
-                    code=code,
-                    name=name,
-                    attribute_rank=20,
                     sequence=sequence,
                 )
 

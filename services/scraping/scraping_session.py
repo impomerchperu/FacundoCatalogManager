@@ -139,7 +139,8 @@ class ScrapingSession:
         service = self._image_review_service()
         begin = getattr(service, "begin_batch", None)
         if callable(begin):
-            self._image_review_batch = begin()
+            value = begin()
+            self._image_review_batch = str(value) if value else None
 
     def _finalize_image_review_batch(self) -> None:
         service = self._image_review_service()

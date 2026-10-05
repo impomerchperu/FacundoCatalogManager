@@ -176,17 +176,7 @@ class ImageReviewService:
 
         with self._lock:
             records = self._read()
-            record = next(
-                (
-                    item
-                    for item in records
-                    if item.get("id") == review_id and item.get("status") == "pending"
-                ),
-                None,
-            )
-            if record is None:
-                raise ValueError("La revisión de imagen ya no está disponible.")
-
+            record = self._find_pending_record(records, review_id)
             product = self.repository.get_by_code(str(record.get("code", "")))
             if product is None:
                 raise ValueError(
@@ -195,80 +185,106 @@ class ImageReviewService:
                 )
 
             if action == "keep":
-                product.image_path = str(record.get("current_path", "") or "")
-                product.image_hash = str(record.get("current_hash", "") or "")
-                product.image_url = str(record.get("current_url", "") or "")
-                self.repository.update(product)
-                self._remove_staged_file(record.get("candidate_path", ""))
-                result = {
-                    "code": product.code,
-                    "action": "keep",
-                    "changed": False,
-                }
+                result = self._keep_current(record, product)
             else:
-                source = (
-                    self._resolve_staged_path(record.get("candidate_path", ""))
-                    if action == "replace"
-                    else self._resolve_manual_path(manual_path)
+                result = self._apply_selected_image(
+                    record,
+                    product,
+                    action,
+                    manual_path,
                 )
-                if source is None or not source.is_file():
-                    raise ValueError("La imagen seleccionada no existe.")
-                if source.suffix.lower() not in IMAGE_EXTENSIONS:
-                    raise ValueError(
-                        "El archivo seleccionado no es una imagen compatible."
-                    )
-
-                image_products_dir = resolve_data_path(IMAGE_PRODUCTS_DIR)
-                image_products_dir.mkdir(parents=True, exist_ok=True)
-                destination = image_products_dir / (
-                    f"{ImageDownloader._safe_code(str(product.code))}"
-                    f"{source.suffix.lower()}"
-                )
-                old_path = resolve_data_path(str(record.get("current_path", "") or ""))
-                backup = None
-                if old_path == destination and destination.is_file():
-                    backup = destination.with_name(destination.name + ".review-backup")
-                    shutil.copy2(destination, backup)
-
-                temporary = destination.with_name(destination.name + ".review-tmp")
-                try:
-                    shutil.copy2(source, temporary)
-                    temporary.replace(destination)
-                    image_hash = ImageDownloader.hash_file(destination)
-                    product.image_path = to_data_relative_path(destination)
-                    product.image_hash = image_hash
-                    product.image_url = (
-                        str(record.get("candidate_url", "") or "")
-                        if action == "replace"
-                        else ""
-                    )
-                    self.repository.update(product)
-                except Exception:
-                    temporary.unlink(missing_ok=True)
-                    if backup is not None and backup.is_file():
-                        backup.replace(destination)
-                    elif old_path != destination and destination.is_file():
-                        destination.unlink()
-                    raise
-                finally:
-                    if backup is not None:
-                        backup.unlink(missing_ok=True)
-
-                self._remove_staged_file(record.get("candidate_path", ""))
-                result = {
-                    "code": product.code,
-                    "action": action,
-                    "changed": True,
-                    "image_path": product.image_path,
-                    "image_hash": product.image_hash,
-                    "image_url": product.image_url,
-                }
 
             record["status"] = "resolved"
             record["resolution"] = action
             record["updated_at"] = self._now()
             self._write(records)
             return result
+
+    @staticmethod
+    def _find_pending_record(records: list[dict], review_id: str) -> dict:
+        for record in records:
+            if record.get("id") == review_id and record.get("status") == "pending":
+                return record
+        raise ValueError("La revisión de imagen ya no está disponible.")
+
+    def _keep_current(self, record: dict, product) -> dict:
+        product.image_path = str(record.get("current_path", "") or "")
+        product.image_hash = str(record.get("current_hash", "") or "")
+        product.image_url = str(record.get("current_url", "") or "")
+        self.repository.update(product)
+        self._remove_staged_file(record.get("candidate_path", ""))
+        return {
+            "code": product.code,
+            "action": "keep",
+            "changed": False,
+        }
+
+    def _apply_selected_image(
+        self,
+        record: dict,
+        product,
+        action: str,
+        manual_path: str | Path | None,
+    ) -> dict:
+        source = (
+            self._resolve_staged_path(record.get("candidate_path", ""))
+            if action == "replace"
+            else self._resolve_manual_path(manual_path)
+        )
+        if source is None or not source.is_file():
+            raise ValueError("La imagen seleccionada no existe.")
+        if source.suffix.lower() not in IMAGE_EXTENSIONS:
+            raise ValueError(
+                "El archivo seleccionado no es una imagen compatible."
+            )
+
+        image_products_dir = resolve_data_path(IMAGE_PRODUCTS_DIR)
+        image_products_dir.mkdir(parents=True, exist_ok=True)
+        destination = image_products_dir / (
+            f"{ImageDownloader._safe_code(str(product.code))}"
+            f"{source.suffix.lower()}"
+        )
+        old_path = resolve_data_path(
+            str(record.get("current_path", "") or "")
+        )
+        backup = None
+        if old_path == destination and destination.is_file():
+            backup = destination.with_name(destination.name + ".review-backup")
+            shutil.copy2(destination, backup)
+
+        temporary = destination.with_name(destination.name + ".review-tmp")
+        try:
+            shutil.copy2(source, temporary)
+            temporary.replace(destination)
+            image_hash = ImageDownloader.hash_file(destination)
+            product.image_path = to_data_relative_path(destination)
+            product.image_hash = image_hash
+            product.image_url = (
+                str(record.get("candidate_url", "") or "")
+                if action == "replace"
+                else str(record.get("current_url", "") or "")
+            )
+            self.repository.update(product)
+        except (OSError, ValueError, RuntimeError):
+            temporary.unlink(missing_ok=True)
+            if backup is not None and backup.is_file():
+                backup.replace(destination)
+            elif old_path != destination and destination.is_file():
+                destination.unlink()
+            raise
+        finally:
+            if backup is not None:
+                backup.unlink(missing_ok=True)
+
+        self._remove_staged_file(record.get("candidate_path", ""))
+        return {
+            "code": product.code,
+            "action": action,
+            "changed": True,
+            "image_path": product.image_path,
+            "image_hash": product.image_hash,
+            "image_url": product.image_url,
+        }
 
     @staticmethod
     def _now() -> str:

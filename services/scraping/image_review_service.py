@@ -104,6 +104,20 @@ class ImageReviewService:
                     self._remove_staged_file(candidate_path)
                     return None
 
+            normalized_code = str(code).casefold()
+            for existing_record in records:
+                if (
+                    str(existing_record.get("code", "")).casefold()
+                    == normalized_code
+                    and existing_record.get("status") in {"pending", "staged"}
+                ):
+                    self._remove_staged_file(
+                        existing_record.get("candidate_path", "")
+                    )
+                    existing_record["status"] = "resolved"
+                    existing_record["resolution"] = "superseded"
+                    existing_record["updated_at"] = self._now()
+
             now = self._now()
             record = {
                 "id": uuid.uuid4().hex,

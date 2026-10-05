@@ -1,6 +1,7 @@
 import contextlib
 import re
 from typing import ClassVar
+
 from scrapers.extractors.code_utils import extract_code_from_soup, normalize_code
 from scrapers.extractors.image_url_resolver import resolve_image_url
 from scrapers.extractors.price_extractor import PriceExtractor

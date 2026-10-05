@@ -37,18 +37,33 @@ class ImageSync:
         items = list(products or [])
         if not items:
             return []
+
+        current_products = self._load_current_products(items)
         if len(items) == 1 or self.max_workers == 1:
-            return [self.sync_product(product) for product in items]
+            return [
+                self.sync_product(
+                    product,
+                    current_product=current_products.get(
+                        str(product.code).casefold(),
+                    ),
+                )
+                for product in items
+            ]
 
         worker_count = min(self.max_workers, len(items))
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
             futures = [
-                executor.submit(self.sync_product, product)
+                executor.submit(
+                    self.sync_product,
+                    product,
+                    None,
+                    current_products.get(str(product.code).casefold()),
+                )
                 for product in items
             ]
             return [future.result() for future in futures]
 
-    def sync_product(self, product, old_product=None):
+    def sync_product(self, product, old_product=None, current_product=None):
         image_url = str(getattr(product, "image_url", "") or "").strip()
         if not image_url:
             return product
@@ -60,7 +75,12 @@ class ImageSync:
             and self.review_service is not None
             and self.image_downloader is not None
         ):
-            return self._stage_changed_image(product, image_url, existing)
+            return self._stage_changed_image(
+                product,
+                image_url,
+                existing,
+                current_product,
+            )
 
         old_url = self._get(old_product, "image_url")
         url_changed = bool(old_product and old_url and old_url != image_url)
@@ -79,8 +99,26 @@ class ImageSync:
         product.image_hash = image_data.get("image_hash", "")
         return product
 
-    def _stage_changed_image(self, product, image_url, existing):
+    def _stage_changed_image(
+        self,
+        product,
+        image_url,
+        existing,
+        current_product=None,
+    ):
         try:
+            if current_product is None:
+                current_product = self.review_service.repository.get_by_code(
+                    str(product.code),
+                )
+            current_url = str(
+                getattr(current_product, "image_url", "") or ""
+            ).strip()
+            if current_url and current_url == image_url:
+                product.image_path = existing["image_path"]
+                product.image_hash = existing.get("image_hash", "")
+                return product
+
             staged = self.review_service.stage_candidate(
                 self.image_downloader,
                 str(product.code),
@@ -119,6 +157,33 @@ class ImageSync:
             product.image_path = existing["image_path"]
             product.image_hash = existing.get("image_hash", "")
             return product
+
+    def _load_current_products(self, products):
+        if self.review_service is None:
+            return {}
+
+        repository = getattr(self.review_service, "repository", None)
+        if repository is None:
+            return {}
+
+        codes = [
+            str(getattr(product, "code", "") or "").strip()
+            for product in products
+            if str(getattr(product, "code", "") or "").strip()
+        ]
+        getter = getattr(repository, "get_by_codes", None)
+        if callable(getter):
+            loaded = getter(codes) or {}
+            return {
+                str(code).strip().casefold(): product
+                for code, product in loaded.items()
+                if str(code).strip()
+            }
+
+        return {
+            code.casefold(): repository.get_by_code(code)
+            for code in codes
+        }
 
     @staticmethod
     def _get(product, field):

@@ -22,7 +22,7 @@ class FakeRepository:
 def _patch_paths(monkeypatch, tmp_path):
     queue_path = tmp_path / "queue.json"
     staging_dir = tmp_path / "staging"
-    products_dir = tmp_path / "products"
+    products_dir = tmp_path / "data" / "images" / "products"
     monkeypatch.setattr(module, "QUEUE_PATH", queue_path)
     monkeypatch.setattr(module, "STAGING_DIR", staging_dir)
     monkeypatch.setattr(module, "IMAGE_PRODUCTS_DIR", products_dir)
@@ -33,6 +33,14 @@ def _patch_paths(monkeypatch, tmp_path):
             value
             if Path(value).is_absolute()
             else tmp_path / value
+        ),
+    )
+    monkeypatch.setattr(
+        module,
+        "to_data_relative_path",
+        lambda value: str(Path(value).resolve().relative_to(tmp_path)).replace(
+            "\\",
+            "/",
         ),
     )
     return staging_dir, products_dir
@@ -110,7 +118,7 @@ def test_image_review_replace_updates_db_and_keeps_old_image_outside_staging(
 
     destination = products_dir / "FB-100.webp"
     assert result["changed"] is True
-    assert repository.product.image_path == "products/FB-100.webp"
+    assert repository.product.image_path == "data/images/products/FB-100.webp"
     assert repository.product.image_url == "https://example.test/new.webp"
     assert destination.read_bytes() == b"new-image"
     assert current_path.read_bytes() == b"old-image"

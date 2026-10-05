@@ -224,7 +224,7 @@ class ImageReviewDialog(QDialog):
                 action,
                 manual_path=manual_path,
             )
-        except (OSError, ValueError, RuntimeError) as error:
+        except Exception as error:  # noqa: BLE001
             QMessageBox.critical(
                 self,
                 "Revisión de imágenes",

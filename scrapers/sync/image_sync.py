@@ -133,9 +133,6 @@ class ImageSync:
                 product.image_hash = existing_hash
                 return product
 
-            current_product = self.review_service.repository.get_by_code(
-                str(product.code),
-            )
             review = self.review_service.register_candidate(
                 code=str(product.code),
                 product_name=str(getattr(product, "name", "") or ""),

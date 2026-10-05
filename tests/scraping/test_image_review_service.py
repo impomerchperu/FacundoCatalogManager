@@ -21,7 +21,7 @@ class FakeRepository:
 
 def _patch_paths(monkeypatch, tmp_path):
     queue_path = tmp_path / "queue.json"
-    staging_dir = tmp_path / "staging"
+    staging_dir = tmp_path / "image_review_staging"
     products_dir = tmp_path / "data" / "images" / "products"
     monkeypatch.setattr(module, "QUEUE_PATH", queue_path)
     monkeypatch.setattr(module, "STAGING_DIR", staging_dir)

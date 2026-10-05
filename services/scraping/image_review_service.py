@@ -144,6 +144,9 @@ class ImageReviewService:
                 self._write(records)
             return pending
 
+    def discard_staged(self, path: str) -> None:
+        self._remove_staged_file(path)
+
     def apply_selection(
         self,
         review_id: str,
@@ -231,8 +234,7 @@ class ImageReviewService:
                     if backup is not None:
                         backup.unlink(missing_ok=True)
 
-                if action == "replace":
-                    self._remove_staged_file(record.get("candidate_path", ""))
+                self._remove_staged_file(record.get("candidate_path", ""))
                 result = {
                     "code": product.code,
                     "action": action,

@@ -67,11 +67,27 @@ class ProductImageDelegate(QStyledItemDelegate):
 
     DEFAULT_SIZE = 180
     IMAGE_ROLE = int(Qt.ItemDataRole.UserRole) + 1
+    GALLERY_ROLE = int(Qt.ItemDataRole.UserRole) + 3
+    ACTIVE_INDEX_ROLE = int(Qt.ItemDataRole.UserRole) + 4
 
     def paint(self, painter: QPainter, option, index) -> None:
         super().paint(painter, option, index)
 
+        gallery = index.data(self.GALLERY_ROLE)
         image_path = index.data(self.IMAGE_ROLE)
+        active_index = index.data(self.ACTIVE_INDEX_ROLE)
+        if isinstance(gallery, list) and gallery:
+            try:
+                active_index = int(active_index)
+            except (TypeError, ValueError):
+                active_index = 0
+            active_index %= len(gallery)
+            selected = gallery[active_index]
+            if isinstance(selected, dict):
+                image_path = selected.get(
+                    "image_path",
+                    selected.get("path", image_path),
+                )
         if not isinstance(image_path, str) or not image_path:
             return
 
@@ -100,6 +116,28 @@ class ProductImageDelegate(QStyledItemDelegate):
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         painter.drawPixmap(x, y, scaled)
+        if isinstance(gallery, list) and len(gallery) > 1:
+            try:
+                active_index = int(active_index) % len(gallery)
+            except (TypeError, ValueError):
+                active_index = 0
+            painter.setPen(QColor("#173f6d"))
+            painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+            painter.drawText(
+                option.rect.adjusted(6, 0, -6, -6),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom,
+                "‹",
+            )
+            painter.drawText(
+                option.rect.adjusted(6, 0, -6, -6),
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
+                "›",
+            )
+            painter.drawText(
+                option.rect.adjusted(0, 0, 0, -6),
+                Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignBottom,
+                f"{active_index + 1}/{len(gallery)}",
+            )
         painter.restore()
 
     @staticmethod
@@ -398,6 +436,9 @@ class ProductTable(QTableWidget):
         self._rendered_products: list[Product] = []
         self._visible_product_keys: set[int] | None = None
         self._preferred_widths_cache: list[int] | None = None
+        self._active_image_indices: dict[str, int] = {}
+        self._gallery_overrides: dict[str, list[dict]] = {}
+        self._row_by_code: dict[str, int] = {}
         table_font = QFont(self.FONT_FAMILY)
         table_font.setPixelSize(self.FONT_PIXEL_SIZE)
         self.setFont(table_font)
@@ -593,6 +634,11 @@ class ProductTable(QTableWidget):
         self.setSortingEnabled(False)
         self.clearContents()
         self._rendered_products = list(products)
+        self._row_by_code = {
+            str(product.code).strip().casefold(): row
+            for row, product in enumerate(products)
+            if str(product.code).strip()
+        }
         self._max_stock_pair_width = self._calculate_stock_pair_width(products)
         self.setRowCount(len(products))
         if self._visible_product_keys is not None:
@@ -689,11 +735,27 @@ class ProductTable(QTableWidget):
 
     def _add_product_row(self, row: int, product: Product) -> None:
         image_item = QTableWidgetItem()
-        if product.image_path:
-            image_path = resolve_data_path(product.image_path)
+        gallery = self._product_gallery(product)
+        active_index = self._active_image_indices.get(
+            str(product.code).strip().casefold(),
+            0,
+        )
+        if gallery:
+            active_index %= len(gallery)
+            selected = gallery[active_index]
+            image_path = str(
+                selected.get("image_path", selected.get("path", ""))
+                if isinstance(selected, dict)
+                else ""
+            )
+        else:
+            image_path = product.image_path
+        image_item.setData(ProductImageDelegate.GALLERY_ROLE, gallery)
+        image_item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, active_index)
+        if image_path:
             image_item.setData(
                 ProductImageDelegate.IMAGE_ROLE,
-                str(image_path),
+                str(resolve_data_path(image_path)),
             )
         self.setItem(row, self.IMAGE_COLUMN, image_item)
 

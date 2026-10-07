@@ -122,10 +122,9 @@ class ProductGallerySyncService:
 
             item = {
                 "url": url,
-                "image_path": str(path.relative_to(resolve_data_path("."))).replace(
-                    "\",
-                    "/",
-                ),
+                "image_path": str(
+                    path.relative_to(resolve_data_path("."))
+                ).replace("\\", "/"),
                 "image_hash": image_hash,
                 "position": position,
                 "source": "woocommerce-gallery",

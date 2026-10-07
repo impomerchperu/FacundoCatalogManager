@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
+
 import requests
 
 from config.runtime_paths import DATA_DIR, resolve_data_path, to_data_relative_path
@@ -722,7 +723,12 @@ class ImageReviewService:
         product.gallery_images = [
             image
             for image in list(getattr(product, "gallery_images", []) or [])
-            if str(image.get("url", "") or "").strip().casefold() not in excluded
+            if (
+                str(image.get("image_path", "") or "").strip().casefold()
+                not in excluded
+                and str(image.get("url", "") or "").strip().casefold()
+                not in excluded
+            )
         ]
 
         action = str(

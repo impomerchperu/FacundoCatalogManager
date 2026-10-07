@@ -39,6 +39,7 @@ from models.product import Product
 from services.scraping.category_name_normalizer import split_category_names
 
 if TYPE_CHECKING:
+    from gui.image_review_dialog import ImageReviewDialog
     from gui.scraping_history_dialog import ScrapingHistoryDialog
 
 
@@ -245,6 +246,7 @@ class MainWindow(QMainWindow):
         self.categories_visible = False
         self.scraping_dialog: ScrapingDialog | None = None
         self.history_dialog: ScrapingHistoryDialog | None = None
+        self.image_review_dialog: ImageReviewDialog | None = None
         self.catalog_bootstrap_thread: QThread | None = None
         self.catalog_bootstrap_worker: CatalogBootstrapWorker | None = None
         self.catalog_bootstrap_running = False
@@ -921,7 +923,7 @@ class MainWindow(QMainWindow):
         )
         self.apply_filters()
 
-    def apply_filters(self) -> None:
+    def _filtered_products(self) -> list[Product]:
         products = list(self.all_products)
         search_text = self.search_box.text().strip().casefold()
         if search_text:
@@ -940,6 +942,11 @@ class MainWindow(QMainWindow):
             ]
         if self.stock_only:
             products = [product for product in products if product.stock > 0]
+        return products
+
+    def apply_filters(self) -> None:
+        search_text = self.search_box.text().strip().casefold()
+        products = self._filtered_products()
         self.table.show_only_products(products)
         self.table.set_search_text(search_text)
         self.update_product_counter(len(products))
@@ -996,10 +1003,36 @@ class MainWindow(QMainWindow):
     def _history_closed(self) -> None:
         self.history_dialog = None
 
+    def open_pending_image_review(self) -> None:
+        if self.image_review_dialog is not None:
+            self.image_review_dialog.raise_()
+            self.image_review_dialog.activateWindow()
+            return
+
+        from gui.image_review_dialog import ImageReviewDialog
+
+        dialog = ImageReviewDialog(
+            on_catalog_changed=self.refresh_catalog,
+            parent=self,
+        )
+        if not dialog.records:
+            dialog.close()
+            return
+
+        self.image_review_dialog = dialog
+        dialog.finished.connect(self._image_review_dialog_closed)
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def _image_review_dialog_closed(self) -> None:
+        self.image_review_dialog = None
+
     def scraping_finished(self) -> None:
         self.refresh_catalog()
         if self.history_dialog is not None:
             self.history_dialog.load_history()
+        self.open_pending_image_review()
         if self.scraping_dialog is not None:
             self.scraping_dialog.setWindowTitle("Actualización completada")
             self.scraping_dialog.raise_()
@@ -1071,6 +1104,58 @@ class MainWindow(QMainWindow):
 
     def export_excel(self) -> None:
         from exporters.excel_exporter import ExcelExporter
+        from gui.excel_category_dialog import ExcelCategorySelectionDialog
+
+        products = list(self.all_products)
+        if not products:
+            QMessageBox.information(
+                self,
+                "Exportar Excel",
+                "No hay productos disponibles para exportar.",
+            )
+            return
+
+        categories = {
+            category
+            for product in products
+            for category in self._product_categories(product)
+        }
+        filtered_products = self._filtered_products()
+        filtered_categories = {
+            category
+            for product in filtered_products
+            for category in self._product_categories(product)
+        }
+        if self.selected_categories:
+            initial_selected = set(self.selected_categories)
+        elif self.stock_only or self.search_box.text().strip():
+            initial_selected = filtered_categories
+        else:
+            initial_selected = categories
+
+        category_dialog = ExcelCategorySelectionDialog(
+            categories,
+            products,
+            self,
+            initial_selected_categories=initial_selected,
+            stock_only=self.stock_only,
+        )
+        if not category_dialog.exec():
+            return
+
+        selected_categories = category_dialog.selected_categories()
+        export_products = ExcelCategorySelectionDialog.filter_products(
+            products,
+            selected_categories,
+            stock_only=self.stock_only,
+        )
+        if not export_products:
+            QMessageBox.warning(
+                self,
+                "Exportar Excel",
+                "Las categorías seleccionadas no contienen productos.",
+            )
+            return
 
         filename, _ = QFileDialog.getSaveFileName(
             self,
@@ -1079,7 +1164,7 @@ class MainWindow(QMainWindow):
             "Excel (*.xlsx)",
         )
         if filename:
-            ExcelExporter.export(self.controller.get_products(), filename)
+            ExcelExporter.export(export_products, filename)
 
     def export_pdf(self) -> None:
         from exporters.pdf_exporter import PDFExporter
@@ -1140,6 +1225,8 @@ class MainWindow(QMainWindow):
             self.scraping_dialog.close()
         if self.history_dialog is not None:
             self.history_dialog.close()
+        if self.image_review_dialog is not None:
+            self.image_review_dialog.close()
 
         self._wait_for_thread(self.catalog_load_thread)
         self._wait_for_thread(self.catalog_bootstrap_thread)

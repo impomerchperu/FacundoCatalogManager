@@ -46,6 +46,36 @@ def test_image_downloader_saves_image(
     assert file.read_bytes() == b"\xff\xd8fake-image-data"
 
 
+def test_image_downloader_stages_image_without_overwriting_canonical_file(
+    tmp_path,
+    monkeypatch,
+):
+    class FakeResponse:
+        content = b"staged-image-data"
+        headers: ClassVar[dict[str, str]] = {"Content-Type": "image/jpeg"}
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(
+        "scrapers.images.image_downloader.requests.get",
+        lambda url, timeout, headers: FakeResponse(),
+    )
+
+    staging = tmp_path / "review"
+    downloader = ImageDownloader(
+        output_dir=tmp_path / "products",
+    )
+
+    result = downloader.download_staged("P004", "http://image.jpg", staging)
+
+    staged_files = list(staging.glob("P004-*.jpg"))
+    assert len(staged_files) == 1
+    assert Path(result).name == staged_files[0].name
+    assert staged_files[0].read_bytes() == b"staged-image-data"
+    assert not (tmp_path / "products" / "P004.jpg").exists()
+
+
 def test_image_downloader_uses_custom_http_settings(tmp_path, monkeypatch):
     calls = []
 

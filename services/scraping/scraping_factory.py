@@ -30,6 +30,7 @@ from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,
 )
 from services.scraping.category_service import CategoryService
+from services.scraping.image_review_service import ImageReviewService
 from services.scraping.image_sync_adapter import ImageSyncAdapter
 from services.scraping.normalized_category_product_sync_service import (
     NormalizedCategoryProductSyncService,
@@ -98,10 +99,15 @@ class ScrapingFactory:
                 max_retries=config.max_retries,
             )
             image_manager = SafeImageManager(downloader=image_downloader)
+            image_review_service = ImageReviewService(
+                repository=product_repository,
+            )
             image_sync = ImageSync(
                 image_manager=image_manager,
                 max_workers=config.image_workers,
             )
+            image_sync.review_service = image_review_service
+            image_sync.image_downloader = image_downloader
             image_sync_adapter = ImageSyncAdapter(image_sync=image_sync)
 
         browser = Browser(

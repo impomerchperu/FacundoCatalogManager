@@ -338,18 +338,6 @@ class ImageReviewDialog(QDialog):
             )
             return
 
-        if action in {"candidate", "manual"} and result.get("selected"):
-            try:
-                finalized = self.service.finalize_selected([review_id])
-                result = finalized[0] if finalized else result
-            except Exception as error:  # noqa: BLE001
-                QMessageBox.critical(
-                    self,
-                    "Revisión de imágenes",
-                    str(error),
-                )
-                return
-
         if result.get("changed") and callable(self.on_catalog_changed):
             self.on_catalog_changed()
 

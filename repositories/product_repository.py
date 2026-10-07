@@ -26,9 +26,9 @@ class ProductRepository:
             code, name, category, description, price,
             price_sample, price_hundred, price_thousand, stock,
             color_stock, image_url, image_path,
-            image_hash, content_hash
+            image_hash, gallery_images, content_hash
         )
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """
         cursor = self.db.execute_query(
             query,
@@ -49,6 +49,10 @@ class ProductRepository:
                 product.image_url,
                 product.image_path,
                 product.image_hash,
+                json.dumps(
+                    self._clean_gallery_images(product.gallery_images),
+                    ensure_ascii=False,
+                ),
                 product.content_hash,
             ),
         )
@@ -61,7 +65,7 @@ class ProductRepository:
             code=?, name=?, category=?, description=?, price=?,
             price_sample=?, price_hundred=?, price_thousand=?, stock=?,
             color_stock=?, image_url=?, image_path=?,
-            image_hash=?, content_hash=?
+            image_hash=?, gallery_images=?, content_hash=?
         WHERE id=?
         """
         self.db.execute_query(
@@ -83,6 +87,10 @@ class ProductRepository:
                 product.image_url,
                 product.image_path,
                 product.image_hash,
+                json.dumps(
+                    self._clean_gallery_images(product.gallery_images),
+                    ensure_ascii=False,
+                ),
                 product.content_hash,
                 product.product_id,
             ),
@@ -219,6 +227,48 @@ class ProductRepository:
         return result
 
     @classmethod
+    def _clean_gallery_images(
+        cls,
+        gallery_images: list[dict[str, object]] | None,
+    ) -> list[dict[str, object]]:
+        result: list[dict[str, object]] = []
+        seen: set[str] = set()
+        for position, image in enumerate(list(gallery_images or []), start=1):
+            if not isinstance(image, dict):
+                continue
+            url = str(image.get("url", "") or "").strip()
+            path = str(
+                image.get("image_path", image.get("path", "")) or ""
+            ).strip()
+            if not url or not path or url.casefold() in seen:
+                continue
+            seen.add(url.casefold())
+            result.append(
+                {
+                    "url": url,
+                    "image_path": path,
+                    "image_hash": str(
+                        image.get("image_hash", image.get("hash", "")) or ""
+                    ),
+                    "position": int(image.get("position", position) or position),
+                    "source": str(image.get("source", "gallery") or "gallery"),
+                }
+            )
+        return result
+
+    @classmethod
+    def _json_gallery_images(cls, value) -> list[dict[str, object]]:
+        if not value:
+            return []
+        try:
+            parsed = json.loads(value)
+        except (TypeError, json.JSONDecodeError):
+            return []
+        if not isinstance(parsed, list):
+            return []
+        return cls._clean_gallery_images(parsed)
+
+    @classmethod
     def _clean_color_stock(
         cls,
         color_stock: dict[str, int] | None,
@@ -243,5 +293,6 @@ class ProductRepository:
             image_url=row["image_url"],
             image_path=row["image_path"],
             image_hash=row["image_hash"],
+            gallery_images=self._json_gallery_images(row["gallery_images"]),
             content_hash=row["content_hash"],
         )

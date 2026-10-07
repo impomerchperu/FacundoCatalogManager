@@ -350,7 +350,7 @@ class ImageReviewService:
         action: str,
         manual_path: str | Path | None = None,
     ) -> dict:
-        """Registra una selección sin modificar todavía el catálogo."""
+        """Registra una selección pendiente; no modifica todavía el catálogo."""
         action = str(action).strip().casefold()
         if action not in {
             "keep",
@@ -365,105 +365,14 @@ class ImageReviewService:
         with self._lock:
             records = self._read()
             record = self._find_available_record(records, review_id)
-
-            if record.get("status") == "staged":
-                self._store_deferred_selection(record, action, manual_path)
-                self._write(records)
-                return {
-                    "code": str(record.get("code", "")),
-                    "action": action,
-                    "changed": False,
-                    "selected": True,
-                }
-
-            if record.get("kind") == "gallery":
-                result = self._apply_gallery_resolution(record, action)
-                record["status"] = "resolved"
-                record["resolution"] = action
-                record["updated_at"] = self._now()
-                self._write(records)
-                return result
-
-            if action in {"keep", "replace"}:
-                product = self.repository.get_by_code(
-                    str(record.get("code", "")),
-                )
-                if product is None:
-                    raise ValueError(
-                        "No existe el producto "
-                        f"{record.get('code', '')} en la base de datos."
-                    )
-                result: dict[str, object] = (
-                    self._keep_current(record, product)
-                    if action == "keep"
-                    else cast(
-                        dict[str, object],
-                        self._apply_selected_image(
-                            record,
-                            product,
-                            action,
-                            manual_path,
-                        ),
-                    )
-                )
-                record["status"] = "resolved"
-                record["resolution"] = action
-                record["updated_at"] = self._now()
-                self._write(records)
-                return result
-
-            previous_action = str(
-                record.get("selected_action", "") or ""
-            ).casefold()
-            previous_path = str(
-                record.get("selected_path", "") or ""
-            )
-
-            selected_path = ""
-            selected_url = ""
-            if action == "candidate":
-                selected_path = self._resolve_staged_selection(
-                    record,
-                    str(manual_path or ""),
-                )
-                selected_url = self._candidate_url_for_path(
-                    record,
-                    selected_path,
-                )
-                if not selected_path:
-                    raise ValueError("La imagen seleccionada no existe.")
-            elif action == "replace":
-                selected_path = self._resolve_staged_selection(
-                    record,
-                    str(record.get("candidate_path", "") or ""),
-                )
-                selected_url = str(
-                    record.get("candidate_url", "") or ""
-                ).strip()
-                if not selected_path:
-                    raise ValueError("La imagen detectada no existe.")
-            elif action == "manual":
-                selected_path = self._stage_manual_image(
-                    record,
-                    manual_path,
-                )
-            elif action == "keep":
-                selected_path = ""
-                selected_url = str(
-                    record.get("current_url", "") or ""
-                )
-
-            if (
-                previous_action == "manual"
-                and previous_path
-                and previous_path != selected_path
+            previous_path = str(record.get("selected_path", "") or "").strip()
+            if previous_path and not self._is_record_option_path(
+                record,
+                previous_path,
             ):
                 self._remove_staged_file(previous_path)
 
-            record["selected_action"] = action
-            record["selected_path"] = selected_path
-            record["selected_url"] = selected_url
-            record["updated_at"] = self._now()
+            self._store_deferred_selection(record, action, manual_path)
             self._write(records)
             return {
                 "code": str(record.get("code", "")),
@@ -472,6 +381,49 @@ class ImageReviewService:
                 "selected": True,
             }
 
+    def discard_selections(self, review_ids: list[str] | None = None) -> None:
+        """Descarta selecciones pendientes sin tocar el catálogo."""
+        ids = (
+            {
+                str(review_id).strip()
+                for review_id in review_ids
+                if str(review_id).strip()
+            }
+            if review_ids is not None
+            else None
+        )
+        with self._lock:
+            records = self._read()
+            changed = False
+            for record in records:
+                if record.get("status") not in {"pending", "staged"}:
+                    continue
+                if ids is not None and str(record.get("id", "")) not in ids:
+                    continue
+                if str(record.get("selected_action", "") or "").strip():
+                    selected_path = str(
+                        record.get("selected_path", "") or ""
+                    ).strip()
+                    if selected_path and not self._is_record_option_path(
+                        record,
+                        selected_path,
+                    ):
+                        self._remove_staged_file(selected_path)
+                    record.pop("selected_action", None)
+                    record.pop("selected_path", None)
+                    record.pop("selected_url", None)
+                    record["updated_at"] = self._now()
+                    changed = True
+            if changed:
+                self._write(records)
+
+    @staticmethod
+    def _is_record_option_path(record: dict, value: str) -> bool:
+        return str(value or "") in {
+            str(option.get("path", "") or "")
+            for option in list(record.get("candidate_options", []) or [])
+        }
+
     def _store_deferred_selection(
         self,
         record: dict,
@@ -479,9 +431,10 @@ class ImageReviewService:
         manual_path: str | Path | None,
     ) -> None:
         normalized = str(action or "").strip().casefold()
-        if str(record.get("kind", "replacement")) == "gallery":
-            if normalized not in {"accept_gallery", "dismiss_gallery"}:
-                raise ValueError("Acción de galería no válida.")
+        if str(record.get("kind", "replacement")) == "gallery" and normalized in {
+            "accept_gallery",
+            "dismiss_gallery",
+        }:
             record["selected_action"] = normalized
             record["selected_path"] = ""
             record["selected_url"] = ""
@@ -494,9 +447,11 @@ class ImageReviewService:
         selected_path = ""
         selected_url = ""
         if normalized == "candidate":
-            selected_path = self._resolve_staged_selection(
-                record,
-                str(manual_path or ""),
+            selected_value = str(manual_path or "")
+            selected_path = (
+                self._resolve_gallery_selection(record, selected_value)
+                if str(record.get("kind", "replacement")) == "gallery"
+                else self._resolve_staged_selection(record, selected_value)
             )
             selected_url = self._candidate_url_for_path(record, selected_path)
             if not selected_path:
@@ -716,17 +671,15 @@ class ImageReviewService:
 
     def _cleanup_selected_records(self, records: list[dict]) -> None:
         for record in records:
-            if str(record.get("kind", "replacement")) == "gallery":
-                for option in list(record.get("candidate_options", []) or []):
-                    self._remove_gallery_file(
-                        str(option.get("path", "") or "")
-                    )
-            else:
+            if str(record.get("kind", "replacement")) != "gallery":
                 self._remove_all_staged_candidates(record)
             selected_path = str(
                 record.get("selected_path", "") or ""
-            )
-            if selected_path:
+            ).strip()
+            if (
+                selected_path
+                and not self._is_record_option_path(record, selected_path)
+            ):
                 self._remove_staged_file(selected_path)
 
     @staticmethod
@@ -816,11 +769,19 @@ class ImageReviewService:
         manual_path: str | Path | None,
     ) -> Path | None:
         if action == "candidate":
-            selected = self._resolve_staged_selection(
-                record,
-                str(manual_path or ""),
+            selected_value = str(manual_path or "")
+            selected = (
+                self._resolve_gallery_selection(record, selected_value)
+                if str(record.get("kind", "replacement")) == "gallery"
+                else self._resolve_staged_selection(record, selected_value)
             )
-            return self._resolve_staged_path(selected) if selected else None
+            if not selected:
+                return None
+            return (
+                self._resolve_gallery_path(selected)
+                if str(record.get("kind", "replacement")) == "gallery"
+                else self._resolve_staged_path(selected)
+            )
         if action == "replace":
             selected = self._resolve_staged_selection(
                 record,
@@ -1011,6 +972,17 @@ class ImageReviewService:
             return ""
         return str(value)
 
+
+    @staticmethod
+    def _resolve_gallery_selection(record: dict, value: str) -> str:
+        candidate = ImageReviewService._resolve_gallery_path(value)
+        if candidate is None or not candidate.is_file():
+            return ""
+        allowed = {
+            str(option.get("path", "") or "")
+            for option in list(record.get("candidate_options", []) or [])
+        }
+        return value if value in allowed else ""
 
     @staticmethod
     def _candidate_url_for_path(record: dict, path: str) -> str:

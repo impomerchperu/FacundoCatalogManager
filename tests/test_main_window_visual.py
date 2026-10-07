@@ -132,6 +132,7 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
         "Exportar Excel",
         "Exportar PDF",
         "Exportar CSV",
+        "Imágenes (0)",
         "Actualizar catálogo",
         "Historial",
     ]
@@ -163,6 +164,7 @@ def test_action_buttons_are_grouped_for_top_right_layout():
         "Exportar Excel",
         "Exportar PDF",
         "Exportar CSV",
+        "Imágenes (0)",
         "Actualizar catálogo",
         "Historial",
     ]

@@ -198,12 +198,40 @@ class ImageSync:
             if not review_candidates:
                 review_candidates = candidates
 
-            staged_options = self.review_service.stage_candidates(
-                self.image_downloader,
-                str(product.code),
-                review_candidates,
-                max_candidates=6,
+            stage_candidates = getattr(
+                self.review_service,
+                "stage_candidates",
+                None,
             )
+            if callable(stage_candidates):
+                staged_options = stage_candidates(
+                    self.image_downloader,
+                    str(product.code),
+                    review_candidates,
+                    max_candidates=6,
+                )
+            else:
+                staged_options = []
+                for candidate in review_candidates[:6]:
+                    url = str(candidate.get("url", "") or "").strip()
+                    if not url:
+                        continue
+                    staged = self.review_service.stage_candidate(
+                        self.image_downloader,
+                        str(product.code),
+                        url,
+                    )
+                    staged_options.append(
+                        {
+                            "url": url,
+                            "path": str(staged.get("image_path", "") or ""),
+                            "hash": str(staged.get("image_hash", "") or ""),
+                            "score": int(candidate.get("score", 0) or 0),
+                            "exact_code": bool(candidate.get("exact_code", False)),
+                            "generic": bool(candidate.get("generic", False)),
+                            "source": str(candidate.get("source", "") or ""),
+                        }
+                    )
 
             existing_hash = str(existing.get("image_hash", "") or "")
             if current_is_generic:

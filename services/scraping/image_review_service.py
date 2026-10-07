@@ -8,8 +8,6 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
-from typing import cast
-
 import requests
 
 from config.runtime_paths import DATA_DIR, resolve_data_path, to_data_relative_path
@@ -272,6 +270,7 @@ class ImageReviewService:
                 "candidate_hash": primary["hash"],
                 "candidate_url": primary["url"],
                 "candidate_options": options,
+                "excluded_options": [],
                 "kind": normalized_kind,
                 "manual_only": bool(allow_manual_only and not options),
             }
@@ -382,6 +381,31 @@ class ImageReviewService:
                 "changed": False,
                 "selected": True,
             }
+
+    def exclude_candidate(self, review_id: str, option_path: str) -> None:
+        """Marca una alternativa como excluida sin modificar el catálogo."""
+        value = str(option_path or "").strip()
+        if not value:
+            raise ValueError("La alternativa seleccionada no es válida.")
+        with self._lock:
+            records = self._read()
+            record = self._find_available_record(records, review_id)
+            options = list(record.get("candidate_options", []) or [])
+            if value not in {
+                str(option.get("path", "") or "")
+                for option in options
+            }:
+                raise ValueError("La alternativa seleccionada no existe.")
+            excluded = [
+                str(item).strip()
+                for item in list(record.get("excluded_options", []) or [])
+                if str(item).strip()
+            ]
+            if value not in excluded:
+                excluded.append(value)
+            record["excluded_options"] = excluded
+            record["updated_at"] = self._now()
+            self._write(records)
 
     def discard_selections(self, review_ids: list[str] | None = None) -> None:
         """Descarta selecciones pendientes sin tocar el catálogo."""
@@ -600,7 +624,25 @@ class ImageReviewService:
                 transaction_started = True
 
             for record in selected_records:
-                result, file_state, product = self._prepare_selected_record(record)
+                if str(record.get("kind", "replacement")) == "gallery":
+                    result = self._prepare_gallery_record(record)
+                    file_state = {
+                        "destination": None,
+                        "backup": None,
+                        "destination_existed": False,
+                    }
+                    product = self.repository.get_by_code(
+                        str(record.get("code", "")),
+                    )
+                    if product is None:
+                        raise ValueError(
+                            "No existe el producto "
+                            f"{record.get('code', '')} en la base de datos."
+                        )
+                else:
+                    result, file_state, product = self._prepare_selected_record(
+                        record,
+                    )
                 prepared.append(file_state)
                 self.repository.update(product)
                 record["status"] = "resolved"
@@ -635,6 +677,66 @@ class ImageReviewService:
             pass
 
         return results
+
+    def _prepare_gallery_record(self, record: dict) -> dict:
+        product = self.repository.get_by_code(
+            str(record.get("code", "")),
+        )
+        if product is None:
+            raise ValueError(
+                "No existe el producto "
+                f"{record.get('code', '')} en la base de datos."
+            )
+
+        excluded = {
+            str(value).strip().casefold()
+            for value in list(record.get("excluded_options", []) or [])
+            if str(value).strip()
+        }
+        product.gallery_images = [
+            image
+            for image in list(getattr(product, "gallery_images", []) or [])
+            if str(image.get("url", "") or "").strip().casefold() not in excluded
+        ]
+
+        action = str(
+            record.get("selected_action", "") or ""
+        ).strip().casefold()
+        if action == "candidate":
+            source = self._resolve_gallery_path(
+                str(record.get("selected_path", "") or ""),
+            )
+            if source is None or not source.is_file():
+                raise ValueError("La imagen seleccionada no existe.")
+            image_products_dir = resolve_data_path(IMAGE_PRODUCTS_DIR)
+            image_products_dir.mkdir(parents=True, exist_ok=True)
+            destination = image_products_dir / (
+                f"{ImageDownloader._safe_code(str(product.code))}"
+                f"{source.suffix.lower()}"
+            )
+            shutil.copy2(source, destination)
+            product.image_path = to_data_relative_path(destination)
+            product.image_hash = ImageDownloader.hash_file(destination)
+            product.image_url = str(record.get("selected_url", "") or "")
+            excluded.discard(str(record.get("selected_path", "") or "").casefold())
+
+        for position, image in enumerate(product.gallery_images, start=1):
+            image["position"] = position
+
+        for option in list(record.get("candidate_options", []) or []):
+            option_path = str(option.get("path", "") or "")
+            option_key = option_path.casefold()
+            if option_key in {
+                str(path).casefold()
+                for path in list(record.get("excluded_options", []) or [])
+            }:
+                self._remove_gallery_file(option_path)
+
+        return {
+            "code": product.code,
+            "action": action or "gallery",
+            "changed": True,
+        }
 
     def _prepare_selected_record(
         self,

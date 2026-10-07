@@ -167,7 +167,8 @@ class ProductGallerySyncService:
             image["position"] = position
 
         product.gallery_images = gallery_images
-        self._register_gallery_review(product, new_options)
+        if existing is not None:
+            self._register_gallery_review(product, new_options)
         return product
 
     def _candidate_source(self, product, existing):

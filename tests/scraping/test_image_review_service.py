@@ -266,3 +266,62 @@ def test_image_review_discards_transient_selections_without_changing_product(
     assert candidate_path.exists()
     record = service.pending()[0]
     assert not record.get("selected_action")
+
+
+def test_new_scrape_batch_supersedes_previous_review_with_same_hash(
+    monkeypatch,
+    tmp_path,
+):
+    staging_dir, _products_dir = _patch_paths(monkeypatch, tmp_path)
+    staging_dir.mkdir(parents=True)
+    candidate_path = staging_dir / "FB-100-new.webp"
+    candidate_path.write_bytes(b"candidate")
+
+    current = Product(
+        code="FB-100",
+        name="Producto",
+        image_path="data/images/products/FB-100.jpg",
+        image_hash="old-hash",
+        image_url="https://example.test/old.jpg",
+    )
+    service = ImageReviewService(FakeRepository(current))
+
+    first_batch = service.begin_batch()
+    service.register_candidate(
+        code="FB-100",
+        product_name="Producto",
+        current_path=current.image_path,
+        current_hash=current.image_hash,
+        current_url=current.image_url,
+        candidate_path="image_review_staging/FB-100-new.webp",
+        candidate_hash="new-hash",
+        candidate_url="https://example.test/new.webp",
+    )
+    service.finalize_batch(first_batch)
+    first_id = service.pending()[0]["id"]
+    service.apply_selection(first_id, "replace")
+
+    second_batch = service.begin_batch()
+    replacement = service.register_candidate(
+        code="FB-100",
+        product_name="Producto",
+        current_path=current.image_path,
+        current_hash=current.image_hash,
+        current_url=current.image_url,
+        candidate_path="image_review_staging/FB-100-new.webp",
+        candidate_hash="new-hash",
+        candidate_url="https://example.test/new.webp",
+    )
+
+    assert replacement is not None
+    assert candidate_path.exists()
+    records = service._read()
+    superseded = next(record for record in records if record["id"] == first_id)
+    assert superseded["status"] == "resolved"
+    assert superseded["resolution"] == "superseded"
+
+    service.finalize_batch(second_batch)
+    pending = service.pending()
+
+    assert len(pending) == 1
+    assert pending[0]["id"] != first_id

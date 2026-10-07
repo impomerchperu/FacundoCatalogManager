@@ -1063,9 +1063,15 @@ class MainWindow(QMainWindow):
             code = str(record.get("code", "") or "").strip().casefold()
             if not code:
                 continue
+            excluded = {
+                str(value).strip()
+                for value in list(record.get("excluded_options", []) or [])
+                if str(value).strip()
+            }
             gallery_overrides[code] = [
                 dict(option)
                 for option in list(record.get("candidate_options", []) or [])
+                if str(option.get("path", "") or "").strip() not in excluded
             ]
         self.table.set_gallery_overrides(gallery_overrides)
 

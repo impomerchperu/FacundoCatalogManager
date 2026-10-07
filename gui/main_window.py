@@ -1291,6 +1291,7 @@ class MainWindow(QMainWindow):
             self.history_dialog.close()
         if self.image_review_dialog is not None:
             self.image_review_dialog.close()
+        self.image_review_service.close()
 
         self._wait_for_thread(self.catalog_load_thread)
         self._wait_for_thread(self.catalog_bootstrap_thread)

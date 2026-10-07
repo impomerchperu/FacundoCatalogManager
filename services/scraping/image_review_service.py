@@ -587,6 +587,8 @@ class ImageReviewService:
                     record["status"] = "resolved"
                     record["resolution"] = action
                     record["updated_at"] = self._now()
+                    if isinstance(result, tuple):
+                        result = result[0]
                     results.append(result)
                 except (OSError, ValueError, RuntimeError):
                     continue

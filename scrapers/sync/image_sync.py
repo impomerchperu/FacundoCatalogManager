@@ -163,33 +163,6 @@ class ImageSync:
                 product.image_hash = existing.get("image_hash", "")
                 return product
 
-            if not current_is_generic:
-                trusted = next(
-                    (
-                        candidate
-                        for candidate in candidates
-                        if candidate.get("exact_code")
-                        and not candidate.get("generic")
-                    ),
-                    None,
-                )
-                if trusted is not None:
-                    trusted_url = str(trusted.get("url", "") or "").strip()
-                    if current_url and trusted_url == current_url:
-                        product.image_url = current_url
-                        product.image_path = existing["image_path"]
-                        product.image_hash = existing.get("image_hash", "")
-                        return product
-                    image_data = self.image_manager.process(
-                        product.code,
-                        trusted_url,
-                        force=True,
-                    )
-                    product.image_url = trusted_url
-                    product.image_path = image_data.get("image_path", "")
-                    product.image_hash = image_data.get("image_hash", "")
-                    return product
-
             review_candidates = [
                 candidate
                 for candidate in candidates

@@ -526,7 +526,7 @@ class ProductTable(QTableWidget):
         for column, width in self.MIN_COLUMN_WIDTHS.items():
             self.setColumnWidth(column, width)
 
-    def _show_image_context_menu(self, position) -> None:  # noqa: PLR0912
+    def _show_image_context_menu(self, position) -> None:
         index = self.indexAt(position)
         if not index.isValid() or index.column() != self.IMAGE_COLUMN:
             return

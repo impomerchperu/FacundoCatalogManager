@@ -552,8 +552,12 @@ class ProductTable(QTableWidget):
         if not isinstance(product_id, int):
             return
 
-        product = self.controller.get_product_by_id(product_id)
-        if product is None:
+        product = (
+            self._rendered_products[index.row()]
+            if 0 <= index.row() < len(self._rendered_products)
+            else None
+        )
+        if product is None or product.id != product_id:
             return
 
         selected_url = str(selected.get("url", "") or "").strip()

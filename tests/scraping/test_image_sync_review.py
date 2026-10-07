@@ -158,3 +158,44 @@ def test_image_sync_discards_changed_image_when_content_hash_is_unchanged():
     assert result[0].image_hash == current.image_hash
     assert review.staged["discarded"] == "image_review_staging/FB-100-same.jpg"
     assert review.registered == []
+
+
+def test_image_sync_requires_review_for_exact_code_replacement():
+    current = Product(
+        code="FB-4010",
+        name="Gota Antiestrés",
+        image_url="https://example.test/FB-4010-old.jpg",
+        image_path="data/images/products/FB-4010.jpg",
+        image_hash="current-hash",
+    )
+    review = FakeReviewService(FakeRepository(current))
+    image_sync = ImageSync(
+        image_repository=FakeImageRepository(
+            {
+                "image_path": current.image_path,
+                "image_hash": current.image_hash,
+            }
+        ),
+        review_service=review,
+        image_downloader=FakeDownloader(),
+    )
+    product = Product(
+        code="FB-4010",
+        name="Gota Antiestrés",
+        image_url="https://example.test/FB-4010-new.jpg",
+    )
+    product.image_candidates = [
+        {
+            "url": product.image_url,
+            "score": 1200,
+            "exact_code": True,
+            "generic": False,
+        }
+    ]
+
+    result = image_sync.process([product])
+
+    assert result[0].image_path == current.image_path
+    assert result[0].image_hash == current.image_hash
+    assert len(review.registered) == 1
+    assert review.registered[0]["candidate_url"] == product.image_url

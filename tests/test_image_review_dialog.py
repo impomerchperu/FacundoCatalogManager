@@ -120,7 +120,12 @@ def test_image_review_dialog_selection_updates_current_preview_without_committin
         ("review-1", "candidate", "image_review_staging/FB-100-new.webp")
     ]
     current = dialog.table.cellWidget(0, 2)
-    assert isinstance(current, _ImageChoiceLabel)
+    current_layout = current.layout()
+    assert current_layout is not None
+    assert isinstance(
+        current_layout.itemAt(0).widget(),
+        _ImageChoiceLabel,
+    )
     assert service.finalize_calls == []
     assert dialog.apply_button.isEnabled()
 

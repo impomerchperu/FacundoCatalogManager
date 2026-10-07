@@ -52,6 +52,8 @@ class ImageReviewDialog(QDialog):
         self.on_catalog_changed = on_catalog_changed
         self.records: list[dict] = []
         self._records_signature: tuple = ()
+        self._page = 0
+        self.PAGE_SIZE = 24
         self.setWindowFlag(Qt.WindowType.Window, True)
         self.setWindowTitle("Revisión de imágenes detectadas")
         self.resize(1040, 620)
@@ -106,6 +108,25 @@ class ImageReviewDialog(QDialog):
         )
         layout.addWidget(self.table, 1)
 
+        navigation = QWidget()
+        navigation_layout = QHBoxLayout(navigation)
+        navigation_layout.setContentsMargins(0, 0, 0, 0)
+        navigation_layout.setSpacing(6)
+
+        self.previous_button = QPushButton("‹ Anteriores")
+        self.previous_button.clicked.connect(self._previous_page)
+        navigation_layout.addWidget(self.previous_button)
+
+        self.page_label = QLabel()
+        self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        navigation_layout.addWidget(self.page_label, 1)
+
+        self.next_button = QPushButton("Siguientes ›")
+        self.next_button.clicked.connect(self._next_page)
+        navigation_layout.addWidget(self.next_button)
+
+        layout.addWidget(navigation)
+
         close_button = QPushButton("Cerrar")
         close_button.clicked.connect(self.close)
         close_button.setFixedHeight(34)
@@ -131,28 +152,56 @@ class ImageReviewDialog(QDialog):
             )
             for record in records
         )
-        if signature == self._records_signature:
+        if signature == self._records_signature and hasattr(self, "_visible_records"):
+            self._update_navigation()
             return
         self._records_signature = signature
         self.records = records
+        max_page = max((len(self.records) - 1) // self.PAGE_SIZE, 0)
+        self._page = min(self._page, max_page)
+        start = self._page * self.PAGE_SIZE
+        self._visible_records = self.records[start : start + self.PAGE_SIZE]
         self.summary_label.setText(
-            f"Imágenes nuevas o actualizadas pendientes: {len(self.records)}. "
-            "La imagen actual se conserva hasta que seleccione una acción.",
+            f"Imágenes nuevas o actualizadas: {len(self.records)}. "
+            f"Mostrando {start + 1 if self.records else 0}-"
+            f"{min(start + self.PAGE_SIZE, len(self.records))}. "
+            "La imagen actual se conserva hasta aprobar un cambio.",
         )
-        self.table.setRowCount(len(self.records))
+        self.table.setRowCount(len(self._visible_records))
 
-        for row, record in enumerate(self.records):
+        for row, record in enumerate(self._visible_records):
             self._populate_row(row, record)
 
         self.table.resizeColumnsToContents()
         self.table.setColumnWidth(0, 110)
         self.table.setColumnWidth(1, 230)
         self.table.setColumnWidth(2, 170)
-        self.table.setColumnWidth(3, 170)
-        self.table.setRowCount(len(self.records))
-
+        self.table.setColumnWidth(3, 430)
         for row in range(self.table.rowCount()):
             self.table.setRowHeight(row, 165)
+        self._update_navigation()
+
+    def _update_navigation(self) -> None:
+        total = len(self.records)
+        pages = max((total + self.PAGE_SIZE - 1) // self.PAGE_SIZE, 1)
+        current = min(self._page + 1, pages)
+        self.page_label.setText(f"Página {current} de {pages}")
+        self.previous_button.setEnabled(self._page > 0)
+        self.next_button.setEnabled(self._page + 1 < pages)
+
+    def _previous_page(self) -> None:
+        if self._page <= 0:
+            return
+        self._page -= 1
+        self._records_signature = ()
+        self.reload()
+
+    def _next_page(self) -> None:
+        if (self._page + 1) * self.PAGE_SIZE >= len(self.records):
+            return
+        self._page += 1
+        self._records_signature = ()
+        self.reload()
 
     def _populate_row(self, row: int, record: dict) -> None:
         self.table.setItem(

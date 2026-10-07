@@ -22,8 +22,9 @@ class ProductGallerySyncService:
         product_extractor,
         image_downloader,
         review_service=None,
-        max_workers=6,
+        max_workers=4,
         max_candidates=6,
+        refresh_existing=True,
     ) -> None:
         self.browser = browser
         self.product_extractor = product_extractor
@@ -31,6 +32,7 @@ class ProductGallerySyncService:
         self.review_service = review_service
         self.max_workers = max(1, int(max_workers))
         self.max_candidates = max(1, int(max_candidates))
+        self.refresh_existing = bool(refresh_existing)
 
     def sync_products(
         self,
@@ -41,12 +43,19 @@ class ProductGallerySyncService:
         if not items:
             return items
 
+        existing_by_code = self._load_existing_products(items)
         worker_count = min(self.max_workers, len(items))
         completed = 0
         results = list(items)
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
             futures = {
-                executor.submit(self._sync_product, product): index
+                executor.submit(
+                    self._sync_product,
+                    product,
+                    existing_by_code.get(
+                        str(getattr(product, "code", "") or "").strip().casefold()
+                    ),
+                ): index
                 for index, product in enumerate(items)
             }
             for future in as_completed(futures):
@@ -61,8 +70,8 @@ class ProductGallerySyncService:
                     progress_callback(completed, len(items))
         return results
 
-    def _sync_product(self, product):
-        existing = self._existing_product(product)
+    def _sync_product(self, product, existing=None):
+        existing = existing or self._existing_product(product)
         candidates = self._candidate_source(product, existing)
         if not candidates:
             product.gallery_images = list(
@@ -178,7 +187,8 @@ class ProductGallerySyncService:
             != str(getattr(existing, "image_url", "") or "").strip().casefold()
         )
         needs_detail = (
-            not existing_gallery
+            self.refresh_existing
+            or not existing_gallery
             or primary_changed
             or ProductImageExtractor.is_generic_asset(
                 getattr(product, "image_url", ""),
@@ -223,6 +233,40 @@ class ProductGallerySyncService:
             seen.add(url.casefold())
             normalized.append(candidate)
         return normalized
+
+    def _load_existing_products(self, products) -> dict[str, Any]:
+        if self.review_service is None:
+            return {}
+        repository = getattr(self.review_service, "repository", None)
+        getter = getattr(repository, "get_by_codes", None)
+        if callable(getter):
+            codes = [
+                str(getattr(product, "code", "") or "").strip()
+                for product in products
+                if str(getattr(product, "code", "") or "").strip()
+            ]
+            try:
+                loaded = getter(codes) or {}
+            except (OSError, RuntimeError, TypeError, ValueError):
+                return {}
+            return {
+                str(code).strip().casefold(): product
+                for code, product in loaded.items()
+                if str(code).strip()
+            }
+        getter = getattr(repository, "get_by_code", None)
+        if not callable(getter):
+            return {}
+        result: dict[str, Any] = {}
+        for product in products:
+            code = str(getattr(product, "code", "") or "").strip()
+            if not code:
+                continue
+            try:
+                result[code.casefold()] = getter(code)
+            except (OSError, RuntimeError, TypeError, ValueError):
+                continue
+        return result
 
     def _existing_product(self, product):
         if self.review_service is None:

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from models.product import Product
+from models.scraping.scraped_product import ScrapedProduct
 from services.scraping.product_gallery_sync_service import (
     ProductGallerySyncService,
 )
@@ -95,7 +96,7 @@ def test_product_gallery_sync_downloads_new_gallery_images(
     repository = FakeRepository([existing])
     review = FakeReviewService(repository)
     downloader = FakeDownloader(tmp_path)
-    product = Product(
+    product = ScrapedProduct(
         code="FB-4010",
         name="Gota Antiestrés",
         url="https://site.test/producto/gota-antiestres/",

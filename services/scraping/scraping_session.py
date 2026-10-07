@@ -114,6 +114,8 @@ class ScrapingSession:
                 db.commit()
                 transaction_started = False
 
+            self._finalize_catalog_post_commit()
+
             batch_id = self._image_review_batch
             self._finalize_image_review_batch()
             self._apply_deferred_image_review(batch_id)
@@ -131,6 +133,14 @@ class ScrapingSession:
                     f"No se pudo registrar el historial del error: {history_error}"
                 )
         return self.result
+
+    def _finalize_catalog_post_commit(self) -> None:
+        """Finaliza tareas de catálogo que requieren la transacción ya confirmada."""
+        sync_service = getattr(self.runner, "scraping_service", None)
+        catalog_sync = getattr(sync_service, "catalog_sync_service", None)
+        finalize = getattr(catalog_sync, "finalize_post_commit", None)
+        if callable(finalize):
+            finalize()
 
     def _apply_deferred_image_review(self, batch_id: str | None) -> None:
         service = self._image_review_service()

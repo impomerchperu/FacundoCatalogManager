@@ -625,9 +625,7 @@ class MainWindow(QMainWindow):
 
     def _add_action_buttons(self, layout: QHBoxLayout) -> None:
         buttons = [
-            ("Exportar Excel", self.export_excel),
-            ("Exportar PDF", self.export_pdf),
-            ("Exportar CSV", self.export_csv),
+            ("EXPORTAR", self.export_catalog),
             ("Imágenes (0)", self.open_pending_image_review),
             ("Actualizar catálogo", self.open_scraping),
             ("Historial", self.open_scraping_history),
@@ -1177,15 +1175,14 @@ class MainWindow(QMainWindow):
     def search_products(self, _text: str) -> None:
         self.apply_filters()
 
-    def export_excel(self) -> None:
-        from exporters.excel_exporter import ExcelExporter
+    def export_catalog(self) -> None:
         from gui.excel_category_dialog import ExcelCategorySelectionDialog
 
         products = list(self.all_products)
         if not products:
             QMessageBox.information(
                 self,
-                "Exportar Excel",
+                "Exportar catálogo",
                 "No hay productos disponibles para exportar.",
             )
             return
@@ -1214,32 +1211,63 @@ class MainWindow(QMainWindow):
             self,
             initial_selected_categories=initial_selected,
             stock_only=self.stock_only,
+            on_export=self._export_selected_format,
         )
-        if not category_dialog.exec():
-            return
+        category_dialog.exec()
 
-        selected_categories = category_dialog.selected_categories()
-        export_products = ExcelCategorySelectionDialog.filter_products(
-            products,
-            selected_categories,
-            stock_only=self.stock_only,
-        )
-        if not export_products:
-            QMessageBox.warning(
-                self,
-                "Exportar Excel",
-                "Las categorías seleccionadas no contienen productos.",
-            )
-            return
+    def export_excel(self) -> None:
+        """Compatibilidad para llamadas existentes: abre el selector de formatos."""
+        self.export_catalog()
 
+    def _export_selected_format(
+        self,
+        format_name: str,
+        products: list[Product],
+    ) -> bool:
+        exporters = {
+            "excel": (
+                "Excel",
+                "catalogo.xlsx",
+                "Excel (*.xlsx)",
+            ),
+            "csv": (
+                "CSV",
+                "catalogo.csv",
+                "CSV (*.csv)",
+            ),
+            "pdf": (
+                "PDF",
+                "catalogo.pdf",
+                "PDF (*.pdf)",
+            ),
+        }
+        export_spec = exporters.get(str(format_name).strip().casefold())
+        if export_spec is None:
+            raise ValueError("Formato de exportación no válido.")
+
+        label, default_name, file_filter = export_spec
         filename, _ = QFileDialog.getSaveFileName(
             self,
-            "Guardar Excel",
-            "catalogo.xlsx",
-            "Excel (*.xlsx)",
+            f"Guardar {label}",
+            default_name,
+            file_filter,
         )
-        if filename:
-            ExcelExporter.export(export_products, filename)
+        if not filename:
+            return False
+
+        if format_name == "excel":
+            from exporters.excel_exporter import ExcelExporter
+
+            ExcelExporter.export(products, filename)
+        elif format_name == "csv":
+            from exporters.csv_exporter import CSVExporter
+
+            CSVExporter.export(products, filename)
+        else:
+            from exporters.pdf_exporter import PDFExporter
+
+            PDFExporter.export(products, filename)
+        return True
 
     def export_pdf(self) -> None:
         from exporters.pdf_exporter import PDFExporter

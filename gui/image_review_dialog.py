@@ -72,7 +72,7 @@ class _ResponsiveAlternativesWidget(QWidget):
         available_width = max(int(width) - 4, self.OPTION_WIDTH)
         columns = max(
             1,
-            available_width // (self.OPTION_WIDTH + self.SPACING),
+            (available_width + self.SPACING) // (self.OPTION_WIDTH + self.SPACING),
         )
         rows = max(
             1,

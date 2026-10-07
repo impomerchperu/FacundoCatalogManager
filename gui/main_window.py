@@ -1245,6 +1245,7 @@ class MainWindow(QMainWindow):
         if export_spec is None:
             raise ValueError("Formato de exportación no válido.")
 
+        normalized_format = str(format_name).strip().casefold()
         label, default_name, file_filter = export_spec
         filename, _ = QFileDialog.getSaveFileName(
             self,
@@ -1255,11 +1256,11 @@ class MainWindow(QMainWindow):
         if not filename:
             return False
 
-        if format_name == "excel":
+        if normalized_format == "excel":
             from exporters.excel_exporter import ExcelExporter
 
             ExcelExporter.export(products, filename)
-        elif format_name == "csv":
+        elif normalized_format == "csv":
             from exporters.csv_exporter import CSVExporter
 
             CSVExporter.export(products, filename)

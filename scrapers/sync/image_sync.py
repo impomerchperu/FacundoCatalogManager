@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import Any
 
+from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.images.image_repository import ImageRepository
 from scrapers.images.safe_image_manager import SafeImageManager
 
@@ -130,39 +131,110 @@ class ImageSync:
             current_url = str(
                 getattr(current_product, "image_url", "") or ""
             ).strip()
-            if current_url and current_url == image_url:
+            current_is_generic = (
+                ProductImageExtractor.is_generic_asset(current_url)
+                or ProductImageExtractor.is_generic_asset(
+                    str(existing.get("image_path", "") or ""),
+                )
+            )
+            candidates = self._normalized_image_candidates(product, image_url)
+
+            if current_url and current_url == image_url and not current_is_generic:
                 product.image_url = current_url
                 product.image_path = existing["image_path"]
                 product.image_hash = existing.get("image_hash", "")
                 return product
 
-            staged = self.review_service.stage_candidate(
+            if not current_is_generic:
+                trusted = next(
+                    (
+                        candidate
+                        for candidate in candidates
+                        if candidate.get("exact_code")
+                        and not candidate.get("generic")
+                    ),
+                    None,
+                )
+                if trusted is not None:
+                    trusted_url = str(trusted.get("url", "") or "").strip()
+                    if current_url and trusted_url == current_url:
+                        product.image_url = current_url
+                        product.image_path = existing["image_path"]
+                        product.image_hash = existing.get("image_hash", "")
+                        return product
+                    image_data = self.image_manager.process(
+                        product.code,
+                        trusted_url,
+                        force=True,
+                    )
+                    product.image_url = trusted_url
+                    product.image_path = image_data.get("image_path", "")
+                    product.image_hash = image_data.get("image_hash", "")
+                    return product
+
+            review_candidates = [
+                candidate
+                for candidate in candidates
+                if current_is_generic
+                or (
+                    not candidate.get("exact_code")
+                    and not candidate.get("generic")
+                )
+            ]
+            if not review_candidates:
+                product.image_url = current_url
+                product.image_path = existing["image_path"]
+                product.image_hash = existing.get("image_hash", "")
+                return product
+
+            staged_options = self.review_service.stage_candidates(
                 self.image_downloader,
                 str(product.code),
-                image_url,
+                review_candidates,
             )
-            candidate_path = str(staged.get("image_path", "") or "")
-            candidate_hash = str(staged.get("image_hash", "") or "")
+            if not staged_options:
+                product.image_url = current_url
+                product.image_path = existing["image_path"]
+                product.image_hash = existing.get("image_hash", "")
+                return product
+
             existing_hash = str(existing.get("image_hash", "") or "")
-            if not candidate_hash or candidate_hash == existing_hash:
-                self.review_service.discard_staged(candidate_path)
+            if current_is_generic:
+                observed_options = staged_options
+            else:
+                observed_options = [
+                    option
+                    for option in staged_options
+                    if str(option.get("hash", "") or "")
+                    and str(option.get("hash", "")) != existing_hash
+                ]
+                discarded = [
+                    option
+                    for option in staged_options
+                    if option not in observed_options
+                ]
+                self._discard_staged_options(discarded)
+
+            if not observed_options:
                 product.image_url = current_url
                 product.image_path = existing["image_path"]
                 product.image_hash = existing_hash
                 return product
 
+            primary = observed_options[0]
             review = self.review_service.register_candidate(
                 code=str(product.code),
                 product_name=str(getattr(product, "name", "") or ""),
                 current_path=str(existing.get("image_path", "") or ""),
                 current_hash=existing_hash,
                 current_url=current_url,
-                candidate_path=candidate_path,
-                candidate_hash=candidate_hash,
-                candidate_url=image_url,
+                candidate_path=str(primary.get("path", "") or ""),
+                candidate_hash=str(primary.get("hash", "") or ""),
+                candidate_url=str(primary.get("url", "") or ""),
+                candidate_options=observed_options,
             )
             if review is None:
-                self.review_service.discard_staged(candidate_path)
+                self._discard_staged_options(observed_options)
 
             product.image_url = current_url
             product.image_path = existing["image_path"]
@@ -174,6 +246,41 @@ class ImageSync:
             product.image_path = existing["image_path"]
             product.image_hash = existing.get("image_hash", "")
         return product
+
+    @staticmethod
+    def _normalized_image_candidates(product, image_url):
+        candidates = []
+        for candidate in list(getattr(product, "image_candidates", []) or []):
+            url = str(candidate.get("url", "") or "").strip()
+            if not url:
+                continue
+            candidates.append(
+                {
+                    "url": url,
+                    "score": int(candidate.get("score", 0) or 0),
+                    "exact_code": bool(candidate.get("exact_code", False)),
+                    "generic": bool(candidate.get("generic", False)),
+                    "source": str(candidate.get("source", "") or ""),
+                }
+            )
+        if candidates:
+            return candidates
+        return [
+            {
+                "url": str(image_url or "").strip(),
+                "score": 0,
+                "exact_code": False,
+                "generic": False,
+                "source": "",
+            }
+        ]
+
+    def _discard_staged_options(self, options) -> None:
+        for option in list(options or []):
+            self.review_service.discard_staged(
+                str(option.get("path", "") or "")
+            )
+
 
     def _load_current_products(self, products) -> dict[str, Any]:
         if self.review_service is None:

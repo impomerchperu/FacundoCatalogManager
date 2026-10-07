@@ -107,13 +107,16 @@ class ScrapingSession:
                 return self.result
 
             self._persist_catalog_products()
-            self._finalize_image_review_batch()
 
             self.result.finished_at = datetime.now(timezone.utc)
             self._save_history()
             if db is not None and transaction_started:
                 db.commit()
                 transaction_started = False
+
+            batch_id = self._image_review_batch
+            self._finalize_image_review_batch()
+            self._apply_deferred_image_review(batch_id)
         except Exception as error:  # noqa: BLE001
             self._rollback_transaction(db, transaction_started)
             transaction_started = False
@@ -128,6 +131,19 @@ class ScrapingSession:
                     f"No se pudo registrar el historial del error: {history_error}"
                 )
         return self.result
+
+    def _apply_deferred_image_review(self, batch_id: str | None) -> None:
+        service = self._image_review_service()
+        apply_approved = getattr(service, "apply_approved", None)
+        if not callable(apply_approved):
+            return
+        try:
+            apply_approved(batch_id)
+        except (OSError, ValueError, RuntimeError):
+            # Una decisión de imagen no debe convertir una ejecución de
+            # catálogo exitosa en una ejecución fallida. La revisión queda
+            # pendiente para el siguiente ciclo.
+            return
 
     def _image_review_service(self):
         sync_service = getattr(self.runner, "scraping_service", None)

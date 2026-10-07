@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, QResizeEvent, QTimer
+from PySide6.QtCore import QResizeEvent, QSize, Qt, QTimer
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QDialog,
@@ -404,7 +404,7 @@ class ImageReviewDialog(QDialog):
                 0,
                 Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight,
             )
-            layout.addWidget(option_container)
+            container.add_widget(option_container)
 
         return container
 
@@ -593,25 +593,27 @@ class ImageReviewDialog(QDialog):
         if self.width() <= 0:
             return
         header = self.table.horizontalHeader()
+        from PySide6.QtWidgets import QHeaderView
+
         header.setSectionResizeMode(
             0,
-            header.ResizeMode.ResizeToContents,
+            QHeaderView.ResizeMode.ResizeToContents,
         )
         header.setSectionResizeMode(
             1,
-            header.ResizeMode.ResizeToContents,
+            QHeaderView.ResizeMode.ResizeToContents,
         )
         header.setSectionResizeMode(
             2,
-            header.ResizeMode.ResizeToContents,
+            QHeaderView.ResizeMode.ResizeToContents,
         )
         header.setSectionResizeMode(
             3,
-            header.ResizeMode.Stretch,
+            QHeaderView.ResizeMode.Stretch,
         )
         self.table.resizeRowsToContents()
         self.table.resizeColumnsToContents()
-        header.setSectionResizeMode(3, header.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
 
     def closeEvent(self, event) -> None:
         self.refresh_timer.stop()

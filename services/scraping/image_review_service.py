@@ -221,17 +221,19 @@ class ImageReviewService:
                     }
                 ]
 
-            primary = (
-                next(
+            if options:
+                primary = next(
                     (
                         option
                         for option in options
                         if option["path"] == str(candidate_path or "")
                     ),
-                    options[0],
+                    None,
                 )
-                if options
-                else {
+                if primary is None:
+                    primary = options[0]
+            else:
+                primary = {
                     "url": "",
                     "path": "",
                     "hash": "",
@@ -240,7 +242,6 @@ class ImageReviewService:
                     "generic": False,
                     "source": "",
                 }
-            )
 
             normalized_code = str(code).casefold()
             for existing_record in records:

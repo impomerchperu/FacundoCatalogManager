@@ -285,6 +285,31 @@ class ImageReviewService:
             records = self._read()
             record = self._find_pending_record(records, review_id)
 
+            if action in {"keep", "replace"}:
+                product = self.repository.get_by_code(
+                    str(record.get("code", "")),
+                )
+                if product is None:
+                    raise ValueError(
+                        "No existe el producto "
+                        f"{record.get('code', '')} en la base de datos."
+                    )
+                result = (
+                    self._keep_current(record, product)
+                    if action == "keep"
+                    else self._apply_selected_image(
+                        record,
+                        product,
+                        action,
+                        manual_path,
+                    )
+                )
+                record["status"] = "resolved"
+                record["resolution"] = action
+                record["updated_at"] = self._now()
+                self._write(records)
+                return result
+
             previous_action = str(
                 record.get("selected_action", "") or ""
             ).casefold()

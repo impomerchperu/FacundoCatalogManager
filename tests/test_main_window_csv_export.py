@@ -87,13 +87,24 @@ def test_main_window_excel_dialog_inherits_active_category_and_stock_filters(
             calls["initial_selected"] = set(initial_selected_categories)
             calls["stock_only"] = stock_only
             calls["on_export"] = on_export
+            self.products = list(products)
+            self.selected_categories = set(initial_selected_categories)
+            self.stock_only = stock_only
             dialog_ref["instance"] = self
 
         def exec(self):
+            self.on_export(
+                "excel",
+                self.filter_products(
+                    self.products,
+                    self.selected_categories(),
+                    stock_only=self.stock_only,
+                ),
+            )
             return True
 
         def selected_categories(self):
-            return calls["initial_selected"]
+            return set(self.selected_categories)
 
         @staticmethod
         def filter_products(products, categories, *, stock_only=False):

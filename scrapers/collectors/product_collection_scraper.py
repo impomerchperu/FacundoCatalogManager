@@ -14,6 +14,7 @@ from config.scraping_config import (
 from models.scraping.category import Category
 from scrapers.extractors.code_utils import normalize_code
 from scrapers.extractors.price_extractor import PriceExtractor
+from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
 )
@@ -408,6 +409,9 @@ class ProductCollectionScraper:
 
     @classmethod
     def _detail_skip_reason(cls, card: Any, product: Any) -> str | None:
+        if cls._image_needs_detail(product):
+            return "image_quality"
+
         stock_values = cls._stock_values(card)
         if cls._has_complete_card_color_stock(card, product, stock_values):
             if cls._missing_price_fields(card, product):
@@ -433,6 +437,11 @@ class ProductCollectionScraper:
         if cls._missing_price_fields(card, product):
             return "missing_prices"
         return "other"
+
+    @staticmethod
+    def _image_needs_detail(product: Any) -> bool:
+        image_url = str(getattr(product, "image_url", "") or "").strip()
+        return not image_url or ProductImageExtractor.is_generic_asset(image_url)
 
     @classmethod
     def _missing_detail_fields(cls, product: Any) -> tuple[str, ...]:
@@ -575,16 +584,29 @@ class ProductCollectionScraper:
         if detailed_product is None:
             return product
 
+        needs_image_repair = self._image_needs_detail(product)
+        detail_candidates = list(
+            getattr(detailed_product, "image_candidates", []) or []
+        )
+        if detail_candidates:
+            product.image_candidates = detail_candidates
+
         product.url = detail_url
         detail_code = normalize_code(getattr(detailed_product, "code", ""))
         if detail_code:
             product.code = detail_code
 
-        for field in ("name", "description", "image_url"):
+        for field in ("name", "description"):
             current = str(getattr(product, field, "") or "").strip()
             detail_value = getattr(detailed_product, field, "")
             if not current and str(detail_value or "").strip():
                 setattr(product, field, detail_value)
+
+        detail_image = str(
+            getattr(detailed_product, "image_url", "") or ""
+        ).strip()
+        if needs_image_repair and detail_image:
+            product.image_url = detail_image
 
         for field in self._PRICE_FIELDS:
             current = float(getattr(product, field, 0.0) or 0.0)

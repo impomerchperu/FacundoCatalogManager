@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QDialog,
@@ -56,6 +56,10 @@ class ImageReviewDialog(QDialog):
         self.resize(1040, 620)
         self._build_ui()
         self.reload()
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.setInterval(700)
+        self.refresh_timer.timeout.connect(self.reload)
+        self.refresh_timer.start()
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -70,7 +74,7 @@ class ImageReviewDialog(QDialog):
         self.table = QTableWidget()
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(
-            ["Código", "Producto", "Imagen actual", "Imagen detectada", "Acciones"],
+            ["Código", "Producto", "Imagen actual", "Imágenes detectadas", "Acciones"],
         )
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
@@ -107,7 +111,7 @@ class ImageReviewDialog(QDialog):
         layout.addWidget(close_button)
 
     def reload(self) -> None:
-        self.records = self.service.pending()
+        self.records = self.service.available()
         self.summary_label.setText(
             f"Imágenes nuevas o actualizadas pendientes: {len(self.records)}. "
             "La imagen actual se conserva hasta que seleccione una acción.",
@@ -152,31 +156,53 @@ class ImageReviewDialog(QDialog):
         action_layout.setContentsMargins(4, 4, 4, 4)
         action_layout.setSpacing(6)
 
-        keep_button = QPushButton("Conservar actual")
-        keep_button.clicked.connect(
-            lambda _checked=False, review_id=str(record["id"]): self._apply(
-                review_id,
-                "keep",
-            ),
-        )
-        action_layout.addWidget(keep_button)
+        review_id = str(record["id"])
+        is_gallery = str(record.get("kind", "replacement")) == "gallery"
+        if is_gallery:
+            accept_button = QPushButton("Aceptar galería")
+            accept_button.clicked.connect(
+                lambda _checked=False, rid=review_id: self._apply(
+                    rid,
+                    "accept_gallery",
+                ),
+            )
+            action_layout.addWidget(accept_button)
 
-        replace_button = QPushButton("Reemplazar por detectada")
-        replace_button.clicked.connect(
-            lambda _checked=False, review_id=str(record["id"]): self._apply(
-                review_id,
-                "replace",
-            ),
-        )
-        action_layout.addWidget(replace_button)
+            dismiss_button = QPushButton("Descartar galería")
+            dismiss_button.clicked.connect(
+                lambda _checked=False, rid=review_id: self._apply(
+                    rid,
+                    "dismiss_gallery",
+                ),
+            )
+            action_layout.addWidget(dismiss_button)
+        else:
+            keep_button = QPushButton("Conservar actual")
+            keep_button.clicked.connect(
+                lambda _checked=False, rid=review_id: self._apply(
+                    rid,
+                    "keep",
+                ),
+            )
+            action_layout.addWidget(keep_button)
 
-        manual_button = QPushButton("Elegir otra imagen…")
-        manual_button.clicked.connect(
-            lambda _checked=False, review_id=str(record["id"]): self._choose_manual(
-                review_id,
-            ),
-        )
-        action_layout.addWidget(manual_button)
+            replace_button = QPushButton("Reemplazar por detectada")
+            replace_button.clicked.connect(
+                lambda _checked=False, rid=review_id: self._apply(
+                    rid,
+                    "replace",
+                ),
+            )
+            action_layout.addWidget(replace_button)
+
+            manual_button = QPushButton("Elegir otra imagen…")
+            manual_button.clicked.connect(
+                lambda _checked=False, rid=review_id: self._choose_manual(
+                    rid,
+                ),
+            )
+            action_layout.addWidget(manual_button)
+
         action_layout.addStretch()
 
         self.table.setCellWidget(row, 4, actions)
@@ -330,4 +356,5 @@ class ImageReviewDialog(QDialog):
         self.reload()
 
     def closeEvent(self, event) -> None:
+        self.refresh_timer.stop()
         super().closeEvent(event)

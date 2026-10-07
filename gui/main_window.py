@@ -37,6 +37,7 @@ from gui.workers.catalog_bootstrap_worker import CatalogBootstrapWorker
 from gui.workers.catalog_load_worker import CatalogLoadWorker
 from models.product import Product
 from services.scraping.category_name_normalizer import split_category_names
+from services.scraping.image_review_service import ImageReviewService
 
 if TYPE_CHECKING:
     from gui.image_review_dialog import ImageReviewDialog
@@ -231,6 +232,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.controller = ProductController()
+        self.image_review_service = ImageReviewService()
         self.setWindowTitle("Facundo Catalog Manager")
         self.setStyleSheet("QMainWindow { background-color: #ffffff; }")
         self.resize(self.INITIAL_WINDOW_WIDTH, self.INITIAL_WINDOW_HEIGHT)
@@ -254,6 +256,10 @@ class MainWindow(QMainWindow):
         self.catalog_bootstrap_blocked_buttons: list[QPushButton] = []
         self.catalog_load_thread: QThread | None = None
         self.catalog_load_worker: CatalogLoadWorker | None = None
+        self.image_review_button: QPushButton | None = None
+        self.image_review_poll_timer = QTimer(self)
+        self.image_review_poll_timer.setInterval(700)
+        self.image_review_poll_timer.timeout.connect(self._refresh_image_review_state)
 
         central = QWidget()
         central.setObjectName("main_content")
@@ -314,6 +320,8 @@ class MainWindow(QMainWindow):
         # independientemente.
         QTimer.singleShot(0, self._start_catalog_bootstrap)
         QTimer.singleShot(0, self._load_initial_catalog)
+        self.image_review_poll_timer.start()
+        self._refresh_image_review_state()
 
     def _start_catalog_bootstrap(self) -> None:
         """Ejecuta la reparación inicial en segundo plano."""
@@ -620,6 +628,7 @@ class MainWindow(QMainWindow):
             ("Exportar Excel", self.export_excel),
             ("Exportar PDF", self.export_pdf),
             ("Exportar CSV", self.export_csv),
+            ("Imágenes (0)", self.open_pending_image_review),
             ("Actualizar catálogo", self.open_scraping),
             ("Historial", self.open_scraping_history),
         ]
@@ -629,6 +638,9 @@ class MainWindow(QMainWindow):
             button.setFixedWidth(button.sizeHint().width())
             button.clicked.connect(callback)
             layout.addWidget(button)
+            if text == "Imágenes (0)":
+                self.image_review_button = button
+                button.setFixedWidth(115)
             if text == "Actualizar catálogo":
                 self.catalog_bootstrap_blocked_buttons.append(button)
 
@@ -1003,6 +1015,56 @@ class MainWindow(QMainWindow):
     def _history_closed(self) -> None:
         self.history_dialog = None
 
+    def _refresh_image_review_state(self) -> None:
+        button = self.image_review_button
+        service = self.image_review_service
+        if button is None or service is None:
+            return
+        try:
+            records = service.available()
+        except Exception:  # noqa: BLE001
+            return
+
+        count = len(records)
+        gallery_count = sum(
+            1
+            for record in records
+            if str(record.get("kind", "replacement")) == "gallery"
+        )
+        replacement_count = count - gallery_count
+        button.setText(f"Imágenes ({count})")
+        button.setToolTip(
+            f"{gallery_count} galerías nuevas · "
+            f"{replacement_count} reemplazos pendientes."
+            if count
+            else "No hay cambios de imagen pendientes."
+        )
+        if count:
+            button.setStyleSheet(
+                "QPushButton {"
+                " color: #173f6d; font-weight: bold;"
+                " background-color: #fff7d6;"
+                " border: 1px solid #e2c85b;"
+                " border-radius: 4px;"
+                "}"
+                " QPushButton:hover { background-color: #fff2bd; }"
+            )
+        else:
+            self._configure_action_button(button)
+
+        gallery_overrides: dict[str, list[dict]] = {}
+        for record in records:
+            if str(record.get("kind", "replacement")) != "gallery":
+                continue
+            code = str(record.get("code", "") or "").strip().casefold()
+            if not code:
+                continue
+            gallery_overrides[code] = [
+                dict(option)
+                for option in list(record.get("candidate_options", []) or [])
+            ]
+        self.table.set_gallery_overrides(gallery_overrides)
+
     def open_pending_image_review(self) -> None:
         if self.image_review_dialog is not None:
             self.image_review_dialog.raise_()
@@ -1012,6 +1074,7 @@ class MainWindow(QMainWindow):
         from gui.image_review_dialog import ImageReviewDialog
 
         dialog = ImageReviewDialog(
+            service=self.image_review_service,
             on_catalog_changed=self.refresh_catalog,
             parent=self,
         )
@@ -1027,6 +1090,7 @@ class MainWindow(QMainWindow):
 
     def _image_review_dialog_closed(self) -> None:
         self.image_review_dialog = None
+        self._refresh_image_review_state()
 
     def scraping_finished(self) -> None:
         self.refresh_catalog()

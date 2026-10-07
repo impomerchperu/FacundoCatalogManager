@@ -75,9 +75,9 @@ class ImageReviewDialog(QDialog):
         layout.addWidget(self.summary_label)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(5)
+        self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels(
-            ["Código", "Producto", "Imagen actual", "Imágenes detectadas", "Acciones"],
+            ["Código", "Producto", "Imagen actual", "Imágenes detectadas"],
         )
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
@@ -127,10 +127,11 @@ class ImageReviewDialog(QDialog):
 
         layout.addWidget(navigation)
 
-        close_button = QPushButton("Cerrar")
-        close_button.clicked.connect(self.close)
-        close_button.setFixedHeight(34)
-        layout.addWidget(close_button)
+        self.apply_button = QPushButton("APLICAR")
+        self.apply_button.clicked.connect(self._apply_changes)
+        self.apply_button.setFixedHeight(36)
+        self.apply_button.setEnabled(False)
+        layout.addWidget(self.apply_button)
 
     def reload(self) -> None:
         records = self.service.available()
@@ -141,6 +142,8 @@ class ImageReviewDialog(QDialog):
                 str(record.get("kind", "replacement")),
                 str(record.get("candidate_hash", "")),
                 str(record.get("selected_action", "")),
+                str(record.get("selected_path", "")),
+                str(record.get("selected_url", "")),
                 tuple(
                     (
                         str(option.get("path", "")),
@@ -177,7 +180,7 @@ class ImageReviewDialog(QDialog):
         self.table.setColumnWidth(0, 110)
         self.table.setColumnWidth(1, 230)
         self.table.setColumnWidth(2, 170)
-        self.table.setColumnWidth(3, 430)
+        self.table.setColumnWidth(3, 560)
         for row in range(self.table.rowCount()):
             self.table.setRowHeight(row, 165)
         self._update_navigation()
@@ -189,6 +192,12 @@ class ImageReviewDialog(QDialog):
         self.page_label.setText(f"Página {current} de {pages}")
         self.previous_button.setEnabled(self._page > 0)
         self.next_button.setEnabled(self._page + 1 < pages)
+        self.apply_button.setEnabled(
+            any(
+                str(record.get("selected_action", "") or "").strip()
+                for record in self.records
+            )
+        )
 
     def _previous_page(self) -> None:
         if self._page <= 0:
@@ -216,69 +225,13 @@ class ImageReviewDialog(QDialog):
             QTableWidgetItem(str(record.get("product_name", ""))),
         )
 
-        current = self._preview_widget(
-            resolve_data_path(str(record.get("current_path", "") or "")),
-            "Sin imagen",
-        )
+        current = self._current_widget(record)
         candidate = self._candidate_widget(record)
         self.table.setCellWidget(row, 2, current)
         self.table.setCellWidget(row, 3, candidate)
-
-        actions = QWidget()
         action_layout = QVBoxLayout(actions)
         action_layout.setContentsMargins(4, 4, 4, 4)
         action_layout.setSpacing(6)
-
-        review_id = str(record["id"])
-        is_gallery = str(record.get("kind", "replacement")) == "gallery"
-        if is_gallery:
-            accept_button = QPushButton("Aceptar galería")
-            accept_button.clicked.connect(
-                lambda _checked=False, rid=review_id: self._apply(
-                    rid,
-                    "accept_gallery",
-                ),
-            )
-            action_layout.addWidget(accept_button)
-
-            dismiss_button = QPushButton("Descartar galería")
-            dismiss_button.clicked.connect(
-                lambda _checked=False, rid=review_id: self._apply(
-                    rid,
-                    "dismiss_gallery",
-                ),
-            )
-            action_layout.addWidget(dismiss_button)
-        else:
-            keep_button = QPushButton("Conservar actual")
-            keep_button.clicked.connect(
-                lambda _checked=False, rid=review_id: self._apply(
-                    rid,
-                    "keep",
-                ),
-            )
-            action_layout.addWidget(keep_button)
-
-            replace_button = QPushButton("Reemplazar por detectada")
-            replace_button.clicked.connect(
-                lambda _checked=False, rid=review_id: self._apply(
-                    rid,
-                    "replace",
-                ),
-            )
-            action_layout.addWidget(replace_button)
-
-            manual_button = QPushButton("Elegir otra imagen…")
-            manual_button.clicked.connect(
-                lambda _checked=False, rid=review_id: self._choose_manual(
-                    rid,
-                ),
-            )
-            action_layout.addWidget(manual_button)
-
-        action_layout.addStretch()
-
-        self.table.setCellWidget(row, 4, actions)
 
     def _candidate_widget(self, record: dict) -> QWidget:
         options = list(record.get("candidate_options", []) or [])
@@ -347,38 +300,57 @@ class ImageReviewDialog(QDialog):
         layout.addStretch()
         return container
 
-    @classmethod
-    def _preview_widget(cls, path: Path, empty_text: str) -> QLabel:
-        label = QLabel()
-        label.setFixedSize(cls.THUMBNAIL_SIZE, cls.THUMBNAIL_SIZE)
+    def _current_widget(self, record: dict) -> _ImageChoiceLabel:
+        path = self._selected_preview_path(record)
+        label = _ImageChoiceLabel(
+            lambda rid=str(record["id"]): self._choose_manual(rid),
+        )
+        label.setFixedSize(self.THUMBNAIL_SIZE, self.THUMBNAIL_SIZE)
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setStyleSheet(
             "QLabel {"
             " background-color: #ffffff;"
-            " border: 1px solid #cbddea;"
+            " border: 2px solid #cbddea;"
             " color: #6b7c8f;"
+            "}"
+            " QLabel:hover {"
+            " border: 2px solid #6b8fb3;"
             "}"
         )
 
         if not path.is_file():
-            label.setText(empty_text)
-            return label
-
-        pixmap = QPixmap(str(path))
-        if pixmap.isNull():
-            label.setText("No se pudo previsualizar")
-            return label
-
-        label.setPixmap(
-            pixmap.scaled(
-                cls.THUMBNAIL_SIZE - 8,
-                cls.THUMBNAIL_SIZE - 8,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            ),
-        )
-        label.setToolTip(str(path))
+            label.setText("Sin imagen")
+        else:
+            pixmap = QPixmap(str(path))
+            if pixmap.isNull():
+                label.setText("No se pudo previsualizar")
+            else:
+                label.setPixmap(
+                    pixmap.scaled(
+                        self.THUMBNAIL_SIZE - 8,
+                        self.THUMBNAIL_SIZE - 8,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    ),
+                )
+        label.setToolTip("Haga clic para elegir una imagen del archivo.")
         return label
+
+    @staticmethod
+    def _selected_preview_path(record: dict) -> Path:
+        selected_action = str(
+            record.get("selected_action", "") or ""
+        ).casefold()
+        selected_path = str(
+            record.get("selected_path", "") or ""
+        ).strip()
+        if selected_action in {"candidate", "manual"} and selected_path:
+            candidate = resolve_data_path(selected_path)
+            if candidate.is_file():
+                return candidate
+        return resolve_data_path(
+            str(record.get("current_path", "") or "")
+        )
 
     def _choose_manual(self, review_id: str) -> None:
         filename, _ = QFileDialog.getOpenFileName(
@@ -397,13 +369,8 @@ class ImageReviewDialog(QDialog):
         action: str,
         manual_path: str | None = None,
     ) -> None:
-        was_pending = any(
-            str(record.get("id", "")) == review_id
-            and record.get("status") == "pending"
-            for record in self.records
-        )
         try:
-            result = self.service.apply_selection(
+            self.service.apply_selection(
                 review_id,
                 action,
                 manual_path=manual_path,
@@ -416,27 +383,45 @@ class ImageReviewDialog(QDialog):
             )
             return
 
-        if (
-            was_pending
-            and action in {"candidate", "manual"}
-            and result.get("selected")
-        ):
-            try:
-                finalized = self.service.finalize_selected([review_id])
-                result = finalized[0] if finalized else result
-            except Exception as error:  # noqa: BLE001
-                QMessageBox.critical(
-                    self,
-                    "Revisión de imágenes",
-                    str(error),
-                )
-                return
+        self._records_signature = ()
+        self.reload()
 
-        if result.get("changed") and callable(self.on_catalog_changed):
+    def _apply_changes(self) -> None:
+        review_ids = [
+            str(record.get("id", ""))
+            for record in self.records
+            if str(record.get("selected_action", "") or "").strip()
+        ]
+        if not review_ids:
+            return
+
+        try:
+            results = self.service.finalize_selected(review_ids)
+        except Exception as error:  # noqa: BLE001
+            QMessageBox.critical(
+                self,
+                "Revisión de imágenes",
+                str(error),
+            )
+            return
+
+        if results and callable(self.on_catalog_changed):
             self.on_catalog_changed()
 
+        self._records_signature = ()
         self.reload()
+        if not self.records:
+            self.close()
 
     def closeEvent(self, event) -> None:
         self.refresh_timer.stop()
-        super().closeEvent(event)
+        try:
+            self.service.discard_selections()
+        except Exception as error:  # noqa: BLE001
+            QMessageBox.critical(
+                self,
+                "Revisión de imágenes",
+                str(error),
+            )
+        finally:
+            super().closeEvent(event)

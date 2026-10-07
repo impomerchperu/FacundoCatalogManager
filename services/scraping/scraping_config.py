@@ -50,6 +50,7 @@ class ScrapingConfig:
 
     image_workers: int = SCRAPING_IMAGE_WORKERS
 
+    # Gallery work is bounded separately so image review stays responsive.
     gallery_workers: int = 4
 
     gallery_max_candidates: int = 6

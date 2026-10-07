@@ -7,6 +7,8 @@ from urllib.parse import urljoin, urlsplit
 class ProductImageExtractor:
     """Extrae la imagen principal y alternativas desde HTML WooCommerce."""
 
+    BASE_URL = "https://stock.importacionesfacundo.com"
+
     _IMAGE_ATTRIBUTES = (
         "data-large_image",
         "data-large-file",

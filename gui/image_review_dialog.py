@@ -52,7 +52,7 @@ class ImageReviewDialog(QDialog):
         self.service = service or ImageReviewService()
         self.on_catalog_changed = on_catalog_changed
         self.records: list[dict] = []
-        self._records_signature: tuple = ()
+        self._records_signature: tuple | None = ()
         self._page = 0
         self.PAGE_SIZE = 24
         self.setWindowFlag(Qt.WindowType.Window, True)
@@ -161,7 +161,11 @@ class ImageReviewDialog(QDialog):
             )
             for record in records
         )
-        if signature == self._records_signature and hasattr(self, "_visible_records"):
+        if (
+            self._records_signature is not None
+            and signature == self._records_signature
+            and hasattr(self, "_visible_records")
+        ):
             self._update_navigation()
             return
         self._records_signature = signature

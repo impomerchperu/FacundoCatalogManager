@@ -84,6 +84,8 @@ def test_image_review_dialog_has_no_actions_column_and_has_apply_button():
     ] == ["Código", "Producto", "Imagen actual", "Imágenes detectadas"]
     assert dialog.apply_button.text() == "APLICAR"
     assert not dialog.apply_button.isEnabled()
+    assert dialog.windowFlags() & Qt.WindowType.WindowMinimizeButtonHint
+    assert dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
 
     current = dialog.table.cellWidget(0, 2)
     current_layout = current.layout()
@@ -169,6 +171,29 @@ def test_image_review_dialog_can_apply_one_review_individually():
 
     assert service.finalize_calls == [["review-1"]]
     assert dialog.records == []
+
+    dialog.close()
+
+
+def test_image_review_dialog_responsive_widget_reflows_by_width():
+    _qapp()
+    service = FakeReviewService()
+    service.records[0]["candidate_options"] = [
+        {
+            "path": f"image_review_staging/FB-100-{index}.webp",
+            "hash": f"hash-{index}",
+            "url": f"https://site.test/{index}.webp",
+            "gallery": False,
+        }
+        for index in range(4)
+    ]
+    dialog = ImageReviewDialog(service=service)
+
+    alternatives = dialog.table.cellWidget(0, 3)
+    narrow_height = alternatives.heightForWidth(140)
+    wide_height = alternatives.heightForWidth(560)
+
+    assert narrow_height > wide_height
 
     dialog.close()
 

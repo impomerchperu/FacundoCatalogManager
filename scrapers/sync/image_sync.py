@@ -89,6 +89,18 @@ class ImageSync:
         )
 
         if existing and review_enabled:
+            candidates = self._normalized_image_candidates(product, image_url)
+            if self._has_authoritative_candidate(candidates, image_url):
+                image_data = self.image_manager.process(
+                    product.code,
+                    image_url,
+                    force=True,
+                )
+                if image_data.get("image_path"):
+                    product.image_url = image_url
+                    product.image_path = image_data.get("image_path", "")
+                    product.image_hash = image_data.get("image_hash", "")
+                    return product
             return self._stage_changed_image(
                 product,
                 image_url,
@@ -299,6 +311,7 @@ class ImageSync:
                     "exact_code": bool(candidate.get("exact_code", False)),
                     "generic": bool(candidate.get("generic", False)),
                     "source": str(candidate.get("source", "") or ""),
+                    "authoritative": bool(candidate.get("authoritative", False)),
                 }
             )
         if candidates:
@@ -310,8 +323,21 @@ class ImageSync:
                 "exact_code": False,
                 "generic": False,
                 "source": "",
+                "authoritative": False,
             }
         ]
+
+    @staticmethod
+    def _has_authoritative_candidate(candidates, image_url: str) -> bool:
+        normalized_url = str(image_url or "").strip().casefold()
+        if not normalized_url:
+            return False
+        return any(
+            bool(candidate.get("authoritative"))
+            and not bool(candidate.get("generic"))
+            and str(candidate.get("url", "") or "").strip().casefold() == normalized_url
+            for candidate in candidates
+        )
 
     def _discard_staged_options(self, options) -> None:
         for option in list(options or []):

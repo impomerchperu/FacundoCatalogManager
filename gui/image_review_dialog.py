@@ -20,6 +20,21 @@ from config.runtime_paths import resolve_data_path
 from services.scraping.image_review_service import ImageReviewService
 
 
+class _ImageChoiceLabel(QLabel):
+    """Miniatura clicable para seleccionar una alternativa de imagen."""
+
+    def __init__(self, callback, parent=None) -> None:
+        super().__init__(parent)
+        self._callback = callback
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+    def mouseReleaseEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._callback()
+        super().mouseReleaseEvent(event)
+
+
 class ImageReviewDialog(QDialog):
     """Revisa imágenes nuevas detectadas por una actualización del catálogo."""
 
@@ -127,10 +142,7 @@ class ImageReviewDialog(QDialog):
             resolve_data_path(str(record.get("current_path", "") or "")),
             "Sin imagen",
         )
-        candidate = self._preview_widget(
-            resolve_data_path(str(record.get("candidate_path", "") or "")),
-            "No disponible",
-        )
+        candidate = self._candidate_widget(record)
         self.table.setCellWidget(row, 2, current)
         self.table.setCellWidget(row, 3, candidate)
 
@@ -167,6 +179,73 @@ class ImageReviewDialog(QDialog):
         action_layout.addStretch()
 
         self.table.setCellWidget(row, 4, actions)
+
+    def _candidate_widget(self, record: dict) -> QWidget:
+        options = list(record.get("candidate_options", []) or [])
+        if not options:
+            fallback = str(record.get("candidate_path", "") or "")
+            if fallback:
+                options = [{
+                    "path": fallback,
+                    "url": str(record.get("candidate_url", "") or ""),
+                    "generic": False,
+                }]
+
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(6)
+
+        if not options:
+            label = QLabel("No hay alternativas detectadas.")
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setWordWrap(True)
+            layout.addWidget(label)
+            return container
+
+        for index, option in enumerate(options, start=1):
+            path = resolve_data_path(str(option.get("path", "") or ""))
+            option_path = str(option.get("path", "") or "")
+            label = _ImageChoiceLabel(
+                lambda rid=str(record["id"]), selected=option_path: self._apply(
+                    rid,
+                    "candidate",
+                    selected,
+                ),
+            )
+            label.setFixedSize(125, 125)
+            label.setStyleSheet(
+                "QLabel {"
+                " background-color: #ffffff;"
+                " border: 2px solid #cbddea;"
+                " color: #6b7c8f;"
+                "}"
+                " QLabel:hover {"
+                " border: 2px solid #6b8fb3;"
+                "}",
+            )
+            if path.is_file():
+                pixmap = QPixmap(str(path))
+                if not pixmap.isNull():
+                    label.setPixmap(
+                        pixmap.scaled(
+                            117,
+                            117,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation,
+                        ),
+                    )
+            if label.pixmap() is None:
+                label.setText(f"Alternativa {index}")
+            label.setToolTip(
+                f"Alternativa {index}. "
+                f"{'Detectada en la galería.' if option.get('gallery') else 'Detectada en la tarjeta.'} "
+                "Haga clic para seleccionarla.",
+            )
+            layout.addWidget(label)
+
+        layout.addStretch()
+        return container
 
     @classmethod
     def _preview_widget(cls, path: Path, empty_text: str) -> QLabel:

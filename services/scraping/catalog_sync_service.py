@@ -349,8 +349,42 @@ class CatalogSyncService:
                     color_stock.get(normalized_color, 0), normalized_stock
                 )
             existing.color_stock = color_stock
+            cls._merge_gallery_images(existing, product)
             cls._merge_missing_scalar_fields(existing, product)
         return list(consolidated.values())
+
+    @staticmethod
+    def _merge_gallery_images(existing, product) -> None:
+        current = [
+            dict(image)
+            for image in list(getattr(existing, "gallery_images", []) or [])
+            if isinstance(image, dict)
+        ]
+        incoming = [
+            dict(image)
+            for image in list(getattr(product, "gallery_images", []) or [])
+            if isinstance(image, dict)
+        ]
+        seen = {
+            str(image.get("url", "") or "").strip().casefold()
+            for image in current
+            if str(image.get("url", "") or "").strip()
+        }
+        for image in incoming:
+            url = str(image.get("url", "") or "").strip()
+            if not url or url.casefold() in seen:
+                continue
+            current.append(image)
+            seen.add(url.casefold())
+        current.sort(
+            key=lambda image: (
+                int(image.get("position", 0) or 0),
+                str(image.get("url", "") or ""),
+            )
+        )
+        for position, image in enumerate(current, start=1):
+            image["position"] = position
+        existing.gallery_images = current
 
     @staticmethod
     def _merge_missing_scalar_fields(existing, product) -> None:

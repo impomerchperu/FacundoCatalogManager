@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, cast
+from typing import Any
 
 from bs4 import BeautifulSoup
 
@@ -253,6 +253,8 @@ class ProductGallerySyncService:
             try:
                 loaded = getter(codes) or {}
             except (OSError, RuntimeError, TypeError, ValueError):
+                return {}
+            if not isinstance(loaded, dict):
                 return {}
             return {
                 str(code).strip().casefold(): product

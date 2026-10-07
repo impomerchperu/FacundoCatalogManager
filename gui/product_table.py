@@ -571,32 +571,31 @@ class ProductTable(QTableWidget):
             ),
             None,
         )
-        if not isinstance(persisted, dict):
-            persisted = None
+        persisted_image = persisted if isinstance(persisted, dict) else None
 
         menu = QMenu(self)
         use_action = menu.addAction("Usar como imagen principal")
-        use_action.setEnabled(persisted is not None)
-        if persisted is None:
+        use_action.setEnabled(persisted_image is not None)
+        if persisted_image is None:
             use_action.setToolTip(
                 "Primero apruebe la nueva galería desde Revisión de imágenes."
             )
         chosen = menu.exec(self.viewport().mapToGlobal(position))
-        if chosen is not use_action or persisted is None:
+        if chosen is not use_action or persisted_image is None:
             return
 
-        product.image_url = str(persisted.get("url", "") or "")
+        product.image_url = str(persisted_image.get("url", "") or "")
         product.image_path = str(
-            persisted.get(
+            persisted_image.get(
                 "image_path",
-                persisted.get("path", ""),
+                persisted_image.get("path", ""),
             )
             or ""
         )
         product.image_hash = str(
-            persisted.get(
+            persisted_image.get(
                 "image_hash",
-                persisted.get("hash", ""),
+                persisted_image.get("hash", ""),
             )
             or ""
         )

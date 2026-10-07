@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QSize, Qt, QResizeEvent, QTimer
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QDialog,
@@ -37,6 +37,58 @@ class _ImageChoiceLabel(QLabel):
         super().mouseReleaseEvent(event)
 
 
+class _ResponsiveAlternativesWidget(QWidget):
+    """Reacomoda alternativas de imagen según el ancho disponible."""
+
+    OPTION_WIDTH = 125
+    SPACING = 6
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self._items: list[QWidget] = []
+        self._layout = QGridLayout(self)
+        self._layout.setContentsMargins(2, 2, 2, 2)
+        self._layout.setHorizontalSpacing(self.SPACING)
+        self._layout.setVerticalSpacing(self.SPACING)
+
+    def add_widget(self, widget: QWidget) -> None:
+        self._items.append(widget)
+        self._relayout()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._relayout()
+
+    def sizeHint(self):
+        columns = max(1, min(len(self._items), 4))
+        rows = max(
+            1,
+            (len(self._items) + columns - 1) // columns,
+        )
+        width = (
+            4
+            + columns * self.OPTION_WIDTH
+            + max(0, columns - 1) * self.SPACING
+        )
+        height = 4 + rows * self.OPTION_WIDTH + max(0, rows - 1) * self.SPACING
+        return QSize(width, height)
+
+    def _relayout(self) -> None:
+        while self._layout.count():
+            self._layout.takeAt(0)
+        available_width = max(self.width() - 4, self.OPTION_WIDTH)
+        columns = max(
+            1,
+            available_width // (self.OPTION_WIDTH + self.SPACING),
+        )
+        for index, widget in enumerate(self._items):
+            self._layout.addWidget(
+                widget,
+                index // columns,
+                index % columns,
+            )
+
+
 class ImageReviewDialog(QDialog):
     """Revisa imágenes nuevas detectadas por una actualización del catálogo."""
 
@@ -55,7 +107,12 @@ class ImageReviewDialog(QDialog):
         self._records_signature: tuple | None = ()
         self._page = 0
         self.PAGE_SIZE = 24
-        self.setWindowFlag(Qt.WindowType.Window, True)
+        self.setWindowFlags(
+            Qt.WindowType.Window
+            | Qt.WindowType.WindowMinimizeButtonHint
+            | Qt.WindowType.WindowMaximizeButtonHint
+            | Qt.WindowType.WindowCloseButtonHint
+        )
         self.setWindowTitle("Revisión de imágenes detectadas")
         self.resize(1040, 620)
         self._build_ui()
@@ -185,13 +242,7 @@ class ImageReviewDialog(QDialog):
         for row, record in enumerate(self._visible_records):
             self._populate_row(row, record)
 
-        self.table.resizeColumnsToContents()
-        self.table.setColumnWidth(0, 110)
-        self.table.setColumnWidth(1, 230)
-        self.table.setColumnWidth(2, 170)
-        self.table.setColumnWidth(3, 560)
-        for row in range(self.table.rowCount()):
-            self.table.setRowHeight(row, 165)
+        self._fit_table_columns()
         self._update_navigation()
 
     def _update_navigation(self) -> None:
@@ -260,16 +311,13 @@ class ImageReviewDialog(QDialog):
                     "generic": False,
                 }]
 
-        container = QWidget()
-        layout = QHBoxLayout(container)
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(6)
+        container = _ResponsiveAlternativesWidget()
 
         if not options:
             label = QLabel("No hay alternativas detectadas.")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setWordWrap(True)
-            layout.addWidget(label)
+            container.add_widget(label)
             return container
 
         for index, option in enumerate(options, start=1):
@@ -319,7 +367,7 @@ class ImageReviewDialog(QDialog):
             )
 
             if not is_gallery:
-                layout.addWidget(label)
+                container.add_widget(label)
                 continue
 
             option_container = QWidget()
@@ -358,7 +406,6 @@ class ImageReviewDialog(QDialog):
             )
             layout.addWidget(option_container)
 
-        layout.addStretch()
         return container
 
     def _exclude_candidate(self, review_id: str, option_path: str) -> None:
@@ -374,8 +421,13 @@ class ImageReviewDialog(QDialog):
         self._records_signature = None
         self.reload()
 
-    def _current_widget(self, record: dict) -> _ImageChoiceLabel:
+    def _current_widget(self, record: dict) -> QWidget:
         path = self._selected_preview_path(record)
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(4)
+
         label = _ImageChoiceLabel(
             lambda rid=str(record["id"]): self._choose_manual(rid),
         )
@@ -408,7 +460,29 @@ class ImageReviewDialog(QDialog):
                     ),
                 )
         label.setToolTip("Haga clic para elegir una imagen del archivo.")
-        return label
+        layout.addWidget(label, 0, Qt.AlignmentFlag.AlignCenter)
+
+        apply_button = QPushButton("APLICAR")
+        apply_button.setObjectName("apply_review_button")
+        apply_button.setEnabled(self._record_has_pending_changes(record))
+        apply_button.setToolTip(
+            "Aplica solamente esta revisión."
+            if apply_button.isEnabled()
+            else "Seleccione una alternativa antes de aplicar.",
+        )
+        apply_button.clicked.connect(
+            lambda _checked=False, rid=str(record["id"]):
+            self._apply_single_changes(rid),
+        )
+        layout.addWidget(apply_button)
+        return container
+
+    @staticmethod
+    def _record_has_pending_changes(record: dict) -> bool:
+        return bool(
+            str(record.get("selected_action", "") or "").strip()
+            or list(record.get("excluded_options", []) or [])
+        )
 
     @staticmethod
     def _selected_preview_path(record: dict) -> Path:
@@ -460,6 +534,25 @@ class ImageReviewDialog(QDialog):
         self._records_signature = None
         self.reload()
 
+    def _apply_single_changes(self, review_id: str) -> None:
+        try:
+            results = self.service.finalize_selected([review_id])
+        except Exception as error:  # noqa: BLE001
+            QMessageBox.critical(
+                self,
+                "Revisión de imágenes",
+                str(error),
+            )
+            return
+
+        if results and callable(self.on_catalog_changed):
+            self.on_catalog_changed()
+
+        self._records_signature = None
+        self.reload()
+        if not self.records:
+            self.close()
+
     def _apply_changes(self) -> None:
         review_ids = [
             str(record.get("id", ""))
@@ -489,6 +582,36 @@ class ImageReviewDialog(QDialog):
         self.reload()
         if not self.records:
             self.close()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if not hasattr(self, "table"):
+            return
+        self._fit_table_columns()
+
+    def _fit_table_columns(self) -> None:
+        if self.width() <= 0:
+            return
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(
+            0,
+            header.ResizeMode.ResizeToContents,
+        )
+        header.setSectionResizeMode(
+            1,
+            header.ResizeMode.ResizeToContents,
+        )
+        header.setSectionResizeMode(
+            2,
+            header.ResizeMode.ResizeToContents,
+        )
+        header.setSectionResizeMode(
+            3,
+            header.ResizeMode.Stretch,
+        )
+        self.table.resizeRowsToContents()
+        self.table.resizeColumnsToContents()
+        header.setSectionResizeMode(3, header.ResizeMode.Stretch)
 
     def closeEvent(self, event) -> None:
         self.refresh_timer.stop()

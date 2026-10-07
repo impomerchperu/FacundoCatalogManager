@@ -50,6 +50,12 @@ class ScrapingConfig:
 
     image_workers: int = SCRAPING_IMAGE_WORKERS
 
+    gallery_workers: int = 4
+
+    gallery_max_candidates: int = 6
+
+    refresh_galleries: bool = True
+
     enabled_categories: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -69,6 +75,10 @@ class ScrapingConfig:
             raise ValueError("jsf_page_workers debe ser mayor que cero.")
         if self.image_workers <= 0:
             raise ValueError("image_workers debe ser mayor que cero.")
+        if self.gallery_workers <= 0:
+            raise ValueError("gallery_workers debe ser mayor que cero.")
+        if self.gallery_max_candidates <= 0:
+            raise ValueError("gallery_max_candidates debe ser mayor que cero.")
 
     def is_category_enabled(self, category: str) -> bool:
         """Determina si una categoría debe procesarse."""

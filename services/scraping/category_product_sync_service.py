@@ -443,7 +443,12 @@ class CategoryProductSyncService:
             synced_product = synced_by_code.get(code.casefold())
             if synced_product is None:
                 continue
-            for field in ("image_path", "image_hash", "content_hash"):
+            for field in (
+                "image_path",
+                "image_hash",
+                "gallery_images",
+                "content_hash",
+            ):
                 value = getattr(synced_product, field, "")
                 if value:
                     setattr(raw_product, field, value)

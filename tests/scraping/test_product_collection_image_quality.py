@@ -72,3 +72,65 @@ def test_product_collection_forces_detail_for_known_bad_card_images(code):
     )
 
     assert ProductCollectionScraper._image_needs_detail(product) is True
+
+
+
+class FakeDetailCategoryScraper:
+    def get_html(self, url):
+        self.url = url
+        return "<html></html>"
+
+
+class FakeDetailExtractor:
+    def extract(self, soup, url="", category=""):
+        del soup
+        product = ScrapedProduct(
+            code="FB-3017",
+            name="Plancha Transfer",
+            description="Descripción de detalle.",
+            image_url="https://site.test/uploads/correct-detail.webp",
+        )
+        product.image_candidates = [
+            {
+                "url": "https://site.test/uploads/correct-detail.webp",
+                "score": 1000,
+                "exact_code": False,
+                "generic": False,
+                "gallery": True,
+            }
+        ]
+        return product
+
+
+def test_forced_detail_marks_authoritative_image_candidate():
+    category_scraper = FakeDetailCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=None,
+        product_extractor=None,
+        detail_extractor=FakeDetailExtractor(),
+        max_workers=1,
+    )
+    card = BeautifulSoup(
+        '<a href="/producto/plancha-38x38/"><img src="https://site.test/uploads/wrong.webp"></a>',
+        "html.parser",
+    )
+    product = ScrapedProduct(
+        code="FB-3017",
+        name="Plancha Transfer",
+        description="Descripción.",
+        image_url="https://site.test/uploads/wrong.webp",
+    )
+
+    try:
+        result = scraper._enrich_from_detail_page(
+            card,
+            "https://site.test/categoria/",
+            product,
+            "Máquinas de sublimación",
+        )
+    finally:
+        scraper.close()
+
+    assert result.image_url == "https://site.test/uploads/correct-detail.webp"
+    assert result.image_candidates[0]["authoritative"] is True

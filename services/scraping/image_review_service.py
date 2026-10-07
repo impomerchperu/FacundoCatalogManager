@@ -256,6 +256,14 @@ class ImageReviewService:
                 }
 
             normalized_code = str(code).casefold()
+            protected_paths = {
+                str(option.get("path", "") or "")
+                for option in options
+                if str(option.get("path", "") or "").strip()
+            }
+            if str(candidate_path or "").strip():
+                protected_paths.add(str(candidate_path))
+
             for existing_record in records:
                 if (
                     str(existing_record.get("code", "")).casefold()
@@ -263,7 +271,10 @@ class ImageReviewService:
                     and existing_record.get("status") in {"pending", "staged"}
                 ):
                     if str(existing_record.get("kind", "replacement")) != "gallery":
-                        self._remove_all_staged_candidates(existing_record)
+                        self._remove_staged_candidates_except(
+                            existing_record,
+                            protected_paths,
+                        )
                     existing_record["status"] = "resolved"
                     existing_record["resolution"] = "superseded"
                     existing_record["updated_at"] = self._now()
@@ -1124,6 +1135,22 @@ class ImageReviewService:
             if str(option.get("path", "")) == path:
                 return str(option.get("url", "") or "")
         return str(record.get("candidate_url", "") or "")
+
+    @staticmethod
+    def _remove_staged_candidates_except(
+        record: dict,
+        protected_paths: set[str],
+    ) -> None:
+        options = list(record.get("candidate_options", []) or [])
+        if options:
+            for option in options:
+                path = str(option.get("path", "") or "")
+                if path not in protected_paths:
+                    ImageReviewService._remove_staged_file(path)
+            return
+        path = str(record.get("candidate_path", "") or "")
+        if path not in protected_paths:
+            ImageReviewService._remove_staged_file(path)
 
     @staticmethod
     def _remove_all_staged_candidates(record: dict) -> None:

@@ -9,12 +9,14 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QGridLayout,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QSizePolicy,
     QWidget,
 )
 
@@ -50,6 +52,10 @@ class _ResponsiveAlternativesWidget(QWidget):
         self._layout.setContentsMargins(2, 2, 2, 2)
         self._layout.setHorizontalSpacing(self.SPACING)
         self._layout.setVerticalSpacing(self.SPACING)
+        self.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
 
     def add_widget(self, widget: QWidget) -> None:
         self._items.append(widget)
@@ -141,8 +147,14 @@ class ImageReviewDialog(QDialog):
         self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.table.setWordWrap(True)
+        self.table.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded,
+        )
         self.table.verticalHeader().setVisible(False)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        header = self.table.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setMinimumSectionSize(140)
+        header.setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
         self.table.setStyleSheet(
             "QTableWidget {"
             " background-color: #fbfdff;"
@@ -593,27 +605,33 @@ class ImageReviewDialog(QDialog):
         if self.width() <= 0:
             return
         header = self.table.horizontalHeader()
-        from PySide6.QtWidgets import QHeaderView
+        for column in range(3):
+            header.setSectionResizeMode(
+                column,
+                QHeaderView.ResizeMode.ResizeToContents,
+            )
+        header.setSectionResizeMode(
+            3,
+            QHeaderView.ResizeMode.Stretch,
+        )
+        self.table.resizeColumnsToContents()
 
-        header.setSectionResizeMode(
-            0,
-            QHeaderView.ResizeMode.ResizeToContents,
+        title_width = (
+            self.fontMetrics().horizontalAdvance("Imágenes detectadas") + 16
         )
-        header.setSectionResizeMode(
-            1,
-            QHeaderView.ResizeMode.ResizeToContents,
-        )
-        header.setSectionResizeMode(
-            2,
-            QHeaderView.ResizeMode.ResizeToContents,
+        header.resizeSection(
+            3,
+            max(
+                title_width,
+                header.sectionSize(3),
+                140,
+            ),
         )
         header.setSectionResizeMode(
             3,
             QHeaderView.ResizeMode.Stretch,
         )
         self.table.resizeRowsToContents()
-        self.table.resizeColumnsToContents()
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
 
     def closeEvent(self, event) -> None:
         self.refresh_timer.stop()

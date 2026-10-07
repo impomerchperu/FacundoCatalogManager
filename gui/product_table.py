@@ -845,9 +845,20 @@ class ProductTable(QTableWidget):
                 gallery.append(dict(option))
                 seen.add(url.casefold())
                 changed_for_row = True
-            if not changed_for_row and code in previous_codes:
+            current_gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
+            current_urls = [
+                str(image.get("url", "") or "").strip().casefold()
+                for image in list(current_gallery or [])
+                if isinstance(image, dict)
+            ]
+            next_urls = [
+                str(image.get("url", "") or "").strip().casefold()
+                for image in gallery
+                if isinstance(image, dict)
+            ]
+            if current_urls == next_urls and not changed_for_row:
                 continue
-            changed = changed or changed_for_row or code in previous_codes
+            changed = True
             active_index = item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE)
             try:
                 active_index = int(active_index) % len(gallery)

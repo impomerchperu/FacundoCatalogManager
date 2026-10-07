@@ -96,6 +96,24 @@ class ImageSync:
                 current_product,
             )
 
+        if not existing:
+            candidates = self._normalized_image_candidates(
+                product,
+                image_url,
+            )
+            valid_candidates = [
+                candidate
+                for candidate in candidates
+                if not candidate.get("generic")
+            ]
+            preferred = valid_candidates[0] if valid_candidates else None
+            if (
+                ProductImageExtractor.is_generic_asset(image_url)
+                and preferred is not None
+            ):
+                image_url = str(preferred.get("url", "") or "").strip()
+                product.image_url = image_url
+
         old_url = self._get(old_product, "image_url")
         url_changed = bool(old_product and old_url and old_url != image_url)
 
@@ -175,28 +193,17 @@ class ImageSync:
             review_candidates = [
                 candidate
                 for candidate in candidates
-                if current_is_generic
-                or (
-                    not candidate.get("exact_code")
-                    and not candidate.get("generic")
-                )
+                if not candidate.get("generic")
             ]
             if not review_candidates:
-                product.image_url = current_url
-                product.image_path = existing["image_path"]
-                product.image_hash = existing.get("image_hash", "")
-                return product
+                review_candidates = candidates
 
             staged_options = self.review_service.stage_candidates(
                 self.image_downloader,
                 str(product.code),
                 review_candidates,
+                max_candidates=6,
             )
-            if not staged_options:
-                product.image_url = current_url
-                product.image_path = existing["image_path"]
-                product.image_hash = existing.get("image_hash", "")
-                return product
 
             existing_hash = str(existing.get("image_hash", "") or "")
             if current_is_generic:
@@ -216,6 +223,29 @@ class ImageSync:
                 self._discard_staged_options(discarded)
 
             if not observed_options:
+                if current_is_generic:
+                    review = self.review_service.register_candidate(
+                        code=str(product.code),
+                        product_name=str(getattr(product, "name", "") or ""),
+                        current_path=str(existing.get("image_path", "") or ""),
+                        current_hash=existing_hash,
+                        current_url=current_url,
+                        candidate_path="",
+                        candidate_hash="",
+                        candidate_url="",
+                        candidate_options=[],
+                        allow_manual_only=True,
+                    )
+                    if review is not None:
+                        product.image_url = current_url
+                        product.image_path = existing["image_path"]
+                        product.image_hash = existing_hash
+                    else:
+                        product.image_url = current_url
+                        product.image_path = existing["image_path"]
+                        product.image_hash = existing_hash
+                    return product
+
                 product.image_url = current_url
                 product.image_path = existing["image_path"]
                 product.image_hash = existing_hash
@@ -232,6 +262,7 @@ class ImageSync:
                 candidate_hash=str(primary.get("hash", "") or ""),
                 candidate_url=str(primary.get("url", "") or ""),
                 candidate_options=observed_options,
+                allow_manual_only=False,
             )
             if review is None:
                 self._discard_staged_options(observed_options)

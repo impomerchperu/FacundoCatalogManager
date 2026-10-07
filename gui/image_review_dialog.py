@@ -7,6 +7,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -229,15 +230,21 @@ class ImageReviewDialog(QDialog):
         candidate = self._candidate_widget(record)
         self.table.setCellWidget(row, 2, current)
         self.table.setCellWidget(row, 3, candidate)
-        action_layout = QVBoxLayout(actions)
-        action_layout.setContentsMargins(4, 4, 4, 4)
-        action_layout.setSpacing(6)
 
     def _candidate_widget(self, record: dict) -> QWidget:
-        options = list(record.get("candidate_options", []) or [])
+        excluded = {
+            str(value).strip()
+            for value in list(record.get("excluded_options", []) or [])
+            if str(value).strip()
+        }
+        options = [
+            option
+            for option in list(record.get("candidate_options", []) or [])
+            if str(option.get("path", "") or "").strip() not in excluded
+        ]
         if not options:
             fallback = str(record.get("candidate_path", "") or "")
-            if fallback:
+            if fallback and fallback not in excluded:
                 options = [{
                     "path": fallback,
                     "url": str(record.get("candidate_url", "") or ""),
@@ -259,6 +266,12 @@ class ImageReviewDialog(QDialog):
         for index, option in enumerate(options, start=1):
             path = resolve_data_path(str(option.get("path", "") or ""))
             option_path = str(option.get("path", "") or "")
+
+            option_container = QWidget()
+            option_layout = QGridLayout(option_container)
+            option_layout.setContentsMargins(0, 0, 0, 0)
+            option_layout.setSpacing(0)
+
             label = _ImageChoiceLabel(
                 lambda rid=str(record["id"]), selected=option_path: self._apply(
                     rid,
@@ -275,7 +288,7 @@ class ImageReviewDialog(QDialog):
                 "}"
                 " QLabel:hover {"
                 " border: 2px solid #6b8fb3;"
-                "}",
+                "}"
             )
             if path.is_file():
                 pixmap = QPixmap(str(path))
@@ -290,15 +303,59 @@ class ImageReviewDialog(QDialog):
                     )
             if label.pixmap() is None:
                 label.setText(f"Alternativa {index}")
+
+            reject_button = QPushButton("×")
+            reject_button.setFixedSize(22, 22)
+            reject_button.setToolTip(
+                "Excluir esta alternativa; no se guardará en la galería."
+            )
+            reject_button.setStyleSheet(
+                "QPushButton {"
+                " color: #173f6d;"
+                " background-color: #ffffff;"
+                " border: 1px solid #cbddea;"
+                " border-radius: 11px;"
+                " font-weight: bold;"
+                " padding: 0px;"
+                "}"
+                " QPushButton:hover {"
+                " background-color: #eef5fb;"
+                "}"
+            )
+            reject_button.clicked.connect(
+                lambda _checked=False, rid=str(record["id"]), selected=option_path:
+                self._exclude_candidate(rid, selected),
+            )
+
+            option_layout.addWidget(label, 0, 0)
+            option_layout.addWidget(
+                reject_button,
+                0,
+                0,
+                Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight,
+            )
             label.setToolTip(
                 f"Alternativa {index}. "
                 f"{'Detectada en la galería.' if option.get('gallery') else 'Detectada en la tarjeta.'} "
                 "Haga clic para seleccionarla.",
             )
-            layout.addWidget(label)
+            layout.addWidget(option_container)
 
         layout.addStretch()
         return container
+
+    def _exclude_candidate(self, review_id: str, option_path: str) -> None:
+        try:
+            self.service.exclude_candidate(review_id, option_path)
+        except Exception as error:  # noqa: BLE001
+            QMessageBox.critical(
+                self,
+                "Revisión de imágenes",
+                str(error),
+            )
+            return
+        self._records_signature = ()
+        self.reload()
 
     def _current_widget(self, record: dict) -> _ImageChoiceLabel:
         path = self._selected_preview_path(record)
@@ -415,13 +472,4 @@ class ImageReviewDialog(QDialog):
 
     def closeEvent(self, event) -> None:
         self.refresh_timer.stop()
-        try:
-            self.service.discard_selections()
-        except Exception as error:  # noqa: BLE001
-            QMessageBox.critical(
-                self,
-                "Revisión de imágenes",
-                str(error),
-            )
-        finally:
-            super().closeEvent(event)
+        super().closeEvent(event)

@@ -404,6 +404,10 @@ class ImageReviewService:
             if value not in excluded:
                 excluded.append(value)
             record["excluded_options"] = excluded
+            if str(record.get("selected_path", "") or "").strip() == value:
+                record["selected_action"] = ""
+                record["selected_path"] = ""
+                record["selected_url"] = ""
             record["updated_at"] = self._now()
             self._write(records)
 
@@ -595,6 +599,10 @@ class ImageReviewService:
                 for record in records
                 if str(record.get("id", "")) in ids
                 and record.get("status") == "pending"
+                and (
+                    str(record.get("selected_action", "") or "").strip()
+                    or list(record.get("excluded_options", []) or [])
+                )
             ]
             if len(selected_records) != len(ids):
                 raise ValueError(
@@ -602,6 +610,7 @@ class ImageReviewService:
                 )
             if any(
                 not str(record.get("selected_action", "") or "").strip()
+                and not list(record.get("excluded_options", []) or [])
                 for record in selected_records
             ):
                 raise ValueError("La revisión total aún no está completa.")

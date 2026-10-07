@@ -13,10 +13,10 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
-    QSizePolicy,
     QWidget,
 )
 
@@ -65,19 +65,35 @@ class _ResponsiveAlternativesWidget(QWidget):
         super().resizeEvent(event)
         self._relayout()
 
-    def sizeHint(self):
-        columns = max(1, min(len(self._items), 4))
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        available_width = max(int(width) - 4, self.OPTION_WIDTH)
+        columns = max(
+            1,
+            available_width // (self.OPTION_WIDTH + self.SPACING),
+        )
         rows = max(
             1,
             (len(self._items) + columns - 1) // columns,
         )
+        margins = self._layout.contentsMargins()
+        return (
+            margins.top()
+            + margins.bottom()
+            + rows * self.OPTION_WIDTH
+            + max(0, rows - 1) * self.SPACING
+        )
+
+    def sizeHint(self) -> QSize:
+        columns = max(1, min(len(self._items), 4))
         width = (
             4
             + columns * self.OPTION_WIDTH
             + max(0, columns - 1) * self.SPACING
         )
-        height = 4 + rows * self.OPTION_WIDTH + max(0, rows - 1) * self.SPACING
-        return QSize(width, height)
+        return QSize(width, self.heightForWidth(width))
 
     def _relayout(self) -> None:
         while self._layout.count():

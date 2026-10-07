@@ -1,6 +1,8 @@
 from pathlib import Path
 
+from database.db_manager import DBManager
 from models.product import Product
+from repositories.product_repository import ProductRepository
 from services.scraping import image_review_service as module
 from services.scraping.image_review_service import ImageReviewService
 
@@ -189,9 +191,6 @@ def test_image_review_apply_is_persisted_after_reopening_database(
     staging_dir.mkdir(parents=True)
     current_path.write_bytes(b"old-image")
     candidate_path.write_bytes(b"new-image")
-
-    from database.db_manager import DBManager
-    from repositories.product_repository import ProductRepository
 
     db = DBManager(str(db_path))
     repository = ProductRepository(db)

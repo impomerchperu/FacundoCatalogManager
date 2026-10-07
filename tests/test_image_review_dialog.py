@@ -30,6 +30,7 @@ class FakeReviewService:
                 "candidate_path": "image_review_staging/FB-100-new.webp",
                 "candidate_hash": "new-hash",
                 "candidate_url": "https://site.test/new.webp",
+                "excluded_options": [],
             }
         ]
         self.selection_calls = []
@@ -57,12 +58,17 @@ class FakeReviewService:
         ]
         return [{"code": "FB-100", "changed": True}]
 
+    def exclude_candidate(self, review_id, option_path):
+        for record in self.records:
+            if record["id"] == review_id:
+                record.setdefault("excluded_options", []).append(option_path)
+                if record.get("selected_path") == option_path:
+                    record["selected_action"] = ""
+                    record["selected_path"] = ""
+                    record["selected_url"] = ""
+
     def discard_selections(self, review_ids=None):
         self.discard_calls += 1
-        for record in self.records:
-            record.pop("selected_action", None)
-            record.pop("selected_path", None)
-            record.pop("selected_url", None)
 
 
 def test_image_review_dialog_has_no_actions_column_and_has_apply_button():
@@ -114,6 +120,8 @@ def test_image_review_dialog_selection_updates_current_preview_without_committin
 
     dialog.close()
 
+    assert service.records[0]["selected_action"] == "candidate"
+
 
 def test_image_review_dialog_apply_commits_selected_records_only():
     _qapp()
@@ -131,7 +139,36 @@ def test_image_review_dialog_apply_commits_selected_records_only():
     assert dialog.records == []
 
 
-def test_image_review_dialog_close_discards_unapplied_selection():
+def test_image_review_dialog_can_exclude_an_alternative_without_committing():
+    _qapp()
+    service = FakeReviewService()
+    dialog = ImageReviewDialog(service=service)
+
+    alternative_container = dialog.table.cellWidget(0, 3)
+    alternative = alternative_container.layout().itemAt(0).widget()
+    assert isinstance(alternative, _ImageChoiceLabel)
+
+    reject_button = alternative_container.layout().itemAt(0).widget()
+    # The alternative itself is inside the nested option container.
+    option_container = alternative.parentWidget()
+    reject_button = option_container.layout().itemAt(1).widget()
+    assert isinstance(reject_button, QPushButton)
+
+    reject_button.click()
+
+    assert service.finalize_calls == []
+    assert service.records[0]["excluded_options"] == [
+        "image_review_staging/FB-100-new.webp"
+    ]
+    assert dialog.table.cellWidget(0, 3).layout().itemAt(0).widget().text() == (
+        "No hay alternativas detectadas."
+    )
+    assert dialog.apply_button.isEnabled()
+
+    dialog.close()
+
+
+def test_image_review_dialog_close_preserves_unapplied_selection():
     _qapp()
     service = FakeReviewService()
     dialog = ImageReviewDialog(service=service)
@@ -144,4 +181,5 @@ def test_image_review_dialog_close_discards_unapplied_selection():
     dialog.close()
 
     assert service.finalize_calls == []
-    assert service.discard_calls == 1
+    assert service.discard_calls == 0
+    assert service.records[0]["selected_action"] == "candidate"

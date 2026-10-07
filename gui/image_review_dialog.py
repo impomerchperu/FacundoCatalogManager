@@ -113,7 +113,7 @@ class ImageReviewDialog(QDialog):
         navigation_layout.setContentsMargins(0, 0, 0, 0)
         navigation_layout.setSpacing(6)
 
-        self.previous_button = QPushButton("‹ Anteriores")
+        self.previous_button = QPushButton("<< Anteriores")
         self.previous_button.clicked.connect(self._previous_page)
         navigation_layout.addWidget(self.previous_button)
 
@@ -121,7 +121,7 @@ class ImageReviewDialog(QDialog):
         self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         navigation_layout.addWidget(self.page_label, 1)
 
-        self.next_button = QPushButton("Siguientes ›")
+        self.next_button = QPushButton("Siguientes >>")
         self.next_button.clicked.connect(self._next_page)
         navigation_layout.addWidget(self.next_button)
 

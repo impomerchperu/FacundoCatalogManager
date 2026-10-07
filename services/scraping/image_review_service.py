@@ -30,9 +30,17 @@ class ImageReviewService:
     """Gestiona candidatos de imagen sin sobrescribir la imagen vigente."""
 
     def __init__(self, repository: ProductRepository | None = None) -> None:
+        self._owns_repository = repository is None
         self.repository = repository or ProductRepository()
         self._lock = Lock()
         self._active_batch: str | None = None
+
+    def close(self) -> None:
+        if not self._owns_repository:
+            return
+        close_db = getattr(getattr(self.repository, "db", None), "close", None)
+        if callable(close_db):
+            close_db()
 
     def begin_batch(self) -> str:
         with self._lock:

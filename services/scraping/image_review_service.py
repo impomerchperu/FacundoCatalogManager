@@ -16,7 +16,11 @@ from config.runtime_paths import DATA_DIR, resolve_data_path, to_data_relative_p
 from models.product import Product
 from repositories.product_repository import ProductRepository
 from scrapers.images.image_downloader import ImageDownloader
-from scrapers.images.image_paths import IMAGE_EXTENSIONS, IMAGE_PRODUCTS_DIR
+from scrapers.images.image_paths import (
+    IMAGE_EXTENSIONS,
+    IMAGE_GALLERY_DIR,
+    IMAGE_PRODUCTS_DIR,
+)
 
 QUEUE_PATH = DATA_DIR / "image_review_queue.json"
 STAGING_DIR = DATA_DIR / "image_review_staging"
@@ -224,7 +228,8 @@ class ImageReviewService:
                     == normalized_code
                     and existing_record.get("status") in {"pending", "staged"}
                 ):
-                    self._remove_all_staged_candidates(existing_record)
+                    if str(existing_record.get("kind", "replacement")) != "gallery":
+                        self._remove_all_staged_candidates(existing_record)
                     existing_record["status"] = "resolved"
                     existing_record["resolution"] = "superseded"
                     existing_record["updated_at"] = self._now()
@@ -444,6 +449,129 @@ class ImageReviewService:
                 "changed": False,
                 "selected": True,
             }
+
+    def _store_deferred_selection(
+        self,
+        record: dict,
+        action: str,
+        manual_path: str | Path | None,
+    ) -> None:
+        normalized = str(action or "").strip().casefold()
+        if str(record.get("kind", "replacement")) == "gallery":
+            if normalized not in {"accept_gallery", "dismiss_gallery"}:
+                raise ValueError("Acción de galería no válida.")
+            record["selected_action"] = normalized
+            record["selected_path"] = ""
+            record["selected_url"] = ""
+            record["updated_at"] = self._now()
+            return
+
+        if normalized not in {"keep", "replace", "candidate", "manual"}:
+            raise ValueError("Acción de revisión no válida.")
+
+        selected_path = ""
+        selected_url = ""
+        if normalized == "candidate":
+            selected_path = self._resolve_staged_selection(
+                record,
+                str(manual_path or ""),
+            )
+            selected_url = self._candidate_url_for_path(record, selected_path)
+            if not selected_path:
+                raise ValueError("La imagen seleccionada no existe.")
+        elif normalized == "replace":
+            selected_path = str(record.get("candidate_path", "") or "")
+            selected_url = str(record.get("candidate_url", "") or "")
+        elif normalized == "manual":
+            selected_path = self._stage_manual_image(record, manual_path)
+
+        record["selected_action"] = normalized
+        record["selected_path"] = selected_path
+        record["selected_url"] = selected_url
+        record["updated_at"] = self._now()
+
+    def _apply_gallery_resolution(self, record: dict, action: str) -> dict:
+        normalized = str(action or "").strip().casefold()
+        if normalized not in {"accept_gallery", "dismiss_gallery"}:
+            raise ValueError("Acción de galería no válida.")
+
+        product = self.repository.get_by_code(str(record.get("code", "")))
+        if product is None:
+            raise ValueError(
+                "No existe el producto "
+                f"{record.get('code', '')} en la base de datos."
+            )
+
+        options = list(record.get("candidate_options", []) or [])
+        if normalized == "dismiss_gallery":
+            dismissed_urls = {
+                str(option.get("url", "") or "").strip().casefold()
+                for option in options
+            }
+            product.gallery_images = [
+                image
+                for image in list(getattr(product, "gallery_images", []) or [])
+                if str(image.get("url", "") or "").strip().casefold()
+                not in dismissed_urls
+            ]
+            self.repository.update(product)
+            for option in options:
+                self._remove_gallery_file(
+                    str(option.get("path", "") or "")
+                )
+
+        return {
+            "code": product.code,
+            "action": normalized,
+            "changed": normalized == "dismiss_gallery",
+        }
+
+    def apply_approved(self, batch_id: str | None = None) -> list[dict]:
+        """Aplica decisiones tomadas durante el scraping después de confirmar el catálogo."""
+        with self._lock:
+            records = self._read()
+            selected = [
+                record
+                for record in records
+                if record.get("status") == "pending"
+                and str(record.get("selected_action", "") or "").strip()
+                and (
+                    batch_id is None
+                    or str(record.get("batch_id", "")) == str(batch_id)
+                )
+            ]
+            results: list[dict] = []
+            for record in selected:
+                action = str(record.get("selected_action", "") or "")
+                try:
+                    if record.get("kind") == "gallery":
+                        result = self._apply_gallery_resolution(record, action)
+                    else:
+                        product = self.repository.get_by_code(
+                            str(record.get("code", "")),
+                        )
+                        if product is None:
+                            continue
+                        result = (
+                            self._keep_current(product, record)
+                            if action == "keep"
+                            else self._apply_selected_image(
+                                record,
+                                product,
+                                action,
+                                str(record.get("selected_path", "") or ""),
+                            )
+                        )
+                    record["status"] = "resolved"
+                    record["resolution"] = action
+                    record["updated_at"] = self._now()
+                    results.append(result)
+                except (OSError, ValueError, RuntimeError):
+                    continue
+
+            if results:
+                self._write(records)
+            return results
 
     def finalize_selected(self, review_ids: list[str]) -> list[dict]:
         """Aplica en bloque las decisiones seleccionadas de una revisión."""
@@ -896,6 +1024,26 @@ class ImageReviewService:
             encoding="utf-8",
         )
         temporary.replace(QUEUE_PATH)
+
+    @staticmethod
+    def _resolve_gallery_path(value: str) -> Path | None:
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+        candidate = resolve_data_path(raw)
+        try:
+            candidate.resolve().relative_to(
+                resolve_data_path(IMAGE_GALLERY_DIR).resolve()
+            )
+        except ValueError:
+            return None
+        return candidate
+
+    @staticmethod
+    def _remove_gallery_file(value: str) -> None:
+        candidate = ImageReviewService._resolve_gallery_path(value)
+        if candidate is not None:
+            candidate.unlink(missing_ok=True)
 
     @staticmethod
     def _resolve_staged_path(value: str) -> Path | None:

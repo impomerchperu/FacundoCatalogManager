@@ -126,3 +126,70 @@ def test_dialog_initial_checks_match_filtered_categories():
     )
     dialog.deleteLater()
     app.processEvents()
+
+
+def test_dialog_exposes_only_three_export_format_buttons():
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    products = [
+        Product(
+            code="A-030",
+            name="Producto",
+            category="Antiestres",
+            stock=5,
+        )
+    ]
+    calls = []
+
+    def on_export(format_name, selected_products):
+        calls.append((format_name, [product.code for product in selected_products]))
+        return True
+
+    dialog = ExcelCategorySelectionDialog(
+        {"Antiestres"},
+        products,
+        initial_selected_categories={"Antiestres"},
+        on_export=on_export,
+    )
+
+    actions = dialog.layout().itemAt(dialog.layout().count() - 1).layout()
+    assert actions is not None
+    assert [
+        actions.itemAt(index).widget().text()
+        for index in range(actions.count())
+        if actions.itemAt(index).widget() is not None
+    ] == ["EXCEL", "CSV", "PDF"]
+
+    assert not hasattr(dialog, "export_button")
+    assert dialog.excel_button.isEnabled()
+    assert dialog.csv_button.isEnabled()
+    assert dialog.pdf_button.isEnabled()
+
+    dialog.csv_button.click()
+
+    assert calls == [("csv", ["A-030"])]
+    assert not dialog.isVisible()
+    dialog.deleteLater()
+    app.processEvents()
+
+
+def test_dialog_export_buttons_remain_disabled_without_categories():
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    dialog = ExcelCategorySelectionDialog(
+        {"Antiestres"},
+        [Product(code="A-031", name="Producto", category="Antiestres")],
+        initial_selected_categories=set(),
+    )
+
+    assert not dialog.excel_button.isEnabled()
+    assert not dialog.csv_button.isEnabled()
+    assert not dialog.pdf_button.isEnabled()
+    assert "Seleccione al menos una categoría." in (
+        dialog.excel_button.toolTip()
+    )
+
+    dialog.deleteLater()
+    app.processEvents()

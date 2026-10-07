@@ -177,10 +177,24 @@ class ImageReviewService:
         with self._lock:
             records = self._read()
             for record in records:
+                same_code = (
+                    str(record.get("code", "")).casefold()
+                    == str(code).casefold()
+                )
+                same_hash = (
+                    str(record.get("candidate_hash", ""))
+                    == candidate_hash
+                )
+                same_batch = (
+                    str(record.get("batch_id", "") or "")
+                    == str(self._active_batch or "")
+                    and bool(self._active_batch)
+                )
                 if (
-                    str(record.get("code", "")).casefold() == str(code).casefold()
-                    and str(record.get("candidate_hash", "")) == candidate_hash
+                    same_code
+                    and same_hash
                     and record.get("status") in {"pending", "resolved", "staged"}
+                    and same_batch
                 ):
                     if normalized_kind != "gallery":
                         self._remove_staged_file(candidate_path)

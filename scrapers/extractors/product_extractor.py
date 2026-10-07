@@ -52,8 +52,11 @@ class ProductExtractor:
                 stock = color_total
         code = self.extract_code(soup)
         self._extracted_codes[id(soup)] = code
-
-        return ScrapedProductFactory.create(
+        image_candidates = self.extract_image_candidates(
+            soup,
+            base_url=url or self.BASE_URL,
+        )
+        result = ScrapedProductFactory.create(
             source=self.SOURCE,
             url=url,
             code=code,
@@ -66,8 +69,11 @@ class ProductExtractor:
             price_hundred=self.price_extractor.extract_hundred(soup),
             price_thousand=self.price_extractor.extract_thousand(soup),
             color_stock=color_stock,
-            image_url=self.extract_image(soup),
+            image_url=image_candidates[0]["url"] if image_candidates else "",
         )
+        result.image_candidates = image_candidates
+        self._extracted_codes.pop(id(soup), None)
+        return result
 
     @classmethod
     def _normalize_code_candidate(cls, text: str) -> str:

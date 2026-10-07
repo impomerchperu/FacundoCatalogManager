@@ -15,6 +15,7 @@ class ImageSyncAdapter:
     def sync_products(
         self,
         products,
+        progress_callback=None,
     ):
         """
         Procesa imágenes de una colección
@@ -23,5 +24,8 @@ class ImageSyncAdapter:
 
         products = self.image_sync.process(products)
         if self.gallery_sync is not None:
-            products = self.gallery_sync.sync_products(products)
+            products = self.gallery_sync.sync_products(
+                products,
+                progress_callback=progress_callback,
+            )
         return products

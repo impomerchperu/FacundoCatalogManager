@@ -46,7 +46,7 @@ def test_image_review_keeps_manual_only_record_pending(
     monkeypatch,
     tmp_path,
 ):
-    _staging_dir, _products_dir = _patch_paths(monkeypatch, tmp_path)
+    staging_dir, _products_dir = _patch_paths(monkeypatch, tmp_path)
     current = Product(
         code="FB-4010",
         name="Gota Antiestrés",

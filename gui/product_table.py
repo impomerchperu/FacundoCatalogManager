@@ -582,7 +582,7 @@ class ProductTable(QTableWidget):
                 "Primero apruebe la nueva galería desde Revisión de imágenes."
             )
         chosen = menu.exec(self.viewport().mapToGlobal(position))
-        if chosen is not use_action:
+        if chosen is not use_action or persisted is None:
             return
 
         product.image_url = str(persisted.get("url", "") or "")

@@ -70,7 +70,6 @@ class ProductGallerySyncService:
         return results
 
     def _sync_product(self, product, existing=None):
-        existing = existing or self._existing_product(product)
         candidates = self._candidate_source(product, existing)
         existing_gallery = [
             dict(image)
@@ -272,18 +271,6 @@ class ProductGallerySyncService:
             except (OSError, RuntimeError, TypeError, ValueError):
                 continue
         return result
-
-    def _existing_product(self, product):
-        if self.review_service is None:
-            return None
-        repository = getattr(self.review_service, "repository", None)
-        getter = getattr(repository, "get_by_code", None)
-        if not callable(getter):
-            return None
-        try:
-            return getter(str(getattr(product, "code", "") or ""))
-        except Exception:  # noqa: BLE001
-            return None
 
     def _register_gallery_review(self, product, new_options):
         if self.review_service is None or not new_options:

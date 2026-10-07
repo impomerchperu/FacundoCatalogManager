@@ -161,39 +161,55 @@ class ScrapingRunner:
         categories,
         progress_callback,
     ):
-        pipeline_total = max(len(categories) * 2, 1)
-
-        last_normalized_progress = 0
+        category_count = len(categories)
+        pipeline_total = max(category_count * 3, 1)
 
         def pipeline_progress(current, source_total):
-            nonlocal last_normalized_progress
             if not progress_callback:
                 return
-            current_value = int(current)
-            source_total_value = int(source_total)
-            if source_total_value == pipeline_total:
-                normalized_current = min(max(current_value, 0), pipeline_total)
-            elif source_total_value > pipeline_total:
-                gallery_span = max(pipeline_total - len(categories), 0)
-                gallery_progress = (
+            current_value = max(int(current), 0)
+            source_total_value = max(int(source_total), 0)
+
+            if category_count <= 0:
+                normalized_current = 0
+            elif source_total_value == category_count:
+                # Fase 1: extracción de listados por categoría.
+                normalized_current = min(current_value, category_count)
+            elif source_total_value == category_count * 2:
+                # Fase 2: enriquecimiento de las categorías.
+                normalized_current = category_count + min(
+                    current_value,
+                    category_count,
+                )
+            elif source_total_value > category_count * 2:
+                # Fase 3: imágenes/galerías. El total puede ser el número
+                # de productos y no comparte la escala de las dos primeras
+                # fases.
+                image_span = category_count
+                image_progress = (
                     current_value / source_total_value
                     if source_total_value > 0
                     else 0.0
                 )
-                normalized_current = len(categories) + int(
-                    gallery_progress * gallery_span
-                )
-                normalized_current = min(
-                    max(normalized_current, len(categories)),
-                    pipeline_total,
+                normalized_current = (
+                    (category_count * 2)
+                    + min(
+                        int(image_progress * image_span),
+                        image_span,
+                    )
                 )
             else:
-                normalized_current = min(max(current_value, 0), len(categories))
-            normalized_current = max(
-                last_normalized_progress,
-                normalized_current,
+                # Compatibilidad defensiva con callbacks de escala
+                # intermedia que no pertenecen al pipeline principal.
+                normalized_current = min(
+                    current_value,
+                    category_count * 2,
+                )
+
+            normalized_current = min(
+                max(normalized_current, 0),
+                pipeline_total,
             )
-            last_normalized_progress = normalized_current
             progress_callback(normalized_current, pipeline_total)
 
         result = sync_categories(categories, pipeline_progress)

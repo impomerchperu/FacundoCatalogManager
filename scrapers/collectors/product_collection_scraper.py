@@ -602,7 +602,8 @@ class ProductCollectionScraper:
             getattr(detailed_product, "image_candidates", []) or []
         )
         if detail_candidates:
-            if normalize_code(str(getattr(product, "code", "") or "")) in self.AUTHORITATIVE_DETAIL_IMAGE_CODES:
+            code = normalize_code(str(getattr(product, "code", "") or ""))
+            if code in self.AUTHORITATIVE_DETAIL_IMAGE_CODES:
                 detail_candidates = [
                     {**candidate, "authoritative": True}
                     for candidate in detail_candidates

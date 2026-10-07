@@ -86,9 +86,15 @@ def test_image_review_dialog_has_no_actions_column_and_has_apply_button():
     assert not dialog.apply_button.isEnabled()
 
     current = dialog.table.cellWidget(0, 2)
+    current_layout = current.layout()
+    assert current_layout is not None
+    current_image = current_layout.itemAt(0).widget()
+    current_apply = current_layout.itemAt(1).widget()
     alternatives = dialog.table.cellWidget(0, 3)
-    assert isinstance(current, _ImageChoiceLabel)
-    assert not isinstance(current, QPushButton)
+    assert isinstance(current_image, _ImageChoiceLabel)
+    assert isinstance(current_apply, QPushButton)
+    assert current_apply.text() == "APLICAR"
+    assert not current_apply.isEnabled()
     assert alternatives.layout().itemAt(0).widget() is not None
     assert not isinstance(alternatives.layout().itemAt(0).widget(), QPushButton)
     assert all(
@@ -137,6 +143,29 @@ def test_image_review_dialog_apply_commits_selected_records_only():
 
     assert service.finalize_calls == [["review-1"]]
     assert dialog.records == []
+
+
+def test_image_review_dialog_can_apply_one_review_individually():
+    _qapp()
+    service = FakeReviewService()
+    dialog = ImageReviewDialog(service=service)
+
+    alternatives_container = dialog.table.cellWidget(0, 3)
+    alternative = alternatives_container.layout().itemAt(0).widget()
+    assert isinstance(alternative, _ImageChoiceLabel)
+    alternative._callback()
+
+    current_container = dialog.table.cellWidget(0, 2)
+    current_apply = current_container.layout().itemAt(1).widget()
+    assert isinstance(current_apply, QPushButton)
+    assert current_apply.isEnabled()
+
+    current_apply.click()
+
+    assert service.finalize_calls == [["review-1"]]
+    assert dialog.records == []
+
+    dialog.close()
 
 
 def test_image_review_dialog_can_exclude_an_alternative_without_committing():

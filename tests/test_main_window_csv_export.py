@@ -79,12 +79,14 @@ def test_main_window_excel_dialog_inherits_active_category_and_stock_filters(
             *,
             initial_selected_categories,
             stock_only,
+            on_export,
         ):
             del parent
             calls["categories"] = set(categories)
             calls["products"] = list(products)
             calls["initial_selected"] = set(initial_selected_categories)
             calls["stock_only"] = stock_only
+            calls["on_export"] = on_export
             dialog_ref["instance"] = self
 
         def exec(self):
@@ -128,7 +130,7 @@ def test_main_window_excel_dialog_inherits_active_category_and_stock_filters(
     window.stock_only = True
     window.search_box = QLineEdit()
 
-    MainWindow.export_excel(window)
+    MainWindow.export_catalog(window)
 
     assert calls["categories"] == {
         "Antiestres",
@@ -137,6 +139,7 @@ def test_main_window_excel_dialog_inherits_active_category_and_stock_filters(
     }
     assert calls["initial_selected"] == {"Antiestres", "Escritorios"}
     assert calls["stock_only"] is True
+    assert callable(calls["on_export"])
     assert [product.code for product in exported["products"]] == [
         "A-100",
         "A-101",
@@ -145,3 +148,37 @@ def test_main_window_excel_dialog_inherits_active_category_and_stock_filters(
     dialog_ref["instance"] = None
     window.search_box.deleteLater()
     app.processEvents()
+
+
+def test_main_window_export_selected_format_uses_selected_products(
+    monkeypatch,
+    tmp_path,
+):
+    from exporters.csv_exporter import CSVExporter
+    from gui.main_window import MainWindow
+
+    output = tmp_path / "catalogo.csv"
+    products = [Product(code="A-100", name="Producto")]
+    calls = {}
+
+    class FakeFileDialog:
+        @staticmethod
+        def getSaveFileName(*args):
+            del args
+            return str(output), "CSV (*.csv)"
+
+    monkeypatch.setattr("gui.main_window.QFileDialog", FakeFileDialog)
+
+    def export(selected_products, filename):
+        calls["products"] = list(selected_products)
+        calls["filename"] = filename
+
+    monkeypatch.setattr(CSVExporter, "export", export)
+
+    window = MainWindow.__new__(MainWindow)
+
+    assert window._export_selected_format("csv", products) is True
+    assert calls == {
+        "products": products,
+        "filename": str(output),
+    }

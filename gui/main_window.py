@@ -1054,7 +1054,11 @@ class MainWindow(QMainWindow):
 
         gallery_overrides: dict[str, list[dict]] = {}
         for record in records:
-            if str(record.get("kind", "replacement")) != "gallery":
+            if (
+                str(record.get("kind", "replacement")) != "gallery"
+                or str(record.get("selected_action", "") or "")
+                == "dismiss_gallery"
+            ):
                 continue
             code = str(record.get("code", "") or "").strip().casefold()
             if not code:

@@ -5,4 +5,5 @@ from config.runtime_paths import DATA_DIR
 # dentro del bundle interno de PyInstaller.
 IMAGE_ROOT = DATA_DIR / "data/images"
 IMAGE_PRODUCTS_DIR = IMAGE_ROOT / "products"
+IMAGE_GALLERY_DIR = IMAGE_ROOT / "gallery"
 IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif"})

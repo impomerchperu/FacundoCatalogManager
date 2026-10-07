@@ -138,7 +138,7 @@ class ImageSync:
         product.image_hash = image_data.get("image_hash", "")
         return product
 
-    def _stage_changed_image(
+    def _stage_changed_image(  # noqa: PLR0912
         self,
         product,
         image_url,

@@ -309,36 +309,37 @@ class ImageReviewDialog(QDialog):
             if label.pixmap() is None:
                 label.setText(f"Alternativa {index}")
 
-            reject_button = QPushButton("×")
-            reject_button.setFixedSize(22, 22)
-            reject_button.setToolTip(
-                "Excluir esta alternativa; no se guardará en la galería."
-            )
-            reject_button.setStyleSheet(
-                "QPushButton {"
-                " color: #173f6d;"
-                " background-color: #ffffff;"
-                " border: 1px solid #cbddea;"
-                " border-radius: 11px;"
-                " font-weight: bold;"
-                " padding: 0px;"
-                "}"
-                " QPushButton:hover {"
-                " background-color: #eef5fb;"
-                "}"
-            )
-            reject_button.clicked.connect(
-                lambda _checked=False, rid=str(record["id"]), selected=option_path:
-                self._exclude_candidate(rid, selected),
-            )
-
             option_layout.addWidget(label, 0, 0)
-            option_layout.addWidget(
-                reject_button,
-                0,
-                0,
-                Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight,
-            )
+
+            if bool(option.get("gallery")):
+                reject_button = QPushButton("×")
+                reject_button.setFixedSize(22, 22)
+                reject_button.setToolTip(
+                    "Excluir esta alternativa; no se guardará en la galería."
+                )
+                reject_button.setStyleSheet(
+                    "QPushButton {"
+                    " color: #173f6d;"
+                    " background-color: #ffffff;"
+                    " border: 1px solid #cbddea;"
+                    " border-radius: 11px;"
+                    " font-weight: bold;"
+                    " padding: 0px;"
+                    "}"
+                    " QPushButton:hover {"
+                    " background-color: #eef5fb;"
+                    "}"
+                )
+                reject_button.clicked.connect(
+                    lambda _checked=False, rid=str(record["id"]), selected=option_path:
+                    self._exclude_candidate(rid, selected),
+                )
+                option_layout.addWidget(
+                    reject_button,
+                    0,
+                    0,
+                    Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight,
+                )
             label.setToolTip(
                 f"Alternativa {index}. "
                 f"{'Detectada en la galería.' if option.get('gallery') else 'Detectada en la tarjeta.'} "

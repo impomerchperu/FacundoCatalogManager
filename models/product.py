@@ -24,6 +24,7 @@ class Product:
     image_url: str = ""
     image_path: str = ""
     image_hash: str = ""
+    gallery_images: list[dict[str, object]] = field(default_factory=list)
 
     content_hash: str = ""
 
@@ -70,6 +71,13 @@ class Product:
         self.image_url = self.image_url.strip()
         self.image_path = self.image_path.strip()
         self.image_hash = self.image_hash.strip()
+        self.gallery_images = [
+            dict(image)
+            for image in list(self.gallery_images or [])
+            if isinstance(image, dict)
+            and str(image.get("url", "") or "").strip()
+            and str(image.get("image_path", image.get("path", "")) or "").strip()
+        ]
         self.content_hash = self.content_hash.strip()
         return self
 

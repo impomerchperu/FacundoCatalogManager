@@ -2,8 +2,8 @@ import re
 
 from models.scraping.scraped_product import ScrapedProduct
 from scrapers.extractors.code_utils import normalize_code_token
-from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.extractors.price_extractor import PriceExtractor
+from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
 )

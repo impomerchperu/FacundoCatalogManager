@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-from typing import Any
+from typing import Any, cast
 
 from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.images.image_repository import ImageRepository
@@ -204,11 +204,14 @@ class ImageSync:
                 None,
             )
             if callable(stage_candidates):
-                staged_options = stage_candidates(
+                staged_options = cast(
+                    list[dict[str, Any]],
+                    stage_candidates(
                     self.image_downloader,
                     str(product.code),
                     review_candidates,
                     max_candidates=6,
+                    ),
                 )
             else:
                 staged_options = []
@@ -216,10 +219,13 @@ class ImageSync:
                     url = str(candidate.get("url", "") or "").strip()
                     if not url:
                         continue
-                    staged = self.review_service.stage_candidate(
-                        self.image_downloader,
-                        str(product.code),
-                        url,
+                    staged = cast(
+                        dict[str, Any],
+                        self.review_service.stage_candidate(
+                            self.image_downloader,
+                            str(product.code),
+                            url,
+                        ),
                     )
                     staged_options.append(
                         {

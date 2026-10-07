@@ -35,6 +35,12 @@ class ExcelCategorySelectionDialog(QDialog):
         on_export=None,
     ) -> None:
         super().__init__(parent)
+        self.setWindowFlags(
+            Qt.WindowType.Window
+            | Qt.WindowType.WindowMinimizeButtonHint
+            | Qt.WindowType.WindowMaximizeButtonHint
+            | Qt.WindowType.WindowCloseButtonHint
+        )
         self.setWindowTitle("Seleccionar categorías para exportar")
         self.setMinimumWidth(420)
         self.resize(480, 520)

@@ -207,10 +207,10 @@ class ImageSync:
                 staged_options = cast(
                     list[dict[str, Any]],
                     stage_candidates(
-                    self.image_downloader,
-                    str(product.code),
-                    review_candidates,
-                    max_candidates=6,
+                        self.image_downloader,
+                        str(product.code),
+                        review_candidates,
+                        max_candidates=6,
                     ),
                 )
             else:

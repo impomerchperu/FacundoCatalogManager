@@ -253,28 +253,66 @@ class ImageReviewService:
             return dict(record)
 
     def pending(self) -> list[dict]:
+        return self._available({"pending"})
+
+    def available(self) -> list[dict]:
+        """Incluye revisiones que están listas aunque el lote siga ejecutándose."""
+        return self._available({"pending", "staged"})
+
+    def _available(self, statuses: set[str]) -> list[dict]:
         with self._lock:
             records = self._read()
             changed = False
-            pending: list[dict] = []
+            available: list[dict] = []
             for record in records:
-                if record.get("status") != "pending":
+                if record.get("status") not in statuses:
                     continue
+                options = list(record.get("candidate_options", []) or [])
+                if options:
+                    valid_options = [
+                        option
+                        for option in options
+                        if self._candidate_path_exists(
+                            record,
+                            str(option.get("path", "") or ""),
+                        )
+                    ]
+                    if not valid_options:
+                        record["status"] = "resolved"
+                        record["resolution"] = "missing_candidate"
+                        record["updated_at"] = self._now()
+                        changed = True
+                        continue
+                    view_record = dict(record)
+                    view_record["candidate_options"] = valid_options
+                    view_record["candidate_path"] = str(valid_options[0].get("path", "") or "")
+                    view_record["candidate_url"] = str(valid_options[0].get("url", "") or "")
+                    view_record["candidate_hash"] = str(valid_options[0].get("hash", "") or "")
+                    available.append(view_record)
+                    continue
+
                 candidate_path = str(record.get("candidate_path", "") or "").strip()
                 if not candidate_path and bool(record.get("manual_only")):
-                    pending.append(dict(record))
+                    available.append(dict(record))
                     continue
-                candidate = self._resolve_staged_path(candidate_path)
-                if candidate is None or not candidate.is_file():
+                if not self._candidate_path_exists(record, candidate_path):
                     record["status"] = "resolved"
                     record["resolution"] = "missing_candidate"
                     record["updated_at"] = self._now()
                     changed = True
                     continue
-                pending.append(dict(record))
+                available.append(dict(record))
             if changed:
                 self._write(records)
-            return pending
+            return available
+
+    @staticmethod
+    def _candidate_path_exists(record: dict, value: str) -> bool:
+        if str(record.get("kind", "replacement")) == "gallery":
+            candidate = ImageReviewService._resolve_gallery_path(value)
+        else:
+            candidate = ImageReviewService._resolve_staged_path(value)
+        return candidate is not None and candidate.is_file()
 
     def discard_staged(self, path: str) -> None:
         self._remove_staged_file(path)
@@ -287,12 +325,37 @@ class ImageReviewService:
     ) -> dict:
         """Registra una selección sin modificar todavía el catálogo."""
         action = str(action).strip().casefold()
-        if action not in {"keep", "replace", "candidate", "manual"}:
+        if action not in {
+            "keep",
+            "replace",
+            "candidate",
+            "manual",
+            "accept_gallery",
+            "dismiss_gallery",
+        }:
             raise ValueError("Acción de revisión no válida.")
 
         with self._lock:
             records = self._read()
-            record = self._find_pending_record(records, review_id)
+            record = self._find_available_record(records, review_id)
+
+            if record.get("status") == "staged":
+                self._store_deferred_selection(record, action, manual_path)
+                self._write(records)
+                return {
+                    "code": str(record.get("code", "")),
+                    "action": action,
+                    "changed": False,
+                    "selected": True,
+                }
+
+            if record.get("kind") == "gallery":
+                result = self._apply_gallery_resolution(record, action)
+                record["status"] = "resolved"
+                record["resolution"] = action
+                record["updated_at"] = self._now()
+                self._write(records)
+                return result
 
             if action in {"keep", "replace"}:
                 product = self.repository.get_by_code(

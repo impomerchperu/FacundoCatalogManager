@@ -87,6 +87,8 @@ def test_scraping_dialog_uses_neutral_detail_table_selection(monkeypatch):
     assert dialog.BODY_FONT_SIZE == 13
     assert dialog.BUTTON_HEIGHT == 34
     assert "selection-background-color: #fbfdff;" in stylesheet
+    assert detail_dialog.windowFlags() & Qt.WindowType.WindowMinimizeButtonHint
+    assert detail_dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
 
     detail_dialog.close()
     dialog.close()

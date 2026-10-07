@@ -24,6 +24,7 @@ from scrapers.images.image_paths import (
 
 QUEUE_PATH = DATA_DIR / "image_review_queue.json"
 STAGING_DIR = DATA_DIR / "image_review_staging"
+_QUEUE_LOCK = Lock()
 
 
 class ImageReviewService:
@@ -32,7 +33,7 @@ class ImageReviewService:
     def __init__(self, repository: ProductRepository | None = None) -> None:
         self._owns_repository = repository is None
         self.repository = repository or ProductRepository()
-        self._lock = Lock()
+        self._lock = _QUEUE_LOCK
         self._active_batch: str | None = None
 
     def close(self) -> None:

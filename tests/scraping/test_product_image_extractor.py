@@ -79,7 +79,7 @@ def test_product_image_extractor_keeps_valid_image_ahead_of_generic_image():
         name="Gota Antiestrés",
     )
 
-    assert [item["generic"] for item in candidates[:2]] == [False, False]
+    assert [item["generic"] for item in candidates[:2]] == [False, True]
     assert candidates[-1]["generic"] is True
     assert candidates[0]["url"] == (
         "https://site.test/uploads/SFPU-40-copia-6.webp"

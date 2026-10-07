@@ -366,13 +366,15 @@ class ImageReviewService:
             records = self._read()
             record = self._find_available_record(records, review_id)
             previous_path = str(record.get("selected_path", "") or "").strip()
-            if previous_path and not self._is_record_option_path(
-                record,
-                previous_path,
+            self._store_deferred_selection(record, action, manual_path)
+            selected_path = str(record.get("selected_path", "") or "").strip()
+            if (
+                previous_path
+                and previous_path != selected_path
+                and not self._is_record_option_path(record, previous_path)
             ):
                 self._remove_staged_file(previous_path)
 
-            self._store_deferred_selection(record, action, manual_path)
             self._write(records)
             return {
                 "code": str(record.get("code", "")),

@@ -194,6 +194,7 @@ def test_dialog_export_buttons_remain_disabled_without_categories():
     dialog.deleteLater()
     app.processEvents()
 
+
 def test_category_export_dialog_supports_minimize_and_maximize():
     from PySide6.QtWidgets import QApplication
 

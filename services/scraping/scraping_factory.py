@@ -36,6 +36,7 @@ from services.scraping.normalized_category_product_sync_service import (
     NormalizedCategoryProductSyncService,
 )
 from services.scraping.product_diff_service import ProductDiffService
+from services.scraping.product_gallery_sync_service import ProductGallerySyncService
 from services.scraping.scraped_product_mapper import ScrapedProductMapper
 from services.scraping.scraped_product_persistence_service import (
     ScrapedProductPersistenceService,
@@ -88,6 +89,7 @@ class ScrapingFactory:
         history_repository = ScrapingHistoryRepository(db)
 
         image_sync_adapter = None
+        gallery_sync = None
         if config.download_images:
             image_output_dir = Path(config.images_folder)
             if image_output_dir.name.casefold() != "products":
@@ -115,6 +117,17 @@ class ScrapingFactory:
             max_retries=config.max_retries,
             http_workers=config.http_workers,
         )
+        if image_sync_adapter is not None:
+            gallery_sync = ProductGallerySyncService(
+                browser=browser,
+                product_extractor=ProductExtractor(),
+                image_downloader=image_downloader,
+                review_service=image_review_service,
+                max_workers=min(6, config.image_workers),
+                max_candidates=6,
+            )
+            image_sync_adapter.gallery_sync = gallery_sync
+
         category_scraper = ResilientCategoryScraper(
             browser=browser,
             category_extractor=CategoryExtractor(),

@@ -46,7 +46,7 @@ def test_image_review_keeps_manual_only_record_pending(
     monkeypatch,
     tmp_path,
 ):
-    staging_dir, _products_dir = _patch_paths(monkeypatch, tmp_path)
+    _staging_dir, _products_dir = _patch_paths(monkeypatch, tmp_path)
     current = Product(
         code="FB-4010",
         name="Gota Antiestrés",
@@ -81,7 +81,7 @@ def test_image_review_allows_selecting_a_second_gallery_candidate(
     monkeypatch,
     tmp_path,
 ):
-    _staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
+    staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
     current_path = products_dir / "FB-4010.webp"
     first_path = staging_dir / "first.webp"
     second_path = staging_dir / "second.webp"
@@ -232,7 +232,7 @@ def test_image_review_excluded_gallery_candidate_is_removed_only_on_apply(
     monkeypatch,
     tmp_path,
 ):
-    staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
+    _staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
     gallery_dir = tmp_path / "data" / "images" / "gallery" / "FB-4010"
     monkeypatch.setattr(
         module,

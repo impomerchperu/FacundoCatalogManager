@@ -87,8 +87,9 @@ def test_main_window_excel_dialog_inherits_active_category_and_stock_filters(
             calls["initial_selected"] = set(initial_selected_categories)
             calls["stock_only"] = stock_only
             calls["on_export"] = on_export
+            self.on_export = on_export
             self.products = list(products)
-            self.selected_categories = set(initial_selected_categories)
+            self._selected_categories = set(initial_selected_categories)
             self.stock_only = stock_only
             dialog_ref["instance"] = self
 
@@ -104,7 +105,7 @@ def test_main_window_excel_dialog_inherits_active_category_and_stock_filters(
             return True
 
         def selected_categories(self):
-            return set(self.selected_categories)
+            return set(self._selected_categories)
 
         @staticmethod
         def filter_products(products, categories, *, stock_only=False):

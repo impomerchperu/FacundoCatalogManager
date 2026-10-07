@@ -149,7 +149,7 @@ class ImageReviewService:
             )
         return staged
 
-    def register_candidate(
+    def register_candidate(  # noqa: PLR0912
         self,
         *,
         code: str,

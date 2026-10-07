@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QApplication, QPushButton
+from PySide6.QtWidgets import QApplication, QPushButton, QWidget
 
 from gui.image_review_dialog import ImageReviewDialog, _ImageChoiceLabel
 
@@ -142,14 +142,14 @@ def test_image_review_dialog_apply_commits_selected_records_only():
 def test_image_review_dialog_can_exclude_an_alternative_without_committing():
     _qapp()
     service = FakeReviewService()
+    service.records[0]["kind"] = "gallery"
     dialog = ImageReviewDialog(service=service)
 
     alternative_container = dialog.table.cellWidget(0, 3)
     alternative = alternative_container.layout().itemAt(0).widget()
-    assert isinstance(alternative, _ImageChoiceLabel)
+    assert isinstance(alternative, QWidget)
 
-    reject_button = alternative_container.layout().itemAt(0).widget()
-    # The alternative itself is inside the nested option container.
+    # The alternative image and its X control share the nested option container.
     option_container = alternative.parentWidget()
     reject_button = option_container.layout().itemAt(1).widget()
     assert isinstance(reject_button, QPushButton)

@@ -837,6 +837,7 @@ class ProductTable(QTableWidget):
                 for image in gallery
                 if isinstance(image, dict)
             }
+            changed_for_row = False
             for option in options:
                 url = str(option.get("url", "") or "").strip()
                 if not url or url.casefold() in seen:

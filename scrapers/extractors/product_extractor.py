@@ -494,36 +494,31 @@ class ProductExtractor:
                     pass
         return None
 
-    def extract_image(self, soup):
+    def extract_image(self, soup, *, base_url=""):
         code = self._extracted_codes.pop(id(soup), None)
         if code is None:
             code = self.extract_code(soup)
-        candidates = []
-        for img in soup.find_all("img"):
-            url = img.get("data-src") or img.get("data-lazy-src") or img.get("src") or ""
-            if not url or url.startswith("data:image"):
-                continue
-            if "Logo" in url or "Proximo" in url:
-                continue
-            candidates.append(self._normalize_image_url(url))
-        if not candidates:
-            return ""
-        if code:
-            for url in candidates:
-                if code.lower() in url.lower():
-                    return url
-        for url in candidates:
-            if "/uploads/" in url:
-                return url
-        return candidates[0]
+        candidates = ProductImageExtractor.extract_candidates(
+            soup,
+            code=code,
+            name=self.extract_name(soup),
+            base_url=base_url or self.BASE_URL,
+        )
+        return candidates[0]["url"] if candidates else ""
+
+    def extract_image_candidates(self, soup, *, base_url=""):
+        code = self._extracted_codes.get(id(soup))
+        if code is None:
+            code = self.extract_code(soup)
+        return ProductImageExtractor.extract_candidates(
+            soup,
+            code=code,
+            name=self.extract_name(soup),
+            base_url=base_url or self.BASE_URL,
+        )
 
     def _normalize_image_url(self, url):
-        if not url:
-            return ""
-        if url.startswith("//"):
-            return "https:" + url
-        if url.startswith("/"):
-            return urljoin(self.BASE_URL, url)
-        if not url.startswith(("http://", "https://")):
-            return urljoin(self.BASE_URL + "/", url)
-        return url
+        return ProductImageExtractor._normalize_url(
+            url,
+            base_url=self.BASE_URL,
+        )

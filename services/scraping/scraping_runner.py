@@ -170,6 +170,20 @@ class ScrapingRunner:
             source_total_value = int(source_total)
             if source_total_value == pipeline_total:
                 normalized_current = min(max(current_value, 0), pipeline_total)
+            elif source_total_value > pipeline_total:
+                gallery_span = max(pipeline_total - len(categories), 0)
+                gallery_progress = (
+                    current_value / source_total_value
+                    if source_total_value > 0
+                    else 0.0
+                )
+                normalized_current = len(categories) + int(
+                    gallery_progress * gallery_span
+                )
+                normalized_current = min(
+                    max(normalized_current, len(categories)),
+                    pipeline_total,
+                )
             else:
                 normalized_current = min(max(current_value, 0), len(categories))
             progress_callback(normalized_current, pipeline_total)

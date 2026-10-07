@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
+from typing import cast
 
 import requests
 
@@ -294,14 +295,17 @@ class ImageReviewService:
                         "No existe el producto "
                         f"{record.get('code', '')} en la base de datos."
                     )
-                result = (
+                result: dict[str, object] = (
                     self._keep_current(record, product)
                     if action == "keep"
-                    else self._apply_selected_image(
-                        record,
-                        product,
-                        action,
-                        manual_path,
+                    else cast(
+                        dict[str, object],
+                        self._apply_selected_image(
+                            record,
+                            product,
+                            action,
+                            manual_path,
+                        ),
                     )
                 )
                 record["status"] = "resolved"

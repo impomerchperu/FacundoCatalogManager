@@ -23,6 +23,13 @@ from scrapers.extractors.variant_color_stock_extractor import (
 class ProductCollectionScraper:
     """Recorre todas las páginas de una categoría y extrae sus productos."""
 
+    # WooCommerce currently serves an incorrect card image for these two SKUs.
+    # Their product detail pages are the authoritative image source.
+    AUTHORITATIVE_DETAIL_IMAGE_CODES: ClassVar[frozenset[str]] = frozenset({
+        "FB-3017",
+        "FB-3018",
+    })
+
     _PRICE_FIELDS = (
         "price_sample",
         "price_hundred",
@@ -441,8 +448,11 @@ class ProductCollectionScraper:
             return "image_quality"
         return "other"
 
-    @staticmethod
-    def _image_needs_detail(product: Any) -> bool:
+    @classmethod
+    def _image_needs_detail(cls, product: Any) -> bool:
+        code = normalize_code(str(getattr(product, "code", "") or ""))
+        if code in cls.AUTHORITATIVE_DETAIL_IMAGE_CODES:
+            return True
         image_url = str(getattr(product, "image_url", "") or "").strip()
         return not image_url or ProductImageExtractor.is_generic_asset(image_url)
 
@@ -592,6 +602,11 @@ class ProductCollectionScraper:
             getattr(detailed_product, "image_candidates", []) or []
         )
         if detail_candidates:
+            if normalize_code(str(getattr(product, "code", "") or "")) in self.AUTHORITATIVE_DETAIL_IMAGE_CODES:
+                detail_candidates = [
+                    {**candidate, "authoritative": True}
+                    for candidate in detail_candidates
+                ]
             product.image_candidates = detail_candidates
 
         product.url = detail_url

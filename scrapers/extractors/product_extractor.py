@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 
 from scrapers.extractors.code_utils import extract_code_from_soup, normalize_code
 from scrapers.extractors.price_extractor import PriceExtractor
+from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.extractors.stock_extractor import StockExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,

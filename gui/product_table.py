@@ -571,6 +571,8 @@ class ProductTable(QTableWidget):
             ),
             None,
         )
+        if not isinstance(persisted, dict):
+            persisted = None
 
         menu = QMenu(self)
         use_action = menu.addAction("Usar como imagen principal")
@@ -982,11 +984,10 @@ class ProductTable(QTableWidget):
             and index.column() == self.IMAGE_COLUMN
         ):
             item = self.item(index.row(), self.IMAGE_COLUMN)
-            gallery = (
-                item.data(ProductImageDelegate.GALLERY_ROLE)
-                if item is not None
-                else None
-            )
+            if item is None:
+                super().mousePressEvent(event)
+                return
+            gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
             if isinstance(gallery, list) and len(gallery) > 1:
                 rect = self.visualRect(index)
                 active = item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE)

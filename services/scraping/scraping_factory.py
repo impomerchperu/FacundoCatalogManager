@@ -123,8 +123,9 @@ class ScrapingFactory:
                 product_extractor=ProductExtractor(),
                 image_downloader=image_downloader,
                 review_service=image_review_service,
-                max_workers=min(6, config.image_workers),
-                max_candidates=6,
+                max_workers=config.gallery_workers,
+                max_candidates=config.gallery_max_candidates,
+                refresh_existing=config.refresh_galleries,
             )
             image_sync_adapter.gallery_sync = gallery_sync
 

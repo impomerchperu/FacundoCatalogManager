@@ -70,7 +70,13 @@ class ImageReviewService:
                 record.get("batch_id") == batch_id
                 and record.get("status") == "staged"
             ):
-                    self._remove_all_staged_candidates(record)
+                    if str(record.get("kind", "replacement")) == "gallery":
+                        for option in list(record.get("candidate_options", []) or []):
+                            self._remove_gallery_file(
+                                str(option.get("path", "") or "")
+                            )
+                    else:
+                        self._remove_all_staged_candidates(record)
                     changed = True
                     continue
                 retained.append(record)
@@ -698,7 +704,13 @@ class ImageReviewService:
 
     def _cleanup_selected_records(self, records: list[dict]) -> None:
         for record in records:
-            self._remove_all_staged_candidates(record)
+            if str(record.get("kind", "replacement")) == "gallery":
+                for option in list(record.get("candidate_options", []) or []):
+                    self._remove_gallery_file(
+                        str(option.get("path", "") or "")
+                    )
+            else:
+                self._remove_all_staged_candidates(record)
             selected_path = str(
                 record.get("selected_path", "") or ""
             )
@@ -706,9 +718,12 @@ class ImageReviewService:
                 self._remove_staged_file(selected_path)
 
     @staticmethod
-    def _find_pending_record(records: list[dict], review_id: str) -> dict:
+    def _find_available_record(records: list[dict], review_id: str) -> dict:
         for record in records:
-            if record.get("id") == review_id and record.get("status") == "pending":
+            if (
+                record.get("id") == review_id
+                and record.get("status") in {"pending", "staged"}
+            ):
                 return record
         raise ValueError("La revisión de imagen ya no está disponible.")
 

@@ -23,10 +23,11 @@ def test_product_collection_requests_detail_for_generic_image():
     product = ScrapedProduct(
         code="FB-4010",
         name="Gota Antiestrés",
+        description="Descripción de prueba.",
         image_url="https://site.test/uploads/Logo-Facundo-2026.webp",
     )
 
-    reason = ProductCollectionScraper._detail_skip_reason(card, product)
+    reason = ProductCollectionScraper._detail_request_reason(card, product)
 
     assert reason == "image_quality"
 

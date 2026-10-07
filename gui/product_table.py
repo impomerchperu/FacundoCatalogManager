@@ -736,6 +736,17 @@ class ProductTable(QTableWidget):
     def _add_product_row(self, row: int, product: Product) -> None:
         image_item = QTableWidgetItem()
         gallery = self._product_gallery(product)
+        code_key = str(product.code).strip().casefold()
+        persisted_urls = {
+            str(image.get("url", "") or "").strip().casefold()
+            for image in gallery
+            if isinstance(image, dict)
+        }
+        for option in self._gallery_overrides.get(code_key, []):
+            url = str(option.get("url", "") or "").strip()
+            if url and url.casefold() not in persisted_urls:
+                gallery.append(dict(option))
+                persisted_urls.add(url.casefold())
         active_index = self._active_image_indices.get(
             str(product.code).strip().casefold(),
             0,
@@ -770,6 +781,144 @@ class ProductTable(QTableWidget):
         self._set_price_item(row, self.PRICE_SAMPLE_COLUMN, product.price_sample)
         self._set_price_item(row, self.PRICE_HUNDRED_COLUMN, product.price_hundred)
         self._set_price_item(row, self.PRICE_THOUSAND_COLUMN, product.price_thousand)
+
+    @staticmethod
+    def _product_gallery(product: Product) -> list[dict]:
+        gallery = [
+            dict(image)
+            for image in list(getattr(product, "gallery_images", []) or [])
+            if isinstance(image, dict)
+        ]
+        if gallery:
+            return gallery
+        if product.image_path:
+            return [
+                {
+                    "url": product.image_url,
+                    "image_path": product.image_path,
+                    "image_hash": product.image_hash,
+                    "position": 1,
+                    "source": "primary",
+                }
+            ]
+        return []
+
+    def set_gallery_overrides(self, overrides: dict[str, list[dict]]) -> None:
+        """Actualiza galerías descargadas en vivo sin reconstruir las filas."""
+        normalized = {
+            str(code).strip().casefold(): [
+                dict(option)
+                for option in list(images or [])
+                if isinstance(option, dict)
+                and str(
+                    option.get("path", option.get("image_path", ""))
+                    or ""
+                ).strip()
+            ]
+            for code, images in (overrides or {}).items()
+            if str(code).strip()
+        }
+        self._gallery_overrides = normalized
+        changed = False
+        for code, options in normalized.items():
+            row = self._row_by_code.get(code)
+            if row is None:
+                continue
+            item = self.item(row, self.IMAGE_COLUMN)
+            if item is None:
+                continue
+            gallery = list(item.data(ProductImageDelegate.GALLERY_ROLE) or [])
+            seen = {
+                str(image.get("url", "") or "").strip().casefold()
+                for image in gallery
+                if isinstance(image, dict)
+            }
+            for option in options:
+                url = str(option.get("url", "") or "").strip()
+                if not url or url.casefold() in seen:
+                    continue
+                gallery.append(dict(option))
+                seen.add(url.casefold())
+                changed = True
+            if not changed:
+                continue
+            active_index = item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE)
+            try:
+                active_index = int(active_index) % len(gallery)
+            except (TypeError, ValueError):
+                active_index = 0
+            item.setData(ProductImageDelegate.GALLERY_ROLE, gallery)
+            item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, active_index)
+            self._set_image_item_path(item, gallery, active_index)
+        if changed:
+            self.viewport().update()
+
+    @staticmethod
+    def _set_image_item_path(
+        item: QTableWidgetItem,
+        gallery: list[dict],
+        active_index: int,
+    ) -> None:
+        if not gallery:
+            item.setData(ProductImageDelegate.IMAGE_ROLE, "")
+            return
+        selected = gallery[active_index]
+        image_path = str(
+            selected.get("image_path", selected.get("path", ""))
+            if isinstance(selected, dict)
+            else ""
+        ).strip()
+        item.setData(
+            ProductImageDelegate.IMAGE_ROLE,
+            str(resolve_data_path(image_path)) if image_path else "",
+        )
+
+    def mousePressEvent(self, event) -> None:
+        position = event.position().toPoint()
+        index = self.indexAt(position)
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and index.isValid()
+            and index.column() == self.IMAGE_COLUMN
+        ):
+            item = self.item(index.row(), self.IMAGE_COLUMN)
+            gallery = (
+                item.data(ProductImageDelegate.GALLERY_ROLE)
+                if item is not None
+                else None
+            )
+            if isinstance(gallery, list) and len(gallery) > 1:
+                rect = self.visualRect(index)
+                active = item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE)
+                try:
+                    active_index = int(active)
+                except (TypeError, ValueError):
+                    active_index = 0
+                if position.x() <= rect.left() + 34:
+                    self._set_active_image(index.row(), active_index - 1)
+                    event.accept()
+                    return
+                if position.x() >= rect.right() - 34:
+                    self._set_active_image(index.row(), active_index + 1)
+                    event.accept()
+                    return
+        super().mousePressEvent(event)
+
+    def _set_active_image(self, row: int, active_index: int) -> None:
+        item = self.item(row, self.IMAGE_COLUMN)
+        if item is None:
+            return
+        gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
+        if not isinstance(gallery, list) or not gallery:
+            return
+        active_index %= len(gallery)
+        item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, active_index)
+        self._set_image_item_path(item, gallery, active_index)
+        if 0 <= row < len(self._rendered_products):
+            code = str(self._rendered_products[row].code).strip().casefold()
+            if code:
+                self._active_image_indices[code] = active_index
+        self.viewport().update()
 
     def _set_text_item(self, row: int, column: int, text: str) -> None:
         item = QTableWidgetItem(text)

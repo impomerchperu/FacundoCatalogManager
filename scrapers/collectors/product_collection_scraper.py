@@ -430,9 +430,6 @@ class ProductCollectionScraper:
 
     @classmethod
     def _detail_request_reason(cls, card: Any, product: Any) -> str:
-        if cls._image_needs_detail(product):
-            return "image_quality"
-
         stock_values = cls._stock_values(card)
         if len(stock_values) != 1:
             return cls._stock_request_reason(card, stock_values)
@@ -440,6 +437,8 @@ class ProductCollectionScraper:
             return "missing_fields"
         if cls._missing_price_fields(card, product):
             return "missing_prices"
+        if cls._image_needs_detail(product):
+            return "image_quality"
         return "other"
 
     @staticmethod

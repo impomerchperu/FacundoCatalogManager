@@ -141,8 +141,9 @@ class ImageReviewService:
         candidate_hash: str,
         candidate_url: str,
         candidate_options: list[dict] | None = None,
+        allow_manual_only: bool = False,
     ) -> dict | None:
-        if not candidate_hash:
+        if not candidate_hash and not allow_manual_only:
             self._remove_staged_file(candidate_path)
             return None
 
@@ -174,7 +175,7 @@ class ImageReviewService:
                         "source": str(option.get("source", "") or ""),
                     }
                 )
-            if not options:
+            if not options and not allow_manual_only:
                 options = [
                     {
                         "url": str(candidate_url or ""),
@@ -187,13 +188,25 @@ class ImageReviewService:
                     }
                 ]
 
-            primary = next(
-                (
-                    option
-                    for option in options
-                    if option["path"] == str(candidate_path or "")
-                ),
-                options[0],
+            primary = (
+                next(
+                    (
+                        option
+                        for option in options
+                        if option["path"] == str(candidate_path or "")
+                    ),
+                    options[0],
+                )
+                if options
+                else {
+                    "url": "",
+                    "path": "",
+                    "hash": "",
+                    "score": 0,
+                    "exact_code": False,
+                    "generic": False,
+                    "source": "",
+                }
             )
 
             normalized_code = str(code).casefold()
@@ -224,6 +237,7 @@ class ImageReviewService:
                 "candidate_hash": primary["hash"],
                 "candidate_url": primary["url"],
                 "candidate_options": options,
+                "manual_only": bool(allow_manual_only and not options),
             }
             records.append(record)
             self._write(records)
@@ -237,7 +251,11 @@ class ImageReviewService:
             for record in records:
                 if record.get("status") != "pending":
                     continue
-                candidate = self._resolve_staged_path(record.get("candidate_path", ""))
+                candidate_path = str(record.get("candidate_path", "") or "").strip()
+                if not candidate_path and bool(record.get("manual_only")):
+                    pending.append(dict(record))
+                    continue
+                candidate = self._resolve_staged_path(candidate_path)
                 if candidate is None or not candidate.is_file():
                     record["status"] = "resolved"
                     record["resolution"] = "missing_candidate"

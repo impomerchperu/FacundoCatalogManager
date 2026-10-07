@@ -5,6 +5,7 @@ from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPixmap, QPixma
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
+    QMenu,
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QTableWidget,
@@ -457,6 +458,8 @@ class ProductTable(QTableWidget):
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setWordWrap(True)
         self.setTextElideMode(Qt.TextElideMode.ElideNone)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_image_context_menu)
         self.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
@@ -522,6 +525,82 @@ class ProductTable(QTableWidget):
             )
         for column, width in self.MIN_COLUMN_WIDTHS.items():
             self.setColumnWidth(column, width)
+
+    def _show_image_context_menu(self, position) -> None:
+        index = self.indexAt(position)
+        if not index.isValid() or index.column() != self.IMAGE_COLUMN:
+            return
+        item = self.item(index.row(), self.IMAGE_COLUMN)
+        if item is None:
+            return
+        gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
+        if not isinstance(gallery, list) or not gallery:
+            return
+        active = item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE)
+        try:
+            active_index = int(active) % len(gallery)
+        except (TypeError, ValueError):
+            active_index = 0
+        selected = gallery[active_index]
+        if not isinstance(selected, dict):
+            return
+
+        code_item = self.item(index.row(), self.CODE_COLUMN)
+        if code_item is None:
+            return
+        product_id = code_item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(product_id, int):
+            return
+
+        product = self.controller.get_product_by_id(product_id)
+        if product is None:
+            return
+
+        selected_url = str(selected.get("url", "") or "").strip()
+        persisted = next(
+            (
+                image
+                for image in list(getattr(product, "gallery_images", []) or [])
+                if isinstance(image, dict)
+                and str(image.get("url", "") or "").strip().casefold()
+                == selected_url.casefold()
+            ),
+            None,
+        )
+
+        menu = QMenu(self)
+        use_action = menu.addAction("Usar como imagen principal")
+        use_action.setEnabled(persisted is not None)
+        if persisted is None:
+            use_action.setToolTip(
+                "Primero apruebe la nueva galería desde Revisión de imágenes."
+            )
+        chosen = menu.exec(self.viewport().mapToGlobal(position))
+        if chosen is not use_action:
+            return
+
+        product.image_url = str(persisted.get("url", "") or "")
+        product.image_path = str(
+            persisted.get(
+                "image_path",
+                persisted.get("path", ""),
+            )
+            or ""
+        )
+        product.image_hash = str(
+            persisted.get(
+                "image_hash",
+                persisted.get("hash", ""),
+            )
+            or ""
+        )
+        self.controller.update_product(product)
+        self._products = [
+            product if item is self._rendered_products[index.row()] else item
+            for item in self._products
+        ]
+        self._rendered_products[index.row()] = product
+        self._set_active_image(index.row(), active_index)
 
     def _handle_header_click(self, column: int) -> None:
         if column not in self.SORTABLE_COLUMNS:

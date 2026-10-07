@@ -140,6 +140,7 @@ class ImageReviewDialog(QDialog):
                 str(record.get("status", "")),
                 str(record.get("kind", "replacement")),
                 str(record.get("candidate_hash", "")),
+                str(record.get("selected_action", "")),
                 tuple(
                     (
                         str(option.get("path", "")),

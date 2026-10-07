@@ -1,6 +1,7 @@
 import json
 import re
 import sqlite3
+from typing import cast
 
 from database.db_manager import DBManager
 from models.product import Product
@@ -250,11 +251,23 @@ class ProductRepository:
                     "image_hash": str(
                         image.get("image_hash", image.get("hash", "")) or ""
                     ),
-                    "position": int(image.get("position", position) or position),
+                    "position": cls._int_value(
+                        image.get("position"),
+                        position,
+                    ),
                     "source": str(image.get("source", "gallery") or "gallery"),
                 }
             )
         return result
+
+    @staticmethod
+    def _int_value(value: object, default: int) -> int:
+        if value in (None, ""):
+            return default
+        try:
+            return int(cast("str | int | float", value))
+        except (TypeError, ValueError):
+            return default
 
     @classmethod
     def _json_gallery_images(cls, value) -> list[dict[str, object]]:

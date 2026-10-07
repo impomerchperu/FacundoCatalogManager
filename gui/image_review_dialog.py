@@ -452,7 +452,10 @@ class ImageReviewDialog(QDialog):
         review_ids = [
             str(record.get("id", ""))
             for record in self.records
-            if str(record.get("selected_action", "") or "").strip()
+            if (
+                str(record.get("selected_action", "") or "").strip()
+                or list(record.get("excluded_options", []) or [])
+            )
         ]
         if not review_ids:
             return

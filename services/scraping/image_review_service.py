@@ -149,7 +149,11 @@ class ImageReviewService:
         allow_manual_only: bool = False,
         kind: str = "replacement",
     ) -> dict | None:
-        normalized_kind = "gallery" if str(kind or "").strip().casefold() == "gallery" else "replacement"
+        normalized_kind = (
+            "gallery"
+            if str(kind or "").strip().casefold() == "gallery"
+            else "replacement"
+        )
         if not candidate_hash and not allow_manual_only:
             if normalized_kind == "gallery":
                 self._remove_gallery_file(candidate_path)
@@ -184,7 +188,9 @@ class ImageReviewService:
                         "exact_code": bool(option.get("exact_code", False)),
                         "generic": bool(option.get("generic", False)),
                         "source": str(option.get("source", "") or ""),
-                        "gallery": bool(option.get("gallery", normalized_kind == "gallery")),
+                        "gallery": bool(
+                            option.get("gallery", normalized_kind == "gallery")
+                        ),
                     }
                 )
             if not options and not allow_manual_only:
@@ -553,7 +559,7 @@ class ImageReviewService:
                         if product is None:
                             continue
                         result = (
-                            self._keep_current(product, record)
+                            self._keep_current(record, product)
                             if action == "keep"
                             else self._apply_selected_image(
                                 record,

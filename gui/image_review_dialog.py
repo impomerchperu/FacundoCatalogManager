@@ -347,6 +347,11 @@ class ImageReviewDialog(QDialog):
         action: str,
         manual_path: str | None = None,
     ) -> None:
+        was_pending = any(
+            str(record.get("id", "")) == review_id
+            and record.get("status") == "pending"
+            for record in self.records
+        )
         try:
             result = self.service.apply_selection(
                 review_id,
@@ -360,6 +365,22 @@ class ImageReviewDialog(QDialog):
                 str(error),
             )
             return
+
+        if (
+            was_pending
+            and action in {"candidate", "manual"}
+            and result.get("selected")
+        ):
+            try:
+                finalized = self.service.finalize_selected([review_id])
+                result = finalized[0] if finalized else result
+            except Exception as error:  # noqa: BLE001
+                QMessageBox.critical(
+                    self,
+                    "Revisión de imágenes",
+                    str(error),
+                )
+                return
 
         if result.get("changed") and callable(self.on_catalog_changed):
             self.on_catalog_changed()

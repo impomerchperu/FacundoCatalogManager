@@ -31,9 +31,10 @@ class ExcelCategorySelectionDialog(QDialog):
         *,
         initial_selected_categories: Iterable[str] | None = None,
         stock_only: bool = False,
+        on_export=None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Seleccionar categorías para Excel")
+        self.setWindowTitle("Seleccionar categorías para exportar")
         self.setMinimumWidth(420)
         self.resize(480, 520)
 
@@ -50,7 +51,10 @@ class ExcelCategorySelectionDialog(QDialog):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
 
-        title = QLabel("Seleccione las categorías que desea descargar en Excel.")
+        title = QLabel(
+            "Seleccione las categorías que desea exportar. "
+            "La selección se utilizará para EXCEL, CSV y PDF.",
+        )
         title.setWordWrap(True)
         layout.addWidget(title)
 
@@ -107,18 +111,28 @@ class ExcelCategorySelectionDialog(QDialog):
         self.summary_label.setWordWrap(True)
         layout.addWidget(self.summary_label)
 
+        self.on_export = on_export
         dialog_actions = QHBoxLayout()
         dialog_actions.setContentsMargins(0, 0, 0, 0)
-        dialog_actions.addStretch()
+        dialog_actions.setSpacing(6)
 
-        cancel_button = QPushButton("Cancelar")
-        cancel_button.clicked.connect(self.reject)
-        dialog_actions.addWidget(cancel_button)
+        self.excel_button = QPushButton("EXCEL")
+        self.excel_button.clicked.connect(
+            lambda: self._request_export("excel"),
+        )
+        dialog_actions.addWidget(self.excel_button)
 
-        self.export_button = QPushButton("Exportar")
-        self.export_button.setDefault(True)
-        self.export_button.clicked.connect(self.accept)
-        dialog_actions.addWidget(self.export_button)
+        self.csv_button = QPushButton("CSV")
+        self.csv_button.clicked.connect(
+            lambda: self._request_export("csv"),
+        )
+        dialog_actions.addWidget(self.csv_button)
+
+        self.pdf_button = QPushButton("PDF")
+        self.pdf_button.clicked.connect(
+            lambda: self._request_export("pdf"),
+        )
+        dialog_actions.addWidget(self.pdf_button)
 
         layout.addLayout(dialog_actions)
         self._update_summary()
@@ -195,12 +209,50 @@ class ExcelCategorySelectionDialog(QDialog):
             f"{len(self._categories)} · Productos a exportar: "
             f"{len(selected_products)}"
         )
-        self.export_button.setEnabled(bool(selected))
-        self.export_button.setToolTip(
-            ""
-            if selected
-            else "Seleccione al menos una categoría.",
+        enabled = bool(selected)
+        for button in (
+            self.excel_button,
+            self.csv_button,
+            self.pdf_button,
+        ):
+            button.setEnabled(enabled)
+            button.setToolTip(
+                ""
+                if enabled
+                else "Seleccione al menos una categoría.",
+            )
+
+    def _request_export(self, format_name: str) -> None:
+        selected_categories = self.selected_categories()
+        products = self.filter_products(
+            self._products,
+            selected_categories,
+            stock_only=self._stock_only,
         )
+        if not products:
+            QMessageBox.warning(
+                self,
+                "Exportar catálogo",
+                "Las categorías seleccionadas no contienen productos.",
+            )
+            return
+
+        if not callable(self.on_export):
+            self.accept()
+            return
+
+        try:
+            exported = self.on_export(format_name, products)
+        except Exception as error:  # noqa: BLE001
+            QMessageBox.critical(
+                self,
+                "Exportar catálogo",
+                str(error),
+            )
+            return
+
+        if exported is True:
+            self.accept()
 
     @staticmethod
     def _normalize_categories(categories: Iterable[str]) -> list[str]:

@@ -51,6 +51,7 @@ class ImageReviewDialog(QDialog):
         self.service = service or ImageReviewService()
         self.on_catalog_changed = on_catalog_changed
         self.records: list[dict] = []
+        self._records_signature: tuple = ()
         self.setWindowFlag(Qt.WindowType.Window, True)
         self.setWindowTitle("Revisión de imágenes detectadas")
         self.resize(1040, 620)
@@ -111,7 +112,29 @@ class ImageReviewDialog(QDialog):
         layout.addWidget(close_button)
 
     def reload(self) -> None:
-        self.records = self.service.available()
+        records = self.service.available()
+        signature = tuple(
+            (
+                str(record.get("id", "")),
+                str(record.get("status", "")),
+                str(record.get("kind", "replacement")),
+                str(record.get("candidate_hash", "")),
+                tuple(
+                    (
+                        str(option.get("path", "")),
+                        str(option.get("hash", "")),
+                    )
+                    for option in list(
+                        record.get("candidate_options", []) or []
+                    )
+                ),
+            )
+            for record in records
+        )
+        if signature == self._records_signature:
+            return
+        self._records_signature = signature
+        self.records = records
         self.summary_label.setText(
             f"Imágenes nuevas o actualizadas pendientes: {len(self.records)}. "
             "La imagen actual se conserva hasta que seleccione una acción.",

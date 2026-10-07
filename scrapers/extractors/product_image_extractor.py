@@ -196,7 +196,7 @@ class ProductImageExtractor:
         return ordered
 
     @classmethod
-    def _build_candidate(
+    def _build_candidate(  # noqa: PLR0912
         cls,
         raw_url,
         *,
@@ -254,6 +254,12 @@ class ProductImageExtractor:
             "source": source,
             "sequence": sequence,
         }
+
+    @staticmethod
+    def _contains_catalog_code(text, code) -> bool:
+        normalized_code = re.sub(r"[^a-z0-9]+", "", str(code or "").casefold())
+        normalized_text = re.sub(r"[^a-z0-9]+", "", str(text or "").casefold())
+        return bool(normalized_code and normalized_code in normalized_text)
 
     @staticmethod
     def _append_candidate(candidates, seen, candidate) -> None:

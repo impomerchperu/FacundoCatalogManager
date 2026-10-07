@@ -279,6 +279,12 @@ class ScrapingDialog(QDialog):
 
         dialog = QDialog(self)
         self.detail_dialog = dialog
+        dialog.setWindowFlags(
+            Qt.WindowType.Window
+            | Qt.WindowType.WindowMinimizeButtonHint
+            | Qt.WindowType.WindowMaximizeButtonHint
+            | Qt.WindowType.WindowCloseButtonHint
+        )
         dialog.setWindowTitle("Detalle de la descarga")
         dialog.resize(1000, 600)
         dialog.setModal(False)

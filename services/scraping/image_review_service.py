@@ -634,20 +634,9 @@ class ImageReviewService:
 
             for record in selected_records:
                 if str(record.get("kind", "replacement")) == "gallery":
-                    result = self._prepare_gallery_record(record)
-                    file_state = {
-                        "destination": None,
-                        "backup": None,
-                        "destination_existed": False,
-                    }
-                    product = self.repository.get_by_code(
-                        str(record.get("code", "")),
+                    result, file_state, product = self._prepare_gallery_record(
+                        record,
                     )
-                    if product is None:
-                        raise ValueError(
-                            "No existe el producto "
-                            f"{record.get('code', '')} en la base de datos."
-                        )
                 else:
                     result, file_state, product = self._prepare_selected_record(
                         record,
@@ -687,7 +676,10 @@ class ImageReviewService:
 
         return results
 
-    def _prepare_gallery_record(self, record: dict) -> dict:
+    def _prepare_gallery_record(
+        self,
+        record: dict,
+    ) -> tuple[dict, dict, Product]:
         product = self.repository.get_by_code(
             str(record.get("code", "")),
         )
@@ -711,41 +703,43 @@ class ImageReviewService:
         action = str(
             record.get("selected_action", "") or ""
         ).strip().casefold()
-        if action == "candidate":
-            source = self._resolve_gallery_path(
+        if action in {"candidate", "manual"}:
+            applied = self._apply_selected_image(
+                record,
+                product,
+                action,
                 str(record.get("selected_path", "") or ""),
+                persist=False,
+                cleanup=False,
             )
-            if source is None or not source.is_file():
-                raise ValueError("La imagen seleccionada no existe.")
-            image_products_dir = resolve_data_path(IMAGE_PRODUCTS_DIR)
-            image_products_dir.mkdir(parents=True, exist_ok=True)
-            destination = image_products_dir / (
-                f"{ImageDownloader._safe_code(str(product.code))}"
-                f"{source.suffix.lower()}"
+            result, file_state = (
+                applied
+                if isinstance(applied, tuple)
+                else (
+                    applied,
+                    {
+                        "destination": None,
+                        "backup": None,
+                        "destination_existed": False,
+                    },
+                )
             )
-            shutil.copy2(source, destination)
-            product.image_path = to_data_relative_path(destination)
-            product.image_hash = ImageDownloader.hash_file(destination)
-            product.image_url = str(record.get("selected_url", "") or "")
-            excluded.discard(str(record.get("selected_path", "") or "").casefold())
+        else:
+            result = {
+                "code": product.code,
+                "action": action or "gallery",
+                "changed": bool(excluded),
+            }
+            file_state = {
+                "destination": None,
+                "backup": None,
+                "destination_existed": False,
+            }
 
         for position, image in enumerate(product.gallery_images, start=1):
             image["position"] = position
 
-        for option in list(record.get("candidate_options", []) or []):
-            option_path = str(option.get("path", "") or "")
-            option_key = option_path.casefold()
-            if option_key in {
-                str(path).casefold()
-                for path in list(record.get("excluded_options", []) or [])
-            }:
-                self._remove_gallery_file(option_path)
-
-        return {
-            "code": product.code,
-            "action": action or "gallery",
-            "changed": True,
-        }
+        return result, file_state, product
 
     def _prepare_selected_record(
         self,
@@ -784,8 +778,21 @@ class ImageReviewService:
 
     def _cleanup_selected_records(self, records: list[dict]) -> None:
         for record in records:
-            if str(record.get("kind", "replacement")) != "gallery":
-                self._remove_all_staged_candidates(record)
+            if str(record.get("kind", "replacement")) == "gallery":
+                for option in list(record.get("candidate_options", []) or []):
+                    option_path = str(option.get("path", "") or "").strip()
+                    excluded = {
+                        str(value).strip()
+                        for value in list(
+                            record.get("excluded_options", []) or []
+                        )
+                        if str(value).strip()
+                    }
+                    if option_path in excluded:
+                        self._remove_gallery_file(option_path)
+                continue
+
+            self._remove_all_staged_candidates(record)
             selected_path = str(
                 record.get("selected_path", "") or ""
             ).strip()

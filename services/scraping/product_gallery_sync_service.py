@@ -69,7 +69,7 @@ class ProductGallerySyncService:
                     progress_callback(completed, len(items))
         return results
 
-    def _sync_product(self, product, existing=None):
+    def _sync_product(self, product, existing=None):  # noqa: PLR0912
         candidates = self._candidate_source(product, existing)
         existing_gallery = [
             dict(image)

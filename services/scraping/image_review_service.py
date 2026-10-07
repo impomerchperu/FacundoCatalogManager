@@ -143,9 +143,14 @@ class ImageReviewService:
         candidate_url: str,
         candidate_options: list[dict] | None = None,
         allow_manual_only: bool = False,
+        kind: str = "replacement",
     ) -> dict | None:
+        normalized_kind = "gallery" if str(kind or "").strip().casefold() == "gallery" else "replacement"
         if not candidate_hash and not allow_manual_only:
-            self._remove_staged_file(candidate_path)
+            if normalized_kind == "gallery":
+                self._remove_gallery_file(candidate_path)
+            else:
+                self._remove_staged_file(candidate_path)
             return None
 
         with self._lock:
@@ -156,7 +161,8 @@ class ImageReviewService:
                     and str(record.get("candidate_hash", "")) == candidate_hash
                     and record.get("status") in {"pending", "resolved", "staged"}
                 ):
-                    self._remove_staged_file(candidate_path)
+                    if normalized_kind != "gallery":
+                        self._remove_staged_file(candidate_path)
                     return None
 
             options: list[dict] = []
@@ -174,6 +180,7 @@ class ImageReviewService:
                         "exact_code": bool(option.get("exact_code", False)),
                         "generic": bool(option.get("generic", False)),
                         "source": str(option.get("source", "") or ""),
+                        "gallery": bool(option.get("gallery", normalized_kind == "gallery")),
                     }
                 )
             if not options and not allow_manual_only:
@@ -238,6 +245,7 @@ class ImageReviewService:
                 "candidate_hash": primary["hash"],
                 "candidate_url": primary["url"],
                 "candidate_options": options,
+                "kind": normalized_kind,
                 "manual_only": bool(allow_manual_only and not options),
             }
             records.append(record)

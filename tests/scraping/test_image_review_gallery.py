@@ -226,3 +226,92 @@ def test_image_review_defers_gallery_dismissal_until_batch_finishes(
     assert not first.exists()
     assert not second.exists()
     assert service.pending() == []
+
+
+def test_image_review_excluded_gallery_candidate_is_removed_only_on_apply(
+    monkeypatch,
+    tmp_path,
+):
+    staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
+    gallery_dir = tmp_path / "data" / "images" / "gallery" / "FB-4010"
+    monkeypatch.setattr(
+        module,
+        "IMAGE_GALLERY_DIR",
+        tmp_path / "data" / "images" / "gallery",
+    )
+    gallery_dir.mkdir(parents=True)
+    products_dir.mkdir(parents=True)
+    first = gallery_dir / "FB-4010-01.webp"
+    second = gallery_dir / "FB-4010-02.webp"
+    first.write_bytes(b"first")
+    second.write_bytes(b"second")
+
+    current = Product(
+        code="FB-4010",
+        name="Gota Antiestrés",
+        image_path="data/images/products/FB-4010.webp",
+        image_hash="old-hash",
+        image_url="https://site.test/old.webp",
+        gallery_images=[
+            {
+                "url": "https://site.test/first.webp",
+                "image_path": "data/images/gallery/FB-4010/FB-4010-01.webp",
+                "image_hash": "first",
+                "position": 1,
+                "source": "woocommerce-gallery",
+            },
+            {
+                "url": "https://site.test/second.webp",
+                "image_path": "data/images/gallery/FB-4010/FB-4010-02.webp",
+                "image_hash": "second",
+                "position": 2,
+                "source": "woocommerce-gallery",
+            },
+        ],
+    )
+    service = ImageReviewService(FakeRepository(current))
+    service.register_candidate(
+        code="FB-4010",
+        product_name="Gota Antiestrés",
+        current_path=current.image_path,
+        current_hash=current.image_hash,
+        current_url=current.image_url,
+        candidate_path="data/images/gallery/FB-4010/FB-4010-01.webp",
+        candidate_hash="first",
+        candidate_url="https://site.test/first.webp",
+        candidate_options=[
+            {
+                "path": "data/images/gallery/FB-4010/FB-4010-01.webp",
+                "hash": "first",
+                "url": "https://site.test/first.webp",
+                "gallery": True,
+            },
+            {
+                "path": "data/images/gallery/FB-4010/FB-4010-02.webp",
+                "hash": "second",
+                "url": "https://site.test/second.webp",
+                "gallery": True,
+            },
+        ],
+        kind="gallery",
+    )
+    review_id = service.pending()[0]["id"]
+
+    service.exclude_candidate(
+        review_id,
+        "data/images/gallery/FB-4010/FB-4010-02.webp",
+    )
+
+    assert len(current.gallery_images) == 2
+    assert second.exists()
+
+    result = service.finalize_selected([review_id])
+
+    assert result[0]["changed"] is True
+    assert [
+        image["url"]
+        for image in current.gallery_images
+    ] == ["https://site.test/first.webp"]
+    assert first.exists()
+    assert not second.exists()
+    assert service.pending() == []

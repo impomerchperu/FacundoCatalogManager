@@ -24,11 +24,19 @@ class CategoryProductExtractor:
             total_stock = sum(color_stock.values())
 
         price_sample = self.price_extractor.extract_sample(card)
-        return ScrapedProduct(
+        code = self._code(card)
+        name = self._name(card)
+        image_candidates = ProductImageExtractor.extract_candidates(
+            card,
+            code=code,
+            name=name,
+            base_url=ProductImageExtractor.BASE_URL,
+        )
+        result = ScrapedProduct(
             source=self.SOURCE,
             url=url or self._url(card),
-            code=self._code(card),
-            name=self._name(card),
+            code=code,
+            name=name,
             category=category,
             description=self._description(card),
             stock=total_stock,
@@ -37,8 +45,10 @@ class CategoryProductExtractor:
             price_hundred=self.price_extractor.extract_hundred(card),
             price_thousand=self.price_extractor.extract_thousand(card),
             color_stock=color_stock,
-            image_url=self._image(card),
+            image_url=image_candidates[0]["url"] if image_candidates else "",
         )
+        result.image_candidates = image_candidates
+        return result
 
     def _url(self, soup):
         element = soup.select_one('a[href*="/producto/"]')

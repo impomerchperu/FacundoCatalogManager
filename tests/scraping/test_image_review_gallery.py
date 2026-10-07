@@ -81,7 +81,7 @@ def test_image_review_allows_selecting_a_second_gallery_candidate(
     monkeypatch,
     tmp_path,
 ):
-    _staging_dir, _products_dir = _patch_paths(monkeypatch, tmp_path)
+    staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
     current_path = products_dir / "FB-4010.webp"
     first_path = staging_dir / "first.webp"
     second_path = staging_dir / "second.webp"
@@ -150,7 +150,7 @@ def test_image_review_defers_gallery_dismissal_until_batch_finishes(
     monkeypatch,
     tmp_path,
 ):
-    staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
+    _staging_dir, _products_dir = _patch_paths(monkeypatch, tmp_path)
     gallery_dir = tmp_path / "data" / "images" / "gallery" / "FB-4010"
     monkeypatch.setattr(module, "IMAGE_GALLERY_DIR", tmp_path / "data" / "images" / "gallery")
     gallery_dir.mkdir(parents=True)

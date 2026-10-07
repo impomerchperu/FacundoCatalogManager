@@ -696,3 +696,16 @@ def test_history_window_has_no_footer_buttons_and_fits_table_width():
 
     dialog.close()
     dialog.deleteLater()
+
+def test_history_dialog_supports_minimize_and_maximize():
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    dialog = ScrapingHistoryDialog()
+
+    assert dialog.windowFlags() & Qt.WindowType.WindowMinimizeButtonHint
+    assert dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
+
+    dialog.close()
+    app.processEvents()
+

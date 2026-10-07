@@ -1098,6 +1098,7 @@ class MainWindow(QMainWindow):
 
     def scraping_finished(self) -> None:
         self.refresh_catalog()
+        self._refresh_image_review_state()
         if self.history_dialog is not None:
             self.history_dialog.load_history()
         self.open_pending_image_review()

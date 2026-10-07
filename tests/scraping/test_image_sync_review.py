@@ -198,4 +198,6 @@ def test_image_sync_requires_review_for_exact_code_replacement():
     assert result[0].image_path == current.image_path
     assert result[0].image_hash == current.image_hash
     assert len(review.registered) == 1
-    assert review.registered[0]["candidate_url"] == product.image_url
+    assert review.registered[0]["candidate_url"] == (
+        "https://example.test/FB-4010-new.jpg"
+    )

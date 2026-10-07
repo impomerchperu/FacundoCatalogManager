@@ -73,62 +73,66 @@ class ProductGallerySyncService:
     def _sync_product(self, product, existing=None):
         existing = existing or self._existing_product(product)
         candidates = self._candidate_source(product, existing)
+        existing_gallery = [
+            dict(image)
+            for image in list(getattr(existing, "gallery_images", []) or [])
+            if isinstance(image, dict)
+        ]
         if not candidates:
-            product.gallery_images = list(
-                getattr(existing, "gallery_images", []) or []
-            )
+            product.gallery_images = existing_gallery
             return product
 
         normalized = self._normalize_candidates(candidates)
         if not normalized:
-            product.gallery_images = list(
-                getattr(existing, "gallery_images", []) or []
-            )
+            product.gallery_images = existing_gallery
             return product
 
-        existing_gallery = list(
-            getattr(existing, "gallery_images", []) or []
-        )
         existing_by_url = {
             str(item.get("url", "") or "").strip().casefold(): item
             for item in existing_gallery
-            if isinstance(item, dict)
+            if str(item.get("url", "") or "").strip()
         }
-        gallery_dir = resolve_data_path(IMAGE_GALLERY_DIR)
-        product_dir = gallery_dir
-        current_urls = {
-            str(item.get("url", "") or "").strip().casefold()
-            for item in normalized
+        gallery_root = resolve_data_path(IMAGE_GALLERY_DIR)
+        product_dir = gallery_root / ImageDownloader._safe_code(str(product.code))
+        gallery_images = list(existing_gallery)
+        gallery_index = {
+            str(item.get("url", "") or "").strip().casefold(): index
+            for index, item in enumerate(gallery_images)
+            if str(item.get("url", "") or "").strip()
         }
-
         new_options: list[dict[str, object]] = []
-        gallery_images: list[dict[str, object]] = []
+
         for position, candidate in enumerate(normalized, start=1):
-            url = str(candidate["url"])
-            existing_item = existing_by_url.get(url.casefold())
-            existing_path = (
-                str(
-                    existing_item.get("image_path", existing_item.get("path", ""))
+            url = str(candidate["url"]).strip()
+            key = url.casefold()
+            existing_item = existing_by_url.get(key)
+            path = None
+            if isinstance(existing_item, dict):
+                raw_path = str(
+                    existing_item.get(
+                        "image_path",
+                        existing_item.get("path", ""),
+                    )
                     or ""
                 ).strip()
-                if isinstance(existing_item, dict)
-                else ""
-            )
-            path = resolve_data_path(existing_path) if existing_path else None
+                if raw_path:
+                    candidate_path = resolve_data_path(raw_path)
+                    if candidate_path.is_file():
+                        path = candidate_path
 
-            if path is None or not path.is_file():
+            if path is None:
                 try:
                     stored_path = self.image_downloader.download_gallery(
                         str(product.code),
                         url,
                         position,
-                        product_dir / ImageDownloader._safe_code(str(product.code)),
+                        product_dir,
                     )
+                    path = resolve_data_path(stored_path)
                 except Exception:  # noqa: BLE001
                     continue
-                path = resolve_data_path(stored_path)
-            image_hash = ImageDownloader.hash_file(path)
 
+            image_hash = ImageDownloader.hash_file(path)
             item = {
                 "url": url,
                 "image_path": str(
@@ -138,9 +142,12 @@ class ProductGallerySyncService:
                 "position": position,
                 "source": "woocommerce-gallery",
             }
-            gallery_images.append(item)
 
-            if url.casefold() not in existing_by_url:
+            if key in gallery_index:
+                gallery_images[gallery_index[key]] = item
+            else:
+                gallery_index[key] = len(gallery_images)
+                gallery_images.append(item)
                 new_options.append(
                     {
                         "url": url,
@@ -154,16 +161,15 @@ class ProductGallerySyncService:
                     }
                 )
 
-        if gallery_images:
-            product.gallery_images = gallery_images
-            self._remove_obsolete_gallery_files(
-                str(product.code),
-                existing_gallery,
-                current_urls,
-            )
-            self._register_gallery_review(product, new_options)
-        else:
-            product.gallery_images = existing_gallery
+        if not gallery_images:
+            product.gallery_images = []
+            return product
+
+        for position, image in enumerate(gallery_images, start=1):
+            image["position"] = position
+
+        product.gallery_images = gallery_images
+        self._register_gallery_review(product, new_options)
         return product
 
     def _candidate_source(self, product, existing):

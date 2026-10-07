@@ -46,6 +46,7 @@ class CatalogSyncService:
         "image_url": "URL imagen",
         "image_path": "Ruta imagen",
         "image_hash": "Hash imagen",
+        "gallery_images": "Galería de imágenes",
         "content_hash": "Hash contenido",
     }
 

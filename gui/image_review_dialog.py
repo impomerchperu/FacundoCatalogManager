@@ -146,6 +146,10 @@ class ImageReviewDialog(QDialog):
                 str(record.get("selected_path", "")),
                 str(record.get("selected_url", "")),
                 tuple(
+                    str(value)
+                    for value in list(record.get("excluded_options", []) or [])
+                ),
+                tuple(
                     (
                         str(option.get("path", "")),
                         str(option.get("hash", "")),
@@ -196,6 +200,7 @@ class ImageReviewDialog(QDialog):
         self.apply_button.setEnabled(
             any(
                 str(record.get("selected_action", "") or "").strip()
+                or list(record.get("excluded_options", []) or [])
                 for record in self.records
             )
         )

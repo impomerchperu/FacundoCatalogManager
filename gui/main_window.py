@@ -1016,8 +1016,8 @@ class MainWindow(QMainWindow):
         self.history_dialog = None
 
     def _refresh_image_review_state(self) -> None:
-        button = self.image_review_button
-        service = self.image_review_service
+        button = getattr(self, "image_review_button", None)
+        service = getattr(self, "image_review_service", None)
         if button is None or service is None:
             return
         try:

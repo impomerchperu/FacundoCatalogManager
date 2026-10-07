@@ -145,12 +145,12 @@ def test_image_review_dialog_can_exclude_an_alternative_without_committing():
     service.records[0]["kind"] = "gallery"
     dialog = ImageReviewDialog(service=service)
 
-    alternative_container = dialog.table.cellWidget(0, 3)
-    alternative = alternative_container.layout().itemAt(0).widget()
-    assert isinstance(alternative, QWidget)
+    alternatives_container = dialog.table.cellWidget(0, 3)
+    option_container = alternatives_container.layout().itemAt(0).widget()
+    assert isinstance(option_container, QWidget)
+    alternative = option_container.layout().itemAt(0).widget()
+    assert isinstance(alternative, _ImageChoiceLabel)
 
-    # The alternative image and its X control share the nested option container.
-    option_container = alternative.parentWidget()
     reject_button = option_container.layout().itemAt(1).widget()
     assert isinstance(reject_button, QPushButton)
 

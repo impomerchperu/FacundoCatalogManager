@@ -88,6 +88,8 @@ class ProductImageDelegate(QStyledItemDelegate):
                     "image_path",
                     selected.get("path", image_path),
                 )
+                if isinstance(image_path, str):
+                    image_path = str(resolve_data_path(image_path))
         if not isinstance(image_path, str) or not image_path:
             return
 
@@ -818,16 +820,18 @@ class ProductTable(QTableWidget):
             for code, images in (overrides or {}).items()
             if str(code).strip()
         }
+        previous_codes = set(self._gallery_overrides)
         self._gallery_overrides = normalized
         changed = False
-        for code, options in normalized.items():
+        for code in previous_codes | set(normalized):
+            options = normalized.get(code, [])
             row = self._row_by_code.get(code)
             if row is None:
                 continue
             item = self.item(row, self.IMAGE_COLUMN)
             if item is None:
                 continue
-            gallery = list(item.data(ProductImageDelegate.GALLERY_ROLE) or [])
+            gallery = self._product_gallery(self._rendered_products[row])
             seen = {
                 str(image.get("url", "") or "").strip().casefold()
                 for image in gallery
@@ -839,9 +843,10 @@ class ProductTable(QTableWidget):
                     continue
                 gallery.append(dict(option))
                 seen.add(url.casefold())
-                changed = True
-            if not changed:
+                changed_for_row = True
+            if not changed_for_row and code in previous_codes:
                 continue
+            changed = changed or changed_for_row or code in previous_codes
             active_index = item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE)
             try:
                 active_index = int(active_index) % len(gallery)

@@ -335,7 +335,10 @@ class ImageSync:
         return any(
             bool(candidate.get("authoritative"))
             and not bool(candidate.get("generic"))
-            and str(candidate.get("url", "") or "").strip().casefold() == normalized_url
+            and (
+                str(candidate.get("url", "") or "").strip().casefold()
+                == normalized_url
+            )
             for candidate in candidates
         )
 

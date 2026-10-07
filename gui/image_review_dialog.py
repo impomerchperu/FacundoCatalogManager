@@ -213,14 +213,14 @@ class ImageReviewDialog(QDialog):
         if self._page <= 0:
             return
         self._page -= 1
-        self._records_signature = ()
+        self._records_signature = None
         self.reload()
 
     def _next_page(self) -> None:
         if (self._page + 1) * self.PAGE_SIZE >= len(self.records):
             return
         self._page += 1
-        self._records_signature = ()
+        self._records_signature = None
         self.reload()
 
     def _populate_row(self, row: int, record: dict) -> None:
@@ -371,7 +371,7 @@ class ImageReviewDialog(QDialog):
                 str(error),
             )
             return
-        self._records_signature = ()
+        self._records_signature = None
         self.reload()
 
     def _current_widget(self, record: dict) -> _ImageChoiceLabel:
@@ -457,7 +457,7 @@ class ImageReviewDialog(QDialog):
             )
             return
 
-        self._records_signature = ()
+        self._records_signature = None
         self.reload()
 
     def _apply_changes(self) -> None:
@@ -485,7 +485,7 @@ class ImageReviewDialog(QDialog):
         if results and callable(self.on_catalog_changed):
             self.on_catalog_changed()
 
-        self._records_signature = ()
+        self._records_signature = None
         self.reload()
         if not self.records:
             self.close()

@@ -62,6 +62,7 @@ class CatalogSyncService:
         self.last_sync_result = SyncResult()
         self.hash_service = ProductHashService()
         self.result_writer: ScrapingResultWriter | None = None
+        self._deferred_image_cleanup = False
 
     @staticmethod
     def _normalize_code(value) -> str:
@@ -209,8 +210,23 @@ class CatalogSyncService:
                 or result.products_unique >= result.products_expected
             )
         ):
-            self._cleanup_unused_images()
+            if self._transaction_is_active():
+                self._deferred_image_cleanup = True
+            else:
+                self._cleanup_unused_images()
         return result
+
+    def finalize_post_commit(self) -> None:
+        """Ejecuta la limpieza diferida cuando la transacción externa ya confirmó."""
+        if not self._deferred_image_cleanup:
+            return
+        self._deferred_image_cleanup = False
+        self._cleanup_unused_images()
+
+    def _transaction_is_active(self) -> bool:
+        """Indica si otra capa mantiene abierta la transacción del catálogo."""
+        db = getattr(self.repository, "db", None)
+        return bool(getattr(db, "_transaction_active", False))
 
     def synchronize(self, products, prune_missing: bool = False):
         return self.sync(products, prune_missing=prune_missing)

@@ -129,12 +129,12 @@ class ProductImageDelegate(QStyledItemDelegate):
             painter.drawText(
                 option.rect.adjusted(6, 0, -6, -6),
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom,
-                "‹",
+                "<",
             )
             painter.drawText(
                 option.rect.adjusted(6, 0, -6, -6),
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
-                "›",
+                ">",
             )
             painter.drawText(
                 option.rect.adjusted(0, 0, 0, -6),
@@ -526,7 +526,7 @@ class ProductTable(QTableWidget):
         for column, width in self.MIN_COLUMN_WIDTHS.items():
             self.setColumnWidth(column, width)
 
-    def _show_image_context_menu(self, position) -> None:
+    def _show_image_context_menu(self, position) -> None:  # noqa: PLR0912
         index = self.indexAt(position)
         if not index.isValid() or index.column() != self.IMAGE_COLUMN:
             return

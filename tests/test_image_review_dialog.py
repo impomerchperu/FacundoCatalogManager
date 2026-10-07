@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QPushButton, QWidget
 
 from gui.image_review_dialog import ImageReviewDialog, _ImageChoiceLabel

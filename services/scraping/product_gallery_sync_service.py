@@ -256,9 +256,10 @@ class ProductGallerySyncService:
                 return {}
             if not isinstance(loaded, dict):
                 return {}
+            loaded_dict = cast(dict[object, Any], loaded)
             return {
                 str(code).strip().casefold(): product
-                for code, product in loaded.items()
+                for code, product in loaded_dict.items()
                 if str(code).strip()
             }
         getter = getattr(repository, "get_by_code", None)

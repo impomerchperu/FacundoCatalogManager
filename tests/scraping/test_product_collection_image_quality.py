@@ -1,3 +1,5 @@
+import pytest
+
 from bs4 import BeautifulSoup
 
 from models.scraping.scraped_product import ScrapedProduct
@@ -58,3 +60,15 @@ def test_product_collection_does_not_request_detail_for_valid_image():
     reason = ProductCollectionScraper._detail_skip_reason(card, product)
 
     assert reason == "complete_single_stock"
+
+
+@pytest.mark.parametrize("code", ["FB-3017", "FB-3018"])
+def test_product_collection_forces_detail_for_known_bad_card_images(code):
+    product = ScrapedProduct(
+        code=code,
+        name="Plancha Transfer",
+        description="Descripción de prueba.",
+        image_url="https://site.test/uploads/valid-looking-image.webp",
+    )
+
+    assert ProductCollectionScraper._image_needs_detail(product) is True

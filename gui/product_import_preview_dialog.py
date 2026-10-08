@@ -239,7 +239,9 @@ class ProductImportPreviewDialog(QDialog):
         layout.addWidget(combo)
 
         self.table.setCellWidget(row, 11, container)
-        self.table.item(row, 1).setData(self.DUPLICATE_ROLE, True)
+        code_item = self.table.item(row, 1)
+        if code_item is not None:
+            code_item.setData(self.DUPLICATE_ROLE, True)
         self._update_duplicate_row_style(combo)
 
     @staticmethod
@@ -386,12 +388,11 @@ class ProductImportPreviewDialog(QDialog):
         return result
 
     def _update_summary(self) -> None:
-        duplicate_count = sum(
-            1
-            for row in range(self.table.rowCount())
-            if self.table.item(row, 1) is not None
-            and bool(self.table.item(row, 1).data(self.DUPLICATE_ROLE))
-        )
+        duplicate_count = 0
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 1)
+            if item is not None and bool(item.data(self.DUPLICATE_ROLE)):
+                duplicate_count += 1
         count = self.table.rowCount()
         self.summary.setText(
             f"Registros: {count}. Duplicados detectados: {duplicate_count}. "

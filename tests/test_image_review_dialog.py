@@ -197,7 +197,8 @@ def test_image_review_dialog_apply_commits_selected_records_only():
     dialog = ImageReviewDialog(service=service)
 
     alternative_container = dialog.table.cellWidget(0, 3)
-    alternative = alternative_container.layout().itemAt(0).widget()
+    alternative_card = alternative_container.layout().itemAt(0).widget()
+    alternative = alternative_card.layout().itemAt(0).widget()
     assert isinstance(alternative, _ImageChoiceLabel)
     alternative._callback()
 
@@ -213,7 +214,8 @@ def test_image_review_dialog_can_apply_one_review_individually():
     dialog = ImageReviewDialog(service=service)
 
     alternatives_container = dialog.table.cellWidget(0, 3)
-    alternative = alternatives_container.layout().itemAt(0).widget()
+    alternative_card = alternatives_container.layout().itemAt(0).widget()
+    alternative = alternative_card.layout().itemAt(0).widget()
     assert isinstance(alternative, _ImageChoiceLabel)
     alternative._callback()
 
@@ -339,7 +341,8 @@ def test_image_review_dialog_close_preserves_unapplied_selection():
     dialog = ImageReviewDialog(service=service)
 
     alternative_container = dialog.table.cellWidget(0, 3)
-    alternative = alternative_container.layout().itemAt(0).widget()
+    alternative_card = alternative_container.layout().itemAt(0).widget()
+    alternative = alternative_card.layout().itemAt(0).widget()
     assert isinstance(alternative, _ImageChoiceLabel)
     alternative._callback()
 

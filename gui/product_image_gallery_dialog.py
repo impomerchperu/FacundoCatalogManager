@@ -290,7 +290,7 @@ class ProductImageGalleryDialog(QDialog):
             price_thousand=self.product.price_thousand,
             stock=self.product.stock,
             color_stock=dict(self.product.color_stock),
-            image_url=str(primary.get("url", "") or "") or self.product.image_url,
+            image_url=str(primary.get("url", "") or "") if gallery else "",
             image_path=str(primary.get("image_path", "") or ""),
             image_hash=str(primary.get("image_hash", "") or ""),
             gallery_images=gallery,

@@ -175,19 +175,11 @@ class CategorySelector(QComboBox):
         if not text:
             self._refresh_selected_text()
             return
-        matching = [
-            item
-            for row in range(self._model.rowCount())
-            if (item := self._model.item(row)) is not None
-            and normalize_search_text(text)
-            in normalize_search_text(item.text())
-        ]
-        if not matching:
-            self.add_category(text, select=True)
+        exact = self._find_category(text)
+        if exact is not None:
+            exact.setCheckState(Qt.CheckState.Checked)
         else:
-            exact = self._find_category(text)
-            if exact is not None:
-                exact.setCheckState(Qt.CheckState.Checked)
+            self.add_typed_category()
         self._refresh_selected_text()
 
     def _refresh_selected_text(self, _item: QStandardItem | None = None) -> None:

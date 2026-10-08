@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QPushButton
+from PySide6.QtWidgets import QApplication, QAbstractSpinBox, QPushButton
 
 from gui.product_dialog import ProductDialog
 from models.product import Product
@@ -18,7 +18,7 @@ def test_product_dialog_new_has_import_action_and_no_resize_controls():
         for button in dialog.findChildren(QPushButton)
     ]
 
-    assert "Importar CSV / Excel" in buttons
+    assert "Importar carga masiva..." in buttons
     assert not dialog.windowFlags() & Qt.WindowType.WindowMinimizeButtonHint
     assert not dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
 
@@ -61,5 +61,67 @@ def test_product_dialog_edit_preserves_advanced_product_fields():
     assert dialog.stock.value() == 15
     assert dialog.color_stock.toPlainText() == "Rojo: 10"
     assert dialog.image_path.text() == "images/fb100.jpg"
+
+    dialog.close()
+
+
+def test_product_dialog_new_generates_code_categories_and_hides_spin_buttons():
+    _qapp()
+
+    dialog = ProductDialog()
+
+    assert dialog.code.text().startswith("FB-")
+    assert dialog.code.text() != ""
+    assert dialog.category.count() >= 24
+    assert dialog.price.buttonSymbols() == QAbstractSpinBox.ButtonSymbols.NoButtons
+    assert dialog.price_sample.buttonSymbols() == QAbstractSpinBox.ButtonSymbols.NoButtons
+    assert dialog.price_hundred.buttonSymbols() == QAbstractSpinBox.ButtonSymbols.NoButtons
+    assert dialog.price_thousand.buttonSymbols() == QAbstractSpinBox.ButtonSymbols.NoButtons
+    assert dialog.stock.buttonSymbols() == QAbstractSpinBox.ButtonSymbols.NoButtons
+
+    dialog.category.set_selected_categories(["Cocina, Mesa y Hogar"])
+    assert dialog.category.selected_text() == "Cocina, Mesa y Hogar"
+
+    dialog.close()
+
+
+def test_product_dialog_edit_loads_and_allows_gallery_alternatives():
+    _qapp()
+    product = Product(
+        code="FB-101",
+        name="Producto",
+        image_url="https://example.test/primary.jpg",
+        image_path="images/primary.jpg",
+        gallery_images=[
+            {
+                "url": "https://example.test/primary.jpg",
+                "image_path": "images/primary.jpg",
+                "image_hash": "primary",
+                "position": 1,
+                "source": "primary",
+            },
+            {
+                "url": "https://example.test/alternative.jpg",
+                "image_path": "images/alternative.jpg",
+                "image_hash": "alternative",
+                "position": 2,
+                "source": "gallery",
+            },
+        ],
+        product_id=101,
+    )
+
+    dialog = ProductDialog(product=product)
+
+    assert len(dialog.gallery_images) == 2
+    assert dialog.gallery_list.count() == 2
+    assert dialog.image_path.text() == "images/primary.jpg"
+
+    dialog.gallery_images[1]["source"] = "manual"
+    dialog.gallery_list.setCurrentRow(1)
+    dialog.set_primary_image()
+
+    assert dialog.gallery_images[0]["image_path"] == "images/alternative.jpg"
+    assert dialog.image_path.text() == "images/alternative.jpg"
 
     dialog.close()

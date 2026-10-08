@@ -270,3 +270,73 @@ def test_repository_persists_local_gallery_images(repository):
         "images/primary.jpg",
         "images/alternative.jpg",
     ]
+
+def test_service_syncs_product_category_relationships(repository):
+    from services.product_service import ProductService
+
+    service = ProductService(repository)
+    product = service.create_product(
+        Product(
+            code="REL001",
+            name="Relaciones",
+            category="Artículos de Playa",
+        )
+    )
+
+    category = repository.db.fetch_one(
+        "SELECT id FROM categories WHERE name=?",
+        ("Artículos de Playa",),
+    )
+    assert category is not None
+    linked = repository.db.fetch_one(
+        "SELECT COUNT(*) AS total FROM product_categories WHERE product_id=? AND category_id=?",
+        (product.id, category["id"]),
+    )
+    assert linked["total"] == 1
+
+    service.update_product(
+        Product(
+            code=product.code,
+            name=product.name,
+            category="Artículos de Playa y Verano, Artículos Antiestrés",
+            product_id=product.id,
+        )
+    )
+
+    updated = repository.get_by_id(product.id)
+    assert updated is not None
+    assert updated.category == "Artículos de Playa y Verano, Artículos Antiestrés"
+
+    old_link = repository.db.fetch_one(
+        "SELECT COUNT(*) AS total FROM product_categories pc "
+        "JOIN categories c ON c.id=pc.category_id "
+        "WHERE pc.product_id=? AND c.name=?",
+        (product.id, "Artículos de Playa"),
+    )
+    assert old_link["total"] == 0
+
+    new_link = repository.db.fetch_one(
+        "SELECT COUNT(*) AS total FROM product_categories pc "
+        "JOIN categories c ON c.id=pc.category_id "
+        "WHERE pc.product_id=? AND c.name=?",
+        (product.id, "Artículos de Playa y Verano"),
+    )
+    anti_link = repository.db.fetch_one(
+        "SELECT COUNT(*) AS total FROM product_categories pc "
+        "JOIN categories c ON c.id=pc.category_id "
+        "WHERE pc.product_id=? AND c.name=?",
+        (product.id, "Artículos Antiestrés"),
+    )
+    assert new_link["total"] == 1
+    assert anti_link["total"] == 1
+
+
+def test_product_normalize_sums_color_stock():
+    product = Product(
+        code="STOCK001",
+        name="Stock",
+        stock=1,
+        color_stock={"Rojo": 10, "Azul": 5},
+    )
+    product.normalize()
+    assert product.stock == 15

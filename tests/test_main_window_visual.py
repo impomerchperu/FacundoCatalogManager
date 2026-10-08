@@ -132,7 +132,7 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
         "Exportar",
         "Imágenes (0)",
         "Nuevo",
-        "Editar",
+        "Importar",
         "Eliminar",
         "Actualizar catálogo",
         "Historial",
@@ -165,7 +165,7 @@ def test_action_buttons_are_grouped_for_top_right_layout():
         "Exportar",
         "Imágenes (0)",
         "Nuevo",
-        "Editar",
+        "Importar",
         "Eliminar",
         "Actualizar catálogo",
         "Historial",
@@ -706,3 +706,22 @@ def test_main_window_starts_with_categories_active_and_expected_geometry():
     window.category_scroll.deleteLater()
     window.category_sidebar.deleteLater()
     window.category_toggle_button.deleteLater()
+
+def test_main_window_exposes_import_instead_of_edit():
+    _qapp()
+    window = MainWindow.__new__(MainWindow)
+    window.catalog_bootstrap_blocked_buttons = []
+    host = QWidget()
+    layout = QHBoxLayout(host)
+    MainWindow._add_action_buttons(window, layout)
+
+    labels = [
+        layout.itemAt(index).widget().text()
+        for index in range(layout.count())
+        if layout.itemAt(index).widget() is not None
+    ]
+
+    assert "Importar" in labels
+    assert "Editar" not in labels
+
+    host.deleteLater()

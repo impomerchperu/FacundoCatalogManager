@@ -209,6 +209,9 @@ class ProductImportPreviewDialog(QDialog):
             stock = self._parse_int(self._text(row, 5))
             color_stock = self._parse_color_stock(self._text(row, 6))
             price = self._parse_float(self._text(row, 7))
+            price_sample = self._parse_float(self._text(row, 8))
+            price_hundred = self._parse_float(self._text(row, 9))
+            price_thousand = self._parse_float(self._text(row, 10))
 
             gallery_images = (
                 [

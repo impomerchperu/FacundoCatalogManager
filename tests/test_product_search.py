@@ -5,7 +5,7 @@ from services.product_search import normalize_search_text, product_matches_searc
 
 def test_normalize_search_text_ignores_accents_case_and_punctuation():
     assert normalize_search_text("BÁSket, anti-estrés / rojo!") == (
-        "basket anti estres rojo"
+        "basket antiestres rojo"
     )
 
 

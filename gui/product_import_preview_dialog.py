@@ -234,14 +234,7 @@ class ProductImportPreviewDialog(QDialog):
             )
         return products
 
-    @staticmethod
-    def _text(table_row: int, column: int) -> str:
-        return ProductImportPreviewDialog._current_table_item(
-            table_row,
-            column,
-        )
-
-    def _current_table_item(self, row: int, column: int) -> str:
+    def _text(self, row: int, column: int) -> str:
         item = self.table.item(row, column)
         return item.text().strip() if item is not None else ""
 

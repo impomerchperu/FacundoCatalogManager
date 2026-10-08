@@ -46,6 +46,9 @@ class ProductController:
             product,
         )
 
+    def save_products(self, products: list[Product]) -> list[Product]:
+        return self._get_service().save_products(products)
+
     def delete_product(
         self,
         product_id: int,

@@ -85,7 +85,7 @@ def test_import_rejects_unsupported_formats(tmp_path):
     try:
         ProductImportService.import_first_product(path)
     except ValueError as error:
-        assert "CSV o XLSX" in str(error)
+        assert "CSV, XLSX o XLSM" in str(error)
     else:
         raise AssertionError("Expected ValueError")
 

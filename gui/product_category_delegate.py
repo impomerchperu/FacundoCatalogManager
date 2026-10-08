@@ -29,7 +29,11 @@ class ProductCategoryDelegate(QStyledItemDelegate):
         del option
         editor = CategorySelector(parent, editable_text=True)
         values = list(self.categories)
-        current = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+        current = str(
+            index.data(Qt.ItemDataRole.UserRole + 50)
+            or index.data(Qt.ItemDataRole.DisplayRole)
+            or ""
+        )
         values.extend(split_category_names(current))
         editor.set_categories(values)
         editor.set_selected_categories(split_category_names(current))
@@ -38,7 +42,11 @@ class ProductCategoryDelegate(QStyledItemDelegate):
     def setEditorData(self, editor: QWidget, index) -> None:
         if not isinstance(editor, CategorySelector):
             return
-        current = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+        current = str(
+            index.data(Qt.ItemDataRole.UserRole + 50)
+            or index.data(Qt.ItemDataRole.DisplayRole)
+            or ""
+        )
         editor.set_selected_categories(split_category_names(current))
 
     def setModelData(
@@ -49,7 +57,7 @@ class ProductCategoryDelegate(QStyledItemDelegate):
     ) -> None:
         if not isinstance(editor, CategorySelector):
             return
-        editor._accept_typed_category()
+        editor.add_typed_category()
         model.setData(
             index,
             editor.selected_text(),

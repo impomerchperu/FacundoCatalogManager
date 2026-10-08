@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QRect, Qt
+from PySide6.QtCore import QTimer, QRect, Qt
 from PySide6.QtWidgets import QStyledItemDelegate, QWidget
 
 from gui.category_selector import CategorySelector
@@ -37,6 +37,7 @@ class ProductCategoryDelegate(QStyledItemDelegate):
         values.extend(split_category_names(current))
         editor.set_categories(values)
         editor.set_selected_categories(split_category_names(current))
+        QTimer.singleShot(0, editor.showPopup)
         return editor
 
     def setEditorData(self, editor: QWidget, index) -> None:

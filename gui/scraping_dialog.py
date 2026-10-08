@@ -31,7 +31,12 @@ class ScrapingDialog(QDialog):
         # Windows la trate como una ventana normal y pueda alternarse con
         # MainWindow mediante clic o Alt+Tab.
         super().__init__(parent)
-        self.setWindowFlag(Qt.WindowType.Window, True)
+        self.setWindowFlags(
+            Qt.WindowType.Window
+            | Qt.WindowType.WindowMinimizeButtonHint
+            | Qt.WindowType.WindowMaximizeButtonHint
+            | Qt.WindowType.WindowCloseButtonHint
+        )
 
         self.scraping_thread: QThread | None = None
         self.worker: ScrapingWorker | None = None

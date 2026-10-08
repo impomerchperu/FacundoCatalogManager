@@ -15,6 +15,8 @@ from PySide6.QtWidgets import (
 )
 
 from gui.main_window import CategoryFilterButton, CategoryScrollArea, MainWindow
+from gui.product_table import ProductTable
+from models.product import Product
 
 
 def _qapp():
@@ -725,3 +727,47 @@ def test_main_window_exposes_import_instead_of_edit():
     assert "Editar" not in labels
 
     host.deleteLater()
+
+
+
+def test_inline_stock_by_color_edit_updates_color_name_and_total():
+    product = Product(
+        code="FB-6002",
+        name="Producto",
+        stock=15,
+        color_stock={"Rojo": 10, "Azul": 5},
+    )
+
+    MainWindow._update_product_from_cell(
+        product,
+        ProductTable.STOCK_COLUMN,
+        "Fucsia: 11\nAzul: 6",
+        ProductTable,
+    )
+
+    assert product.color_stock == {"Fucsia": 11, "Azul": 6}
+    assert product.stock == 17
+    old_background, old_indicator = ProductTable._stock_color_style("Rojo")
+    new_background, new_indicator = ProductTable._stock_color_style("Fucsia")
+    assert (new_background, new_indicator) != (old_background, old_indicator)
+
+
+def test_inline_stock_by_color_edit_rejects_malformed_rows():
+    product = Product(
+        code="FB-6003",
+        name="Producto",
+        stock=10,
+        color_stock={"Rojo": 10},
+    )
+
+    try:
+        MainWindow._update_product_from_cell(
+            product,
+            ProductTable.STOCK_COLUMN,
+            "Rojo sin cantidad",
+            ProductTable,
+        )
+    except ValueError as error:
+        assert "Color: cantidad" in str(error)
+    else:
+        raise AssertionError("El stock por color mal formado debería rechazarse")

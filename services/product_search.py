@@ -80,7 +80,7 @@ def _edit_distance_at_most_one(left: str, right: str) -> bool:
     if len(shorter) == len(longer):
         differences = sum(
             first != second
-            for first, second in zip(shorter, longer)
+            for first, second in zip(shorter, longer, strict=True)
         )
         return differences <= 1
 

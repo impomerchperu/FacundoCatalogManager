@@ -1283,7 +1283,9 @@ class MainWindow(QMainWindow):
             key = color.casefold()
             if key in seen:
                 raise ValueError(f"El color «{color}» está repetido.")
-            normalized_quantity = quantity_text.strip().replace(",", "").replace(" ", "")
+            normalized_quantity = (
+                quantity_text.strip().replace(",", "").replace(" ", "")
+            )
             try:
                 quantity = int(normalized_quantity)
             except ValueError as error:

@@ -9,6 +9,13 @@ class ProductService:
     ) -> None:
         self.repository = repository or ProductRepository()
 
+    @staticmethod
+    def _require_product_id(product: Product) -> int:
+        product_id = product.id
+        if product_id is None:
+            raise ValueError("El producto no tiene un ID persistido.")
+        return product_id
+
     def next_product_code(self) -> str:
         """Return the next available code for a manually created product."""
         return self.repository.next_product_code()
@@ -29,7 +36,10 @@ class ProductService:
         created = self.repository.create(
             product,
         )
-        self.repository.sync_product_categories(created.id, created.category)
+        self.repository.sync_product_categories(
+            self._require_product_id(created),
+            created.category,
+        )
         return created
 
     def create_products(
@@ -66,7 +76,10 @@ class ProductService:
         updated = self.repository.update(
             product,
         )
-        self.repository.sync_product_categories(updated.id, updated.category)
+        self.repository.sync_product_categories(
+            self._require_product_id(updated),
+            updated.category,
+        )
         return updated
 
     def save_product(
@@ -83,7 +96,10 @@ class ProductService:
         saved = self.repository.save(
             product,
         )
-        self.repository.sync_product_categories(saved.id, saved.category)
+        self.repository.sync_product_categories(
+            self._require_product_id(saved),
+            saved.category,
+        )
         return saved
 
     def save_products(

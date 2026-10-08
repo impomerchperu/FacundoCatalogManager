@@ -13,6 +13,8 @@ class ProductService:
         self,
         product: Product,
     ) -> Product:
+        if not product.code.strip():
+            product.code = self.repository.next_product_code()
         product.normalize()
 
         errors = product.validate()
@@ -23,6 +25,25 @@ class ProductService:
         return self.repository.create(
             product,
         )
+
+    def create_products(
+        self,
+        products: list[Product],
+    ) -> list[Product]:
+        """Create a validated batch atomically."""
+        if not products:
+            return []
+
+        self.repository.db.begin()
+        try:
+            created: list[Product] = []
+            for product in products:
+                created.append(self.create_product(product))
+            self.repository.db.commit()
+            return created
+        except Exception:
+            self.repository.db.rollback()
+            raise
 
     def update_product(
         self,

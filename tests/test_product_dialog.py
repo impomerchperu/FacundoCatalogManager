@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QAbstractSpinBox, QPushButton
+from PySide6.QtWidgets import QAbstractSpinBox, QApplication, QPushButton
 
 from gui.product_dialog import ProductDialog
 from models.product import Product

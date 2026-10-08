@@ -407,37 +407,19 @@ class ImageReviewDialog(QDialog):
         layout.setContentsMargins(2, 2, 2, 2)
         layout.setSpacing(4)
 
+        image_label = self._thumbnail_label(
+            "" if selected_action == "delete" else str(path),
+            "Imagen actual. Haga clic para elegir una imagen del archivo.",
+            fixed_size=self.THUMBNAIL_SIZE,
+        )
         if selected_action == "delete":
-            image_label = QLabel("Marcada para eliminar")
-            image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            image_label.setFixedSize(self.THUMBNAIL_SIZE, self.THUMBNAIL_SIZE)
-            image_label.setStyleSheet(self._thumbnail_style())
-            image_label.setProperty("image_path", "")
-        else:
-            image_label = self._thumbnail_label(
-                str(path),
-                "Imagen actual. Haga clic para elegir una imagen del archivo.",
-                fixed_size=self.THUMBNAIL_SIZE,
-            )
+            image_label.setText("Marcada para eliminar")
 
         current_action = (
             lambda rid=str(record["id"]): self._choose_manual(rid)
         )
-        image_label.mouseReleaseEvent = _ImageChoiceLabel.mouseReleaseEvent.__get__(
-            image_label,
-            QLabel,
-        )
-        if isinstance(image_label, _ImageChoiceLabel):
-            image_label._callback = current_action
-        else:
-            image_label.mouseReleaseEvent = lambda event: (
-                current_action()
-                if event.button() == Qt.MouseButton.LeftButton
-                else None
-            )
-
         image_card = self._image_card(
-            str(path) if selected_action != "delete" else "",
+            "" if selected_action == "delete" else str(path),
             current_action,
             lambda rid=str(record["id"]): self._remove_current(rid),
             "Imagen actual. Haga clic para elegir una imagen del archivo.",
@@ -461,93 +443,6 @@ class ImageReviewDialog(QDialog):
         return container
 
     @staticmethod
-    def _thumbnail_style() -> str:
-        return (
-            "QLabel {"
-            " background-color: #ffffff;"
-            " border: 2px solid #cbddea;"
-            " color: #6b7c8f;"
-            "}"
-            " QLabel:hover {"
-            " border: 2px solid #6b8fb3;"
-            "}"
-        )
-
-    def _thumbnail_label(
-        self,
-        path_value: str,
-        tooltip: str,
-        *,
-        fixed_size: int = 125,
-    ) -> _ImageChoiceLabel:
-        path = resolve_data_path(path_value)
-        label = _ImageChoiceLabel(lambda: None)
-        label.setFixedSize(fixed_size, fixed_size)
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label.setStyleSheet(self._thumbnail_style())
-        label.setProperty("image_path", str(path_value))
-        if path_value and path.is_file():
-            pixmap = QPixmap(str(path))
-            if not pixmap.isNull():
-                label.setPixmap(
-                    pixmap.scaled(
-                        fixed_size - 8,
-                        fixed_size - 8,
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation,
-                    ),
-                )
-        if label.pixmap() is None:
-            label.setText("Imagen actual" if "Imagen actual" in tooltip else "Alternativa")
-        label.setToolTip(tooltip)
-        return label
-
-    def _image_card(
-        self,
-        path_value: str,
-        on_select,
-        on_remove,
-        tooltip: str,
-        *,
-        existing_label: _ImageChoiceLabel | QLabel | None = None,
-    ) -> QWidget:
-        card = QWidget()
-        grid = QGridLayout(card)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(0)
-        label = existing_label or self._thumbnail_label(path_value, tooltip)
-        if isinstance(label, _ImageChoiceLabel):
-            label._callback = on_select
-        grid.addWidget(label, 0, 0)
-
-        remove_button = QPushButton("X")
-        remove_button.setFixedSize(22, 22)
-        remove_button.setToolTip("Eliminar esta imagen.")
-        remove_button.setStyleSheet(
-            "QPushButton {"
-            " color: #173f6d;"
-            " background-color: #ffffff;"
-            " border: 1px solid #cbddea;"
-            " border-radius: 11px;"
-            " font-weight: bold;"
-            " padding: 0px;"
-            "}"
-            " QPushButton:hover {"
-            " background-color: #eef5fb;"
-            "}"
-        )
-        remove_button.clicked.connect(
-            lambda _checked=False: on_remove(),
-        )
-        grid.addWidget(
-            remove_button,
-            0,
-            0,
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight,
-        )
-        return card
-
-    @staticmethod
     def _record_has_pending_changes(record: dict) -> bool:
         return bool(
             str(record.get("selected_action", "") or "").strip()
@@ -563,9 +458,7 @@ class ImageReviewDialog(QDialog):
             record.get("selected_path", "") or ""
         ).strip()
         if selected_action in {"candidate", "manual"} and selected_path:
-            candidate = resolve_data_path(selected_path)
-            if candidate.is_file():
-                return candidate
+            return resolve_data_path(selected_path)
         return resolve_data_path(
             str(record.get("current_path", "") or "")
         )

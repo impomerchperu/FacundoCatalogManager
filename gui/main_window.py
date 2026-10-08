@@ -1,5 +1,4 @@
 import sqlite3
-
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QPoint, Qt, QThread, QTimer, Signal

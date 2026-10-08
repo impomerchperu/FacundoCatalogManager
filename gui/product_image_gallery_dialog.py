@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
@@ -9,6 +10,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -22,7 +24,7 @@ from services.product_service import ProductService
 
 
 class ProductImageGalleryDialog(QDialog):
-    """Editor visual de galería con la misma selección/reemplazo por tarjetas."""
+    """Galería editable por clic, con guardado explícito de los cambios."""
 
     IMAGE_SIZE = 144
     IMAGE_EXTENSIONS = "Imágenes (*.png *.jpg *.jpeg *.webp *.gif)"
@@ -37,15 +39,19 @@ class ProductImageGalleryDialog(QDialog):
         self.product = product
         self.service = service or ProductService()
         self.images = self._normalized_gallery(product)
+        self.selected_index = 0 if self.images else -1
 
         self.setWindowTitle(f"Imágenes · {product.code}")
-        self.resize(720, 360)
+        self.resize(900, 270)
 
-        self.summary = QLabel(
-            "Seleccione una imagen para usarla como principal. "
-            "Puede reemplazarla, quitarla o agregar alternativas."
-        )
+        self.summary = QLabel()
         self.summary.setWordWrap(True)
+        self.save_button = QPushButton("Guardar")
+        self.save_button.clicked.connect(self.save)
+
+        header = QHBoxLayout()
+        header.addWidget(self.summary, 1)
+        header.addWidget(self.save_button)
 
         self.gallery_scroll = QScrollArea()
         self.gallery_scroll.setWidgetResizable(False)
@@ -61,35 +67,9 @@ class ProductImageGalleryDialog(QDialog):
         self.canvas_layout.setSpacing(8)
         self.gallery_scroll.setWidget(self.canvas)
 
-        add_button = QPushButton("Subir imágenes...")
-        add_button.clicked.connect(self.add_images)
-        primary_button = QPushButton("Hacer principal")
-        primary_button.clicked.connect(self.make_primary)
-        replace_button = QPushButton("Reemplazar seleccionada")
-        replace_button.clicked.connect(self.replace_selected)
-        remove_button = QPushButton("Quitar")
-        remove_button.clicked.connect(self.remove_selected)
-
-        actions = QHBoxLayout()
-        actions.addWidget(add_button)
-        actions.addWidget(primary_button)
-        actions.addWidget(replace_button)
-        actions.addWidget(remove_button)
-        actions.addStretch()
-
-        save_button = QPushButton("Guardar")
-        save_button.clicked.connect(self.save)
-        cancel_button = QPushButton("Cancelar")
-        cancel_button.clicked.connect(self.reject)
-        actions.addWidget(cancel_button)
-        actions.addWidget(save_button)
-
         layout = QVBoxLayout(self)
-        layout.addWidget(self.summary)
+        layout.addLayout(header)
         layout.addWidget(self.gallery_scroll, 1)
-        layout.addLayout(actions)
-
-        self.selected_index = 0 if self.images else -1
         self._render()
 
     @staticmethod
@@ -135,142 +115,154 @@ class ProductImageGalleryDialog(QDialog):
         for index, image in enumerate(self.images):
             self.canvas_layout.addWidget(self._image_card(index, image))
 
+        if not self.images:
+            self.canvas_layout.addWidget(self._empty_image_card())
         self.canvas_layout.addStretch(1)
         self.canvas.adjustSize()
 
         count = len(self.images)
-        primary = " · Principal: " + (
+        primary = (
             Path(str(self.images[0].get("image_path", ""))).name
             if self.images
             else "sin imagen"
         )
         self.summary.setText(
-            f"{count} imagen(es){primary}. "
-            "Haga clic sobre una tarjeta para seleccionarla."
+            f"{count} imagen(es) · Imagen actual: {primary}. "
+            "Clic en la imagen actual para reemplazarla; clic en una "
+            "alternativa para intercambiarla con la actual."
         )
+        self.gallery_scroll.setMinimumHeight(self.IMAGE_SIZE + 48)
 
     def _image_card(self, index: int, image: dict[str, object]) -> QWidget:
         path = str(image.get("image_path", "") or "").strip()
-        selected = index == self.selected_index
+        current = index == 0
+        card = QWidget()
+        card.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(0, 0, 0, 0)
+        card_layout.setSpacing(3)
 
-        card = QPushButton()
-        card.setFixedSize(self.IMAGE_SIZE, self.IMAGE_SIZE)
-        card.setCheckable(True)
-        card.setChecked(selected)
-        card.setSizePolicy(
+        image_button = QPushButton()
+        image_button.setFixedSize(self.IMAGE_SIZE, self.IMAGE_SIZE)
+        image_button.setSizePolicy(
             QSizePolicy.Policy.Fixed,
             QSizePolicy.Policy.Fixed,
         )
-        card.setToolTip(path)
-        card.setStyleSheet(
+        image_button.setToolTip(
+            "Clic para reemplazar la imagen actual"
+            if current
+            else "Clic para intercambiar con la imagen actual"
+        )
+        image_button.setStyleSheet(
             "QPushButton {"
             " background: #ffffff;"
-            " border: 2px solid #cbddea;"
-            " border-radius: 4px;"
-            " padding: 2px;"
+            + (
+                " border: 3px solid #173f6d;"
+                if current
+                else " border: 2px solid #cbddea;"
+            )
+            + " border-radius: 4px; padding: 2px;"
             "}"
-            " QPushButton:checked {"
-            " border: 3px solid #173f6d;"
-            "}"
+            " QPushButton:hover { border-color: #4a90c2; }"
         )
 
         pixmap = QPixmap(str(resolve_data_path(path)))
         if not pixmap.isNull():
-            card.setIcon(pixmap)
-            card.setIconSize(
-                QSize(self.IMAGE_SIZE - 8, self.IMAGE_SIZE - 8),
+            image_button.setIcon(pixmap)
+            image_button.setIconSize(
+                QSize(self.IMAGE_SIZE - 10, self.IMAGE_SIZE - 10),
             )
         else:
-            card.setText("Sin vista previa")
-
-        if index == 0:
-            card.setText(
-                ("★ Principal\n" if pixmap.isNull() else "")
-                + Path(path).name
+            image_button.setText(
+                "Imagen actual\nSin vista previa"
+                if current
+                else "Alternativa\nSin vista previa"
             )
-        else:
-            card.setText(Path(path).name)
 
-        card.clicked.connect(
-            lambda _checked=False, value=index: self._select(value),
-        )
+        if current:
+            image_button.clicked.connect(self.replace_primary_image)
+            label_text = "Imagen actual"
+        else:
+            image_button.clicked.connect(
+                lambda _checked=False, value=index: (
+                    self.exchange_with_primary(value)
+                ),
+            )
+            label_text = f"Alternativa {index}"
+
+        name = Path(path).name
+        label = QLabel(f"{label_text}\n{name}")
+        label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        label.setWordWrap(True)
+        label.setFixedWidth(self.IMAGE_SIZE)
+        card_layout.addWidget(image_button)
+        card_layout.addWidget(label)
         return card
 
-    def _select(self, index: int) -> None:
-        if 0 <= index < len(self.images):
-            self.selected_index = index
-            self._render()
-
-    def add_images(self) -> None:
-        files, _ = QFileDialog.getOpenFileNames(
-            self,
-            "Subir imágenes",
-            "",
-            self.IMAGE_EXTENSIONS,
+    def _empty_image_card(self) -> QWidget:
+        card = QWidget()
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(0, 0, 0, 0)
+        image_button = QPushButton("Agregar imagen")
+        image_button.setFixedSize(self.IMAGE_SIZE, self.IMAGE_SIZE)
+        image_button.setStyleSheet(
+            "QPushButton { background: #ffffff; border: 2px dashed #9bb6ca; }"
         )
-        if not files:
-            return
-        existing = {
-            str(image.get("image_path", "") or "").casefold()
-            for image in self.images
-        }
-        for filename in files:
-            path = str(Path(filename))
-            if path.casefold() in existing:
-                continue
-            self.images.append(
-                {
-                    "url": "",
-                    "image_path": path,
-                    "image_hash": "",
-                    "position": len(self.images) + 1,
-                    "source": "manual",
-                }
-            )
-            existing.add(path.casefold())
-        if self.selected_index < 0 and self.images:
-            self.selected_index = 0
-        self._render()
+        image_button.clicked.connect(self.replace_primary_image)
+        label = QLabel("Imagen actual")
+        label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        card_layout.addWidget(image_button)
+        card_layout.addWidget(label)
+        return card
 
-    def replace_selected(self) -> None:
-        if not (0 <= self.selected_index < len(self.images)):
-            return
+    def replace_primary_image(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
             self,
-            "Reemplazar imagen",
+            "Reemplazar imagen actual",
             "",
             self.IMAGE_EXTENSIONS,
         )
-        if not filename:
-            return
-        current = self.images[self.selected_index]
-        self.images[self.selected_index] = {
-            **current,
+        if filename:
+            self._replace_primary_path(filename)
+
+    def _replace_primary_path(self, filename: str) -> None:
+        path = str(Path(filename))
+        replacement = {
             "url": "",
-            "image_path": str(Path(filename)),
+            "image_path": path,
             "image_hash": "",
+            "position": 1,
             "source": "manual",
         }
-        self._render()
-
-    def make_primary(self) -> None:
-        if not (0 <= self.selected_index < len(self.images)):
-            return
-        if self.selected_index == 0:
-            return
-        image = self.images.pop(self.selected_index)
-        self.images.insert(0, image)
+        if self.images:
+            previous = dict(self.images[0])
+            previous_path = str(previous.get("image_path", "") or "").casefold()
+            replacement_key = path.casefold()
+            alternatives = [
+                dict(image)
+                for image in self.images[1:]
+                if str(image.get("image_path", "") or "").casefold()
+                != replacement_key
+            ]
+            if previous_path and previous_path != replacement_key:
+                alternatives = [
+                    image
+                    for image in alternatives
+                    if str(image.get("image_path", "") or "").casefold()
+                    != previous_path
+                ]
+                alternatives.insert(0, previous)
+            self.images = [replacement, *alternatives]
+        else:
+            self.images = [replacement]
         self.selected_index = 0
         self._render()
 
-    def remove_selected(self) -> None:
-        if not (0 <= self.selected_index < len(self.images)):
+    def exchange_with_primary(self, index: int) -> None:
+        if index <= 0 or index >= len(self.images):
             return
-        self.images.pop(self.selected_index)
-        if self.images:
-            self.selected_index = min(self.selected_index, len(self.images) - 1)
-        else:
-            self.selected_index = -1
+        self.images[0], self.images[index] = self.images[index], self.images[0]
+        self.selected_index = 0
         self._render()
 
     def save(self) -> None:
@@ -297,7 +289,11 @@ class ProductImageGalleryDialog(QDialog):
             content_hash=self.product.content_hash,
             product_id=self.product.id,
         )
-        self.service.update_product(updated)
+        try:
+            self.service.update_product(updated)
+        except (sqlite3.Error, ValueError) as error:
+            QMessageBox.critical(self, "Imágenes", str(error))
+            return
         self.product.gallery_images = gallery
         self.product.image_url = updated.image_url
         self.product.image_path = updated.image_path

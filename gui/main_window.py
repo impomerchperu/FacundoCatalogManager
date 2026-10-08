@@ -38,6 +38,7 @@ from gui.workers.catalog_load_worker import CatalogLoadWorker
 from models.product import Product
 from services.scraping.category_name_normalizer import split_category_names
 from services.scraping.image_review_service import ImageReviewService
+from services.product_search import product_matches_search
 
 if TYPE_CHECKING:
     from gui.image_review_dialog import ImageReviewDialog
@@ -935,7 +936,7 @@ class MainWindow(QMainWindow):
 
     def _filtered_products(self) -> list[Product]:
         products = list(self.all_products)
-        search_text = self.search_box.text().strip().casefold()
+        search_text = self.search_box.text().strip()
         if search_text:
             products = [
                 product
@@ -955,7 +956,7 @@ class MainWindow(QMainWindow):
         return products
 
     def apply_filters(self) -> None:
-        search_text = self.search_box.text().strip().casefold()
+        search_text = self.search_box.text().strip()
         products = self._filtered_products()
         self.table.show_only_products(products)
         self.table.set_search_text(search_text)
@@ -963,14 +964,7 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def product_matches_search(product: Product, search_text: str) -> bool:
-        values = (
-            product.code,
-            product.name,
-            product.description,
-            product.category,
-            ", ".join(product.color_stock.keys()),
-        )
-        return any(search_text in str(value).casefold() for value in values)
+        return product_matches_search(product, search_text)
 
     def open_scraping(self) -> None:
         if getattr(self, "catalog_bootstrap_running", False):

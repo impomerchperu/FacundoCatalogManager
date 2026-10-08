@@ -36,9 +36,9 @@ from gui.scraping_dialog import ScrapingDialog
 from gui.workers.catalog_bootstrap_worker import CatalogBootstrapWorker
 from gui.workers.catalog_load_worker import CatalogLoadWorker
 from models.product import Product
+from services.product_search import product_matches_search
 from services.scraping.category_name_normalizer import split_category_names
 from services.scraping.image_review_service import ImageReviewService
-from services.product_search import product_matches_search
 
 if TYPE_CHECKING:
     from gui.image_review_dialog import ImageReviewDialog

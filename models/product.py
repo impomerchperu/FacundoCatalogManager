@@ -68,8 +68,6 @@ class Product:
             for color, stock in self.color_stock.items()
             if str(color).strip()
         }
-        if self.color_stock:
-            self.stock = sum(self.color_stock.values())
         self.image_url = self.image_url.strip()
         self.image_path = self.image_path.strip()
         self.image_hash = self.image_hash.strip()

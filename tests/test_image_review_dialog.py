@@ -59,6 +59,23 @@ class FakeReviewService:
         ]
         return [{"code": "FB-100", "changed": True}]
 
+    def remove_candidate(self, review_id, option_path):
+        for record in self.records:
+            if record["id"] != review_id:
+                continue
+            if record.get("kind") == "gallery":
+                self.exclude_candidate(review_id, option_path)
+                return
+            record["candidate_options"] = [
+                option
+                for option in record.get("candidate_options", [])
+                if option.get("path") != option_path
+            ]
+            if record.get("selected_path") == option_path:
+                record["selected_action"] = ""
+                record["selected_path"] = ""
+                record["selected_url"] = ""
+
     def exclude_candidate(self, review_id, option_path):
         for record in self.records:
             if record["id"] == review_id:
@@ -91,15 +108,25 @@ def test_image_review_dialog_has_no_actions_column_and_has_apply_button():
     current = dialog.table.cellWidget(0, 2)
     current_layout = current.layout()
     assert current_layout is not None
-    current_image = current_layout.itemAt(0).widget()
+    image_card = current_layout.itemAt(0).widget()
     current_apply = current_layout.itemAt(1).widget()
+    current_image = image_card.layout().itemAt(0).widget()
+    current_remove = image_card.layout().itemAt(1).widget()
     alternatives = dialog.table.cellWidget(0, 3)
     assert isinstance(current_image, _ImageChoiceLabel)
+    assert isinstance(current_remove, QPushButton)
+    assert current_remove.text() == "X"
     assert isinstance(current_apply, QPushButton)
     assert current_apply.text() == "APLICAR"
-    assert not current_apply.isEnabled()
-    assert alternatives.layout().itemAt(0).widget() is not None
-    assert not isinstance(alternatives.layout().itemAt(0).widget(), QPushButton)
+    assert current_apply.isEnabled()
+
+    alternative_card = alternatives.layout().itemAt(0).widget()
+    assert isinstance(alternative_card, QWidget)
+    alternative_image = alternative_card.layout().itemAt(0).widget()
+    alternative_remove = alternative_card.layout().itemAt(1).widget()
+    assert isinstance(alternative_image, _ImageChoiceLabel)
+    assert isinstance(alternative_remove, QPushButton)
+    assert alternative_remove.text() == "X"
     assert all(
         not isinstance(dialog.table.cellWidget(0, column), QPushButton)
         for column in range(dialog.table.columnCount())
@@ -125,16 +152,42 @@ def test_image_review_dialog_selection_updates_current_preview_without_committin
     current = dialog.table.cellWidget(0, 2)
     current_layout = current.layout()
     assert current_layout is not None
-    assert isinstance(
-        current_layout.itemAt(0).widget(),
-        _ImageChoiceLabel,
+    current_card = current_layout.itemAt(0).widget()
+    current_image = current_card.layout().itemAt(0).widget()
+    assert current_image.property("image_path") == (
+        "image_review_staging/FB-100-new.webp"
     )
+
+    alternative_container = dialog.table.cellWidget(0, 3)
+    alternative_card = alternative_container.layout().itemAt(0).widget()
+    alternative_image = alternative_card.layout().itemAt(0).widget()
+    assert alternative_image.property("image_path") == ""
+    assert alternative_image.toolTip().startswith("Imagen actual anterior")
     assert service.finalize_calls == []
     assert dialog.apply_button.isEnabled()
 
     dialog.close()
 
     assert service.records[0]["selected_action"] == "candidate"
+
+
+def test_image_review_dialog_current_apply_is_always_enabled_and_keeps_image():
+    _qapp()
+    service = FakeReviewService()
+    dialog = ImageReviewDialog(service=service)
+
+    current_container = dialog.table.cellWidget(0, 2)
+    current_apply = current_container.layout().itemAt(1).widget()
+    assert isinstance(current_apply, QPushButton)
+    assert current_apply.isEnabled()
+
+    current_apply.click()
+
+    assert service.selection_calls == [("review-1", "keep", None)]
+    assert service.finalize_calls == [["review-1"]]
+    assert dialog.records == []
+
+    dialog.close()
 
 
 def test_image_review_dialog_apply_commits_selected_records_only():
@@ -213,6 +266,7 @@ def test_image_review_dialog_can_exclude_an_alternative_without_committing():
 
     reject_button = option_container.layout().itemAt(1).widget()
     assert isinstance(reject_button, QPushButton)
+    assert reject_button.text() == "X"
 
     reject_button.click()
 
@@ -224,6 +278,28 @@ def test_image_review_dialog_can_exclude_an_alternative_without_committing():
         "No hay alternativas detectadas."
     )
     assert dialog.apply_button.isEnabled()
+
+    dialog.close()
+
+
+def test_image_review_dialog_can_remove_replacement_alternative():
+    _qapp()
+    service = FakeReviewService()
+    dialog = ImageReviewDialog(service=service)
+
+    alternatives = dialog.table.cellWidget(0, 3)
+    card = alternatives.layout().itemAt(0).widget()
+    remove_button = card.layout().itemAt(1).widget()
+    assert isinstance(remove_button, QPushButton)
+    assert remove_button.text() == "X"
+
+    remove_button.click()
+
+    assert service.finalize_calls == []
+    assert service.records[0]["candidate_options"] == []
+    assert dialog.table.cellWidget(0, 3).layout().itemAt(0).widget().text() == (
+        "No hay alternativas detectadas."
+    )
 
     dialog.close()
 

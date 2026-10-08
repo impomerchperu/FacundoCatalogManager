@@ -242,7 +242,7 @@ class ProductDialog(QDialog):
 
     def load_product_data(self) -> None:
         if self.product is None:
-            self.code.setText(self.service.repository.next_product_code())
+            self.code.setText(self.service.next_product_code())
             return
 
         self.code.setText(self.product.code)

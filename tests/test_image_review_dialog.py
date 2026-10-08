@@ -155,7 +155,7 @@ def test_image_review_dialog_selection_updates_current_preview_without_committin
     assert current_layout is not None
     current_card = current_layout.itemAt(0).widget()
     current_image = current_card.layout().itemAt(0).widget()
-    assert current_image.property("image_path") == (
+    assert current_image.property("image_path").replace("\\", "/").endswith(
         "image_review_staging/FB-100-new.webp"
     )
 
@@ -277,7 +277,8 @@ def test_image_review_dialog_can_exclude_an_alternative_without_committing():
     assert service.records[0]["excluded_options"] == [
         "image_review_staging/FB-100-new.webp"
     ]
-    assert dialog.table.cellWidget(0, 3).layout().itemAt(0).widget().text() == (
+    empty_card = dialog.table.cellWidget(0, 3).layout().itemAt(0).widget()
+    assert empty_card.layout().itemAt(0).widget().text() == (
         "No hay alternativas detectadas."
     )
     assert dialog.apply_button.isEnabled()

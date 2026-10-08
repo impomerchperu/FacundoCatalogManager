@@ -58,7 +58,7 @@ def test_product_dialog_edit_preserves_advanced_product_fields():
     assert dialog.price_sample.value() == 6
     assert dialog.price_hundred.value() == 23.8
     assert dialog.price_thousand.value() == 90
-    assert dialog.stock.value() == 15
+    assert dialog.stock.value() == 10
     assert dialog.color_stock.toPlainText() == "Rojo: 10"
     assert dialog.image_path.text() == "images/fb100.jpg"
 
@@ -150,6 +150,18 @@ def test_product_dialog_auto_sums_stock_from_colors():
     dialog.close()
 
 def test_product_dialog_does_not_offer_bulk_import():
+    _qapp()
+    dialog = ProductDialog()
+    buttons = [
+        button.text()
+        for button in dialog.findChildren(QPushButton)
+    ]
+    assert "Importar carga masiva..." not in buttons
+    assert "+ Nueva categoría" in buttons
+    assert "Subir imágenes..." in buttons
+    dialog.close()
+
+def test_product_dialog_new_has_no_bulk_import_and_has_new_category():
     _qapp()
     dialog = ProductDialog()
     buttons = [

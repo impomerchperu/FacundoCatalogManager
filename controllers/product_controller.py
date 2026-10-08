@@ -54,6 +54,9 @@ class ProductController:
             product_id,
         )
 
+    def delete_category(self, category_name: str) -> int:
+        return self._get_service().delete_category(category_name)
+
     def search_products(
         self,
         text: str,

@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QComboBox, QLabel
 
 from gui.product_import_preview_dialog import ProductImportPreviewDialog
 from models.product import Product
@@ -80,10 +80,12 @@ def test_bulk_import_preview_marks_existing_code_with_current_product():
     assert dialog.table.rowCount() == 1
     widget = dialog.table.cellWidget(0, 11)
     assert widget is not None
-    combo = widget.findChild(__import__("PySide6.QtWidgets", fromlist=["QComboBox"]).QComboBox)
+    combo = widget.findChild(QComboBox)
     assert combo is not None
     assert combo.currentData() == "dismiss"
-    assert "Actual en catálogo" in widget.findChild(__import__("PySide6.QtWidgets", fromlist=["QLabel"]).QLabel).text()
+    label = widget.findChild(QLabel)
+    assert label is not None
+    assert "Actual en catálogo" in label.text()
 
     combo.setCurrentIndex(1)
     dialog.accept_import()

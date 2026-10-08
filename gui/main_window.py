@@ -643,12 +643,12 @@ class MainWindow(QMainWindow):
 
     def _add_action_buttons(self, layout: QHBoxLayout) -> None:
         buttons = [
-            ("Exportar", self.export_catalog),
             ("Imágenes (0)", self.open_pending_image_review),
-            ("Nuevo", self.new_product),
+            ("Exportar", self.export_catalog),
             ("Importar", self.import_products),
+            ("Nuevo", self.new_product),
             ("Eliminar", self.delete_selected),
-            ("Actualizar catálogo", self.open_scraping),
+            ("Actualizar Catálogo", self.open_scraping),
             ("Historial", self.open_scraping_history),
         ]
         for text, callback in buttons:
@@ -660,7 +660,7 @@ class MainWindow(QMainWindow):
             if text == "Imágenes (0)":
                 self.image_review_button = button
                 button.setFixedWidth(115)
-            if text == "Actualizar catálogo":
+            if text == "Actualizar Catálogo":
                 self.catalog_bootstrap_blocked_buttons.append(button)
 
     @classmethod
@@ -1265,6 +1265,40 @@ class MainWindow(QMainWindow):
             raise ValueError("Ingrese un valor numérico válido.") from error
 
     @staticmethod
+    def _parse_color_stock(value: str) -> dict[str, int]:
+        color_stock: dict[str, int] = {}
+        seen: set[str] = set()
+        for line in str(value or "").splitlines():
+            entry = line.strip()
+            if not entry:
+                continue
+            if ":" not in entry:
+                raise ValueError(
+                    "Use una línea por color con el formato «Color: cantidad»."
+                )
+            color, quantity_text = entry.rsplit(":", 1)
+            color = color.strip()
+            if not color:
+                raise ValueError("Cada fila de stock debe tener un nombre de color.")
+            key = color.casefold()
+            if key in seen:
+                raise ValueError(f"El color «{color}» está repetido.")
+            normalized_quantity = quantity_text.strip().replace(",", "").replace(" ", "")
+            try:
+                quantity = int(normalized_quantity)
+            except ValueError as error:
+                raise ValueError(
+                    f"La cantidad de stock para «{color}» debe ser un entero."
+                ) from error
+            if quantity < 0:
+                raise ValueError(
+                    f"La cantidad de stock para «{color}» no puede ser negativa."
+                )
+            seen.add(key)
+            color_stock[color] = quantity
+        return color_stock
+
+    @staticmethod
     def _update_product_from_cell(
         product: Product,
         column: int,
@@ -1289,13 +1323,14 @@ class MainWindow(QMainWindow):
             product.price_thousand = MainWindow._parse_inline_number(value)
         elif column == table.STOCK_COLUMN:
             if product.color_stock:
-                raise ValueError(
-                    "El stock se calcula automáticamente a partir del stock por color."
+                product.color_stock = MainWindow._parse_color_stock(value)
+                if product.color_stock:
+                    product.stock = sum(product.color_stock.values())
+            else:
+                product.stock = max(
+                    round(MainWindow._parse_inline_number(value)),
+                    0,
                 )
-            product.stock = max(
-                round(MainWindow._parse_inline_number(value)),
-                0,
-            )
         else:
             raise LookupError
 
@@ -1323,8 +1358,6 @@ class MainWindow(QMainWindow):
         product = self.controller.get_product_by_id(product_id)
         if product is None:
             return
-        original_text = str(item.data(Qt.ItemDataRole.DisplayRole) or "")
-
         try:
             self._update_product_from_cell(
                 product,
@@ -1334,11 +1367,7 @@ class MainWindow(QMainWindow):
             )
             self.controller.update_product(product)
         except (sqlite3.Error, ValueError) as error:
-            self._table_edit_guard = True
-            try:
-                item.setText(original_text)
-            finally:
-                self._table_edit_guard = False
+            self.refresh_catalog()
             QMessageBox.warning(
                 self,
                 "Edición de producto",

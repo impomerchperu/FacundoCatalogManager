@@ -72,6 +72,7 @@ class ProductImportPreviewDialog(QDialog):
             | QAbstractItemView.EditTrigger.EditKeyPressed
             | QAbstractItemView.EditTrigger.SelectedClicked,
         )
+        self.table.itemChanged.connect(self._preview_item_changed)
         self.table.verticalHeader().setDefaultSectionSize(156)
         self.table.horizontalHeader().setStretchLastSection(True)
 
@@ -168,6 +169,17 @@ class ProductImportPreviewDialog(QDialog):
         item.setToolTip(value)
         self.table.setItem(row, column, item)
 
+    def _preview_item_changed(self, item: QTableWidgetItem | None) -> None:
+        if item is None or item.column() != 1:
+            return
+        row = item.row()
+        code = item.text().strip()
+        self._set_validation(
+            row,
+            Product(code=code, name=""),
+        )
+        self._update_summary()
+
     def _set_validation(self, row: int, product: Product) -> None:
         current = self.current_by_code.get(
             str(product.code).strip().casefold()
@@ -194,7 +206,10 @@ class ProductImportPreviewDialog(QDialog):
             f"Producto: {current.name}\n"
             f"Categoría: {current.category or '—'}\n"
             f"Stock: {current.stock:,}\n"
-            f"Precio muestra: S/ {current.price_sample:,.2f}"
+            f"Precio muestra: S/ {current.price_sample:,.2f}\n"
+            f"Precio ciento: S/ {current.price_hundred:,.2f}\n"
+            f"Precio millar: S/ {current.price_thousand:,.2f}\n"
+            f"Detalle: {current.description or '—'}"
         )
         label.setWordWrap(True)
         label.setStyleSheet(

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QRect, QTimer, Qt
+from PySide6.QtCore import QRect, Qt, QTimer
 from PySide6.QtWidgets import QStyledItemDelegate, QWidget
 
 from gui.category_selector import CategorySelector

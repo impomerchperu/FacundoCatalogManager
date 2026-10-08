@@ -9,6 +9,10 @@ class ProductService:
     ) -> None:
         self.repository = repository or ProductRepository()
 
+    def next_product_code(self) -> str:
+        """Return the next available code for a manually created product."""
+        return self.repository.next_product_code()
+
     def create_product(
         self,
         product: Product,

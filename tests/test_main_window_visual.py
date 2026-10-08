@@ -129,8 +129,11 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
         for index in range(window.top_actions_container.layout().count())
     ]
     assert [widget.text() for widget in action_widgets] == [
-        "EXPORTAR",
+        "Exportar",
         "Imágenes (0)",
+        "Nuevo",
+        "Editar",
+        "Eliminar",
         "Actualizar catálogo",
         "Historial",
     ]
@@ -159,8 +162,11 @@ def test_action_buttons_are_grouped_for_top_right_layout():
     ]
 
     assert labels == [
-        "EXPORTAR",
+        "Exportar",
         "Imágenes (0)",
+        "Nuevo",
+        "Editar",
+        "Eliminar",
         "Actualizar catálogo",
         "Historial",
     ]

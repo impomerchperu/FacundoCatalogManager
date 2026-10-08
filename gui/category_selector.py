@@ -83,6 +83,10 @@ class CategorySelector(QComboBox):
         )
         self.showPopup()
 
+    def commit_typed_value(self) -> None:
+        """Select exact matches or create a genuinely new category on Enter."""
+        self._accept_typed_category()
+
     def add_typed_category(self) -> bool:
         """Create a typed category only when no similar option exists."""
         text = self._line_edit.text().strip() if self._line_edit else ""

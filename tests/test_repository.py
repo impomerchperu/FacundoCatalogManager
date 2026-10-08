@@ -154,3 +154,79 @@ def test_repository_filters_malformed_json_color_stock(repository):
     assert loaded is not None
     assert loaded.color_stock == {}
     assert loaded.stock == 124904
+
+
+def test_delete_category_removes_only_category_and_keeps_products(repository):
+    first = repository.create(
+        Product(
+            code="CAT001",
+            name="Producto 1",
+            category="Cocina, Mesa y Hogar",
+        )
+    )
+    second = repository.create(
+        Product(
+            code="CAT002",
+            name="Producto 2",
+            category="Cocina, Mesa y Hogar, Artículos Antiestrés",
+        )
+    )
+
+    repository.db.execute_query(
+        "INSERT INTO categories (name, canonical_url) VALUES (?, ?)",
+        ("Cocina, Mesa y Hogar", "https://example.test/cocina"),
+    )
+    category = repository.db.fetch_one(
+        "SELECT id FROM categories WHERE canonical_url=?",
+        ("https://example.test/cocina",),
+    )
+    assert category is not None
+    repository.db.execute_many(
+        "INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)",
+        [
+            (first.id, category["id"]),
+            (second.id, category["id"]),
+        ],
+    )
+
+    anti = repository.db.fetch_one(
+        "SELECT id FROM categories WHERE name=?",
+        ("Artículos Antiestrés",),
+    )
+    if anti is None:
+        repository.db.execute_query(
+            "INSERT INTO categories (name, canonical_url) VALUES (?, ?)",
+            ("Artículos Antiestrés", "https://example.test/antiestrés"),
+        )
+        anti = repository.db.fetch_one(
+            "SELECT id FROM categories WHERE name=?",
+            ("Artículos Antiestrés",),
+        )
+    assert anti is not None
+    repository.db.execute_query(
+        "INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)",
+        (second.id, anti["id"]),
+    )
+
+    affected = repository.delete_category("cocina mesa hogar")
+
+    assert affected == 2
+    first_loaded = repository.get_by_id(first.id)
+    second_loaded = repository.get_by_id(second.id)
+    assert first_loaded is not None
+    assert second_loaded is not None
+    assert first_loaded.category == ""
+    assert second_loaded.category == "Artículos Antiestrés"
+
+    assert repository.db.fetch_one(
+        "SELECT COUNT(*) AS total FROM product_categories WHERE product_id=? AND category_id=?",
+        (first.id, category["id"]),
+    )["total"] == 0
+    assert repository.db.fetch_one(
+        "SELECT COUNT(*) AS total FROM product_categories WHERE product_id=? AND category_id=?",
+        (second.id, category["id"]),
+    )["total"] == 0
+    assert repository.db.fetch_one(
+        "SELECT COUNT(*) AS total FROM product_categories WHERE product_id=? AND category_id=?",
+        (second.id, anti["id"]),
+    )["total"] == 1

@@ -262,6 +262,8 @@ class ProductImageGalleryDialog(QDialog):
         if index <= 0 or index >= len(self.images):
             return
         self.images[0], self.images[index] = self.images[index], self.images[0]
+        for position, image in enumerate(self.images, start=1):
+            image["position"] = position
         self.selected_index = 0
         self._render()
 

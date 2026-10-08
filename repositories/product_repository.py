@@ -195,6 +195,77 @@ class ProductRepository:
             (product_id,),
         )
 
+    def rename_category(self, category_name: str, new_name: str) -> int:
+        """Rename a category while preserving product-category relationships."""
+        from services.scraping.category_name_normalizer import (
+            normalize_category_name,
+            split_category_names,
+        )
+
+        old_key = normalize_category_name(category_name)
+        new_value = str(new_name or "").strip()
+        new_key = normalize_category_name(new_value)
+        if not old_key:
+            raise ValueError("La categoría actual no es válida.")
+        if not new_key:
+            raise ValueError("El nuevo nombre de categoría es obligatorio.")
+        if old_key == new_key:
+            return 0
+
+        rows = self.db.fetch_all("SELECT id, name FROM categories")
+        target_ids = [
+            int(row["id"])
+            for row in rows
+            if normalize_category_name(str(row["name"] or "")) == old_key
+        ]
+        if not target_ids:
+            raise ValueError("La categoría seleccionada ya no existe.")
+
+        if any(
+            normalize_category_name(str(row["name"] or "")) == new_key
+            and int(row["id"]) not in target_ids
+            for row in rows
+        ):
+            raise ValueError("Ya existe una categoría con ese nombre.")
+
+        products = self.db.fetch_all("SELECT id, category FROM products")
+        affected = 0
+
+        self.db.begin()
+        try:
+            for row in products:
+                categories = split_category_names(row["category"])
+                replaced: list[str] = []
+                changed = False
+                for category in categories:
+                    if normalize_category_name(category) == old_key:
+                        replacement = new_value
+                        changed = True
+                    else:
+                        replacement = category
+                    if replacement.casefold() not in {
+                        value.casefold() for value in replaced
+                    }:
+                        replaced.append(replacement)
+                if changed:
+                    self.db.execute_query(
+                        "UPDATE products SET category=? WHERE id=?",
+                        (", ".join(replaced), row["id"]),
+                    )
+                    affected += 1
+
+            placeholders = ", ".join("?" for _ in target_ids)
+            self.db.execute_query(
+                "UPDATE categories SET name=? "
+                f"WHERE id IN ({placeholders})",
+                (new_value, *target_ids),
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return affected
+
     def delete_category(self, category_name: str) -> int:
         """Quita una categoría de los productos sin borrar su historial."""
         from services.scraping.category_name_normalizer import (

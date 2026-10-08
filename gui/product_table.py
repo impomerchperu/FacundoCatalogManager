@@ -445,6 +445,7 @@ class ProductTable(QTableWidget):
         self._active_image_indices: dict[str, int] = {}
         self._gallery_overrides: dict[str, list[dict]] = {}
         self._row_by_code: dict[str, int] = {}
+        self._rendering = False
         table_font = QFont(self.FONT_FAMILY)
         table_font.setPixelSize(self.FONT_PIXEL_SIZE)
         self.setFont(table_font)
@@ -725,6 +726,7 @@ class ProductTable(QTableWidget):
 
 
     def _render_products(self, products: list[Product]) -> None:
+        self._rendering = True
         self._render_generation += 1
         generation = self._render_generation
         self._preferred_widths_cache = None
@@ -832,6 +834,7 @@ class ProductTable(QTableWidget):
         self._adjust_table_rows()
         self._pending_render_products = []
         self._pending_render_index = 0
+        self._rendering = False
 
     def _add_product_row(self, row: int, product: Product) -> None:
         image_item = QTableWidgetItem()

@@ -2,9 +2,20 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics, QPixmap
-from PySide6.QtWidgets import QApplication, QHeaderView
+from PySide6.QtWidgets import (
+    QApplication,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QPlainTextEdit,
+)
 
-from gui.product_table import ProductImageDelegate, ProductTable, StockColorDelegate
+from gui.product_table import (
+    PriceDelegate,
+    ProductImageDelegate,
+    ProductTable,
+    StockColorDelegate,
+)
 from models.product import Product
 
 
@@ -596,3 +607,95 @@ def test_product_table_stock_width_stays_content_fitted_when_window_grows():
 
     table.close()
 
+
+
+
+def test_price_columns_are_compact_and_currency_is_not_editable():
+    _qapp()
+    table = ProductTable(_Controller())
+    product = Product(
+        code="FB-8001",
+        name="Producto",
+        price_sample=23.8,
+        price_hundred=240,
+        price_thousand=2100,
+    )
+    table.resize(1700, 700)
+    table.show()
+    table.load_products([product])
+    QApplication.processEvents()
+
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_SAMPLE_COLUMN] == 88
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_HUNDRED_COLUMN] == 88
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_THOUSAND_COLUMN] == 88
+
+    index = table.model().index(0, ProductTable.PRICE_HUNDRED_COLUMN)
+    delegate = table.itemDelegateForColumn(ProductTable.PRICE_HUNDRED_COLUMN)
+    assert isinstance(delegate, PriceDelegate)
+    editor = delegate.createEditor(table, None, index)
+    delegate.setEditorData(editor, index)
+    currency = editor.findChild(QLabel)
+    number = editor.findChild(QLineEdit)
+
+    assert currency is not None
+    assert currency.text() == "S/"
+    assert number is not None
+    assert number.text() == "240.00"
+
+    editor.close()
+    table.close()
+
+
+def test_stock_by_color_cell_opens_multiline_editor_for_color_and_quantity():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1800, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-8002",
+                name="Producto",
+                stock=15,
+                color_stock={"Rojo": 10, "Azul": 5},
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    index = table.model().index(0, ProductTable.STOCK_COLUMN)
+    delegate = table.itemDelegateForColumn(ProductTable.STOCK_COLUMN)
+    assert isinstance(delegate, StockColorDelegate)
+    editor = delegate.createEditor(table, None, index)
+    delegate.setEditorData(editor, index)
+
+    assert isinstance(editor, QPlainTextEdit)
+    assert editor.toPlainText() == "Azul: 5\\nRojo: 10"
+
+    editor.close()
+    table.close()
+
+
+def test_code_column_does_not_grow_when_the_table_has_more_space():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1400, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-8003",
+                name="Producto con nombre largo",
+                description="Detalle del producto " * 8,
+                category="Oficina",
+            ),
+        ],
+    )
+    QApplication.processEvents()
+    first_width = table.columnWidth(ProductTable.CODE_COLUMN)
+
+    table.resize(2200, 700)
+    QApplication.processEvents()
+
+    assert table.columnWidth(ProductTable.CODE_COLUMN) == first_width
+    table.close()

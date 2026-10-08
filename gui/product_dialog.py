@@ -91,7 +91,7 @@ class ProductDialog(QDialog):
         self.image_path.setReadOnly(True)
 
         self.image_preview = QLabel()
-        self.image_preview.setFixedSize(180, 180)
+        self.image_preview.setFixedSize(144, 144)
         self.image_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_preview.setStyleSheet(
             "border: 1px solid gray; background: white;"
@@ -102,9 +102,18 @@ class ProductDialog(QDialog):
             QAbstractItemView.SelectionMode.SingleSelection,
         )
         self.gallery_list.setIconSize(self.gallery_list_icon_size())
-        self.gallery_list.setFixedHeight(105)
+        self.gallery_list.setFixedSize(450, 180)
+        self.gallery_list.setViewMode(QListWidget.ViewMode.IconMode)
+        self.gallery_list.setFlow(QListWidget.Flow.LeftToRight)
+        self.gallery_list.setWrapping(False)
+        self.gallery_list.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded,
+        )
         self.gallery_list.currentRowChanged.connect(
             self._gallery_row_changed,
+        )
+        self.gallery_list.itemDoubleClicked.connect(
+            lambda _item: self.set_primary_image(),
         )
 
         self.load_product_data()
@@ -121,13 +130,39 @@ class ProductDialog(QDialog):
         form.addRow("Categoría:", category_layout)
 
         form.addRow("Descripción:", self.description)
-        form.addRow("Precio:", self.price)
-        form.addRow("Precio muestra:", self.price_sample)
-        form.addRow("Precio ciento:", self.price_hundred)
-        form.addRow("Precio millar:", self.price_thousand)
-        form.addRow("Stock:", self.stock)
-        form.addRow("Stock por color:", self.color_stock)
-        form.addRow("Imagen principal:", self.image_path)
+        prices = QHBoxLayout()
+        for title, widget in (
+            ("Precio:", self.price),
+            ("Precio muestra:", self.price_sample),
+            ("Precio ciento:", self.price_hundred),
+            ("Precio millar:", self.price_thousand),
+        ):
+            price_column = QVBoxLayout()
+            label = QLabel(title)
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            price_column.addWidget(label)
+            price_column.addWidget(widget)
+            prices.addLayout(price_column)
+        form.addRow("Precios:", prices)
+
+        stock_layout = QHBoxLayout()
+        stock_column = QVBoxLayout()
+        stock_column.addWidget(QLabel("Stock:"))
+        stock_column.addWidget(self.stock)
+        colors_column = QVBoxLayout()
+        colors_column.addWidget(QLabel("Stock por color:"))
+        colors_column.addWidget(self.color_stock)
+        stock_layout.addLayout(stock_column)
+        stock_layout.addLayout(colors_column, 1)
+        form.addRow("", stock_layout)
+
+        image_layout = QHBoxLayout()
+        preview_column = QVBoxLayout()
+        preview_column.addWidget(QLabel("Vista previa:"))
+        preview_column.addWidget(self.image_preview, 0, Qt.AlignmentFlag.AlignTop)
+        gallery_column = QVBoxLayout()
+        gallery_column.addWidget(QLabel("Galería:"))
+        gallery_column.addWidget(self.gallery_list)
 
         image_buttons = QHBoxLayout()
         btn_add_images = QPushButton("Agregar imágenes...")
@@ -164,7 +199,7 @@ class ProductDialog(QDialog):
     def gallery_list_icon_size():
         from PySide6.QtCore import QSize
 
-        return QSize(64, 64)
+        return QSize(144, 144)
 
     @staticmethod
     def _create_price_spinbox() -> QDoubleSpinBox:

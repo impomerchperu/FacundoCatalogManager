@@ -43,11 +43,12 @@ class ProductService:
             created: list[Product] = []
             for product in products:
                 created.append(self.create_product(product))
-            self.repository.db.commit()
-            return created
         except Exception:
             self.repository.db.rollback()
             raise
+        else:
+            self.repository.db.commit()
+            return created
 
     def update_product(
         self,

@@ -54,7 +54,7 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     assert table.cellWidget(0, ProductTable.IMAGE_COLUMN) is None
     assert isinstance(delegate, ProductImageDelegate)
     assert item.data(ProductImageDelegate.IMAGE_ROLE) == str(image_path)
-    assert table.columnWidth(ProductTable.IMAGE_COLUMN) >= (
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == (
         ProductImageDelegate.DEFAULT_SIZE
     )
     assert table.rowHeight(0) == table.columnWidth(ProductTable.IMAGE_COLUMN)
@@ -63,7 +63,7 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     QApplication.processEvents()
 
     assert table.rowHeight(0) == table.columnWidth(ProductTable.IMAGE_COLUMN)
-    assert table.columnWidth(ProductTable.IMAGE_COLUMN) >= (
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == (
         ProductImageDelegate.DEFAULT_SIZE
     )
 
@@ -79,6 +79,37 @@ def test_product_table_category_uses_approved_two_line_layout():
         "Impresoras y Consumible",
         "Fotográficas Térmicas",
     ]
+
+
+def test_product_table_category_width_matches_reference_and_detail_receives_savings():
+    _qapp()
+
+    table = ProductTable(_Controller())
+    table.resize(1800, 700)
+    table.show()
+    product = Product(
+        code="FB-403",
+        name="Producto",
+        description="Detalle del producto",
+        category="Enmicadoras / Laminadoras",
+    )
+    table.load_products([product])
+    QApplication.processEvents()
+
+    metrics = QFontMetrics(table.font())
+    expected_category = (
+        metrics.horizontalAdvance("Enmicadoras / Laminadoras")
+        + (2 * ProductTable.CONTENT_SIDE_PADDING)
+    )
+
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_category
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == 144
+    assert table.rowHeight(0) == 144
+    assert table.columnWidth(ProductTable.DETAIL_COLUMN) > (
+        ProductTable.MIN_COLUMN_WIDTHS[ProductTable.DETAIL_COLUMN]
+    )
+
+    table.close()
 
 
 def test_product_table_category_with_long_word_stays_on_one_line():
@@ -113,7 +144,7 @@ def test_product_table_category_sublimacion_stays_on_one_line():
         QFontMetrics(table.font()).horizontalAdvance(item.text())
         + (2 * ProductTable.CONTENT_SIDE_PADDING)
     )
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) >= expected_width
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_width
 
 
 def test_product_table_category_enmicadoras_stays_on_one_line():

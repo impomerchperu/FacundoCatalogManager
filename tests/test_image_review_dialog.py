@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QPushButton, QWidget
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QWidget
 
 from gui.image_review_dialog import ImageReviewDialog, _ImageChoiceLabel
 
@@ -278,9 +278,8 @@ def test_image_review_dialog_can_exclude_an_alternative_without_committing():
         "image_review_staging/FB-100-new.webp"
     ]
     empty_card = dialog.table.cellWidget(0, 3).layout().itemAt(0).widget()
-    assert empty_card.layout().itemAt(0).widget().text() == (
-        "No hay alternativas detectadas."
-    )
+    assert isinstance(empty_card, QLabel)
+    assert empty_card.text() == "No hay alternativas detectadas."
     assert dialog.apply_button.isEnabled()
 
     dialog.close()
@@ -301,9 +300,9 @@ def test_image_review_dialog_can_remove_replacement_alternative():
 
     assert service.finalize_calls == []
     assert service.records[0]["candidate_options"] == []
-    assert dialog.table.cellWidget(0, 3).layout().itemAt(0).widget().text() == (
-        "No hay alternativas detectadas."
-    )
+    empty_card = dialog.table.cellWidget(0, 3).layout().itemAt(0).widget()
+    assert isinstance(empty_card, QLabel)
+    assert empty_card.text() == "No hay alternativas detectadas."
 
     dialog.close()
 

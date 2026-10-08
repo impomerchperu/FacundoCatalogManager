@@ -89,13 +89,13 @@ class CategorySelector(QComboBox):
         if not text or text.casefold() == self.selected_text().casefold():
             return False
         query = normalize_search_text(text)
-        if any(
-            query in normalize_search_text(self._model.item(row).text())
-            or normalize_search_text(self._model.item(row).text()) in query
-            for row in range(self._model.rowCount())
-            if self._model.item(row) is not None
-        ):
-            return False
+        for row in range(self._model.rowCount()):
+            item = self._model.item(row)
+            if item is None:
+                continue
+            item_query = normalize_search_text(item.text())
+            if query in item_query or item_query in query:
+                return False
         return self.add_category(text, select=True)
 
     def set_selected_categories(self, categories: list[str]) -> None:

@@ -180,7 +180,6 @@ class ProductDialog(QDialog):
         btn_remove.clicked.connect(self.remove_selected_image)
         image_buttons.addWidget(btn_remove)
 
-        gallery_column.addWidget(self.gallery_list)
         gallery_column.addLayout(image_buttons)
         image_layout.addLayout(preview_column)
         image_layout.addLayout(gallery_column, 1)
@@ -489,6 +488,7 @@ class ProductDialog(QDialog):
     def save_product(self) -> None:
         code = self.code.text().strip()
         name = self.name.text().strip()
+        self.category.add_typed_category()
         category = self.category.selected_text()
         description = self.description.toPlainText().strip()
 

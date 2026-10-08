@@ -208,7 +208,7 @@ def test_delete_category_removes_only_category_and_keeps_products(repository):
         (second.id, anti["id"]),
     )
 
-    affected = repository.delete_category("cocina mesa hogar")
+    affected = repository.delete_category("Cocina, Mesa y Hogar")
 
     assert affected == 2
     first_loaded = repository.get_by_id(first.id)

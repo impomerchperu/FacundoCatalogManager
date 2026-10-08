@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
     QDialog,
     QHBoxLayout,
     QLabel,
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from config.runtime_paths import resolve_data_path
@@ -21,7 +23,7 @@ from models.product import Product
 
 
 class ProductImportPreviewDialog(QDialog):
-    """Vista previa editable de una carga masiva antes de importarla."""
+    """Previsualización editable con resolución de duplicados."""
 
     HEADERS = (
         "Imagen",
@@ -35,18 +37,27 @@ class ProductImportPreviewDialog(QDialog):
         "Precio muestra",
         "Precio ciento",
         "Precio millar",
+        "Validación / catálogo actual",
     )
+    DUPLICATE_ROLE = int(Qt.ItemDataRole.UserRole) + 60
+    ACTION_ROLE = int(Qt.ItemDataRole.UserRole) + 61
 
     def __init__(
         self,
         products: list[Product],
+        current_products: list[Product] | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self.accepted_products: list[Product] = []
+        self.current_by_code = {
+            str(product.code).strip().casefold(): product
+            for product in list(current_products or [])
+            if str(product.code).strip()
+        }
 
         self.setWindowTitle("Previsualizar carga masiva")
-        self.resize(1120, 620)
+        self.resize(1380, 680)
 
         self.table = QTableWidget(0, len(self.HEADERS))
         self.table.setHorizontalHeaderLabels(self.HEADERS)
@@ -61,7 +72,7 @@ class ProductImportPreviewDialog(QDialog):
             | QAbstractItemView.EditTrigger.EditKeyPressed
             | QAbstractItemView.EditTrigger.SelectedClicked,
         )
-        self.table.verticalHeader().setDefaultSectionSize(72)
+        self.table.verticalHeader().setDefaultSectionSize(156)
         self.table.horizontalHeader().setStretchLastSection(True)
 
         self.summary = QLabel()
@@ -107,60 +118,125 @@ class ProductImportPreviewDialog(QDialog):
         image_item.setFlags(image_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
         self.table.setItem(row, 0, image_item)
 
-        self._set_text_item(row, 1, product.code)
-        self._set_text_item(row, 2, product.name)
-        self._set_text_item(row, 3, product.description)
-        self._set_text_item(row, 4, product.category)
-        self._set_text_item(row, 5, str(product.stock))
-        self._set_text_item(
-            row,
-            6,
-            "\n".join(
-                f"{color}: {stock}"
-                for color, stock in product.color_stock.items()
+        for column, value in (
+            (1, product.code),
+            (2, product.name),
+            (3, product.description),
+            (4, product.category),
+            (5, str(product.stock)),
+            (
+                6,
+                "\n".join(
+                    f"{color}: {stock}"
+                    for color, stock in product.color_stock.items()
+                ),
             ),
-        )
-        self._set_text_item(row, 7, f"{product.price:.2f}")
-        self._set_text_item(row, 8, f"{product.price_sample:.2f}")
-        self._set_text_item(row, 9, f"{product.price_hundred:.2f}")
-        self._set_text_item(row, 10, f"{product.price_thousand:.2f}")
+            (7, f"{product.price:.2f}"),
+            (8, f"{product.price_sample:.2f}"),
+            (9, f"{product.price_hundred:.2f}"),
+            (10, f"{product.price_thousand:.2f}"),
+        ):
+            self._set_text_item(row, column, str(value))
 
         self._set_image_preview(row, image_path)
+        self._set_validation(row, product)
 
     def _set_image_preview(self, row: int, image_path: str) -> None:
-        path = resolve_data_path(image_path)
         label = QLabel()
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label.setFixedSize(68, 68)
+        label.setFixedSize(144, 144)
         label.setToolTip(image_path)
+
+        path = resolve_data_path(image_path)
         if image_path and path.is_file():
             pixmap = QPixmap(str(path))
             if not pixmap.isNull():
                 label.setPixmap(
                     pixmap.scaled(
-                        64,
-                        64,
+                        144,
+                        144,
                         Qt.AspectRatioMode.KeepAspectRatio,
                         Qt.TransformationMode.SmoothTransformation,
                     )
                 )
-            else:
-                label.setText("Sin vista previa")
-        else:
+        if label.pixmap() is None:
             label.setText("Sin vista previa")
         self.table.setCellWidget(row, 0, label)
-
-        item = self.table.item(row, 0)
-        if item is None:
-            item = QTableWidgetItem(Path(image_path).name if image_path else "—")
-            self.table.setItem(row, 0, item)
-        item.setData(Qt.ItemDataRole.UserRole, image_path)
-        item.setToolTip(image_path)
 
     def _set_text_item(self, row: int, column: int, value: str) -> None:
         item = QTableWidgetItem(value)
         item.setToolTip(value)
         self.table.setItem(row, column, item)
+
+    def _set_validation(self, row: int, product: Product) -> None:
+        current = self.current_by_code.get(
+            str(product.code).strip().casefold()
+        )
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
+
+        if current is None:
+            label = QLabel("✓ NUEVO")
+            label.setStyleSheet("font-weight: bold; color: #2e7d32;")
+            layout.addWidget(label)
+            item = self.table.item(row, 11)
+            if item is None:
+                item = QTableWidgetItem("NUEVO")
+                self.table.setItem(row, 11, item)
+            item.setData(self.DUPLICATE_ROLE, False)
+            return
+
+        label = QLabel(
+            "⚠ CÓDIGO DUPLICADO\n"
+            f"Actual: {current.code}\n"
+            f"Producto: {current.name}\n"
+            f"Categoría: {current.category or '—'}\n"
+            f"Stock: {current.stock:,}\n"
+            f"Precio muestra: S/ {current.price_sample:,.2f}"
+        )
+        label.setWordWrap(True)
+        label.setStyleSheet(
+            "font-weight: bold; color: #8a5a00; background: #fff7d6;"
+            " padding: 4px;"
+        )
+        layout.addWidget(label)
+
+        combo = QComboBox()
+        combo.addItem("Desestimar", "dismiss")
+        combo.addItem("Reemplazar", "replace")
+        combo.setCurrentIndex(0)
+        combo.currentIndexChanged.connect(
+            lambda _index, widget=combo: self._update_duplicate_row_style(
+                widget
+            )
+        )
+        layout.addWidget(combo)
+
+        self.table.setCellWidget(row, 11, container)
+        self.table.item(row, 1).setData(self.DUPLICATE_ROLE, True)
+        self._update_duplicate_row_style(combo)
+
+    @staticmethod
+    def _update_duplicate_row_style(combo: QComboBox) -> None:
+        container = combo.parentWidget()
+        if container is None:
+            return
+        replacing = combo.currentData() == "replace"
+        container.setStyleSheet(
+            "QWidget { background: #e7f6ea; }"
+            if replacing
+            else "QWidget { background: #fff7d6; }"
+        )
+
+    def _duplicate_action(self, row: int) -> str:
+        widget = self.table.cellWidget(row, 11)
+        if isinstance(widget, QWidget):
+            combo = widget.findChild(QComboBox)
+            if combo is not None:
+                return str(combo.currentData() or "dismiss")
+        return "new"
 
     def edit_selected(self) -> None:
         row = self.table.currentRow()
@@ -172,9 +248,8 @@ class ProductImportPreviewDialog(QDialog):
             )
             return
         item = self.table.item(row, 2)
-        if item is None:
-            return
-        self.table.editItem(item)
+        if item is not None:
+            self.table.editItem(item)
 
     def delete_selected(self) -> None:
         rows = sorted(
@@ -202,6 +277,9 @@ class ProductImportPreviewDialog(QDialog):
             code = self._text(row, 1)
             name = self._text(row, 2)
             if not name:
+                continue
+
+            if self._duplicate_action(row) == "dismiss":
                 continue
 
             image_path = (
@@ -282,10 +360,17 @@ class ProductImportPreviewDialog(QDialog):
         return result
 
     def _update_summary(self) -> None:
+        duplicate_count = sum(
+            1
+            for row in range(self.table.rowCount())
+            if self.table.item(row, 1) is not None
+            and bool(self.table.item(row, 1).data(self.DUPLICATE_ROLE))
+        )
         count = self.table.rowCount()
         self.summary.setText(
-            f"Registros en previsualización: {count}. "
-            "Puede editar directamente las celdas, quitar filas o aceptar la carga."
+            f"Registros: {count}. Duplicados detectados: {duplicate_count}. "
+            "Los duplicados muestran el producto actual para comparar; "
+            "elija Reemplazar o Desestimar antes de importar."
         )
 
     def accept_import(self) -> None:
@@ -294,9 +379,8 @@ class ProductImportPreviewDialog(QDialog):
             QMessageBox.warning(
                 self,
                 "Carga masiva",
-                "No hay registros válidos para importar.",
+                "No hay registros nuevos o marcados para reemplazo.",
             )
             return
         self.accepted_products = products
         self.accept()
-

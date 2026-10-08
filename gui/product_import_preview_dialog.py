@@ -171,7 +171,10 @@ class ProductImportPreviewDialog(QDialog):
                 "Seleccione una fila para editarla. Los campos de la tabla son editables.",
             )
             return
-        self.table.editItem(self.table.item(row, 2))
+        item = self.table.item(row, 2)
+        if item is None:
+            return
+        self.table.editItem(item)
 
     def delete_selected(self) -> None:
         rows = sorted(

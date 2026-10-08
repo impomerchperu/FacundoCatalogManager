@@ -626,8 +626,11 @@ class MainWindow(QMainWindow):
 
     def _add_action_buttons(self, layout: QHBoxLayout) -> None:
         buttons = [
-            ("EXPORTAR", self.export_catalog),
+            ("Exportar", self.export_catalog),
             ("Imágenes (0)", self.open_pending_image_review),
+            ("Nuevo", self.new_product),
+            ("Editar", self.edit_product),
+            ("Eliminar", self.delete_selected),
             ("Actualizar catálogo", self.open_scraping),
             ("Historial", self.open_scraping_history),
         ]
@@ -919,6 +922,7 @@ class MainWindow(QMainWindow):
         self.apply_filters()
 
     def toggle_category(self, category: str, checked: bool) -> None:
+        self.table.clearSelection()
         if checked:
             self.selected_categories.add(category)
         else:
@@ -1150,7 +1154,7 @@ class MainWindow(QMainWindow):
         row = self.table.currentRow()
         if row < 0:
             return
-        item = self.table.item(row, 1)
+        item = self.table.item(row, self.table.CODE_COLUMN)
         if item is None:
             return
         product_id = item.data(Qt.ItemDataRole.UserRole)
@@ -1165,6 +1169,44 @@ class MainWindow(QMainWindow):
         if response == QMessageBox.StandardButton.Yes:
             self.controller.delete_product(product_id)
             self.refresh_catalog()
+
+    def delete_selected(self) -> None:
+        """Elimina el producto o la única categoría seleccionada."""
+        row = self.table.currentRow()
+        if row >= 0 and not self.table.isRowHidden(row):
+            self.delete_product()
+            return
+
+        categories = sorted(self.selected_categories, key=str.casefold)
+        if len(categories) > 1:
+            QMessageBox.warning(
+                self,
+                "Eliminar categoría",
+                "Seleccione una sola categoría para eliminarla.",
+            )
+            return
+        if len(categories) == 1:
+            category = categories[0]
+            response = QMessageBox.question(
+                self,
+                "Confirmar eliminación",
+                (
+                    f"¿Desea eliminar la categoría “{category}” del catálogo?\n\n"
+                    "Los productos se conservarán y mantendrán sus demás categorías."
+                ),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if response == QMessageBox.StandardButton.Yes:
+                self.controller.delete_category(category)
+                self.selected_categories.discard(category)
+                self.refresh_catalog()
+            return
+
+        QMessageBox.warning(
+            self,
+            "Eliminar",
+            "Seleccione un producto o una categoría.",
+        )
 
     def search_products(self, _text: str) -> None:
         self.apply_filters()

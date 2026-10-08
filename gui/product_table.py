@@ -14,8 +14,8 @@ from PySide6.QtWidgets import (
 
 from config.runtime_paths import resolve_data_path
 from controllers.product_controller import ProductController
-from models.product import Product
 from gui.product_category_delegate import ProductCategoryDelegate
+from models.product import Product
 from services.scraping.category_name_normalizer import split_category_names
 
 

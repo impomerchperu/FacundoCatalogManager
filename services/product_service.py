@@ -26,9 +26,11 @@ class ProductService:
         if errors:
             raise ValueError(errors)
 
-        return self.repository.create(
+        created = self.repository.create(
             product,
         )
+        self.repository.sync_product_categories(created.id, created.category)
+        return created
 
     def create_products(
         self,
@@ -61,9 +63,11 @@ class ProductService:
         if errors:
             raise ValueError(errors)
 
-        return self.repository.update(
+        updated = self.repository.update(
             product,
         )
+        self.repository.sync_product_categories(updated.id, updated.category)
+        return updated
 
     def save_product(
         self,
@@ -76,9 +80,11 @@ class ProductService:
         if errors:
             raise ValueError(errors)
 
-        return self.repository.save(
+        saved = self.repository.save(
             product,
         )
+        self.repository.sync_product_categories(saved.id, saved.category)
+        return saved
 
     def save_products(
         self,

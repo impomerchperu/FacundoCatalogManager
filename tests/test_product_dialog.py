@@ -18,7 +18,7 @@ def test_product_dialog_new_has_import_action_and_no_resize_controls():
         for button in dialog.findChildren(QPushButton)
     ]
 
-    assert "Importar carga masiva..." in buttons
+    assert "Importar carga masiva..." not in buttons
     assert not dialog.windowFlags() & Qt.WindowType.WindowMinimizeButtonHint
     assert not dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
 
@@ -123,5 +123,18 @@ def test_product_dialog_edit_loads_and_allows_gallery_alternatives():
 
     assert dialog.gallery_images[0]["image_path"] == "images/alternative.jpg"
     assert dialog.image_path.text() == "images/alternative.jpg"
+
+    dialog.close()
+
+def test_product_dialog_layout_matches_product_table_image_size():
+    _qapp()
+    from gui.product_table import ProductTable
+
+    dialog = ProductDialog()
+    assert dialog.image_preview.width() == ProductTable.IMAGE_SIZE
+    assert dialog.image_preview.height() == ProductTable.IMAGE_SIZE
+    assert dialog.gallery_list.iconSize().width() == ProductTable.IMAGE_SIZE
+    assert dialog.gallery_list.iconSize().height() == ProductTable.IMAGE_SIZE
+    assert dialog.stock.isReadOnly() is False
 
     dialog.close()

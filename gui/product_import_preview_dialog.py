@@ -73,7 +73,6 @@ class ProductImportPreviewDialog(QDialog):
             | QAbstractItemView.EditTrigger.EditKeyPressed
             | QAbstractItemView.EditTrigger.SelectedClicked,
         )
-        self.table.itemChanged.connect(self._preview_item_changed)
         self.table.verticalHeader().setDefaultSectionSize(156)
         self.table.horizontalHeader().setStretchLastSection(True)
 
@@ -102,6 +101,7 @@ class ProductImportPreviewDialog(QDialog):
         layout.addLayout(actions)
 
         self._load_rows(products)
+        self.table.itemChanged.connect(self._preview_item_changed)
 
     def _load_rows(self, products: list[Product]) -> None:
         self.table.setRowCount(0)

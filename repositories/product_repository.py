@@ -5,6 +5,10 @@ from typing import cast
 
 from database.db_manager import DBManager
 from models.product import Product
+from services.scraping.category_name_normalizer import (
+    normalize_category_name,
+    split_category_names,
+)
 
 
 class ProductRepository:
@@ -179,6 +183,52 @@ class ProductRepository:
             "DELETE FROM products WHERE id=?",
             (product_id,),
         )
+
+    def delete_category(self, category_name: str) -> int:
+        """Quita una categoría de los productos sin borrar su historial."""
+        target = normalize_category_name(category_name)
+        if not target:
+            return 0
+
+        category_ids = {
+            int(row["id"])
+            for row in self.db.fetch_all("SELECT id, name FROM categories")
+            if normalize_category_name(str(row["name"] or "")) == target
+        }
+        products = self.db.fetch_all("SELECT id, category FROM products")
+        affected = 0
+
+        self.db.begin()
+        try:
+            if category_ids:
+                placeholders = ", ".join("?" for _ in category_ids)
+                self.db.execute_query(
+                    "DELETE FROM product_categories "
+                    f"WHERE category_id IN ({placeholders})",
+                    tuple(sorted(category_ids)),
+                )
+
+            for row in products:
+                current = split_category_names(row["category"])
+                remaining = [
+                    category
+                    for category in current
+                    if normalize_category_name(category) != target
+                ]
+                if len(remaining) == len(current):
+                    continue
+                next_category = ", ".join(remaining)
+                self.db.execute_query(
+                    "UPDATE products SET category=? WHERE id=?",
+                    (next_category, row["id"]),
+                )
+                affected += 1
+
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return affected
 
     def delete_by_code(self, code: str) -> None:
         """Elimina un producto identificado por su código, ignorando mayúsculas."""

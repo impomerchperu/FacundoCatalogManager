@@ -313,6 +313,7 @@ class ProductTable(QTableWidget):
     DEFAULT_IMAGE_CELL_SIZE = ProductImageDelegate.DEFAULT_SIZE
     IMAGE_SIZE = DEFAULT_IMAGE_CELL_SIZE
     CATEGORY_REFERENCE_TEXT = "Enmicadoras / Laminadoras"
+    CATEGORY_SOURCE_ROLE = int(Qt.ItemDataRole.UserRole) + 50
     PROGRESSIVE_RENDER_THRESHOLD = 50
     PROGRESSIVE_RENDER_BATCH_SIZE = 40
 
@@ -400,9 +401,9 @@ class ProductTable(QTableWidget):
         DETAIL_COLUMN: 180,
         CATEGORY_COLUMN: 110,
         STOCK_COLUMN: 1,
-        PRICE_SAMPLE_COLUMN: 105,
-        PRICE_HUNDRED_COLUMN: 105,
-        PRICE_THOUSAND_COLUMN: 105,
+        PRICE_SAMPLE_COLUMN: 110,
+        PRICE_HUNDRED_COLUMN: 110,
+        PRICE_THOUSAND_COLUMN: 110,
     }
 
     SORTABLE_COLUMNS: ClassVar[set[int]] = {
@@ -1051,6 +1052,9 @@ class ProductTable(QTableWidget):
             self.CATEGORY_COLUMN,
             self._format_categories(category),
         )
+        item = self.item(row, self.CATEGORY_COLUMN)
+        if item is not None:
+            item.setData(self.CATEGORY_SOURCE_ROLE, category)
 
     @classmethod
     def _format_categories(cls, category: str) -> str:
@@ -1203,6 +1207,18 @@ class ProductTable(QTableWidget):
                 for column in range(self.columnCount())
             ]
             preferred_widths[self.IMAGE_COLUMN] = self.IMAGE_SIZE
+            price_savings = 0
+            for price_column in (
+                self.PRICE_SAMPLE_COLUMN,
+                self.PRICE_HUNDRED_COLUMN,
+                self.PRICE_THOUSAND_COLUMN,
+            ):
+                fixed_price_width = self.MIN_COLUMN_WIDTHS[price_column]
+                price_savings += max(
+                    header.sectionSize(price_column) - fixed_price_width,
+                    0,
+                )
+                preferred_widths[price_column] = fixed_price_width
             category_width = minimum_widths[self.CATEGORY_COLUMN]
             category_savings = max(
                 header.sectionSize(self.CATEGORY_COLUMN) - category_width,
@@ -1214,7 +1230,7 @@ class ProductTable(QTableWidget):
             )
             preferred_widths[self.CATEGORY_COLUMN] = category_width
             preferred_widths[self.DETAIL_COLUMN] += (
-                category_savings + image_savings
+                category_savings + image_savings + price_savings
             )
             # Stock debe conservar exclusivamente el ancho calculado por su
             # contenido, sin el margen adicional que Qt puede introducir al
@@ -1251,6 +1267,9 @@ class ProductTable(QTableWidget):
                         self.STOCK_COLUMN,
                         self.IMAGE_COLUMN,
                         self.CATEGORY_COLUMN,
+                        self.PRICE_SAMPLE_COLUMN,
+                        self.PRICE_HUNDRED_COLUMN,
+                        self.PRICE_THOUSAND_COLUMN,
                     }
                 ),
             )

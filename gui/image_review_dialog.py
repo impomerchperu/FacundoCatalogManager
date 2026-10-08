@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QResizeEvent, QSize, Qt, QTimer
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtGui import QPixmap, QResizeEvent
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,

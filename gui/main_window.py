@@ -1265,6 +1265,41 @@ class MainWindow(QMainWindow):
         except ValueError as error:
             raise ValueError("Ingrese un valor numérico válido.") from error
 
+    @staticmethod
+    def _update_product_from_cell(
+        product: Product,
+        column: int,
+        value: str,
+        table: ProductTable,
+    ) -> None:
+        if column == table.CODE_COLUMN:
+            product.code = value.strip()
+        elif column == table.NAME_COLUMN:
+            product.name = value.strip()
+        elif column == table.DETAIL_COLUMN:
+            product.description = value.strip()
+        elif column == table.CATEGORY_COLUMN:
+            product.category = value.replace("\n", ", ").strip()
+        elif column == table.PRICE_SAMPLE_COLUMN:
+            price = MainWindow._parse_inline_number(value)
+            product.price = price
+            product.price_sample = price
+        elif column == table.PRICE_HUNDRED_COLUMN:
+            product.price_hundred = MainWindow._parse_inline_number(value)
+        elif column == table.PRICE_THOUSAND_COLUMN:
+            product.price_thousand = MainWindow._parse_inline_number(value)
+        elif column == table.STOCK_COLUMN:
+            if product.color_stock:
+                raise ValueError(
+                    "El stock se calcula automáticamente a partir del stock por color."
+                )
+            product.stock = max(
+                round(MainWindow._parse_inline_number(value)),
+                0,
+            )
+        else:
+            raise LookupError
+
     def _table_item_changed(self, item) -> None:
         if (
             self._table_edit_guard
@@ -1274,9 +1309,9 @@ class MainWindow(QMainWindow):
             return
         row = item.row()
         column = item.column()
-        if row < 0 or row >= len(self.table._rendered_products):
-            return
         if column == self.table.IMAGE_COLUMN:
+            return
+        if not (0 <= row < len(self.table._rendered_products)):
             return
 
         product_id_item = self.table.item(row, self.table.CODE_COLUMN)
@@ -1292,34 +1327,12 @@ class MainWindow(QMainWindow):
         original_text = str(item.data(Qt.ItemDataRole.DisplayRole) or "")
 
         try:
-            if column == self.table.CODE_COLUMN:
-                product.code = item.text().strip()
-            elif column == self.table.NAME_COLUMN:
-                product.name = item.text().strip()
-            elif column == self.table.DETAIL_COLUMN:
-                product.description = item.text().strip()
-            elif column == self.table.CATEGORY_COLUMN:
-                product.category = item.text().replace("\n", ", ").strip()
-            elif column == self.table.PRICE_SAMPLE_COLUMN:
-                value = self._parse_inline_number(item.text())
-                product.price_sample = value
-                product.price = value
-            elif column == self.table.PRICE_HUNDRED_COLUMN:
-                product.price_hundred = self._parse_inline_number(item.text())
-            elif column == self.table.PRICE_THOUSAND_COLUMN:
-                product.price_thousand = self._parse_inline_number(item.text())
-            elif column == self.table.STOCK_COLUMN:
-                if product.color_stock:
-                    raise ValueError(
-                        "El stock se calcula automáticamente a partir del stock por color."
-                    )
-                product.stock = max(
-                    round(self._parse_inline_number(item.text())),
-                    0,
-                )
-            else:
-                return
-
+            self._update_product_from_cell(
+                product,
+                column,
+                item.text(),
+                self.table,
+            )
             self.controller.update_product(product)
         except (sqlite3.Error, ValueError) as error:
             self._table_edit_guard = True
@@ -1332,6 +1345,8 @@ class MainWindow(QMainWindow):
                 "Edición de producto",
                 str(error),
             )
+            return
+        except LookupError:
             return
 
         self.refresh_catalog()

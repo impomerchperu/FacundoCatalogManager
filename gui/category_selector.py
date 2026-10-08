@@ -84,9 +84,17 @@ class CategorySelector(QComboBox):
         self.showPopup()
 
     def add_typed_category(self) -> bool:
-        """Add the current text only when it is not the current selection."""
+        """Create a typed category only when no similar option exists."""
         text = self._line_edit.text().strip() if self._line_edit else ""
         if not text or text.casefold() == self.selected_text().casefold():
+            return False
+        query = normalize_search_text(text)
+        if any(
+            query in normalize_search_text(self._model.item(row).text())
+            or normalize_search_text(self._model.item(row).text()) in query
+            for row in range(self._model.rowCount())
+            if self._model.item(row) is not None
+        ):
             return False
         return self.add_category(text, select=True)
 

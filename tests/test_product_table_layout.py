@@ -178,7 +178,7 @@ def test_product_table_category_enmicadoras_stays_on_one_line():
         QFontMetrics(table.font()).horizontalAdvance(item.text())
         + (2 * ProductTable.CONTENT_SIDE_PADDING)
     )
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) >= expected_width
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_width
 
     table.close()
 
@@ -211,12 +211,12 @@ def test_product_table_category_width_persists_when_products_are_filtered():
         )
         + (2 * ProductTable.CONTENT_SIDE_PADDING)
     )
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) >= expected_width
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_width
 
     table.load_products([full_catalog[1]])
     QApplication.processEvents()
 
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) >= expected_width
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_width
 
     table.close()
 

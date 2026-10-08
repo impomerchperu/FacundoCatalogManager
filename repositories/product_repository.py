@@ -486,8 +486,6 @@ class ProductRepository:
     def _row_to_product(self, row: sqlite3.Row) -> Product:
         color_stock = self._json_dict(row["color_stock"])
         stock = max(int(row["stock"] or 0), 0)
-        if color_stock:
-            stock = sum(color_stock.values())
         return Product(
             product_id=row["id"],
             code=row["code"],
@@ -507,21 +505,3 @@ class ProductRepository:
             content_hash=row["content_hash"],
         )
 
-        return Product(
-            product_id=row["id"],
-            code=row["code"],
-            name=row["name"],
-            price=row["price"],
-            category=row["category"],
-            description=row["description"],
-            price_sample=row["price_sample"],
-            price_hundred=row["price_hundred"],
-            price_thousand=row["price_thousand"],
-            stock=row["stock"],
-            color_stock=self._json_dict(row["color_stock"]),
-            image_url=row["image_url"],
-            image_path=row["image_path"],
-            image_hash=row["image_hash"],
-            gallery_images=self._json_gallery_images(row["gallery_images"]),
-            content_hash=row["content_hash"],
-        )

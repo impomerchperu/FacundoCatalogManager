@@ -88,3 +88,42 @@ def test_import_rejects_unsupported_formats(tmp_path):
         assert "CSV o XLSX" in str(error)
     else:
         raise AssertionError("Expected ValueError")
+
+
+def test_import_products_reads_all_csv_rows(tmp_path):
+    path = tmp_path / "carga_masiva.csv"
+    path.write_text(
+        "\ufeffCódigo;Producto;Categoría;Stock;Stock por color;Precio muestra;Precio ciento;Precio millar\n"
+        ';Producto sin código;Cocina, Mesa y Hogar;4;"Rojo: 3\nAzul: 1";5;20;70\n'
+        'FB-102;Segundo producto;Artículos Antiestrés;8;"Verde: 8";6;24;72\n',
+        encoding="utf-8",
+    )
+
+    products = ProductImportService.import_products(path)
+
+    assert len(products) == 2
+    assert products[0].code == ""
+    assert products[0].name == "Producto sin código"
+    assert products[0].color_stock == {"Rojo": 3, "Azul": 1}
+    assert products[0].price_sample == 5
+    assert products[0].price_hundred == 20
+    assert products[0].price_thousand == 70
+    assert products[1].code == "FB-102"
+
+
+def test_import_products_supports_xlsm(tmp_path):
+    path = tmp_path / "carga_masiva.xlsm"
+    workbook = Workbook()
+    sheet = workbook.active
+    assert sheet is not None
+    sheet.append(["Código", "Producto", "Categoría", "Stock", "Precio"])
+    sheet.append(["", "Producto nuevo", "Artículos de Oficina", 3, 9.5])
+    workbook.save(path)
+    workbook.close()
+
+    products = ProductImportService.import_products(path)
+
+    assert len(products) == 1
+    assert products[0].code == ""
+    assert products[0].name == "Producto nuevo"
+    assert products[0].price == 9.5

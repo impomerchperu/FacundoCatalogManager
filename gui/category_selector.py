@@ -161,6 +161,8 @@ class CategorySelector(QComboBox):
             view = self.view()
             if isinstance(view, QListView):
                 view.setRowHidden(row, not matches)
+        if query and not self.view().isVisible():
+            self.showPopup()
 
     def _accept_typed_category(self) -> None:
         if not self._editable_text:

@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 from config.runtime_paths import resolve_data_path
 from controllers.product_controller import ProductController
 from models.product import Product
+from gui.product_category_delegate import ProductCategoryDelegate
 from services.scraping.category_name_normalizer import split_category_names
 
 
@@ -456,7 +457,10 @@ class ProductTable(QTableWidget):
         self.setAlternatingRowColors(False)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.setEditTriggers(
+            QAbstractItemView.EditTrigger.DoubleClicked
+            | QAbstractItemView.EditTrigger.EditKeyPressed,
+        )
         self.setWordWrap(True)
         self.setTextElideMode(Qt.TextElideMode.ElideNone)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -514,6 +518,11 @@ class ProductTable(QTableWidget):
         self.setItemDelegateForColumn(
             self.STOCK_COLUMN,
             StockColorDelegate(self),
+        )
+        self.category_delegate = ProductCategoryDelegate(self)
+        self.setItemDelegateForColumn(
+            self.CATEGORY_COLUMN,
+            self.category_delegate,
         )
         header.sectionClicked.connect(self._handle_header_click)
         header.setStretchLastSection(False)
@@ -693,6 +702,9 @@ class ProductTable(QTableWidget):
         for row, product in enumerate(self._rendered_products):
             self.setRowHidden(row, id(product) not in self._visible_product_keys)
 
+    def set_category_editor_options(self, categories: list[str]) -> None:
+        self.category_delegate.set_categories(categories)
+
     def set_category_reference_products(self, products: list[Product]) -> None:
         """Conserva el ancho de categoría del catálogo completo al filtrar."""
         self._category_reference_products = list(products)
@@ -855,6 +867,9 @@ class ProductTable(QTableWidget):
                 ProductImageDelegate.IMAGE_ROLE,
                 str(resolve_data_path(image_path)),
             )
+        image_item.setFlags(
+            image_item.flags() & ~Qt.ItemFlag.ItemIsEditable
+        )
         self.setItem(row, self.IMAGE_COLUMN, image_item)
 
         item_code = QTableWidgetItem(product.code)
@@ -1069,6 +1084,9 @@ class ProductTable(QTableWidget):
                 "\n".join(
                     f"{color}: {stock}" for color, stock in color_stock
                 ),
+            )
+            item.setFlags(
+                item.flags() & ~Qt.ItemFlag.ItemIsEditable
             )
         self.setItem(row, self.STOCK_COLUMN, item)
 

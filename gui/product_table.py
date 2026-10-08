@@ -249,7 +249,6 @@ class StockColorDelegate(QStyledItemDelegate):
                     if isinstance(entry, (list, tuple)) and len(entry) == 2
                 )
             )
-            editor.selectAll()
             return
         if isinstance(editor, QLineEdit):
             editor.setText(str(index.data(Qt.ItemDataRole.DisplayRole) or "0"))

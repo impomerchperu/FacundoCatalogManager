@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
+from typing import ClassVar
 
 from openpyxl import load_workbook
 
@@ -14,9 +15,11 @@ from services.product_search import normalize_search_text
 class ProductImportService:
     """Lee un registro de producto desde CSV o XLSX."""
 
-    SUPPORTED_SUFFIXES = {".csv", ".xlsx"}
+    SUPPORTED_SUFFIXES: ClassVar[frozenset[str]] = frozenset(
+        {".csv", ".xlsx"}
+    )
 
-    FIELD_ALIASES = {
+    FIELD_ALIASES: ClassVar[dict[str, str]] = {
         "imagen": "image_path",
         "codigo": "code",
         "producto": "name",
@@ -187,7 +190,7 @@ class ProductImportService:
         if value in (None, ""):
             return default
         number = cls._number(value, float(default))
-        return max(int(round(number)), 0)
+        return max(round(number), 0)
 
     @classmethod
     def _parse_stock_by_color(cls, value: object) -> dict[str, int]:

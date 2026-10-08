@@ -57,10 +57,14 @@ class ProductCategoryDelegate(QStyledItemDelegate):
     ) -> None:
         if not isinstance(editor, CategorySelector):
             return
-        editor.add_typed_category()
+        typed = editor.lineEdit().text().strip() if editor.lineEdit() else ""
+        selected = editor.selected_text()
+        if typed and typed.casefold() != selected.casefold():
+            editor.add_category(typed, select=True)
+            selected = editor.selected_text()
         model.setData(
             index,
-            editor.selected_text(),
+            selected,
             Qt.ItemDataRole.EditRole,
         )
 

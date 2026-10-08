@@ -50,6 +50,7 @@ class ProductImportPreviewDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.accepted_products: list[Product] = []
+        self._validation_guard = False
         self.current_by_code = {
             str(product.code).strip().casefold(): product
             for product in list(current_products or [])
@@ -170,14 +171,18 @@ class ProductImportPreviewDialog(QDialog):
         self.table.setItem(row, column, item)
 
     def _preview_item_changed(self, item: QTableWidgetItem | None) -> None:
-        if item is None or item.column() != 1:
+        if self._validation_guard or item is None or item.column() != 1:
             return
         row = item.row()
         code = item.text().strip()
-        self._set_validation(
-            row,
-            Product(code=code, name=""),
-        )
+        self._validation_guard = True
+        try:
+            self._set_validation(
+                row,
+                Product(code=code, name=""),
+            )
+        finally:
+            self._validation_guard = False
         self._update_summary()
 
     def _set_validation(self, row: int, product: Product) -> None:

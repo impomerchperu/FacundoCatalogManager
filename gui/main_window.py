@@ -1,6 +1,8 @@
+import sqlite3
+
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QPoint, Qt, QThread, QTimer
+from PySide6.QtCore import QPoint, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import (
     QFocusEvent,
     QFont,
@@ -18,6 +20,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QInputDialog,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -37,7 +40,10 @@ from gui.workers.catalog_bootstrap_worker import CatalogBootstrapWorker
 from gui.workers.catalog_load_worker import CatalogLoadWorker
 from models.product import Product
 from services.product_search import product_matches_search
-from services.scraping.category_name_normalizer import split_category_names
+from services.scraping.category_name_normalizer import (
+    available_category_names,
+    split_category_names,
+)
 from services.scraping.image_review_service import ImageReviewService
 
 if TYPE_CHECKING:
@@ -46,7 +52,9 @@ if TYPE_CHECKING:
 
 
 class CategoryFilterButton(QPushButton):
-    """Botón de categoría con navegación vertical por teclado."""
+    """Botón de categoría con navegación vertical y edición por doble clic."""
+
+    doubleClicked = Signal()
 
     def __init__(
         self,
@@ -68,6 +76,13 @@ class CategoryFilterButton(QPushButton):
         )
         self._focus_frame.hide()
         self._focus_frame.raise_()
+
+    def mouseDoubleClickEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.doubleClicked.emit()
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
 
     def _update_focus_frame(self) -> None:
         self._focus_frame.setGeometry(
@@ -291,6 +306,9 @@ class MainWindow(QMainWindow):
         self.search_box.textChanged.connect(self.search_products)
 
         self.table = ProductTable(self.controller)
+        self.table.cellDoubleClicked.connect(self._table_cell_double_clicked)
+        self.table.itemChanged.connect(self._table_item_changed)
+        self._table_edit_guard = False
         self.create_filter_controls(layout)
 
         counter_layout = QHBoxLayout()
@@ -629,7 +647,7 @@ class MainWindow(QMainWindow):
             ("Exportar", self.export_catalog),
             ("Imágenes (0)", self.open_pending_image_review),
             ("Nuevo", self.new_product),
-            ("Editar", self.edit_product),
+            ("Importar", self.import_products),
             ("Eliminar", self.delete_selected),
             ("Actualizar catálogo", self.open_scraping),
             ("Historial", self.open_scraping_history),
@@ -789,6 +807,11 @@ class MainWindow(QMainWindow):
     def _apply_catalog_products(self, products: list[Product]) -> None:
         self.all_products = list(products)
         self.table.set_category_reference_products(self.all_products)
+        self.table.set_category_editor_options(
+            available_category_names(
+                *(product.category for product in self.all_products)
+            )
+        )
         self.table.load_products(self.all_products)
         self.rebuild_category_filters()
         self.apply_filters()
@@ -831,6 +854,9 @@ class MainWindow(QMainWindow):
                     value,
                     checked,
                 ),
+            )
+            button.doubleClicked.connect(
+                lambda value=category: self.rename_category_button(value)
             )
             self.category_buttons.append(button)
 
@@ -1207,6 +1233,179 @@ class MainWindow(QMainWindow):
             "Eliminar",
             "Seleccione un producto o una categoría.",
         )
+
+    def _table_cell_double_clicked(self, row: int, column: int) -> None:
+        if column != self.table.IMAGE_COLUMN:
+            return
+        if row < 0 or row >= len(self.table._rendered_products):
+            return
+        product = self.table._rendered_products[row]
+        if product.id is None:
+            return
+
+        from gui.product_image_gallery_dialog import ProductImageGalleryDialog
+
+        dialog = ProductImageGalleryDialog(
+            product,
+            parent=self,
+            service=self.controller._get_service(),
+        )
+        if dialog.exec():
+            self.refresh_catalog()
+
+    @staticmethod
+    def _parse_inline_number(value: str) -> float:
+        text = str(value or "").strip().replace("S/", "").replace(" ", "")
+        if "," in text and "." in text:
+            text = text.replace(",", "")
+        elif "," in text:
+            text = text.replace(",", ".")
+        try:
+            return max(float(text), 0)
+        except ValueError as error:
+            raise ValueError("Ingrese un valor numérico válido.") from error
+
+    def _table_item_changed(self, item) -> None:
+        if self._table_edit_guard or item is None:
+            return
+        row = item.row()
+        column = item.column()
+        if row < 0 or row >= len(self.table._rendered_products):
+            return
+        if column == self.table.IMAGE_COLUMN:
+            return
+
+        product_id_item = self.table.item(row, self.table.CODE_COLUMN)
+        if product_id_item is None:
+            return
+        product_id = product_id_item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(product_id, int):
+            return
+
+        product = self.controller.get_product_by_id(product_id)
+        if product is None:
+            return
+        original_text = str(item.data(Qt.ItemDataRole.DisplayRole) or "")
+
+        try:
+            if column == self.table.CODE_COLUMN:
+                product.code = item.text().strip()
+            elif column == self.table.NAME_COLUMN:
+                product.name = item.text().strip()
+            elif column == self.table.DETAIL_COLUMN:
+                product.description = item.text().strip()
+            elif column == self.table.CATEGORY_COLUMN:
+                product.category = item.text().replace("\n", ", ").strip()
+            elif column == self.table.PRICE_SAMPLE_COLUMN:
+                value = self._parse_inline_number(item.text())
+                product.price_sample = value
+                product.price = value
+            elif column == self.table.PRICE_HUNDRED_COLUMN:
+                product.price_hundred = self._parse_inline_number(item.text())
+            elif column == self.table.PRICE_THOUSAND_COLUMN:
+                product.price_thousand = self._parse_inline_number(item.text())
+            elif column == self.table.STOCK_COLUMN:
+                if product.color_stock:
+                    raise ValueError(
+                        "El stock se calcula automáticamente a partir del stock por color."
+                    )
+                product.stock = max(
+                    round(self._parse_inline_number(item.text())),
+                    0,
+                )
+            else:
+                return
+
+            self.controller.update_product(product)
+        except (sqlite3.Error, ValueError) as error:
+            self._table_edit_guard = True
+            try:
+                item.setText(original_text)
+            finally:
+                self._table_edit_guard = False
+            QMessageBox.warning(
+                self,
+                "Edición de producto",
+                str(error),
+            )
+            return
+
+        self.refresh_catalog()
+
+    def rename_category_button(self, category: str) -> None:
+        value, accepted = QInputDialog.getText(
+            self,
+            "Editar categoría",
+            "Nuevo nombre:",
+            text=category,
+        )
+        if not accepted:
+            return
+        new_name = value.strip()
+        if not new_name:
+            return
+        try:
+            self.controller.rename_category(category, new_name)
+        except (sqlite3.Error, ValueError) as error:
+            QMessageBox.warning(
+                self,
+                "Editar categoría",
+                str(error),
+            )
+            return
+
+        if category in self.selected_categories:
+            self.selected_categories.discard(category)
+            self.selected_categories.add(new_name)
+        self.refresh_catalog()
+
+    def import_products(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Importar carga masiva",
+            "",
+            (
+                "Archivos compatibles (*.csv *.xlsx *.xlsm);;"
+                "CSV (*.csv);;Excel (*.xlsx *.xlsm)"
+            ),
+        )
+        if not filename:
+            return
+
+        from services.product_import import ProductImportService
+
+        try:
+            products = ProductImportService.import_products(filename)
+        except (OSError, ValueError) as error:
+            QMessageBox.warning(self, "Importar carga masiva", str(error))
+            return
+
+        from gui.product_import_preview_dialog import ProductImportPreviewDialog
+
+        preview = ProductImportPreviewDialog(
+            products,
+            current_products=self.all_products,
+            parent=self,
+        )
+        if preview.exec() != preview.DialogCode.Accepted:
+            return
+
+        try:
+            saved = self.controller.save_products(preview.accepted_products)
+        except (sqlite3.Error, ValueError) as error:
+            QMessageBox.critical(
+                self,
+                "Importar carga masiva",
+                str(error),
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            "Importar carga masiva",
+            f"Se procesaron {len(saved)} productos correctamente.",
+        )
+        self.refresh_catalog()
 
     def search_products(self, _text: str) -> None:
         self.apply_filters()

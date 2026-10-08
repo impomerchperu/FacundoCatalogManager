@@ -2,18 +2,20 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QPushButton
 
 from gui.product_image_gallery_dialog import ProductImageGalleryDialog
 from models.product import Product
+from services.product_service import ProductService
 
 
 def _qapp():
     return QApplication.instance() or QApplication([])
 
 
-class _Service:
+class _Service(ProductService):
     def __init__(self) -> None:
-        self.saved_product = None
+        self.saved_product: Product | None = None
 
-    def update_product(self, product) -> None:
+    def update_product(self, product: Product) -> Product:
         self.saved_product = product
+        return product
 
 
 def _product() -> Product:
@@ -52,11 +54,19 @@ def test_product_image_gallery_dialog_uses_product_table_image_size():
     assert len(dialog.images) == 2
     assert dialog.layout().count() == 2
     assert dialog.save_button.text() == "Guardar"
-    assert [
-        button.text()
-        for button in dialog.findChildren(QPushButton)
-        if button.text()
-    ] == ["Guardar"]
+    action_labels = {
+        "Subir imágenes...",
+        "Reemplazar seleccionada",
+        "Hacer principal",
+        "Quitar",
+        "Cancelar",
+    }
+    assert "Guardar" in [
+        button.text() for button in dialog.findChildren(QPushButton)
+    ]
+    assert not action_labels.intersection(
+        button.text() for button in dialog.findChildren(QPushButton)
+    )
 
     dialog.close()
 

@@ -115,6 +115,9 @@ class ProductDialog(QDialog):
         self.gallery_list.itemDoubleClicked.connect(
             lambda _item: self.set_primary_image(),
         )
+        self.gallery_list.itemDoubleClicked.connect(
+            lambda _item: self.set_primary_image(),
+        )
 
         self.load_product_data()
 
@@ -165,7 +168,7 @@ class ProductDialog(QDialog):
         gallery_column.addWidget(self.gallery_list)
 
         image_buttons = QHBoxLayout()
-        btn_add_images = QPushButton("Agregar imágenes...")
+        btn_add_images = QPushButton("Subir imágenes...")
         btn_add_images.clicked.connect(self.select_images)
         image_buttons.addWidget(btn_add_images)
 
@@ -177,9 +180,11 @@ class ProductDialog(QDialog):
         btn_remove.clicked.connect(self.remove_selected_image)
         image_buttons.addWidget(btn_remove)
 
-        form.addRow("Galería:", self.gallery_list)
-        form.addRow("", image_buttons)
-        form.addRow("Vista previa:", self.image_preview)
+        gallery_column.addWidget(self.gallery_list)
+        gallery_column.addLayout(image_buttons)
+        image_layout.addLayout(preview_column)
+        image_layout.addLayout(gallery_column, 1)
+        form.addRow("Imagen principal:", image_layout)
 
         btn_save = QPushButton("Guardar")
         btn_save.clicked.connect(self.save_product)

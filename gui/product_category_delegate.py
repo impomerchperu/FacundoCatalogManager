@@ -58,7 +58,8 @@ class ProductCategoryDelegate(QStyledItemDelegate):
     ) -> None:
         if not isinstance(editor, CategorySelector):
             return
-        typed = editor.lineEdit().text().strip() if editor.lineEdit() else ""
+        line_edit = editor.lineEdit()
+        typed = line_edit.text().strip() if line_edit is not None else ""
         selected = editor.selected_text()
         if typed and typed.casefold() != selected.casefold():
             editor.add_category(typed, select=True)

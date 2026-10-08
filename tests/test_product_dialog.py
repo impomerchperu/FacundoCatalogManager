@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QAbstractSpinBox, QApplication, QPushButton
 
+from gui.category_selector import CategorySelector
 from gui.product_dialog import ProductDialog
 from models.product import Product
 
@@ -172,3 +173,42 @@ def test_product_dialog_new_has_no_bulk_import_and_has_new_category():
     assert "+ Nueva categoría" in buttons
     assert "Subir imágenes..." in buttons
     dialog.close()
+
+
+
+def test_category_selector_filters_matching_categories_while_typing():
+    _qapp()
+    selector = CategorySelector()
+    selector.set_categories(
+        [
+            "Máquina de Sublimación",
+            "Insumos de Sublimación",
+            "Oficina",
+        ],
+    )
+    selector.show()
+    line_edit = selector.lineEdit()
+    assert line_edit is not None
+
+    line_edit.setText("maquin")
+    line_edit.textEdited.emit("maquin")
+    QApplication.processEvents()
+
+    rows = {
+        selector._model.item(row).text(): row
+        for row in range(selector._model.rowCount())
+        if selector._model.item(row) is not None
+    }
+    assert not selector.view().isRowHidden(rows["Máquina de Sublimación"])
+    assert selector.view().isRowHidden(rows["Insumos de Sublimación"])
+    assert selector.view().isRowHidden(rows["Oficina"])
+
+    line_edit.setText("Sublim")
+    line_edit.textEdited.emit("Sublim")
+    QApplication.processEvents()
+
+    assert not selector.view().isRowHidden(rows["Máquina de Sublimación"])
+    assert not selector.view().isRowHidden(rows["Insumos de Sublimación"])
+    assert selector.view().isRowHidden(rows["Oficina"])
+
+    selector.close()

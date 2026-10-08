@@ -23,6 +23,11 @@ def _qapp():
     return QApplication.instance() or QApplication([])
 
 
+class _Controller:
+    def get_products(self):
+        return []
+
+
 def test_main_window_visual_metrics_keep_compact_hierarchy():
     assert MainWindow.SEARCH_FONT_SIZE == 16
     assert MainWindow.SEARCH_HEIGHT == 38
@@ -731,6 +736,8 @@ def test_main_window_exposes_import_instead_of_edit():
 
 
 def test_inline_stock_by_color_edit_updates_color_name_and_total():
+    _qapp()
+    table = ProductTable(_Controller())
     product = Product(
         code="FB-6002",
         name="Producto",
@@ -740,9 +747,9 @@ def test_inline_stock_by_color_edit_updates_color_name_and_total():
 
     MainWindow._update_product_from_cell(
         product,
-        ProductTable.STOCK_COLUMN,
+        table.STOCK_COLUMN,
         "Fucsia: 11\nAzul: 6",
-        ProductTable,
+        table,
     )
 
     assert product.color_stock == {"Fucsia": 11, "Azul": 6}
@@ -750,9 +757,12 @@ def test_inline_stock_by_color_edit_updates_color_name_and_total():
     old_background, old_indicator = ProductTable._stock_color_style("Rojo")
     new_background, new_indicator = ProductTable._stock_color_style("Fucsia")
     assert (new_background, new_indicator) != (old_background, old_indicator)
+    table.close()
 
 
 def test_inline_stock_by_color_edit_rejects_malformed_rows():
+    _qapp()
+    table = ProductTable(_Controller())
     product = Product(
         code="FB-6003",
         name="Producto",
@@ -763,11 +773,12 @@ def test_inline_stock_by_color_edit_rejects_malformed_rows():
     try:
         MainWindow._update_product_from_cell(
             product,
-            ProductTable.STOCK_COLUMN,
+            table.STOCK_COLUMN,
             "Rojo sin cantidad",
-            ProductTable,
+            table,
         )
     except ValueError as error:
         assert "Color: cantidad" in str(error)
     else:
         raise AssertionError("El stock por color mal formado debería rechazarse")
+    table.close()

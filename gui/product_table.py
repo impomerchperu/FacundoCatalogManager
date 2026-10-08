@@ -408,6 +408,7 @@ class ProductTable(QTableWidget):
     }
     DEFAULT_IMAGE_CELL_SIZE = ProductImageDelegate.DEFAULT_SIZE
     IMAGE_SIZE = DEFAULT_IMAGE_CELL_SIZE
+    DETAIL_WIDTH_GROWTH_PERCENT = 20
     CATEGORY_REFERENCE_TEXT = "Enmicadoras / Laminadoras"
     CATEGORY_SOURCE_ROLE = int(Qt.ItemDataRole.UserRole) + 50
     PROGRESSIVE_RENDER_THRESHOLD = 50
@@ -1335,8 +1336,15 @@ class ProductTable(QTableWidget):
                 0,
             )
             preferred_widths[self.CATEGORY_COLUMN] = category_width
+            detail_growth = round(
+                preferred_widths[self.DETAIL_COLUMN]
+                * self.DETAIL_WIDTH_GROWTH_PERCENT
+                / 100
+            )
             preferred_widths[self.DETAIL_COLUMN] += (
-                category_savings + image_savings + price_savings
+                category_savings
+                + image_savings
+                + max(price_savings, detail_growth)
             )
             # Stock debe conservar exclusivamente el ancho calculado por su
             # contenido, sin el margen adicional que Qt puede introducir al

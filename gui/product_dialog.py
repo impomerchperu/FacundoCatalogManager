@@ -25,7 +25,6 @@ from PySide6.QtWidgets import (
 )
 
 from config.runtime_paths import resolve_data_path
-
 from gui.category_selector import CategorySelector
 from models.product import Product
 from services.product_service import ProductService

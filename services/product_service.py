@@ -62,6 +62,9 @@ class ProductService:
             product_id,
         )
 
+    def delete_category(self, category_name: str) -> int:
+        return self.repository.delete_category(category_name)
+
     def get_products(self) -> list[Product]:
         return self.repository.get_all()
 

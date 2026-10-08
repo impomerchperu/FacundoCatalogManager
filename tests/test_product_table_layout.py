@@ -140,11 +140,18 @@ def test_product_table_category_sublimacion_stays_on_one_line():
     assert item.text() == "Artículos de Sublimación"
     assert "\n" not in item.text()
 
-    expected_width = (
+    expected_reference_width = (
+        QFontMetrics(table.font()).horizontalAdvance(
+            ProductTable.CATEGORY_REFERENCE_TEXT,
+        )
+        + (2 * ProductTable.CONTENT_SIDE_PADDING)
+    )
+    expected_text_width = (
         QFontMetrics(table.font()).horizontalAdvance(item.text())
         + (2 * ProductTable.CONTENT_SIDE_PADDING)
     )
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_width
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_reference_width
+    assert expected_text_width <= expected_reference_width
 
 
 def test_product_table_category_enmicadoras_stays_on_one_line():

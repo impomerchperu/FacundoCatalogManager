@@ -194,11 +194,11 @@ def test_category_selector_filters_matching_categories_while_typing():
     line_edit.textEdited.emit("maquin")
     QApplication.processEvents()
 
-    rows = {
-        selector._model.item(row).text(): row
-        for row in range(selector._model.rowCount())
-        if selector._model.item(row) is not None
-    }
+    rows: dict[str, int] = {}
+    for row in range(selector._model.rowCount()):
+        item = selector._model.item(row)
+        if item is not None:
+            rows[item.text()] = row
     assert not selector.view().isRowHidden(rows["Máquina de Sublimación"])
     assert selector.view().isRowHidden(rows["Insumos de Sublimación"])
     assert selector.view().isRowHidden(rows["Oficina"])

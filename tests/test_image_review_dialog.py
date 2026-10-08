@@ -141,7 +141,8 @@ def test_image_review_dialog_selection_updates_current_preview_without_committin
     dialog = ImageReviewDialog(service=service)
 
     alternative_container = dialog.table.cellWidget(0, 3)
-    alternative = alternative_container.layout().itemAt(0).widget()
+    alternative_card = alternative_container.layout().itemAt(0).widget()
+    alternative = alternative_card.layout().itemAt(0).widget()
     assert isinstance(alternative, _ImageChoiceLabel)
 
     alternative._callback()
@@ -304,6 +305,34 @@ def test_image_review_dialog_can_remove_replacement_alternative():
     dialog.close()
 
 
+def test_image_review_dialog_can_mark_current_image_for_deletion():
+    _qapp()
+    service = FakeReviewService()
+    dialog = ImageReviewDialog(service=service)
+
+    current_container = dialog.table.cellWidget(0, 2)
+    image_card = current_container.layout().itemAt(0).widget()
+    remove_button = image_card.layout().itemAt(1).widget()
+    assert isinstance(remove_button, QPushButton)
+    assert remove_button.text() == "X"
+
+    remove_button.click()
+
+    assert service.selection_calls == [("review-1", "delete", None)]
+    current_after = dialog.table.cellWidget(0, 2)
+    current_image = (
+        current_after.layout()
+        .itemAt(0)
+        .widget()
+        .layout()
+        .itemAt(0)
+        .widget()
+    )
+    assert current_image.text() == "Marcada para eliminar"
+
+    dialog.close()
+
+
 def test_image_review_dialog_close_preserves_unapplied_selection():
     _qapp()
     service = FakeReviewService()
@@ -319,3 +348,17 @@ def test_image_review_dialog_close_preserves_unapplied_selection():
     assert service.finalize_calls == []
     assert service.discard_calls == 0
     assert service.records[0]["selected_action"] == "candidate"
+
+
+def test_image_review_dialog_centers_code_and_sets_product_width():
+    _qapp()
+    service = FakeReviewService()
+    dialog = ImageReviewDialog(service=service)
+
+    code_item = dialog.table.item(0, 0)
+    assert code_item.text() == "FB-100"
+    assert code_item.textAlignment() & Qt.AlignmentFlag.AlignCenter
+    assert dialog.table.horizontalHeader().sectionSize(0) == 105
+    assert dialog.table.horizontalHeader().sectionSize(1) == 280
+
+    dialog.close()

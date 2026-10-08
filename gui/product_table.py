@@ -4,12 +4,17 @@ from PySide6.QtCore import QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPixmap, QPixmapCache
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QHBoxLayout,
     QHeaderView,
+    QLabel,
+    QLineEdit,
     QMenu,
+    QPlainTextEdit,
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QTableWidget,
     QTableWidgetItem,
+    QWidget,
 )
 
 from config.runtime_paths import resolve_data_path
@@ -36,6 +41,59 @@ class NumericTableWidgetItem(QTableWidgetItem):
                 except (TypeError, ValueError):
                     pass
         return super().__lt__(other)
+
+
+class PriceDelegate(QStyledItemDelegate):
+    """Editor numérico que mantiene visible la moneda durante la edición."""
+
+    def createEditor(self, parent, option, index) -> QWidget:
+        del option, index
+        editor = QWidget(parent)
+        layout = QHBoxLayout(editor)
+        layout.setContentsMargins(4, 0, 4, 0)
+        layout.setSpacing(3)
+        currency = QLabel("S/", editor)
+        currency.setStyleSheet("color: #173f6d;")
+        value = QLineEdit(editor)
+        value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        value.setPlaceholderText("0.00")
+        layout.addWidget(currency)
+        layout.addWidget(value, 1)
+        editor.setFocusProxy(value)
+        return editor
+
+    def setEditorData(self, editor: QWidget, index) -> None:
+        value = editor.findChild(QLineEdit)
+        if value is None:
+            return
+        numeric = index.data(Qt.ItemDataRole.UserRole)
+        try:
+            number = float(numeric)
+        except (TypeError, ValueError):
+            number = 0.0
+        value.setText(f"{number:.2f}")
+        value.selectAll()
+
+    def setModelData(self, editor: QWidget, model, index) -> None:
+        value = editor.findChild(QLineEdit)
+        if value is None:
+            return
+        raw = value.text().strip().replace("S/", "").strip()
+        normalized = raw.replace(" ", "")
+        if "," in normalized and "." in normalized:
+            normalized = normalized.replace(",", "")
+        elif "," in normalized:
+            normalized = normalized.replace(",", ".")
+        try:
+            number = max(float(normalized), 0.0)
+        except ValueError:
+            model.setData(index, f"S/ {raw}", Qt.ItemDataRole.EditRole)
+            return
+        model.setData(index, f"S/ {number:,.2f}", Qt.ItemDataRole.EditRole)
+
+    def updateEditorGeometry(self, editor: QWidget, option, index) -> None:
+        del index
+        editor.setGeometry(option.rect)
 
 
 class ProductHeader(QHeaderView):
@@ -167,9 +225,48 @@ class ProductImageDelegate(QStyledItemDelegate):
 
 
 class StockColorDelegate(QStyledItemDelegate):
-    """Pinta todos los colores del stock dentro de una única celda."""
+    """Pinta y edita cada línea de stock por color dentro de una celda."""
 
     STOCK_ROLE = int(Qt.ItemDataRole.UserRole) + 2
+
+    def createEditor(self, parent, option, index) -> QWidget:
+        del option
+        color_stock = index.data(self.STOCK_ROLE)
+        if isinstance(color_stock, list) and color_stock:
+            return QPlainTextEdit(parent)
+        editor = QLineEdit(parent)
+        editor.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        return editor
+
+    def setEditorData(self, editor: QWidget, index) -> None:
+        color_stock = index.data(self.STOCK_ROLE)
+        if isinstance(editor, QPlainTextEdit):
+            entries = color_stock if isinstance(color_stock, list) else []
+            editor.setPlainText(
+                "\n".join(
+                    f"{entry[0]}: {entry[1]}"
+                    for entry in entries
+                    if isinstance(entry, (list, tuple)) and len(entry) == 2
+                )
+            )
+            editor.selectAll()
+            return
+        if isinstance(editor, QLineEdit):
+            editor.setText(str(index.data(Qt.ItemDataRole.DisplayRole) or "0"))
+            editor.selectAll()
+
+    def setModelData(self, editor: QWidget, model, index) -> None:
+        if isinstance(editor, QPlainTextEdit):
+            value = editor.toPlainText()
+        elif isinstance(editor, QLineEdit):
+            value = editor.text().strip()
+        else:
+            return
+        model.setData(index, value, Qt.ItemDataRole.EditRole)
+
+    def updateEditorGeometry(self, editor: QWidget, option, index) -> None:
+        del index
+        editor.setGeometry(option.rect)
     INDICATOR_SIZE = 12
     HORIZONTAL_PADDING = 4
     TEXT_HORIZONTAL_PADDING = 4
@@ -401,9 +498,9 @@ class ProductTable(QTableWidget):
         DETAIL_COLUMN: 180,
         CATEGORY_COLUMN: 110,
         STOCK_COLUMN: 1,
-        PRICE_SAMPLE_COLUMN: 110,
-        PRICE_HUNDRED_COLUMN: 110,
-        PRICE_THOUSAND_COLUMN: 110,
+        PRICE_SAMPLE_COLUMN: 88,
+        PRICE_HUNDRED_COLUMN: 88,
+        PRICE_THOUSAND_COLUMN: 88,
     }
 
     SORTABLE_COLUMNS: ClassVar[set[int]] = {
@@ -521,6 +618,13 @@ class ProductTable(QTableWidget):
             self.STOCK_COLUMN,
             StockColorDelegate(self),
         )
+        price_delegate = PriceDelegate(self)
+        for column in (
+            self.PRICE_SAMPLE_COLUMN,
+            self.PRICE_HUNDRED_COLUMN,
+            self.PRICE_THOUSAND_COLUMN,
+        ):
+            self.setItemDelegateForColumn(column, price_delegate)
         self.category_delegate = ProductCategoryDelegate(self)
         self.setItemDelegateForColumn(
             self.CATEGORY_COLUMN,
@@ -1092,9 +1196,7 @@ class ProductTable(QTableWidget):
                     f"{color}: {stock}" for color, stock in color_stock
                 ),
             )
-            item.setFlags(
-                item.flags() & ~Qt.ItemFlag.ItemIsEditable
-            )
+        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
         self.setItem(row, self.STOCK_COLUMN, item)
 
     @classmethod
@@ -1105,13 +1207,15 @@ class ProductTable(QTableWidget):
         if style is not None:
             return style
 
-        fallback_indicator = "#8fa3b8"
-        fallback_background = "#eef3f7"
         qcolor = QColor(color)
         if qcolor.isValid():
-            fallback_indicator = qcolor.name().lower()
-            fallback_background = qcolor.lighter(185).name().lower()
-        return fallback_background, fallback_indicator
+            return qcolor.lighter(185).name().lower(), qcolor.name().lower()
+
+        # Nombres personalizados reciben una tonalidad determinista, para que
+        # cambiar el nombre del color actualice tanto el círculo como el fondo.
+        hue = sum((index + 1) * ord(char) for index, char in enumerate(normalized))
+        indicator = QColor.fromHsv(hue % 360, 145, 210)
+        return indicator.lighter(185).name().lower(), indicator.name().lower()
 
     @staticmethod
     def _ordered_color_stock(product: Product) -> list[tuple[str, int]]:
@@ -1269,6 +1373,7 @@ class ProductTable(QTableWidget):
                     - {
                         self.STOCK_COLUMN,
                         self.IMAGE_COLUMN,
+                        self.CODE_COLUMN,
                         self.CATEGORY_COLUMN,
                         self.PRICE_SAMPLE_COLUMN,
                         self.PRICE_HUNDRED_COLUMN,

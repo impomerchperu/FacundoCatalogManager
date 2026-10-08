@@ -113,6 +113,65 @@ class ProductRepository:
             return self.update(product)
         return self.create(product)
 
+    def sync_product_categories(
+        self,
+        product_id: int,
+        category_value: str,
+    ) -> None:
+        """Synchronize the normalized product-category links with its text field."""
+        from services.scraping.category_name_normalizer import (
+            split_category_names,
+        )
+
+        categories = split_category_names(category_value)
+        if not categories:
+            self.db.execute_query(
+                "DELETE FROM product_categories WHERE product_id=?",
+                (product_id,),
+            )
+            return
+
+        self.db.begin()
+        try:
+            self.db.execute_query(
+                "DELETE FROM product_categories WHERE product_id=?",
+                (product_id,),
+            )
+            for category in categories:
+                row = self.db.fetch_one(
+                    "SELECT id FROM categories WHERE name=?",
+                    (category,),
+                )
+                if row is None:
+                    key = (
+                        category.casefold()
+                        .replace(" ", "-")
+                        .replace("/", "-")
+                        .replace(",", "")
+                    )
+                    canonical_url = f"manual://category/{key}"
+                    self.db.execute_query(
+                        "INSERT INTO categories (name, canonical_url) VALUES (?, ?)",
+                        (category, canonical_url),
+                    )
+                    row = self.db.fetch_one(
+                        "SELECT id FROM categories WHERE name=?",
+                        (category,),
+                    )
+                if row is None:
+                    raise RuntimeError(
+                        f"No se pudo crear la categoría {category!r}."
+                    )
+                self.db.execute_query(
+                    "INSERT OR IGNORE INTO product_categories "
+                    "(product_id, category_id) VALUES (?, ?)",
+                    (product_id, row["id"]),
+                )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
     def get_by_code(self, code: str) -> Product | None:
         row = self.db.fetch_one(
             "SELECT * FROM products WHERE code = ? COLLATE NOCASE",

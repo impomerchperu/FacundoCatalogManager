@@ -229,6 +229,52 @@ def test_image_review_apply_is_persisted_after_reopening_database(
     reopened.db.close()
 
 
+def test_image_review_delete_current_clears_catalog_only_after_finalize(
+    monkeypatch,
+    tmp_path,
+):
+    _staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
+    products_dir.mkdir(parents=True)
+    current_path = products_dir / "FB-100.jpg"
+    current_path.write_bytes(b"old-image")
+
+    product = Product(
+        code="FB-100",
+        name="Producto",
+        image_path="data/images/products/FB-100.jpg",
+        image_hash="old-hash",
+        image_url="https://example.test/old.jpg",
+    )
+    repository = FakeRepository(product)
+    service = ImageReviewService(repository)
+    service.register_candidate(
+        code="FB-100",
+        product_name="Producto",
+        current_path=product.image_path,
+        current_hash=product.image_hash,
+        current_url=product.image_url,
+        candidate_path="",
+        candidate_hash="",
+        candidate_url="",
+        allow_manual_only=True,
+    )
+
+    review_id = service.pending()[0]["id"]
+    service.apply_selection(review_id, "delete")
+
+    assert current_path.exists()
+    assert repository.product.image_path == "data/images/products/FB-100.jpg"
+
+    finalized = service.finalize_selected([review_id])
+
+    assert finalized[0]["action"] == "delete"
+    assert repository.product.image_path == ""
+    assert repository.product.image_hash == ""
+    assert repository.product.image_url == ""
+    assert not current_path.exists()
+    assert service.pending() == []
+
+
 def test_image_review_discards_transient_selections_without_changing_product(
     monkeypatch,
     tmp_path,

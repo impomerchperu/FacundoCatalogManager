@@ -54,6 +54,12 @@ class ProductController:
             product_id,
         )
 
+    def rename_category(self, category_name: str, new_name: str) -> int:
+        return self._get_service().rename_category(
+            category_name,
+            new_name,
+        )
+
     def delete_category(self, category_name: str) -> int:
         return self._get_service().delete_category(category_name)
 

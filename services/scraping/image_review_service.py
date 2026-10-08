@@ -369,6 +369,53 @@ class ImageReviewService:
     def discard_staged(self, path: str) -> None:
         self._remove_staged_file(path)
 
+    def remove_candidate(self, review_id: str, option_path: str) -> None:
+        """Elimina una alternativa de la cola; las galerías se marcan como excluidas."""
+        value = str(option_path or "").strip()
+        if not value:
+            raise ValueError("La alternativa seleccionada no es válida.")
+        with self._lock:
+            records = self._read()
+            record = self._find_available_record(records, review_id)
+            options = list(record.get("candidate_options", []) or [])
+            matched = next(
+                (
+                    option
+                    for option in options
+                    if str(option.get("path", "") or "").strip() == value
+                ),
+                None,
+            )
+            if matched is None:
+                raise ValueError("La alternativa seleccionada no existe.")
+
+            if str(record.get("kind", "replacement")).strip().casefold() == "gallery":
+                self._exclude_candidate_locked(record, value)
+            else:
+                record["candidate_options"] = [
+                    option
+                    for option in options
+                    if str(option.get("path", "") or "").strip() != value
+                ]
+                if str(record.get("selected_path", "") or "").strip() == value:
+                    record["selected_action"] = ""
+                    record["selected_path"] = ""
+                    record["selected_url"] = ""
+                self._remove_staged_file(value)
+                remaining = record["candidate_options"]
+                if remaining:
+                    primary = remaining[0]
+                    record["candidate_path"] = str(primary.get("path", "") or "")
+                    record["candidate_hash"] = str(primary.get("hash", "") or "")
+                    record["candidate_url"] = str(primary.get("url", "") or "")
+                else:
+                    record["candidate_path"] = ""
+                    record["candidate_hash"] = ""
+                    record["candidate_url"] = ""
+                    record["manual_only"] = True
+            record["updated_at"] = self._now()
+            self._write(records)
+
     def apply_selection(
         self,
         review_id: str,
@@ -382,6 +429,7 @@ class ImageReviewService:
             "replace",
             "candidate",
             "manual",
+            "delete",
             "accept_gallery",
             "dismiss_gallery",
         }:
@@ -422,18 +470,7 @@ class ImageReviewService:
                 for option in options
             }:
                 raise ValueError("La alternativa seleccionada no existe.")
-            excluded = [
-                str(item).strip()
-                for item in list(record.get("excluded_options", []) or [])
-                if str(item).strip()
-            ]
-            if value not in excluded:
-                excluded.append(value)
-            record["excluded_options"] = excluded
-            if str(record.get("selected_path", "") or "").strip() == value:
-                record["selected_action"] = ""
-                record["selected_path"] = ""
-                record["selected_url"] = ""
+            self._exclude_candidate_locked(record, value)
             record["updated_at"] = self._now()
             self._write(records)
 
@@ -480,6 +517,20 @@ class ImageReviewService:
             for option in list(record.get("candidate_options", []) or [])
         }
 
+    def _exclude_candidate_locked(self, record: dict, value: str) -> None:
+        excluded = [
+            str(item).strip()
+            for item in list(record.get("excluded_options", []) or [])
+            if str(item).strip()
+        ]
+        if value not in excluded:
+            excluded.append(value)
+        record["excluded_options"] = excluded
+        if str(record.get("selected_path", "") or "").strip() == value:
+            record["selected_action"] = ""
+            record["selected_path"] = ""
+            record["selected_url"] = ""
+
     def _store_deferred_selection(
         self,
         record: dict,
@@ -497,7 +548,7 @@ class ImageReviewService:
             record["updated_at"] = self._now()
             return
 
-        if normalized not in {"keep", "replace", "candidate", "manual"}:
+        if normalized not in {"keep", "replace", "candidate", "manual", "delete"}:
             raise ValueError("Acción de revisión no válida.")
 
         selected_path = ""
@@ -867,6 +918,8 @@ class ImageReviewService:
     ) -> tuple[dict, dict] | dict:
         if action == "keep":
             return self._apply_keep_selection(record, product, persist)
+        if action == "delete":
+            return self._apply_delete_selection(record, product, persist)
 
         source = self._resolve_selected_source(record, action, manual_path)
         if source is None or not source.is_file():
@@ -888,6 +941,51 @@ class ImageReviewService:
         if persist:
             return result
         return result, file_state
+
+    def _apply_delete_selection(
+        self,
+        record: dict,
+        product,
+        persist: bool,
+    ) -> tuple[dict, dict] | dict:
+        current_value = str(record.get("current_path", "") or "").strip()
+        current_path = self._resolve_product_image_path(current_value)
+        destination_existed = bool(current_path and current_path.is_file())
+        backup = None
+        if destination_existed and current_path is not None:
+            backup = current_path.with_name(
+                f"{current_path.name}.{uuid.uuid4().hex}.review-delete-backup"
+            )
+            shutil.copy2(current_path, backup)
+
+        product.image_path = ""
+        product.image_hash = ""
+        product.image_url = ""
+        result = {
+            "code": product.code,
+            "action": "delete",
+            "changed": True,
+        }
+
+        if persist:
+            try:
+                if destination_existed and current_path is not None:
+                    current_path.unlink()
+                self.repository.update(product)
+            except (OSError, RuntimeError, ValueError):
+                if backup is not None and current_path is not None and backup.is_file():
+                    backup.replace(current_path)
+                raise
+            if backup is not None:
+                backup.unlink(missing_ok=True)
+            self._remove_all_staged_candidates(record)
+            return result
+
+        return result, {
+            "destination": current_path,
+            "backup": backup,
+            "destination_existed": destination_existed,
+        }
 
     def _apply_keep_selection(
         self,
@@ -1216,6 +1314,22 @@ class ImageReviewService:
         candidate = ImageReviewService._resolve_gallery_path(value)
         if candidate is not None:
             candidate.unlink(missing_ok=True)
+
+    @staticmethod
+    def _resolve_product_image_path(value: str) -> Path | None:
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+        candidate = resolve_data_path(raw)
+        try:
+            candidate.resolve().relative_to(
+                resolve_data_path(IMAGE_PRODUCTS_DIR).resolve()
+            )
+        except ValueError as error:
+            raise ValueError(
+                "La imagen actual no pertenece al directorio de imágenes del catálogo."
+            ) from error
+        return candidate
 
     @staticmethod
     def _resolve_staged_path(value: str) -> Path | None:

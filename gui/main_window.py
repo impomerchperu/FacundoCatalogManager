@@ -1266,7 +1266,11 @@ class MainWindow(QMainWindow):
             raise ValueError("Ingrese un valor numérico válido.") from error
 
     def _table_item_changed(self, item) -> None:
-        if self._table_edit_guard or item is None:
+        if (
+            self._table_edit_guard
+            or getattr(self.table, "_rendering", False)
+            or item is None
+        ):
             return
         row = item.row()
         column = item.column()

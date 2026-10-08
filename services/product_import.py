@@ -16,13 +16,16 @@ class ProductImportService:
     """Lee un registro de producto desde CSV o XLSX."""
 
     SUPPORTED_SUFFIXES: ClassVar[frozenset[str]] = frozenset(
-        {".csv", ".xlsx"}
+        {".csv", ".xlsx", ".xlsm"}
     )
 
     FIELD_ALIASES: ClassVar[dict[str, str]] = {
         "imagen": "image_path",
         "codigo": "code",
+        "codigo producto": "code",
+        "sku": "code",
         "producto": "name",
+        "nombre": "name",
         "detalle": "description",
         "categoria": "category",
         "stock": "stock",
@@ -35,10 +38,32 @@ class ProductImportService:
     }
 
     @classmethod
+    def import_products(cls, filename: str | Path) -> list[Product]:
+        """Import every non-empty product row from a supported bulk file."""
+        path = Path(filename)
+        if path.suffix.casefold() not in cls.SUPPORTED_SUFFIXES:
+            raise ValueError(
+                "Formato no compatible. Use CSV, XLSX o XLSM."
+            )
+        if not path.is_file():
+            raise ValueError("El archivo seleccionado no existe.")
+
+        rows = (
+            cls._read_csv(path)
+            if path.suffix.casefold() == ".csv"
+            else cls._read_xlsx(path)
+        )
+        if not rows:
+            raise ValueError("El archivo no contiene registros de productos.")
+        return [cls._row_to_product(row) for row in rows]
+
+    @classmethod
     def import_first_product(cls, filename: str | Path) -> Product:
         path = Path(filename)
         if path.suffix.casefold() not in cls.SUPPORTED_SUFFIXES:
-            raise ValueError("Formato no compatible. Use CSV o XLSX.")
+            raise ValueError(
+                "Formato no compatible. Use CSV, XLSX o XLSM."
+            )
         if not path.is_file():
             raise ValueError("El archivo seleccionado no existe.")
 
@@ -157,6 +182,21 @@ class ProductImportService:
         price_sample = cls._number(values.get("price_sample"), 0)
         price = cls._number(values.get("price"), price_sample)
 
+        image_path = str(values.get("image_path", "") or "").strip()
+        gallery_images = (
+            [
+                {
+                    "url": "",
+                    "image_path": image_path,
+                    "image_hash": "",
+                    "position": 1,
+                    "source": "import",
+                }
+            ]
+            if image_path
+            else []
+        )
+
         return Product(
             code=str(values.get("code", "") or "").strip(),
             name=str(values.get("name", "") or "").strip(),
@@ -168,7 +208,8 @@ class ProductImportService:
             price_thousand=cls._number(values.get("price_thousand"), 0),
             stock=cls._int_value(values.get("stock"), 0),
             color_stock=stock_by_color,
-            image_path=str(values.get("image_path", "") or "").strip(),
+            image_path=image_path,
+            gallery_images=gallery_images,
         )
 
     @staticmethod

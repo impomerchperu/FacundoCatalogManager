@@ -52,7 +52,11 @@ def normalize_search_text(text: str) -> str:
         for character in value
         if not unicodedata.combining(character)
     )
-    return " ".join(_TOKEN_PATTERN.findall(value))
+    value = "".join(
+        character if character.isalnum() or character.isspace() else ""
+        for character in value
+    )
+    return " ".join(value.split())
 
 
 @lru_cache(maxsize=8192)

@@ -169,7 +169,7 @@ class ImageReviewDialog(QDialog):
         self.table.verticalHeader().setVisible(False)
         header = self.table.horizontalHeader()
         header.setStretchLastSection(False)
-        header.setMinimumSectionSize(140)
+        header.setMinimumSectionSize(90)
         header.setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
         self.table.setStyleSheet(
             "QTableWidget {"

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QModelIndex, Qt, Signal
 from PySide6.QtGui import QStandardItem, QStandardItemModel
-from PySide6.QtWidgets import QComboBox
+from PySide6.QtWidgets import QComboBox, QListView
 
 from services.product_search import normalize_search_text
 
@@ -150,7 +150,9 @@ class CategorySelector(QComboBox):
             if item is None:
                 continue
             matches = not query or query in normalize_search_text(item.text())
-            self.view().setRowHidden(row, not matches)
+            view = self.view()
+            if isinstance(view, QListView):
+                view.setRowHidden(row, not matches)
 
     def _accept_typed_category(self) -> None:
         if not self._editable_text:
@@ -180,5 +182,7 @@ class CategorySelector(QComboBox):
             self._line_edit.setText(self.selected_text())
             self._line_edit.blockSignals(False)
         for row in range(self._model.rowCount()):
-            self.view().setRowHidden(row, False)
+            view = self.view()
+            if isinstance(view, QListView):
+                view.setRowHidden(row, False)
 

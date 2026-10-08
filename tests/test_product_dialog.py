@@ -138,3 +138,13 @@ def test_product_dialog_layout_matches_product_table_image_size():
     assert dialog.stock.isReadOnly() is False
 
     dialog.close()
+
+def test_product_dialog_auto_sums_stock_from_colors():
+    _qapp()
+    dialog = ProductDialog()
+    dialog.color_stock.setPlainText("Rojo: 10\nAzul: 5")
+    assert dialog.stock.value() == 15
+    assert dialog.stock.isReadOnly() is True
+    dialog.color_stock.clear()
+    assert dialog.stock.isReadOnly() is False
+    dialog.close()

@@ -32,6 +32,9 @@ class ProductImportPreviewDialog(QDialog):
         "Stock",
         "Stock por color",
         "Precio",
+        "Precio muestra",
+        "Precio ciento",
+        "Precio millar",
     )
 
     def __init__(
@@ -118,6 +121,9 @@ class ProductImportPreviewDialog(QDialog):
             ),
         )
         self._set_text_item(row, 7, f"{product.price:.2f}")
+        self._set_text_item(row, 8, f"{product.price_sample:.2f}")
+        self._set_text_item(row, 9, f"{product.price_hundred:.2f}")
+        self._set_text_item(row, 10, f"{product.price_thousand:.2f}")
 
         self._set_image_preview(row, image_path)
 
@@ -225,7 +231,9 @@ class ProductImportPreviewDialog(QDialog):
                     description=self._text(row, 3),
                     category=self._text(row, 4),
                     price=price,
-                    price_sample=price,
+                    price_sample=price_sample,
+                    price_hundred=price_hundred,
+                    price_thousand=price_thousand,
                     stock=stock,
                     color_stock=color_stock,
                     image_path=image_path,

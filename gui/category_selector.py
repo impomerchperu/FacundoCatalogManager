@@ -76,6 +76,13 @@ class CategorySelector(QComboBox):
         self.category_created.emit(value)
         return True
 
+    def filter_popup_now(self) -> None:
+        """Open the category dropdown for interactive filtering."""
+        self._filter_categories(
+            self._line_edit.text() if self._line_edit is not None else ""
+        )
+        self.showPopup()
+
     def add_typed_category(self) -> bool:
         """Add the current text when it is not already represented."""
         text = self._line_edit.text().strip() if self._line_edit else ""

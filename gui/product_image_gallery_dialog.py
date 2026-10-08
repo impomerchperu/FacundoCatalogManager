@@ -47,19 +47,19 @@ class ProductImageGalleryDialog(QDialog):
         )
         self.summary.setWordWrap(True)
 
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(False)
-        self.scroll.setHorizontalScrollBarPolicy(
+        self.gallery_scroll = QScrollArea()
+        self.gallery_scroll.setWidgetResizable(False)
+        self.gallery_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded,
         )
-        self.scroll.setVerticalScrollBarPolicy(
+        self.gallery_scroll.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
         self.canvas = QWidget()
         self.canvas_layout = QHBoxLayout(self.canvas)
         self.canvas_layout.setContentsMargins(6, 6, 6, 6)
         self.canvas_layout.setSpacing(8)
-        self.scroll.setWidget(self.canvas)
+        self.gallery_scroll.setWidget(self.canvas)
 
         add_button = QPushButton("Subir imágenes...")
         add_button.clicked.connect(self.add_images)
@@ -86,7 +86,7 @@ class ProductImageGalleryDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.summary)
-        layout.addWidget(self.scroll, 1)
+        layout.addWidget(self.gallery_scroll, 1)
         layout.addLayout(actions)
 
         self.selected_index = 0 if self.images else -1

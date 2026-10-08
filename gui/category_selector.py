@@ -84,9 +84,9 @@ class CategorySelector(QComboBox):
         self.showPopup()
 
     def add_typed_category(self) -> bool:
-        """Add the current text when it is not already represented."""
+        """Add the current text only when it is not the current selection."""
         text = self._line_edit.text().strip() if self._line_edit else ""
-        if not text:
+        if not text or text.casefold() == self.selected_text().casefold():
             return False
         return self.add_category(text, select=True)
 

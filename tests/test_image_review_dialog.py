@@ -75,6 +75,17 @@ class FakeReviewService:
                 record["selected_action"] = ""
                 record["selected_path"] = ""
                 record["selected_url"] = ""
+            remaining = record["candidate_options"]
+            if remaining:
+                primary = remaining[0]
+                record["candidate_path"] = primary.get("path", "")
+                record["candidate_hash"] = primary.get("hash", "")
+                record["candidate_url"] = primary.get("url", "")
+            else:
+                record["candidate_path"] = ""
+                record["candidate_hash"] = ""
+                record["candidate_url"] = ""
+                record["manual_only"] = True
 
     def exclude_candidate(self, review_id, option_path):
         for record in self.records:

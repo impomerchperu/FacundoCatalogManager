@@ -5,10 +5,6 @@ from typing import cast
 
 from database.db_manager import DBManager
 from models.product import Product
-from services.scraping.category_name_normalizer import (
-    normalize_category_name,
-    split_category_names,
-)
 
 
 class ProductRepository:
@@ -186,6 +182,11 @@ class ProductRepository:
 
     def delete_category(self, category_name: str) -> int:
         """Quita una categoría de los productos sin borrar su historial."""
+        from services.scraping.category_name_normalizer import (
+            normalize_category_name,
+            split_category_names,
+        )
+
         target = normalize_category_name(category_name)
         if not target:
             return 0

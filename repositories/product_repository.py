@@ -120,18 +120,27 @@ class ProductRepository:
     ) -> None:
         """Synchronize normalized product-category links with its text field."""
         from services.scraping.category_name_normalizer import (
+            normalize_category_name,
             split_category_names,
         )
 
         categories = split_category_names(category_value)
+        existing_categories = self.db.fetch_all(
+            "SELECT id, name FROM categories"
+        )
         self.db.execute_query(
             "DELETE FROM product_categories WHERE product_id=?",
             (product_id,),
         )
         for category in categories:
-            row = self.db.fetch_one(
-                "SELECT id FROM categories WHERE name=?",
-                (category,),
+            row = next(
+                (
+                    existing
+                    for existing in existing_categories
+                    if normalize_category_name(str(existing["name"] or ""))
+                    == normalize_category_name(category)
+                ),
+                None,
             )
             if row is None:
                 key = (
@@ -475,6 +484,29 @@ class ProductRepository:
         return cls._json_dict(json.dumps(color_stock, ensure_ascii=False))
 
     def _row_to_product(self, row: sqlite3.Row) -> Product:
+        color_stock = self._json_dict(row["color_stock"])
+        stock = max(int(row["stock"] or 0), 0)
+        if color_stock:
+            stock = sum(color_stock.values())
+        return Product(
+            product_id=row["id"],
+            code=row["code"],
+            name=row["name"],
+            price=row["price"],
+            category=row["category"],
+            description=row["description"],
+            price_sample=row["price_sample"],
+            price_hundred=row["price_hundred"],
+            price_thousand=row["price_thousand"],
+            stock=stock,
+            color_stock=color_stock,
+            image_url=row["image_url"],
+            image_path=row["image_path"],
+            image_hash=row["image_hash"],
+            gallery_images=self._json_gallery_images(row["gallery_images"]),
+            content_hash=row["content_hash"],
+        )
+
         return Product(
             product_id=row["id"],
             code=row["code"],

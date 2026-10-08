@@ -77,7 +77,6 @@ class Product:
             dict(image)
             for image in list(self.gallery_images or [])
             if isinstance(image, dict)
-            and str(image.get("url", "") or "").strip()
             and str(image.get("image_path", image.get("path", "")) or "").strip()
         ]
         self.content_hash = self.content_hash.strip()

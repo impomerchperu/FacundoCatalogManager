@@ -195,6 +195,10 @@ class ProductImportPreviewDialog(QDialog):
         layout.setSpacing(4)
 
         if current is None:
+            previous = self.table.cellWidget(row, 11)
+            if previous is not None:
+                self.table.removeCellWidget(row, 11)
+                previous.deleteLater()
             label = QLabel("✓ NUEVO")
             label.setStyleSheet("font-weight: bold; color: #2e7d32;")
             layout.addWidget(label)
@@ -309,6 +313,8 @@ class ProductImportPreviewDialog(QDialog):
             )
             stock = self._parse_int(self._text(row, 5))
             color_stock = self._parse_color_stock(self._text(row, 6))
+            if color_stock:
+                stock = sum(color_stock.values())
             price = self._parse_float(self._text(row, 7))
             price_sample = self._parse_float(self._text(row, 8))
             price_hundred = self._parse_float(self._text(row, 9))

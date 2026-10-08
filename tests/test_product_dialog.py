@@ -1,5 +1,10 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QAbstractSpinBox, QApplication, QPushButton
+from PySide6.QtWidgets import (
+    QAbstractSpinBox,
+    QApplication,
+    QListView,
+    QPushButton,
+)
 
 from gui.category_selector import CategorySelector
 from gui.product_dialog import ProductDialog
@@ -199,16 +204,18 @@ def test_category_selector_filters_matching_categories_while_typing():
         item = selector._model.item(row)
         if item is not None:
             rows[item.text()] = row
-    assert not selector.view().isRowHidden(rows["Máquina de Sublimación"])
-    assert selector.view().isRowHidden(rows["Insumos de Sublimación"])
-    assert selector.view().isRowHidden(rows["Oficina"])
+    view = selector.view()
+    assert isinstance(view, QListView)
+    assert not view.isRowHidden(rows["Máquina de Sublimación"])
+    assert view.isRowHidden(rows["Insumos de Sublimación"])
+    assert view.isRowHidden(rows["Oficina"])
 
     line_edit.setText("Sublim")
     line_edit.textEdited.emit("Sublim")
     QApplication.processEvents()
 
-    assert not selector.view().isRowHidden(rows["Máquina de Sublimación"])
-    assert not selector.view().isRowHidden(rows["Insumos de Sublimación"])
-    assert selector.view().isRowHidden(rows["Oficina"])
+    assert not view.isRowHidden(rows["Máquina de Sublimación"])
+    assert not view.isRowHidden(rows["Insumos de Sublimación"])
+    assert view.isRowHidden(rows["Oficina"])
 
     selector.close()

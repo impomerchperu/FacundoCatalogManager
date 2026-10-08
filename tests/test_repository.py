@@ -230,3 +230,43 @@ def test_delete_category_removes_only_category_and_keeps_products(repository):
         "SELECT COUNT(*) AS total FROM product_categories WHERE product_id=? AND category_id=?",
         (second.id, anti["id"]),
     )["total"] == 1
+
+
+def test_next_product_code_uses_highest_numeric_fb_code(repository):
+    repository.create(Product(code="FB-0042", name="Uno"))
+    repository.create(Product(code="FB-0100", name="Dos"))
+    repository.create(Product(code="IKIOSK-9999", name="Otro"))
+
+    assert repository.next_product_code() == "FB-0101"
+
+
+def test_repository_persists_local_gallery_images(repository):
+    product = repository.create(
+        Product(
+            code="FB-0102",
+            name="Galería local",
+            image_path="images/primary.jpg",
+            gallery_images=[
+                {
+                    "url": "",
+                    "image_path": "images/primary.jpg",
+                    "position": 1,
+                    "source": "manual",
+                },
+                {
+                    "url": "",
+                    "image_path": "images/alternative.jpg",
+                    "position": 2,
+                    "source": "manual",
+                },
+            ],
+        )
+    )
+
+    loaded = repository.get_by_id(product.id)
+
+    assert loaded is not None
+    assert [image["image_path"] for image in loaded.gallery_images] == [
+        "images/primary.jpg",
+        "images/alternative.jpg",
+    ]

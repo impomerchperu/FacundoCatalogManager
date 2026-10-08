@@ -50,3 +50,44 @@ def test_bulk_import_preview_allows_edit_and_remove():
     assert dialog.accepted_products[0].name == "Producto editado"
 
     dialog.close()
+
+def test_bulk_import_preview_marks_existing_code_with_current_product():
+    _qapp()
+    imported = Product(
+        code="FB-301",
+        name="Importado",
+        category="Artículos de Oficina",
+        price=9,
+        price_sample=9,
+        price_hundred=30,
+        price_thousand=90,
+        stock=8,
+    )
+    current = Product(
+        code="FB-301",
+        name="Actual en catálogo",
+        category="Cocina, Mesa y Hogar",
+        price=5,
+        price_sample=5,
+        stock=4,
+    )
+
+    dialog = ProductImportPreviewDialog(
+        [imported],
+        current_products=[current],
+    )
+
+    assert dialog.table.rowCount() == 1
+    widget = dialog.table.cellWidget(0, 11)
+    assert widget is not None
+    combo = widget.findChild(__import__("PySide6.QtWidgets", fromlist=["QComboBox"]).QComboBox)
+    assert combo is not None
+    assert combo.currentData() == "dismiss"
+    assert "Actual en catálogo" in widget.findChild(__import__("PySide6.QtWidgets", fromlist=["QLabel"]).QLabel).text()
+
+    combo.setCurrentIndex(1)
+    dialog.accept_import()
+
+    assert len(dialog.accepted_products) == 1
+    assert dialog.accepted_products[0].code == "FB-301"
+    dialog.close()

@@ -670,7 +670,7 @@ def test_stock_by_color_cell_opens_multiline_editor_for_color_and_quantity():
     delegate.setEditorData(editor, index)
 
     assert isinstance(editor, QPlainTextEdit)
-    assert editor.toPlainText() == "Rojo: 10\\nAzul: 5"
+    assert editor.toPlainText().splitlines() == ["Rojo: 10", "Azul: 5"]
 
     editor.close()
     table.close()

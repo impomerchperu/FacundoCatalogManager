@@ -3,12 +3,11 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from PySide6.QtCore import QModelIndex, Qt
-from PySide6.QtGui import QIcon, QPixmap, QStandardItem, QStandardItemModel
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QAbstractSpinBox,
-    QComboBox,
     QDialog,
     QDoubleSpinBox,
     QFileDialog,
@@ -26,81 +25,14 @@ from PySide6.QtWidgets import (
 )
 
 from config.runtime_paths import resolve_data_path
+
+from gui.category_selector import CategorySelector
 from models.product import Product
-from services.product_import import ProductImportService
 from services.product_service import ProductService
 from services.scraping.category_name_normalizer import (
     available_category_names,
     split_category_names,
 )
-
-
-class CategorySelector(QComboBox):
-    """Selector de categorías con soporte para selección múltiple."""
-
-    def __init__(self, parent=None) -> None:
-        super().__init__(parent)
-        self.setEditable(True)
-        line_edit = self.lineEdit()
-        if line_edit is not None:
-            line_edit.setReadOnly(True)
-            line_edit.setPlaceholderText("Seleccione una o más categorías")
-        self.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        self._model = QStandardItemModel(self)
-        self.setModel(self._model)
-        self._model.itemChanged.connect(self._refresh_text)
-        self.view().pressed.connect(self._toggle_index)
-
-    def set_categories(self, categories: list[str]) -> None:
-        self._model.clear()
-        for category in categories:
-            item = QStandardItem(category)
-            item.setFlags(
-                Qt.ItemFlag.ItemIsEnabled
-                | Qt.ItemFlag.ItemIsUserCheckable
-            )
-            item.setCheckState(Qt.CheckState.Unchecked)
-            self._model.appendRow(item)
-        self._refresh_text()
-
-    def set_selected_categories(self, categories: list[str]) -> None:
-        wanted = {value.casefold() for value in categories if value}
-        for row in range(self._model.rowCount()):
-            item = self._model.item(row)
-            if item is None:
-                continue
-            item.setCheckState(
-                Qt.CheckState.Checked
-                if item.text().casefold() in wanted
-                else Qt.CheckState.Unchecked
-            )
-        self._refresh_text()
-
-    def selected_categories(self) -> list[str]:
-        values: list[str] = []
-        for row in range(self._model.rowCount()):
-            item = self._model.item(row)
-            if item is not None and item.checkState() == Qt.CheckState.Checked:
-                values.append(item.text())
-        return values
-
-    def selected_text(self) -> str:
-        return ", ".join(self.selected_categories())
-
-    def _toggle_index(self, index: QModelIndex) -> None:
-        item = self._model.itemFromIndex(index)
-        if item is None:
-            return
-        item.setCheckState(
-            Qt.CheckState.Unchecked
-            if item.checkState() == Qt.CheckState.Checked
-            else Qt.CheckState.Checked
-        )
-
-    def _refresh_text(self, _item: QStandardItem | None = None) -> None:
-        line_edit = self.lineEdit()
-        if line_edit is not None:
-            line_edit.setText(self.selected_text())
 
 
 class ProductDialog(QDialog):
@@ -131,7 +63,7 @@ class ProductDialog(QDialog):
         self.code.setPlaceholderText("Se genera automáticamente si queda vacío")
         self.name = QLineEdit()
 
-        self.category = CategorySelector()
+        self.category = CategorySelector(editable_text=True)
         self.category.set_categories(
             available_category_names(
                 self.product.category if self.product else "",
@@ -153,6 +85,7 @@ class ProductDialog(QDialog):
         self.color_stock = QTextEdit()
         self.color_stock.setFixedHeight(70)
         self.color_stock.setPlaceholderText("Rojo: 10\nAzul: 25")
+        self.color_stock.textChanged.connect(self._sync_stock_from_colors)
 
         self.image_path = QLineEdit()
         self.image_path.setReadOnly(True)
@@ -179,7 +112,14 @@ class ProductDialog(QDialog):
         form = QFormLayout()
         form.addRow("Código:", self.code)
         form.addRow("Nombre:", self.name)
-        form.addRow("Categoría:", self.category)
+
+        category_layout = QHBoxLayout()
+        category_layout.addWidget(self.category, 1)
+        self.new_category_button = QPushButton("+ Nueva categoría")
+        self.new_category_button.clicked.connect(self.add_typed_category)
+        category_layout.addWidget(self.new_category_button)
+        form.addRow("Categoría:", category_layout)
+
         form.addRow("Descripción:", self.description)
         form.addRow("Precio:", self.price)
         form.addRow("Precio muestra:", self.price_sample)
@@ -201,11 +141,6 @@ class ProductDialog(QDialog):
         btn_remove = QPushButton("Quitar")
         btn_remove.clicked.connect(self.remove_selected_image)
         image_buttons.addWidget(btn_remove)
-
-        if self.product is None:
-            btn_import = QPushButton("Importar carga masiva...")
-            btn_import.clicked.connect(self.import_product)
-            image_buttons.addWidget(btn_import)
 
         form.addRow("Galería:", self.gallery_list)
         form.addRow("", image_buttons)
@@ -243,6 +178,7 @@ class ProductDialog(QDialog):
     def load_product_data(self) -> None:
         if self.product is None:
             self.code.setText(self.service.next_product_code())
+            self.stock.setReadOnly(False)
             return
 
         self.code.setText(self.product.code)
@@ -281,6 +217,7 @@ class ProductDialog(QDialog):
             ]
         self.gallery_images = self._normalize_gallery(source_gallery)
         self._refresh_gallery_list()
+        self._sync_stock_from_colors()
 
     @staticmethod
     def _normalize_gallery(
@@ -364,6 +301,20 @@ class ProductDialog(QDialog):
         if target >= 0:
             self.gallery_list.setCurrentRow(target)
         self._update_primary_fields()
+
+    def add_typed_category(self) -> None:
+        line_edit = self.category.lineEdit()
+        value = line_edit.text().strip() if line_edit is not None else ""
+        if not value:
+            return
+        self.category.add_category(value, select=True)
+
+    def _sync_stock_from_colors(self) -> None:
+        values = self._color_stock_values()
+        has_colors = bool(values)
+        if has_colors:
+            self.stock.setValue(sum(values.values()))
+        self.stock.setReadOnly(has_colors)
 
     def select_images(self) -> None:
         files, _ = QFileDialog.getOpenFileNames(
@@ -467,63 +418,6 @@ class ProductDialog(QDialog):
             Qt.TransformationMode.SmoothTransformation,
         )
         self.image_preview.setPixmap(pixmap)
-
-    def import_product(self) -> None:
-        filename, _ = QFileDialog.getOpenFileName(
-            self,
-            "Importar carga masiva",
-            "",
-            (
-                "Archivos compatibles (*.csv *.xlsx *.xlsm);;"
-                "CSV (*.csv);;Excel (*.xlsx *.xlsm)"
-            ),
-        )
-        if not filename:
-            return
-
-        try:
-            products = ProductImportService.import_products(filename)
-        except (OSError, ValueError) as error:
-            QMessageBox.warning(self, "Importar carga masiva", str(error))
-            return
-
-        from gui.product_import_preview_dialog import ProductImportPreviewDialog
-
-        preview = ProductImportPreviewDialog(products, self)
-        if preview.exec() != QDialog.DialogCode.Accepted:
-            return
-
-        accepted_products = preview.accepted_products
-        try:
-            created = self.service.create_products(accepted_products)
-        except sqlite3.IntegrityError:
-            QMessageBox.critical(
-                self,
-                "Importar carga masiva",
-                "La carga contiene códigos duplicados con el catálogo.",
-            )
-            return
-        except sqlite3.Error as error:
-            QMessageBox.critical(
-                self,
-                "Importar carga masiva",
-                str(error),
-            )
-            return
-        except ValueError as error:
-            QMessageBox.critical(
-                self,
-                "Importar carga masiva",
-                str(error),
-            )
-            return
-
-        QMessageBox.information(
-            self,
-            "Importar carga masiva",
-            f"Se importaron {len(created)} productos correctamente.",
-        )
-        self.accept()
 
     def _color_stock_values(self) -> dict[str, int]:
         result: dict[str, int] = {}

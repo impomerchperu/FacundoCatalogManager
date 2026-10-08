@@ -981,6 +981,9 @@ class ImageReviewService:
             self._remove_all_staged_candidates(record)
             return result
 
+        if destination_existed and current_path is not None:
+            current_path.unlink()
+
         return result, {
             "destination": current_path,
             "backup": backup,

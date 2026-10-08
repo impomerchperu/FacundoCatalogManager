@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import sqlite3
+from pathlib import Path
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtGui import QIcon, QPixmap, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QAbstractSpinBox,
+    QComboBox,
     QDialog,
     QDoubleSpinBox,
     QFileDialog,
@@ -12,6 +16,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPushButton,
     QSpinBox,
@@ -19,13 +25,88 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from config.runtime_paths import resolve_data_path
 from models.product import Product
 from services.product_import import ProductImportService
 from services.product_service import ProductService
+from services.scraping.category_name_normalizer import (
+    available_category_names,
+    split_category_names,
+)
+
+
+class CategorySelector(QComboBox):
+    """Selector de categorías con soporte para selección múltiple."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setEditable(True)
+        line_edit = self.lineEdit()
+        if line_edit is not None:
+            line_edit.setReadOnly(True)
+            line_edit.setPlaceholderText("Seleccione una o más categorías")
+        self.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self._model = QStandardItemModel(self)
+        self.setModel(self._model)
+        self._model.itemChanged.connect(self._refresh_text)
+        self.view().pressed.connect(self._toggle_index)
+
+    def set_categories(self, categories: list[str]) -> None:
+        self._model.clear()
+        for category in categories:
+            item = QStandardItem(category)
+            item.setFlags(
+                Qt.ItemFlag.ItemIsEnabled
+                | Qt.ItemFlag.ItemIsUserCheckable
+            )
+            item.setCheckState(Qt.CheckState.Unchecked)
+            self._model.appendRow(item)
+        self._refresh_text()
+
+    def set_selected_categories(self, categories: list[str]) -> None:
+        wanted = {value.casefold() for value in categories if value}
+        for row in range(self._model.rowCount()):
+            item = self._model.item(row)
+            if item is None:
+                continue
+            item.setCheckState(
+                Qt.CheckState.Checked
+                if item.text().casefold() in wanted
+                else Qt.CheckState.Unchecked
+            )
+        self._refresh_text()
+
+    def selected_categories(self) -> list[str]:
+        values: list[str] = []
+        for row in range(self._model.rowCount()):
+            item = self._model.item(row)
+            if item is not None and item.checkState() == Qt.CheckState.Checked:
+                values.append(item.text())
+        return values
+
+    def selected_text(self) -> str:
+        return ", ".join(self.selected_categories())
+
+    def _toggle_index(self, index: QModelIndex) -> None:
+        item = self._model.itemFromIndex(index)
+        if item is None:
+            return
+        item.setCheckState(
+            Qt.CheckState.Unchecked
+            if item.checkState() == Qt.CheckState.Checked
+            else Qt.CheckState.Checked
+        )
+
+    def _refresh_text(self, _item: QStandardItem | None = None) -> None:
+        line_edit = self.lineEdit()
+        if line_edit is not None:
+            line_edit.setText(self.selected_text())
 
 
 class ProductDialog(QDialog):
-    """Editor y alta manual de productos."""
+    """Editor y alta manual de productos con galería de imágenes."""
+
+    IMAGE_EXTENSIONS = "Imágenes (*.png *.jpg *.jpeg *.webp *.gif)"
 
     def __init__(
         self,
@@ -35,6 +116,7 @@ class ProductDialog(QDialog):
         super().__init__(parent)
         self.product = product
         self.service = ProductService()
+        self.gallery_images: list[dict[str, object]] = []
 
         self.setWindowFlags(
             Qt.WindowType.Window
@@ -43,11 +125,18 @@ class ProductDialog(QDialog):
         self.setWindowTitle(
             "Editar Producto" if self.product else "Nuevo Producto",
         )
-        self.resize(520, 620)
+        self.resize(620, 760)
 
         self.code = QLineEdit()
+        self.code.setPlaceholderText("Se genera automáticamente si queda vacío")
         self.name = QLineEdit()
-        self.category = QLineEdit()
+
+        self.category = CategorySelector()
+        self.category.set_categories(
+            available_category_names(
+                self.product.category if self.product else "",
+            ),
+        )
 
         self.description = QTextEdit()
         self.description.setFixedHeight(80)
@@ -59,6 +148,7 @@ class ProductDialog(QDialog):
 
         self.stock = QSpinBox()
         self.stock.setMaximum(9999999)
+        self.stock.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
 
         self.color_stock = QTextEdit()
         self.color_stock.setFixedHeight(70)
@@ -74,6 +164,16 @@ class ProductDialog(QDialog):
             "border: 1px solid gray; background: white;"
         )
 
+        self.gallery_list = QListWidget()
+        self.gallery_list.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection,
+        )
+        self.gallery_list.setIconSize(self.gallery_list_icon_size())
+        self.gallery_list.setFixedHeight(105)
+        self.gallery_list.currentRowChanged.connect(
+            self._gallery_row_changed,
+        )
+
         self.load_product_data()
 
         form = QFormLayout()
@@ -87,18 +187,27 @@ class ProductDialog(QDialog):
         form.addRow("Precio millar:", self.price_thousand)
         form.addRow("Stock:", self.stock)
         form.addRow("Stock por color:", self.color_stock)
-        form.addRow("Imagen:", self.image_path)
+        form.addRow("Imagen principal:", self.image_path)
 
         image_buttons = QHBoxLayout()
-        btn_image = QPushButton("Seleccionar imagen")
-        btn_image.clicked.connect(self.select_image)
-        image_buttons.addWidget(btn_image)
+        btn_add_images = QPushButton("Agregar imágenes...")
+        btn_add_images.clicked.connect(self.select_images)
+        image_buttons.addWidget(btn_add_images)
+
+        btn_primary = QPushButton("Hacer principal")
+        btn_primary.clicked.connect(self.set_primary_image)
+        image_buttons.addWidget(btn_primary)
+
+        btn_remove = QPushButton("Quitar")
+        btn_remove.clicked.connect(self.remove_selected_image)
+        image_buttons.addWidget(btn_remove)
 
         if self.product is None:
-            btn_import = QPushButton("Importar CSV / Excel")
+            btn_import = QPushButton("Importar carga masiva...")
             btn_import.clicked.connect(self.import_product)
             image_buttons.addWidget(btn_import)
 
+        form.addRow("Galería:", self.gallery_list)
         form.addRow("", image_buttons)
         form.addRow("Vista previa:", self.image_preview)
 
@@ -117,21 +226,31 @@ class ProductDialog(QDialog):
         layout.addLayout(buttons)
 
     @staticmethod
+    def gallery_list_icon_size():
+        from PySide6.QtCore import QSize
+
+        return QSize(64, 64)
+
+    @staticmethod
     def _create_price_spinbox() -> QDoubleSpinBox:
         widget = QDoubleSpinBox()
         widget.setMaximum(9999999)
         widget.setDecimals(2)
         widget.setPrefix("S/ ")
+        widget.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         return widget
 
     def load_product_data(self) -> None:
         if self.product is None:
+            self.code.setText(self.service.repository.next_product_code())
             return
 
         self.code.setText(self.product.code)
         self.code.setReadOnly(True)
         self.name.setText(self.product.name)
-        self.category.setText(self.product.category)
+        self.category.set_selected_categories(
+            split_category_names(self.product.category),
+        )
         self.description.setPlainText(self.product.description)
         self.price.setValue(self.product.price)
         self.price_sample.setValue(self.product.price_sample)
@@ -144,66 +263,201 @@ class ProductDialog(QDialog):
                 for color, stock in self.product.color_stock.items()
             ),
         )
-        self.image_path.setText(self.product.image_path)
-        self.load_preview(self.product.image_path)
+
+        source_gallery = [
+            dict(image)
+            for image in list(self.product.gallery_images or [])
+            if isinstance(image, dict)
+        ]
+        if not source_gallery and self.product.image_path:
+            source_gallery = [
+                {
+                    "url": self.product.image_url,
+                    "image_path": self.product.image_path,
+                    "image_hash": self.product.image_hash,
+                    "position": 1,
+                    "source": "primary",
+                }
+            ]
+        self.gallery_images = self._normalize_gallery(source_gallery)
+        self._refresh_gallery_list()
+
+    @staticmethod
+    def _normalize_gallery(
+        images: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        result: list[dict[str, object]] = []
+        seen: set[str] = set()
+        for image in images:
+            path = str(
+                image.get("image_path", image.get("path", "")) or ""
+            ).strip()
+            url = str(image.get("url", "") or "").strip()
+            identity = path.casefold()
+            if not path or not identity or identity in seen:
+                continue
+            seen.add(identity)
+            result.append(
+                {
+                    "url": url,
+                    "image_path": path,
+                    "image_hash": str(
+                        image.get("image_hash", image.get("hash", "")) or ""
+                    ),
+                    "position": len(result) + 1,
+                    "source": str(
+                        image.get("source", "gallery") or "gallery"
+                    ),
+                }
+            )
+        return result
+
+    def _refresh_gallery_list(self) -> None:
+        current_path = (
+            str(
+                self.gallery_images[0].get("image_path", "")
+                if self.gallery_images
+                else ""
+            )
+            .strip()
+            .casefold()
+        )
+        selected_path = (
+            str(
+                self.gallery_images[
+                    min(max(self.gallery_list.currentRow(), 0), len(self.gallery_images) - 1)
+                ].get("image_path", "")
+                if self.gallery_images
+                else ""
+            )
+            .strip()
+            .casefold()
+        )
+
+        self.gallery_list.blockSignals(True)
+        self.gallery_list.clear()
+        for index, image in enumerate(self.gallery_images):
+            path = str(image.get("image_path", "") or "").strip()
+            label = Path(path).name or path
+            prefix = "★ Principal · " if index == 0 else f"Alternativa {index} · "
+            item = QListWidgetItem(prefix + label)
+            item.setData(Qt.ItemDataRole.UserRole, path)
+            item.setToolTip(path)
+            resolved = resolve_data_path(path)
+            if resolved.is_file():
+                pixmap = QPixmap(str(resolved))
+                if not pixmap.isNull():
+                    item.setIcon(QIcon(pixmap))
+            self.gallery_list.addItem(item)
+        self.gallery_list.blockSignals(False)
+
+        target = -1
+        for index, image in enumerate(self.gallery_images):
+            path = str(image.get("image_path", "") or "").strip().casefold()
+            if path == selected_path:
+                target = index
+                break
+            if path == current_path and target < 0:
+                target = index
+        if target < 0 and self.gallery_images:
+            target = 0
+        if target >= 0:
+            self.gallery_list.setCurrentRow(target)
+        self._update_primary_fields()
+
+    def select_images(self) -> None:
+        files, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Agregar imágenes",
+            "",
+            self.IMAGE_EXTENSIONS,
+        )
+        if not files:
+            return
+
+        existing = {
+            str(image.get("image_path", "") or "").strip().casefold()
+            for image in self.gallery_images
+        }
+        for filename in files:
+            path = str(Path(filename)).strip()
+            key = path.casefold()
+            if not path or key in existing:
+                continue
+            self.gallery_images.append(
+                {
+                    "url": "",
+                    "image_path": path,
+                    "image_hash": "",
+                    "position": len(self.gallery_images) + 1,
+                    "source": "manual",
+                }
+            )
+            existing.add(key)
+
+        if self.gallery_images and self.gallery_list.currentRow() < 0:
+            self.gallery_list.setCurrentRow(0)
+        self._refresh_gallery_list()
 
     def select_image(self) -> None:
-        file, _ = QFileDialog.getOpenFileName(
-            self,
-            "Seleccionar imagen",
-            "",
-            "Imágenes (*.png *.jpg *.jpeg *.webp)",
-        )
-        if file:
-            self.image_path.setText(file)
-            self.load_preview(file)
+        """Compatibilidad con la acción anterior de selección individual."""
+        self.select_images()
 
-    def import_product(self) -> None:
-        filename, _ = QFileDialog.getOpenFileName(
-            self,
-            "Importar producto",
-            "",
-            "Archivos compatibles (*.csv *.xlsx);;CSV (*.csv);;Excel (*.xlsx)",
-        )
-        if not filename:
+    def set_primary_image(self) -> None:
+        row = self.gallery_list.currentRow()
+        if row <= 0 or row >= len(self.gallery_images):
+            if row < 0:
+                QMessageBox.information(
+                    self,
+                    "Imagen principal",
+                    "Seleccione una imagen de la galería.",
+                )
             return
+        image = self.gallery_images.pop(row)
+        self.gallery_images.insert(0, image)
+        self._refresh_gallery_list()
+        self.gallery_list.setCurrentRow(0)
 
-        try:
-            product = ProductImportService.import_first_product(filename)
-        except (OSError, ValueError) as error:
-            QMessageBox.warning(
+    def remove_selected_image(self) -> None:
+        row = self.gallery_list.currentRow()
+        if row < 0 or row >= len(self.gallery_images):
+            QMessageBox.information(
                 self,
-                "Importar producto",
-                str(error),
+                "Galería",
+                "Seleccione una imagen para quitarla.",
             )
             return
+        self.gallery_images.pop(row)
+        self._refresh_gallery_list()
 
-        self.code.setText(product.code)
-        self.name.setText(product.name)
-        self.category.setText(product.category)
-        self.description.setPlainText(product.description)
-        self.price.setValue(product.price)
-        self.price_sample.setValue(product.price_sample)
-        self.price_hundred.setValue(product.price_hundred)
-        self.price_thousand.setValue(product.price_thousand)
-        self.stock.setValue(product.stock)
-        self.color_stock.setPlainText(
-            "\n".join(
-                f"{color}: {stock}"
-                for color, stock in product.color_stock.items()
-            ),
-        )
-        self.image_path.setText(product.image_path)
-        self.load_preview(product.image_path)
+    def _gallery_row_changed(self, row: int) -> None:
+        if 0 <= row < len(self.gallery_images):
+            path = str(
+                self.gallery_images[row].get("image_path", "") or ""
+            ).strip()
+            self.load_preview(path)
+        elif not self.gallery_images:
+            self.load_preview("")
+
+    def _update_primary_fields(self) -> None:
+        if not self.gallery_images:
+            self.image_path.clear()
+            self.load_preview("")
+            return
+        primary = self.gallery_images[0]
+        path = str(primary.get("image_path", "") or "").strip()
+        self.image_path.setText(path)
+        self.load_preview(path)
 
     def load_preview(self, path: str) -> None:
         if not path:
             self.image_preview.clear()
             return
 
-        pixmap = QPixmap(path)
+        resolved = resolve_data_path(path)
+        pixmap = QPixmap(str(resolved))
         if pixmap.isNull():
-            self.image_preview.clear()
+            self.image_preview.setText("Sin vista previa")
             return
 
         pixmap = pixmap.scaled(
@@ -213,6 +467,63 @@ class ProductDialog(QDialog):
             Qt.TransformationMode.SmoothTransformation,
         )
         self.image_preview.setPixmap(pixmap)
+
+    def import_product(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Importar carga masiva",
+            "",
+            (
+                "Archivos compatibles (*.csv *.xlsx *.xlsm);;"
+                "CSV (*.csv);;Excel (*.xlsx *.xlsm)"
+            ),
+        )
+        if not filename:
+            return
+
+        try:
+            products = ProductImportService.import_products(filename)
+        except (OSError, ValueError) as error:
+            QMessageBox.warning(self, "Importar carga masiva", str(error))
+            return
+
+        from gui.product_import_preview_dialog import ProductImportPreviewDialog
+
+        preview = ProductImportPreviewDialog(products, self)
+        if preview.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        accepted_products = preview.accepted_products
+        try:
+            created = self.service.create_products(accepted_products)
+        except sqlite3.IntegrityError:
+            QMessageBox.critical(
+                self,
+                "Importar carga masiva",
+                "La carga contiene códigos duplicados con el catálogo.",
+            )
+            return
+        except sqlite3.Error as error:
+            QMessageBox.critical(
+                self,
+                "Importar carga masiva",
+                str(error),
+            )
+            return
+        except ValueError as error:
+            QMessageBox.critical(
+                self,
+                "Importar carga masiva",
+                str(error),
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            "Importar carga masiva",
+            f"Se importaron {len(created)} productos correctamente.",
+        )
+        self.accept()
 
     def _color_stock_values(self) -> dict[str, int]:
         result: dict[str, int] = {}
@@ -225,26 +536,45 @@ class ProductDialog(QDialog):
             if not color:
                 continue
             try:
-                result[color] = max(int(stock.strip().replace(",", "")), 0)
+                result[color] = max(
+                    int(stock.strip().replace(",", "")),
+                    0,
+                )
             except ValueError:
                 continue
+        return result
+
+    def _gallery_for_save(self) -> list[dict[str, object]]:
+        result: list[dict[str, object]] = []
+        for position, image in enumerate(self.gallery_images, start=1):
+            item = dict(image)
+            item["position"] = position
+            result.append(item)
         return result
 
     def save_product(self) -> None:
         code = self.code.text().strip()
         name = self.name.text().strip()
-        category = self.category.text().strip()
+        category = self.category.selected_text()
         description = self.description.toPlainText().strip()
 
-        if not code or not name:
+        if not code:
+            code = self.service.repository.next_product_code()
+            self.code.setText(code)
+
+        if not name:
             QMessageBox.warning(
                 self,
                 "Datos incompletos",
-                "El código y el nombre son obligatorios.",
+                "El nombre es obligatorio.",
             )
             return
 
-        image_path = self.image_path.text().strip().replace("\\", "/")
+        gallery = self._gallery_for_save()
+        primary = gallery[0] if gallery else {}
+        image_path = str(primary.get("image_path", "") or "").strip()
+        image_url = str(primary.get("url", "") or "").strip()
+        image_hash = str(primary.get("image_hash", "") or "").strip()
 
         if self.product is None:
             product = Product(
@@ -258,7 +588,10 @@ class ProductDialog(QDialog):
                 price_thousand=self.price_thousand.value(),
                 stock=self.stock.value(),
                 color_stock=self._color_stock_values(),
+                image_url=image_url,
                 image_path=image_path,
+                image_hash=image_hash,
+                gallery_images=gallery,
             )
         else:
             product = Product(
@@ -272,10 +605,10 @@ class ProductDialog(QDialog):
                 price_thousand=self.price_thousand.value(),
                 stock=self.stock.value(),
                 color_stock=self._color_stock_values(),
-                image_url=self.product.image_url,
+                image_url=image_url or self.product.image_url,
                 image_path=image_path,
-                image_hash=self.product.image_hash,
-                gallery_images=list(self.product.gallery_images),
+                image_hash=image_hash,
+                gallery_images=gallery,
                 content_hash=self.product.content_hash,
                 product_id=self.product.id,
             )

@@ -149,6 +149,21 @@ class ProductRepository:
                 result[str(product.code).strip().casefold()] = product
         return result
 
+    def next_product_code(self, prefix: str = "FB") -> str:
+        """Generate the next unused catalog code for manually created products."""
+        normalized_prefix = str(prefix or "FB").strip().upper() or "FB"
+        rows = self.db.fetch_all(
+            "SELECT code FROM products WHERE code LIKE ? COLLATE NOCASE",
+            (f"{normalized_prefix}-%",),
+        )
+        pattern = re.compile(rf"^{re.escape(normalized_prefix)}-(\d+)$", re.IGNORECASE)
+        maximum = 0
+        for row in rows:
+            match = pattern.fullmatch(str(row["code"] or "").strip())
+            if match:
+                maximum = max(maximum, int(match.group(1)))
+        return f"{normalized_prefix}-{maximum + 1:04d}"
+
     def get_by_id(self, product_id: int) -> Product | None:
         rows = self.db.fetch_all(
             "SELECT * FROM products WHERE id=?",
@@ -292,9 +307,10 @@ class ProductRepository:
             path = str(
                 image.get("image_path", image.get("path", "")) or ""
             ).strip()
-            if not url or not path or url.casefold() in seen:
+            identity = url.casefold() if url else path.casefold()
+            if not path or not identity or identity in seen:
                 continue
-            seen.add(url.casefold())
+            seen.add(identity)
             result.append(
                 {
                     "url": url,

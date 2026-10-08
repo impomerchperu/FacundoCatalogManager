@@ -103,8 +103,8 @@ def test_scraping_dialog_remains_visible_as_independent_window(monkeypatch):
 
     assert dialog.parentWidget() is None
     assert dialog.windowFlags() & Qt.WindowType.Window
-    assert dialog.windowFlags() & Qt.WindowType.WindowMinimizeButtonHint
-    assert dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
+    assert not dialog.windowFlags() & Qt.WindowType.WindowMinimizeButtonHint
+    assert not dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
 
     monkeypatch.setattr(
         "PySide6.QtCore.QThread.start",

@@ -76,6 +76,13 @@ class CategorySelector(QComboBox):
         self.category_created.emit(value)
         return True
 
+    def add_typed_category(self) -> bool:
+        """Add the current text when it is not already represented."""
+        text = self._line_edit.text().strip() if self._line_edit else ""
+        if not text:
+            return False
+        return self.add_category(text, select=True)
+
     def set_selected_categories(self, categories: list[str]) -> None:
         wanted = {str(value).casefold() for value in categories if str(value).strip()}
         self._model.blockSignals(True)

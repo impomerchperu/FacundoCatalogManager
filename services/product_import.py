@@ -63,9 +63,13 @@ class ProductImportService:
                             delimiters=";,\t",
                         )
                     except csv.Error:
-                        dialect = csv.excel
-                        dialect.delimiter = ";"
-                    reader = csv.DictReader(file, dialect=dialect)
+                        delimiter = ";" if ";" in sample else ","
+                        reader = csv.DictReader(
+                            file,
+                            delimiter=delimiter,
+                        )
+                    else:
+                        reader = csv.DictReader(file, dialect=dialect)
                     return [
                         dict(row)
                         for row in reader

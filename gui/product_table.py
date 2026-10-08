@@ -66,7 +66,7 @@ class ProductHeader(QHeaderView):
 class ProductImageDelegate(QStyledItemDelegate):
     """Pinta la imagen sobre todo el rectángulo visible de la celda."""
 
-    DEFAULT_SIZE = 180
+    DEFAULT_SIZE = 144
     IMAGE_ROLE = int(Qt.ItemDataRole.UserRole) + 1
     GALLERY_ROLE = int(Qt.ItemDataRole.UserRole) + 3
     ACTIVE_INDEX_ROLE = int(Qt.ItemDataRole.UserRole) + 4
@@ -311,6 +311,7 @@ class ProductTable(QTableWidget):
     }
     DEFAULT_IMAGE_CELL_SIZE = ProductImageDelegate.DEFAULT_SIZE
     IMAGE_SIZE = DEFAULT_IMAGE_CELL_SIZE
+    CATEGORY_REFERENCE_TEXT = "Enmicadoras / Laminadoras"
     PROGRESSIVE_RENDER_THRESHOLD = 50
     PROGRESSIVE_RENDER_BATCH_SIZE = 40
 
@@ -392,7 +393,7 @@ class ProductTable(QTableWidget):
         "yellow": ("#fff5b8", "#f2d21b"),
     }
     MIN_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
-        IMAGE_COLUMN: DEFAULT_IMAGE_CELL_SIZE,
+        IMAGE_COLUMN: IMAGE_SIZE,
         CODE_COLUMN: 80,
         NAME_COLUMN: 120,
         DETAIL_COLUMN: 180,
@@ -1159,21 +1160,11 @@ class ProductTable(QTableWidget):
 
     def _category_minimum_width(self) -> int:
         metrics = QFontMetrics(self.font())
-        category_width = self.MIN_COLUMN_WIDTHS[self.CATEGORY_COLUMN]
-        reference_products = (
-            self._category_reference_products
-            if self._category_reference_products
-            else self._products
+        return max(
+            self.MIN_COLUMN_WIDTHS[self.CATEGORY_COLUMN],
+            metrics.horizontalAdvance(self.CATEGORY_REFERENCE_TEXT)
+            + (2 * self.CONTENT_SIDE_PADDING),
         )
-        for product in reference_products:
-            for line in self._format_categories(product.category).splitlines():
-                category_width = max(
-                    category_width,
-                    metrics.horizontalAdvance(line) + (
-                        2 * self.CONTENT_SIDE_PADDING
-                    ),
-                )
-        return category_width
 
     def _preferred_column_widths(self, header: QHeaderView) -> list[int]:
         cached = self._preferred_widths_cache
@@ -1184,6 +1175,7 @@ class ProductTable(QTableWidget):
                 for column in range(self.columnCount())
             ]
             minimum_widths[self.CATEGORY_COLUMN] = self._category_minimum_width()
+            minimum_widths[self.IMAGE_COLUMN] = self.IMAGE_SIZE
             minimum_widths[self.STOCK_COLUMN] = self._stock_minimum_width()
             preferred_widths = [
                 max(
@@ -1192,6 +1184,20 @@ class ProductTable(QTableWidget):
                 )
                 for column in range(self.columnCount())
             ]
+            preferred_widths[self.IMAGE_COLUMN] = self.IMAGE_SIZE
+            category_width = minimum_widths[self.CATEGORY_COLUMN]
+            category_savings = max(
+                header.sectionSize(self.CATEGORY_COLUMN) - category_width,
+                0,
+            )
+            image_savings = max(
+                header.sectionSize(self.IMAGE_COLUMN) - self.IMAGE_SIZE,
+                0,
+            )
+            preferred_widths[self.CATEGORY_COLUMN] = category_width
+            preferred_widths[self.DETAIL_COLUMN] += (
+                category_savings + image_savings
+            )
             # Stock debe conservar exclusivamente el ancho calculado por su
             # contenido, sin el margen adicional que Qt puede introducir al
             # aplicar resizeColumnsToContents().
@@ -1223,7 +1229,11 @@ class ProductTable(QTableWidget):
                 target_width,
                 growable_columns=(
                     set(range(1, self.columnCount()))
-                    - {self.STOCK_COLUMN}
+                    - {
+                        self.STOCK_COLUMN,
+                        self.IMAGE_COLUMN,
+                        self.CATEGORY_COLUMN,
+                    }
                 ),
             )
 

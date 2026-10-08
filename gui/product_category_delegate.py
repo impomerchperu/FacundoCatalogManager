@@ -52,6 +52,9 @@ class ProductCategoryDelegate(QStyledItemDelegate):
             or ""
         )
         editor.set_selected_categories(split_category_names(current))
+        line_edit = editor.lineEdit()
+        if line_edit is not None:
+            line_edit.selectAll()
 
     def setModelData(
         self,

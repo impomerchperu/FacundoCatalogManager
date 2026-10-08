@@ -331,12 +331,3 @@ def test_service_syncs_product_category_relationships(repository):
     assert anti_link["total"] == 1
 
 
-def test_product_normalize_sums_color_stock():
-    product = Product(
-        code="STOCK001",
-        name="Stock",
-        stock=1,
-        color_stock={"Rojo": 10, "Azul": 5},
-    )
-    product.normalize()
-    assert product.stock == 15

@@ -103,19 +103,16 @@ def test_product_table_uses_horizontal_thumbnails_and_click_changes_temporary_pr
             },
         )
 
+    product = Product(
+        code="FB-100",
+        name="Producto",
+        image_path=str(paths[0]),
+        gallery_images=gallery,
+    )
     table = ProductTable(_Controller())
     table.resize(1500, 700)
     table.show()
-    table.load_products(
-        [
-            Product(
-                code="FB-100",
-                name="Producto",
-                image_path=str(paths[0]),
-                gallery_images=gallery,
-            ),
-        ],
-    )
+    table.load_products([product])
     QApplication.processEvents()
 
     index = table.model().index(0, ProductTable.IMAGE_COLUMN)
@@ -138,8 +135,19 @@ def test_product_table_uses_horizontal_thumbnails_and_click_changes_temporary_pr
     QApplication.processEvents()
 
     item = table.item(0, ProductTable.IMAGE_COLUMN)
-    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 1
-    assert table._active_image_indices["fb-100"] == 1
+    visible_gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
+    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 0
+    assert [image["image_path"] for image in visible_gallery] == [
+        str(paths[1]),
+        str(paths[0]),
+        str(paths[2]),
+    ]
+    assert [image["image_path"] for image in product.gallery_images] == [
+        str(paths[0]),
+        str(paths[1]),
+        str(paths[2]),
+    ]
+    assert table._active_image_indices["fb-100"] == 0
     assert table.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
     table.close()
 

@@ -2,10 +2,23 @@ import re
 import unicodedata
 from typing import ClassVar
 
-from PySide6.QtCore import QRect, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPixmap, QPixmapCache
+from PySide6.QtCore import QPointF, QRect, QSize, Qt, QTimer
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QFontMetrics,
+    QFontMetricsF,
+    QPainter,
+    QPalette,
+    QPixmap,
+    QPixmapCache,
+    QTextLayout,
+    QTextLine,
+    QTextOption,
+)
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -13,6 +26,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QPlainTextEdit,
     QStyledItemDelegate,
+    QStyle,
     QStyleOptionViewItem,
     QTableWidget,
     QTableWidgetItem,
@@ -385,6 +399,113 @@ class StockColorDelegate(QStyledItemDelegate):
         )
 
 
+class ProductDetailDelegate(QStyledItemDelegate):
+    """Renderiza el detalle con interlineado compacto y ajuste de texto."""
+
+    HORIZONTAL_PADDING = 4
+    VERTICAL_PADDING = 2
+    LINE_SPACING_REDUCTION = 1
+
+    @classmethod
+    def _layout_text(
+        cls,
+        text: str,
+        font: QFont,
+        width: int,
+    ) -> tuple[QTextLayout, int]:
+        layout = QTextLayout(text, font)
+        text_option = QTextOption()
+        text_option.setWrapMode(QTextOption.WrapMode.WordWrap)
+        layout.setTextOption(text_option)
+
+        metrics = QFontMetricsF(font)
+        line_height = max(metrics.height() - cls.LINE_SPACING_REDUCTION, 1.0)
+        total_height = 0.0
+        layout.beginLayout()
+        while True:
+            line = layout.createLine()
+            if not line.isValid():
+                break
+            line.setLineWidth(max(width, 1))
+            line.setLineHeight(
+                line_height,
+                QTextLine.LineHeightTypes.FixedHeight,
+            )
+            line.setPosition(QPointF(0, total_height))
+            total_height += line.height()
+        layout.endLayout()
+        return layout, round(total_height)
+
+    @classmethod
+    def content_height(cls, text: str, font: QFont, width: int) -> int:
+        if not text:
+            return 0
+        _, height = cls._layout_text(text, font, width)
+        return height
+
+    def paint(self, painter: QPainter, option, index) -> None:
+        styled_option = QStyleOptionViewItem(option)
+        self.initStyleOption(styled_option, index)
+        text = styled_option.text
+        styled_option.text = ""
+
+        widget = styled_option.widget
+        style = widget.style() if widget is not None else QApplication.style()
+        style.drawControl(
+            QStyle.ControlElement.CE_ItemViewItem,
+            styled_option,
+            painter,
+            widget,
+        )
+        if not text:
+            return
+
+        text_width = max(
+            styled_option.rect.width() - (2 * self.HORIZONTAL_PADDING),
+            1,
+        )
+        layout, _ = self._layout_text(
+            text,
+            styled_option.font,
+            text_width,
+        )
+        color_role = (
+            QPalette.ColorRole.HighlightedText
+            if styled_option.state & QStyle.StateFlag.State_Selected
+            else QPalette.ColorRole.Text
+        )
+        painter.save()
+        painter.setPen(styled_option.palette.color(color_role))
+        layout.draw(
+            painter,
+            QPointF(
+                styled_option.rect.left() + self.HORIZONTAL_PADDING,
+                styled_option.rect.top() + self.VERTICAL_PADDING,
+            ),
+        )
+        painter.restore()
+
+    def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
+        text = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+        width = max(
+            option.rect.width() - (2 * self.HORIZONTAL_PADDING),
+            self.HORIZONTAL_PADDING,
+        )
+        if width <= self.HORIZONTAL_PADDING:
+            line_count = max(text.count("\n") + 1, 1)
+            height = (
+                QFontMetricsF(option.font).height()
+                - self.LINE_SPACING_REDUCTION
+            ) * line_count
+        else:
+            height = self.content_height(text, option.font, width)
+        base = super().sizeHint(option, index)
+        return QSize(
+            base.width(),
+            max(round(height) + 2 * self.VERTICAL_PADDING, base.height()),
+        )
+
+
 class ProductTable(QTableWidget):
     """Tabla principal del catálogo de productos."""
 
@@ -410,7 +531,8 @@ class ProductTable(QTableWidget):
     }
     DEFAULT_IMAGE_CELL_SIZE = ProductImageDelegate.DEFAULT_SIZE
     IMAGE_SIZE = DEFAULT_IMAGE_CELL_SIZE
-    DETAIL_WIDTH_GROWTH_PERCENT = 20
+    DEFAULT_PRICE_COLUMN_WIDTH = 110
+    FIXED_PRICE_COLUMN_WIDTH = 88
     DETAIL_FIELD_LABELS: ClassVar[dict[str, str]] = {
         "color": "Color",
         "codigo": "Código",
@@ -593,9 +715,9 @@ class ProductTable(QTableWidget):
         DETAIL_COLUMN: 180,
         CATEGORY_COLUMN: 110,
         STOCK_COLUMN: 1,
-        PRICE_SAMPLE_COLUMN: 110,
-        PRICE_HUNDRED_COLUMN: 110,
-        PRICE_THOUSAND_COLUMN: 110,
+        PRICE_SAMPLE_COLUMN: 88,
+        PRICE_HUNDRED_COLUMN: 88,
+        PRICE_THOUSAND_COLUMN: 88,
     }
 
     SORTABLE_COLUMNS: ClassVar[set[int]] = {
@@ -624,7 +746,11 @@ class ProductTable(QTableWidget):
     def __init__(self, controller: ProductController) -> None:
         super().__init__()
         self.controller = controller
-        self._sort_states: dict[int, Qt.SortOrder] = {}
+        self._sort_states: dict[int, Qt.SortOrder] = {
+            self.CATEGORY_COLUMN: Qt.SortOrder.AscendingOrder,
+        }
+        self._default_category_sort_active = True
+        self._stable_code_width: int | None = None
         self._products: list[Product] = []
         self._category_reference_products: list[Product] = []
         self._search_text = ""
@@ -708,6 +834,10 @@ class ProductTable(QTableWidget):
         self.setItemDelegateForColumn(
             self.IMAGE_COLUMN,
             ProductImageDelegate(self),
+        )
+        self.setItemDelegateForColumn(
+            self.DETAIL_COLUMN,
+            ProductDetailDelegate(self),
         )
         self.setItemDelegateForColumn(
             self.STOCK_COLUMN,
@@ -826,8 +956,15 @@ class ProductTable(QTableWidget):
             self._sort_states[column] = Qt.SortOrder.DescendingOrder
         elif current == Qt.SortOrder.DescendingOrder:
             self._sort_states[column] = Qt.SortOrder.AscendingOrder
+        elif (
+            column == self.CATEGORY_COLUMN
+            and self._default_category_sort_active
+            and len(self._sort_states) == 1
+        ):
+            self._sort_states[column] = Qt.SortOrder.DescendingOrder
         else:
             del self._sort_states[column]
+        self._default_category_sort_active = False
         self._apply_current_sort()
 
     def _apply_current_sort(self) -> None:
@@ -846,12 +983,31 @@ class ProductTable(QTableWidget):
             )
         return products
 
+    @staticmethod
+    def _natural_sort_key(value: str) -> tuple[tuple[int, str], ...]:
+        parts: list[tuple[int, str]] = []
+        for token in re.split(r"(\d+)", value.casefold()):
+            if not token:
+                continue
+            if token.isdigit():
+                normalized = token.lstrip("0") or "0"
+                parts.append(
+                    (1, f"{len(normalized):08d}:{normalized}"),
+                )
+            else:
+                parts.append((0, token))
+        return tuple(parts)
+
     def _product_sort_value(self, product: Product, column: int):
+        if column == self.CATEGORY_COLUMN:
+            return (
+                self._natural_sort_key(product.category),
+                self._natural_sort_key(product.code),
+            )
         values = {
             self.CODE_COLUMN: product.code.casefold(),
             self.NAME_COLUMN: product.name.casefold(),
             self.DETAIL_COLUMN: product.description.casefold(),
-            self.CATEGORY_COLUMN: product.category.casefold(),
             self.STOCK_COLUMN: product.stock,
             self.PRICE_SAMPLE_COLUMN: product.price_sample,
             self.PRICE_HUNDRED_COLUMN: product.price_hundred,
@@ -1334,10 +1490,18 @@ class ProductTable(QTableWidget):
         value_key = cls._detail_comparison_key(value)
 
         if label_key == "color":
-            return value_key in {
+            row_colors = {
                 cls._detail_comparison_key(color)
                 for color in product.color_stock
             }
+            described_colors = [
+                cls._detail_comparison_key(color)
+                for color in re.split(r"\s*[,;/]\s*", value)
+                if color.strip()
+            ]
+            return bool(row_colors and described_colors) and all(
+                color in row_colors for color in described_colors
+            )
         if label_key in {"codigo"}:
             return value_key == cls._detail_comparison_key(product.code)
         if label_key in {"producto", "nombre"}:
@@ -1484,10 +1648,11 @@ class ProductTable(QTableWidget):
         row_height = image_size
         detail_item = self.item(row, self.DETAIL_COLUMN)
         if detail_item is not None and detail_item.text():
-            detail_lines = len(detail_item.text().splitlines())
-            detail_height = (
-                detail_lines * QFontMetrics(self.font()).height() + 8
-            )
+            detail_height = ProductDetailDelegate.content_height(
+                detail_item.text(),
+                self.font(),
+                max(self.columnWidth(self.DETAIL_COLUMN) - 8, 1),
+            ) + (2 * ProductDetailDelegate.VERTICAL_PADDING)
             row_height = max(row_height, detail_height)
 
         stock_item = self.item(row, self.STOCK_COLUMN)
@@ -1549,6 +1714,16 @@ class ProductTable(QTableWidget):
                 )
                 for column in range(self.columnCount())
             ]
+            if self._stable_code_width is None and self._rendered_products:
+                self._stable_code_width = max(
+                    header.sectionSize(self.CODE_COLUMN),
+                    minimum_widths[self.CODE_COLUMN],
+                )
+            preferred_widths[self.CODE_COLUMN] = (
+                self._stable_code_width
+                if self._stable_code_width is not None
+                else minimum_widths[self.CODE_COLUMN]
+            )
             preferred_widths[self.IMAGE_COLUMN] = self.IMAGE_SIZE
             price_savings = 0
             for price_column in (
@@ -1556,32 +1731,16 @@ class ProductTable(QTableWidget):
                 self.PRICE_HUNDRED_COLUMN,
                 self.PRICE_THOUSAND_COLUMN,
             ):
-                fixed_price_width = self.MIN_COLUMN_WIDTHS[price_column]
+                fixed_price_width = self.FIXED_PRICE_COLUMN_WIDTH
                 price_savings += max(
-                    header.sectionSize(price_column) - fixed_price_width,
+                    self.DEFAULT_PRICE_COLUMN_WIDTH - fixed_price_width,
                     0,
                 )
                 preferred_widths[price_column] = fixed_price_width
-            category_width = minimum_widths[self.CATEGORY_COLUMN]
-            category_savings = max(
-                header.sectionSize(self.CATEGORY_COLUMN) - category_width,
-                0,
+            preferred_widths[self.CATEGORY_COLUMN] = (
+                minimum_widths[self.CATEGORY_COLUMN]
             )
-            image_savings = max(
-                header.sectionSize(self.IMAGE_COLUMN) - self.IMAGE_SIZE,
-                0,
-            )
-            preferred_widths[self.CATEGORY_COLUMN] = category_width
-            detail_growth = round(
-                preferred_widths[self.DETAIL_COLUMN]
-                * self.DETAIL_WIDTH_GROWTH_PERCENT
-                / 100
-            )
-            preferred_widths[self.DETAIL_COLUMN] += (
-                category_savings
-                + image_savings
-                + max(price_savings, detail_growth)
-            )
+            preferred_widths[self.DETAIL_COLUMN] += price_savings
             # Stock debe conservar exclusivamente el ancho calculado por su
             # contenido, sin el margen adicional que Qt puede introducir al
             # aplicar resizeColumnsToContents().
@@ -1611,18 +1770,7 @@ class ProductTable(QTableWidget):
                 preferred_widths,
                 minimum_widths,
                 target_width,
-                growable_columns=(
-                    set(range(1, self.columnCount()))
-                    - {
-                        self.STOCK_COLUMN,
-                        self.IMAGE_COLUMN,
-                        self.CODE_COLUMN,
-                        self.CATEGORY_COLUMN,
-                        self.PRICE_SAMPLE_COLUMN,
-                        self.PRICE_HUNDRED_COLUMN,
-                        self.PRICE_THOUSAND_COLUMN,
-                    }
-                ),
+                growable_columns={self.DETAIL_COLUMN},
             )
 
             self.setMinimumWidth(

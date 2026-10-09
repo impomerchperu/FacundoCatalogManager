@@ -610,7 +610,7 @@ def test_product_table_stock_width_stays_content_fitted_when_window_grows():
 
 
 
-def test_price_columns_are_compact_and_currency_is_not_editable():
+def test_price_columns_keep_currency_and_original_width():
     _qapp()
     table = ProductTable(_Controller())
     product = Product(
@@ -625,9 +625,9 @@ def test_price_columns_are_compact_and_currency_is_not_editable():
     table.load_products([product])
     QApplication.processEvents()
 
-    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_SAMPLE_COLUMN] == 88
-    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_HUNDRED_COLUMN] == 88
-    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_THOUSAND_COLUMN] == 88
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_SAMPLE_COLUMN] == 110
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_HUNDRED_COLUMN] == 110
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_THOUSAND_COLUMN] == 110
 
     index = table.model().index(0, ProductTable.PRICE_HUNDRED_COLUMN)
     delegate = table.itemDelegateForColumn(ProductTable.PRICE_HUNDRED_COLUMN)
@@ -642,7 +642,84 @@ def test_price_columns_are_compact_and_currency_is_not_editable():
     assert number is not None
     assert number.text() == "240.00"
 
+    number.setText("321.50")
+    delegate.setModelData(editor, table.model(), index)
+    assert currency.text() == "S/"
+    assert table.item(0, ProductTable.PRICE_HUNDRED_COLUMN).text() == "S/ 321.50"
+
     editor.close()
+    table.close()
+
+
+
+def test_detail_formats_attributes_removes_duplicate_color_and_trailing_periods():
+    _qapp()
+    description = (
+        "Color: Azul. Potencia: 560W. Dimensiones: 30*34*33cm. "
+        "Peso Unitario: 5.8 Kg.Uso Recomendado: Sublimado en tazas 11Oz. "
+        "Empaque Individual: Esponja + Caja de carton. Cantidad por Caja: 1 Pza. "
+        "Dimensiones Caja: 45*38*43cm. Cubicaje por Caja: 0.0735 m³/CBM "
+        "Peso neto por caja: 5.8 Kg. Peso bruto por caja: 6.9 Kg."
+    )
+    table = ProductTable(_Controller())
+    table.load_products(
+        [
+            Product(
+                code="FB-9001",
+                name="Plancha",
+                description=description,
+                color_stock={"Azul": 3},
+                stock=3,
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert item.text().splitlines() == [
+        "Potencia: 560W",
+        "Dimensiones: 30*34*33cm",
+        "Peso Unitario: 5.8 Kg",
+        "Uso Recomendado: Sublimado en tazas 11Oz",
+        "Empaque Individual: Esponja + Caja de cartón",
+        "Cantidad por Caja: 1 Pza",
+        "Dimensiones Caja: 45*38*43cm",
+        "Cubicaje por Caja: 0.0735 m³/CBM",
+        "Peso neto por caja: 5.8 Kg",
+        "Peso bruto por caja: 6.9 Kg",
+    ]
+    assert all(not line.endswith(".") for line in item.text().splitlines())
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignTop
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignLeft
+    assert table.rowHeight(0) > ProductTable.IMAGE_SIZE
+
+    table.close()
+
+
+def test_detail_removes_fields_that_repeat_product_row_data():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.load_products(
+        [
+            Product(
+                code="FB-9010",
+                name="Plancha",
+                category="Oficina",
+                stock=5,
+                description=(
+                    "Código: FB-9010. Producto: Plancha. Categoría: Oficina. "
+                    "Stock: 5. Potencia: 500W."
+                ),
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert item.text() == "Potencia: 500W"
+
     table.close()
 
 

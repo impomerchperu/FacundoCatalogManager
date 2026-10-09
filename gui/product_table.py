@@ -253,13 +253,14 @@ class ProductImageDelegate(QStyledItemDelegate):
     IMAGE_ROLE = int(Qt.ItemDataRole.UserRole) + 1
     GALLERY_ROLE = int(Qt.ItemDataRole.UserRole) + 3
     ACTIVE_INDEX_ROLE = int(Qt.ItemDataRole.UserRole) + 4
+    THUMBNAIL_START_ROLE = int(Qt.ItemDataRole.UserRole) + 5
 
     @classmethod
     def thumbnail_layout(
         cls,
         rect: QRect,
         image_count: int,
-        active_index: int,
+        thumbnail_start: int = 0,
     ) -> tuple[list[tuple[int, QRect]], QRect | None, QRect | None, int]:
         """Devuelve los rectángulos de miniaturas y navegación horizontal."""
         if image_count <= 0:
@@ -290,7 +291,7 @@ class ProductImageDelegate(QStyledItemDelegate):
             visible_count = cls.MAX_VISIBLE_THUMBNAILS - 1
             start = max(
                 0,
-                min(active_index - 1, image_count - visible_count),
+                min(thumbnail_start, image_count - visible_count),
             )
             visible_indices = list(range(start, start + visible_count))
         else:
@@ -362,11 +363,12 @@ class ProductImageDelegate(QStyledItemDelegate):
         rect: QRect,
         gallery: list,
         active_index: int,
+        thumbnail_start: int,
     ) -> None:
         tiles, left_arrow, right_arrow, _strip_top = self.thumbnail_layout(
             rect,
             len(gallery),
-            active_index,
+            thumbnail_start,
         )
         for image_index, tile_rect in tiles:
             image = gallery[image_index]
@@ -410,6 +412,13 @@ class ProductImageDelegate(QStyledItemDelegate):
             gallery,
             index.data(self.ACTIVE_INDEX_ROLE),
         )
+        try:
+            thumbnail_start = max(
+                int(index.data(self.THUMBNAIL_START_ROLE) or 0),
+                0,
+            )
+        except (TypeError, ValueError):
+            thumbnail_start = 0
         image_path = self._selected_path(
             gallery,
             active_index,
@@ -433,6 +442,7 @@ class ProductImageDelegate(QStyledItemDelegate):
                 cell,
                 gallery,
                 active_index,
+                thumbnail_start,
             )
         painter.restore()
 
@@ -1485,6 +1495,7 @@ class ProductTable(QTableWidget):
             image_path = product.image_path
         image_item.setData(ProductImageDelegate.GALLERY_ROLE, gallery)
         image_item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, active_index)
+        image_item.setData(ProductImageDelegate.THUMBNAIL_START_ROLE, 0)
         if image_path:
             image_item.setData(
                 ProductImageDelegate.IMAGE_ROLE,
@@ -1641,11 +1652,18 @@ class ProductTable(QTableWidget):
                     active_index = int(active) % len(gallery)
                 except (TypeError, ValueError):
                     active_index = 0
+                thumbnail_start = item.data(
+                    ProductImageDelegate.THUMBNAIL_START_ROLE,
+                )
+                try:
+                    thumbnail_start = max(int(thumbnail_start or 0), 0)
+                except (TypeError, ValueError):
+                    thumbnail_start = 0
                 tiles, left_arrow, right_arrow, strip_top = (
                     ProductImageDelegate.thumbnail_layout(
                         rect,
                         len(gallery),
-                        active_index,
+                        thumbnail_start,
                     )
                 )
                 if position.y() >= strip_top:
@@ -1655,14 +1673,38 @@ class ProductTable(QTableWidget):
                             event.accept()
                             return
                     if left_arrow is not None and left_arrow.contains(position):
-                        self._set_active_image(index.row(), active_index - 1)
+                        self._scroll_thumbnail_strip(index.row(), -1)
                         event.accept()
                         return
                     if right_arrow is not None and right_arrow.contains(position):
-                        self._set_active_image(index.row(), active_index + 1)
+                        self._scroll_thumbnail_strip(index.row(), 1)
                         event.accept()
                         return
         super().mousePressEvent(event)
+
+    def _scroll_thumbnail_strip(self, row: int, direction: int) -> None:
+        item = self.item(row, self.IMAGE_COLUMN)
+        if item is None:
+            return
+        gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
+        if not isinstance(gallery, list) or len(gallery) <= (
+            ProductImageDelegate.MAX_VISIBLE_THUMBNAILS
+        ):
+            return
+        current = item.data(ProductImageDelegate.THUMBNAIL_START_ROLE)
+        try:
+            current = max(int(current or 0), 0)
+        except (TypeError, ValueError):
+            current = 0
+        max_start = max(
+            len(gallery) - (ProductImageDelegate.MAX_VISIBLE_THUMBNAILS - 1),
+            0,
+        )
+        item.setData(
+            ProductImageDelegate.THUMBNAIL_START_ROLE,
+            max(0, min(current + direction, max_start)),
+        )
+        self.viewport().update()
 
     def _set_active_image(self, row: int, active_index: int) -> None:
         item = self.item(row, self.IMAGE_COLUMN)
@@ -1686,6 +1728,7 @@ class ProductTable(QTableWidget):
             )
             item.setData(ProductImageDelegate.GALLERY_ROLE, gallery)
             active_index = 0
+        item.setData(ProductImageDelegate.THUMBNAIL_START_ROLE, 0)
         item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, active_index)
         self._set_image_item_path(item, gallery, active_index)
         if 0 <= row < len(self._rendered_products):

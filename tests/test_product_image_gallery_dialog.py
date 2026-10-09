@@ -98,7 +98,7 @@ def test_clicking_current_image_replaces_it_and_moves_old_primary_to_alternative
     service = _Service()
     dialog = ProductImageGalleryDialog(_product(), service=service)
     replacement = tmp_path / "replacement.jpg"
-    replacement.write_bytes(b"placeholder")
+    _write_test_image(replacement)
 
     monkeypatch.setattr(
         QFileDialog,
@@ -110,6 +110,7 @@ def test_clicking_current_image_replaces_it_and_moves_old_primary_to_alternative
         "gallery_image_choice",
     )[0]
     QTest.mouseClick(current_image, Qt.MouseButton.LeftButton)
+    QApplication.processEvents()
 
     assert [image["image_path"] for image in dialog.images] == [
         str(replacement),
@@ -118,6 +119,12 @@ def test_clicking_current_image_replaces_it_and_moves_old_primary_to_alternative
     ]
     assert dialog.images[0]["source"] == "manual"
     assert dialog.images[1]["image_path"] == "images/one.jpg"
+    current_preview = dialog.canvas.findChildren(
+        QLabel,
+        "gallery_image_choice",
+    )[0]
+    assert current_preview.pixmap() is not None
+    assert not current_preview.pixmap().isNull()
 
     dialog.close()
 
@@ -126,7 +133,12 @@ def test_clicking_alternative_swaps_it_with_current_image():
     _qapp()
     dialog = ProductImageGalleryDialog(_product(), service=_Service())
 
-    dialog.exchange_with_primary(1)
+    alternatives = dialog.canvas.findChildren(
+        QLabel,
+        "gallery_image_choice",
+    )
+    QTest.mouseClick(alternatives[1], Qt.MouseButton.LeftButton)
+    QApplication.processEvents()
 
     assert [image["image_path"] for image in dialog.images] == [
         "images/two.jpg",

@@ -83,6 +83,7 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
 
     table.close()
 
+
 def test_product_table_uses_horizontal_thumbnails_and_click_changes_temporary_primary(
     tmp_path: Path,
 ):
@@ -229,6 +230,7 @@ def test_product_table_category_is_combined_with_code_and_detail_receives_space(
 
     table.close()
 
+
 def test_product_table_category_with_long_word_stays_on_one_line():
     category = "Categoria extraordinariamenteLargaSinEspacios"
 
@@ -263,6 +265,7 @@ def test_product_table_category_sublimacion_is_shown_under_code():
 
     table.close()
 
+
 def test_product_table_category_enmicadoras_is_combined_with_code():
     _qapp()
 
@@ -285,6 +288,7 @@ def test_product_table_category_enmicadoras_is_combined_with_code():
     assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == 0
 
     table.close()
+
 
 def test_product_table_keeps_category_data_when_products_are_filtered():
     _qapp()
@@ -321,6 +325,7 @@ def test_product_table_keeps_category_data_when_products_are_filtered():
     assert table.item(0, ProductTable.CATEGORY_COLUMN).text() == "Estuches"
 
     table.close()
+
 
 def test_product_table_category_does_not_wrap_by_word_count():
     category = "Uno Dos Tres Cuatro Cinco Seis"
@@ -415,6 +420,7 @@ def test_product_table_columns_reflow_to_narrow_window_without_scroll():
     assert total_width <= table.viewport().width()
 
     table.close()
+
 
 def test_product_table_renders_stock_by_color_in_stock_cell():
     _qapp()
@@ -555,7 +561,6 @@ def test_product_table_stock_color_variants_keep_magenta_and_fucsia_distinct():
     assert magenta != fucsia
 
 
-
 def test_product_table_stock_width_shows_verde_oscuro_completely():
     _qapp()
 
@@ -611,7 +616,6 @@ def test_product_table_uses_reference_font_and_color():
     assert "color: #173f6d;" in table.styleSheet()
 
     table.close()
-
 
 
 def test_product_table_reuses_cached_widths_when_window_resizes():
@@ -698,8 +702,6 @@ def test_product_table_stock_width_stays_content_fitted_when_window_grows():
     table.close()
 
 
-
-
 def test_price_columns_are_compact_and_currency_is_not_editable():
     _qapp()
     table = ProductTable(_Controller())
@@ -742,7 +744,6 @@ def test_price_columns_are_compact_and_currency_is_not_editable():
 
     editor.close()
     table.close()
-
 
 
 def test_detail_formats_attributes_removes_duplicate_color_and_trailing_periods():
@@ -814,7 +815,6 @@ def test_detail_removes_fields_that_repeat_product_row_data():
     assert item.text() == "Potencia: 500W"
 
     table.close()
-
 
 
 def test_detail_removes_multiple_colors_already_visible_in_stock():
@@ -923,6 +923,7 @@ def test_products_are_sorted_by_category_then_product_name_at_startup():
         for row in range(table.rowCount())
     ] == ["FB-2", "FB-11", "FB-3", "FB-12"]
     table.close()
+
 
 def test_detail_delegate_compacts_spacing_between_attribute_lines():
     _qapp()

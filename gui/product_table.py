@@ -1266,12 +1266,12 @@ class ProductTable(QTableWidget):
         for incorrect, correct in replacements.items():
             corrected = re.sub(
                 rf"\b{incorrect}\b",
-                lambda match: (
-                    correct.capitalize()
+                lambda match, replacement=correct: (
+                    replacement.capitalize()
                     if match.group().istitle()
-                    else correct.upper()
+                    else replacement.upper()
                     if match.group().isupper()
-                    else correct
+                    else replacement
                 ),
                 corrected,
                 flags=re.IGNORECASE,

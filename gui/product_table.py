@@ -1,3 +1,5 @@
+import re
+import unicodedata
 from typing import ClassVar
 
 from PySide6.QtCore import QRect, QSize, Qt, QTimer
@@ -409,6 +411,99 @@ class ProductTable(QTableWidget):
     DEFAULT_IMAGE_CELL_SIZE = ProductImageDelegate.DEFAULT_SIZE
     IMAGE_SIZE = DEFAULT_IMAGE_CELL_SIZE
     DETAIL_WIDTH_GROWTH_PERCENT = 20
+    DETAIL_FIELD_LABELS: ClassVar[dict[str, str]] = {
+        "color": "Color",
+        "codigo": "Código",
+        "código": "Código",
+        "producto": "Producto",
+        "nombre": "Nombre",
+        "categoria": "Categoría",
+        "categoría": "Categoría",
+        "stock": "Stock",
+        "existencia": "Stock",
+        "precio": "Precio",
+        "precio muestra": "Precio muestra",
+        "precio por muestra": "Precio muestra",
+        "precio ciento": "Precio ciento",
+        "precio por ciento": "Precio ciento",
+        "precio millar": "Precio millar",
+        "precio por millar": "Precio millar",
+        "potencia": "Potencia",
+        "dimensiones": "Dimensiones",
+        "peso unitario": "Peso Unitario",
+        "uso recomendado": "Uso Recomendado",
+        "empaque individual": "Empaque Individual",
+        "cantidad por caja": "Cantidad por Caja",
+        "dimensiones caja": "Dimensiones Caja",
+        "cubicaje por caja": "Cubicaje por Caja",
+        "peso neto por caja": "Peso neto por caja",
+        "peso bruto por caja": "Peso bruto por caja",
+        "voltaje": "Voltaje",
+        "material": "Material",
+        "modelo": "Modelo",
+        "capacidad": "Capacidad",
+        "tipo": "Tipo",
+        "tamaño de impresión": "Tamaño de impresión",
+        "area de impresion": "Área de impresión",
+        "área de impresión": "Área de impresión",
+        "tamaño": "Tamaño",
+        "gramaje": "Gramaje",
+        "resolucion": "Resolución",
+        "resolución": "Resolución",
+        "velocidad": "Velocidad",
+        "temperatura": "Temperatura",
+        "presion": "Presión",
+        "presión": "Presión",
+        "ancho": "Ancho",
+        "largo": "Largo",
+        "altura": "Altura",
+        "alto": "Alto",
+        "peso": "Peso",
+        "frecuencia": "Frecuencia",
+        "formato": "Formato",
+        "presentacion": "Presentación",
+        "presentación": "Presentación",
+        "marca": "Marca",
+        "compatibilidad": "Compatibilidad",
+        "contenido": "Contenido",
+        "incluye": "Incluye",
+        "empaque": "Empaque",
+        "medida": "Medida",
+        "alimentacion": "Alimentación",
+        "alimentación": "Alimentación",
+        "tiempo": "Tiempo",
+        "diametro": "Diámetro",
+        "diámetro": "Diámetro",
+        "espesor": "Espesor",
+        "acabado": "Acabado",
+        "funcion": "Función",
+        "función": "Función",
+        "funciones": "Funciones",
+        "uso": "Uso",
+        "aplicacion": "Aplicación",
+        "aplicación": "Aplicación",
+        "area de trabajo": "Área de trabajo",
+        "área de trabajo": "Área de trabajo",
+        "color de impresion": "Color de impresión",
+        "color de impresión": "Color de impresión",
+        "cubicaje": "Cubicaje",
+        "resistencia": "Resistencia",
+        "empaque por caja": "Empaque por caja",
+        "unidades por caja": "Unidades por caja",
+        "cantidad": "Cantidad",
+        "unidad": "Unidad",
+        "peso neto": "Peso neto",
+        "peso bruto": "Peso bruto",
+    }
+    DETAIL_FIELD_LABEL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
+        r"(?<!\\w)("
+        + "|".join(
+            re.escape(label)
+            for label in sorted(DETAIL_FIELD_LABELS, key=len, reverse=True)
+        )
+        + r")\\s*:",
+        re.IGNORECASE,
+    )
     CATEGORY_REFERENCE_TEXT = "Enmicadoras / Laminadoras"
     CATEGORY_SOURCE_ROLE = int(Qt.ItemDataRole.UserRole) + 50
     PROGRESSIVE_RENDER_THRESHOLD = 50
@@ -498,9 +593,9 @@ class ProductTable(QTableWidget):
         DETAIL_COLUMN: 180,
         CATEGORY_COLUMN: 110,
         STOCK_COLUMN: 1,
-        PRICE_SAMPLE_COLUMN: 88,
-        PRICE_HUNDRED_COLUMN: 88,
-        PRICE_THOUSAND_COLUMN: 88,
+        PRICE_SAMPLE_COLUMN: 110,
+        PRICE_HUNDRED_COLUMN: 110,
+        PRICE_THOUSAND_COLUMN: 110,
     }
 
     SORTABLE_COLUMNS: ClassVar[set[int]] = {
@@ -985,7 +1080,13 @@ class ProductTable(QTableWidget):
         item_code.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setItem(row, self.CODE_COLUMN, item_code)
         self._set_text_item(row, self.NAME_COLUMN, product.name)
-        self._set_text_item(row, self.DETAIL_COLUMN, product.description)
+        detail = self._format_detail(product)
+        self._set_text_item(row, self.DETAIL_COLUMN, detail)
+        detail_item = self.item(row, self.DETAIL_COLUMN)
+        if detail_item is not None:
+            detail_item.setTextAlignment(
+                Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft,
+            )
         self._set_category_item(row, product.category)
         self._set_stock_widget(row, product)
         self._set_price_item(row, self.PRICE_SAMPLE_COLUMN, product.price_sample)
@@ -1144,6 +1245,133 @@ class ProductTable(QTableWidget):
                 self._active_image_indices[code] = active_index
         self.viewport().update()
 
+    @staticmethod
+    def _detail_comparison_key(value: str) -> str:
+        normalized = (
+            unicodedata.normalize("NFKD", str(value))
+            .encode("ascii", "ignore")
+            .decode("ascii")
+            .casefold()
+        )
+        return re.sub(r"[^\\w]+", " ", normalized).strip()
+
+    @staticmethod
+    def _correct_detail_spelling(value: str) -> str:
+        replacements = {
+            "flurecente": "fluorescente",
+            "fluorecente": "fluorescente",
+            "carton": "cartón",
+        }
+        corrected = value
+        for incorrect, correct in replacements.items():
+            corrected = re.sub(
+                rf"\\b{incorrect}\\b",
+                lambda match: (
+                    correct.capitalize()
+                    if match.group().istitle()
+                    else correct.upper()
+                    if match.group().isupper()
+                    else correct
+                ),
+                corrected,
+                flags=re.IGNORECASE,
+            )
+        return corrected
+
+    @classmethod
+    def _format_detail(cls, product: Product) -> str:
+        """Ordena los atributos del detalle y quita duplicados de la fila."""
+        raw = cls._correct_detail_spelling(str(product.description or ""))
+        raw = raw.replace("\\r\\n", "\\n").replace("\\r", "\\n")
+        raw = re.sub(r"[ \\t]+", " ", raw).strip()
+        if not raw:
+            return ""
+
+        matches = list(cls.DETAIL_FIELD_LABEL_PATTERN.finditer(raw))
+        if not matches:
+            lines = []
+            for candidate in raw.splitlines():
+                cleaned = re.sub(r"[ \\t.;]+$", "", candidate.strip())
+                if cleaned:
+                    lines.append(cleaned)
+            return "\\n".join(lines)
+
+        lines: list[str] = []
+        prefix = raw[: matches[0].start()].strip(" \\t\\r\\n.;")
+        if prefix:
+            lines.append(re.sub(r"[ \\t.;]+$", "", prefix))
+
+        for index, match in enumerate(matches):
+            next_start = (
+                matches[index + 1].start()
+                if index + 1 < len(matches)
+                else len(raw)
+            )
+            alias = match.group(1).casefold()
+            label = cls.DETAIL_FIELD_LABELS.get(alias, match.group(1).strip())
+            value = raw[match.end() : next_start]
+            value = re.sub(r"^[ \\t\\r\\n.;]+", "", value)
+            value = re.sub(r"[ \\t\\r\\n.;]+$", "", value)
+            value = re.sub(r"\\s+", " ", value).strip()
+            if not value or cls._detail_field_duplicates_row(
+                label,
+                value,
+                product,
+            ):
+                continue
+            lines.append(f"{label}: {value}".rstrip(" ."))
+
+        return "\\n".join(line for line in lines if line.strip())
+
+    @classmethod
+    def _detail_field_duplicates_row(
+        cls,
+        label: str,
+        value: str,
+        product: Product,
+    ) -> bool:
+        label_key = cls._detail_comparison_key(label)
+        value_key = cls._detail_comparison_key(value)
+
+        if label_key == "color":
+            return value_key in {
+                cls._detail_comparison_key(color)
+                for color in product.color_stock
+            }
+        if label_key in {"codigo"}:
+            return value_key == cls._detail_comparison_key(product.code)
+        if label_key in {"producto", "nombre"}:
+            return value_key == cls._detail_comparison_key(product.name)
+        if label_key in {"categoria"}:
+            categories = {
+                cls._detail_comparison_key(category)
+                for category in split_category_names(product.category)
+            }
+            categories.add(cls._detail_comparison_key(product.category))
+            return value_key in categories
+        if label_key == "stock":
+            digits = re.sub(r"[^0-9]", "", value)
+            try:
+                return bool(digits) and int(digits) == product.stock
+            except ValueError:
+                return False
+
+        price_fields = {
+            "precio": (product.price_sample, product.price_hundred, product.price_thousand),
+            "precio muestra": (product.price_sample,),
+            "precio ciento": (product.price_hundred,),
+            "precio millar": (product.price_thousand,),
+        }
+        expected_prices = price_fields.get(label_key)
+        if expected_prices is not None:
+            normalized_number = value.replace(",", "").replace("S/", "").strip()
+            try:
+                number = float(normalized_number)
+            except ValueError:
+                return False
+            return any(abs(number - price) < 0.005 for price in expected_prices)
+        return False
+
     def _set_text_item(self, row: int, column: int, text: str) -> None:
         item = QTableWidgetItem(text)
         item.setToolTip(text)
@@ -1254,6 +1482,14 @@ class ProductTable(QTableWidget):
             self.DEFAULT_IMAGE_CELL_SIZE,
         )
         row_height = image_size
+        detail_item = self.item(row, self.DETAIL_COLUMN)
+        if detail_item is not None and detail_item.text():
+            detail_lines = len(detail_item.text().splitlines())
+            detail_height = (
+                detail_lines * QFontMetrics(self.font()).height() + 8
+            )
+            row_height = max(row_height, detail_height)
+
         stock_item = self.item(row, self.STOCK_COLUMN)
         if stock_item is not None:
             color_stock = stock_item.data(StockColorDelegate.STOCK_ROLE)

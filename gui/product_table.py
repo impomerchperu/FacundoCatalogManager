@@ -151,8 +151,8 @@ class ProductCodeCategoryDelegate(QStyledItemDelegate):
     def _category_text(index) -> str:
         category_index = index.sibling(index.row(), ProductCodeCategoryDelegate.CATEGORY_COLUMN)
         return str(
-            category_index.data(ProductCodeCategoryDelegate.CATEGORY_SOURCE_ROLE)
-            or category_index.data(Qt.ItemDataRole.DisplayRole)
+            category_index.data(Qt.ItemDataRole.DisplayRole)
+            or category_index.data(ProductCodeCategoryDelegate.CATEGORY_SOURCE_ROLE)
             or "—"
         )
 

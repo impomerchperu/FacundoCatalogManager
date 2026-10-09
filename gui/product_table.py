@@ -496,12 +496,12 @@ class ProductTable(QTableWidget):
         "peso bruto": "Peso bruto",
     }
     DETAIL_FIELD_LABEL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"(?<!\\w)("
+        r"(?<!\w)("
         + "|".join(
             re.escape(label)
             for label in sorted(DETAIL_FIELD_LABELS, key=len, reverse=True)
         )
-        + r")\\s*:",
+        + r")\s*:",
         re.IGNORECASE,
     )
     CATEGORY_REFERENCE_TEXT = "Enmicadoras / Laminadoras"
@@ -1253,7 +1253,7 @@ class ProductTable(QTableWidget):
             .decode("ascii")
             .casefold()
         )
-        return re.sub(r"[^\\w]+", " ", normalized).strip()
+        return re.sub(r"[^\w]+", " ", normalized).strip()
 
     @staticmethod
     def _correct_detail_spelling(value: str) -> str:
@@ -1265,7 +1265,7 @@ class ProductTable(QTableWidget):
         corrected = value
         for incorrect, correct in replacements.items():
             corrected = re.sub(
-                rf"\\b{incorrect}\\b",
+                rf"\b{incorrect}\b",
                 lambda match: (
                     correct.capitalize()
                     if match.group().istitle()
@@ -1282,8 +1282,8 @@ class ProductTable(QTableWidget):
     def _format_detail(cls, product: Product) -> str:
         """Ordena los atributos del detalle y quita duplicados de la fila."""
         raw = cls._correct_detail_spelling(str(product.description or ""))
-        raw = raw.replace("\\r\\n", "\\n").replace("\\r", "\\n")
-        raw = re.sub(r"[ \\t]+", " ", raw).strip()
+        raw = raw.replace("\r\n", "\n").replace("\r", "\n")
+        raw = re.sub(r"[ \t]+", " ", raw).strip()
         if not raw:
             return ""
 
@@ -1291,15 +1291,15 @@ class ProductTable(QTableWidget):
         if not matches:
             lines = []
             for candidate in raw.splitlines():
-                cleaned = re.sub(r"[ \\t.;]+$", "", candidate.strip())
+                cleaned = re.sub(r"[ \t.;]+$", "", candidate.strip())
                 if cleaned:
                     lines.append(cleaned)
-            return "\\n".join(lines)
+            return "\n".join(lines)
 
         lines: list[str] = []
-        prefix = raw[: matches[0].start()].strip(" \\t\\r\\n.;")
+        prefix = raw[: matches[0].start()].strip(" \t\r\n.;")
         if prefix:
-            lines.append(re.sub(r"[ \\t.;]+$", "", prefix))
+            lines.append(re.sub(r"[ \t.;]+$", "", prefix))
 
         for index, match in enumerate(matches):
             next_start = (
@@ -1310,9 +1310,9 @@ class ProductTable(QTableWidget):
             alias = match.group(1).casefold()
             label = cls.DETAIL_FIELD_LABELS.get(alias, match.group(1).strip())
             value = raw[match.end() : next_start]
-            value = re.sub(r"^[ \\t\\r\\n.;]+", "", value)
-            value = re.sub(r"[ \\t\\r\\n.;]+$", "", value)
-            value = re.sub(r"\\s+", " ", value).strip()
+            value = re.sub(r"^[ \t\r\n.;]+", "", value)
+            value = re.sub(r"[ \t\r\n.;]+$", "", value)
+            value = re.sub(r"\s+", " ", value).strip()
             if not value or cls._detail_field_duplicates_row(
                 label,
                 value,
@@ -1321,7 +1321,7 @@ class ProductTable(QTableWidget):
                 continue
             lines.append(f"{label}: {value}".rstrip(" ."))
 
-        return "\\n".join(line for line in lines if line.strip())
+        return "\n".join(line for line in lines if line.strip())
 
     @classmethod
     def _detail_field_duplicates_row(

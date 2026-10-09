@@ -13,7 +13,6 @@ from PySide6.QtGui import (
     QPixmap,
     QPixmapCache,
     QTextLayout,
-    QTextLine,
     QTextOption,
 )
 from PySide6.QtWidgets import (
@@ -412,9 +411,12 @@ class ProductDetailDelegate(QStyledItemDelegate):
         text: str,
         font: QFont,
         width: int,
-    ) -> tuple[QTextLayout, int]:
+    ) -> tuple[list[tuple[QTextLayout, float]], int]:
         metrics = QFontMetricsF(font)
-        line_height = max(metrics.height() - cls.LINE_SPACING_REDUCTION, 1.0)
+        line_height = max(
+            metrics.height() - cls.LINE_SPACING_REDUCTION,
+            1.0,
+        )
         layouts: list[tuple[QTextLayout, float]] = []
         total_height = 0.0
         paragraphs = text.splitlines() or [text]
@@ -423,22 +425,26 @@ class ProductDetailDelegate(QStyledItemDelegate):
             text_option = QTextOption()
             text_option.setWrapMode(QTextOption.WrapMode.WordWrap)
             layout.setTextOption(text_option)
-            paragraph_height = 0.0
+            line_top = 0.0
+            last_line_height = line_height
             layout.beginLayout()
             while True:
                 line = layout.createLine()
                 if not line.isValid():
                     break
                 line.setLineWidth(max(width, 1))
-                line.setLineHeight(
-                    line_height,
-                    QTextLine.LineHeightTypes.FixedHeight,
+                line.setPosition(QPointF(0, line_top))
+                last_line_height = line.height()
+                line_top += max(
+                    line.height() - cls.LINE_SPACING_REDUCTION,
+                    1.0,
                 )
-                line.setPosition(QPointF(0, paragraph_height))
-                paragraph_height += line.height()
             layout.endLayout()
-            if paragraph_height <= 0:
-                paragraph_height = line_height
+            paragraph_height = (
+                line_top - cls.LINE_SPACING_REDUCTION + last_line_height
+                if line_top > 0
+                else line_height
+            )
             layouts.append((layout, total_height))
             total_height += paragraph_height
         return layouts, round(total_height)

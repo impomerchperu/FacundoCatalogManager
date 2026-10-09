@@ -404,6 +404,7 @@ class ProductDetailDelegate(QStyledItemDelegate):
     HORIZONTAL_PADDING = 4
     VERTICAL_PADDING = 2
     LINE_SPACING_REDUCTION = 1
+    PARAGRAPH_SPACING_REDUCTION = 2
 
     @classmethod
     def _layout_text(
@@ -450,7 +451,7 @@ class ProductDetailDelegate(QStyledItemDelegate):
             layouts.append((layout, total_height))
             if paragraph_index < len(paragraphs) - 1:
                 total_height += max(
-                    paragraph_height - cls.LINE_SPACING_REDUCTION,
+                    paragraph_height - cls.PARAGRAPH_SPACING_REDUCTION,
                     1,
                 )
             else:
@@ -768,6 +769,7 @@ class ProductTable(QTableWidget):
         self._sort_states: dict[int, Qt.SortOrder] = {
             self.CATEGORY_COLUMN: Qt.SortOrder.AscendingOrder,
         }
+        self._last_applied_sort_states = self._sort_states.copy()
         self._default_category_sort_active = True
         self._stable_code_width: int | None = None
         self._products: list[Product] = []
@@ -988,12 +990,19 @@ class ProductTable(QTableWidget):
 
     def _apply_current_sort(self) -> None:
         sorted_products = self._sorted_products()
+        sort_state_changed = (
+            self._last_applied_sort_states != self._sort_states
+        )
         if not self._rendered_products and self.rowCount() == 0:
             self._update_sort_header_labels()
             self._render_products(sorted_products)
+            self._last_applied_sort_states = self._sort_states.copy()
             return
         self._render_products(sorted_products)
         self._update_sort_header_labels()
+        self._last_applied_sort_states = self._sort_states.copy()
+        if sort_state_changed:
+            self._preferred_widths_cache = None
 
     def _sorted_products(self) -> list[Product]:
         products = list(self._products)

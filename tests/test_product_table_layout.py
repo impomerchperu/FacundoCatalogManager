@@ -722,6 +722,7 @@ def test_product_table_stock_width_shows_verde_oscuro_completely():
         1,
     )
     assert ProductImageDelegate.DEFAULT_SIZE == ProductTable.DEFAULT_IMAGE_CELL_SIZE
+    assert ProductTable.IMAGE_SIZE == 144  # tamaño del preview en ProductDialog
 
     table.close()
 

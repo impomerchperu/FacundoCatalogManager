@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QFontMetrics, QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -21,6 +22,26 @@ from PySide6.QtWidgets import (
 from config.runtime_paths import resolve_data_path
 from models.product import Product
 from services.product_service import ProductService
+
+
+class _GalleryImageChoiceLabel(QLabel):
+    """Miniatura clicable que muestra el píxel de imagen seleccionado."""
+
+    def __init__(self, callback: Callable[[], None], parent=None) -> None:
+        super().__init__(parent)
+        self._callback = callback
+        self.setObjectName("gallery_image_choice")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setFixedSize(
+            ProductImageGalleryDialog.IMAGE_SIZE,
+            ProductImageGalleryDialog.IMAGE_SIZE,
+        )
+
+    def mouseReleaseEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._callback()
+        super().mouseReleaseEvent(event)
 
 
 class ProductImageGalleryDialog(QDialog):
@@ -46,16 +67,37 @@ class ProductImageGalleryDialog(QDialog):
         self.resize(400, 270)
 
         self.summary = QLabel()
-        self.summary.setWordWrap(True)
+        self.summary.setWordWrap(False)
         self.summary.setAlignment(
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+        )
+        self.summary.setText(
+            "Clic en imagen actual para elegir imagen local\n"
+            "Clic en imagen alternativa para reemplazar actual"
+        )
+        longest_instruction = (
+            "Clic en imagen alternativa para reemplazar actual"
+        )
+        self.summary.setMinimumWidth(
+            QFontMetrics(self.summary.font()).horizontalAdvance(
+                longest_instruction,
+            )
+            + 4
         )
         self.save_button = QPushButton("Guardar")
         self.save_button.clicked.connect(self.save)
 
         header = QHBoxLayout()
         header.addStretch(1)
-        header.addWidget(self.save_button)
+
+        self.footer_layout = QHBoxLayout()
+        self.footer_layout.setSpacing(8)
+        self.footer_layout.addWidget(self.summary, 1)
+        self.footer_layout.addWidget(
+            self.save_button,
+            0,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+        )
 
         self.gallery_scroll = QScrollArea()
         self.gallery_scroll.setWidgetResizable(False)
@@ -74,7 +116,7 @@ class ProductImageGalleryDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addLayout(header)
         layout.addWidget(self.gallery_scroll, 1)
-        layout.addWidget(self.summary)
+        layout.addLayout(self.footer_layout)
         self._render()
 
     @staticmethod
@@ -131,10 +173,6 @@ class ProductImageGalleryDialog(QDialog):
         self.canvas.resize(canvas_size)
         self.canvas.updateGeometry()
 
-        self.summary.setText(
-            "Clic en imagen actual para elegir imagen local\n"
-            "Clic en imagen alternativa para reemplazar actual"
-        )
         self.gallery_scroll.setMinimumHeight(self.IMAGE_SIZE + 48)
         self._fit_window_width()
 
@@ -154,14 +192,22 @@ class ProductImageGalleryDialog(QDialog):
         if dialog_layout is None:
             return
         outer_margins = dialog_layout.contentsMargins()
-        target_width = (
+        gallery_width = (
             canvas_width
             + outer_margins.left()
             + outer_margins.right()
             + (2 * self.gallery_scroll.frameWidth())
             + 8
         )
-        target_width = max(target_width, self.save_button.sizeHint().width() + 24)
+        footer_width = (
+            self.summary.minimumWidth()
+            + self.footer_layout.spacing()
+            + self.save_button.sizeHint().width()
+            + outer_margins.left()
+            + outer_margins.right()
+        )
+        target_width = max(gallery_width, footer_width)
+        self.setMinimumWidth(target_width)
         self.resize(target_width, self.height())
 
     def _image_card(self, index: int, image: dict[str, object]) -> QWidget:
@@ -173,19 +219,20 @@ class ProductImageGalleryDialog(QDialog):
         card_layout.setContentsMargins(0, 0, 0, 0)
         card_layout.setSpacing(3)
 
-        image_button = QPushButton()
-        image_button.setFixedSize(self.IMAGE_SIZE, self.IMAGE_SIZE)
-        image_button.setSizePolicy(
-            QSizePolicy.Policy.Fixed,
-            QSizePolicy.Policy.Fixed,
-        )
-        image_button.setToolTip(
-            "Clic para reemplazar la imagen actual"
-            if current
-            else "Clic para intercambiar con la imagen actual"
-        )
-        image_button.setStyleSheet(
-            "QPushButton {"
+        if current:
+            callback = self.replace_primary_image
+            label_text = "Imagen actual"
+            tooltip = "Clic para elegir una imagen local"
+        else:
+            callback = lambda value=index: self.exchange_with_primary(value)
+            label_text = f"Alternativa {index}"
+            tooltip = "Clic para reemplazar la imagen actual"
+
+        image_label = _GalleryImageChoiceLabel(callback)
+        image_label.setToolTip(tooltip)
+        image_label.setProperty("image_path", path)
+        image_label.setStyleSheet(
+            "QLabel {"
             " background: #ffffff;"
             + (
                 " border: 3px solid #173f6d;"
@@ -194,39 +241,30 @@ class ProductImageGalleryDialog(QDialog):
             )
             + " border-radius: 4px; padding: 2px;"
             "}"
-            " QPushButton:hover { border-color: #4a90c2; }"
+            " QLabel:hover { border-color: #4a90c2; }"
         )
-
         pixmap = QPixmap(str(resolve_data_path(path)))
         if not pixmap.isNull():
-            image_button.setIcon(pixmap)
-            image_button.setIconSize(
-                QSize(self.IMAGE_SIZE - 10, self.IMAGE_SIZE - 10),
+            image_label.setPixmap(
+                pixmap.scaled(
+                    QSize(self.IMAGE_SIZE - 10, self.IMAGE_SIZE - 10),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                ),
             )
         else:
-            image_button.setText(
+            image_label.setText(
                 "Imagen actual\nSin vista previa"
                 if current
                 else "Alternativa\nSin vista previa"
             )
-
-        if current:
-            image_button.clicked.connect(self.replace_primary_image)
-            label_text = "Imagen actual"
-        else:
-            image_button.clicked.connect(
-                lambda _checked=False, value=index: (
-                    self.exchange_with_primary(value)
-                ),
-            )
-            label_text = f"Alternativa {index}"
 
         name = Path(path).name
         label = QLabel(f"{label_text}\n{name}")
         label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
         label.setWordWrap(True)
         label.setFixedWidth(self.IMAGE_SIZE)
-        card_layout.addWidget(image_button)
+        card_layout.addWidget(image_label)
         card_layout.addWidget(label)
         return card
 
@@ -234,15 +272,16 @@ class ProductImageGalleryDialog(QDialog):
         card = QWidget()
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(0, 0, 0, 0)
-        image_button = QPushButton("Agregar imagen")
-        image_button.setFixedSize(self.IMAGE_SIZE, self.IMAGE_SIZE)
-        image_button.setStyleSheet(
-            "QPushButton { background: #ffffff; border: 2px dashed #9bb6ca; }"
+        image_label = _GalleryImageChoiceLabel(self.replace_primary_image)
+        image_label.setText("Agregar imagen")
+        image_label.setToolTip("Clic para elegir una imagen local")
+        image_label.setStyleSheet(
+            "QLabel { background: #ffffff; border: 2px dashed #9bb6ca; }"
+            " QLabel:hover { border-color: #4a90c2; }"
         )
-        image_button.clicked.connect(self.replace_primary_image)
         label = QLabel("Imagen actual")
         label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        card_layout.addWidget(image_button)
+        card_layout.addWidget(image_label)
         card_layout.addWidget(label)
         return card
 
@@ -257,7 +296,7 @@ class ProductImageGalleryDialog(QDialog):
             self._replace_primary_path(filename)
 
     def _replace_primary_path(self, filename: str) -> None:
-        path = str(Path(filename))
+        path = str(Path(filename).expanduser().resolve())
         replacement = {
             "url": "",
             "image_path": path,

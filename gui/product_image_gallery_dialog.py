@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
@@ -224,7 +225,7 @@ class ProductImageGalleryDialog(QDialog):
             label_text = "Imagen actual"
             tooltip = "Clic para elegir una imagen local"
         else:
-            callback = lambda value=index: self.exchange_with_primary(value)
+            callback = partial(self.exchange_with_primary, index)
             label_text = f"Alternativa {index}"
             tooltip = "Clic para reemplazar la imagen actual"
 

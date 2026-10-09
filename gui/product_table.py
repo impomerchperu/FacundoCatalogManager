@@ -1672,6 +1672,20 @@ class ProductTable(QTableWidget):
         if not isinstance(gallery, list) or not gallery:
             return
         active_index %= len(gallery)
+        if active_index:
+            # Intercambio temporal en la vista: la alternativa pasa al primer
+            # lugar y la imagen principal anterior ocupa su posición. La lista
+            # original del producto nunca se modifica ni se guarda en la BD.
+            gallery = [
+                dict(image) if isinstance(image, dict) else image
+                for image in gallery
+            ]
+            gallery[0], gallery[active_index] = (
+                gallery[active_index],
+                gallery[0],
+            )
+            item.setData(ProductImageDelegate.GALLERY_ROLE, gallery)
+            active_index = 0
         item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, active_index)
         self._set_image_item_path(item, gallery, active_index)
         if 0 <= row < len(self._rendered_products):

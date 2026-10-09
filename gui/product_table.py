@@ -420,7 +420,7 @@ class ProductDetailDelegate(QStyledItemDelegate):
         layouts: list[tuple[QTextLayout, float]] = []
         total_height = 0.0
         paragraphs = text.splitlines() or [text]
-        for paragraph in paragraphs:
+        for paragraph_index, paragraph in enumerate(paragraphs):
             layout = QTextLayout(paragraph, font)
             text_option = QTextOption()
             text_option.setWrapMode(QTextOption.WrapMode.WordWrap)
@@ -448,7 +448,13 @@ class ProductDetailDelegate(QStyledItemDelegate):
                 else line_height
             )
             layouts.append((layout, total_height))
-            total_height += paragraph_height
+            if paragraph_index < len(paragraphs) - 1:
+                total_height += max(
+                    paragraph_height - cls.LINE_SPACING_REDUCTION,
+                    1,
+                )
+            else:
+                total_height += paragraph_height
         return layouts, round(total_height)
 
     @classmethod

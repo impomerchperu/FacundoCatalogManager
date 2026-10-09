@@ -27,6 +27,7 @@ class ProductImageGalleryDialog(QDialog):
     """Galería editable por clic, con guardado explícito de los cambios."""
 
     IMAGE_SIZE = 144
+    MAX_VISIBLE_IMAGES = 5
     IMAGE_EXTENSIONS = "Imágenes (*.png *.jpg *.jpeg *.webp *.gif)"
 
     def __init__(
@@ -42,15 +43,18 @@ class ProductImageGalleryDialog(QDialog):
         self.selected_index = 0 if self.images else -1
 
         self.setWindowTitle(f"Imágenes · {product.code}")
-        self.resize(900, 270)
+        self.resize(400, 270)
 
         self.summary = QLabel()
         self.summary.setWordWrap(True)
+        self.summary.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+        )
         self.save_button = QPushButton("Guardar")
         self.save_button.clicked.connect(self.save)
 
         header = QHBoxLayout()
-        header.addWidget(self.summary, 1)
+        header.addStretch(1)
         header.addWidget(self.save_button)
 
         self.gallery_scroll = QScrollArea()
@@ -70,6 +74,7 @@ class ProductImageGalleryDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addLayout(header)
         layout.addWidget(self.gallery_scroll, 1)
+        layout.addWidget(self.summary)
         self._render()
 
     @staticmethod
@@ -110,28 +115,54 @@ class ProductImageGalleryDialog(QDialog):
                 continue
             widget = item.widget()
             if widget is not None:
+                widget.setParent(None)
                 widget.deleteLater()
 
+        self.canvas.setMinimumSize(0, 0)
         for index, image in enumerate(self.images):
             self.canvas_layout.addWidget(self._image_card(index, image))
 
         if not self.images:
             self.canvas_layout.addWidget(self._empty_image_card())
-        self.canvas_layout.addStretch(1)
-        self.canvas.adjustSize()
 
-        count = len(self.images)
-        primary = (
-            Path(str(self.images[0].get("image_path", ""))).name
-            if self.images
-            else "sin imagen"
-        )
+        self.canvas_layout.activate()
+        canvas_size = self.canvas_layout.sizeHint()
+        self.canvas.setMinimumSize(canvas_size)
+        self.canvas.resize(canvas_size)
+        self.canvas.updateGeometry()
+
         self.summary.setText(
-            f"{count} imagen(es) · Imagen actual: {primary}. "
-            "Clic en la imagen actual para reemplazarla; clic en una "
-            "alternativa para intercambiarla con la actual."
+            "Clic en imagen actual para elegir imagen local\n"
+            "Clic en imagen alternativa para reemplazar actual"
         )
         self.gallery_scroll.setMinimumHeight(self.IMAGE_SIZE + 48)
+        self._fit_window_width()
+
+    def _fit_window_width(self) -> None:
+        visible_count = min(
+            max(len(self.images), 1),
+            self.MAX_VISIBLE_IMAGES,
+        )
+        margins = self.canvas_layout.contentsMargins()
+        canvas_width = (
+            margins.left()
+            + margins.right()
+            + (visible_count * self.IMAGE_SIZE)
+            + (max(visible_count - 1, 0) * self.canvas_layout.spacing())
+        )
+        dialog_layout = self.layout()
+        if dialog_layout is None:
+            return
+        outer_margins = dialog_layout.contentsMargins()
+        target_width = (
+            canvas_width
+            + outer_margins.left()
+            + outer_margins.right()
+            + (2 * self.gallery_scroll.frameWidth())
+            + 8
+        )
+        target_width = max(target_width, self.save_button.sizeHint().width() + 24)
+        self.resize(target_width, self.height())
 
     def _image_card(self, index: int, image: dict[str, object]) -> QWidget:
         path = str(image.get("image_path", "") or "").strip()

@@ -56,7 +56,7 @@ def test_product_image_gallery_dialog_uses_product_table_image_size():
     assert dialog.IMAGE_SIZE == 144
     assert dialog.selected_index == 0
     assert len(dialog.images) == 2
-    assert dialog.layout().count() == 2
+    assert dialog.layout().count() == 3
     assert dialog.save_button.text() == "Guardar"
     assert dialog.summary.text().splitlines() == [
         "Clic en imagen actual para elegir imagen local",

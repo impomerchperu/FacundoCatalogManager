@@ -34,6 +34,9 @@ class CatalogLoadWorker(QObject):
             image_url=row["image_url"],
             image_path=row["image_path"],
             image_hash=row["image_hash"],
+            gallery_images=ProductRepository._json_gallery_images(
+                row["gallery_images"],
+            ),
             content_hash=row["content_hash"],
         )
 

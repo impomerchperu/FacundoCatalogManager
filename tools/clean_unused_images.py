@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -39,15 +40,19 @@ def _active_image_paths(db_path: Path, project_root: Path) -> set[Path]:
                 "La tabla products no contiene la columna image_path."
             )
 
+        gallery_column = "gallery_images" if "gallery_images" in columns else None
+        select_columns = ["image_path"]
+        if gallery_column is not None:
+            select_columns.append(gallery_column)
         rows = connection.execute(
-            "SELECT image_path FROM products "
-            "WHERE image_path IS NOT NULL AND TRIM(image_path) <> ''"
+            "SELECT " + ", ".join(select_columns) + " FROM products"
         ).fetchall()
     finally:
         connection.close()
 
     paths: set[Path] = set()
-    for (raw_path,) in rows:
+    for row in rows:
+        raw_path = row[0]
         value = str(raw_path or "").strip()
         if value:
             paths.add(
@@ -56,6 +61,28 @@ def _active_image_paths(db_path: Path, project_root: Path) -> set[Path]:
                     project_root,
                 )
             )
+
+        if gallery_column is None or len(row) < 2:
+            continue
+        try:
+            gallery_images = json.loads(row[1] or "[]")
+        except (TypeError, json.JSONDecodeError):
+            gallery_images = []
+        if not isinstance(gallery_images, list):
+            continue
+        for image in gallery_images:
+            if not isinstance(image, dict):
+                continue
+            gallery_path = str(
+                image.get("image_path", image.get("path", "")) or ""
+            ).strip()
+            if gallery_path:
+                paths.add(
+                    _resolve_project_path(
+                        gallery_path.replace("\\", "/"),
+                        project_root,
+                    )
+                )
     return paths
 
 

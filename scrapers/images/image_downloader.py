@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from uuid import uuid4
 
 import requests
 
@@ -61,6 +62,47 @@ class ImageDownloader:
             raise last_error
         raise RuntimeError("No se pudo descargar la imagen.")
 
+    def download_staged(
+        self,
+        code: str,
+        url: str,
+        staging_dir: str | Path,
+    ) -> str:
+        """Descarga una imagen sin sobrescribir el almacenamiento vigente."""
+        staging_path = resolve_data_path(staging_dir)
+        staging_path.mkdir(parents=True, exist_ok=True)
+        token = uuid4().hex
+        last_error = None
+        for attempt in range(self.max_retries):
+            try:
+                response = requests.get(
+                    url,
+                    timeout=self.request_timeout,
+                    headers={"User-Agent": "FacundoCatalogManager/1.0"},
+                )
+                response.raise_for_status()
+                extension = self._extension(
+                    url,
+                    response.headers.get("Content-Type", ""),
+                )
+                target = staging_path / (
+                    f"{self._safe_code(code)}-{token}{extension}"
+                )
+                temporary = target.with_suffix(target.suffix + ".tmp")
+                temporary.write_bytes(response.content)
+                temporary.replace(target)
+                return to_data_relative_path(target)
+            except requests.exceptions.RequestException as error:
+                last_error = error
+                if not self._is_retryable_error(error):
+                    raise
+                if attempt < self.max_retries - 1:
+                    time.sleep(attempt + 1)
+
+        if last_error:
+            raise last_error
+        raise RuntimeError("No se pudo descargar la imagen.")
+
     @staticmethod
     def _is_retryable_error(error):
         if isinstance(
@@ -102,6 +144,47 @@ class ImageDownloader:
             "image/gif": ".gif",
         }
         return mapping.get(content_type.split(";", 1)[0].lower(), ".jpg")
+
+    def download_gallery(
+        self,
+        code: str,
+        url: str,
+        position: int,
+        output_dir: str | Path,
+    ) -> str:
+        """Descarga una imagen de galería con nombre estable por producto/posición."""
+        target_dir = resolve_data_path(output_dir)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        last_error = None
+        for attempt in range(self.max_retries):
+            try:
+                response = requests.get(
+                    url,
+                    timeout=self.request_timeout,
+                    headers={"User-Agent": "FacundoCatalogManager/1.0"},
+                )
+                response.raise_for_status()
+                extension = self._extension(
+                    url,
+                    response.headers.get("Content-Type", ""),
+                )
+                target = target_dir / (
+                    f"{self._safe_code(code)}-{int(position):02d}{extension}"
+                )
+                temporary = target.with_suffix(target.suffix + ".tmp")
+                temporary.write_bytes(response.content)
+                temporary.replace(target)
+                return to_data_relative_path(target)
+            except requests.exceptions.RequestException as error:
+                last_error = error
+                if not self._is_retryable_error(error):
+                    raise
+                if attempt < self.max_retries - 1:
+                    time.sleep(attempt + 1)
+
+        if last_error:
+            raise last_error
+        raise RuntimeError("No se pudo descargar la imagen de galería.")
 
     @staticmethod
     def hash_file(path: str | Path) -> str:

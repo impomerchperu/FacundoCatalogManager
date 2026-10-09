@@ -137,6 +137,14 @@ def split_category_names(value: object) -> list[str]:
     return result
 
 
+def available_category_names(*values: object) -> list[str]:
+    """Return canonical categories plus any categories supplied by the caller."""
+    names: set[str] = set(_CANONICAL_CATEGORY_NAMES)
+    for value in values:
+        names.update(split_category_names(value))
+    return sorted(names, key=str.casefold)
+
+
 def merge_category_names(*values: object) -> str:
     """Merge category values using normalized keys and canonical names."""
     merged: list[str] = []

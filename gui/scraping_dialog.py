@@ -31,7 +31,10 @@ class ScrapingDialog(QDialog):
         # Windows la trate como una ventana normal y pueda alternarse con
         # MainWindow mediante clic o Alt+Tab.
         super().__init__(parent)
-        self.setWindowFlag(Qt.WindowType.Window, True)
+        self.setWindowFlags(
+            Qt.WindowType.Window
+            | Qt.WindowType.WindowCloseButtonHint
+        )
 
         self.scraping_thread: QThread | None = None
         self.worker: ScrapingWorker | None = None
@@ -279,6 +282,12 @@ class ScrapingDialog(QDialog):
 
         dialog = QDialog(self)
         self.detail_dialog = dialog
+        dialog.setWindowFlags(
+            Qt.WindowType.Window
+            | Qt.WindowType.WindowMinimizeButtonHint
+            | Qt.WindowType.WindowMaximizeButtonHint
+            | Qt.WindowType.WindowCloseButtonHint
+        )
         dialog.setWindowTitle("Detalle de la descarga")
         dialog.resize(1000, 600)
         dialog.setModal(False)

@@ -315,7 +315,7 @@ def test_database_migrates_v2_run_history_relationship_from_v1():
         "DROP TABLE scraping_run_history"
     )
     db.execute_query(
-        "DELETE FROM schema_migrations WHERE version=2"
+        "DELETE FROM schema_migrations WHERE version IN (2, 3)"
     )
 
     assert db.fetch_one(

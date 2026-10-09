@@ -46,6 +46,7 @@ class CatalogSyncService:
         "image_url": "URL imagen",
         "image_path": "Ruta imagen",
         "image_hash": "Hash imagen",
+        "gallery_images": "Galería de imágenes",
         "content_hash": "Hash contenido",
     }
 
@@ -61,6 +62,7 @@ class CatalogSyncService:
         self.last_sync_result = SyncResult()
         self.hash_service = ProductHashService()
         self.result_writer: ScrapingResultWriter | None = None
+        self._deferred_image_cleanup = False
 
     @staticmethod
     def _normalize_code(value) -> str:
@@ -208,8 +210,23 @@ class CatalogSyncService:
                 or result.products_unique >= result.products_expected
             )
         ):
-            self._cleanup_unused_images()
+            if self._transaction_is_active():
+                self._deferred_image_cleanup = True
+            else:
+                self._cleanup_unused_images()
         return result
+
+    def finalize_post_commit(self) -> None:
+        """Ejecuta la limpieza diferida cuando la transacción externa ya confirmó."""
+        if not self._deferred_image_cleanup:
+            return
+        self._deferred_image_cleanup = False
+        self._cleanup_unused_images()
+
+    def _transaction_is_active(self) -> bool:
+        """Indica si otra capa mantiene abierta la transacción del catálogo."""
+        db = getattr(self.repository, "db", None)
+        return bool(getattr(db, "_transaction_active", False))
 
     def synchronize(self, products, prune_missing: bool = False):
         return self.sync(products, prune_missing=prune_missing)
@@ -349,8 +366,42 @@ class CatalogSyncService:
                     color_stock.get(normalized_color, 0), normalized_stock
                 )
             existing.color_stock = color_stock
+            cls._merge_gallery_images(existing, product)
             cls._merge_missing_scalar_fields(existing, product)
         return list(consolidated.values())
+
+    @staticmethod
+    def _merge_gallery_images(existing, product) -> None:
+        current = [
+            dict(image)
+            for image in list(getattr(existing, "gallery_images", []) or [])
+            if isinstance(image, dict)
+        ]
+        incoming = [
+            dict(image)
+            for image in list(getattr(product, "gallery_images", []) or [])
+            if isinstance(image, dict)
+        ]
+        seen = {
+            str(image.get("url", "") or "").strip().casefold()
+            for image in current
+            if str(image.get("url", "") or "").strip()
+        }
+        for image in incoming:
+            url = str(image.get("url", "") or "").strip()
+            if not url or url.casefold() in seen:
+                continue
+            current.append(image)
+            seen.add(url.casefold())
+        current.sort(
+            key=lambda image: (
+                int(image.get("position", 0) or 0),
+                str(image.get("url", "") or ""),
+            )
+        )
+        for position, image in enumerate(current, start=1):
+            image["position"] = position
+        existing.gallery_images = current
 
     @staticmethod
     def _merge_missing_scalar_fields(existing, product) -> None:

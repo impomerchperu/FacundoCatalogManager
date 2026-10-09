@@ -46,6 +46,9 @@ class ProductController:
             product,
         )
 
+    def save_products(self, products: list[Product]) -> list[Product]:
+        return self._get_service().save_products(products)
+
     def delete_product(
         self,
         product_id: int,
@@ -53,6 +56,15 @@ class ProductController:
         self._get_service().delete_product(
             product_id,
         )
+
+    def rename_category(self, category_name: str, new_name: str) -> int:
+        return self._get_service().rename_category(
+            category_name,
+            new_name,
+        )
+
+    def delete_category(self, category_name: str) -> int:
+        return self._get_service().delete_category(category_name)
 
     def search_products(
         self,

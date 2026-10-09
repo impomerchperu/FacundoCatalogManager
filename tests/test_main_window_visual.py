@@ -15,10 +15,17 @@ from PySide6.QtWidgets import (
 )
 
 from gui.main_window import CategoryFilterButton, CategoryScrollArea, MainWindow
+from gui.product_table import ProductTable
+from models.product import Product
 
 
 def _qapp():
     return QApplication.instance() or QApplication([])
+
+
+class _Controller:
+    def get_products(self):
+        return []
 
 
 def test_main_window_visual_metrics_keep_compact_hierarchy():
@@ -129,10 +136,12 @@ def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
         for index in range(window.top_actions_container.layout().count())
     ]
     assert [widget.text() for widget in action_widgets] == [
-        "Exportar Excel",
-        "Exportar PDF",
-        "Exportar CSV",
-        "Actualizar catálogo",
+        "Imágenes (0)",
+        "Exportar",
+        "Importar",
+        "Nuevo",
+        "Eliminar",
+        "Actualizar Catálogo",
         "Historial",
     ]
 
@@ -160,10 +169,12 @@ def test_action_buttons_are_grouped_for_top_right_layout():
     ]
 
     assert labels == [
-        "Exportar Excel",
-        "Exportar PDF",
-        "Exportar CSV",
-        "Actualizar catálogo",
+        "Imágenes (0)",
+        "Exportar",
+        "Importar",
+        "Nuevo",
+        "Eliminar",
+        "Actualizar Catálogo",
         "Historial",
     ]
     assert len(window.catalog_bootstrap_blocked_buttons) == 1
@@ -702,3 +713,72 @@ def test_main_window_starts_with_categories_active_and_expected_geometry():
     window.category_scroll.deleteLater()
     window.category_sidebar.deleteLater()
     window.category_toggle_button.deleteLater()
+
+def test_main_window_exposes_import_instead_of_edit():
+    _qapp()
+    window = MainWindow.__new__(MainWindow)
+    window.catalog_bootstrap_blocked_buttons = []
+    host = QWidget()
+    layout = QHBoxLayout(host)
+    MainWindow._add_action_buttons(window, layout)
+
+    labels = [
+        layout.itemAt(index).widget().text()
+        for index in range(layout.count())
+        if layout.itemAt(index).widget() is not None
+    ]
+
+    assert "Importar" in labels
+    assert "Editar" not in labels
+
+    host.deleteLater()
+
+
+
+def test_inline_stock_by_color_edit_updates_color_name_and_total():
+    _qapp()
+    table = ProductTable(_Controller())
+    product = Product(
+        code="FB-6002",
+        name="Producto",
+        stock=15,
+        color_stock={"Rojo": 10, "Azul": 5},
+    )
+
+    MainWindow._update_product_from_cell(
+        product,
+        table.STOCK_COLUMN,
+        "Fucsia: 11\nAzul: 6",
+        table,
+    )
+
+    assert product.color_stock == {"Fucsia": 11, "Azul": 6}
+    assert product.stock == 17
+    old_background, old_indicator = ProductTable._stock_color_style("Rojo")
+    new_background, new_indicator = ProductTable._stock_color_style("Fucsia")
+    assert (new_background, new_indicator) != (old_background, old_indicator)
+    table.close()
+
+
+def test_inline_stock_by_color_edit_rejects_malformed_rows():
+    _qapp()
+    table = ProductTable(_Controller())
+    product = Product(
+        code="FB-6003",
+        name="Producto",
+        stock=10,
+        color_stock={"Rojo": 10},
+    )
+
+    try:
+        MainWindow._update_product_from_cell(
+            product,
+            table.STOCK_COLUMN,
+            "Rojo sin cantidad",
+            table,
+        )
+    except ValueError as error:
+        assert "Color: cantidad" in str(error)
+    else:
+        raise AssertionError("El stock por color mal formado debería rechazarse")
+    table.close()

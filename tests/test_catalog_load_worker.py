@@ -55,6 +55,13 @@ def test_catalog_load_worker_maps_product_rows(monkeypatch):
                     "image_url": "https://example.com/a.jpg",
                     "image_path": "images/a.jpg",
                     "image_hash": "hash-image",
+                    "gallery_images": (
+                        '[{"url":"https://example.com/gallery.jpg",'
+                        '"image_path":"images/gallery.jpg",'
+                        '"image_hash":"hash-gallery",'
+                        '"position":1,'
+                        '"source":"woocommerce-gallery"}]'
+                    ),
                     "content_hash": "hash-content",
                 }
             ]
@@ -96,6 +103,15 @@ def test_catalog_load_worker_maps_product_rows(monkeypatch):
                 image_url="https://example.com/a.jpg",
                 image_path="images/a.jpg",
                 image_hash="hash-image",
+                gallery_images=[
+                    {
+                        "url": "https://example.com/gallery.jpg",
+                        "image_path": "images/gallery.jpg",
+                        "image_hash": "hash-gallery",
+                        "position": 1,
+                        "source": "woocommerce-gallery",
+                    }
+                ],
                 content_hash="hash-content",
             )
         ]

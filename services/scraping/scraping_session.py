@@ -56,6 +56,7 @@ class ScrapingSession:
         self.history_repository = history_repository
         self.catalog_repository = catalog_repository
         self.result = ScrapingSessionResult()
+        self._image_review_batch: str | None = None
 
     def execute(self, categories=None, progress_callback=None):
         return self._execute(lambda: self.runner.run(categories or [], progress_callback))
@@ -82,6 +83,7 @@ class ScrapingSession:
         db = getattr(self.history_repository, "db", None)
         transaction_started = False
         try:
+            self._begin_image_review_batch()
             if db is not None:
                 db.begin()
                 transaction_started = True
@@ -98,6 +100,7 @@ class ScrapingSession:
             if self.result.errors:
                 self._rollback_transaction(db, transaction_started)
                 transaction_started = False
+                self._discard_image_review_batch()
                 self.result.finished_at = datetime.now(timezone.utc)
                 self._write_error_result_artifact()
                 self._save_history_in_clean_transaction(db)
@@ -110,9 +113,16 @@ class ScrapingSession:
             if db is not None and transaction_started:
                 db.commit()
                 transaction_started = False
+
+            self._finalize_catalog_post_commit()
+
+            batch_id = self._image_review_batch
+            self._finalize_image_review_batch()
+            self._apply_deferred_image_review(batch_id)
         except Exception as error:  # noqa: BLE001
             self._rollback_transaction(db, transaction_started)
             transaction_started = False
+            self._discard_image_review_batch()
             self.result.errors.append(str(error))
             self.result.finished_at = datetime.now(timezone.utc)
             self._write_error_result_artifact()
@@ -123,6 +133,54 @@ class ScrapingSession:
                     f"No se pudo registrar el historial del error: {history_error}"
                 )
         return self.result
+
+    def _finalize_catalog_post_commit(self) -> None:
+        """Finaliza tareas de catálogo que requieren la transacción ya confirmada."""
+        sync_service = getattr(self.runner, "scraping_service", None)
+        catalog_sync = getattr(sync_service, "catalog_sync_service", None)
+        finalize = getattr(catalog_sync, "finalize_post_commit", None)
+        if callable(finalize):
+            finalize()
+
+    def _apply_deferred_image_review(self, batch_id: str | None) -> None:
+        service = self._image_review_service()
+        apply_approved = getattr(service, "apply_approved", None)
+        if not callable(apply_approved):
+            return
+        try:
+            apply_approved(batch_id)
+        except (OSError, ValueError, RuntimeError):
+            # Una decisión de imagen no debe convertir una ejecución de
+            # catálogo exitosa en una ejecución fallida. La revisión queda
+            # pendiente para el siguiente ciclo.
+            return
+
+    def _image_review_service(self):
+        sync_service = getattr(self.runner, "scraping_service", None)
+        adapter = getattr(sync_service, "image_sync_adapter", None)
+        image_sync = getattr(adapter, "image_sync", None)
+        return getattr(image_sync, "review_service", None)
+
+    def _begin_image_review_batch(self) -> None:
+        service = self._image_review_service()
+        begin = getattr(service, "begin_batch", None)
+        if callable(begin):
+            value = begin()
+            self._image_review_batch = str(value) if value else None
+
+    def _finalize_image_review_batch(self) -> None:
+        service = self._image_review_service()
+        finalize = getattr(service, "finalize_batch", None)
+        if callable(finalize):
+            finalize(self._image_review_batch)
+        self._image_review_batch = None
+
+    def _discard_image_review_batch(self) -> None:
+        service = self._image_review_service()
+        discard = getattr(service, "discard_batch", None)
+        if callable(discard):
+            discard(self._image_review_batch)
+        self._image_review_batch = None
 
     def _only_coverage_error(self):
         coverage_errors = [

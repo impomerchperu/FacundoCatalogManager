@@ -25,6 +25,8 @@ class ScrapedProduct:
 
     image_url: str = ""
     image_path: str = ""
+    image_candidates: list[dict[str, object]] = field(default_factory=list)
+    gallery_images: list[dict[str, object]] = field(default_factory=list)
 
     image_hash: str = ""
 

@@ -17,7 +17,8 @@ class FakeScraper:
 
 
 class FakeImageSyncAdapter:
-    def sync_products(self, products):
+    def sync_products(self, products, progress_callback=None):
+        del progress_callback
         for product in products:
             product.image_path = f"data/images/products/{product.code}.webp"
             product.image_hash = "image-hash"

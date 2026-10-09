@@ -1,10 +1,10 @@
 import contextlib
 import re
 from typing import ClassVar
-from urllib.parse import urljoin
 
 from scrapers.extractors.code_utils import extract_code_from_soup, normalize_code
 from scrapers.extractors.price_extractor import PriceExtractor
+from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.extractors.stock_extractor import StockExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
@@ -51,8 +51,11 @@ class ProductExtractor:
                 stock = color_total
         code = self.extract_code(soup)
         self._extracted_codes[id(soup)] = code
-
-        return ScrapedProductFactory.create(
+        image_candidates = self.extract_image_candidates(
+            soup,
+            base_url=url or self.BASE_URL,
+        )
+        result = ScrapedProductFactory.create(
             source=self.SOURCE,
             url=url,
             code=code,
@@ -65,8 +68,11 @@ class ProductExtractor:
             price_hundred=self.price_extractor.extract_hundred(soup),
             price_thousand=self.price_extractor.extract_thousand(soup),
             color_stock=color_stock,
-            image_url=self.extract_image(soup),
+            image_url=image_candidates[0]["url"] if image_candidates else "",
         )
+        result.image_candidates = image_candidates
+        self._extracted_codes.pop(id(soup), None)
+        return result
 
     @classmethod
     def _normalize_code_candidate(cls, text: str) -> str:
@@ -493,36 +499,31 @@ class ProductExtractor:
                     pass
         return None
 
-    def extract_image(self, soup):
+    def extract_image(self, soup, *, base_url=""):
         code = self._extracted_codes.pop(id(soup), None)
         if code is None:
             code = self.extract_code(soup)
-        candidates = []
-        for img in soup.find_all("img"):
-            url = img.get("data-src") or img.get("data-lazy-src") or img.get("src") or ""
-            if not url or url.startswith("data:image"):
-                continue
-            if "Logo" in url or "Proximo" in url:
-                continue
-            candidates.append(self._normalize_image_url(url))
-        if not candidates:
-            return ""
-        if code:
-            for url in candidates:
-                if code.lower() in url.lower():
-                    return url
-        for url in candidates:
-            if "/uploads/" in url:
-                return url
-        return candidates[0]
+        candidates = ProductImageExtractor.extract_candidates(
+            soup,
+            code=code,
+            name=self.extract_name(soup),
+            base_url=base_url or self.BASE_URL,
+        )
+        return candidates[0]["url"] if candidates else ""
+
+    def extract_image_candidates(self, soup, *, base_url=""):
+        code = self._extracted_codes.get(id(soup))
+        if code is None:
+            code = self.extract_code(soup)
+        return ProductImageExtractor.extract_candidates(
+            soup,
+            code=code,
+            name=self.extract_name(soup),
+            base_url=base_url or self.BASE_URL,
+        )
 
     def _normalize_image_url(self, url):
-        if not url:
-            return ""
-        if url.startswith("//"):
-            return "https:" + url
-        if url.startswith("/"):
-            return urljoin(self.BASE_URL, url)
-        if not url.startswith(("http://", "https://")):
-            return urljoin(self.BASE_URL + "/", url)
-        return url
+        return ProductImageExtractor._normalize_url(
+            url,
+            base_url=self.BASE_URL,
+        )

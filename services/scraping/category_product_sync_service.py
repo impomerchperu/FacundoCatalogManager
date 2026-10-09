@@ -282,6 +282,7 @@ class CategoryProductSyncService:
         synced_products = self.sync_products(
             raw_products,
             full_sync=full_mode,
+            progress_callback=progress_callback,
             allow_prune=complete,
             expected_products=len(coverage_products) if full_mode else 0,
             expected_category_occurrences=expected_category_occurrences,
@@ -316,6 +317,7 @@ class CategoryProductSyncService:
         products,
         full_sync=False,
         allow_prune=False,
+        progress_callback=None,
         expected_products=0,
         expected_category_occurrences=0,
     ):
@@ -353,7 +355,13 @@ class CategoryProductSyncService:
             )
             if self.image_sync_adapter:
                 started = time.perf_counter()
-                products = cast(list[Any], self.image_sync_adapter.sync_products(products))
+                products = cast(
+                    list[Any],
+                    self.image_sync_adapter.sync_products(
+                        products,
+                        progress_callback=progress_callback,
+                    ),
+                )
                 _log_timing(
                     "SCRAPING TIMING | stage=images | products=%d | seconds=%.3f",
                     len(products),
@@ -435,7 +443,12 @@ class CategoryProductSyncService:
             synced_product = synced_by_code.get(code.casefold())
             if synced_product is None:
                 continue
-            for field in ("image_path", "image_hash", "content_hash"):
+            for field in (
+                "image_path",
+                "image_hash",
+                "gallery_images",
+                "content_hash",
+            ):
                 value = getattr(synced_product, field, "")
                 if value:
                     setattr(raw_product, field, value)

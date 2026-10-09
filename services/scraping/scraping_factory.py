@@ -30,11 +30,13 @@ from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,
 )
 from services.scraping.category_service import CategoryService
+from services.scraping.image_review_service import ImageReviewService
 from services.scraping.image_sync_adapter import ImageSyncAdapter
 from services.scraping.normalized_category_product_sync_service import (
     NormalizedCategoryProductSyncService,
 )
 from services.scraping.product_diff_service import ProductDiffService
+from services.scraping.product_gallery_sync_service import ProductGallerySyncService
 from services.scraping.scraped_product_mapper import ScrapedProductMapper
 from services.scraping.scraped_product_persistence_service import (
     ScrapedProductPersistenceService,
@@ -87,6 +89,7 @@ class ScrapingFactory:
         history_repository = ScrapingHistoryRepository(db)
 
         image_sync_adapter = None
+        gallery_sync = None
         if config.download_images:
             image_output_dir = Path(config.images_folder)
             if image_output_dir.name.casefold() != "products":
@@ -98,10 +101,15 @@ class ScrapingFactory:
                 max_retries=config.max_retries,
             )
             image_manager = SafeImageManager(downloader=image_downloader)
+            image_review_service = ImageReviewService(
+                repository=product_repository,
+            )
             image_sync = ImageSync(
                 image_manager=image_manager,
                 max_workers=config.image_workers,
             )
+            image_sync.review_service = image_review_service
+            image_sync.image_downloader = image_downloader
             image_sync_adapter = ImageSyncAdapter(image_sync=image_sync)
 
         browser = Browser(
@@ -109,6 +117,18 @@ class ScrapingFactory:
             max_retries=config.max_retries,
             http_workers=config.http_workers,
         )
+        if image_sync_adapter is not None:
+            gallery_sync = ProductGallerySyncService(
+                browser=browser,
+                product_extractor=ProductExtractor(),
+                image_downloader=image_downloader,
+                review_service=image_review_service,
+                max_workers=config.gallery_workers,
+                max_candidates=config.gallery_max_candidates,
+                refresh_existing=config.refresh_galleries,
+            )
+            image_sync_adapter.gallery_sync = gallery_sync
+
         category_scraper = ResilientCategoryScraper(
             browser=browser,
             category_extractor=CategoryExtractor(),

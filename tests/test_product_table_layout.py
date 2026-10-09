@@ -1,10 +1,22 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFontMetrics, QPixmap
-from PySide6.QtWidgets import QApplication, QHeaderView
+from PySide6.QtGui import QFontMetrics, QFontMetricsF, QPixmap
+from PySide6.QtWidgets import (
+    QApplication,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QPlainTextEdit,
+)
 
-from gui.product_table import ProductImageDelegate, ProductTable, StockColorDelegate
+from gui.product_table import (
+    PriceDelegate,
+    ProductDetailDelegate,
+    ProductImageDelegate,
+    ProductTable,
+    StockColorDelegate,
+)
 from models.product import Product
 
 
@@ -54,7 +66,7 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     assert table.cellWidget(0, ProductTable.IMAGE_COLUMN) is None
     assert isinstance(delegate, ProductImageDelegate)
     assert item.data(ProductImageDelegate.IMAGE_ROLE) == str(image_path)
-    assert table.columnWidth(ProductTable.IMAGE_COLUMN) >= (
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == (
         ProductImageDelegate.DEFAULT_SIZE
     )
     assert table.rowHeight(0) == table.columnWidth(ProductTable.IMAGE_COLUMN)
@@ -63,7 +75,7 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     QApplication.processEvents()
 
     assert table.rowHeight(0) == table.columnWidth(ProductTable.IMAGE_COLUMN)
-    assert table.columnWidth(ProductTable.IMAGE_COLUMN) >= (
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == (
         ProductImageDelegate.DEFAULT_SIZE
     )
 
@@ -79,6 +91,37 @@ def test_product_table_category_uses_approved_two_line_layout():
         "Impresoras y Consumible",
         "Fotográficas Térmicas",
     ]
+
+
+def test_product_table_category_width_matches_reference_and_detail_receives_savings():
+    _qapp()
+
+    table = ProductTable(_Controller())
+    table.resize(1800, 700)
+    table.show()
+    product = Product(
+        code="FB-403",
+        name="Producto",
+        description="Detalle del producto",
+        category="Enmicadoras / Laminadoras",
+    )
+    table.load_products([product])
+    QApplication.processEvents()
+
+    metrics = QFontMetrics(table.font())
+    expected_category = (
+        metrics.horizontalAdvance("Enmicadoras / Laminadoras")
+        + (2 * ProductTable.CONTENT_SIDE_PADDING)
+    )
+
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_category
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == 144
+    assert table.rowHeight(0) == 144
+    assert table.columnWidth(ProductTable.DETAIL_COLUMN) > (
+        ProductTable.MIN_COLUMN_WIDTHS[ProductTable.DETAIL_COLUMN]
+    )
+
+    table.close()
 
 
 def test_product_table_category_with_long_word_stays_on_one_line():
@@ -109,11 +152,18 @@ def test_product_table_category_sublimacion_stays_on_one_line():
     assert item.text() == "Artículos de Sublimación"
     assert "\n" not in item.text()
 
-    expected_width = (
+    expected_reference_width = (
+        QFontMetrics(table.font()).horizontalAdvance(
+            ProductTable.CATEGORY_REFERENCE_TEXT,
+        )
+        + (2 * ProductTable.CONTENT_SIDE_PADDING)
+    )
+    expected_text_width = (
         QFontMetrics(table.font()).horizontalAdvance(item.text())
         + (2 * ProductTable.CONTENT_SIDE_PADDING)
     )
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) >= expected_width
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_reference_width
+    assert expected_text_width <= expected_reference_width
 
 
 def test_product_table_category_enmicadoras_stays_on_one_line():
@@ -140,7 +190,7 @@ def test_product_table_category_enmicadoras_stays_on_one_line():
         QFontMetrics(table.font()).horizontalAdvance(item.text())
         + (2 * ProductTable.CONTENT_SIDE_PADDING)
     )
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) >= expected_width
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_width
 
     table.close()
 
@@ -173,12 +223,12 @@ def test_product_table_category_width_persists_when_products_are_filtered():
         )
         + (2 * ProductTable.CONTENT_SIDE_PADDING)
     )
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) >= expected_width
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_width
 
     table.load_products([full_catalog[1]])
     QApplication.processEvents()
 
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) >= expected_width
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_width
 
     table.close()
 
@@ -558,3 +608,308 @@ def test_product_table_stock_width_stays_content_fitted_when_window_grows():
 
     table.close()
 
+
+
+
+def test_price_columns_are_compact_and_currency_is_not_editable():
+    _qapp()
+    table = ProductTable(_Controller())
+    product = Product(
+        code="FB-8001",
+        name="Producto",
+        price_sample=23.8,
+        price_hundred=240,
+        price_thousand=2100,
+    )
+    table.resize(1700, 700)
+    table.show()
+    table.load_products([product])
+    QApplication.processEvents()
+
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_SAMPLE_COLUMN] == 88
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_HUNDRED_COLUMN] == 88
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_THOUSAND_COLUMN] == 88
+    assert table.columnWidth(ProductTable.PRICE_SAMPLE_COLUMN) == 88
+    assert table.columnWidth(ProductTable.PRICE_HUNDRED_COLUMN) == 88
+    assert table.columnWidth(ProductTable.PRICE_THOUSAND_COLUMN) == 88
+
+    index = table.model().index(0, ProductTable.PRICE_HUNDRED_COLUMN)
+    delegate = table.itemDelegateForColumn(ProductTable.PRICE_HUNDRED_COLUMN)
+    assert isinstance(delegate, PriceDelegate)
+    editor = delegate.createEditor(table, None, index)
+    delegate.setEditorData(editor, index)
+    currency = editor.findChild(QLabel)
+    number = editor.findChild(QLineEdit)
+
+    assert currency is not None
+    assert currency.text() == "S/"
+    assert number is not None
+    assert number.text() == "240.00"
+
+    number.setText("321.50")
+    delegate.setModelData(editor, table.model(), index)
+    assert currency.text() == "S/"
+    assert table.item(0, ProductTable.PRICE_HUNDRED_COLUMN).text() == "S/ 321.50"
+
+    editor.close()
+    table.close()
+
+
+
+def test_detail_formats_attributes_removes_duplicate_color_and_trailing_periods():
+    _qapp()
+    description = (
+        "Color: Azul. Potencia: 560W. Dimensiones: 30*34*33cm. "
+        "Peso Unitario: 5.8 Kg.Uso Recomendado: Sublimado en tazas 11Oz. "
+        "Empaque Individual: Esponja + Caja de carton. Cantidad por Caja: 1 Pza. "
+        "Dimensiones Caja: 45*38*43cm. Cubicaje por Caja: 0.0735 m³/CBM "
+        "Peso neto por caja: 5.8 Kg. Peso bruto por caja: 6.9 Kg."
+    )
+    table = ProductTable(_Controller())
+    table.load_products(
+        [
+            Product(
+                code="FB-9001",
+                name="Plancha",
+                description=description,
+                color_stock={"Azul": 3},
+                stock=3,
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert item.text().splitlines() == [
+        "Potencia: 560W",
+        "Dimensiones: 30*34*33cm",
+        "Peso Unitario: 5.8 Kg",
+        "Uso Recomendado: Sublimado en tazas 11Oz",
+        "Empaque Individual: Esponja + Caja de cartón",
+        "Cantidad por Caja: 1 Pza",
+        "Dimensiones Caja: 45*38*43cm",
+        "Cubicaje por Caja: 0.0735 m³/CBM",
+        "Peso neto por caja: 5.8 Kg",
+        "Peso bruto por caja: 6.9 Kg",
+    ]
+    assert all(not line.endswith(".") for line in item.text().splitlines())
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignTop
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignLeft
+    assert table.rowHeight(0) > ProductTable.IMAGE_SIZE
+
+    table.close()
+
+
+def test_detail_removes_fields_that_repeat_product_row_data():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.load_products(
+        [
+            Product(
+                code="FB-9010",
+                name="Plancha",
+                category="Oficina",
+                stock=5,
+                description=(
+                    "Código: FB-9010. Producto: Plancha. Categoría: Oficina. "
+                    "Stock: 5. Potencia: 500W."
+                ),
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert item.text() == "Potencia: 500W"
+
+    table.close()
+
+
+
+def test_detail_removes_multiple_colors_already_visible_in_stock():
+    _qapp()
+    colors = [
+        "Azul", "Blanco", "Celeste", "Morado", "Naranja", "Negro",
+        "Rojo", "Rosado", "Verde Claro", "Verde Oscuro", "Amarillo",
+    ]
+    description = (
+        "Color: " + ", ".join(colors) + ". "
+        "Material: Poliuretano. Dimensiones: 63mm. "
+        "Peso Unitario: 19.4 G. Uso Recomendado: Antiestrés, Promocional. "
+        "Empaque Individual: Bolsa de polietileno. Cantidad por Caja: 250 Pza. "
+        "Dimensiones Caja: 53*34*33cm."
+    )
+    table = ProductTable(_Controller())
+    table.load_products(
+        [
+            Product(
+                code="FB-4009",
+                name="Antiestrés",
+                stock=len(colors),
+                color_stock={color: 1 for color in colors},
+                description=description,
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    detail = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert detail is not None
+    assert detail.text().splitlines() == [
+        "Material: Poliuretano",
+        "Dimensiones: 63mm",
+        "Peso Unitario: 19.4 G",
+        "Uso Recomendado: Antiestrés, Promocional",
+        "Empaque Individual: Bolsa de polietileno",
+        "Cantidad por Caja: 250 Pza",
+        "Dimensiones Caja: 53*34*33cm",
+    ]
+    table.close()
+
+
+def test_product_table_stabilizes_code_and_price_widths_after_value_changes():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1600, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="IKIOSK-ESTANDAR",
+                name="Producto",
+                description="Detalle",
+                price_sample=5,
+                price_hundred=50,
+                price_thousand=500,
+            ),
+        ],
+    )
+    QApplication.processEvents()
+    fixed_widths = {
+        column: table.columnWidth(column)
+        for column in (
+            ProductTable.CODE_COLUMN,
+            ProductTable.PRICE_SAMPLE_COLUMN,
+            ProductTable.PRICE_HUNDRED_COLUMN,
+            ProductTable.PRICE_THOUSAND_COLUMN,
+        )
+    }
+
+    code_item = table.item(0, ProductTable.CODE_COLUMN)
+    price_item = table.item(0, ProductTable.PRICE_HUNDRED_COLUMN)
+    assert code_item is not None and price_item is not None
+    code_item.setText("FB-999999999999999999")
+    price_item.setText("S/ 999,999,999.99")
+    table._preferred_widths_cache = None
+    table._fit_columns_to_content()
+    QApplication.processEvents()
+
+    assert {
+        column: table.columnWidth(column)
+        for column in fixed_widths
+    } == fixed_widths
+    table.close()
+
+
+def test_products_are_alphanumerically_sorted_by_category_at_startup():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.load_products(
+        [
+            Product(code="FB-12", name="Producto 12", category="Oficina 10"),
+            Product(code="FB-3", name="Producto 3", category="Oficina 2"),
+            Product(code="FB-2", name="Producto 2", category="Antiestrés"),
+            Product(code="FB-11", name="Producto 11", category="Oficina 2"),
+        ],
+    )
+
+    assert [
+        table.item(row, ProductTable.CATEGORY_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == ["Antiestrés", "Oficina 2", "Oficina 2", "Oficina 10"]
+    assert [
+        table.item(row, ProductTable.CODE_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == ["FB-2", "FB-3", "FB-11", "FB-12"]
+    table.close()
+
+
+
+def test_detail_delegate_compacts_spacing_between_attribute_lines():
+    _qapp()
+    table = ProductTable(_Controller())
+    delegate = table.itemDelegateForColumn(ProductTable.DETAIL_COLUMN)
+    assert isinstance(delegate, ProductDetailDelegate)
+    text = "\n".join(
+        f"Atributo {index}: valor" for index in range(8)
+    )
+    normal_height = (
+        QFontMetricsF(table.font()).height()
+        * len(text.splitlines())
+    )
+
+    compact_height = delegate.content_height(
+        text,
+        table.font(),
+        600,
+    )
+
+    assert compact_height < normal_height
+    table.close()
+
+
+def test_stock_by_color_cell_opens_multiline_editor_for_color_and_quantity():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1800, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-8002",
+                name="Producto",
+                stock=15,
+                color_stock={"Rojo": 10, "Azul": 5},
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    index = table.model().index(0, ProductTable.STOCK_COLUMN)
+    delegate = table.itemDelegateForColumn(ProductTable.STOCK_COLUMN)
+    assert isinstance(delegate, StockColorDelegate)
+    editor = delegate.createEditor(table, None, index)
+    delegate.setEditorData(editor, index)
+
+    assert isinstance(editor, QPlainTextEdit)
+    assert editor.toPlainText().splitlines() == ["Rojo: 10", "Azul: 5"]
+
+    editor.close()
+    table.close()
+
+
+def test_code_column_does_not_grow_when_the_table_has_more_space():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1400, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-8003",
+                name="Producto con nombre largo",
+                description="Detalle del producto " * 8,
+                category="Oficina",
+            ),
+        ],
+    )
+    QApplication.processEvents()
+    first_width = table.columnWidth(ProductTable.CODE_COLUMN)
+
+    table.resize(2200, 700)
+    QApplication.processEvents()
+
+    assert table.columnWidth(ProductTable.CODE_COLUMN) == first_width
+    table.close()

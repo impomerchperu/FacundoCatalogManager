@@ -87,6 +87,8 @@ def test_scraping_dialog_uses_neutral_detail_table_selection(monkeypatch):
     assert dialog.BODY_FONT_SIZE == 13
     assert dialog.BUTTON_HEIGHT == 34
     assert "selection-background-color: #fbfdff;" in stylesheet
+    assert detail_dialog.windowFlags() & Qt.WindowType.WindowMinimizeButtonHint
+    assert detail_dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
 
     detail_dialog.close()
     dialog.close()
@@ -101,6 +103,8 @@ def test_scraping_dialog_remains_visible_as_independent_window(monkeypatch):
 
     assert dialog.parentWidget() is None
     assert dialog.windowFlags() & Qt.WindowType.Window
+    assert not dialog.windowFlags() & Qt.WindowType.WindowMinimizeButtonHint
+    assert not dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
 
     monkeypatch.setattr(
         "PySide6.QtCore.QThread.start",
@@ -215,6 +219,7 @@ def test_main_window_refreshes_catalog_and_history_after_successful_scraping():
 
     window = MainWindow.__new__(MainWindow)
     window.refresh_catalog = lambda: calls.append("catalog")
+    window.open_pending_image_review = lambda: calls.append("image_review")
     window.history_dialog = FakeHistoryDialog()
     window.scraping_dialog = FakeScrapingDialog()
 
@@ -223,6 +228,7 @@ def test_main_window_refreshes_catalog_and_history_after_successful_scraping():
     assert calls == [
         "catalog",
         "history",
+        "image_review",
         ("title", "Actualización completada"),
         "raise",
         "activate",

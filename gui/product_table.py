@@ -137,13 +137,186 @@ class ProductHeader(QHeaderView):
         super().paintSection(painter, rect, logical_index)
 
 
-class ProductImageDelegate(QStyledItemDelegate):
-    """Pinta la imagen sobre todo el rectángulo visible de la celda."""
+class ProductCodeCategoryDelegate(QStyledItemDelegate):
+    """Muestra el código y sus categorías relacionadas en una sola celda."""
 
-    DEFAULT_SIZE = 144
+    CATEGORY_SOURCE_ROLE = int(Qt.ItemDataRole.UserRole) + 50
+    CATEGORY_COLUMN = 4
+    HORIZONTAL_PADDING = 6
+    VERTICAL_PADDING = 6
+    LINE_GAP = 3
+    CATEGORY_FONT_SIZE = 11
+
+    @staticmethod
+    def _category_text(index) -> str:
+        category_index = index.sibling(index.row(), ProductCodeCategoryDelegate.CATEGORY_COLUMN)
+        return str(
+            category_index.data(ProductCodeCategoryDelegate.CATEGORY_SOURCE_ROLE)
+            or category_index.data(Qt.ItemDataRole.DisplayRole)
+            or "—"
+        )
+
+    def paint(self, painter: QPainter, option, index) -> None:
+        style_option = QStyleOptionViewItem(option)
+        self.initStyleOption(style_option, index)
+        style_option.text = ""
+        style = (
+            style_option.widget.style()
+            if style_option.widget is not None
+            else QApplication.style()
+        )
+        style.drawControl(
+            QStyle.ControlElement.CE_ItemViewItem,
+            style_option,
+            painter,
+            style_option.widget,
+        )
+
+        code = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+        categories = self._category_text(index)
+        content_rect = option.rect.adjusted(
+            self.HORIZONTAL_PADDING,
+            self.VERTICAL_PADDING,
+            -self.HORIZONTAL_PADDING,
+            -self.VERTICAL_PADDING,
+        )
+        code_font = QFont(option.font)
+        code_font.setBold(True)
+        category_font = QFont(option.font)
+        category_font.setBold(False)
+        category_font.setPixelSize(self.CATEGORY_FONT_SIZE)
+
+        painter.save()
+        painter.setFont(code_font)
+        painter.setPen(QColor("#173f6d"))
+        code_height = QFontMetrics(code_font).height()
+        painter.drawText(
+            QRect(
+                content_rect.left(),
+                content_rect.top(),
+                content_rect.width(),
+                code_height + 1,
+            ),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            code,
+        )
+
+        painter.setFont(category_font)
+        painter.setPen(QColor("#64748b"))
+        category_rect = QRect(
+            content_rect.left(),
+            content_rect.top() + code_height + self.LINE_GAP,
+            content_rect.width(),
+            max(content_rect.height() - code_height - self.LINE_GAP, 1),
+        )
+        painter.drawText(
+            category_rect,
+            Qt.AlignmentFlag.AlignLeft
+            | Qt.AlignmentFlag.AlignTop
+            | Qt.TextFlag.TextWordWrap,
+            categories,
+        )
+        painter.restore()
+
+    def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
+        width = max(option.rect.width() - 2 * self.HORIZONTAL_PADDING, 80)
+        category_font = QFont(option.font)
+        category_font.setPixelSize(self.CATEGORY_FONT_SIZE)
+        category_metrics = QFontMetrics(category_font)
+        category_bounds = category_metrics.boundingRect(
+            QRect(0, 0, width, 1000),
+            Qt.TextFlag.TextWordWrap,
+            self._category_text(index),
+        )
+        code_font = QFont(option.font)
+        code_font.setBold(True)
+        code_height = QFontMetrics(code_font).height()
+        return QSize(
+            112,
+            self.VERTICAL_PADDING * 2
+            + code_height
+            + self.LINE_GAP
+            + max(category_bounds.height(), category_metrics.height()),
+        )
+
+
+class ProductImageDelegate(QStyledItemDelegate):
+    """Dibuja la imagen principal y una fila horizontal de miniaturas."""
+
+    DEFAULT_SIZE = 248
+    DEFAULT_HEIGHT = 166
+    THUMBNAIL_HEIGHT = 26
+    THUMBNAIL_STRIP_HEIGHT = 34
+    THUMBNAIL_GAP = 4
+    THUMBNAIL_PADDING = 6
+    MAX_VISIBLE_THUMBNAILS = 4
     IMAGE_ROLE = int(Qt.ItemDataRole.UserRole) + 1
     GALLERY_ROLE = int(Qt.ItemDataRole.UserRole) + 3
     ACTIVE_INDEX_ROLE = int(Qt.ItemDataRole.UserRole) + 4
+
+    @classmethod
+    def thumbnail_layout(
+        cls,
+        rect: QRect,
+        image_count: int,
+        active_index: int,
+    ) -> tuple[list[tuple[int, QRect]], QRect | None, QRect | None, int]:
+        """Devuelve los rectángulos de miniaturas y navegación horizontal."""
+        if image_count <= 0:
+            return [], None, None, rect.bottom() - cls.THUMBNAIL_STRIP_HEIGHT + 4
+
+        strip_top = rect.bottom() - cls.THUMBNAIL_STRIP_HEIGHT + 4
+        left = rect.left() + cls.THUMBNAIL_PADDING
+        right = rect.right() - cls.THUMBNAIL_PADDING
+        left_arrow = None
+        right_arrow = None
+        gap = cls.THUMBNAIL_GAP
+        if image_count > cls.MAX_VISIBLE_THUMBNAILS:
+            arrow_width = 13
+            left_arrow = QRect(
+                left,
+                strip_top,
+                arrow_width,
+                cls.THUMBNAIL_HEIGHT,
+            )
+            right_arrow = QRect(
+                right - arrow_width + 1,
+                strip_top,
+                arrow_width,
+                cls.THUMBNAIL_HEIGHT,
+            )
+            left = left_arrow.right() + 1 + gap
+            right = right_arrow.left() - 1 - gap
+            visible_count = cls.MAX_VISIBLE_THUMBNAILS - 1
+            start = max(
+                0,
+                min(active_index - 1, image_count - visible_count),
+            )
+            visible_indices = list(range(start, start + visible_count))
+        else:
+            visible_count = image_count
+            visible_indices = list(range(image_count))
+
+        available_width = max(right - left + 1, 1)
+        tile_width = max(
+            (available_width - gap * (visible_count - 1)) // visible_count,
+            1,
+        )
+        tiles: list[tuple[int, QRect]] = []
+        for position, image_index in enumerate(visible_indices):
+            tile_left = left + position * (tile_width + gap)
+            tiles.append(
+                (
+                    image_index,
+                    QRect(
+                        tile_left,
+                        strip_top,
+                        tile_width,
+                        cls.THUMBNAIL_HEIGHT,
+                    ),
+                ),
+            )
+        return tiles, left_arrow, right_arrow, strip_top
 
     def paint(self, painter: QPainter, option, index) -> None:
         super().paint(painter, option, index)
@@ -151,70 +324,84 @@ class ProductImageDelegate(QStyledItemDelegate):
         gallery = index.data(self.GALLERY_ROLE)
         image_path = index.data(self.IMAGE_ROLE)
         active_index = index.data(self.ACTIVE_INDEX_ROLE)
-        if isinstance(gallery, list) and gallery:
-            try:
-                active_index = int(active_index)
-            except (TypeError, ValueError):
-                active_index = 0
-            active_index %= len(gallery)
-            selected = gallery[active_index]
-            if isinstance(selected, dict):
-                image_path = selected.get(
-                    "image_path",
-                    selected.get("path", image_path),
-                )
-                if isinstance(image_path, str):
-                    image_path = str(resolve_data_path(image_path))
-        if not isinstance(image_path, str) or not image_path:
-            return
-
-        pixmap = self._load_pixmap(image_path)
-        if pixmap.isNull():
-            return
-
-        target_size = option.rect.size()
-        if target_size.width() <= 0 or target_size.height() <= 0:
-            return
-
-        scaled = pixmap.scaled(
-            target_size,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        x = option.rect.x() + max(
-            (target_size.width() - scaled.width()) // 2,
-            0,
-        )
-        y = option.rect.y() + max(
-            (target_size.height() - scaled.height()) // 2,
-            0,
-        )
-
-        painter.save()
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-        painter.drawPixmap(x, y, scaled)
-        if isinstance(gallery, list) and len(gallery) > 1:
+        if not isinstance(gallery, list):
+            gallery = []
+        if gallery:
             try:
                 active_index = int(active_index) % len(gallery)
             except (TypeError, ValueError):
                 active_index = 0
-            painter.setPen(QColor("#173f6d"))
+            selected = gallery[active_index]
+            if isinstance(selected, dict):
+                selected_path = selected.get(
+                    "image_path",
+                    selected.get("path", image_path),
+                )
+                if isinstance(selected_path, str) and selected_path.strip():
+                    image_path = str(resolve_data_path(selected_path))
+        else:
+            active_index = 0
+
+        cell = option.rect
+        has_thumbnails = len(gallery) > 1
+        main_rect = cell.adjusted(
+            6,
+            4,
+            -6,
+            -(self.THUMBNAIL_STRIP_HEIGHT + 4 if has_thumbnails else 4),
+        )
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        if isinstance(image_path, str) and image_path:
+            pixmap = self._load_pixmap(image_path)
+            if not pixmap.isNull() and main_rect.width() > 0 and main_rect.height() > 0:
+                scaled = pixmap.scaled(
+                    main_rect.size(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                x = main_rect.left() + (main_rect.width() - scaled.width()) // 2
+                y = main_rect.top() + (main_rect.height() - scaled.height()) // 2
+                painter.drawPixmap(x, y, scaled)
+
+        if has_thumbnails:
+            tiles, left_arrow, right_arrow, _strip_top = self.thumbnail_layout(
+                cell,
+                len(gallery),
+                active_index,
+            )
+            for image_index, tile_rect in tiles:
+                image = gallery[image_index]
+                path = ""
+                if isinstance(image, dict):
+                    path = str(
+                        image.get("image_path", image.get("path", "")) or ""
+                    ).strip()
+                painter.fillRect(tile_rect, QColor("#ffffff"))
+                if image_index == active_index:
+                    painter.setPen(QColor("#1675e8"))
+                else:
+                    painter.setPen(QColor("#cbd5e1"))
+                painter.drawRect(tile_rect.adjusted(0, 0, -1, -1))
+                inner = tile_rect.adjusted(3, 3, -3, -3)
+                if path and inner.width() > 0 and inner.height() > 0:
+                    thumb = self._load_pixmap(str(resolve_data_path(path)))
+                    if not thumb.isNull():
+                        thumb = thumb.scaled(
+                            inner.size(),
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation,
+                        )
+                        thumb_x = inner.left() + (inner.width() - thumb.width()) // 2
+                        thumb_y = inner.top() + (inner.height() - thumb.height()) // 2
+                        painter.drawPixmap(thumb_x, thumb_y, thumb)
+
             painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-            painter.drawText(
-                option.rect.adjusted(6, 0, -6, -6),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom,
-                "<",
-            )
-            painter.drawText(
-                option.rect.adjusted(6, 0, -6, -6),
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
-                ">",
-            )
-            painter.drawText(
-                option.rect.adjusted(0, 0, 0, -6),
-                Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignBottom,
-                f"{active_index + 1}/{len(gallery)}",
-            )
+            painter.setPen(QColor("#334e68"))
+            if left_arrow is not None:
+                painter.drawText(left_arrow, Qt.AlignmentFlag.AlignCenter, "‹")
+            if right_arrow is not None:
+                painter.drawText(right_arrow, Qt.AlignmentFlag.AlignCenter, "›")
         painter.restore()
 
     @staticmethod
@@ -236,7 +423,7 @@ class ProductImageDelegate(QStyledItemDelegate):
         index,
     ) -> QSize:
         del option, index
-        return QSize(self.DEFAULT_SIZE, self.DEFAULT_SIZE)
+        return QSize(self.DEFAULT_SIZE, self.DEFAULT_HEIGHT)
 
 
 class StockColorDelegate(QStyledItemDelegate):
@@ -318,7 +505,7 @@ class StockColorDelegate(QStyledItemDelegate):
 
             color = str(entry[0])
             stock = max(int(entry[1]), 0)
-            background, indicator = ProductTable._stock_color_style(color)
+            _background, indicator = ProductTable._stock_color_style(color)
 
             top = option.rect.top() + round(
                 option.rect.height() * line / count,
@@ -332,7 +519,7 @@ class StockColorDelegate(QStyledItemDelegate):
                 option.rect.width(),
                 max(bottom - top, 1),
             )
-            painter.fillRect(line_rect, QColor(background))
+            # Fondo neutro: el círculo codifica el color sin teñir toda la fila.
 
             indicator_rect = QRect(
                 line_rect.left() + self.HORIZONTAL_PADDING,
@@ -550,6 +737,7 @@ class ProductTable(QTableWidget):
         ),
     }
     DEFAULT_IMAGE_CELL_SIZE = ProductImageDelegate.DEFAULT_SIZE
+    DEFAULT_IMAGE_CELL_HEIGHT = ProductImageDelegate.DEFAULT_HEIGHT
     IMAGE_SIZE = DEFAULT_IMAGE_CELL_SIZE
     DEFAULT_PRICE_COLUMN_WIDTH = 110
     FIXED_PRICE_COLUMN_WIDTH = 88
@@ -730,10 +918,10 @@ class ProductTable(QTableWidget):
     }
     MIN_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
         IMAGE_COLUMN: IMAGE_SIZE,
-        CODE_COLUMN: 80,
-        NAME_COLUMN: 120,
-        DETAIL_COLUMN: 180,
-        CATEGORY_COLUMN: 110,
+        CODE_COLUMN: 112,
+        NAME_COLUMN: 132,
+        DETAIL_COLUMN: 150,
+        CATEGORY_COLUMN: 0,
         STOCK_COLUMN: 1,
         PRICE_SAMPLE_COLUMN: 88,
         PRICE_HUNDRED_COLUMN: 88,
@@ -741,10 +929,6 @@ class ProductTable(QTableWidget):
     }
 
     SORTABLE_COLUMNS: ClassVar[set[int]] = {
-        CODE_COLUMN,
-        NAME_COLUMN,
-        DETAIL_COLUMN,
-        CATEGORY_COLUMN,
         STOCK_COLUMN,
         PRICE_SAMPLE_COLUMN,
         PRICE_HUNDRED_COLUMN,
@@ -753,10 +937,10 @@ class ProductTable(QTableWidget):
 
     HEADER_LABELS: ClassVar[list[str]] = [
         "Imagen",
-        "Código",
+        "Código / Categoría",
         "Producto",
         "Detalle",
-        "Categoría",
+        "",
         "Stock",
         "Precio\nmuestra",
         "Precio\nciento",
@@ -806,6 +990,9 @@ class ProductTable(QTableWidget):
         self.setTextElideMode(Qt.TextElideMode.ElideNone)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_image_context_menu)
+        # La categoría se conserva como columna interna para edición y orden,
+        # pero se muestra junto al código en la columna visible de la tabla.
+        self.setColumnHidden(self.CATEGORY_COLUMN, True)
         self.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
@@ -857,6 +1044,10 @@ class ProductTable(QTableWidget):
             ProductImageDelegate(self),
         )
         self.setItemDelegateForColumn(
+            self.CODE_COLUMN,
+            ProductCodeCategoryDelegate(self),
+        )
+        self.setItemDelegateForColumn(
             self.DETAIL_COLUMN,
             ProductDetailDelegate(self),
         )
@@ -887,6 +1078,7 @@ class ProductTable(QTableWidget):
             )
         for column, width in self.MIN_COLUMN_WIDTHS.items():
             self.setColumnWidth(column, width)
+        self.setColumnHidden(self.CATEGORY_COLUMN, True)
 
     def _show_image_context_menu(self, position) -> None:
         index = self.indexAt(position)
@@ -1041,6 +1233,7 @@ class ProductTable(QTableWidget):
         if column == self.CATEGORY_COLUMN:
             return (
                 self._natural_sort_key(product.category),
+                self._natural_sort_key(product.name),
                 self._natural_sort_key(product.code),
             )
         values = {
@@ -1272,7 +1465,9 @@ class ProductTable(QTableWidget):
 
         item_code = QTableWidgetItem(product.code)
         item_code.setData(Qt.ItemDataRole.UserRole, product.id)
-        item_code.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        item_code.setTextAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft,
+        )
         self.setItem(row, self.CODE_COLUMN, item_code)
         self._set_text_item(row, self.NAME_COLUMN, product.name)
         detail = self._format_detail(product)
@@ -1411,17 +1606,30 @@ class ProductTable(QTableWidget):
                 rect = self.visualRect(index)
                 active = item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE)
                 try:
-                    active_index = int(active)
+                    active_index = int(active) % len(gallery)
                 except (TypeError, ValueError):
                     active_index = 0
-                if position.x() <= rect.left() + 34:
-                    self._set_active_image(index.row(), active_index - 1)
-                    event.accept()
-                    return
-                if position.x() >= rect.right() - 34:
-                    self._set_active_image(index.row(), active_index + 1)
-                    event.accept()
-                    return
+                tiles, left_arrow, right_arrow, strip_top = (
+                    ProductImageDelegate.thumbnail_layout(
+                        rect,
+                        len(gallery),
+                        active_index,
+                    )
+                )
+                if position.y() >= strip_top:
+                    for image_index, tile_rect in tiles:
+                        if tile_rect.contains(position):
+                            self._set_active_image(index.row(), image_index)
+                            event.accept()
+                            return
+                    if left_arrow is not None and left_arrow.contains(position):
+                        self._set_active_image(index.row(), active_index - 1)
+                        event.accept()
+                        return
+                    if right_arrow is not None and right_arrow.contains(position):
+                        self._set_active_image(index.row(), active_index + 1)
+                        event.accept()
+                        return
         super().mousePressEvent(event)
 
     def _set_active_image(self, row: int, active_index: int) -> None:
@@ -1680,11 +1888,37 @@ class ProductTable(QTableWidget):
         self.setItem(row, column, item)
 
     def _set_row_height(self, row: int) -> None:
-        image_size = max(
-            self.columnWidth(self.IMAGE_COLUMN),
-            self.DEFAULT_IMAGE_CELL_SIZE,
-        )
-        row_height = image_size
+        row_height = self.DEFAULT_IMAGE_CELL_HEIGHT
+        category_item = self.item(row, self.CATEGORY_COLUMN)
+        if category_item is not None:
+            category_text = category_item.text().strip()
+            if category_text:
+                category_font = QFont(self.font())
+                category_font.setPixelSize(
+                    ProductCodeCategoryDelegate.CATEGORY_FONT_SIZE,
+                )
+                category_metrics = QFontMetrics(category_font)
+                category_width = max(
+                    self.columnWidth(self.CODE_COLUMN)
+                    - (2 * ProductCodeCategoryDelegate.HORIZONTAL_PADDING),
+                    1,
+                )
+                category_bounds = category_metrics.boundingRect(
+                    QRect(0, 0, category_width, 1000),
+                    Qt.TextFlag.TextWordWrap,
+                    category_text,
+                )
+                code_font = QFont(self.font())
+                code_font.setBold(True)
+                code_height = QFontMetrics(code_font).height()
+                row_height = max(
+                    row_height,
+                    (2 * ProductCodeCategoryDelegate.VERTICAL_PADDING)
+                    + code_height
+                    + ProductCodeCategoryDelegate.LINE_GAP
+                    + max(category_bounds.height(), category_metrics.height()),
+                )
+
         detail_item = self.item(row, self.DETAIL_COLUMN)
         if detail_item is not None and detail_item.text():
             detail_height = ProductDetailDelegate.content_height(
@@ -1743,7 +1977,7 @@ class ProductTable(QTableWidget):
                 self.MIN_COLUMN_WIDTHS[column]
                 for column in range(self.columnCount())
             ]
-            minimum_widths[self.CATEGORY_COLUMN] = self._category_minimum_width()
+            minimum_widths[self.CATEGORY_COLUMN] = 0
             minimum_widths[self.IMAGE_COLUMN] = self.IMAGE_SIZE
             minimum_widths[self.STOCK_COLUMN] = self._stock_minimum_width()
             preferred_widths = [
@@ -1776,9 +2010,7 @@ class ProductTable(QTableWidget):
                     0,
                 )
                 preferred_widths[price_column] = fixed_price_width
-            preferred_widths[self.CATEGORY_COLUMN] = (
-                minimum_widths[self.CATEGORY_COLUMN]
-            )
+            preferred_widths[self.CATEGORY_COLUMN] = 0
             preferred_widths[self.DETAIL_COLUMN] += price_savings
             # Stock debe conservar exclusivamente el ancho calculado por su
             # contenido, sin el margen adicional que Qt puede introducir al
@@ -1800,7 +2032,7 @@ class ProductTable(QTableWidget):
                 self.MIN_COLUMN_WIDTHS[column]
                 for column in range(self.columnCount())
             ]
-            minimum_widths[self.CATEGORY_COLUMN] = self._category_minimum_width()
+            minimum_widths[self.CATEGORY_COLUMN] = 0
             minimum_widths[self.STOCK_COLUMN] = self._stock_minimum_width()
             if self._stable_code_width is not None:
                 minimum_widths[self.CODE_COLUMN] = self._stable_code_width

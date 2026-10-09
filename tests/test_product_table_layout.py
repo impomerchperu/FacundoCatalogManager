@@ -785,7 +785,7 @@ def test_detail_formats_attributes_removes_duplicate_color_and_trailing_periods(
     assert all(not line.endswith(".") for line in item.text().splitlines())
     assert item.textAlignment() & Qt.AlignmentFlag.AlignTop
     assert item.textAlignment() & Qt.AlignmentFlag.AlignLeft
-    assert table.rowHeight(0) > ProductTable.IMAGE_SIZE
+    assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
 
     table.close()
 

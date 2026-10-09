@@ -1,7 +1,8 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFontMetrics, QFontMetricsF, QPixmap
+from PySide6.QtGui import QColor, QFontMetrics, QFontMetricsF, QPixmap
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
     QApplication,
     QHeaderView,
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from gui.product_table import (
     PriceDelegate,
+    ProductCodeCategoryDelegate,
     ProductDetailDelegate,
     ProductImageDelegate,
     ProductTable,
@@ -69,16 +71,115 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     assert table.columnWidth(ProductTable.IMAGE_COLUMN) == (
         ProductImageDelegate.DEFAULT_SIZE
     )
-    assert table.rowHeight(0) == table.columnWidth(ProductTable.IMAGE_COLUMN)
+    assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
 
     table.resize(2200, 700)
     QApplication.processEvents()
 
-    assert table.rowHeight(0) == table.columnWidth(ProductTable.IMAGE_COLUMN)
+    assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
     assert table.columnWidth(ProductTable.IMAGE_COLUMN) == (
         ProductImageDelegate.DEFAULT_SIZE
     )
 
+    table.close()
+
+def test_product_table_uses_horizontal_thumbnails_and_click_changes_temporary_primary(
+    tmp_path: Path,
+):
+    _qapp()
+    paths = [tmp_path / f"image-{index}.png" for index in range(3)]
+    gallery = []
+    for index, path in enumerate(paths, start=1):
+        pixmap = QPixmap(120 + index * 10, 80)
+        pixmap.fill(QColor("#2f80ed" if index == 1 else "#ef4444"))
+        assert pixmap.save(str(path))
+        gallery.append(
+            {
+                "url": f"https://example.test/{index}.png",
+                "image_path": str(path),
+                "position": index,
+                "source": "primary" if index == 1 else "gallery",
+            },
+        )
+
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-100",
+                name="Producto",
+                image_path=str(paths[0]),
+                gallery_images=gallery,
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    index = table.model().index(0, ProductTable.IMAGE_COLUMN)
+    rect = table.visualRect(index)
+    tiles, left_arrow, right_arrow, strip_top = ProductImageDelegate.thumbnail_layout(
+        rect,
+        len(gallery),
+        0,
+    )
+    assert len(tiles) == 3
+    assert left_arrow is None and right_arrow is None
+    assert strip_top > rect.top()
+    assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
+
+    QTest.mouseClick(
+        table.viewport(),
+        Qt.MouseButton.LeftButton,
+        pos=tiles[1][1].center(),
+    )
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.IMAGE_COLUMN)
+    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 1
+    assert table._active_image_indices["fb-100"] == 1
+    assert table.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    table.close()
+
+
+def test_product_table_stock_shows_left_aligned_color_dot_and_right_aligned_quantity():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-6002",
+                name="Mochilas de Lona",
+                stock=5,
+                color_stock={"Azul": 5},
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    viewport_pixmap = QPixmap(table.viewport().size())
+    viewport_pixmap.fill(QColor("#ffffff"))
+    table.viewport().render(viewport_pixmap)
+    stock_rect = table.visualRect(
+        table.model().index(0, ProductTable.STOCK_COLUMN),
+    )
+    image = viewport_pixmap.toImage()
+    indicator = QColor(ProductTable._stock_color_style("Azul")[1])
+    found_indicator = False
+    for y in range(stock_rect.top(), stock_rect.bottom() + 1):
+        for x in range(stock_rect.left(), stock_rect.right() + 1):
+            if image.pixelColor(x, y) == indicator:
+                found_indicator = True
+                break
+        if found_indicator:
+            break
+    assert found_indicator
+    assert image.pixelColor(stock_rect.right() - 3, stock_rect.top() + 2) != (
+        QColor(ProductTable._stock_color_style("Azul")[0])
+    )
     table.close()
 
 
@@ -93,7 +194,7 @@ def test_product_table_category_uses_approved_two_line_layout():
     ]
 
 
-def test_product_table_category_width_matches_reference_and_detail_receives_savings():
+def test_product_table_category_is_combined_with_code_and_detail_receives_space():
     _qapp()
 
     table = ProductTable(_Controller())
@@ -108,21 +209,25 @@ def test_product_table_category_width_matches_reference_and_detail_receives_savi
     table.load_products([product])
     QApplication.processEvents()
 
-    metrics = QFontMetrics(table.font())
-    expected_category = (
-        metrics.horizontalAdvance("Enmicadoras / Laminadoras")
-        + (2 * ProductTable.CONTENT_SIDE_PADDING)
+    code_delegate = table.itemDelegateForColumn(ProductTable.CODE_COLUMN)
+    category_item = table.item(0, ProductTable.CATEGORY_COLUMN)
+    assert table.isColumnHidden(ProductTable.CATEGORY_COLUMN)
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == 0
+    assert table.horizontalHeaderItem(ProductTable.CODE_COLUMN).text() == (
+        "Código / Categoría"
     )
-
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_category
-    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == 144
-    assert table.rowHeight(0) == 144
+    assert isinstance(code_delegate, ProductCodeCategoryDelegate)
+    assert category_item is not None
+    assert category_item.text() == "Enmicadoras / Laminadoras"
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == (
+        ProductImageDelegate.DEFAULT_SIZE
+    )
+    assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
     assert table.columnWidth(ProductTable.DETAIL_COLUMN) > (
         ProductTable.MIN_COLUMN_WIDTHS[ProductTable.DETAIL_COLUMN]
     )
 
     table.close()
-
 
 def test_product_table_category_with_long_word_stays_on_one_line():
     category = "Categoria extraordinariamenteLargaSinEspacios"
@@ -133,7 +238,7 @@ def test_product_table_category_with_long_word_stays_on_one_line():
     assert "\n" not in formatted
 
 
-def test_product_table_category_sublimacion_stays_on_one_line():
+def test_product_table_category_sublimacion_is_shown_under_code():
     _qapp()
 
     table = ProductTable(_Controller())
@@ -148,25 +253,17 @@ def test_product_table_category_sublimacion_stays_on_one_line():
     QApplication.processEvents()
 
     item = table.item(0, ProductTable.CATEGORY_COLUMN)
+    code_item = table.item(0, ProductTable.CODE_COLUMN)
     assert item is not None
+    assert code_item is not None
     assert item.text() == "Artículos de Sublimación"
-    assert "\n" not in item.text()
+    assert code_item.text() == "FB-400"
+    assert table.isColumnHidden(ProductTable.CATEGORY_COLUMN)
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == 0
 
-    expected_reference_width = (
-        QFontMetrics(table.font()).horizontalAdvance(
-            ProductTable.CATEGORY_REFERENCE_TEXT,
-        )
-        + (2 * ProductTable.CONTENT_SIDE_PADDING)
-    )
-    expected_text_width = (
-        QFontMetrics(table.font()).horizontalAdvance(item.text())
-        + (2 * ProductTable.CONTENT_SIDE_PADDING)
-    )
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_reference_width
-    assert expected_text_width <= expected_reference_width
+    table.close()
 
-
-def test_product_table_category_enmicadoras_stays_on_one_line():
+def test_product_table_category_enmicadoras_is_combined_with_code():
     _qapp()
 
     table = ProductTable(_Controller())
@@ -184,18 +281,12 @@ def test_product_table_category_enmicadoras_stays_on_one_line():
     item = table.item(0, ProductTable.CATEGORY_COLUMN)
     assert item is not None
     assert item.text() == "Enmicadoras / Laminadoras"
-    assert "\n" not in item.text()
-
-    expected_width = (
-        QFontMetrics(table.font()).horizontalAdvance(item.text())
-        + (2 * ProductTable.CONTENT_SIDE_PADDING)
-    )
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_width
+    assert table.isColumnHidden(ProductTable.CATEGORY_COLUMN)
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == 0
 
     table.close()
 
-
-def test_product_table_category_width_persists_when_products_are_filtered():
+def test_product_table_keeps_category_data_when_products_are_filtered():
     _qapp()
 
     table = ProductTable(_Controller())
@@ -217,21 +308,19 @@ def test_product_table_category_width_persists_when_products_are_filtered():
     table.load_products(full_catalog)
     QApplication.processEvents()
 
-    expected_width = (
-        QFontMetrics(table.font()).horizontalAdvance(
-            "Enmicadoras / Laminadoras",
-        )
-        + (2 * ProductTable.CONTENT_SIDE_PADDING)
+    assert table.isColumnHidden(ProductTable.CATEGORY_COLUMN)
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == 0
+    assert table.item(0, ProductTable.CATEGORY_COLUMN).text() == (
+        "Enmicadoras / Laminadoras"
     )
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_width
 
     table.load_products([full_catalog[1]])
     QApplication.processEvents()
 
-    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == expected_width
+    assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == 0
+    assert table.item(0, ProductTable.CATEGORY_COLUMN).text() == "Estuches"
 
     table.close()
-
 
 def test_product_table_category_does_not_wrap_by_word_count():
     category = "Uno Dos Tres Cuatro Cinco Seis"
@@ -813,15 +902,15 @@ def test_product_table_stabilizes_code_and_price_widths_after_value_changes():
     table.close()
 
 
-def test_products_are_alphanumerically_sorted_by_category_at_startup():
+def test_products_are_sorted_by_category_then_product_name_at_startup():
     _qapp()
     table = ProductTable(_Controller())
     table.load_products(
         [
             Product(code="FB-12", name="Producto 12", category="Oficina 10"),
-            Product(code="FB-3", name="Producto 3", category="Oficina 2"),
+            Product(code="FB-3", name="Zeta", category="Oficina 2"),
             Product(code="FB-2", name="Producto 2", category="Antiestrés"),
-            Product(code="FB-11", name="Producto 11", category="Oficina 2"),
+            Product(code="FB-11", name="Alfa", category="Oficina 2"),
         ],
     )
 
@@ -832,10 +921,8 @@ def test_products_are_alphanumerically_sorted_by_category_at_startup():
     assert [
         table.item(row, ProductTable.CODE_COLUMN).text()
         for row in range(table.rowCount())
-    ] == ["FB-2", "FB-3", "FB-11", "FB-12"]
+    ] == ["FB-2", "FB-11", "FB-3", "FB-12"]
     table.close()
-
-
 
 def test_detail_delegate_compacts_spacing_between_attribute_lines():
     _qapp()

@@ -876,7 +876,6 @@ class ProductTable(QTableWidget):
         + r")\s*:",
         re.IGNORECASE,
     )
-    CATEGORY_REFERENCE_TEXT = "Enmicadoras / Laminadoras"
     CATEGORY_SOURCE_ROLE = int(Qt.ItemDataRole.UserRole) + 50
     PROGRESSIVE_RENDER_THRESHOLD = 50
     PROGRESSIVE_RENDER_BATCH_SIZE = 40
@@ -999,7 +998,6 @@ class ProductTable(QTableWidget):
         self._default_category_sort_active = True
         self._stable_code_width: int | None = None
         self._products: list[Product] = []
-        self._category_reference_products: list[Product] = []
         self._search_text = ""
         self._render_generation = 0
         self._pending_render_products: list[Product] = []
@@ -1337,8 +1335,8 @@ class ProductTable(QTableWidget):
         self.category_delegate.set_categories(categories)
 
     def set_category_reference_products(self, products: list[Product]) -> None:
-        """Conserva el ancho de categoría del catálogo completo al filtrar."""
-        self._category_reference_products = list(products)
+        """Mantiene la API de la ventana; ya no se reserva ancho para Categoría."""
+        del products
         self._preferred_widths_cache = None
         self._fit_columns_to_content()
         self._adjust_table_rows()
@@ -2043,14 +2041,6 @@ class ProductTable(QTableWidget):
             pair_width,
             header_width,
             1,
-        )
-
-    def _category_minimum_width(self) -> int:
-        metrics = QFontMetrics(self.font())
-        return max(
-            self.MIN_COLUMN_WIDTHS[self.CATEGORY_COLUMN],
-            metrics.horizontalAdvance(self.CATEGORY_REFERENCE_TEXT)
-            + (2 * self.CONTENT_SIDE_PADDING),
         )
 
     def _preferred_column_widths(self, header: QHeaderView) -> list[int]:

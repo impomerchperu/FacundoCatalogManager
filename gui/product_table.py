@@ -426,6 +426,7 @@ class ProductDetailDelegate(QStyledItemDelegate):
             text_option.setWrapMode(QTextOption.WrapMode.WordWrap)
             layout.setTextOption(text_option)
             line_top = 0.0
+            last_line_top = 0.0
             last_line_height = line_height
             layout.beginLayout()
             while True:
@@ -433,6 +434,7 @@ class ProductDetailDelegate(QStyledItemDelegate):
                 if not line.isValid():
                     break
                 line.setLineWidth(max(width, 1))
+                last_line_top = line_top
                 line.setPosition(QPointF(0, line_top))
                 last_line_height = line.height()
                 line_top += max(
@@ -441,7 +443,7 @@ class ProductDetailDelegate(QStyledItemDelegate):
                 )
             layout.endLayout()
             paragraph_height = (
-                line_top - cls.LINE_SPACING_REDUCTION + last_line_height
+                last_line_top + last_line_height
                 if line_top > 0
                 else line_height
             )

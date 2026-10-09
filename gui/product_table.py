@@ -958,15 +958,15 @@ class ProductTable(QTableWidget):
         "yellow": ("#fff5b8", "#f2d21b"),
     }
     MIN_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
-        IMAGE_COLUMN: IMAGE_SIZE,
-        CODE_COLUMN: 112,
-        NAME_COLUMN: 132,
-        DETAIL_COLUMN: 150,
+        IMAGE_COLUMN: 160,
+        CODE_COLUMN: 88,
+        NAME_COLUMN: 100,
+        DETAIL_COLUMN: 100,
         CATEGORY_COLUMN: 0,
         STOCK_COLUMN: 1,
-        PRICE_SAMPLE_COLUMN: 88,
-        PRICE_HUNDRED_COLUMN: 88,
-        PRICE_THOUSAND_COLUMN: 88,
+        PRICE_SAMPLE_COLUMN: 72,
+        PRICE_HUNDRED_COLUMN: 72,
+        PRICE_THOUSAND_COLUMN: 72,
     }
 
     SORTABLE_COLUMNS: ClassVar[set[int]] = {
@@ -2052,7 +2052,9 @@ class ProductTable(QTableWidget):
                 for column in range(self.columnCount())
             ]
             minimum_widths[self.CATEGORY_COLUMN] = 0
-            minimum_widths[self.IMAGE_COLUMN] = self.IMAGE_SIZE
+            minimum_widths[self.IMAGE_COLUMN] = self.MIN_COLUMN_WIDTHS[
+                self.IMAGE_COLUMN
+            ]
             minimum_widths[self.STOCK_COLUMN] = self._stock_minimum_width()
             preferred_widths = [
                 max(
@@ -2108,8 +2110,6 @@ class ProductTable(QTableWidget):
             ]
             minimum_widths[self.CATEGORY_COLUMN] = 0
             minimum_widths[self.STOCK_COLUMN] = self._stock_minimum_width()
-            if self._stable_code_width is not None:
-                minimum_widths[self.CODE_COLUMN] = self._stable_code_width
             minimum_total = sum(minimum_widths)
             available_width = self.viewport().width()
             target_width = max(available_width, minimum_total)
@@ -2138,72 +2138,56 @@ class ProductTable(QTableWidget):
         *,
         growable_columns: set[int],
     ) -> list[int]:
+        """Ajusta columnas al ancho disponible, priorizando Detalle."""
+        widths = [
+            max(preferred, minimum)
+            for preferred, minimum in zip(
+                preferred_widths,
+                minimum_widths,
+                strict=True,
+            )
+        ]
         minimum_total = sum(minimum_widths)
         target_width = max(target_width, minimum_total)
-        widths = preferred_widths.copy()
+        current_total = sum(widths)
 
-        growable_preferred_total = sum(
-            preferred_widths[column] for column in growable_columns
-        )
-        fixed_preferred_total = sum(
-            preferred_width
-            for column, preferred_width in enumerate(preferred_widths)
-            if column not in growable_columns
-        )
-        growable_minimum_total = sum(
-            minimum_widths[column] for column in growable_columns
-        )
-        growable_target = max(
-            target_width - fixed_preferred_total,
-            growable_minimum_total,
-        )
+        if current_total > target_width:
+            deficit = current_total - target_width
+            # Las columnas se reducen en este orden: primero el texto de
+            # detalle, después producto/código/imagen y por último precios.
+            shrink_order = [
+                ProductTable.DETAIL_COLUMN,
+                ProductTable.NAME_COLUMN,
+                ProductTable.CODE_COLUMN,
+                ProductTable.IMAGE_COLUMN,
+                ProductTable.PRICE_SAMPLE_COLUMN,
+                ProductTable.PRICE_HUNDRED_COLUMN,
+                ProductTable.PRICE_THOUSAND_COLUMN,
+            ]
+            for column in shrink_order:
+                room = max(widths[column] - minimum_widths[column], 0)
+                reduction = min(room, deficit)
+                widths[column] -= reduction
+                deficit -= reduction
+                if deficit <= 0:
+                    break
+            current_total = sum(widths)
 
-        if growable_preferred_total <= growable_target:
-            extra_width = growable_target - growable_preferred_total
-            if growable_preferred_total <= 0:
-                return widths
-
-            distributed = 0
+        if current_total < target_width and growable_columns:
+            extra_width = target_width - current_total
             ordered_columns = sorted(growable_columns)
-            for position, column in enumerate(ordered_columns):
-                if position == len(ordered_columns) - 1:
-                    additional = extra_width - distributed
-                else:
-                    additional = round(
-                        extra_width
-                        * preferred_widths[column]
-                        / growable_preferred_total,
-                    )
-                    distributed += additional
-                widths[column] += additional
-            return widths
-
-        reducible_total = sum(
-            max(preferred_widths[column] - minimum_widths[column], 0)
-            for column in growable_columns
-        )
-        if reducible_total <= 0:
-            return widths
-
-        reduction_target = growable_preferred_total - growable_target
-        reduced = 0
-        ordered_columns = sorted(growable_columns)
-        for position, column in enumerate(ordered_columns):
-            room = max(
-                preferred_widths[column] - minimum_widths[column],
-                0,
-            )
-            if position == len(ordered_columns) - 1:
-                reduction = reduction_target - reduced
-            else:
-                reduction = round(
-                    reduction_target * room / reducible_total,
-                )
-                reduced += reduction
-            widths[column] = max(
-                preferred_widths[column] - reduction,
-                minimum_widths[column],
-            )
+            growable_total = sum(widths[column] for column in ordered_columns)
+            if growable_total > 0:
+                distributed = 0
+                for position, column in enumerate(ordered_columns):
+                    if position == len(ordered_columns) - 1:
+                        additional = extra_width - distributed
+                    else:
+                        additional = round(
+                            extra_width * widths[column] / growable_total,
+                        )
+                        distributed += additional
+                    widths[column] += additional
 
         return widths
 

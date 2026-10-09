@@ -192,7 +192,7 @@ def test_gallery_cards_keep_their_previews_after_alternative_swap(tmp_path):
     buttons = dialog.canvas.findChildren(QPushButton)
     assert len(buttons) == 2
     assert all(not button.icon().isNull() for button in buttons)
-    assert Path(dialog.images[0]["image_path"]) == paths[1]
+    assert Path(str(dialog.images[0]["image_path"])) == paths[1]
 
     dialog.close()
 

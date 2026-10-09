@@ -257,6 +257,34 @@ def test_gallery_with_more_than_five_images_scrolls_horizontally(tmp_path):
     dialog.close()
 
 
+
+def test_gallery_normalizes_empty_image_path_using_alternative_path(tmp_path):
+    _qapp()
+    image_path = tmp_path / "alternative.png"
+    _write_test_image(image_path)
+    product = Product(
+        code="FB-403",
+        name="Galería con ruta alternativa",
+        gallery_images=[
+            {
+                "image_path": "",
+                "path": str(image_path),
+                "position": 1,
+            },
+        ],
+    )
+
+    dialog = ProductImageGalleryDialog(product, service=_Service())
+
+    assert len(dialog.images) == 1
+    assert dialog.images[0]["image_path"] == str(image_path)
+    preview = dialog.canvas.findChild(QLabel, "gallery_image_choice")
+    assert preview is not None
+    assert preview.pixmap() is not None
+    assert not preview.pixmap().isNull()
+    dialog.close()
+
+
 def test_guardar_persists_the_current_ordered_gallery():
     _qapp()
     service = _Service()

@@ -981,8 +981,8 @@ class ProductTable(QTableWidget):
         self._apply_current_sort()
 
     def _apply_current_sort(self) -> None:
-        self._render_products(self._sorted_products())
         self._update_sort_header_labels()
+        self._render_products(self._sorted_products())
 
     def _sorted_products(self) -> list[Product]:
         products = list(self._products)

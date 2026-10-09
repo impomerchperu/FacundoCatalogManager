@@ -610,7 +610,7 @@ def test_product_table_stock_width_stays_content_fitted_when_window_grows():
 
 
 
-def test_price_columns_keep_currency_and_original_width():
+def test_price_columns_are_compact_and_currency_is_not_editable():
     _qapp()
     table = ProductTable(_Controller())
     product = Product(
@@ -625,9 +625,12 @@ def test_price_columns_keep_currency_and_original_width():
     table.load_products([product])
     QApplication.processEvents()
 
-    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_SAMPLE_COLUMN] == 110
-    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_HUNDRED_COLUMN] == 110
-    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_THOUSAND_COLUMN] == 110
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_SAMPLE_COLUMN] == 88
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_HUNDRED_COLUMN] == 88
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_THOUSAND_COLUMN] == 88
+    assert table.columnWidth(ProductTable.PRICE_SAMPLE_COLUMN) == 88
+    assert table.columnWidth(ProductTable.PRICE_HUNDRED_COLUMN) == 88
+    assert table.columnWidth(ProductTable.PRICE_THOUSAND_COLUMN) == 88
 
     index = table.model().index(0, ProductTable.PRICE_HUNDRED_COLUMN)
     delegate = table.itemDelegateForColumn(ProductTable.PRICE_HUNDRED_COLUMN)
@@ -720,6 +723,115 @@ def test_detail_removes_fields_that_repeat_product_row_data():
     assert item is not None
     assert item.text() == "Potencia: 500W"
 
+    table.close()
+
+
+
+def test_detail_removes_multiple_colors_already_visible_in_stock():
+    _qapp()
+    colors = [
+        "Azul", "Blanco", "Celeste", "Morado", "Naranja", "Negro",
+        "Rojo", "Rosado", "Verde Claro", "Verde Oscuro", "Amarillo",
+    ]
+    description = (
+        "Color: " + ", ".join(colors) + ". "
+        "Material: Poliuretano. Dimensiones: 63mm. "
+        "Peso Unitario: 19.4 G. Uso Recomendado: Antiestrés, Promocional. "
+        "Empaque Individual: Bolsa de polietileno. Cantidad por Caja: 250 Pza. "
+        "Dimensiones Caja: 53*34*33cm."
+    )
+    table = ProductTable(_Controller())
+    table.load_products(
+        [
+            Product(
+                code="FB-4009",
+                name="Antiestrés",
+                stock=len(colors),
+                color_stock={color: 1 for color in colors},
+                description=description,
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    detail = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert detail is not None
+    assert detail.text().splitlines() == [
+        "Material: Poliuretano",
+        "Dimensiones: 63mm",
+        "Peso Unitario: 19.4 G",
+        "Uso Recomendado: Antiestrés, Promocional",
+        "Empaque Individual: Bolsa de polietileno",
+        "Cantidad por Caja: 250 Pza",
+        "Dimensiones Caja: 53*34*33cm",
+    ]
+    table.close()
+
+
+def test_product_table_stabilizes_code_and_price_widths_after_value_changes():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1600, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="IKIOSK-ESTANDAR",
+                name="Producto",
+                description="Detalle",
+                price_sample=5,
+                price_hundred=50,
+                price_thousand=500,
+            ),
+        ],
+    )
+    QApplication.processEvents()
+    fixed_widths = {
+        column: table.columnWidth(column)
+        for column in (
+            ProductTable.CODE_COLUMN,
+            ProductTable.PRICE_SAMPLE_COLUMN,
+            ProductTable.PRICE_HUNDRED_COLUMN,
+            ProductTable.PRICE_THOUSAND_COLUMN,
+        )
+    }
+
+    code_item = table.item(0, ProductTable.CODE_COLUMN)
+    price_item = table.item(0, ProductTable.PRICE_HUNDRED_COLUMN)
+    assert code_item is not None and price_item is not None
+    code_item.setText("FB-999999999999999999")
+    price_item.setText("S/ 999,999,999.99")
+    table._preferred_widths_cache = None
+    table._fit_columns_to_content()
+    QApplication.processEvents()
+
+    assert {
+        column: table.columnWidth(column)
+        for column in fixed_widths
+    } == fixed_widths
+    table.close()
+
+
+def test_products_are_alphanumerically_sorted_by_category_at_startup():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.load_products(
+        [
+            Product(code="FB-12", name="Producto 12", category="Oficina 10"),
+            Product(code="FB-3", name="Producto 3", category="Oficina 2"),
+            Product(code="FB-2", name="Producto 2", category="Antiestrés"),
+            Product(code="FB-11", name="Producto 11", category="Oficina 2"),
+        ],
+    )
+
+    assert [
+        table.item(row, ProductTable.CATEGORY_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == ["Antiestrés", "Oficina 2", "Oficina 2", "Oficina 10"]
+    assert [
+        table.item(row, ProductTable.CODE_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == ["FB-2", "FB-3", "FB-11", "FB-12"]
     table.close()
 
 

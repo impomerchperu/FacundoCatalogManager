@@ -404,9 +404,9 @@ class ProductImageDelegate(QStyledItemDelegate):
         painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         painter.setPen(QColor("#334e68"))
         if left_arrow is not None:
-            painter.drawText(left_arrow, Qt.AlignmentFlag.AlignCenter, "\u2039")
+            painter.drawText(left_arrow, Qt.AlignmentFlag.AlignCenter, "<")
         if right_arrow is not None:
-            painter.drawText(right_arrow, Qt.AlignmentFlag.AlignCenter, "\u203a")
+            painter.drawText(right_arrow, Qt.AlignmentFlag.AlignCenter, ">")
 
     def paint(self, painter: QPainter, option, index) -> None:
         super().paint(painter, option, index)

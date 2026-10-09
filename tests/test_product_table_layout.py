@@ -221,7 +221,7 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
         str(paths[4]),
         str(paths[5]),
     ]
-    assert item.data(ProductImageGalleryDialogRole := ProductImageDelegate.ACTIVE_INDEX_ROLE) == 0
+    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 0
     assert item.data(ProductImageDelegate.THUMBNAIL_START_ROLE) == 0
     assert [image["image_path"] for image in product.gallery_images] == [
         str(path) for path in paths

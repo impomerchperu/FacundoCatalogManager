@@ -323,10 +323,14 @@ class ProductImageDelegate(QStyledItemDelegate):
     def _active_index(gallery: list, value: object) -> int:
         if not gallery:
             return 0
-        try:
-            return int(value) % len(gallery)
-        except (TypeError, ValueError):
-            return 0
+        if isinstance(value, int):
+            return value % len(gallery)
+        if isinstance(value, str):
+            try:
+                return int(value) % len(gallery)
+            except ValueError:
+                return 0
+        return 0
 
     @staticmethod
     def _selected_path(gallery: list, active_index: int, fallback: object) -> str:
@@ -400,9 +404,9 @@ class ProductImageDelegate(QStyledItemDelegate):
         painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         painter.setPen(QColor("#334e68"))
         if left_arrow is not None:
-            painter.drawText(left_arrow, Qt.AlignmentFlag.AlignCenter, "‹")
+            painter.drawText(left_arrow, Qt.AlignmentFlag.AlignCenter, "\u2039")
         if right_arrow is not None:
-            painter.drawText(right_arrow, Qt.AlignmentFlag.AlignCenter, "›")
+            painter.drawText(right_arrow, Qt.AlignmentFlag.AlignCenter, "\u203a")
 
     def paint(self, painter: QPainter, option, index) -> None:
         super().paint(painter, option, index)
@@ -780,7 +784,9 @@ class ProductTable(QTableWidget):
     }
     DEFAULT_IMAGE_CELL_SIZE = ProductImageDelegate.DEFAULT_SIZE
     DEFAULT_IMAGE_CELL_HEIGHT = ProductImageDelegate.DEFAULT_HEIGHT
-    IMAGE_SIZE = DEFAULT_IMAGE_CELL_SIZE
+    # IMAGE_SIZE sigue representando el preview usado por ProductDialog (144 px);
+    # la columna principal usa DEFAULT_IMAGE_CELL_SIZE para alojar miniaturas.
+    IMAGE_SIZE = 144
     DEFAULT_PRICE_COLUMN_WIDTH = 110
     FIXED_PRICE_COLUMN_WIDTH = 88
     DETAIL_FIELD_LABELS: ClassVar[dict[str, str]] = {
@@ -2073,7 +2079,7 @@ class ProductTable(QTableWidget):
                 if self._stable_code_width is not None
                 else minimum_widths[self.CODE_COLUMN]
             )
-            preferred_widths[self.IMAGE_COLUMN] = self.IMAGE_SIZE
+            preferred_widths[self.IMAGE_COLUMN] = self.DEFAULT_IMAGE_CELL_SIZE
             price_savings = 0
             for price_column in (
                 self.PRICE_SAMPLE_COLUMN,

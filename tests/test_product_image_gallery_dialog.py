@@ -98,7 +98,7 @@ def test_clicking_current_image_replaces_it_and_moves_old_primary_to_alternative
     service = _Service()
     dialog = ProductImageGalleryDialog(_product(), service=service)
     replacement = tmp_path / "replacement.jpg"
-    _write_test_image(replacement)
+    _write_test_image(replacement, width=100, height=400)
 
     monkeypatch.setattr(
         QFileDialog,
@@ -125,6 +125,8 @@ def test_clicking_current_image_replaces_it_and_moves_old_primary_to_alternative
     )[0]
     assert current_preview.pixmap() is not None
     assert not current_preview.pixmap().isNull()
+    assert current_preview.property("image_path") == str(replacement.resolve())
+    assert current_preview.pixmap().height() > current_preview.pixmap().width()
 
     dialog.close()
 
@@ -172,10 +174,84 @@ def _visual_product(image_paths) -> Product:
     )
 
 
-def _write_test_image(path) -> None:
-    pixmap = QPixmap(48, 48)
+def _write_test_image(
+    path: Path,
+    width: int = 48,
+    height: int = 48,
+) -> None:
+    pixmap = QPixmap(width, height)
     pixmap.fill(Qt.GlobalColor.blue)
     assert pixmap.save(str(path))
+
+
+def test_dialog_height_follows_preview_aspect_ratio(tmp_path):
+    _qapp()
+    landscape_path = tmp_path / "landscape.png"
+    portrait_path = tmp_path / "portrait.png"
+    _write_test_image(landscape_path, width=400, height=100)
+    _write_test_image(portrait_path, width=100, height=400)
+
+    landscape_dialog = ProductImageGalleryDialog(
+        _visual_product([landscape_path]),
+        service=_Service(),
+    )
+    portrait_dialog = ProductImageGalleryDialog(
+        _visual_product([portrait_path]),
+        service=_Service(),
+    )
+    QApplication.processEvents()
+
+    landscape_preview = landscape_dialog.canvas.findChild(
+        QLabel,
+        "gallery_image_choice",
+    )
+    portrait_preview = portrait_dialog.canvas.findChild(
+        QLabel,
+        "gallery_image_choice",
+    )
+    assert landscape_preview is not None
+    assert portrait_preview is not None
+    assert landscape_preview.pixmap() is not None
+    assert portrait_preview.pixmap() is not None
+    assert landscape_preview.pixmap().width() > landscape_preview.pixmap().height()
+    assert portrait_preview.pixmap().height() > portrait_preview.pixmap().width()
+    assert portrait_dialog.height() > landscape_dialog.height() + 100
+
+    landscape_dialog.close()
+    portrait_dialog.close()
+
+
+def test_clicking_alternative_updates_primary_preview_immediately(tmp_path):
+    _qapp()
+    landscape_path = tmp_path / "landscape.png"
+    portrait_path = tmp_path / "portrait.png"
+    _write_test_image(landscape_path, width=400, height=100)
+    _write_test_image(portrait_path, width=100, height=400)
+    dialog = ProductImageGalleryDialog(
+        _visual_product([landscape_path, portrait_path]),
+        service=_Service(),
+    )
+
+    labels = dialog.canvas.findChildren(QLabel, "gallery_image_choice")
+    assert labels[0].pixmap() is not None
+    assert labels[0].pixmap().width() > labels[0].pixmap().height()
+
+    QTest.mouseClick(labels[1], Qt.MouseButton.LeftButton)
+    QApplication.processEvents()
+
+    refreshed_labels = dialog.canvas.findChildren(
+        QLabel,
+        "gallery_image_choice",
+    )
+    assert refreshed_labels[0].property("image_path") == str(portrait_path)
+    assert refreshed_labels[0].pixmap() is not None
+    assert refreshed_labels[0].pixmap().height() > (
+        refreshed_labels[0].pixmap().width()
+    )
+    assert dialog.images[0]["image_path"] == str(portrait_path)
+    assert dialog.images[1]["image_path"] == str(landscape_path)
+
+    dialog.close()
 
 
 def test_gallery_cards_keep_their_previews_after_local_replacement(tmp_path):

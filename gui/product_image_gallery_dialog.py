@@ -49,6 +49,7 @@ class ProductImageGalleryDialog(QDialog):
     """Galería editable por clic, con guardado explícito de los cambios."""
 
     IMAGE_SIZE = 144
+    MAX_PREVIEW_HEIGHT = 220
     MAX_VISIBLE_IMAGES = 5
     IMAGE_EXTENSIONS = "Imágenes (*.png *.jpg *.jpeg *.webp *.gif)"
 
@@ -176,7 +177,19 @@ class ProductImageGalleryDialog(QDialog):
         self.canvas.resize(canvas_size)
         self.canvas.updateGeometry()
 
-        self.gallery_scroll.setMinimumHeight(self.IMAGE_SIZE + 48)
+        # Permitir que la ventana reduzca su altura si la vista previa nueva
+        # necesita menos espacio que la anterior.
+        self.setMinimumHeight(0)
+        scrollbar_height = (
+            self.gallery_scroll.horizontalScrollBar().sizeHint().height()
+            if len(self.images) > self.MAX_VISIBLE_IMAGES
+            else 0
+        )
+        self.gallery_scroll.setMinimumHeight(
+            canvas_size.height()
+            + (2 * self.gallery_scroll.frameWidth())
+            + scrollbar_height
+        )
         self._fit_window_width()
 
     def _fit_window_width(self) -> None:
@@ -211,7 +224,10 @@ class ProductImageGalleryDialog(QDialog):
         )
         target_width = max(gallery_width, footer_width)
         self.setMinimumWidth(target_width)
-        self.resize(target_width, self.height())
+        dialog_layout.activate()
+        target_height = max(dialog_layout.sizeHint().height(), 1)
+        self.setMinimumHeight(target_height)
+        self.resize(target_width, target_height)
 
     def _image_card(self, index: int, image: dict[str, object]) -> QWidget:
         path = str(image.get("image_path", "") or "").strip()
@@ -248,13 +264,18 @@ class ProductImageGalleryDialog(QDialog):
         )
         pixmap = QPixmap(str(resolve_data_path(path)))
         if not pixmap.isNull():
-            image_label.setPixmap(
-                pixmap.scaled(
-                    QSize(self.IMAGE_SIZE - 10, self.IMAGE_SIZE - 10),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                ),
+            preview = pixmap.scaled(
+                QSize(self.IMAGE_SIZE - 10, self.MAX_PREVIEW_HEIGHT),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
+            # La miniatura conserva su proporción; la ventana se ajusta al
+            # elemento más alto de la fila sin recortar la vista previa.
+            image_label.setFixedSize(
+                self.IMAGE_SIZE,
+                preview.height() + 10,
+            )
+            image_label.setPixmap(preview)
         else:
             image_label.setText(
                 "Imagen actual\nSin vista previa"

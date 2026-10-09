@@ -1647,11 +1647,6 @@ class ProductTable(QTableWidget):
             gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
             if isinstance(gallery, list) and len(gallery) > 1:
                 rect = self.visualRect(index)
-                active = item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE)
-                try:
-                    active_index = int(active) % len(gallery)
-                except (TypeError, ValueError):
-                    active_index = 0
                 thumbnail_start = item.data(
                     ProductImageDelegate.THUMBNAIL_START_ROLE,
                 )

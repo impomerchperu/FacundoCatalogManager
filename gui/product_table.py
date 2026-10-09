@@ -990,8 +990,14 @@ class ProductTable(QTableWidget):
 
     @staticmethod
     def _natural_sort_key(value: str) -> tuple[tuple[int, str], ...]:
+        normalized = (
+            unicodedata.normalize("NFKD", value)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+            .casefold()
+        )
         parts: list[tuple[int, str]] = []
-        for token in re.split(r"(\d+)", value.casefold()):
+        for token in re.split(r"(\d+)", normalized):
             if not token:
                 continue
             if token.isdigit():

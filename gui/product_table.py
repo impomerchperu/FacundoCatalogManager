@@ -413,28 +413,35 @@ class ProductDetailDelegate(QStyledItemDelegate):
         font: QFont,
         width: int,
     ) -> tuple[QTextLayout, int]:
-        layout = QTextLayout(text, font)
-        text_option = QTextOption()
-        text_option.setWrapMode(QTextOption.WrapMode.WordWrap)
-        layout.setTextOption(text_option)
-
         metrics = QFontMetricsF(font)
         line_height = max(metrics.height() - cls.LINE_SPACING_REDUCTION, 1.0)
+        layouts: list[tuple[QTextLayout, float]] = []
         total_height = 0.0
-        layout.beginLayout()
-        while True:
-            line = layout.createLine()
-            if not line.isValid():
-                break
-            line.setLineWidth(max(width, 1))
-            line.setLineHeight(
-                line_height,
-                QTextLine.LineHeightTypes.FixedHeight,
-            )
-            line.setPosition(QPointF(0, total_height))
-            total_height += line.height()
-        layout.endLayout()
-        return layout, round(total_height)
+        paragraphs = text.splitlines() or [text]
+        for paragraph in paragraphs:
+            layout = QTextLayout(paragraph, font)
+            text_option = QTextOption()
+            text_option.setWrapMode(QTextOption.WrapMode.WordWrap)
+            layout.setTextOption(text_option)
+            paragraph_height = 0.0
+            layout.beginLayout()
+            while True:
+                line = layout.createLine()
+                if not line.isValid():
+                    break
+                line.setLineWidth(max(width, 1))
+                line.setLineHeight(
+                    line_height,
+                    QTextLine.LineHeightTypes.FixedHeight,
+                )
+                line.setPosition(QPointF(0, paragraph_height))
+                paragraph_height += line.height()
+            layout.endLayout()
+            if paragraph_height <= 0:
+                paragraph_height = line_height
+            layouts.append((layout, total_height))
+            total_height += paragraph_height
+        return layouts, round(total_height)
 
     @classmethod
     def content_height(cls, text: str, font: QFont, width: int) -> int:
@@ -464,25 +471,23 @@ class ProductDetailDelegate(QStyledItemDelegate):
             styled_option.rect.width() - (2 * self.HORIZONTAL_PADDING),
             1,
         )
-        layout, _ = self._layout_text(
+        layouts, _ = self._layout_text(
             text,
             styled_option.font,
             text_width,
         )
-        color_role = (
-            QPalette.ColorRole.HighlightedText
-            if styled_option.state & QStyle.StateFlag.State_Selected
-            else QPalette.ColorRole.Text
-        )
         painter.save()
-        painter.setPen(styled_option.palette.color(color_role))
-        layout.draw(
-            painter,
-            QPointF(
-                styled_option.rect.left() + self.HORIZONTAL_PADDING,
-                styled_option.rect.top() + self.VERTICAL_PADDING,
-            ),
-        )
+        painter.setPen(styled_option.palette.color(QPalette.ColorRole.Text))
+        for layout, top_offset in layouts:
+            layout.draw(
+                painter,
+                QPointF(
+                    styled_option.rect.left() + self.HORIZONTAL_PADDING,
+                    styled_option.rect.top()
+                    + self.VERTICAL_PADDING
+                    + top_offset,
+                ),
+            )
         painter.restore()
 
     def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
@@ -1763,6 +1768,8 @@ class ProductTable(QTableWidget):
             ]
             minimum_widths[self.CATEGORY_COLUMN] = self._category_minimum_width()
             minimum_widths[self.STOCK_COLUMN] = self._stock_minimum_width()
+            if self._stable_code_width is not None:
+                minimum_widths[self.CODE_COLUMN] = self._stable_code_width
             minimum_total = sum(minimum_widths)
             available_width = self.viewport().width()
             target_width = max(available_width, minimum_total)

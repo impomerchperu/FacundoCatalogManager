@@ -475,6 +475,48 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     table.close()
 
 
+def test_product_table_reduces_flexible_columns_for_narrow_available_width():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(900, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-300",
+                name="Producto con un nombre amplio",
+                description="Detalle técnico " * 15,
+                category="Categoría de ejemplo",
+                color_stock={
+                    "Verde Oscuro": 12718,
+                    "Azul": 3250,
+                    "Rojo": 128,
+                    "Negro": 420,
+                },
+                stock=16516,
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    header = table.horizontalHeader()
+    total_width = sum(
+        header.sectionSize(column)
+        for column in range(table.columnCount())
+        if not table.isColumnHidden(column)
+    )
+    assert table.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    assert total_width <= table.viewport().width()
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.IMAGE_COLUMN] <= (
+        table.columnWidth(ProductTable.IMAGE_COLUMN)
+    ) <= ProductImageDelegate.DEFAULT_SIZE
+    assert table.columnWidth(ProductTable.DETAIL_COLUMN) >= (
+        ProductTable.MIN_COLUMN_WIDTHS[ProductTable.DETAIL_COLUMN]
+    )
+
+    table.close()
+
+
 def test_product_table_columns_reflow_to_narrow_window_without_scroll():
     _qapp()
 
@@ -802,9 +844,9 @@ def test_price_columns_are_compact_and_currency_is_not_editable():
     table.load_products([product])
     QApplication.processEvents()
 
-    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_SAMPLE_COLUMN] == 88
-    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_HUNDRED_COLUMN] == 88
-    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_THOUSAND_COLUMN] == 88
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_SAMPLE_COLUMN] == 72
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_HUNDRED_COLUMN] == 72
+    assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_THOUSAND_COLUMN] == 72
     assert table.columnWidth(ProductTable.PRICE_SAMPLE_COLUMN) == 88
     assert table.columnWidth(ProductTable.PRICE_HUNDRED_COLUMN) == 88
     assert table.columnWidth(ProductTable.PRICE_THOUSAND_COLUMN) == 88

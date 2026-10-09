@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFontMetrics, QPixmap
+from PySide6.QtGui import QFontMetrics, QFontMetricsF, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QHeaderView,
@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 
 from gui.product_table import (
     PriceDelegate,
+    ProductDetailDelegate,
     ProductImageDelegate,
     ProductTable,
     StockColorDelegate,
@@ -832,6 +833,30 @@ def test_products_are_alphanumerically_sorted_by_category_at_startup():
         table.item(row, ProductTable.CODE_COLUMN).text()
         for row in range(table.rowCount())
     ] == ["FB-2", "FB-3", "FB-11", "FB-12"]
+    table.close()
+
+
+
+def test_detail_delegate_compacts_spacing_between_attribute_lines():
+    _qapp()
+    table = ProductTable(_Controller())
+    delegate = table.itemDelegateForColumn(ProductTable.DETAIL_COLUMN)
+    assert isinstance(delegate, ProductDetailDelegate)
+    text = "\\n".join(
+        f"Atributo {index}: valor" for index in range(8)
+    )
+    normal_height = (
+        QFontMetricsF(table.font()).height()
+        * len(text.splitlines())
+    )
+
+    compact_height = delegate.content_height(
+        text,
+        table.font(),
+        600,
+    )
+
+    assert compact_height < normal_height
     table.close()
 
 

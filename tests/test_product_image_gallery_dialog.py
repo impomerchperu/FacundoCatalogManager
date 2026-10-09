@@ -2,7 +2,8 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QApplication, QFileDialog, QPushButton
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QPushButton
 
 from gui.product_image_gallery_dialog import ProductImageGalleryDialog
 from models.product import Product
@@ -62,7 +63,16 @@ def test_product_image_gallery_dialog_uses_product_table_image_size():
         "Clic en imagen actual para elegir imagen local",
         "Clic en imagen alternativa para reemplazar actual",
     ]
-    assert dialog.width() < 500
+    assert dialog.width() >= (
+        dialog.summary.minimumWidth()
+        + dialog.footer_layout.spacing()
+        + dialog.save_button.sizeHint().width()
+        + dialog.layout().contentsMargins().left()
+        + dialog.layout().contentsMargins().right()
+    )
+    assert dialog.footer_layout.indexOf(dialog.save_button) > (
+        dialog.footer_layout.indexOf(dialog.summary)
+    )
     action_labels = {
         "Subir imágenes...",
         "Reemplazar seleccionada",
@@ -95,8 +105,11 @@ def test_clicking_current_image_replaces_it_and_moves_old_primary_to_alternative
         "getOpenFileName",
         lambda *args: (str(replacement), "Imágenes"),
     )
-    current_button = dialog.canvas.findChildren(QPushButton)[0]
-    current_button.click()
+    current_image = dialog.canvas.findChildren(
+        QLabel,
+        "gallery_image_choice",
+    )[0]
+    QTest.mouseClick(current_image, Qt.MouseButton.LeftButton)
 
     assert [image["image_path"] for image in dialog.images] == [
         str(replacement),
@@ -168,9 +181,13 @@ def test_gallery_cards_keep_their_previews_after_local_replacement(tmp_path):
     dialog._replace_primary_path(str(replacement))
     QApplication.processEvents()
 
-    buttons = dialog.canvas.findChildren(QPushButton)
-    assert len(buttons) == 3
-    assert all(not button.icon().isNull() for button in buttons)
+    QApplication.processEvents()
+    labels = dialog.canvas.findChildren(QLabel, "gallery_image_choice")
+    assert len(labels) == 3
+    assert all(
+        label.pixmap() is not None and not label.pixmap().isNull()
+        for label in labels
+    )
     assert dialog.images[0]["image_path"] == str(replacement)
 
     dialog.close()
@@ -189,9 +206,13 @@ def test_gallery_cards_keep_their_previews_after_alternative_swap(tmp_path):
     dialog.exchange_with_primary(1)
     QApplication.processEvents()
 
-    buttons = dialog.canvas.findChildren(QPushButton)
-    assert len(buttons) == 2
-    assert all(not button.icon().isNull() for button in buttons)
+    QApplication.processEvents()
+    labels = dialog.canvas.findChildren(QLabel, "gallery_image_choice")
+    assert len(labels) == 2
+    assert all(
+        label.pixmap() is not None and not label.pixmap().isNull()
+        for label in labels
+    )
     assert Path(str(dialog.images[0]["image_path"])) == paths[1]
 
     dialog.close()
@@ -213,6 +234,13 @@ def test_gallery_with_more_than_five_images_scrolls_horizontally(tmp_path):
     assert scrollbar.maximum() > 0
     assert dialog.width() < 900
     assert dialog.canvas.width() > dialog.gallery_scroll.viewport().width()
+    assert dialog.minimumWidth() >= (
+        dialog.summary.minimumWidth()
+        + dialog.footer_layout.spacing()
+        + dialog.save_button.sizeHint().width()
+        + dialog.layout().contentsMargins().left()
+        + dialog.layout().contentsMargins().right()
+    )
 
     dialog.close()
 

@@ -152,6 +152,83 @@ def test_product_table_uses_horizontal_thumbnails_and_click_changes_temporary_pr
     table.close()
 
 
+def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: Path):
+    _qapp()
+    paths = [tmp_path / f"scroll-{index}.png" for index in range(6)]
+    gallery = []
+    for index, path in enumerate(paths, start=1):
+        pixmap = QPixmap(60, 40)
+        pixmap.fill(QColor("#2f80ed" if index % 2 else "#ef4444"))
+        assert pixmap.save(str(path))
+        gallery.append(
+            {
+                "url": f"https://example.test/scroll-{index}.png",
+                "image_path": str(path),
+                "position": index,
+            },
+        )
+    product = Product(
+        code="FB-101",
+        name="Producto con muchas imágenes",
+        image_path=str(paths[0]),
+        gallery_images=gallery,
+    )
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products([product])
+    QApplication.processEvents()
+
+    index = table.model().index(0, ProductTable.IMAGE_COLUMN)
+    rect = table.visualRect(index)
+    initial_tiles, left_arrow, right_arrow, _ = (
+        ProductImageDelegate.thumbnail_layout(rect, len(gallery), 0)
+    )
+    assert [image_index for image_index, _ in initial_tiles] == [0, 1, 2]
+    assert left_arrow is not None
+    assert right_arrow is not None
+
+    QTest.mouseClick(
+        table.viewport(),
+        Qt.MouseButton.LeftButton,
+        pos=right_arrow.center(),
+    )
+    QApplication.processEvents()
+    item = table.item(0, ProductTable.IMAGE_COLUMN)
+    assert item.data(ProductImageDelegate.THUMBNAIL_START_ROLE) == 1
+    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 0
+
+    rect = table.visualRect(index)
+    scrolled_tiles, left_arrow, right_arrow, _ = (
+        ProductImageDelegate.thumbnail_layout(rect, len(gallery), 1)
+    )
+    assert [image_index for image_index, _ in scrolled_tiles] == [1, 2, 3]
+    assert left_arrow is not None
+    assert right_arrow is not None
+
+    QTest.mouseClick(
+        table.viewport(),
+        Qt.MouseButton.LeftButton,
+        pos=scrolled_tiles[2][1].center(),
+    )
+    QApplication.processEvents()
+    visible_gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
+    assert [image["image_path"] for image in visible_gallery] == [
+        str(paths[3]),
+        str(paths[1]),
+        str(paths[2]),
+        str(paths[0]),
+        str(paths[4]),
+        str(paths[5]),
+    ]
+    assert item.data(ProductImageGalleryDialogRole := ProductImageDelegate.ACTIVE_INDEX_ROLE) == 0
+    assert item.data(ProductImageDelegate.THUMBNAIL_START_ROLE) == 0
+    assert [image["image_path"] for image in product.gallery_images] == [
+        str(path) for path in paths
+    ]
+    table.close()
+
+
 def test_product_table_stock_shows_left_aligned_color_dot_and_right_aligned_quantity():
     _qapp()
     table = ProductTable(_Controller())

@@ -318,29 +318,103 @@ class ProductImageDelegate(QStyledItemDelegate):
             )
         return tiles, left_arrow, right_arrow, strip_top
 
+    @staticmethod
+    def _active_index(gallery: list, value: object) -> int:
+        if not gallery:
+            return 0
+        try:
+            return int(value) % len(gallery)
+        except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
+    def _selected_path(gallery: list, active_index: int, fallback: object) -> str:
+        if gallery and isinstance(gallery[active_index], dict):
+            selected = gallery[active_index]
+            path = selected.get("image_path", selected.get("path", fallback))
+            if isinstance(path, str) and path.strip():
+                return str(resolve_data_path(path))
+        return str(fallback or "")
+
+    def _paint_main_preview(
+        self,
+        painter: QPainter,
+        rect: QRect,
+        image_path: str,
+    ) -> None:
+        if rect.width() <= 0 or rect.height() <= 0 or not image_path:
+            return
+        pixmap = self._load_pixmap(image_path)
+        if pixmap.isNull():
+            return
+        scaled = pixmap.scaled(
+            rect.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        x = rect.left() + (rect.width() - scaled.width()) // 2
+        y = rect.top() + (rect.height() - scaled.height()) // 2
+        painter.drawPixmap(x, y, scaled)
+
+    def _paint_thumbnail_strip(
+        self,
+        painter: QPainter,
+        rect: QRect,
+        gallery: list,
+        active_index: int,
+    ) -> None:
+        tiles, left_arrow, right_arrow, _strip_top = self.thumbnail_layout(
+            rect,
+            len(gallery),
+            active_index,
+        )
+        for image_index, tile_rect in tiles:
+            image = gallery[image_index]
+            path = ""
+            if isinstance(image, dict):
+                path = str(
+                    image.get("image_path", image.get("path", "")) or ""
+                ).strip()
+            painter.fillRect(tile_rect, QColor("#ffffff"))
+            painter.setPen(
+                QColor("#1675e8")
+                if image_index == active_index
+                else QColor("#cbd5e1")
+            )
+            painter.drawRect(tile_rect.adjusted(0, 0, -1, -1))
+            inner = tile_rect.adjusted(3, 3, -3, -3)
+            if path and inner.width() > 0 and inner.height() > 0:
+                thumb = self._load_pixmap(str(resolve_data_path(path)))
+                if not thumb.isNull():
+                    thumb = thumb.scaled(
+                        inner.size(),
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                    thumb_x = inner.left() + (inner.width() - thumb.width()) // 2
+                    thumb_y = inner.top() + (inner.height() - thumb.height()) // 2
+                    painter.drawPixmap(thumb_x, thumb_y, thumb)
+
+        painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        painter.setPen(QColor("#334e68"))
+        if left_arrow is not None:
+            painter.drawText(left_arrow, Qt.AlignmentFlag.AlignCenter, "‹")
+        if right_arrow is not None:
+            painter.drawText(right_arrow, Qt.AlignmentFlag.AlignCenter, "›")
+
     def paint(self, painter: QPainter, option, index) -> None:
         super().paint(painter, option, index)
-
-        gallery = index.data(self.GALLERY_ROLE)
-        image_path = index.data(self.IMAGE_ROLE)
-        active_index = index.data(self.ACTIVE_INDEX_ROLE)
-        if not isinstance(gallery, list):
-            gallery = []
-        if gallery:
-            try:
-                active_index = int(active_index) % len(gallery)
-            except (TypeError, ValueError):
-                active_index = 0
-            selected = gallery[active_index]
-            if isinstance(selected, dict):
-                selected_path = selected.get(
-                    "image_path",
-                    selected.get("path", image_path),
-                )
-                if isinstance(selected_path, str) and selected_path.strip():
-                    image_path = str(resolve_data_path(selected_path))
-        else:
-            active_index = 0
+        raw_gallery = index.data(self.GALLERY_ROLE)
+        gallery = raw_gallery if isinstance(raw_gallery, list) else []
+        active_index = self._active_index(
+            gallery,
+            index.data(self.ACTIVE_INDEX_ROLE),
+        )
+        image_path = self._selected_path(
+            gallery,
+            active_index,
+            index.data(self.IMAGE_ROLE),
+        )
 
         cell = option.rect
         has_thumbnails = len(gallery) > 1
@@ -352,56 +426,14 @@ class ProductImageDelegate(QStyledItemDelegate):
         )
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-        if isinstance(image_path, str) and image_path:
-            pixmap = self._load_pixmap(image_path)
-            if not pixmap.isNull() and main_rect.width() > 0 and main_rect.height() > 0:
-                scaled = pixmap.scaled(
-                    main_rect.size(),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-                x = main_rect.left() + (main_rect.width() - scaled.width()) // 2
-                y = main_rect.top() + (main_rect.height() - scaled.height()) // 2
-                painter.drawPixmap(x, y, scaled)
-
+        self._paint_main_preview(painter, main_rect, image_path)
         if has_thumbnails:
-            tiles, left_arrow, right_arrow, _strip_top = self.thumbnail_layout(
+            self._paint_thumbnail_strip(
+                painter,
                 cell,
-                len(gallery),
+                gallery,
                 active_index,
             )
-            for image_index, tile_rect in tiles:
-                image = gallery[image_index]
-                path = ""
-                if isinstance(image, dict):
-                    path = str(
-                        image.get("image_path", image.get("path", "")) or ""
-                    ).strip()
-                painter.fillRect(tile_rect, QColor("#ffffff"))
-                if image_index == active_index:
-                    painter.setPen(QColor("#1675e8"))
-                else:
-                    painter.setPen(QColor("#cbd5e1"))
-                painter.drawRect(tile_rect.adjusted(0, 0, -1, -1))
-                inner = tile_rect.adjusted(3, 3, -3, -3)
-                if path and inner.width() > 0 and inner.height() > 0:
-                    thumb = self._load_pixmap(str(resolve_data_path(path)))
-                    if not thumb.isNull():
-                        thumb = thumb.scaled(
-                            inner.size(),
-                            Qt.AspectRatioMode.KeepAspectRatio,
-                            Qt.TransformationMode.SmoothTransformation,
-                        )
-                        thumb_x = inner.left() + (inner.width() - thumb.width()) // 2
-                        thumb_y = inner.top() + (inner.height() - thumb.height()) // 2
-                        painter.drawPixmap(thumb_x, thumb_y, thumb)
-
-            painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-            painter.setPen(QColor("#334e68"))
-            if left_arrow is not None:
-                painter.drawText(left_arrow, Qt.AlignmentFlag.AlignCenter, "‹")
-            if right_arrow is not None:
-                painter.drawText(right_arrow, Qt.AlignmentFlag.AlignCenter, "›")
         painter.restore()
 
     @staticmethod
@@ -505,7 +537,7 @@ class StockColorDelegate(QStyledItemDelegate):
 
             color = str(entry[0])
             stock = max(int(entry[1]), 0)
-            _background, indicator = ProductTable._stock_color_style(color)
+            indicator = ProductTable._stock_color_style(color)[1]
 
             top = option.rect.top() + round(
                 option.rect.height() * line / count,

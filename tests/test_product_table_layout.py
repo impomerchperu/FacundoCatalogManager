@@ -842,7 +842,7 @@ def test_detail_delegate_compacts_spacing_between_attribute_lines():
     table = ProductTable(_Controller())
     delegate = table.itemDelegateForColumn(ProductTable.DETAIL_COLUMN)
     assert isinstance(delegate, ProductDetailDelegate)
-    text = "\\n".join(
+    text = "\n".join(
         f"Atributo {index}: valor" for index in range(8)
     )
     normal_height = (

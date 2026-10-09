@@ -137,19 +137,21 @@ class ProductImageGalleryDialog(QDialog):
                     "source": "primary",
                 }
             ]
-        return [
-            {
-                **image,
-                "image_path": str(
-                    image.get("image_path", image.get("path", "")) or ""
-                ).strip(),
-                "position": index + 1,
-            }
-            for index, image in enumerate(images)
-            if str(
-                image.get("image_path", image.get("path", "")) or ""
+        normalized: list[dict[str, object]] = []
+        for image in images:
+            image_path = str(
+                image.get("image_path") or image.get("path") or ""
             ).strip()
-        ]
+            if not image_path:
+                continue
+            normalized.append(
+                {
+                    **image,
+                    "image_path": image_path,
+                    "position": len(normalized) + 1,
+                },
+            )
+        return normalized
 
     def _render(self) -> None:
         while self.canvas_layout.count():

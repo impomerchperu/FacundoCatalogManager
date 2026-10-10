@@ -36,7 +36,10 @@ from config.runtime_paths import resolve_data_path
 from controllers.product_controller import ProductController
 from gui.product_category_delegate import ProductCategoryDelegate
 from models.product import Product
-from services.scraping.category_name_normalizer import split_category_names
+from services.scraping.category_name_normalizer import (
+    display_category_name,
+    split_category_names,
+)
 
 
 class NumericTableWidgetItem(QTableWidgetItem):
@@ -254,7 +257,7 @@ class ProductNameCategoryDelegate(ProductCodeCategoryDelegate):
         metrics = QFontMetrics(font)
         bounds = metrics.boundingRect(
             QRect(0, 0, max(width, 1), 1000),
-            Qt.TextFlag.TextWordWrap | Qt.TextFlag.TextWrapAnywhere,
+            Qt.TextFlag.TextWordWrap,
             text or " ",
         )
         return max(bounds.height(), metrics.height())
@@ -335,8 +338,7 @@ class ProductNameCategoryDelegate(ProductCodeCategoryDelegate):
             QRect(content_rect.left(), top, content_width, name_height),
             Qt.AlignmentFlag.AlignLeft
             | Qt.AlignmentFlag.AlignVCenter
-            | Qt.TextFlag.TextWordWrap
-            | Qt.TextFlag.TextWrapAnywhere,
+            | Qt.TextFlag.TextWordWrap,
             name,
         )
         category_rect = QRect(
@@ -351,8 +353,7 @@ class ProductNameCategoryDelegate(ProductCodeCategoryDelegate):
             category_rect,
             Qt.AlignmentFlag.AlignLeft
             | Qt.AlignmentFlag.AlignVCenter
-            | Qt.TextFlag.TextWordWrap
-            | Qt.TextFlag.TextWrapAnywhere,
+            | Qt.TextFlag.TextWordWrap,
             categories or "—",
         )
         painter.restore()
@@ -369,16 +370,17 @@ class ProductNameCategoryDelegate(ProductCodeCategoryDelegate):
 
 
 class ProductImageDelegate(QStyledItemDelegate):
-    """Dibuja la imagen principal y una fila horizontal de miniaturas."""
+    """Dibuja la imagen principal a escala proporcional y sus miniaturas."""
 
-    DEFAULT_SIZE = 248
-    DEFAULT_HEIGHT = 178
-    THUMBNAIL_HEIGHT = 39
-    THUMBNAIL_STRIP_HEIGHT = 48
-    THUMBNAIL_GAP = 4
-    THUMBNAIL_PADDING = 6
-    CELL_HORIZONTAL_PADDING = 4
-    CELL_VERTICAL_PADDING = 4
+    DEFAULT_SIZE = 160
+    DEFAULT_HEIGHT = 144
+    MAIN_IMAGE_WIDTH = 144
+    THUMBNAIL_HEIGHT = 34
+    THUMBNAIL_STRIP_HEIGHT = 34
+    THUMBNAIL_GAP = 3
+    THUMBNAIL_PADDING = 0
+    CELL_HORIZONTAL_PADDING = 0
+    CELL_VERTICAL_PADDING = 0
     MAX_VISIBLE_THUMBNAILS = 4
     IMAGE_ROLE = int(Qt.ItemDataRole.UserRole) + 1
     GALLERY_ROLE = int(Qt.ItemDataRole.UserRole) + 3
@@ -386,67 +388,78 @@ class ProductImageDelegate(QStyledItemDelegate):
     THUMBNAIL_START_ROLE = int(Qt.ItemDataRole.UserRole) + 5
 
     @classmethod
+    def main_image_size(cls, image_path: str) -> QSize:
+        """Return a 144 px-wide size while preserving the source aspect ratio."""
+        resolved = str(resolve_data_path(image_path)) if image_path else ""
+        pixmap = cls._load_pixmap(resolved)
+        if pixmap.isNull() or pixmap.width() <= 0 or pixmap.height() <= 0:
+            return QSize(cls.MAIN_IMAGE_WIDTH, cls.MAIN_IMAGE_WIDTH)
+        return QSize(
+            cls.MAIN_IMAGE_WIDTH,
+            max(
+                round(pixmap.height() * cls.MAIN_IMAGE_WIDTH / pixmap.width()),
+                1,
+            ),
+        )
+
+    @classmethod
+    def main_image_height(cls, image_path: str) -> int:
+        return cls.main_image_size(image_path).height()
+
+    @classmethod
     def thumbnail_layout(
         cls,
         rect: QRect,
         image_count: int,
         thumbnail_start: int = 0,
+        *,
+        main_height: int | None = None,
     ) -> tuple[list[tuple[int, QRect]], QRect | None, QRect | None, int]:
-        """Devuelve los rectángulos de miniaturas y navegación horizontal."""
+        """Center fewer than four thumbnails; show four plus arrows for larger galleries."""
+        strip_top = rect.top() + (
+            main_height if main_height is not None else cls.MAIN_IMAGE_WIDTH
+        )
         if image_count <= 0:
-            return [], None, None, rect.bottom() - cls.THUMBNAIL_STRIP_HEIGHT + 4
-
-        strip_top = rect.bottom() - cls.THUMBNAIL_STRIP_HEIGHT + 4
-        left = rect.left() + cls.THUMBNAIL_PADDING
-        right = rect.right() - cls.THUMBNAIL_PADDING
+            return [], None, None, strip_top
+        gap = cls.THUMBNAIL_GAP
         left_arrow = None
         right_arrow = None
-        gap = cls.THUMBNAIL_GAP
         if image_count > cls.MAX_VISIBLE_THUMBNAILS:
-            arrow_width = 13
-            left_arrow = QRect(
-                left,
-                strip_top,
-                arrow_width,
-                cls.THUMBNAIL_HEIGHT,
-            )
+            arrow_width = min(12, max(rect.width() // 10, 1))
+            left_arrow = QRect(rect.left(), strip_top, arrow_width, cls.THUMBNAIL_HEIGHT)
             right_arrow = QRect(
-                right - arrow_width + 1,
+                rect.right() - arrow_width + 1,
                 strip_top,
                 arrow_width,
                 cls.THUMBNAIL_HEIGHT,
             )
             left = left_arrow.right() + 1 + gap
             right = right_arrow.left() - 1 - gap
-            visible_count = cls.MAX_VISIBLE_THUMBNAILS - 1
-            start = max(
-                0,
-                min(thumbnail_start, image_count - visible_count),
-            )
+            visible_count = cls.MAX_VISIBLE_THUMBNAILS
+            start = max(0, min(thumbnail_start, image_count - visible_count))
             visible_indices = list(range(start, start + visible_count))
+            available_width = max(right - left + 1, 1)
+            tile_width = max(
+                (available_width - gap * (visible_count - 1)) // visible_count,
+                1,
+            )
         else:
             visible_count = image_count
             visible_indices = list(range(image_count))
+            tile_width = max(
+                (
+                    max(rect.width(), 1)
+                    - gap * (cls.MAX_VISIBLE_THUMBNAILS - 1)
+                ) // cls.MAX_VISIBLE_THUMBNAILS,
+                1,
+            )
+            group_width = visible_count * tile_width + gap * (visible_count - 1)
+            left = rect.left() + max((rect.width() - group_width) // 2, 0)
 
-        available_width = max(right - left + 1, 1)
-        tile_width = max(
-            (available_width - gap * (visible_count - 1)) // visible_count,
-            1,
-        )
         tiles: list[tuple[int, QRect]] = []
         for position, image_index in enumerate(visible_indices):
             tile_left = left + position * (tile_width + gap)
-            tiles.append(
-                (
-                    image_index,
-                    QRect(
-                        tile_left,
-                        strip_top,
-                        tile_width,
-                        cls.THUMBNAIL_HEIGHT,
-                    ),
-                ),
-            )
+            tiles.append((image_index, QRect(tile_left, strip_top, tile_width, cls.THUMBNAIL_HEIGHT)))
         return tiles, left_arrow, right_arrow, strip_top
 
     @staticmethod
@@ -479,17 +492,15 @@ class ProductImageDelegate(QStyledItemDelegate):
     ) -> None:
         if rect.width() <= 0 or rect.height() <= 0 or not image_path:
             return
-        pixmap = self._load_pixmap(image_path)
+        pixmap = self._load_pixmap(str(resolve_data_path(image_path)))
         if pixmap.isNull():
             return
-        scaled = pixmap.scaled(
-            rect.size(),
-            Qt.AspectRatioMode.KeepAspectRatio,
+        scaled = pixmap.scaledToWidth(
+            self.MAIN_IMAGE_WIDTH,
             Qt.TransformationMode.SmoothTransformation,
         )
         x = rect.left() + (rect.width() - scaled.width()) // 2
-        y = rect.top() + (rect.height() - scaled.height()) // 2
-        painter.drawPixmap(x, y, scaled)
+        painter.drawPixmap(x, rect.top(), scaled)
 
     def _paint_thumbnail_strip(
         self,
@@ -498,27 +509,25 @@ class ProductImageDelegate(QStyledItemDelegate):
         gallery: list,
         active_index: int,
         thumbnail_start: int,
+        main_height: int,
     ) -> None:
-        tiles, left_arrow, right_arrow, _strip_top = self.thumbnail_layout(
+        tiles, left_arrow, right_arrow, _ = self.thumbnail_layout(
             rect,
             len(gallery),
             thumbnail_start,
+            main_height=main_height,
         )
         for image_index, tile_rect in tiles:
             image = gallery[image_index]
             path = ""
             if isinstance(image, dict):
-                path = str(
-                    image.get("image_path", image.get("path", "")) or ""
-                ).strip()
+                path = str(image.get("image_path", image.get("path", "")) or "").strip()
             painter.fillRect(tile_rect, QColor("#ffffff"))
             painter.setPen(
-                QColor("#1675e8")
-                if image_index == active_index
-                else QColor("#cbd5e1")
+                QColor("#1675e8") if image_index == active_index else QColor("#cbd5e1")
             )
             painter.drawRect(tile_rect.adjusted(0, 0, -1, -1))
-            inner = tile_rect.adjusted(3, 3, -3, -3)
+            inner = tile_rect.adjusted(2, 2, -2, -2)
             if path and inner.width() > 0 and inner.height() > 0:
                 thumb = self._load_pixmap(str(resolve_data_path(path)))
                 if not thumb.isNull():
@@ -530,8 +539,7 @@ class ProductImageDelegate(QStyledItemDelegate):
                     thumb_x = inner.left() + (inner.width() - thumb.width()) // 2
                     thumb_y = inner.top() + (inner.height() - thumb.height()) // 2
                     painter.drawPixmap(thumb_x, thumb_y, thumb)
-
-        painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         painter.setPen(QColor("#334e68"))
         if left_arrow is not None:
             painter.drawText(left_arrow, Qt.AlignmentFlag.AlignCenter, "<")
@@ -542,68 +550,36 @@ class ProductImageDelegate(QStyledItemDelegate):
         super().paint(painter, option, index)
         raw_gallery = index.data(self.GALLERY_ROLE)
         gallery = raw_gallery if isinstance(raw_gallery, list) else []
-        active_index = self._active_index(
-            gallery,
-            index.data(self.ACTIVE_INDEX_ROLE),
-        )
+        active_index = self._active_index(gallery, index.data(self.ACTIVE_INDEX_ROLE))
         try:
-            thumbnail_start = max(
-                int(index.data(self.THUMBNAIL_START_ROLE) or 0),
-                0,
-            )
+            thumbnail_start = max(int(index.data(self.THUMBNAIL_START_ROLE) or 0), 0)
         except (TypeError, ValueError):
             thumbnail_start = 0
-        image_path = self._selected_path(
-            gallery,
-            active_index,
-            index.data(self.IMAGE_ROLE),
-        )
-
+        image_path = self._selected_path(gallery, active_index, index.data(self.IMAGE_ROLE))
         cell = option.rect
-        has_thumbnails = len(gallery) > 1
-        content_cell = cell.adjusted(
-            self.CELL_HORIZONTAL_PADDING,
-            self.CELL_VERTICAL_PADDING,
-            -self.CELL_HORIZONTAL_PADDING,
-            -self.CELL_VERTICAL_PADDING,
-        )
-        main_rect = content_cell.adjusted(
-            0,
-            0,
-            0,
-            -(self.THUMBNAIL_STRIP_HEIGHT + 4 if has_thumbnails else 4),
-        )
+        main_height = self.main_image_height(image_path)
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-        self._paint_main_preview(painter, main_rect, image_path)
-        if has_thumbnails:
+        self._paint_main_preview(painter, cell, image_path)
+        if len(gallery) > 1:
             self._paint_thumbnail_strip(
-                painter,
-                content_cell,
-                gallery,
-                active_index,
-                thumbnail_start,
+                painter, cell, gallery, active_index, thumbnail_start, main_height
             )
         painter.restore()
 
     @staticmethod
     def _load_pixmap(image_path: str) -> QPixmap:
-        """Carga imágenes de forma diferida y usa la caché gráfica de Qt."""
+        """Load images lazily and cache decoded pixmaps in Qt."""
         cache_key = f"fcm-product-image:{image_path}"
         pixmap = QPixmap()
         if QPixmapCache.find(cache_key, pixmap):
             return pixmap
-
         pixmap.load(image_path)
         if not pixmap.isNull():
             QPixmapCache.insert(cache_key, pixmap)
         return pixmap
 
-    def sizeHint(
-        self,
-        option: QStyleOptionViewItem,
-        index,
-    ) -> QSize:
+    def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
         del option, index
         return QSize(self.DEFAULT_SIZE, self.DEFAULT_HEIGHT)
 
@@ -794,7 +770,7 @@ class ProductDetailDelegate(QStyledItemDelegate):
             layout = QTextLayout(paragraph, font)
             text_option = QTextOption()
             text_option.setWrapMode(
-                QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere,
+                QTextOption.WrapMode.WrapAtWordBoundary,
             )
             layout.setTextOption(text_option)
             line_top = 0.0
@@ -1218,8 +1194,9 @@ class ProductTable(QTableWidget):
                 color: #173f6d;
             }
             QTableWidget::item:focus {
-                border: 1px solid #a9cfe2;
-                padding: 2px 3px;
+                border: 1px solid #1675e8;
+                padding: 3px 4px;
+                margin: 0px;
             }
             QHeaderView::section {
                 min-height: 56px;
@@ -1363,19 +1340,26 @@ class ProductTable(QTableWidget):
             return
 
         current = self._sort_states.get(column)
+        other_states = {
+            selected_column: order
+            for selected_column, order in self._sort_states.items()
+            if selected_column not in {column, self.CATEGORY_COLUMN}
+        }
         if current == Qt.SortOrder.AscendingOrder:
-            self._sort_states = {column: Qt.SortOrder.DescendingOrder}
-        elif current == Qt.SortOrder.DescendingOrder:
-            # Tercer clic: vuelve al orden natural del catálogo por categoría
-            # sin modificar filtros de texto, categoría o stock en MainWindow.
-            self._sort_states = {
-                self.CATEGORY_COLUMN: Qt.SortOrder.AscendingOrder,
-            }
-            self._default_category_sort_active = True
-        else:
-            self._sort_states = {column: Qt.SortOrder.AscendingOrder}
+            self._sort_states = {column: Qt.SortOrder.DescendingOrder, **other_states}
             self._default_category_sort_active = False
-
+        elif current == Qt.SortOrder.DescendingOrder:
+            if other_states:
+                self._sort_states = other_states
+                self._default_category_sort_active = False
+            else:
+                self._sort_states = {
+                    self.CATEGORY_COLUMN: Qt.SortOrder.AscendingOrder,
+                }
+                self._default_category_sort_active = True
+        else:
+            self._sort_states = {column: Qt.SortOrder.AscendingOrder, **other_states}
+            self._default_category_sort_active = False
         self._apply_current_sort()
 
     def _apply_current_sort(self) -> None:
@@ -1429,8 +1413,17 @@ class ProductTable(QTableWidget):
 
     def _product_sort_value(self, product: Product, column: int):
         if column == self.CATEGORY_COLUMN:
+            display_categories = sorted(
+                self._natural_sort_key(display_category_name(category))
+                for category in split_category_names(product.category)
+            )
+            category_key = (
+                display_categories[0]
+                if display_categories
+                else self._natural_sort_key("")
+            )
             return (
-                self._natural_sort_key(product.category),
+                category_key,
                 self._natural_sort_key(product.name),
                 self._natural_sort_key(product.code),
             )
@@ -1667,7 +1660,7 @@ class ProductTable(QTableWidget):
         item_code = QTableWidgetItem(product.code)
         item_code.setData(Qt.ItemDataRole.UserRole, product.id)
         item_code.setTextAlignment(
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignHCenter,
         )
         self.setItem(row, self.CODE_COLUMN, item_code)
         self._set_text_item(row, self.NAME_COLUMN, product.name)
@@ -1768,6 +1761,7 @@ class ProductTable(QTableWidget):
             item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, active_index)
             self._set_image_item_path(item, gallery, active_index)
         if changed:
+            self._adjust_table_rows()
             self.viewport().update()
 
     @staticmethod
@@ -1804,12 +1798,7 @@ class ProductTable(QTableWidget):
                 return
             gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
             if isinstance(gallery, list) and len(gallery) > 1:
-                rect = self.visualRect(index).adjusted(
-                    ProductImageDelegate.CELL_HORIZONTAL_PADDING,
-                    ProductImageDelegate.CELL_VERTICAL_PADDING,
-                    -ProductImageDelegate.CELL_HORIZONTAL_PADDING,
-                    -ProductImageDelegate.CELL_VERTICAL_PADDING,
-                )
+                rect = self.visualRect(index)
                 thumbnail_start = item.data(
                     ProductImageDelegate.THUMBNAIL_START_ROLE,
                 )
@@ -1817,11 +1806,22 @@ class ProductTable(QTableWidget):
                     thumbnail_start = max(int(thumbnail_start or 0), 0)
                 except (TypeError, ValueError):
                     thumbnail_start = 0
+                active_index = ProductImageDelegate._active_index(
+                    gallery,
+                    item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE),
+                )
+                image_path = ProductImageDelegate._selected_path(
+                    gallery,
+                    active_index,
+                    item.data(ProductImageDelegate.IMAGE_ROLE),
+                )
+                main_height = ProductImageDelegate.main_image_height(image_path)
                 tiles, left_arrow, right_arrow, strip_top = (
                     ProductImageDelegate.thumbnail_layout(
                         rect,
                         len(gallery),
                         thumbnail_start,
+                        main_height=main_height,
                     )
                 )
                 if position.y() >= strip_top:
@@ -1855,7 +1855,7 @@ class ProductTable(QTableWidget):
         except (TypeError, ValueError):
             current = 0
         max_start = max(
-            len(gallery) - (ProductImageDelegate.MAX_VISIBLE_THUMBNAILS - 1),
+            len(gallery) - ProductImageDelegate.MAX_VISIBLE_THUMBNAILS,
             0,
         )
         item.setData(
@@ -1889,6 +1889,7 @@ class ProductTable(QTableWidget):
         item.setData(ProductImageDelegate.THUMBNAIL_START_ROLE, 0)
         item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, active_index)
         self._set_image_item_path(item, gallery, active_index)
+        self._set_row_height(row)
         if 0 <= row < len(self._rendered_products):
             code = str(self._rendered_products[row].code).strip().casefold()
             if code:
@@ -2054,15 +2055,10 @@ class ProductTable(QTableWidget):
         categories = split_category_names(category)
         if not categories:
             return "—"
-
         lines: list[str] = []
         for category_name in categories:
-            lines.extend(
-                cls.CATEGORY_FORCED_LINES.get(
-                    category_name,
-                    (category_name,),
-                ),
-            )
+            display_name = display_category_name(category_name)
+            lines.extend(cls.CATEGORY_FORCED_LINES.get(category_name, (display_name,)))
         return "\n".join(lines)
 
     def _set_stock_widget(self, row: int, product: Product) -> None:
@@ -2136,14 +2132,28 @@ class ProductTable(QTableWidget):
 
     def _set_row_height(self, row: int) -> None:
         row_height = self.DEFAULT_IMAGE_CELL_HEIGHT
+        image_item = self.item(row, self.IMAGE_COLUMN)
+        if image_item is not None:
+            raw_gallery = image_item.data(ProductImageDelegate.GALLERY_ROLE)
+            gallery = raw_gallery if isinstance(raw_gallery, list) else []
+            active_index = ProductImageDelegate._active_index(
+                gallery,
+                image_item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE),
+            )
+            image_path = ProductImageDelegate._selected_path(
+                gallery,
+                active_index,
+                image_item.data(ProductImageDelegate.IMAGE_ROLE),
+            )
+            image_height = ProductImageDelegate.main_image_height(image_path)
+            if len(gallery) > 1:
+                image_height += ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+            row_height = max(row_height, image_height)
+
         name_item = self.item(row, self.NAME_COLUMN)
         category_item = self.item(row, self.CATEGORY_COLUMN)
         if name_item is not None:
-            category_text = (
-                category_item.text()
-                if category_item is not None
-                else "—"
-            )
+            category_text = category_item.text() if category_item is not None else "—"
             name_height = ProductNameCategoryDelegate.content_height(
                 name_item.text(),
                 category_text,
@@ -2285,95 +2295,64 @@ class ProductTable(QTableWidget):
         *,
         growable_columns: set[int],
     ) -> list[int]:
-        """Reparte el espacio entre Producto y Detalle sin alterar columnas fijas."""
+        """Distribute the viewport width proportionally across visible columns."""
+        del growable_columns
         widths = [
             max(preferred, minimum)
-            for preferred, minimum in zip(
-                preferred_widths,
-                minimum_widths,
-                strict=True,
-            )
+            for preferred, minimum in zip(preferred_widths, minimum_widths, strict=True)
         ]
         target_width = max(target_width, 1)
-        current_total = sum(widths)
+        active = [i for i, minimum in enumerate(minimum_widths) if minimum > 0]
+        current = sum(widths)
 
-        if current_total > target_width:
-            deficit = current_total - target_width
-            flexible = [
-                column
-                for column in (
-                    ProductTable.NAME_COLUMN,
-                    ProductTable.DETAIL_COLUMN,
-                )
-                if widths[column] > minimum_widths[column]
-            ]
-            while deficit > 0 and flexible:
+        if current > target_width:
+            deficit = current - target_width
+            while deficit > 0:
+                flexible = [i for i in active if widths[i] > minimum_widths[i]]
+                if not flexible:
+                    break
                 share = max((deficit + len(flexible) - 1) // len(flexible), 1)
-                reduced_any = False
-                for column in flexible:
-                    room = max(widths[column] - minimum_widths[column], 0)
-                    reduction = min(room, share, deficit)
-                    if reduction:
-                        widths[column] -= reduction
-                        deficit -= reduction
-                        reduced_any = True
+                before = deficit
+                for i in flexible:
+                    reduction = min(widths[i] - minimum_widths[i], share, deficit)
+                    widths[i] -= reduction
+                    deficit -= reduction
                     if deficit <= 0:
                         break
-                flexible = [
-                    column
-                    for column in flexible
-                    if widths[column] > minimum_widths[column]
-                ]
-                if not reduced_any:
+                if deficit == before:
+                    break
+            while deficit > 0:
+                flexible = [i for i in active if widths[i] > 1]
+                if not flexible:
+                    break
+                share = max((deficit + len(flexible) - 1) // len(flexible), 1)
+                before = deficit
+                for i in flexible:
+                    reduction = min(widths[i] - 1, share, deficit)
+                    widths[i] -= reduction
+                    deficit -= reduction
+                    if deficit <= 0:
+                        break
+                if deficit == before:
                     break
 
-            # Solo si el espacio no alcanza se comprimen también las demás
-            # columnas; Stock y Precios no cambian por activar filtros.
-            shrink_order = [
-                ProductTable.IMAGE_COLUMN,
-                ProductTable.CODE_COLUMN,
-                ProductTable.PRICE_SAMPLE_COLUMN,
-                ProductTable.PRICE_HUNDRED_COLUMN,
-                ProductTable.PRICE_THOUSAND_COLUMN,
-                ProductTable.STOCK_COLUMN,
-            ]
-            for column in shrink_order:
-                room = max(widths[column] - minimum_widths[column], 0)
-                reduction = min(room, deficit)
-                widths[column] -= reduction
-                deficit -= reduction
-                if deficit <= 0:
-                    break
-
-            # En ventanas excepcionalmente estrechas, mantener la tabla dentro
-            # del viewport es preferible a forzar un ancho mínimo que deforme
-            # el contenedor al mostrar u ocultar el panel de categorías.
-            emergency_order = [
-                ProductTable.NAME_COLUMN,
-                ProductTable.DETAIL_COLUMN,
-                ProductTable.CODE_COLUMN,
-                ProductTable.PRICE_SAMPLE_COLUMN,
-                ProductTable.PRICE_HUNDRED_COLUMN,
-                ProductTable.PRICE_THOUSAND_COLUMN,
-                ProductTable.IMAGE_COLUMN,
-                ProductTable.STOCK_COLUMN,
-            ]
-            for column in emergency_order:
-                reduction = min(max(widths[column] - 1, 0), deficit)
-                widths[column] -= reduction
-                deficit -= reduction
-                if deficit <= 0:
-                    break
-
-            current_total = sum(widths)
-
-        if current_total < target_width and growable_columns:
-            extra_width = target_width - current_total
-            ordered_columns = sorted(growable_columns)
-            quotient, remainder = divmod(extra_width, len(ordered_columns))
-            for position, column in enumerate(ordered_columns):
-                widths[column] += quotient + (1 if position < remainder else 0)
-
+        current = sum(widths)
+        if current < target_width and active:
+            extra = target_width - current
+            weights = {
+                i: max(preferred_widths[i], minimum_widths[i], 1)
+                for i in active
+            }
+            total_weight = sum(weights.values())
+            remainders: list[tuple[int, int]] = []
+            assigned = 0
+            for i in active:
+                increment, remainder = divmod(extra * weights[i], total_weight)
+                widths[i] += increment
+                assigned += increment
+                remainders.append((remainder, i))
+            for _remainder, i in sorted(remainders, reverse=True)[:extra - assigned]:
+                widths[i] += 1
         return widths
 
     def resizeEvent(self, event) -> None:

@@ -104,7 +104,6 @@ def canonical_category_name(value: object) -> str:
     )
 
 
-
 def display_category_name(value: object) -> str:
     """Return a concise display label without changing the stored category."""
     category = canonical_category_name(value)

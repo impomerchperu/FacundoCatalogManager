@@ -112,6 +112,13 @@ def _term_matches(
     aliases = _SEARCH_TERM_ALIASES.get(term, frozenset({term}))
     for alias in aliases:
         normalized_alias = normalize_search_text(alias)
+        if normalized_alias.isdigit():
+            # Una consulta numérica debe coincidir con un token numérico entero,
+            # no con una parte de una referencia como FB-104.
+            if normalized_alias in tokens:
+                return True
+            continue
+
         if " " in normalized_alias:
             if normalized_alias in normalized_text:
                 return True

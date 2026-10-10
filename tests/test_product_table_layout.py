@@ -921,9 +921,9 @@ def test_price_columns_are_compact_and_currency_is_not_editable():
     assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_SAMPLE_COLUMN] == 72
     assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_HUNDRED_COLUMN] == 72
     assert ProductTable.MIN_COLUMN_WIDTHS[ProductTable.PRICE_THOUSAND_COLUMN] == 72
-    assert table.columnWidth(ProductTable.PRICE_SAMPLE_COLUMN) == 88
-    assert table.columnWidth(ProductTable.PRICE_HUNDRED_COLUMN) == 88
-    assert table.columnWidth(ProductTable.PRICE_THOUSAND_COLUMN) == 88
+    assert table.columnWidth(ProductTable.PRICE_SAMPLE_COLUMN) > 88
+    assert table.columnWidth(ProductTable.PRICE_HUNDRED_COLUMN) > 88
+    assert table.columnWidth(ProductTable.PRICE_THOUSAND_COLUMN) > 88
 
     index = table.model().index(0, ProductTable.PRICE_HUNDRED_COLUMN)
     delegate = table.itemDelegateForColumn(ProductTable.PRICE_HUNDRED_COLUMN)

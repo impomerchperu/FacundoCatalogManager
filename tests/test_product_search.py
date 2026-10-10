@@ -51,15 +51,17 @@ def test_product_search_matches_synonyms_both_directions():
     assert product_matches_search(destapador, "abridor")
 
 
-def test_product_search_keeps_searching_colors_and_rejects_unrelated_terms():
+def test_product_search_does_not_filter_by_stock_color_or_quantity():
     product = Product(
         code="FB-104",
         name="Producto",
+        stock=15,
         color_stock={"Rojo": 10, "Azul": 5},
     )
 
-    assert product_matches_search(product, "rojo")
-    assert product_matches_search(product, "azul")
+    assert not product_matches_search(product, "rojo")
+    assert not product_matches_search(product, "azul")
+    assert not product_matches_search(product, "10")
     assert not product_matches_search(product, "verde")
 
 

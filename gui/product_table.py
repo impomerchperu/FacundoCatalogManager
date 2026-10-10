@@ -358,7 +358,7 @@ class ProductNameCategoryDelegate(ProductCodeCategoryDelegate):
         painter.restore()
 
     def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
-        width = max(option.rect.width(), self.PREFERRED_WIDTH)
+        width = option.rect.width() or self.PREFERRED_WIDTH
         height = self.content_height(
             str(index.data(Qt.ItemDataRole.DisplayRole) or ""),
             self._category_text(index),
@@ -1193,7 +1193,7 @@ class ProductTable(QTableWidget):
             Qt.ScrollBarPolicy.ScrollBarAsNeeded,
         )
         self.verticalHeader().setVisible(False)
-        self.verticalHeader().setDefaultSectionSize(self.DEFAULT_IMAGE_CELL_SIZE)
+        self.verticalHeader().setDefaultSectionSize(self.DEFAULT_IMAGE_CELL_HEIGHT)
         self.setShowGrid(True)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)

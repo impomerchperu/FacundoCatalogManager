@@ -134,12 +134,13 @@ def product_matches_search(product: Product, search_text: str) -> bool:
     if not query_tokens:
         return True
 
+    # Stock y precios no son campos de búsqueda: la consulta se limita a
+    # referencias, nombre, descripción y categoría del producto.
     values = (
         product.code,
         product.name,
         product.description,
         product.category,
-        ", ".join(product.color_stock.keys()),
     )
 
     normalized_fields = tuple(normalize_search_text(value) for value in values)

@@ -770,7 +770,7 @@ class ProductDetailDelegate(QStyledItemDelegate):
             layout = QTextLayout(paragraph, font)
             text_option = QTextOption()
             text_option.setWrapMode(
-                QTextOption.WrapMode.WrapAtWordBoundary,
+                QTextOption.WrapMode.WordWrap,
             )
             layout.setTextOption(text_option)
             line_top = 0.0

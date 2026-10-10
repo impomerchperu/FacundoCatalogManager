@@ -14,8 +14,8 @@ from PySide6.QtWidgets import (
 from gui.product_table import (
     PriceDelegate,
     ProductDetailDelegate,
-    ProductNameCategoryDelegate,
     ProductImageDelegate,
+    ProductNameCategoryDelegate,
     ProductTable,
     StockColorDelegate,
 )
@@ -304,7 +304,7 @@ def test_product_table_category_is_combined_with_product_name_and_detail_receive
     assert (
         table.horizontalHeaderItem(ProductTable.NAME_COLUMN)
         .text()
-        .replace("\\n", " ")
+        .replace("\n", " ")
         == "Producto / Categoría"
     )
     assert isinstance(name_delegate, ProductNameCategoryDelegate)

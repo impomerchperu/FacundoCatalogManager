@@ -1357,19 +1357,16 @@ class ProductTable(QTableWidget):
     def _handle_header_click(self, column: int) -> None:
         if column not in self.SORTABLE_COLUMNS:
             return
+
         current = self._sort_states.get(column)
-        if current is None:
-            self._sort_states[column] = Qt.SortOrder.DescendingOrder
-        elif current == Qt.SortOrder.DescendingOrder:
-            self._sort_states[column] = Qt.SortOrder.AscendingOrder
-        elif (
-            column == self.CATEGORY_COLUMN
-            and self._default_category_sort_active
-            and len(self._sort_states) == 1
-        ):
-            self._sort_states[column] = Qt.SortOrder.DescendingOrder
-        else:
-            del self._sort_states[column]
+        next_order = (
+            Qt.SortOrder.DescendingOrder
+            if current == Qt.SortOrder.AscendingOrder
+            else Qt.SortOrder.AscendingOrder
+        )
+        # La columna numérica seleccionada debe ser el criterio principal,
+        # sin que el orden por categoría del arranque vuelva a agrupar filas.
+        self._sort_states = {column: next_order}
         self._default_category_sort_active = False
         self._apply_current_sort()
 

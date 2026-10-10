@@ -180,7 +180,12 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
     QApplication.processEvents()
 
     index = table.model().index(0, ProductTable.IMAGE_COLUMN)
-    rect = table.visualRect(index)
+    rect = table.visualRect(index).adjusted(
+        ProductImageDelegate.CELL_HORIZONTAL_PADDING,
+        ProductImageDelegate.CELL_VERTICAL_PADDING,
+        -ProductImageDelegate.CELL_HORIZONTAL_PADDING,
+        -ProductImageDelegate.CELL_VERTICAL_PADDING,
+    )
     initial_tiles, left_arrow, right_arrow, _ = (
         ProductImageDelegate.thumbnail_layout(rect, len(gallery), 0)
     )
@@ -198,7 +203,12 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
     assert item.data(ProductImageDelegate.THUMBNAIL_START_ROLE) == 1
     assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 0
 
-    rect = table.visualRect(index)
+    rect = table.visualRect(index).adjusted(
+        ProductImageDelegate.CELL_HORIZONTAL_PADDING,
+        ProductImageDelegate.CELL_VERTICAL_PADDING,
+        -ProductImageDelegate.CELL_HORIZONTAL_PADDING,
+        -ProductImageDelegate.CELL_VERTICAL_PADDING,
+    )
     scrolled_tiles, left_arrow, right_arrow, _ = (
         ProductImageDelegate.thumbnail_layout(rect, len(gallery), 1)
     )
@@ -461,12 +471,14 @@ def test_filtering_rows_keeps_column_widths_and_row_heights_stable():
         table.columnWidth(column)
         for column in range(table.columnCount())
     ] == widths_before
+    assert table.rowHeight(0) == heights_before[0]
+    assert table.isRowHidden(1)
+
+    table.show_all_rows()
     assert [
         table.rowHeight(row)
         for row in range(table.rowCount())
     ] == heights_before
-
-    table.show_all_rows()
     table.close()
 
 
@@ -655,8 +667,8 @@ def test_product_table_renders_stock_by_color_in_stock_cell():
     table.close()
 
 
-def test_product_table_stock_color_rows_have_no_outer_spacing():
-    assert StockColorDelegate.HORIZONTAL_PADDING == 4
+def test_product_table_stock_color_rows_keep_horizontal_inset():
+    assert StockColorDelegate.HORIZONTAL_PADDING == 8
     assert StockColorDelegate.TEXT_HORIZONTAL_PADDING == 4
     assert StockColorDelegate.TEXT_GAP == 4
     assert not hasattr(StockColorDelegate, "TEXT_PIXEL_SIZE")
@@ -823,14 +835,15 @@ def test_product_table_reuses_cached_widths_when_window_resizes():
     )
     QApplication.processEvents()
 
-    calls_after_render = table.resize_to_contents_calls
-    assert calls_after_render >= 1
+    assert table.resize_to_contents_calls == 0
     assert table._preferred_widths_cache is not None
+    preferred_widths = table._preferred_widths_cache.copy()
 
     table.resize(2200, 700)
     QApplication.processEvents()
 
-    assert table.resize_to_contents_calls == calls_after_render
+    assert table.resize_to_contents_calls == 0
+    assert table._preferred_widths_cache == preferred_widths
 
     table._sort_states = {
         ProductTable.NAME_COLUMN: Qt.SortOrder.DescendingOrder,
@@ -838,13 +851,13 @@ def test_product_table_reuses_cached_widths_when_window_resizes():
     table._apply_current_sort()
     QApplication.processEvents()
 
-    calls_after_sort = table.resize_to_contents_calls
     assert table._preferred_widths_cache is None
 
     table.resize(2100, 700)
     QApplication.processEvents()
 
-    assert table.resize_to_contents_calls > calls_after_sort
+    assert table.resize_to_contents_calls == 0
+    assert table._preferred_widths_cache is not None
 
     table.load_products(
         [
@@ -858,7 +871,7 @@ def test_product_table_reuses_cached_widths_when_window_resizes():
     )
     QApplication.processEvents()
 
-    assert table.resize_to_contents_calls > calls_after_render
+    assert table.resize_to_contents_calls == 0
     assert table._preferred_widths_cache is not None
 
     table.close()
@@ -970,7 +983,7 @@ def test_detail_formats_attributes_removes_duplicate_color_and_trailing_periods(
         "Peso bruto por caja: 6.9 Kg",
     ]
     assert all(not line.endswith(".") for line in item.text().splitlines())
-    assert item.textAlignment() & Qt.AlignmentFlag.AlignTop
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
     assert item.textAlignment() & Qt.AlignmentFlag.AlignLeft
     assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
 
@@ -1110,6 +1123,84 @@ def test_products_are_sorted_by_category_then_product_name_at_startup():
     ] == ["FB-2", "FB-11", "FB-3", "FB-12"]
     table.close()
 
+
+
+
+def test_stock_and_price_headers_toggle_between_ascending_and_descending():
+    _qapp()
+    products = [
+        Product(
+            code="FB-501",
+            name="Producto A",
+            category="Oficina",
+            stock=20,
+            price_sample=2,
+            price_hundred=200,
+            price_thousand=2000,
+        ),
+        Product(
+            code="FB-502",
+            name="Producto B",
+            category="Oficina",
+            stock=5,
+            price_sample=5,
+            price_hundred=50,
+            price_thousand=500,
+        ),
+        Product(
+            code="FB-503",
+            name="Producto C",
+            category="Oficina",
+            stock=10,
+            price_sample=1,
+            price_hundred=100,
+            price_thousand=1000,
+        ),
+    ]
+    cases = [
+        (ProductTable.STOCK_COLUMN, ["FB-502", "FB-503", "FB-501"]),
+        (ProductTable.PRICE_SAMPLE_COLUMN, ["FB-503", "FB-501", "FB-502"]),
+        (ProductTable.PRICE_HUNDRED_COLUMN, ["FB-502", "FB-503", "FB-501"]),
+        (ProductTable.PRICE_THOUSAND_COLUMN, ["FB-502", "FB-503", "FB-501"]),
+    ]
+
+    for column, ascending_codes in cases:
+        table = ProductTable(_Controller())
+        table.resize(1500, 700)
+        table.show()
+        table.load_products(products)
+        QApplication.processEvents()
+
+        table._handle_header_click(column)
+        QApplication.processEvents()
+        assert [
+            table.item(row, ProductTable.CODE_COLUMN).text()
+            for row in range(table.rowCount())
+        ] == ascending_codes
+        assert table._sort_states == {
+            column: Qt.SortOrder.AscendingOrder,
+        }
+
+        table._handle_header_click(column)
+        QApplication.processEvents()
+        assert [
+            table.item(row, ProductTable.CODE_COLUMN).text()
+            for row in range(table.rowCount())
+        ] == list(reversed(ascending_codes))
+        assert table._sort_states == {
+            column: Qt.SortOrder.DescendingOrder,
+        }
+
+        table._handle_header_click(column)
+        QApplication.processEvents()
+        assert [
+            table.item(row, ProductTable.CODE_COLUMN).text()
+            for row in range(table.rowCount())
+        ] == ascending_codes
+        assert table._sort_states == {
+            column: Qt.SortOrder.AscendingOrder,
+        }
+        table.close()
 
 
 def test_detail_cell_is_vertically_centered():

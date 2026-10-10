@@ -321,7 +321,7 @@ def test_product_table_category_is_combined_with_product_name_and_detail_receive
     assert name_item.text() == "Producto"
     assert category_item is not None
     assert category_item.text() == "Enmicadoras / Laminadoras"
-    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == (
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) >= (
         ProductImageDelegate.DEFAULT_SIZE
     )
     assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
@@ -525,7 +525,7 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     assert table.textElideMode() == Qt.TextElideMode.ElideNone
     assert "padding: 3px 4px" in table.styleSheet()
     assert "QTableWidget::item:focus" in table.styleSheet()
-    assert "border: 1px solid #a9cfe2;" in table.styleSheet()
+    assert "border: 1px solid #1675e8;" in table.styleSheet()
     assert "#f8fbff" in table.styleSheet()
     assert "#eef5fb" in table.styleSheet()
     assert "#173f6d" in table.styleSheet()

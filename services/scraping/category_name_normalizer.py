@@ -104,6 +104,18 @@ def canonical_category_name(value: object) -> str:
     )
 
 
+
+def display_category_name(value: object) -> str:
+    """Return a concise display label without changing the stored category."""
+    category = canonical_category_name(value)
+    prefix = "Artículos de "
+    if category.casefold().startswith(prefix.casefold()):
+        concise = category[len(prefix):].strip()
+        if concise:
+            return concise
+    return category
+
+
 def split_category_names(value: object) -> list[str]:
     """Split multi-category values without breaking canonical comma categories."""
     if not isinstance(value, str):

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QColor, QFontMetrics, QFontMetricsF, QPixmap
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
@@ -68,18 +68,15 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     assert table.cellWidget(0, ProductTable.IMAGE_COLUMN) is None
     assert isinstance(delegate, ProductImageDelegate)
     assert item.data(ProductImageDelegate.IMAGE_ROLE) == str(image_path)
-    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == (
-        ProductImageDelegate.DEFAULT_SIZE
-    )
+    initial_image_column_width = table.columnWidth(ProductTable.IMAGE_COLUMN)
+    assert initial_image_column_width >= ProductImageDelegate.DEFAULT_SIZE
     assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
 
     table.resize(2200, 700)
     QApplication.processEvents()
 
     assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
-    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == (
-        ProductImageDelegate.DEFAULT_SIZE
-    )
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) > initial_image_column_width
 
     table.close()
 
@@ -121,6 +118,7 @@ def test_product_table_uses_horizontal_thumbnails_and_click_changes_temporary_pr
         rect,
         len(gallery),
         0,
+        main_height=ProductImageDelegate.main_image_height(str(paths[0])),
     )
     assert len(tiles) == 3
     assert left_arrow is None and right_arrow is None
@@ -180,16 +178,17 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
     QApplication.processEvents()
 
     index = table.model().index(0, ProductTable.IMAGE_COLUMN)
-    rect = table.visualRect(index).adjusted(
-        ProductImageDelegate.CELL_HORIZONTAL_PADDING,
-        ProductImageDelegate.CELL_VERTICAL_PADDING,
-        -ProductImageDelegate.CELL_HORIZONTAL_PADDING,
-        -ProductImageDelegate.CELL_VERTICAL_PADDING,
-    )
+    rect = table.visualRect(index)
+    main_height = ProductImageDelegate.main_image_height(str(paths[0]))
     initial_tiles, left_arrow, right_arrow, _ = (
-        ProductImageDelegate.thumbnail_layout(rect, len(gallery), 0)
+        ProductImageDelegate.thumbnail_layout(
+            rect,
+            len(gallery),
+            0,
+            main_height=main_height,
+        )
     )
-    assert [image_index for image_index, _ in initial_tiles] == [0, 1, 2]
+    assert [image_index for image_index, _ in initial_tiles] == [0, 1, 2, 3]
     assert left_arrow is not None
     assert right_arrow is not None
 
@@ -203,16 +202,16 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
     assert item.data(ProductImageDelegate.THUMBNAIL_START_ROLE) == 1
     assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 0
 
-    rect = table.visualRect(index).adjusted(
-        ProductImageDelegate.CELL_HORIZONTAL_PADDING,
-        ProductImageDelegate.CELL_VERTICAL_PADDING,
-        -ProductImageDelegate.CELL_HORIZONTAL_PADDING,
-        -ProductImageDelegate.CELL_VERTICAL_PADDING,
-    )
+    rect = table.visualRect(index)
     scrolled_tiles, left_arrow, right_arrow, _ = (
-        ProductImageDelegate.thumbnail_layout(rect, len(gallery), 1)
+        ProductImageDelegate.thumbnail_layout(
+            rect,
+            len(gallery),
+            1,
+            main_height=main_height,
+        )
     )
-    assert [image_index for image_index, _ in scrolled_tiles] == [1, 2, 3]
+    assert [image_index for image_index, _ in scrolled_tiles] == [1, 2, 3, 4]
     assert left_arrow is not None
     assert right_arrow is not None
 
@@ -488,6 +487,7 @@ def test_product_table_category_does_not_wrap_by_word_count():
     formatted = ProductTable._format_categories(category)
 
     assert formatted == category
+    assert ProductTable._format_categories("Artículos de Escritorio") == "Escritorio"
     assert "\n" not in formatted
 
 
@@ -879,7 +879,7 @@ def test_product_table_reuses_cached_widths_when_window_resizes():
     table.close()
 
 
-def test_product_table_stock_width_stays_content_fitted_when_window_grows():
+def test_product_table_stock_column_shares_extra_window_width():
     _qapp()
 
     table = ProductTable(_Controller())
@@ -898,7 +898,7 @@ def test_product_table_stock_width_stays_content_fitted_when_window_grows():
     table.resize(2200, 700)
     QApplication.processEvents()
 
-    assert table.columnWidth(ProductTable.STOCK_COLUMN) == initial_width
+    assert table.columnWidth(ProductTable.STOCK_COLUMN) > initial_width
 
     table.close()
 
@@ -1240,6 +1240,108 @@ def test_third_sort_click_preserves_active_product_filter():
     table.close()
 
 
+
+def test_main_image_is_144_pixels_wide_and_keeps_source_aspect_ratio(tmp_path: Path):
+    _qapp()
+    image_path = tmp_path / "portrait.png"
+    pixmap = QPixmap(100, 200)
+    assert pixmap.save(str(image_path))
+    size = ProductImageDelegate.main_image_size(str(image_path))
+    assert size.width() == 144
+    assert size.height() == 288
+    assert ProductImageDelegate.main_image_height(str(image_path)) == 288
+
+
+def test_row_height_includes_tall_primary_image_and_alternative_strip(tmp_path: Path):
+    _qapp()
+    main_path = tmp_path / "main-portrait.png"
+    alt_path = tmp_path / "alt-landscape.png"
+    assert QPixmap(100, 200).save(str(main_path))
+    assert QPixmap(200, 100).save(str(alt_path))
+    gallery = [
+        {"url": "https://example.test/main.png", "image_path": str(main_path)},
+        {"url": "https://example.test/alt.png", "image_path": str(alt_path)},
+    ]
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products([
+        Product(
+            code="FB-144",
+            name="Imagen vertical",
+            image_path=str(main_path),
+            gallery_images=gallery,
+        ),
+    ])
+    QApplication.processEvents()
+    code_item = table.item(0, ProductTable.CODE_COLUMN)
+    assert code_item is not None
+    assert code_item.textAlignment() & Qt.AlignmentFlag.AlignHCenter
+    assert code_item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
+    assert table.rowHeight(0) >= 288 + ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+    table.close()
+
+
+def test_thumbnail_layout_centers_short_galleries_and_shows_four_tiles():
+    rect = QRect(10, 20, 160, 360)
+    tiles, left_arrow, right_arrow, strip_top = ProductImageDelegate.thumbnail_layout(
+        rect, 2, main_height=288
+    )
+    assert len(tiles) == 2
+    assert left_arrow is None and right_arrow is None
+    assert strip_top == rect.top() + 288
+    assert tiles[0][1].left() > rect.left()
+    assert tiles[-1][1].right() < rect.right()
+    assert abs(
+        (tiles[0][1].left() + tiles[-1][1].right()) / 2 - rect.center().x()
+    ) <= 1
+
+    tiles, left_arrow, right_arrow, _ = ProductImageDelegate.thumbnail_layout(
+        rect, 6, 1, main_height=288
+    )
+    assert [image_index for image_index, _tile in tiles] == [1, 2, 3, 4]
+    assert left_arrow is not None and right_arrow is not None
+
+
+def test_sorting_prioritizes_last_clicked_column_and_preserves_secondary_sort():
+    _qapp()
+    products = [
+        Product(code="FB-701", name="A", category="Oficina", stock=2, price_sample=10),
+        Product(code="FB-702", name="B", category="Oficina", stock=1, price_sample=10),
+        Product(code="FB-703", name="C", category="Oficina", stock=3, price_sample=5),
+    ]
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products(products)
+    QApplication.processEvents()
+    table._handle_header_click(ProductTable.STOCK_COLUMN)
+    table._handle_header_click(ProductTable.PRICE_SAMPLE_COLUMN)
+    QApplication.processEvents()
+    assert list(table._sort_states) == [
+        ProductTable.PRICE_SAMPLE_COLUMN,
+        ProductTable.STOCK_COLUMN,
+    ]
+    assert [
+        table.item(row, ProductTable.CODE_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == ["FB-703", "FB-702", "FB-701"]
+    table._handle_header_click(ProductTable.PRICE_SAMPLE_COLUMN)
+    QApplication.processEvents()
+    assert [
+        table.item(row, ProductTable.CODE_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == ["FB-702", "FB-701", "FB-703"]
+    table._handle_header_click(ProductTable.PRICE_SAMPLE_COLUMN)
+    QApplication.processEvents()
+    assert list(table._sort_states) == [ProductTable.STOCK_COLUMN]
+    assert [
+        table.item(row, ProductTable.CODE_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == ["FB-702", "FB-701", "FB-703"]
+    table.close()
+
+
 def test_detail_cell_is_vertically_centered():
     _qapp()
     table = ProductTable(_Controller())
@@ -1260,9 +1362,10 @@ def test_detail_cell_is_vertically_centered():
     item = table.item(0, ProductTable.DETAIL_COLUMN)
     assert item is not None
     assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
-    assert ProductImageDelegate.CELL_HORIZONTAL_PADDING == 4
-    assert ProductImageDelegate.CELL_VERTICAL_PADDING == 4
-    assert ProductImageDelegate.THUMBNAIL_HEIGHT == round(26 * 1.5)
+    assert ProductImageDelegate.CELL_HORIZONTAL_PADDING == 0
+    assert ProductImageDelegate.CELL_VERTICAL_PADDING == 0
+    assert ProductImageDelegate.MAIN_IMAGE_WIDTH == 144
+    assert ProductImageDelegate.THUMBNAIL_HEIGHT == 34
     assert ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT >= (
         ProductImageDelegate.THUMBNAIL_HEIGHT
     )
@@ -1324,7 +1427,7 @@ def test_stock_by_color_cell_opens_multiline_editor_for_color_and_quantity():
     table.close()
 
 
-def test_code_column_does_not_grow_when_the_table_has_more_space():
+def test_visible_columns_share_extra_width_when_the_table_grows():
     _qapp()
     table = ProductTable(_Controller())
     table.resize(1400, 700)
@@ -1340,10 +1443,23 @@ def test_code_column_does_not_grow_when_the_table_has_more_space():
         ],
     )
     QApplication.processEvents()
-    first_width = table.columnWidth(ProductTable.CODE_COLUMN)
+    first_widths = {
+        column: table.columnWidth(column)
+        for column in (
+            ProductTable.IMAGE_COLUMN,
+            ProductTable.CODE_COLUMN,
+            ProductTable.NAME_COLUMN,
+            ProductTable.DETAIL_COLUMN,
+            ProductTable.STOCK_COLUMN,
+            ProductTable.PRICE_SAMPLE_COLUMN,
+            ProductTable.PRICE_HUNDRED_COLUMN,
+            ProductTable.PRICE_THOUSAND_COLUMN,
+        )
+    }
 
     table.resize(2200, 700)
     QApplication.processEvents()
 
-    assert table.columnWidth(ProductTable.CODE_COLUMN) == first_width
+    for column, width in first_widths.items():
+        assert table.columnWidth(column) > width
     table.close()

@@ -1357,26 +1357,21 @@ class ProductTable(QTableWidget):
             return
 
         current = self._sort_states.get(column)
-        other_states = {
-            selected_column: order
-            for selected_column, order in self._sort_states.items()
-            if selected_column not in {column, self.CATEGORY_COLUMN}
-        }
         if current == Qt.SortOrder.AscendingOrder:
-            self._sort_states = {column: Qt.SortOrder.DescendingOrder, **other_states}
+            self._sort_states = {column: Qt.SortOrder.DescendingOrder}
             self._default_category_sort_active = False
         elif current == Qt.SortOrder.DescendingOrder:
-            if other_states:
-                self._sort_states = other_states
-                self._default_category_sort_active = False
-            else:
-                self._sort_states = {
-                    self.CATEGORY_COLUMN: Qt.SortOrder.AscendingOrder,
-                }
-                self._default_category_sort_active = True
+            # The third click returns to the catalog's default category/name order.
+            self._sort_states = {
+                self.CATEGORY_COLUMN: Qt.SortOrder.AscendingOrder,
+            }
+            self._default_category_sort_active = True
         else:
-            self._sort_states = {column: Qt.SortOrder.AscendingOrder, **other_states}
+            # The most recently clicked sortable column takes priority; searching,
+            # stock availability and category filters remain managed independently.
+            self._sort_states = {column: Qt.SortOrder.AscendingOrder}
             self._default_category_sort_active = False
+
         self._apply_current_sort()
 
     def _apply_current_sort(self) -> None:

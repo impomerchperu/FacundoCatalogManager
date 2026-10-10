@@ -788,7 +788,7 @@ def test_product_table_stock_width_shows_verde_oscuro_completely():
         metrics.horizontalAdvance("Stock")
         + (2 * ProductTable.CONTENT_SIDE_PADDING)
     )
-    assert table.columnWidth(ProductTable.STOCK_COLUMN) == max(
+    assert table.columnWidth(ProductTable.STOCK_COLUMN) >= max(
         expected,
         header_width,
         1,

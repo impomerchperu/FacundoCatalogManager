@@ -523,7 +523,7 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
         == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
     )
     assert table.textElideMode() == Qt.TextElideMode.ElideNone
-    assert "padding: 6px 8px" in table.styleSheet()
+    assert "padding: 3px 4px" in table.styleSheet()
     assert "#f8fbff" in table.styleSheet()
     assert "#eef5fb" in table.styleSheet()
     assert "#173f6d" in table.styleSheet()
@@ -667,8 +667,8 @@ def test_product_table_renders_stock_by_color_in_stock_cell():
     table.close()
 
 
-def test_product_table_stock_color_rows_keep_horizontal_inset():
-    assert StockColorDelegate.HORIZONTAL_PADDING == 8
+def test_product_table_stock_color_rows_keep_reduced_horizontal_inset():
+    assert StockColorDelegate.HORIZONTAL_PADDING == 5
     assert StockColorDelegate.TEXT_HORIZONTAL_PADDING == 4
     assert StockColorDelegate.TEXT_GAP == 4
     assert not hasattr(StockColorDelegate, "TEXT_PIXEL_SIZE")
@@ -1126,13 +1126,13 @@ def test_products_are_sorted_by_category_then_product_name_at_startup():
 
 
 
-def test_stock_and_price_headers_toggle_between_ascending_and_descending():
+def test_stock_and_price_headers_cycle_ascending_descending_and_normal():
     _qapp()
     products = [
         Product(
             code="FB-501",
             name="Producto A",
-            category="Oficina",
+            category="Personales",
             stock=20,
             price_sample=2,
             price_hundred=200,
@@ -1150,7 +1150,7 @@ def test_stock_and_price_headers_toggle_between_ascending_and_descending():
         Product(
             code="FB-503",
             name="Producto C",
-            category="Oficina",
+            category="Antiestrés",
             stock=10,
             price_sample=1,
             price_hundred=100,
@@ -1196,11 +1196,46 @@ def test_stock_and_price_headers_toggle_between_ascending_and_descending():
         assert [
             table.item(row, ProductTable.CODE_COLUMN).text()
             for row in range(table.rowCount())
-        ] == ascending_codes
+        ] == ["FB-503", "FB-502", "FB-501"]
         assert table._sort_states == {
-            column: Qt.SortOrder.AscendingOrder,
+            ProductTable.CATEGORY_COLUMN: Qt.SortOrder.AscendingOrder,
         }
         table.close()
+
+
+
+def test_third_sort_click_preserves_active_product_filter():
+    _qapp()
+    products = [
+        Product(code="FB-610", name="Uno", category="Personales", stock=20),
+        Product(code="FB-611", name="Dos", category="Oficina", stock=5),
+        Product(code="FB-612", name="Tres", category="Antiestrés", stock=10),
+    ]
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products(products)
+    QApplication.processEvents()
+
+    visible_products = [products[0], products[1]]
+    table.show_only_products(visible_products)
+    expected_visible_keys = {id(product) for product in visible_products}
+
+    for _ in range(3):
+        table._handle_header_click(ProductTable.STOCK_COLUMN)
+        QApplication.processEvents()
+
+    assert table._visible_product_keys == expected_visible_keys
+    visible_keys = {
+        id(table._rendered_products[row])
+        for row in range(table.rowCount())
+        if not table.isRowHidden(row)
+    }
+    assert visible_keys == expected_visible_keys
+    assert table._sort_states == {
+        ProductTable.CATEGORY_COLUMN: Qt.SortOrder.AscendingOrder,
+    }
+    table.close()
 
 
 def test_detail_cell_is_vertically_centered():
@@ -1223,8 +1258,12 @@ def test_detail_cell_is_vertically_centered():
     item = table.item(0, ProductTable.DETAIL_COLUMN)
     assert item is not None
     assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
-    assert ProductImageDelegate.CELL_HORIZONTAL_PADDING >= 6
-    assert ProductImageDelegate.CELL_VERTICAL_PADDING >= 6
+    assert ProductImageDelegate.CELL_HORIZONTAL_PADDING == 4
+    assert ProductImageDelegate.CELL_VERTICAL_PADDING == 4
+    assert ProductImageDelegate.THUMBNAIL_HEIGHT == round(26 * 1.5)
+    assert ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT >= (
+        ProductImageDelegate.THUMBNAIL_HEIGHT
+    )
     assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
 
     table.close()

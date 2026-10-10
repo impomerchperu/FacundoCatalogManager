@@ -72,3 +72,20 @@ def test_main_window_uses_tolerant_product_search():
 
     assert MainWindow.product_matches_search(product, "bascket")
     assert MainWindow.product_matches_search(product, "destapadores")
+
+def test_product_search_matches_exact_reference_but_ignores_stock_and_prices():
+    product = Product(
+        code="FB-1600",
+        name="Bolso promocional",
+        category="Personales",
+        stock=12,
+        price_sample=7.5,
+        price_hundred=70.0,
+        color_stock={"Rojo": 12},
+    )
+
+    assert product_matches_search(product, "FB-1600")
+    assert not product_matches_search(product, "Rojo")
+    assert not product_matches_search(product, "12")
+    assert not product_matches_search(product, "7.5")
+

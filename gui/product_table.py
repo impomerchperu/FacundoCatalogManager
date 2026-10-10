@@ -243,9 +243,9 @@ class ProductCodeCategoryDelegate(QStyledItemDelegate):
 class ProductNameCategoryDelegate(ProductCodeCategoryDelegate):
     """Muestra el nombre y sus categorías centrados en la misma celda."""
 
-    HORIZONTAL_PADDING = 8
-    VERTICAL_PADDING = 7
-    LINE_GAP = 5
+    HORIZONTAL_PADDING = 5
+    VERTICAL_PADDING = 4
+    LINE_GAP = 4
     CATEGORY_FONT_SIZE = 11
     PREFERRED_WIDTH = 220
 
@@ -333,7 +333,7 @@ class ProductNameCategoryDelegate(ProductCodeCategoryDelegate):
         painter.setPen(QColor("#173f6d"))
         painter.drawText(
             QRect(content_rect.left(), top, content_width, name_height),
-            Qt.AlignmentFlag.AlignHCenter
+            Qt.AlignmentFlag.AlignLeft
             | Qt.AlignmentFlag.AlignVCenter
             | Qt.TextFlag.TextWordWrap
             | Qt.TextFlag.TextWrapAnywhere,
@@ -349,7 +349,7 @@ class ProductNameCategoryDelegate(ProductCodeCategoryDelegate):
         painter.setPen(QColor("#64748b"))
         painter.drawText(
             category_rect,
-            Qt.AlignmentFlag.AlignHCenter
+            Qt.AlignmentFlag.AlignLeft
             | Qt.AlignmentFlag.AlignVCenter
             | Qt.TextFlag.TextWordWrap
             | Qt.TextFlag.TextWrapAnywhere,
@@ -373,12 +373,12 @@ class ProductImageDelegate(QStyledItemDelegate):
 
     DEFAULT_SIZE = 248
     DEFAULT_HEIGHT = 178
-    THUMBNAIL_HEIGHT = 26
-    THUMBNAIL_STRIP_HEIGHT = 34
+    THUMBNAIL_HEIGHT = 39
+    THUMBNAIL_STRIP_HEIGHT = 48
     THUMBNAIL_GAP = 4
     THUMBNAIL_PADDING = 6
-    CELL_HORIZONTAL_PADDING = 8
-    CELL_VERTICAL_PADDING = 7
+    CELL_HORIZONTAL_PADDING = 4
+    CELL_VERTICAL_PADDING = 4
     MAX_VISIBLE_THUMBNAILS = 4
     IMAGE_ROLE = int(Qt.ItemDataRole.UserRole) + 1
     GALLERY_ROLE = int(Qt.ItemDataRole.UserRole) + 3
@@ -651,7 +651,7 @@ class StockColorDelegate(QStyledItemDelegate):
         del index
         editor.setGeometry(option.rect)
     INDICATOR_SIZE = 12
-    HORIZONTAL_PADDING = 8
+    HORIZONTAL_PADDING = 5
     TEXT_HORIZONTAL_PADDING = 4
     TEXT_GAP = 4
     MIN_LINE_HEIGHT = 24
@@ -770,8 +770,8 @@ class StockColorDelegate(QStyledItemDelegate):
 class ProductDetailDelegate(QStyledItemDelegate):
     """Renderiza el detalle con interlineado compacto y ajuste de texto."""
 
-    HORIZONTAL_PADDING = 8
-    VERTICAL_PADDING = 5
+    HORIZONTAL_PADDING = 5
+    VERTICAL_PADDING = 3
     LINE_SPACING_REDUCTION = 1
     PARAGRAPH_SPACING_REDUCTION = 2
 
@@ -1208,7 +1208,7 @@ class ProductTable(QTableWidget):
             }
             QTableWidget::item {
                 background-color: #fbfdff;
-                padding: 6px 8px;
+                padding: 3px 4px;
                 font-family: "Segoe UI";
                 font-size: 13px;
                 color: #173f6d;
@@ -1216,6 +1216,10 @@ class ProductTable(QTableWidget):
             QTableWidget::item:selected {
                 background-color: #fbfdff;
                 color: #173f6d;
+            }
+            QTableWidget::item:focus {
+                border: 1px solid #a9cfe2;
+                padding: 2px 3px;
             }
             QHeaderView::section {
                 min-height: 56px;
@@ -1359,15 +1363,19 @@ class ProductTable(QTableWidget):
             return
 
         current = self._sort_states.get(column)
-        next_order = (
-            Qt.SortOrder.DescendingOrder
-            if current == Qt.SortOrder.AscendingOrder
-            else Qt.SortOrder.AscendingOrder
-        )
-        # La columna numérica seleccionada debe ser el criterio principal,
-        # sin que el orden por categoría del arranque vuelva a agrupar filas.
-        self._sort_states = {column: next_order}
-        self._default_category_sort_active = False
+        if current == Qt.SortOrder.AscendingOrder:
+            self._sort_states = {column: Qt.SortOrder.DescendingOrder}
+        elif current == Qt.SortOrder.DescendingOrder:
+            # Tercer clic: vuelve al orden natural del catálogo por categoría
+            # sin modificar filtros de texto, categoría o stock en MainWindow.
+            self._sort_states = {
+                self.CATEGORY_COLUMN: Qt.SortOrder.AscendingOrder,
+            }
+            self._default_category_sort_active = True
+        else:
+            self._sort_states = {column: Qt.SortOrder.AscendingOrder}
+            self._default_category_sort_active = False
+
         self._apply_current_sort()
 
     def _apply_current_sort(self) -> None:

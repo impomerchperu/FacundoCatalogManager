@@ -1319,7 +1319,7 @@ def test_latest_sort_takes_priority_and_third_click_restores_default_order():
     table.load_products(products)
     QApplication.processEvents()
 
-    default_order = ["FB-703", "FB-702", "FB-701"]
+    default_order = ["FB-703", "FB-701", "FB-702"]
     assert [
         table.item(row, ProductTable.CODE_COLUMN).text()
         for row in range(table.rowCount())

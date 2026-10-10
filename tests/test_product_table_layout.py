@@ -1306,44 +1306,61 @@ def test_thumbnail_layout_centers_short_galleries_and_shows_four_tiles():
     assert left_arrow is not None and right_arrow is not None
 
 
-def test_sorting_prioritizes_last_clicked_column_and_preserves_secondary_sort():
+def test_latest_sort_takes_priority_and_third_click_restores_default_order():
     _qapp()
     products = [
-        Product(code="FB-701", name="A", category="Oficina", stock=2, price_sample=10),
-        Product(code="FB-702", name="B", category="Oficina", stock=1, price_sample=10),
-        Product(code="FB-703", name="C", category="Oficina", stock=3, price_sample=5),
+        Product(code="FB-701", name="Beta", category="Artículos de Escritorio", stock=2, price_sample=10),
+        Product(code="FB-702", name="Alpha", category="Oficina", stock=1, price_sample=10),
+        Product(code="FB-703", name="Gamma", category="Antiestrés", stock=3, price_sample=5),
     ]
     table = ProductTable(_Controller())
     table.resize(1500, 700)
     table.show()
     table.load_products(products)
     QApplication.processEvents()
-    table._handle_header_click(ProductTable.STOCK_COLUMN)
-    table._handle_header_click(ProductTable.PRICE_SAMPLE_COLUMN)
-    QApplication.processEvents()
-    assert list(table._sort_states) == [
-        ProductTable.PRICE_SAMPLE_COLUMN,
-        ProductTable.STOCK_COLUMN,
-    ]
-    assert [
-        table.item(row, ProductTable.CODE_COLUMN).text()
-        for row in range(table.rowCount())
-    ] == ["FB-703", "FB-702", "FB-701"]
-    table._handle_header_click(ProductTable.PRICE_SAMPLE_COLUMN)
-    QApplication.processEvents()
-    assert [
-        table.item(row, ProductTable.CODE_COLUMN).text()
-        for row in range(table.rowCount())
-    ] == ["FB-702", "FB-701", "FB-703"]
-    table._handle_header_click(ProductTable.PRICE_SAMPLE_COLUMN)
-    QApplication.processEvents()
-    assert list(table._sort_states) == [ProductTable.STOCK_COLUMN]
-    assert [
-        table.item(row, ProductTable.CODE_COLUMN).text()
-        for row in range(table.rowCount())
-    ] == ["FB-702", "FB-701", "FB-703"]
-    table.close()
 
+    default_order = ["FB-703", "FB-702", "FB-701"]
+    assert [
+        table.item(row, ProductTable.CODE_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == default_order
+
+    table._handle_header_click(ProductTable.STOCK_COLUMN)
+    QApplication.processEvents()
+    assert [
+        table.item(row, ProductTable.CODE_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == ["FB-702", "FB-701", "FB-703"]
+
+    # Clicking Price replaces Stock as the active sort, rather than retaining it
+    # as a secondary key. The non-sort filters are handled separately.
+    table._handle_header_click(ProductTable.PRICE_SAMPLE_COLUMN)
+    QApplication.processEvents()
+    assert table._sort_states == {
+        ProductTable.PRICE_SAMPLE_COLUMN: Qt.SortOrder.AscendingOrder,
+    }
+    assert [
+        table.item(row, ProductTable.CODE_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == ["FB-703", "FB-701", "FB-702"]
+
+    table._handle_header_click(ProductTable.PRICE_SAMPLE_COLUMN)
+    QApplication.processEvents()
+    assert [
+        table.item(row, ProductTable.CODE_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == ["FB-701", "FB-702", "FB-703"]
+
+    table._handle_header_click(ProductTable.PRICE_SAMPLE_COLUMN)
+    QApplication.processEvents()
+    assert table._sort_states == {
+        ProductTable.CATEGORY_COLUMN: Qt.SortOrder.AscendingOrder,
+    }
+    assert [
+        table.item(row, ProductTable.CODE_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == default_order
+    table.close()
 
 
 def test_initial_product_order_uses_concise_category_names_alphabetically():

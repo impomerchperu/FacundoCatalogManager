@@ -8,6 +8,7 @@ from PySide6.QtGui import (
     QFont,
     QFontMetrics,
     QFontMetricsF,
+    QImageReader,
     QPainter,
     QPalette,
     QPixmap,
@@ -386,21 +387,37 @@ class ProductImageDelegate(QStyledItemDelegate):
     GALLERY_ROLE = int(Qt.ItemDataRole.UserRole) + 3
     ACTIVE_INDEX_ROLE = int(Qt.ItemDataRole.UserRole) + 4
     THUMBNAIL_START_ROLE = int(Qt.ItemDataRole.UserRole) + 5
+    _image_size_cache: ClassVar[dict[str, QSize]] = {}
 
     @classmethod
     def main_image_size(cls, image_path: str) -> QSize:
-        """Return a 144 px-wide size while preserving the source aspect ratio."""
+        """Return a 144 px-wide size while preserving the source ratio."""
         resolved = str(resolve_data_path(image_path)) if image_path else ""
-        pixmap = cls._load_pixmap(resolved)
-        if pixmap.isNull() or pixmap.width() <= 0 or pixmap.height() <= 0:
+        if not resolved:
             return QSize(cls.MAIN_IMAGE_WIDTH, cls.MAIN_IMAGE_WIDTH)
-        return QSize(
+
+        cached = cls._image_size_cache.get(resolved)
+        if cached is not None:
+            return QSize(cached)
+
+        cached_pixmap = QPixmap()
+        if QPixmapCache.find(f"fcm-product-image:{resolved}", cached_pixmap):
+            source_size = cached_pixmap.size()
+        else:
+            # Read image metadata only; row sizing should not decode all catalog images.
+            source_size = QImageReader(resolved).size()
+        if source_size.width() <= 0 or source_size.height() <= 0:
+            return QSize(cls.MAIN_IMAGE_WIDTH, cls.MAIN_IMAGE_WIDTH)
+
+        size = QSize(
             cls.MAIN_IMAGE_WIDTH,
             max(
-                round(pixmap.height() * cls.MAIN_IMAGE_WIDTH / pixmap.width()),
+                round(source_size.height() * cls.MAIN_IMAGE_WIDTH / source_size.width()),
                 1,
             ),
         )
+        cls._image_size_cache[resolved] = QSize(size)
+        return size
 
     @classmethod
     def main_image_height(cls, image_path: str) -> int:

@@ -793,7 +793,9 @@ class ProductDetailDelegate(QStyledItemDelegate):
         for paragraph_index, paragraph in enumerate(paragraphs):
             layout = QTextLayout(paragraph, font)
             text_option = QTextOption()
-            text_option.setWrapMode(QTextOption.WrapMode.WordWrap)
+            text_option.setWrapMode(
+                QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere,
+            )
             layout.setTextOption(text_option)
             line_top = 0.0
             last_line_top = 0.0

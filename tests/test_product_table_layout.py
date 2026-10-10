@@ -363,7 +363,10 @@ def test_product_table_category_sublimacion_is_shown_under_product_name():
     assert code_item is not None
     assert name_item is not None
     assert isinstance(name_delegate, ProductNameCategoryDelegate)
-    assert item.text() == "Artículos de Sublimación"
+    assert item.text() == "Sublimación"
+    assert item.data(ProductNameCategoryDelegate.CATEGORY_SOURCE_ROLE) == (
+        "Artículos de Sublimación"
+    )
     assert code_item.text() == "FB-400"
     assert name_item.text() == "Producto"
     assert table.isColumnHidden(ProductTable.CATEGORY_COLUMN)
@@ -1339,6 +1342,43 @@ def test_sorting_prioritizes_last_clicked_column_and_preserves_secondary_sort():
         table.item(row, ProductTable.CODE_COLUMN).text()
         for row in range(table.rowCount())
     ] == ["FB-702", "FB-701", "FB-703"]
+    table.close()
+
+
+
+def test_initial_product_order_uses_concise_category_names_alphabetically():
+    _qapp()
+    products = [
+        Product(
+            code="FB-801",
+            name="Producto Escritorio",
+            category="Artículos de Escritorio",
+        ),
+        Product(
+            code="FB-802",
+            name="Producto Antiestrés",
+            category="Antiestrés",
+        ),
+        Product(
+            code="FB-803",
+            name="Producto Oficina",
+            category="Artículos de Oficina",
+        ),
+    ]
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products(products)
+    QApplication.processEvents()
+
+    assert [
+        table.item(row, ProductTable.CODE_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == ["FB-802", "FB-801", "FB-803"]
+    assert [
+        ProductTable._format_categories(product.category)
+        for product in products
+    ] == ["Escritorio", "Antiestrés", "Oficina"]
     table.close()
 
 

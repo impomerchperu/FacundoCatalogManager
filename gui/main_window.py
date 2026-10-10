@@ -1,8 +1,9 @@
 import sqlite3
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QPoint, Qt, QThread, QTimer, Signal
+from PySide6.QtCore import QPoint, QRect, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import (
+    QColor,
     QFocusEvent,
     QFont,
     QFontMetrics,
@@ -41,6 +42,7 @@ from models.product import Product
 from services.product_search import product_matches_search
 from services.scraping.category_name_normalizer import (
     available_category_names,
+    display_category_name,
     split_category_names,
 )
 from services.scraping.image_review_service import ImageReviewService
@@ -107,13 +109,57 @@ class CategoryFilterButton(QPushButton):
         option = QStyleOptionButton()
         self.initStyleOption(option)
         option.state &= ~QStyle.StateFlag.State_HasFocus
-
+        count_value = self.property("category_count")
         painter = QPainter(self)
+        if not isinstance(count_value, int):
+            self.style().drawControl(
+                QStyle.ControlElement.CE_PushButton, option, painter, self
+            )
+            return
+
+        display_text = str(
+            self.property("category_display_text")
+            or self.property("category_text")
+            or self.text()
+        )
+        option.text = ""
         self.style().drawControl(
-            QStyle.ControlElement.CE_PushButton,
-            option,
-            painter,
-            self,
+            QStyle.ControlElement.CE_PushButton, option, painter, self
+        )
+        metrics = QFontMetrics(self.font())
+        padding = 4
+        gap = 8
+        content = self.rect().adjusted(padding, 0, -padding, 0)
+        count_text = str(count_value)
+        count_width = min(metrics.horizontalAdvance(count_text), content.width())
+        count_rect = QRect(
+            max(content.right() - count_width + 1, content.left()),
+            content.top(),
+            count_width,
+            content.height(),
+        )
+        label_rect = QRect(
+            content.left(),
+            content.top(),
+            max(count_rect.left() - content.left() - gap, 1),
+            content.height(),
+        )
+        display_text = metrics.elidedText(
+            display_text,
+            Qt.TextElideMode.ElideRight,
+            label_rect.width(),
+        )
+        painter.setFont(self.font())
+        painter.setPen(QColor("#173f6d"))
+        painter.drawText(
+            label_rect,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            display_text,
+        )
+        painter.drawText(
+            count_rect,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            count_text,
         )
 
     def _navigation_buttons(self) -> list["CategoryFilterButton"]:
@@ -771,8 +817,16 @@ class MainWindow(QMainWindow):
         width = cls._category_button_width(button, text)
         if max_width is not None:
             width = max_width
+            count_value = button.property("category_count")
+            count_width = (
+                QFontMetrics(font).horizontalAdvance(str(count_value)) + 8
+                if isinstance(count_value, int)
+                else 0
+            )
             text_width = max(
-                max_width - (2 * cls.CATEGORY_BUTTON_HORIZONTAL_PADDING),
+                max_width
+                - (2 * cls.CATEGORY_BUTTON_HORIZONTAL_PADDING)
+                - count_width,
                 1,
             )
             text = QFontMetrics(font).elidedText(
@@ -832,19 +886,35 @@ class MainWindow(QMainWindow):
         self.category_buttons = [self.all_categories_button]
         self._clear_category_rows()
 
+        categories = {
+            category
+            for product in self.all_products
+            for category in self._product_categories(product)
+        }
         categories = sorted(
-            {
-                category
-                for product in self.all_products
-                for category in self._product_categories(product)
-            },
-            key=str.casefold,
+            categories,
+            key=lambda value: (
+                display_category_name(value).casefold(),
+                value.casefold(),
+            ),
         )
         self.selected_categories.intersection_update(set(categories))
 
+        category_counts: dict[str, int] = {}
+        for product in self.all_products:
+            for category in self._product_categories(product):
+                key = category.casefold()
+                category_counts[key] = category_counts.get(key, 0) + 1
+
         for category in categories:
-            button = CategoryFilterButton(category)
+            display_name = display_category_name(category)
+            button = CategoryFilterButton(display_name)
             button.setProperty("category_text", category)
+            button.setProperty("category_display_text", display_name)
+            button.setProperty(
+                "category_count",
+                category_counts.get(category.casefold(), 0),
+            )
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
             button.setStyleSheet(self._category_button_style())
@@ -881,7 +951,6 @@ class MainWindow(QMainWindow):
     def _prepare_category_filter_layout(self) -> None:
         if not hasattr(self, "category_layout") or not self.category_buttons:
             return
-
         self._clear_category_rows()
 
         reference_font = QFont(self.category_buttons[0].font())
@@ -892,13 +961,22 @@ class MainWindow(QMainWindow):
         reference_bold_metrics = QFontMetrics(reference_bold_font)
         reference_text_width = max(
             reference_metrics.horizontalAdvance(self.CATEGORY_SIDEBAR_REFERENCE_TEXT),
-            reference_bold_metrics.horizontalAdvance(
-                self.CATEGORY_SIDEBAR_REFERENCE_TEXT,
-            ),
+            reference_bold_metrics.horizontalAdvance(self.CATEGORY_SIDEBAR_REFERENCE_TEXT),
         )
+        count_metrics = QFontMetrics(reference_font)
+        maximum_count_width = max(
+            (
+                count_metrics.horizontalAdvance(str(button.property("category_count")))
+                for button in self.category_buttons
+                if isinstance(button.property("category_count"), int)
+            ),
+            default=0,
+        )
+        count_reserve = maximum_count_width + 8 if maximum_count_width else 0
         category_button_width = (
             reference_text_width
             + (2 * self.CATEGORY_BUTTON_HORIZONTAL_PADDING)
+            + count_reserve
         )
         self._category_sidebar_button_width = category_button_width
         self._category_sidebar_open_width = (
@@ -907,7 +985,9 @@ class MainWindow(QMainWindow):
 
         for button in self.category_buttons:
             text = str(
-                button.property("category_text") or button.text(),
+                button.property("category_display_text")
+                or button.property("category_text")
+                or button.text(),
             ).replace("\n", " ")
             self._fit_category_button(
                 button,
@@ -926,16 +1006,19 @@ class MainWindow(QMainWindow):
             maximum=self.category_scroll.verticalScrollBar().maximum(),
         )
         if self.categories_visible:
-            self.category_sidebar.setFixedWidth(
-                self._category_sidebar_open_width,
-            )
+            self.category_sidebar.setFixedWidth(self._category_sidebar_open_width)
 
     def _update_all_categories_button(self) -> None:
         self.all_categories_button.setChecked(not self.selected_categories)
         self.all_categories_button.setText("Todas las categorías")
+        self.all_categories_button.setProperty("category_text", "Todas las categorías")
         self.all_categories_button.setProperty(
-            "category_text",
+            "category_display_text",
             "Todas las categorías",
+        )
+        self.all_categories_button.setProperty(
+            "category_count",
+            len(getattr(self, "all_products", [])),
         )
 
     def clear_category_filters(self) -> None:

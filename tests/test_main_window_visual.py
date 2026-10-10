@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from gui.main_window import CategoryFilterButton, CategoryScrollArea, MainWindow
 from gui.product_table import ProductTable
+from services.scraping.category_name_normalizer import display_category_name
 from models.product import Product
 
 
@@ -782,3 +783,48 @@ def test_inline_stock_by_color_edit_rejects_malformed_rows():
     else:
         raise AssertionError("El stock por color mal formado debería rechazarse")
     table.close()
+
+
+def test_display_category_names_remove_redundant_articulos_de_prefix():
+    assert display_category_name("Artículos de Escritorio") == "Escritorio"
+    assert display_category_name("Artículos de Oficina") == "Oficina"
+    assert display_category_name("Artículos Personales") == "Artículos Personales"
+
+
+def test_category_filter_button_can_draw_right_aligned_quantity():
+    _qapp()
+    button = CategoryFilterButton("Escritorio")
+    button.setProperty("category_text", "Artículos de Escritorio")
+    button.setProperty("category_display_text", "Escritorio")
+    button.setProperty("category_count", 523)
+    button.setStyleSheet(MainWindow._category_button_style())
+    button.resize(220, MainWindow.CATEGORY_BUTTON_HEIGHT)
+    button.show()
+    QApplication.processEvents()
+
+    assert button.property("category_count") == 523
+    assert not button.grab().isNull()
+    button.close()
+
+
+def test_category_sidebar_reserves_width_for_right_aligned_counts():
+    _qapp()
+    window = MainWindow.__new__(MainWindow)
+    window.categories_visible = False
+    window.category_scroll = QScrollArea()
+    container = QWidget()
+    window.category_layout = QVBoxLayout(container)
+    button = CategoryFilterButton("Escritorio")
+    button.setProperty("category_text", "Artículos de Escritorio")
+    button.setProperty("category_display_text", "Escritorio")
+    button.setProperty("category_count", 523)
+    window.category_buttons = [button]
+    window.category_scroll.setWidget(container)
+
+    window._prepare_category_filter_layout()
+
+    assert window._category_sidebar_button_width > (
+        QFontMetrics(button.font()).horizontalAdvance("Enmicadoras / Laminadoras")
+    )
+    assert button.width() == window._category_sidebar_button_width
+    window.category_scroll.deleteLater()

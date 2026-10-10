@@ -2305,6 +2305,38 @@ class ProductTable(QTableWidget):
             self._is_fitting_columns = False
 
     @staticmethod
+    def _reduce_column_widths(
+        widths: list[int],
+        floors: list[int],
+        active_columns: list[int],
+        deficit: int,
+    ) -> int:
+        """Reduce a set of widths without crossing the requested lower bounds."""
+        while deficit > 0:
+            flexible = [
+                column
+                for column in active_columns
+                if widths[column] > floors[column]
+            ]
+            if not flexible:
+                return deficit
+            share = max((deficit + len(flexible) - 1) // len(flexible), 1)
+            previous_deficit = deficit
+            for column in flexible:
+                reduction = min(
+                    widths[column] - floors[column],
+                    share,
+                    deficit,
+                )
+                widths[column] -= reduction
+                deficit -= reduction
+                if deficit <= 0:
+                    break
+            if deficit == previous_deficit:
+                return deficit
+        return deficit
+
+    @staticmethod
     def _allocate_column_widths(
         preferred_widths: list[int],
         minimum_widths: list[int],
@@ -2312,64 +2344,68 @@ class ProductTable(QTableWidget):
         *,
         growable_columns: set[int],
     ) -> list[int]:
-        """Distribute the viewport width proportionally across visible columns."""
+        """Distribute available width proportionally among visible columns."""
         del growable_columns
         widths = [
             max(preferred, minimum)
-            for preferred, minimum in zip(preferred_widths, minimum_widths, strict=True)
+            for preferred, minimum in zip(
+                preferred_widths,
+                minimum_widths,
+                strict=True,
+            )
         ]
         target_width = max(target_width, 1)
-        active = [i for i, minimum in enumerate(minimum_widths) if minimum > 0]
+        active = [
+            index
+            for index, minimum in enumerate(minimum_widths)
+            if minimum > 0
+        ]
         current = sum(widths)
 
         if current > target_width:
-            deficit = current - target_width
-            while deficit > 0:
-                flexible = [i for i in active if widths[i] > minimum_widths[i]]
-                if not flexible:
-                    break
-                share = max((deficit + len(flexible) - 1) // len(flexible), 1)
-                before = deficit
-                for i in flexible:
-                    reduction = min(widths[i] - minimum_widths[i], share, deficit)
-                    widths[i] -= reduction
-                    deficit -= reduction
-                    if deficit <= 0:
-                        break
-                if deficit == before:
-                    break
-            while deficit > 0:
-                flexible = [i for i in active if widths[i] > 1]
-                if not flexible:
-                    break
-                share = max((deficit + len(flexible) - 1) // len(flexible), 1)
-                before = deficit
-                for i in flexible:
-                    reduction = min(widths[i] - 1, share, deficit)
-                    widths[i] -= reduction
-                    deficit -= reduction
-                    if deficit <= 0:
-                        break
-                if deficit == before:
-                    break
+            deficit = ProductTable._reduce_column_widths(
+                widths,
+                minimum_widths,
+                active,
+                current - target_width,
+            )
+            if deficit > 0:
+                emergency_floors = [
+                    1 if index in active else 0
+                    for index in range(len(widths))
+                ]
+                ProductTable._reduce_column_widths(
+                    widths,
+                    emergency_floors,
+                    active,
+                    deficit,
+                )
 
         current = sum(widths)
         if current < target_width and active:
             extra = target_width - current
             weights = {
-                i: max(preferred_widths[i], minimum_widths[i], 1)
-                for i in active
+                index: max(
+                    preferred_widths[index],
+                    minimum_widths[index],
+                    1,
+                )
+                for index in active
             }
             total_weight = sum(weights.values())
             remainders: list[tuple[int, int]] = []
             assigned = 0
-            for i in active:
-                increment, remainder = divmod(extra * weights[i], total_weight)
-                widths[i] += increment
+            for index in active:
+                increment, remainder = divmod(
+                    extra * weights[index],
+                    total_weight,
+                )
+                widths[index] += increment
                 assigned += increment
-                remainders.append((remainder, i))
-            for _remainder, i in sorted(remainders, reverse=True)[:extra - assigned]:
-                widths[i] += 1
+                remainders.append((remainder, index))
+            leftover = extra - assigned
+            for _remainder, index in sorted(remainders, reverse=True)[:leftover]:
+                widths[index] += 1
         return widths
 
     def resizeEvent(self, event) -> None:

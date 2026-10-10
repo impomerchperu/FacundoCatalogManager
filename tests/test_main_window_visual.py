@@ -16,8 +16,8 @@ from PySide6.QtWidgets import (
 
 from gui.main_window import CategoryFilterButton, CategoryScrollArea, MainWindow
 from gui.product_table import ProductTable
-from services.scraping.category_name_normalizer import display_category_name
 from models.product import Product
+from services.scraping.category_name_normalizer import display_category_name
 
 
 def _qapp():

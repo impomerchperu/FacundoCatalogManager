@@ -1130,7 +1130,7 @@ class ProductTable(QTableWidget):
     HEADER_LABELS: ClassVar[list[str]] = [
         "Imagen",
         "Código",
-        "Producto /\\nCategoría",
+        "Producto /\nCategoría",
         "Detalle",
         "",
         "Stock",

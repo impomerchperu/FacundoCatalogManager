@@ -75,6 +75,7 @@ def test_main_window_uses_tolerant_product_search():
     assert MainWindow.product_matches_search(product, "bascket")
     assert MainWindow.product_matches_search(product, "destapadores")
 
+
 def test_product_search_matches_exact_reference_but_ignores_stock_and_prices():
     product = Product(
         code="FB-1600",

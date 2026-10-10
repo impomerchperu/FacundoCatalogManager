@@ -13,8 +13,8 @@ from PySide6.QtWidgets import (
 
 from gui.product_table import (
     PriceDelegate,
-    ProductCodeCategoryDelegate,
     ProductDetailDelegate,
+    ProductNameCategoryDelegate,
     ProductImageDelegate,
     ProductTable,
     StockColorDelegate,
@@ -280,7 +280,7 @@ def test_product_table_category_uses_approved_two_line_layout():
     ]
 
 
-def test_product_table_category_is_combined_with_code_and_detail_receives_space():
+def test_product_table_category_is_combined_with_product_name_and_detail_receives_space():
     _qapp()
 
     table = ProductTable(_Controller())
@@ -295,14 +295,21 @@ def test_product_table_category_is_combined_with_code_and_detail_receives_space(
     table.load_products([product])
     QApplication.processEvents()
 
-    code_delegate = table.itemDelegateForColumn(ProductTable.CODE_COLUMN)
+    name_delegate = table.itemDelegateForColumn(ProductTable.NAME_COLUMN)
     category_item = table.item(0, ProductTable.CATEGORY_COLUMN)
+    name_item = table.item(0, ProductTable.NAME_COLUMN)
     assert table.isColumnHidden(ProductTable.CATEGORY_COLUMN)
     assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == 0
-    assert table.horizontalHeaderItem(ProductTable.CODE_COLUMN).text() == (
-        "Código / Categoría"
+    assert table.horizontalHeaderItem(ProductTable.CODE_COLUMN).text() == "Código"
+    assert (
+        table.horizontalHeaderItem(ProductTable.NAME_COLUMN)
+        .text()
+        .replace("\\n", " ")
+        == "Producto / Categoría"
     )
-    assert isinstance(code_delegate, ProductCodeCategoryDelegate)
+    assert isinstance(name_delegate, ProductNameCategoryDelegate)
+    assert name_item is not None
+    assert name_item.text() == "Producto"
     assert category_item is not None
     assert category_item.text() == "Enmicadoras / Laminadoras"
     assert table.columnWidth(ProductTable.IMAGE_COLUMN) == (
@@ -325,7 +332,7 @@ def test_product_table_category_with_long_word_stays_on_one_line():
     assert "\n" not in formatted
 
 
-def test_product_table_category_sublimacion_is_shown_under_code():
+def test_product_table_category_sublimacion_is_shown_under_product_name():
     _qapp()
 
     table = ProductTable(_Controller())
@@ -341,17 +348,22 @@ def test_product_table_category_sublimacion_is_shown_under_code():
 
     item = table.item(0, ProductTable.CATEGORY_COLUMN)
     code_item = table.item(0, ProductTable.CODE_COLUMN)
+    name_item = table.item(0, ProductTable.NAME_COLUMN)
+    name_delegate = table.itemDelegateForColumn(ProductTable.NAME_COLUMN)
     assert item is not None
     assert code_item is not None
+    assert name_item is not None
+    assert isinstance(name_delegate, ProductNameCategoryDelegate)
     assert item.text() == "Artículos de Sublimación"
     assert code_item.text() == "FB-400"
+    assert name_item.text() == "Producto"
     assert table.isColumnHidden(ProductTable.CATEGORY_COLUMN)
     assert table.columnWidth(ProductTable.CATEGORY_COLUMN) == 0
 
     table.close()
 
 
-def test_product_table_category_enmicadoras_is_combined_with_code():
+def test_product_table_category_enmicadoras_is_combined_with_product_name():
     _qapp()
 
     table = ProductTable(_Controller())
@@ -412,6 +424,52 @@ def test_product_table_keeps_category_data_when_products_are_filtered():
     table.close()
 
 
+
+def test_filtering_rows_keeps_column_widths_and_row_heights_stable():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    products = [
+        Product(
+            code="FB-511",
+            name="Producto de prueba uno",
+            description="Detalle técnico " * 12,
+            category="Oficina",
+        ),
+        Product(
+            code="FB-512",
+            name="Producto de prueba dos",
+            description="Detalle breve",
+            category="Personales",
+        ),
+    ]
+    table.load_products(products)
+    QApplication.processEvents()
+    widths_before = [
+        table.columnWidth(column)
+        for column in range(table.columnCount())
+    ]
+    heights_before = [
+        table.rowHeight(row)
+        for row in range(table.rowCount())
+    ]
+
+    table.show_only_products([products[0]])
+
+    assert [
+        table.columnWidth(column)
+        for column in range(table.columnCount())
+    ] == widths_before
+    assert [
+        table.rowHeight(row)
+        for row in range(table.rowCount())
+    ] == heights_before
+
+    table.show_all_rows()
+    table.close()
+
+
 def test_product_table_category_does_not_wrap_by_word_count():
     category = "Uno Dos Tres Cuatro Cinco Seis"
 
@@ -453,7 +511,7 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
         == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
     )
     assert table.textElideMode() == Qt.TextElideMode.ElideNone
-    assert "padding: 4px" in table.styleSheet()
+    assert "padding: 6px 8px" in table.styleSheet()
     assert "#f8fbff" in table.styleSheet()
     assert "#eef5fb" in table.styleSheet()
     assert "#173f6d" in table.styleSheet()
@@ -1050,6 +1108,34 @@ def test_products_are_sorted_by_category_then_product_name_at_startup():
         table.item(row, ProductTable.CODE_COLUMN).text()
         for row in range(table.rowCount())
     ] == ["FB-2", "FB-11", "FB-3", "FB-12"]
+    table.close()
+
+
+
+def test_detail_cell_is_vertically_centered():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-520",
+                name="Producto",
+                description="Detalle técnico",
+                category="Oficina",
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
+    assert ProductImageDelegate.CELL_HORIZONTAL_PADDING >= 6
+    assert ProductImageDelegate.CELL_VERTICAL_PADDING >= 6
+    assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
+
     table.close()
 
 

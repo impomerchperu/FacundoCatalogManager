@@ -572,10 +572,12 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
         ProductTable.MIN_COLUMN_WIDTHS[ProductTable.NAME_COLUMN]
     )
     for column in range(table.columnCount()):
-        assert (
-            header.sectionResizeMode(column)
-            == QHeaderView.ResizeMode.Interactive
+        expected_mode = (
+            QHeaderView.ResizeMode.Fixed
+            if column == ProductTable.IMAGE_COLUMN
+            else QHeaderView.ResizeMode.Interactive
         )
+        assert header.sectionResizeMode(column) == expected_mode
 
     table.close()
 

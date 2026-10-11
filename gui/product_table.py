@@ -450,7 +450,7 @@ class ProductImageDelegate(QStyledItemDelegate):
             # Read image metadata only; row sizing should not decode all catalog images.
             source_size = QImageReader(resolved).size()
         if source_size.width() <= 0 or source_size.height() <= 0:
-            return QSize(cls.MAIN_IMAGE_WIDTH, cls.MAIN_IMAGE_WIDTH)
+            return QSize(display_width, display_width)
 
         size = QSize(
             display_width,

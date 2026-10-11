@@ -155,6 +155,37 @@ for group in _SEARCH_TERM_GROUPS:
     for term in normalized_group:
         _SEARCH_TERM_ALIASES[term] = normalized_group
 
+_MULTIWORD_SEARCH_ALIASES = sorted(
+    (
+        (term, aliases)
+        for term, aliases in _SEARCH_TERM_ALIASES.items()
+        if " " in term
+    ),
+    key=lambda item: len(item[0].split()),
+    reverse=True,
+)
+
+
+def _query_alias_groups(query: str) -> tuple[frozenset[str], ...]:
+    """Group multiword synonyms so extra query terms remain independently usable."""
+
+    terms = query.split()
+    groups: list[frozenset[str]] = []
+    index = 0
+    while index < len(terms):
+        for phrase, aliases in _MULTIWORD_SEARCH_ALIASES:
+            phrase_terms = phrase.split()
+            end = index + len(phrase_terms)
+            if terms[index:end] == phrase_terms:
+                groups.append(aliases)
+                index = end
+                break
+        else:
+            term = terms[index]
+            groups.append(_SEARCH_TERM_ALIASES.get(term, frozenset({term})))
+            index += 1
+    return tuple(groups)
+
 
 def _product_search_values(product: Product) -> tuple[str, ...]:
     """Devuelve los valores del producto que el usuario puede buscar."""
@@ -202,14 +233,14 @@ def product_matches_search(product: Product, search_text: str) -> bool:
     ):
         return True
 
-    # Cada término debe aparecer en algún campo del producto o en un sinónimo.
+    # Agrupa expresiones como "toma todo" para que consultas como
+    # "toma todo rojo" encuentren botellas rojas sin perder el término "rojo".
     # No se infieren letras ni se corrigen errores ortográficos.
-    for term in normalized_query.split():
-        aliases = _SEARCH_TERM_ALIASES.get(term, frozenset({term}))
-        if not any(
+    return all(
+        any(
             alias in value
             for alias in aliases
             for value in normalized_values
-        ):
-            return False
-    return True
+        )
+        for aliases in _query_alias_groups(normalized_query)
+    )

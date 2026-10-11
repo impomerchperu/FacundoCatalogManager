@@ -75,15 +75,19 @@ class _GalleryThumbnailLabel(QLabel):
 
 
 class ProductImageGalleryDialog(QDialog):
-    """Visor de imágenes al 200 %, con la misma navegación de miniaturas de la celda."""
+    """Visor al 260 % del tamaño original (30 % más que la escala previa)."""
 
-    SCALE_FACTOR = 2
-    MAIN_IMAGE_WIDTH = ProductImageDelegate.MAIN_IMAGE_WIDTH * SCALE_FACTOR
-    CONTENT_WIDTH = ProductImageDelegate.DEFAULT_SIZE * SCALE_FACTOR
-    THUMBNAIL_HEIGHT = ProductImageDelegate.THUMBNAIL_HEIGHT * SCALE_FACTOR
-    THUMBNAIL_GAP = ProductImageDelegate.THUMBNAIL_GAP * SCALE_FACTOR
+    SCALE_FACTOR = 2.6
+    MAIN_IMAGE_WIDTH = round(
+        ProductImageDelegate.MAIN_IMAGE_WIDTH * SCALE_FACTOR
+    )
+    CONTENT_WIDTH = round(ProductImageDelegate.DEFAULT_SIZE * SCALE_FACTOR)
+    THUMBNAIL_HEIGHT = round(
+        ProductImageDelegate.THUMBNAIL_HEIGHT * SCALE_FACTOR
+    )
+    THUMBNAIL_GAP = round(ProductImageDelegate.THUMBNAIL_GAP * SCALE_FACTOR)
     MAX_VISIBLE_THUMBNAILS = ProductImageDelegate.MAX_VISIBLE_THUMBNAILS
-    ARROW_WIDTH = 24
+    ARROW_WIDTH = round(12 * SCALE_FACTOR)
 
     def __init__(
         self,

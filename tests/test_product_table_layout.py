@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import QRect, QSize, Qt
-from PySide6.QtGui import QColor, QFontMetrics, QFontMetricsF, QPixmap
+from PySide6.QtGui import QColor, QFontMetrics, QFontMetricsF, QPainter, QPixmap
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPlainTextEdit,
+    QStyleOptionViewItem,
 )
 
 from gui.product_table import (
@@ -945,6 +946,51 @@ def test_product_table_stock_column_shares_extra_window_width():
     table.close()
 
 
+def test_price_delegate_paints_long_amount_on_one_line():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(900, 700)
+    table.show()
+    table.load_products([
+        Product(
+            code="FB-8010",
+            name="Precio largo",
+            price_sample=123456789.0,
+        ),
+    ])
+    QApplication.processEvents()
+
+    index = table.model().index(0, ProductTable.PRICE_SAMPLE_COLUMN)
+    delegate = table.itemDelegateForColumn(ProductTable.PRICE_SAMPLE_COLUMN)
+    assert isinstance(delegate, PriceDelegate)
+    option = QStyleOptionViewItem()
+    option.rect = QRect(0, 0, 72, 70)
+    option.widget = table
+    option.font = table.font()
+    option.palette = table.palette()
+    pixmap = QPixmap(option.rect.size())
+    pixmap.fill(QColor("white"))
+    painter = QPainter(pixmap)
+    delegate.paint(painter, option, index)
+    painter.end()
+
+    image = pixmap.toImage()
+    ink_rows = []
+    for y in range(image.height()):
+        for x in range(image.width()):
+            pixel = image.pixelColor(x, y)
+            if pixel.red() < 90 and pixel.green() < 130 and pixel.blue() < 190:
+                ink_rows.append(y)
+                break
+    assert ink_rows
+    line_bands = 1
+    for previous, current in zip(ink_rows, ink_rows[1:], strict=False):
+        if current - previous > 3:
+            line_bands += 1
+    assert line_bands == 1
+    table.close()
+
+
 def test_price_columns_are_compact_and_currency_is_not_editable():
     _qapp()
     table = ProductTable(_Controller())
@@ -1576,6 +1622,21 @@ def test_visible_columns_share_extra_width_when_the_table_grows():
     table.resize(2200, 700)
     QApplication.processEvents()
 
+    fixed_columns = {
+        ProductTable.IMAGE_COLUMN,
+        ProductTable.CODE_COLUMN,
+        ProductTable.NAME_COLUMN,
+    }
+    growable_columns = {
+        ProductTable.DETAIL_COLUMN,
+        ProductTable.STOCK_COLUMN,
+        ProductTable.PRICE_SAMPLE_COLUMN,
+        ProductTable.PRICE_HUNDRED_COLUMN,
+        ProductTable.PRICE_THOUSAND_COLUMN,
+    }
     for column, width in first_widths.items():
-        assert table.columnWidth(column) > width
+        if column in fixed_columns:
+            assert table.columnWidth(column) == width
+        elif column in growable_columns:
+            assert table.columnWidth(column) > width
     table.close()

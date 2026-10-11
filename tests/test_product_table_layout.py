@@ -535,7 +535,6 @@ def test_product_table_keeps_category_data_when_products_are_filtered():
     table.close()
 
 
-
 def test_filtering_rows_keeps_column_widths_and_row_heights_stable():
     _qapp()
     table = ProductTable(_Controller())
@@ -1317,8 +1316,6 @@ def test_products_are_sorted_by_category_then_product_name_at_startup():
     table.close()
 
 
-
-
 def test_stock_and_price_headers_cycle_ascending_descending_and_normal():
     _qapp()
     products = [
@@ -1396,7 +1393,6 @@ def test_stock_and_price_headers_cycle_ascending_descending_and_normal():
         table.close()
 
 
-
 def test_third_sort_click_preserves_active_product_filter():
     _qapp()
     products = [
@@ -1429,7 +1425,6 @@ def test_third_sort_click_preserves_active_product_filter():
         ProductTable.CATEGORY_COLUMN: Qt.SortOrder.AscendingOrder,
     }
     table.close()
-
 
 
 def test_main_image_is_144_pixels_wide_and_keeps_source_aspect_ratio(tmp_path: Path):
@@ -1661,8 +1656,6 @@ def test_detail_cell_is_vertically_centered():
     )
 
     table.close()
-
-
 
 
 def test_row_height_tracks_tallest_text_or_image_and_skips_padding_for_tall_rows(

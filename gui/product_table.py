@@ -2054,14 +2054,17 @@ class ProductTable(QTableWidget):
                 if position.y() >= strip_top:
                     for image_index, tile_rect in tiles:
                         if tile_rect.contains(position):
+                            self.setCurrentCell(index.row(), self.IMAGE_COLUMN)
                             self._set_active_image(index.row(), image_index)
                             event.accept()
                             return
                     if left_arrow is not None and left_arrow.contains(position):
+                        self.setCurrentCell(index.row(), self.IMAGE_COLUMN)
                         self._scroll_thumbnail_strip(index.row(), -1)
                         event.accept()
                         return
                     if right_arrow is not None and right_arrow.contains(position):
+                        self.setCurrentCell(index.row(), self.IMAGE_COLUMN)
                         self._scroll_thumbnail_strip(index.row(), 1)
                         event.accept()
                         return

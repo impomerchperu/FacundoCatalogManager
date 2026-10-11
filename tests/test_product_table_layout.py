@@ -148,6 +148,10 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
     assert left_arrow is None and right_arrow is None
     assert strip_top == main_rect.bottom() + 1 + ProductImageDelegate.THUMBNAIL_GAP
     assert strip_top == tiles[0][1].top()
+    group_bottom = tiles[-1][1].bottom()
+    assert abs(
+        (main_rect.top() + group_bottom) / 2 - content_rect.center().y()
+    ) <= 1
     assert abs(
         (tiles[0][1].left() + tiles[-1][1].right()) / 2
         - content_rect.center().x()

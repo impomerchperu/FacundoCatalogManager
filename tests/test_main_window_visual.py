@@ -14,7 +14,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.main_window import CategoryFilterButton, CategoryScrollArea, MainWindow
+from gui.main_window import (
+    CategoryFilterButton,
+    CategoryScrollArea,
+    MainWindow,
+    SearchLineEdit,
+)
 from gui.product_table import ProductTable
 from models.product import Product
 from services.scraping.category_name_normalizer import display_category_name
@@ -106,6 +111,27 @@ def test_hiding_categories_enables_even_table_column_distribution():
     window.category_toggle_button.deleteLater()
     window.category_sidebar.deleteLater()
     window.category_scroll.deleteLater()
+
+
+def test_search_clear_icon_remains_visible_and_clears_the_field():
+    _qapp()
+    search = SearchLineEdit()
+    search.resize(320, MainWindow.SEARCH_HEIGHT)
+    search.show()
+    QApplication.processEvents()
+
+    assert search.clear_button.isVisible()
+    assert search.clear_button.icon().isNull() is False
+
+    search.setText("producto")
+    QApplication.processEvents()
+    assert search.clear_button.isVisible()
+
+    search.clear_button.click()
+    QApplication.processEvents()
+    assert search.text() == ""
+    assert search.clear_button.isVisible()
+    search.close()
 
 
 def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
@@ -266,7 +292,7 @@ def test_all_categories_button_uses_explicit_plural_label():
     button.deleteLater()
 
 
-def test_category_sidebar_keeps_full_labels_and_sizes_to_longest_name():
+def test_category_sidebar_keeps_fixed_reference_width_and_full_short_labels():
     _qapp()
 
     window = MainWindow.__new__(MainWindow)
@@ -276,25 +302,27 @@ def test_category_sidebar_keeps_full_labels_and_sizes_to_longest_name():
     container = QWidget()
     window.category_layout = QVBoxLayout(container)
     reference = QPushButton("Enmicadoras / Laminadoras")
-    reference.setProperty(
-        "category_text",
-        "Enmicadoras / Laminadoras",
-    )
+    reference.setProperty("category_text", "Enmicadoras / Laminadoras")
+    full_label = "Artículos de Oficina"
+    full_button = QPushButton(full_label)
+    full_button.setProperty("category_text", full_label)
     long_label = "Impresora y Consumible Fotográfico Profesional"
     long_button = QPushButton(long_label)
     long_button.setProperty("category_text", long_label)
-    window.category_buttons = [reference, long_button]
+    window.category_buttons = [reference, full_button, long_button]
     window.category_scroll.setWidget(container)
 
     window._prepare_category_filter_layout()
 
-    assert reference.width() == long_button.width()
+    assert reference.width() == full_button.width() == long_button.width()
     expected_sidebar_width = (
-        long_button.width() + MainWindow.CATEGORY_SIDEBAR_HORIZONTAL_PADDING * 2
+        reference.width() + MainWindow.CATEGORY_SIDEBAR_HORIZONTAL_PADDING * 2
     )
     assert window._category_sidebar_open_width == expected_sidebar_width
+    assert MainWindow.CATEGORY_SIDEBAR_REFERENCE_TEXT == reference.text()
+    assert full_button.text() == full_label
     assert long_button.toolTip() == long_label
-    assert long_button.text() == long_label
+    assert long_button.text() != long_label
 
     window.category_scroll.deleteLater()
     window.category_sidebar.deleteLater()

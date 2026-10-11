@@ -425,10 +425,7 @@ def test_product_table_category_is_combined_with_product_name_and_detail_receive
         table.font(),
         table.columnWidth(ProductTable.NAME_COLUMN),
     )
-    assert table.rowHeight(0) >= (
-        expected_name_height
-        + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
-    )
+    assert table.rowHeight(0) >= expected_name_height
     assert table.columnWidth(ProductTable.DETAIL_COLUMN) > (
         ProductTable.MIN_COLUMN_WIDTHS[ProductTable.DETAIL_COLUMN]
     )
@@ -675,9 +672,40 @@ def test_code_and_product_columns_stay_compact_while_detail_uses_extra_width():
     QApplication.processEvents()
 
     assert table.columnWidth(ProductTable.CODE_COLUMN) <= 112
-    assert table.columnWidth(ProductTable.NAME_COLUMN) == 170
+    assert table.columnWidth(ProductTable.NAME_COLUMN) == 178
     assert table.columnWidth(ProductTable.DETAIL_COLUMN) > (
         table.MIN_COLUMN_WIDTHS[ProductTable.DETAIL_COLUMN]
+    )
+    table.close()
+
+
+def test_text_column_padding_width_is_funded_by_code_column():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="IKIOSK-ESTANDAR-EXTENDED-REFERENCE-CODE",
+                name="Producto con nombre extenso",
+                description="Detalle técnico del producto",
+                category="Oficina",
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    preferred = table._preferred_column_widths(table.horizontalHeader())
+    assert table._stable_code_width == 112
+    assert preferred[ProductTable.CODE_COLUMN] == 96
+    assert preferred[ProductTable.NAME_COLUMN] == 178
+    assert preferred[ProductTable.DETAIL_COLUMN] == 268
+    assert (
+        preferred[ProductTable.CODE_COLUMN]
+        + preferred[ProductTable.NAME_COLUMN]
+        + preferred[ProductTable.DETAIL_COLUMN]
+        == 112 + 170 + 260
     )
     table.close()
 
@@ -1179,10 +1207,7 @@ def test_detail_formats_attributes_removes_duplicate_color_and_trailing_periods(
         )
         + (2 * ProductDetailDelegate.VERTICAL_PADDING)
     )
-    assert table.rowHeight(0) >= (
-        expected_detail_height
-        + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
-    )
+    assert table.rowHeight(0) >= expected_detail_height
 
     table.close()
 
@@ -1654,6 +1679,10 @@ def test_detail_cell_is_vertically_centered():
     assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
     assert ProductImageDelegate.CELL_HORIZONTAL_PADDING == 2
     assert ProductImageDelegate.CELL_VERTICAL_PADDING == 2
+    assert ProductNameCategoryDelegate.HORIZONTAL_PADDING == 4
+    assert ProductNameCategoryDelegate.VERTICAL_PADDING == 4
+    assert ProductDetailDelegate.HORIZONTAL_PADDING == 4
+    assert ProductDetailDelegate.VERTICAL_PADDING == 4
     assert ProductImageDelegate.MAIN_IMAGE_WIDTH == 144
     assert ProductImageDelegate.THUMBNAIL_HEIGHT == 34
     assert ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT >= (
@@ -1671,10 +1700,7 @@ def test_detail_cell_is_vertically_centered():
         )
         + (2 * ProductDetailDelegate.VERTICAL_PADDING)
     )
-    assert table.rowHeight(0) >= (
-        expected_detail_height
-        + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
-    )
+    assert table.rowHeight(0) >= expected_detail_height
 
     table.close()
 
@@ -1718,10 +1744,9 @@ def test_row_height_tracks_tallest_text_or_image_and_skips_padding_for_tall_rows
         table.font(),
         table.columnWidth(ProductTable.NAME_COLUMN),
     )
-    assert table.rowHeight(0) == (
-        max(landscape_content, landscape_text_height)
-        + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
-        + ProductTable.ROW_VERTICAL_SPACING
+    assert table.rowHeight(0) == max(
+        landscape_content + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING),
+        landscape_text_height,
     )
 
     portrait_content = ProductImageDelegate.main_image_height(str(portrait_path))

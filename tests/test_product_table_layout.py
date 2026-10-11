@@ -166,6 +166,10 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
         (tiles[0][1].left() + tiles[-1][1].right()) / 2
         - content_rect.center().x()
     ) <= 1
+    fixed_tile_geometry = [
+        (tile.left(), tile.width(), tile.height())
+        for _image_index, tile in tiles
+    ]
     image_content_height = (
         ProductImageDelegate.main_image_height(str(paths[0]))
         + ProductImageDelegate.THUMBNAIL_GAP
@@ -219,6 +223,10 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
         thumbnail_top=thumbnail_top,
     )
     assert [image_index for image_index, _tile in replacement_tiles] == [1, 0, 2]
+    assert [
+        (tile.left(), tile.width(), tile.height())
+        for _image_index, tile in replacement_tiles
+    ] == fixed_tile_geometry
     assert replacement_tiles[1][0] == 0
     assert replacement_tiles[0][0] == 1
     assert replacement_tiles[0][1].top() == main_rect.bottom() + 1 + (

@@ -46,7 +46,6 @@ from models.product import Product
 from services.product_search import product_matches_search
 from services.scraping.category_name_normalizer import (
     available_category_names,
-    display_category_name,
     split_category_names,
 )
 from services.scraping.image_review_service import ImageReviewService
@@ -380,7 +379,6 @@ class MainWindow(QMainWindow):
     CATEGORY_SPACING = 1
     CATEGORY_SIDEBAR_SPACING = 4
     CATEGORY_SIDEBAR_HORIZONTAL_PADDING = 4
-    CATEGORY_SIDEBAR_REFERENCE_TEXT = "Enmicadoras / Laminadoras"
     INITIAL_WINDOW_WIDTH = 1200
     INITIAL_WINDOW_HEIGHT = 700
 
@@ -994,13 +992,7 @@ class MainWindow(QMainWindow):
             for product in self.all_products
             for category in self._product_categories(product)
         }
-        categories = sorted(
-            categories,
-            key=lambda value: (
-                display_category_name(value).casefold(),
-                value.casefold(),
-            ),
-        )
+        categories = sorted(categories, key=str.casefold)
         self.selected_categories.intersection_update(set(categories))
 
         category_counts: dict[str, int] = {}
@@ -1010,10 +1002,9 @@ class MainWindow(QMainWindow):
                 category_counts[key] = category_counts.get(key, 0) + 1
 
         for category in categories:
-            display_name = display_category_name(category)
-            button = CategoryFilterButton(display_name)
+            button = CategoryFilterButton(category)
             button.setProperty("category_text", category)
-            button.setProperty("category_display_text", display_name)
+            button.setProperty("category_display_text", category)
             button.setProperty(
                 "category_count",
                 category_counts.get(category.casefold(), 0),
@@ -1062,9 +1053,20 @@ class MainWindow(QMainWindow):
         reference_bold_font.setBold(True)
         reference_metrics = QFontMetrics(reference_font)
         reference_bold_metrics = QFontMetrics(reference_bold_font)
+        button_texts = [
+            str(
+                button.property("category_display_text")
+                or button.property("category_text")
+                or button.text(),
+            ).replace("\n", " ")
+            for button in self.category_buttons
+        ]
         reference_text_width = max(
-            reference_metrics.horizontalAdvance(self.CATEGORY_SIDEBAR_REFERENCE_TEXT),
-            reference_bold_metrics.horizontalAdvance(self.CATEGORY_SIDEBAR_REFERENCE_TEXT),
+            max(
+                reference_metrics.horizontalAdvance(text),
+                reference_bold_metrics.horizontalAdvance(text),
+            )
+            for text in button_texts
         )
         count_metrics = QFontMetrics(reference_font)
         maximum_count_width = max(
@@ -1086,12 +1088,7 @@ class MainWindow(QMainWindow):
             category_button_width + (2 * self.CATEGORY_SIDEBAR_HORIZONTAL_PADDING)
         )
 
-        for button in self.category_buttons:
-            text = str(
-                button.property("category_display_text")
-                or button.property("category_text")
-                or button.text(),
-            ).replace("\n", " ")
+        for button, text in zip(self.category_buttons, button_texts, strict=True):
             self._fit_category_button(
                 button,
                 text,

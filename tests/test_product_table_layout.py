@@ -72,7 +72,7 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     assert isinstance(delegate, ProductImageDelegate)
     assert item.data(ProductImageDelegate.IMAGE_ROLE) == str(image_path)
     initial_image_column_width = table.columnWidth(ProductTable.IMAGE_COLUMN)
-    assert initial_image_column_width == ProductImageDelegate.DEFAULT_SIZE
+    assert initial_image_column_width >= ProductImageDelegate.DEFAULT_SIZE
     assert initial_image_column_width >= ProductImageDelegate.MAIN_IMAGE_WIDTH
     assert (
         table.horizontalHeader().sectionResizeMode(ProductTable.IMAGE_COLUMN)
@@ -91,12 +91,12 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     QApplication.processEvents()
 
     assert table.rowHeight(0) == ProductImageDelegate.DEFAULT_HEIGHT
-    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == initial_image_column_width
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) > initial_image_column_width
 
     table.close()
 
 
-def test_product_table_uses_horizontal_thumbnails_and_click_changes_temporary_primary(
+def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
     tmp_path: Path,
 ):
     _qapp()
@@ -130,43 +130,90 @@ def test_product_table_uses_horizontal_thumbnails_and_click_changes_temporary_pr
     index = table.model().index(0, ProductTable.IMAGE_COLUMN)
     rect = table.visualRect(index)
     content_rect = ProductImageDelegate.cell_content_rect(rect)
-    thumbnail_top = (
-        content_rect.bottom()
-        - ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
-        + 1
+    main_rect, thumbnail_top = ProductImageDelegate.main_image_layout(
+        rect,
+        str(paths[0]),
+        has_thumbnails=True,
     )
-    tiles, left_arrow, right_arrow, strip_top = ProductImageDelegate.thumbnail_layout(
-        content_rect,
-        len(gallery),
-        0,
-        thumbnail_top=thumbnail_top,
+    tiles, left_arrow, right_arrow, strip_top = (
+        ProductImageDelegate.thumbnail_layout(
+            content_rect,
+            len(gallery),
+            0,
+            active_index=0,
+            thumbnail_top=thumbnail_top,
+        )
     )
-    assert len(tiles) == 3
+    assert [image_index for image_index, _tile in tiles] == [1, 2]
     assert left_arrow is None and right_arrow is None
-    assert strip_top > rect.top()
+    assert strip_top == main_rect.bottom() + 1 + ProductImageDelegate.THUMBNAIL_GAP
+    assert strip_top == tiles[0][1].top()
+    assert abs(
+        (tiles[0][1].left() + tiles[-1][1].right()) / 2
+        - content_rect.center().x()
+    ) <= 1
     assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
 
     QTest.mouseClick(
         table.viewport(),
         Qt.MouseButton.LeftButton,
-        pos=tiles[1][1].center(),
+        pos=tiles[0][1].center(),
     )
     QApplication.processEvents()
 
     item = table.item(0, ProductTable.IMAGE_COLUMN)
     visible_gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
-    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 0
+    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 1
     assert [image["image_path"] for image in visible_gallery] == [
-        str(paths[1]),
         str(paths[0]),
+        str(paths[1]),
         str(paths[2]),
     ]
+    assert ProductImageDelegate._selected_path(
+        visible_gallery,
+        item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE),
+        "",
+    ) == str(paths[1])
     assert [image["image_path"] for image in product.gallery_images] == [
         str(paths[0]),
         str(paths[1]),
         str(paths[2]),
     ]
-    assert table._active_image_indices["fb-100"] == 0
+    assert table._active_image_indices["fb-100"] == 1
+
+    main_rect, thumbnail_top = ProductImageDelegate.main_image_layout(
+        rect,
+        str(paths[1]),
+        has_thumbnails=True,
+    )
+    replacement_tiles, _, _, _ = ProductImageDelegate.thumbnail_layout(
+        content_rect,
+        len(gallery),
+        0,
+        active_index=1,
+        thumbnail_top=thumbnail_top,
+    )
+    assert [image_index for image_index, _tile in replacement_tiles] == [0, 2]
+    assert replacement_tiles[0][0] == 0
+    assert replacement_tiles[0][1].top() == main_rect.bottom() + 1 + (
+        ProductImageDelegate.THUMBNAIL_GAP
+    )
+
+    QTest.mouseClick(
+        table.viewport(),
+        Qt.MouseButton.LeftButton,
+        pos=replacement_tiles[0][1].center(),
+    )
+    QApplication.processEvents()
+    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 0
+    restored_tiles, _, _, _ = ProductImageDelegate.thumbnail_layout(
+        content_rect,
+        len(gallery),
+        0,
+        active_index=0,
+        thumbnail_top=thumbnail_top,
+    )
+    assert [image_index for image_index, _tile in restored_tiles] == [1, 2]
     assert table.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
     table.close()
 
@@ -201,20 +248,21 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
     index = table.model().index(0, ProductTable.IMAGE_COLUMN)
     rect = table.visualRect(index)
     content_rect = ProductImageDelegate.cell_content_rect(rect)
-    thumbnail_top = (
-        content_rect.bottom()
-        - ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
-        + 1
+    _main_rect, thumbnail_top = ProductImageDelegate.main_image_layout(
+        rect,
+        str(paths[0]),
+        has_thumbnails=True,
     )
     initial_tiles, left_arrow, right_arrow, _ = (
         ProductImageDelegate.thumbnail_layout(
             content_rect,
             len(gallery),
             0,
+            active_index=0,
             thumbnail_top=thumbnail_top,
         )
     )
-    assert [image_index for image_index, _ in initial_tiles] == [0, 1, 2, 3]
+    assert [image_index for image_index, _ in initial_tiles] == [1, 2, 3, 4]
     assert left_arrow is not None
     assert right_arrow is not None
 
@@ -234,10 +282,11 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
             content_rect,
             len(gallery),
             1,
+            active_index=0,
             thumbnail_top=thumbnail_top,
         )
     )
-    assert [image_index for image_index, _ in scrolled_tiles] == [1, 2, 3, 4]
+    assert [image_index for image_index, _ in scrolled_tiles] == [2, 3, 4, 5]
     assert left_arrow is not None
     assert right_arrow is not None
 
@@ -249,14 +298,9 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
     QApplication.processEvents()
     visible_gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
     assert [image["image_path"] for image in visible_gallery] == [
-        str(paths[3]),
-        str(paths[1]),
-        str(paths[2]),
-        str(paths[0]),
-        str(paths[4]),
-        str(paths[5]),
+        str(path) for path in paths
     ]
-    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 0
+    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 4
     assert item.data(ProductImageDelegate.THUMBNAIL_START_ROLE) == 0
     assert [image["image_path"] for image in product.gallery_images] == [
         str(path) for path in paths
@@ -1405,12 +1449,12 @@ def test_row_height_does_not_expand_for_tall_primary_image_and_alternative_strip
     table.close()
 
 
-def test_thumbnail_layout_centers_short_galleries_and_shows_four_tiles():
+def test_thumbnail_layout_centers_alternatives_and_shows_four_tiles():
     rect = QRect(10, 20, 160, 360)
     tiles, left_arrow, right_arrow, strip_top = ProductImageDelegate.thumbnail_layout(
-        rect, 2, main_height=288
+        rect, 2, main_height=288, active_index=0
     )
-    assert len(tiles) == 2
+    assert [image_index for image_index, _tile in tiles] == [1]
     assert left_arrow is None and right_arrow is None
     assert strip_top == rect.top() + 288
     assert tiles[0][1].left() > rect.left()
@@ -1422,7 +1466,7 @@ def test_thumbnail_layout_centers_short_galleries_and_shows_four_tiles():
     tiles, left_arrow, right_arrow, _ = ProductImageDelegate.thumbnail_layout(
         rect, 6, 1, main_height=288
     )
-    assert [image_index for image_index, _tile in tiles] == [1, 2, 3, 4]
+    assert [image_index for image_index, _tile in tiles] == [2, 3, 4, 5]
     assert left_arrow is not None and right_arrow is not None
 
 
@@ -1637,21 +1681,10 @@ def test_visible_columns_share_extra_width_when_the_table_grows():
     table.resize(2200, 700)
     QApplication.processEvents()
 
-    fixed_columns = {
-        ProductTable.IMAGE_COLUMN,
-        ProductTable.CODE_COLUMN,
-        ProductTable.NAME_COLUMN,
+    width_increments = {
+        column: table.columnWidth(column) - width
+        for column, width in first_widths.items()
     }
-    growable_columns = {
-        ProductTable.DETAIL_COLUMN,
-        ProductTable.STOCK_COLUMN,
-        ProductTable.PRICE_SAMPLE_COLUMN,
-        ProductTable.PRICE_HUNDRED_COLUMN,
-        ProductTable.PRICE_THOUSAND_COLUMN,
-    }
-    for column, width in first_widths.items():
-        if column in fixed_columns:
-            assert table.columnWidth(column) == width
-        elif column in growable_columns:
-            assert table.columnWidth(column) > width
+    assert all(increment > 0 for increment in width_increments.values())
+    assert max(width_increments.values()) - min(width_increments.values()) <= 1
     table.close()

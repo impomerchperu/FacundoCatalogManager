@@ -114,6 +114,34 @@ class PriceDelegate(QStyledItemDelegate):
         del index
         editor.setGeometry(option.rect)
 
+    def paint(self, painter: QPainter, option, index) -> None:
+        """Render the price on one line, even when the cell is narrow."""
+        style_option = QStyleOptionViewItem(option)
+        self.initStyleOption(style_option, index)
+        text = style_option.text
+        style_option.text = ""
+        widget = style_option.widget
+        style = widget.style() if widget is not None else QApplication.style()
+        style.drawControl(
+            QStyle.ControlElement.CE_ItemViewItem,
+            style_option,
+            painter,
+            widget,
+        )
+
+        painter.save()
+        painter.setFont(style_option.font)
+        painter.setPen(style_option.palette.color(QPalette.ColorRole.Text))
+        text_rect = style_option.rect.adjusted(4, 0, -4, 0)
+        painter.drawText(
+            text_rect,
+            Qt.AlignmentFlag.AlignCenter
+            | Qt.AlignmentFlag.AlignVCenter
+            | Qt.TextFlag.TextSingleLine,
+            text,
+        )
+        painter.restore()
+
 
 class ProductHeader(QHeaderView):
     """Encabezado con resaltado de todas las columnas con orden activo."""
@@ -1897,10 +1925,6 @@ class ProductTable(QTableWidget):
                     thumbnail_start = max(int(thumbnail_start or 0), 0)
                 except (TypeError, ValueError):
                     thumbnail_start = 0
-                active_index = ProductImageDelegate._active_index(
-                    gallery,
-                    item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE),
-                )
                 strip_top = ProductImageDelegate.thumbnail_strip_top(rect)
                 tiles, left_arrow, right_arrow, strip_top = (
                     ProductImageDelegate.thumbnail_layout(
@@ -2344,7 +2368,13 @@ class ProductTable(QTableWidget):
                 preferred_widths,
                 minimum_widths,
                 available_width,
-                growable_columns={self.DETAIL_COLUMN},
+                growable_columns={
+                    self.DETAIL_COLUMN,
+                    self.STOCK_COLUMN,
+                    self.PRICE_SAMPLE_COLUMN,
+                    self.PRICE_HUNDRED_COLUMN,
+                    self.PRICE_THOUSAND_COLUMN,
+                },
             )
 
             for column, width in enumerate(widths):

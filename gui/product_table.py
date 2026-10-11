@@ -716,9 +716,7 @@ class ProductImageDelegate(QStyledItemDelegate):
             if isinstance(image, dict):
                 path = str(image.get("image_path", image.get("path", "")) or "").strip()
             painter.fillRect(tile_rect, QColor("#ffffff"))
-            painter.setPen(
-                QColor("#1675e8") if image_index == active_index else QColor("#cbd5e1")
-            )
+            painter.setPen(QColor("#cbd5e1"))
             painter.drawRect(tile_rect.adjusted(0, 0, -1, -1))
             inner = tile_rect.adjusted(2, 2, -2, -2)
             if path and inner.width() > 0 and inner.height() > 0:

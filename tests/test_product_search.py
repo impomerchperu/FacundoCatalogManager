@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QLabel, QLineEdit
+from PySide6.QtWidgets import QApplication, QLabel, QLineEdit, QToolButton
 
 from gui.main_window import MainWindow, SearchLineEdit
 from models.product import Product
@@ -133,7 +133,7 @@ def test_search_box_displays_prominent_eraser_button_and_clears_text():
     field.show()
     QApplication.processEvents()
 
-    button = field.findChild(type(field.clear_button), "search_clear_button")
+    button = field.findChild(QToolButton, "search_clear_button")
     assert button is field.clear_button
     assert button.isVisible()
     assert button.width() >= 26
@@ -145,6 +145,7 @@ def test_search_box_displays_prominent_eraser_button_and_clears_text():
     QApplication.processEvents()
     assert not button.isVisible()
     field.deleteLater()
+
 
 def test_search_box_filters_immediately_and_clearing_restores_products():
     _qapp()

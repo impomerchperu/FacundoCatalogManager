@@ -1,10 +1,11 @@
 from pathlib import Path
 
-from PySide6.QtCore import QRect, Qt
+from PySide6.QtCore import QRect, QSize, Qt
 from PySide6.QtGui import QColor, QFontMetrics, QFontMetricsF, QPixmap
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
     QApplication,
+    QAbstractItemView,
     QHeaderView,
     QLabel,
     QLineEdit,
@@ -69,14 +70,14 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     assert isinstance(delegate, ProductImageDelegate)
     assert item.data(ProductImageDelegate.IMAGE_ROLE) == str(image_path)
     initial_image_column_width = table.columnWidth(ProductTable.IMAGE_COLUMN)
-    assert initial_image_column_width >= ProductImageDelegate.DEFAULT_SIZE
-    assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
+    assert initial_image_column_width == ProductImageDelegate.DEFAULT_SIZE
+    assert table.rowHeight(0) == ProductImageDelegate.DEFAULT_HEIGHT
 
     table.resize(2200, 700)
     QApplication.processEvents()
 
-    assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
-    assert table.columnWidth(ProductTable.IMAGE_COLUMN) > initial_image_column_width
+    assert table.rowHeight(0) == ProductImageDelegate.DEFAULT_HEIGHT
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == initial_image_column_width
 
     table.close()
 
@@ -114,11 +115,17 @@ def test_product_table_uses_horizontal_thumbnails_and_click_changes_temporary_pr
 
     index = table.model().index(0, ProductTable.IMAGE_COLUMN)
     rect = table.visualRect(index)
+    content_rect = ProductImageDelegate.cell_content_rect(rect)
+    thumbnail_top = (
+        content_rect.bottom()
+        - ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+        + 1
+    )
     tiles, left_arrow, right_arrow, strip_top = ProductImageDelegate.thumbnail_layout(
-        rect,
+        content_rect,
         len(gallery),
         0,
-        main_height=ProductImageDelegate.main_image_height(str(paths[0])),
+        thumbnail_top=thumbnail_top,
     )
     assert len(tiles) == 3
     assert left_arrow is None and right_arrow is None
@@ -179,13 +186,18 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
 
     index = table.model().index(0, ProductTable.IMAGE_COLUMN)
     rect = table.visualRect(index)
-    main_height = ProductImageDelegate.main_image_height(str(paths[0]))
+    content_rect = ProductImageDelegate.cell_content_rect(rect)
+    thumbnail_top = (
+        content_rect.bottom()
+        - ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+        + 1
+    )
     initial_tiles, left_arrow, right_arrow, _ = (
         ProductImageDelegate.thumbnail_layout(
-            rect,
+            content_rect,
             len(gallery),
             0,
-            main_height=main_height,
+            thumbnail_top=thumbnail_top,
         )
     )
     assert [image_index for image_index, _ in initial_tiles] == [0, 1, 2, 3]
@@ -205,10 +217,10 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
     rect = table.visualRect(index)
     scrolled_tiles, left_arrow, right_arrow, _ = (
         ProductImageDelegate.thumbnail_layout(
-            rect,
+            content_rect,
             len(gallery),
             1,
-            main_height=main_height,
+            thumbnail_top=thumbnail_top,
         )
     )
     assert [image_index for image_index, _ in scrolled_tiles] == [1, 2, 3, 4]
@@ -527,8 +539,12 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     )
     assert table.textElideMode() == Qt.TextElideMode.ElideNone
     assert "padding: 3px 4px" in table.styleSheet()
-    assert "QTableWidget::item:focus" in table.styleSheet()
-    assert "border: 1px solid #1675e8;" in table.styleSheet()
+    assert "QTableWidget::item:focus" not in table.styleSheet()
+    assert "border: 1px solid #1675e8;" not in table.styleSheet()
+    assert not (
+        table.editTriggers()
+        & QAbstractItemView.EditTrigger.DoubleClicked
+    )
     assert "#f8fbff" in table.styleSheet()
     assert "#eef5fb" in table.styleSheet()
     assert "#173f6d" in table.styleSheet()
@@ -1255,7 +1271,27 @@ def test_main_image_is_144_pixels_wide_and_keeps_source_aspect_ratio(tmp_path: P
     assert ProductImageDelegate.main_image_height(str(image_path)) == 288
 
 
-def test_row_height_includes_tall_primary_image_and_alternative_strip(tmp_path: Path):
+def test_product_images_scale_and_center_inside_available_cell_area(tmp_path: Path):
+    _qapp()
+    image_path = tmp_path / "portrait.png"
+    assert QPixmap(100, 200).save(str(image_path))
+
+    portrait_rect = ProductImageDelegate.fitted_image_rect(
+        QSize(100, 200),
+        QRect(10, 20, 160, 100),
+    )
+    assert portrait_rect == QRect(65, 20, 50, 100)
+
+    landscape_rect = ProductImageDelegate.fitted_image_rect(
+        QSize(320, 180),
+        QRect(10, 20, 160, 100),
+    )
+    assert landscape_rect == QRect(10, 25, 160, 90)
+
+
+def test_row_height_does_not_expand_for_tall_primary_image_and_alternative_strip(
+    tmp_path: Path,
+):
     _qapp()
     main_path = tmp_path / "main-portrait.png"
     alt_path = tmp_path / "alt-landscape.png"
@@ -1281,7 +1317,7 @@ def test_row_height_includes_tall_primary_image_and_alternative_strip(tmp_path: 
     assert code_item is not None
     assert code_item.textAlignment() & Qt.AlignmentFlag.AlignHCenter
     assert code_item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
-    assert table.rowHeight(0) >= 288 + ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+    assert table.rowHeight(0) == ProductTable.DEFAULT_IMAGE_CELL_HEIGHT
     table.close()
 
 
@@ -1419,8 +1455,8 @@ def test_detail_cell_is_vertically_centered():
     item = table.item(0, ProductTable.DETAIL_COLUMN)
     assert item is not None
     assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
-    assert ProductImageDelegate.CELL_HORIZONTAL_PADDING == 0
-    assert ProductImageDelegate.CELL_VERTICAL_PADDING == 0
+    assert ProductImageDelegate.CELL_HORIZONTAL_PADDING == 2
+    assert ProductImageDelegate.CELL_VERTICAL_PADDING == 2
     assert ProductImageDelegate.MAIN_IMAGE_WIDTH == 144
     assert ProductImageDelegate.THUMBNAIL_HEIGHT == 34
     assert ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT >= (

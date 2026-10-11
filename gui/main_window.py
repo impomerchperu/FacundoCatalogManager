@@ -1,7 +1,7 @@
 import sqlite3
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QPoint, QRect, QRectF, Qt, QThread, QTimer, Signal
+from PySide6.QtCore import QPoint, QRect, QRectF, QSize, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QFocusEvent,

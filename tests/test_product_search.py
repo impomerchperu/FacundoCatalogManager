@@ -147,7 +147,8 @@ def test_search_box_displays_prominent_broom_button_and_clears_text():
     QTest.mouseClick(button, Qt.MouseButton.LeftButton)
     assert field.text() == ""
     QApplication.processEvents()
-    assert not button.isVisible()
+    assert button.isVisible()
+    assert not button.icon().isNull()
     field.deleteLater()
 
 

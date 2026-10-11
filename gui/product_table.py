@@ -566,8 +566,14 @@ class ProductImageDelegate(QStyledItemDelegate):
             return QRect()
         scaled = pixmap.scaled(
             image_rect.size(),
-            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
+        )
+        image_rect = QRect(
+            rect.left() + (rect.width() - scaled.width()) // 2,
+            rect.top() + (rect.height() - scaled.height()) // 2,
+            scaled.width(),
+            scaled.height(),
         )
         painter.drawPixmap(image_rect.topLeft(), scaled)
         return image_rect

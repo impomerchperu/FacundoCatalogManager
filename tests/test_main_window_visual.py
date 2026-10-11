@@ -45,10 +45,6 @@ def test_main_window_visual_metrics_keep_compact_hierarchy():
     assert MainWindow.CATEGORY_SIDEBAR_HORIZONTAL_PADDING == 4
     assert MainWindow.INITIAL_WINDOW_WIDTH == 1200
     assert MainWindow.INITIAL_WINDOW_HEIGHT == 700
-    assert (
-        MainWindow.CATEGORY_SIDEBAR_REFERENCE_TEXT
-        == "Enmicadoras / Laminadoras"
-    )
 
 
 def test_filter_toggle_width_allows_normal_and_bold_text():
@@ -270,7 +266,7 @@ def test_all_categories_button_uses_explicit_plural_label():
     button.deleteLater()
 
 
-def test_category_sidebar_uses_reference_width_and_elides_long_labels():
+def test_category_sidebar_keeps_full_labels_and_sizes_to_longest_name():
     _qapp()
 
     window = MainWindow.__new__(MainWindow)
@@ -284,13 +280,9 @@ def test_category_sidebar_uses_reference_width_and_elides_long_labels():
         "category_text",
         "Enmicadoras / Laminadoras",
     )
-    long_button = QPushButton(
-        "Impresora y Consumible Fotográfico Profesional",
-    )
-    long_button.setProperty(
-        "category_text",
-        "Impresora y Consumible Fotográfico Profesional",
-    )
+    long_label = "Impresora y Consumible Fotográfico Profesional"
+    long_button = QPushButton(long_label)
+    long_button.setProperty("category_text", long_label)
     window.category_buttons = [reference, long_button]
     window.category_scroll.setWidget(container)
 
@@ -298,13 +290,11 @@ def test_category_sidebar_uses_reference_width_and_elides_long_labels():
 
     assert reference.width() == long_button.width()
     expected_sidebar_width = (
-        reference.width() + MainWindow.CATEGORY_SIDEBAR_HORIZONTAL_PADDING * 2
+        long_button.width() + MainWindow.CATEGORY_SIDEBAR_HORIZONTAL_PADDING * 2
     )
     assert window._category_sidebar_open_width == expected_sidebar_width
-    assert long_button.toolTip() == (
-        "Impresora y Consumible Fotográfico Profesional"
-    )
-    assert long_button.text() != long_button.toolTip()
+    assert long_button.toolTip() == long_label
+    assert long_button.text() == long_label
 
     window.category_scroll.deleteLater()
     window.category_sidebar.deleteLater()
@@ -820,6 +810,38 @@ def test_inline_stock_by_color_edit_rejects_malformed_rows():
     table.close()
 
 
+def test_rebuild_category_filters_preserves_full_category_names():
+    _qapp()
+    window = MainWindow.__new__(MainWindow)
+    window.all_products = [
+        Product(code="FB-101", name="Producto oficina", category="Artículos de Oficina"),
+        Product(code="FB-102", name="Producto escritorio", category="Artículos de Escritorio"),
+    ]
+    window.selected_categories = set()
+    container = QWidget()
+    window.category_container = container
+    window.category_layout = QVBoxLayout(container)
+    window.category_scroll = QScrollArea()
+    window.category_scroll.setWidget(container)
+    window.categories_visible = False
+    window.all_categories_button = CategoryFilterButton("Todas las categorías")
+    window.all_categories_button.setCheckable(True)
+    window.category_buttons = [window.all_categories_button]
+
+    window.rebuild_category_filters()
+
+    names = {
+        str(button.property("category_text")): button.text()
+        for button in window.category_buttons
+        if button is not window.all_categories_button
+    }
+    assert names == {
+        "Artículos de Escritorio": "Artículos de Escritorio",
+        "Artículos de Oficina": "Artículos de Oficina",
+    }
+    window.category_scroll.deleteLater()
+
+
 def test_display_category_names_remove_redundant_articulos_de_prefix():
     assert display_category_name("Artículos de Escritorio") == "Escritorio"
     assert display_category_name("Artículos de Oficina") == "Oficina"
@@ -828,9 +850,9 @@ def test_display_category_names_remove_redundant_articulos_de_prefix():
 
 def test_category_filter_button_can_draw_right_aligned_quantity():
     _qapp()
-    button = CategoryFilterButton("Escritorio")
+    button = CategoryFilterButton("Artículos de Escritorio")
     button.setProperty("category_text", "Artículos de Escritorio")
-    button.setProperty("category_display_text", "Escritorio")
+    button.setProperty("category_display_text", "Artículos de Escritorio")
     button.setProperty("category_count", 523)
     button.setStyleSheet(MainWindow._category_button_style())
     button.resize(220, MainWindow.CATEGORY_BUTTON_HEIGHT)
@@ -849,17 +871,19 @@ def test_category_sidebar_reserves_width_for_right_aligned_counts():
     window.category_scroll = QScrollArea()
     container = QWidget()
     window.category_layout = QVBoxLayout(container)
-    button = CategoryFilterButton("Escritorio")
+    button = CategoryFilterButton("Artículos de Escritorio")
     button.setProperty("category_text", "Artículos de Escritorio")
-    button.setProperty("category_display_text", "Escritorio")
+    button.setProperty("category_display_text", "Artículos de Escritorio")
     button.setProperty("category_count", 523)
     window.category_buttons = [button]
     window.category_scroll.setWidget(container)
 
     window._prepare_category_filter_layout()
 
-    assert window._category_sidebar_button_width > (
-        QFontMetrics(button.font()).horizontalAdvance("Enmicadoras / Laminadoras")
+    assert window._category_sidebar_button_width >= (
+        QFontMetrics(button.font()).horizontalAdvance("Artículos de Escritorio")
+        + (2 * MainWindow.CATEGORY_BUTTON_HORIZONTAL_PADDING)
     )
     assert button.width() == window._category_sidebar_button_width
+    assert button.text() == "Artículos de Escritorio"
     window.category_scroll.deleteLater()

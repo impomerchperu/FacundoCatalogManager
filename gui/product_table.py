@@ -651,17 +651,25 @@ class ProductImageDelegate(QStyledItemDelegate):
     ) -> tuple[QRect, int]:
         """Center the main preview and anchor alternatives directly beneath it."""
         content_rect = cls.cell_content_rect(rect)
-        maximum_size = QSize(
-            max(min(cls.MAIN_IMAGE_WIDTH, content_rect.width()), 1),
-            max(min(cls.MIN_PRIMARY_IMAGE_DISPLAY_SIZE, content_rect.height()), 1),
+        preview_width = max(
+            min(cls.MAIN_IMAGE_WIDTH, content_rect.width()),
+            1,
         )
         resolved = str(resolve_data_path(image_path)) if image_path else ""
         pixmap = cls._load_pixmap(resolved) if resolved else QPixmap()
-        source_size = pixmap.size() if not pixmap.isNull() else maximum_size
-        preview_size = source_size.scaled(
-            maximum_size,
-            Qt.AspectRatioMode.KeepAspectRatio,
-        )
+        if pixmap.isNull() or pixmap.width() <= 0:
+            preview_size = QSize(preview_width, preview_width)
+        else:
+            # Keep the requested 144 px primary width and let the row grow to
+            # the image's natural proportional height instead of squashing
+            # portrait images into an arbitrary 144 px high viewport.
+            preview_size = QSize(
+                preview_width,
+                max(
+                    round(pixmap.height() * preview_width / pixmap.width()),
+                    1,
+                ),
+            )
         group_height = preview_size.height()
         if has_thumbnails:
             group_height += cls.THUMBNAIL_GAP + cls.THUMBNAIL_STRIP_HEIGHT

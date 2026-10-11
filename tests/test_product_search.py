@@ -1,8 +1,12 @@
-from PySide6.QtWidgets import QLabel, QLineEdit
+from PySide6.QtWidgets import QApplication, QLabel, QLineEdit
 
 from gui.main_window import MainWindow
 from models.product import Product
 from services.product_search import normalize_search_text, product_matches_search
+
+
+def _qapp():
+    return QApplication.instance() or QApplication([])
 
 
 def test_normalize_search_text_ignores_accents_case_and_punctuation():
@@ -123,6 +127,7 @@ class _VisibleProductsTable:
 
 
 def test_search_box_filters_immediately_for_letters_numbers_and_symbols():
+    _qapp()
     app = MainWindow.__new__(MainWindow)
     app.search_box = QLineEdit()
     app.all_products = [

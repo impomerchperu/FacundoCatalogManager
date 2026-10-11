@@ -17,26 +17,115 @@ from models.product import Product
 # cocina y accesorios. No se incluyen reglas de corrección ortográfica.
 _SEARCH_TERM_GROUPS: tuple[frozenset[str], ...] = (
     frozenset({"basket", "basquet", "bascket", "canasta", "canastas"}),
-    frozenset({"abridor", "abridores", "destapador", "destapadores", "abrebotellas"}),
-    frozenset({"mochila", "mochilas", "morral", "morrales", "backpack", "backpacks"}),
-    frozenset({"bolso", "bolsos", "bolsa", "bolsas", "cartera", "carteras", "tote"}),
-    frozenset({"lapicero", "lapiceros", "boligrafo", "boligrafos", "esfero", "esferos", "pluma", "plumas"}),
-    frozenset({"marcador", "marcadores", "plumon", "plumones", "rotulador", "rotuladores"}),
-    frozenset({"resaltador", "resaltadores", "marcatexto", "marcatextos", "highlighter"}),
-    frozenset({"tomatodo", "tomatodos", "toma todo", "botella", "botellas", "cantimplora", "cantimploras", "botilito"}),
-    frozenset({"mug", "mugs", "taza", "tazas", "jarro", "jarros", "tazon", "tazones"}),
+    frozenset(
+        {
+            "abridor",
+            "abridores",
+            "destapador",
+            "destapadores",
+            "abrebotellas",
+        }
+    ),
+    frozenset(
+        {
+            "mochila",
+            "mochilas",
+            "morral",
+            "morrales",
+            "backpack",
+            "backpacks",
+        }
+    ),
+    frozenset(
+        {
+            "bolso",
+            "bolsos",
+            "bolsa",
+            "bolsas",
+            "cartera",
+            "carteras",
+            "tote",
+        }
+    ),
+    frozenset(
+        {
+            "lapicero",
+            "lapiceros",
+            "boligrafo",
+            "boligrafos",
+            "esfero",
+            "esferos",
+            "pluma",
+            "plumas",
+        }
+    ),
+    frozenset(
+        {
+            "marcador",
+            "marcadores",
+            "plumon",
+            "plumones",
+            "rotulador",
+            "rotuladores",
+        }
+    ),
+    frozenset(
+        {
+            "resaltador",
+            "resaltadores",
+            "marcatexto",
+            "marcatextos",
+            "highlighter",
+        }
+    ),
+    frozenset(
+        {
+            "tomatodo",
+            "tomatodos",
+            "toma todo",
+            "botella",
+            "botellas",
+            "cantimplora",
+            "cantimploras",
+            "botilito",
+        }
+    ),
+    frozenset(
+        {"mug", "mugs", "taza", "tazas", "jarro", "jarros", "tazon", "tazones"}
+    ),
     frozenset({"llavero", "llaveros", "keychain", "keychains"}),
-    frozenset({"antiestrés", "antiestres", "anti stress", "stress ball", "antistress"}),
+    frozenset(
+        {"antiestrés", "antiestres", "anti stress", "stress ball", "antistress"}
+    ),
     frozenset({"pendrive", "usb", "memoria usb", "memoria flash"}),
-    frozenset({"audifono", "audifonos", "auricular", "auriculares", "headphone", "headphones"}),
+    frozenset(
+        {
+            "audifono",
+            "audifonos",
+            "auricular",
+            "auriculares",
+            "headphone",
+            "headphones",
+        }
+    ),
     frozenset({"paraguas", "sombrilla", "sombrillas"}),
-    frozenset({"lonchera", "loncheras", "fiambrera", "fiambreras", "lunchera"}),
+    frozenset(
+        {"lonchera", "loncheras", "fiambrera", "fiambreras", "lunchera"}
+    ),
     frozenset({"cuaderno", "cuadernos", "libreta", "libretas"}),
     frozenset({"sacapuntas", "tajador", "tajadores", "afilalapiz"}),
     frozenset({"cutter", "cuter", "cúter", "trincheta", "cortador", "cortadores"}),
     frozenset({"engrapadora", "engrapadoras", "grapadora", "grapadoras"}),
     frozenset({"enmicadora", "enmicadoras", "laminadora", "laminadoras"}),
-    frozenset({"portarretrato", "portarretratos", "marco de fotos", "portafoto", "portafotos"}),
+    frozenset(
+        {
+            "portarretrato",
+            "portarretratos",
+            "marco de fotos",
+            "portafoto",
+            "portafotos",
+        }
+    ),
     frozenset({"raton", "mouse", "mouses"}),
 )
 
@@ -58,14 +147,13 @@ def normalize_search_text(text: str) -> str:
     return " ".join(value.split())
 
 
-_SEARCH_TERM_ALIASES: dict[str, frozenset[str]] = {
-    normalized: frozenset(
-        normalize_search_text(alias)
-        for alias in group
+_SEARCH_TERM_ALIASES: dict[str, frozenset[str]] = {}
+for group in _SEARCH_TERM_GROUPS:
+    normalized_group = frozenset(
+        normalize_search_text(alias) for alias in group
     )
-    for group in _SEARCH_TERM_GROUPS
-    for normalized in (normalize_search_text(alias) for alias in group)
-}
+    for term in normalized_group:
+        _SEARCH_TERM_ALIASES[term] = normalized_group
 
 
 def _product_search_values(product: Product) -> tuple[str, ...]:

@@ -45,7 +45,7 @@ def _write_test_image(
     assert pixmap.save(str(path))
 
 
-def test_dialog_images_are_130_percent_larger_than_the_previous_scale(tmp_path):
+def test_dialog_images_use_130_percent_of_the_previous_scale(tmp_path):
     _qapp()
     landscape = tmp_path / "landscape.png"
     portrait = tmp_path / "portrait.png"

@@ -2453,11 +2453,9 @@ class ProductTable(QTableWidget):
                 minimum_widths,
                 available_width,
                 growable_columns={
-                    self.DETAIL_COLUMN,
-                    self.STOCK_COLUMN,
-                    self.PRICE_SAMPLE_COLUMN,
-                    self.PRICE_HUNDRED_COLUMN,
-                    self.PRICE_THOUSAND_COLUMN,
+                    column
+                    for column in range(self.columnCount())
+                    if column != self.CATEGORY_COLUMN
                 },
             )
 
@@ -2506,7 +2504,7 @@ class ProductTable(QTableWidget):
         *,
         growable_columns: set[int],
     ) -> list[int]:
-        """Allocate surplus width to the designated growable columns."""
+        """Distribute extra width evenly across the visible growable columns."""
         widths = [
             max(preferred, minimum)
             for preferred, minimum in zip(
@@ -2548,14 +2546,9 @@ class ProductTable(QTableWidget):
                 index for index in active if index in growable_columns
             ] or active
             extra = target_width - current
-            weights = {
-                index: max(
-                    preferred_widths[index],
-                    minimum_widths[index],
-                    1,
-                )
-                for index in growth_columns
-            }
+            # Equal shares prevent the detail or price columns from
+            # consuming all width released when the category sidebar closes.
+            weights = {index: 1 for index in growth_columns}
             total_weight = sum(weights.values())
             remainders: list[tuple[int, int]] = []
             assigned = 0

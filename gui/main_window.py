@@ -138,7 +138,9 @@ class SearchLineEdit(QLineEdit):
         self.clear_button.raise_()
 
     def _sync_clear_button(self, _text: str = "") -> None:
-        self.clear_button.setVisible(bool(self.text()))
+        # Keep the broom icon visible so the clear action is discoverable even
+        # when the search field is empty.
+        self.clear_button.setVisible(True)
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
@@ -379,6 +381,7 @@ class MainWindow(QMainWindow):
     CATEGORY_SPACING = 1
     CATEGORY_SIDEBAR_SPACING = 4
     CATEGORY_SIDEBAR_HORIZONTAL_PADDING = 4
+    CATEGORY_SIDEBAR_REFERENCE_TEXT = "Enmicadoras / Laminadoras"
     INITIAL_WINDOW_WIDTH = 1200
     INITIAL_WINDOW_HEIGHT = 700
 
@@ -1062,11 +1065,8 @@ class MainWindow(QMainWindow):
             for button in self.category_buttons
         ]
         reference_text_width = max(
-            max(
-                reference_metrics.horizontalAdvance(text),
-                reference_bold_metrics.horizontalAdvance(text),
-            )
-            for text in button_texts
+            reference_metrics.horizontalAdvance(self.CATEGORY_SIDEBAR_REFERENCE_TEXT),
+            reference_bold_metrics.horizontalAdvance(self.CATEGORY_SIDEBAR_REFERENCE_TEXT),
         )
         count_metrics = QFontMetrics(reference_font)
         maximum_count_width = max(

@@ -16,7 +16,7 @@ from models.product import Product
 # Equivalencias comerciales habituales en catálogos promocionales, papelería,
 # cocina y accesorios. No se incluyen reglas de corrección ortográfica.
 _SEARCH_TERM_GROUPS: tuple[frozenset[str], ...] = (
-    frozenset({"basket", "basquet", "bascket", "canasta", "canastas"}),
+    frozenset({"basket", "basquet", "canasta", "canastas"}),
     frozenset(
         {
             "abridor",

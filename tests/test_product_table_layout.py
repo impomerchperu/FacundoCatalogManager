@@ -218,8 +218,9 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
         active_index=1,
         thumbnail_top=thumbnail_top,
     )
-    assert [image_index for image_index, _tile in replacement_tiles] == [0, 1, 2]
-    assert replacement_tiles[0][0] == 0
+    assert [image_index for image_index, _tile in replacement_tiles] == [1, 0, 2]
+    assert replacement_tiles[1][0] == 0
+    assert replacement_tiles[0][0] == 1
     assert replacement_tiles[0][1].top() == main_rect.bottom() + 1 + (
         ProductImageDelegate.THUMBNAIL_GAP
     )
@@ -227,7 +228,7 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
     QTest.mouseClick(
         table.viewport(),
         Qt.MouseButton.LeftButton,
-        pos=replacement_tiles[0][1].center(),
+        pos=replacement_tiles[1][1].center(),
     )
     QApplication.processEvents()
     assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 0
@@ -311,7 +312,7 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
             thumbnail_top=thumbnail_top,
         )
     )
-    assert [image_index for image_index, _ in scrolled_tiles] == [1, 2, 3, 4]
+    assert [image_index for image_index, _ in scrolled_tiles] == [0, 2, 3, 4]
     assert left_arrow is not None
     assert right_arrow is not None
 
@@ -1562,7 +1563,7 @@ def test_thumbnail_layout_centers_alternatives_and_shows_four_tiles():
     tiles, left_arrow, right_arrow, _ = ProductImageDelegate.thumbnail_layout(
         rect, 6, 1, main_height=288
     )
-    assert [image_index for image_index, _tile in tiles] == [1, 2, 3, 4]
+    assert [image_index for image_index, _tile in tiles] == [0, 2, 3, 4]
     assert left_arrow is not None and right_arrow is not None
 
 

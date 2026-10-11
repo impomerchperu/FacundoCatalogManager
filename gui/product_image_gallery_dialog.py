@@ -45,7 +45,11 @@ class _GalleryThumbnailLabel(QLabel):
             "QLabel { background: #ffffff; border: 1px solid #cbd5e1; }"
         )
 
-        pixmap = QPixmap(str(resolve_data_path(image_path))) if image_path else QPixmap()
+        pixmap = (
+            QPixmap(str(resolve_data_path(image_path)))
+            if image_path
+            else QPixmap()
+        )
         if not pixmap.isNull():
             self.setPixmap(
                 pixmap.scaled(
@@ -118,8 +122,16 @@ class ProductImageGalleryDialog(QDialog):
         self.root_layout = QVBoxLayout(self)
         self.root_layout.setContentsMargins(12, 12, 12, 12)
         self.root_layout.setSpacing(self.THUMBNAIL_GAP * 2)
-        self.root_layout.addWidget(self.main_image_area, 0, Qt.AlignmentFlag.AlignHCenter)
-        self.root_layout.addWidget(self.thumbnail_area, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.root_layout.addWidget(
+            self.main_image_area,
+            0,
+            Qt.AlignmentFlag.AlignHCenter,
+        )
+        self.root_layout.addWidget(
+            self.thumbnail_area,
+            0,
+            Qt.AlignmentFlag.AlignHCenter,
+        )
 
         self._render()
 

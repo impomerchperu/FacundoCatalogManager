@@ -251,7 +251,7 @@ class ProductNameCategoryDelegate(ProductCodeCategoryDelegate):
     VERTICAL_PADDING = 4
     LINE_GAP = 4
     CATEGORY_FONT_SIZE = 11
-    PREFERRED_WIDTH = 220
+    PREFERRED_WIDTH = 170
 
     @classmethod
     def _wrapped_height(cls, text: str, font: QFont, width: int) -> int:
@@ -380,8 +380,8 @@ class ProductImageDelegate(QStyledItemDelegate):
     THUMBNAIL_STRIP_HEIGHT = 34
     THUMBNAIL_GAP = 3
     THUMBNAIL_PADDING = 0
-    CELL_HORIZONTAL_PADDING = 0
-    CELL_VERTICAL_PADDING = 0
+    CELL_HORIZONTAL_PADDING = 2
+    CELL_VERTICAL_PADDING = 2
     MAX_VISIBLE_THUMBNAILS = 4
     IMAGE_ROLE = int(Qt.ItemDataRole.UserRole) + 1
     GALLERY_ROLE = int(Qt.ItemDataRole.UserRole) + 3
@@ -431,10 +431,18 @@ class ProductImageDelegate(QStyledItemDelegate):
         thumbnail_start: int = 0,
         *,
         main_height: int | None = None,
+        thumbnail_top: int | None = None,
     ) -> tuple[list[tuple[int, QRect]], QRect | None, QRect | None, int]:
         """Center fewer than four thumbnails; show four plus arrows for larger galleries."""
-        strip_top = rect.top() + (
-            main_height if main_height is not None else cls.MAIN_IMAGE_WIDTH
+        strip_top = (
+            thumbnail_top
+            if thumbnail_top is not None
+            else rect.top()
+            + (
+                main_height
+                if main_height is not None
+                else cls.MAIN_IMAGE_WIDTH
+            )
         )
         if image_count <= 0:
             return [], None, None, strip_top
@@ -501,23 +509,74 @@ class ProductImageDelegate(QStyledItemDelegate):
                 return str(resolve_data_path(path))
         return str(fallback or "")
 
+    @classmethod
+    def cell_content_rect(cls, rect: QRect) -> QRect:
+        """Return the drawable cell area without covering the grid lines."""
+        horizontal_inset = min(
+            cls.CELL_HORIZONTAL_PADDING,
+            max((rect.width() - 1) // 2, 0),
+        )
+        vertical_inset = min(
+            cls.CELL_VERTICAL_PADDING,
+            max((rect.height() - 1) // 2, 0),
+        )
+        return QRect(
+            rect.left() + horizontal_inset,
+            rect.top() + vertical_inset,
+            max(rect.width() - (2 * horizontal_inset), 1),
+            max(rect.height() - (2 * vertical_inset), 1),
+        )
+
+    @staticmethod
+    def fitted_image_rect(source_size: QSize, available_rect: QRect) -> QRect:
+        """Calculate a centered, aspect-preserving image rect inside a cell."""
+        if (
+            source_size.width() <= 0
+            or source_size.height() <= 0
+            or available_rect.width() <= 0
+            or available_rect.height() <= 0
+        ):
+            return QRect()
+        scaled_size = source_size.scaled(
+            available_rect.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+        )
+        return QRect(
+            available_rect.left()
+            + (available_rect.width() - scaled_size.width()) // 2,
+            available_rect.top()
+            + (available_rect.height() - scaled_size.height()) // 2,
+            scaled_size.width(),
+            scaled_size.height(),
+        )
+
     def _paint_main_preview(
         self,
         painter: QPainter,
         rect: QRect,
         image_path: str,
-    ) -> None:
+    ) -> QRect:
         if rect.width() <= 0 or rect.height() <= 0 or not image_path:
-            return
+            return QRect()
         pixmap = self._load_pixmap(str(resolve_data_path(image_path)))
         if pixmap.isNull():
-            return
-        scaled = pixmap.scaledToWidth(
-            self.MAIN_IMAGE_WIDTH,
+            return QRect()
+        image_rect = self.fitted_image_rect(pixmap.size(), rect)
+        if image_rect.isEmpty():
+            return QRect()
+        scaled = pixmap.scaled(
+            image_rect.size(),
+            Qt.AspectRatioMode.IgnoreAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
-        x = rect.left() + (rect.width() - scaled.width()) // 2
-        painter.drawPixmap(x, rect.top(), scaled)
+        painter.drawPixmap(image_rect.topLeft(), scaled)
+        return image_rect
+
+    @classmethod
+    def thumbnail_strip_top(cls, rect: QRect) -> int:
+        """Anchor the alternative images to the bottom of the available cell."""
+        content_rect = cls.cell_content_rect(rect)
+        return content_rect.bottom() - cls.THUMBNAIL_STRIP_HEIGHT + 1
 
     def _paint_thumbnail_strip(
         self,
@@ -526,13 +585,13 @@ class ProductImageDelegate(QStyledItemDelegate):
         gallery: list,
         active_index: int,
         thumbnail_start: int,
-        main_height: int,
+        thumbnail_top: int,
     ) -> None:
         tiles, left_arrow, right_arrow, _ = self.thumbnail_layout(
             rect,
             len(gallery),
             thumbnail_start,
-            main_height=main_height,
+            thumbnail_top=thumbnail_top,
         )
         for image_index, tile_rect in tiles:
             image = gallery[image_index]
@@ -573,15 +632,36 @@ class ProductImageDelegate(QStyledItemDelegate):
         except (TypeError, ValueError):
             thumbnail_start = 0
         image_path = self._selected_path(gallery, active_index, index.data(self.IMAGE_ROLE))
-        cell = option.rect
-        main_height = self.main_image_height(image_path)
+        cell = self.cell_content_rect(option.rect)
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-        self._paint_main_preview(painter, cell, image_path)
         if len(gallery) > 1:
-            self._paint_thumbnail_strip(
-                painter, cell, gallery, active_index, thumbnail_start, main_height
+            main_area_height = max(
+                cell.height()
+                - self.THUMBNAIL_STRIP_HEIGHT
+                - self.THUMBNAIL_GAP,
+                1,
             )
+            main_area = QRect(
+                cell.left(),
+                cell.top(),
+                cell.width(),
+                main_area_height,
+            )
+            self._paint_main_preview(painter, main_area, image_path)
+            thumbnail_top = (
+                cell.bottom() - self.THUMBNAIL_STRIP_HEIGHT + 1
+            )
+            self._paint_thumbnail_strip(
+                painter,
+                cell,
+                gallery,
+                active_index,
+                thumbnail_start,
+                thumbnail_top,
+            )
+        else:
+            self._paint_main_preview(painter, cell, image_path)
         painter.restore()
 
     @staticmethod
@@ -1106,7 +1186,7 @@ class ProductTable(QTableWidget):
     MIN_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
         IMAGE_COLUMN: 160,
         CODE_COLUMN: 72,
-        NAME_COLUMN: 132,
+        NAME_COLUMN: 112,
         DETAIL_COLUMN: 100,
         CATEGORY_COLUMN: 0,
         STOCK_COLUMN: 1,
@@ -1169,8 +1249,7 @@ class ProductTable(QTableWidget):
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setEditTriggers(
-            QAbstractItemView.EditTrigger.DoubleClicked
-            | QAbstractItemView.EditTrigger.EditKeyPressed,
+            QAbstractItemView.EditTrigger.EditKeyPressed,
         )
         self.setWordWrap(True)
         self.setTextElideMode(Qt.TextElideMode.ElideNone)
@@ -1209,11 +1288,6 @@ class ProductTable(QTableWidget):
             QTableWidget::item:selected {
                 background-color: #fbfdff;
                 color: #173f6d;
-            }
-            QTableWidget::item:focus {
-                border: 1px solid #1675e8;
-                padding: 3px 4px;
-                margin: 0px;
             }
             QHeaderView::section {
                 min-height: 56px;
@@ -1811,6 +1885,7 @@ class ProductTable(QTableWidget):
             gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
             if isinstance(gallery, list) and len(gallery) > 1:
                 rect = self.visualRect(index)
+                content_rect = ProductImageDelegate.cell_content_rect(rect)
                 thumbnail_start = item.data(
                     ProductImageDelegate.THUMBNAIL_START_ROLE,
                 )
@@ -1822,18 +1897,17 @@ class ProductTable(QTableWidget):
                     gallery,
                     item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE),
                 )
-                image_path = ProductImageDelegate._selected_path(
-                    gallery,
-                    active_index,
-                    item.data(ProductImageDelegate.IMAGE_ROLE),
+                strip_top = (
+                    content_rect.bottom()
+                    - ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+                    + 1
                 )
-                main_height = ProductImageDelegate.main_image_height(image_path)
                 tiles, left_arrow, right_arrow, strip_top = (
                     ProductImageDelegate.thumbnail_layout(
-                        rect,
+                        content_rect,
                         len(gallery),
                         thumbnail_start,
-                        main_height=main_height,
+                        thumbnail_top=strip_top,
                     )
                 )
                 if position.y() >= strip_top:
@@ -2144,24 +2218,6 @@ class ProductTable(QTableWidget):
 
     def _set_row_height(self, row: int) -> None:
         row_height = self.DEFAULT_IMAGE_CELL_HEIGHT
-        image_item = self.item(row, self.IMAGE_COLUMN)
-        if image_item is not None:
-            raw_gallery = image_item.data(ProductImageDelegate.GALLERY_ROLE)
-            gallery = raw_gallery if isinstance(raw_gallery, list) else []
-            active_index = ProductImageDelegate._active_index(
-                gallery,
-                image_item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE),
-            )
-            image_path = ProductImageDelegate._selected_path(
-                gallery,
-                active_index,
-                image_item.data(ProductImageDelegate.IMAGE_ROLE),
-            )
-            image_height = ProductImageDelegate.main_image_height(image_path)
-            if len(gallery) > 1:
-                image_height += ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
-            row_height = max(row_height, image_height)
-
         name_item = self.item(row, self.NAME_COLUMN)
         category_item = self.item(row, self.CATEGORY_COLUMN)
         if name_item is not None:
@@ -2242,7 +2298,7 @@ class ProductTable(QTableWidget):
                 ) if self._products else minimum_widths[self.CODE_COLUMN]
                 self._stable_code_width = min(
                     max(measured_code_width, minimum_widths[self.CODE_COLUMN]),
-                    132,
+                    112,
                 )
 
             preferred_widths = [
@@ -2288,10 +2344,7 @@ class ProductTable(QTableWidget):
                 preferred_widths,
                 minimum_widths,
                 available_width,
-                growable_columns={
-                    self.NAME_COLUMN,
-                    self.DETAIL_COLUMN,
-                },
+                growable_columns={self.DETAIL_COLUMN},
             )
 
             for column, width in enumerate(widths):
@@ -2340,7 +2393,6 @@ class ProductTable(QTableWidget):
         growable_columns: set[int],
     ) -> list[int]:
         """Distribute available width proportionally among visible columns."""
-        del growable_columns
         widths = [
             max(preferred, minimum)
             for preferred, minimum in zip(
@@ -2378,6 +2430,9 @@ class ProductTable(QTableWidget):
 
         current = sum(widths)
         if current < target_width and active:
+            growth_columns = [
+                index for index in active if index in growable_columns
+            ] or active
             extra = target_width - current
             weights = {
                 index: max(
@@ -2385,12 +2440,12 @@ class ProductTable(QTableWidget):
                     minimum_widths[index],
                     1,
                 )
-                for index in active
+                for index in growth_columns
             }
             total_weight = sum(weights.values())
             remainders: list[tuple[int, int]] = []
             assigned = 0
-            for index in active:
+            for index in growth_columns:
                 increment, remainder = divmod(
                     extra * weights[index],
                     total_weight,

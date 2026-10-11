@@ -948,8 +948,9 @@ class MainWindow(QMainWindow):
         self.category_sidebar.setFixedWidth(
             self._category_sidebar_open_width,
         )
+        table = getattr(self, "table", None)
         set_column_distribution = getattr(
-            self.table,
+            table,
             "set_even_column_distribution",
             None,
         )

@@ -111,7 +111,7 @@ def test_selecting_thumbnail_preserves_fixed_positions_and_highlights_primary(tm
     assert [image["image_path"] for image in dialog.images] == original_gallery
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
-    ] == [str(second), str(first)]
+    ] == [original_gallery[1], original_gallery[0]]
     assert [label.property("active") for label in dialog.thumbnail_labels] == [
         True,
         False,

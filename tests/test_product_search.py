@@ -1,6 +1,8 @@
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QLabel, QLineEdit
 
-from gui.main_window import MainWindow
+from gui.main_window import MainWindow, SearchLineEdit
 from models.product import Product
 from services.product_search import normalize_search_text, product_matches_search
 
@@ -32,7 +34,7 @@ def test_product_search_matches_partial_text_across_product_fields():
     assert not product_matches_search(product, "basket verde")
 
 
-def test_product_search_does_not_guess_spelling_or_replace_synonyms():
+def test_product_search_supports_synonyms_without_guessing_spelling():
     mochila = Product(code="FB-101", name="Mochila promocional")
     abridor = Product(
         code="FB-102",
@@ -43,9 +45,16 @@ def test_product_search_does_not_guess_spelling_or_replace_synonyms():
     assert product_matches_search(mochila, "mochila")
     assert not product_matches_search(mochila, "mochlia")
     assert not product_matches_search(mochila, "promocionla")
-    assert not product_matches_search(mochila, "morral")
+    assert product_matches_search(mochila, "morral")
     assert product_matches_search(abridor, "abridor")
-    assert not product_matches_search(abridor, "destapadores")
+    assert product_matches_search(abridor, "destapadores")
+
+    destapador = Product(code="FB-103", name="Destapador profesional")
+    assert product_matches_search(destapador, "abridor")
+
+    bottle = Product(code="FB-104", name="Botella deportiva")
+    assert product_matches_search(bottle, "tomatodo")
+    assert product_matches_search(bottle, "toma todo")
 
 
 def test_product_search_includes_stock_colors_and_quantities():
@@ -90,7 +99,7 @@ def test_search_with_symbols_filters_by_literal_symbol_instead_of_showing_all():
     assert not product_matches_search(Product(code="FB-202", name="Bolso"), "#")
 
 
-def test_main_window_uses_direct_product_search():
+def test_main_window_uses_search_with_synonyms_and_no_typo_correction():
     product = Product(
         code="FB-105",
         name="Mochila",
@@ -100,7 +109,7 @@ def test_main_window_uses_direct_product_search():
     assert MainWindow.product_matches_search(product, "mochila")
     assert not MainWindow.product_matches_search(product, "mochlia")
     assert MainWindow.product_matches_search(product, "destapadores")
-    assert not MainWindow.product_matches_search(product, "morral")
+    assert MainWindow.product_matches_search(product, "morral")
 
 
 class _VisibleProductsTable:
@@ -114,6 +123,28 @@ class _VisibleProductsTable:
     def set_search_text(self, text):
         self.search_text = text
 
+
+
+def test_search_box_displays_prominent_eraser_button_and_clears_text():
+    _qapp()
+    field = SearchLineEdit()
+    field.resize(320, 38)
+    field.setText("mochila")
+    field.show()
+    QApplication.processEvents()
+
+    button = field.findChild(type(field.clear_button), "search_clear_button")
+    assert button is field.clear_button
+    assert button.isVisible()
+    assert button.width() >= 26
+    assert not button.icon().isNull()
+    assert button.toolTip() == "Limpiar búsqueda"
+
+    QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+    assert field.text() == ""
+    QApplication.processEvents()
+    assert not button.isVisible()
+    field.deleteLater()
 
 def test_search_box_filters_immediately_and_clearing_restores_products():
     _qapp()

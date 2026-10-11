@@ -154,7 +154,7 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
             thumbnail_top=thumbnail_top,
         )
     )
-    assert [image_index for image_index, _tile in tiles] == [1, 2]
+    assert [image_index for image_index, _tile in tiles] == [0, 1, 2]
     assert left_arrow is None and right_arrow is None
     assert strip_top == main_rect.bottom() + 1 + ProductImageDelegate.THUMBNAIL_GAP
     assert strip_top == tiles[0][1].top()
@@ -180,7 +180,7 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
     QTest.mouseClick(
         table.viewport(),
         Qt.MouseButton.LeftButton,
-        pos=tiles[0][1].center(),
+        pos=tiles[1][1].center(),
     )
     QApplication.processEvents()
 
@@ -218,7 +218,7 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
         active_index=1,
         thumbnail_top=thumbnail_top,
     )
-    assert [image_index for image_index, _tile in replacement_tiles] == [0, 2]
+    assert [image_index for image_index, _tile in replacement_tiles] == [0, 1, 2]
     assert replacement_tiles[0][0] == 0
     assert replacement_tiles[0][1].top() == main_rect.bottom() + 1 + (
         ProductImageDelegate.THUMBNAIL_GAP
@@ -238,7 +238,7 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
         active_index=0,
         thumbnail_top=thumbnail_top,
     )
-    assert [image_index for image_index, _tile in restored_tiles] == [1, 2]
+    assert [image_index for image_index, _tile in restored_tiles] == [0, 1, 2]
     assert table.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
     table.close()
 
@@ -287,7 +287,7 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
             thumbnail_top=thumbnail_top,
         )
     )
-    assert [image_index for image_index, _ in initial_tiles] == [1, 2, 3, 4]
+    assert [image_index for image_index, _ in initial_tiles] == [0, 1, 2, 3]
     assert left_arrow is not None
     assert right_arrow is not None
 
@@ -311,7 +311,7 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
             thumbnail_top=thumbnail_top,
         )
     )
-    assert [image_index for image_index, _ in scrolled_tiles] == [2, 3, 4, 5]
+    assert [image_index for image_index, _ in scrolled_tiles] == [1, 2, 3, 4]
     assert left_arrow is not None
     assert right_arrow is not None
 
@@ -325,8 +325,8 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
     assert [image["image_path"] for image in visible_gallery] == [
         str(path) for path in paths
     ]
-    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 4
-    assert item.data(ProductImageDelegate.THUMBNAIL_START_ROLE) == 0
+    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 3
+    assert item.data(ProductImageDelegate.THUMBNAIL_START_ROLE) == 1
     assert [image["image_path"] for image in product.gallery_images] == [
         str(path) for path in paths
     ]
@@ -627,8 +627,10 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     )
     assert table.textElideMode() == Qt.TextElideMode.ElideNone
     assert "padding: 3px 4px" in table.styleSheet()
-    assert "QTableWidget::item:focus" not in table.styleSheet()
-    assert "border: 1px solid #1675e8;" not in table.styleSheet()
+    assert "QTableWidget::item:focus" in table.styleSheet()
+    assert "QTableWidget::item:focus {\n                border: none;" in table.styleSheet()
+    assert "border: 2px solid #1675e8;" in table.styleSheet()
+    assert table.selectionBehavior() == QAbstractItemView.SelectionBehavior.SelectItems
     assert not (
         table.editTriggers()
         & QAbstractItemView.EditTrigger.DoubleClicked
@@ -1548,7 +1550,7 @@ def test_thumbnail_layout_centers_alternatives_and_shows_four_tiles():
     tiles, left_arrow, right_arrow, strip_top = ProductImageDelegate.thumbnail_layout(
         rect, 2, main_height=288, active_index=0
     )
-    assert [image_index for image_index, _tile in tiles] == [1]
+    assert [image_index for image_index, _tile in tiles] == [0, 1]
     assert left_arrow is None and right_arrow is None
     assert strip_top == rect.top() + 288
     assert tiles[0][1].left() > rect.left()
@@ -1560,7 +1562,7 @@ def test_thumbnail_layout_centers_alternatives_and_shows_four_tiles():
     tiles, left_arrow, right_arrow, _ = ProductImageDelegate.thumbnail_layout(
         rect, 6, 1, main_height=288
     )
-    assert [image_index for image_index, _tile in tiles] == [2, 3, 4, 5]
+    assert [image_index for image_index, _tile in tiles] == [1, 2, 3, 4]
     assert left_arrow is not None and right_arrow is not None
 
 
@@ -1677,8 +1679,9 @@ def test_detail_cell_is_vertically_centered():
     item = table.item(0, ProductTable.DETAIL_COLUMN)
     assert item is not None
     assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
-    assert ProductImageDelegate.CELL_HORIZONTAL_PADDING == 2
-    assert ProductImageDelegate.CELL_VERTICAL_PADDING == 2
+    assert ProductImageDelegate.CELL_HORIZONTAL_PADDING == 0
+    assert ProductImageDelegate.CELL_VERTICAL_PADDING == 0
+    assert ProductImageDelegate.cell_content_rect(QRect(5, 6, 144, 160)) == QRect(5, 6, 144, 160)
     assert ProductNameCategoryDelegate.HORIZONTAL_PADDING == 8
     assert ProductNameCategoryDelegate.VERTICAL_PADDING == 8
     assert ProductDetailDelegate.HORIZONTAL_PADDING == 8

@@ -193,24 +193,22 @@ def test_thumbnail_arrows_scroll_four_visible_images(tmp_path):
     dialog.close()
 
 
-def test_gallery_view_can_start_with_the_table_temporary_order(tmp_path):
+def test_gallery_dialog_opens_with_the_selected_table_primary(tmp_path):
     _qapp()
     first = tmp_path / "first.png"
     second = tmp_path / "second.png"
     _write_test_image(first, width=100, height=400)
     _write_test_image(second, width=400, height=100)
     product = _visual_product([first, second])
-    temporary_order = [
-        dict(product.gallery_images[1]),
-        dict(product.gallery_images[0]),
-    ]
+    original_paths = [str(first), str(second)]
 
-    dialog = ProductImageGalleryDialog(
-        product,
-        gallery_images=temporary_order,
-    )
+    dialog = ProductImageGalleryDialog(product, active_index=1)
 
-    assert dialog.images[0]["image_path"] == str(second)
+    assert [image["image_path"] for image in dialog.images] == original_paths
+    assert dialog.active_index == 1
+    assert [
+        label.property("image_path") for label in dialog.thumbnail_labels
+    ] == [str(first)]
     preview = dialog.main_image.pixmap()
     assert preview is not None
     assert preview.width() > preview.height()

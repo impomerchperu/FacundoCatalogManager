@@ -467,10 +467,11 @@ class ProductImageDelegate(QStyledItemDelegate):
         image_count: int,
         thumbnail_start: int = 0,
         *,
+        active_index: int = 0,
         main_height: int | None = None,
         thumbnail_top: int | None = None,
     ) -> tuple[list[tuple[int, QRect]], QRect | None, QRect | None, int]:
-        """Center fewer than four thumbnails; show four plus arrows for larger galleries."""
+        """Center alternative thumbnails and return their stable gallery indexes."""
         strip_top = (
             thumbnail_top
             if thumbnail_top is not None
@@ -481,14 +482,26 @@ class ProductImageDelegate(QStyledItemDelegate):
                 else cls.MAIN_IMAGE_WIDTH
             )
         )
-        if image_count <= 0:
+        thumbnail_indexes = [
+            image_index
+            for image_index in range(image_count)
+            if image_index != active_index
+        ]
+        thumbnail_count = len(thumbnail_indexes)
+        if thumbnail_count <= 0:
             return [], None, None, strip_top
+
         gap = cls.THUMBNAIL_GAP
         left_arrow = None
         right_arrow = None
-        if image_count > cls.MAX_VISIBLE_THUMBNAILS:
+        if thumbnail_count > cls.MAX_VISIBLE_THUMBNAILS:
             arrow_width = min(12, max(rect.width() // 10, 1))
-            left_arrow = QRect(rect.left(), strip_top, arrow_width, cls.THUMBNAIL_HEIGHT)
+            left_arrow = QRect(
+                rect.left(),
+                strip_top,
+                arrow_width,
+                cls.THUMBNAIL_HEIGHT,
+            )
             right_arrow = QRect(
                 rect.right() - arrow_width + 1,
                 strip_top,
@@ -498,16 +511,19 @@ class ProductImageDelegate(QStyledItemDelegate):
             left = left_arrow.right() + 1 + gap
             right = right_arrow.left() - 1 - gap
             visible_count = cls.MAX_VISIBLE_THUMBNAILS
-            start = max(0, min(thumbnail_start, image_count - visible_count))
-            visible_indices = list(range(start, start + visible_count))
+            start = max(
+                0,
+                min(thumbnail_start, thumbnail_count - visible_count),
+            )
+            visible_indices = thumbnail_indexes[start : start + visible_count]
             available_width = max(right - left + 1, 1)
             tile_width = max(
                 (available_width - gap * (visible_count - 1)) // visible_count,
                 1,
             )
         else:
-            visible_count = image_count
-            visible_indices = list(range(image_count))
+            visible_count = thumbnail_count
+            visible_indices = thumbnail_indexes
             tile_width = max(
                 (
                     max(rect.width(), 1)
@@ -521,7 +537,17 @@ class ProductImageDelegate(QStyledItemDelegate):
         tiles: list[tuple[int, QRect]] = []
         for position, image_index in enumerate(visible_indices):
             tile_left = left + position * (tile_width + gap)
-            tiles.append((image_index, QRect(tile_left, strip_top, tile_width, cls.THUMBNAIL_HEIGHT)))
+            tiles.append(
+                (
+                    image_index,
+                    QRect(
+                        tile_left,
+                        strip_top,
+                        tile_width,
+                        cls.THUMBNAIL_HEIGHT,
+                    ),
+                ),
+            )
         return tiles, left_arrow, right_arrow, strip_top
 
     @staticmethod
@@ -616,10 +642,57 @@ class ProductImageDelegate(QStyledItemDelegate):
         return image_rect
 
     @classmethod
-    def thumbnail_strip_top(cls, rect: QRect) -> int:
-        """Anchor the alternative images to the bottom of the available cell."""
+    def main_image_layout(
+        cls,
+        rect: QRect,
+        image_path: str,
+        *,
+        has_thumbnails: bool,
+    ) -> tuple[QRect, int]:
+        """Center the main preview and anchor alternatives directly beneath it."""
         content_rect = cls.cell_content_rect(rect)
-        return content_rect.bottom() - cls.THUMBNAIL_STRIP_HEIGHT + 1
+        maximum_size = QSize(
+            max(min(cls.MAIN_IMAGE_WIDTH, content_rect.width()), 1),
+            max(min(cls.MIN_PRIMARY_IMAGE_DISPLAY_SIZE, content_rect.height()), 1),
+        )
+        resolved = str(resolve_data_path(image_path)) if image_path else ""
+        pixmap = cls._load_pixmap(resolved) if resolved else QPixmap()
+        source_size = pixmap.size() if not pixmap.isNull() else maximum_size
+        preview_size = source_size.scaled(
+            maximum_size,
+            Qt.AspectRatioMode.KeepAspectRatio,
+        )
+        group_height = preview_size.height()
+        if has_thumbnails:
+            group_height += cls.THUMBNAIL_GAP + cls.THUMBNAIL_STRIP_HEIGHT
+        group_top = content_rect.top() + max(
+            (content_rect.height() - group_height) // 2,
+            0,
+        )
+        image_rect = QRect(
+            content_rect.left()
+            + (content_rect.width() - preview_size.width()) // 2,
+            group_top,
+            preview_size.width(),
+            preview_size.height(),
+        )
+        thumbnail_top = image_rect.bottom() + 1 + cls.THUMBNAIL_GAP
+        return image_rect, thumbnail_top
+
+    @classmethod
+    def thumbnail_strip_top(
+        cls,
+        rect: QRect,
+        image_path: str = "",
+        *,
+        has_thumbnails: bool = True,
+    ) -> int:
+        """Return the centered strip position immediately under the main image."""
+        return cls.main_image_layout(
+            rect,
+            image_path,
+            has_thumbnails=has_thumbnails,
+        )[1]
 
     def _paint_thumbnail_strip(
         self,
@@ -634,6 +707,7 @@ class ProductImageDelegate(QStyledItemDelegate):
             rect,
             len(gallery),
             thumbnail_start,
+            active_index=active_index,
             thumbnail_top=thumbnail_top,
         )
         for image_index, tile_rect in tiles:
@@ -678,21 +752,13 @@ class ProductImageDelegate(QStyledItemDelegate):
         cell = self.cell_content_rect(option.rect)
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        image_rect, thumbnail_top = self.main_image_layout(
+            option.rect,
+            image_path,
+            has_thumbnails=len(gallery) > 1,
+        )
+        self._paint_main_preview(painter, image_rect, image_path)
         if len(gallery) > 1:
-            main_area_height = max(
-                cell.height()
-                - self.THUMBNAIL_STRIP_HEIGHT
-                - self.THUMBNAIL_GAP,
-                1,
-            )
-            main_area = QRect(
-                cell.left(),
-                cell.top(),
-                cell.width(),
-                main_area_height,
-            )
-            self._paint_main_preview(painter, main_area, image_path)
-            thumbnail_top = self.thumbnail_strip_top(option.rect)
             self._paint_thumbnail_strip(
                 painter,
                 cell,
@@ -701,8 +767,6 @@ class ProductImageDelegate(QStyledItemDelegate):
                 thumbnail_start,
                 thumbnail_top,
             )
-        else:
-            self._paint_main_preview(painter, cell, image_path)
         painter.restore()
 
     @staticmethod
@@ -1940,12 +2004,26 @@ class ProductTable(QTableWidget):
                     thumbnail_start = max(int(thumbnail_start or 0), 0)
                 except (TypeError, ValueError):
                     thumbnail_start = 0
-                strip_top = ProductImageDelegate.thumbnail_strip_top(rect)
+                active_index = ProductImageDelegate._active_index(
+                    gallery,
+                    item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE),
+                )
+                image_path = ProductImageDelegate._selected_path(
+                    gallery,
+                    active_index,
+                    item.data(ProductImageDelegate.IMAGE_ROLE),
+                )
+                strip_top = ProductImageDelegate.thumbnail_strip_top(
+                    rect,
+                    image_path,
+                    has_thumbnails=True,
+                )
                 tiles, left_arrow, right_arrow, strip_top = (
                     ProductImageDelegate.thumbnail_layout(
                         content_rect,
                         len(gallery),
                         thumbnail_start,
+                        active_index=active_index,
                         thumbnail_top=strip_top,
                     )
                 )
@@ -1970,7 +2048,7 @@ class ProductTable(QTableWidget):
         if item is None:
             return
         gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
-        if not isinstance(gallery, list) or len(gallery) <= (
+        if not isinstance(gallery, list) or len(gallery) - 1 <= (
             ProductImageDelegate.MAX_VISIBLE_THUMBNAILS
         ):
             return
@@ -1980,7 +2058,9 @@ class ProductTable(QTableWidget):
         except (TypeError, ValueError):
             current = 0
         max_start = max(
-            len(gallery) - ProductImageDelegate.MAX_VISIBLE_THUMBNAILS,
+            len(gallery)
+            - 1
+            - ProductImageDelegate.MAX_VISIBLE_THUMBNAILS,
             0,
         )
         item.setData(
@@ -1997,20 +2077,9 @@ class ProductTable(QTableWidget):
         if not isinstance(gallery, list) or not gallery:
             return
         active_index %= len(gallery)
-        if active_index:
-            # Intercambio temporal en la vista: la alternativa pasa al primer
-            # lugar y la imagen principal anterior ocupa su posición. La lista
-            # original del producto nunca se modifica ni se guarda en la BD.
-            gallery = [
-                dict(image) if isinstance(image, dict) else image
-                for image in gallery
-            ]
-            gallery[0], gallery[active_index] = (
-                gallery[active_index],
-                gallery[0],
-            )
-            item.setData(ProductImageDelegate.GALLERY_ROLE, gallery)
-            active_index = 0
+        # Keep the display gallery in its original order. The selected index
+        # alone changes, so the former primary appears first among alternatives
+        # and returns to its original position when selected again.
         item.setData(ProductImageDelegate.THUMBNAIL_START_ROLE, 0)
         item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, active_index)
         self._set_image_item_path(item, gallery, active_index)

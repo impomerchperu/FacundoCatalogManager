@@ -1528,10 +1528,31 @@ def test_row_height_expands_for_tall_primary_image_and_alternative_strip(
     assert code_item is not None
     assert code_item.textAlignment() & Qt.AlignmentFlag.AlignHCenter
     assert code_item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
+    display_width = max(
+        ProductImageDelegate.MAIN_IMAGE_WIDTH,
+        table.columnWidth(ProductTable.IMAGE_COLUMN)
+        - (2 * ProductImageDelegate.CELL_HORIZONTAL_PADDING),
+    )
+    thumbnail_height = max(
+        ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT,
+        round(
+            ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+            * display_width
+            / ProductImageDelegate.MAIN_IMAGE_WIDTH,
+        ),
+    )
+    thumbnail_gap = max(
+        ProductImageDelegate.THUMBNAIL_GAP,
+        round(
+            ProductImageDelegate.THUMBNAIL_GAP
+            * display_width
+            / ProductImageDelegate.MAIN_IMAGE_WIDTH,
+        ),
+    )
     expected_image_content = (
-        ProductImageDelegate.main_image_height(str(main_path))
-        + ProductImageDelegate.THUMBNAIL_GAP
-        + ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+        ProductImageDelegate.main_image_height(str(main_path), display_width)
+        + thumbnail_gap
+        + thumbnail_height
     )
     assert table.rowHeight(0) == (
         expected_image_content

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
@@ -28,7 +29,7 @@ class _GalleryThumbnailLabel(QLabel):
         image_path: str,
         width: int,
         height: int,
-        callback,
+        callback: Callable[[int], None],
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -114,11 +115,11 @@ class ProductImageGalleryDialog(QDialog):
         self.thumbnail_layout.setSpacing(self.THUMBNAIL_GAP)
         self.thumbnail_area.setFixedWidth(self.CONTENT_WIDTH)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(self.THUMBNAIL_GAP * 2)
-        layout.addWidget(self.main_image_area, 0, Qt.AlignmentFlag.AlignHCenter)
-        layout.addWidget(self.thumbnail_area, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.root_layout = QVBoxLayout(self)
+        self.root_layout.setContentsMargins(12, 12, 12, 12)
+        self.root_layout.setSpacing(self.THUMBNAIL_GAP * 2)
+        self.root_layout.addWidget(self.main_image_area, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.root_layout.addWidget(self.thumbnail_area, 0, Qt.AlignmentFlag.AlignHCenter)
 
         self._render()
 
@@ -164,7 +165,7 @@ class ProductImageGalleryDialog(QDialog):
     def _render(self) -> None:
         self._render_main_image()
         self._render_thumbnails()
-        self.layout().activate()
+        self.root_layout.activate()
         self.adjustSize()
         self.setMinimumSize(self.sizeHint())
 
@@ -221,7 +222,7 @@ class ProductImageGalleryDialog(QDialog):
         tile_width = max(available_width // self.MAX_VISIBLE_THUMBNAILS, 1)
 
         if has_arrows:
-            self.thumbnail_layout.addWidget(self._arrow_button("‹", -1))
+            self.thumbnail_layout.addWidget(self._arrow_button("<", -1))
         else:
             self.thumbnail_layout.addStretch(1)
 
@@ -246,7 +247,7 @@ class ProductImageGalleryDialog(QDialog):
             self.thumbnail_layout.addWidget(thumbnail)
 
         if has_arrows:
-            self.thumbnail_layout.addWidget(self._arrow_button("›", 1))
+            self.thumbnail_layout.addWidget(self._arrow_button(">", 1))
         else:
             self.thumbnail_layout.addStretch(1)
 

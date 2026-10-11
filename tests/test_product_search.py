@@ -129,11 +129,10 @@ class _VisibleProductsTable:
         self.search_text = text
 
 
-def test_search_box_displays_prominent_broom_button_and_clears_text():
+def test_search_box_highlights_broom_button_only_when_text_exists():
     _qapp()
     field = SearchLineEdit()
     field.resize(320, 38)
-    field.setText("mochila")
     field.show()
     QApplication.processEvents()
 
@@ -143,12 +142,19 @@ def test_search_box_displays_prominent_broom_button_and_clears_text():
     assert button.width() >= 26
     assert not button.icon().isNull()
     assert button.toolTip() == "Limpiar búsqueda"
+    assert button.property("hasText") is False
+
+    field.setText("mochila")
+    QApplication.processEvents()
+    assert button.isVisible()
+    assert button.property("hasText") is True
 
     QTest.mouseClick(button, Qt.MouseButton.LeftButton)
     assert field.text() == ""
     QApplication.processEvents()
     assert button.isVisible()
     assert not button.icon().isNull()
+    assert button.property("hasText") is False
     field.deleteLater()
 
 

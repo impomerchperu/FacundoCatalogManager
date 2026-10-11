@@ -217,6 +217,10 @@ def test_dialog_expands_to_show_all_thumbnails_without_navigation_buttons(tmp_pa
         and label.height() == dialog.THUMBNAIL_HEIGHT
         for label in dialog.thumbnail_labels
     )
+    fixed_slot_geometry = [
+        (label.x(), label.width(), label.height())
+        for label in dialog.thumbnail_labels
+    ]
 
     QTest.mouseClick(dialog.thumbnail_labels[4], Qt.MouseButton.LeftButton)
     QApplication.processEvents()
@@ -237,6 +241,10 @@ def test_dialog_expands_to_show_all_thumbnails_without_navigation_buttons(tmp_pa
         False,
         False,
     ]
+    assert [
+        (label.x(), label.width(), label.height())
+        for label in dialog.thumbnail_labels
+    ] == fixed_slot_geometry
     dialog.close()
 
 

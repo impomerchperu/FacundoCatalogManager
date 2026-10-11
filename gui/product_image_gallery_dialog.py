@@ -129,7 +129,7 @@ class ProductImageGalleryDialog(QDialog):
 
         self.root_layout = QVBoxLayout(self)
         self.root_layout.setContentsMargins(12, 12, 12, 12)
-        self.root_layout.setSpacing(self.THUMBNAIL_GAP * 2)
+        self.root_layout.setSpacing(self.THUMBNAIL_GAP)
         self.root_layout.addWidget(
             self.main_image_area,
             0,

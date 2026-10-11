@@ -427,13 +427,19 @@ class ProductImageDelegate(QStyledItemDelegate):
     _image_size_cache: ClassVar[dict[str, QSize]] = {}
 
     @classmethod
-    def main_image_size(cls, image_path: str) -> QSize:
-        """Return a 144 px-wide size while preserving the source ratio."""
+    def main_image_size(
+        cls,
+        image_path: str,
+        display_width: int | None = None,
+    ) -> QSize:
+        """Return a proportional image size without shrinking below its base width."""
+        display_width = max(display_width or cls.MAIN_IMAGE_WIDTH, cls.MAIN_IMAGE_WIDTH)
         resolved = str(resolve_data_path(image_path)) if image_path else ""
         if not resolved:
             return QSize(cls.MAIN_IMAGE_WIDTH, cls.MAIN_IMAGE_WIDTH)
 
-        cached = cls._image_size_cache.get(resolved)
+        cache_key = f"{resolved}|{display_width}"
+        cached = cls._image_size_cache.get(cache_key)
         if cached is not None:
             return QSize(cached)
 
@@ -447,18 +453,22 @@ class ProductImageDelegate(QStyledItemDelegate):
             return QSize(cls.MAIN_IMAGE_WIDTH, cls.MAIN_IMAGE_WIDTH)
 
         size = QSize(
-            cls.MAIN_IMAGE_WIDTH,
+            display_width,
             max(
-                round(source_size.height() * cls.MAIN_IMAGE_WIDTH / source_size.width()),
+                round(source_size.height() * display_width / source_size.width()),
                 1,
             ),
         )
-        cls._image_size_cache[resolved] = QSize(size)
+        cls._image_size_cache[cache_key] = QSize(size)
         return size
 
     @classmethod
-    def main_image_height(cls, image_path: str) -> int:
-        return cls.main_image_size(image_path).height()
+    def main_image_height(
+        cls,
+        image_path: str,
+        display_width: int | None = None,
+    ) -> int:
+        return cls.main_image_size(image_path, display_width).height()
 
     @classmethod
     def thumbnail_layout(
@@ -491,7 +501,9 @@ class ProductImageDelegate(QStyledItemDelegate):
         if thumbnail_count <= 0:
             return [], None, None, strip_top
 
-        gap = cls.THUMBNAIL_GAP
+        scale = max(rect.width(), cls.MAIN_IMAGE_WIDTH) / cls.MAIN_IMAGE_WIDTH
+        thumbnail_height = max(cls.THUMBNAIL_HEIGHT, round(cls.THUMBNAIL_HEIGHT * scale))
+        gap = max(cls.THUMBNAIL_GAP, round(cls.THUMBNAIL_GAP * scale))
         left_arrow = None
         right_arrow = None
         if thumbnail_count > cls.MAX_VISIBLE_THUMBNAILS:
@@ -500,13 +512,13 @@ class ProductImageDelegate(QStyledItemDelegate):
                 rect.left(),
                 strip_top,
                 arrow_width,
-                cls.THUMBNAIL_HEIGHT,
+                thumbnail_height,
             )
             right_arrow = QRect(
                 rect.right() - arrow_width + 1,
                 strip_top,
                 arrow_width,
-                cls.THUMBNAIL_HEIGHT,
+                thumbnail_height,
             )
             left = left_arrow.right() + 1 + gap
             right = right_arrow.left() - 1 - gap
@@ -544,7 +556,7 @@ class ProductImageDelegate(QStyledItemDelegate):
                         tile_left,
                         strip_top,
                         tile_width,
-                        cls.THUMBNAIL_HEIGHT,
+                        thumbnail_height,
                     ),
                 ),
             )
@@ -651,18 +663,15 @@ class ProductImageDelegate(QStyledItemDelegate):
     ) -> tuple[QRect, int]:
         """Center the main preview and anchor alternatives directly beneath it."""
         content_rect = cls.cell_content_rect(rect)
-        preview_width = max(
-            min(cls.MAIN_IMAGE_WIDTH, content_rect.width()),
-            1,
-        )
+        # Use all available width when it exceeds the base preview size.
+        preview_width = max(cls.MAIN_IMAGE_WIDTH, content_rect.width())
         resolved = str(resolve_data_path(image_path)) if image_path else ""
         pixmap = cls._load_pixmap(resolved) if resolved else QPixmap()
         if pixmap.isNull() or pixmap.width() <= 0:
             preview_size = QSize(preview_width, preview_width)
         else:
-            # Keep the requested 144 px primary width and let the row grow to
-            # the image's natural proportional height instead of squashing
-            # portrait images into an arbitrary 144 px high viewport.
+            # Preserve the source ratio while allowing the preview to grow with
+            # the column; row height is recalculated from this same width.
             preview_size = QSize(
                 preview_width,
                 max(
@@ -2353,15 +2362,34 @@ class ProductTable(QTableWidget):
                 image_item.data(ProductImageDelegate.IMAGE_ROLE),
             )
             if image_path:
+                display_width = max(
+                    ProductImageDelegate.MAIN_IMAGE_WIDTH,
+                    self.columnWidth(self.IMAGE_COLUMN)
+                    - (2 * ProductImageDelegate.CELL_HORIZONTAL_PADDING),
+                )
                 primary_height = ProductImageDelegate.main_image_height(
                     image_path,
+                    display_width,
                 )
                 image_content_height = primary_height
                 if len(gallery) > 1:
-                    image_content_height += (
-                        ProductImageDelegate.THUMBNAIL_GAP
-                        + ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+                    thumbnail_height = max(
+                        ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT,
+                        round(
+                            ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+                            * display_width
+                            / ProductImageDelegate.MAIN_IMAGE_WIDTH,
+                        ),
                     )
+                    thumbnail_gap = max(
+                        ProductImageDelegate.THUMBNAIL_GAP,
+                        round(
+                            ProductImageDelegate.THUMBNAIL_GAP
+                            * display_width
+                            / ProductImageDelegate.MAIN_IMAGE_WIDTH,
+                        ),
+                    )
+                    image_content_height += thumbnail_gap + thumbnail_height
                 content_height = max(content_height, image_content_height)
 
         name_item = self.item(row, self.NAME_COLUMN)
@@ -2423,7 +2451,7 @@ class ProductTable(QTableWidget):
             self._set_row_height(row)
 
     def set_even_column_distribution(self, enabled: bool) -> None:
-        """Evenly distribute spare width when the category sidebar is hidden."""
+        """Proportionally distribute spare width when the category sidebar is hidden."""
 
         enabled = bool(enabled)
         if self._even_column_distribution == enabled:
@@ -2583,7 +2611,7 @@ class ProductTable(QTableWidget):
         growable_columns: set[int],
         even_distribution: bool = False,
     ) -> list[int]:
-        """Distribute extra width evenly across the visible growable columns."""
+        """Distribute surplus width proportionally across selected columns."""
         widths = [
             max(preferred, minimum)
             for preferred, minimum in zip(
@@ -2625,21 +2653,17 @@ class ProductTable(QTableWidget):
                 index for index in active if index in growable_columns
             ] or active
             extra = target_width - current
-            # Shares are equal in sidebar-hidden mode. Otherwise, the
-            # detail and stock/price columns absorb surplus while code/name
-            # columns stay compact as in the normal catalog layout.
-            weights = (
-                {index: 1 for index in growth_columns}
-                if even_distribution
-                else {
-                    index: max(
-                        preferred_widths[index],
-                        minimum_widths[index],
-                        1,
-                    )
-                    for index in growth_columns
-                }
-            )
+            # In sidebar-hidden mode every active column grows in proportion
+            # to its preferred width. Normal mode keeps the existing growable set.
+            weights = {
+                index: max(
+                    preferred_widths[index],
+                    minimum_widths[index],
+                    widths[index],
+                    1,
+                )
+                for index in growth_columns
+            }
             total_weight = sum(weights.values())
             remainders: list[tuple[int, int]] = []
             assigned = 0

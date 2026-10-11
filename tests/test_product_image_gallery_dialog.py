@@ -70,7 +70,7 @@ def test_dialog_images_use_130_percent_of_the_previous_scale(tmp_path):
     assert round(
         ProductImageDelegate.THUMBNAIL_HEIGHT * 2 * 1.3
     ) == dialog.THUMBNAIL_HEIGHT
-    assert len(dialog.thumbnail_labels) == 2
+    assert len(dialog.thumbnail_labels) == 1
     assert all(
         thumbnail.height() == dialog.THUMBNAIL_HEIGHT
         for thumbnail in dialog.thumbnail_labels

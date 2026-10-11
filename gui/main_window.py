@@ -78,16 +78,22 @@ class SearchLineEdit(QLineEdit):
         self.clear_button.setIconSize(QSize(19, 19))
         self.clear_button.setStyleSheet(
             "QToolButton {"
-            " background-color: #dbeafe;"
-            " border: 1px solid #60a5fa;"
+            " background-color: transparent;"
+            " border: 1px solid transparent;"
             " border-radius: 5px;"
             " padding: 2px;"
             "}"
-            " QToolButton:hover {"
+            ' QToolButton[hasText="true"] {'
+            " background-color: #dbeafe;"
+            " border: 1px solid #60a5fa;"
+            "}"
+            ' QToolButton[hasText="true"]:hover {'
             " background-color: #bfdbfe;"
             " border-color: #2563eb;"
             "}"
-            " QToolButton:pressed { background-color: #93c5fd; }"
+            ' QToolButton[hasText="true"]:pressed {'
+            " background-color: #93c5fd;"
+            "}"
         )
         self.clear_button.clicked.connect(self.clear)
         self.textChanged.connect(self._sync_clear_button)
@@ -138,9 +144,16 @@ class SearchLineEdit(QLineEdit):
         self.clear_button.raise_()
 
     def _sync_clear_button(self, _text: str = "") -> None:
-        # Keep the broom icon visible so the clear action is discoverable even
-        # when the search field is empty.
+        # Keep the icon visible, but emphasize the button only when it can clear
+        # a non-empty search.
+        has_text = bool(self.text())
+        if self.clear_button.property("hasText") != has_text:
+            self.clear_button.setProperty("hasText", has_text)
+            style = self.clear_button.style()
+            style.unpolish(self.clear_button)
+            style.polish(self.clear_button)
         self.clear_button.setVisible(True)
+        self.clear_button.update()
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)

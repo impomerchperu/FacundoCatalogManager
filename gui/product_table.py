@@ -786,6 +786,15 @@ class ProductImageDelegate(QStyledItemDelegate):
             )
         painter.restore()
 
+        # The preview fills the cell vertically, so redraw the selected-cell
+        # frame last to keep it visible above the image and thumbnail pixels.
+        if option.state & QStyle.StateFlag.State_Selected:
+            painter.save()
+            painter.setPen(QPen(QColor("#1675e8"), 2))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(option.rect.adjusted(1, 1, -2, -2))
+            painter.restore()
+
     @staticmethod
     def _load_pixmap(image_path: str) -> QPixmap:
         """Load images lazily and cache decoded pixmaps in Qt."""

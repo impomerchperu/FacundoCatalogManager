@@ -94,10 +94,14 @@ class ProductImageGalleryDialog(QDialog):
         product: Product,
         parent=None,
         gallery_images: list[dict[str, Any]] | None = None,
+        active_index: int = 0,
     ) -> None:
         super().__init__(parent)
         self.product = product
         self.images = self._normalized_gallery(product, gallery_images)
+        self.active_index = (
+            active_index % len(self.images) if self.images else 0
+        )
         self.thumbnail_start = 0
         self.thumbnail_labels: list[_GalleryThumbnailLabel] = []
 
@@ -188,7 +192,9 @@ class ProductImageGalleryDialog(QDialog):
     def _render_main_image(self) -> None:
         path = ""
         if self.images:
-            path = str(self.images[0].get("image_path", "") or "").strip()
+            path = str(
+                self.images[self.active_index].get("image_path", "") or ""
+            ).strip()
 
         pixmap = QPixmap(str(resolve_data_path(path))) if path else QPixmap()
         if pixmap.isNull():
@@ -218,13 +224,21 @@ class ProductImageGalleryDialog(QDialog):
                 widget.deleteLater()
 
         self.thumbnail_labels = []
-        if len(self.images) <= 1:
+        thumbnail_indexes = [
+            index
+            for index in range(len(self.images))
+            if index != self.active_index
+        ]
+        if not thumbnail_indexes:
             self.thumbnail_area.hide()
             return
 
         self.thumbnail_area.show()
-        has_arrows = len(self.images) > self.MAX_VISIBLE_THUMBNAILS
-        visible_count = min(len(self.images), self.MAX_VISIBLE_THUMBNAILS)
+        has_arrows = len(thumbnail_indexes) > self.MAX_VISIBLE_THUMBNAILS
+        visible_count = min(
+            len(thumbnail_indexes),
+            self.MAX_VISIBLE_THUMBNAILS,
+        )
         if has_arrows:
             available_width = (
                 self.CONTENT_WIDTH
@@ -242,12 +256,11 @@ class ProductImageGalleryDialog(QDialog):
         else:
             self.thumbnail_layout.addStretch(1)
 
-        max_start = max(len(self.images) - visible_count, 0)
+        max_start = max(len(thumbnail_indexes) - visible_count, 0)
         self.thumbnail_start = max(0, min(self.thumbnail_start, max_start))
-        visible_indices = range(
-            self.thumbnail_start,
-            self.thumbnail_start + visible_count,
-        )
+        visible_indices = thumbnail_indexes[
+            self.thumbnail_start : self.thumbnail_start + visible_count
+        ]
         for index in visible_indices:
             path = str(self.images[index].get("image_path", "") or "")
             thumbnail = _GalleryThumbnailLabel(
@@ -258,7 +271,7 @@ class ProductImageGalleryDialog(QDialog):
                 self._select_image,
                 self.thumbnail_area,
             )
-            thumbnail.set_active(index == 0)
+            thumbnail.set_active(False)
             self.thumbnail_labels.append(thumbnail)
             self.thumbnail_layout.addWidget(thumbnail)
 
@@ -286,9 +299,10 @@ class ProductImageGalleryDialog(QDialog):
         return button
 
     def _scroll_thumbnails(self, direction: int) -> None:
-        if len(self.images) <= self.MAX_VISIBLE_THUMBNAILS:
+        thumbnail_count = len(self.images) - 1
+        if thumbnail_count <= self.MAX_VISIBLE_THUMBNAILS:
             return
-        max_start = len(self.images) - self.MAX_VISIBLE_THUMBNAILS
+        max_start = thumbnail_count - self.MAX_VISIBLE_THUMBNAILS
         self.thumbnail_start = max(
             0,
             min(self.thumbnail_start + direction, max_start),
@@ -296,12 +310,10 @@ class ProductImageGalleryDialog(QDialog):
         self._render_thumbnails()
 
     def _select_image(self, index: int) -> None:
-        if index <= 0 or index >= len(self.images):
+        if index < 0 or index >= len(self.images) or index == self.active_index:
             return
-        # Reproduce el intercambio temporal de la celda: la miniatura elegida
-        # pasa a ser principal y la principal anterior ocupa su posición.
-        self.images[0], self.images[index] = self.images[index], self.images[0]
-        for position, image in enumerate(self.images, start=1):
-            image["position"] = position
+        # Keep the persisted/gallery order stable. The formerly active image
+        # becomes the first alternative when it is no longer the main preview.
+        self.active_index = index
         self.thumbnail_start = 0
         self._render()

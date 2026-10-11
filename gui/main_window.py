@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
 
 from config.runtime_paths import is_frozen
 from controllers.product_controller import ProductController
-from gui.product_table import ProductTable
+from gui.product_table import ProductImageDelegate, ProductTable
 from gui.scraping_dialog import ScrapingDialog
 from gui.workers.catalog_bootstrap_worker import CatalogBootstrapWorker
 from gui.workers.catalog_load_worker import CatalogLoadWorker
@@ -1328,13 +1328,23 @@ class MainWindow(QMainWindow):
 
         from gui.product_image_gallery_dialog import ProductImageGalleryDialog
 
+        image_item = self.table.item(row, self.table.IMAGE_COLUMN)
+        raw_gallery = (
+            image_item.data(ProductImageDelegate.GALLERY_ROLE)
+            if image_item is not None
+            else None
+        )
+        gallery_images = (
+            [dict(image) for image in raw_gallery if isinstance(image, dict)]
+            if isinstance(raw_gallery, list)
+            else None
+        )
         dialog = ProductImageGalleryDialog(
             product,
             parent=self,
-            service=self.controller._get_service(),
+            gallery_images=gallery_images,
         )
-        if dialog.exec():
-            self.refresh_catalog()
+        dialog.exec()
 
     @staticmethod
     def _parse_inline_number(value: str) -> float:

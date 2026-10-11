@@ -1,145 +1,141 @@
 from __future__ import annotations
 
-import sqlite3
-from collections.abc import Callable
-from functools import partial
 from pathlib import Path
+from typing import Any, cast
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QFontMetrics, QPixmap
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QDialog,
-    QFileDialog,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QPushButton,
-    QScrollArea,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 from config.runtime_paths import resolve_data_path
+from gui.product_table import ProductImageDelegate
 from models.product import Product
-from services.product_service import ProductService
 
 
-class _GalleryImageChoiceLabel(QLabel):
-    """Miniatura clicable que muestra el píxel de imagen seleccionado."""
+class _GalleryThumbnailLabel(QLabel):
+    """Miniatura clicable que selecciona temporalmente la imagen principal."""
 
-    def __init__(self, callback: Callable[[], None], parent=None) -> None:
+    def __init__(
+        self,
+        index: int,
+        image_path: str,
+        width: int,
+        height: int,
+        callback,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
+        self.image_index = index
         self._callback = callback
-        self.setObjectName("gallery_image_choice")
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setObjectName("gallery_thumbnail")
+        self.setProperty("image_path", image_path)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setFixedSize(
-            ProductImageGalleryDialog.IMAGE_SIZE,
-            ProductImageGalleryDialog.IMAGE_SIZE,
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedSize(width, height)
+        self.setToolTip(Path(image_path).name if image_path else "Imagen")
+        self.setStyleSheet(
+            "QLabel { background: #ffffff; border: 1px solid #cbd5e1; }"
+        )
+
+        pixmap = QPixmap(str(resolve_data_path(image_path))) if image_path else QPixmap()
+        if not pixmap.isNull():
+            self.setPixmap(
+                pixmap.scaled(
+                    width - 8,
+                    height - 8,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
+
+    def set_active(self, active: bool) -> None:
+        border = "3px solid #1675e8" if active else "1px solid #cbd5e1"
+        self.setStyleSheet(
+            f"QLabel {{ background: #ffffff; border: {border}; }}"
         )
 
     def mouseReleaseEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
-            self._callback()
+            self._callback(self.image_index)
+            event.accept()
+            return
         super().mouseReleaseEvent(event)
 
 
 class ProductImageGalleryDialog(QDialog):
-    """Galería editable por clic, con guardado explícito de los cambios."""
+    """Visor de imágenes al 200 %, con la misma navegación de miniaturas de la celda."""
 
-    IMAGE_SIZE = 144
-    MAX_PREVIEW_HEIGHT = 220
-    MAX_VISIBLE_IMAGES = 5
-    IMAGE_EXTENSIONS = "Imágenes (*.png *.jpg *.jpeg *.webp *.gif)"
+    SCALE_FACTOR = 2
+    MAIN_IMAGE_WIDTH = ProductImageDelegate.MAIN_IMAGE_WIDTH * SCALE_FACTOR
+    CONTENT_WIDTH = ProductImageDelegate.DEFAULT_SIZE * SCALE_FACTOR
+    THUMBNAIL_HEIGHT = ProductImageDelegate.THUMBNAIL_HEIGHT * SCALE_FACTOR
+    THUMBNAIL_GAP = ProductImageDelegate.THUMBNAIL_GAP * SCALE_FACTOR
+    MAX_VISIBLE_THUMBNAILS = ProductImageDelegate.MAX_VISIBLE_THUMBNAILS
+    ARROW_WIDTH = 24
 
     def __init__(
         self,
         product: Product,
         parent=None,
-        service: ProductService | None = None,
+        gallery_images: list[dict[str, Any]] | None = None,
     ) -> None:
         super().__init__(parent)
         self.product = product
-        self.service = service or ProductService()
-        self.images = self._normalized_gallery(product)
-        self.selected_index = 0 if self.images else -1
+        self.images = self._normalized_gallery(product, gallery_images)
+        self.thumbnail_start = 0
+        self.thumbnail_labels: list[_GalleryThumbnailLabel] = []
 
         self.setWindowTitle(f"Imágenes · {product.code}")
-        self.resize(400, 270)
+        self.setModal(True)
 
-        self.summary = QLabel()
-        self.summary.setWordWrap(False)
-        self.summary.setAlignment(
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-        )
-        self.summary.setText(
-            "Clic en imagen actual para elegir imagen local\n"
-            "Clic en imagen alternativa para reemplazar actual"
-        )
-        longest_instruction = (
-            "Clic en imagen alternativa para reemplazar actual"
-        )
-        self.summary.setMinimumWidth(
-            QFontMetrics(self.summary.font()).horizontalAdvance(
-                longest_instruction,
-            )
-            + 4
-        )
-        self.save_button = QPushButton("Guardar")
-        self.save_button.clicked.connect(self.save)
+        self.main_image = QLabel()
+        self.main_image.setObjectName("gallery_main_image")
+        self.main_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        header = QHBoxLayout()
-        header.addStretch(1)
+        self.main_image_area = QWidget(self)
+        main_layout = QHBoxLayout(self.main_image_area)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addStretch(1)
+        main_layout.addWidget(self.main_image, 0, Qt.AlignmentFlag.AlignCenter)
+        main_layout.addStretch(1)
+        self.main_image_area.setFixedWidth(self.CONTENT_WIDTH)
 
-        self.footer_layout = QHBoxLayout()
-        self.footer_layout.setSpacing(8)
-        self.footer_layout.addWidget(self.summary, 1)
-        self.footer_layout.addWidget(
-            self.save_button,
-            0,
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-        )
-
-        self.gallery_scroll = QScrollArea()
-        self.gallery_scroll.setWidgetResizable(False)
-        self.gallery_scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded,
-        )
-        self.gallery_scroll.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
-        )
-        self.canvas = QWidget()
-        self.canvas_layout = QHBoxLayout(self.canvas)
-        self.canvas_layout.setContentsMargins(6, 6, 6, 6)
-        self.canvas_layout.setSpacing(8)
-        self.gallery_scroll.setWidget(self.canvas)
+        self.thumbnail_area = QWidget(self)
+        self.thumbnail_area.setObjectName("gallery_thumbnail_area")
+        self.thumbnail_layout = QHBoxLayout(self.thumbnail_area)
+        self.thumbnail_layout.setContentsMargins(0, 0, 0, 0)
+        self.thumbnail_layout.setSpacing(self.THUMBNAIL_GAP)
+        self.thumbnail_area.setFixedWidth(self.CONTENT_WIDTH)
 
         layout = QVBoxLayout(self)
-        layout.addLayout(header)
-        layout.addWidget(self.gallery_scroll, 1)
-        layout.addLayout(self.footer_layout)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(self.THUMBNAIL_GAP * 2)
+        layout.addWidget(self.main_image_area, 0, Qt.AlignmentFlag.AlignHCenter)
+        layout.addWidget(self.thumbnail_area, 0, Qt.AlignmentFlag.AlignHCenter)
+
         self._render()
 
     @staticmethod
-    def _normalized_gallery(product: Product) -> list[dict[str, object]]:
-        images = [
-            dict(image)
-            for image in list(product.gallery_images or [])
-            if isinstance(image, dict)
-        ]
-        if not images and product.image_path:
-            images = [
-                {
-                    "url": product.image_url,
-                    "image_path": product.image_path,
-                    "image_hash": product.image_hash,
-                    "position": 1,
-                    "source": "primary",
-                }
-            ]
-        normalized: list[dict[str, object]] = []
-        for image in images:
+    def _normalized_gallery(
+        product: Product,
+        gallery_images: list[dict[str, Any]] | None,
+    ) -> list[dict[str, Any]]:
+        source = (
+            gallery_images
+            if gallery_images is not None
+            else list(product.gallery_images or [])
+        )
+        normalized: list[dict[str, Any]] = []
+        for image in source:
+            if not isinstance(image, dict):
+                continue
             image_path = str(
                 image.get("image_path") or image.get("path") or ""
             ).strip()
@@ -150,13 +146,53 @@ class ProductImageGalleryDialog(QDialog):
                     **image,
                     "image_path": image_path,
                     "position": len(normalized) + 1,
-                },
+                }
+            )
+
+        if not normalized and product.image_path:
+            normalized.append(
+                {
+                    "url": product.image_url,
+                    "image_path": product.image_path,
+                    "image_hash": product.image_hash,
+                    "position": 1,
+                    "source": "primary",
+                }
             )
         return normalized
 
     def _render(self) -> None:
-        while self.canvas_layout.count():
-            item = self.canvas_layout.takeAt(0)
+        self._render_main_image()
+        self._render_thumbnails()
+        self.layout().activate()
+        self.adjustSize()
+        self.setMinimumSize(self.sizeHint())
+
+    def _render_main_image(self) -> None:
+        path = ""
+        if self.images:
+            path = str(self.images[0].get("image_path", "") or "").strip()
+
+        pixmap = QPixmap(str(resolve_data_path(path))) if path else QPixmap()
+        if pixmap.isNull():
+            self.main_image.setPixmap(QPixmap())
+            self.main_image.setText("Sin vista previa" if path else "Sin imágenes")
+            self.main_image.setFixedSize(self.MAIN_IMAGE_WIDTH, 144)
+            self.main_image_area.setFixedHeight(144)
+            return
+
+        preview = pixmap.scaledToWidth(
+            self.MAIN_IMAGE_WIDTH,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        self.main_image.setText("")
+        self.main_image.setPixmap(preview)
+        self.main_image.setFixedSize(preview.size())
+        self.main_image_area.setFixedHeight(preview.height())
+
+    def _render_thumbnails(self) -> None:
+        while self.thumbnail_layout.count():
+            item = self.thumbnail_layout.takeAt(0)
             if item is None:
                 continue
             widget = item.widget()
@@ -164,234 +200,91 @@ class ProductImageGalleryDialog(QDialog):
                 widget.setParent(None)
                 widget.deleteLater()
 
-        self.canvas.setMinimumSize(0, 0)
-        for index, image in enumerate(self.images):
-            self.canvas_layout.addWidget(self._image_card(index, image))
-
-        if not self.images:
-            self.canvas_layout.addWidget(self._empty_image_card())
-
-        self.canvas_layout.activate()
-        canvas_size = self.canvas_layout.sizeHint()
-        self.canvas.setMinimumSize(canvas_size)
-        self.canvas.resize(canvas_size)
-        self.canvas.updateGeometry()
-
-        # Permitir que la ventana reduzca su altura si la vista previa nueva
-        # necesita menos espacio que la anterior.
-        self.setMinimumHeight(0)
-        scrollbar_height = (
-            self.gallery_scroll.horizontalScrollBar().sizeHint().height()
-            if len(self.images) > self.MAX_VISIBLE_IMAGES
-            else 0
-        )
-        self.gallery_scroll.setMinimumHeight(
-            canvas_size.height()
-            + (2 * self.gallery_scroll.frameWidth())
-            + scrollbar_height
-        )
-        self._fit_window_width()
-
-    def _fit_window_width(self) -> None:
-        visible_count = min(
-            max(len(self.images), 1),
-            self.MAX_VISIBLE_IMAGES,
-        )
-        margins = self.canvas_layout.contentsMargins()
-        canvas_width = (
-            margins.left()
-            + margins.right()
-            + (visible_count * self.IMAGE_SIZE)
-            + (max(visible_count - 1, 0) * self.canvas_layout.spacing())
-        )
-        dialog_layout = self.layout()
-        if dialog_layout is None:
+        self.thumbnail_labels = []
+        if len(self.images) <= 1:
+            self.thumbnail_area.hide()
             return
-        outer_margins = dialog_layout.contentsMargins()
-        gallery_width = (
-            canvas_width
-            + outer_margins.left()
-            + outer_margins.right()
-            + (2 * self.gallery_scroll.frameWidth())
-            + 8
-        )
-        footer_width = (
-            self.summary.minimumWidth()
-            + self.footer_layout.spacing()
-            + self.save_button.sizeHint().width()
-            + outer_margins.left()
-            + outer_margins.right()
-        )
-        target_width = max(gallery_width, footer_width)
-        self.setMinimumWidth(target_width)
-        dialog_layout.activate()
-        target_height = max(dialog_layout.sizeHint().height(), 1)
-        self.setMinimumHeight(target_height)
-        self.resize(target_width, target_height)
 
-    def _image_card(self, index: int, image: dict[str, object]) -> QWidget:
-        path = str(image.get("image_path", "") or "").strip()
-        current = index == 0
-        card = QWidget()
-        card.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(0, 0, 0, 0)
-        card_layout.setSpacing(3)
-
-        if current:
-            callback = self.replace_primary_image
-            label_text = "Imagen actual"
-            tooltip = "Clic para elegir una imagen local"
+        self.thumbnail_area.show()
+        has_arrows = len(self.images) > self.MAX_VISIBLE_THUMBNAILS
+        visible_count = min(len(self.images), self.MAX_VISIBLE_THUMBNAILS)
+        if has_arrows:
+            available_width = (
+                self.CONTENT_WIDTH
+                - (2 * self.ARROW_WIDTH)
+                - (self.THUMBNAIL_GAP * (visible_count + 1))
+            )
         else:
-            callback = partial(self.exchange_with_primary, index)
-            label_text = f"Alternativa {index}"
-            tooltip = "Clic para reemplazar la imagen actual"
+            available_width = self.CONTENT_WIDTH - (
+                self.THUMBNAIL_GAP * (self.MAX_VISIBLE_THUMBNAILS - 1)
+            )
+        tile_width = max(available_width // self.MAX_VISIBLE_THUMBNAILS, 1)
 
-        image_label = _GalleryImageChoiceLabel(callback)
-        image_label.setToolTip(tooltip)
-        image_label.setProperty("image_path", path)
-        image_label.setStyleSheet(
-            "QLabel {"
-            " background: #ffffff;"
-            + (
-                " border: 3px solid #173f6d;"
-                if current
-                else " border: 2px solid #cbddea;"
-            )
-            + " border-radius: 4px; padding: 2px;"
-            "}"
-            " QLabel:hover { border-color: #4a90c2; }"
-        )
-        pixmap = QPixmap(str(resolve_data_path(path)))
-        if not pixmap.isNull():
-            preview = pixmap.scaled(
-                QSize(self.IMAGE_SIZE - 10, self.MAX_PREVIEW_HEIGHT),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            # La miniatura conserva su proporción; la ventana se ajusta al
-            # elemento más alto de la fila sin recortar la vista previa.
-            image_label.setFixedSize(
-                self.IMAGE_SIZE,
-                preview.height() + 10,
-            )
-            image_label.setPixmap(preview)
+        if has_arrows:
+            self.thumbnail_layout.addWidget(self._arrow_button("‹", -1))
         else:
-            image_label.setText(
-                "Imagen actual\nSin vista previa"
-                if current
-                else "Alternativa\nSin vista previa"
+            self.thumbnail_layout.addStretch(1)
+
+        max_start = max(len(self.images) - visible_count, 0)
+        self.thumbnail_start = max(0, min(self.thumbnail_start, max_start))
+        visible_indices = range(
+            self.thumbnail_start,
+            self.thumbnail_start + visible_count,
+        )
+        for index in visible_indices:
+            path = str(self.images[index].get("image_path", "") or "")
+            thumbnail = _GalleryThumbnailLabel(
+                index,
+                path,
+                tile_width,
+                self.THUMBNAIL_HEIGHT,
+                self._select_image,
+                self.thumbnail_area,
             )
+            thumbnail.set_active(index == 0)
+            self.thumbnail_labels.append(thumbnail)
+            self.thumbnail_layout.addWidget(thumbnail)
 
-        name = Path(path).name
-        label = QLabel(f"{label_text}\n{name}")
-        label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
-        label.setWordWrap(True)
-        label.setFixedWidth(self.IMAGE_SIZE)
-        card_layout.addWidget(image_label)
-        card_layout.addWidget(label)
-        return card
-
-    def _empty_image_card(self) -> QWidget:
-        card = QWidget()
-        card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(0, 0, 0, 0)
-        image_label = _GalleryImageChoiceLabel(self.replace_primary_image)
-        image_label.setText("Agregar imagen")
-        image_label.setToolTip("Clic para elegir una imagen local")
-        image_label.setStyleSheet(
-            "QLabel { background: #ffffff; border: 2px dashed #9bb6ca; }"
-            " QLabel:hover { border-color: #4a90c2; }"
-        )
-        label = QLabel("Imagen actual")
-        label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        card_layout.addWidget(image_label)
-        card_layout.addWidget(label)
-        return card
-
-    def replace_primary_image(self) -> None:
-        filename, _ = QFileDialog.getOpenFileName(
-            self,
-            "Reemplazar imagen actual",
-            "",
-            self.IMAGE_EXTENSIONS,
-        )
-        if filename:
-            self._replace_primary_path(filename)
-
-    def _replace_primary_path(self, filename: str) -> None:
-        path = str(Path(filename).expanduser().resolve())
-        replacement = {
-            "url": "",
-            "image_path": path,
-            "image_hash": "",
-            "position": 1,
-            "source": "manual",
-        }
-        if self.images:
-            previous = dict(self.images[0])
-            previous_path = str(previous.get("image_path", "") or "").casefold()
-            replacement_key = path.casefold()
-            alternatives = [
-                dict(image)
-                for image in self.images[1:]
-                if str(image.get("image_path", "") or "").casefold()
-                != replacement_key
-            ]
-            if previous_path and previous_path != replacement_key:
-                alternatives = [
-                    image
-                    for image in alternatives
-                    if str(image.get("image_path", "") or "").casefold()
-                    != previous_path
-                ]
-                alternatives.insert(0, previous)
-            self.images = [replacement, *alternatives]
+        if has_arrows:
+            self.thumbnail_layout.addWidget(self._arrow_button("›", 1))
         else:
-            self.images = [replacement]
-        self.selected_index = 0
-        self._render()
+            self.thumbnail_layout.addStretch(1)
 
-    def exchange_with_primary(self, index: int) -> None:
+        self.thumbnail_layout.activate()
+
+    def _arrow_button(self, label: str, direction: int) -> QPushButton:
+        button = QPushButton(label, self.thumbnail_area)
+        button.setObjectName(
+            "gallery_previous" if direction < 0 else "gallery_next"
+        )
+        button.setFixedSize(self.ARROW_WIDTH, self.THUMBNAIL_HEIGHT)
+        button.setToolTip(
+            "Ver miniaturas anteriores"
+            if direction < 0
+            else "Ver miniaturas siguientes"
+        )
+        button.clicked.connect(
+            lambda _checked=False, step=direction: self._scroll_thumbnails(step)
+        )
+        return button
+
+    def _scroll_thumbnails(self, direction: int) -> None:
+        if len(self.images) <= self.MAX_VISIBLE_THUMBNAILS:
+            return
+        max_start = len(self.images) - self.MAX_VISIBLE_THUMBNAILS
+        self.thumbnail_start = max(
+            0,
+            min(self.thumbnail_start + direction, max_start),
+        )
+        self._render_thumbnails()
+
+    def _select_image(self, index: int) -> None:
         if index <= 0 or index >= len(self.images):
             return
+        # Reproduce el intercambio temporal de la celda: la miniatura elegida
+        # pasa a ser principal y la principal anterior ocupa su posición.
         self.images[0], self.images[index] = self.images[index], self.images[0]
         for position, image in enumerate(self.images, start=1):
             image["position"] = position
-        self.selected_index = 0
+        self.thumbnail_start = 0
         self._render()
-
-    def save(self) -> None:
-        gallery = [
-            {**image, "position": index + 1}
-            for index, image in enumerate(self.images)
-        ]
-        primary = gallery[0] if gallery else {}
-        updated = Product(
-            code=self.product.code,
-            name=self.product.name,
-            price=self.product.price,
-            category=self.product.category,
-            description=self.product.description,
-            price_sample=self.product.price_sample,
-            price_hundred=self.product.price_hundred,
-            price_thousand=self.product.price_thousand,
-            stock=self.product.stock,
-            color_stock=dict(self.product.color_stock),
-            image_url=str(primary.get("url", "") or "") if gallery else "",
-            image_path=str(primary.get("image_path", "") or ""),
-            image_hash=str(primary.get("image_hash", "") or ""),
-            gallery_images=gallery,
-            content_hash=self.product.content_hash,
-            product_id=self.product.id,
-        )
-        try:
-            self.service.update_product(updated)
-        except (sqlite3.Error, ValueError) as error:
-            QMessageBox.critical(self, "Imágenes", str(error))
-            return
-        self.product.gallery_images = gallery
-        self.product.image_url = updated.image_url
-        self.product.image_path = updated.image_path
-        self.product.image_hash = updated.image_hash
-        self.accept()

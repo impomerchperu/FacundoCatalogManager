@@ -130,7 +130,7 @@ class _VisibleProductsTable:
 
 
 
-def test_search_box_displays_prominent_eraser_button_and_clears_text():
+def test_search_box_displays_prominent_broom_button_and_clears_text():
     _qapp()
     field = SearchLineEdit()
     field.resize(320, 38)

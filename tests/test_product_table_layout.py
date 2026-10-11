@@ -672,7 +672,7 @@ def test_code_and_product_columns_stay_compact_while_detail_uses_extra_width():
     QApplication.processEvents()
 
     assert table.columnWidth(ProductTable.CODE_COLUMN) <= 112
-    assert table.columnWidth(ProductTable.NAME_COLUMN) == 178
+    assert table.columnWidth(ProductTable.NAME_COLUMN) == 186
     assert table.columnWidth(ProductTable.DETAIL_COLUMN) > (
         table.MIN_COLUMN_WIDTHS[ProductTable.DETAIL_COLUMN]
     )
@@ -698,9 +698,9 @@ def test_text_column_padding_width_is_funded_by_code_column():
 
     preferred = table._preferred_column_widths(table.horizontalHeader())
     assert table._stable_code_width == 112
-    assert preferred[ProductTable.CODE_COLUMN] == 96
-    assert preferred[ProductTable.NAME_COLUMN] == 178
-    assert preferred[ProductTable.DETAIL_COLUMN] == 268
+    assert preferred[ProductTable.CODE_COLUMN] == 80
+    assert preferred[ProductTable.NAME_COLUMN] == 186
+    assert preferred[ProductTable.DETAIL_COLUMN] == 276
     assert (
         preferred[ProductTable.CODE_COLUMN]
         + preferred[ProductTable.NAME_COLUMN]
@@ -1679,10 +1679,10 @@ def test_detail_cell_is_vertically_centered():
     assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
     assert ProductImageDelegate.CELL_HORIZONTAL_PADDING == 2
     assert ProductImageDelegate.CELL_VERTICAL_PADDING == 2
-    assert ProductNameCategoryDelegate.HORIZONTAL_PADDING == 4
-    assert ProductNameCategoryDelegate.VERTICAL_PADDING == 4
-    assert ProductDetailDelegate.HORIZONTAL_PADDING == 4
-    assert ProductDetailDelegate.VERTICAL_PADDING == 4
+    assert ProductNameCategoryDelegate.HORIZONTAL_PADDING == 8
+    assert ProductNameCategoryDelegate.VERTICAL_PADDING == 8
+    assert ProductDetailDelegate.HORIZONTAL_PADDING == 8
+    assert ProductDetailDelegate.VERTICAL_PADDING == 8
     assert ProductImageDelegate.MAIN_IMAGE_WIDTH == 144
     assert ProductImageDelegate.THUMBNAIL_HEIGHT == 34
     assert ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT >= (

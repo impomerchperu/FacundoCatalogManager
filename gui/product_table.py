@@ -649,9 +649,7 @@ class ProductImageDelegate(QStyledItemDelegate):
                 main_area_height,
             )
             self._paint_main_preview(painter, main_area, image_path)
-            thumbnail_top = (
-                cell.bottom() - self.THUMBNAIL_STRIP_HEIGHT + 1
-            )
+            thumbnail_top = self.thumbnail_strip_top(option.rect)
             self._paint_thumbnail_strip(
                 painter,
                 cell,
@@ -1897,11 +1895,7 @@ class ProductTable(QTableWidget):
                     gallery,
                     item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE),
                 )
-                strip_top = (
-                    content_rect.bottom()
-                    - ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
-                    + 1
-                )
+                strip_top = ProductImageDelegate.thumbnail_strip_top(rect)
                 tiles, left_arrow, right_arrow, strip_top = (
                     ProductImageDelegate.thumbnail_layout(
                         content_rect,
@@ -2392,7 +2386,7 @@ class ProductTable(QTableWidget):
         *,
         growable_columns: set[int],
     ) -> list[int]:
-        """Distribute available width proportionally among visible columns."""
+        """Allocate surplus width to the designated growable columns."""
         widths = [
             max(preferred, minimum)
             for preferred, minimum in zip(

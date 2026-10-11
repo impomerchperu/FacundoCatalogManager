@@ -2526,7 +2526,7 @@ class ProductTable(QTableWidget):
                         for column in range(self.columnCount())
                         if column != self.CATEGORY_COLUMN
                     }
-                    if even_distribution
+                    if self._even_column_distribution
                     else {
                         self.DETAIL_COLUMN,
                         self.STOCK_COLUMN,
@@ -2630,7 +2630,7 @@ class ProductTable(QTableWidget):
             # columns stay compact as in the normal catalog layout.
             weights = (
                 {index: 1 for index in growth_columns}
-                if self._even_column_distribution
+                if even_distribution
                 else {
                     index: max(
                         preferred_widths[index],

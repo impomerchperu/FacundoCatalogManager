@@ -331,6 +331,7 @@ class MainWindow(QMainWindow):
         layout.setSpacing(6)
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Buscar producto...")
+        self.search_box.setClearButtonEnabled(True)
         self.search_box.setMinimumHeight(self.SEARCH_HEIGHT)
         self.search_box.setMinimumWidth(0)
         self.search_box.setSizePolicy(

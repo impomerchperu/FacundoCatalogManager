@@ -121,7 +121,7 @@ def test_search_clear_icon_remains_visible_and_clears_the_field():
     QApplication.processEvents()
 
     assert search.clear_button.isVisible()
-    assert search.clear_button.icon().isNull() is False
+    assert not search.clear_button.icon().isNull()
 
     search.setText("producto")
     QApplication.processEvents()

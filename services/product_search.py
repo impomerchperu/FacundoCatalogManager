@@ -59,7 +59,7 @@ def normalize_search_text(text: str) -> str:
         if not unicodedata.combining(character)
     )
     value = "".join(
-        character if character.isalnum() else " "
+        character if character.isalnum() or character.isspace() else ""
         for character in value
     )
     return " ".join(value.split())

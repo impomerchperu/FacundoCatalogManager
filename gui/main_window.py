@@ -1,15 +1,18 @@
 import sqlite3
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QPoint, QRect, Qt, QThread, QTimer, Signal
+from PySide6.QtCore import QPoint, QRect, QRectF, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QFocusEvent,
     QFont,
+    QIcon,
     QFontMetrics,
     QKeyEvent,
     QPainter,
     QPaintEvent,
+    QPen,
+    QPixmap,
     QResizeEvent,
 )
 from PySide6.QtWidgets import (
@@ -28,6 +31,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QStyle,
     QStyleOptionButton,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -50,6 +54,82 @@ from services.scraping.image_review_service import ImageReviewService
 if TYPE_CHECKING:
     from gui.image_review_dialog import ImageReviewDialog
     from gui.scraping_history_dialog import ScrapingHistoryDialog
+
+
+class SearchLineEdit(QLineEdit):
+    """Campo de búsqueda con un botón de borrado visible y accesible."""
+
+    CLEAR_BUTTON_SIZE = 28
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setTextMargins(0, 0, self.CLEAR_BUTTON_SIZE + 10, 0)
+
+        self.clear_button = QToolButton(self)
+        self.clear_button.setObjectName("search_clear_button")
+        self.clear_button.setAccessibleName("Limpiar búsqueda")
+        self.clear_button.setToolTip("Limpiar búsqueda")
+        self.clear_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.clear_button.setAutoRaise(False)
+        self.clear_button.setFixedSize(
+            self.CLEAR_BUTTON_SIZE,
+            self.CLEAR_BUTTON_SIZE,
+        )
+        self.clear_button.setIcon(self._create_clear_icon())
+        self.clear_button.setIconSize(QSize(19, 19))
+        self.clear_button.setStyleSheet(
+            "QToolButton {"
+            " background-color: #dbeafe;"
+            " border: 1px solid #60a5fa;"
+            " border-radius: 5px;"
+            " padding: 2px;"
+            "}"
+            " QToolButton:hover {"
+            " background-color: #bfdbfe;"
+            " border-color: #2563eb;"
+            "}"
+            " QToolButton:pressed { background-color: #93c5fd; }"
+        )
+        self.clear_button.clicked.connect(self.clear)
+        self.textChanged.connect(self._sync_clear_button)
+        self._position_clear_button()
+        self._sync_clear_button()
+
+    @staticmethod
+    def _create_clear_icon() -> QIcon:
+        """Create a platform-independent eraser icon instead of the default X."""
+
+        pixmap = QPixmap(24, 24)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.translate(12, 12)
+        painter.rotate(-38)
+        pen = QPen(QColor("#173f6d"))
+        pen.setWidth(2)
+        painter.setPen(pen)
+        painter.setBrush(QColor("#93c5fd"))
+        painter.drawRoundedRect(QRectF(-8, -5, 16, 10), 2, 2)
+        painter.setPen(QColor("#173f6d"))
+        painter.drawLine(-2, -5, -2, 5)
+        painter.end()
+        return QIcon(pixmap)
+
+    def _position_clear_button(self) -> None:
+        if not hasattr(self, "clear_button"):
+            return
+        self.clear_button.move(
+            self.width() - self.clear_button.width() - 5,
+            (self.height() - self.clear_button.height()) // 2,
+        )
+        self.clear_button.raise_()
+
+    def _sync_clear_button(self, _text: str = "") -> None:
+        self.clear_button.setVisible(bool(self.text()))
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._position_clear_button()
 
 
 class CategoryFilterButton(QPushButton):
@@ -329,9 +409,8 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
-        self.search_box = QLineEdit()
+        self.search_box = SearchLineEdit()
         self.search_box.setPlaceholderText("Buscar producto...")
-        self.search_box.setClearButtonEnabled(True)
         self.search_box.setMinimumHeight(self.SEARCH_HEIGHT)
         self.search_box.setMinimumWidth(0)
         self.search_box.setSizePolicy(

@@ -1419,10 +1419,20 @@ class MainWindow(QMainWindow):
             if isinstance(raw_gallery, list)
             else None
         )
+        raw_active_index = (
+            image_item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE)
+            if image_item is not None
+            else 0
+        )
+        try:
+            active_index = int(raw_active_index or 0)
+        except (TypeError, ValueError):
+            active_index = 0
         dialog = ProductImageGalleryDialog(
             product,
             parent=self,
             gallery_images=gallery_images,
+            active_index=active_index,
         )
         dialog.exec()
 

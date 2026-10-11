@@ -693,6 +693,7 @@ class MainWindow(QMainWindow):
             ("Exportar", self.export_catalog),
             ("Importar", self.import_products),
             ("Nuevo", self.new_product),
+            ("Editar", self.edit_product),
             ("Eliminar", self.delete_selected),
             ("Actualizar Catálogo", self.open_scraping),
             ("Historial", self.open_scraping_history),
@@ -1245,7 +1246,7 @@ class MainWindow(QMainWindow):
         if row < 0:
             QMessageBox.warning(self, "Editar", "Seleccione un producto.")
             return
-        item = self.table.item(row, 1)
+        item = self.table.item(row, self.table.CODE_COLUMN)
         if item is None:
             return
         product_id = item.data(Qt.ItemDataRole.UserRole)

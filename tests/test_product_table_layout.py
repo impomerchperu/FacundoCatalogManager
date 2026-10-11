@@ -4,8 +4,8 @@ from PySide6.QtCore import QRect, QSize, Qt
 from PySide6.QtGui import QColor, QFontMetrics, QFontMetricsF, QPixmap
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
-    QApplication,
     QAbstractItemView,
+    QApplication,
     QHeaderView,
     QLabel,
     QLineEdit,
@@ -563,6 +563,29 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
             == QHeaderView.ResizeMode.Interactive
         )
 
+    table.close()
+
+
+def test_code_and_product_columns_stay_compact_while_detail_uses_extra_width():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1800, 700)
+    table.show()
+    table.load_products([
+        Product(
+            code="FB-300",
+            name="Producto con un nombre amplio",
+            description="Detalle técnico " * 15,
+            category="Categoría de ejemplo",
+        ),
+    ])
+    QApplication.processEvents()
+
+    assert table.columnWidth(ProductTable.CODE_COLUMN) <= 112
+    assert table.columnWidth(ProductTable.NAME_COLUMN) == 170
+    assert table.columnWidth(ProductTable.DETAIL_COLUMN) > (
+        table.MIN_COLUMN_WIDTHS[ProductTable.DETAIL_COLUMN]
+    )
     table.close()
 
 

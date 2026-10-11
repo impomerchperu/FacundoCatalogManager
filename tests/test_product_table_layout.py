@@ -1,3 +1,4 @@
+from itertools import pairwise
 from pathlib import Path
 
 from PySide6.QtCore import QRect, QSize, Qt
@@ -984,7 +985,7 @@ def test_price_delegate_paints_long_amount_on_one_line():
                 break
     assert ink_rows
     line_bands = 1
-    for previous, current in zip(ink_rows, ink_rows[1:], strict=False):
+    for previous, current in pairwise(ink_rows):
         if current - previous > 3:
             line_bands += 1
     assert line_bands == 1

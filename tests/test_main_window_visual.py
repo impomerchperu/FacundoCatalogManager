@@ -80,6 +80,38 @@ def test_filter_toggle_width_allows_normal_and_bold_text():
     button.deleteLater()
 
 
+def test_hiding_categories_enables_even_table_column_distribution():
+    _qapp()
+
+    class _DistributionSpy:
+        def __init__(self):
+            self.enabled = False
+
+        def set_even_column_distribution(self, enabled):
+            self.enabled = enabled
+
+    window = MainWindow.__new__(MainWindow)
+    window.category_toggle_button = QPushButton()
+    window.category_toggle_button.setCheckable(True)
+    window._category_sidebar_open_width = 120
+    window.category_sidebar = QWidget()
+    window.category_scroll = QWidget()
+    window.table = _DistributionSpy()
+    window.categories_visible = True
+
+    MainWindow.toggle_categories_visibility(window, False)
+    assert window.categories_visible is False
+    assert window.table.enabled is True
+
+    MainWindow.toggle_categories_visibility(window, True)
+    assert window.categories_visible is True
+    assert window.table.enabled is False
+
+    window.category_toggle_button.deleteLater()
+    window.category_sidebar.deleteLater()
+    window.category_scroll.deleteLater()
+
+
 def test_top_controls_keep_category_toggle_next_to_stock_filter_and_search():
     _qapp()
 

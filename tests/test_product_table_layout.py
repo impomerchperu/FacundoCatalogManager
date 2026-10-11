@@ -85,8 +85,13 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
         - (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
         == ProductImageDelegate.MIN_PRIMARY_IMAGE_DISPLAY_SIZE
     )
+    display_width = max(
+        ProductImageDelegate.MAIN_IMAGE_WIDTH,
+        table.columnWidth(ProductTable.IMAGE_COLUMN)
+        - (2 * ProductImageDelegate.CELL_HORIZONTAL_PADDING),
+    )
     expected_row_height = (
-        ProductImageDelegate.main_image_height(str(image_path))
+        ProductImageDelegate.main_image_height(str(image_path), display_width)
         + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
         + ProductTable.ROW_VERTICAL_SPACING
     )
@@ -161,10 +166,31 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
         (tiles[0][1].left() + tiles[-1][1].right()) / 2
         - content_rect.center().x()
     ) <= 1
+    display_width = max(
+        ProductImageDelegate.MAIN_IMAGE_WIDTH,
+        table.columnWidth(ProductTable.IMAGE_COLUMN)
+        - (2 * ProductImageDelegate.CELL_HORIZONTAL_PADDING),
+    )
+    thumbnail_height = max(
+        ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT,
+        round(
+            ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+            * display_width
+            / ProductImageDelegate.MAIN_IMAGE_WIDTH,
+        ),
+    )
+    thumbnail_gap = max(
+        ProductImageDelegate.THUMBNAIL_GAP,
+        round(
+            ProductImageDelegate.THUMBNAIL_GAP
+            * display_width
+            / ProductImageDelegate.MAIN_IMAGE_WIDTH,
+        ),
+    )
     image_content_height = (
-        ProductImageDelegate.main_image_height(str(paths[0]))
-        + ProductImageDelegate.THUMBNAIL_GAP
-        + ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+        ProductImageDelegate.main_image_height(str(paths[0]), display_width)
+        + thumbnail_gap
+        + thumbnail_height
     )
     assert table.rowHeight(0) == (
         image_content_height
@@ -1704,8 +1730,14 @@ def test_row_height_tracks_tallest_text_or_image_and_skips_padding_for_tall_rows
     )
     QApplication.processEvents()
 
+    display_width = max(
+        ProductImageDelegate.MAIN_IMAGE_WIDTH,
+        table.columnWidth(ProductTable.IMAGE_COLUMN)
+        - (2 * ProductImageDelegate.CELL_HORIZONTAL_PADDING),
+    )
     landscape_content = ProductImageDelegate.main_image_height(
-        str(landscape_path)
+        str(landscape_path),
+        display_width,
     )
     landscape_name = table.item(0, ProductTable.NAME_COLUMN)
     landscape_category = table.item(0, ProductTable.CATEGORY_COLUMN)
@@ -1723,7 +1755,10 @@ def test_row_height_tracks_tallest_text_or_image_and_skips_padding_for_tall_rows
         + ProductTable.ROW_VERTICAL_SPACING
     )
 
-    portrait_content = ProductImageDelegate.main_image_height(str(portrait_path))
+    portrait_content = ProductImageDelegate.main_image_height(
+        str(portrait_path),
+        display_width,
+    )
     assert portrait_content >= ProductTable.VERY_TALL_ROW_THRESHOLD
     assert table.rowHeight(1) == (
         portrait_content + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)

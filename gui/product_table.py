@@ -275,8 +275,8 @@ class ProductCodeCategoryDelegate(QStyledItemDelegate):
 class ProductNameCategoryDelegate(ProductCodeCategoryDelegate):
     """Muestra el nombre y sus categorías centrados en la misma celda."""
 
-    HORIZONTAL_PADDING = 4
-    VERTICAL_PADDING = 4
+    HORIZONTAL_PADDING = 8
+    VERTICAL_PADDING = 8
     LINE_GAP = 4
     CATEGORY_FONT_SIZE = 11
     PREFERRED_WIDTH = 170 + (2 * HORIZONTAL_PADDING)
@@ -960,8 +960,8 @@ class StockColorDelegate(QStyledItemDelegate):
 class ProductDetailDelegate(QStyledItemDelegate):
     """Renderiza el detalle con interlineado compacto y ajuste de texto."""
 
-    HORIZONTAL_PADDING = 4
-    VERTICAL_PADDING = 4
+    HORIZONTAL_PADDING = 8
+    VERTICAL_PADDING = 8
     LINE_SPACING_REDUCTION = 1
     PARAGRAPH_SPACING_REDUCTION = 2
 
@@ -1100,7 +1100,7 @@ class ProductTable(QTableWidget):
     """Tabla principal del catálogo de productos."""
 
     CONTENT_SIDE_PADDING = 4
-    TEXT_COLUMN_WIDTH_INCREASE = 8
+    TEXT_COLUMN_WIDTH_INCREASE = 16
     CODE_COLUMN_WIDTH_REDUCTION = 2 * TEXT_COLUMN_WIDTH_INCREASE
     TABLE_BACKGROUND = "#f8fbff"
     TABLE_CELL_BACKGROUND = "#fbfdff"

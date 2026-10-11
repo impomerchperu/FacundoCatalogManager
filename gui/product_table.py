@@ -1334,6 +1334,7 @@ class ProductTable(QTableWidget):
         self._rendered_products: list[Product] = []
         self._visible_product_keys: set[int] | None = None
         self._preferred_widths_cache: list[int] | None = None
+        self._even_column_distribution = False
         self._active_image_indices: dict[str, int] = {}
         self._gallery_overrides: dict[str, list[dict]] = {}
         self._row_by_code: dict[str, int] = {}
@@ -2322,19 +2323,52 @@ class ProductTable(QTableWidget):
         )
         self.setItem(row, column, item)
 
+    ROW_VERTICAL_SPACING = 8
+    VERY_TALL_ROW_THRESHOLD = 320
+
     def _set_row_height(self, row: int) -> None:
-        row_height = self.DEFAULT_IMAGE_CELL_HEIGHT
+        """Size a row to its tallest image or text, with compact outer spacing."""
+
+        content_height = 0
+        image_item = self.item(row, self.IMAGE_COLUMN)
+        if image_item is not None:
+            gallery = image_item.data(ProductImageDelegate.GALLERY_ROLE)
+            if not isinstance(gallery, list):
+                gallery = []
+            active_index = ProductImageDelegate._active_index(
+                gallery,
+                image_item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE),
+            )
+            image_path = ProductImageDelegate._selected_path(
+                gallery,
+                active_index,
+                image_item.data(ProductImageDelegate.IMAGE_ROLE),
+            )
+            if image_path:
+                primary_height = ProductImageDelegate.main_image_height(
+                    image_path,
+                )
+                image_content_height = primary_height
+                if len(gallery) > 1:
+                    image_content_height += (
+                        ProductImageDelegate.THUMBNAIL_GAP
+                        + ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+                    )
+                content_height = max(content_height, image_content_height)
+
         name_item = self.item(row, self.NAME_COLUMN)
         category_item = self.item(row, self.CATEGORY_COLUMN)
         if name_item is not None:
-            category_text = category_item.text() if category_item is not None else "—"
+            category_text = (
+                category_item.text() if category_item is not None else "—"
+            )
             name_height = ProductNameCategoryDelegate.content_height(
                 name_item.text(),
                 category_text,
                 self.font(),
                 max(self.columnWidth(self.NAME_COLUMN), 1),
             )
-            row_height = max(row_height, name_height)
+            content_height = max(content_height, name_height)
 
         detail_item = self.item(row, self.DETAIL_COLUMN)
         if detail_item is not None and detail_item.text():
@@ -2347,21 +2381,47 @@ class ProductTable(QTableWidget):
                     1,
                 ),
             ) + (2 * ProductDetailDelegate.VERTICAL_PADDING)
-            row_height = max(row_height, detail_height)
+            content_height = max(content_height, detail_height)
 
         stock_item = self.item(row, self.STOCK_COLUMN)
         if stock_item is not None:
             color_stock = stock_item.data(StockColorDelegate.STOCK_ROLE)
             if isinstance(color_stock, list) and color_stock:
-                row_height = max(
-                    row_height,
-                    len(color_stock) * StockColorDelegate.MIN_LINE_HEIGHT,
+                stock_height = (
+                    len(color_stock) * StockColorDelegate.MIN_LINE_HEIGHT
                 )
+                content_height = max(content_height, stock_height)
+
+        if content_height <= 0:
+            content_height = QFontMetrics(self.font()).height()
+
+        # Keep a little breathing room above and below normal rows. Very tall
+        # rows use only the cell's 2 px drawing inset on each edge, preventing
+        # excessive blank space around long text or portrait images.
+        row_spacing = (
+            self.ROW_VERTICAL_SPACING
+            if content_height < self.VERY_TALL_ROW_THRESHOLD
+            else 0
+        )
+        row_height = (
+            content_height
+            + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+            + row_spacing
+        )
         self.setRowHeight(row, row_height)
 
     def _adjust_table_rows(self) -> None:
         for row in range(self.rowCount()):
             self._set_row_height(row)
+
+    def set_even_column_distribution(self, enabled: bool) -> None:
+        """Evenly distribute spare width when the category sidebar is hidden."""
+
+        enabled = bool(enabled)
+        if self._even_column_distribution == enabled:
+            return
+        self._even_column_distribution = enabled
+        self._fit_columns_to_content()
 
     def _stock_minimum_width(self) -> int:
         """Garantiza que cada color y cantidad permanezcan en una sola línea."""
@@ -2450,11 +2510,21 @@ class ProductTable(QTableWidget):
                 preferred_widths,
                 minimum_widths,
                 available_width,
-                growable_columns={
-                    column
-                    for column in range(self.columnCount())
-                    if column != self.CATEGORY_COLUMN
-                },
+                growable_columns=(
+                    {
+                        column
+                        for column in range(self.columnCount())
+                        if column != self.CATEGORY_COLUMN
+                    }
+                    if self._even_column_distribution
+                    else {
+                        self.DETAIL_COLUMN,
+                        self.STOCK_COLUMN,
+                        self.PRICE_SAMPLE_COLUMN,
+                        self.PRICE_HUNDRED_COLUMN,
+                        self.PRICE_THOUSAND_COLUMN,
+                    }
+                ),
             )
 
             for column, width in enumerate(widths):
@@ -2544,9 +2614,21 @@ class ProductTable(QTableWidget):
                 index for index in active if index in growable_columns
             ] or active
             extra = target_width - current
-            # Equal shares prevent the detail or price columns from
-            # consuming all width released when the category sidebar closes.
-            weights = {index: 1 for index in growth_columns}
+            # Shares are equal in sidebar-hidden mode. Otherwise, the
+            # detail and stock/price columns absorb surplus while code/name
+            # columns stay compact as in the normal catalog layout.
+            weights = (
+                {index: 1 for index in growth_columns}
+                if self._even_column_distribution
+                else {
+                    index: max(
+                        preferred_widths[index],
+                        minimum_widths[index],
+                        1,
+                    )
+                    for index in growth_columns
+                }
+            )
             total_weight = sum(weights.values())
             remainders: list[tuple[int, int]] = []
             assigned = 0

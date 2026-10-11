@@ -3,7 +3,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QLabel, QPushButton
+from PySide6.QtWidgets import QApplication, QPushButton
 
 from gui.product_image_gallery_dialog import ProductImageGalleryDialog
 from gui.product_table import ProductImageDelegate
@@ -169,7 +169,7 @@ def test_single_image_hides_thumbnail_strip(tmp_path):
     QApplication.processEvents()
 
     assert len(dialog.thumbnail_labels) == 0
-    assert not dialog.thumbnail_area.isVisible()
+    assert dialog.thumbnail_area.isHidden()
     preview = dialog.main_image.pixmap()
     assert preview is not None
     assert preview.width() == 288

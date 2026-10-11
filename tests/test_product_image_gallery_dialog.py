@@ -131,6 +131,8 @@ def test_thumbnail_arrows_scroll_four_visible_images(tmp_path):
     ]
     assert dialog.images[0]["image_path"] == str(paths[0])
 
+    previous_button = dialog.findChild(QPushButton, "gallery_previous")
+    assert previous_button is not None
     QTest.mouseClick(previous_button, Qt.MouseButton.LeftButton)
     QApplication.processEvents()
     assert dialog.thumbnail_start == 0

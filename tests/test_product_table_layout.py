@@ -73,6 +73,18 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     assert item.data(ProductImageDelegate.IMAGE_ROLE) == str(image_path)
     initial_image_column_width = table.columnWidth(ProductTable.IMAGE_COLUMN)
     assert initial_image_column_width == ProductImageDelegate.DEFAULT_SIZE
+    assert initial_image_column_width >= ProductImageDelegate.MAIN_IMAGE_WIDTH
+    assert (
+        table.horizontalHeader().sectionResizeMode(ProductTable.IMAGE_COLUMN)
+        == QHeaderView.ResizeMode.Fixed
+    )
+    assert (
+        ProductImageDelegate.DEFAULT_HEIGHT
+        - ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+        - ProductImageDelegate.THUMBNAIL_GAP
+        - (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+        == ProductImageDelegate.MIN_PRIMARY_IMAGE_DISPLAY_SIZE
+    )
     assert table.rowHeight(0) == ProductImageDelegate.DEFAULT_HEIGHT
 
     table.resize(2200, 700)

@@ -814,8 +814,16 @@ def test_rebuild_category_filters_preserves_full_category_names():
     _qapp()
     window = MainWindow.__new__(MainWindow)
     window.all_products = [
-        Product(code="FB-101", name="Producto oficina", category="Artículos de Oficina"),
-        Product(code="FB-102", name="Producto escritorio", category="Artículos de Escritorio"),
+        Product(
+            code="FB-101",
+            name="Producto oficina",
+            category="Artículos de Oficina",
+        ),
+        Product(
+            code="FB-102",
+            name="Producto escritorio",
+            category="Artículos de Escritorio",
+        ),
     ]
     window.selected_categories = set()
     container = QWidget()

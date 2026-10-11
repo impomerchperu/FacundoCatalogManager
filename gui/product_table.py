@@ -11,6 +11,7 @@ from PySide6.QtGui import (
     QImageReader,
     QPainter,
     QPalette,
+    QPen,
     QPixmap,
     QPixmapCache,
     QTextLayout,
@@ -408,8 +409,8 @@ class ProductImageDelegate(QStyledItemDelegate):
     THUMBNAIL_STRIP_HEIGHT = 34
     THUMBNAIL_GAP = 3
     THUMBNAIL_PADDING = 0
-    CELL_HORIZONTAL_PADDING = 2
-    CELL_VERTICAL_PADDING = 2
+    CELL_HORIZONTAL_PADDING = 0
+    CELL_VERTICAL_PADDING = 0
     # Reserve 144 px for the main preview and room for the thumbnail strip.
     # This keeps portrait previews from being reduced merely to make room for
     # the alternatives along the bottom of the cell.
@@ -493,11 +494,9 @@ class ProductImageDelegate(QStyledItemDelegate):
                 else cls.MAIN_IMAGE_WIDTH
             )
         )
-        thumbnail_indexes = [
-            image_index
-            for image_index in range(image_count)
-            if image_index != active_index
-        ]
+        # Render every thumbnail in its original gallery slot, including the
+        # current primary. Selecting a different primary only changes its border.
+        thumbnail_indexes = list(range(image_count))
         thumbnail_count = len(thumbnail_indexes)
         if thumbnail_count <= 0:
             return [], None, None, strip_top
@@ -730,7 +729,13 @@ class ProductImageDelegate(QStyledItemDelegate):
             if isinstance(image, dict):
                 path = str(image.get("image_path", image.get("path", "")) or "").strip()
             painter.fillRect(tile_rect, QColor("#ffffff"))
-            painter.setPen(QColor("#cbd5e1"))
+            selected_thumbnail = image_index == active_index
+            painter.setPen(
+                QPen(
+                    QColor("#1675e8" if selected_thumbnail else "#cbd5e1"),
+                    2 if selected_thumbnail else 1,
+                ),
+            )
             painter.drawRect(tile_rect.adjusted(0, 0, -1, -1))
             inner = tile_rect.adjusted(2, 2, -2, -2)
             if path and inner.width() > 0 and inner.height() > 0:
@@ -1366,7 +1371,7 @@ class ProductTable(QTableWidget):
     def _setup_table(self) -> None:
         self.setSortingEnabled(False)
         self.setAlternatingRowColors(False)
-        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setEditTriggers(
             QAbstractItemView.EditTrigger.EditKeyPressed,
@@ -1405,8 +1410,12 @@ class ProductTable(QTableWidget):
                 font-size: 13px;
                 color: #173f6d;
             }
+            QTableWidget::item:focus {
+                border: none;
+            }
             QTableWidget::item:selected {
                 background-color: #fbfdff;
+                border: 2px solid #1675e8;
                 color: #173f6d;
             }
             QHeaderView::section {
@@ -2063,7 +2072,7 @@ class ProductTable(QTableWidget):
         if item is None:
             return
         gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
-        if not isinstance(gallery, list) or len(gallery) - 1 <= (
+        if not isinstance(gallery, list) or len(gallery) <= (
             ProductImageDelegate.MAX_VISIBLE_THUMBNAILS
         ):
             return
@@ -2073,9 +2082,7 @@ class ProductTable(QTableWidget):
         except (TypeError, ValueError):
             current = 0
         max_start = max(
-            len(gallery)
-            - 1
-            - ProductImageDelegate.MAX_VISIBLE_THUMBNAILS,
+            len(gallery) - ProductImageDelegate.MAX_VISIBLE_THUMBNAILS,
             0,
         )
         item.setData(
@@ -2092,10 +2099,8 @@ class ProductTable(QTableWidget):
         if not isinstance(gallery, list) or not gallery:
             return
         active_index %= len(gallery)
-        # Keep the display gallery in its original order. The selected index
-        # alone changes, so the former primary appears first among alternatives
-        # and returns to its original position when selected again.
-        item.setData(ProductImageDelegate.THUMBNAIL_START_ROLE, 0)
+        # Keep the display gallery and scroll position stable. Only the active
+        # thumbnail border and the main preview change.
         item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, active_index)
         self._set_image_item_path(item, gallery, active_index)
         self._set_row_height(row)

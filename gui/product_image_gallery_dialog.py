@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -42,8 +41,9 @@ class _GalleryThumbnailLabel(QLabel):
         self.setFixedSize(width, height)
         self.setToolTip(Path(image_path).name if image_path else "Imagen")
         self.setStyleSheet(
-            "QLabel { background: #ffffff; border: 1px solid #cbd5e1; }"
+            "QLabel { background: #ffffff; border: 3px solid #cbd5e1; }"
         )
+        self.setProperty("active", False)
 
         pixmap = (
             QPixmap(str(resolve_data_path(image_path)))
@@ -61,9 +61,11 @@ class _GalleryThumbnailLabel(QLabel):
             )
 
     def set_active(self, active: bool) -> None:
-        border = "3px solid #1675e8" if active else "1px solid #cbd5e1"
+        # Keep border thickness fixed so selection never resizes the thumbnail.
+        self.setProperty("active", active)
+        color = "#1675e8" if active else "#cbd5e1"
         self.setStyleSheet(
-            f"QLabel {{ background: #ffffff; border: {border}; }}"
+            f"QLabel {{ background: #ffffff; border: 3px solid {color}; }}"
         )
 
     def mouseReleaseEvent(self, event) -> None:
@@ -87,7 +89,14 @@ class ProductImageGalleryDialog(QDialog):
     )
     THUMBNAIL_GAP = round(ProductImageDelegate.THUMBNAIL_GAP * SCALE_FACTOR)
     MAX_VISIBLE_THUMBNAILS = ProductImageDelegate.MAX_VISIBLE_THUMBNAILS
-    ARROW_WIDTH = round(12 * SCALE_FACTOR)
+    THUMBNAIL_WIDTH = max(
+        (
+            CONTENT_WIDTH
+            - (THUMBNAIL_GAP * (MAX_VISIBLE_THUMBNAILS - 1))
+        )
+        // MAX_VISIBLE_THUMBNAILS,
+        1,
+    )
 
     def __init__(
         self,
@@ -107,12 +116,19 @@ class ProductImageGalleryDialog(QDialog):
 
         self.setWindowTitle(f"Imágenes · {product.code}")
         self.setModal(True)
+        self.setStyleSheet(
+            "QDialog { background-color: #ffffff; }"
+            " QWidget#gallery_main_image_area,"
+            " QWidget#gallery_thumbnail_area,"
+            " QLabel#gallery_main_image { background-color: #ffffff; }"
+        )
 
         self.main_image = QLabel()
         self.main_image.setObjectName("gallery_main_image")
         self.main_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.main_image_area = QWidget(self)
+        self.main_image_area.setObjectName("gallery_main_image_area")
         main_layout = QHBoxLayout(self.main_image_area)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addStretch(1)
@@ -224,96 +240,49 @@ class ProductImageGalleryDialog(QDialog):
                 widget.deleteLater()
 
         self.thumbnail_labels = []
-        thumbnail_indexes = [
-            index
-            for index in range(len(self.images))
-            if index != self.active_index
-        ]
-        if not thumbnail_indexes:
+        if not self.images:
             self.thumbnail_area.hide()
+            self.thumbnail_area.setFixedWidth(self.CONTENT_WIDTH)
+            self.main_image_area.setFixedWidth(self.CONTENT_WIDTH)
             return
 
-        self.thumbnail_area.show()
-        has_arrows = len(thumbnail_indexes) > self.MAX_VISIBLE_THUMBNAILS
-        visible_count = min(
-            len(thumbnail_indexes),
-            self.MAX_VISIBLE_THUMBNAILS,
+        # Every image keeps its original slot, including the current primary.
+        # The popup grows horizontally instead of shrinking or scrolling tiles.
+        row_width = (
+            len(self.images) * self.THUMBNAIL_WIDTH
+            + max(len(self.images) - 1, 0) * self.THUMBNAIL_GAP
         )
-        if has_arrows:
-            available_width = (
-                self.CONTENT_WIDTH
-                - (2 * self.ARROW_WIDTH)
-                - (self.THUMBNAIL_GAP * (visible_count + 1))
-            )
-        else:
-            available_width = self.CONTENT_WIDTH - (
-                self.THUMBNAIL_GAP * (self.MAX_VISIBLE_THUMBNAILS - 1)
-            )
-        tile_width = max(available_width // self.MAX_VISIBLE_THUMBNAILS, 1)
+        content_width = max(self.CONTENT_WIDTH, row_width)
+        self.main_image_area.setFixedWidth(content_width)
+        self.thumbnail_area.setFixedWidth(content_width)
+        self.thumbnail_area.show()
 
-        if has_arrows:
-            self.thumbnail_layout.addWidget(self._arrow_button("<", -1))
-        else:
+        if row_width < content_width:
             self.thumbnail_layout.addStretch(1)
 
-        max_start = max(len(thumbnail_indexes) - visible_count, 0)
-        self.thumbnail_start = max(0, min(self.thumbnail_start, max_start))
-        visible_indices = thumbnail_indexes[
-            self.thumbnail_start : self.thumbnail_start + visible_count
-        ]
-        for index in visible_indices:
-            path = str(self.images[index].get("image_path", "") or "")
+        for index, image in enumerate(self.images):
+            path = str(image.get("image_path", "") or "")
             thumbnail = _GalleryThumbnailLabel(
                 index,
                 path,
-                tile_width,
+                self.THUMBNAIL_WIDTH,
                 self.THUMBNAIL_HEIGHT,
                 self._select_image,
                 self.thumbnail_area,
             )
-            thumbnail.set_active(False)
+            thumbnail.set_active(index == self.active_index)
             self.thumbnail_labels.append(thumbnail)
             self.thumbnail_layout.addWidget(thumbnail)
 
-        if has_arrows:
-            self.thumbnail_layout.addWidget(self._arrow_button(">", 1))
-        else:
+        if row_width < content_width:
             self.thumbnail_layout.addStretch(1)
 
         self.thumbnail_layout.activate()
 
-    def _arrow_button(self, label: str, direction: int) -> QPushButton:
-        button = QPushButton(label, self.thumbnail_area)
-        button.setObjectName(
-            "gallery_previous" if direction < 0 else "gallery_next"
-        )
-        button.setFixedSize(self.ARROW_WIDTH, self.THUMBNAIL_HEIGHT)
-        button.setToolTip(
-            "Ver miniaturas anteriores"
-            if direction < 0
-            else "Ver miniaturas siguientes"
-        )
-        button.clicked.connect(
-            lambda _checked=False, step=direction: self._scroll_thumbnails(step)
-        )
-        return button
-
-    def _scroll_thumbnails(self, direction: int) -> None:
-        thumbnail_count = len(self.images) - 1
-        if thumbnail_count <= self.MAX_VISIBLE_THUMBNAILS:
-            return
-        max_start = thumbnail_count - self.MAX_VISIBLE_THUMBNAILS
-        self.thumbnail_start = max(
-            0,
-            min(self.thumbnail_start + direction, max_start),
-        )
-        self._render_thumbnails()
-
     def _select_image(self, index: int) -> None:
         if index < 0 or index >= len(self.images) or index == self.active_index:
             return
-        # Keep the persisted/gallery order stable. The formerly active image
-        # becomes the first alternative when it is no longer the main preview.
+        # Keep every thumbnail in its slot; only the main preview and selected
+        # border change when a different image is chosen.
         self.active_index = index
-        self.thumbnail_start = 0
         self._render()

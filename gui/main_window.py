@@ -1065,8 +1065,12 @@ class MainWindow(QMainWindow):
             for button in self.category_buttons
         ]
         reference_text_width = max(
-            reference_metrics.horizontalAdvance(self.CATEGORY_SIDEBAR_REFERENCE_TEXT),
-            reference_bold_metrics.horizontalAdvance(self.CATEGORY_SIDEBAR_REFERENCE_TEXT),
+            reference_metrics.horizontalAdvance(
+                self.CATEGORY_SIDEBAR_REFERENCE_TEXT,
+            ),
+            reference_bold_metrics.horizontalAdvance(
+                self.CATEGORY_SIDEBAR_REFERENCE_TEXT,
+            ),
         )
         count_metrics = QFontMetrics(reference_font)
         maximum_count_width = max(

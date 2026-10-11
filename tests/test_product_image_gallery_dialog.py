@@ -63,13 +63,13 @@ def test_dialog_images_use_130_percent_of_the_previous_scale(tmp_path):
         ProductImageDelegate.MAIN_IMAGE_WIDTH * 2 * 1.3
     )
     assert preview.height() == round(preview.width() / 2)
-    assert dialog.MAIN_IMAGE_WIDTH == round(
+    assert round(
         ProductImageGalleryDialog.SCALE_FACTOR
         * ProductImageDelegate.MAIN_IMAGE_WIDTH
-    )
-    assert dialog.THUMBNAIL_HEIGHT == round(
+    ) == dialog.MAIN_IMAGE_WIDTH
+    assert round(
         ProductImageDelegate.THUMBNAIL_HEIGHT * 2 * 1.3
-    )
+    ) == dialog.THUMBNAIL_HEIGHT
     assert len(dialog.thumbnail_labels) == 2
     assert all(
         thumbnail.height() == dialog.THUMBNAIL_HEIGHT

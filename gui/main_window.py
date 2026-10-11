@@ -97,21 +97,35 @@ class SearchLineEdit(QLineEdit):
 
     @staticmethod
     def _create_clear_icon() -> QIcon:
-        """Create a platform-independent eraser icon instead of the default X."""
+        """Draw a recognizable broom icon without platform-dependent glyphs."""
 
         pixmap = QPixmap(24, 24)
         pixmap.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.translate(12, 12)
-        painter.rotate(-38)
-        pen = QPen(QColor("#173f6d"))
-        pen.setWidth(2)
-        painter.setPen(pen)
-        painter.setBrush(QColor("#93c5fd"))
-        painter.drawRoundedRect(QRectF(-8, -5, 16, 10), 2, 2)
-        painter.setPen(QColor("#173f6d"))
-        painter.drawLine(-2, -5, -2, 5)
+
+        handle_pen = QPen(QColor("#80552c"))
+        handle_pen.setWidth(3)
+        handle_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(handle_pen)
+        painter.drawLine(17, 3, 8, 15)
+
+        bristle_pen = QPen(QColor("#173f6d"))
+        bristle_pen.setWidth(1)
+        painter.setPen(bristle_pen)
+        painter.setBrush(QColor("#f4c56a"))
+        painter.drawPolygon(
+            [
+                QPoint(5, 12),
+                QPoint(13, 16),
+                QPoint(10, 21),
+                QPoint(2, 18),
+            ],
+        )
+        painter.setPen(QPen(QColor("#b7791f"), 1))
+        painter.drawLine(4, 18, 6, 14)
+        painter.drawLine(6, 19, 8, 15)
+        painter.drawLine(8, 20, 10, 16)
         painter.end()
         return QIcon(pixmap)
 
@@ -934,6 +948,13 @@ class MainWindow(QMainWindow):
         self.category_sidebar.setFixedWidth(
             self._category_sidebar_open_width,
         )
+        set_column_distribution = getattr(
+            self.table,
+            "set_even_column_distribution",
+            None,
+        )
+        if callable(set_column_distribution):
+            set_column_distribution(not visible)
 
     def refresh_catalog(self) -> None:
         self._apply_catalog_products(self.controller.get_products())

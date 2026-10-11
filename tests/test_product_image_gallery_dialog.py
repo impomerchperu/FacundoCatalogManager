@@ -70,18 +70,24 @@ def test_dialog_images_use_130_percent_of_the_previous_scale(tmp_path):
     assert round(
         ProductImageDelegate.THUMBNAIL_HEIGHT * 2 * 1.3
     ) == dialog.THUMBNAIL_HEIGHT
-    assert len(dialog.thumbnail_labels) == 1
+    assert len(dialog.thumbnail_labels) == 2
     assert all(
         thumbnail.height() == dialog.THUMBNAIL_HEIGHT
         for thumbnail in dialog.thumbnail_labels
     )
+    assert all(
+        thumbnail.width() == dialog.THUMBNAIL_WIDTH
+        for thumbnail in dialog.thumbnail_labels
+    )
+    assert dialog.thumbnail_labels[0].property("active") is True
+    assert dialog.thumbnail_labels[1].property("active") is False
     assert dialog.main_image.objectName() == "gallery_main_image"
     assert dialog.width() >= dialog.CONTENT_WIDTH + 24
     assert not dialog.findChildren(QPushButton, "gallery_next")
     dialog.close()
 
 
-def test_selecting_thumbnail_moves_old_primary_first_and_restores_order(tmp_path):
+def test_selecting_thumbnail_preserves_fixed_positions_and_highlights_primary(tmp_path):
     _qapp()
     landscape = tmp_path / "landscape.png"
     portrait = tmp_path / "portrait.png"
@@ -95,16 +101,21 @@ def test_selecting_thumbnail_moves_old_primary_first_and_restores_order(tmp_path
 
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
-    ] == [str(portrait)]
+    ] == original_gallery
+    assert dialog.thumbnail_labels[0].property("active") is True
 
-    QTest.mouseClick(dialog.thumbnail_labels[0], Qt.MouseButton.LeftButton)
+    QTest.mouseClick(dialog.thumbnail_labels[1], Qt.MouseButton.LeftButton)
     QApplication.processEvents()
 
     assert dialog.active_index == 1
     assert [image["image_path"] for image in dialog.images] == original_gallery
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
-    ] == [str(landscape)]
+    ] == original_gallery
+    assert [label.property("active") for label in dialog.thumbnail_labels] == [
+        False,
+        True,
+    ]
     preview = dialog.main_image.pixmap()
     assert preview is not None
     assert preview.height() > preview.width()
@@ -117,7 +128,11 @@ def test_selecting_thumbnail_moves_old_primary_first_and_restores_order(tmp_path
     assert [image["image_path"] for image in dialog.images] == original_gallery
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
-    ] == [str(portrait)]
+    ] == original_gallery
+    assert [label.property("active") for label in dialog.thumbnail_labels] == [
+        True,
+        False,
+    ]
     assert [image["image_path"] for image in product.gallery_images] == (
         original_gallery
     )
@@ -135,29 +150,40 @@ def test_four_image_gallery_restores_thumbnail_order_after_switching_primary(tmp
 
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
-    ] == original_paths[1:]
+    ] == original_paths
 
-    # Select the original third image. The original primary becomes first,
-    # while the remaining alternatives keep their relative order.
-    QTest.mouseClick(dialog.thumbnail_labels[1], Qt.MouseButton.LeftButton)
+    # Select the original third image without moving any thumbnail slot.
+    QTest.mouseClick(dialog.thumbnail_labels[2], Qt.MouseButton.LeftButton)
     QApplication.processEvents()
     assert dialog.active_index == 2
     assert [image["image_path"] for image in dialog.images] == original_paths
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
-    ] == [original_paths[0], original_paths[1], original_paths[3]]
+    ] == original_paths
+    assert [label.property("active") for label in dialog.thumbnail_labels] == [
+        False,
+        False,
+        True,
+        False,
+    ]
 
-    # Selecting the former primary restores the original thumbnail sequence.
+    # Selecting the former primary changes only which frame is highlighted.
     QTest.mouseClick(dialog.thumbnail_labels[0], Qt.MouseButton.LeftButton)
     QApplication.processEvents()
     assert dialog.active_index == 0
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
-    ] == original_paths[1:]
+    ] == original_paths
+    assert [label.property("active") for label in dialog.thumbnail_labels] == [
+        True,
+        False,
+        False,
+        False,
+    ]
     dialog.close()
 
 
-def test_thumbnail_arrows_scroll_four_visible_images(tmp_path):
+def test_dialog_expands_to_show_all_thumbnails_without_navigation_buttons(tmp_path):
     _qapp()
     paths = [tmp_path / f"image-{index}.png" for index in range(6)]
     for path in paths:
@@ -166,30 +192,40 @@ def test_thumbnail_arrows_scroll_four_visible_images(tmp_path):
     dialog.show()
     QApplication.processEvents()
 
-    next_button = dialog.findChild(QPushButton, "gallery_next")
-    previous_button = dialog.findChild(QPushButton, "gallery_previous")
-    assert next_button is not None
-    assert previous_button is not None
-    assert len(dialog.thumbnail_labels) == 4
-    assert [label.property("image_path") for label in dialog.thumbnail_labels] == [
-        str(path) for path in paths[1:5]
-    ]
+    assert len(dialog.thumbnail_labels) == len(paths)
+    assert [
+        label.property("image_path") for label in dialog.thumbnail_labels
+    ] == [str(path) for path in paths]
+    assert not dialog.findChildren(QPushButton, "gallery_next")
+    assert not dialog.findChildren(QPushButton, "gallery_previous")
 
-    QTest.mouseClick(next_button, Qt.MouseButton.LeftButton)
+    expected_row_width = (
+        len(paths) * dialog.THUMBNAIL_WIDTH
+        + (len(paths) - 1) * dialog.THUMBNAIL_GAP
+    )
+    assert dialog.thumbnail_area.width() == expected_row_width
+    assert dialog.main_image_area.width() == expected_row_width
+    assert dialog.width() >= expected_row_width + 24
+    assert all(
+        label.width() == dialog.THUMBNAIL_WIDTH
+        and label.height() == dialog.THUMBNAIL_HEIGHT
+        for label in dialog.thumbnail_labels
+    )
+
+    QTest.mouseClick(dialog.thumbnail_labels[4], Qt.MouseButton.LeftButton)
     QApplication.processEvents()
-
-    assert dialog.thumbnail_start == 1
-    assert [label.property("image_path") for label in dialog.thumbnail_labels] == [
-        str(path) for path in paths[2:6]
+    assert dialog.active_index == 4
+    assert [
+        label.property("image_path") for label in dialog.thumbnail_labels
+    ] == [str(path) for path in paths]
+    assert [label.property("active") for label in dialog.thumbnail_labels] == [
+        False,
+        False,
+        False,
+        False,
+        True,
+        False,
     ]
-    assert dialog.images[0]["image_path"] == str(paths[0])
-    assert dialog.active_index == 0
-
-    previous_button = dialog.findChild(QPushButton, "gallery_previous")
-    assert previous_button is not None
-    QTest.mouseClick(previous_button, Qt.MouseButton.LeftButton)
-    QApplication.processEvents()
-    assert dialog.thumbnail_start == 0
     dialog.close()
 
 
@@ -208,22 +244,28 @@ def test_gallery_dialog_opens_with_the_selected_table_primary(tmp_path):
     assert dialog.active_index == 1
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
-    ] == [str(first)]
+    ] == original_paths
+    assert [label.property("active") for label in dialog.thumbnail_labels] == [
+        False,
+        True,
+    ]
     preview = dialog.main_image.pixmap()
     assert preview is not None
     assert preview.width() > preview.height()
     dialog.close()
 
 
-def test_single_image_hides_thumbnail_strip(tmp_path):
+def test_single_image_gallery_keeps_primary_thumbnail_visible(tmp_path):
     _qapp()
     image = tmp_path / "only.png"
     _write_test_image(image, width=200, height=100)
     dialog = ProductImageGalleryDialog(_visual_product([image]))
     QApplication.processEvents()
 
-    assert len(dialog.thumbnail_labels) == 0
-    assert dialog.thumbnail_area.isHidden()
+    assert len(dialog.thumbnail_labels) == 1
+    assert not dialog.thumbnail_area.isHidden()
+    assert dialog.thumbnail_labels[0].property("image_path") == str(image)
+    assert dialog.thumbnail_labels[0].property("active") is True
     preview = dialog.main_image.pixmap()
     assert preview is not None
     assert preview.width() == ProductImageGalleryDialog.MAIN_IMAGE_WIDTH

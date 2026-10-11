@@ -483,7 +483,7 @@ class ProductImageDelegate(QStyledItemDelegate):
         main_height: int | None = None,
         thumbnail_top: int | None = None,
     ) -> tuple[list[tuple[int, QRect]], QRect | None, QRect | None, int]:
-        """Center alternative thumbnails and return their stable gallery indexes."""
+        """Keep the primary thumbnail first and alternatives in stable slots."""
         strip_top = (
             thumbnail_top
             if thumbnail_top is not None
@@ -494,21 +494,40 @@ class ProductImageDelegate(QStyledItemDelegate):
                 else cls.MAIN_IMAGE_WIDTH
             )
         )
-        # Render every thumbnail in its original gallery slot, including the
-        # current primary. Selecting a different primary only changes its border.
-        thumbnail_indexes = list(range(image_count))
+        thumbnail_indexes = list(range(max(image_count, 0)))
         thumbnail_count = len(thumbnail_indexes)
         if thumbnail_count <= 0:
             return [], None, None, strip_top
+
+        selected_index = active_index % thumbnail_count
+        if selected_index:
+            # Put the selected primary in the first tile and move the former
+            # primary into the selected image's old slot; all other slots stay.
+            thumbnail_indexes[0], thumbnail_indexes[selected_index] = (
+                thumbnail_indexes[selected_index],
+                thumbnail_indexes[0],
+            )
 
         thumbnail_height = cls.THUMBNAIL_HEIGHT
         gap = cls.THUMBNAIL_GAP
         left_arrow = None
         right_arrow = None
         if thumbnail_count > cls.MAX_VISIBLE_THUMBNAILS:
+            visible_count = cls.MAX_VISIBLE_THUMBNAILS
             arrow_width = min(12, max(rect.width() // 10, 1))
+            tile_width = max(
+                (
+                    rect.width()
+                    - (2 * arrow_width)
+                    - (gap * (visible_count + 1))
+                )
+                // visible_count,
+                1,
+            )
+            # Reserve the first tile for the selected primary. Navigation
+            # controls and the scrolling alternatives follow it.
             left_arrow = QRect(
-                rect.left(),
+                rect.left() + tile_width + gap,
                 strip_top,
                 arrow_width,
                 thumbnail_height,
@@ -519,34 +538,57 @@ class ProductImageDelegate(QStyledItemDelegate):
                 arrow_width,
                 thumbnail_height,
             )
-            left = left_arrow.right() + 1 + gap
-            right = right_arrow.left() - 1 - gap
-            visible_count = cls.MAX_VISIBLE_THUMBNAILS
+            alternatives = thumbnail_indexes[1:]
             start = max(
                 0,
-                min(thumbnail_start, thumbnail_count - visible_count),
+                min(
+                    thumbnail_start,
+                    max(len(alternatives) - (visible_count - 1), 0),
+                ),
             )
-            visible_indices = thumbnail_indexes[start : start + visible_count]
-            available_width = max(right - left + 1, 1)
-            tile_width = max(
-                (available_width - gap * (visible_count - 1)) // visible_count,
-                1,
-            )
-        else:
-            visible_count = thumbnail_count
-            visible_indices = thumbnail_indexes
-            tile_width = max(
+            visible_indices = [thumbnail_indexes[0]] + alternatives[
+                start : start + visible_count - 1
+            ]
+            alt_left = left_arrow.right() + 1 + gap
+            tiles = [
                 (
-                    max(rect.width(), 1)
-                    - gap * (cls.MAX_VISIBLE_THUMBNAILS - 1)
-                ) // cls.MAX_VISIBLE_THUMBNAILS,
-                1,
-            )
-            group_width = visible_count * tile_width + gap * (visible_count - 1)
-            left = rect.left() + max((rect.width() - group_width) // 2, 0)
+                    visible_indices[0],
+                    QRect(
+                        rect.left(),
+                        strip_top,
+                        tile_width,
+                        thumbnail_height,
+                    ),
+                ),
+            ]
+            for position, image_index in enumerate(visible_indices[1:]):
+                tile_left = alt_left + position * (tile_width + gap)
+                tiles.append(
+                    (
+                        image_index,
+                        QRect(
+                            tile_left,
+                            strip_top,
+                            tile_width,
+                            thumbnail_height,
+                        ),
+                    ),
+                )
+            return tiles, left_arrow, right_arrow, strip_top
 
+        tile_width = max(
+            (
+                max(rect.width(), 1)
+                - gap * (cls.MAX_VISIBLE_THUMBNAILS - 1)
+            ) // cls.MAX_VISIBLE_THUMBNAILS,
+            1,
+        )
+        group_width = (
+            thumbnail_count * tile_width + gap * (thumbnail_count - 1)
+        )
+        left = rect.left() + max((rect.width() - group_width) // 2, 0)
         tiles: list[tuple[int, QRect]] = []
-        for position, image_index in enumerate(visible_indices):
+        for position, image_index in enumerate(thumbnail_indexes):
             tile_left = left + position * (tile_width + gap)
             tiles.append(
                 (

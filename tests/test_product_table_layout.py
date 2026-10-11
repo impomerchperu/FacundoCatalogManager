@@ -85,13 +85,18 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
         - (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
         == ProductImageDelegate.MIN_PRIMARY_IMAGE_DISPLAY_SIZE
     )
-    assert table.rowHeight(0) == ProductImageDelegate.DEFAULT_HEIGHT
+    expected_row_height = (
+        ProductImageDelegate.main_image_height(str(image_path))
+        + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+        + ProductTable.ROW_VERTICAL_SPACING
+    )
+    assert table.rowHeight(0) == expected_row_height
 
     table.resize(2200, 700)
     QApplication.processEvents()
 
-    assert table.rowHeight(0) == ProductImageDelegate.DEFAULT_HEIGHT
-    assert table.columnWidth(ProductTable.IMAGE_COLUMN) > initial_image_column_width
+    assert table.rowHeight(0) == expected_row_height
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == initial_image_column_width
 
     table.close()
 
@@ -156,7 +161,16 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
         (tiles[0][1].left() + tiles[-1][1].right()) / 2
         - content_rect.center().x()
     ) <= 1
-    assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
+    image_content_height = (
+        ProductImageDelegate.main_image_height(str(paths[0]))
+        + ProductImageDelegate.THUMBNAIL_GAP
+        + ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+    )
+    assert table.rowHeight(0) == (
+        image_content_height
+        + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+        + ProductTable.ROW_VERTICAL_SPACING
+    )
 
     QTest.mouseClick(
         table.viewport(),
@@ -185,6 +199,8 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
     ]
     assert table._active_image_indices["fb-100"] == 1
 
+    rect = table.visualRect(index)
+    content_rect = ProductImageDelegate.cell_content_rect(rect)
     main_rect, thumbnail_top = ProductImageDelegate.main_image_layout(
         rect,
         str(paths[1]),
@@ -398,7 +414,16 @@ def test_product_table_category_is_combined_with_product_name_and_detail_receive
     assert table.columnWidth(ProductTable.IMAGE_COLUMN) >= (
         ProductImageDelegate.DEFAULT_SIZE
     )
-    assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
+    expected_name_height = ProductNameCategoryDelegate.content_height(
+        name_item.text(),
+        category_item.text(),
+        table.font(),
+        table.columnWidth(ProductTable.NAME_COLUMN),
+    )
+    assert table.rowHeight(0) >= (
+        expected_name_height
+        + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+    )
     assert table.columnWidth(ProductTable.DETAIL_COLUMN) > (
         ProductTable.MIN_COLUMN_WIDTHS[ProductTable.DETAIL_COLUMN]
     )
@@ -1138,7 +1163,22 @@ def test_detail_formats_attributes_removes_duplicate_color_and_trailing_periods(
     assert all(not line.endswith(".") for line in item.text().splitlines())
     assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
     assert item.textAlignment() & Qt.AlignmentFlag.AlignLeft
-    assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
+    expected_detail_height = (
+        ProductDetailDelegate.content_height(
+            item.text(),
+            table.font(),
+            max(
+                table.columnWidth(ProductTable.DETAIL_COLUMN)
+                - (2 * ProductDetailDelegate.HORIZONTAL_PADDING),
+                1,
+            ),
+        )
+        + (2 * ProductDetailDelegate.VERTICAL_PADDING)
+    )
+    assert table.rowHeight(0) >= (
+        expected_detail_height
+        + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+    )
 
     table.close()
 
@@ -1421,7 +1461,7 @@ def test_product_images_scale_and_center_inside_available_cell_area(tmp_path: Pa
     assert landscape_rect == QRect(10, 25, 160, 90)
 
 
-def test_row_height_does_not_expand_for_tall_primary_image_and_alternative_strip(
+def test_row_height_expands_for_tall_primary_image_and_alternative_strip(
     tmp_path: Path,
 ):
     _qapp()
@@ -1449,7 +1489,16 @@ def test_row_height_does_not_expand_for_tall_primary_image_and_alternative_strip
     assert code_item is not None
     assert code_item.textAlignment() & Qt.AlignmentFlag.AlignHCenter
     assert code_item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
-    assert table.rowHeight(0) == ProductTable.DEFAULT_IMAGE_CELL_HEIGHT
+    expected_image_content = (
+        ProductImageDelegate.main_image_height(str(main_path))
+        + ProductImageDelegate.THUMBNAIL_GAP
+        + ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
+    )
+    assert table.rowHeight(0) == (
+        expected_image_content
+        + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+    )
+    assert table.rowHeight(0) >= ProductTable.VERY_TALL_ROW_THRESHOLD
     table.close()
 
 
@@ -1594,8 +1643,79 @@ def test_detail_cell_is_vertically_centered():
     assert ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT >= (
         ProductImageDelegate.THUMBNAIL_HEIGHT
     )
-    assert table.rowHeight(0) >= ProductImageDelegate.DEFAULT_HEIGHT
+    expected_detail_height = (
+        ProductDetailDelegate.content_height(
+            item.text(),
+            table.font(),
+            max(
+                table.columnWidth(ProductTable.DETAIL_COLUMN)
+                - (2 * ProductDetailDelegate.HORIZONTAL_PADDING),
+                1,
+            ),
+        )
+        + (2 * ProductDetailDelegate.VERTICAL_PADDING)
+    )
+    assert table.rowHeight(0) >= (
+        expected_detail_height
+        + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+    )
 
+    table.close()
+
+
+
+
+def test_row_height_tracks_tallest_text_or_image_and_skips_padding_for_tall_rows(
+    tmp_path: Path,
+):
+    _qapp()
+    landscape_path = tmp_path / "wide.png"
+    portrait_path = tmp_path / "tall.png"
+    assert QPixmap(320, 80).save(str(landscape_path))
+    assert QPixmap(100, 400).save(str(portrait_path))
+
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-811",
+                name="Producto con imagen panorámica",
+                image_path=str(landscape_path),
+            ),
+            Product(
+                code="FB-812",
+                name="Producto con imagen vertical",
+                image_path=str(portrait_path),
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    landscape_content = ProductImageDelegate.main_image_height(
+        str(landscape_path)
+    )
+    assert table.rowHeight(0) == (
+        max(
+            landscape_content,
+            ProductNameCategoryDelegate.content_height(
+                table.item(0, ProductTable.NAME_COLUMN).text(),
+                table.item(0, ProductTable.CATEGORY_COLUMN).text(),
+                table.font(),
+                table.columnWidth(ProductTable.NAME_COLUMN),
+            ),
+        )
+        + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+        + ProductTable.ROW_VERTICAL_SPACING
+    )
+
+    portrait_content = ProductImageDelegate.main_image_height(str(portrait_path))
+    assert portrait_content >= ProductTable.VERY_TALL_ROW_THRESHOLD
+    assert table.rowHeight(1) == (
+        portrait_content + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+    )
+    assert table.rowHeight(1) > table.rowHeight(0)
     table.close()
 
 
@@ -1667,6 +1787,8 @@ def test_visible_columns_share_extra_width_when_the_table_grows():
             ),
         ],
     )
+    QApplication.processEvents()
+    table.set_even_column_distribution(True)
     QApplication.processEvents()
     first_widths = {
         column: table.columnWidth(column)

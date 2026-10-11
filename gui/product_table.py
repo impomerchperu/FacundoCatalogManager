@@ -2542,6 +2542,10 @@ class ProductTable(QTableWidget):
             ]
             minimum_widths[self.CATEGORY_COLUMN] = 0
             minimum_widths[self.STOCK_COLUMN] = self._stock_minimum_width()
+            if self._even_column_distribution:
+                minimum_widths[self.IMAGE_COLUMN] = preferred_widths[
+                    self.IMAGE_COLUMN
+                ]
             available_width = max(self.viewport().width(), 1)
             widths = self._allocate_column_widths(
                 preferred_widths,

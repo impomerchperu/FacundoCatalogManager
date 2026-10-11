@@ -81,7 +81,7 @@ def test_dialog_images_use_130_percent_of_the_previous_scale(tmp_path):
     dialog.close()
 
 
-def test_selecting_thumbnail_swaps_it_with_the_temporary_primary(tmp_path):
+def test_selecting_thumbnail_moves_old_primary_first_and_restores_order(tmp_path):
     _qapp()
     landscape = tmp_path / "landscape.png"
     portrait = tmp_path / "portrait.png"
@@ -93,20 +93,67 @@ def test_selecting_thumbnail_swaps_it_with_the_temporary_primary(tmp_path):
     ]
     dialog = ProductImageGalleryDialog(product)
 
-    QTest.mouseClick(dialog.thumbnail_labels[1], Qt.MouseButton.LeftButton)
+    assert [
+        label.property("image_path") for label in dialog.thumbnail_labels
+    ] == [str(portrait)]
+
+    QTest.mouseClick(dialog.thumbnail_labels[0], Qt.MouseButton.LeftButton)
     QApplication.processEvents()
 
-    assert [image["image_path"] for image in dialog.images] == [
-        str(portrait),
-        str(landscape),
-    ]
-    assert [image["image_path"] for image in product.gallery_images] == (
-        original_gallery
-    )
+    assert dialog.active_index == 1
+    assert [image["image_path"] for image in dialog.images] == original_gallery
+    assert [
+        label.property("image_path") for label in dialog.thumbnail_labels
+    ] == [str(landscape)]
     preview = dialog.main_image.pixmap()
     assert preview is not None
     assert preview.height() > preview.width()
     assert dialog.thumbnail_start == 0
+
+    QTest.mouseClick(dialog.thumbnail_labels[0], Qt.MouseButton.LeftButton)
+    QApplication.processEvents()
+
+    assert dialog.active_index == 0
+    assert [image["image_path"] for image in dialog.images] == original_gallery
+    assert [
+        label.property("image_path") for label in dialog.thumbnail_labels
+    ] == [str(portrait)]
+    assert [image["image_path"] for image in product.gallery_images] == (
+        original_gallery
+    )
+    dialog.close()
+
+
+def test_four_image_gallery_restores_thumbnail_order_after_switching_primary(tmp_path):
+    _qapp()
+    paths = [tmp_path / f"selection-{index}.png" for index in range(4)]
+    for index, path in enumerate(paths):
+        _write_test_image(path, width=120 + index * 10, height=80)
+    product = _visual_product(paths)
+    dialog = ProductImageGalleryDialog(product)
+    original_paths = [str(path) for path in paths]
+
+    assert [
+        label.property("image_path") for label in dialog.thumbnail_labels
+    ] == original_paths[1:]
+
+    # Select the original third image. The original primary becomes first,
+    # while the remaining alternatives keep their relative order.
+    QTest.mouseClick(dialog.thumbnail_labels[1], Qt.MouseButton.LeftButton)
+    QApplication.processEvents()
+    assert dialog.active_index == 2
+    assert [image["image_path"] for image in dialog.images] == original_paths
+    assert [
+        label.property("image_path") for label in dialog.thumbnail_labels
+    ] == [original_paths[0], original_paths[1], original_paths[3]]
+
+    # Selecting the former primary restores the original thumbnail sequence.
+    QTest.mouseClick(dialog.thumbnail_labels[0], Qt.MouseButton.LeftButton)
+    QApplication.processEvents()
+    assert dialog.active_index == 0
+    assert [
+        label.property("image_path") for label in dialog.thumbnail_labels
+    ] == original_paths[1:]
     dialog.close()
 
 
@@ -125,7 +172,7 @@ def test_thumbnail_arrows_scroll_four_visible_images(tmp_path):
     assert previous_button is not None
     assert len(dialog.thumbnail_labels) == 4
     assert [label.property("image_path") for label in dialog.thumbnail_labels] == [
-        str(path) for path in paths[:4]
+        str(path) for path in paths[1:5]
     ]
 
     QTest.mouseClick(next_button, Qt.MouseButton.LeftButton)
@@ -133,9 +180,10 @@ def test_thumbnail_arrows_scroll_four_visible_images(tmp_path):
 
     assert dialog.thumbnail_start == 1
     assert [label.property("image_path") for label in dialog.thumbnail_labels] == [
-        str(path) for path in paths[1:5]
+        str(path) for path in paths[2:6]
     ]
     assert dialog.images[0]["image_path"] == str(paths[0])
+    assert dialog.active_index == 0
 
     previous_button = dialog.findChild(QPushButton, "gallery_previous")
     assert previous_button is not None

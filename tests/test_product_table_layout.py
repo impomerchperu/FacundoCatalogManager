@@ -1696,16 +1696,18 @@ def test_row_height_tracks_tallest_text_or_image_and_skips_padding_for_tall_rows
     landscape_content = ProductImageDelegate.main_image_height(
         str(landscape_path)
     )
+    landscape_name = table.item(0, ProductTable.NAME_COLUMN)
+    landscape_category = table.item(0, ProductTable.CATEGORY_COLUMN)
+    assert landscape_name is not None
+    assert landscape_category is not None
+    landscape_text_height = ProductNameCategoryDelegate.content_height(
+        landscape_name.text(),
+        landscape_category.text(),
+        table.font(),
+        table.columnWidth(ProductTable.NAME_COLUMN),
+    )
     assert table.rowHeight(0) == (
-        max(
-            landscape_content,
-            ProductNameCategoryDelegate.content_height(
-                table.item(0, ProductTable.NAME_COLUMN).text(),
-                table.item(0, ProductTable.CATEGORY_COLUMN).text(),
-                table.font(),
-                table.columnWidth(ProductTable.NAME_COLUMN),
-            ),
-        )
+        max(landscape_content, landscape_text_height)
         + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
         + ProductTable.ROW_VERTICAL_SPACING
     )

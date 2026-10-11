@@ -275,11 +275,11 @@ class ProductCodeCategoryDelegate(QStyledItemDelegate):
 class ProductNameCategoryDelegate(ProductCodeCategoryDelegate):
     """Muestra el nombre y sus categorías centrados en la misma celda."""
 
-    HORIZONTAL_PADDING = 5
+    HORIZONTAL_PADDING = 4
     VERTICAL_PADDING = 4
     LINE_GAP = 4
     CATEGORY_FONT_SIZE = 11
-    PREFERRED_WIDTH = 170
+    PREFERRED_WIDTH = 170 + (2 * HORIZONTAL_PADDING)
 
     @classmethod
     def _wrapped_height(cls, text: str, font: QFont, width: int) -> int:
@@ -960,8 +960,8 @@ class StockColorDelegate(QStyledItemDelegate):
 class ProductDetailDelegate(QStyledItemDelegate):
     """Renderiza el detalle con interlineado compacto y ajuste de texto."""
 
-    HORIZONTAL_PADDING = 5
-    VERTICAL_PADDING = 3
+    HORIZONTAL_PADDING = 4
+    VERTICAL_PADDING = 4
     LINE_SPACING_REDUCTION = 1
     PARAGRAPH_SPACING_REDUCTION = 2
 
@@ -1100,6 +1100,8 @@ class ProductTable(QTableWidget):
     """Tabla principal del catálogo de productos."""
 
     CONTENT_SIDE_PADDING = 4
+    TEXT_COLUMN_WIDTH_INCREASE = 8
+    CODE_COLUMN_WIDTH_REDUCTION = 2 * TEXT_COLUMN_WIDTH_INCREASE
     TABLE_BACKGROUND = "#f8fbff"
     TABLE_CELL_BACKGROUND = "#fbfdff"
     TABLE_HEADER_BACKGROUND = "#eef5fb"
@@ -2337,11 +2339,11 @@ class ProductTable(QTableWidget):
         )
         self.setItem(row, column, item)
 
-    ROW_VERTICAL_SPACING = 8
+    ROW_VERTICAL_SPACING = 0
     VERY_TALL_ROW_THRESHOLD = 320
 
     def _set_row_height(self, row: int) -> None:
-        """Size a row to its tallest image or text, with compact outer spacing."""
+        """Fit the row to its tallest cell content without extra vertical gaps."""
 
         content_height = 0
         image_item = self.item(row, self.IMAGE_COLUMN)
@@ -2359,13 +2361,17 @@ class ProductTable(QTableWidget):
                 image_item.data(ProductImageDelegate.IMAGE_ROLE),
             )
             if image_path:
-                primary_height = ProductImageDelegate.main_image_height(image_path)
-                image_content_height = primary_height
+                image_content_height = ProductImageDelegate.main_image_height(
+                    image_path,
+                )
                 if len(gallery) > 1:
                     image_content_height += (
                         ProductImageDelegate.THUMBNAIL_GAP
                         + ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
                     )
+                image_content_height += (
+                    2 * ProductImageDelegate.CELL_VERTICAL_PADDING
+                )
                 content_height = max(content_height, image_content_height)
 
         name_item = self.item(row, self.NAME_COLUMN)
@@ -2401,26 +2407,17 @@ class ProductTable(QTableWidget):
             if isinstance(color_stock, list) and color_stock:
                 stock_height = (
                     len(color_stock) * StockColorDelegate.MIN_LINE_HEIGHT
+                    + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
                 )
                 content_height = max(content_height, stock_height)
 
         if content_height <= 0:
-            content_height = QFontMetrics(self.font()).height()
+            content_height = (
+                QFontMetrics(self.font()).height()
+                + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+            )
 
-        # Keep a little breathing room above and below normal rows. Very tall
-        # rows use only the cell's 2 px drawing inset on each edge, preventing
-        # excessive blank space around long text or portrait images.
-        row_spacing = (
-            self.ROW_VERTICAL_SPACING
-            if content_height < self.VERY_TALL_ROW_THRESHOLD
-            else 0
-        )
-        row_height = (
-            content_height
-            + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
-            + row_spacing
-        )
-        self.setRowHeight(row, row_height)
+        self.setRowHeight(row, max(content_height, 1))
 
     def _adjust_table_rows(self) -> None:
         for row in range(self.rowCount()):
@@ -2486,11 +2483,16 @@ class ProductTable(QTableWidget):
             ]
             preferred_widths[self.CATEGORY_COLUMN] = 0
             preferred_widths[self.IMAGE_COLUMN] = self.DEFAULT_IMAGE_CELL_SIZE
-            preferred_widths[self.CODE_COLUMN] = self._stable_code_width
+            preferred_widths[self.CODE_COLUMN] = max(
+                minimum_widths[self.CODE_COLUMN],
+                self._stable_code_width - self.CODE_COLUMN_WIDTH_REDUCTION,
+            )
             preferred_widths[self.NAME_COLUMN] = (
                 ProductNameCategoryDelegate.PREFERRED_WIDTH
             )
-            preferred_widths[self.DETAIL_COLUMN] = 260
+            preferred_widths[self.DETAIL_COLUMN] = (
+                260 + self.TEXT_COLUMN_WIDTH_INCREASE
+            )
             preferred_widths[self.STOCK_COLUMN] = minimum_widths[
                 self.STOCK_COLUMN
             ]

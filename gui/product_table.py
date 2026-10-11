@@ -546,8 +546,9 @@ class ProductImageDelegate(QStyledItemDelegate):
                     max(len(alternatives) - (visible_count - 1), 0),
                 ),
             )
-            visible_indices = [thumbnail_indexes[0]] + alternatives[
-                start : start + visible_count - 1
+            visible_indices = [
+                thumbnail_indexes[0],
+                *alternatives[start : start + visible_count - 1],
             ]
             alt_left = left_arrow.right() + 1 + gap
             tiles = [

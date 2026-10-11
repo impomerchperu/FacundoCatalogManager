@@ -1427,15 +1427,33 @@ def test_third_sort_click_preserves_active_product_filter():
     table.close()
 
 
-def test_main_image_is_144_pixels_wide_and_keeps_source_aspect_ratio(tmp_path: Path):
+def test_main_image_keeps_base_size_and_scales_up_proportionally(tmp_path: Path):
     _qapp()
     image_path = tmp_path / "portrait.png"
     pixmap = QPixmap(100, 200)
     assert pixmap.save(str(image_path))
-    size = ProductImageDelegate.main_image_size(str(image_path))
-    assert size.width() == 144
-    assert size.height() == 288
+
+    base_size = ProductImageDelegate.main_image_size(str(image_path))
+    expanded_size = ProductImageDelegate.main_image_size(str(image_path), 216)
+
+    assert base_size.width() == 144
+    assert base_size.height() == 288
+    assert expanded_size.width() == 216
+    assert expanded_size.height() == 432
     assert ProductImageDelegate.main_image_height(str(image_path)) == 288
+    assert ProductImageDelegate.main_image_height(str(image_path), 216) == 432
+
+
+def test_thumbnail_tiles_grow_with_cell_width_without_shrinking():
+    base_tiles, *_ = ProductImageDelegate.thumbnail_layout(
+        QRect(0, 0, 144, 200), 2, main_height=144,
+    )
+    expanded_tiles, *_ = ProductImageDelegate.thumbnail_layout(
+        QRect(0, 0, 216, 300), 2, main_height=216,
+    )
+
+    assert base_tiles[0][1].height() == ProductImageDelegate.THUMBNAIL_HEIGHT
+    assert expanded_tiles[0][1].height() > base_tiles[0][1].height()
 
 
 def test_product_images_scale_and_center_inside_available_cell_area(tmp_path: Path):
@@ -1807,5 +1825,9 @@ def test_visible_columns_share_extra_width_when_the_table_grows():
         for column, width in first_widths.items()
     }
     assert all(increment > 0 for increment in width_increments.values())
-    assert max(width_increments.values()) - min(width_increments.values()) <= 1
+    growth_ratios = [
+        width_increments[column] / width
+        for column, width in first_widths.items()
+    ]
+    assert max(growth_ratios) - min(growth_ratios) < 0.02
     table.close()

@@ -62,7 +62,7 @@ def test_product_search_matches_synonyms_both_directions():
 
 def test_product_search_includes_stock_colors_and_quantities():
     product = Product(
-        code="FB-104",
+        code="FB-987",
         name="Producto",
         stock=15,
         color_stock={"Rojo": 10, "Azul": 5},

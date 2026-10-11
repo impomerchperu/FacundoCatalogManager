@@ -15,7 +15,7 @@ def test_normalize_search_text_ignores_accents_case_and_punctuation():
     )
 
 
-def test_product_search_matches_accents_and_punctuation():
+def test_product_search_matches_partial_text_across_product_fields():
     product = Product(
         code="FB-100",
         name="Básket infantil",
@@ -28,36 +28,24 @@ def test_product_search_matches_accents_and_punctuation():
     assert product_matches_search(product, "articulos recreacion")
     assert product_matches_search(product, "BÁSKET!")
     assert product_matches_search(product, "FB-100")
+    assert product_matches_search(product, "basket antiestres")
+    assert not product_matches_search(product, "basket verde")
 
 
-def test_product_search_matches_spelling_errors_including_transposed_letters():
-    product = Product(
-        code="FB-101",
-        name="Mochila promocional",
-    )
-
-    assert product_matches_search(product, "mochlia")
-    assert product_matches_search(product, "mochila")
-    assert product_matches_search(product, "promocionla")
-
-
-def test_product_search_matches_synonyms_both_directions():
-    product = Product(
+def test_product_search_does_not_guess_spelling_or_replace_synonyms():
+    mochila = Product(code="FB-101", name="Mochila promocional")
+    abridor = Product(
         code="FB-102",
         name="Abridor de botellas",
         description="Abridores para cocina",
     )
 
-    assert product_matches_search(product, "destapadores")
-    assert product_matches_search(product, "destapador")
-
-    destapador = Product(
-        code="FB-103",
-        name="Destapadores profesionales",
-    )
-
-    assert product_matches_search(destapador, "abridores")
-    assert product_matches_search(destapador, "abridor")
+    assert product_matches_search(mochila, "mochila")
+    assert not product_matches_search(mochila, "mochlia")
+    assert not product_matches_search(mochila, "promocionla")
+    assert not product_matches_search(mochila, "morral")
+    assert product_matches_search(abridor, "abridor")
+    assert not product_matches_search(abridor, "destapadores")
 
 
 def test_product_search_includes_stock_colors_and_quantities():
@@ -102,16 +90,17 @@ def test_search_with_symbols_filters_by_literal_symbol_instead_of_showing_all():
     assert not product_matches_search(Product(code="FB-202", name="Bolso"), "#")
 
 
-def test_main_window_uses_tolerant_product_search():
+def test_main_window_uses_direct_product_search():
     product = Product(
         code="FB-105",
         name="Mochila",
         description="Destapadores y abridores",
     )
 
-    assert MainWindow.product_matches_search(product, "mochlia")
+    assert MainWindow.product_matches_search(product, "mochila")
+    assert not MainWindow.product_matches_search(product, "mochlia")
     assert MainWindow.product_matches_search(product, "destapadores")
-    assert MainWindow.product_matches_search(product, "morral")
+    assert not MainWindow.product_matches_search(product, "morral")
 
 
 class _VisibleProductsTable:
@@ -126,7 +115,7 @@ class _VisibleProductsTable:
         self.search_text = text
 
 
-def test_search_box_filters_immediately_for_letters_numbers_and_symbols():
+def test_search_box_filters_immediately_and_clearing_restores_products():
     _qapp()
     app = MainWindow.__new__(MainWindow)
     app.search_box = QLineEdit()
@@ -150,6 +139,14 @@ def test_search_box_filters_immediately_for_letters_numbers_and_symbols():
     assert [product.code for product in app.table.visible_products] == ["FB-100"]
     app.search_box.setText("#")
     assert [product.code for product in app.table.visible_products] == ["PP#300"]
+
+    app.search_box.clear()
+    assert [product.code for product in app.table.visible_products] == [
+        "FB-100",
+        "XY200",
+        "PP#300",
+    ]
+    assert app.table.search_text == ""
 
     app.search_box.deleteLater()
     app.product_counter.deleteLater()

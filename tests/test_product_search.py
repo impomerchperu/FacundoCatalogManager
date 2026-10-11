@@ -127,7 +127,7 @@ def test_search_box_filters_immediately_for_letters_numbers_and_symbols():
     app.search_box = QLineEdit()
     app.all_products = [
         Product(code="FB-100", name="Mochila"),
-        Product(code="FB200", name="Bolso"),
+        Product(code="XY200", name="Bolso"),
         Product(code="PP#300", name="Otro producto"),
     ]
     app.selected_categories = set()

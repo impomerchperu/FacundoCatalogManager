@@ -45,7 +45,7 @@ def _write_test_image(
     assert pixmap.save(str(path))
 
 
-def test_dialog_renders_main_image_and_thumbnails_at_200_percent(tmp_path):
+def test_dialog_images_are_130_percent_larger_than_the_previous_scale(tmp_path):
     _qapp()
     landscape = tmp_path / "landscape.png"
     portrait = tmp_path / "portrait.png"
@@ -58,15 +58,21 @@ def test_dialog_renders_main_image_and_thumbnails_at_200_percent(tmp_path):
 
     preview = dialog.main_image.pixmap()
     assert preview is not None
-    assert preview.width() == ProductImageDelegate.MAIN_IMAGE_WIDTH * 2
-    assert preview.height() == 144
-    assert dialog.MAIN_IMAGE_WIDTH == ProductImageGalleryDialog.SCALE_FACTOR * (
-        ProductImageDelegate.MAIN_IMAGE_WIDTH
+    assert preview.width() == dialog.MAIN_IMAGE_WIDTH
+    assert preview.width() == round(
+        ProductImageDelegate.MAIN_IMAGE_WIDTH * 2 * 1.3
     )
-    assert dialog.THUMBNAIL_HEIGHT == ProductImageDelegate.THUMBNAIL_HEIGHT * 2
+    assert preview.height() == round(preview.width() / 2)
+    assert dialog.MAIN_IMAGE_WIDTH == round(
+        ProductImageGalleryDialog.SCALE_FACTOR
+        * ProductImageDelegate.MAIN_IMAGE_WIDTH
+    )
+    assert dialog.THUMBNAIL_HEIGHT == round(
+        ProductImageDelegate.THUMBNAIL_HEIGHT * 2 * 1.3
+    )
     assert len(dialog.thumbnail_labels) == 2
     assert all(
-        thumbnail.height() == ProductImageDelegate.THUMBNAIL_HEIGHT * 2
+        thumbnail.height() == dialog.THUMBNAIL_HEIGHT
         for thumbnail in dialog.thumbnail_labels
     )
     assert dialog.main_image.objectName() == "gallery_main_image"
@@ -174,5 +180,5 @@ def test_single_image_hides_thumbnail_strip(tmp_path):
     assert dialog.thumbnail_area.isHidden()
     preview = dialog.main_image.pixmap()
     assert preview is not None
-    assert preview.width() == 288
+    assert preview.width() == ProductImageGalleryDialog.MAIN_IMAGE_WIDTH
     dialog.close()

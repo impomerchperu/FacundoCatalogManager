@@ -29,7 +29,7 @@ _SEARCH_TERM_GROUPS: tuple[frozenset[str], ...] = (
     frozenset({"tomatodo", "tomatodos", "toma todo", "botella", "botellas", "cantimplora", "cantimploras", "botilito"}),
     frozenset({"mug", "mugs", "taza", "tazas", "jarro", "jarros", "tazon", "tazones"}),
     frozenset({"llavero", "llaveros", "keychain", "keychains"}),
-    frozenset({"antiestrés", "antiestrés", "antiestres", "stress", "antistress"}),
+    frozenset({"antiestrés", "antiestres", "anti stress", "stress ball", "antistress"}),
     frozenset({"pendrive", "usb", "memoria usb", "memoria flash"}),
     frozenset({"audifono", "audifonos", "auricular", "auriculares", "headphone", "headphones"}),
     frozenset({"paraguas", "sombrilla", "sombrillas"}),
@@ -50,7 +50,7 @@ _SEARCH_TERM_ALIASES: dict[str, frozenset[str]] = {
 
 @lru_cache(maxsize=8192)
 def normalize_search_text(text: str) -> str:
-    """Normaliza mayúsculas y acentos; separadores se vuelven espacios."""
+    """Normaliza mayúsculas/acentos y elimina puntuación de comparación."""
 
     value = unicodedata.normalize("NFKD", str(text)).casefold()
     value = "".join(

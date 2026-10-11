@@ -2430,6 +2430,7 @@ class ProductTable(QTableWidget):
             return
         self._even_column_distribution = enabled
         self._fit_columns_to_content()
+        self._adjust_table_rows()
 
     def _stock_minimum_width(self) -> int:
         """Garantiza que cada color y cantidad permanezcan en una sola línea."""

@@ -2519,13 +2519,14 @@ class ProductTable(QTableWidget):
                 preferred_widths,
                 minimum_widths,
                 available_width,
+                even_distribution=self._even_column_distribution,
                 growable_columns=(
                     {
                         column
                         for column in range(self.columnCount())
                         if column != self.CATEGORY_COLUMN
                     }
-                    if self._even_column_distribution
+                    if even_distribution
                     else {
                         self.DETAIL_COLUMN,
                         self.STOCK_COLUMN,
@@ -2580,6 +2581,7 @@ class ProductTable(QTableWidget):
         target_width: int,
         *,
         growable_columns: set[int],
+        even_distribution: bool = False,
     ) -> list[int]:
         """Distribute extra width evenly across the visible growable columns."""
         widths = [

@@ -402,14 +402,23 @@ class ProductImageDelegate(QStyledItemDelegate):
     """Dibuja la imagen principal a escala proporcional y sus miniaturas."""
 
     DEFAULT_SIZE = 160
-    DEFAULT_HEIGHT = 144
     MAIN_IMAGE_WIDTH = 144
+    MIN_PRIMARY_IMAGE_DISPLAY_SIZE = 144
     THUMBNAIL_HEIGHT = 34
     THUMBNAIL_STRIP_HEIGHT = 34
     THUMBNAIL_GAP = 3
     THUMBNAIL_PADDING = 0
     CELL_HORIZONTAL_PADDING = 2
     CELL_VERTICAL_PADDING = 2
+    # Reserve 144 px for the main preview and room for the thumbnail strip.
+    # This keeps portrait previews from being reduced merely to make room for
+    # the alternatives along the bottom of the cell.
+    DEFAULT_HEIGHT = (
+        MIN_PRIMARY_IMAGE_DISPLAY_SIZE
+        + THUMBNAIL_STRIP_HEIGHT
+        + THUMBNAIL_GAP
+        + (2 * CELL_VERTICAL_PADDING)
+    )
     MAX_VISIBLE_THUMBNAILS = 4
     IMAGE_ROLE = int(Qt.ItemDataRole.UserRole) + 1
     GALLERY_ROLE = int(Qt.ItemDataRole.UserRole) + 3
@@ -1373,6 +1382,12 @@ class ProductTable(QTableWidget):
                 column,
                 QHeaderView.ResizeMode.Interactive,
             )
+        # Preserve the image viewport: narrowing this column would make primary
+        # images appear smaller than the requested 144 px minimum display size.
+        header.setSectionResizeMode(
+            self.IMAGE_COLUMN,
+            QHeaderView.ResizeMode.Fixed,
+        )
         for column, width in self.MIN_COLUMN_WIDTHS.items():
             self.setColumnWidth(column, width)
         self.setColumnHidden(self.CATEGORY_COLUMN, True)

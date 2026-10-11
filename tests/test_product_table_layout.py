@@ -1453,33 +1453,31 @@ def test_third_sort_click_preserves_active_product_filter():
     table.close()
 
 
-def test_main_image_keeps_base_size_and_scales_up_proportionally(tmp_path: Path):
+def test_main_image_size_remains_fixed_when_cell_width_changes(tmp_path: Path):
     _qapp()
     image_path = tmp_path / "portrait.png"
     pixmap = QPixmap(100, 200)
     assert pixmap.save(str(image_path))
 
     base_size = ProductImageDelegate.main_image_size(str(image_path))
-    expanded_size = ProductImageDelegate.main_image_size(str(image_path), 216)
+    width_argument_size = ProductImageDelegate.main_image_size(str(image_path), 216)
 
-    assert base_size.width() == 144
-    assert base_size.height() == 288
-    assert expanded_size.width() == 216
-    assert expanded_size.height() == 432
+    assert base_size == QSize(144, 288)
+    assert width_argument_size == base_size
     assert ProductImageDelegate.main_image_height(str(image_path)) == 288
-    assert ProductImageDelegate.main_image_height(str(image_path), 216) == 432
+    assert ProductImageDelegate.main_image_height(str(image_path), 216) == 288
 
 
-def test_thumbnail_tiles_grow_with_cell_width_without_shrinking():
+def test_thumbnail_tiles_keep_fixed_height_when_cell_width_changes():
     base_tiles, *_ = ProductImageDelegate.thumbnail_layout(
         QRect(0, 0, 144, 200), 2, main_height=144,
     )
-    expanded_tiles, *_ = ProductImageDelegate.thumbnail_layout(
-        QRect(0, 0, 216, 300), 2, main_height=216,
+    wider_tiles, *_ = ProductImageDelegate.thumbnail_layout(
+        QRect(0, 0, 216, 300), 2, main_height=144,
     )
 
     assert base_tiles[0][1].height() == ProductImageDelegate.THUMBNAIL_HEIGHT
-    assert expanded_tiles[0][1].height() > base_tiles[0][1].height()
+    assert wider_tiles[0][1].height() == ProductImageDelegate.THUMBNAIL_HEIGHT
 
 
 def test_product_images_scale_and_center_inside_available_cell_area(tmp_path: Path):
@@ -1528,31 +1526,10 @@ def test_row_height_expands_for_tall_primary_image_and_alternative_strip(
     assert code_item is not None
     assert code_item.textAlignment() & Qt.AlignmentFlag.AlignHCenter
     assert code_item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
-    display_width = max(
-        ProductImageDelegate.MAIN_IMAGE_WIDTH,
-        table.columnWidth(ProductTable.IMAGE_COLUMN)
-        - (2 * ProductImageDelegate.CELL_HORIZONTAL_PADDING),
-    )
-    thumbnail_height = max(
-        ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT,
-        round(
-            ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
-            * display_width
-            / ProductImageDelegate.MAIN_IMAGE_WIDTH,
-        ),
-    )
-    thumbnail_gap = max(
-        ProductImageDelegate.THUMBNAIL_GAP,
-        round(
-            ProductImageDelegate.THUMBNAIL_GAP
-            * display_width
-            / ProductImageDelegate.MAIN_IMAGE_WIDTH,
-        ),
-    )
     expected_image_content = (
-        ProductImageDelegate.main_image_height(str(main_path), display_width)
-        + thumbnail_gap
-        + thumbnail_height
+        ProductImageDelegate.main_image_height(str(main_path))
+        + ProductImageDelegate.THUMBNAIL_GAP
+        + ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
     )
     assert table.rowHeight(0) == (
         expected_image_content
@@ -1751,15 +1728,7 @@ def test_row_height_tracks_tallest_text_or_image_and_skips_padding_for_tall_rows
     )
     QApplication.processEvents()
 
-    display_width = max(
-        ProductImageDelegate.MAIN_IMAGE_WIDTH,
-        table.columnWidth(ProductTable.IMAGE_COLUMN)
-        - (2 * ProductImageDelegate.CELL_HORIZONTAL_PADDING),
-    )
-    landscape_content = ProductImageDelegate.main_image_height(
-        str(landscape_path),
-        display_width,
-    )
+    landscape_content = ProductImageDelegate.main_image_height(str(landscape_path))
     landscape_name = table.item(0, ProductTable.NAME_COLUMN)
     landscape_category = table.item(0, ProductTable.CATEGORY_COLUMN)
     assert landscape_name is not None
@@ -1776,10 +1745,7 @@ def test_row_height_tracks_tallest_text_or_image_and_skips_padding_for_tall_rows
         + ProductTable.ROW_VERTICAL_SPACING
     )
 
-    portrait_content = ProductImageDelegate.main_image_height(
-        str(portrait_path),
-        display_width,
-    )
+    portrait_content = ProductImageDelegate.main_image_height(str(portrait_path))
     assert portrait_content >= ProductTable.VERY_TALL_ROW_THRESHOLD
     assert table.rowHeight(1) == (
         portrait_content + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
@@ -1859,23 +1825,25 @@ def test_visible_columns_share_extra_width_when_the_table_grows():
     QApplication.processEvents()
     table.set_even_column_distribution(True)
     QApplication.processEvents()
+    visible_columns = (
+        ProductTable.CODE_COLUMN,
+        ProductTable.NAME_COLUMN,
+        ProductTable.DETAIL_COLUMN,
+        ProductTable.STOCK_COLUMN,
+        ProductTable.PRICE_SAMPLE_COLUMN,
+        ProductTable.PRICE_HUNDRED_COLUMN,
+        ProductTable.PRICE_THOUSAND_COLUMN,
+    )
+    image_width = table.columnWidth(ProductTable.IMAGE_COLUMN)
     first_widths = {
         column: table.columnWidth(column)
-        for column in (
-            ProductTable.IMAGE_COLUMN,
-            ProductTable.CODE_COLUMN,
-            ProductTable.NAME_COLUMN,
-            ProductTable.DETAIL_COLUMN,
-            ProductTable.STOCK_COLUMN,
-            ProductTable.PRICE_SAMPLE_COLUMN,
-            ProductTable.PRICE_HUNDRED_COLUMN,
-            ProductTable.PRICE_THOUSAND_COLUMN,
-        )
+        for column in visible_columns
     }
 
     table.resize(2200, 700)
     QApplication.processEvents()
 
+    assert table.columnWidth(ProductTable.IMAGE_COLUMN) == image_width
     width_increments = {
         column: table.columnWidth(column) - width
         for column, width in first_widths.items()

@@ -111,10 +111,10 @@ def test_selecting_thumbnail_preserves_fixed_positions_and_highlights_primary(tm
     assert [image["image_path"] for image in dialog.images] == original_gallery
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
-    ] == original_gallery
+    ] == [str(second), str(first)]
     assert [label.property("active") for label in dialog.thumbnail_labels] == [
-        False,
         True,
+        False,
     ]
     preview = dialog.main_image.pixmap()
     assert preview is not None
@@ -139,7 +139,7 @@ def test_selecting_thumbnail_preserves_fixed_positions_and_highlights_primary(tm
     dialog.close()
 
 
-def test_four_image_gallery_restores_thumbnail_order_after_switching_primary(tmp_path):
+def test_four_image_gallery_pins_primary_and_preserves_other_thumbnail_slots(tmp_path):
     _qapp()
     paths = [tmp_path / f"selection-{index}.png" for index in range(4)]
     for index, path in enumerate(paths):
@@ -159,16 +159,22 @@ def test_four_image_gallery_restores_thumbnail_order_after_switching_primary(tmp
     assert [image["image_path"] for image in dialog.images] == original_paths
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
-    ] == original_paths
+    ] == [
+        original_paths[2],
+        original_paths[1],
+        original_paths[0],
+        original_paths[3],
+    ]
     assert [label.property("active") for label in dialog.thumbnail_labels] == [
-        False,
-        False,
         True,
+        False,
+        False,
         False,
     ]
 
-    # Selecting the former primary changes only which frame is highlighted.
-    QTest.mouseClick(dialog.thumbnail_labels[0], Qt.MouseButton.LeftButton)
+    # The former primary occupies the selected image's old slot; the other
+    # thumbnails do not shift when a different primary is chosen.
+    QTest.mouseClick(dialog.thumbnail_labels[2], Qt.MouseButton.LeftButton)
     QApplication.processEvents()
     assert dialog.active_index == 0
     assert [
@@ -218,12 +224,20 @@ def test_dialog_expands_to_show_all_thumbnails_without_navigation_buttons(tmp_pa
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
     ] == [str(path) for path in paths]
+    assert [label.property("image_path") for label in dialog.thumbnail_labels] == [
+        str(paths[4]),
+        str(paths[1]),
+        str(paths[2]),
+        str(paths[3]),
+        str(paths[0]),
+        str(paths[5]),
+    ]
     assert [label.property("active") for label in dialog.thumbnail_labels] == [
-        False,
-        False,
-        False,
-        False,
         True,
+        False,
+        False,
+        False,
+        False,
         False,
     ]
     dialog.close()

@@ -319,7 +319,7 @@ def test_category_sidebar_keeps_fixed_reference_width_and_full_short_labels():
         reference.width() + MainWindow.CATEGORY_SIDEBAR_HORIZONTAL_PADDING * 2
     )
     assert window._category_sidebar_open_width == expected_sidebar_width
-    assert MainWindow.CATEGORY_SIDEBAR_REFERENCE_TEXT == reference.text()
+    assert reference.text() == MainWindow.CATEGORY_SIDEBAR_REFERENCE_TEXT
     assert full_button.text() == full_label
     assert long_button.toolTip() == long_label
     assert long_button.text() != long_label

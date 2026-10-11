@@ -260,8 +260,17 @@ class ProductImageGalleryDialog(QDialog):
         if row_width < content_width:
             self.thumbnail_layout.addStretch(1)
 
-        for index, image in enumerate(self.images):
-            path = str(image.get("image_path", "") or "")
+        # The selected main image always occupies the first thumbnail slot.
+        # Swap only it with the former first image so all other slots stay put.
+        thumbnail_indexes = list(range(len(self.images)))
+        if self.active_index:
+            thumbnail_indexes[0], thumbnail_indexes[self.active_index] = (
+                thumbnail_indexes[self.active_index],
+                thumbnail_indexes[0],
+            )
+
+        for index in thumbnail_indexes:
+            path = str(self.images[index].get("image_path", "") or "")
             thumbnail = _GalleryThumbnailLabel(
                 index,
                 path,

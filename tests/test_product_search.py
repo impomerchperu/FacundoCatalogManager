@@ -52,9 +52,14 @@ def test_product_search_supports_synonyms_without_guessing_spelling():
     destapador = Product(code="FB-103", name="Destapador profesional")
     assert product_matches_search(destapador, "abridor")
 
-    bottle = Product(code="FB-104", name="Botella deportiva")
+    bottle = Product(
+        code="FB-104",
+        name="Botella deportiva",
+        color_stock={"Rojo": 3},
+    )
     assert product_matches_search(bottle, "tomatodo")
     assert product_matches_search(bottle, "toma todo")
+    assert product_matches_search(bottle, "toma todo rojo")
 
 
 def test_product_search_includes_stock_colors_and_quantities():

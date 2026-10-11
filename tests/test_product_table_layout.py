@@ -166,31 +166,10 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
         (tiles[0][1].left() + tiles[-1][1].right()) / 2
         - content_rect.center().x()
     ) <= 1
-    display_width = max(
-        ProductImageDelegate.MAIN_IMAGE_WIDTH,
-        table.columnWidth(ProductTable.IMAGE_COLUMN)
-        - (2 * ProductImageDelegate.CELL_HORIZONTAL_PADDING),
-    )
-    thumbnail_height = max(
-        ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT,
-        round(
-            ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
-            * display_width
-            / ProductImageDelegate.MAIN_IMAGE_WIDTH,
-        ),
-    )
-    thumbnail_gap = max(
-        ProductImageDelegate.THUMBNAIL_GAP,
-        round(
-            ProductImageDelegate.THUMBNAIL_GAP
-            * display_width
-            / ProductImageDelegate.MAIN_IMAGE_WIDTH,
-        ),
-    )
     image_content_height = (
-        ProductImageDelegate.main_image_height(str(paths[0]), display_width)
-        + thumbnail_gap
-        + thumbnail_height
+        ProductImageDelegate.main_image_height(str(paths[0]))
+        + ProductImageDelegate.THUMBNAIL_GAP
+        + ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
     )
     assert table.rowHeight(0) == (
         image_content_height

@@ -2233,7 +2233,7 @@ class ProductTable(QTableWidget):
             index = self.indexAt(event.pos())
             item = self.itemFromIndex(index) if index.isValid() else None
             tooltip_text = item.toolTip() if item is not None else ""
-            if tooltip_text:
+            if item is not None and tooltip_text:
                 cell_rect = self.visualRect(index)
                 tooltip_html = self._cell_tooltip_html(
                     tooltip_text,

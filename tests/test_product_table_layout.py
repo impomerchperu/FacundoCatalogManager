@@ -74,9 +74,24 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     assert isinstance(delegate, ProductImageDelegate)
     assert item.data(ProductImageDelegate.IMAGE_ROLE) == str(image_path)
     initial_image_column_width = table.columnWidth(ProductTable.IMAGE_COLUMN)
-    assert initial_image_column_width == ProductImageDelegate.MAIN_IMAGE_WIDTH
+    assert initial_image_column_width == (
+        ProductImageDelegate.MAIN_IMAGE_WIDTH
+        + (2 * ProductImageDelegate.CELL_HORIZONTAL_PADDING)
+    )
     assert initial_image_column_width == ProductImageDelegate.DEFAULT_SIZE
     assert ProductImageDelegate.THUMBNAIL_GAP == 0
+
+    cell_rect = table.visualRect(
+        table.model().index(0, ProductTable.IMAGE_COLUMN),
+    )
+    main_rect, _thumbnail_top = ProductImageDelegate.main_image_layout(
+        cell_rect,
+        str(image_path),
+        has_thumbnails=False,
+    )
+    assert main_rect.left() == cell_rect.left() + 1
+    assert main_rect.top() == cell_rect.top() + 1
+    assert main_rect.width() == ProductImageDelegate.MAIN_IMAGE_WIDTH
     assert (
         table.horizontalHeader().sectionResizeMode(ProductTable.IMAGE_COLUMN)
         == QHeaderView.ResizeMode.Fixed
@@ -1707,9 +1722,11 @@ def test_detail_cell_is_vertically_centered():
     item = table.item(0, ProductTable.DETAIL_COLUMN)
     assert item is not None
     assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
-    assert ProductImageDelegate.CELL_HORIZONTAL_PADDING == 0
-    assert ProductImageDelegate.CELL_VERTICAL_PADDING == 0
-    assert ProductImageDelegate.cell_content_rect(QRect(5, 6, 144, 160)) == QRect(5, 6, 144, 160)
+    assert ProductImageDelegate.CELL_HORIZONTAL_PADDING == 1
+    assert ProductImageDelegate.CELL_VERTICAL_PADDING == 1
+    assert ProductImageDelegate.cell_content_rect(
+        QRect(5, 6, 146, 162),
+    ) == QRect(6, 7, 144, 160)
     assert ProductNameCategoryDelegate.HORIZONTAL_PADDING == 8
     assert ProductNameCategoryDelegate.VERTICAL_PADDING == 8
     assert ProductDetailDelegate.HORIZONTAL_PADDING == 8

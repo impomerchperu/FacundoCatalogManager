@@ -222,13 +222,13 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
         active_index=1,
         thumbnail_top=thumbnail_top,
     )
-    assert [image_index for image_index, _tile in replacement_tiles] == [1, 0, 2]
+    assert [image_index for image_index, _tile in replacement_tiles] == [0, 1, 2]
     assert [
         (tile.left(), tile.width(), tile.height())
         for _image_index, tile in replacement_tiles
     ] == fixed_tile_geometry
-    assert replacement_tiles[1][0] == 0
-    assert replacement_tiles[0][0] == 1
+    assert replacement_tiles[0][0] == 0
+    assert replacement_tiles[1][0] == 1
     assert replacement_tiles[0][1].top() == main_rect.bottom() + 1 + (
         ProductImageDelegate.THUMBNAIL_GAP
     )
@@ -236,7 +236,7 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
     QTest.mouseClick(
         table.viewport(),
         Qt.MouseButton.LeftButton,
-        pos=replacement_tiles[1][1].center(),
+        pos=replacement_tiles[0][1].center(),
     )
     QApplication.processEvents()
     assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 0
@@ -320,7 +320,7 @@ def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: P
             thumbnail_top=thumbnail_top,
         )
     )
-    assert [image_index for image_index, _ in scrolled_tiles] == [0, 2, 3, 4]
+    assert [image_index for image_index, _ in scrolled_tiles] == [1, 2, 3, 4]
     assert left_arrow is not None
     assert right_arrow is not None
 
@@ -637,8 +637,9 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     assert table.textElideMode() == Qt.TextElideMode.ElideNone
     assert "padding: 3px 4px" in table.styleSheet()
     assert "QTableWidget::item:focus" in table.styleSheet()
-    assert "QTableWidget::item:focus {\n                border: none;" in table.styleSheet()
-    assert "border: 2px solid #1675e8;" in table.styleSheet()
+    assert "QTableWidget::item:focus {\n                border: 0px;\n                outline: none;" in table.styleSheet()
+    assert "border: 1px solid #1675e8;" in table.styleSheet()
+    assert "QTableWidget::item:selected:focus" in table.styleSheet()
     assert table.selectionBehavior() == QAbstractItemView.SelectionBehavior.SelectItems
     assert not (
         table.editTriggers()
@@ -1571,7 +1572,7 @@ def test_thumbnail_layout_centers_alternatives_and_shows_four_tiles():
     tiles, left_arrow, right_arrow, _ = ProductImageDelegate.thumbnail_layout(
         rect, 6, 1, main_height=288
     )
-    assert [image_index for image_index, _tile in tiles] == [0, 2, 3, 4]
+    assert [image_index for image_index, _tile in tiles] == [1, 2, 3, 4]
     assert left_arrow is not None and right_arrow is not None
 
 
@@ -1820,6 +1821,76 @@ def test_stock_by_color_cell_opens_multiline_editor_for_color_and_quantity():
     assert editor.toPlainText().splitlines() == ["Rojo: 10", "Azul: 5"]
 
     editor.close()
+    table.close()
+
+
+def test_tooltip_keeps_cell_width_and_text_alignment_when_filtered():
+    left = ProductTable._cell_tooltip_html(
+        "Detalle de producto " * 40,
+        128,
+        int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+    )
+    centered = ProductTable._cell_tooltip_html(
+        "Precio de muestra",
+        84,
+        int(Qt.AlignmentFlag.AlignCenter),
+    )
+
+    assert "width:128px" in left
+    assert "max-width:128px" in left
+    assert "text-align:left" in left
+    assert "word-wrap:break-word" in left
+    assert "width:84px" in centered
+    assert "text-align:center" in centered
+
+
+def test_changing_selected_row_resets_temporary_primary_images(tmp_path: Path):
+    _qapp()
+    paths = [tmp_path / f"reset-{index}.png" for index in range(3)]
+    for path in paths:
+        pixmap = QPixmap(120, 80)
+        assert pixmap.save(str(path))
+    products = [
+        Product(
+            code="FB-9001",
+            name="Primero",
+            image_path=str(paths[0]),
+            gallery_images=[
+                {"image_path": str(paths[0]), "url": "https://example.test/0"},
+                {"image_path": str(paths[1]), "url": "https://example.test/1"},
+            ],
+        ),
+        Product(
+            code="FB-9002",
+            name="Segundo",
+            image_path=str(paths[2]),
+            gallery_images=[
+                {"image_path": str(paths[2]), "url": "https://example.test/2"},
+                {"image_path": str(paths[1]), "url": "https://example.test/1b"},
+            ],
+        ),
+    ]
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products(products)
+    QApplication.processEvents()
+
+    table.setCurrentCell(0, ProductTable.IMAGE_COLUMN)
+    table._set_active_image(0, 1)
+    assert table.item(0, ProductTable.IMAGE_COLUMN).data(
+        ProductImageDelegate.ACTIVE_INDEX_ROLE,
+    ) == 1
+
+    table.setCurrentCell(1, ProductTable.CODE_COLUMN)
+    QApplication.processEvents()
+
+    assert table.item(0, ProductTable.IMAGE_COLUMN).data(
+        ProductImageDelegate.ACTIVE_INDEX_ROLE,
+    ) == 0
+    assert table.item(1, ProductTable.IMAGE_COLUMN).data(
+        ProductImageDelegate.ACTIVE_INDEX_ROLE,
+    ) == 0
     table.close()
 
 

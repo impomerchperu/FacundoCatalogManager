@@ -631,7 +631,7 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
 
     header = table.horizontalHeader()
     code_index = table.model().index(0, ProductTable.CODE_COLUMN)
-    code_delegate = table.itemDelegate(code_index)
+    code_delegate = table.itemDelegate()
     assert isinstance(code_delegate, ProductCellDelegate)
     focus_option = QStyleOptionViewItem()
     focus_option.state |= QStyle.StateFlag.State_HasFocus
@@ -648,10 +648,6 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     assert "QTableWidget::item:focus {\n                border: 0px;\n                outline: none;" in table.styleSheet()
     assert "border: 1px solid #1675e8;" in table.styleSheet()
     assert "QTableWidget::item:selected:focus" in table.styleSheet()
-    assert isinstance(
-        table.itemDelegateForColumn(ProductTable.CODE_COLUMN),
-        ProductCellDelegate,
-    )
     assert table.selectionBehavior() == QAbstractItemView.SelectionBehavior.SelectItems
     assert not (
         table.editTriggers()

@@ -2218,9 +2218,11 @@ class ProductTable(QTableWidget):
         safe_width = max(width, 1)
         safe_text = html.escape(text).replace("\n", "<br>")
         return (
-            f'<div style="width:{safe_width}px; max-width:{safe_width}px; '
-            f'text-align:{text_alignment}; white-space:normal; '
-            f'word-wrap:break-word;">{safe_text}</div>'
+            f'<table width="{safe_width}" style="width:{safe_width}px; '
+            f'margin:0; border:0;" cellspacing="0" cellpadding="0" border="0">'
+            f'<tr><td align="{text_alignment}" '
+            f'style="padding:0; white-space:normal; word-wrap:break-word;">'
+            f'{safe_text}</td></tr></table>'
         )
 
     def viewportEvent(self, event) -> bool:

@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPlainTextEdit,
+    QStyle,
     QStyleOptionViewItem,
 )
 
@@ -630,6 +631,13 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     table._fit_columns_to_content()
 
     header = table.horizontalHeader()
+    code_index = table.model().index(0, ProductTable.CODE_COLUMN)
+    code_delegate = table.itemDelegateForColumn(ProductTable.CODE_COLUMN)
+    assert isinstance(code_delegate, ProductCellDelegate)
+    focus_option = QStyleOptionViewItem()
+    focus_option.state |= QStyle.StateFlag.State_HasFocus
+    code_delegate.initStyleOption(focus_option, code_index)
+    assert not (focus_option.state & QStyle.StateFlag.State_HasFocus)
 
     assert (
         table.horizontalScrollBarPolicy()

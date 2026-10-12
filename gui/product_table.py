@@ -445,14 +445,15 @@ class ProductImageDelegate(ProductCellDelegate):
     """Dibuja la imagen principal a escala proporcional y sus miniaturas."""
 
     MAIN_IMAGE_WIDTH = 144
-    DEFAULT_SIZE = MAIN_IMAGE_WIDTH
     MIN_PRIMARY_IMAGE_DISPLAY_SIZE = 144
     THUMBNAIL_HEIGHT = 34
     THUMBNAIL_STRIP_HEIGHT = 34
     THUMBNAIL_GAP = 0
     THUMBNAIL_PADDING = 0
-    CELL_HORIZONTAL_PADDING = 0
-    CELL_VERTICAL_PADDING = 0
+    # Reserve only the one-pixel table gridline on each edge, not an image margin.
+    CELL_HORIZONTAL_PADDING = 1
+    CELL_VERTICAL_PADDING = 1
+    DEFAULT_SIZE = MAIN_IMAGE_WIDTH + (2 * CELL_HORIZONTAL_PADDING)
     # Reserve 144 px for the main preview and room for the thumbnail strip.
     # This keeps portrait previews from being reduced merely to make room for
     # the alternatives along the bottom of the cell.
@@ -1369,7 +1370,7 @@ class ProductTable(QTableWidget):
         "yellow": ("#fff5b8", "#f2d21b"),
     }
     MIN_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
-        IMAGE_COLUMN: ProductImageDelegate.MAIN_IMAGE_WIDTH,
+        IMAGE_COLUMN: ProductImageDelegate.DEFAULT_SIZE,
         CODE_COLUMN: 72,
         NAME_COLUMN: 112,
         DETAIL_COLUMN: 100,

@@ -141,6 +141,7 @@ def test_selecting_thumbnail_preserves_fixed_positions_and_highlights_primary(tm
     )
     dialog.close()
 
+
 def test_four_image_gallery_keeps_order_and_highlights_primary_in_place(tmp_path):
     _qapp()
     paths = [tmp_path / f"selection-{index}.png" for index in range(4)]
@@ -182,6 +183,7 @@ def test_four_image_gallery_keeps_order_and_highlights_primary_in_place(tmp_path
         False,
     ]
     dialog.close()
+
 
 def test_dialog_expands_to_show_all_thumbnails_without_navigation_buttons(tmp_path):
     _qapp()
@@ -235,6 +237,7 @@ def test_dialog_expands_to_show_all_thumbnails_without_navigation_buttons(tmp_pa
         for label in dialog.thumbnail_labels
     ] == fixed_slot_geometry
     dialog.close()
+
 
 def test_gallery_dialog_opens_with_the_selected_table_primary(tmp_path):
     _qapp()

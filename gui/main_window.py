@@ -954,14 +954,13 @@ class MainWindow(QMainWindow):
         self.category_toggle_button.setText(
             "Ocultar Categorías" if visible else "Filtrar Categorías",
         )
-        self.category_toggle_button.setFixedWidth(
-            self._category_sidebar_open_width,
-        )
+        sidebar_width = self._category_sidebar_open_width
+        if self.category_toggle_button.width() != sidebar_width:
+            self.category_toggle_button.setFixedWidth(sidebar_width)
         self.category_sidebar.setVisible(visible)
         self.category_scroll.setVisible(visible)
-        self.category_sidebar.setFixedWidth(
-            self._category_sidebar_open_width,
-        )
+        if visible and self.category_sidebar.width() != sidebar_width:
+            self.category_sidebar.setFixedWidth(sidebar_width)
         table = getattr(self, "table", None)
         set_column_distribution = getattr(
             table,

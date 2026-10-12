@@ -959,7 +959,7 @@ class MainWindow(QMainWindow):
             self.category_toggle_button.setFixedWidth(sidebar_width)
         self.category_sidebar.setVisible(visible)
         self.category_scroll.setVisible(visible)
-        if visible and self.category_sidebar.width() != sidebar_width:
+        if self.category_sidebar.width() != sidebar_width:
             self.category_sidebar.setFixedWidth(sidebar_width)
         table = getattr(self, "table", None)
         set_column_distribution = getattr(

@@ -1848,12 +1848,12 @@ def test_tooltip_keeps_cell_width_and_text_alignment_when_filtered():
         int(Qt.AlignmentFlag.AlignCenter),
     )
 
+    assert 'width="128"' in left
     assert "width:128px" in left
-    assert "max-width:128px" in left
-    assert "text-align:left" in left
+    assert 'align="left"' in left
     assert "word-wrap:break-word" in left
-    assert "width:84px" in centered
-    assert "text-align:center" in centered
+    assert 'width="84"' in centered
+    assert 'align="center"' in centered
 
 
 def test_changing_selected_row_resets_temporary_primary_images(tmp_path: Path):

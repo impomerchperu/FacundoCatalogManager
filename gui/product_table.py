@@ -734,9 +734,11 @@ class ProductImageDelegate(ProductCellDelegate):
             (content_rect.height() - group_height) // 2,
             0,
         )
+        # The image column is sized to the preview plus a one-pixel gridline
+        # inset. Do not center in an odd-width item rect: integer rounding can
+        # move the image onto the left gridline.
         image_rect = QRect(
-            content_rect.left()
-            + (content_rect.width() - preview_size.width()) // 2,
+            rect.left() + cls.CELL_HORIZONTAL_PADDING,
             group_top,
             preview_size.width(),
             preview_size.height(),
@@ -2071,6 +2073,67 @@ class ProductTable(QTableWidget):
             ProductImageDelegate.IMAGE_ROLE,
             str(resolve_data_path(image_path)) if image_path else "",
         )
+
+    def keyPressEvent(self, event) -> None:
+        """Use horizontal arrows to select the adjacent gallery thumbnail."""
+        if (
+            self.currentColumn() == self.IMAGE_COLUMN
+            and event.key()
+            in (Qt.Key.Key_Left, Qt.Key.Key_Right)
+        ):
+            row = self.currentRow()
+            item = self.item(row, self.IMAGE_COLUMN)
+            gallery = (
+                item.data(ProductImageDelegate.GALLERY_ROLE)
+                if item is not None
+                else None
+            )
+            if isinstance(gallery, list) and len(gallery) > 1:
+                active_index = ProductImageDelegate._active_index(
+                    gallery,
+                    item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE),
+                )
+                direction = (
+                    -1 if event.key() == Qt.Key.Key_Left else 1
+                )
+                next_index = max(
+                    0,
+                    min(active_index + direction, len(gallery) - 1),
+                )
+                if next_index != active_index:
+                    if len(gallery) > ProductImageDelegate.MAX_VISIBLE_THUMBNAILS:
+                        thumbnail_start = item.data(
+                            ProductImageDelegate.THUMBNAIL_START_ROLE,
+                        )
+                        try:
+                            thumbnail_start = max(int(thumbnail_start or 0), 0)
+                        except (TypeError, ValueError):
+                            thumbnail_start = 0
+                        max_start = max(
+                            len(gallery)
+                            - ProductImageDelegate.MAX_VISIBLE_THUMBNAILS,
+                            0,
+                        )
+                        thumbnail_start = min(thumbnail_start, max_start)
+                        if next_index < thumbnail_start:
+                            thumbnail_start = next_index
+                        elif next_index >= (
+                            thumbnail_start
+                            + ProductImageDelegate.MAX_VISIBLE_THUMBNAILS
+                        ):
+                            thumbnail_start = (
+                                next_index
+                                - ProductImageDelegate.MAX_VISIBLE_THUMBNAILS
+                                + 1
+                            )
+                        item.setData(
+                            ProductImageDelegate.THUMBNAIL_START_ROLE,
+                            thumbnail_start,
+                        )
+                    self._set_active_image(row, next_index)
+                event.accept()
+                return
+        super().keyPressEvent(event)
 
     def mousePressEvent(self, event) -> None:
         position = event.position().toPoint()

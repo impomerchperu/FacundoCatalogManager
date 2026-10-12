@@ -899,6 +899,7 @@ class StockColorDelegate(ProductCellDelegate):
     TEXT_COLOR = "#173f6d"
 
     def paint(self, painter: QPainter, option, index) -> None:
+        self.paint_item_background(painter, option, index)
         color_stock = index.data(self.STOCK_ROLE)
         painter.save()
         painter.setFont(option.font)
@@ -2163,7 +2164,6 @@ class ProductTable(QTableWidget):
                 self._active_image_indices[code] = active_index
         self.viewport().update()
 
-    @staticmethod
     def _handle_current_cell_changed(
         self,
         current_row: int,
@@ -2241,6 +2241,7 @@ class ProductTable(QTableWidget):
             return True
         return super().viewportEvent(event)
 
+    @staticmethod
     @staticmethod
     def _detail_comparison_key(value: str) -> str:
         normalized = (

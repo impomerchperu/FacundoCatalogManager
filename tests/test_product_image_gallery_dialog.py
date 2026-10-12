@@ -81,6 +81,12 @@ def test_dialog_images_use_130_percent_of_the_previous_scale(tmp_path):
     )
     assert dialog.thumbnail_labels[0].property("active") is True
     assert dialog.thumbnail_labels[1].property("active") is False
+    assert "border: 1px solid #1675e8" in (
+        dialog.thumbnail_labels[0].styleSheet()
+    )
+    assert "border: 1px solid #cbd5e1" in (
+        dialog.thumbnail_labels[1].styleSheet()
+    )
     assert dialog.main_image.objectName() == "gallery_main_image"
     assert dialog.width() >= dialog.CONTENT_WIDTH + 24
     assert not dialog.findChildren(QPushButton, "gallery_next")
@@ -119,6 +125,12 @@ def test_selecting_thumbnail_preserves_fixed_positions_and_highlights_primary(tm
         False,
         True,
     ]
+    assert "border: 1px solid #1675e8" in (
+        dialog.thumbnail_labels[1].styleSheet()
+    )
+    assert "border: 1px solid #cbd5e1" in (
+        dialog.thumbnail_labels[0].styleSheet()
+    )
     preview = dialog.main_image.pixmap()
     assert preview is not None
     assert preview.height() > preview.width()
@@ -259,6 +271,12 @@ def test_gallery_dialog_opens_with_the_selected_table_primary(tmp_path):
         False,
         True,
     ]
+    assert "border: 1px solid #1675e8" in (
+        dialog.thumbnail_labels[1].styleSheet()
+    )
+    assert "border: 1px solid #cbd5e1" in (
+        dialog.thumbnail_labels[0].styleSheet()
+    )
     preview = dialog.main_image.pixmap()
     assert preview is not None
     assert preview.width() > preview.height()

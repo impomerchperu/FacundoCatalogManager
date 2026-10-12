@@ -1,13 +1,15 @@
+import html
 import re
 import unicodedata
 from typing import ClassVar
 
-from PySide6.QtCore import QPointF, QRect, QSize, Qt, QTimer
+from PySide6.QtCore import QEvent, QPointF, QRect, QSize, Qt, QTimer
 from PySide6.QtGui import (
     QColor,
     QFont,
     QFontMetrics,
     QFontMetricsF,
+    QHelpEvent,
     QImageReader,
     QPainter,
     QPalette,
@@ -31,6 +33,7 @@ from PySide6.QtWidgets import (
     QStyleOptionViewItem,
     QTableWidget,
     QTableWidgetItem,
+    QToolTip,
     QWidget,
 )
 
@@ -63,7 +66,32 @@ class NumericTableWidgetItem(QTableWidgetItem):
         return super().__lt__(other)
 
 
-class PriceDelegate(QStyledItemDelegate):
+class ProductCellDelegate(QStyledItemDelegate):
+    """Quita el marco de enfoque nativo y conserva el borde de selección propio."""
+
+    def initStyleOption(
+        self,
+        option: QStyleOptionViewItem,
+        index,
+    ) -> None:
+        super().initStyleOption(option, index)
+        option.state &= ~QStyle.StateFlag.State_HasFocus
+
+    def paint_item_background(self, painter, option, index) -> None:
+        style_option = QStyleOptionViewItem(option)
+        self.initStyleOption(style_option, index)
+        style_option.text = ""
+        widget = style_option.widget
+        style = widget.style() if widget is not None else QApplication.style()
+        style.drawControl(
+            QStyle.ControlElement.CE_ItemViewItem,
+            style_option,
+            painter,
+            widget,
+        )
+
+
+class PriceDelegate(ProductCellDelegate):
     """Editor numérico que mantiene visible la moneda durante la edición."""
 
     def createEditor(self, parent, option, index) -> QWidget:
@@ -170,7 +198,7 @@ class ProductHeader(QHeaderView):
         super().paintSection(painter, rect, logical_index)
 
 
-class ProductCodeCategoryDelegate(QStyledItemDelegate):
+class ProductCodeCategoryDelegate(ProductCellDelegate):
     """Muestra el código y sus categorías relacionadas en una sola celda."""
 
     CATEGORY_SOURCE_ROLE = int(Qt.ItemDataRole.UserRole) + 50
@@ -399,7 +427,7 @@ class ProductNameCategoryDelegate(ProductCodeCategoryDelegate):
         return QSize(self.PREFERRED_WIDTH, height)
 
 
-class ProductImageDelegate(QStyledItemDelegate):
+class ProductImageDelegate(ProductCellDelegate):
     """Dibuja la imagen principal a escala proporcional y sus miniaturas."""
 
     DEFAULT_SIZE = 160
@@ -483,7 +511,8 @@ class ProductImageDelegate(QStyledItemDelegate):
         main_height: int | None = None,
         thumbnail_top: int | None = None,
     ) -> tuple[list[tuple[int, QRect]], QRect | None, QRect | None, int]:
-        """Keep the primary thumbnail first and alternatives in stable slots."""
+        """Lay out thumbnails in gallery order; the active index affects only paint."""
+        del active_index
         strip_top = (
             thumbnail_top
             if thumbnail_top is not None
@@ -496,38 +525,19 @@ class ProductImageDelegate(QStyledItemDelegate):
         )
         thumbnail_indexes = list(range(max(image_count, 0)))
         thumbnail_count = len(thumbnail_indexes)
-        if thumbnail_count <= 0:
+        if thumbnail_count == 0:
             return [], None, None, strip_top
-
-        selected_index = active_index % thumbnail_count
-        if selected_index:
-            # Put the selected primary in the first tile and move the former
-            # primary into the selected image's old slot; all other slots stay.
-            thumbnail_indexes[0], thumbnail_indexes[selected_index] = (
-                thumbnail_indexes[selected_index],
-                thumbnail_indexes[0],
-            )
 
         thumbnail_height = cls.THUMBNAIL_HEIGHT
         gap = cls.THUMBNAIL_GAP
         left_arrow = None
         right_arrow = None
+
         if thumbnail_count > cls.MAX_VISIBLE_THUMBNAILS:
             visible_count = cls.MAX_VISIBLE_THUMBNAILS
             arrow_width = min(12, max(rect.width() // 10, 1))
-            tile_width = max(
-                (
-                    rect.width()
-                    - (2 * arrow_width)
-                    - (gap * (visible_count + 1))
-                )
-                // visible_count,
-                1,
-            )
-            # Reserve the first tile for the selected primary. Navigation
-            # controls and the scrolling alternatives follow it.
             left_arrow = QRect(
-                rect.left() + tile_width + gap,
+                rect.left(),
                 strip_top,
                 arrow_width,
                 thumbnail_height,
@@ -538,43 +548,31 @@ class ProductImageDelegate(QStyledItemDelegate):
                 arrow_width,
                 thumbnail_height,
             )
-            alternatives = thumbnail_indexes[1:]
-            start = max(
-                0,
-                min(
-                    thumbnail_start,
-                    max(len(alternatives) - (visible_count - 1), 0),
-                ),
+            left = left_arrow.right() + 1 + gap
+            right = right_arrow.left() - 1 - gap
+            available_width = max(right - left + 1, 1)
+            tile_width = max(
+                (
+                    available_width
+                    - gap * (visible_count - 1)
+                ) // visible_count,
+                1,
             )
-            visible_indices = [
-                thumbnail_indexes[0],
-                *alternatives[start : start + visible_count - 1],
-            ]
-            alt_left = left_arrow.right() + 1 + gap
+            max_start = max(thumbnail_count - visible_count, 0)
+            start = max(0, min(thumbnail_start, max_start))
+            visible_indices = thumbnail_indexes[start : start + visible_count]
             tiles = [
                 (
-                    visible_indices[0],
+                    image_index,
                     QRect(
-                        rect.left(),
+                        left + position * (tile_width + gap),
                         strip_top,
                         tile_width,
                         thumbnail_height,
                     ),
-                ),
-            ]
-            for position, image_index in enumerate(visible_indices[1:]):
-                tile_left = alt_left + position * (tile_width + gap)
-                tiles.append(
-                    (
-                        image_index,
-                        QRect(
-                            tile_left,
-                            strip_top,
-                            tile_width,
-                            thumbnail_height,
-                        ),
-                    ),
                 )
+                for position, image_index in enumerate(visible_indices)
+            ]
             return tiles, left_arrow, right_arrow, strip_top
 
         tile_width = max(
@@ -584,24 +582,20 @@ class ProductImageDelegate(QStyledItemDelegate):
             ) // cls.MAX_VISIBLE_THUMBNAILS,
             1,
         )
-        group_width = (
-            thumbnail_count * tile_width + gap * (thumbnail_count - 1)
-        )
+        group_width = thumbnail_count * tile_width + gap * (thumbnail_count - 1)
         left = rect.left() + max((rect.width() - group_width) // 2, 0)
-        tiles: list[tuple[int, QRect]] = []
-        for position, image_index in enumerate(thumbnail_indexes):
-            tile_left = left + position * (tile_width + gap)
-            tiles.append(
-                (
-                    image_index,
-                    QRect(
-                        tile_left,
-                        strip_top,
-                        tile_width,
-                        thumbnail_height,
-                    ),
+        tiles = [
+            (
+                image_index,
+                QRect(
+                    left + position * (tile_width + gap),
+                    strip_top,
+                    tile_width,
+                    thumbnail_height,
                 ),
             )
+            for position, image_index in enumerate(thumbnail_indexes)
+        ]
         return tiles, left_arrow, right_arrow, strip_top
 
     @staticmethod
@@ -776,7 +770,7 @@ class ProductImageDelegate(QStyledItemDelegate):
             painter.setPen(
                 QPen(
                     QColor("#1675e8" if selected_thumbnail else "#cbd5e1"),
-                    2 if selected_thumbnail else 1,
+                    1,
                 ),
             )
             painter.drawRect(tile_rect.adjusted(0, 0, -1, -1))
@@ -833,7 +827,7 @@ class ProductImageDelegate(QStyledItemDelegate):
         # frame last to keep it visible above the image and thumbnail pixels.
         if option.state & QStyle.StateFlag.State_Selected:
             painter.save()
-            painter.setPen(QPen(QColor("#1675e8"), 2))
+            painter.setPen(QPen(QColor("#1675e8"), 1))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRect(option.rect.adjusted(1, 1, -2, -2))
             painter.restore()
@@ -855,7 +849,7 @@ class ProductImageDelegate(QStyledItemDelegate):
         return QSize(self.DEFAULT_SIZE, self.DEFAULT_HEIGHT)
 
 
-class StockColorDelegate(QStyledItemDelegate):
+class StockColorDelegate(ProductCellDelegate):
     """Pinta y edita cada línea de stock por color dentro de una celda."""
 
     STOCK_ROLE = int(Qt.ItemDataRole.UserRole) + 2
@@ -1014,7 +1008,7 @@ class StockColorDelegate(QStyledItemDelegate):
         )
 
 
-class ProductDetailDelegate(QStyledItemDelegate):
+class ProductDetailDelegate(ProductCellDelegate):
     """Renderiza el detalle con interlineado compacto y ajuste de texto."""
 
     HORIZONTAL_PADDING = 8
@@ -1419,6 +1413,7 @@ class ProductTable(QTableWidget):
         self.setHorizontalHeaderLabels(self.HEADER_LABELS)
         self._setup_table()
         self._setup_header()
+        self.currentCellChanged.connect(self._handle_current_cell_changed)
 
     def _setup_table(self) -> None:
         self.setSortingEnabled(False)
@@ -1463,12 +1458,18 @@ class ProductTable(QTableWidget):
                 color: #173f6d;
             }
             QTableWidget::item:focus {
-                border: none;
+                border: 0px;
+                outline: none;
             }
             QTableWidget::item:selected {
                 background-color: #fbfdff;
-                border: 2px solid #1675e8;
+                border: 1px solid #1675e8;
+                outline: none;
                 color: #173f6d;
+            }
+            QTableWidget::item:selected:focus {
+                border: 1px solid #1675e8;
+                outline: none;
             }
             QHeaderView::section {
                 min-height: 56px;
@@ -1903,10 +1904,7 @@ class ProductTable(QTableWidget):
             if url and url.casefold() not in persisted_urls:
                 gallery.append(dict(option))
                 persisted_urls.add(url.casefold())
-        active_index = self._active_image_indices.get(
-            str(product.code).strip().casefold(),
-            0,
-        )
+        active_index = 0
         if gallery:
             active_index %= len(gallery)
             selected = gallery[active_index]
@@ -2154,8 +2152,8 @@ class ProductTable(QTableWidget):
         if not isinstance(gallery, list) or not gallery:
             return
         active_index %= len(gallery)
-        # Keep the display gallery and scroll position stable. Only the active
-        # thumbnail border and the main preview change.
+        # The main preview changes, while thumbnails remain in their persisted
+        # positions and only the selected thumbnail border is updated.
         item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, active_index)
         self._set_image_item_path(item, gallery, active_index)
         self._set_row_height(row)
@@ -2164,6 +2162,84 @@ class ProductTable(QTableWidget):
             if code:
                 self._active_image_indices[code] = active_index
         self.viewport().update()
+
+    @staticmethod
+    def _handle_current_cell_changed(
+        self,
+        current_row: int,
+        current_column: int,
+        previous_row: int,
+        previous_column: int,
+    ) -> None:
+        """Restore original primaries when navigation moves to another row."""
+        del current_column, previous_column
+        if self._rendering or current_row == previous_row:
+            return
+
+        affected_rows = {
+            row for row in (previous_row, current_row)
+            if 0 <= row < self.rowCount()
+        }
+        for row in affected_rows:
+            item = self.item(row, self.IMAGE_COLUMN)
+            if item is None:
+                continue
+            gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
+            if not isinstance(gallery, list) or not gallery:
+                continue
+            item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, 0)
+            item.setData(ProductImageDelegate.THUMBNAIL_START_ROLE, 0)
+            self._set_image_item_path(item, gallery, 0)
+            if 0 <= row < len(self._rendered_products):
+                code = str(self._rendered_products[row].code).strip().casefold()
+                self._active_image_indices.pop(code, None)
+            self._set_row_height(row)
+
+        self.viewport().update()
+
+    @staticmethod
+    def _cell_tooltip_html(text: str, width: int, alignment: int) -> str:
+        """Constrain tooltip text to the cell width and its text alignment."""
+        alignment_flags = Qt.AlignmentFlag(alignment)
+        if alignment_flags & Qt.AlignmentFlag.AlignRight:
+            text_alignment = "right"
+        elif alignment_flags & Qt.AlignmentFlag.AlignHCenter:
+            text_alignment = "center"
+        else:
+            text_alignment = "left"
+        safe_width = max(width, 1)
+        safe_text = html.escape(text).replace("\n", "<br>")
+        return (
+            f'<div style="width:{safe_width}px; max-width:{safe_width}px; '
+            f'text-align:{text_alignment}; white-space:normal; '
+            f'word-wrap:break-word;">{safe_text}</div>'
+        )
+
+    def viewportEvent(self, event) -> bool:
+        if (
+            event.type() == QEvent.Type.ToolTip
+            and isinstance(event, QHelpEvent)
+        ):
+            index = self.indexAt(event.pos())
+            item = self.itemFromIndex(index) if index.isValid() else None
+            tooltip_text = item.toolTip() if item is not None else ""
+            if tooltip_text:
+                cell_rect = self.visualRect(index)
+                tooltip_html = self._cell_tooltip_html(
+                    tooltip_text,
+                    max(cell_rect.width() - 8, 1),
+                    item.textAlignment(),
+                )
+                QToolTip.showText(
+                    event.globalPos(),
+                    tooltip_html,
+                    self.viewport(),
+                    cell_rect,
+                )
+            else:
+                QToolTip.hideText()
+            return True
+        return super().viewportEvent(event)
 
     @staticmethod
     def _detail_comparison_key(value: str) -> str:

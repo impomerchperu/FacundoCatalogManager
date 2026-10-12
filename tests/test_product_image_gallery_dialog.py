@@ -102,7 +102,10 @@ def test_selecting_thumbnail_preserves_fixed_positions_and_highlights_primary(tm
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
     ] == original_gallery
-    assert dialog.thumbnail_labels[0].property("active") is True
+    assert [label.property("active") for label in dialog.thumbnail_labels] == [
+        True,
+        False,
+    ]
 
     QTest.mouseClick(dialog.thumbnail_labels[1], Qt.MouseButton.LeftButton)
     QApplication.processEvents()
@@ -111,17 +114,17 @@ def test_selecting_thumbnail_preserves_fixed_positions_and_highlights_primary(tm
     assert [image["image_path"] for image in dialog.images] == original_gallery
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
-    ] == [original_gallery[1], original_gallery[0]]
+    ] == original_gallery
     assert [label.property("active") for label in dialog.thumbnail_labels] == [
-        True,
         False,
+        True,
     ]
     preview = dialog.main_image.pixmap()
     assert preview is not None
     assert preview.height() > preview.width()
     assert dialog.thumbnail_start == 0
 
-    QTest.mouseClick(dialog.thumbnail_labels[1], Qt.MouseButton.LeftButton)
+    QTest.mouseClick(dialog.thumbnail_labels[0], Qt.MouseButton.LeftButton)
     QApplication.processEvents()
 
     assert dialog.active_index == 0
@@ -138,8 +141,7 @@ def test_selecting_thumbnail_preserves_fixed_positions_and_highlights_primary(tm
     )
     dialog.close()
 
-
-def test_four_image_gallery_pins_primary_and_preserves_other_thumbnail_slots(tmp_path):
+def test_four_image_gallery_keeps_order_and_highlights_primary_in_place(tmp_path):
     _qapp()
     paths = [tmp_path / f"selection-{index}.png" for index in range(4)]
     for index, path in enumerate(paths):
@@ -152,29 +154,22 @@ def test_four_image_gallery_pins_primary_and_preserves_other_thumbnail_slots(tmp
         label.property("image_path") for label in dialog.thumbnail_labels
     ] == original_paths
 
-    # Select the original third image without moving any thumbnail slot.
     QTest.mouseClick(dialog.thumbnail_labels[2], Qt.MouseButton.LeftButton)
     QApplication.processEvents()
     assert dialog.active_index == 2
     assert [image["image_path"] for image in dialog.images] == original_paths
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
-    ] == [
-        original_paths[2],
-        original_paths[1],
-        original_paths[0],
-        original_paths[3],
-    ]
+    ] == original_paths
     assert [label.property("active") for label in dialog.thumbnail_labels] == [
+        False,
+        False,
         True,
-        False,
-        False,
         False,
     ]
 
-    # The former primary occupies the selected image's old slot; the other
-    # thumbnails do not shift when a different primary is chosen.
-    QTest.mouseClick(dialog.thumbnail_labels[2], Qt.MouseButton.LeftButton)
+    # Selecting the first thumbnail changes only the main preview and border.
+    QTest.mouseClick(dialog.thumbnail_labels[0], Qt.MouseButton.LeftButton)
     QApplication.processEvents()
     assert dialog.active_index == 0
     assert [
@@ -187,7 +182,6 @@ def test_four_image_gallery_pins_primary_and_preserves_other_thumbnail_slots(tmp
         False,
     ]
     dialog.close()
-
 
 def test_dialog_expands_to_show_all_thumbnails_without_navigation_buttons(tmp_path):
     _qapp()
@@ -225,20 +219,15 @@ def test_dialog_expands_to_show_all_thumbnails_without_navigation_buttons(tmp_pa
     QTest.mouseClick(dialog.thumbnail_labels[4], Qt.MouseButton.LeftButton)
     QApplication.processEvents()
     assert dialog.active_index == 4
-    assert [label.property("image_path") for label in dialog.thumbnail_labels] == [
-        str(paths[4]),
-        str(paths[1]),
-        str(paths[2]),
-        str(paths[3]),
-        str(paths[0]),
-        str(paths[5]),
-    ]
+    assert [
+        label.property("image_path") for label in dialog.thumbnail_labels
+    ] == [str(path) for path in paths]
     assert [label.property("active") for label in dialog.thumbnail_labels] == [
+        False,
+        False,
+        False,
+        False,
         True,
-        False,
-        False,
-        False,
-        False,
         False,
     ]
     assert [
@@ -246,7 +235,6 @@ def test_dialog_expands_to_show_all_thumbnails_without_navigation_buttons(tmp_pa
         for label in dialog.thumbnail_labels
     ] == fixed_slot_geometry
     dialog.close()
-
 
 def test_gallery_dialog_opens_with_the_selected_table_primary(tmp_path):
     _qapp()
@@ -263,10 +251,10 @@ def test_gallery_dialog_opens_with_the_selected_table_primary(tmp_path):
     assert dialog.active_index == 1
     assert [
         label.property("image_path") for label in dialog.thumbnail_labels
-    ] == [str(second), str(first)]
+    ] == original_paths
     assert [label.property("active") for label in dialog.thumbnail_labels] == [
-        True,
         False,
+        True,
     ]
     preview = dialog.main_image.pixmap()
     assert preview is not None

@@ -274,6 +274,62 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
     table.close()
 
 
+def test_keyboard_arrows_select_adjacent_gallery_thumbnails(tmp_path: Path):
+    _qapp()
+    paths = [tmp_path / f"keyboard-{index}.png" for index in range(6)]
+    gallery = []
+    for index, path in enumerate(paths):
+        pixmap = QPixmap(80, 60)
+        pixmap.fill(QColor("#2f80ed" if index % 2 == 0 else "#ef4444"))
+        assert pixmap.save(str(path))
+        gallery.append(
+            {
+                "url": f"https://example.test/keyboard-{index}.png",
+                "image_path": str(path),
+            },
+        )
+
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-KEYS",
+                name="Navegación por miniaturas",
+                image_path=str(paths[0]),
+                gallery_images=gallery,
+            ),
+        ],
+    )
+    QApplication.processEvents()
+    table.setCurrentCell(0, ProductTable.IMAGE_COLUMN)
+    table.setFocus()
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.IMAGE_COLUMN)
+    assert item is not None
+    QTest.keyClick(table, Qt.Key.Key_Right)
+    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 1
+    QTest.keyClick(table, Qt.Key.Key_Right)
+    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 2
+    QTest.keyClick(table, Qt.Key.Key_Left)
+    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 1
+    assert item.data(ProductImageDelegate.THUMBNAIL_START_ROLE) == 0
+
+    QTest.keyClick(table, Qt.Key.Key_Right)
+    QTest.keyClick(table, Qt.Key.Key_Right)
+    QTest.keyClick(table, Qt.Key.Key_Right)
+    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 4
+    assert item.data(ProductImageDelegate.THUMBNAIL_START_ROLE) == 1
+
+    QTest.keyClick(table, Qt.Key.Key_Left)
+    assert item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE) == 3
+    assert item.data(ProductImageDelegate.THUMBNAIL_START_ROLE) == 1
+
+    table.close()
+
+
 def test_horizontal_thumbnail_arrows_scroll_without_changing_primary(tmp_path: Path):
     _qapp()
     paths = [tmp_path / f"scroll-{index}.png" for index in range(6)]

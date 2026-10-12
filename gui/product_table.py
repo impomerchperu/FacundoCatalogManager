@@ -444,12 +444,12 @@ class ProductNameCategoryDelegate(ProductCodeCategoryDelegate):
 class ProductImageDelegate(ProductCellDelegate):
     """Dibuja la imagen principal a escala proporcional y sus miniaturas."""
 
-    DEFAULT_SIZE = 160
     MAIN_IMAGE_WIDTH = 144
+    DEFAULT_SIZE = MAIN_IMAGE_WIDTH
     MIN_PRIMARY_IMAGE_DISPLAY_SIZE = 144
     THUMBNAIL_HEIGHT = 34
     THUMBNAIL_STRIP_HEIGHT = 34
-    THUMBNAIL_GAP = 3
+    THUMBNAIL_GAP = 0
     THUMBNAIL_PADDING = 0
     CELL_HORIZONTAL_PADDING = 0
     CELL_VERTICAL_PADDING = 0
@@ -780,15 +780,7 @@ class ProductImageDelegate(ProductCellDelegate):
             if isinstance(image, dict):
                 path = str(image.get("image_path", image.get("path", "")) or "").strip()
             painter.fillRect(tile_rect, QColor("#ffffff"))
-            selected_thumbnail = image_index == active_index
-            painter.setPen(
-                QPen(
-                    QColor("#1675e8" if selected_thumbnail else "#cbd5e1"),
-                    1,
-                ),
-            )
-            painter.drawRect(tile_rect.adjusted(0, 0, -1, -1))
-            inner = tile_rect.adjusted(2, 2, -2, -2)
+            inner = tile_rect
             if path and inner.width() > 0 and inner.height() > 0:
                 thumb = self._load_pixmap(str(resolve_data_path(path)))
                 if not thumb.isNull():
@@ -800,6 +792,14 @@ class ProductImageDelegate(ProductCellDelegate):
                     thumb_x = inner.left() + (inner.width() - thumb.width()) // 2
                     thumb_y = inner.top() + (inner.height() - thumb.height()) // 2
                     painter.drawPixmap(thumb_x, thumb_y, thumb)
+            selected_thumbnail = image_index == active_index
+            painter.setPen(
+                QPen(
+                    QColor("#1675e8" if selected_thumbnail else "#cbd5e1"),
+                    1,
+                ),
+            )
+            painter.drawRect(tile_rect.adjusted(0, 0, -1, -1))
         painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         painter.setPen(QColor("#334e68"))
         if left_arrow is not None:
@@ -1369,7 +1369,7 @@ class ProductTable(QTableWidget):
         "yellow": ("#fff5b8", "#f2d21b"),
     }
     MIN_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
-        IMAGE_COLUMN: 160,
+        IMAGE_COLUMN: ProductImageDelegate.MAIN_IMAGE_WIDTH,
         CODE_COLUMN: 72,
         NAME_COLUMN: 112,
         DETAIL_COLUMN: 100,
@@ -1539,8 +1539,8 @@ class ProductTable(QTableWidget):
                 column,
                 QHeaderView.ResizeMode.Interactive,
             )
-        # Preserve the image viewport: narrowing this column would make primary
-        # images appear smaller than the requested 144 px minimum display size.
+        # Keep the image column exactly as wide as the fixed primary preview;
+        # thumbnails share that width without padding or inter-image gaps.
         header.setSectionResizeMode(
             self.IMAGE_COLUMN,
             QHeaderView.ResizeMode.Fixed,

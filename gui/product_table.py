@@ -2088,7 +2088,11 @@ class ProductTable(QTableWidget):
                 if item is not None
                 else None
             )
-            if isinstance(gallery, list) and len(gallery) > 1:
+            if (
+                item is not None
+                and isinstance(gallery, list)
+                and len(gallery) > 1
+            ):
                 active_index = ProductImageDelegate._active_index(
                     gallery,
                     item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE),

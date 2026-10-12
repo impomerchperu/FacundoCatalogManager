@@ -74,8 +74,9 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     assert isinstance(delegate, ProductImageDelegate)
     assert item.data(ProductImageDelegate.IMAGE_ROLE) == str(image_path)
     initial_image_column_width = table.columnWidth(ProductTable.IMAGE_COLUMN)
-    assert initial_image_column_width >= ProductImageDelegate.DEFAULT_SIZE
-    assert initial_image_column_width >= ProductImageDelegate.MAIN_IMAGE_WIDTH
+    assert initial_image_column_width == ProductImageDelegate.MAIN_IMAGE_WIDTH
+    assert initial_image_column_width == ProductImageDelegate.DEFAULT_SIZE
+    assert ProductImageDelegate.THUMBNAIL_GAP == 0
     assert (
         table.horizontalHeader().sectionResizeMode(ProductTable.IMAGE_COLUMN)
         == QHeaderView.ResizeMode.Fixed
@@ -159,7 +160,12 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
     assert [image_index for image_index, _tile in tiles] == [0, 1, 2]
     assert left_arrow is None and right_arrow is None
     assert strip_top == main_rect.bottom() + 1 + ProductImageDelegate.THUMBNAIL_GAP
+    assert strip_top == main_rect.bottom() + 1
     assert strip_top == tiles[0][1].top()
+    assert all(
+        following.left() == previous.right() + 1
+        for previous, following in pairwise([tile for _, tile in tiles])
+    )
     group_bottom = tiles[-1][1].bottom()
     assert abs(
         (main_rect.top() + group_bottom) / 2 - content_rect.center().y()
@@ -1573,6 +1579,10 @@ def test_thumbnail_layout_centers_alternatives_and_shows_four_tiles():
     assert strip_top == rect.top() + 288
     assert tiles[0][1].left() > rect.left()
     assert tiles[-1][1].right() < rect.right()
+    assert all(
+        following.left() == previous.right() + 1
+        for previous, following in pairwise([tile for _, tile in tiles])
+    )
     assert abs(
         (tiles[0][1].left() + tiles[-1][1].right()) / 2 - rect.center().x()
     ) <= 1

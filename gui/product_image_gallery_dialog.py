@@ -41,7 +41,7 @@ class _GalleryThumbnailLabel(QLabel):
         self.setFixedSize(width, height)
         self.setToolTip(Path(image_path).name if image_path else "Imagen")
         self.setStyleSheet(
-            "QLabel { background: #ffffff; border: 3px solid #cbd5e1; }"
+            "QLabel { background: #ffffff; border: 1px solid #cbd5e1; }"
         )
         self.setProperty("active", False)
 
@@ -65,7 +65,7 @@ class _GalleryThumbnailLabel(QLabel):
         self.setProperty("active", active)
         color = "#1675e8" if active else "#cbd5e1"
         self.setStyleSheet(
-            f"QLabel {{ background: #ffffff; border: 3px solid {color}; }}"
+            f"QLabel {{ background: #ffffff; border: 1px solid {color}; }}"
         )
 
     def mouseReleaseEvent(self, event) -> None:
@@ -260,16 +260,9 @@ class ProductImageGalleryDialog(QDialog):
         if row_width < content_width:
             self.thumbnail_layout.addStretch(1)
 
-        # The selected main image always occupies the first thumbnail slot.
-        # Swap only it with the former first image so all other slots stay put.
-        thumbnail_indexes = list(range(len(self.images)))
-        if self.active_index:
-            thumbnail_indexes[0], thumbnail_indexes[self.active_index] = (
-                thumbnail_indexes[self.active_index],
-                thumbnail_indexes[0],
-            )
-
-        for index in thumbnail_indexes:
+        # Thumbnail slots always retain their gallery order. The active
+        # image is indicated only by its border, never by moving its tile.
+        for index in range(len(self.images)):
             path = str(self.images[index].get("image_path", "") or "")
             thumbnail = _GalleryThumbnailLabel(
                 index,
@@ -291,7 +284,12 @@ class ProductImageGalleryDialog(QDialog):
     def _select_image(self, index: int) -> None:
         if index < 0 or index >= len(self.images) or index == self.active_index:
             return
-        # Keep every thumbnail in its slot; only the main preview and selected
-        # border change when a different image is chosen.
+        # Update only the preview and active border; keep thumbnail widgets and
+        # their geometries intact.
         self.active_index = index
-        self._render()
+        self._render_main_image()
+        for thumbnail in self.thumbnail_labels:
+            thumbnail.set_active(thumbnail.image_index == self.active_index)
+        self.root_layout.activate()
+        self.adjustSize()
+        self.setMinimumSize(self.sizeHint())

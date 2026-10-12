@@ -90,6 +90,11 @@ class ProductCellDelegate(QStyledItemDelegate):
             widget,
         )
 
+    def paint(self, painter, option, index) -> None:
+        # Every visible column uses a custom renderer; paint only the item's
+        # selected background/border here, with the native focus state removed.
+        self.paint_item_background(painter, option, index)
+
 
 class PriceDelegate(ProductCellDelegate):
     """Editor numérico que mantiene visible la moneda durante la edición."""

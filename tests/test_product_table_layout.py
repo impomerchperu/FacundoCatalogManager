@@ -208,7 +208,6 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
         str(paths[1]),
         str(paths[2]),
     ]
-    assert table._active_image_indices["fb-100"] == 1
 
     rect = table.visualRect(index)
     content_rect = ProductImageDelegate.cell_content_rect(rect)

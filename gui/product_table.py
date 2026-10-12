@@ -834,7 +834,7 @@ class ProductImageDelegate(ProductCellDelegate):
             painter.save()
             painter.setPen(QPen(QColor("#1675e8"), 1))
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawRect(option.rect.adjusted(1, 1, -2, -2))
+            painter.drawRect(option.rect.adjusted(0, 0, -1, -1))
             painter.restore()
 
     @staticmethod
@@ -2247,7 +2247,6 @@ class ProductTable(QTableWidget):
             return True
         return super().viewportEvent(event)
 
-    @staticmethod
     @staticmethod
     def _detail_comparison_key(value: str) -> str:
         normalized = (

@@ -1417,7 +1417,6 @@ class ProductTable(QTableWidget):
         self._visible_product_keys: set[int] | None = None
         self._preferred_widths_cache: list[int] | None = None
         self._even_column_distribution = False
-        self._active_image_indices: dict[str, int] = {}
         self._gallery_overrides: dict[str, list[dict]] = {}
         self._row_by_code: dict[str, int] = {}
         self._rendering = False
@@ -2174,10 +2173,6 @@ class ProductTable(QTableWidget):
         item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, active_index)
         self._set_image_item_path(item, gallery, active_index)
         self._set_row_height(row)
-        if 0 <= row < len(self._rendered_products):
-            code = str(self._rendered_products[row].code).strip().casefold()
-            if code:
-                self._active_image_indices[code] = active_index
         self.viewport().update()
 
     def _handle_current_cell_changed(
@@ -2206,9 +2201,6 @@ class ProductTable(QTableWidget):
             item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, 0)
             item.setData(ProductImageDelegate.THUMBNAIL_START_ROLE, 0)
             self._set_image_item_path(item, gallery, 0)
-            if 0 <= row < len(self._rendered_products):
-                code = str(self._rendered_products[row].code).strip().casefold()
-                self._active_image_indices.pop(code, None)
             self._set_row_height(row)
 
         self.viewport().update()

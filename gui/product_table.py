@@ -1407,6 +1407,7 @@ class ProductTable(QTableWidget):
         self._gallery_overrides: dict[str, list[dict]] = {}
         self._row_by_code: dict[str, int] = {}
         self._rendering = False
+        self._row_adjust_generation = 0
         table_font = QFont(self.FONT_FAMILY)
         table_font.setPixelSize(self.FONT_PIXEL_SIZE)
         self.setFont(table_font)
@@ -2560,15 +2561,42 @@ class ProductTable(QTableWidget):
         for row in range(self.rowCount()):
             self._set_row_height(row)
 
+    ROW_HEIGHT_ADJUST_BATCH_SIZE = 64
+
     def set_even_column_distribution(self, enabled: bool) -> None:
-        """Proportionally distribute spare width when the category sidebar is hidden."""
+        """Distribute width now and adjust row heights incrementally afterward."""
 
         enabled = bool(enabled)
         if self._even_column_distribution == enabled:
             return
         self._even_column_distribution = enabled
         self._fit_columns_to_content()
-        self._adjust_table_rows()
+        self._row_adjust_generation += 1
+        generation = self._row_adjust_generation
+        QTimer.singleShot(
+            0,
+            lambda generation=generation: self._adjust_table_rows_batch(
+                generation,
+                0,
+            ),
+        )
+
+    def _adjust_table_rows_batch(self, generation: int, start_row: int) -> None:
+        if generation != self._row_adjust_generation:
+            return
+        end_row = min(
+            start_row + self.ROW_HEIGHT_ADJUST_BATCH_SIZE,
+            self.rowCount(),
+        )
+        for row in range(start_row, end_row):
+            self._set_row_height(row)
+        if end_row < self.rowCount():
+            QTimer.singleShot(
+                0,
+                lambda generation=generation, next_row=end_row: (
+                    self._adjust_table_rows_batch(generation, next_row)
+                ),
+            )
 
     def _stock_minimum_width(self) -> int:
         """Garantiza que cada color y cantidad permanezcan en una sola línea."""

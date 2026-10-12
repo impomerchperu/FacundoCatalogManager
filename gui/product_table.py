@@ -91,9 +91,18 @@ class ProductCellDelegate(QStyledItemDelegate):
         )
 
     def paint(self, painter, option, index) -> None:
-        # Every visible column uses a custom renderer; paint only the item's
-        # selected background/border here, with the native focus state removed.
-        self.paint_item_background(painter, option, index)
+        # Preserve ordinary cell text (notably Código) while removing the
+        # native focus rectangle from the style option before drawing.
+        style_option = QStyleOptionViewItem(option)
+        self.initStyleOption(style_option, index)
+        widget = style_option.widget
+        style = widget.style() if widget is not None else QApplication.style()
+        style.drawControl(
+            QStyle.ControlElement.CE_ItemViewItem,
+            style_option,
+            painter,
+            widget,
+        )
 
 
 class PriceDelegate(ProductCellDelegate):
@@ -1491,6 +1500,7 @@ class ProductTable(QTableWidget):
         )
 
     def _setup_header(self) -> None:
+        self.setItemDelegate(ProductCellDelegate(self))
         header = ProductHeader(self)
         self.setHorizontalHeader(header)
         self.setItemDelegateForColumn(

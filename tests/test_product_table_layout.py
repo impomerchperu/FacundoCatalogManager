@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from gui.product_table import (
     PriceDelegate,
+    ProductCellDelegate,
     ProductDetailDelegate,
     ProductImageDelegate,
     ProductNameCategoryDelegate,
@@ -640,6 +641,10 @@ def test_product_table_columns_fit_content_and_never_enable_horizontal_scroll():
     assert "QTableWidget::item:focus {\n                border: 0px;\n                outline: none;" in table.styleSheet()
     assert "border: 1px solid #1675e8;" in table.styleSheet()
     assert "QTableWidget::item:selected:focus" in table.styleSheet()
+    assert isinstance(
+        table.itemDelegateForColumn(ProductTable.CODE_COLUMN),
+        ProductCellDelegate,
+    )
     assert table.selectionBehavior() == QAbstractItemView.SelectionBehavior.SelectItems
     assert not (
         table.editTriggers()

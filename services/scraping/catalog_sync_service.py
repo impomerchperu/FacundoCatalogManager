@@ -33,9 +33,9 @@ class CatalogSyncService:
     guarantees_product_masters = True
 
     _DESCRIPTION_TRUNCATION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"(?:\\.{3,}|…)\\s*$|"
-        r"(?<!\\w)(?:peso\\s+(?:bruto|neto)(?:\\s+por(?:\\s+caja)?)?|"
-        r"dimensiones(?:\\s+(?:de\\s+)?caja)?|cantidad\\s+por\\s+caja)\\s*:?\\s*$",
+        r"(?:\.{3,}|…)\s*$|"
+        r"(?<!\w)(?:peso\s+(?:bruto|neto)(?:\s+por(?:\s+caja)?)?|"
+        r"dimensiones(?:\s+(?:de\s+)?caja)?|cantidad\s+por\s+caja)\s*:?\s*$",
         re.IGNORECASE,
     )
 
@@ -446,32 +446,32 @@ class CatalogSyncService:
 
     @classmethod
     def _description_is_complete(cls, value: object) -> bool:
-        description = re.sub(r"\\s+", " ", str(value or "")).strip()
+        description = re.sub(r"\s+", " ", str(value or "")).strip()
         if not description or description.endswith((",", ";", ":")):
             return False
         return not cls._DESCRIPTION_TRUNCATION_PATTERN.search(description)
 
     @classmethod
     def _description_information_score(cls, value: object) -> tuple[int, int, int]:
-        description = re.sub(r"\\s+", " ", str(value or "")).strip()
+        description = re.sub(r"\s+", " ", str(value or "")).strip()
         attribute_matches = re.findall(
-            r"(?:^|[.!?;]\\s*)([^:.;!?]{2,50}?)\\s*:\\s*([^.;!?]+)",
+            r"(?:^|[.!?;]\s*)([^:.;!?]{2,50}?)\s*:\s*([^.;!?]+)",
             description,
         )
         attributes = {
-            re.sub(r"\\s+", " ", label).strip().casefold()
+            re.sub(r"\s+", " ", label).strip().casefold()
             for label, _value in attribute_matches
             if label.strip()
         }
         measurements = len(
             re.findall(
-                r"\\b\\d+(?:[.,]\\d+)?\\s*"
-                r"(?:mm|cm|m|kg|g|oz|ml|l|unidades?|piezas?)\\b",
+                r"\b\d+(?:[.,]\d+)?\s*"
+                r"(?:mm|cm|m|kg|g|oz|ml|l|unidades?|piezas?)\b",
                 description,
                 flags=re.IGNORECASE,
             )
         )
-        sentences = len(re.findall(r"[.!?](?:\\s|$)", description))
+        sentences = len(re.findall(r"[.!?](?:\s|$)", description))
         return len(attributes), measurements, sentences
 
     @classmethod

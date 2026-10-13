@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeyEvent, QPixmap
+from PySide6.QtGui import QKeyEvent, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -158,6 +158,32 @@ class ProductImageGalleryDialog(QDialog):
         )
 
         self._render()
+        self._previous_image_shortcut = QShortcut(
+            QKeySequence(Qt.Key.Key_Left),
+            self,
+        )
+        self._previous_image_shortcut.setContext(
+            Qt.ShortcutContext.WidgetWithChildrenShortcut,
+        )
+        self._previous_image_shortcut.activated.connect(
+            self._select_previous_image,
+        )
+        self._next_image_shortcut = QShortcut(
+            QKeySequence(Qt.Key.Key_Right),
+            self,
+        )
+        self._next_image_shortcut.setContext(
+            Qt.ShortcutContext.WidgetWithChildrenShortcut,
+        )
+        self._next_image_shortcut.activated.connect(
+            self._select_next_image,
+        )
+
+    def _select_previous_image(self) -> None:
+        self._select_image(self.active_index - 1)
+
+    def _select_next_image(self) -> None:
+        self._select_image(self.active_index + 1)
 
     @staticmethod
     def _normalized_gallery(

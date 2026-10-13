@@ -728,3 +728,27 @@ def test_catalog_sync_replaces_existing_description_with_verified_complete_detai
         change["field"] == "description"
         for change in result.changes[0]["changes"]
     )
+
+
+def test_catalog_sync_preserves_existing_description_when_incoming_has_less_information():
+    repository = InMemoryCatalogRepository()
+    existing = Product("P097", "Producto vigente", 10)
+    existing.description = (
+        "Color: Blanco. Material: Poliuretano. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+    existing.price_sample = 10.0
+    repository.save(existing)
+
+    incoming = Product("P097", "Producto vigente", 10)
+    incoming.description = "Descripción promocional general."
+    incoming.price_sample = 10.0
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+
+    stored = repository.get("P097")
+    assert stored is not None
+    assert stored.description == existing.description
+    assert result.updated == 0
+    assert result.unchanged == 1

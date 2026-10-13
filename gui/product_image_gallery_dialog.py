@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QKeyEvent, QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -280,6 +280,20 @@ class ProductImageGalleryDialog(QDialog):
             self.thumbnail_layout.addStretch(1)
 
         self.thumbnail_layout.activate()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Select the previous or next thumbnail using the arrow keys."""
+        if event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right):
+            if self.images:
+                direction = -1 if event.key() == Qt.Key.Key_Left else 1
+                next_index = max(
+                    0,
+                    min(self.active_index + direction, len(self.images) - 1),
+                )
+                self._select_image(next_index)
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def _select_image(self, index: int) -> None:
         if index < 0 or index >= len(self.images) or index == self.active_index:

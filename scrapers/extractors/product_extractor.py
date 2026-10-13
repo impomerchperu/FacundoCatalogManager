@@ -41,13 +41,14 @@ class ProductExtractor:
         r"dimensiones(?:\s+(?:de\s+)?caja)?|cantidad\s+por\s+caja)\s*:?\s*$",
         re.IGNORECASE,
     )
-    # The description tab is authoritative. Never use .text-content here:
-    # it is also used for the shorter category-card preview.
+    # Prefer the full description tab. .text-content is only a fallback for
+    # individual-page templates that expose no dedicated description section.
     _DESCRIPTION_SELECTORS_BY_PRIORITY: ClassVar[tuple[tuple[str, ...], ...]] = (
         ("#tab-description", ".woocommerce-Tabs-panel--description"),
         (".x-tabs_panel-content",),
         (".product-description",),
         (".description",),
+        (".text-content",),
     )
 
     def __init__(self):

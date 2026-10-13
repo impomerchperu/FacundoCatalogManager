@@ -41,6 +41,12 @@ class ProductCollectionScraper:
         "price_thousand": "precio millar",
     }
     _REQUIRED_DETAIL_FIELDS = ("code", "name", "description", "image_url")
+    _DESCRIPTION_TRUNCATION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
+        r"(?:\\.{3,}|…)\\s*$|"
+        r"(?<!\\w)(?:peso\\s+(?:bruto|neto)(?:\\s+por(?:\\s+caja)?)?|"
+        r"dimensiones(?:\\s+(?:de\\s+)?caja)?|cantidad\\s+por\\s+caja)\\s*:?\\s*$",
+        re.IGNORECASE,
+    )
 
     def __init__(
         self,
@@ -417,6 +423,8 @@ class ProductCollectionScraper:
     @classmethod
     def _detail_skip_reason(cls, card: Any, product: Any) -> str | None:
         stock_values = cls._stock_values(card)
+        if "description" in cls._missing_detail_fields(product):
+            return None
         if cls._has_complete_card_color_stock(card, product, stock_values):
             if cls._missing_price_fields(card, product):
                 return None
@@ -457,12 +465,27 @@ class ProductCollectionScraper:
         return not image_url or ProductImageExtractor.is_generic_asset(image_url)
 
     @classmethod
+    def _description_needs_detail(cls, product: Any) -> bool:
+        """Detects missing or clipped card excerpts before they are accepted."""
+        description = re.sub(
+            r"\\s+",
+            " ",
+            str(getattr(product, "description", "") or ""),
+        ).strip()
+        if not description or description.endswith(":"):
+            return True
+        return bool(cls._DESCRIPTION_TRUNCATION_PATTERN.search(description))
+
+    @classmethod
     def _missing_detail_fields(cls, product: Any) -> tuple[str, ...]:
-        return tuple(
-            field
-            for field in cls._REQUIRED_DETAIL_FIELDS
-            if not str(getattr(product, field, "")).strip()
-        )
+        missing: list[str] = []
+        for field in cls._REQUIRED_DETAIL_FIELDS:
+            if field == "description":
+                if cls._description_needs_detail(product):
+                    missing.append(field)
+            elif not str(getattr(product, field, "")).strip():
+                missing.append(field)
+        return tuple(missing)
 
     @staticmethod
     def _stock_request_reason(card: Any, stock_values: list[int]) -> str:
@@ -615,11 +638,19 @@ class ProductCollectionScraper:
         if detail_code:
             product.code = detail_code
 
-        for field in ("name", "description"):
-            current = str(getattr(product, field, "") or "").strip()
-            detail_value = getattr(detailed_product, field, "")
-            if not current and str(detail_value or "").strip():
-                setattr(product, field, detail_value)
+        current_name = str(getattr(product, "name", "") or "").strip()
+        detail_name = str(getattr(detailed_product, "name", "") or "").strip()
+        if not current_name and detail_name:
+            product.name = detail_name
+
+        # A card's description is only a preview and can end mid-attribute.
+        # Once the detail page was fetched, its best extracted block is the
+        # authoritative source, so do not keep a non-empty but clipped excerpt.
+        detail_description = str(
+            getattr(detailed_product, "description", "") or ""
+        ).strip()
+        if detail_description:
+            product.description = detail_description
 
         detail_image = str(
             getattr(detailed_product, "image_url", "") or ""

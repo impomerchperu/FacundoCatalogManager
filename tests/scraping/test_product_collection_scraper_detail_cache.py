@@ -373,3 +373,75 @@ def test_detail_enrichment_merges_missing_fields_and_prices():
     assert result[0].price_thousand == 6500.0
     assert result[0].stock == 33
     assert result[0].url == "https://example.com/producto/producto-detalle/"
+
+
+
+def test_clipped_card_description_is_replaced_by_complete_detail_page_text():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+    category_scraper.html_override = """
+    <html>
+        <article>
+            <a href="/producto/producto-peso-caja/">
+                <img src="https://example.com/producto-real.jpg">
+                <h2 class="brxe-f31760">Producto peso por caja</h2>
+            </a>
+            <p class="brxe-a26f34">FB-4008</p>
+            <div class="text-content">
+                Color: Blanco. Material: Poliuretano.
+                Peso neto por caja: 5.5 Kg. Peso bruto por...
+            </div>
+            <div class="variaciones-producto"><p>5</p></div>
+            <div class="content-precio">
+                <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+            </div>
+            <div class="content-precio">
+                <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+            </div>
+            <div class="content-precio">
+                <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+            </div>
+        </article>
+    </html>
+    """
+    category_scraper.detail_html_override = """
+    <html>
+        <h1>Producto peso por caja</h1>
+        <p class="brxe-heading">FB-4008</p>
+        <div class="text-content">
+            Color: Blanco. Material: Poliuretano.
+            Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg.
+        </div>
+        <img class="woocommerce-product-gallery"
+             src="https://example.com/producto-real.jpg">
+        <div class="content-precio">
+            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+        </div>
+        Stock Disponible 5
+    </html>
+    """
+
+    result = scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    assert len(result) == 1
+    assert category_scraper.detail_requests == [
+        "https://example.com/producto/producto-peso-caja/"
+    ]
+    assert result[0].description == (
+        "Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
+        "Peso bruto por caja: 6.25 Kg."
+    )
+    assert scraper.get_detail_metrics()["detail_requests"] == 1

@@ -266,3 +266,29 @@ def test_product_extractor_reads_stock_from_each_variant_node_reverse_order():
         "Azul": 330,
     }
     assert result["stock"] == 1356
+
+
+
+def test_product_extractor_prefers_complete_attribute_block_over_clipped_excerpt():
+    html = """
+    <html>
+        <body>
+            <h1>Producto con ficha técnica</h1>
+            <p class="brxe-heading">FB-4008</p>
+            <div class="text-content">
+                Color: Blanco. Material: Poliuretano.
+                Peso neto por caja: 5.5 Kg. Peso bruto por...
+            </div>
+            <div class="product-description">
+                Color: Blanco. Material: Poliuretano.
+                Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg.
+            </div>
+        </body>
+    </html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["description"] == (
+        "Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
+        "Peso bruto por caja: 6.25 Kg."
+    )

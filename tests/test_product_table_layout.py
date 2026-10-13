@@ -2056,3 +2056,23 @@ def test_visible_columns_share_extra_width_when_the_table_grows():
     ]
     assert max(growth_ratios) - min(growth_ratios) < 0.02
     table.close()
+
+
+
+def test_detail_format_preserves_complete_final_box_weight_attributes():
+    product = Product(
+        code="FB-4008",
+        name="Producto peso por caja",
+        description=(
+            "Color: Blanco. Material: Poliuretano. "
+            "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+        ),
+        color_stock={"Blanco": 5},
+        stock=5,
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Material: Poliuretano",
+        "Peso neto por caja: 5.5 Kg",
+        "Peso bruto por caja: 6.25 Kg",
+    ]

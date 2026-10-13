@@ -492,24 +492,24 @@ class ProductCollectionScraper:
     @classmethod
     def _description_information_score(cls, value: str) -> tuple[int, int, int]:
         """Compara hechos explícitos sin favorecer una descripción solo por su tamaño."""
-        description = re.sub(r"\\s+", " ", str(value or "")).strip()
+        description = re.sub(r"\s+", " ", str(value or "")).strip()
         attribute_matches = re.findall(
-            r"(?:^|[.!?;]\\s*)([^:.;!?]{2,50}?)\\s*:\\s*([^.;!?]+)",
+            r"(?:^|[.!?;]\s*)([^:.;!?]{2,50}?)\s*:\s*([^.;!?]+)",
             description,
         )
         attributes = {
-            re.sub(r"\\s+", " ", label).strip().casefold()
+            re.sub(r"\s+", " ", label).strip().casefold()
             for label, _value in attribute_matches
             if label.strip()
         }
         measurements = len(
             re.findall(
-                r"\\b\\d+(?:[.,]\\d+)?\\s*(?:mm|cm|m|kg|g|oz|ml|l|unidades?|piezas?)\\b",
+                r"\b\d+(?:[.,]\d+)?\s*(?:mm|cm|m|kg|g|oz|ml|l|unidades?|piezas?)\b",
                 description,
                 flags=re.IGNORECASE,
             )
         )
-        sentences = len(re.findall(r"[.!?](?:\\s|$)", description))
+        sentences = len(re.findall(r"[.!?](?:\s|$)", description))
         return len(attributes), measurements, sentences
 
     @classmethod

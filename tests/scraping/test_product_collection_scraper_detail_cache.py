@@ -144,7 +144,7 @@ def test_complete_card_color_stock_requests_detail_when_prices_are_missing():
     }
 
 
-def test_complete_single_stock_card_still_uses_authoritative_detail_page():
+def test_detail_page_with_more_attributes_replaces_complete_card_description():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(
         category_scraper,
@@ -156,11 +156,11 @@ def test_complete_single_stock_card_still_uses_authoritative_detail_page():
     <html>
         <article>
             <a href="/producto/producto-completo/">
-                <img src="https://example.com/producto.jpg">
+                <img src="https://example.com/Logo-Facundo-2026.webp">
                 <h2 class="brxe-f31760">Producto completo</h2>
             </a>
             <p class="brxe-a26f34">FB-1235</p>
-            <div class="text-content">Resumen del catálogo que no debe prevalecer.</div>
+            <div class="text-content">Descripción promocional general.</div>
             <div class="variaciones-producto"><p>152</p></div>
             <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
             <h3>Precio Ciento</h3><h4>S/ 700.00</h4>

@@ -422,6 +422,10 @@ class ProductCollectionScraper:
 
     @classmethod
     def _detail_skip_reason(cls, card: Any, product: Any) -> str | None:
+        # A card's fields can be an excerpt even when non-empty. When there is
+        # an individual product URL, fetch it to validate authoritative detail.
+        if cls._card_has_detail_link(card):
+            return None
         stock_values = cls._stock_values(card)
         if "description" in cls._missing_detail_fields(product):
             return None
@@ -465,16 +469,27 @@ class ProductCollectionScraper:
         return not image_url or ProductImageExtractor.is_generic_asset(image_url)
 
     @classmethod
+    def _card_has_detail_link(cls, card: Any) -> bool:
+        try:
+            link = card.select_one('a[href*="/producto/"]')
+        except AttributeError:
+            return False
+        href = link.get("href") if link is not None else ""
+        return isinstance(href, str) and bool(href.strip())
+
+    @classmethod
+    def _description_is_complete(cls, value: str) -> bool:
+        description = re.sub(r"\s+", " ", str(value or "")).strip()
+        if not description or description.endswith((",", ";", ":")):
+            return False
+        return not cls._DESCRIPTION_TRUNCATION_PATTERN.search(description)
+
+    @classmethod
     def _description_needs_detail(cls, product: Any) -> bool:
-        """Detects missing or clipped card excerpts before they are accepted."""
-        description = re.sub(
-            r"\s+",
-            " ",
-            str(getattr(product, "description", "") or ""),
-        ).strip()
-        if not description or description.endswith(":"):
-            return True
-        return bool(cls._DESCRIPTION_TRUNCATION_PATTERN.search(description))
+        """Detecta fragmentos de texto, sin usar la longitud como criterio."""
+        return not cls._description_is_complete(
+            str(getattr(product, "description", "") or "")
+        )
 
     @classmethod
     def _missing_detail_fields(cls, product: Any) -> tuple[str, ...]:
@@ -612,6 +627,9 @@ class ProductCollectionScraper:
             return product
         detail_url = urljoin(page_url, href)
         detail_key = self._detail_cache_key(card, product, detail_url)
+        # The card is a preview, never the source of truth for the master
+        # description. Do not persist it if the individual-page fetch fails.
+        product.description = ""
         detailed_product = self._get_detailed_product(
             detail_key,
             detail_url,
@@ -649,7 +667,7 @@ class ProductCollectionScraper:
         detail_description = str(
             getattr(detailed_product, "description", "") or ""
         ).strip()
-        if detail_description:
+        if self._description_is_complete(detail_description):
             product.description = detail_description
 
         detail_image = str(

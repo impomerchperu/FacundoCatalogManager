@@ -269,17 +269,19 @@ def test_product_extractor_reads_stock_from_each_variant_node_reverse_order():
 
 
 
-def test_product_extractor_prefers_complete_attribute_block_over_clipped_excerpt():
+def test_product_extractor_prefers_authoritative_description_tab_over_longer_excerpt():
     html = """
     <html>
         <body>
             <h1>Producto con ficha técnica</h1>
             <p class="brxe-heading">FB-4008</p>
             <div class="text-content">
-                Color: Blanco. Material: Poliuretano.
-                Peso neto por caja: 5.5 Kg. Peso bruto por...
+                Este bloque de presentación es deliberadamente más largo que la
+                ficha. Incluye texto comercial y datos de otras secciones: Color:
+                Azul. Modelo: DEMO. Material: Decorativo. Detalle extendido que
+                no corresponde a la ficha técnica publicada en la pestaña.
             </div>
-            <div class="product-description">
+            <div id="tab-description" class="woocommerce-Tabs-panel">
                 Color: Blanco. Material: Poliuretano.
                 Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg.
             </div>
@@ -292,3 +294,20 @@ def test_product_extractor_prefers_complete_attribute_block_over_clipped_excerpt
         "Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
         "Peso bruto por caja: 6.25 Kg."
     )
+
+
+
+def test_product_extractor_rejects_an_incomplete_description_candidate():
+    html = """
+    <html>
+        <body>
+            <div id="tab-description">
+                Material: Poliuretano. Peso neto por caja: 5.5 Kg.
+                Peso bruto por...
+            </div>
+        </body>
+    </html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["description"] == ""

@@ -144,7 +144,7 @@ def test_complete_card_color_stock_requests_detail_when_prices_are_missing():
     }
 
 
-def test_complete_single_stock_card_skips_detail_when_all_fields_are_present():
+def test_complete_single_stock_card_still_uses_authoritative_detail_page():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(
         category_scraper,
@@ -152,8 +152,7 @@ def test_complete_single_stock_card_skips_detail_when_all_fields_are_present():
         product_extractor=CategoryProductExtractor(),
         detail_extractor=ProductExtractor(),
     )
-
-    html = """
+    category_scraper.html_override = """
     <html>
         <article>
             <a href="/producto/producto-completo/">
@@ -161,7 +160,7 @@ def test_complete_single_stock_card_skips_detail_when_all_fields_are_present():
                 <h2 class="brxe-f31760">Producto completo</h2>
             </a>
             <p class="brxe-a26f34">FB-1235</p>
-            <div class="text-content">Producto listo para catálogo.</div>
+            <div class="text-content">Resumen del catálogo que no debe prevalecer.</div>
             <div class="variaciones-producto"><p>152</p></div>
             <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
             <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
@@ -169,23 +168,45 @@ def test_complete_single_stock_card_skips_detail_when_all_fields_are_present():
         </article>
     </html>
     """
-
-    category_scraper.html_override = html
+    category_scraper.detail_html_override = """
+    <html>
+        <h1>Producto completo</h1>
+        <p class="brxe-heading">FB-1235</p>
+        <div id="tab-description" class="woocommerce-Tabs-panel">
+            Material: ABS. Peso neto por caja: 5.5 Kg.
+            Peso bruto por caja: 6.25 Kg.
+        </div>
+        <img class="woocommerce-product-gallery" src="https://example.com/producto.jpg">
+        <div class="content-precio">
+            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+        </div>
+        Stock Disponible 152
+    </html>
+    """
     result = scraper.scrape_category(
         Category(name="Promocionales", url="https://example.com/promocionales/")
     )
 
     assert len(result) == 1
-    assert category_scraper.detail_requests == []
+    assert category_scraper.detail_requests == [
+        "https://example.com/producto/producto-completo/"
+    ]
     assert result[0].url == "https://example.com/producto/producto-completo/"
     assert result[0].stock == 152
+    assert result[0].description == (
+        "Material: ABS. Peso neto por caja: 5.5 Kg. "
+        "Peso bruto por caja: 6.25 Kg."
+    )
 
     metrics = scraper.get_detail_metrics()
-    assert metrics["detail_requests"] == 0
-    assert metrics["detail_skipped"] == 1
-    assert metrics["detail_reason_counts"] == {"skipped_complete_single_stock": 1}
-
-
+    assert metrics["detail_requests"] == 1
+    assert metrics["detail_skipped"] == 0
 def test_detail_reason_metrics_identify_missing_card_data():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(
@@ -445,3 +466,36 @@ def test_clipped_card_description_is_replaced_by_complete_detail_page_text():
         "Peso bruto por caja: 6.25 Kg."
     )
     assert scraper.get_detail_metrics()["detail_requests"] == 1
+
+
+
+def test_detail_failure_discards_card_excerpt_instead_of_claiming_authoritative_detail():
+    category_scraper = SharedProductCategoryScraper()
+    category_scraper.detail_html_override = ""
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+    category_scraper.html_override = """
+    <html>
+        <article>
+            <a href="/producto/producto-sin-detalle/">
+                <h2 class="brxe-f31760">Producto sin detalle</h2>
+            </a>
+            <p class="brxe-a26f34">FB-1241</p>
+            <div class="text-content">
+                Material: ABS. Peso neto por caja: 5.5 Kg. Peso bruto por...
+            </div>
+            <div class="variaciones-producto"><p>10</p></div>
+        </article>
+    </html>
+    """
+
+    result = scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    assert len(result) == 1
+    assert result[0].description == ""

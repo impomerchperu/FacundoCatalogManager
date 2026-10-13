@@ -141,6 +141,8 @@ class CatalogSyncService:
                     getattr(product, "category", ""),
                 )
                 self._preserve_existing_prices(existing, product)
+                self._preserve_existing_description(existing, product)
+                product.content_hash = self.hash_service.generate(product)
                 comparison = self.diff_service.compare(existing, product)
                 if comparison["changed"]:
                     result.updated += 1
@@ -433,6 +435,14 @@ class CatalogSyncService:
                 continue
             if current <= 0.0 < candidate:
                 setattr(existing, field, candidate)
+
+    @staticmethod
+    def _preserve_existing_description(existing, product) -> None:
+        """No borra un detalle vigente cuando el origen no entregó un bloque completo."""
+        incoming = str(getattr(product, "description", "") or "").strip()
+        current = str(CatalogSyncService._value(existing, "description") or "").strip()
+        if not incoming and current:
+            product.description = current
 
     @staticmethod
     def _preserve_existing_prices(existing, product) -> None:

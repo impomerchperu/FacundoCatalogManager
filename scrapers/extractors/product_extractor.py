@@ -35,15 +35,21 @@ class ProductExtractor:
         "color_mode",
         "enable_client_color_preference",
     }
-    _DESCRIPTION_ATTRIBUTE_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"(?<!\w)[A-ZÁÉÍÓÚÜÑ][^:.;\n]{1,48}:\s*\S",
-        re.IGNORECASE,
-    )
     _DESCRIPTION_TRUNCATION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
         r"(?:\.{3,}|…)\s*$|"
         r"(?<!\w)(?:peso\s+(?:bruto|neto)(?:\s+por(?:\s+caja)?)?|"
         r"dimensiones(?:\s+(?:de\s+)?caja)?|cantidad\s+por\s+caja)\s*:?\s*$",
         re.IGNORECASE,
+    )
+    # The individual product description tab is authoritative; category/card
+    # previews are intentionally consulted only as a last resort.
+    _DESCRIPTION_SELECTORS_BY_PRIORITY: ClassVar[tuple[tuple[str, ...], ...]] = (
+        ("#tab-description", ".woocommerce-Tabs-panel--description"),
+        (".x-tabs_panel-content .brxe-text",),
+        (".x-tabs_panel-content",),
+        (".product-description",),
+        (".description",),
+        (".text-content",),
     )
 
     def __init__(self):
@@ -151,37 +157,26 @@ class ProductExtractor:
         return ""
 
     @classmethod
-    def _description_candidate_score(cls, text: str) -> tuple[int, int, int]:
-        """Prefiere el bloque con más atributos completos y sin truncamiento."""
-        complete_attributes = len(
-            cls._DESCRIPTION_ATTRIBUTE_PATTERN.findall(text)
-        )
-        is_complete = not cls._DESCRIPTION_TRUNCATION_PATTERN.search(text)
-        return complete_attributes, int(is_complete), len(text)
+    def _is_complete_description(cls, value: str) -> bool:
+        """Rechaza fragmentos truncados antes de aceptar una descripción."""
+        text = re.sub(r"\s+", " ", str(value or "")).strip()
+        if not text or text.endswith((",", ";", ":")):
+            return False
+        return not cls._DESCRIPTION_TRUNCATION_PATTERN.search(text)
 
     def extract_description(self, soup):
-        """Extrae el bloque de detalle más completo, no el primer resumen visible."""
-        selectors = [
-            ".text-content",
-            ".x-tabs_panel-content",
-            ".product-description",
-            product_selectors.PRODUCT_DESCRIPTION,
-            ".description",
-        ]
-        candidates: list[str] = []
-        seen: set[str] = set()
-        for selector in selectors:
-            for element in soup.select(selector):
-                text = re.sub(r"\s+", " ", element.get_text(" ", strip=True)).strip()
-                key = text.casefold()
-                if not text or key in seen:
-                    continue
-                seen.add(key)
-                candidates.append(text)
-
-        if not candidates:
-            return ""
-        return max(candidates, key=self._description_candidate_score)
+        """Devuelve el primer bloque completo según prioridad semántica."""
+        for selector_group in self._DESCRIPTION_SELECTORS_BY_PRIORITY:
+            for selector in selector_group:
+                for element in soup.select(selector):
+                    text = re.sub(
+                        r"\s+",
+                        " ",
+                        element.get_text(" ", strip=True),
+                    ).strip()
+                    if self._is_complete_description(text):
+                        return text
+        return ""
 
     def extract_price(self, soup):
         selectors = [

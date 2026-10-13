@@ -171,6 +171,7 @@ class CategoryFilterButton(QPushButton):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(text, parent)
+        self.toggled.connect(self._sync_checked_font)
         self._focus_frame = QFrame(self)
         self._focus_frame.setObjectName("category_focus_frame")
         self._focus_frame.setAttribute(
@@ -185,6 +186,11 @@ class CategoryFilterButton(QPushButton):
         )
         self._focus_frame.hide()
         self._focus_frame.raise_()
+
+    def _sync_checked_font(self, checked: bool) -> None:
+        font = QFont(self.font())
+        font.setBold(checked)
+        self.setFont(font)
 
     def mouseDoubleClickEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -808,6 +814,9 @@ class MainWindow(QMainWindow):
         ]
         for text, callback in buttons:
             button = QPushButton(text)
+            if text == "Imágenes (0)":
+                button.setObjectName("image_review_button")
+                button.setCheckable(True)
             self._configure_action_button(button)
             button.setFixedWidth(button.sizeHint().width())
             button.clicked.connect(callback)
@@ -841,7 +850,14 @@ class MainWindow(QMainWindow):
             "}"
             " QPushButton:hover { background-color: #eef5fb; }"
             " QPushButton:pressed { background-color: #dbeeff; }"
+            " QPushButton:checked {"
+            " background-color: #d8edf7;"
+            " border: 1px solid #a9cfe2;"
+            " color: #173f6d;"
+            " font-weight: bold;"
+            "}"
         )
+        button.setFixedHeight(cls.ACTION_BUTTON_HEIGHT)
 
     @classmethod
     def _configure_toggle_button(cls, button: QPushButton, *texts: str) -> None:
@@ -1188,6 +1204,8 @@ class MainWindow(QMainWindow):
         products = self._filtered_products()
         self.table.show_only_products(products)
         self.table.set_search_text(search_text)
+        scrollbar = self.table.verticalScrollBar()
+        scrollbar.setValue(scrollbar.minimum())
         self.update_product_counter(len(products))
 
     @staticmethod
@@ -1259,18 +1277,9 @@ class MainWindow(QMainWindow):
             if count
             else "No hay cambios de imagen pendientes."
         )
-        if count:
-            button.setStyleSheet(
-                "QPushButton {"
-                " color: #173f6d; font-weight: bold;"
-                " background-color: #fff7d6;"
-                " border: 1px solid #e2c85b;"
-                " border-radius: 4px;"
-                "}"
-                " QPushButton:hover { background-color: #fff2bd; }"
-            )
-        else:
-            self._configure_action_button(button)
+        button.setCheckable(True)
+        button.setChecked(count > 0)
+        self._configure_action_button(button)
 
         gallery_overrides: dict[str, list[dict]] = {}
         for record in records:

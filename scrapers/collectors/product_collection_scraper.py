@@ -42,9 +42,9 @@ class ProductCollectionScraper:
     }
     _REQUIRED_DETAIL_FIELDS = ("code", "name", "description", "image_url")
     _DESCRIPTION_TRUNCATION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"(?:\\.{3,}|…)\\s*$|"
-        r"(?<!\\w)(?:peso\\s+(?:bruto|neto)(?:\\s+por(?:\\s+caja)?)?|"
-        r"dimensiones(?:\\s+(?:de\\s+)?caja)?|cantidad\\s+por\\s+caja)\\s*:?\\s*$",
+        r"(?:\.{3,}|…)\s*$|"
+        r"(?<!\w)(?:peso\s+(?:bruto|neto)(?:\s+por(?:\s+caja)?)?|"
+        r"dimensiones(?:\s+(?:de\s+)?caja)?|cantidad\s+por\s+caja)\s*:?\s*$",
         re.IGNORECASE,
     )
 
@@ -468,7 +468,7 @@ class ProductCollectionScraper:
     def _description_needs_detail(cls, product: Any) -> bool:
         """Detects missing or clipped card excerpts before they are accepted."""
         description = re.sub(
-            r"\\s+",
+            r"\s+",
             " ",
             str(getattr(product, "description", "") or ""),
         ).strip()

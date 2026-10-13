@@ -36,7 +36,7 @@ class ProductExtractor:
         "enable_client_color_preference",
     }
     _DESCRIPTION_ATTRIBUTE_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"(?<!\\w)[A-ZÁÉÍÓÚÜÑ][^:.;\\n]{1,48}:\\s*\\S",
+        r"(?<!\w)[A-ZÁÉÍÓÚÜÑ][^:.;\n]{1,48}:\s*\S",
         re.IGNORECASE,
     )
     _DESCRIPTION_TRUNCATION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
@@ -172,7 +172,7 @@ class ProductExtractor:
         seen: set[str] = set()
         for selector in selectors:
             for element in soup.select(selector):
-                text = re.sub(r"\\s+", " ", element.get_text(" ", strip=True)).strip()
+                text = re.sub(r"\s+", " ", element.get_text(" ", strip=True)).strip()
                 key = text.casefold()
                 if not text or key in seen:
                     continue

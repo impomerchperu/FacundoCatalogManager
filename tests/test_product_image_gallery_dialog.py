@@ -154,6 +154,45 @@ def test_selecting_thumbnail_preserves_fixed_positions_and_highlights_primary(tm
     dialog.close()
 
 
+def test_popup_arrow_keys_select_adjacent_thumbnails(tmp_path):
+    _qapp()
+    paths = [tmp_path / f"arrows-{index}.png" for index in range(4)]
+    for index, path in enumerate(paths):
+        _write_test_image(path, width=100 + index * 10, height=80)
+    dialog = ProductImageGalleryDialog(_visual_product(paths))
+
+    QTest.keyClick(dialog, Qt.Key.Key_Right)
+    assert dialog.active_index == 1
+    assert [label.property("active") for label in dialog.thumbnail_labels] == [
+        False,
+        True,
+        False,
+        False,
+    ]
+
+    QTest.keyClick(dialog, Qt.Key.Key_Left)
+    assert dialog.active_index == 0
+    QTest.keyClick(dialog, Qt.Key.Key_Left)
+    assert dialog.active_index == 0
+
+    QTest.keyClick(dialog, Qt.Key.Key_Right)
+    QTest.keyClick(dialog, Qt.Key.Key_Right)
+    QTest.keyClick(dialog, Qt.Key.Key_Right)
+    assert dialog.active_index == 3
+    QTest.keyClick(dialog, Qt.Key.Key_Right)
+    assert dialog.active_index == 3
+
+    QTest.keyClick(dialog, Qt.Key.Key_Left)
+    assert dialog.active_index == 2
+    assert [label.property("active") for label in dialog.thumbnail_labels] == [
+        False,
+        False,
+        True,
+        False,
+    ]
+    dialog.close()
+
+
 def test_four_image_gallery_keeps_order_and_highlights_primary_in_place(tmp_path):
     _qapp()
     paths = [tmp_path / f"selection-{index}.png" for index in range(4)]

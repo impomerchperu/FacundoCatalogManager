@@ -1729,7 +1729,7 @@ def test_latest_sort_takes_priority_and_third_click_restores_default_order():
     table.close()
 
 
-def test_initial_product_order_uses_concise_category_names_alphabetically():
+def test_initial_product_order_uses_full_category_names_alphabetically():
     _qapp()
     products = [
         Product(
@@ -1759,9 +1759,21 @@ def test_initial_product_order_uses_concise_category_names_alphabetically():
         for row in range(table.rowCount())
     ] == ["FB-802", "FB-801", "FB-803"]
     assert [
+        table.item(row, ProductTable.CATEGORY_COLUMN).text()
+        for row in range(table.rowCount())
+    ] == [
+        "Antiestrés",
+        "Artículos de Escritorio",
+        "Artículos de Oficina",
+    ]
+    assert [
         ProductTable._format_categories(product.category)
         for product in products
-    ] == ["Escritorio", "Antiestrés", "Oficina"]
+    ] == [
+        "Artículos de Escritorio",
+        "Antiestrés",
+        "Artículos de Oficina",
+    ]
     table.close()
 
 

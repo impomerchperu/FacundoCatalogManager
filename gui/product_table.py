@@ -2487,8 +2487,7 @@ class ProductTable(QTableWidget):
             return "—"
         lines: list[str] = []
         for category_name in categories:
-            display_name = display_category_name(category_name)
-            lines.extend(cls.CATEGORY_FORCED_LINES.get(category_name, (display_name,)))
+            lines.extend(cls.CATEGORY_FORCED_LINES.get(category_name, (category_name,)))
         return "\n".join(lines)
 
     def _set_stock_widget(self, row: int, product: Product) -> None:

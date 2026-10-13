@@ -40,9 +40,9 @@ class ProductExtractor:
         re.IGNORECASE,
     )
     _DESCRIPTION_TRUNCATION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"(?:\\.{3,}|…)\\s*$|"
-        r"(?<!\\w)(?:peso\\s+(?:bruto|neto)(?:\\s+por(?:\\s+caja)?)?|"
-        r"dimensiones(?:\\s+(?:de\\s+)?caja)?|cantidad\\s+por\\s+caja)\\s*:?\\s*$",
+        r"(?:\.{3,}|…)\s*$|"
+        r"(?<!\w)(?:peso\s+(?:bruto|neto)(?:\s+por(?:\s+caja)?)?|"
+        r"dimensiones(?:\s+(?:de\s+)?caja)?|cantidad\s+por\s+caja)\s*:?\s*$",
         re.IGNORECASE,
     )
 

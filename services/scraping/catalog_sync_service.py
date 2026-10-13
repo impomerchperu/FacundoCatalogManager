@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
@@ -30,6 +31,13 @@ class CatalogSyncService:
     """Compara productos obtenidos contra el catálogo persistido."""
 
     guarantees_product_masters = True
+
+    _DESCRIPTION_TRUNCATION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
+        r"(?:\\.{3,}|…)\\s*$|"
+        r"(?<!\\w)(?:peso\\s+(?:bruto|neto)(?:\\s+por(?:\\s+caja)?)?|"
+        r"dimensiones(?:\\s+(?:de\\s+)?caja)?|cantidad\\s+por\\s+caja)\\s*:?\\s*$",
+        re.IGNORECASE,
+    )
 
     FIELD_LABELS: ClassVar[dict[str, str]] = {
         "code": "Código",
@@ -436,12 +444,53 @@ class CatalogSyncService:
             if current <= 0.0 < candidate:
                 setattr(existing, field, candidate)
 
-    @staticmethod
-    def _preserve_existing_description(existing, product) -> None:
-        """No borra un detalle vigente cuando el origen no entregó un bloque completo."""
+    @classmethod
+    def _description_is_complete(cls, value: object) -> bool:
+        description = re.sub(r"\\s+", " ", str(value or "")).strip()
+        if not description or description.endswith((",", ";", ":")):
+            return False
+        return not cls._DESCRIPTION_TRUNCATION_PATTERN.search(description)
+
+    @classmethod
+    def _description_information_score(cls, value: object) -> tuple[int, int, int]:
+        description = re.sub(r"\\s+", " ", str(value or "")).strip()
+        attribute_matches = re.findall(
+            r"(?:^|[.!?;]\\s*)([^:.;!?]{2,50}?)\\s*:\\s*([^.;!?]+)",
+            description,
+        )
+        attributes = {
+            re.sub(r"\\s+", " ", label).strip().casefold()
+            for label, _value in attribute_matches
+            if label.strip()
+        }
+        measurements = len(
+            re.findall(
+                r"\\b\\d+(?:[.,]\\d+)?\\s*"
+                r"(?:mm|cm|m|kg|g|oz|ml|l|unidades?|piezas?)\\b",
+                description,
+                flags=re.IGNORECASE,
+            )
+        )
+        sentences = len(re.findall(r"[.!?](?:\\s|$)", description))
+        return len(attributes), measurements, sentences
+
+    @classmethod
+    def _preserve_existing_description(cls, existing, product) -> None:
+        """Conserva la descripción completa cuando el dato entrante es inferior."""
         incoming = str(getattr(product, "description", "") or "").strip()
-        current = str(CatalogSyncService._value(existing, "description") or "").strip()
-        if not incoming and current:
+        current = str(cls._value(existing, "description") or "").strip()
+        incoming_is_complete = cls._description_is_complete(incoming)
+        current_is_complete = cls._description_is_complete(current)
+
+        if not incoming_is_complete:
+            product.description = current if current else ""
+            return
+
+        if (
+            current_is_complete
+            and cls._description_information_score(incoming)
+            < cls._description_information_score(current)
+        ):
             product.description = current
 
     @staticmethod

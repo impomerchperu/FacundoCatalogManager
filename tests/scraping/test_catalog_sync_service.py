@@ -752,3 +752,37 @@ def test_catalog_sync_keeps_more_informative_existing_description():
     assert stored.description == existing.description
     assert result.updated == 0
     assert result.unchanged == 1
+
+
+def test_catalog_sync_uses_more_informative_description_across_duplicate_codes():
+    repository = InMemoryCatalogRepository()
+    service = CatalogSyncService(repository, ProductDiffService())
+
+    first = Product("P096", "Producto vigente", 10)
+    first.description = "Material: ABS. Peso bruto por..."
+    second = Product("P096", "Producto vigente", 10)
+    second.description = (
+        "Color: Blanco. Material: Poliuretano. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+
+    result = service.synchronize([first, second])
+
+    stored = repository.get("P096")
+    assert stored is not None
+    assert stored.description == second.description
+    assert result.created == 1
+
+
+def test_catalog_sync_does_not_save_an_incomplete_description_for_new_product():
+    repository = InMemoryCatalogRepository()
+    incoming = Product("P095", "Producto nuevo", 10)
+    incoming.description = "Material: ABS. Peso bruto por..."
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+
+    stored = repository.get("P095")
+    assert stored is not None
+    assert stored.description == ""
+    assert result.created == 1

@@ -132,6 +132,9 @@ class CatalogSyncService:
                     self._normalize_code(product.code).casefold()
                 )
                 if existing is None:
+                    if not self._description_is_complete(product.description):
+                        product.description = ""
+                        product.content_hash = self.hash_service.generate(product)
                     result.created += 1
                     result.changes.append(
                         {
@@ -413,12 +416,11 @@ class CatalogSyncService:
             image["position"] = position
         existing.gallery_images = current
 
-    @staticmethod
-    def _merge_missing_scalar_fields(existing, product) -> None:
-        """Completa campos vacíos con una ocurrencia duplicada más rica."""
+    @classmethod
+    def _merge_missing_scalar_fields(cls, existing, product) -> None:
+        """Completa campos vacíos y conserva la descripción con más datos."""
         text_fields = (
             "name",
-            "description",
             "image_url",
             "image_path",
             "image_hash",
@@ -428,6 +430,15 @@ class CatalogSyncService:
             candidate = getattr(product, field, "")
             if not str(current or "").strip() and str(candidate or "").strip():
                 setattr(existing, field, candidate)
+
+        current_description = str(getattr(existing, "description", "") or "").strip()
+        candidate_description = str(getattr(product, "description", "") or "").strip()
+        if cls._description_is_complete(candidate_description) and (
+            not cls._description_is_complete(current_description)
+            or cls._description_information_score(candidate_description)
+            > cls._description_information_score(current_description)
+        ):
+            existing.description = candidate_description
 
         price_fields = (
             "price",

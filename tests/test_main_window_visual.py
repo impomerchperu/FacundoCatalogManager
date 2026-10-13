@@ -5,10 +5,12 @@ from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QMainWindow,
     QPushButton,
     QScrollArea,
+    QScrollBar,
     QTableWidget,
     QVBoxLayout,
     QWidget,
@@ -245,6 +247,103 @@ def test_action_buttons_are_grouped_for_top_right_layout():
     )
 
     host.deleteLater()
+
+
+def test_image_review_button_keeps_height_and_uses_shared_active_style():
+    _qapp()
+
+    class _ReviewService:
+        def available(self):
+            return [
+                {
+                    "id": "review-1",
+                    "kind": "replacement",
+                    "code": "FB-100",
+                },
+            ]
+
+    class _TableSpy:
+        def set_gallery_overrides(self, overrides):
+            self.overrides = overrides
+
+    window = MainWindow.__new__(MainWindow)
+    button = QPushButton("Imágenes (0)")
+    button.setCheckable(True)
+    MainWindow._configure_action_button(button)
+    button.setFixedWidth(115)
+    initial_height = button.height()
+    window.image_review_button = button
+    window.image_review_service = _ReviewService()
+    window.table = _TableSpy()
+
+    MainWindow._refresh_image_review_state(window)
+
+    assert button.text() == "Imágenes (1)"
+    assert button.isChecked()
+    assert button.height() == initial_height == MainWindow.ACTION_BUTTON_HEIGHT
+    assert button.minimumHeight() == button.maximumHeight()
+    assert "QPushButton:checked" in button.styleSheet()
+    assert "background-color: #d8edf7" in button.styleSheet()
+    assert "#fff7d6" not in button.styleSheet()
+    button.deleteLater()
+
+
+def test_category_buttons_use_bold_font_only_when_checked():
+    _qapp()
+    button = CategoryFilterButton("Oficina")
+    button.setCheckable(True)
+
+    assert not button.font().bold()
+    button.setChecked(True)
+    assert button.font().bold()
+    button.setChecked(False)
+    assert not button.font().bold()
+    button.deleteLater()
+
+
+def test_apply_filters_resets_product_scrollbar_to_top():
+    _qapp()
+
+    class _FilterTable:
+        def __init__(self):
+            self.scrollbar = QScrollBar()
+            self.scrollbar.setRange(0, 100)
+            self.scrollbar.setValue(75)
+            self.visible_products = []
+            self.search_text = ""
+
+        def show_only_products(self, products):
+            self.visible_products = list(products)
+
+        def set_search_text(self, text):
+            self.search_text = text
+
+        def verticalScrollBar(self):
+            return self.scrollbar
+
+    window = MainWindow.__new__(MainWindow)
+    window.all_products = [
+        Product(code="FB-100", name="Producto de prueba", category="Oficina"),
+    ]
+    window.search_box = QLineEdit()
+    window.selected_categories = set()
+    window.stock_only = False
+    window.table = _FilterTable()
+    window.product_counter = QLabel()
+
+    window.search_box.setText("FB-100")
+    MainWindow.apply_filters(window)
+    assert window.table.scrollbar.value() == 0
+    assert window.table.search_text == "FB-100"
+
+    window.table.scrollbar.setValue(85)
+    window.search_box.setText("sin coincidencias")
+    MainWindow.apply_filters(window)
+    assert window.table.scrollbar.value() == 0
+    assert window.table.visible_products == []
+
+    window.table.scrollbar.deleteLater()
+    window.product_counter.deleteLater()
 
 
 def test_category_buttons_reserve_focus_border_and_stay_left_aligned():

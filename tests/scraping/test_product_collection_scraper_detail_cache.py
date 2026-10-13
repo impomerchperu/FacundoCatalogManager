@@ -207,6 +207,8 @@ def test_detail_page_with_more_attributes_replaces_complete_card_description():
     metrics = scraper.get_detail_metrics()
     assert metrics["detail_requests"] == 1
     assert metrics["detail_skipped"] == 0
+
+
 def test_detail_reason_metrics_identify_missing_card_data():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(

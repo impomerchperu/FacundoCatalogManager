@@ -132,7 +132,8 @@ class CatalogSyncService:
                     self._normalize_code(product.code).casefold()
                 )
                 if existing is None:
-                    if not self._description_is_complete(product.description):
+                    description = getattr(product, "description", "")
+                    if not self._description_is_complete(description):
                         product.description = ""
                         product.content_hash = self.hash_service.generate(product)
                     result.created += 1

@@ -450,10 +450,16 @@ class ProductImageDelegate(ProductCellDelegate):
     THUMBNAIL_STRIP_HEIGHT = 34
     THUMBNAIL_GAP = 0
     THUMBNAIL_PADDING = 0
-    # Reserve only the one-pixel table gridline on each edge, not an image margin.
+    # Keep a single table-grid pixel visible on every outer edge.
     CELL_HORIZONTAL_PADDING = 1
     CELL_VERTICAL_PADDING = 1
-    DEFAULT_SIZE = MAIN_IMAGE_WIDTH + (2 * CELL_HORIZONTAL_PADDING)
+    GRIDLINE_RIGHT_ALLOWANCE = 1
+    GRIDLINE_BOTTOM_ALLOWANCE = 1
+    DEFAULT_SIZE = (
+        MAIN_IMAGE_WIDTH
+        + (2 * CELL_HORIZONTAL_PADDING)
+        + GRIDLINE_RIGHT_ALLOWANCE
+    )
     # Reserve 144 px for the main preview and room for the thumbnail strip.
     # This keeps portrait previews from being reduced merely to make room for
     # the alternatives along the bottom of the cell.
@@ -462,6 +468,7 @@ class ProductImageDelegate(ProductCellDelegate):
         + THUMBNAIL_STRIP_HEIGHT
         + THUMBNAIL_GAP
         + (2 * CELL_VERTICAL_PADDING)
+        + GRIDLINE_BOTTOM_ALLOWANCE
     )
     MAX_VISIBLE_THUMBNAILS = 4
     IMAGE_ROLE = int(Qt.ItemDataRole.UserRole) + 1
@@ -2584,7 +2591,8 @@ class ProductTable(QTableWidget):
                         + ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
                     )
                 image_content_height += (
-                    2 * ProductImageDelegate.CELL_VERTICAL_PADDING
+                    (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+                    + ProductImageDelegate.GRIDLINE_BOTTOM_ALLOWANCE
                 )
                 content_height = max(content_height, image_content_height)
 

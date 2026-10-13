@@ -112,7 +112,7 @@ def test_image_review_dialog_has_no_actions_column_and_has_apply_button():
         for index in range(dialog.table.columnCount())
     ] == ["Código", "Producto", "Imagen actual", "Imágenes detectadas"]
     assert dialog.apply_button.text() == "APLICAR"
-    assert not dialog.apply_button.isEnabled()
+    assert dialog.apply_button.isEnabled()
     assert dialog.windowFlags() & Qt.WindowType.WindowMinimizeButtonHint
     assert dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
 
@@ -217,6 +217,35 @@ def test_image_review_dialog_apply_commits_selected_records_only():
 
     assert service.finalize_calls == [["review-1"]]
     assert dialog.records == []
+
+
+def test_image_review_dialog_bulk_apply_accepts_every_review():
+    _qapp()
+    service = FakeReviewService()
+    second = dict(service.records[0])
+    second.update(
+        {
+            "id": "review-2",
+            "code": "FB-200",
+            "product_name": "Segundo producto",
+            "selected_action": "",
+            "selected_path": "",
+            "selected_url": "",
+        },
+    )
+    service.records.append(second)
+    dialog = ImageReviewDialog(service=service)
+
+    assert dialog.apply_button.isEnabled()
+    dialog.apply_button.click()
+
+    assert service.selection_calls == [
+        ("review-1", "keep", None),
+        ("review-2", "keep", None),
+    ]
+    assert service.finalize_calls == [["review-1", "review-2"]]
+    assert dialog.records == []
+    dialog.close()
 
 
 def test_image_review_dialog_can_apply_one_review_individually():

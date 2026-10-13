@@ -77,6 +77,7 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     assert initial_image_column_width == (
         ProductImageDelegate.MAIN_IMAGE_WIDTH
         + (2 * ProductImageDelegate.CELL_HORIZONTAL_PADDING)
+        + ProductImageDelegate.GRIDLINE_RIGHT_ALLOWANCE
     )
     assert initial_image_column_width == ProductImageDelegate.DEFAULT_SIZE
     assert ProductImageDelegate.THUMBNAIL_GAP == 0
@@ -91,6 +92,8 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
     )
     assert main_rect.left() == cell_rect.left() + 1
     assert main_rect.top() == cell_rect.top() + 1
+    assert main_rect.right() == cell_rect.right() - 1
+    assert main_rect.bottom() == cell_rect.bottom() - 1
     assert main_rect.width() == ProductImageDelegate.MAIN_IMAGE_WIDTH
     assert (
         table.horizontalHeader().sectionResizeMode(ProductTable.IMAGE_COLUMN)
@@ -101,6 +104,7 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
         - ProductImageDelegate.THUMBNAIL_STRIP_HEIGHT
         - ProductImageDelegate.THUMBNAIL_GAP
         - (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+        - ProductImageDelegate.GRIDLINE_BOTTOM_ALLOWANCE
         == ProductImageDelegate.MIN_PRIMARY_IMAGE_DISPLAY_SIZE
     )
     display_width = max(
@@ -112,6 +116,7 @@ def test_product_table_images_fill_the_cell_without_spacing(tmp_path: Path):
         ProductImageDelegate.main_image_height(str(image_path), display_width)
         + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
         + ProductTable.ROW_VERTICAL_SPACING
+        + ProductImageDelegate.GRIDLINE_BOTTOM_ALLOWANCE
     )
     assert table.rowHeight(0) == expected_row_height
 
@@ -202,6 +207,7 @@ def test_product_table_keeps_gallery_order_and_centers_thumbnails_under_primary(
         image_content_height
         + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
         + ProductTable.ROW_VERTICAL_SPACING
+        + ProductImageDelegate.GRIDLINE_BOTTOM_ALLOWANCE
     )
 
     QTest.mouseClick(
@@ -1635,6 +1641,7 @@ def test_row_height_expands_for_tall_primary_image_and_alternative_strip(
     assert table.rowHeight(0) == (
         expected_image_content
         + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+        + ProductImageDelegate.GRIDLINE_BOTTOM_ALLOWANCE
     )
     assert table.rowHeight(0) >= ProductTable.VERY_TALL_ROW_THRESHOLD
     table.close()
@@ -1849,14 +1856,18 @@ def test_row_height_tracks_tallest_text_or_image_and_skips_padding_for_tall_rows
         table.columnWidth(ProductTable.NAME_COLUMN),
     )
     assert table.rowHeight(0) == max(
-        landscape_content + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING),
+        landscape_content
+        + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+        + ProductImageDelegate.GRIDLINE_BOTTOM_ALLOWANCE,
         landscape_text_height,
     )
 
     portrait_content = ProductImageDelegate.main_image_height(str(portrait_path))
     assert portrait_content >= ProductTable.VERY_TALL_ROW_THRESHOLD
     assert table.rowHeight(1) == (
-        portrait_content + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+        portrait_content
+        + (2 * ProductImageDelegate.CELL_VERTICAL_PADDING)
+        + ProductImageDelegate.GRIDLINE_BOTTOM_ALLOWANCE
     )
     assert table.rowHeight(1) > table.rowHeight(0)
     table.close()

@@ -113,7 +113,7 @@ class CategoryProductExtractor:
         if element is None:
             return ""
         text = element.get_text(" ", strip=True)
-        return re.sub(r"\\s+", " ", text).strip()
+        return re.sub(r"\s+", " ", text).strip()
 
     def _stock(self, soup):
         return sum(self._stock_values(soup))

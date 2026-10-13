@@ -396,6 +396,62 @@ def test_detail_enrichment_merges_missing_fields_and_prices():
     assert result[0].url == "https://example.com/producto/producto-detalle/"
 
 
+def test_category_description_wins_when_it_has_more_explicit_attributes():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+    category_scraper.html_override = """
+    <html>
+        <article>
+            <a href="/producto/producto-mas-atributos/">
+                <img src="https://example.com/Logo-Facundo-2026.webp">
+                <h2 class="brxe-f31760">Producto con atributos</h2>
+            </a>
+            <p class="brxe-a26f34">FB-4009</p>
+            <div class="text-content">
+                Color: Blanco. Material: Poliuretano.
+                Peso neto por caja: 5.5 Kg.
+            </div>
+            <div class="variaciones-producto"><p>5</p></div>
+            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+            <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+            <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+        </article>
+    </html>
+    """
+    category_scraper.detail_html_override = """
+    <html>
+        <h1>Producto con atributos</h1>
+        <p class="brxe-heading">FB-4009</p>
+        <div id="tab-description" class="woocommerce-Tabs-panel">
+            Descripción promocional general.
+        </div>
+        <img class="woocommerce-product-gallery"
+             src="https://example.com/producto-real.jpg">
+        <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+        <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+        <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+        Stock Disponible 5
+    </html>
+    """
+
+    result = scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    assert len(result) == 1
+    assert category_scraper.detail_requests == [
+        "https://example.com/producto/producto-mas-atributos/"
+    ]
+    assert result[0].description == (
+        "Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg."
+    )
+
+
 def test_clipped_card_description_is_replaced_by_complete_detail_page_text():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(

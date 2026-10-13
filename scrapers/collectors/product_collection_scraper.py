@@ -422,10 +422,8 @@ class ProductCollectionScraper:
 
     @classmethod
     def _detail_skip_reason(cls, card: Any, product: Any) -> str | None:
-        # A card's fields can be an excerpt even when non-empty. When there is
-        # an individual product URL, fetch it to validate authoritative detail.
-        if cls._card_has_detail_link(card):
-            return None
+        # Check the category card first. A product URL alone is not a reason
+        # to fetch its detail page when the available fields are already sound.
         stock_values = cls._stock_values(card)
         if "description" in cls._missing_detail_fields(product):
             return None
@@ -490,6 +488,29 @@ class ProductCollectionScraper:
         return not cls._description_is_complete(
             str(getattr(product, "description", "") or "")
         )
+
+    @classmethod
+    def _description_information_score(cls, value: str) -> tuple[int, int, int]:
+        """Compara hechos explícitos sin favorecer una descripción solo por su tamaño."""
+        description = re.sub(r"\\s+", " ", str(value or "")).strip()
+        attribute_matches = re.findall(
+            r"(?:^|[.!?;]\\s*)([^:.;!?]{2,50}?)\\s*:\\s*([^.;!?]+)",
+            description,
+        )
+        attributes = {
+            re.sub(r"\\s+", " ", label).strip().casefold()
+            for label, _value in attribute_matches
+            if label.strip()
+        }
+        measurements = len(
+            re.findall(
+                r"\\b\\d+(?:[.,]\\d+)?\\s*(?:mm|cm|m|kg|g|oz|ml|l|unidades?|piezas?)\\b",
+                description,
+                flags=re.IGNORECASE,
+            )
+        )
+        sentences = len(re.findall(r"[.!?](?:\\s|$)", description))
+        return len(attributes), measurements, sentences
 
     @classmethod
     def _missing_detail_fields(cls, product: Any) -> tuple[str, ...]:
@@ -619,23 +640,30 @@ class ProductCollectionScraper:
         product: Any,
         category_name: str,
     ) -> Any:
+        card_description = str(getattr(product, "description", "") or "").strip()
         if self.detail_extractor is None:
+            if not self._description_is_complete(card_description):
+                product.description = ""
             return product
         link = card.select_one('a[href*="/producto/"]')
         href = link.get("href") if link else ""
         if not isinstance(href, str) or not href:
+            if not self._description_is_complete(card_description):
+                product.description = ""
             return product
         detail_url = urljoin(page_url, href)
         detail_key = self._detail_cache_key(card, product, detail_url)
-        # The card is a preview, never the source of truth for the master
-        # description. Do not persist it if the individual-page fetch fails.
-        product.description = ""
         detailed_product = self._get_detailed_product(
             detail_key,
             detail_url,
             category_name,
         )
         if detailed_product is None:
+            product.description = (
+                card_description
+                if self._description_is_complete(card_description)
+                else ""
+            )
             return product
 
         needs_image_repair = self._image_needs_detail(product)
@@ -661,14 +689,27 @@ class ProductCollectionScraper:
         if not current_name and detail_name:
             product.name = detail_name
 
-        # A card's description is only a preview and can end mid-attribute.
-        # Once the detail page was fetched, its best extracted block is the
-        # authoritative source, so do not keep a non-empty but clipped excerpt.
+        # Start with category-table data. Replace it only with a complete
+        # individual-page description that contains more explicit information.
         detail_description = str(
             getattr(detailed_product, "description", "") or ""
         ).strip()
-        if self._description_is_complete(detail_description):
+        card_description_is_complete = self._description_is_complete(
+            card_description
+        )
+        detail_description_is_complete = self._description_is_complete(
+            detail_description
+        )
+        if detail_description_is_complete and (
+            not card_description_is_complete
+            or self._description_information_score(detail_description)
+            > self._description_information_score(card_description)
+        ):
             product.description = detail_description
+        elif card_description_is_complete:
+            product.description = card_description
+        else:
+            product.description = ""
 
         detail_image = str(
             getattr(detailed_product, "image_url", "") or ""

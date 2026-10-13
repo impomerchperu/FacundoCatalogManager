@@ -730,7 +730,7 @@ def test_catalog_sync_replaces_existing_description_with_verified_complete_detai
     )
 
 
-def test_catalog_sync_preserves_existing_description_when_incoming_has_less_information():
+def test_catalog_sync_keeps_more_informative_existing_description():
     repository = InMemoryCatalogRepository()
     existing = Product("P097", "Producto vigente", 10)
     existing.description = (

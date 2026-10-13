@@ -396,7 +396,6 @@ def test_detail_enrichment_merges_missing_fields_and_prices():
     assert result[0].url == "https://example.com/producto/producto-detalle/"
 
 
-
 def test_clipped_card_description_is_replaced_by_complete_detail_page_text():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(
@@ -466,7 +465,6 @@ def test_clipped_card_description_is_replaced_by_complete_detail_page_text():
         "Peso bruto por caja: 6.25 Kg."
     )
     assert scraper.get_detail_metrics()["detail_requests"] == 1
-
 
 
 def test_detail_failure_discards_card_excerpt_instead_of_claiming_authoritative_detail():

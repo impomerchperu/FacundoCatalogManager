@@ -268,7 +268,6 @@ def test_product_extractor_reads_stock_from_each_variant_node_reverse_order():
     assert result["stock"] == 1356
 
 
-
 def test_product_extractor_prefers_authoritative_description_tab_over_longer_excerpt():
     html = """
     <html>
@@ -296,7 +295,6 @@ def test_product_extractor_prefers_authoritative_description_tab_over_longer_exc
     )
 
 
-
 def test_product_extractor_rejects_incomplete_authoritative_description_even_if_preview_is_longer():
     html = """
     <html>
@@ -315,7 +313,6 @@ def test_product_extractor_rejects_incomplete_authoritative_description_even_if_
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert result["description"] == ""
-
 
 
 def test_product_extractor_collects_all_text_blocks_inside_authoritative_tab():

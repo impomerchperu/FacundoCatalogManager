@@ -676,8 +676,6 @@ def test_catalog_sync_does_not_start_a_nested_transaction():
     assert repository.db.rollbacks == 0
 
 
-
-
 def test_catalog_sync_preserves_existing_description_when_source_detail_is_incomplete():
     repository = InMemoryCatalogRepository()
     existing = Product("P099", "Producto vigente", 10)
@@ -700,7 +698,6 @@ def test_catalog_sync_preserves_existing_description_when_source_detail_is_incom
     assert stored.description == existing.description
     assert result.updated == 0
     assert result.unchanged == 1
-
 
 
 def test_catalog_sync_replaces_existing_description_with_verified_complete_detail():

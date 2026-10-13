@@ -45,7 +45,7 @@ class ProductExtractor:
     # it is also used for the shorter category-card preview.
     _DESCRIPTION_SELECTORS_BY_PRIORITY: ClassVar[tuple[tuple[str, ...], ...]] = (
         ("#tab-description", ".woocommerce-Tabs-panel--description"),
-        (".x-tabs_panel-content .brxe-text", ".x-tabs_panel-content"),
+        (".x-tabs_panel-content",),
         (".product-description",),
         (".description",),
     )

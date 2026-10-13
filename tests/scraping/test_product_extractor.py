@@ -315,3 +315,30 @@ def test_product_extractor_rejects_incomplete_authoritative_description_even_if_
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert result["description"] == ""
+
+
+
+def test_product_extractor_collects_all_text_blocks_inside_authoritative_tab():
+    html = """
+    <html>
+        <body>
+            <div class="x-tabs_panel-content">
+                <div class="brxe-text">
+                    Material: Poliuretano. Peso neto por caja: 5.5 Kg.
+                </div>
+                <div class="brxe-text">
+                    Peso bruto por caja: 6.25 Kg.
+                </div>
+            </div>
+            <div class="text-content">
+                Resumen distinto que no es la ficha técnica.
+            </div>
+        </body>
+    </html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["description"] == (
+        "Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
+        "Peso bruto por caja: 6.25 Kg."
+    )

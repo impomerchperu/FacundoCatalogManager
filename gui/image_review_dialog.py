@@ -216,7 +216,7 @@ class ImageReviewDialog(QDialog):
         self.apply_button = QPushButton("APLICAR")
         self.apply_button.clicked.connect(self._apply_changes)
         self.apply_button.setFixedHeight(36)
-        self.apply_button.setEnabled(False)
+        self.apply_button.setEnabled(True)
         layout.addWidget(self.apply_button)
 
     def reload(self) -> None:
@@ -280,13 +280,8 @@ class ImageReviewDialog(QDialog):
         self.page_label.setText(f"Página {current} de {pages}")
         self.previous_button.setEnabled(self._page > 0)
         self.next_button.setEnabled(self._page + 1 < pages)
-        self.apply_button.setEnabled(
-            any(
-                str(record.get("selected_action", "") or "").strip()
-                or list(record.get("excluded_options", []) or [])
-                for record in self.records
-            )
-        )
+        # Applying is always available: unchanged reviews default to "keep".
+        self.apply_button.setEnabled(True)
 
     def _previous_page(self) -> None:
         if self._page <= 0:
@@ -648,17 +643,18 @@ class ImageReviewDialog(QDialog):
 
     def _apply_changes(self) -> None:
         review_ids = [
-            str(record.get("id", ""))
+            str(record.get("id", "")).strip()
             for record in self.records
-            if (
-                str(record.get("selected_action", "") or "").strip()
-                or list(record.get("excluded_options", []) or [])
-            )
+            if str(record.get("id", "")).strip()
         ]
         if not review_ids:
             return
 
         try:
+            for record in self.records:
+                review_id = str(record.get("id", "")).strip()
+                if review_id and not self._record_has_pending_changes(record):
+                    self.service.apply_selection(review_id, "keep")
             results = self.service.finalize_selected(review_ids)
         except Exception as error:  # noqa: BLE001
             QMessageBox.critical(

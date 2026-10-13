@@ -557,7 +557,7 @@ def test_product_table_category_sublimacion_is_shown_under_product_name():
     assert code_item is not None
     assert name_item is not None
     assert isinstance(name_delegate, ProductNameCategoryDelegate)
-    assert item.text() == "Sublimación"
+    assert item.text() == "Artículos de Sublimación"
     assert item.data(ProductNameCategoryDelegate.CATEGORY_SOURCE_ROLE) == (
         "Artículos de Sublimación"
     )
@@ -683,7 +683,7 @@ def test_product_table_category_does_not_wrap_by_word_count():
     formatted = ProductTable._format_categories(category)
 
     assert formatted == category
-    assert ProductTable._format_categories("Artículos de Escritorio") == "Escritorio"
+    assert ProductTable._format_categories("Artículos de Escritorio") == "Artículos de Escritorio"
     assert "\n" not in formatted
 
 

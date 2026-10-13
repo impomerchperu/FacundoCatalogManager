@@ -297,13 +297,17 @@ def test_product_extractor_prefers_authoritative_description_tab_over_longer_exc
 
 
 
-def test_product_extractor_rejects_an_incomplete_description_candidate():
+def test_product_extractor_rejects_incomplete_authoritative_description_even_if_preview_is_longer():
     html = """
     <html>
         <body>
             <div id="tab-description">
                 Material: Poliuretano. Peso neto por caja: 5.5 Kg.
                 Peso bruto por...
+            </div>
+            <div class="text-content">
+                This much longer marketing preview ends cleanly but does not
+                include the confirmed gross weight, so it must not be used.
             </div>
         </body>
     </html>

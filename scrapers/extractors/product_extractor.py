@@ -41,15 +41,13 @@ class ProductExtractor:
         r"dimensiones(?:\s+(?:de\s+)?caja)?|cantidad\s+por\s+caja)\s*:?\s*$",
         re.IGNORECASE,
     )
-    # The individual product description tab is authoritative; category/card
-    # previews are intentionally consulted only as a last resort.
+    # The description tab is authoritative. Never use .text-content here:
+    # it is also used for the shorter category-card preview.
     _DESCRIPTION_SELECTORS_BY_PRIORITY: ClassVar[tuple[tuple[str, ...], ...]] = (
         ("#tab-description", ".woocommerce-Tabs-panel--description"),
-        (".x-tabs_panel-content .brxe-text",),
-        (".x-tabs_panel-content",),
+        (".x-tabs_panel-content .brxe-text", ".x-tabs_panel-content"),
         (".product-description",),
         (".description",),
-        (".text-content",),
     )
 
     def __init__(self):
@@ -165,10 +163,13 @@ class ProductExtractor:
         return not cls._DESCRIPTION_TRUNCATION_PATTERN.search(text)
 
     def extract_description(self, soup):
-        """Devuelve el primer bloque completo según prioridad semántica."""
+        """Devuelve la primera descripción completa de la fuente más fiable."""
         for selector_group in self._DESCRIPTION_SELECTORS_BY_PRIORITY:
+            group_has_candidates = False
             for selector in selector_group:
-                for element in soup.select(selector):
+                elements = soup.select(selector)
+                group_has_candidates = group_has_candidates or bool(elements)
+                for element in elements:
                     text = re.sub(
                         r"\s+",
                         " ",
@@ -176,6 +177,10 @@ class ProductExtractor:
                     ).strip()
                     if self._is_complete_description(text):
                         return text
+            # If the authoritative block exists but is clipped, do not silently
+            # replace it with a lower-priority summary from another page section.
+            if group_has_candidates:
+                return ""
         return ""
 
     def extract_price(self, soup):

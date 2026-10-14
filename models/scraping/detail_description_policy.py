@@ -65,14 +65,17 @@ def strip_leading_color_field(value: object) -> str:
     separator = _COLOR_SEPARATOR_PATTERN.search(text, value_start)
     next_detail_field = _DETAIL_FIELD_LABEL_PATTERN.search(text, value_start)
 
-    if next_detail_field is not None and (
-        separator is None
-        or next_detail_field.start() < value_start + separator.end()
-    ):
-        return text[next_detail_field.start() :].strip()
+    if next_detail_field is not None:
+        if separator is None:
+            return text[next_detail_field.start() :].strip()
+        between_color_and_detail = text[
+            separator.end() : next_detail_field.start()
+        ]
+        if not between_color_and_detail.strip():
+            return text[next_detail_field.start() :].strip()
 
     if separator is not None:
-        return text[value_start + separator.end() :].strip()
+        return text[separator.end() :].strip()
     return ""
 
 

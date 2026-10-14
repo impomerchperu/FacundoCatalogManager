@@ -315,20 +315,37 @@ def test_product_extractor_rejects_incomplete_authoritative_description_even_if_
     assert result["description"] == ""
 
 
+def test_product_extractor_ignores_generic_text_content_and_other_fields():
+    html = """
+    <html>
+        <body>
+            <div class="text-content">Color: Rojo. Disponible en Azul.</div>
+            <div class="x-tabs_panel-content">Información adicional: ABS.</div>
+            <div class="color-summary">Colores: Verde, Blanco.</div>
+        </body>
+    </html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["description"] == ""
+
+
 def test_product_extractor_collects_all_text_blocks_inside_authoritative_tab():
     html = """
     <html>
         <body>
-            <div class="x-tabs_panel-content">
-                <div class="brxe-text">
-                    Material: Poliuretano. Peso neto por caja: 5.5 Kg.
-                </div>
-                <div class="brxe-text">
-                    Peso bruto por caja: 6.25 Kg.
+            <div id="tab-description" class="woocommerce-Tabs-panel--description">
+                <div class="x-tabs_panel-content">
+                    <div class="brxe-text">
+                        Material: Poliuretano. Peso neto por caja: 5.5 Kg.
+                    </div>
+                    <div class="brxe-text">
+                        Peso bruto por caja: 6.25 Kg.
+                    </div>
                 </div>
             </div>
             <div class="text-content">
-                Resumen distinto que no es la ficha técnica.
+                Color: Rojo. Información ajena al detalle.
             </div>
         </body>
     </html>

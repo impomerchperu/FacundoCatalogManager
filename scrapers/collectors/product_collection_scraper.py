@@ -490,30 +490,6 @@ class ProductCollectionScraper:
         )
 
     @classmethod
-    def _description_information_score(cls, value: str) -> tuple[int, int, int]:
-        """Compara hechos explícitos, no el tamaño de la descripción."""
-        description = re.sub(r"\s+", " ", str(value or "")).strip()
-        attribute_matches = re.findall(
-            r"(?:^|[.!?;]\s*)([^:.;!?]{2,50}?)\s*:\s*([^.;!?]+)",
-            description,
-        )
-        attributes = {
-            re.sub(r"\s+", " ", label).strip().casefold()
-            for label, _value in attribute_matches
-            if label.strip()
-        }
-        measurements = len(
-            re.findall(
-                r"\b\d+(?:[.,]\d+)?\s*"
-                r"(?:mm|cm|m|kg|g|oz|ml|l|unidades?|piezas?)\b",
-                description,
-                flags=re.IGNORECASE,
-            )
-        )
-        sentences = len(re.findall(r"[.!?](?:\s|$)", description))
-        return len(attributes), measurements, sentences
-
-    @classmethod
     def _missing_detail_fields(cls, product: Any) -> tuple[str, ...]:
         missing: list[str] = []
         for field in cls._REQUIRED_DETAIL_FIELDS:
@@ -643,14 +619,10 @@ class ProductCollectionScraper:
     ) -> Any:
         card_description = str(getattr(product, "description", "") or "").strip()
         if self.detail_extractor is None:
-            if not self._description_is_complete(card_description):
-                product.description = ""
             return product
         link = card.select_one('a[href*="/producto/"]')
         href = link.get("href") if link else ""
         if not isinstance(href, str) or not href:
-            if not self._description_is_complete(card_description):
-                product.description = ""
             return product
         detail_url = urljoin(page_url, href)
         detail_key = self._detail_cache_key(card, product, detail_url)
@@ -660,11 +632,8 @@ class ProductCollectionScraper:
             category_name,
         )
         if detailed_product is None:
-            product.description = (
-                card_description
-                if self._description_is_complete(card_description)
-                else ""
-            )
+            # A failed detail request must never replace category-card text.
+            product.description = card_description
             return product
 
         needs_image_repair = self._image_needs_detail(product)
@@ -690,8 +659,9 @@ class ProductCollectionScraper:
         if not current_name and detail_name:
             product.name = detail_name
 
-        # Start with category-table data. Replace it only with a complete
-        # individual-page description that contains more explicit information.
+        # The category-card Detail remains the source of truth whenever it is
+        # complete. Use the individual page only to repair that same field when
+        # the card text is truncated; unrelated page sections are never merged.
         detail_description = str(
             getattr(detailed_product, "description", "") or ""
         ).strip()
@@ -701,16 +671,10 @@ class ProductCollectionScraper:
         detail_description_is_complete = self._description_is_complete(
             detail_description
         )
-        if detail_description_is_complete and (
-            not card_description_is_complete
-            or self._description_information_score(detail_description)
-            > self._description_information_score(card_description)
-        ):
+        if not card_description_is_complete and detail_description_is_complete:
             product.description = detail_description
-        elif card_description_is_complete:
-            product.description = card_description
         else:
-            product.description = ""
+            product.description = card_description
 
         detail_image = str(
             getattr(detailed_product, "image_url", "") or ""

@@ -11,7 +11,7 @@ from services.scraping.category_name_normalizer import (
     split_category_names,
 )
 from services.scraping.product_hash_service import ProductHashService
-from services.scraping.detail_description_policy import (
+from models.scraping.detail_description_policy import (
     is_complete_detail,
     normalize_detail_text,
 )

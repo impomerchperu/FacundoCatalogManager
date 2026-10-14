@@ -14,7 +14,7 @@ class CategoryProductExtractor:
 
     SOURCE = "importacionesfacundo"
     _COLOR_ONLY_DESCRIPTION_PATTERN = re.compile(
-        r"^\s*colores?(?:\s+disponibles?)?\s*[:|\-]\s*[^.;]+[.;]?\s*$",
+        r"^\s*color(?:es)?(?:\s+disponibles?)?\s*[:|\-]\s*[^.;]+[.;]?\s*$",
         re.IGNORECASE,
     )
     _NON_DETAIL_FIELD_PATTERN = re.compile(

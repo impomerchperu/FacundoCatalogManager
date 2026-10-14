@@ -18,12 +18,12 @@ class CategoryProductExtractor:
         re.IGNORECASE,
     )
     _NON_DETAIL_FIELD_PATTERN = re.compile(
-        r"(?:^|[.!?]\s+)(?:"
-        r"stock\s+disponible\s*:?\s*\d[\d,.]*|"
-        r"precio\s+(?:muestra|ciento|millar)\s*(?::\s*|s/\s*|-\s*)"
-        r"(?:\d|consultar|disponible)|"
-        r"sku\s*[:\-]\s*[A-Z0-9-]+|"
-        r"c[oó]digo\s*[:\-]\s*[A-Z0-9-]+)",
+        r"(?:"
+        r"\bstock\s+disponible\s*:?\s*\d[\d,.]*|"
+        r"(?:^|[.!?]\s+)precio\s+(?:muestra|ciento|millar)"
+        r"\s*(?::\s*|s/\s*|-\s*)(?:\d|consultar|disponible)|"
+        r"(?:^|[.!?]\s+)(?:sku\s*[:\-]\s*[A-Z0-9-]+|"
+        r"c[oó]digo\s*[:\-]\s*[A-Z0-9-]+))",
         re.IGNORECASE,
     )
 

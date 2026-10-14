@@ -730,7 +730,7 @@ def test_catalog_sync_replaces_existing_description_with_verified_complete_detai
     )
 
 
-def test_catalog_sync_keeps_more_informative_existing_description():
+def test_catalog_sync_replaces_saved_description_with_complete_incoming_detail():
     repository = InMemoryCatalogRepository()
     existing = Product("P097", "Producto vigente", 10)
     existing.description = (
@@ -749,9 +749,9 @@ def test_catalog_sync_keeps_more_informative_existing_description():
 
     stored = repository.get("P097")
     assert stored is not None
-    assert stored.description == existing.description
-    assert result.updated == 0
-    assert result.unchanged == 1
+    assert stored.description == "Descripción promocional general."
+    assert result.updated == 1
+    assert result.unchanged == 0
 
 
 def test_catalog_sync_uses_more_informative_description_across_duplicate_codes():

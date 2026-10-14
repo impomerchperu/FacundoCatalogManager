@@ -118,6 +118,43 @@ def test_uses_category_table_when_visual_cards_contain_featured_products():
     ]
 
 
+def test_uses_category_table_when_a_visual_card_lacks_product_link():
+    html = """
+    <div class="jsfb-filterable">
+        <a href="/producto/producto-de-categoria/">
+            <h2>Producto de categoría</h2>
+        </a>
+        <div class="content-precio">
+            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+        </div>
+    </div>
+    <div class="jsfb-filterable">
+        <p class="brxe-a26f34">FB-1908</p>
+        <h2>Producto destacado sin enlace de categoría</h2>
+    </div>
+    <table><tbody>
+        <tr>
+            <td><a href="/producto/producto-de-categoria/">Producto</a></td>
+        </tr>
+    </tbody></table>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    cards = ProductCardExtractor().extract(soup)
+
+    assert len(cards) == 1
+    assert cards[0].name == "tr"
+    assert cards[0].select_one('a[href*="/producto/"]')["href"] == (
+        "/producto/producto-de-categoria/"
+    )
+
+
 def test_uses_product_table_when_any_visual_card_is_missing_price():
     html = """
     <div class="jsfb-filterable">

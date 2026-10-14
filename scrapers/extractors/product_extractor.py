@@ -2,6 +2,11 @@ import contextlib
 import re
 from typing import ClassVar
 
+from models.scraping.detail_description_policy import (
+    has_technical_detail,
+    is_complete_detail,
+    normalize_detail_text,
+)
 from scrapers.extractors.code_utils import extract_code_from_soup, normalize_code
 from scrapers.extractors.price_extractor import PriceExtractor
 from scrapers.extractors.product_image_extractor import ProductImageExtractor
@@ -11,11 +16,6 @@ from scrapers.extractors.variant_color_stock_extractor import (
 )
 from scrapers.factories.scraped_product_factory import ScrapedProductFactory
 from scrapers.selectors import product_selectors
-from models.scraping.detail_description_policy import (
-    has_technical_detail,
-    is_complete_detail,
-    normalize_detail_text,
-)
 
 
 class ProductExtractor:

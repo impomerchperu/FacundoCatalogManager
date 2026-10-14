@@ -42,6 +42,27 @@ def test_category_product_extractor_maps_visible_stock_to_colors():
 
     assert product.color_stock == {}
     assert product.stock == 1540
+    assert product.description == "Colores: Amarillo, Azul, Blanco"
+
+
+def test_category_product_extractor_prefers_detail_text_after_color_only_block():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-4015</p>
+        <h2 class="brxe-f31760">Producto con detalle</h2>
+        <div class="text-content">Color: Blanco.</div>
+        <div class="text-content">
+            Material: Poliuretano. Peso neto por caja: 5.5 Kg.
+        </div>
+        <div class="variaciones-producto"><p>10</p></div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.description == (
+        "Material: Poliuretano. Peso neto por caja: 5.5 Kg."
+    )
 
 
 def test_category_product_extractor_keeps_single_total_stock():

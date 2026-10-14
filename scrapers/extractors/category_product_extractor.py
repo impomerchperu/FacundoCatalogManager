@@ -7,7 +7,7 @@ from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
 )
-from services.scraping.detail_description_policy import normalize_detail_text
+from models.scraping.detail_description_policy import normalize_detail_text
 
 
 class CategoryProductExtractor:

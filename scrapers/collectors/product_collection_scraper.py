@@ -18,7 +18,7 @@ from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
 )
-from services.scraping.detail_description_policy import (
+from models.scraping.detail_description_policy import (
     is_complete_detail,
     normalize_detail_text,
 )
@@ -45,7 +45,6 @@ class ProductCollectionScraper:
         "price_thousand": "precio millar",
     }
     _REQUIRED_DETAIL_FIELDS = ("code", "name", "description", "image_url")
-
 
     def __init__(
         self,

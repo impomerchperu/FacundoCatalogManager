@@ -47,6 +47,10 @@ class ProductCollectionScraper:
         r"dimensiones(?:\s+(?:de\s+)?caja)?|cantidad\s+por\s+caja)\s*:?\s*$",
         re.IGNORECASE,
     )
+    _COLOR_ONLY_DESCRIPTION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
+        r"^\s*color(?:es)?(?:\s+disponibles?)?\s*[:|\-]\s*[^.;]+[.;]?\s*$",
+        re.IGNORECASE,
+    )
 
     def __init__(
         self,

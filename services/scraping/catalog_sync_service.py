@@ -498,12 +498,10 @@ class CatalogSyncService:
             product.description = current if current else ""
             return
 
-        if (
-            current_is_complete
-            and cls._description_information_score(incoming)
-            < cls._description_information_score(current)
-        ):
-            product.description = current
+        # The incoming complete Detail has already been selected from the
+        # category card (or used to repair its truncated text). Keep it as the
+        # source of truth; preserve stored text only when the incoming value is
+        # incomplete or unavailable.
 
     @staticmethod
     def _preserve_existing_prices(existing, product) -> None:

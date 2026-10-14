@@ -365,7 +365,9 @@ def test_detail_enrichment_merges_missing_fields_and_prices():
     <html>
         <h1>Producto detalle completo</h1>
         <p class="brxe-heading">FB-1240</p>
-        <div class="product-description">Detalle completo del producto.</div>
+        <div class="x-tabs_panel-content">
+            Material: ABS. Dimensiones: 10 x 5 cm. Certificado SGS
+        </div>
         <img class="woocommerce-product-gallery" src="producto-detalle.jpg">
         <div class="content-precio">
             <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
@@ -386,7 +388,9 @@ def test_detail_enrichment_merges_missing_fields_and_prices():
 
     assert len(result) == 1
     assert result[0].code == "FB-1240"
-    assert result[0].description == "Detalle completo del producto."
+    assert result[0].description == (
+        "Material: ABS. Dimensiones: 10 x 5 cm. Certificado SGS"
+    )
     assert result[0].price == 8.0
     assert result[0].price_sample == 8.0
     assert result[0].price_hundred == 700.0
@@ -447,11 +451,11 @@ def test_category_description_wins_when_it_has_more_explicit_attributes():
         "https://example.com/producto/producto-mas-atributos/"
     ]
     assert result[0].description == (
-        "Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg."
+        "Material: Poliuretano. Peso neto por caja: 5.5 Kg."
     )
 
 
-def test_clipped_card_description_is_replaced_by_complete_detail_page_text():
+def test_fb4047_truncated_card_detail_uses_only_technical_detail_panel():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(
         category_scraper,
@@ -462,16 +466,21 @@ def test_clipped_card_description_is_replaced_by_complete_detail_page_text():
     category_scraper.html_override = """
     <html>
         <article>
-            <a href="/producto/producto-peso-caja/">
-                <img src="https://example.com/producto-real.jpg">
-                <h2 class="brxe-f31760">Producto peso por caja</h2>
+            <a href="/producto/muneco-antiestres/">
+                <img src="https://example.com/fb-4047.webp">
+                <h2 class="brxe-f31760">Producto de ejemplo</h2>
             </a>
-            <p class="brxe-a26f34">FB-4008</p>
+            <p class="brxe-a26f34">FB-4047</p>
             <div class="text-content">
-                Color: Blanco. Material: Poliuretano.
-                Peso neto por caja: 5.5 Kg. Peso bruto por...
+                Color: Amarillo, Blanco. Material: Poliuretano.
+                Dimensiones: 55*55*100mm. Peso Unitario: 24 G.
+                Uso Recomendado: Antiestrés, Promocional.
+                Empaque Individual: Bolsa de polietileno.
+                Cantidad Por Caja: 250 Pza. Dimensiones Caja: 60*33*32cm.
+                Cubicaje por Caja: 0.0634 m³/CBM Peso neto por caja: 7.5 Kg.
+                Peso brut…
             </div>
-            <div class="variaciones-producto"><p>5</p></div>
+            <div class="variaciones-producto"><p>10</p></div>
             <div class="content-precio">
                 <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
             </div>
@@ -486,14 +495,28 @@ def test_clipped_card_description_is_replaced_by_complete_detail_page_text():
     """
     category_scraper.detail_html_override = """
     <html>
-        <h1>Producto peso por caja</h1>
-        <p class="brxe-heading">FB-4008</p>
+        <h1>Producto de ejemplo</h1>
+        <p class="brxe-heading">FB-4047</p>
+        <div class="x-tabs_panel-content">
+            Color: Amarillo, Blanco. Material: Poliuretano.
+            Dimensiones: 55*55*100mm. Peso Unitario: 24 G.
+            Uso Recomendado: Antiestrés, Promocional.
+            Empaque Individual: Bolsa de polietileno.
+            Cantidad Por Caja: 250 Pza. Dimensiones Caja: 60*33*32cm.
+            Cubicaje por Caja: 0.0634 m³/CBM Peso neto por caja: 7.5 Kg.
+            Peso bruto por caja: 8.5 Kg. Leer Menos Certificado SGS
+        </div>
         <div id="tab-description" class="woocommerce-Tabs-panel--description">
-            Color: Blanco. Material: Poliuretano.
-            Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg.
+            Descripción comercial: Material de cartón, no es el Detalle.
+        </div>
+        <div id="tab-additional_information">
+            Información adicional: dato no autorizado para Detalle.
+        </div>
+        <div id="tab-reviews">
+            Valoraciones: reseñas no autorizadas para Detalle.
         </div>
         <img class="woocommerce-product-gallery"
-             src="https://example.com/producto-real.jpg">
+             src="https://example.com/fb-4047-product.webp">
         <div class="content-precio">
             <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
         </div>
@@ -503,26 +526,40 @@ def test_clipped_card_description_is_replaced_by_complete_detail_page_text():
         <div class="content-precio">
             <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
         </div>
-        Stock Disponible 5
+        Stock Disponible 10
     </html>
     """
 
     result = scraper.scrape_category(
-        Category(name="Promocionales", url="https://example.com/promocionales/")
+        Category(
+            name="Artículos Antiestrés",
+            url="https://example.com/articulos-antiestres/",
+        )
     )
 
     assert len(result) == 1
-    assert category_scraper.detail_requests == [
-        "https://example.com/producto/producto-peso-caja/"
-    ]
+    assert result[0].code == "FB-4047"
+    assert result[0].name == "Producto de ejemplo"
+    assert result[0].category == "Artículos Antiestrés"
     assert result[0].description == (
-        "Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
-        "Peso bruto por caja: 6.25 Kg."
+        "Material: Poliuretano. Dimensiones: 55*55*100mm. "
+        "Peso Unitario: 24 G. Uso Recomendado: Antiestrés, Promocional. "
+        "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
+        "Dimensiones Caja: 60*33*32cm. Cubicaje por Caja: 0.0634 m³/CBM "
+        "Peso neto por caja: 7.5 Kg. Peso bruto por caja: 8.5 Kg. "
+        "Leer Menos Certificado SGS"
     )
+    assert "Color: Amarillo" not in result[0].description
+    assert "Descripción comercial" not in result[0].description
+    assert "Información adicional" not in result[0].description
+    assert "Valoraciones" not in result[0].description
+    assert category_scraper.detail_requests == [
+        "https://example.com/producto/muneco-antiestres/"
+    ]
     assert scraper.get_detail_metrics()["detail_requests"] == 1
 
 
-def test_color_only_category_detail_is_completed_from_description_tab():
+def test_color_only_card_detail_does_not_fall_back_to_description_tab():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(
         category_scraper,
@@ -571,7 +608,7 @@ def test_color_only_category_detail_is_completed_from_description_tab():
     assert category_scraper.detail_requests == [
         "https://example.com/producto/producto-solo-color/"
     ]
-    assert result[0].description == "Material: ABS. Peso neto por caja: 5.5 Kg."
+    assert result[0].description == ""
 
 
 def test_incomplete_card_is_not_replaced_by_generic_color_text_from_detail_page():

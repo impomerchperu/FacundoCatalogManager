@@ -249,9 +249,8 @@ def test_full_sync_removes_stale_categories_from_existing_product():
         45,
         category="Artículos de Oficina",
     )
-    result = service.sync(
+    result = service.sync_full_catalog(
         [incoming],
-        prune_missing=True,
         expected_products=1,
     )
 

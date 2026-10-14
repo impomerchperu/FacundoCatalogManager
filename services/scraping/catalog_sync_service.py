@@ -459,7 +459,15 @@ class CatalogSyncService:
     @classmethod
     def _description_is_complete(cls, value: object) -> bool:
         description = re.sub(r"\s+", " ", str(value or "")).strip()
-        if not description or description.endswith((",", ";", ":")):
+        if (
+            not description
+            or description.endswith((",", ";", ":"))
+            or re.fullmatch(
+                r"\s*color(?:es)?(?:\s+disponibles?)?\s*[:|\-]\s*[^.;]+[.;]?\s*",
+                description,
+                flags=re.IGNORECASE,
+            )
+        ):
             return False
         return not cls._DESCRIPTION_TRUNCATION_PATTERN.search(description)
 

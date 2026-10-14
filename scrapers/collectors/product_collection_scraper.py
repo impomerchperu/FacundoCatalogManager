@@ -12,15 +12,15 @@ from config.scraping_config import (
     SCRAPING_MAX_WORKERS,
 )
 from models.scraping.category import Category
+from models.scraping.detail_description_policy import (
+    is_complete_detail,
+    normalize_detail_text,
+)
 from scrapers.extractors.code_utils import normalize_code
 from scrapers.extractors.price_extractor import PriceExtractor
 from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
-)
-from models.scraping.detail_description_policy import (
-    is_complete_detail,
-    normalize_detail_text,
 )
 
 

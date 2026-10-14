@@ -161,7 +161,11 @@ class ProductExtractor:
     def _is_complete_description(cls, value: str) -> bool:
         """Rechaza fragmentos truncados antes de aceptar una descripción."""
         text = re.sub(r"\s+", " ", str(value or "")).strip()
-        if not text or text.endswith((",", ";", ":")):
+        if (
+            not text
+            or text.endswith((",", ";", ":"))
+            or cls._COLOR_ONLY_DESCRIPTION_PATTERN.fullmatch(text)
+        ):
             return False
         return not cls._DESCRIPTION_TRUNCATION_PATTERN.search(text)
 

@@ -496,7 +496,7 @@ class CatalogSyncService:
 
     @classmethod
     def _preserve_existing_description(cls, existing, product) -> None:
-        """Conserva la descripción completa cuando el dato entrante es inferior."""
+        """Conserva el dato guardado solo si la extracción nueva es incompleta."""
         incoming = str(getattr(product, "description", "") or "").strip()
         current = str(cls._value(existing, "description") or "").strip()
         incoming_is_complete = cls._description_is_complete(incoming)

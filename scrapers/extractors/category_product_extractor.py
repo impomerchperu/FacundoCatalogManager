@@ -13,6 +13,15 @@ class CategoryProductExtractor:
     """Extrae productos desde tarjetas y filas de tabla de categoría."""
 
     SOURCE = "importacionesfacundo"
+    _COLOR_ONLY_DESCRIPTION_PATTERN = re.compile(
+        r"^\s*colores?(?:\s+disponibles?)?\s*[:|\-]\s*[^.;]+[.;]?\s*$",
+        re.IGNORECASE,
+    )
+    _NON_DETAIL_FIELD_PATTERN = re.compile(
+        r"\b(?:stock\s+disponible|precio\s+(?:muestra|ciento|millar)|"
+        r"sku|c[oó]digo)\b",
+        re.IGNORECASE,
+    )
 
     def __init__(self):
         self.price_extractor = PriceExtractor()
@@ -109,11 +118,21 @@ class CategoryProductExtractor:
         return element.get_text(" ", strip=True) if element else ""
 
     def _description(self, soup):
-        element = soup.select_one(".text-content")
-        if element is None:
-            return ""
-        text = element.get_text(" ", strip=True)
-        return re.sub(r"\s+", " ", text).strip()
+        candidates = []
+        for element in soup.select(".text-content"):
+            text = re.sub(r"\s+", " ", element.get_text(" ", strip=True)).strip()
+            if not text:
+                continue
+            field_boundary = self._NON_DETAIL_FIELD_PATTERN.search(text)
+            if field_boundary is not None:
+                text = text[: field_boundary.start()].strip(" .;:-")
+            if text:
+                candidates.append(text)
+
+        for text in candidates:
+            if not self._COLOR_ONLY_DESCRIPTION_PATTERN.fullmatch(text):
+                return text
+        return candidates[0] if candidates else ""
 
     def _stock(self, soup):
         return sum(self._stock_values(soup))

@@ -5,16 +5,16 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
+from models.scraping.detail_description_policy import (
+    is_complete_detail,
+    normalize_detail_text,
+)
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_name_normalizer import (
     merge_category_names,
     split_category_names,
 )
 from services.scraping.product_hash_service import ProductHashService
-from models.scraping.detail_description_policy import (
-    is_complete_detail,
-    normalize_detail_text,
-)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TIMING_LOG = PROJECT_ROOT / "data" / "scraping_timing.log"

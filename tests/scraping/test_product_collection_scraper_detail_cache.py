@@ -522,6 +522,58 @@ def test_clipped_card_description_is_replaced_by_complete_detail_page_text():
     assert scraper.get_detail_metrics()["detail_requests"] == 1
 
 
+def test_incomplete_card_is_not_replaced_by_generic_color_text_from_detail_page():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+    category_scraper.html_override = """
+    <html>
+        <article>
+            <a href="/producto/producto-sin-detalle-especifico/">
+                <img src="https://example.com/producto-real.jpg">
+                <h2 class="brxe-f31760">Producto con detalle truncado</h2>
+            </a>
+            <p class="brxe-a26f34">FB-4013</p>
+            <div class="text-content">
+                Material: ABS. Peso neto por caja: 5.5 Kg. Peso bruto por...
+            </div>
+            <div class="variaciones-producto"><p>10</p></div>
+            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+            <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+            <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+        </article>
+    </html>
+    """
+    category_scraper.detail_html_override = """
+    <html>
+        <h1>Producto con detalle truncado</h1>
+        <p class="brxe-heading">FB-4013</p>
+        <div class="text-content">Colores disponibles: Blanco, Azul.</div>
+        <img class="woocommerce-product-gallery"
+             src="https://example.com/producto-real.jpg">
+        <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+        <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+        <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+        Stock Disponible 10
+    </html>
+    """
+
+    result = scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    assert len(result) == 1
+    assert len(category_scraper.detail_requests) == 1
+    assert result[0].description == (
+        "Material: ABS. Peso neto por caja: 5.5 Kg. Peso bruto por..."
+    )
+    assert "Colores disponibles" not in result[0].description
+
+
 def test_detail_failure_keeps_category_card_detail_as_the_source():
     category_scraper = SharedProductCategoryScraper()
     category_scraper.detail_html_override = ""

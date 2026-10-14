@@ -18,6 +18,10 @@ from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
 )
+from services.scraping.detail_description_policy import (
+    is_complete_detail,
+    normalize_detail_text,
+)
 
 
 class ProductCollectionScraper:
@@ -41,16 +45,7 @@ class ProductCollectionScraper:
         "price_thousand": "precio millar",
     }
     _REQUIRED_DETAIL_FIELDS = ("code", "name", "description", "image_url")
-    _DESCRIPTION_TRUNCATION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"(?:\.{3,}|…)\s*$|"
-        r"(?<!\w)(?:peso\s+(?:bruto|neto)(?:\s+por(?:\s+caja)?)?|"
-        r"dimensiones(?:\s+(?:de\s+)?caja)?|cantidad\s+por\s+caja)\s*:?\s*$",
-        re.IGNORECASE,
-    )
-    _COLOR_ONLY_DESCRIPTION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"^\s*color(?:es)?(?:\s+disponibles?)?\s*[:|\-]\s*[^.;]+[.;]?\s*$",
-        re.IGNORECASE,
-    )
+
 
     def __init__(
         self,
@@ -481,14 +476,7 @@ class ProductCollectionScraper:
 
     @classmethod
     def _description_is_complete(cls, value: str) -> bool:
-        description = re.sub(r"\s+", " ", str(value or "")).strip()
-        if (
-            not description
-            or description.endswith((",", ";", ":"))
-            or cls._COLOR_ONLY_DESCRIPTION_PATTERN.fullmatch(description)
-        ):
-            return False
-        return not cls._DESCRIPTION_TRUNCATION_PATTERN.search(description)
+        return is_complete_detail(value)
 
     @classmethod
     def _description_needs_detail(cls, product: Any) -> bool:
@@ -625,7 +613,9 @@ class ProductCollectionScraper:
         product: Any,
         category_name: str,
     ) -> Any:
-        card_description = str(getattr(product, "description", "") or "").strip()
+        card_description = normalize_detail_text(
+            getattr(product, "description", "")
+        )
         if self.detail_extractor is None:
             return product
         link = card.select_one('a[href*="/producto/"]')
@@ -670,15 +660,11 @@ class ProductCollectionScraper:
         # The category-card Detail remains the source of truth whenever it is
         # complete. Use the individual page only to repair that same field when
         # the card text is truncated; unrelated page sections are never merged.
-        detail_description = str(
-            getattr(detailed_product, "description", "") or ""
-        ).strip()
-        card_description_is_complete = self._description_is_complete(
-            card_description
+        detail_description = normalize_detail_text(
+            getattr(detailed_product, "description", "")
         )
-        detail_description_is_complete = self._description_is_complete(
-            detail_description
-        )
+        card_description_is_complete = is_complete_detail(card_description)
+        detail_description_is_complete = is_complete_detail(detail_description)
         if not card_description_is_complete and detail_description_is_complete:
             product.description = detail_description
         else:

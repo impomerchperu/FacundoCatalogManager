@@ -123,6 +123,16 @@ class CatalogSyncService:
             self._normalize_code(p.code).casefold() for p in consolidated
         }
         existing_by_code = self._load_existing_products(consolidated)
+        # Replacing category memberships is safe only when this call carries
+        # a known, complete unique-product target. The scraping orchestrator
+        # additionally validates all category occurrences before calling FULL.
+        replace_category_memberships = (
+            prune_missing
+            and result.products_expected > 0
+            and result.products_unique >= result.products_expected
+            and result.missing_code == 0
+            and not result.has_errors
+        )
         transaction_started = self._begin_repository_transaction()
 
         try:
@@ -151,7 +161,7 @@ class CatalogSyncService:
                 incoming_categories = self._merge_categories(
                     getattr(product, "category", "")
                 )
-                if prune_missing:
+                if replace_category_memberships:
                     # A validated FULL sync is authoritative for category
                     # membership; do not preserve stale links from old runs.
                     product.category = incoming_categories

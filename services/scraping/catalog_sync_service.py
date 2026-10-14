@@ -148,10 +148,20 @@ class CatalogSyncService:
                     self._save_catalog_product(product)
                     continue
 
-                product.category = self._merge_categories(
-                    self._value(existing, "category"),
-                    getattr(product, "category", ""),
+                incoming_categories = self._merge_categories(
+                    getattr(product, "category", "")
                 )
+                if prune_missing:
+                    # A validated FULL sync is authoritative for category
+                    # membership; do not preserve stale links from old runs.
+                    product.category = incoming_categories
+                else:
+                    # Directed/partial syncs may observe only one category,
+                    # so preserve previously confirmed memberships.
+                    product.category = self._merge_categories(
+                        self._value(existing, "category"),
+                        incoming_categories,
+                    )
                 self._preserve_existing_prices(existing, product)
                 self._preserve_existing_description(existing, product)
                 product.content_hash = self.hash_service.generate(product)

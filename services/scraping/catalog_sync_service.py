@@ -11,6 +11,10 @@ from services.scraping.category_name_normalizer import (
     split_category_names,
 )
 from services.scraping.product_hash_service import ProductHashService
+from services.scraping.detail_description_policy import (
+    is_complete_detail,
+    normalize_detail_text,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TIMING_LOG = PROJECT_ROOT / "data" / "scraping_timing.log"
@@ -31,13 +35,6 @@ class CatalogSyncService:
     """Compara productos obtenidos contra el catálogo persistido."""
 
     guarantees_product_masters = True
-
-    _DESCRIPTION_TRUNCATION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"(?:\.{3,}|…)\s*$|"
-        r"(?<!\w)(?:peso\s+(?:bruto|neto)(?:\s+por(?:\s+caja)?)?|"
-        r"dimensiones(?:\s+(?:de\s+)?caja)?|cantidad\s+por\s+caja)\s*:?\s*$",
-        re.IGNORECASE,
-    )
 
     FIELD_LABELS: ClassVar[dict[str, str]] = {
         "code": "Código",
@@ -103,6 +100,9 @@ class CatalogSyncService:
             product.code = code
             product.category = self._merge_categories(
                 getattr(product, "category", "")
+            )
+            product.description = normalize_detail_text(
+                getattr(product, "description", "")
             )
             prepared.append(product)
         consolidated = self.consolidate_products(prepared)
@@ -398,6 +398,9 @@ class CatalogSyncService:
             product.category = cls._merge_categories(
                 getattr(product, "category", "")
             )
+            product.description = normalize_detail_text(
+                getattr(product, "description", "")
+            )
             existing = consolidated.get(code.casefold())
             if existing is None:
                 consolidated[code.casefold()] = product
@@ -463,7 +466,7 @@ class CatalogSyncService:
 
     @classmethod
     def _merge_missing_scalar_fields(cls, existing, product) -> None:
-        """Completa campos vacíos y conserva la descripción con más datos."""
+        """Completa campos vacíos y conserva el Detail íntegro como fuente."""
         text_fields = (
             "name",
             "image_url",
@@ -476,8 +479,14 @@ class CatalogSyncService:
             if not str(current or "").strip() and str(candidate or "").strip():
                 setattr(existing, field, candidate)
 
-        current_description = str(getattr(existing, "description", "") or "").strip()
-        candidate_description = str(getattr(product, "description", "") or "").strip()
+        current_description = normalize_detail_text(
+            getattr(existing, "description", "")
+        )
+        candidate_description = normalize_detail_text(
+            getattr(product, "description", "")
+        )
+        existing.description = current_description
+        product.description = candidate_description
         if cls._description_is_complete(candidate_description) and (
             not cls._description_is_complete(current_description)
             or cls._description_information_score(candidate_description)
@@ -502,18 +511,7 @@ class CatalogSyncService:
 
     @classmethod
     def _description_is_complete(cls, value: object) -> bool:
-        description = re.sub(r"\s+", " ", str(value or "")).strip()
-        if (
-            not description
-            or description.endswith((",", ";", ":"))
-            or re.fullmatch(
-                r"\s*color(?:es)?(?:\s+disponibles?)?\s*[:|\-]\s*[^.;]+[.;]?\s*",
-                description,
-                flags=re.IGNORECASE,
-            )
-        ):
-            return False
-        return not cls._DESCRIPTION_TRUNCATION_PATTERN.search(description)
+        return is_complete_detail(value)
 
     @classmethod
     def _description_information_score(cls, value: object) -> tuple[int, int, int]:
@@ -540,19 +538,16 @@ class CatalogSyncService:
 
     @classmethod
     def _preserve_existing_description(cls, existing, product) -> None:
-        """Conserva el dato guardado solo si la extracción nueva es incompleta."""
-        incoming = str(getattr(product, "description", "") or "").strip()
-        current = str(cls._value(existing, "description") or "").strip()
-        incoming_is_complete = cls._description_is_complete(incoming)
+        """Preserva texto previo si Detail nuevo es incompleto; elimina solo Color."""
+        incoming = normalize_detail_text(getattr(product, "description", ""))
+        current = normalize_detail_text(cls._value(existing, "description"))
+        product.description = incoming
 
-        if not incoming_is_complete:
-            product.description = current if current else ""
-            return
-
-        # The incoming complete Detail has already been selected from the
-        # category card (or used to repair its truncated text). Keep it as the
-        # source of truth; preserve stored text only when the incoming value is
-        # incomplete or unavailable.
+        if not cls._description_is_complete(incoming):
+            # Do not replace useful stored Detail with a clipped excerpt.
+            # A color-only legacy value normalizes to empty because Color is a
+            # distinct stock field, not part of Detail.
+            product.description = current
 
     @staticmethod
     def _preserve_existing_prices(existing, product) -> None:

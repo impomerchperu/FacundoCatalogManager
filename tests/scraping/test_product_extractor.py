@@ -315,10 +315,11 @@ def test_product_extractor_rejects_incomplete_authoritative_description_even_if_
     assert result["description"] == ""
 
 
-def test_product_extractor_ignores_generic_text_content_and_other_fields():
+def test_product_extractor_ignores_color_only_and_generic_other_fields():
     html = """
     <html>
         <body>
+            <div id="tab-description">Color: Blanco.</div>
             <div class="text-content">Color: Rojo. Disponible en Azul.</div>
             <div class="x-tabs_panel-content">Información adicional: ABS.</div>
             <div class="color-summary">Colores: Verde, Blanco.</div>

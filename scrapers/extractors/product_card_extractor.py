@@ -48,17 +48,17 @@ class ProductCardExtractor:
 
     @classmethod
     def _same_product_set(cls, cards, table_rows):
-        visual_keys = {
-            key
-            for card in cards
-            if (key := cls._product_url_key(card))
-        }
-        table_keys = {
-            key
-            for row in table_rows
-            if (key := cls._product_url_key(row))
-        }
-        return bool(visual_keys and table_keys) and visual_keys == table_keys
+        visual_keys = [cls._product_url_key(card) for card in cards]
+        table_keys = [cls._product_url_key(row) for row in table_rows]
+        if not visual_keys or not table_keys:
+            return False
+        if any(not key for key in visual_keys + table_keys):
+            return False
+        if len(set(visual_keys)) != len(visual_keys):
+            return False
+        if len(set(table_keys)) != len(table_keys):
+            return False
+        return set(visual_keys) == set(table_keys)
 
     @classmethod
     def _visual_cards_have_complete_prices(cls, cards):

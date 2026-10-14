@@ -1,3 +1,5 @@
+from urllib.parse import unquote, urlsplit
+
 from scrapers.selectors import product_card_selectors
 
 
@@ -20,14 +22,43 @@ class ProductCardExtractor:
         ]
 
         if cards:
-            if product_rows and not self._visual_cards_have_complete_prices(cards):
-                return product_rows
+            if product_rows:
+                # Visual cards can include site-wide featured products in
+                # addition to the category results. The table rows define the
+                # category membership when both layouts disagree on products.
+                if not self._same_product_set(cards, product_rows):
+                    return product_rows
+                if not self._visual_cards_have_complete_prices(cards):
+                    return product_rows
             return cards
 
         if product_rows:
             return product_rows
 
         return soup.select(".jsfb-filterable")
+
+    @staticmethod
+    def _product_url_key(element):
+        link = element.select_one('a[href*="/producto/"]')
+        href = str(link.get("href", "") or "").strip() if link else ""
+        if not href:
+            return ""
+        path = unquote(urlsplit(href).path).rstrip("/").casefold()
+        return path
+
+    @classmethod
+    def _same_product_set(cls, cards, table_rows):
+        visual_keys = {
+            key
+            for card in cards
+            if (key := cls._product_url_key(card))
+        }
+        table_keys = {
+            key
+            for row in table_rows
+            if (key := cls._product_url_key(row))
+        }
+        return bool(visual_keys and table_keys) and visual_keys == table_keys
 
     @classmethod
     def _visual_cards_have_complete_prices(cls, cards):

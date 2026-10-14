@@ -21,7 +21,7 @@ class CategoryProductExtractor:
         r"(?:"
         r"\bstock\s+disponible\s*:?\s*\d[\d,.]*|"
         r"(?:^|[.!?;]\s+)precio\s+(?:muestra|ciento|millar)"
-        r"\s*(?::\s*|s/\s*|-\s*)(?:\d|consultar|disponible)|"
+        r"\s*(?::\s*(?:s/\s*)?|s/\s*|-\s*)(?:\d|consultar|disponible)|"
         r"(?:^|[.!?]\s+)(?:sku\s*[:\-]\s*[A-Z0-9-]+|"
         r"c[oó]digo\s*[:\-]\s*[A-Z0-9-]+))",
         re.IGNORECASE,

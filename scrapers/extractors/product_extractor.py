@@ -11,7 +11,7 @@ from scrapers.extractors.variant_color_stock_extractor import (
 )
 from scrapers.factories.scraped_product_factory import ScrapedProductFactory
 from scrapers.selectors import product_selectors
-from services.scraping.detail_description_policy import (
+from models.scraping.detail_description_policy import (
     has_technical_detail,
     is_complete_detail,
     normalize_detail_text,

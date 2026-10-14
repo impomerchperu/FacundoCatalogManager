@@ -492,7 +492,6 @@ class CatalogSyncService:
         incoming = str(getattr(product, "description", "") or "").strip()
         current = str(cls._value(existing, "description") or "").strip()
         incoming_is_complete = cls._description_is_complete(incoming)
-        current_is_complete = cls._description_is_complete(current)
 
         if not incoming_is_complete:
             product.description = current if current else ""

@@ -82,7 +82,7 @@ class ProductExtractor:
             code=code,
             name=self.extract_name(soup),
             category=category,
-            description=self.extract_description(soup),
+            description=self.extract_detail_text(soup),
             stock=stock,
             price=self.extract_price(soup),
             price_sample=self.price_extractor.extract_sample(soup),

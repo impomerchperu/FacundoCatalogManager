@@ -136,7 +136,9 @@ class CategoryProductExtractor:
         for text in candidates:
             if not self._COLOR_ONLY_DESCRIPTION_PATTERN.fullmatch(text):
                 return text
-        return candidates[0] if candidates else ""
+        # Colors are a separate catalog field. Never expose a color-only
+        # section in the Detail column when the card has no technical detail.
+        return ""
 
     def _stock(self, soup):
         return sum(self._stock_values(soup))

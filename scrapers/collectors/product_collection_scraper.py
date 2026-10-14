@@ -478,7 +478,11 @@ class ProductCollectionScraper:
     @classmethod
     def _description_is_complete(cls, value: str) -> bool:
         description = re.sub(r"\s+", " ", str(value or "")).strip()
-        if not description or description.endswith((",", ";", ":")):
+        if (
+            not description
+            or description.endswith((",", ";", ":"))
+            or cls._COLOR_ONLY_DESCRIPTION_PATTERN.fullmatch(description)
+        ):
             return False
         return not cls._DESCRIPTION_TRUNCATION_PATTERN.search(description)
 

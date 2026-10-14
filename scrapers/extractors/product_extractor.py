@@ -44,7 +44,6 @@ class ProductExtractor:
     # Additional Information, and Reviews tabs are not Detail sources.
     _DETAIL_SELECTORS_BY_PRIORITY: ClassVar[tuple[tuple[str, ...], ...]] = (
         (".x-tabs_panel-content",),
-        (".text-content",),
     )
     _EXCLUDED_DETAIL_TAB_IDS: ClassVar[frozenset[str]] = frozenset({
         "tab-description",

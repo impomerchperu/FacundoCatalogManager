@@ -43,6 +43,10 @@ class ProductExtractor:
     )
     # Read only explicitly identified description sections. Generic text
     # containers may belong to colors, additional information, or other fields.
+    _COLOR_ONLY_DESCRIPTION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
+        r"^\s*color(?:es)?(?:\s+disponibles?)?\s*[:|\-]\s*[^.;]+[.;]?\s*$",
+        re.IGNORECASE,
+    )
     _DESCRIPTION_SELECTORS_BY_PRIORITY: ClassVar[tuple[tuple[str, ...], ...]] = (
         ("#tab-description", ".woocommerce-Tabs-panel--description"),
         (".product-description",),

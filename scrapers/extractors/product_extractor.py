@@ -11,6 +11,11 @@ from scrapers.extractors.variant_color_stock_extractor import (
 )
 from scrapers.factories.scraped_product_factory import ScrapedProductFactory
 from scrapers.selectors import product_selectors
+from services.scraping.detail_description_policy import (
+    has_technical_detail,
+    is_complete_detail,
+    normalize_detail_text,
+)
 
 
 class ProductExtractor:
@@ -35,23 +40,23 @@ class ProductExtractor:
         "color_mode",
         "enable_client_color_preference",
     }
-    _DESCRIPTION_TRUNCATION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"(?:\.{3,}|…)\s*$|"
-        r"(?<!\w)(?:peso\s+(?:bruto|neto)(?:\s+por(?:\s+caja)?)?|"
-        r"dimensiones(?:\s+(?:de\s+)?caja)?|cantidad\s+por\s+caja)\s*:?\s*$",
-        re.IGNORECASE,
+    # Technical-detail containers only; the WooCommerce Description,
+    # Additional Information, and Reviews tabs are not Detail sources.
+    _DETAIL_SELECTORS_BY_PRIORITY: ClassVar[tuple[tuple[str, ...], ...]] = (
+        (".x-tabs_panel-content",),
+        (".text-content",),
     )
-    # Read only explicitly identified description sections. Generic text
-    # containers may belong to colors, additional information, or other fields.
-    _COLOR_ONLY_DESCRIPTION_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"^\s*color(?:es)?(?:\s+disponibles?)?\s*[:|\-]\s*[^.;]+[.;]?\s*$",
-        re.IGNORECASE,
-    )
-    _DESCRIPTION_SELECTORS_BY_PRIORITY: ClassVar[tuple[tuple[str, ...], ...]] = (
-        ("#tab-description", ".woocommerce-Tabs-panel--description"),
-        (".product-description",),
-        ('[itemprop="description"]',),
-    )
+    _EXCLUDED_DETAIL_TAB_IDS: ClassVar[frozenset[str]] = frozenset({
+        "tab-description",
+        "tab-additional_information",
+        "tab-additional-information",
+        "tab-reviews",
+    })
+    _EXCLUDED_DETAIL_TAB_CLASSES: ClassVar[frozenset[str]] = frozenset({
+        "woocommerce-Tabs-panel--description",
+        "woocommerce-Tabs-panel--additional_information",
+        "woocommerce-Tabs-panel--reviews",
+    })
 
     def __init__(self):
         self.price_extractor = PriceExtractor()
@@ -159,36 +164,44 @@ class ProductExtractor:
 
     @classmethod
     def _is_complete_description(cls, value: str) -> bool:
-        """Rechaza fragmentos truncados antes de aceptar una descripción."""
-        text = re.sub(r"\s+", " ", str(value or "")).strip()
-        if (
-            not text
-            or text.endswith((",", ";", ":"))
-            or cls._COLOR_ONLY_DESCRIPTION_PATTERN.fullmatch(text)
-        ):
-            return False
-        return not cls._DESCRIPTION_TRUNCATION_PATTERN.search(text)
+        """Compatibilidad histórica para validar el campo Detalle."""
+        return is_complete_detail(value)
+
+    @classmethod
+    def _is_excluded_detail_tab(cls, element) -> bool:
+        """No usa texto de las pestañas Descripción, Información adicional ni Reseñas."""
+        node = element
+        while node is not None and getattr(node, "attrs", None) is not None:
+            node_id = str(node.get("id", "") or "").strip().casefold()
+            if node_id in cls._EXCLUDED_DETAIL_TAB_IDS:
+                return True
+            classes = {
+                str(value).strip()
+                for value in (node.get("class", []) or [])
+            }
+            if classes & cls._EXCLUDED_DETAIL_TAB_CLASSES:
+                return True
+            node = getattr(node, "parent", None)
+        return False
+
+    def extract_detail_text(self, soup) -> str:
+        """Extrae solo el bloque técnico equivalente al Detalle de la tarjeta."""
+        for selector_group in self._DETAIL_SELECTORS_BY_PRIORITY:
+            for selector in selector_group:
+                for element in soup.select(selector):
+                    if self._is_excluded_detail_tab(element):
+                        continue
+                    raw_text = element.get_text(" ", strip=True)
+                    if not has_technical_detail(raw_text):
+                        continue
+                    text = normalize_detail_text(raw_text)
+                    if is_complete_detail(text):
+                        return text
+        return ""
 
     def extract_description(self, soup):
-        """Devuelve la primera descripción completa de la fuente más fiable."""
-        for selector_group in self._DESCRIPTION_SELECTORS_BY_PRIORITY:
-            group_has_candidates = False
-            for selector in selector_group:
-                elements = soup.select(selector)
-                group_has_candidates = group_has_candidates or bool(elements)
-                for element in elements:
-                    text = re.sub(
-                        r"\s+",
-                        " ",
-                        element.get_text(" ", strip=True),
-                    ).strip()
-                    if self._is_complete_description(text):
-                        return text
-            # If the authoritative block exists but is clipped, do not silently
-            # replace it with a lower-priority summary from another page section.
-            if group_has_candidates:
-                return ""
-        return ""
+        """Conserva la API previa, pero el campo almacenado es Detalle técnico."""
+        return self.extract_detail_text(soup)
 
     def extract_price(self, soup):
         selectors = [

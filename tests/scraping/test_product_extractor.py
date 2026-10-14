@@ -17,8 +17,8 @@ def test_product_extractor():
                 class="product-image"
                 src="producto.jpg"
             >
-            <div class="product-description">
-                Descripción demo
+            <div class="x-tabs_panel-content">
+                Material: ABS. Dimensiones: 10 x 5 cm.
             </div>
         </body>
     </html>
@@ -33,7 +33,7 @@ def test_product_extractor():
     assert result["image_url"] == (
         "https://stock.importacionesfacundo.com/producto.jpg"
     )
-    assert result["description"] == "Descripción demo"
+    assert result["description"] == "Material: ABS. Dimensiones: 10 x 5 cm."
 
 
 def test_product_extractor_accepts_catalog_code_formats():
@@ -268,32 +268,28 @@ def test_product_extractor_reads_stock_from_each_variant_node_reverse_order():
     assert result["stock"] == 1356
 
 
-def test_product_extractor_prefers_authoritative_description_tab_over_longer_excerpt():
+def test_product_extractor_does_not_use_description_tabs_or_generic_text_as_detail():
     html = """
     <html>
         <body>
-            <h1>Producto con ficha técnica</h1>
-            <p class="brxe-heading">FB-4008</p>
             <div class="text-content">
-                Este bloque de presentación es deliberadamente más largo que la
-                ficha. Incluye texto comercial y datos de otras secciones: Color:
-                Azul. Modelo: DEMO. Material: Decorativo. Detalle extendido que
-                no corresponde a la ficha técnica publicada en la pestaña.
+                Material: Decorativo. Esta es una vista previa comercial.
             </div>
-            <div id="tab-description" class="woocommerce-Tabs-panel">
-                Color: Blanco. Material: Poliuretano.
-                Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg.
+            <div id="tab-description" class="woocommerce-Tabs-panel--description">
+                Material: ABS. Texto de la pestaña Descripción que no debe usarse.
+            </div>
+            <div id="tab-additional_information">
+                Material: Acero. Información adicional que no debe usarse.
+            </div>
+            <div id="tab-reviews">
+                Material: Otro. Valoraciones que no deben usarse.
             </div>
         </body>
     </html>
     """
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert result["description"] == (
-        "Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
-        "Peso bruto por caja: 6.25 Kg."
-    )
-
+    assert result["description"] == ""
 
 def test_product_extractor_rejects_incomplete_authoritative_description_even_if_preview_is_longer():
     html = """
@@ -331,22 +327,20 @@ def test_product_extractor_ignores_color_only_and_generic_other_fields():
     assert result["description"] == ""
 
 
-def test_product_extractor_collects_all_text_blocks_inside_authoritative_tab():
+def test_product_extractor_collects_only_technical_detail_panel_blocks():
     html = """
     <html>
         <body>
-            <div id="tab-description" class="woocommerce-Tabs-panel--description">
-                <div class="x-tabs_panel-content">
-                    <div class="brxe-text">
-                        Material: Poliuretano. Peso neto por caja: 5.5 Kg.
-                    </div>
-                    <div class="brxe-text">
-                        Peso bruto por caja: 6.25 Kg.
-                    </div>
+            <div class="x-tabs_panel-content">
+                <div class="brxe-text">
+                    Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg.
+                </div>
+                <div class="brxe-text">
+                    Peso bruto por caja: 6.25 Kg. Certificado SGS
                 </div>
             </div>
-            <div class="text-content">
-                Color: Rojo. Información ajena al detalle.
+            <div id="tab-description" class="woocommerce-Tabs-panel--description">
+                Material: Marketing description, not technical Detail.
             </div>
         </body>
     </html>
@@ -355,5 +349,5 @@ def test_product_extractor_collects_all_text_blocks_inside_authoritative_tab():
 
     assert result["description"] == (
         "Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
-        "Peso bruto por caja: 6.25 Kg."
+        "Peso bruto por caja: 6.25 Kg. Certificado SGS"
     )

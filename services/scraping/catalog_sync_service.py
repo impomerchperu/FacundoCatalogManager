@@ -136,67 +136,15 @@ class CatalogSyncService:
         transaction_started = self._begin_repository_transaction()
 
         try:
-            for product in consolidated:
-                product.content_hash = self.hash_service.generate(product)
-                existing = existing_by_code.get(
-                    self._normalize_code(product.code).casefold()
-                )
-                if existing is None:
-                    description = getattr(product, "description", "")
-                    if not self._description_is_complete(description):
-                        product.description = ""
-                        product.content_hash = self.hash_service.generate(product)
-                    result.created += 1
-                    result.changes.append(
-                        {
-                            "type": "NEW",
-                            "code": product.code,
-                            "name": product.name,
-                            "changes": [],
-                        }
-                    )
-                    self._save_catalog_product(product)
-                    continue
-
-                incoming_categories = self._merge_categories(
-                    getattr(product, "category", "")
-                )
-                if replace_category_memberships:
-                    # A validated FULL sync is authoritative for category
-                    # membership; do not preserve stale links from old runs.
-                    product.category = incoming_categories
-                else:
-                    # Directed/partial syncs may observe only one category,
-                    # so preserve previously confirmed memberships.
-                    product.category = self._merge_categories(
-                        self._value(existing, "category"),
-                        incoming_categories,
-                    )
-                self._preserve_existing_prices(existing, product)
-                self._preserve_existing_description(existing, product)
-                product.content_hash = self.hash_service.generate(product)
-                comparison = self.diff_service.compare(existing, product)
-                if comparison["changed"]:
-                    result.updated += 1
-                    result.changes.append(
-                        {
-                            "type": "UPDATED",
-                            "code": product.code,
-                            "name": product.name,
-                            "changes": [
-                                {
-                                    "field": field,
-                                    "label": self.FIELD_LABELS.get(field, field),
-                                    "old": self._value(existing, field),
-                                    "new": self._value(product, field),
-                                }
-                                for field in comparison["fields"]
-                            ],
-                        }
-                    )
-                    self._save_catalog_product(product, existing)
-                else:
-                    result.unchanged += 1
+            self._synchronize_products(
+                consolidated,
+                existing_by_code,
+                result,
+                replace_category_memberships=replace_category_memberships,
+                preserve_existing_categories=(
+                    prune_missing and not replace_category_memberships
+                ),
+            )
 
             expected_unique = result.products_expected
             actual_unique = len(scraped_codes)
@@ -221,6 +169,82 @@ class CatalogSyncService:
         result.finish()
         self.last_sync_result = result
         return result
+
+    def _synchronize_products(
+        self,
+        products,
+        existing_by_code,
+        result: SyncResult,
+        *,
+        replace_category_memberships: bool,
+        preserve_existing_categories: bool,
+    ) -> None:
+        """Persiste campos de productos sin perder categorías ante FULL incompleto."""
+        for product in products:
+            product.content_hash = self.hash_service.generate(product)
+            existing = existing_by_code.get(
+                self._normalize_code(product.code).casefold()
+            )
+            if existing is None:
+                description = getattr(product, "description", "")
+                if not self._description_is_complete(description):
+                    product.description = ""
+                    product.content_hash = self.hash_service.generate(product)
+                result.created += 1
+                result.changes.append(
+                    {
+                        "type": "NEW",
+                        "code": product.code,
+                        "name": product.name,
+                        "changes": [],
+                    }
+                )
+                self._save_catalog_product(product)
+                continue
+
+            incoming_categories = self._merge_categories(
+                getattr(product, "category", "")
+            )
+            if replace_category_memberships:
+                # A validated FULL sync is authoritative for category membership.
+                product.category = incoming_categories
+            elif preserve_existing_categories:
+                # An incomplete FULL sync cannot alter any stored membership,
+                # including legacy category display names.
+                product.category = self._value(existing, "category")
+            else:
+                # Directed syncs observe one category at a time; merge the new
+                # occurrence without dropping previously confirmed memberships.
+                product.category = self._merge_categories(
+                    self._value(existing, "category"),
+                    incoming_categories,
+                )
+
+            self._preserve_existing_prices(existing, product)
+            self._preserve_existing_description(existing, product)
+            product.content_hash = self.hash_service.generate(product)
+            comparison = self.diff_service.compare(existing, product)
+            if comparison["changed"]:
+                result.updated += 1
+                result.changes.append(
+                    {
+                        "type": "UPDATED",
+                        "code": product.code,
+                        "name": product.name,
+                        "changes": [
+                            {
+                                "field": field,
+                                "label": self.FIELD_LABELS.get(field, field),
+                                "old": self._value(existing, field),
+                                "new": self._value(product, field),
+                            }
+                            for field in comparison["fields"]
+                        ],
+                    }
+                )
+                self._save_catalog_product(product, existing)
+            else:
+                result.unchanged += 1
 
     def sync_full_catalog(
         self,

@@ -144,7 +144,7 @@ def test_complete_card_color_stock_requests_detail_when_prices_are_missing():
     }
 
 
-def test_detail_page_with_more_attributes_replaces_complete_card_description():
+def test_complete_card_description_is_not_replaced_by_individual_page_text():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(
         category_scraper,
@@ -199,10 +199,7 @@ def test_detail_page_with_more_attributes_replaces_complete_card_description():
     ]
     assert result[0].url == "https://example.com/producto/producto-completo/"
     assert result[0].stock == 152
-    assert result[0].description == (
-        "Material: ABS. Peso neto por caja: 5.5 Kg. "
-        "Peso bruto por caja: 6.25 Kg."
-    )
+    assert result[0].description == "Descripción promocional general."
 
     metrics = scraper.get_detail_metrics()
     assert metrics["detail_requests"] == 1
@@ -491,7 +488,7 @@ def test_clipped_card_description_is_replaced_by_complete_detail_page_text():
     <html>
         <h1>Producto peso por caja</h1>
         <p class="brxe-heading">FB-4008</p>
-        <div class="text-content">
+        <div id="tab-description" class="woocommerce-Tabs-panel--description">
             Color: Blanco. Material: Poliuretano.
             Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg.
         </div>
@@ -525,7 +522,7 @@ def test_clipped_card_description_is_replaced_by_complete_detail_page_text():
     assert scraper.get_detail_metrics()["detail_requests"] == 1
 
 
-def test_detail_failure_discards_card_excerpt_instead_of_claiming_authoritative_detail():
+def test_detail_failure_keeps_category_card_detail_as_the_source():
     category_scraper = SharedProductCategoryScraper()
     category_scraper.detail_html_override = ""
     scraper = ProductCollectionScraper(
@@ -554,4 +551,6 @@ def test_detail_failure_discards_card_excerpt_instead_of_claiming_authoritative_
     )
 
     assert len(result) == 1
-    assert result[0].description == ""
+    assert result[0].description == (
+        "Material: ABS. Peso neto por caja: 5.5 Kg. Peso bruto por..."
+    )

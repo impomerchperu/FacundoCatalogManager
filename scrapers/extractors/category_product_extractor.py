@@ -7,16 +7,13 @@ from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
 )
+from services.scraping.detail_description_policy import normalize_detail_text
 
 
 class CategoryProductExtractor:
     """Extrae productos desde tarjetas y filas de tabla de categoría."""
 
     SOURCE = "importacionesfacundo"
-    _COLOR_ONLY_DESCRIPTION_PATTERN = re.compile(
-        r"^\s*color(?:es)?(?:\s+disponibles?)?\s*[:|\-]\s*[^.;]+[.;]?\s*$",
-        re.IGNORECASE,
-    )
     _NON_DETAIL_FIELD_PATTERN = re.compile(
         r"(?:"
         r"\bstock\s+disponible\s*:?\s*\d[\d,.]*|"
@@ -124,7 +121,9 @@ class CategoryProductExtractor:
     def _description(self, soup):
         candidates = []
         for element in soup.select(".text-content"):
-            text = re.sub(r"\s+", " ", element.get_text(" ", strip=True)).strip()
+            text = normalize_detail_text(
+                re.sub(r"\s+", " ", element.get_text(" ", strip=True))
+            )
             if not text:
                 continue
             field_boundary = self._NON_DETAIL_FIELD_PATTERN.search(text)
@@ -133,12 +132,9 @@ class CategoryProductExtractor:
             if text:
                 candidates.append(text)
 
-        for text in candidates:
-            if not self._COLOR_ONLY_DESCRIPTION_PATTERN.fullmatch(text):
-                return text
-        # Colors are a separate catalog field. Never expose a color-only
-        # section in the Detail column when the card has no technical detail.
-        return ""
+        # Detail contains technical attributes only; a leading Color(s) field
+        # is removed because color belongs to the separate stock/color data.
+        return candidates[0] if candidates else ""
 
     def _stock(self, soup):
         return sum(self._stock_values(soup))

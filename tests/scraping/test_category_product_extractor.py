@@ -45,6 +45,27 @@ def test_category_product_extractor_maps_visible_stock_to_colors():
     assert product.description == "Colores: Amarillo, Azul, Blanco"
 
 
+def test_category_product_extractor_keeps_price_mentions_in_detail_prose():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-4017</p>
+        <h2 class="brxe-f31760">Producto con condiciones comerciales</h2>
+        <div class="text-content">
+            Precio ciento y precio por caja según volumen;
+            consulte las condiciones comerciales.
+        </div>
+        <div class="variaciones-producto"><p>10</p></div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.description == (
+        "Precio ciento y precio por caja según volumen; "
+        "consulte las condiciones comerciales."
+    )
+
+
 def test_category_product_extractor_prefers_detail_text_after_color_only_block():
     html = """
     <article>

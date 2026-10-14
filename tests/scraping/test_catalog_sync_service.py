@@ -229,6 +229,38 @@ def test_catalog_sync_reports_duplicate_occurrences_across_multiple_categories()
     assert result.counts_are_consistent
 
 
+def test_incomplete_full_sync_preserves_existing_category_memberships():
+    repository = InMemoryCatalogRepository()
+    existing = Product(
+        "FB-1908",
+        "Tarjeta de PVC 5.4 x 8.6 cm - CR80",
+        45,
+        category=(
+            "Artículos de Oficina, Papeles Fotográficos Koala Paper, "
+            "Promocionales, Jarros Mug"
+        ),
+    )
+    repository.save(existing)
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    incoming = Product(
+        "FB-1908",
+        "Tarjeta de PVC 5.4 x 8.6 cm - CR80",
+        45,
+        category="Artículos de Oficina",
+    )
+    result = service.sync_full_catalog(
+        [incoming],
+        expected_products=2,
+    )
+
+    stored = repository.get("FB-1908")
+    assert stored is not None
+    assert stored.category == existing.category
+    assert result.updated == 0
+    assert result.unchanged == 1
+
+
 def test_full_sync_removes_stale_categories_from_existing_product():
     repository = InMemoryCatalogRepository()
     existing = Product(

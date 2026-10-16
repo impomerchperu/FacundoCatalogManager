@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from bs4 import BeautifulSoup
 
@@ -49,6 +51,32 @@ def test_product_extractor_real_site_fb4008_technical_detail():
 
     detail = product["description"]
     assert product["code"] == "FB-4008"
+    if not detail:
+        technical_detail_dom_diagnostics = []
+        for text_node in soup.find_all(string=re.compile(r"\bMaterial\s*:", re.IGNORECASE)):
+            parent = text_node.parent
+            if parent is None or parent.name in {"script", "style"}:
+                continue
+            ancestry = []
+            node = parent
+            for _ in range(6):
+                if node is None:
+                    break
+                ancestry.append(
+                    {
+                        "tag": node.name,
+                        "id": node.get("id", ""),
+                        "class": list(node.get("class", []) or []),
+                        "text": node.get_text(" ", strip=True)[:240],
+                    }
+                )
+                node = node.parent
+            technical_detail_dom_diagnostics.append(ancestry)
+        pytest.fail(
+            "No se extrajo Detalle de FB-4008. "
+            "Estructura HTML de los nodos Material: "
+            f"{technical_detail_dom_diagnostics[:10]!r}"
+        )
     assert detail.startswith("Material: Poliuretano.")
     assert "Dimensiones: 75*63*48mm." in detail
     assert "Peso Unitario: 23.5 G." in detail

@@ -663,8 +663,12 @@ class ProductCollectionScraper:
         detail_description = normalize_detail_text(
             getattr(detailed_product, "description", "")
         )
-        card_description_is_complete = self._description_is_complete(card_description)
-        detail_description_is_complete = self._description_is_complete(detail_description)
+        card_description_is_complete = self._description_is_complete(
+            card_description
+        )
+        detail_description_is_complete = self._description_is_complete(
+            detail_description
+        )
         if not card_description_is_complete and detail_description_is_complete:
             product.description = detail_description
         else:

@@ -43,8 +43,9 @@ def test_product_extractor_real_site_fb4008_technical_detail():
     finally:
         browser.close()
 
+    soup = BeautifulSoup(html, "lxml")
     product = ProductExtractor().extract(
-        BeautifulSoup(html, "lxml"),
+        soup,
         url=FB4008_URL,
         category="Artículos Antiestrés",
     )
@@ -53,7 +54,8 @@ def test_product_extractor_real_site_fb4008_technical_detail():
     assert product["code"] == "FB-4008"
     if not detail:
         technical_detail_dom_diagnostics = []
-        for text_node in soup.find_all(string=re.compile(r"\bMaterial\s*:", re.IGNORECASE)):
+        material_pattern = re.compile(r"\bMaterial\s*:", re.IGNORECASE)
+        for text_node in soup.find_all(string=material_pattern):
             parent = text_node.parent
             if parent is None or parent.name in {"script", "style"}:
                 continue

@@ -611,7 +611,6 @@ def test_color_only_card_detail_does_not_fall_back_to_description_tab():
     assert result[0].description == ""
 
 
-
 def test_bare_colores_text_triggers_technical_detail_repair():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(

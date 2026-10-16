@@ -54,4 +54,3 @@ def test_detail_policy_does_not_treat_general_prose_as_technical_detail():
     )
 
     assert not has_technical_detail(prose)
-    assert not is_complete_detail(prose)

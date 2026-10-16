@@ -5,7 +5,6 @@ from models.scraping.detail_description_policy import (
     strip_leading_color_field,
 )
 
-
 FB_4047_DETAIL = (
     "Material: Poliuretano. Dimensiones: 55*55*100mm. "
     "Peso Unitario: 24 G. Uso Recomendado: Antiestrés, Promocional. "

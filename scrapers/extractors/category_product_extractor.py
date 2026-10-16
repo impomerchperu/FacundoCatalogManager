@@ -1,6 +1,9 @@
 import re
 
-from models.scraping.detail_description_policy import normalize_detail_text
+from models.scraping.detail_description_policy import (
+    has_technical_detail,
+    normalize_detail_text,
+)
 from models.scraping.scraped_product import ScrapedProduct
 from scrapers.extractors.code_utils import normalize_code_token
 from scrapers.extractors.price_extractor import PriceExtractor
@@ -124,7 +127,7 @@ class CategoryProductExtractor:
             text = normalize_detail_text(
                 re.sub(r"\s+", " ", element.get_text(" ", strip=True))
             )
-            if not text:
+            if not text or not has_technical_detail(text):
                 continue
             field_boundary = self._NON_DETAIL_FIELD_PATTERN.search(text)
             if field_boundary is not None:

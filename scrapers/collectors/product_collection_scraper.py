@@ -13,6 +13,7 @@ from config.scraping_config import (
 )
 from models.scraping.category import Category
 from models.scraping.detail_description_policy import (
+    has_technical_detail,
     is_complete_detail,
     normalize_detail_text,
 )
@@ -475,7 +476,7 @@ class ProductCollectionScraper:
 
     @classmethod
     def _description_is_complete(cls, value: str) -> bool:
-        return is_complete_detail(value)
+        return has_technical_detail(value) and is_complete_detail(value)
 
     @classmethod
     def _description_needs_detail(cls, product: Any) -> bool:
@@ -662,8 +663,8 @@ class ProductCollectionScraper:
         detail_description = normalize_detail_text(
             getattr(detailed_product, "description", "")
         )
-        card_description_is_complete = is_complete_detail(card_description)
-        detail_description_is_complete = is_complete_detail(detail_description)
+        card_description_is_complete = self._description_is_complete(card_description)
+        detail_description_is_complete = self._description_is_complete(detail_description)
         if not card_description_is_complete and detail_description_is_complete:
             product.description = detail_description
         else:

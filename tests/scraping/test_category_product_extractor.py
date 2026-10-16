@@ -63,7 +63,7 @@ def test_category_product_extractor_excludes_explicit_price_field_from_detail():
     assert "Precio Ciento" not in product.description
 
 
-def test_category_product_extractor_keeps_price_mentions_in_detail_prose():
+def test_category_product_extractor_does_not_use_commercial_prose_as_detail():
     html = """
     <article>
         <p class="brxe-a26f34">FB-4017</p>
@@ -78,10 +78,7 @@ def test_category_product_extractor_keeps_price_mentions_in_detail_prose():
 
     product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert product.description == (
-        "Precio ciento y precio por caja según volumen; "
-        "consulte las condiciones comerciales."
-    )
+    assert product.description == ""
 
 
 def test_category_product_extractor_does_not_use_a_color_only_block_as_detail():

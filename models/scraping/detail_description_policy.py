@@ -9,7 +9,7 @@ import re
 
 _WHITESPACE_PATTERN = re.compile(r"\s+")
 _COLOR_FIELD_PREFIX_PATTERN = re.compile(
-    r"^\s*col(?:or|ores)(?:\s+disponibles?)?\s*[:|\-]\s*",
+    r"^\s*col(?:or|ores)(?:\s+disponibles?)?(?:\s*[:|\-]\s*|\s+)",
     re.IGNORECASE,
 )
 _COLOR_SEPARATOR_PATTERN = re.compile(r"[.;]\s*")

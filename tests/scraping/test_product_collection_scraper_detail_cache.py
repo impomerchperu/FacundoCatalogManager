@@ -144,7 +144,7 @@ def test_complete_card_color_stock_requests_detail_when_prices_are_missing():
     }
 
 
-def test_complete_card_description_is_not_replaced_by_individual_page_text():
+def test_generic_card_text_is_not_detail_and_description_tab_is_excluded():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(
         category_scraper,
@@ -199,7 +199,7 @@ def test_complete_card_description_is_not_replaced_by_individual_page_text():
     ]
     assert result[0].url == "https://example.com/producto/producto-completo/"
     assert result[0].stock == 152
-    assert result[0].description == "Descripción promocional general."
+    assert result[0].description == ""
 
     metrics = scraper.get_detail_metrics()
     assert metrics["detail_requests"] == 1
@@ -575,7 +575,7 @@ def test_color_only_card_detail_does_not_fall_back_to_description_tab():
                 <h2 class="brxe-f31760">Producto con color solamente</h2>
             </a>
             <p class="brxe-a26f34">FB-4016</p>
-            <div class="text-content">Color: Blanco.</div>
+            <div class="text-content">Colores Blanco</div>
             <div class="variaciones-producto"><p>10</p></div>
             <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
             <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
@@ -609,6 +609,80 @@ def test_color_only_card_detail_does_not_fall_back_to_description_tab():
         "https://example.com/producto/producto-solo-color/"
     ]
     assert result[0].description == ""
+
+
+
+def test_bare_colores_text_triggers_technical_detail_repair():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+    category_scraper.html_override = """
+    <html>
+        <article>
+            <a href="/producto/antiestres-cerebro-largo/">
+                <img src="https://example.com/fb-4008.webp">
+                <h2 class="brxe-f31760">Antiestrés Cerebro Largo</h2>
+            </a>
+            <p class="brxe-a26f34">FB-4008</p>
+            <div class="text-content">Colores Blanco</div>
+            <div class="variaciones-producto"><p>7819</p></div>
+            <div class="content-precio">
+                <h3>Precio Muestra</h3><h4>S/ 4.00</h4>
+            </div>
+            <div class="content-precio">
+                <h3>Precio Ciento</h3><h4>S/ 300.00</h4>
+            </div>
+            <div class="content-precio">
+                <h3>Precio Millar</h3><h4>S/ 2800.00</h4>
+            </div>
+        </article>
+    </html>
+    """
+    category_scraper.detail_html_override = """
+    <html>
+        <h1>Antiestrés Cerebro Largo</h1>
+        <p class="brxe-heading">FB-4008</p>
+        <div class="x-tabs_panel-content">
+            Material: Poliuretano. Dimensiones: 85*95*50mm.
+            Peso Unitario: 25.4 G. Uso Recomendado: Antiestrés, Promocional.
+        </div>
+        <div id="tab-description" class="woocommerce-Tabs-panel--description">
+            Descripción comercial que no debe ser usada como Detalle.
+        </div>
+        <img class="woocommerce-product-gallery"
+             src="https://example.com/fb-4008.webp">
+        <div class="content-precio">
+            <h3>Precio Muestra</h3><h4>S/ 4.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Ciento</h3><h4>S/ 300.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Millar</h3><h4>S/ 2800.00</h4>
+        </div>
+        Stock Disponible 7819
+    </html>
+    """
+
+    result = scraper.scrape_category(
+        Category(name="Artículos Antiestrés", url="https://example.com/antiestres/")
+    )
+
+    assert len(result) == 1
+    assert result[0].code == "FB-4008"
+    assert result[0].description == (
+        "Material: Poliuretano. Dimensiones: 85*95*50mm. "
+        "Peso Unitario: 25.4 G. Uso Recomendado: Antiestrés, Promocional."
+    )
+    assert "Colores Blanco" not in result[0].description
+    assert "Descripción comercial" not in result[0].description
+    assert category_scraper.detail_requests == [
+        "https://example.com/producto/antiestres-cerebro-largo/"
+    ]
 
 
 def test_incomplete_card_is_not_replaced_by_generic_color_text_from_detail_page():

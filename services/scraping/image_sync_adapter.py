@@ -51,7 +51,8 @@ class ImageSyncAdapter:
         started = time.perf_counter()
         items = self.image_sync.process(items)
         _log_timing(
-            "SCRAPING TIMING | stage=primary_image_sync | products=%d | workers=%d | seconds=%.3f",
+            "SCRAPING TIMING | stage=primary_image_sync | "
+            "products=%d | workers=%d | seconds=%.3f",
             len(items),
             int(getattr(self.image_sync, "max_workers", 0) or 0),
             time.perf_counter() - started,
@@ -83,10 +84,14 @@ class ImageSyncAdapter:
                 0,
             )
             _log_timing(
-                "SCRAPING TIMING | stage=gallery_sync | products=%d | workers=%d | refresh_existing=%s | detail_http_requests=%d | detail_http_seconds=%.3f | retries=%d | seconds=%.3f",
+                "SCRAPING TIMING | stage=gallery_sync | products=%d | workers=%d "
+                "| refresh_existing=%s | detail_http_requests=%d "
+                "| detail_http_seconds=%.3f | retries=%d | seconds=%.3f",
                 len(items),
                 int(getattr(self.gallery_sync, "max_workers", 0) or 0),
-                str(bool(getattr(self.gallery_sync, "refresh_existing", False))).lower(),
+                str(
+                    bool(getattr(self.gallery_sync, "refresh_existing", False))
+                ).lower(),
                 detail_requests,
                 detail_http_seconds,
                 retries,

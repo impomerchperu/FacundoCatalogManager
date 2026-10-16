@@ -36,7 +36,6 @@ def test_product_extractor():
     assert result["description"] == "Material: ABS. Dimensiones: 10 x 5 cm."
 
 
-
 def test_product_extractor_reads_fb4008_technical_summary_outside_tabs():
     html = """
     <html>
@@ -74,7 +73,6 @@ def test_product_extractor_reads_fb4008_technical_summary_outside_tabs():
     assert "Texto comercial" not in result["description"]
     assert "Información adicional" not in result["description"]
     assert "Valoraciones" not in result["description"]
-
 
 
 def test_product_extractor_accepts_catalog_code_formats():

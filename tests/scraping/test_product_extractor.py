@@ -122,6 +122,53 @@ def test_product_extractor_reads_technical_short_description_and_strips_leading_
     assert "Valoraciones" not in result["description"]
 
 
+def test_product_extractor_reads_technical_detail_from_list_items():
+    html = """
+    <html>
+        <body>
+            <h1>Antiestrés Cerebro Largo</h1>
+            <div id="brxe-jhzpri" class="brxe-div gap--s bricks-lazy-hidden">
+                <ul>
+                    <li>Color: Blanco.</li>
+                    <li><strong>Material:</strong> Poliuretano.</li>
+                    <li><strong>Dimensiones:</strong> 75*63*48mm.</li>
+                    <li><strong>Peso Unitario:</strong> 23.5 G.</li>
+                    <li><strong>Uso Recomendado:</strong> Antiestrés, Promocional.</li>
+                    <li><strong>Empaque Individual:</strong> Bolsa de polietileno.</li>
+                    <li><strong>Cantidad Por Caja:</strong> 250 Pza.</li>
+                    <li><strong>Dimensiones Caja:</strong> 50*42*42cm.</li>
+                    <li><strong>Cubicaje por Caja:</strong> 0.0882 m³/CBM.</li>
+                    <li><strong>Peso neto por caja:</strong> 5.5 Kg.</li>
+                    <li><strong>Peso bruto por caja:</strong> 6.25 Kg.</li>
+                </ul>
+            </div>
+            <div id="tab-description" class="woocommerce-Tabs-panel--description">
+                Texto comercial que no debe mezclarse con Detalle.
+            </div>
+            <div id="tab-additional_information">
+                Información adicional que no debe mezclarse con Detalle.
+            </div>
+            <div id="tab-reviews">
+                Valoraciones que no deben mezclarse con Detalle.
+            </div>
+        </body>
+    </html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["description"] == (
+        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
+        "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
+        "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+    assert "Color: Blanco" not in result["description"]
+    assert "Texto comercial" not in result["description"]
+    assert "Información adicional" not in result["description"]
+    assert "Valoraciones" not in result["description"]
+
+
 def test_product_extractor_accepts_catalog_code_formats():
     cases = (
         "FB-1703-AZ",

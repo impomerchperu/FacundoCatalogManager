@@ -24,7 +24,7 @@ def test_product_collection_requests_detail_for_generic_image():
     product = ScrapedProduct(
         code="FB-4010",
         name="Gota Antiestrés",
-        description="Descripción de prueba.",
+        description="Material: ABS. Dimensiones: 10 x 5 cm.",
         image_url="https://site.test/uploads/Logo-Facundo-2026.webp",
     )
 
@@ -52,7 +52,7 @@ def test_product_collection_does_not_request_detail_for_valid_image():
     product = ScrapedProduct(
         code="FB-4010",
         name="Gota Antiestrés",
-        description="Descripción de prueba.",
+        description="Material: ABS. Dimensiones: 10 x 5 cm.",
         image_url="https://site.test/uploads/SFPU-40-main.webp",
     )
 

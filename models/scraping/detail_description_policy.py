@@ -95,3 +95,9 @@ def is_complete_detail(value: object) -> bool:
 def has_technical_detail(value: object) -> bool:
     """Identify a technical-detail block rather than prose from another tab."""
     return _TECHNICAL_DETAIL_PATTERN.search(normalize_detail_text(value)) is not None
+
+
+def has_multiple_technical_detail_fields(value: object) -> bool:
+    """Require at least two technical labels for lower-priority text fallbacks."""
+    text = normalize_detail_text(value)
+    return len(_DETAIL_FIELD_LABEL_PATTERN.findall(text)) >= 2

@@ -36,6 +36,47 @@ def test_product_extractor():
     assert result["description"] == "Material: ABS. Dimensiones: 10 x 5 cm."
 
 
+
+def test_product_extractor_reads_fb4008_technical_summary_outside_tabs():
+    html = """
+    <html>
+        <body>
+            <h1>Antiestrés Cerebro Largo</h1>
+            <div class="text-content">
+                Color: Blanco. Material: Poliuretano. Dimensiones: 75*63*48mm.
+                Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional.
+                Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza.
+                Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM
+                Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg.
+            </div>
+            <div id="tab-description" class="woocommerce-Tabs-panel--description">
+                Texto comercial que no debe mezclarse con Detalle.
+            </div>
+            <div id="tab-additional_information">
+                Información adicional que no debe mezclarse con Detalle.
+            </div>
+            <div id="tab-reviews">
+                Valoraciones que no deben mezclarse con Detalle.
+            </div>
+        </body>
+    </html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["description"] == (
+        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
+        "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
+        "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+    assert "Color: Blanco" not in result["description"]
+    assert "Texto comercial" not in result["description"]
+    assert "Información adicional" not in result["description"]
+    assert "Valoraciones" not in result["description"]
+
+
+
 def test_product_extractor_accepts_catalog_code_formats():
     cases = (
         "FB-1703-AZ",

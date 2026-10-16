@@ -3,6 +3,7 @@ import re
 from typing import ClassVar
 
 from models.scraping.detail_description_policy import (
+    has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,
     normalize_detail_text,
@@ -45,6 +46,9 @@ class ProductExtractor:
     _DETAIL_SELECTORS_BY_PRIORITY: ClassVar[tuple[tuple[str, ...], ...]] = (
         (".x-tabs_panel-content",),
     )
+    # The live product template also exposes the technical summary in .text-content.
+    # It is a lower-priority fallback and must contain multiple technical fields.
+    _DETAIL_FALLBACK_SELECTORS: ClassVar[tuple[str, ...]] = (".text-content",)
     _EXCLUDED_DETAIL_TAB_IDS: ClassVar[frozenset[str]] = frozenset({
         "tab-description",
         "tab-additional_information",
@@ -196,6 +200,16 @@ class ProductExtractor:
                     text = normalize_detail_text(raw_text)
                     if is_complete_detail(text):
                         return text
+        for selector in self._DETAIL_FALLBACK_SELECTORS:
+            for element in soup.select(selector):
+                if self._is_excluded_detail_tab(element):
+                    continue
+                raw_text = element.get_text(" ", strip=True)
+                if not has_multiple_technical_detail_fields(raw_text):
+                    continue
+                text = normalize_detail_text(raw_text)
+                if has_technical_detail(text) and is_complete_detail(text):
+                    return text
         return ""
 
     def extract_description(self, soup):

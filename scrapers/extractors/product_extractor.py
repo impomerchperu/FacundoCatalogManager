@@ -41,9 +41,11 @@ class ProductExtractor:
         "color_mode",
         "enable_client_color_preference",
     }
-    # Technical-detail containers only; the WooCommerce Description,
-    # Additional Information, and Reviews tabs are not Detail sources.
+    # The live product template publishes technical attributes in the
+    # WooCommerce short description before rendering the tab panels.
+    # The dedicated technical panel remains the next-priority source.
     _DETAIL_SELECTORS_BY_PRIORITY: ClassVar[tuple[tuple[str, ...], ...]] = (
+        (".woocommerce-product-details__short-description",),
         (".x-tabs_panel-content",),
     )
     # The live product template also exposes the technical summary in .text-content.

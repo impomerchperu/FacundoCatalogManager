@@ -13,6 +13,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# The imports follow the direct-execution sys.path bootstrap; keep the main
+# orchestration together because its stage boundaries are the benchmark.
+# ruff: noqa: I001, PLR0912
 from config.runtime_paths import DATA_DIR
 from config.scraping_config import (
     MAX_RETRIES,
@@ -95,12 +98,16 @@ def _isolated_path_resolver(storage_root: Path):
     def resolve(path: str | Path) -> Path:
         candidate = Path(path)
         if candidate.is_absolute():
+            absolute = candidate.resolve()
             try:
-                relative = candidate.resolve().relative_to(data_root)
-            except ValueError as error:
-                raise ValueError(
-                    f"Ruta fuera del almacenamiento aislado: {candidate}"
-                ) from error
+                relative = absolute.relative_to(storage_root.resolve())
+            except ValueError:
+                try:
+                    relative = absolute.relative_to(data_root)
+                except ValueError as error:
+                    raise ValueError(
+                        f"Ruta fuera del almacenamiento aislado: {candidate}"
+                    ) from error
         else:
             relative = candidate
         return storage_root / relative

@@ -14,7 +14,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 # Imports follow the direct-execution sys.path bootstrap.
-# ruff: noqa: I001
 from config.runtime_paths import DATABASE_PATH, resolve_data_path
 from config.scraping_config import (
     MAX_RETRIES,

@@ -14,7 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 # Imports follow the direct-execution sys.path bootstrap.
-from config.runtime_paths import DATABASE_PATH, resolve_data_path
+from config.runtime_paths import DATABASE_PATH
 from config.scraping_config import (
     MAX_RETRIES,
     REQUEST_TIMEOUT,
@@ -37,7 +37,10 @@ from scrapers.extractors.category_product_extractor import (
 )
 from scrapers.extractors.product_card_extractor import ProductCardExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
-from services.scraping.category_name_normalizer import normalize_category_name
+from services.scraping.category_name_normalizer import (
+    normalize_category_name,
+    split_category_names,
+)
 from services.scraping.category_service import CategoryService
 
 EXPECTED_CATEGORIES = 24
@@ -47,87 +50,185 @@ def _normalize_code(value: object) -> str:
     return str(value or "").strip().upper()
 
 
+def _resolve_catalog_file(database_path: Path, raw_path: object) -> Path:
+    """Resolve relative image paths from the root containing the selected DB."""
+    value = str(raw_path or "").strip()
+    if not value:
+        return Path()
+    candidate = Path(value)
+    if candidate.is_absolute():
+        return candidate
+    data_root = database_path.resolve().parent.parent
+    return data_root / candidate
+
+
 def _read_catalog_readonly(
     database_path: Path,
 ) -> tuple[dict[str, dict[str, str]], set[tuple[str, str]], dict[str, Any]]:
-    """Read the existing catalog through SQLite read-only mode."""
+    """Read the existing catalog in SQLite read-only mode, including older schemas."""
     uri = f"{database_path.resolve().as_uri()}?mode=ro"
     with sqlite3.connect(uri, uri=True) as connection:
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA query_only = ON")
-        rows = connection.execute(
-            """
-            SELECT code, name, image_path, gallery_images
-            FROM products
-            ORDER BY code COLLATE NOCASE
-            """
-        ).fetchall()
-        relations = connection.execute(
-            """
-            SELECT p.code, c.name AS category
-            FROM product_categories AS pc
-            JOIN products AS p ON p.id = pc.product_id
-            JOIN categories AS c ON c.id = pc.category_id
-            """
-        ).fetchall()
+        tables = {
+            str(row["name"])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        if "products" not in tables:
+            raise sqlite3.OperationalError("no existe la tabla products")
+
+        product_columns = {
+            str(row["name"])
+            for row in connection.execute("PRAGMA table_info(products)").fetchall()
+        }
+        missing_required = {"code", "name"} - product_columns
+        if missing_required:
+            raise sqlite3.OperationalError(
+                "la tabla products no contiene las columnas requeridas: "
+                + ", ".join(sorted(missing_required))
+            )
+
+        selected_columns = ["code", "name"]
+        for optional_column in ("category", "image_path", "gallery_images"):
+            if optional_column in product_columns:
+                selected_columns.append(optional_column)
+        query = (
+            "SELECT "
+            + ", ".join(selected_columns)
+            + " FROM products ORDER BY code COLLATE NOCASE"
+        )
+        rows = connection.execute(query).fetchall()
+
+        relation_source = "unavailable"
+        relations = []
+        normalized_relations_available = (
+            "product_categories" in tables
+            and "categories" in tables
+            and "id" in product_columns
+        )
+        if normalized_relations_available:
+            pc_columns = {
+                str(row["name"])
+                for row in connection.execute(
+                    "PRAGMA table_info(product_categories)"
+                ).fetchall()
+            }
+            category_columns = {
+                str(row["name"])
+                for row in connection.execute(
+                    "PRAGMA table_info(categories)"
+                ).fetchall()
+            }
+            normalized_relations_available = (
+                {"product_id", "category_id"} <= pc_columns
+                and {"id", "name"} <= category_columns
+            )
+
+        if normalized_relations_available:
+            relations = connection.execute(
+                """
+                SELECT p.code, c.name AS category
+                FROM product_categories AS pc
+                JOIN products AS p ON p.id = pc.product_id
+                JOIN categories AS c ON c.id = pc.category_id
+                """
+            ).fetchall()
+            relation_source = "product_categories"
+        elif "category" in product_columns:
+            relation_source = "products.category"
 
     products: dict[str, dict[str, str]] = {}
     gallery_products = 0
     gallery_entries = 0
     missing_gallery_files = 0
     missing_primary_files = 0
+    gallery_audit_available = "gallery_images" in product_columns
+    primary_image_audit_available = "image_path" in product_columns
 
     for row in rows:
         code = _normalize_code(row["code"])
         if not code:
             continue
-        products[code] = {
+        product_item = {
             "code": str(row["code"] or ""),
             "name": str(row["name"] or ""),
         }
+        products[code] = product_item
 
-        primary_path = str(row["image_path"] or "").strip()
-        if primary_path and not resolve_data_path(primary_path).is_file():
-            missing_primary_files += 1
+        if primary_image_audit_available:
+            primary_path = str(row["image_path"] or "").strip()
+            if (
+                primary_path
+                and not _resolve_catalog_file(database_path, primary_path).is_file()
+            ):
+                missing_primary_files += 1
 
-        raw_gallery = str(row["gallery_images"] or "").strip()
-        try:
-            gallery = json.loads(raw_gallery) if raw_gallery else []
-        except json.JSONDecodeError:
-            gallery = []
-        if not isinstance(gallery, list):
-            gallery = []
+        if gallery_audit_available:
+            raw_gallery = str(row["gallery_images"] or "").strip()
+            try:
+                gallery = json.loads(raw_gallery) if raw_gallery else []
+            except json.JSONDecodeError:
+                gallery = []
+            if not isinstance(gallery, list):
+                gallery = []
 
-        valid_gallery = [
-            item for item in gallery
-            if isinstance(item, dict)
-            and str(item.get("image_path", item.get("path", "")) or "").strip()
-        ]
-        if valid_gallery:
-            gallery_products += 1
-        gallery_entries += len(valid_gallery)
-        for item in valid_gallery:
-            image_path = str(
-                item.get("image_path", item.get("path", "")) or ""
-            ).strip()
-            if image_path and not resolve_data_path(image_path).is_file():
-                missing_gallery_files += 1
+            valid_gallery = [
+                item for item in gallery
+                if isinstance(item, dict)
+                and str(
+                    item.get("image_path", item.get("path", "")) or ""
+                ).strip()
+            ]
+            if valid_gallery:
+                gallery_products += 1
+            gallery_entries += len(valid_gallery)
+            for item in valid_gallery:
+                image_path = str(
+                    item.get("image_path", item.get("path", "")) or ""
+                ).strip()
+                if (
+                    image_path
+                    and not _resolve_catalog_file(database_path, image_path).is_file()
+                ):
+                    missing_gallery_files += 1
 
-    category_relations = {
-        (
-            _normalize_code(row["code"]),
-            normalize_category_name(str(row["category"] or "")),
-        )
-        for row in relations
-        if _normalize_code(row["code"])
-        and normalize_category_name(str(row["category"] or ""))
-    }
+    category_relations: set[tuple[str, str]] = set()
+    if relation_source == "product_categories":
+        category_relations = {
+            (
+                _normalize_code(row["code"]),
+                normalize_category_name(str(row["category"] or "")),
+            )
+            for row in relations
+            if _normalize_code(row["code"])
+            and normalize_category_name(str(row["category"] or ""))
+        }
+    elif relation_source == "products.category":
+        for row in rows:
+            code = _normalize_code(row["code"])
+            if not code:
+                continue
+            for category in split_category_names(str(row["category"] or "")):
+                category_key = normalize_category_name(category)
+                if category_key:
+                    category_relations.add((code, category_key))
+
     metrics = {
         "products": len(products),
-        "gallery_products": gallery_products,
-        "gallery_entries": gallery_entries,
-        "missing_gallery_files": missing_gallery_files,
-        "missing_primary_files": missing_primary_files,
+        "relation_source": relation_source,
+        "relations_audit_available": relation_source != "unavailable",
+        "gallery_audit_available": gallery_audit_available,
+        "primary_image_audit_available": primary_image_audit_available,
+        "gallery_products": gallery_products if gallery_audit_available else None,
+        "gallery_entries": gallery_entries if gallery_audit_available else None,
+        "missing_gallery_files": (
+            missing_gallery_files if gallery_audit_available else None
+        ),
+        "missing_primary_files": (
+            missing_primary_files if primary_image_audit_available else None
+        ),
     }
     return products, category_relations, metrics
 
@@ -367,9 +468,6 @@ def main() -> int:  # noqa: PLR0912
     database_codes = set(database_products)
     missing_live = sorted(database_codes - live_codes)
     new_live = sorted(live_codes - database_codes)
-    db_only_relations = sorted(database_relations - live_relations)
-    live_only_relations = sorted(live_relations - database_relations)
-
     print("=" * 80)
     print("RESUMEN DE CÓDIGOS")
     print(f"Productos únicos live: {len(live_codes)}")
@@ -385,30 +483,53 @@ def main() -> int:  # noqa: PLR0912
 
     print("=" * 80)
     print("RESUMEN DE RELACIONES CATEGORÍA-PRODUCTO")
-    print(f"Relaciones live: {len(live_relations)}")
-    print(f"Relaciones en DB: {len(database_relations)}")
-    print(f"Relaciones existentes en DB que no están en live: {len(db_only_relations)}")
-    for code, category in db_only_relations:
-        print(f"  RELACIÓN AUSENTE EN LIVE | {code} | {category}")
-    print(f"Relaciones live ausentes de DB: {len(live_only_relations)}")
-    for code, category in live_only_relations:
-        item = live_products.get(code, {})
+    if database_metrics["relations_audit_available"]:
+        db_only_relations = sorted(database_relations - live_relations)
+        live_only_relations = sorted(live_relations - database_relations)
+        print(f"Fuente en DB: {database_metrics['relation_source']}")
+        print(f"Relaciones live: {len(live_relations)}")
+        print(f"Relaciones en DB: {len(database_relations)}")
+        print(f"Relaciones existentes en DB que no están en live: {len(db_only_relations)}")
+        for code, category in db_only_relations:
+            print(f"  RELACIÓN AUSENTE EN LIVE | {code} | {category}")
+        print(f"Relaciones live ausentes de DB: {len(live_only_relations)}")
+        for code, category in live_only_relations:
+            item = live_products.get(code, {})
+            print(
+                f"  RELACIÓN NUEVA EN LIVE | {item.get('code', code)} | {category}"
+            )
+    else:
         print(
-            f"  RELACIÓN NUEVA EN LIVE | {item.get('code', code)} | {category}"
+            "NO DISPONIBLE: la base no contiene ni las relaciones normalizadas "
+            "ni la columna products.category."
         )
 
     print("=" * 80)
     print("ESTADO DE LAS IMÁGENES GUARDADAS")
-    print(f"Productos DB con galería registrada: {database_metrics['gallery_products']}")
-    print(f"Entradas de galería registradas: {database_metrics['gallery_entries']}")
-    print(
-        "Archivos de galería inexistentes: "
-        f"{database_metrics['missing_gallery_files']}"
-    )
-    print(
-        "Imágenes principales con ruta inexistente: "
-        f"{database_metrics['missing_primary_files']}"
-    )
+    if database_metrics["gallery_audit_available"]:
+        print(
+            "Productos DB con galería registrada: "
+            f"{database_metrics['gallery_products']}"
+        )
+        print(f"Entradas de galería registradas: {database_metrics['gallery_entries']}")
+        print(
+            "Archivos de galería inexistentes: "
+            f"{database_metrics['missing_gallery_files']}"
+        )
+    else:
+        print(
+            "Galerías no auditables: esta versión de la base no tiene "
+            "la columna products.gallery_images."
+        )
+    if database_metrics["primary_image_audit_available"]:
+        print(
+            "Imágenes principales con ruta inexistente: "
+            f"{database_metrics['missing_primary_files']}"
+        )
+    else:
+        print(
+            "Imágenes principales no auditables: falta products.image_path."
+        )
     print("=" * 80)
     print("SOLO DIAGNÓSTICO: no se ha escrito ni eliminado ningún dato.")
     return 0

@@ -16,7 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # The imports follow the direct-execution sys.path bootstrap; keep the main
 # orchestration together because its stage boundaries are the benchmark.
-# ruff: noqa: I001, PLR0912
+# ruff: noqa: I001
 from config.runtime_paths import DATA_DIR
 from config.scraping_config import (
     MAX_RETRIES,
@@ -77,7 +77,7 @@ class _CountingImageDownloader(ImageDownloader):
     ) -> str:
         try:
             result = super().download_gallery(code, url, position, output_dir)
-        except Exception:  # noqa: BLE001
+        except Exception:
             self.gallery_failures += 1
             raise
         self.gallery_downloads += 1

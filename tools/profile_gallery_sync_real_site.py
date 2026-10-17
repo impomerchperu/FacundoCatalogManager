@@ -42,8 +42,8 @@ from scrapers.extractors.product_extractor import ProductExtractor
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_paths import IMAGE_GALLERY_DIR
 from services.scraping.catalog_sync_service import CatalogSyncService
+from services.scraping import product_gallery_sync_service as gallery_module
 from services.scraping.category_service import CategoryService
-from services.scraping.product_gallery_sync_service import ProductGallerySyncService
 
 EXPECTED_CATEGORIES = 24
 DEFAULT_LIMIT = 20
@@ -252,9 +252,6 @@ def main() -> int:
         if not selected:
             raise RuntimeError("No se encontraron productos para el perfilado.")
 
-        gallery_module = sys.modules[
-            "services.scraping.product_gallery_sync_service"
-        ]
         with tempfile.TemporaryDirectory(
             prefix="fcm-gallery-benchmark-"
         ) as temporary_directory:
@@ -270,7 +267,7 @@ def main() -> int:
             )
 
             clean_input = deepcopy(selected)
-            clean_service = ProductGallerySyncService(
+            clean_service = gallery_module.ProductGallerySyncService(
                 browser=browser,
                 product_extractor=ProductExtractor(),
                 image_downloader=downloader,
@@ -293,7 +290,7 @@ def main() -> int:
 
             warm_input = deepcopy(selected)
             memory_review = _MemoryGalleryReviewService(clean_products)
-            warm_service = ProductGallerySyncService(
+            warm_service = gallery_module.ProductGallerySyncService(
                 browser=browser,
                 product_extractor=ProductExtractor(),
                 image_downloader=downloader,

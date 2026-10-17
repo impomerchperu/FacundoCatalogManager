@@ -101,6 +101,55 @@ def _read_product_schema(
     return tables, product_columns, rows
 
 
+
+def _discover_image_schema(
+    connection: sqlite3.Connection,
+    tables: set[str],
+) -> list[dict[str, Any]]:
+    """List image-related tables and columns without assuming a schema version."""
+    tokens = (
+        "image",
+        "gallery",
+        "photo",
+        "foto",
+        "media",
+        "picture",
+        "imagen",
+        "img",
+    )
+    candidates: list[dict[str, Any]] = []
+    for table in sorted(tables):
+        if table.startswith("sqlite_"):
+            continue
+        quoted_table = '"' + table.replace('"', '""') + '"'
+        columns = [
+            str(row["name"])
+            for row in connection.execute(
+                f"PRAGMA table_info({quoted_table})"
+            ).fetchall()
+        ]
+        matched = sorted(
+            value
+            for value in [table, *columns]
+            if any(token in value.casefold() for token in tokens)
+        )
+        if not matched:
+            continue
+        row_count = int(
+            connection.execute(
+                f"SELECT COUNT(*) FROM {quoted_table}"
+            ).fetchone()[0]
+        )
+        candidates.append(
+            {
+                "table": table,
+                "columns": columns,
+                "rows": row_count,
+                "matched": matched,
+            }
+        )
+    return candidates
+
 def _read_category_relation_rows(
     connection: sqlite3.Connection,
     tables: set[str],
@@ -251,6 +300,7 @@ def _read_catalog_readonly(
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA query_only = ON")
         tables, product_columns, rows = _read_product_schema(connection)
+        image_schema_candidates = _discover_image_schema(connection, tables)
         relation_source, relation_rows = _read_category_relation_rows(
             connection,
             tables,
@@ -273,6 +323,7 @@ def _read_catalog_readonly(
         **image_metrics,
         "relation_source": relation_source,
         "relations_audit_available": relation_source != "unavailable",
+        "image_schema_candidates": image_schema_candidates,
     }
     return products, category_relations, metrics
 
@@ -561,9 +612,21 @@ def main() -> int:  # noqa: PLR0912
         )
     else:
         print(
-            "Galerías no auditables: esta versión de la base no tiene "
-            "la columna products.gallery_images."
+            "Galerías no auditables: no existe la columna "
+            "products.gallery_images."
         )
+        candidates = database_metrics["image_schema_candidates"]
+        if candidates:
+            print("Esquema relacionado con imágenes detectado (solo lectura):")
+            for candidate in candidates:
+                columns = ", ".join(candidate["columns"])
+                matched = ", ".join(candidate["matched"])
+                print(
+                    f"  TABLA {candidate['table']} | filas={candidate['rows']} "
+                    f"| columnas=[{columns}] | coincidencias=[{matched}]"
+                )
+        else:
+            print("No se detectaron tablas/columnas relacionadas con imágenes.")
     if database_metrics["primary_image_audit_available"]:
         print(
             "Imágenes principales con ruta inexistente: "

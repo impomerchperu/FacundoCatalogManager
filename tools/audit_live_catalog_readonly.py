@@ -62,88 +62,90 @@ def _resolve_catalog_file(database_path: Path, raw_path: object) -> Path:
     return data_root / candidate
 
 
-def _read_catalog_readonly(
+def _read_product_schema(
+    connection: sqlite3.Connection,
+) -> tuple[set[str], set[str], list[sqlite3.Row]]:
+    """Inspect product-table schema and read only columns that exist."""
+    tables = {
+        str(row["name"])
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    if "products" not in tables:
+        raise sqlite3.OperationalError("no existe la tabla products")
+
+    product_columns = {
+        str(row["name"])
+        for row in connection.execute("PRAGMA table_info(products)").fetchall()
+    }
+    missing_required = {"code", "name"} - product_columns
+    if missing_required:
+        raise sqlite3.OperationalError(
+            "la tabla products no contiene las columnas requeridas: "
+            + ", ".join(sorted(missing_required))
+        )
+
+    selected_columns = ["code", "name"]
+    selected_columns.extend(
+        column
+        for column in ("category", "image_path", "gallery_images")
+        if column in product_columns
+    )
+    query = (
+        "SELECT "
+        + ", ".join(selected_columns)
+        + " FROM products ORDER BY code COLLATE NOCASE"
+    )
+    rows = connection.execute(query).fetchall()
+    return tables, product_columns, rows
+
+
+def _read_category_relation_rows(
+    connection: sqlite3.Connection,
+    tables: set[str],
+    product_columns: set[str],
+) -> tuple[str, list[sqlite3.Row]]:
+    """Use normalized relations when available, otherwise leave fallback to products.category."""
+    if not {"product_categories", "categories"} <= tables or "id" not in product_columns:
+        return ("products.category", []) if "category" in product_columns else ("unavailable", [])
+
+    pc_columns = {
+        str(row["name"])
+        for row in connection.execute("PRAGMA table_info(product_categories)").fetchall()
+    }
+    category_columns = {
+        str(row["name"])
+        for row in connection.execute("PRAGMA table_info(categories)").fetchall()
+    }
+    if not {"product_id", "category_id"} <= pc_columns:
+        return ("products.category", []) if "category" in product_columns else ("unavailable", [])
+    if not {"id", "name"} <= category_columns:
+        return ("products.category", []) if "category" in product_columns else ("unavailable", [])
+
+    relations = connection.execute(
+        """
+        SELECT p.code, c.name AS category
+        FROM product_categories AS pc
+        JOIN products AS p ON p.id = pc.product_id
+        JOIN categories AS c ON c.id = pc.category_id
+        """
+    ).fetchall()
+    return "product_categories", relations
+
+
+def _inspect_product_rows(
     database_path: Path,
-) -> tuple[dict[str, dict[str, str]], set[tuple[str, str]], dict[str, Any]]:
-    """Read the existing catalog in SQLite read-only mode, including older schemas."""
-    uri = f"{database_path.resolve().as_uri()}?mode=ro"
-    with sqlite3.connect(uri, uri=True) as connection:
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA query_only = ON")
-        tables = {
-            str(row["name"])
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
-        }
-        if "products" not in tables:
-            raise sqlite3.OperationalError("no existe la tabla products")
-
-        product_columns = {
-            str(row["name"])
-            for row in connection.execute("PRAGMA table_info(products)").fetchall()
-        }
-        missing_required = {"code", "name"} - product_columns
-        if missing_required:
-            raise sqlite3.OperationalError(
-                "la tabla products no contiene las columnas requeridas: "
-                + ", ".join(sorted(missing_required))
-            )
-
-        selected_columns = ["code", "name"]
-        for optional_column in ("category", "image_path", "gallery_images"):
-            if optional_column in product_columns:
-                selected_columns.append(optional_column)
-        query = (
-            "SELECT "
-            + ", ".join(selected_columns)
-            + " FROM products ORDER BY code COLLATE NOCASE"
-        )
-        rows = connection.execute(query).fetchall()
-
-        relation_source = "unavailable"
-        relations = []
-        normalized_relations_available = (
-            "product_categories" in tables
-            and "categories" in tables
-            and "id" in product_columns
-        )
-        if normalized_relations_available:
-            pc_columns = {
-                str(row["name"])
-                for row in connection.execute(
-                    "PRAGMA table_info(product_categories)"
-                ).fetchall()
-            }
-            category_columns = {
-                str(row["name"])
-                for row in connection.execute(
-                    "PRAGMA table_info(categories)"
-                ).fetchall()
-            }
-            normalized_relations_available = (
-                {"product_id", "category_id"} <= pc_columns
-                and {"id", "name"} <= category_columns
-            )
-
-        if normalized_relations_available:
-            relations = connection.execute(
-                """
-                SELECT p.code, c.name AS category
-                FROM product_categories AS pc
-                JOIN products AS p ON p.id = pc.product_id
-                JOIN categories AS c ON c.id = pc.category_id
-                """
-            ).fetchall()
-            relation_source = "product_categories"
-        elif "category" in product_columns:
-            relation_source = "products.category"
-
+    rows: list[sqlite3.Row],
+    product_columns: set[str],
+) -> tuple[dict[str, dict[str, str]], dict[str, Any]]:
+    """Build product-code index and inspect persisted image paths when possible."""
     products: dict[str, dict[str, str]] = {}
     gallery_products = 0
     gallery_entries = 0
     missing_gallery_files = 0
     missing_primary_files = 0
+
     gallery_audit_available = "gallery_images" in product_columns
     primary_image_audit_available = "image_path" in product_columns
 
@@ -151,11 +153,10 @@ def _read_catalog_readonly(
         code = _normalize_code(row["code"])
         if not code:
             continue
-        product_item = {
+        products[code] = {
             "code": str(row["code"] or ""),
             "name": str(row["name"] or ""),
         }
-        products[code] = product_item
 
         if primary_image_audit_available:
             primary_path = str(row["image_path"] or "").strip()
@@ -165,60 +166,29 @@ def _read_catalog_readonly(
             ):
                 missing_primary_files += 1
 
-        if gallery_audit_available:
-            raw_gallery = str(row["gallery_images"] or "").strip()
-            try:
-                gallery = json.loads(raw_gallery) if raw_gallery else []
-            except json.JSONDecodeError:
-                gallery = []
-            if not isinstance(gallery, list):
-                gallery = []
-
-            valid_gallery = [
-                item for item in gallery
-                if isinstance(item, dict)
-                and str(
-                    item.get("image_path", item.get("path", "")) or ""
-                ).strip()
-            ]
-            if valid_gallery:
-                gallery_products += 1
-            gallery_entries += len(valid_gallery)
-            for item in valid_gallery:
-                image_path = str(
-                    item.get("image_path", item.get("path", "")) or ""
-                ).strip()
-                if (
-                    image_path
-                    and not _resolve_catalog_file(database_path, image_path).is_file()
-                ):
-                    missing_gallery_files += 1
-
-    category_relations: set[tuple[str, str]] = set()
-    if relation_source == "product_categories":
-        category_relations = {
-            (
-                _normalize_code(row["code"]),
-                normalize_category_name(str(row["category"] or "")),
-            )
-            for row in relations
-            if _normalize_code(row["code"])
-            and normalize_category_name(str(row["category"] or ""))
-        }
-    elif relation_source == "products.category":
-        for row in rows:
-            code = _normalize_code(row["code"])
-            if not code:
-                continue
-            for category in split_category_names(str(row["category"] or "")):
-                category_key = normalize_category_name(category)
-                if category_key:
-                    category_relations.add((code, category_key))
+        if not gallery_audit_available:
+            continue
+        gallery = _parse_gallery(row["gallery_images"])
+        valid_gallery = [
+            item
+            for item in gallery
+            if str(item.get("image_path", item.get("path", "")) or "").strip()
+        ]
+        if valid_gallery:
+            gallery_products += 1
+        gallery_entries += len(valid_gallery)
+        for item in valid_gallery:
+            image_path = str(
+                item.get("image_path", item.get("path", "")) or ""
+            ).strip()
+            if (
+                image_path
+                and not _resolve_catalog_file(database_path, image_path).is_file()
+            ):
+                missing_gallery_files += 1
 
     metrics = {
         "products": len(products),
-        "relation_source": relation_source,
-        "relations_audit_available": relation_source != "unavailable",
         "gallery_audit_available": gallery_audit_available,
         "primary_image_audit_available": primary_image_audit_available,
         "gallery_products": gallery_products if gallery_audit_available else None,
@@ -230,8 +200,81 @@ def _read_catalog_readonly(
             missing_primary_files if primary_image_audit_available else None
         ),
     }
-    return products, category_relations, metrics
+    return products, metrics
 
+
+def _parse_gallery(raw_value: object) -> list[dict[str, Any]]:
+    try:
+        parsed = json.loads(str(raw_value or "").strip() or "[]")
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [item for item in parsed if isinstance(item, dict)]
+
+
+def _normalize_relation_rows(
+    relations: list[sqlite3.Row],
+) -> set[tuple[str, str]]:
+    return {
+        (
+            _normalize_code(row["code"]),
+            normalize_category_name(str(row["category"] or "")),
+        )
+        for row in relations
+        if _normalize_code(row["code"])
+        and normalize_category_name(str(row["category"] or ""))
+    }
+
+
+def _relations_from_product_categories(
+    rows: list[sqlite3.Row],
+) -> set[tuple[str, str]]:
+    result: set[tuple[str, str]] = set()
+    for row in rows:
+        code = _normalize_code(row["code"])
+        if not code:
+            continue
+        for category in split_category_names(str(row["category"] or "")):
+            category_key = normalize_category_name(category)
+            if category_key:
+                result.add((code, category_key))
+    return result
+
+
+def _read_catalog_readonly(
+    database_path: Path,
+) -> tuple[dict[str, dict[str, str]], set[tuple[str, str]], dict[str, Any]]:
+    """Read the existing catalog in SQLite read-only mode, including older schemas."""
+    uri = f"{database_path.resolve().as_uri()}?mode=ro"
+    with sqlite3.connect(uri, uri=True) as connection:
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA query_only = ON")
+        tables, product_columns, rows = _read_product_schema(connection)
+        relation_source, relation_rows = _read_category_relation_rows(
+            connection,
+            tables,
+            product_columns,
+        )
+
+    products, image_metrics = _inspect_product_rows(
+        database_path,
+        rows,
+        product_columns,
+    )
+    if relation_source == "product_categories":
+        category_relations = _normalize_relation_rows(relation_rows)
+    elif relation_source == "products.category":
+        category_relations = _relations_from_product_categories(rows)
+    else:
+        category_relations = set()
+
+    metrics = {
+        **image_metrics,
+        "relation_source": relation_source,
+        "relations_audit_available": relation_source != "unavailable",
+    }
+    return products, category_relations, metrics
 
 def _collect_live_catalog() -> tuple[
     dict[str, dict[str, str]],

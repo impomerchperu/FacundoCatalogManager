@@ -50,6 +50,23 @@ def test_readonly_audit_supports_legacy_schema_without_gallery_images(
                 "data/images/products/FB-1234.webp",
             ),
         )
+        connection.execute(
+            """
+            CREATE TABLE product_images (
+                id INTEGER PRIMARY KEY,
+                product_id INTEGER NOT NULL,
+                image_path TEXT NOT NULL,
+                position INTEGER
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO product_images (id, product_id, image_path, position)
+            VALUES (?, ?, ?, ?)
+            """,
+            (1, 1, "data/images/gallery/FB-1234-01.webp", 1),
+        )
 
     products, relations, metrics = _read_catalog_readonly(database_path)
 
@@ -66,6 +83,13 @@ def test_readonly_audit_supports_legacy_schema_without_gallery_images(
     assert metrics["gallery_entries"] is None
     assert metrics["primary_image_audit_available"] is True
     assert metrics["missing_primary_files"] == 0
+    candidates = {
+        candidate["table"]: candidate
+        for candidate in metrics["image_schema_candidates"]
+    }
+    assert set(candidates) == {"product_images", "products"}
+    assert candidates["product_images"]["rows"] == 1
+    assert "image_path" in candidates["product_images"]["columns"]
 
 
 def test_readonly_audit_checks_normalized_relations_and_gallery_files(

@@ -102,7 +102,6 @@ def _read_catalog_readonly(
         valid_gallery = [
             item for item in gallery
             if isinstance(item, dict)
-            and str(item.get("url", "") or "").strip()
             and str(item.get("image_path", item.get("path", "")) or "").strip()
         ]
         if valid_gallery:
@@ -294,7 +293,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
+def main() -> int:  # noqa: PLR0912
     args = _build_parser().parse_args()
     database_path = args.database.expanduser().resolve()
     if not database_path.is_file():
@@ -346,6 +345,15 @@ def main() -> int:
         f"errors={http.get('http_errors', 0)} "
         f"terminal={http.get('http_terminal_errors', 0)}"
     )
+
+    http_terminal_errors = int(http.get("http_terminal_errors", 0) or 0)
+    http_errors = int(http.get("http_errors", 0) or 0)
+    if http_terminal_errors or http_errors:
+        print(
+            "ABORTADO: la extracción registró errores HTTP; "
+            "no es seguro comparar posibles productos ausentes."
+        )
+        return 2
 
     try:
         database_products, database_relations, database_metrics = (

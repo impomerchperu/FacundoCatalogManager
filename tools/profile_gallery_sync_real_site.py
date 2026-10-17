@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import random
 import sys
 import tempfile
 import time
@@ -48,6 +49,39 @@ from services.scraping.category_service import CategoryService
 EXPECTED_CATEGORIES = 24
 DEFAULT_LIMIT = 20
 MAX_LIMIT = 100
+
+
+class _CountingImageDownloader(ImageDownloader):
+    """Counts completed gallery downloads without storing run data."""
+
+    def __init__(
+        self,
+        output_dir: str | Path,
+        request_timeout: int,
+        max_retries: int,
+    ) -> None:
+        super().__init__(
+            output_dir=output_dir,
+            request_timeout=request_timeout,
+            max_retries=max_retries,
+        )
+        self.gallery_downloads = 0
+        self.gallery_failures = 0
+
+    def download_gallery(
+        self,
+        code: str,
+        url: str,
+        position: int,
+        output_dir: str | Path,
+    ) -> str:
+        try:
+            result = super().download_gallery(code, url, position, output_dir)
+        except Exception:  # noqa: BLE001
+            self.gallery_failures += 1
+            raise
+        self.gallery_downloads += 1
+        return result
 
 
 class _MemoryGalleryRepository:
@@ -248,7 +282,13 @@ def main() -> int:
         products_with_code.sort(
             key=lambda product: str(product.code).strip().casefold()
         )
-        selected = products_with_code[:limit]
+        selected = random.Random(20261017).sample(
+            products_with_code,
+            k=min(limit, len(products_with_code)),
+        )
+        selected.sort(
+            key=lambda product: str(product.code).strip().casefold()
+        )
         if not selected:
             raise RuntimeError("No se encontraron productos para el perfilado.")
 
@@ -260,7 +300,7 @@ def main() -> int:
                 storage_root
             )
             gallery_root = gallery_module.resolve_data_path(IMAGE_GALLERY_DIR)
-            downloader = ImageDownloader(
+            downloader = _CountingImageDownloader(
                 output_dir=storage_root / "data" / "images" / "products",
                 request_timeout=REQUEST_TIMEOUT,
                 max_retries=MAX_RETRIES,
@@ -276,6 +316,8 @@ def main() -> int:
                 max_candidates=6,
                 refresh_existing=True,
             )
+            clean_downloads_before = downloader.gallery_downloads
+            clean_failures_before = downloader.gallery_failures
             before_clean = browser.get_http_metrics()
             clean_started = time.perf_counter()
             clean_products = clean_service.sync_products(clean_input)
@@ -287,6 +329,8 @@ def main() -> int:
             clean_file_count = sum(
                 1 for path in gallery_root.rglob("*") if path.is_file()
             )
+            clean_downloads = downloader.gallery_downloads - clean_downloads_before
+            clean_failures = downloader.gallery_failures - clean_failures_before
 
             warm_input = deepcopy(selected)
             memory_review = _MemoryGalleryReviewService(clean_products)
@@ -299,6 +343,8 @@ def main() -> int:
                 max_candidates=6,
                 refresh_existing=False,
             )
+            warm_downloads_before = downloader.gallery_downloads
+            warm_failures_before = downloader.gallery_failures
             before_warm = browser.get_http_metrics()
             warm_started = time.perf_counter()
             warm_products = warm_service.sync_products(warm_input)
@@ -308,6 +354,8 @@ def main() -> int:
             final_file_count = sum(
                 1 for path in gallery_root.rglob("*") if path.is_file()
             )
+            warm_downloads = downloader.gallery_downloads - warm_downloads_before
+            warm_failures = downloader.gallery_failures - warm_failures_before
 
             print("=" * 80)
             print("PERFIL DE GALERÍAS REALES - ALMACENAMIENTO AISLADO")
@@ -317,6 +365,10 @@ def main() -> int:
             print("APARICIONES ESPERADAS / ENCONTRADAS:", expected_occurrences, "/", found_occurrences)
             print("PRODUCTOS ÚNICOS CONSOLIDADOS:", len(products_with_code))
             print("PRODUCTOS EN LA MUESTRA:", len(selected))
+            print(
+                "CÓDIGOS DE LA MUESTRA:",
+                ", ".join(str(product.code).strip() for product in selected),
+            )
             print("DESCUBRIMIENTO:", f"{discovery_seconds:.2f}s")
             print("COLLECTION:", f"{collection_seconds:.2f}s")
             print("ENRICHMENT:", f"{enrichment_seconds:.2f}s")
@@ -334,7 +386,12 @@ def main() -> int:
             print("PRODUCTOS CON GALERÍA:", clean_with_gallery)
             print("ENTRADAS DE GALERÍA:", clean_gallery_images)
             print("ARCHIVOS CREADOS:", clean_file_count)
-            print("RETRIES:", int(_metric_delta(before_clean, after_clean, "http_retries")))
+            print("DESCARGAS DE GALERÍA EXITOSAS:", clean_downloads)
+            print("DESCARGAS DE GALERÍA FALLIDAS:", clean_failures)
+            print(
+                "PAGE HTTP RETRIES:",
+                int(_metric_delta(before_clean, after_clean, "http_retries")),
+            )
             print("-" * 80)
             print("MODO INCREMENTAL (GALERÍAS PREEXISTENTES SIMULADAS EN MEMORIA)")
             print("GALLERY WALL:", f"{warm_seconds:.2f}s")
@@ -349,11 +406,16 @@ def main() -> int:
             print("PRODUCTOS CON GALERÍA:", warm_with_gallery)
             print("ENTRADAS DE GALERÍA:", warm_gallery_images)
             print("ARCHIVOS AL FINAL:", final_file_count)
+            print("DESCARGAS DE GALERÍA EXITOSAS:", warm_downloads)
+            print("DESCARGAS DE GALERÍA FALLIDAS:", warm_failures)
             print(
                 "CANDIDATOS DE REVISIÓN EN MEMORIA:",
                 memory_review.registered_candidates,
             )
-            print("RETRIES:", int(_metric_delta(before_warm, after_warm, "http_retries")))
+            print(
+                "PAGE HTTP RETRIES:",
+                int(_metric_delta(before_warm, after_warm, "http_retries")),
+            )
             print("-" * 80)
             total_http = browser.get_http_metrics()
             print("HTTP RETRIES ACUMULADOS:", total_http.get("http_retries", 0))

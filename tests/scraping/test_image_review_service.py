@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -142,6 +143,9 @@ def test_image_review_keep_restores_current_image_metadata(monkeypatch, tmp_path
     candidate.parent.mkdir(parents=True)
     products_dir.mkdir(parents=True)
     candidate.write_bytes(image_bytes("JPEG", (10, 11, 12)))
+    current_path = products_dir / "FB-100.jpg"
+    current_bytes = image_bytes("JPEG", (4, 5, 6))
+    current_path.write_bytes(current_bytes)
 
     product = Product(
         code="FB-100",
@@ -174,9 +178,9 @@ def test_image_review_keep_restores_current_image_metadata(monkeypatch, tmp_path
 
     finalized = service.finalize_selected([review_id])
 
-    assert finalized[0]["changed"] is False
+    assert finalized[0]["changed"] is True
     assert repository.product.image_path == "data/images/products/FB-100.jpg"
-    assert repository.product.image_hash == "old-hash"
+    assert repository.product.image_hash == hashlib.sha256(current_bytes).hexdigest()
     assert repository.product.image_url == "https://example.test/old.jpg"
     assert not candidate.exists()
     assert service.pending() == []

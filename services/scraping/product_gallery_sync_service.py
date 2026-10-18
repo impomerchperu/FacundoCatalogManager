@@ -480,7 +480,10 @@ class ProductGallerySyncService:
         # The collection scraper marks images obtained from a product detail
         # page. This is already the authoritative ordered gallery; do not go
         # back to category-card thumbnails or apply a candidate-count limit.
-        if str(getattr(product, "image_candidates_source", "") or "").casefold() == "detail":
+        image_candidate_source = str(
+            getattr(product, "image_candidates_source", "") or ""
+        ).casefold()
+        if image_candidate_source == "detail":
             return detail_candidates
 
         if not self.refresh_existing and candidate_gallery:

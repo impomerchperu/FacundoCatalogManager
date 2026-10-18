@@ -763,6 +763,10 @@ class ImageReviewService:
                 self._rollback_file_state(file_state)
             with contextlib.suppress(OSError):
                 self._write(original_records)
+            if transaction_started and not bool(
+                getattr(db, "_transaction_active", False)
+            ):
+                self._cleanup_unused_images()
             raise
 
         # El catálogo y la cola ya están confirmados. La limpieza es posterior
@@ -931,7 +935,9 @@ class ImageReviewService:
         try:
             self.repository.update(product)
         except Exception:
-            self._remove_created_paths(created_paths)
+            # Any new canonical copies are cleaned only after re-reading the
+            # committed catalog references; never unlink them by guessed path.
+            self._cleanup_unused_images()
             raise
         self._remove_all_staged_candidates(record)
         if changed:
@@ -1175,7 +1181,7 @@ class ImageReviewService:
             try:
                 self.repository.update(product)
             except Exception:
-                self._remove_created_paths(created_paths)
+                self._cleanup_unused_images()
                 raise
             self._remove_all_staged_candidates(record)
             self._cleanup_unused_images()
@@ -1351,9 +1357,8 @@ class ImageReviewService:
             if persist:
                 self.repository.update(product)
         except Exception:
-            self._remove_created_paths(created_gallery_paths)
-            if created_destination:
-                destination.unlink(missing_ok=True)
+            if persist:
+                self._cleanup_unused_images()
             raise
 
         if persist:
@@ -1466,27 +1471,15 @@ class ImageReviewService:
 
     @staticmethod
     def _rollback_file_state(state: dict) -> None:
-        created_paths = state.get("created_paths", [])
-        if isinstance(created_paths, list):
-            ImageReviewService._remove_created_paths(
-                [path for path in created_paths if isinstance(path, Path)]
-            )
-        destination = state.get("destination")
+        # Do not unlink a newly-created canonical image by filename during a
+        # rollback: another catalog row/process may already reference it.
+        # The caller runs the whitelist-based cleaner only after DB rollback.
         backup = state.get("backup")
-        existed = bool(state.get("destination_existed", False))
-        if not isinstance(destination, Path):
-            return
-        try:
-            ImageReviewService._restore_image_backup(
-                destination,
-                backup if isinstance(backup, Path) else None,
-                existed,
-            )
-        except OSError:
-            pass
-        finally:
-            if backup is not None and isinstance(backup, Path):
+        if isinstance(backup, Path):
+            try:
                 backup.unlink(missing_ok=True)
+            except OSError:
+                LOGGER.exception("No se pudo eliminar un backup temporal de revisión.")
 
     def _stage_manual_image(
         self,

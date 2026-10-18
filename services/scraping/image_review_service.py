@@ -3,8 +3,10 @@ from __future__ import annotations
 import contextlib
 import copy
 import json
+import logging
 import shutil
 import uuid
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
@@ -16,6 +18,10 @@ from models.product import Product
 from models.product_image_gallery import normalize_product_gallery
 from repositories.product_repository import ProductRepository
 from scrapers.images.image_downloader import ImageDownloader
+from scrapers.images.image_validation import (
+    file_extension_matches,
+    identify_image_file,
+)
 from scrapers.images.image_paths import (
     IMAGE_EXTENSIONS,
     IMAGE_GALLERY_DIR,
@@ -26,16 +32,31 @@ from scrapers.images.image_paths import (
 QUEUE_PATH = DATA_DIR / "image_review_queue.json"
 STAGING_DIR = DATA_DIR / "image_review_staging"
 _QUEUE_LOCK = Lock()
+LOGGER = logging.getLogger(__name__)
 
 
 class ImageReviewService:
     """Gestiona candidatos de imagen sin sobrescribir la imagen vigente."""
 
-    def __init__(self, repository: ProductRepository | None = None) -> None:
+    def __init__(
+        self,
+        repository: ProductRepository | None = None,
+        image_cleanup: Callable[[], list[dict[str, object]]] | None = None,
+    ) -> None:
         self._owns_repository = repository is None
         self.repository = repository or ProductRepository()
+        self.image_cleanup = image_cleanup
         self._lock = _QUEUE_LOCK
         self._active_batch: str | None = None
+
+    def _cleanup_unused_images(self) -> None:
+        """Remove files made unreferenced only after the catalog has persisted."""
+        if not callable(self.image_cleanup):
+            return
+        try:
+            self.image_cleanup()
+        except Exception:  # noqa: BLE001
+            LOGGER.exception("No se pudo completar la limpieza post-commit de imágenes.")
 
     def close(self) -> None:
         if not self._owns_repository:

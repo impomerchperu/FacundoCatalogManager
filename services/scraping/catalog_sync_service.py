@@ -174,6 +174,10 @@ class CatalogSyncService:
         except Exception:
             if transaction_started:
                 self._rollback_repository_transaction()
+                if not self._transaction_is_active():
+                    # Any canonical files created by the failed attempt are
+                    # retired through the DB-reference whitelist, never by path.
+                    self._cleanup_unused_images()
             raise
 
         image_path_changed = self._image_state_repaired or any(

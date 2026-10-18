@@ -19,6 +19,7 @@ from scrapers.images.image_validation import (
 )
 from scrapers.images.product_image_storage import store_image_in_product_group
 from scrapers.images.visual_duplicate_detector import (
+    VisualImageFingerprint,
     build_visual_fingerprint,
     is_generated_resolution_duplicate,
 )
@@ -504,7 +505,7 @@ class CatalogSyncService:
         normalized: list[dict[str, Any]] = []
         seen_hashes: set[str] = set()
         seen_urls: set[str] = set()
-        visual_fingerprints = []
+        visual_fingerprints: list[VisualImageFingerprint | None] = []
 
         if primary_path and primary_hash:
             normalized.append(

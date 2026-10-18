@@ -11,6 +11,7 @@ from tests.scraping.image_test_utils import image_bytes
 JPEG_OLD = image_bytes("JPEG", (10, 20, 30))
 JPEG_NEW = image_bytes("JPEG", (200, 180, 160))
 
+
 class FakeResponse:
     def __init__(self, *, status_code=200, content=b"", headers=None, url="https://example.test/image.jpg"):
         self.status_code = status_code

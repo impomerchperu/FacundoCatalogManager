@@ -1044,22 +1044,48 @@ class ImageReviewService:
         product,
         created_paths: list[Path] | None = None,
     ) -> list[dict]:
-        """Canonicalize decodable gallery images and discard invalid/duplicate bytes."""
-        primary_path = str(getattr(product, "image_path", "") or "").strip()
-        primary_hash = (
-            str(getattr(product, "image_hash", "") or "").casefold()
-            if primary_path
-            else ""
-        )
-        primary_url = (
-            str(getattr(product, "image_url", "") or "").strip().casefold()
-            if primary_path
-            else ""
-        )
-        seen_hashes = {primary_hash} if primary_hash else set()
-        seen_urls = {primary_url} if primary_url else set()
-        valid: list[dict] = []
+        """Keep only decoded, canonically named images and exact unique bytes."""
         code = str(getattr(product, "code", "") or "")
+        old_primary_path = str(getattr(product, "image_path", "") or "").strip()
+        old_primary_hash = str(getattr(product, "image_hash", "") or "").casefold()
+        primary_url = str(getattr(product, "image_url", "") or "").strip()
+        primary_path = ""
+        primary_hash = ""
+        primary_is_valid = False
+
+        if old_primary_path:
+            source = self._resolve_product_image_path(old_primary_path)
+            if source is not None and source.is_file():
+                stored_path, stored_hash = self._store_identifiable_image(
+                    code,
+                    source,
+                    1,
+                    created_paths,
+                )
+                if stored_path and stored_hash:
+                    primary_path = stored_path
+                    primary_hash = stored_hash
+                    primary_is_valid = True
+
+        if primary_is_valid:
+            product.image_path = primary_path
+            product.image_hash = primary_hash
+            if old_primary_hash != primary_hash.casefold():
+                product.image_etag = ""
+                product.image_last_modified = ""
+                product.image_checked_at = ""
+        else:
+            # A stale DB path/hash is not evidence that the source bytes still
+            # exist or can be decoded. Keep the remote URL for future recovery.
+            product.image_path = ""
+            product.image_hash = ""
+            product.image_etag = ""
+            product.image_last_modified = ""
+            product.image_checked_at = ""
+
+        seen_hashes = {primary_hash.casefold()} if primary_hash else set()
+        seen_urls = {primary_url.casefold()} if primary_is_valid and primary_url else set()
+        valid: list[dict] = []
 
         for raw in list(getattr(product, "gallery_images", []) or []):
             if not isinstance(raw, dict):
@@ -1089,7 +1115,6 @@ class ImageReviewService:
             )
             if not stored_path or not stored_hash:
                 continue
-            # storage derives the canonical extension from decoded content.
             valid.append(
                 {
                     **raw,
@@ -1103,7 +1128,11 @@ class ImageReviewService:
             if url_key:
                 seen_urls.add(url_key)
 
-        return normalize_product_gallery(product, valid)
+        # normalize_product_gallery injects a primary entry. Do that only when
+        # the primary itself was successfully identified from its local bytes.
+        if primary_is_valid:
+            return normalize_product_gallery(product, valid)
+        return valid
 
     def _apply_selected_image(
         self,

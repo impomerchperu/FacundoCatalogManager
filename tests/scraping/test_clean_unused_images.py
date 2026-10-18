@@ -120,3 +120,101 @@ def test_clean_unused_images_does_not_delete_missing_or_outside_files(
     )
 
     assert missing_roots == []
+
+def test_cleanup_after_gallery_update_removes_obsolete_duplicate_files(
+    tmp_path: Path,
+):
+    import json
+
+    project = tmp_path
+    image_root = project / "data" / "images"
+    product_dir = image_root / "products" / "FB-1507"
+    old_product_dir = image_root / "products"
+    old_gallery_dir = image_root / "gallery" / "FB-1507"
+    product_dir.mkdir(parents=True)
+    old_gallery_dir.mkdir(parents=True, exist_ok=True)
+
+    active_primary = product_dir / "FB-1507-01.webp"
+    active_scaled = product_dir / "FB-1507-02.webp"
+    active_alternate = product_dir / "FB-1507-03.webp"
+    active_primary.write_bytes(b"primary")
+    active_scaled.write_bytes(b"scaled")
+    active_alternate.write_bytes(b"alternate")
+
+    old_primary = old_product_dir / "FB-1507.webp"
+    old_gallery_scaled = old_gallery_dir / "FB-1507-01.webp"
+    old_gallery_duplicate = old_gallery_dir / "FB-1507-02.webp"
+    old_gallery_alternate = old_gallery_dir / "FB-1507-03.webp"
+    old_primary.write_bytes(b"primary")
+    old_gallery_scaled.write_bytes(b"scaled")
+    old_gallery_duplicate.write_bytes(b"primary")
+    old_gallery_alternate.write_bytes(b"alternate")
+
+    db = project / "database" / "catalog.db"
+    db.parent.mkdir()
+    connection = sqlite3.connect(db)
+    connection.execute(
+        """
+        CREATE TABLE products (
+            id INTEGER PRIMARY KEY,
+            code TEXT,
+            image_path TEXT,
+            gallery_images TEXT
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO products (code, image_path, gallery_images)
+        VALUES (?, ?, ?)
+        """,
+        (
+            "FB-1507",
+            "data/images/products/FB-1507/FB-1507-01.webp",
+            json.dumps(
+                [
+                    {
+                        "image_path": "data/images/products/FB-1507/FB-1507-01.webp",
+                        "image_hash": "primary",
+                        "position": 1,
+                    },
+                    {
+                        "image_path": "data/images/products/FB-1507/FB-1507-02.webp",
+                        "image_hash": "scaled",
+                        "position": 2,
+                    },
+                    {
+                        "image_path": "data/images/products/FB-1507/FB-1507-03.webp",
+                        "image_hash": "alternate",
+                        "position": 3,
+                    },
+                ]
+            ),
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    deleted = clean_unused_images(
+        project_root=project,
+        db_path=db,
+        roots=["data/images"],
+        delete=True,
+    )
+
+    assert {
+        item["relative"] for item in deleted
+    } == {
+        "data/images/products/FB-1507.webp",
+        "data/images/gallery/FB-1507/FB-1507-01.webp",
+        "data/images/gallery/FB-1507/FB-1507-02.webp",
+        "data/images/gallery/FB-1507/FB-1507-03.webp",
+    }
+    assert active_primary.is_file()
+    assert active_scaled.is_file()
+    assert active_alternate.is_file()
+    assert not old_primary.exists()
+    assert not old_gallery_scaled.exists()
+    assert not old_gallery_duplicate.exists()
+    assert not old_gallery_alternate.exists()
+

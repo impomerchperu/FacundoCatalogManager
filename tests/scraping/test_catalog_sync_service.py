@@ -896,3 +896,95 @@ def test_failed_refresh_keeps_only_a_verified_current_image(tmp_path):
     assert incoming.image_path == str(current_file)
     assert incoming.image_hash != "historically-wrong-hash"
     assert incoming.image_etag == '"old-etag"'
+
+def test_catalog_sync_runs_image_cleanup_after_gallery_reference_update():
+    repository = InMemoryCatalogRepository()
+    existing = Product("FB-1507", "Producto FB-1507", 10)
+    existing.image_url = "https://site.test/uploads/FB-1507-2.webp"
+    existing.image_path = "data/images/products/FB-1507.webp"
+    existing.image_hash = "primary-hash"
+    existing.gallery_images = [
+        {
+            "url": "https://site.test/uploads/FB-1507-2-scaled.webp",
+            "image_path": "data/images/gallery/FB-1507/FB-1507-01.webp",
+            "image_hash": "scaled-hash",
+            "position": 1,
+        },
+        {
+            "url": "https://site.test/uploads/FB-1507-2.webp",
+            "image_path": "data/images/gallery/FB-1507/FB-1507-02.webp",
+            "image_hash": "primary-hash",
+            "position": 2,
+        },
+        {
+            "url": "https://site.test/uploads/FB-1507.webp",
+            "image_path": "data/images/gallery/FB-1507/FB-1507-03.webp",
+            "image_hash": "alternate-hash",
+            "position": 3,
+        },
+    ]
+    repository.save(existing)
+
+    incoming = Product("FB-1507", "Producto FB-1507", 10)
+    incoming.image_url = existing.image_url
+    incoming.image_path = "data/images/products/FB-1507/FB-1507-01.webp"
+    incoming.image_hash = "primary-hash"
+    incoming.gallery_images = [
+        {
+            "url": existing.image_url,
+            "image_path": incoming.image_path,
+            "image_hash": "primary-hash",
+            "position": 1,
+        },
+        {
+            "url": "https://site.test/uploads/FB-1507-2-scaled.webp",
+            "image_path": "data/images/products/FB-1507/FB-1507-02.webp",
+            "image_hash": "scaled-hash",
+            "position": 2,
+        },
+        {
+            "url": "https://site.test/uploads/FB-1507.webp",
+            "image_path": "data/images/products/FB-1507/FB-1507-03.webp",
+            "image_hash": "alternate-hash",
+            "position": 3,
+        },
+    ]
+
+    cleanup_snapshots = []
+
+    def cleanup():
+        stored = repository.get("FB-1507")
+        assert stored is not None
+        cleanup_snapshots.append(
+            {
+                "image_path": stored.image_path,
+                "gallery_paths": [
+                    image["image_path"] for image in stored.gallery_images
+                ],
+            }
+        )
+        return []
+
+    service = CatalogSyncService(
+        repository,
+        ProductDiffService(),
+        image_cleanup=cleanup,
+    )
+    result = service.sync([incoming], prune_missing=False)
+
+    assert result.updated == 1
+    assert any(
+        change["field"] == "gallery_images"
+        for change in result.changes[0]["changes"]
+    )
+    assert len(cleanup_snapshots) == 1
+    assert cleanup_snapshots[0]["image_path"] == incoming.image_path
+    assert "data/images/gallery/FB-1507/FB-1507-02.webp" not in (
+        cleanup_snapshots[0]["gallery_paths"]
+    )
+    assert cleanup_snapshots[0]["gallery_paths"] == [
+        incoming.image_path,
+        "data/images/products/FB-1507/FB-1507-02.webp",
+        "data/images/products/FB-1507/FB-1507-03.webp",
+    ]
+

@@ -166,9 +166,10 @@ class ImageDownloader:
             response = None
             try:
                 current_url = url
+                current_headers = dict(headers)
                 for _ in range(6):
                     self._validate_url(current_url)
-                    response = self._request(current_url, headers)
+                    response = self._request(current_url, current_headers)
                     status_code = int(getattr(response, "status_code", 200) or 200)
 
                     if status_code in {301, 302, 303, 307, 308}:
@@ -182,11 +183,16 @@ class ImageDownloader:
                                 response=response,
                             )
                         next_url = urljoin(current_url, location)
-                        self._validate_response_url(current_url, next_url)
+                        # Close the streaming response before validating its target.
                         close = getattr(response, "close", None)
                         if callable(close):
                             close()
                         response = None
+                        self._validate_response_url(current_url, next_url)
+                        # Validators belong to the original resource. Never carry
+                        # them to a redirected URL, or a 304 could preserve stale bytes.
+                        current_headers.pop("If-None-Match", None)
+                        current_headers.pop("If-Modified-Since", None)
                         current_url = next_url
                         continue
 

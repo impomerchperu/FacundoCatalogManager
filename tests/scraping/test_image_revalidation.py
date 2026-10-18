@@ -95,6 +95,51 @@ def test_revalidate_primary_versions_changed_bytes_without_overwriting_active_fi
     assert result["image_etag"] == '"revision-2"'
 
 
+def test_revalidate_primary_does_not_forward_validators_after_redirect(
+    tmp_path,
+    monkeypatch,
+):
+    image = tmp_path / "P104" / "P104-01.jpg"
+    image.parent.mkdir(parents=True)
+    image.write_bytes(JPEG_OLD)
+    calls = []
+
+    def fake_request(self, url, headers):
+        calls.append((url, dict(headers)))
+        if len(calls) == 1:
+            return FakeResponse(
+                status_code=302,
+                headers={"Location": "https://cdn.example.test/image.jpg"},
+                url=url,
+            )
+        return FakeResponse(
+            content=JPEG_NEW,
+            headers={"Content-Type": "image/jpeg", "ETag": '"revision-2"'},
+            url=url,
+        )
+
+    monkeypatch.setattr(ImageDownloader, "_request", fake_request)
+    downloader = ImageDownloader(output_dir=tmp_path)
+    current_hash = hashlib.sha256(JPEG_OLD).hexdigest()
+
+    result = downloader.revalidate_primary(
+        "P104",
+        "https://origin.example.test/image.jpg",
+        current_path=str(image),
+        current_hash=current_hash,
+        etag='"revision-1"',
+        last_modified="Sun, 18 Oct 2026 00:00:00 GMT",
+    )
+
+    assert calls[0][1]["If-None-Match"] == '"revision-1"'
+    assert calls[0][1]["If-Modified-Since"] == "Sun, 18 Oct 2026 00:00:00 GMT"
+    assert "If-None-Match" not in calls[1][1]
+    assert "If-Modified-Since" not in calls[1][1]
+    assert result["status"] == "downloaded"
+    assert result["image_hash"] == hashlib.sha256(JPEG_NEW).hexdigest()
+    assert image.read_bytes() == JPEG_OLD
+
+
 def test_verify_image_file_checks_signature_extension_and_hash(tmp_path):
     valid = tmp_path / "sample.jpg"
     valid.write_bytes(JPEG_OLD)

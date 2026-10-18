@@ -8,7 +8,12 @@ import requests
 
 from config.runtime_paths import resolve_data_path, to_data_relative_path
 from scrapers.images.image_hash import ImageHash
-from scrapers.images.image_paths import IMAGE_EXTENSIONS, IMAGE_PRODUCTS_DIR
+from scrapers.images.image_paths import (
+    IMAGE_EXTENSIONS,
+    IMAGE_PRODUCTS_DIR,
+    product_image_directory,
+    safe_image_code,
+)
 
 
 class ImageDownloader:
@@ -44,9 +49,13 @@ class ImageDownloader:
                     url,
                     response.headers.get("Content-Type", ""),
                 )
-                target = self.output_dir / (
-                    f"{self._safe_code(code)}{extension}"
+                safe_code = self._safe_code(code)
+                target_dir = product_image_directory(
+                    safe_code,
+                    root=self.output_dir,
                 )
+                target_dir.mkdir(parents=True, exist_ok=True)
+                target = target_dir / f"{safe_code}-01{extension}"
                 temporary = target.with_suffix(target.suffix + ".tmp")
                 temporary.write_bytes(response.content)
                 temporary.replace(target)
@@ -125,11 +134,7 @@ class ImageDownloader:
 
     @staticmethod
     def _safe_code(code: str) -> str:
-        value = str(code).strip()
-        return "".join(
-            char if char.isalnum() or char in "-_" else "_"
-            for char in value
-        )
+        return safe_image_code(code)
 
     @staticmethod
     def _extension(url: str, content_type: str) -> str:

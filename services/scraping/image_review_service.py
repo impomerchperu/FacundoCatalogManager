@@ -1229,7 +1229,7 @@ class ImageReviewService:
             try:
                 self.repository.update(product)
             except Exception:
-                self._remove_created_paths(created_paths)
+                self._cleanup_unused_images()
                 raise
             self._remove_all_staged_candidates(record)
             if result["changed"]:
@@ -1340,8 +1340,8 @@ class ImageReviewService:
                 ):
                     raise ValueError("La imagen copiada no pasó la verificación de contenido.")
             except Exception:
-                if created_destination:
-                    destination.unlink(missing_ok=True)
+                if persist:
+                    self._cleanup_unused_images()
                 raise
 
         created_gallery_paths: list[Path] = []

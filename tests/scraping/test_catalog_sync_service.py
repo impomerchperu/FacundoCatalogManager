@@ -166,7 +166,7 @@ def test_catalog_sync_preserves_richer_duplicate_product_fields():
     sparse.image_hash = ""
 
     rich = Product("P007", "Producto completo", 8)
-    rich.description = "Detalle completo"
+    rich.description = "Material: ABS. Dimensiones: 10 x 5 cm."
     rich.price_sample = 8
     rich.price_hundred = 70
     rich.price_thousand = 600
@@ -179,7 +179,7 @@ def test_catalog_sync_preserves_richer_duplicate_product_fields():
     assert len(consolidated) == 1
     stored = consolidated[0]
     assert stored.name == "Producto completo"
-    assert stored.description == "Detalle completo"
+    assert stored.description == "Material: ABS. Dimensiones: 10 x 5 cm."
     assert stored.price == 8
     assert stored.price_sample == 8
     assert stored.price_hundred == 70
@@ -191,7 +191,7 @@ def test_catalog_sync_preserves_richer_duplicate_product_fields():
 
 def test_catalog_sync_does_not_overwrite_richer_duplicate_product_fields():
     rich = Product("P008", "Producto completo", 8)
-    rich.description = "Detalle completo"
+    rich.description = "Material: ABS. Dimensiones: 10 x 5 cm."
     rich.price_sample = 8
     rich.price_hundred = 70
     rich.price_thousand = 600
@@ -208,7 +208,7 @@ def test_catalog_sync_does_not_overwrite_richer_duplicate_product_fields():
 
     stored = consolidated[0]
     assert stored.name == "Producto completo"
-    assert stored.description == "Detalle completo"
+    assert stored.description == "Material: ABS. Dimensiones: 10 x 5 cm."
     assert stored.price == 8
     assert stored.price_sample == 8
     assert stored.price_hundred == 70
@@ -823,11 +823,11 @@ def test_catalog_sync_replaces_existing_description_with_verified_complete_detai
     )
 
 
-def test_catalog_sync_replaces_saved_description_with_complete_incoming_detail():
+def test_catalog_sync_preserves_technical_detail_from_generic_incoming_prose():
     repository = InMemoryCatalogRepository()
     existing = Product("P097", "Producto vigente", 10)
     existing.description = (
-        "Color: Blanco. Material: Poliuretano. "
+        "Material: Poliuretano. "
         "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
     )
     existing.price_sample = 10.0
@@ -842,9 +842,62 @@ def test_catalog_sync_replaces_saved_description_with_complete_incoming_detail()
 
     stored = repository.get("P097")
     assert stored is not None
-    assert stored.description == "Descripción promocional general."
+    assert stored.description == existing.description
+    assert result.updated == 0
+    assert result.unchanged == 1
+
+
+def test_catalog_sync_repairs_truncated_fb4008_detail_with_complete_technical_source():
+    repository = InMemoryCatalogRepository()
+    existing = Product("FB-4008", "Antiestrés Cerebro Largo", 4.0)
+    existing.description = (
+        "Color: Blanco. Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés,"
+    )
+    existing.price_sample = 4.0
+    repository.save(existing)
+
+    incoming = Product("FB-4008", "Antiestrés Cerebro Largo", 4.0)
+    incoming.description = (
+        "Color: Blanco. Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
+        "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
+        "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+    incoming.price_sample = 4.0
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+
+    stored = repository.get("FB-4008")
+    assert stored is not None
+    assert stored.description == (
+        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
+        "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
+        "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
     assert result.updated == 1
-    assert result.unchanged == 0
+    assert any(
+        change["field"] == "description"
+        for change in result.changes[0]["changes"]
+    )
+
+
+def test_catalog_sync_does_not_save_generic_prose_as_new_product_detail():
+    repository = InMemoryCatalogRepository()
+    incoming = Product("P094", "Producto nuevo", 10)
+    incoming.description = "Ideal para regalos promocionales y uso diario."
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+
+    stored = repository.get("P094")
+    assert stored is not None
+    assert stored.description == ""
+    assert result.created == 1
 
 
 def test_catalog_sync_uses_more_informative_description_across_duplicate_codes():

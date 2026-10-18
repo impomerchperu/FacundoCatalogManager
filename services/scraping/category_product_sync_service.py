@@ -355,14 +355,18 @@ class CategoryProductSyncService:
             )
             if self.image_sync_adapter:
                 started = time.perf_counter()
-                products = cast(
-                    list[Any],
-                    self.image_sync_adapter.sync_products(
+                if full_sync:
+                    synced_images = self.image_sync_adapter.sync_products(
                         products,
                         progress_callback=progress_callback,
-                        refresh_remote_images=bool(full_sync),
-                    ),
-                )
+                        refresh_remote_images=True,
+                    )
+                else:
+                    synced_images = self.image_sync_adapter.sync_products(
+                        products,
+                        progress_callback=progress_callback,
+                    )
+                products = cast(list[Any], synced_images)
                 _log_timing(
                     "SCRAPING TIMING | stage=images | products=%d | seconds=%.3f",
                     len(products),

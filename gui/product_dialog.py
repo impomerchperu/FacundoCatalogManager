@@ -27,6 +27,8 @@ from PySide6.QtWidgets import (
 from config.runtime_paths import resolve_data_path
 from gui.category_selector import CategorySelector
 from models.product import Product
+from models.product_image_gallery import normalize_product_gallery
+from scrapers.images.product_image_storage import store_image_in_product_group
 from services.product_service import ProductService
 from services.scraping.category_name_normalizer import (
     available_category_names,
@@ -238,21 +240,7 @@ class ProductDialog(QDialog):
             ),
         )
 
-        source_gallery = [
-            dict(image)
-            for image in list(self.product.gallery_images or [])
-            if isinstance(image, dict)
-        ]
-        if not source_gallery and self.product.image_path:
-            source_gallery = [
-                {
-                    "url": self.product.image_url,
-                    "image_path": self.product.image_path,
-                    "image_hash": self.product.image_hash,
-                    "position": 1,
-                    "source": "primary",
-                }
-            ]
+        source_gallery = normalize_product_gallery(self.product)
         self.gallery_images = self._normalize_gallery(source_gallery)
         self._refresh_gallery_list()
         self._sync_stock_from_colors()
@@ -484,6 +472,58 @@ class ProductDialog(QDialog):
             result.append(item)
         return result
 
+    @staticmethod
+    def _persist_gallery_group(
+        code: str,
+        images: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        """Store manually selected images beside the product's scraped gallery."""
+        result: list[dict[str, object]] = []
+        seen_paths: set[str] = set()
+        seen_urls: set[str] = set()
+        seen_hashes: set[str] = set()
+
+        for image in images:
+            raw_path = str(
+                image.get("image_path", image.get("path", "")) or ""
+            ).strip()
+            if not raw_path:
+                continue
+            stored_path, stored_hash = store_image_in_product_group(
+                code,
+                raw_path,
+                len(result) + 1,
+            )
+            if not stored_path:
+                continue
+
+            url = str(image.get("url", "") or "").strip().casefold()
+            path_key = stored_path.replace("\\", "/").casefold()
+            hash_value = str(
+                image.get("image_hash", image.get("hash", "")) or stored_hash
+            ).strip().casefold()
+            if (
+                path_key in seen_paths
+                or (url and url in seen_urls)
+                or (hash_value and hash_value in seen_hashes)
+            ):
+                continue
+
+            item = dict(image)
+            item["image_path"] = stored_path
+            item["image_hash"] = hash_value
+            item["position"] = len(result) + 1
+            item.pop("path", None)
+            item.pop("hash", None)
+            result.append(item)
+            seen_paths.add(path_key)
+            if url:
+                seen_urls.add(url)
+            if hash_value:
+                seen_hashes.add(hash_value)
+
+        return result
+
     def save_product(self) -> None:
         code = self.code.text().strip()
         name = self.name.text().strip()
@@ -503,7 +543,7 @@ class ProductDialog(QDialog):
             )
             return
 
-        gallery = self._gallery_for_save()
+        gallery = self._persist_gallery_group(code, self._gallery_for_save())
         primary = gallery[0] if gallery else {}
         image_path = str(primary.get("image_path", "") or "").strip()
         image_url = str(primary.get("url", "") or "").strip()

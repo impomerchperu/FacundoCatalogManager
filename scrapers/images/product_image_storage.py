@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import uuid
 from pathlib import Path
 
 from config.runtime_paths import resolve_data_path, to_data_relative_path
@@ -140,15 +141,35 @@ def store_image_in_product_group(
     if existing is not None:
         return to_data_relative_path(existing), image_hash
 
+    normalized_position = max(int(position), 1)
     target = _available_target(
         target_dir,
         product_code,
-        max(int(position), 1),
+        normalized_position,
         extension,
         image_hash,
     )
-    if not target.exists():
-        shutil.copy2(source, target)
+    for _attempt in range(5):
+        try:
+            # Exclusive creation prevents a race from overwriting a path that
+            # another worker may already have created or begun referencing.
+            with source.open("rb") as source_stream, target.open("xb") as target_stream:
+                shutil.copyfileobj(source_stream, target_stream)
+            break
+        except FileExistsError:
+            existing = _find_matching_image(
+                target_dir,
+                image_hash,
+                expected_extension=extension,
+            )
+            if existing is not None:
+                return to_data_relative_path(existing), image_hash
+            target = target_dir / (
+                f"{product_code}-{normalized_position:02d}-"
+                f"{image_hash[:8]}-{uuid.uuid4().hex[:8]}{extension}"
+            )
+    else:
+        return "", ""
 
     # Assert the canonical output is decodable and named for its real format.
     try:

@@ -328,13 +328,17 @@ class CatalogSyncService:
             product.image_last_modified = ""
             product.image_checked_at = ""
 
-        product.gallery_images = cls._normalize_existing_gallery(
-            code=code,
-            gallery=list(getattr(product, "gallery_images", []) or []),
-            primary_url=str(getattr(product, "image_url", "") or ""),
-            primary_path=str(getattr(product, "image_path", "") or ""),
-            primary_hash=str(getattr(product, "image_hash", "") or ""),
-        )
+        gallery_items = list(getattr(product, "gallery_images", []) or [])
+        if gallery_items:
+            product.gallery_images = cls._normalize_existing_gallery(
+                code=code,
+                gallery=gallery_items,
+                primary_url=str(getattr(product, "image_url", "") or ""),
+                primary_path=str(getattr(product, "image_path", "") or ""),
+                primary_hash=str(getattr(product, "image_hash", "") or ""),
+            )
+        else:
+            product.gallery_images = []
 
         # If the previous primary was unidentifiable but a valid gallery image
         # remains, promote the best matching source image instead of leaving an

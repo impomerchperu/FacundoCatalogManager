@@ -20,8 +20,8 @@ def test_product_table_gallery_falls_back_to_primary_image():
     product = Product(
         code="FB-4010",
         name="Gota Antiestrés",
-        image_url="https://site.test/one.webp",
-        image_path="data/images/products/FB-4010.webp",
+        image_url="https://site.test/one.png",
+        image_path="data/images/products/FB-4010.png",
         image_hash="hash-one",
     )
 
@@ -29,8 +29,8 @@ def test_product_table_gallery_falls_back_to_primary_image():
 
     assert gallery == [
         {
-            "url": "https://site.test/one.webp",
-            "image_path": "data/images/products/FB-4010.webp",
+            "url": "https://site.test/one.png",
+            "image_path": "data/images/products/FB-4010.png",
             "image_hash": "hash-one",
             "position": 1,
             "source": "primary",
@@ -45,13 +45,13 @@ def test_product_table_gallery_preserves_multiple_images():
         name="Gota Antiestrés",
         gallery_images=[
             {
-                "url": "https://site.test/one.webp",
-                "image_path": "data/images/gallery/FB-4010/01.webp",
+                "url": "https://site.test/one.png",
+                "image_path": "data/images/gallery/FB-4010/01.png",
                 "position": 1,
             },
             {
-                "url": "https://site.test/two.webp",
-                "image_path": "data/images/gallery/FB-4010/02.webp",
+                "url": "https://site.test/two.png",
+                "image_path": "data/images/gallery/FB-4010/02.png",
                 "position": 2,
             },
         ],
@@ -60,8 +60,8 @@ def test_product_table_gallery_preserves_multiple_images():
     gallery = ProductTable._product_gallery(product)
 
     assert [image["url"] for image in gallery] == [
-        "https://site.test/one.webp",
-        "https://site.test/two.webp",
+        "https://site.test/one.png",
+        "https://site.test/two.png",
     ]
 
 
@@ -70,19 +70,19 @@ def test_product_table_deduplicates_primary_referenced_by_legacy_gallery():
     product = Product(
         code="FB-1507",
         name="Producto con imagen duplicada",
-        image_url="https://site.test/FB-1507.webp",
-        image_path="data/images/products/FB-1507/FB-1507-01.webp",
+        image_url="https://site.test/FB-1507.png",
+        image_path="data/images/products/FB-1507/FB-1507-01.png",
         image_hash="same-content",
         gallery_images=[
             {
-                "url": "https://site.test/FB-1507.webp",
-                "image_path": "data/images/gallery/FB-1507/FB-1507-01.webp",
+                "url": "https://site.test/FB-1507.png",
+                "image_path": "data/images/gallery/FB-1507/FB-1507-01.png",
                 "image_hash": "same-content",
                 "position": 1,
             },
             {
-                "url": "https://site.test/FB-1507-side.webp",
-                "image_path": "data/images/gallery/FB-1507/FB-1507-02.webp",
+                "url": "https://site.test/FB-1507-side.png",
+                "image_path": "data/images/gallery/FB-1507/FB-1507-02.png",
                 "image_hash": "side-content",
                 "position": 2,
             },
@@ -93,10 +93,10 @@ def test_product_table_deduplicates_primary_referenced_by_legacy_gallery():
 
     assert len(gallery) == 2
     assert gallery[0]["image_path"] == (
-        "data/images/products/FB-1507/FB-1507-01.webp"
+        "data/images/products/FB-1507/FB-1507-01.png"
     )
     assert gallery[0]["position"] == 1
-    assert gallery[1]["url"] == "https://site.test/FB-1507-side.webp"
+    assert gallery[1]["url"] == "https://site.test/FB-1507-side.png"
     assert gallery[1]["position"] == 2
 
 
@@ -105,9 +105,9 @@ def test_gallery_overrides_deduplicate_by_hash_without_hiding_distinct_images(
     tmp_path: Path,
 ):
     _qapp()
-    primary_path = tmp_path / "primary.webp"
-    duplicate_path = tmp_path / "duplicate.webp"
-    alternative_path = tmp_path / "alternative.webp"
+    primary_path = tmp_path / "primary.png"
+    duplicate_path = tmp_path / "duplicate.png"
+    alternative_path = tmp_path / "alternative.png"
     for path in (primary_path, duplicate_path, alternative_path):
         image = QPixmap(32, 32)
         assert image.save(str(path))
@@ -115,7 +115,7 @@ def test_gallery_overrides_deduplicate_by_hash_without_hiding_distinct_images(
     product = Product(
         code="FB-1507",
         name="Producto con galería",
-        image_url="https://site.test/FB-1507.webp",
+        image_url="https://site.test/FB-1507.png",
         image_path=str(primary_path),
         image_hash="same-content",
     )
@@ -125,12 +125,12 @@ def test_gallery_overrides_deduplicate_by_hash_without_hiding_distinct_images(
         {
             "FB-1507": [
                 {
-                    "url": "https://site.test/FB-1507-duplicate.webp",
+                    "url": "https://site.test/FB-1507-duplicate.png",
                     "path": str(duplicate_path),
                     "hash": "same-content",
                 },
                 {
-                    "url": "https://site.test/FB-1507-side.webp",
+                    "url": "https://site.test/FB-1507-side.png",
                     "path": str(alternative_path),
                     "hash": "different-content",
                 },

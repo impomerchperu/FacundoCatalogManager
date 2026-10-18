@@ -89,3 +89,49 @@ def test_identical_image_reuses_existing_file_in_the_same_product_group(
     assert len(list(product_dir.iterdir())) == 1
     assert primary.is_file()
     assert duplicate.is_file()
+
+def test_product_group_storage_corrects_a_mislabeled_legacy_image(
+    tmp_path: Path,
+):
+    root = tmp_path / "data" / "images" / "products"
+    legacy_dir = tmp_path / "data" / "images" / "legacy"
+    legacy_dir.mkdir(parents=True)
+    legacy = legacy_dir / "SKB05J4.webp"
+    payload = image_bytes("PNG", (23, 45, 67))
+    legacy.write_bytes(payload)
+
+    stored_path, stored_hash = store_image_in_product_group(
+        "SKB05J4",
+        legacy,
+        1,
+        root=root,
+    )
+
+    canonical = Path(stored_path)
+    assert canonical.name == "SKB05J4-01.png"
+    assert canonical.read_bytes() == payload
+    assert stored_hash == ImageHash().calculate(canonical)
+    assert legacy.is_file()
+    assert legacy.suffix == ".webp"
+
+
+def test_product_group_storage_rejects_unidentifiable_content(
+    tmp_path: Path,
+):
+    root = tmp_path / "data" / "images" / "products"
+    source = tmp_path / "legacy" / "FB-9999.webp"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"not a raster image")
+
+    stored_path, stored_hash = store_image_in_product_group(
+        "FB-9999",
+        source,
+        1,
+        root=root,
+    )
+
+    assert stored_path == ""
+    assert stored_hash == ""
+    assert source.is_file()
+    assert not (root / "FB-9999").exists()
+

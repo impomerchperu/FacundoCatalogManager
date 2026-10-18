@@ -1094,14 +1094,29 @@ class ImageReviewService:
         product,
         persist: bool,
     ) -> tuple[dict, dict] | dict:
+        before = (
+            str(getattr(product, "image_path", "") or ""),
+            str(getattr(product, "image_hash", "") or ""),
+            str(getattr(product, "image_url", "") or ""),
+            str(getattr(product, "image_etag", "") or ""),
+            str(getattr(product, "image_last_modified", "") or ""),
+            str(getattr(product, "image_checked_at", "") or ""),
+            list(getattr(product, "gallery_images", []) or []),
+        )
         self._apply_kept_image_state(record, product)
+        after = (
+            str(getattr(product, "image_path", "") or ""),
+            str(getattr(product, "image_hash", "") or ""),
+            str(getattr(product, "image_url", "") or ""),
+            str(getattr(product, "image_etag", "") or ""),
+            str(getattr(product, "image_last_modified", "") or ""),
+            str(getattr(product, "image_checked_at", "") or ""),
+            list(getattr(product, "gallery_images", []) or []),
+        )
         result = {
             "code": product.code,
             "action": "keep",
-            "changed": (
-                str(getattr(product, "image_path", "") or "")
-                != str(record.get("current_path", "") or "")
-            ),
+            "changed": before != after,
         }
         if persist:
             self.repository.update(product)

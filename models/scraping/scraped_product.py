@@ -38,6 +38,11 @@ class ScrapedProduct:
 
     updated_at: str = ""
 
+    # Transferred from image synchronization to catalog persistence.
+    image_etag: str = ""
+    image_last_modified: str = ""
+    image_checked_at: str = ""
+
     def __setattr__(self, name, value):
         object.__setattr__(self, name, value)
         if name != "price_sample":

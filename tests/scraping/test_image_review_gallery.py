@@ -23,9 +23,11 @@ def _patch_paths(monkeypatch, tmp_path):
     queue_path = tmp_path / "queue.json"
     staging_dir = tmp_path / "image_review_staging"
     products_dir = tmp_path / "data" / "images" / "products"
+    gallery_dir = tmp_path / "data" / "images" / "gallery"
     monkeypatch.setattr(module, "QUEUE_PATH", queue_path)
     monkeypatch.setattr(module, "STAGING_DIR", staging_dir)
     monkeypatch.setattr(module, "IMAGE_PRODUCTS_DIR", products_dir)
+    monkeypatch.setattr(module, "IMAGE_GALLERY_DIR", gallery_dir)
     monkeypatch.setattr(
         module,
         "resolve_data_path",

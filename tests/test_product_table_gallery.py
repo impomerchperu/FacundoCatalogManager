@@ -65,7 +65,6 @@ def test_product_table_gallery_preserves_multiple_images():
     ]
 
 
-
 def test_product_table_deduplicates_primary_referenced_by_legacy_gallery():
     product = Product(
         code="FB-1507",
@@ -98,7 +97,6 @@ def test_product_table_deduplicates_primary_referenced_by_legacy_gallery():
     assert gallery[0]["position"] == 1
     assert gallery[1]["url"] == "https://site.test/FB-1507-side.png"
     assert gallery[1]["position"] == 2
-
 
 
 def test_gallery_overrides_deduplicate_by_hash_without_hiding_distinct_images(
@@ -145,7 +143,6 @@ def test_gallery_overrides_deduplicate_by_hash_without_hiding_distinct_images(
     assert gallery[0]["image_path"] == str(primary_path)
     assert gallery[1]["image_path"] == str(alternative_path)
     table.close()
-
 
 
 def test_product_table_prefers_grouped_path_when_primary_is_legacy_flat_file():

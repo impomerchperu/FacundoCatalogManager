@@ -667,6 +667,12 @@ class ProductCollectionScraper:
         product.image_candidates_source = "detail"
         product.image_candidates = detail_gallery_candidates
         if detail_gallery_candidates:
+            # Keep the main image aligned with the source page's own ordering.
+            page_primary_url = str(
+                detail_gallery_candidates[0].get("url", "") or ""
+            ).strip()
+            if page_primary_url:
+                product.image_url = page_primary_url
             code = normalize_code(str(getattr(product, "code", "") or ""))
             if code in self.AUTHORITATIVE_DETAIL_IMAGE_CODES:
                 detail_gallery_candidates = [

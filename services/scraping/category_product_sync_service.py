@@ -360,6 +360,7 @@ class CategoryProductSyncService:
                     self.image_sync_adapter.sync_products(
                         products,
                         progress_callback=progress_callback,
+                        refresh_remote_images=bool(full_sync),
                     ),
                 )
                 _log_timing(

@@ -28,7 +28,7 @@ def test_image_downloader_saves_image_with_canonical_code_name(
 
     result = downloader.download("P002", "http://image.example/product")
 
-    expected = Path(tmp_path) / "P002.jpg"
+    expected = Path(tmp_path) / "P002" / "P002-01.jpg"
     assert result == expected.as_posix()
     assert expected.read_bytes() == b"image-data"
 
@@ -47,6 +47,6 @@ def test_image_downloader_sanitizes_code_before_writing_file(
 
     result = downloader.download("P 003/TEST", "http://image.example/product")
 
-    expected = Path(tmp_path) / "P_003_TEST.jpg"
+    expected = Path(tmp_path) / "P_003_TEST" / "P_003_TEST-01.jpg"
     assert result == expected.as_posix()
     assert expected.exists()

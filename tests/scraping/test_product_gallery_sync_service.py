@@ -129,3 +129,67 @@ def test_product_gallery_sync_downloads_new_gallery_images(
     assert review.registered[0]["candidate_options"][0]["url"] == (
         "https://site.test/two.webp"
     )
+
+
+def test_primary_image_is_reused_and_all_gallery_files_share_product_folder(
+    monkeypatch,
+    tmp_path,
+):
+    import services.scraping.product_gallery_sync_service as module
+
+    monkeypatch.setattr(
+        module,
+        "resolve_data_path",
+        lambda value: (
+            value
+            if Path(value).is_absolute()
+            else tmp_path / value
+        ),
+    )
+    monkeypatch.setattr(module, "IMAGE_PRODUCTS_DIR", Path("data/images/products"))
+
+    code = "FB-1507"
+    product_dir = tmp_path / "data" / "images" / "products" / code
+    product_dir.mkdir(parents=True)
+    primary_path = product_dir / f"{code}-01.webp"
+    primary_path.write_bytes(b"primary-image")
+
+    downloader = FakeDownloader(tmp_path)
+    product = ScrapedProduct(
+        code=code,
+        name="Producto de prueba",
+        url="https://site.test/producto/fb-1507/",
+        image_url="https://site.test/fb-1507.webp",
+        image_path=f"data/images/products/{code}/{code}-01.webp",
+    )
+    product.image_candidates = [
+        _candidate("https://site.test/fb-1507.webp", 1),
+        _candidate("https://site.test/fb-1507-side.webp", 2),
+    ]
+
+    service = ProductGallerySyncService(
+        browser=object(),
+        product_extractor=object(),
+        image_downloader=downloader,
+        review_service=None,
+        max_workers=1,
+        max_candidates=6,
+        refresh_existing=True,
+    )
+
+    synced = service.sync_products([product])[0]
+
+    assert downloader.downloads == ["https://site.test/fb-1507-side.webp"]
+    assert len(synced.gallery_images) == 2
+    assert Path(module.resolve_data_path(synced.image_path)) == primary_path
+    assert Path(
+        module.resolve_data_path(synced.gallery_images[0]["image_path"])
+    ) == primary_path
+    assert [Path(image["image_path"]).name for image in synced.gallery_images] == [
+        f"{code}-01.webp",
+        f"{code}-02.webp",
+    ]
+    assert all(
+        Path(module.resolve_data_path(image["image_path"])).parent == product_dir
+        for image in synced.gallery_images
+    )

@@ -947,10 +947,12 @@ class ImageReviewService:
         source = self._resolve_selected_source(record, action, manual_path)
         if source is None or not source.is_file():
             raise ValueError("La imagen seleccionada no existe.")
-        if source.suffix.lower() not in IMAGE_EXTENSIONS:
+        try:
+            identify_image_file(source)
+        except (OSError, ValueError) as error:
             raise ValueError(
-                "El archivo seleccionado no es una imagen compatible."
-            )
+                "El archivo seleccionado no contiene una imagen compatible e identificable."
+            ) from error
 
         result, file_state = self._copy_selected_image(
             record,
@@ -971,19 +973,19 @@ class ImageReviewService:
         product,
         persist: bool,
     ) -> tuple[dict, dict] | dict:
-        current_value = str(record.get("current_path", "") or "").strip()
-        current_path = self._resolve_product_image_path(current_value)
-        destination_existed = bool(current_path and current_path.is_file())
-        backup = None
-        if destination_existed and current_path is not None:
-            backup = current_path.with_name(
-                f"{current_path.name}.{uuid.uuid4().hex}.review-delete-backup"
-            )
-            shutil.copy2(current_path, backup)
-
+        # Do not unlink the active image while SQLite still references it.
+        # Clear and persist first, then let the normal unused-image cleanup
+        # re-read the catalog and decide whether the physical file is orphaned.
         product.image_path = ""
         product.image_hash = ""
         product.image_url = ""
+        product.image_etag = ""
+        product.image_last_modified = ""
+        product.image_checked_at = ""
+        product.gallery_images = normalize_product_gallery(
+            product,
+            list(getattr(product, "gallery_images", []) or []),
+        )
         result = {
             "code": product.code,
             "action": "delete",
@@ -991,26 +993,15 @@ class ImageReviewService:
         }
 
         if persist:
-            try:
-                if destination_existed and current_path is not None:
-                    current_path.unlink()
-                self.repository.update(product)
-            except (OSError, RuntimeError, ValueError):
-                if backup is not None and current_path is not None and backup.is_file():
-                    backup.replace(current_path)
-                raise
-            if backup is not None:
-                backup.unlink(missing_ok=True)
+            self.repository.update(product)
             self._remove_all_staged_candidates(record)
+            self._cleanup_unused_images()
             return result
 
-        if destination_existed and current_path is not None:
-            current_path.unlink()
-
         return result, {
-            "destination": current_path,
-            "backup": backup,
-            "destination_existed": destination_existed,
+            "destination": None,
+            "backup": None,
+            "destination_existed": False,
         }
 
     def _apply_keep_selection(
@@ -1077,6 +1068,10 @@ class ImageReviewService:
         persist: bool,
         cleanup: bool,
     ) -> tuple[dict, dict]:
+        verified_source = identify_image_file(source)
+        image_hash = verified_source["image_hash"]
+        extension = verified_source["image_extension"]
+
         image_products_dir = resolve_data_path(IMAGE_PRODUCTS_DIR)
         product_dir = product_image_directory(
             product.code,
@@ -1084,15 +1079,57 @@ class ImageReviewService:
         )
         product_dir.mkdir(parents=True, exist_ok=True)
         safe_code = ImageDownloader._safe_code(str(product.code))
-        destination = product_dir / f"{safe_code}-01{source.suffix.lower()}"
-        destination_existed = destination.is_file()
-        backup = self._create_image_backup(destination, destination_existed)
-        temporary = destination.with_name(
-            f"{destination.name}.{uuid.uuid4().hex}.review-tmp"
-        )
+        destination = product_dir / f"{safe_code}-01{extension}"
+
+        def matches_expected(path: Path) -> bool:
+            try:
+                verified = identify_image_file(path)
+            except (OSError, ValueError):
+                return False
+            return (
+                file_extension_matches(path, verified["image_extension"])
+                and verified["image_extension"] == extension
+                and verified["image_hash"] == image_hash
+            )
+
+        destination_existed = False
+        if destination.is_file():
+            if matches_expected(destination):
+                destination_existed = True
+            else:
+                destination = product_dir / (
+                    f"{safe_code}-01-{image_hash[:16]}{extension}"
+                )
+
+        if destination.is_file():
+            if matches_expected(destination):
+                destination_existed = True
+            else:
+                destination = product_dir / (
+                    f"{safe_code}-01-{image_hash[:16]}-{uuid.uuid4().hex[:8]}{extension}"
+                )
+
+        created_destination = False
+        if not destination_existed:
+            # Exclusive creation guarantees we never replace bytes another
+            # catalog row may still reference. A failed write is removed below.
+            try:
+                with source.open("rb") as source_stream, destination.open("xb") as target:
+                    shutil.copyfileobj(source_stream, target)
+                created_destination = True
+                stored = identify_image_file(destination)
+                if (
+                    stored["image_hash"] != image_hash
+                    or stored["image_extension"] != extension
+                    or not file_extension_matches(destination, extension)
+                ):
+                    raise ValueError("La imagen copiada no pasó la verificación de contenido.")
+            except Exception:
+                if created_destination or destination.exists():
+                    destination.unlink(missing_ok=True)
+                raise
+
         try:
-            shutil.copy2(source, temporary)
-            temporary.replace(destination)
             self._set_product_image(
                 record,
                 product,
@@ -1103,16 +1140,14 @@ class ImageReviewService:
             if persist:
                 self.repository.update(product)
         except (OSError, ValueError, RuntimeError):
-            temporary.unlink(missing_ok=True)
-            self._restore_image_backup(
-                destination,
-                backup,
-                destination_existed,
-            )
+            if created_destination:
+                destination.unlink(missing_ok=True)
             raise
 
-        if persist and cleanup:
-            self._cleanup_persisted_image_selection(record, manual_path, backup)
+        if persist:
+            self._cleanup_persisted_image_selection(record, manual_path, None)
+            if cleanup:
+                self._cleanup_unused_images()
 
         return (
             {
@@ -1125,7 +1160,7 @@ class ImageReviewService:
             },
             {
                 "destination": destination,
-                "backup": backup,
+                "backup": None,
                 "destination_existed": destination_existed,
             },
         )
@@ -1241,18 +1276,36 @@ class ImageReviewService:
         source = self._resolve_manual_path(manual_path)
         if source is None or not source.is_file():
             raise ValueError("La imagen seleccionada no existe.")
-        if source.suffix.lower() not in IMAGE_EXTENSIONS:
+        try:
+            verified = identify_image_file(source)
+        except (OSError, ValueError) as error:
             raise ValueError(
-                "El archivo seleccionado no es una imagen compatible."
-            )
+                "El archivo seleccionado no contiene una imagen compatible e identificable."
+            ) from error
+
         STAGING_DIR.mkdir(parents=True, exist_ok=True)
         safe_code = ImageDownloader._safe_code(
             str(record.get("code", "image"))
         )
         destination = STAGING_DIR / (
-            f"{safe_code}-{uuid.uuid4().hex}{source.suffix.lower()}"
+            f"{safe_code}-{uuid.uuid4().hex}{verified['image_extension']}"
         )
-        shutil.copy2(source, destination)
+        temporary = destination.with_name(
+            f"{destination.name}.{uuid.uuid4().hex}.tmp"
+        )
+        try:
+            shutil.copy2(source, temporary)
+            staged = identify_image_file(temporary)
+            if (
+                staged["image_hash"] != verified["image_hash"]
+                or staged["image_extension"] != verified["image_extension"]
+            ):
+                raise ValueError("La imagen temporal no pasó la verificación.")
+            temporary.replace(destination)
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            destination.unlink(missing_ok=True)
+            raise
         return to_data_relative_path(destination)
 
     @staticmethod

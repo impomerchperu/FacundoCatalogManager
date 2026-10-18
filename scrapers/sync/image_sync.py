@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial
 from datetime import datetime, timezone
+from functools import partial
 from typing import Any, cast
 
 import requests
@@ -333,7 +333,8 @@ class ImageSync:
                             "hash": str(staged.get("image_hash", "") or ""),
                             "score": int(candidate.get("score", 0) or 0),
                             "exact_code": bool(candidate.get("exact_code", False)),
-                            "generic": bool(candidate.get("generic", False)),
+                            "generic": bool(candidate.get("generic", False))
+                    or ProductImageExtractor.is_generic_asset(url),
                             "source": str(candidate.get("source", "") or ""),
                         }
                     )
@@ -423,7 +424,8 @@ class ImageSync:
                     "url": url,
                     "score": int(candidate.get("score", 0) or 0),
                     "exact_code": bool(candidate.get("exact_code", False)),
-                    "generic": bool(candidate.get("generic", False)),
+                    "generic": bool(candidate.get("generic", False))
+                    or ProductImageExtractor.is_generic_asset(url),
                     "source": str(candidate.get("source", "") or ""),
                     "authoritative": bool(candidate.get("authoritative", False)),
                 }
@@ -435,7 +437,9 @@ class ImageSync:
                 "url": str(image_url or "").strip(),
                 "score": 0,
                 "exact_code": False,
-                "generic": False,
+                "generic": ProductImageExtractor.is_generic_asset(
+                    str(image_url or "").strip()
+                ),
                 "source": "",
                 "authoritative": False,
             }

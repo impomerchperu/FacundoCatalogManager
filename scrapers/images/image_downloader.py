@@ -521,6 +521,30 @@ class ImageDownloader:
             if callable(close):
                 close()
 
+    @classmethod
+    def verify_image_file(cls, path: str | Path) -> dict[str, str]:
+        """Read once, verify raster signature/extension and return its SHA-256."""
+        image_path = Path(path)
+        body = image_path.read_bytes()
+        suffix = image_path.suffix.lower()
+        mime = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".webp": "image/webp",
+            ".gif": "image/gif",
+        }.get(suffix)
+        if not mime:
+            raise ValueError("La extensión local no es compatible.")
+        detected = cls._verified_extension(body, mime)
+        expected = ".jpg" if suffix == ".jpeg" else suffix
+        if detected != expected:
+            raise ValueError("La extensión local no coincide con el contenido de imagen.")
+        return {
+            "image_hash": cls._sha256_bytes(body),
+            "image_extension": detected,
+        }
+
     @staticmethod
     def hash_file(path: str | Path) -> str:
         image_path = Path(path)

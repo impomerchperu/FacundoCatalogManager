@@ -260,14 +260,14 @@ class CatalogSyncService:
             # A disabled/failed download must not pair a new URL with stale bytes.
             for field in (
                 "image_url", "image_path", "image_hash", "image_etag",
-                "image_last_modified", "image_checked_at",
+                "image_last_modified", "image_checked_at", "gallery_images",
             ):
                 setattr(product, field, cls._value(existing, field) or "")
             return
 
         if str(getattr(product, "image_url", "") or "").strip() == str(
             cls._value(existing, "image_url") or ""
-        ).strip():
+        ).strip() and not str(getattr(product, "image_checked_at", "") or "").strip():
             for field in ("image_etag", "image_last_modified", "image_checked_at"):
                 if not str(getattr(product, field, "") or "").strip():
                     setattr(product, field, cls._value(existing, field) or "")

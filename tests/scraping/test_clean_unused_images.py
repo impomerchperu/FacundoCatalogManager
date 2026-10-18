@@ -354,7 +354,7 @@ def test_cleanup_fails_closed_when_gallery_has_invalid_entry(tmp_path: Path):
     connection.commit()
     connection.close()
 
-    with pytest.raises(RuntimeError, match="entrada de galería inválida"):
+    with pytest.raises(TypeError, match="entrada de galería inválida"):
         clean_unused_images(
             project_root=project,
             db_path=db,

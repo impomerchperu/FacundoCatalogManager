@@ -41,6 +41,7 @@ from config.runtime_paths import resolve_data_path
 from controllers.product_controller import ProductController
 from gui.product_category_delegate import ProductCategoryDelegate
 from models.product import Product
+from models.product_image_gallery import normalize_product_gallery
 from services.scraping.category_name_normalizer import (
     display_category_name,
     split_category_names,
@@ -1976,24 +1977,7 @@ class ProductTable(QTableWidget):
 
     @staticmethod
     def _product_gallery(product: Product) -> list[dict]:
-        gallery = [
-            dict(image)
-            for image in list(getattr(product, "gallery_images", []) or [])
-            if isinstance(image, dict)
-        ]
-        if gallery:
-            return gallery
-        if product.image_path:
-            return [
-                {
-                    "url": product.image_url,
-                    "image_path": product.image_path,
-                    "image_hash": product.image_hash,
-                    "position": 1,
-                    "source": "primary",
-                }
-            ]
-        return []
+        return normalize_product_gallery(product)
 
     def set_gallery_overrides(self, overrides: dict[str, list[dict]]) -> None:
         """Actualiza galerías descargadas en vivo sin reconstruir las filas."""

@@ -27,23 +27,25 @@ def identify_image_bytes(
     if not data or len(data) > MAX_IMAGE_BYTES:
         raise ValueError("La imagen está vacía o supera el límite de 20 MiB.")
 
+    image_format = ""
+    consistent_format = False
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(BytesIO(data)) as image:
                 image_format = str(image.format or "").upper()
-                if image_format not in _FORMAT_EXTENSIONS:
-                    raise ValueError("El formato de imagen no es compatible.")
-                image.verify()
+                if image_format in _FORMAT_EXTENSIONS:
+                    image.verify()
 
             # verify() checks container integrity; load() confirms the image
             # decoder can actually read pixel data before the bytes are stored.
-            with Image.open(BytesIO(data)) as image:
-                if str(image.format or "").upper() != image_format:
-                    raise ValueError("El formato de imagen es inconsistente.")
-                image.load()
-    except ValueError:
-        raise
+            if image_format in _FORMAT_EXTENSIONS:
+                with Image.open(BytesIO(data)) as image:
+                    consistent_format = (
+                        str(image.format or "").upper() == image_format
+                    )
+                    if consistent_format:
+                        image.load()
     except Exception as error:
         # Raster decoders can raise format-specific errors (including EOFError
         # and struct errors) for truncated or malformed files. Treat any such
@@ -51,6 +53,11 @@ def identify_image_bytes(
         raise ValueError(
             "La respuesta no contiene una imagen raster válida o identificable."
         ) from error
+
+    if image_format not in _FORMAT_EXTENSIONS:
+        raise ValueError("El formato de imagen no es compatible.")
+    if not consistent_format:
+        raise ValueError("El formato de imagen es inconsistente.")
 
     # Content-Type is advisory only; decoded bytes determine the real format.
     del content_type

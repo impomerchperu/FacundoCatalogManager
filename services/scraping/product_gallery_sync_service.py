@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from config.runtime_paths import resolve_data_path
 from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.images.image_downloader import ImageDownloader
-from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
+from scrapers.images.image_paths import IMAGE_GALLERY_DIR, IMAGE_PRODUCTS_DIR
 from scrapers.images.product_image_storage import store_image_in_product_group
 
 

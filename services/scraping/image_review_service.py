@@ -1550,16 +1550,25 @@ class ImageReviewService:
         try:
             shutil.copy2(source, temporary)
             staged = identify_image_file(temporary)
-            if (
-                staged["image_hash"] != verified["image_hash"]
-                or staged["image_extension"] != verified["image_extension"]
-            ):
-                raise ValueError("La imagen temporal no pasó la verificación.")
-            temporary.replace(destination)
         except Exception:
             temporary.unlink(missing_ok=True)
-            destination.unlink(missing_ok=True)
             raise
+
+        matches_source = (
+            staged["image_hash"] == verified["image_hash"]
+            and staged["image_extension"] == verified["image_extension"]
+        )
+        if not matches_source:
+            temporary.unlink(missing_ok=True)
+            raise ValueError("La imagen temporal no pasó la verificación.")
+
+        try:
+            os.link(temporary, destination)
+        except FileExistsError as error:
+            temporary.unlink(missing_ok=True)
+            raise RuntimeError("Ya existe el archivo temporal de revisión.") from error
+        finally:
+            temporary.unlink(missing_ok=True)
         return to_data_relative_path(destination)
 
     @staticmethod

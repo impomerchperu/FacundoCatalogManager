@@ -53,6 +53,21 @@ class ExistingRepository:
         }
 
 
+
+def test_url_comparison_preserves_case_sensitive_path_and_query():
+    assert ImageSync._urls_equivalent(
+        "https://EXAMPLE.test/FB-100.webp",
+        "https://example.test/FB-100.webp",
+    )
+    assert not ImageSync._urls_equivalent(
+        "https://example.test/FB-100.webp",
+        "https://example.test/fb-100.webp",
+    )
+    assert not ImageSync._urls_equivalent(
+        "https://example.test/FB-100.webp?v=1",
+        "https://example.test/FB-100.webp?v=2",
+    )
+
 def test_image_sync_uses_repository_image_matching_current_url_extension():
     class ProductWithCurrentWebp:
         code = "FB-1812"

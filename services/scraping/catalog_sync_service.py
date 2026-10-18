@@ -308,7 +308,7 @@ class CatalogSyncService:
                     1,
                     root=IMAGE_PRODUCTS_DIR,
                 )
-            except (OSError, ValueError):
+            except (OSError, ValueError, RuntimeError):
                 stored_path, stored_hash = "", ""
             if stored_path and stored_hash:
                 product.image_path = stored_path
@@ -485,12 +485,15 @@ class CatalogSyncService:
             if url and url.casefold() in seen_urls:
                 continue
 
-            stored_path, stored_hash = store_image_in_product_group(
-                code,
-                resolve_data_path(raw_path),
-                len(normalized) + 1,
-                root=IMAGE_PRODUCTS_DIR,
-            )
+            try:
+                stored_path, stored_hash = store_image_in_product_group(
+                    code,
+                    resolve_data_path(raw_path),
+                    len(normalized) + 1,
+                    root=IMAGE_PRODUCTS_DIR,
+                )
+            except (OSError, ValueError, RuntimeError):
+                continue
             if not stored_path or not stored_hash:
                 continue
             if stored_hash.casefold() in seen_hashes:

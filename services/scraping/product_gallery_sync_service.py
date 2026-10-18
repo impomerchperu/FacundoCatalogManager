@@ -8,7 +8,8 @@ from bs4 import BeautifulSoup
 from config.runtime_paths import resolve_data_path
 from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.images.image_downloader import ImageDownloader
-from scrapers.images.image_paths import IMAGE_GALLERY_DIR
+from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
+from scrapers.images.product_image_storage import store_image_in_product_group
 
 
 class ProductGallerySyncService:
@@ -70,19 +71,65 @@ class ProductGallerySyncService:
         return results
 
     def _sync_product(self, product, existing=None):  # noqa: PLR0912
-        candidates = self._candidate_source(product, existing)
         existing_gallery = [
             dict(image)
             for image in list(getattr(existing, "gallery_images", []) or [])
             if isinstance(image, dict)
         ]
+        products_root = resolve_data_path(IMAGE_PRODUCTS_DIR)
+        product_code = ImageDownloader._safe_code(str(product.code))
+        product_dir = products_root / product_code
+        product_dir.mkdir(parents=True, exist_ok=True)
+        primary_path = self._canonicalize_primary(
+            product,
+            existing_gallery,
+            products_root,
+        )
+
+        candidates = self._candidate_source(product, existing)
         if not candidates:
-            product.gallery_images = existing_gallery
+            product.gallery_images = self._canonicalize_existing_gallery(
+                product,
+                existing_gallery,
+                primary_path,
+                products_root,
+            )
             return product
 
         normalized = self._normalize_candidates(candidates)
+        primary_url = str(getattr(product, "image_url", "") or "").strip()
+        if primary_url:
+            primary_key = primary_url.casefold()
+            primary_candidate = next(
+                (
+                    candidate
+                    for candidate in normalized
+                    if str(candidate.get("url", "") or "").strip().casefold()
+                    == primary_key
+                ),
+                {
+                    "url": primary_url,
+                    "score": 0,
+                    "exact_code": False,
+                    "generic": False,
+                    "gallery": True,
+                    "source": "primary",
+                },
+            )
+            normalized = [primary_candidate] + [
+                candidate
+                for candidate in normalized
+                if str(candidate.get("url", "") or "").strip().casefold()
+                != primary_key
+            ]
+
         if not normalized:
-            product.gallery_images = existing_gallery
+            product.gallery_images = self._canonicalize_existing_gallery(
+                product,
+                existing_gallery,
+                primary_path,
+                products_root,
+            )
             return product
 
         existing_by_url = {
@@ -90,86 +137,246 @@ class ProductGallerySyncService:
             for item in existing_gallery
             if str(item.get("url", "") or "").strip()
         }
-        gallery_root = resolve_data_path(IMAGE_GALLERY_DIR)
-        product_dir = gallery_root / ImageDownloader._safe_code(str(product.code))
-        gallery_images = list(existing_gallery)
-        gallery_index = {
-            str(item.get("url", "") or "").strip().casefold(): index
-            for index, item in enumerate(gallery_images)
-            if str(item.get("url", "") or "").strip()
-        }
+        seen_urls: set[str] = set()
+        seen_hashes: set[str] = set()
+        gallery_images: list[dict[str, Any]] = []
         new_options: list[dict[str, object]] = []
+        staging_dir = product_dir / ".staging"
+        staging_dir.mkdir(parents=True, exist_ok=True)
 
-        for position, candidate in enumerate(normalized, start=1):
-            url = str(candidate["url"]).strip()
-            key = url.casefold()
-            existing_item = existing_by_url.get(key)
-            path = None
-            if isinstance(existing_item, dict):
-                raw_path = str(
-                    existing_item.get(
-                        "image_path",
-                        existing_item.get("path", ""),
-                    )
-                    or ""
-                ).strip()
-                if raw_path:
-                    candidate_path = resolve_data_path(raw_path)
-                    if candidate_path.is_file():
-                        path = candidate_path
-
-            if path is None:
-                try:
-                    stored_path = self.image_downloader.download_gallery(
-                        str(product.code),
-                        url,
-                        position,
-                        product_dir,
-                    )
-                    path = resolve_data_path(stored_path)
-                except Exception:  # noqa: BLE001
+        try:
+            for candidate in normalized:
+                url = str(candidate.get("url", "") or "").strip()
+                key = url.casefold()
+                if not url or key in seen_urls:
                     continue
 
-            image_hash = ImageDownloader.hash_file(path)
-            item = {
-                "url": url,
-                "image_path": str(
-                    path.relative_to(resolve_data_path("."))
-                ).replace("\\", "/"),
-                "image_hash": image_hash,
-                "position": position,
-                "source": "woocommerce-gallery",
-            }
+                is_primary = bool(primary_url and key == primary_url.casefold())
+                existing_item = existing_by_url.get(key)
+                path = None
+                if is_primary and primary_path is not None and primary_path.is_file():
+                    path = primary_path
+                elif isinstance(existing_item, dict):
+                    raw_path = str(
+                        existing_item.get(
+                            "image_path",
+                            existing_item.get("path", ""),
+                        )
+                        or ""
+                    ).strip()
+                    if raw_path:
+                        candidate_path = resolve_data_path(raw_path)
+                        if candidate_path.is_file():
+                            stored_path, _ = store_image_in_product_group(
+                                product.code,
+                                candidate_path,
+                                len(gallery_images) + 1,
+                                root=products_root,
+                            )
+                            if stored_path:
+                                path = resolve_data_path(stored_path)
 
-            if key in gallery_index:
-                gallery_images[gallery_index[key]] = item
-            else:
-                gallery_index[key] = len(gallery_images)
+                downloaded_path = None
+                if path is None:
+                    try:
+                        staged_path = self.image_downloader.download_gallery(
+                            str(product.code),
+                            url,
+                            len(gallery_images) + 1,
+                            staging_dir,
+                        )
+                        downloaded_path = resolve_data_path(staged_path)
+                        if downloaded_path.is_file():
+                            stored_path, _ = store_image_in_product_group(
+                                product.code,
+                                downloaded_path,
+                                len(gallery_images) + 1,
+                                root=products_root,
+                            )
+                            if stored_path:
+                                path = resolve_data_path(stored_path)
+                    except Exception:  # noqa: BLE001
+                        continue
+                    finally:
+                        if downloaded_path is not None:
+                            try:
+                                downloaded_path.unlink(missing_ok=True)
+                            except OSError:
+                                pass
+
+                if path is None or not path.is_file():
+                    continue
+
+                image_hash = ImageDownloader.hash_file(path)
+                if image_hash and image_hash in seen_hashes:
+                    continue
+
+                seen_urls.add(key)
+                if image_hash:
+                    seen_hashes.add(image_hash)
+                item = {
+                    "url": url,
+                    "image_path": str(path.relative_to(resolve_data_path(".")))
+                    .replace("\\", "/")
+                    if path.is_relative_to(resolve_data_path("."))
+                    else str(path).replace("\\", "/"),
+                    "image_hash": image_hash,
+                    "position": len(gallery_images) + 1,
+                    "source": (
+                        str(existing_item.get("source", "woocommerce-gallery") or "woocommerce-gallery")
+                        if isinstance(existing_item, dict)
+                        else str(candidate.get("source", "woocommerce-gallery") or "woocommerce-gallery")
+                    ),
+                }
                 gallery_images.append(item)
-                new_options.append(
-                    {
-                        "url": url,
-                        "path": item["image_path"],
-                        "hash": image_hash,
-                        "score": int(candidate.get("score", 0) or 0),
-                        "exact_code": bool(candidate.get("exact_code", False)),
-                        "generic": False,
-                        "source": "woocommerce-gallery",
-                        "gallery": True,
-                    }
-                )
+
+                if not is_primary and not isinstance(existing_item, dict):
+                    new_options.append(
+                        {
+                            "url": url,
+                            "path": item["image_path"],
+                            "hash": image_hash,
+                            "score": int(candidate.get("score", 0) or 0),
+                            "exact_code": bool(candidate.get("exact_code", False)),
+                            "generic": False,
+                            "source": "woocommerce-gallery",
+                            "gallery": True,
+                        }
+                    )
+        finally:
+            try:
+                staging_dir.rmdir()
+            except OSError:
+                pass
 
         if not gallery_images:
-            product.gallery_images = []
-            return product
+            gallery_images = self._canonicalize_existing_gallery(
+                product,
+                existing_gallery,
+                primary_path,
+                products_root,
+            )
 
         for position, image in enumerate(gallery_images, start=1):
             image["position"] = position
 
         product.gallery_images = gallery_images
+        if gallery_images:
+            primary = gallery_images[0]
+            product.image_path = str(primary.get("image_path", "") or "")
+            product.image_url = str(primary.get("url", "") or "") or primary_url
+            product.image_hash = str(primary.get("image_hash", "") or "")
         if existing is not None:
             self._register_gallery_review(product, new_options)
         return product
+
+    @staticmethod
+    def _canonicalize_primary(product, existing_gallery, products_root):
+        raw_path = str(getattr(product, "image_path", "") or "").strip()
+        primary_url = str(getattr(product, "image_url", "") or "").strip()
+        candidate_paths = []
+        if raw_path:
+            candidate_paths.append(raw_path)
+        if primary_url:
+            candidate_paths.extend(
+                str(item.get("image_path", item.get("path", "")) or "")
+                for item in existing_gallery
+                if isinstance(item, dict)
+                and str(item.get("url", "") or "").strip().casefold()
+                == primary_url.casefold()
+            )
+
+        for value in candidate_paths:
+            if not value.strip():
+                continue
+            source = resolve_data_path(value)
+            if not source.is_file():
+                continue
+            stored_path, image_hash = store_image_in_product_group(
+                getattr(product, "code", ""),
+                source,
+                1,
+                root=products_root,
+            )
+            if stored_path:
+                product.image_path = stored_path
+                if image_hash:
+                    product.image_hash = image_hash
+                return resolve_data_path(stored_path)
+        return None
+
+    @staticmethod
+    def _canonicalize_existing_gallery(
+        product,
+        existing_gallery,
+        primary_path,
+        products_root,
+    ):
+        results: list[dict[str, Any]] = []
+        seen_urls: set[str] = set()
+        seen_paths: set[str] = set()
+        seen_hashes: set[str] = set()
+        primary_url = str(getattr(product, "image_url", "") or "").strip()
+        source_items = [dict(item) for item in existing_gallery]
+        if primary_path is not None and primary_path.is_file():
+            source_items.insert(
+                0,
+                {
+                    "url": primary_url,
+                    "image_path": str(primary_path),
+                    "image_hash": ImageDownloader.hash_file(primary_path),
+                    "position": 1,
+                    "source": "primary",
+                },
+            )
+
+        for image in source_items:
+            raw_path = str(image.get("image_path", image.get("path", "")) or "").strip()
+            if not raw_path:
+                continue
+            path = resolve_data_path(raw_path)
+            if not path.is_file():
+                continue
+            stored_path, computed_hash = store_image_in_product_group(
+                getattr(product, "code", ""),
+                path,
+                len(results) + 1,
+                root=products_root,
+            )
+            if not stored_path:
+                continue
+            canonical_path = resolve_data_path(stored_path)
+            url = str(image.get("url", "") or "").strip()
+            image_hash = str(image.get("image_hash", image.get("hash", "")) or computed_hash).strip()
+            path_key = str(canonical_path).replace("\\", "/").casefold()
+            if (
+                path_key in seen_paths
+                or (url and url.casefold() in seen_urls)
+                or (image_hash and image_hash.casefold() in seen_hashes)
+            ):
+                continue
+            results.append(
+                {
+                    **image,
+                    "url": url,
+                    "image_path": stored_path,
+                    "image_hash": image_hash,
+                    "position": len(results) + 1,
+                }
+            )
+            seen_paths.add(path_key)
+            if url:
+                seen_urls.add(url.casefold())
+            if image_hash:
+                seen_hashes.add(image_hash.casefold())
+
+        if results:
+            first = results[0]
+            product.image_path = str(first.get("image_path", "") or "")
+            product.image_url = str(first.get("url", "") or "") or primary_url
+            product.image_hash = str(first.get("image_hash", "") or "")
+        return results
+
 
     def _candidate_source(self, product, existing):
         candidates = list(

@@ -15,16 +15,16 @@ import requests
 
 from config.runtime_paths import resolve_data_path, to_data_relative_path
 from scrapers.images.image_hash import ImageHash
-from scrapers.images.image_validation import (
-    file_extension_matches,
-    identify_image_bytes,
-    identify_image_file,
-)
 from scrapers.images.image_paths import (
     IMAGE_EXTENSIONS,
     IMAGE_PRODUCTS_DIR,
     product_image_directory,
     safe_image_code,
+)
+from scrapers.images.image_validation import (
+    file_extension_matches,
+    identify_image_bytes,
+    identify_image_file,
 )
 
 _MAX_IMAGE_BYTES = 20 * 1024 * 1024

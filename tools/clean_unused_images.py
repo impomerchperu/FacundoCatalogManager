@@ -122,8 +122,17 @@ def _iter_image_files(root: Path) -> list[Path]:
         # object is removed after its DB reference has been retired. The DB
         # allowlist below still protects every path referenced by the catalog.
         catalog_storage_path = bool({"products", "gallery"} & parts)
+        # The root itself may still contain pre-directory legacy files named
+        # by product code. It is also dedicated to catalog images, unlike
+        # resources/images, so an unidentifiable orphan there is cleanable too.
+        flat_legacy_catalog_file = (
+            root.name.casefold() == "images"
+            and root.parent.name.casefold() == "data"
+            and path.parent.resolve() == root.resolve()
+        )
         if (
             catalog_storage_path
+            or flat_legacy_catalog_file
             or path.suffix.lower() in IMAGE_EXTENSIONS
             or is_identifiable_image_file(path)
         ):

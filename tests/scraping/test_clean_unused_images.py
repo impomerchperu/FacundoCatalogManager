@@ -122,6 +122,7 @@ def test_clean_unused_images_does_not_delete_missing_or_outside_files(
 
     assert missing_roots == []
 
+
 def test_cleanup_after_gallery_update_removes_obsolete_duplicate_files(
     tmp_path: Path,
 ):
@@ -218,6 +219,7 @@ def test_cleanup_after_gallery_update_removes_obsolete_duplicate_files(
     assert not old_gallery_scaled.exists()
     assert not old_gallery_duplicate.exists()
     assert not old_gallery_alternate.exists()
+
 
 def test_cleanup_detects_decodable_image_with_unknown_suffix(tmp_path: Path):
     project = tmp_path

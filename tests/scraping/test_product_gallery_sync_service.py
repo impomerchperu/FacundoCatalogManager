@@ -46,7 +46,7 @@ class FakeDownloader:
         directory.mkdir(parents=True, exist_ok=True)
         destination = directory / f"{code}-{position:02d}.webp"
         seed = hashlib.sha256(url.encode("utf-8")).digest()
-        destination.write_bytes(image_bytes("WEBP", tuple(seed[:3])))
+        destination.write_bytes(image_bytes("WEBP", (seed[0], seed[1], seed[2])))
         self.downloads.append(url)
         return str(destination.relative_to(self.tmp_path)).replace("\\", "/")
 

@@ -638,14 +638,26 @@ class ProductCollectionScraper:
         detail_candidates = list(
             getattr(detailed_product, "image_candidates", []) or []
         )
-        if detail_candidates:
+        # The detail page, not a category-card thumbnail/srcset, is authoritative
+        # for a product gallery. Keep only images actually inside the gallery
+        # container so related-product cards elsewhere on the page cannot leak in.
+        detail_gallery_candidates = [
+            dict(candidate)
+            for candidate in detail_candidates
+            if isinstance(candidate, dict)
+            and bool(candidate.get("gallery_container"))
+            and not bool(candidate.get("generic"))
+        ]
+        product.image_candidates_source = "detail"
+        product.image_candidates = detail_gallery_candidates
+        if detail_gallery_candidates:
             code = normalize_code(str(getattr(product, "code", "") or ""))
             if code in self.AUTHORITATIVE_DETAIL_IMAGE_CODES:
-                detail_candidates = [
+                detail_gallery_candidates = [
                     {**candidate, "authoritative": True}
-                    for candidate in detail_candidates
+                    for candidate in detail_gallery_candidates
                 ]
-            product.image_candidates = detail_candidates
+            product.image_candidates = detail_gallery_candidates
 
         product.url = detail_url
         detail_code = normalize_code(getattr(detailed_product, "code", ""))

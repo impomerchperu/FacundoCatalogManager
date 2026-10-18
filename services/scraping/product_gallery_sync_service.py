@@ -347,7 +347,9 @@ class ProductGallerySyncService:
                 continue
             canonical_path = resolve_data_path(stored_path)
             url = str(image.get("url", "") or "").strip()
-            image_hash = str(image.get("image_hash", image.get("hash", "")) or computed_hash).strip()
+            image_hash = computed_hash or str(
+                image.get("image_hash", image.get("hash", "")) or ""
+            ).strip()
             path_key = str(canonical_path).replace("\\", "/").casefold()
             if (
                 path_key in seen_paths

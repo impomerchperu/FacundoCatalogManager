@@ -116,7 +116,7 @@ def test_image_review_replace_updates_db_and_keeps_old_image_outside_staging(
     review_id = service.pending()[0]["id"]
     result = service.apply_selection(review_id, "replace")
 
-    destination = products_dir / "FB-100.webp"
+    destination = products_dir / "FB-100" / "FB-100-01.webp"
     assert result["changed"] is False
     assert repository.product.image_path == "data/images/products/FB-100.jpg"
     assert repository.product.image_url == "https://example.test/old.jpg"
@@ -125,7 +125,7 @@ def test_image_review_replace_updates_db_and_keeps_old_image_outside_staging(
     finalized = service.finalize_selected([review_id])
 
     assert finalized[0]["changed"] is True
-    assert repository.product.image_path == "data/images/products/FB-100.webp"
+    assert repository.product.image_path == "data/images/products/FB-100/FB-100-01.webp"
     assert repository.product.image_url == "https://example.test/new.webp"
     assert destination.read_bytes() == b"new-image"
     assert current_path.read_bytes() == b"old-image"
@@ -224,7 +224,7 @@ def test_image_review_apply_is_persisted_after_reopening_database(
 
     assert persisted is not None
     assert persisted.image_url == "https://example.test/new.webp"
-    assert persisted.image_path == "data/images/products/FB-100.webp"
+    assert persisted.image_path == "data/images/products/FB-100/FB-100-01.webp"
     assert persisted.image_hash
     reopened.db.close()
 

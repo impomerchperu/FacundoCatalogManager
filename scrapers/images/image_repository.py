@@ -3,16 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 
 from config.runtime_paths import DATA_DIR, resolve_data_path, to_data_relative_path
-from scrapers.images.image_downloader import ImageDownloader
-from scrapers.images.image_validation import (
-    file_extension_matches,
-    identify_image_file,
-)
 from scrapers.images.image_paths import (
     IMAGE_EXTENSIONS,
     IMAGE_PRODUCTS_DIR,
     product_image_directory,
     safe_image_code,
+)
+from scrapers.images.image_validation import (
+    file_extension_matches,
+    identify_image_file,
 )
 from scrapers.images.product_image_storage import store_image_in_product_group
 
@@ -121,8 +120,9 @@ class ImageRepository:
                     index = parts.index(folder)
                     if index + 1 < len(path.parts):
                         group = path.parts[index + 1]
-                        if group.casefold() not in IMAGE_EXTENSIONS:
-                            return safe_image_code(group)
+                        if group.casefold().endswith(tuple(IMAGE_EXTENSIONS)):
+                            return safe_image_code(Path(group).stem)
+                        return safe_image_code(group)
             if path.parent.name.casefold() not in {"images", "resources"}:
                 return safe_image_code(path.parent.name)
             return safe_image_code(path.stem)

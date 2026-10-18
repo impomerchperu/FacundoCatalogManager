@@ -27,9 +27,10 @@ class ProductRepository:
             code, name, category, description, price,
             price_sample, price_hundred, price_thousand, stock,
             color_stock, image_url, image_path,
-            image_hash, gallery_images, content_hash
+            image_hash, image_etag, image_last_modified, image_checked_at,
+            gallery_images, content_hash
         )
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """
         cursor = self.db.execute_query(
             query,
@@ -50,6 +51,12 @@ class ProductRepository:
                 product.image_url,
                 product.image_path,
                 product.image_hash,
+                product.image_etag,
+                product.image_last_modified,
+                product.image_checked_at,
+                product.image_etag,
+                product.image_last_modified,
+                product.image_checked_at,
                 json.dumps(
                     self._clean_gallery_images(product.gallery_images),
                     ensure_ascii=False,
@@ -66,7 +73,8 @@ class ProductRepository:
             code=?, name=?, category=?, description=?, price=?,
             price_sample=?, price_hundred=?, price_thousand=?, stock=?,
             color_stock=?, image_url=?, image_path=?,
-            image_hash=?, gallery_images=?, content_hash=?
+            image_hash=?, image_etag=?, image_last_modified=?, image_checked_at=?,
+            gallery_images=?, content_hash=?
         WHERE id=?
         """
         self.db.execute_query(
@@ -501,6 +509,9 @@ class ProductRepository:
             image_url=row["image_url"],
             image_path=row["image_path"],
             image_hash=row["image_hash"],
+            image_etag=row["image_etag"],
+            image_last_modified=row["image_last_modified"],
+            image_checked_at=row["image_checked_at"],
             gallery_images=self._json_gallery_images(row["gallery_images"]),
             content_hash=row["content_hash"],
         )

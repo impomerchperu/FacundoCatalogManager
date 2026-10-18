@@ -96,6 +96,21 @@ def test_revalidate_primary_versions_changed_bytes_without_overwriting_active_fi
     assert result["image_etag"] == '"revision-2"'
 
 
+
+
+def test_verify_image_file_checks_signature_extension_and_hash(tmp_path):
+    valid = tmp_path / "sample.jpg"
+    valid.write_bytes(JPEG_OLD)
+    verified = ImageDownloader.verify_image_file(valid)
+    assert verified["image_extension"] == ".jpg"
+    assert verified["image_hash"] == hashlib.sha256(JPEG_OLD).hexdigest()
+
+    mislabeled = tmp_path / "sample.webp"
+    mislabeled.write_bytes(JPEG_OLD)
+    with pytest.raises(ValueError, match="extensión local no coincide"):
+        ImageDownloader.verify_image_file(mislabeled)
+
+
 def test_downloader_rejects_html_disguised_as_an_image(tmp_path, monkeypatch):
     monkeypatch.setattr(
         ImageDownloader,

@@ -66,15 +66,28 @@ def _active_image_paths(db_path: Path, project_root: Path) -> set[Path]:
 
         if gallery_column is None or len(row) < 2:
             continue
-        try:
-            gallery_images = json.loads(row[1] or "[]")
-        except (TypeError, json.JSONDecodeError):
+        raw_gallery = row[1]
+        if raw_gallery in (None, ""):
             gallery_images = []
+        else:
+            try:
+                gallery_images = json.loads(raw_gallery)
+            except (TypeError, json.JSONDecodeError) as error:
+                # A broken gallery record may hide an active file reference.
+                # Fail closed: callers must not delete anything from an
+                # incomplete reference inventory.
+                raise RuntimeError(
+                    "No se puede limpiar imágenes: gallery_images no es JSON válido."
+                ) from error
         if not isinstance(gallery_images, list):
-            continue
+            raise RuntimeError(
+                "No se puede limpiar imágenes: gallery_images no es una lista."
+            )
         for image in gallery_images:
             if not isinstance(image, dict):
-                continue
+                raise RuntimeError(
+                    "No se puede limpiar imágenes: hay una entrada de galería inválida."
+                )
             gallery_path = str(
                 image.get("image_path", image.get("path", "")) or ""
             ).strip()
@@ -157,17 +170,22 @@ def clean_unused_images(
     if not delete:
         return candidates
 
-    # Re-read the whitelist immediately before deletion so files referenced by
-    # a newly persisted product are never removed by a stale candidate list.
+    # Each unlink gets a fresh whitelist snapshot. A prior candidate may
+    # still become referenced while another file is being removed.
     project_root = project_root.resolve()
-    active_paths = _active_image_paths(db_path.resolve(), project_root)
+    resolved_roots = [
+        _resolve_project_path(root, project_root) for root in roots
+    ]
     deleted: list[dict[str, Any]] = []
 
     for candidate in candidates:
         path = Path(candidate["path"]).resolve()
-        if path in active_paths:
+        if not any(_is_within(path, root) for root in resolved_roots):
             continue
         if not path.is_file():
+            continue
+        active_paths = _active_image_paths(db_path.resolve(), project_root)
+        if path in active_paths:
             continue
         path.unlink()
         deleted.append(candidate)

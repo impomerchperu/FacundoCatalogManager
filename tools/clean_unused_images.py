@@ -191,6 +191,15 @@ def main() -> None:
         help="Ruta a la SQLite del catálogo.",
     )
     parser.add_argument(
+        "--data-root",
+        type=Path,
+        default=None,
+        help=(
+            "Raíz donde se resuelven las rutas relativas guardadas en SQLite. "
+            "Por defecto usa los dos niveles superiores de la ruta de la base."
+        ),
+    )
+    parser.add_argument(
         "--root",
         action="append",
         dest="roots",
@@ -207,9 +216,15 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    database_path = _resolve_project_path(args.db, project_root)
+    data_root = (
+        _resolve_project_path(args.data_root, project_root)
+        if args.data_root is not None
+        else database_path.parent.parent
+    )
     candidates = clean_unused_images(
-        project_root=project_root,
-        db_path=_resolve_project_path(args.db, project_root),
+        project_root=data_root,
+        db_path=database_path,
         roots=args.roots,
         delete=args.delete,
     )

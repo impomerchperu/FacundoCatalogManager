@@ -117,6 +117,7 @@ def test_product_gallery_sync_downloads_new_gallery_images(
         review_service=review,
         max_workers=2,
         max_candidates=6,
+        refresh_existing=False,
     )
 
     service.sync_products([product])

@@ -2006,57 +2006,10 @@ class ProductTable(QTableWidget):
             if item is None:
                 continue
             gallery = self._product_gallery(self._rendered_products[row])
-            seen_urls = {
-                str(image.get("url", "") or "").strip().casefold()
-                for image in gallery
-                if isinstance(image, dict)
-                and str(image.get("url", "") or "").strip()
-            }
-            seen_paths = {
-                str(
-                    image.get("image_path", image.get("path", "")) or ""
-                ).strip().replace("\\", "/").casefold()
-                for image in gallery
-                if isinstance(image, dict)
-                and str(
-                    image.get("image_path", image.get("path", "")) or ""
-                ).strip()
-            }
-            seen_hashes = {
-                str(image.get("image_hash", image.get("hash", "")) or "")
-                .strip()
-                .casefold()
-                for image in gallery
-                if isinstance(image, dict)
-                and str(image.get("image_hash", image.get("hash", "")) or "").strip()
-            }
-            changed_for_row = False
-            for option in options:
-                url = str(option.get("url", "") or "").strip()
-                path = str(option.get("path", option.get("image_path", "")) or "").strip()
-                image_hash = str(option.get("hash", option.get("image_hash", "")) or "").strip()
-                url_key = url.casefold()
-                path_key = path.replace("\\", "/").casefold()
-                hash_key = image_hash.casefold()
-                if (
-                    (url_key and url_key in seen_urls)
-                    or (path_key and path_key in seen_paths)
-                    or (hash_key and hash_key in seen_hashes)
-                ):
-                    continue
-                normalized_option = dict(option)
-                if path:
-                    normalized_option["image_path"] = path
-                if image_hash:
-                    normalized_option["image_hash"] = image_hash
-                gallery.append(normalized_option)
-                if url_key:
-                    seen_urls.add(url_key)
-                if path_key:
-                    seen_paths.add(path_key)
-                if hash_key:
-                    seen_hashes.add(hash_key)
-                changed_for_row = True
+            gallery, changed_for_row = self._merge_gallery_options(
+                gallery,
+                options,
+            )
             current_gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
             current_urls = [
                 str(image.get("url", "") or "").strip().casefold()
@@ -2082,6 +2035,67 @@ class ProductTable(QTableWidget):
         if changed:
             self._adjust_table_rows()
             self.viewport().update()
+
+    @staticmethod
+    def _merge_gallery_options(
+        gallery: list[dict],
+        options: list[dict],
+    ) -> tuple[list[dict], bool]:
+        seen_urls = {
+            str(image.get("url", "") or "").strip().casefold()
+            for image in gallery
+            if isinstance(image, dict)
+            and str(image.get("url", "") or "").strip()
+        }
+        seen_paths = {
+            str(image.get("image_path", image.get("path", "")) or "")
+            .strip()
+            .replace("\\", "/")
+            .casefold()
+            for image in gallery
+            if isinstance(image, dict)
+            and str(
+                image.get("image_path", image.get("path", "")) or ""
+            ).strip()
+        }
+        seen_hashes = {
+            str(image.get("image_hash", image.get("hash", "")) or "")
+            .strip()
+            .casefold()
+            for image in gallery
+            if isinstance(image, dict)
+            and str(image.get("image_hash", image.get("hash", "")) or "").strip()
+        }
+        changed = False
+        for option in options:
+            url = str(option.get("url", "") or "").strip()
+            path = str(option.get("path", option.get("image_path", "")) or "").strip()
+            image_hash = str(
+                option.get("hash", option.get("image_hash", "")) or ""
+            ).strip()
+            url_key = url.casefold()
+            path_key = path.replace("\\", "/").casefold()
+            hash_key = image_hash.casefold()
+            if (
+                (url_key and url_key in seen_urls)
+                or (path_key and path_key in seen_paths)
+                or (hash_key and hash_key in seen_hashes)
+            ):
+                continue
+            normalized_option = dict(option)
+            if path:
+                normalized_option["image_path"] = path
+            if image_hash:
+                normalized_option["image_hash"] = image_hash
+            gallery.append(normalized_option)
+            if url_key:
+                seen_urls.add(url_key)
+            if path_key:
+                seen_paths.add(path_key)
+            if hash_key:
+                seen_hashes.add(hash_key)
+            changed = True
+        return gallery, changed
 
     @staticmethod
     def _set_image_item_path(

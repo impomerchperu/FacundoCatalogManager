@@ -1,6 +1,6 @@
-from pathlib import Path
-
 import requests
+
+from config.runtime_paths import resolve_data_path
 
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_repository import ImageRepository
@@ -30,7 +30,7 @@ class SafeImageManager:
                 path = str(result.get("image_path", "") or "")
                 if not path:
                     return self._error_result()
-                image_path = Path(path)
+                image_path = resolve_data_path(path)
                 if not image_path.is_file():
                     return self._error_result()
                 actual_hash = ImageDownloader.hash_file(image_path)
@@ -43,7 +43,7 @@ class SafeImageManager:
             if not path:
                 return self._error_result()
 
-            image_path = Path(path)
+            image_path = resolve_data_path(path)
             if not image_path.is_file():
                 return self._error_result()
 

@@ -18,7 +18,6 @@ _FORMAT_EXTENSIONS = {
 
 
 
-
 def identify_image_bytes(
     data: bytes,
     content_type: str = "",

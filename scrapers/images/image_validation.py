@@ -16,12 +16,7 @@ _FORMAT_EXTENSIONS = {
     "GIF": ".gif",
 }
 
-_FORMAT_MIMES = {
-    "JPEG": {"image/jpeg", "image/jpg", "image/pjpeg"},
-    "PNG": {"image/png", "image/x-png"},
-    "WEBP": {"image/webp"},
-    "GIF": {"image/gif"},
-}
+
 
 
 def identify_image_bytes(
@@ -59,11 +54,8 @@ def identify_image_bytes(
             "La respuesta no contiene una imagen raster válida o identificable."
         ) from error
 
-    mime = str(content_type or "").split(";", 1)[0].strip().casefold()
-    if mime.startswith("image/") and mime not in _FORMAT_MIMES[image_format]:
-        raise ValueError(
-            f"El Content-Type ({mime}) no coincide con el formato {image_format}."
-        )
+    # Content-Type is advisory only; decoded bytes determine the real format.
+    del content_type
 
     return {
         "image_extension": _FORMAT_EXTENSIONS[image_format],

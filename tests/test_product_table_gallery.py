@@ -1,5 +1,19 @@
+from pathlib import Path
+
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QApplication
+
 from gui.product_table import ProductImageDelegate, ProductTable
 from models.product import Product
+
+
+def _qapp():
+    return QApplication.instance() or QApplication([])
+
+
+class _Controller:
+    def get_products(self):
+        return []
 
 
 def test_product_table_gallery_falls_back_to_primary_image():
@@ -84,3 +98,50 @@ def test_product_table_deduplicates_primary_referenced_by_legacy_gallery():
     assert gallery[0]["position"] == 1
     assert gallery[1]["url"] == "https://site.test/FB-1507-side.webp"
     assert gallery[1]["position"] == 2
+
+
+
+def test_gallery_overrides_deduplicate_by_hash_without_hiding_distinct_images(
+    tmp_path: Path,
+):
+    _qapp()
+    primary_path = tmp_path / "primary.webp"
+    duplicate_path = tmp_path / "duplicate.webp"
+    alternative_path = tmp_path / "alternative.webp"
+    for path in (primary_path, duplicate_path, alternative_path):
+        image = QPixmap(32, 32)
+        assert image.save(str(path))
+
+    product = Product(
+        code="FB-1507",
+        name="Producto con galería",
+        image_url="https://site.test/FB-1507.webp",
+        image_path=str(primary_path),
+        image_hash="same-content",
+    )
+    table = ProductTable(_Controller())
+    table.load_products([product])
+    table.set_gallery_overrides(
+        {
+            "FB-1507": [
+                {
+                    "url": "https://site.test/FB-1507-duplicate.webp",
+                    "path": str(duplicate_path),
+                    "hash": "same-content",
+                },
+                {
+                    "url": "https://site.test/FB-1507-side.webp",
+                    "path": str(alternative_path),
+                    "hash": "different-content",
+                },
+            ]
+        }
+    )
+
+    image_item = table.item(0, ProductTable.IMAGE_COLUMN)
+    gallery = image_item.data(ProductImageDelegate.GALLERY_ROLE)
+
+    assert len(gallery) == 2
+    assert gallery[0]["image_path"] == str(primary_path)
+    assert gallery[1]["image_path"] == str(alternative_path)
+    table.close()

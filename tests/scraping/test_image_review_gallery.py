@@ -34,6 +34,16 @@ def _patch_paths(monkeypatch, tmp_path):
         "resolve_data_path",
         lambda value: value if Path(value).is_absolute() else tmp_path / value,
     )
+    import scrapers.images.product_image_storage as storage_module
+
+    monkeypatch.setattr(
+        storage_module,
+        "to_data_relative_path",
+        lambda value: str(Path(value).resolve().relative_to(tmp_path)).replace(
+            "\\",
+            "/",
+        ),
+    )
     monkeypatch.setattr(
         module,
         "to_data_relative_path",

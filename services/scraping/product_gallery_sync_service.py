@@ -198,6 +198,34 @@ class ProductGallerySyncService:
                         )
                         downloaded_path = resolve_data_path(staged_path)
                         if downloaded_path.is_file():
+                            staged_fingerprint = build_visual_fingerprint(
+                                downloaded_path,
+                                url,
+                            )
+                            duplicate_index = next(
+                                (
+                                    index
+                                    for index, accepted in enumerate(visual_fingerprints)
+                                    if is_generated_resolution_duplicate(
+                                        accepted,
+                                        staged_fingerprint,
+                                    )
+                                ),
+                                None,
+                            )
+                            if duplicate_index is not None:
+                                accepted_fingerprint = visual_fingerprints[duplicate_index]
+                                if (
+                                    staged_fingerprint is not None
+                                    and accepted_fingerprint is not None
+                                    and staged_fingerprint.area
+                                    <= accepted_fingerprint.area
+                                ):
+                                    # Do not even publish a redundant generated size
+                                    # into canonical storage; the staging file is
+                                    # removed by the finally block below.
+                                    continue
+
                             stored_path, _ = store_image_in_product_group(
                                 product.code,
                                 downloaded_path,

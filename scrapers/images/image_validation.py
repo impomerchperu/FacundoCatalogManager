@@ -5,7 +5,7 @@ import warnings
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 
@@ -54,7 +54,6 @@ def identify_image_bytes(
         Image.DecompressionBombWarning,
         OSError,
         SyntaxError,
-        UnidentifiedImageError,
     ) as error:
         raise ValueError(
             "La respuesta no contiene una imagen raster válida o identificable."

@@ -511,3 +511,111 @@ def test_gallery_sync_keeps_all_page_candidates_beyond_review_limit(
     assert downloader.downloads == urls[1:]
     assert len(review.registered) == 1
     assert len(review.registered[0]["candidate_options"]) == 2
+
+
+
+def test_incomplete_gallery_refresh_preserves_last_complete_images(
+    monkeypatch,
+    tmp_path,
+):
+    import services.scraping.product_gallery_sync_service as module
+
+    monkeypatch.setattr(
+        module,
+        "resolve_data_path",
+        lambda value: (
+            Path(value)
+            if Path(value).is_absolute()
+            else tmp_path / value
+        ),
+    )
+    monkeypatch.setattr(
+        module,
+        "IMAGE_PRODUCTS_DIR",
+        Path("data/images/products"),
+    )
+
+    code = "P-KEEP-GALLERY"
+    product_dir = tmp_path / "data" / "images" / "products" / code
+    product_dir.mkdir(parents=True)
+    primary_url = f"https://site.test/uploads/{code}.webp"
+    alternate_url = f"https://site.test/uploads/{code}-alt.webp"
+    failed_url = f"https://site.test/uploads/{code}-new.webp"
+
+    primary_path = product_dir / f"{code}-01.webp"
+    alternate_path = product_dir / f"{code}-02.webp"
+    primary_path.write_bytes(image_bytes("WEBP", (10, 20, 30)))
+    alternate_path.write_bytes(image_bytes("WEBP", (90, 80, 70)))
+
+    existing = Product(
+        code=code,
+        name="Producto con galería válida",
+        image_url=primary_url,
+        image_path=f"data/images/products/{code}/{code}-01.webp",
+        image_hash=hashlib.sha256(primary_path.read_bytes()).hexdigest(),
+        gallery_images=[
+            {
+                "url": primary_url,
+                "image_path": f"data/images/products/{code}/{code}-01.webp",
+                "image_hash": hashlib.sha256(primary_path.read_bytes()).hexdigest(),
+                "position": 1,
+                "source": "primary",
+            },
+            {
+                "url": alternate_url,
+                "image_path": f"data/images/products/{code}/{code}-02.webp",
+                "image_hash": hashlib.sha256(alternate_path.read_bytes()).hexdigest(),
+                "position": 2,
+                "source": "woocommerce-gallery",
+            },
+        ],
+    )
+    repository = FakeRepository([existing])
+
+    class PartiallyFailingDownloader(FakeDownloader):
+        def download_gallery(self, download_code, url, position, output_dir):
+            if url == failed_url:
+                self.downloads.append(url)
+                raise OSError("simulated image download failure")
+            return super().download_gallery(
+                download_code, url, position, output_dir
+            )
+
+    downloader = PartiallyFailingDownloader(tmp_path)
+    product = ScrapedProduct(
+        code=code,
+        name="Producto con galería válida",
+        url=f"https://site.test/producto/{code.casefold()}/",
+        image_url=primary_url,
+        image_path=f"data/images/products/{code}/{code}-01.webp",
+        image_hash=existing.image_hash,
+    )
+    product.image_candidates = [
+        _candidate(primary_url, 1),
+        _candidate(alternate_url, 2),
+        _candidate(failed_url, 3),
+    ]
+
+    service = ProductGallerySyncService(
+        browser=object(),
+        product_extractor=object(),
+        image_downloader=downloader,
+        review_service=FakeReviewService(repository),
+        max_workers=1,
+        max_candidates=6,
+        refresh_existing=False,
+    )
+
+    synced = service.sync_products([product])[0]
+
+    assert downloader.downloads == [failed_url]
+    assert synced.image_url == primary_url
+    assert synced.image_path == f"data/images/products/{code}/{code}-01.webp"
+    assert [image["url"] for image in synced.gallery_images] == [
+        primary_url,
+        alternate_url,
+    ]
+    assert [image["position"] for image in synced.gallery_images] == [1, 2]
+    assert primary_path.is_file()
+    assert alternate_path.is_file()
+    assert not (product_dir / f"{code}-03.webp").exists()

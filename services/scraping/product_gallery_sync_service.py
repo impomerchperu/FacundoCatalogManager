@@ -86,6 +86,9 @@ class ProductGallerySyncService:
         product_code = ImageDownloader._safe_code(str(product.code))
         product_dir = products_root / product_code
         product_dir.mkdir(parents=True, exist_ok=True)
+        primary_url_before_gallery_sync = str(
+            getattr(product, "image_url", "") or ""
+        ).strip()
         primary_path = self._canonicalize_primary(
             product,
             existing_gallery,
@@ -93,6 +96,22 @@ class ProductGallerySyncService:
         )
 
         candidates = self._candidate_source(product, existing)
+        primary_url_after_gallery_sync = str(
+            getattr(product, "image_url", "") or ""
+        ).strip()
+        if (
+            primary_url_after_gallery_sync.casefold()
+            != primary_url_before_gallery_sync.casefold()
+        ):
+            # The detail page can correct a category-card image. Do not reuse
+            # that card's bytes for the newly selected gallery primary.
+            product.image_path = ""
+            product.image_hash = ""
+            primary_path = self._canonicalize_primary(
+                product,
+                existing_gallery,
+                products_root,
+            )
         if not candidates:
             product.gallery_images = self._canonicalize_existing_gallery(
                 product,
@@ -531,6 +550,11 @@ class ProductGallerySyncService:
             if page_gallery:
                 product.image_candidates = page_gallery
                 product.image_candidates_source = "detail"
+                page_primary_url = str(
+                    page_gallery[0].get("url", "") or ""
+                ).strip()
+                if page_primary_url:
+                    product.image_url = page_primary_url
                 return page_gallery
 
             # A successful HTTP response without a recognized product-gallery

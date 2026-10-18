@@ -1306,64 +1306,25 @@ class ImageReviewService:
         verified_source = identify_image_file(source)
         image_hash = verified_source["image_hash"]
         extension = verified_source["image_extension"]
-
-        image_products_dir = resolve_data_path(IMAGE_PRODUCTS_DIR)
         product_dir = product_image_directory(
             product.code,
-            root=image_products_dir,
+            root=resolve_data_path(IMAGE_PRODUCTS_DIR),
         )
         product_dir.mkdir(parents=True, exist_ok=True)
         safe_code = ImageDownloader._safe_code(str(product.code))
-        destination = product_dir / f"{safe_code}-01{extension}"
-
-        def matches_expected(path: Path) -> bool:
-            try:
-                verified = identify_image_file(path)
-            except (OSError, ValueError):
-                return False
-            return (
-                file_extension_matches(path, verified["image_extension"])
-                and verified["image_extension"] == extension
-                and verified["image_hash"] == image_hash
-            )
-
-        destination_existed = False
-        if destination.is_file():
-            if matches_expected(destination):
-                destination_existed = True
-            else:
-                destination = product_dir / (
-                    f"{safe_code}-01-{image_hash[:16]}{extension}"
-                )
-
-        if destination.is_file():
-            if matches_expected(destination):
-                destination_existed = True
-            else:
-                destination = product_dir / (
-                    f"{safe_code}-01-{image_hash[:16]}-{uuid.uuid4().hex[:8]}{extension}"
-                )
-
-        created_destination = False
+        destination, destination_existed = self._select_review_destination(
+            product_dir,
+            safe_code,
+            image_hash,
+            extension,
+        )
         if not destination_existed:
-            # Exclusive creation guarantees we never replace bytes another
-            # catalog row may still reference. A failed write is removed below.
-            try:
-                with source.open("rb") as source_stream:
-                    with destination.open("xb") as target:
-                        created_destination = True
-                        shutil.copyfileobj(source_stream, target)
-                stored = identify_image_file(destination)
-                if (
-                    stored["image_hash"] != image_hash
-                    or stored["image_extension"] != extension
-                    or not file_extension_matches(destination, extension)
-                ):
-                    raise ValueError("La imagen copiada no pasó la verificación de contenido.")
-            except Exception:
-                if persist:
-                    self._cleanup_unused_images()
-                raise
+            destination = self._publish_review_image(
+                source,
+                destination,
+                image_hash,
+                extension,
+            )
 
         created_gallery_paths: list[Path] = []
         try:
@@ -1403,6 +1364,89 @@ class ImageReviewService:
                 "created_paths": created_gallery_paths,
             },
         )
+
+    @staticmethod
+    def _image_matches(
+        path: Path,
+        image_hash: str,
+        extension: str,
+    ) -> bool:
+        try:
+            verified = identify_image_file(path)
+        except (OSError, ValueError):
+            return False
+        return (
+            file_extension_matches(path, verified["image_extension"])
+            and verified["image_extension"] == extension
+            and verified["image_hash"] == image_hash
+        )
+
+    @classmethod
+    def _select_review_destination(
+        cls,
+        product_dir: Path,
+        safe_code: str,
+        image_hash: str,
+        extension: str,
+    ) -> tuple[Path, bool]:
+        destination = product_dir / f"{safe_code}-01{extension}"
+        if destination.is_file():
+            if cls._image_matches(destination, image_hash, extension):
+                return destination, True
+            destination = product_dir / f"{safe_code}-01-{image_hash[:16]}{extension}"
+
+        if destination.is_file():
+            if cls._image_matches(destination, image_hash, extension):
+                return destination, True
+            destination = product_dir / (
+                f"{safe_code}-01-{image_hash[:16]}-{uuid.uuid4().hex[:8]}{extension}"
+            )
+
+        return destination, False
+
+    @classmethod
+    def _publish_review_image(
+        cls,
+        source: Path,
+        destination: Path,
+        image_hash: str,
+        extension: str,
+    ) -> Path:
+        """Verify a private temporary and publish without replacing existing bytes."""
+        temporary = destination.with_name(
+            f".{destination.name}.{uuid.uuid4().hex}.tmp"
+        )
+        try:
+            try:
+                with source.open("rb") as source_stream, temporary.open("xb") as target:
+                    shutil.copyfileobj(source_stream, target)
+                verified = identify_image_file(temporary)
+            except Exception:
+                raise
+
+            is_valid = (
+                verified["image_hash"] == image_hash
+                and verified["image_extension"] == extension
+            )
+            if not is_valid:
+                raise ValueError("La imagen copiada no pasó la verificación de contenido.")
+
+            for _attempt in range(8):
+                try:
+                    os.link(temporary, destination)
+                except FileExistsError:
+                    if cls._image_matches(destination, image_hash, extension):
+                        return destination
+                    destination = destination.with_name(
+                        f"{destination.stem}-{uuid.uuid4().hex[:8]}{destination.suffix}"
+                    )
+                else:
+                    return destination
+            raise RuntimeError(
+                "No se pudo publicar la imagen sin sobrescribir otro archivo."
+            )
+        finally:
+            temporary.unlink(missing_ok=True)
 
     def _set_product_image(
         self,

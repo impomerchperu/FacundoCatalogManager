@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import os
 import time
 from collections.abc import Iterable
 from datetime import datetime, timezone
@@ -20,6 +21,11 @@ from scrapers.images.image_paths import (
     IMAGE_PRODUCTS_DIR,
     product_image_directory,
     safe_image_code,
+)
+from scrapers.images.image_validation import (
+    file_extension_matches,
+    identify_image_bytes,
+    identify_image_file,
 )
 
 _MAX_IMAGE_BYTES = 20 * 1024 * 1024
@@ -128,26 +134,8 @@ class ImageDownloader:
 
     @staticmethod
     def _verified_extension(data: bytes, content_type: str) -> str:
-        """Detecta el formato con la firma binaria, no solo por el sufijo de URL."""
-        if not data or len(data) > _MAX_IMAGE_BYTES:
-            raise ValueError("La imagen está vacía o supera el límite de 20 MiB.")
-
-        mime = str(content_type or "").split(";", 1)[0].strip().casefold()
-        formats = (
-            (".jpg", "image/jpeg", data.startswith(b"\xff\xd8\xff") and data.endswith(b"\xff\xd9")),
-            (".png", "image/png", data.startswith(b"\x89PNG\r\n\x1a\n") and b"IEND" in data[-16:]),
-            (".webp", "image/webp", len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"),
-            (".gif", "image/gif", data.startswith((b"GIF87a", b"GIF89a")) and data.endswith(b";")),
-        )
-        for extension, expected_mime, matches in formats:
-            if matches:
-                if mime.startswith("image/") and mime != expected_mime:
-                    raise ValueError(
-                        f"El Content-Type ({mime}) no coincide con la firma {expected_mime}."
-                    )
-                return extension
-
-        raise ValueError("La respuesta no contiene una imagen raster compatible.")
+        """Decodifica la imagen y obtiene su extensión real, sin confiar en la URL."""
+        return identify_image_bytes(data, content_type)["image_extension"]
 
     @staticmethod
     def _response_metadata(response: requests.Response, checked_at: str) -> dict[str, str]:
@@ -268,16 +256,59 @@ class ImageDownloader:
             )
 
         temporary = target.with_name(f"{target.name}.{uuid4().hex}.tmp")
+        temporary_created = False
         try:
             with temporary.open("xb") as stream:
+                temporary_created = True
                 stream.write(data)
                 stream.flush()
             if self.hash_file(temporary) != image_hash:
                 raise RuntimeError("La verificación SHA-256 de la descarga falló.")
-            temporary.replace(target)
+            target = self._publish_temporary_without_overwrite(
+                temporary,
+                target,
+                image_hash,
+                extension,
+            )
         finally:
-            temporary.unlink(missing_ok=True)
+            if temporary_created:
+                temporary.unlink(missing_ok=True)
         return to_data_relative_path(target)
+
+    @classmethod
+    def _publish_temporary_without_overwrite(
+        cls,
+        temporary: Path,
+        target: Path,
+        image_hash: str,
+        extension: str,
+    ) -> Path:
+        """Atomically publish verified bytes without replacing an existing path."""
+        for _attempt in range(8):
+            try:
+                # Same-directory hard link is atomic and fails rather than
+                # replacing a path that another worker might already reference.
+                os.link(temporary, target)
+            except FileExistsError:
+                try:
+                    verified = cls.verify_image_file(target)
+                except (OSError, ValueError):
+                    verified = {}
+                if (
+                    verified.get("image_hash") == image_hash
+                    and verified.get("image_extension") == extension
+                ):
+                    break
+                target = target.with_name(
+                    f"{target.stem}-{uuid4().hex[:8]}{target.suffix}"
+                )
+            else:
+                return target
+        else:
+            raise RuntimeError(
+                "No se pudo publicar la imagen sin sobrescribir otro archivo."
+            )
+        return target
 
     def download_result(self, code: str, url: str) -> dict[str, str]:
         """Descarga una imagen validada a una ruta versionada y devuelve sus metadatos."""
@@ -323,8 +354,9 @@ class ImageDownloader:
         old_file_ok = False
         if old_path is not None and old_path.is_file() and current_hash:
             try:
-                old_file_ok = self.hash_file(old_path) == current_hash
-            except OSError:
+                verified_old = self.verify_image_file(old_path)
+                old_file_ok = verified_old["image_hash"] == current_hash
+            except (OSError, ValueError):
                 old_file_ok = False
 
         headers = {"User-Agent": "FacundoCatalogManager/1.0"}
@@ -427,15 +459,24 @@ class ImageDownloader:
                 f"{self._safe_code(code)}-{uuid4().hex}{extension}"
             )
             temporary = target.with_name(f"{target.name}.tmp")
+            temporary_created = False
             try:
                 with temporary.open("xb") as stream:
+                    temporary_created = True
                     stream.write(body)
                     stream.flush()
-                if self.hash_file(temporary) != self._sha256_bytes(body):
+                image_hash = self._sha256_bytes(body)
+                if self.hash_file(temporary) != image_hash:
                     raise RuntimeError("La verificación SHA-256 de la descarga falló.")
-                temporary.replace(target)
+                target = self._publish_temporary_without_overwrite(
+                    temporary,
+                    target,
+                    image_hash,
+                    extension,
+                )
             finally:
-                temporary.unlink(missing_ok=True)
+                if temporary_created:
+                    temporary.unlink(missing_ok=True)
             return to_data_relative_path(target)
         finally:
             close = getattr(response, "close", None)
@@ -506,24 +547,51 @@ class ImageDownloader:
             safe_code = self._safe_code(code)
             target_root.mkdir(parents=True, exist_ok=True)
             canonical = target_root / f"{safe_code}-{int(position):02d}{extension}"
-            if canonical.is_file() and self.hash_file(canonical) != image_hash:
+            try:
+                existing = self.verify_image_file(canonical)
+            except (OSError, ValueError):
+                existing = {}
+            if (
+                existing.get("image_hash") == image_hash
+                and existing.get("image_extension") == extension
+            ):
+                return to_data_relative_path(canonical)
+
+            if canonical.exists():
                 canonical = target_root / (
                     f"{safe_code}-{int(position):02d}-{image_hash[:16]}{extension}"
                 )
-            if canonical.exists() and self.hash_file(canonical) != image_hash:
+            if canonical.exists():
+                try:
+                    existing = self.verify_image_file(canonical)
+                except (OSError, ValueError):
+                    existing = {}
+                if (
+                    existing.get("image_hash") == image_hash
+                    and existing.get("image_extension") == extension
+                ):
+                    return to_data_relative_path(canonical)
                 canonical = canonical.with_name(
                     f"{canonical.stem}-{uuid4().hex[:8]}{canonical.suffix}"
                 )
-            if not canonical.exists():
-                temporary = canonical.with_name(f"{canonical.name}.{uuid4().hex}.tmp")
-                try:
-                    with temporary.open("xb") as stream:
-                        stream.write(body)
-                        stream.flush()
-                    if self.hash_file(temporary) != image_hash:
-                        raise RuntimeError("La verificación SHA-256 de la galería falló.")
-                    temporary.replace(canonical)
-                finally:
+
+            temporary = canonical.with_name(f"{canonical.name}.{uuid4().hex}.tmp")
+            temporary_created = False
+            try:
+                with temporary.open("xb") as stream:
+                    temporary_created = True
+                    stream.write(body)
+                    stream.flush()
+                if self.hash_file(temporary) != image_hash:
+                    raise RuntimeError("La verificación SHA-256 de la galería falló.")
+                canonical = self._publish_temporary_without_overwrite(
+                    temporary,
+                    canonical,
+                    image_hash,
+                    extension,
+                )
+            finally:
+                if temporary_created:
                     temporary.unlink(missing_ok=True)
             return to_data_relative_path(canonical)
         finally:
@@ -533,20 +601,17 @@ class ImageDownloader:
 
     @classmethod
     def verify_image_file(cls, path: str | Path) -> dict[str, str]:
-        """Read once, verify raster signature/extension and return its SHA-256."""
+        """Decodifica la imagen local y confirma que su sufijo corresponda al formato."""
         image_path = Path(path)
-        if image_path.stat().st_size > _MAX_IMAGE_BYTES:
-            raise ValueError("La imagen local supera el límite de 20 MiB.")
-        body = image_path.read_bytes()
         suffix = image_path.suffix.lower()
         if suffix not in IMAGE_EXTENSIONS:
             raise ValueError("La extensión local no es compatible.")
-        detected = cls._verified_extension(body, "")
-        expected = ".jpg" if suffix == ".jpeg" else suffix
-        if detected != expected:
+        verified = identify_image_file(image_path)
+        detected = verified["image_extension"]
+        if not file_extension_matches(image_path, detected):
             raise ValueError("La extensión local no coincide con el contenido de imagen.")
         return {
-            "image_hash": cls._sha256_bytes(body),
+            "image_hash": verified["image_hash"],
             "image_extension": detected,
         }
 

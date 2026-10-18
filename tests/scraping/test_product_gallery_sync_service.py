@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 from models.product import Product
@@ -5,6 +6,7 @@ from models.scraping.scraped_product import ScrapedProduct
 from services.scraping.product_gallery_sync_service import (
     ProductGallerySyncService,
 )
+from tests.scraping.image_test_utils import image_bytes
 
 
 class FakeRepository:
@@ -43,7 +45,8 @@ class FakeDownloader:
         directory = Path(output_dir)
         directory.mkdir(parents=True, exist_ok=True)
         destination = directory / f"{code}-{position:02d}.webp"
-        destination.write_bytes(url.encode("utf-8"))
+        seed = hashlib.sha256(url.encode("utf-8")).digest()
+        destination.write_bytes(image_bytes("WEBP", (seed[0], seed[1], seed[2])))
         self.downloads.append(url)
         return str(destination.relative_to(self.tmp_path)).replace("\\", "/")
 
@@ -91,7 +94,7 @@ def test_product_gallery_sync_downloads_new_gallery_images(
     )
     existing_path = tmp_path / existing.gallery_images[0]["image_path"]
     existing_path.parent.mkdir(parents=True)
-    existing_path.write_bytes(b"old-image")
+    existing_path.write_bytes(image_bytes("WEBP", (1, 2, 3)))
 
     repository = FakeRepository([existing])
     review = FakeReviewService(repository)
@@ -152,7 +155,7 @@ def test_primary_image_is_reused_and_all_gallery_files_share_product_folder(
     product_dir = tmp_path / "data" / "images" / "products" / code
     product_dir.mkdir(parents=True)
     primary_path = product_dir / f"{code}-01.webp"
-    primary_path.write_bytes(b"primary-image")
+    primary_path.write_bytes(image_bytes("WEBP", (20, 30, 40)))
 
     downloader = FakeDownloader(tmp_path)
     product = ScrapedProduct(
@@ -221,16 +224,17 @@ def test_legacy_gallery_removes_primary_hash_duplicate_during_sync(
 
     primary_source = tmp_path / "data/images/products/FB-1507.webp"
     primary_source.parent.mkdir(parents=True)
-    primary_source.write_bytes(b"primary-image")
+    primary_image = image_bytes("WEBP", (20, 30, 40))
+    primary_source.write_bytes(primary_image)
 
     gallery_root = tmp_path / "data/images/gallery/FB-1507"
     gallery_root.mkdir(parents=True)
     scaled_source = gallery_root / "FB-1507-01.webp"
     duplicate_source = gallery_root / "FB-1507-02.webp"
     alternate_source = gallery_root / "FB-1507-03.webp"
-    scaled_source.write_bytes(b"scaled-image")
-    duplicate_source.write_bytes(b"primary-image")
-    alternate_source.write_bytes(b"alternate-image")
+    scaled_source.write_bytes(image_bytes("WEBP", (50, 60, 70)))
+    duplicate_source.write_bytes(primary_image)
+    alternate_source.write_bytes(image_bytes("WEBP", (80, 90, 100)))
 
     existing = Product(
         code=code,

@@ -1,6 +1,11 @@
+import hashlib
+from pathlib import Path
+
+import services.scraping.catalog_sync_service as catalog_sync_module
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.product_diff_service import ProductDiffService
 from tests.scraping.catalog_sync_test_doubles import InMemoryCatalogRepository
+from tests.scraping.image_test_utils import image_bytes
 
 
 class Product:
@@ -403,6 +408,7 @@ def test_catalog_sync_keeps_unmatched_local_codes_when_coverage_is_incomplete():
     assert repository.get("OLD001") is not None
     assert repository.get("KEEP001") is not None
 
+
 def test_catalog_sync_is_idempotent_after_initial_create():
     repository = InMemoryCatalogRepository()
     service = CatalogSyncService(repository, ProductDiffService())
@@ -453,14 +459,32 @@ def test_catalog_sync_is_idempotent_after_initial_create():
     assert stored is not None
     assert stored.content_hash
 
+
 def test_catalog_sync_cleans_unused_images_only_after_allowed_prune():
     repository = InMemoryCatalogRepository()
-    repository.save(Product("OLD001", "Producto antiguo", 10))
+    old_product = Product("OLD001", "Producto antiguo", 10)
+    old_product.image_path = "data/images/products/OLD001/OLD001-01.webp"
+    old_product.image_hash = "old-image-hash"
+    old_product.gallery_images = [
+        {
+            "url": "https://site.test/old-gallery.webp",
+            "image_path": "data/images/products/OLD001/OLD001-02.webp",
+            "image_hash": "old-gallery-hash",
+            "position": 1,
+        }
+    ]
+    repository.save(old_product)
     cleanup_calls = []
 
     def cleanup():
+        # Cleanup must run after the full-catalog prune has actually removed
+        # the product from the persisted repository, not just after scrape end.
+        assert repository.get("OLD001") is None
         cleanup_calls.append(True)
-        return [{"path": "old.webp"}]
+        return [
+            {"path": "data/images/products/OLD001/OLD001-01.webp"},
+            {"path": "data/images/products/OLD001/OLD001-02.webp"},
+        ]
 
     service = CatalogSyncService(
         repository,
@@ -474,6 +498,7 @@ def test_catalog_sync_cleans_unused_images_only_after_allowed_prune():
     )
 
     assert result.deleted == 1
+    assert repository.get("OLD001") is None
     assert cleanup_calls == [True]
 
 
@@ -524,6 +549,7 @@ def test_catalog_sync_does_not_clean_images_when_full_prune_is_blocked():
 
     assert result.deleted == 0
     assert cleanup_calls == []
+
 
 def test_catalog_sync_updates_color_stock_and_reports_the_changed_field():
     repository = InMemoryCatalogRepository()
@@ -879,7 +905,7 @@ def test_failed_image_download_clears_broken_local_reference(tmp_path):
 
 def test_failed_refresh_keeps_only_a_verified_current_image(tmp_path):
     current_file = tmp_path / "FB-9912.jpg"
-    current_file.write_bytes(b"\xff\xd8\xffimage\xff\xd9")
+    current_file.write_bytes(image_bytes("JPEG", (34, 56, 78)))
 
     existing = Product("FB-9912", "Producto", 10)
     existing.image_url = "https://example.test/FB-9912-old.jpg"
@@ -897,29 +923,67 @@ def test_failed_refresh_keeps_only_a_verified_current_image(tmp_path):
     assert incoming.image_hash != "historically-wrong-hash"
     assert incoming.image_etag == '"old-etag"'
 
-def test_catalog_sync_runs_image_cleanup_after_gallery_reference_update():
+
+def test_catalog_sync_runs_image_cleanup_after_gallery_reference_update(
+    tmp_path,
+    monkeypatch,
+):
+    import scrapers.images.product_image_storage as storage_module
+
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "resolve_data_path",
+        lambda value: Path(value) if Path(value).is_absolute() else tmp_path / value,
+    )
+    products_root = tmp_path / "data" / "images" / "products"
+    monkeypatch.setattr(catalog_sync_module, "IMAGE_PRODUCTS_DIR", products_root)
+    monkeypatch.setattr(
+        storage_module,
+        "to_data_relative_path",
+        lambda value: str(Path(value).resolve().relative_to(tmp_path)).replace("\\", "/"),
+    )
+
+    old_primary = products_root / "FB-1507.webp"
+    legacy_gallery = tmp_path / "data" / "images" / "gallery" / "FB-1507"
+    product_dir = products_root / "FB-1507"
+    legacy_gallery.mkdir(parents=True)
+    product_dir.mkdir(parents=True)
+    primary_bytes = image_bytes("WEBP", (12, 34, 56))
+    scaled_bytes = image_bytes("WEBP", (56, 67, 78))
+    alternate_bytes = image_bytes("WEBP", (89, 90, 91))
+    old_primary.write_bytes(primary_bytes)
+    (legacy_gallery / "FB-1507-01.webp").write_bytes(scaled_bytes)
+    (legacy_gallery / "FB-1507-02.webp").write_bytes(primary_bytes)
+    (legacy_gallery / "FB-1507-03.webp").write_bytes(alternate_bytes)
+    canonical_primary = product_dir / "FB-1507-01.webp"
+    canonical_scaled = product_dir / "FB-1507-02.webp"
+    canonical_alternate = product_dir / "FB-1507-03.webp"
+    canonical_primary.write_bytes(primary_bytes)
+    canonical_scaled.write_bytes(scaled_bytes)
+    canonical_alternate.write_bytes(alternate_bytes)
+
     repository = InMemoryCatalogRepository()
     existing = Product("FB-1507", "Producto FB-1507", 10)
     existing.image_url = "https://site.test/uploads/FB-1507-2.webp"
     existing.image_path = "data/images/products/FB-1507.webp"
-    existing.image_hash = "primary-hash"
+    existing.image_hash = hashlib.sha256(primary_bytes).hexdigest()
     existing.gallery_images = [
         {
             "url": "https://site.test/uploads/FB-1507-2-scaled.webp",
             "image_path": "data/images/gallery/FB-1507/FB-1507-01.webp",
-            "image_hash": "scaled-hash",
+            "image_hash": hashlib.sha256(scaled_bytes).hexdigest(),
             "position": 1,
         },
         {
             "url": "https://site.test/uploads/FB-1507-2.webp",
             "image_path": "data/images/gallery/FB-1507/FB-1507-02.webp",
-            "image_hash": "primary-hash",
+            "image_hash": hashlib.sha256(primary_bytes).hexdigest(),
             "position": 2,
         },
         {
             "url": "https://site.test/uploads/FB-1507.webp",
             "image_path": "data/images/gallery/FB-1507/FB-1507-03.webp",
-            "image_hash": "alternate-hash",
+            "image_hash": hashlib.sha256(alternate_bytes).hexdigest(),
             "position": 3,
         },
     ]
@@ -928,24 +992,24 @@ def test_catalog_sync_runs_image_cleanup_after_gallery_reference_update():
     incoming = Product("FB-1507", "Producto FB-1507", 10)
     incoming.image_url = existing.image_url
     incoming.image_path = "data/images/products/FB-1507/FB-1507-01.webp"
-    incoming.image_hash = "primary-hash"
+    incoming.image_hash = hashlib.sha256(primary_bytes).hexdigest()
     incoming.gallery_images = [
         {
             "url": existing.image_url,
             "image_path": incoming.image_path,
-            "image_hash": "primary-hash",
+            "image_hash": incoming.image_hash,
             "position": 1,
         },
         {
             "url": "https://site.test/uploads/FB-1507-2-scaled.webp",
             "image_path": "data/images/products/FB-1507/FB-1507-02.webp",
-            "image_hash": "scaled-hash",
+            "image_hash": hashlib.sha256(scaled_bytes).hexdigest(),
             "position": 2,
         },
         {
             "url": "https://site.test/uploads/FB-1507.webp",
             "image_path": "data/images/products/FB-1507/FB-1507-03.webp",
-            "image_hash": "alternate-hash",
+            "image_hash": hashlib.sha256(alternate_bytes).hexdigest(),
             "position": 3,
         },
     ]
@@ -987,4 +1051,205 @@ def test_catalog_sync_runs_image_cleanup_after_gallery_reference_update():
         "data/images/products/FB-1507/FB-1507-02.webp",
         "data/images/products/FB-1507/FB-1507-03.webp",
     ]
+
+
+def test_catalog_sync_drops_unidentifiable_and_duplicate_legacy_gallery_entries(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "resolve_data_path",
+        lambda value: (
+            Path(value) if Path(value).is_absolute() else tmp_path / value
+        ),
+    )
+    product_root = tmp_path / "data" / "images" / "products"
+    gallery_root = tmp_path / "data" / "images" / "gallery" / "P099"
+    product_root.mkdir(parents=True)
+    gallery_root.mkdir(parents=True)
+
+    invalid_primary = product_root / "P099.webp"
+    invalid_primary.write_bytes(b"not an image")
+    valid_duplicate = image_bytes("WEBP", (12, 34, 56))
+    first_gallery = gallery_root / "P099-01.webp"
+    duplicate_gallery = gallery_root / "P099-02.webp"
+    invalid_gallery = gallery_root / "P099-03.webp"
+    first_gallery.write_bytes(valid_duplicate)
+    duplicate_gallery.write_bytes(valid_duplicate)
+    invalid_gallery.write_bytes(b"not a raster")
+
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "IMAGE_PRODUCTS_DIR",
+        product_root,
+    )
+    existing = Product("P099", "Legacy product", 10)
+    existing.image_url = "https://site.test/P099.webp"
+    existing.image_path = "data/images/products/P099.webp"
+    existing.image_hash = "stale-hash"
+    existing.gallery_images = [
+        {
+            "url": "https://site.test/P099-gallery-1.webp",
+            "image_path": "data/images/gallery/P099/P099-01.webp",
+            "image_hash": "old-1",
+            "position": 1,
+        },
+        {
+            "url": "https://site.test/P099-gallery-2.webp",
+            "image_path": "data/images/gallery/P099/P099-02.webp",
+            "image_hash": "old-2",
+            "position": 2,
+        },
+        {
+            "url": "https://site.test/P099-gallery-bad.webp",
+            "image_path": "data/images/gallery/P099/P099-03.webp",
+            "image_hash": "old-bad",
+            "position": 3,
+        },
+    ]
+    incoming = Product("P099", "Legacy product", 10)
+
+    CatalogSyncService._preserve_existing_image_state(existing, incoming)
+    CatalogSyncService._normalize_product_image_state(incoming)
+
+    assert incoming.image_url == "https://site.test/P099-gallery-1.webp"
+    assert incoming.image_path
+    assert incoming.image_hash == hashlib.sha256(valid_duplicate).hexdigest()
+    assert len(incoming.gallery_images) == 1
+    assert incoming.gallery_images[0]["image_hash"] == hashlib.sha256(valid_duplicate).hexdigest()
+    assert Path(
+        catalog_sync_module.resolve_data_path(
+            incoming.gallery_images[0]["image_path"]
+        )
+    ).is_file()
+    assert "P099-02.webp" not in incoming.gallery_images[0]["image_path"]
+    assert invalid_primary.is_file()
+    assert duplicate_gallery.is_file()
+    assert invalid_gallery.is_file()
+
+
+def test_catalog_sync_cleans_unused_images_after_new_image_bearing_product(
+    tmp_path,
+    monkeypatch,
+):
+    import scrapers.images.product_image_storage as storage_module
+
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "resolve_data_path",
+        lambda value: Path(value) if Path(value).is_absolute() else tmp_path / value,
+    )
+    products_root = tmp_path / "data" / "images" / "products"
+    monkeypatch.setattr(catalog_sync_module, "IMAGE_PRODUCTS_DIR", products_root)
+    monkeypatch.setattr(
+        storage_module,
+        "to_data_relative_path",
+        lambda value: str(Path(value).resolve().relative_to(tmp_path)).replace("\\", "/"),
+    )
+    source = products_root / "P101" / "P101-01.png"
+    source.parent.mkdir(parents=True)
+    payload = image_bytes("PNG", (42, 53, 64))
+    source.write_bytes(payload)
+
+    repository = InMemoryCatalogRepository()
+    cleanup_snapshots = []
+
+    def cleanup():
+        stored = repository.get("P101")
+        assert stored is not None
+        cleanup_snapshots.append(stored.image_path)
+        return [{"path": "legacy/orphan.webp"}]
+
+    incoming = Product("P101", "Nuevo producto", 10)
+    incoming.image_path = "data/images/products/P101/P101-01.png"
+    incoming.image_hash = hashlib.sha256(payload).hexdigest()
+    incoming.gallery_images = [
+        {
+            "url": "https://site.test/P101.png",
+            "image_path": incoming.image_path,
+            "image_hash": incoming.image_hash,
+            "position": 1,
+            "source": "primary",
+        }
+    ]
+
+    service = CatalogSyncService(
+        repository,
+        ProductDiffService(),
+        image_cleanup=cleanup,
+    )
+    result = service.synchronize([incoming])
+
+    assert result.created == 1
+    assert cleanup_snapshots == ["data/images/products/P101/P101-01.png"]
+
+def test_catalog_sync_clears_unidentifiable_image_refs_before_post_commit_cleanup(
+    tmp_path,
+    monkeypatch,
+):
+    import scrapers.images.product_image_storage as storage_module
+
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "resolve_data_path",
+        lambda value: Path(value) if Path(value).is_absolute() else tmp_path / value,
+    )
+    products_root = tmp_path / "data" / "images" / "products"
+    monkeypatch.setattr(catalog_sync_module, "IMAGE_PRODUCTS_DIR", products_root)
+    monkeypatch.setattr(
+        storage_module,
+        "to_data_relative_path",
+        lambda value: str(Path(value).resolve().relative_to(tmp_path)).replace("\\", "/"),
+    )
+
+    invalid_path = products_root / "P102" / "P102-01.webp"
+    invalid_path.parent.mkdir(parents=True)
+    invalid_path.write_bytes(b"html or arbitrary bytes, not a raster image")
+
+    incoming = Product("P102", "Producto inválido", 10)
+    incoming.image_url = "https://site.test/P102.webp"
+    incoming.image_path = "data/images/products/P102/P102-01.webp"
+    incoming.image_hash = "stale-hash"
+    incoming.image_etag = '"stale-etag"'
+    incoming.gallery_images = [
+        {
+            "url": incoming.image_url,
+            "image_path": incoming.image_path,
+            "image_hash": "stale-hash",
+            "position": 1,
+        }
+    ]
+
+    repository = InMemoryCatalogRepository()
+    cleanup_observations = []
+
+    def cleanup():
+        stored = repository.get("P102")
+        assert stored is not None
+        cleanup_observations.append(
+            (stored.image_path, stored.image_hash, list(stored.gallery_images))
+        )
+        invalid_path.unlink(missing_ok=True)
+        return [{"path": str(invalid_path)}]
+
+    service = CatalogSyncService(
+        repository,
+        ProductDiffService(),
+        image_cleanup=cleanup,
+    )
+    result = service.synchronize([incoming])
+
+    stored = repository.get("P102")
+    assert result.created == 1
+    assert stored is not None
+    assert stored.image_url == "https://site.test/P102.webp"
+    assert stored.image_path == ""
+    assert stored.image_hash == ""
+    assert stored.image_etag == ""
+    assert stored.image_last_modified == ""
+    assert stored.image_checked_at == ""
+    assert stored.gallery_images == []
+    assert cleanup_observations == [("", "", [])]
+    assert not invalid_path.exists()
 

@@ -6,6 +6,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from scrapers.images.image_validation import is_identifiable_image_file
+
 IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif"})
 DEFAULT_ROOTS = ("data/images", "resources/images")
 
@@ -25,6 +27,43 @@ def _is_within(path: Path, root: Path) -> bool:
     return True
 
 
+def _gallery_image_paths(
+    raw_gallery: object,
+    project_root: Path,
+) -> set[Path]:
+    if raw_gallery in (None, ""):
+        return set()
+    try:
+        gallery_images = json.loads(raw_gallery)
+    except (TypeError, json.JSONDecodeError) as error:
+        # A broken gallery record may hide an active file reference. Fail closed.
+        raise RuntimeError(
+            "No se puede limpiar imágenes: gallery_images no es JSON válido."
+        ) from error
+    if not isinstance(gallery_images, list):
+        raise TypeError(
+            "No se puede limpiar imágenes: gallery_images no es una lista."
+        )
+
+    paths: set[Path] = set()
+    for image in gallery_images:
+        if not isinstance(image, dict):
+            raise TypeError(
+                "No se puede limpiar imágenes: hay una entrada de galería inválida."
+            )
+        gallery_path = str(
+            image.get("image_path", image.get("path", "")) or ""
+        ).strip()
+        if gallery_path:
+            paths.add(
+                _resolve_project_path(
+                    gallery_path.replace("\\", "/"),
+                    project_root,
+                )
+            )
+    return paths
+
+
 def _active_image_paths(db_path: Path, project_root: Path) -> set[Path]:
     if not db_path.is_file():
         raise FileNotFoundError(f"Base de datos no encontrada: {db_path}")
@@ -41,48 +80,24 @@ def _active_image_paths(db_path: Path, project_root: Path) -> set[Path]:
             )
 
         gallery_column = "gallery_images" if "gallery_images" in columns else None
-        select_columns = ["image_path"]
-        if gallery_column is not None:
-            select_columns.append(gallery_column)
+        selected_columns = ["image_path"]
+        if gallery_column:
+            selected_columns.append(gallery_column)
         rows = connection.execute(
-            "SELECT " + ", ".join(select_columns) + " FROM products"
+            "SELECT " + ", ".join(selected_columns) + " FROM products"
         ).fetchall()
     finally:
         connection.close()
 
     paths: set[Path] = set()
     for row in rows:
-        raw_path = row[0]
-        value = str(raw_path or "").strip()
+        value = str(row[0] or "").strip()
         if value:
             paths.add(
-                _resolve_project_path(
-                    value.replace("\\", "/"),
-                    project_root,
-                )
+                _resolve_project_path(value.replace("\\", "/"), project_root)
             )
-
-        if gallery_column is None or len(row) < 2:
-            continue
-        try:
-            gallery_images = json.loads(row[1] or "[]")
-        except (TypeError, json.JSONDecodeError):
-            gallery_images = []
-        if not isinstance(gallery_images, list):
-            continue
-        for image in gallery_images:
-            if not isinstance(image, dict):
-                continue
-            gallery_path = str(
-                image.get("image_path", image.get("path", "")) or ""
-            ).strip()
-            if gallery_path:
-                paths.add(
-                    _resolve_project_path(
-                        gallery_path.replace("\\", "/"),
-                        project_root,
-                    )
-                )
+        if gallery_column and len(row) > 1:
+            paths.update(_gallery_image_paths(row[1], project_root))
     return paths
 
 
@@ -92,7 +107,35 @@ def _iter_image_files(root: Path) -> list[Path]:
 
     files: list[Path] = []
     for path in sorted(root.rglob("*")):
-        if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS:
+        if not path.is_file():
+            continue
+        parts = {part.casefold() for part in path.parts}
+        name = path.name.casefold()
+        if (
+            ".staging" in parts
+            or name.endswith((".tmp", ".review-tmp", ".review-backup", ".review-delete-backup"))
+        ):
+            continue
+
+        # Product/gallery directories are dedicated to catalog image assets:
+        # include unknown/corrupt suffixes too, so an unidentifiable legacy
+        # object is removed after its DB reference has been retired. The DB
+        # allowlist below still protects every path referenced by the catalog.
+        catalog_storage_path = bool({"products", "gallery"} & parts)
+        # The root itself may still contain pre-directory legacy files named
+        # by product code. It is also dedicated to catalog images, unlike
+        # resources/images, so an unidentifiable orphan there is cleanable too.
+        flat_legacy_catalog_file = (
+            root.name.casefold() == "images"
+            and root.parent.name.casefold() == "data"
+            and path.parent.resolve() == root.resolve()
+        )
+        if (
+            catalog_storage_path
+            or flat_legacy_catalog_file
+            or path.suffix.lower() in IMAGE_EXTENSIONS
+            or is_identifiable_image_file(path)
+        ):
             files.append(path.resolve())
     return files
 
@@ -147,17 +190,22 @@ def clean_unused_images(
     if not delete:
         return candidates
 
-    # Re-read the whitelist immediately before deletion so files referenced by
-    # a newly persisted product are never removed by a stale candidate list.
+    # Each unlink gets a fresh whitelist snapshot. A prior candidate may
+    # still become referenced while another file is being removed.
     project_root = project_root.resolve()
-    active_paths = _active_image_paths(db_path.resolve(), project_root)
+    resolved_roots = [
+        _resolve_project_path(root, project_root) for root in roots
+    ]
     deleted: list[dict[str, Any]] = []
 
     for candidate in candidates:
         path = Path(candidate["path"]).resolve()
-        if path in active_paths:
+        if not any(_is_within(path, root) for root in resolved_roots):
             continue
         if not path.is_file():
+            continue
+        active_paths = _active_image_paths(db_path.resolve(), project_root)
+        if path in active_paths:
             continue
         path.unlink()
         deleted.append(candidate)

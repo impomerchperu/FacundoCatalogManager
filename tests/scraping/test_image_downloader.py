@@ -5,6 +5,9 @@ import pytest
 
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_hash import ImageHash
+from tests.scraping.image_test_utils import image_bytes
+
+JPEG_BYTES = image_bytes("JPEG", (10, 20, 30))
 
 
 def test_image_downloader_saves_image(
@@ -12,7 +15,7 @@ def test_image_downloader_saves_image(
     monkeypatch,
 ):
     class FakeResponse:
-        content = b"\xff\xd8\xff\xd9"
+        content = JPEG_BYTES
         headers: ClassVar[dict[str, str]] = {"Content-Type": "image/jpeg"}
 
         def raise_for_status(self):
@@ -44,7 +47,7 @@ def test_image_downloader_saves_image(
 
     assert result == file.as_posix()
     assert file.exists()
-    assert file.read_bytes() == b"\xff\xd8\xff\xd9"
+    assert file.read_bytes() == JPEG_BYTES
 
 
 def test_image_downloader_stages_image_without_overwriting_canonical_file(
@@ -52,7 +55,7 @@ def test_image_downloader_stages_image_without_overwriting_canonical_file(
     monkeypatch,
 ):
     class FakeResponse:
-        content = b"\xff\xd8\xff\xd9"
+        content = JPEG_BYTES
         headers: ClassVar[dict[str, str]] = {"Content-Type": "image/jpeg"}
 
         def raise_for_status(self):
@@ -74,7 +77,7 @@ def test_image_downloader_stages_image_without_overwriting_canonical_file(
     staged_files = list(staging.glob("P004-*.jpg"))
     assert len(staged_files) == 1
     assert Path(result).name == staged_files[0].name
-    assert staged_files[0].read_bytes() == b"\xff\xd8\xff\xd9"
+    assert staged_files[0].read_bytes() == JPEG_BYTES
     assert not (tmp_path / "products" / "P004" / "P004-01.jpg").exists()
 
 
@@ -82,7 +85,7 @@ def test_image_downloader_uses_custom_http_settings(tmp_path, monkeypatch):
     calls = []
 
     class FakeResponse:
-        content = b"\xff\xd8\xff\xd9"
+        content = JPEG_BYTES
         headers: ClassVar[dict[str, str]] = {"Content-Type": "image/jpeg"}
 
         def raise_for_status(self):
@@ -119,7 +122,7 @@ def test_image_downloader_retries_transient_failures(tmp_path, monkeypatch):
     calls = []
 
     class FakeResponse:
-        content = b"\xff\xd8\xff\xd9"
+        content = JPEG_BYTES
         headers: ClassVar[dict[str, str]] = {"Content-Type": "image/jpeg"}
 
         def raise_for_status(self):

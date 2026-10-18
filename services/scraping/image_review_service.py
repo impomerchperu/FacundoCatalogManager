@@ -3,8 +3,11 @@ from __future__ import annotations
 import contextlib
 import copy
 import json
+import logging
+import os
 import shutil
 import uuid
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
@@ -17,25 +20,44 @@ from models.product_image_gallery import normalize_product_gallery
 from repositories.product_repository import ProductRepository
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_paths import (
-    IMAGE_EXTENSIONS,
     IMAGE_GALLERY_DIR,
     IMAGE_PRODUCTS_DIR,
     product_image_directory,
 )
+from scrapers.images.image_validation import (
+    file_extension_matches,
+    identify_image_file,
+)
+from scrapers.images.product_image_storage import store_image_in_product_group
 
 QUEUE_PATH = DATA_DIR / "image_review_queue.json"
 STAGING_DIR = DATA_DIR / "image_review_staging"
 _QUEUE_LOCK = Lock()
+LOGGER = logging.getLogger(__name__)
 
 
 class ImageReviewService:
     """Gestiona candidatos de imagen sin sobrescribir la imagen vigente."""
 
-    def __init__(self, repository: ProductRepository | None = None) -> None:
+    def __init__(
+        self,
+        repository: ProductRepository | None = None,
+        image_cleanup: Callable[[], list[dict[str, object]]] | None = None,
+    ) -> None:
         self._owns_repository = repository is None
         self.repository = repository or ProductRepository()
+        self.image_cleanup = image_cleanup
         self._lock = _QUEUE_LOCK
         self._active_batch: str | None = None
+
+    def _cleanup_unused_images(self) -> None:
+        """Remove files made unreferenced only after the catalog has persisted."""
+        if not callable(self.image_cleanup):
+            return
+        try:
+            self.image_cleanup()
+        except Exception:
+            LOGGER.exception("No se pudo completar la limpieza post-commit de imágenes.")
 
     def close(self) -> None:
         if not self._owns_repository:
@@ -77,15 +99,10 @@ class ImageReviewService:
             changed = False
             for record in records:
                 if (
-                record.get("batch_id") == batch_id
-                and record.get("status") == "staged"
-            ):
-                    if str(record.get("kind", "replacement")) == "gallery":
-                        for option in list(record.get("candidate_options", []) or []):
-                            self._remove_gallery_file(
-                                str(option.get("path", "") or "")
-                            )
-                    else:
+                    record.get("batch_id") == batch_id
+                    and record.get("status") == "staged"
+                ):
+                    if str(record.get("kind", "replacement")) != "gallery":
                         self._remove_all_staged_candidates(record)
                     changed = True
                     continue
@@ -171,9 +188,10 @@ class ImageReviewService:
             else "replacement"
         )
         if not candidate_hash and not allow_manual_only:
-            if normalized_kind == "gallery":
-                self._remove_gallery_file(candidate_path)
-            else:
+            # Do not delete a candidate directly: a legacy gallery path may
+            # still be referenced by a catalog row. The post-commit cleaner
+            # performs the whitelist check before physical deletion.
+            if normalized_kind != "gallery":
                 self._remove_staged_file(candidate_path)
             return None
 
@@ -600,11 +618,8 @@ class ImageReviewService:
                 if str(image.get("url", "") or "").strip().casefold()
                 not in dismissed_urls
             ]
+            product.gallery_images = self._normalize_identifiable_gallery(product)
             self.repository.update(product)
-            for option in options:
-                self._remove_gallery_file(
-                    str(option.get("path", "") or "")
-                )
 
         return {
             "code": product.code,
@@ -659,6 +674,11 @@ class ImageReviewService:
 
             if results:
                 self._write(records)
+                if any(
+                    str(record.get("kind", "replacement")) == "gallery"
+                    for record in selected
+                ):
+                    self._cleanup_unused_images()
             return results
 
     def finalize_selected(self, review_ids: list[str]) -> list[dict]:
@@ -743,6 +763,10 @@ class ImageReviewService:
                 self._rollback_file_state(file_state)
             with contextlib.suppress(OSError):
                 self._write(original_records)
+            if transaction_started and not bool(
+                getattr(db, "_transaction_active", False)
+            ):
+                self._cleanup_unused_images()
             raise
 
         # El catálogo y la cola ya están confirmados. La limpieza es posterior
@@ -751,7 +775,8 @@ class ImageReviewService:
             self._cleanup_selected_records(selected_records)
             self._cleanup_file_states(prepared)
         except OSError:
-            pass
+            LOGGER.exception("No se pudieron limpiar todos los archivos temporales de revisión.")
+        self._cleanup_unused_images()
 
         return results
 
@@ -820,6 +845,12 @@ class ImageReviewService:
                 "destination_existed": False,
             }
 
+        created_gallery_paths: list[Path] = []
+        product.gallery_images = self._normalize_identifiable_gallery(
+            product,
+            created_gallery_paths,
+        )
+        file_state.setdefault("created_paths", []).extend(created_gallery_paths)
         for position, image in enumerate(product.gallery_images, start=1):
             image["position"] = position
 
@@ -863,17 +894,8 @@ class ImageReviewService:
     def _cleanup_selected_records(self, records: list[dict]) -> None:
         for record in records:
             if str(record.get("kind", "replacement")) == "gallery":
-                for option in list(record.get("candidate_options", []) or []):
-                    option_path = str(option.get("path", "") or "").strip()
-                    excluded = {
-                        str(value).strip()
-                        for value in list(
-                            record.get("excluded_options", []) or []
-                        )
-                        if str(value).strip()
-                    }
-                    if option_path in excluded:
-                        self._remove_gallery_file(option_path)
+                # Excluded gallery paths are cleaned by the centralized
+                # post-commit sweep after all catalog references are re-read.
                 continue
 
             self._remove_all_staged_candidates(record)
@@ -897,15 +919,273 @@ class ImageReviewService:
         raise ValueError("La revisión de imagen ya no está disponible.")
 
     def _keep_current(self, record: dict, product) -> dict:
-        product.image_path = str(record.get("current_path", "") or "")
-        product.image_hash = str(record.get("current_hash", "") or "")
-        product.image_url = str(record.get("current_url", "") or "")
-        self.repository.update(product)
+        before = (
+            str(getattr(product, "image_path", "") or ""),
+            str(getattr(product, "image_hash", "") or ""),
+            str(getattr(product, "image_url", "") or ""),
+        )
+        created_paths: list[Path] = []
+        self._apply_kept_image_state(record, product, created_paths)
+        after = (
+            str(getattr(product, "image_path", "") or ""),
+            str(getattr(product, "image_hash", "") or ""),
+            str(getattr(product, "image_url", "") or ""),
+        )
+        changed = before != after
+        try:
+            self.repository.update(product)
+        except Exception:
+            # Any new canonical copies are cleaned only after re-reading the
+            # committed catalog references; never unlink them by guessed path.
+            self._cleanup_unused_images()
+            raise
         self._remove_all_staged_candidates(record)
+        if changed:
+            self._cleanup_unused_images()
         return {
             "code": product.code,
             "action": "keep",
-            "changed": False,
+            "changed": changed,
+        }
+
+    def _apply_kept_image_state(
+        self,
+        record: dict,
+        product,
+        created_paths: list[Path] | None = None,
+    ) -> None:
+        """Keep only decoded image bytes and migrate valid legacy suffixes."""
+        source_url = str(record.get("current_url", "") or "")
+        raw_path = str(record.get("current_path", "") or "").strip()
+        record_hash = str(record.get("current_hash", "") or "").strip()
+        product.image_url = source_url
+        product.image_path = ""
+        product.image_hash = ""
+        product.image_etag = ""
+        product.image_last_modified = ""
+        product.image_checked_at = ""
+
+        source = self._resolve_gallery_path(raw_path) if raw_path else None
+        if source is not None and source.is_file():
+            try:
+                identify_image_file(source)
+                stored_path, stored_hash = self._store_identifiable_image(
+                    str(getattr(product, "code", "") or ""),
+                    source,
+                    1,
+                    created_paths,
+                )
+            except (OSError, ValueError, RuntimeError):
+                stored_path, stored_hash = "", ""
+
+            if stored_path and stored_hash:
+                product.image_path = stored_path
+                product.image_hash = stored_hash
+                # HTTP validators are usable only when the local bytes still
+                # match the image version stored with the review record.
+                if record_hash and record_hash == stored_hash:
+                    product.image_etag = str(record.get("image_etag", "") or "")
+                    product.image_last_modified = str(
+                        record.get("image_last_modified", "") or ""
+                    )
+                    product.image_checked_at = str(
+                        record.get("image_checked_at", "") or ""
+                    )
+
+        product.gallery_images = self._normalize_identifiable_gallery(
+            product,
+            created_paths,
+        )
+
+    def _store_identifiable_image(
+        self,
+        code: str,
+        source: Path,
+        position: int,
+        created_paths: list[Path] | None = None,
+    ) -> tuple[str, str]:
+        if not code:
+            return "", ""
+        product_dir = resolve_data_path(
+            product_image_directory(code, root=IMAGE_PRODUCTS_DIR)
+        )
+        before = {
+            path.resolve()
+            for path in product_dir.iterdir()
+            if product_dir.is_dir() and path.is_file()
+        } if product_dir.is_dir() else set()
+
+        try:
+            stored_path, stored_hash = store_image_in_product_group(
+                code,
+                source,
+                position,
+                root=IMAGE_PRODUCTS_DIR,
+            )
+        except (OSError, ValueError, RuntimeError):
+            return "", ""
+        if not stored_path or not stored_hash:
+            return "", ""
+        destination = Path(resolve_data_path(stored_path)).resolve()
+        try:
+            source_resolved = Path(source).resolve()
+        except OSError:
+            source_resolved = source
+        if (
+            created_paths is not None
+            and destination != source_resolved
+            and destination not in before
+        ):
+            created_paths.append(destination)
+        return stored_path, stored_hash
+
+    def _normalize_identifiable_gallery(
+        self,
+        product,
+        created_paths: list[Path] | None = None,
+    ) -> list[dict]:
+        """Keep only decoded, canonically named images and exact unique bytes."""
+        code = str(getattr(product, "code", "") or "")
+        old_primary_hash = str(getattr(product, "image_hash", "") or "").casefold()
+        primary_url = str(getattr(product, "image_url", "") or "").strip()
+        _primary_path, primary_hash, primary_is_valid = self._normalize_review_primary(
+            product,
+            code,
+            old_primary_hash,
+            created_paths,
+        )
+        valid = self._normalize_review_gallery_entries(
+            product,
+            code,
+            primary_hash=primary_hash if primary_is_valid else "",
+            primary_url=primary_url if primary_is_valid else "",
+            created_paths=created_paths,
+        )
+
+        # normalize_product_gallery injects a primary entry; do that only when
+        # the primary itself was successfully identified from its local bytes.
+        if primary_is_valid:
+            return normalize_product_gallery(product, valid)
+        return valid
+
+    def _normalize_review_primary(
+        self,
+        product,
+        code: str,
+        old_hash: str,
+        created_paths: list[Path] | None,
+    ) -> tuple[str, str, bool]:
+        raw_path = str(getattr(product, "image_path", "") or "").strip()
+        source = None
+        if raw_path:
+            try:
+                source = self._resolve_product_image_path(raw_path)
+            except (OSError, ValueError):
+                source = None
+
+        stored_path = ""
+        stored_hash = ""
+        if source is not None and source.is_file():
+            stored_path, stored_hash = self._store_identifiable_image(
+                code,
+                source,
+                1,
+                created_paths,
+            )
+
+        if stored_path and stored_hash:
+            product.image_path = stored_path
+            product.image_hash = stored_hash
+            if old_hash != stored_hash.casefold():
+                product.image_etag = ""
+                product.image_last_modified = ""
+                product.image_checked_at = ""
+            return stored_path, stored_hash, True
+
+        # A stale DB path/hash is not evidence that the source bytes still
+        # exist or can be decoded. Keep the remote URL for future recovery.
+        product.image_path = ""
+        product.image_hash = ""
+        product.image_etag = ""
+        product.image_last_modified = ""
+        product.image_checked_at = ""
+        return "", "", False
+
+    def _normalize_review_gallery_entries(
+        self,
+        product,
+        code: str,
+        *,
+        primary_hash: str,
+        primary_url: str,
+        created_paths: list[Path] | None,
+    ) -> list[dict]:
+        seen_hashes = {primary_hash.casefold()} if primary_hash else set()
+        seen_urls = {primary_url.casefold()} if primary_url else set()
+        valid: list[dict] = []
+
+        for raw in list(getattr(product, "gallery_images", []) or []):
+            entry = self._normalize_review_gallery_entry(
+                raw,
+                code,
+                position=len(valid) + 1,
+                seen_hashes=seen_hashes,
+                seen_urls=seen_urls,
+                created_paths=created_paths,
+            )
+            if entry is None:
+                continue
+            valid.append(entry)
+            seen_hashes.add(str(entry["image_hash"]).casefold())
+            url = str(entry.get("url", "") or "").strip()
+            if url:
+                seen_urls.add(url.casefold())
+
+        return valid
+
+    def _normalize_review_gallery_entry(
+        self,
+        raw: object,
+        code: str,
+        *,
+        position: int,
+        seen_hashes: set[str],
+        seen_urls: set[str],
+        created_paths: list[Path] | None,
+    ) -> dict | None:
+        if not isinstance(raw, dict):
+            return None
+        raw_path = str(raw.get("image_path", raw.get("path", "")) or "").strip()
+        if not raw_path:
+            return None
+        source = self._resolve_gallery_path(raw_path)
+        if source is None or not source.is_file():
+            return None
+        try:
+            verified = identify_image_file(source)
+        except (OSError, ValueError):
+            return None
+
+        url = str(raw.get("url", "") or "").strip()
+        url_key = url.casefold()
+        image_hash = verified["image_hash"].casefold()
+        if image_hash in seen_hashes or (url_key and url_key in seen_urls):
+            return None
+
+        stored_path, stored_hash = self._store_identifiable_image(
+            code,
+            source,
+            position,
+            created_paths,
+        )
+        if not stored_path or not stored_hash:
+            return None
+        return {
+            **raw,
+            "url": url,
+            "image_path": stored_path,
+            "image_hash": stored_hash,
+            "position": position,
         }
 
     def _apply_selected_image(
@@ -926,10 +1206,12 @@ class ImageReviewService:
         source = self._resolve_selected_source(record, action, manual_path)
         if source is None or not source.is_file():
             raise ValueError("La imagen seleccionada no existe.")
-        if source.suffix.lower() not in IMAGE_EXTENSIONS:
+        try:
+            identify_image_file(source)
+        except (OSError, ValueError) as error:
             raise ValueError(
-                "El archivo seleccionado no es una imagen compatible."
-            )
+                "El archivo seleccionado no contiene una imagen compatible e identificable."
+            ) from error
 
         result, file_state = self._copy_selected_image(
             record,
@@ -950,19 +1232,20 @@ class ImageReviewService:
         product,
         persist: bool,
     ) -> tuple[dict, dict] | dict:
-        current_value = str(record.get("current_path", "") or "").strip()
-        current_path = self._resolve_product_image_path(current_value)
-        destination_existed = bool(current_path and current_path.is_file())
-        backup = None
-        if destination_existed and current_path is not None:
-            backup = current_path.with_name(
-                f"{current_path.name}.{uuid.uuid4().hex}.review-delete-backup"
-            )
-            shutil.copy2(current_path, backup)
-
+        # Do not unlink the active image while SQLite still references it.
+        # Clear and persist first, then let the normal unused-image cleanup
+        # re-read the catalog and decide whether the physical file is orphaned.
         product.image_path = ""
         product.image_hash = ""
         product.image_url = ""
+        product.image_etag = ""
+        product.image_last_modified = ""
+        product.image_checked_at = ""
+        created_paths: list[Path] = []
+        product.gallery_images = self._normalize_identifiable_gallery(
+            product,
+            created_paths,
+        )
         result = {
             "code": product.code,
             "action": "delete",
@@ -971,25 +1254,19 @@ class ImageReviewService:
 
         if persist:
             try:
-                if destination_existed and current_path is not None:
-                    current_path.unlink()
                 self.repository.update(product)
-            except (OSError, RuntimeError, ValueError):
-                if backup is not None and current_path is not None and backup.is_file():
-                    backup.replace(current_path)
+            except Exception:
+                self._cleanup_unused_images()
                 raise
-            if backup is not None:
-                backup.unlink(missing_ok=True)
             self._remove_all_staged_candidates(record)
+            self._cleanup_unused_images()
             return result
 
-        if destination_existed and current_path is not None:
-            current_path.unlink()
-
         return result, {
-            "destination": current_path,
-            "backup": backup,
-            "destination_existed": destination_existed,
+            "destination": None,
+            "backup": None,
+            "destination_existed": False,
+            "created_paths": created_paths,
         }
 
     def _apply_keep_selection(
@@ -998,22 +1275,46 @@ class ImageReviewService:
         product,
         persist: bool,
     ) -> tuple[dict, dict] | dict:
-        product.image_path = str(record.get("current_path", "") or "")
-        product.image_hash = str(record.get("current_hash", "") or "")
-        product.image_url = str(record.get("current_url", "") or "")
+        before = (
+            str(getattr(product, "image_path", "") or ""),
+            str(getattr(product, "image_hash", "") or ""),
+            str(getattr(product, "image_url", "") or ""),
+            str(getattr(product, "image_etag", "") or ""),
+            str(getattr(product, "image_last_modified", "") or ""),
+            str(getattr(product, "image_checked_at", "") or ""),
+            list(getattr(product, "gallery_images", []) or []),
+        )
+        created_paths: list[Path] = []
+        self._apply_kept_image_state(record, product, created_paths)
+        after = (
+            str(getattr(product, "image_path", "") or ""),
+            str(getattr(product, "image_hash", "") or ""),
+            str(getattr(product, "image_url", "") or ""),
+            str(getattr(product, "image_etag", "") or ""),
+            str(getattr(product, "image_last_modified", "") or ""),
+            str(getattr(product, "image_checked_at", "") or ""),
+            list(getattr(product, "gallery_images", []) or []),
+        )
         result = {
             "code": product.code,
             "action": "keep",
-            "changed": False,
+            "changed": before != after,
         }
         if persist:
-            self.repository.update(product)
+            try:
+                self.repository.update(product)
+            except Exception:
+                self._cleanup_unused_images()
+                raise
             self._remove_all_staged_candidates(record)
+            if result["changed"]:
+                self._cleanup_unused_images()
             return result
         return result, {
             "destination": None,
             "backup": None,
             "destination_existed": False,
+            "created_paths": created_paths,
         }
 
     def _resolve_selected_source(
@@ -1056,42 +1357,50 @@ class ImageReviewService:
         persist: bool,
         cleanup: bool,
     ) -> tuple[dict, dict]:
-        image_products_dir = resolve_data_path(IMAGE_PRODUCTS_DIR)
+        verified_source = identify_image_file(source)
+        image_hash = verified_source["image_hash"]
+        extension = verified_source["image_extension"]
         product_dir = product_image_directory(
             product.code,
-            root=image_products_dir,
+            root=resolve_data_path(IMAGE_PRODUCTS_DIR),
         )
         product_dir.mkdir(parents=True, exist_ok=True)
         safe_code = ImageDownloader._safe_code(str(product.code))
-        destination = product_dir / f"{safe_code}-01{source.suffix.lower()}"
-        destination_existed = destination.is_file()
-        backup = self._create_image_backup(destination, destination_existed)
-        temporary = destination.with_name(
-            f"{destination.name}.{uuid.uuid4().hex}.review-tmp"
+        destination, destination_existed = self._select_review_destination(
+            product_dir,
+            safe_code,
+            image_hash,
+            extension,
         )
+        if not destination_existed:
+            destination = self._publish_review_image(
+                source,
+                destination,
+                image_hash,
+                extension,
+            )
+
+        created_gallery_paths: list[Path] = []
         try:
-            shutil.copy2(source, temporary)
-            temporary.replace(destination)
             self._set_product_image(
                 record,
                 product,
                 action,
                 manual_path,
                 destination,
+                created_paths=created_gallery_paths,
             )
             if persist:
                 self.repository.update(product)
-        except (OSError, ValueError, RuntimeError):
-            temporary.unlink(missing_ok=True)
-            self._restore_image_backup(
-                destination,
-                backup,
-                destination_existed,
-            )
+        except Exception:
+            if persist:
+                self._cleanup_unused_images()
             raise
 
-        if persist and cleanup:
-            self._cleanup_persisted_image_selection(record, manual_path, backup)
+        if persist:
+            self._cleanup_persisted_image_selection(record, manual_path, None)
+            if cleanup:
+                self._cleanup_unused_images()
 
         return (
             {
@@ -1104,23 +1413,94 @@ class ImageReviewService:
             },
             {
                 "destination": destination,
-                "backup": backup,
+                "backup": None,
                 "destination_existed": destination_existed,
+                "created_paths": created_gallery_paths,
             },
         )
 
     @staticmethod
-    def _create_image_backup(
-        destination: Path,
-        destination_existed: bool,
-    ) -> Path | None:
-        if not destination_existed:
-            return None
-        backup = destination.with_name(
-            f"{destination.name}.{uuid.uuid4().hex}.review-backup"
+    def _image_matches(
+        path: Path,
+        image_hash: str,
+        extension: str,
+    ) -> bool:
+        try:
+            verified = identify_image_file(path)
+        except (OSError, ValueError):
+            return False
+        return (
+            file_extension_matches(path, verified["image_extension"])
+            and verified["image_extension"] == extension
+            and verified["image_hash"] == image_hash
         )
-        shutil.copy2(destination, backup)
-        return backup
+
+    @classmethod
+    def _select_review_destination(
+        cls,
+        product_dir: Path,
+        safe_code: str,
+        image_hash: str,
+        extension: str,
+    ) -> tuple[Path, bool]:
+        destination = product_dir / f"{safe_code}-01{extension}"
+        if destination.is_file():
+            if cls._image_matches(destination, image_hash, extension):
+                return destination, True
+            destination = product_dir / f"{safe_code}-01-{image_hash[:16]}{extension}"
+
+        if destination.is_file():
+            if cls._image_matches(destination, image_hash, extension):
+                return destination, True
+            destination = product_dir / (
+                f"{safe_code}-01-{image_hash[:16]}-{uuid.uuid4().hex[:8]}{extension}"
+            )
+
+        return destination, False
+
+    @classmethod
+    def _publish_review_image(
+        cls,
+        source: Path,
+        destination: Path,
+        image_hash: str,
+        extension: str,
+    ) -> Path:
+        """Verify a private temporary and publish without replacing existing bytes."""
+        temporary = destination.with_name(
+            f".{destination.name}.{uuid.uuid4().hex}.tmp"
+        )
+        temporary_created = False
+        try:
+            with source.open("rb") as source_stream, temporary.open("xb") as target:
+                temporary_created = True
+                shutil.copyfileobj(source_stream, target)
+            verified = identify_image_file(temporary)
+
+            is_valid = (
+                verified["image_hash"] == image_hash
+                and verified["image_extension"] == extension
+            )
+            if not is_valid:
+                raise ValueError("La imagen copiada no pasó la verificación de contenido.")
+
+            for _attempt in range(8):
+                try:
+                    os.link(temporary, destination)
+                except FileExistsError:
+                    if cls._image_matches(destination, image_hash, extension):
+                        return destination
+                    destination = destination.with_name(
+                        f"{destination.stem}-{uuid.uuid4().hex[:8]}{destination.suffix}"
+                    )
+                else:
+                    return destination
+            raise RuntimeError(
+                "No se pudo publicar la imagen sin sobrescribir otro archivo."
+            )
+        finally:
+            if temporary_created:
+                temporary.unlink(missing_ok=True)
 
     def _set_product_image(
         self,
@@ -1129,6 +1509,8 @@ class ImageReviewService:
         action: str,
         manual_path: str | Path | None,
         destination: Path,
+        *,
+        created_paths: list[Path] | None = None,
     ) -> None:
         image_hash = ImageDownloader.hash_file(destination)
         product.image_path = to_data_relative_path(destination)
@@ -1159,9 +1541,9 @@ class ImageReviewService:
             product.image_last_modified = ""
             product.image_checked_at = ""
 
-        product.gallery_images = normalize_product_gallery(
+        product.gallery_images = self._normalize_identifiable_gallery(
             product,
-            list(getattr(product, "gallery_images", []) or []),
+            created_paths,
         )
 
     def _cleanup_persisted_image_selection(
@@ -1183,34 +1565,16 @@ class ImageReviewService:
                 backup.unlink(missing_ok=True)
 
     @staticmethod
-    def _restore_image_backup(
-        destination: Path,
-        backup: Path | None,
-        destination_existed: bool,
-    ) -> None:
-        if backup is not None and backup.is_file():
-            backup.replace(destination)
-        elif not destination_existed and destination.is_file():
-            destination.unlink()
-
-    @staticmethod
     def _rollback_file_state(state: dict) -> None:
-        destination = state.get("destination")
+        # Do not unlink a newly-created canonical image by filename during a
+        # rollback: another catalog row/process may already reference it.
+        # The caller runs the whitelist-based cleaner only after DB rollback.
         backup = state.get("backup")
-        existed = bool(state.get("destination_existed", False))
-        if not isinstance(destination, Path):
-            return
-        try:
-            ImageReviewService._restore_image_backup(
-                destination,
-                backup if isinstance(backup, Path) else None,
-                existed,
-            )
-        except OSError:
-            pass
-        finally:
-            if backup is not None and isinstance(backup, Path):
+        if isinstance(backup, Path):
+            try:
                 backup.unlink(missing_ok=True)
+            except OSError:
+                LOGGER.exception("No se pudo eliminar un backup temporal de revisión.")
 
     def _stage_manual_image(
         self,
@@ -1220,18 +1584,50 @@ class ImageReviewService:
         source = self._resolve_manual_path(manual_path)
         if source is None or not source.is_file():
             raise ValueError("La imagen seleccionada no existe.")
-        if source.suffix.lower() not in IMAGE_EXTENSIONS:
+        try:
+            verified = identify_image_file(source)
+        except (OSError, ValueError) as error:
             raise ValueError(
-                "El archivo seleccionado no es una imagen compatible."
-            )
+                "El archivo seleccionado no contiene una imagen compatible e identificable."
+            ) from error
+
         STAGING_DIR.mkdir(parents=True, exist_ok=True)
         safe_code = ImageDownloader._safe_code(
             str(record.get("code", "image"))
         )
         destination = STAGING_DIR / (
-            f"{safe_code}-{uuid.uuid4().hex}{source.suffix.lower()}"
+            f"{safe_code}-{uuid.uuid4().hex}{verified['image_extension']}"
         )
-        shutil.copy2(source, destination)
+        temporary = destination.with_name(
+            f"{destination.name}.{uuid.uuid4().hex}.tmp"
+        )
+        temporary_created = False
+        try:
+            with source.open("rb") as source_stream, temporary.open("xb") as target:
+                temporary_created = True
+                shutil.copyfileobj(source_stream, target)
+            staged = identify_image_file(temporary)
+        except Exception:
+            if temporary_created:
+                temporary.unlink(missing_ok=True)
+            raise
+
+        matches_source = (
+            staged["image_hash"] == verified["image_hash"]
+            and staged["image_extension"] == verified["image_extension"]
+        )
+        if not matches_source:
+            if temporary_created:
+                temporary.unlink(missing_ok=True)
+            raise ValueError("La imagen temporal no pasó la verificación.")
+
+        try:
+            os.link(temporary, destination)
+        except FileExistsError as error:
+            raise RuntimeError("Ya existe el archivo temporal de revisión.") from error
+        finally:
+            if temporary_created:
+                temporary.unlink(missing_ok=True)
         return to_data_relative_path(destination)
 
     @staticmethod
@@ -1339,21 +1735,6 @@ class ImageReviewService:
                 continue
             return candidate
         return None
-
-    @staticmethod
-    def _remove_gallery_file(value: str) -> None:
-        candidate = ImageReviewService._resolve_gallery_path(value)
-        if candidate is None:
-            return
-        # Do not remove unified product images from a review dismissal: such
-        # a file may also be primary or still referenced by another gallery.
-        # Explicit unused-image cleanup is responsible for physical deletion.
-        try:
-            candidate.resolve().relative_to(
-                resolve_data_path(IMAGE_PRODUCTS_DIR).resolve()
-            )
-        except ValueError:
-            candidate.unlink(missing_ok=True)
 
     @staticmethod
     def _resolve_product_image_path(value: str) -> Path | None:

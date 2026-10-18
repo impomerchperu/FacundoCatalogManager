@@ -37,11 +37,17 @@ class SafeImageManager:
                 image_path = resolve_data_path(path)
                 if not image_path.is_file():
                     return self._error_result()
-                actual_hash = ImageDownloader.hash_file(image_path)
+                try:
+                    verified = ImageDownloader.verify_image_file(image_path)
+                except (OSError, ValueError) as error:
+                    return self._error_result(
+                        str(error) or "La imagen descargada no es identificable."
+                    )
+                actual_hash = verified["image_hash"]
                 expected_hash = str(result.get("image_hash", "") or "")
                 if not expected_hash or actual_hash != expected_hash:
                     return self._error_result("El hash descargado no coincide con el archivo.")
-                return result
+                return {**result, **verified}
 
             path = self.downloader.download(code, url)
             if not path:
@@ -51,9 +57,15 @@ class SafeImageManager:
             if not image_path.is_file():
                 return self._error_result()
 
+            try:
+                verified = ImageDownloader.verify_image_file(image_path)
+            except (OSError, ValueError) as error:
+                return self._error_result(
+                    str(error) or "La imagen descargada no es identificable."
+                )
             return {
                 "image_path": path,
-                "image_hash": ImageDownloader.hash_file(image_path),
+                "image_hash": verified["image_hash"],
             }
         except (
             OSError,

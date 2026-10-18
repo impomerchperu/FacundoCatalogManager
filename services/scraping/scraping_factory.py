@@ -104,6 +104,7 @@ class ScrapingFactory:
             image_manager = SafeImageManager(downloader=image_downloader)
             image_review_service = ImageReviewService(
                 repository=product_repository,
+                image_cleanup=cleanup_unused_images,
             )
             image_sync = ImageSync(
                 image_manager=image_manager,

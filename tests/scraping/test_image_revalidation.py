@@ -6,9 +6,10 @@ from pathlib import Path
 import pytest
 
 from scrapers.images.image_downloader import ImageDownloader
+from tests.scraping.image_test_utils import image_bytes
 
-JPEG_OLD = b"\xff\xd8\xffold\xff\xd9"
-JPEG_NEW = b"\xff\xd8\xffnew\xff\xd9"
+JPEG_OLD = image_bytes("JPEG", (10, 20, 30))
+JPEG_NEW = image_bytes("JPEG", (200, 180, 160))
 
 
 class FakeResponse:

@@ -906,29 +906,66 @@ def test_failed_refresh_keeps_only_a_verified_current_image(tmp_path):
     assert incoming.image_etag == '"old-etag"'
 
 
-def test_catalog_sync_runs_image_cleanup_after_gallery_reference_update():
+def test_catalog_sync_runs_image_cleanup_after_gallery_reference_update(
+    tmp_path,
+    monkeypatch,
+):
+    import scrapers.images.product_image_storage as storage_module
+
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "resolve_data_path",
+        lambda value: Path(value) if Path(value).is_absolute() else tmp_path / value,
+    )
+    products_root = tmp_path / "data" / "images" / "products"
+    monkeypatch.setattr(catalog_sync_module, "IMAGE_PRODUCTS_DIR", products_root)
+    monkeypatch.setattr(
+        storage_module,
+        "to_data_relative_path",
+        lambda value: str(Path(value).resolve().relative_to(tmp_path)).replace("\\", "/"),
+    )
+
+    old_primary = products_root / "FB-1507.webp"
+    legacy_gallery = tmp_path / "data" / "images" / "gallery" / "FB-1507"
+    product_dir = products_root / "FB-1507"
+    legacy_gallery.mkdir(parents=True)
+    product_dir.mkdir(parents=True)
+    primary_bytes = image_bytes("WEBP", (12, 34, 56))
+    scaled_bytes = image_bytes("WEBP", (56, 67, 78))
+    alternate_bytes = image_bytes("WEBP", (89, 90, 91))
+    old_primary.write_bytes(primary_bytes)
+    (legacy_gallery / "FB-1507-01.webp").write_bytes(scaled_bytes)
+    (legacy_gallery / "FB-1507-02.webp").write_bytes(primary_bytes)
+    (legacy_gallery / "FB-1507-03.webp").write_bytes(alternate_bytes)
+    canonical_primary = product_dir / "FB-1507-01.webp"
+    canonical_scaled = product_dir / "FB-1507-02.webp"
+    canonical_alternate = product_dir / "FB-1507-03.webp"
+    canonical_primary.write_bytes(primary_bytes)
+    canonical_scaled.write_bytes(scaled_bytes)
+    canonical_alternate.write_bytes(alternate_bytes)
+
     repository = InMemoryCatalogRepository()
     existing = Product("FB-1507", "Producto FB-1507", 10)
     existing.image_url = "https://site.test/uploads/FB-1507-2.webp"
     existing.image_path = "data/images/products/FB-1507.webp"
-    existing.image_hash = "primary-hash"
+    existing.image_hash = hashlib.sha256(primary_bytes).hexdigest()
     existing.gallery_images = [
         {
             "url": "https://site.test/uploads/FB-1507-2-scaled.webp",
             "image_path": "data/images/gallery/FB-1507/FB-1507-01.webp",
-            "image_hash": "scaled-hash",
+            "image_hash": hashlib.sha256(scaled_bytes).hexdigest(),
             "position": 1,
         },
         {
             "url": "https://site.test/uploads/FB-1507-2.webp",
             "image_path": "data/images/gallery/FB-1507/FB-1507-02.webp",
-            "image_hash": "primary-hash",
+            "image_hash": hashlib.sha256(primary_bytes).hexdigest(),
             "position": 2,
         },
         {
             "url": "https://site.test/uploads/FB-1507.webp",
             "image_path": "data/images/gallery/FB-1507/FB-1507-03.webp",
-            "image_hash": "alternate-hash",
+            "image_hash": hashlib.sha256(alternate_bytes).hexdigest(),
             "position": 3,
         },
     ]
@@ -937,24 +974,24 @@ def test_catalog_sync_runs_image_cleanup_after_gallery_reference_update():
     incoming = Product("FB-1507", "Producto FB-1507", 10)
     incoming.image_url = existing.image_url
     incoming.image_path = "data/images/products/FB-1507/FB-1507-01.webp"
-    incoming.image_hash = "primary-hash"
+    incoming.image_hash = hashlib.sha256(primary_bytes).hexdigest()
     incoming.gallery_images = [
         {
             "url": existing.image_url,
             "image_path": incoming.image_path,
-            "image_hash": "primary-hash",
+            "image_hash": incoming.image_hash,
             "position": 1,
         },
         {
             "url": "https://site.test/uploads/FB-1507-2-scaled.webp",
             "image_path": "data/images/products/FB-1507/FB-1507-02.webp",
-            "image_hash": "scaled-hash",
+            "image_hash": hashlib.sha256(scaled_bytes).hexdigest(),
             "position": 2,
         },
         {
             "url": "https://site.test/uploads/FB-1507.webp",
             "image_path": "data/images/products/FB-1507/FB-1507-03.webp",
-            "image_hash": "alternate-hash",
+            "image_hash": hashlib.sha256(alternate_bytes).hexdigest(),
             "position": 3,
         },
     ]
@@ -1073,7 +1110,29 @@ def test_catalog_sync_drops_unidentifiable_and_duplicate_legacy_gallery_entries(
     assert invalid_gallery.is_file()
 
 
-def test_catalog_sync_cleans_unused_images_after_new_image_bearing_product():
+def test_catalog_sync_cleans_unused_images_after_new_image_bearing_product(
+    tmp_path,
+    monkeypatch,
+):
+    import scrapers.images.product_image_storage as storage_module
+
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "resolve_data_path",
+        lambda value: Path(value) if Path(value).is_absolute() else tmp_path / value,
+    )
+    products_root = tmp_path / "data" / "images" / "products"
+    monkeypatch.setattr(catalog_sync_module, "IMAGE_PRODUCTS_DIR", products_root)
+    monkeypatch.setattr(
+        storage_module,
+        "to_data_relative_path",
+        lambda value: str(Path(value).resolve().relative_to(tmp_path)).replace("\\", "/"),
+    )
+    source = products_root / "P101" / "P101-01.png"
+    source.parent.mkdir(parents=True)
+    payload = image_bytes("PNG", (42, 53, 64))
+    source.write_bytes(payload)
+
     repository = InMemoryCatalogRepository()
     cleanup_snapshots = []
 
@@ -1085,7 +1144,7 @@ def test_catalog_sync_cleans_unused_images_after_new_image_bearing_product():
 
     incoming = Product("P101", "Nuevo producto", 10)
     incoming.image_path = "data/images/products/P101/P101-01.png"
-    incoming.image_hash = "validated-image-hash"
+    incoming.image_hash = hashlib.sha256(payload).hexdigest()
     incoming.gallery_images = [
         {
             "url": "https://site.test/P101.png",

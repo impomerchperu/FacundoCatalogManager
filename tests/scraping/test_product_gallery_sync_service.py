@@ -68,7 +68,7 @@ def test_product_gallery_sync_downloads_new_gallery_images(
         module,
         "resolve_data_path",
         lambda value: (
-            value
+            Path(value)
             if Path(value).is_absolute()
             else tmp_path / value
         ),
@@ -141,7 +141,7 @@ def test_primary_image_is_reused_and_all_gallery_files_share_product_folder(
         module,
         "resolve_data_path",
         lambda value: (
-            value
+            Path(value)
             if Path(value).is_absolute()
             else tmp_path / value
         ),

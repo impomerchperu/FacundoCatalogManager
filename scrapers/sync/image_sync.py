@@ -110,6 +110,29 @@ class ImageSync:
 
         candidates = self._normalized_image_candidates(product, image_url)
 
+        if existing and not review_enabled:
+            current_url = str(self._get(current_product, "image_url") or "").strip()
+            current_hash = str(self._get(current_product, "image_hash") or "").strip()
+            same_source = not current_url or current_url.casefold() == image_url.casefold()
+            hash_matches = (
+                not current_hash
+                or str(existing.get("image_hash", "") or "") == current_hash
+            )
+            if same_source and hash_matches:
+                product.image_url = image_url
+                product.image_path = str(existing.get("image_path", "") or "")
+                product.image_hash = str(existing.get("image_hash", "") or "")
+                product.image_etag = str(
+                    self._get(current_product, "image_etag") or ""
+                )
+                product.image_last_modified = str(
+                    self._get(current_product, "image_last_modified") or ""
+                )
+                product.image_checked_at = str(
+                    self._get(current_product, "image_checked_at") or ""
+                )
+                return product
+
         if existing and review_enabled:
             if self._has_authoritative_candidate(candidates, image_url):
                 image_data = self._process_image(
@@ -191,7 +214,10 @@ class ImageSync:
         # On a new local object or a changed accepted/authoritative source, force
         # a real download. The downloader publishes new bytes to a versioned file
         # rather than overwriting whatever SQLite may still reference.
-        should_download = not existing or url_changed
+        current_hash = str(self._get(current_product, "image_hash") or "").strip()
+        local_hash = str((existing or {}).get("image_hash", "") or "").strip()
+        local_hash_mismatch = bool(current_hash and local_hash and current_hash != local_hash)
+        should_download = not existing or url_changed or local_hash_mismatch
         image_data = self._process_image(
             product.code, image_url, force=should_download
         )

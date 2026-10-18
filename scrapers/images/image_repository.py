@@ -73,7 +73,14 @@ class ImageRepository:
             return None
         if not candidate.is_file() or candidate.suffix.lower() not in IMAGE_EXTENSIONS:
             return None
-        return self._image_record(candidate)
+        try:
+            verified = ImageDownloader.verify_image_file(candidate)
+        except (OSError, ValueError):
+            return None
+        return {
+            "image_path": to_data_relative_path(candidate),
+            "image_hash": verified["image_hash"],
+        }
 
     @staticmethod
     def _find_in_directory(

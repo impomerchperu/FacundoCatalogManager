@@ -842,6 +842,7 @@ class ImageReviewService:
                 "destination_existed": False,
             }
 
+        product.gallery_images = self._normalize_identifiable_gallery(product)
         for position, image in enumerate(product.gallery_images, start=1):
             image["position"] = position
 
@@ -885,17 +886,8 @@ class ImageReviewService:
     def _cleanup_selected_records(self, records: list[dict]) -> None:
         for record in records:
             if str(record.get("kind", "replacement")) == "gallery":
-                for option in list(record.get("candidate_options", []) or []):
-                    option_path = str(option.get("path", "") or "").strip()
-                    excluded = {
-                        str(value).strip()
-                        for value in list(
-                            record.get("excluded_options", []) or []
-                        )
-                        if str(value).strip()
-                    }
-                    if option_path in excluded:
-                        self._remove_gallery_file(option_path)
+                # Excluded gallery paths are cleaned by the centralized
+                # post-commit sweep after all catalog references are re-read.
                 continue
 
             self._remove_all_staged_candidates(record)
@@ -973,8 +965,17 @@ class ImageReviewService:
 
     def _normalize_identifiable_gallery(self, product) -> list[dict]:
         """Discard missing, corrupt, mislabeled, or byte-duplicate gallery items."""
-        primary_hash = str(getattr(product, "image_hash", "") or "").casefold()
-        primary_url = str(getattr(product, "image_url", "") or "").strip().casefold()
+        has_primary = bool(str(getattr(product, "image_path", "") or "").strip())
+        primary_hash = (
+            str(getattr(product, "image_hash", "") or "").casefold()
+            if has_primary
+            else ""
+        )
+        primary_url = (
+            str(getattr(product, "image_url", "") or "").strip().casefold()
+            if has_primary
+            else ""
+        )
         seen_hashes = {primary_hash} if primary_hash else set()
         seen_urls = {primary_url} if primary_url else set()
         valid: list[dict] = []
@@ -1068,10 +1069,7 @@ class ImageReviewService:
         product.image_etag = ""
         product.image_last_modified = ""
         product.image_checked_at = ""
-        product.gallery_images = normalize_product_gallery(
-            product,
-            list(getattr(product, "gallery_images", []) or []),
-        )
+        product.gallery_images = self._normalize_identifiable_gallery(product)
         result = {
             "code": product.code,
             "action": "delete",

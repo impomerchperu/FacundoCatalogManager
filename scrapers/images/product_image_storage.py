@@ -84,7 +84,7 @@ def _available_target(
     return target
 
 
-def store_image_in_product_group(
+def store_image_in_product_group(  # noqa: PLR0912
     code: object,
     source_path: str | Path,
     position: int,

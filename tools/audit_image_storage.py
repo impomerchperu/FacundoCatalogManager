@@ -65,6 +65,98 @@ def _image_reference_tables(connection: sqlite3.Connection) -> list[str]:
     ]
 
 
+def _collect_image_path_reference(
+    table: str,
+    values: dict[str, Any],
+    project_root: Path,
+) -> dict[str, Any] | None:
+    normalized = _normalized_db_path(values.get("image_path"), project_root)
+    if normalized is None:
+        return None
+    return {
+        "table": table,
+        "rowid": values.get("rowid"),
+        "code": str(values.get("code") or ""),
+        "reference_source": "image_path",
+        "image_path": str(values.get("image_path") or ""),
+        "resolved_path": normalized,
+        "image_hash": str(values.get("image_hash") or ""),
+        "image_url": str(values.get("image_url") or ""),
+    }
+
+
+def _collect_gallery_references(
+    *,
+    table: str,
+    rowid: Any,
+    code: str,
+    raw_gallery: Any,
+    project_root: Path,
+    errors: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    try:
+        gallery = json.loads(raw_gallery or "[]")
+    except (TypeError, json.JSONDecodeError) as error:
+        errors.append(
+            {
+                "table": table,
+                "rowid": rowid,
+                "code": code,
+                "source": "gallery_images",
+                "error": f"JSON inválido: {type(error).__name__}",
+            }
+        )
+        return []
+
+    if not isinstance(gallery, list):
+        errors.append(
+            {
+                "table": table,
+                "rowid": rowid,
+                "code": code,
+                "source": "gallery_images",
+                "error": "La galería no es una lista.",
+            }
+        )
+        return []
+
+    references: list[dict[str, Any]] = []
+    for position, item in enumerate(gallery, start=1):
+        if not isinstance(item, dict):
+            errors.append(
+                {
+                    "table": table,
+                    "rowid": rowid,
+                    "code": code,
+                    "source": "gallery_images",
+                    "position": position,
+                    "error": "Entrada de galería inválida.",
+                }
+            )
+            continue
+
+        raw_path = str(item.get("image_path", item.get("path", "")) or "").strip()
+        gallery_path = _normalized_db_path(raw_path, project_root)
+        if gallery_path is None:
+            continue
+        references.append(
+            {
+                "table": table,
+                "rowid": rowid,
+                "code": code,
+                "reference_source": "gallery_images",
+                "gallery_position": position,
+                "image_path": raw_path,
+                "resolved_path": gallery_path,
+                "image_hash": str(
+                    item.get("image_hash", item.get("hash", "")) or ""
+                ),
+                "image_url": str(item.get("url", "") or ""),
+            }
+        )
+    return references
+
+
 def _collect_db_references(
     db_path: Path,
     project_root: Path,
@@ -79,9 +171,6 @@ def _collect_db_references(
     try:
         for table in _image_reference_tables(connection):
             columns = _table_columns(connection, table)
-            if "image_path" not in columns:
-                continue
-
             selected = ["rowid", "image_path"]
             has_gallery = table == "products" and "gallery_images" in columns
             if has_gallery:
@@ -91,90 +180,28 @@ def _collect_db_references(
                     selected.append(optional)
 
             rows = connection.execute(
-                f"SELECT {', '.join(selected)} FROM {table}"
+                f"SELECT {', '.join(selected)} FROM {_quote_identifier(table)}"
             ).fetchall()
             for row in rows:
                 values = dict(zip(selected, row, strict=True))
-                code = str(values.get("code") or "")
-                rowid = values.get("rowid")
-                normalized = _normalized_db_path(
-                    values.get("image_path"),
+                image_reference = _collect_image_path_reference(
+                    table,
+                    values,
                     project_root,
                 )
-                if normalized is not None:
-                    references.append(
-                        {
-                            "table": table,
-                            "rowid": rowid,
-                            "code": code,
-                            "reference_source": "image_path",
-                            "image_path": str(values.get("image_path") or ""),
-                            "resolved_path": normalized,
-                            "image_hash": str(values.get("image_hash") or ""),
-                            "image_url": str(values.get("image_url") or ""),
-                        }
-                    )
+                if image_reference is not None:
+                    references.append(image_reference)
 
-                if not has_gallery:
-                    continue
-                raw_gallery = values.get("gallery_images")
-                try:
-                    gallery = json.loads(raw_gallery or "[]")
-                except (TypeError, json.JSONDecodeError) as error:
-                    errors.append(
-                        {
-                            "table": table,
-                            "rowid": rowid,
-                            "code": code,
-                            "source": "gallery_images",
-                            "error": f"JSON inválido: {type(error).__name__}",
-                        }
-                    )
-                    continue
-                if not isinstance(gallery, list):
-                    errors.append(
-                        {
-                            "table": table,
-                            "rowid": rowid,
-                            "code": code,
-                            "source": "gallery_images",
-                            "error": "La galería no es una lista.",
-                        }
-                    )
-                    continue
-                for position, item in enumerate(gallery, start=1):
-                    if not isinstance(item, dict):
-                        errors.append(
-                            {
-                                "table": table,
-                                "rowid": rowid,
-                                "code": code,
-                                "source": "gallery_images",
-                                "position": position,
-                                "error": "Entrada de galería inválida.",
-                            }
+                if has_gallery:
+                    references.extend(
+                        _collect_gallery_references(
+                            table=table,
+                            rowid=values.get("rowid"),
+                            code=str(values.get("code") or ""),
+                            raw_gallery=values.get("gallery_images"),
+                            project_root=project_root,
+                            errors=errors,
                         )
-                        continue
-                    raw_path = str(
-                        item.get("image_path", item.get("path", "")) or ""
-                    ).strip()
-                    gallery_path = _normalized_db_path(raw_path, project_root)
-                    if gallery_path is None:
-                        continue
-                    references.append(
-                        {
-                            "table": table,
-                            "rowid": rowid,
-                            "code": code,
-                            "reference_source": "gallery_images",
-                            "gallery_position": position,
-                            "image_path": raw_path,
-                            "resolved_path": gallery_path,
-                            "image_hash": str(
-                                item.get("image_hash", item.get("hash", "")) or ""
-                            ),
-                            "image_url": str(item.get("url", "") or ""),
-                        }
                     )
     finally:
         connection.close()
@@ -446,7 +473,7 @@ def _print_group(group: list[dict[str, Any]]) -> None:
         )
 
 
-def print_report(report: dict[str, Any], max_details: int = 100) -> None:
+def _print_overview(report: dict[str, Any]) -> None:
     print(f"Proyecto: {report['project_root']}")
     print(f"DB: {report['db_path']}")
     for root in report["roots"]:
@@ -461,17 +488,27 @@ def print_report(report: dict[str, Any], max_details: int = 100) -> None:
         print(f"  {table}: {count}")
     for source, count in report.get("db_references_by_source", {}).items():
         print(f"  Origen {source}: {count}")
-    if report.get("reference_errors"):
-        print(
-            "ADVERTENCIA: hay referencias de galería que no pudieron auditarse: "
-            f"{len(report['reference_errors'])}"
-        )
-        for error in report["reference_errors"][:max_details]:
-            print(
-                f"  - [{error.get('table')}#{error.get('rowid')}] "
-                f"{error.get('code')}: {error.get('error')}"
-            )
 
+
+def _print_reference_errors(
+    report: dict[str, Any],
+    max_details: int,
+) -> None:
+    errors = report.get("reference_errors", [])
+    if not errors:
+        return
+    print(
+        "ADVERTENCIA: hay referencias de galería que no pudieron auditarse: "
+        f"{len(errors)}"
+    )
+    for error in errors[:max_details]:
+        print(
+            f"  - [{error.get('table')}#{error.get('rowid')}] "
+            f"{error.get('code')}: {error.get('error')}"
+        )
+
+
+def _print_summary_counts(report: dict[str, Any]) -> None:
     print(f"Archivos referenciados: {report['referenced_files']}")
     print(f"Archivos sin referencia DB: {report['orphan_files']}")
     print(
@@ -507,39 +544,77 @@ def print_report(report: dict[str, Any], max_details: int = 100) -> None:
     print(f"Rutas DB repetidas: {len(report['db_path_duplicates'])}")
     print(f"URLs DB repetidas: {len(report['db_url_duplicates'])}")
 
-    if report["missing_reference_details"]:
-        print("\nREFERENCIAS INEXISTENTES:")
-        for reference in report["missing_reference_details"][:max_details]:
-            print(
-                f"  - [{reference['table']}#{reference['rowid']}] "
-                f"{reference['code']}: {reference['image_path']}"
-            )
 
-    if report["hash_mismatch_details"]:
-        print("\nHASHES DISTINTOS:")
-        for reference in report["hash_mismatch_details"][:max_details]:
-            print(
-                f"  - [{reference['table']}#{reference['rowid']}] "
-                f"{reference['code']}: {reference['image_path']}"
-            )
+def _print_missing_references(
+    report: dict[str, Any],
+    max_details: int,
+) -> None:
+    references = report["missing_reference_details"]
+    if not references:
+        return
+    print("\\nREFERENCIAS INEXISTENTES:")
+    for reference in references[:max_details]:
+        print(
+            f"  - [{reference['table']}#{reference['rowid']}] "
+            f"{reference['code']}: {reference['image_path']}"
+        )
 
-    if report["cross_root_duplicate_groups"]:
-        print("\nDUPLICADOS ENTRE ROOTS:")
-        for group in report["cross_root_duplicate_groups"][:max_details]:
-            _print_group(group)
 
-    if report["orphan_file_details"]:
-        print("\nARCHIVOS SIN REFERENCIA DB:")
-        for record in report["orphan_file_details"][:max_details]:
-            print(
-                f"  - {record['path']} "
-                f"({record['size']} bytes, sha256={record['sha256']})"
-            )
-        if len(report["orphan_file_details"]) > max_details:
-            print(
-                f"  ... {len(report['orphan_file_details']) - max_details} "
-                "más; use --json para el reporte completo."
-            )
+def _print_hash_mismatches(
+    report: dict[str, Any],
+    max_details: int,
+) -> None:
+    references = report["hash_mismatch_details"]
+    if not references:
+        return
+    print("\\nHASHES DISTINTOS:")
+    for reference in references[:max_details]:
+        print(
+            f"  - [{reference['table']}#{reference['rowid']}] "
+            f"{reference['code']}: {reference['image_path']}"
+        )
+
+
+def _print_cross_root_duplicates(
+    report: dict[str, Any],
+    max_details: int,
+) -> None:
+    groups = report["cross_root_duplicate_groups"]
+    if not groups:
+        return
+    print("\\nDUPLICADOS ENTRE ROOTS:")
+    for group in groups[:max_details]:
+        _print_group(group)
+
+
+def _print_orphan_files(
+    report: dict[str, Any],
+    max_details: int,
+) -> None:
+    records = report["orphan_file_details"]
+    if not records:
+        return
+    print("\\nARCHIVOS SIN REFERENCIA DB:")
+    for record in records[:max_details]:
+        print(
+            f"  - {record['path']} "
+            f"({record['size']} bytes, sha256={record['sha256']})"
+        )
+    if len(records) > max_details:
+        print(
+            f"  ... {len(records) - max_details} "
+            "más; use --json para el reporte completo."
+        )
+
+
+def print_report(report: dict[str, Any], max_details: int = 100) -> None:
+    _print_overview(report)
+    _print_reference_errors(report, max_details)
+    _print_summary_counts(report)
+    _print_missing_references(report, max_details)
+    _print_hash_mismatches(report, max_details)
+    _print_cross_root_duplicates(report, max_details)
+    _print_orphan_files(report, max_details)
 
 
 def _json_safe(report: dict[str, Any]) -> dict[str, Any]:

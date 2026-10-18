@@ -879,7 +879,7 @@ def test_failed_image_download_clears_broken_local_reference(tmp_path):
 
 def test_failed_refresh_keeps_only_a_verified_current_image(tmp_path):
     current_file = tmp_path / "FB-9912.jpg"
-    current_file.write_bytes(b"\\xff\\xd8\\xffimage\\xff\\xd9")
+    current_file.write_bytes(b"\xff\xd8\xffimage\xff\xd9")
 
     existing = Product("FB-9912", "Producto", 10)
     existing.image_url = "https://example.test/FB-9912-old.jpg"

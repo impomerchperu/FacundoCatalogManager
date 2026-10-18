@@ -73,7 +73,7 @@ class ImageDownloader:
         if address is not None and not address.is_global:
             raise ValueError("La URL de imagen no puede apuntar a una IP privada o reservada.")
 
-    def _request(self, url: str, headers: dict[str, str]):
+    def _request(self, url: str, headers: dict[str, str]) -> requests.Response:
         self._validate_url(url)
         return self._session().get(
             url,
@@ -92,7 +92,7 @@ class ImageDownloader:
             raise ValueError("La descarga no puede degradarse de HTTPS a HTTP.")
 
     @staticmethod
-    def _read_response_body(response) -> bytes:
+    def _read_response_body(response: requests.Response) -> bytes:
         headers = getattr(response, "headers", {}) or {}
         length = str(headers.get("Content-Length", "") or "").strip()
         if length.isdigit() and int(length) > _MAX_IMAGE_BYTES:
@@ -148,7 +148,7 @@ class ImageDownloader:
         raise ValueError("La respuesta no contiene una imagen raster compatible.")
 
     @staticmethod
-    def _response_metadata(response, checked_at: str) -> dict[str, str]:
+    def _response_metadata(response: requests.Response, checked_at: str) -> dict[str, str]:
         headers = getattr(response, "headers", {}) or {}
         return {
             "image_etag": str(headers.get("ETag", "") or "").strip(),
@@ -158,7 +158,7 @@ class ImageDownloader:
 
     def _get_with_retries(  # noqa: PLR0912
         self, url: str, headers: dict[str, str]
-    ):
+    ) -> requests.Response:
         last_error = None
         for attempt in range(self.max_retries):
             response = None

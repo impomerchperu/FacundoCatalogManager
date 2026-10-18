@@ -7,7 +7,6 @@ import pytest
 
 from scrapers.images.image_downloader import ImageDownloader
 
-
 JPEG_OLD = b"\xff\xd8\xffold\xff\xd9"
 JPEG_NEW = b"\xff\xd8\xffnew\xff\xd9"
 

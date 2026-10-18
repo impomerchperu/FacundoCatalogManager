@@ -4,11 +4,11 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
+from config.runtime_paths import resolve_data_path
 from models.scraping.detail_description_policy import (
     is_complete_detail,
     normalize_detail_text,
 )
-from config.runtime_paths import resolve_data_path
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_name_normalizer import (
     merge_category_names,

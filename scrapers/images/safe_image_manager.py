@@ -1,7 +1,8 @@
+from typing import Any, cast
+
 import requests
 
 from config.runtime_paths import resolve_data_path
-
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_repository import ImageRepository
 
@@ -26,7 +27,10 @@ class SafeImageManager:
         try:
             download_result = getattr(self.downloader, "download_result", None)
             if callable(download_result):
-                result = dict(download_result(code, url) or {})
+                raw_result = download_result(code, url)
+                if not isinstance(raw_result, dict):
+                    return self._error_result()
+                result = cast(dict[str, Any], raw_result)
                 path = str(result.get("image_path", "") or "")
                 if not path:
                     return self._error_result()

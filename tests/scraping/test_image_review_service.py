@@ -233,7 +233,7 @@ def test_manual_image_selection_clears_remote_source_and_http_validators(
     monkeypatch,
     tmp_path,
 ):
-    staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
+    _, products_dir = _patch_paths(monkeypatch, tmp_path)
     product_dir = products_dir / "FB-101"
     product_dir.mkdir(parents=True)
     current_path = product_dir / "FB-101-01.jpg"

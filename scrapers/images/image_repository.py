@@ -23,7 +23,7 @@ class ImageRepository:
         self,
         code: str,
         image_url: str | None = None,
-    ) -> dict | None:
+    ) -> dict[str, str] | None:
         safe_code = safe_image_code(code)
         if not safe_code:
             return None
@@ -60,7 +60,7 @@ class ImageRepository:
             }
         return self._image_record(legacy)
 
-    def find_path(self, image_path: str | Path) -> dict | None:
+    def find_path(self, image_path: str | Path) -> dict[str, str] | None:
         """Resolve exactly the image referenced by the catalog, not an older sibling."""
         raw_path = str(image_path or "").strip()
         if not raw_path:

@@ -99,11 +99,13 @@ class ImageSync:
         db_path = str(self._get(current_product, "image_path") or "").strip()
         path_finder = getattr(self.image_repository, "find_path", None)
         if db_path and callable(path_finder):
-            existing = path_finder(db_path)
+            existing = self._as_image_record(path_finder(db_path))
         elif db_path:
-            existing = self.image_repository.find(product.code)
+            existing = self._as_image_record(
+                self.image_repository.find(product.code)
+            )
         else:
-            existing = (
+            existing = self._as_image_record(
                 self.image_repository.find(product.code)
                 if review_enabled
                 else self.image_repository.find(product.code, image_url)
@@ -168,7 +170,7 @@ class ImageSync:
                 revalidate = getattr(self.image_downloader, "revalidate_primary", None)
                 if callable(revalidate):
                     try:
-                        result = revalidate(
+                        result = self._as_image_record(revalidate(
                             str(product.code),
                             image_url,
                             current_path=str(existing.get("image_path", "") or ""),
@@ -177,7 +179,7 @@ class ImageSync:
                             last_modified=str(
                                 self._get(current_product, "image_last_modified") or ""
                             ),
-                        )
+                        ))
                     except (OSError, ValueError, RuntimeError, requests.exceptions.RequestException):
                         return self._preserve_current_image(
                             product, current_product, existing, current_url
@@ -241,12 +243,16 @@ class ImageSync:
         product.image_hash = ""
         return product
 
-    def _process_image(self, code: str, url: str, *, force: bool) -> dict:
+    def _process_image(
+        self, code: str, url: str, *, force: bool
+    ) -> dict[str, Any]:
         """Keep compatibility with injected legacy managers lacking force=... ."""
         if not force:
-            return self.image_manager.process(code, url)
+            return cast(dict[str, Any], self.image_manager.process(code, url))
         try:
-            return self.image_manager.process(code, url, force=True)
+            return cast(
+                dict[str, Any], self.image_manager.process(code, url, force=True)
+            )
         except TypeError as error:
             if "force" not in str(error) or "keyword" not in str(error):
                 raise
@@ -267,7 +273,9 @@ class ImageSync:
         return 0 <= age < max_age_seconds
 
     @staticmethod
-    def _apply_image_data(product, image_url: str, image_data: dict):
+    def _apply_image_data(
+        product, image_url: str, image_data: dict[str, Any]
+    ):
         product.image_url = image_url
         product.image_path = str(image_data.get("image_path", "") or "")
         product.image_hash = str(image_data.get("image_hash", "") or "")
@@ -561,6 +569,12 @@ class ImageSync:
             code.casefold(): repository.get_by_code(code)
             for code in codes
         }
+
+    @staticmethod
+    def _as_image_record(value: object) -> dict[str, Any] | None:
+        if not isinstance(value, dict):
+            return None
+        return cast(dict[str, Any], value)
 
     @staticmethod
     def _get(product, field):

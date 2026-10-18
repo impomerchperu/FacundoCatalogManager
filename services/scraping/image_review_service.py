@@ -1142,6 +1142,10 @@ class ImageReviewService:
                 record,
                 str(manual_path or ""),
             )
+        elif action == "manual":
+            # A local file has no trustworthy remote representation to revalidate.
+            # Leaving the old source URL would let the next full sync overwrite it.
+            product.image_url = ""
         else:
             product.image_url = str(record.get("current_url", "") or "")
 

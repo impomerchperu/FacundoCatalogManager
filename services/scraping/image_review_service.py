@@ -1145,6 +1145,16 @@ class ImageReviewService:
         else:
             product.image_url = str(record.get("current_url", "") or "")
 
+        # Validators are bound to the exact source representation. A reviewed
+        # alternate image must not inherit the old URL's ETag/Last-Modified.
+        if (
+            image_hash != str(record.get("current_hash", "") or "")
+            or product.image_url != str(record.get("current_url", "") or "")
+        ):
+            product.image_etag = ""
+            product.image_last_modified = ""
+            product.image_checked_at = ""
+
         product.gallery_images = normalize_product_gallery(
             product,
             list(getattr(product, "gallery_images", []) or []),

@@ -35,7 +35,10 @@ class ImageSync:
         result = self.sync_product(product, old_product)
         return {
             "image_path": getattr(result, "image_path", ""),
-            "im    def process(self, products, *, refresh_remote_images: bool = False):
+            "image_hash": getattr(result, "image_hash", ""),
+        }
+
+    def process(self, products, *, refresh_remote_images: bool = False):
         items = list(products or [])
         if not items:
             return []
@@ -259,9 +262,6 @@ class ImageSync:
         product.image_checked_at = str(
             ImageSync._get(current_product, "image_checked_at") or ""
         )
-        return product
-
-image_data.get("image_hash", "")
         return product
 
     def _stage_changed_image(  # noqa: PLR0912

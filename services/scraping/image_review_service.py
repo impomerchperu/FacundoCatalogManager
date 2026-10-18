@@ -99,9 +99,9 @@ class ImageReviewService:
             changed = False
             for record in records:
                 if (
-                record.get("batch_id") == batch_id
-                and record.get("status") == "staged"
-            ):
+                    record.get("batch_id") == batch_id
+                    and record.get("status") == "staged"
+                ):
                     if str(record.get("kind", "replacement")) != "gallery":
                         self._remove_all_staged_candidates(record)
                     changed = True

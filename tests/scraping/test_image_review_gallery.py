@@ -185,6 +185,7 @@ def test_image_review_defers_gallery_dismissal_until_batch_finishes(
             },
         ],
     )
+
     def cleanup_unreferenced():
         references = {
             Path(module.resolve_data_path(image.get("image_path", ""))).resolve()
@@ -290,6 +291,7 @@ def test_image_review_excluded_gallery_candidate_is_removed_only_on_apply(
             },
         ],
     )
+
     def cleanup_unreferenced():
         references = {
             Path(module.resolve_data_path(image.get("image_path", ""))).resolve()

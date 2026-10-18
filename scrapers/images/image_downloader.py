@@ -286,7 +286,6 @@ class ImageDownloader:
                 # Same-directory hard link is atomic and fails rather than
                 # replacing a path that another worker might already reference.
                 os.link(temporary, target)
-                return target
             except FileExistsError:
                 try:
                     verified = cls.verify_image_file(target)

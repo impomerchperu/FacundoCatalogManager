@@ -39,7 +39,7 @@ def test_image_downloader_saves_image(
         "http://image.jpg",
     )
 
-    file = Path(tmp_path) / "P001.jpg"
+    file = Path(tmp_path) / "P001" / "P001-01.jpg"
 
     assert result == file.as_posix()
     assert file.exists()
@@ -73,7 +73,7 @@ def test_image_downloader_stages_image_without_overwriting_canonical_file(
     assert len(staged_files) == 1
     assert Path(result).name == staged_files[0].name
     assert staged_files[0].read_bytes() == b"staged-image-data"
-    assert not (tmp_path / "products" / "P004.jpg").exists()
+    assert not (tmp_path / "products" / "P004" / "P004-01.jpg").exists()
 
 
 def test_image_downloader_uses_custom_http_settings(tmp_path, monkeypatch):
@@ -144,7 +144,7 @@ def test_image_downloader_retries_transient_failures(tmp_path, monkeypatch):
 
     result = downloader.download("P003", "http://image.jpg")
 
-    assert result == (Path(tmp_path) / "P003.jpg").as_posix()
+    assert result == (Path(tmp_path) / "P003" / "P003-01.jpg").as_posix()
     assert len(calls) == 3
 
 

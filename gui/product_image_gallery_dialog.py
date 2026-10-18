@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from config.runtime_paths import resolve_data_path
 from gui.product_table import ProductImageDelegate
 from models.product import Product
+from models.product_image_gallery import normalize_product_gallery
 
 
 class _GalleryThumbnailLabel(QLabel):
@@ -190,39 +191,7 @@ class ProductImageGalleryDialog(QDialog):
         product: Product,
         gallery_images: list[dict[str, Any]] | None,
     ) -> list[dict[str, Any]]:
-        source = (
-            gallery_images
-            if gallery_images is not None
-            else list(product.gallery_images or [])
-        )
-        normalized: list[dict[str, Any]] = []
-        for image in source:
-            if not isinstance(image, dict):
-                continue
-            image_path = str(
-                image.get("image_path") or image.get("path") or ""
-            ).strip()
-            if not image_path:
-                continue
-            normalized.append(
-                {
-                    **image,
-                    "image_path": image_path,
-                    "position": len(normalized) + 1,
-                }
-            )
-
-        if not normalized and product.image_path:
-            normalized.append(
-                {
-                    "url": product.image_url,
-                    "image_path": product.image_path,
-                    "image_hash": product.image_hash,
-                    "position": 1,
-                    "source": "primary",
-                }
-            )
-        return normalized
+        return normalize_product_gallery(product, gallery_images)
 
     def _render(self) -> None:
         self._render_main_image()

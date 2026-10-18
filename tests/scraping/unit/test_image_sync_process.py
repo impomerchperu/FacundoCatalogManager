@@ -12,7 +12,7 @@ class FakeImageManager:
         image_url,
     ):
         return {
-            "image_path": "data/images/products/FB-1812.webp",
+            "image_path": "data/images/products/FB-1812/FB-1812-01.webp",
             "image_hash": "hash123",
         }
 
@@ -37,7 +37,7 @@ def test_image_sync_processes_products():
 
     assert len(result) == 1
     assert Path(result[0].image_path) == Path(
-        "data/images/products/FB-1812.webp"
+        "data/images/products/FB-1812/FB-1812-01.webp"
     )
     assert result[0].image_hash == "hash123"
 
@@ -86,7 +86,7 @@ def test_image_sync_processes_products_in_input_order_with_bounded_workers(
     class FakeManager:
         def process(self, code, image_url):
             return {
-                "image_path": f"data/images/products/{code}.webp",
+                "image_path": f"data/images/products/{code}/{code}-01.webp",
                 "image_hash": code,
             }
 

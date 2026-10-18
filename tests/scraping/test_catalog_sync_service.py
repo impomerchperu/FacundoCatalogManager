@@ -1067,3 +1067,36 @@ def test_catalog_sync_drops_unidentifiable_and_duplicate_legacy_gallery_entries(
     assert duplicate_gallery.is_file()
     assert invalid_gallery.is_file()
 
+def test_catalog_sync_cleans_unused_images_after_new_image_bearing_product():
+    repository = InMemoryCatalogRepository()
+    cleanup_snapshots = []
+
+    def cleanup():
+        stored = repository.get("P101")
+        assert stored is not None
+        cleanup_snapshots.append(stored.image_path)
+        return [{"path": "legacy/orphan.webp"}]
+
+    incoming = Product("P101", "Nuevo producto", 10)
+    incoming.image_path = "data/images/products/P101/P101-01.png"
+    incoming.image_hash = "validated-image-hash"
+    incoming.gallery_images = [
+        {
+            "url": "https://site.test/P101.png",
+            "image_path": incoming.image_path,
+            "image_hash": incoming.image_hash,
+            "position": 1,
+            "source": "primary",
+        }
+    ]
+
+    service = CatalogSyncService(
+        repository,
+        ProductDiffService(),
+        image_cleanup=cleanup,
+    )
+    result = service.synchronize([incoming])
+
+    assert result.created == 1
+    assert cleanup_snapshots == ["data/images/products/P101/P101-01.png"]
+

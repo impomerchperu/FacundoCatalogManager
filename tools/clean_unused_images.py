@@ -109,11 +109,22 @@ def _iter_image_files(root: Path) -> list[Path]:
     for path in sorted(root.rglob("*")):
         if not path.is_file():
             continue
-        # Include supported image suffixes even when their bytes are corrupt,
-        # so unreferenced bad files can be cleaned after catalog commit. Also
-        # detect decodable images whose suffix is missing or incorrect.
+        parts = {part.casefold() for part in path.parts}
+        name = path.name.casefold()
         if (
-            path.suffix.lower() in IMAGE_EXTENSIONS
+            ".staging" in parts
+            or name.endswith((".tmp", ".review-tmp", ".review-backup", ".review-delete-backup"))
+        ):
+            continue
+
+        # Product/gallery directories are dedicated to catalog image assets:
+        # include unknown/corrupt suffixes too, so an unidentifiable legacy
+        # object is removed after its DB reference has been retired. The DB
+        # allowlist below still protects every path referenced by the catalog.
+        catalog_storage_path = bool({"products", "gallery"} & parts)
+        if (
+            catalog_storage_path
+            or path.suffix.lower() in IMAGE_EXTENSIONS
             or is_identifiable_image_file(path)
         ):
             files.append(path.resolve())

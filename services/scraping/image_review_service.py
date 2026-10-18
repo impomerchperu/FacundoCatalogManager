@@ -19,6 +19,7 @@ from scrapers.images.image_paths import (
     IMAGE_EXTENSIONS,
     IMAGE_GALLERY_DIR,
     IMAGE_PRODUCTS_DIR,
+    product_image_directory,
 )
 
 QUEUE_PATH = DATA_DIR / "image_review_queue.json"
@@ -1055,11 +1056,13 @@ class ImageReviewService:
         cleanup: bool,
     ) -> tuple[dict, dict]:
         image_products_dir = resolve_data_path(IMAGE_PRODUCTS_DIR)
-        image_products_dir.mkdir(parents=True, exist_ok=True)
-        destination = image_products_dir / (
-            f"{ImageDownloader._safe_code(str(product.code))}"
-            f"{source.suffix.lower()}"
+        product_dir = product_image_directory(
+            product.code,
+            root=image_products_dir,
         )
+        product_dir.mkdir(parents=True, exist_ok=True)
+        safe_code = ImageDownloader._safe_code(str(product.code))
+        destination = product_dir / f"{safe_code}-01{source.suffix.lower()}"
         destination_existed = destination.is_file()
         backup = self._create_image_backup(destination, destination_existed)
         temporary = destination.with_name(
@@ -1304,18 +1307,32 @@ class ImageReviewService:
         if not raw:
             return None
         candidate = resolve_data_path(raw)
-        try:
-            candidate.resolve().relative_to(
-                resolve_data_path(IMAGE_GALLERY_DIR).resolve()
-            )
-        except ValueError:
-            return None
-        return candidate
+        candidate_resolved = candidate.resolve()
+        allowed_roots = (
+            resolve_data_path(IMAGE_GALLERY_DIR).resolve(),
+            resolve_data_path(IMAGE_PRODUCTS_DIR).resolve(),
+        )
+        for root in allowed_roots:
+            try:
+                candidate_resolved.relative_to(root)
+            except ValueError:
+                continue
+            return candidate
+        return None
 
     @staticmethod
     def _remove_gallery_file(value: str) -> None:
         candidate = ImageReviewService._resolve_gallery_path(value)
-        if candidate is not None:
+        if candidate is None:
+            return
+        # Do not remove unified product images from a review dismissal: such
+        # a file may also be primary or still referenced by another gallery.
+        # Explicit unused-image cleanup is responsible for physical deletion.
+        try:
+            candidate.resolve().relative_to(
+                resolve_data_path(IMAGE_PRODUCTS_DIR).resolve()
+            )
+        except ValueError:
             candidate.unlink(missing_ok=True)
 
     @staticmethod

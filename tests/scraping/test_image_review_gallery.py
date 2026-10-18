@@ -274,8 +274,8 @@ def test_image_review_excluded_gallery_candidate_is_removed_only_on_apply(
     products_dir.mkdir(parents=True)
     first = gallery_dir / "FB-4010-01.webp"
     second = gallery_dir / "FB-4010-02.webp"
-    first.write_bytes(b"first")
-    second.write_bytes(b"second")
+    first.write_bytes(image_bytes("WEBP", (10, 20, 30)))
+    second.write_bytes(image_bytes("WEBP", (40, 50, 60)))
 
     current = Product(
         code="FB-4010",

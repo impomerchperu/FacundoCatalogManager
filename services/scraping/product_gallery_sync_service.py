@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import suppress
 from typing import Any, cast
 
 from bs4 import BeautifulSoup
@@ -199,10 +200,8 @@ class ProductGallerySyncService:
                         continue
                     finally:
                         if downloaded_path is not None:
-                            try:
+                            with suppress(OSError):
                                 downloaded_path.unlink(missing_ok=True)
-                            except OSError:
-                                pass
 
                 if path is None or not path.is_file():
                     continue
@@ -244,10 +243,8 @@ class ProductGallerySyncService:
                         }
                     )
         finally:
-            try:
+            with suppress(OSError):
                 staging_dir.rmdir()
-            except OSError:
-                pass
 
         if not gallery_images:
             gallery_images = self._canonicalize_existing_gallery(

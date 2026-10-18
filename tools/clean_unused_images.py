@@ -27,6 +27,43 @@ def _is_within(path: Path, root: Path) -> bool:
     return True
 
 
+def _gallery_image_paths(
+    raw_gallery: object,
+    project_root: Path,
+) -> set[Path]:
+    if raw_gallery in (None, ""):
+        return set()
+    try:
+        gallery_images = json.loads(raw_gallery)
+    except (TypeError, json.JSONDecodeError) as error:
+        # A broken gallery record may hide an active file reference. Fail closed.
+        raise RuntimeError(
+            "No se puede limpiar imágenes: gallery_images no es JSON válido."
+        ) from error
+    if not isinstance(gallery_images, list):
+        raise TypeError(
+            "No se puede limpiar imágenes: gallery_images no es una lista."
+        )
+
+    paths: set[Path] = set()
+    for image in gallery_images:
+        if not isinstance(image, dict):
+            raise TypeError(
+                "No se puede limpiar imágenes: hay una entrada de galería inválida."
+            )
+        gallery_path = str(
+            image.get("image_path", image.get("path", "")) or ""
+        ).strip()
+        if gallery_path:
+            paths.add(
+                _resolve_project_path(
+                    gallery_path.replace("\\", "/"),
+                    project_root,
+                )
+            )
+    return paths
+
+
 def _active_image_paths(db_path: Path, project_root: Path) -> set[Path]:
     if not db_path.is_file():
         raise FileNotFoundError(f"Base de datos no encontrada: {db_path}")
@@ -43,61 +80,24 @@ def _active_image_paths(db_path: Path, project_root: Path) -> set[Path]:
             )
 
         gallery_column = "gallery_images" if "gallery_images" in columns else None
-        select_columns = ["image_path"]
-        if gallery_column is not None:
-            select_columns.append(gallery_column)
+        selected_columns = ["image_path"]
+        if gallery_column:
+            selected_columns.append(gallery_column)
         rows = connection.execute(
-            "SELECT " + ", ".join(select_columns) + " FROM products"
+            "SELECT " + ", ".join(selected_columns) + " FROM products"
         ).fetchall()
     finally:
         connection.close()
 
     paths: set[Path] = set()
     for row in rows:
-        raw_path = row[0]
-        value = str(raw_path or "").strip()
+        value = str(row[0] or "").strip()
         if value:
             paths.add(
-                _resolve_project_path(
-                    value.replace("\\", "/"),
-                    project_root,
-                )
+                _resolve_project_path(value.replace("\\", "/"), project_root)
             )
-
-        if gallery_column is None or len(row) < 2:
-            continue
-        raw_gallery = row[1]
-        if raw_gallery in (None, ""):
-            gallery_images = []
-        else:
-            try:
-                gallery_images = json.loads(raw_gallery)
-            except (TypeError, json.JSONDecodeError) as error:
-                # A broken gallery record may hide an active file reference.
-                # Fail closed: callers must not delete anything from an
-                # incomplete reference inventory.
-                raise RuntimeError(
-                    "No se puede limpiar imágenes: gallery_images no es JSON válido."
-                ) from error
-        if not isinstance(gallery_images, list):
-            raise RuntimeError(
-                "No se puede limpiar imágenes: gallery_images no es una lista."
-            )
-        for image in gallery_images:
-            if not isinstance(image, dict):
-                raise RuntimeError(
-                    "No se puede limpiar imágenes: hay una entrada de galería inválida."
-                )
-            gallery_path = str(
-                image.get("image_path", image.get("path", "")) or ""
-            ).strip()
-            if gallery_path:
-                paths.add(
-                    _resolve_project_path(
-                        gallery_path.replace("\\", "/"),
-                        project_root,
-                    )
-                )
+        if gallery_column and len(row) > 1:
+            paths.update(_gallery_image_paths(row[1], project_root))
     return paths
 
 

@@ -49,3 +49,38 @@ def test_product_table_gallery_preserves_multiple_images():
         "https://site.test/one.webp",
         "https://site.test/two.webp",
     ]
+
+
+
+def test_product_table_deduplicates_primary_referenced_by_legacy_gallery():
+    product = Product(
+        code="FB-1507",
+        name="Producto con imagen duplicada",
+        image_url="https://site.test/FB-1507.webp",
+        image_path="data/images/products/FB-1507/FB-1507-01.webp",
+        image_hash="same-content",
+        gallery_images=[
+            {
+                "url": "https://site.test/FB-1507.webp",
+                "image_path": "data/images/gallery/FB-1507/FB-1507-01.webp",
+                "image_hash": "same-content",
+                "position": 1,
+            },
+            {
+                "url": "https://site.test/FB-1507-side.webp",
+                "image_path": "data/images/gallery/FB-1507/FB-1507-02.webp",
+                "image_hash": "side-content",
+                "position": 2,
+            },
+        ],
+    )
+
+    gallery = ProductTable._product_gallery(product)
+
+    assert len(gallery) == 2
+    assert gallery[0]["image_path"] == (
+        "data/images/products/FB-1507/FB-1507-01.webp"
+    )
+    assert gallery[0]["position"] == 1
+    assert gallery[1]["url"] == "https://site.test/FB-1507-side.webp"
+    assert gallery[1]["position"] == 2

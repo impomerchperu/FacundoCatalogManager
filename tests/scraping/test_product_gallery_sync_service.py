@@ -40,8 +40,7 @@ class FakeDownloader:
         self.downloads = []
 
     def download_gallery(self, code, url, position, output_dir):
-        del output_dir
-        directory = self.tmp_path / "data" / "images" / "gallery" / code
+        directory = Path(output_dir)
         directory.mkdir(parents=True, exist_ok=True)
         destination = directory / f"{code}-{position:02d}.webp"
         destination.write_bytes(url.encode("utf-8"))
@@ -74,6 +73,7 @@ def test_product_gallery_sync_downloads_new_gallery_images(
             else tmp_path / value
         ),
     )
+    monkeypatch.setattr(module, "IMAGE_PRODUCTS_DIR", Path("data/images/products"))
 
     existing = Product(
         code="FB-4010",

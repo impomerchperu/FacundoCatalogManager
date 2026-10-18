@@ -166,7 +166,7 @@ def test_catalog_sync_preserves_richer_duplicate_product_fields():
     sparse.image_hash = ""
 
     rich = Product("P007", "Producto completo", 8)
-    rich.description = "Detalle completo"
+    rich.description = "Material: ABS. Dimensiones: 10 x 5 cm."
     rich.price_sample = 8
     rich.price_hundred = 70
     rich.price_thousand = 600
@@ -179,7 +179,7 @@ def test_catalog_sync_preserves_richer_duplicate_product_fields():
     assert len(consolidated) == 1
     stored = consolidated[0]
     assert stored.name == "Producto completo"
-    assert stored.description == "Detalle completo"
+    assert stored.description == "Material: ABS. Dimensiones: 10 x 5 cm."
     assert stored.price == 8
     assert stored.price_sample == 8
     assert stored.price_hundred == 70

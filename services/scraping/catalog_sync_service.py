@@ -394,7 +394,7 @@ class CatalogSyncService:
         )
 
     @classmethod
-    def _preserve_existing_image_state(cls, existing, product) -> None:
+    def _preserve_existing_image_state(cls, existing, product) -> None:  # noqa: PLR0912
         incoming_path = str(getattr(product, "image_path", "") or "").strip()
         incoming_hash = str(getattr(product, "image_hash", "") or "").strip()
         current_path = str(cls._value(existing, "image_path") or "").strip()

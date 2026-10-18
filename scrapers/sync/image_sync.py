@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from functools import partial
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 import requests
 
@@ -113,7 +114,9 @@ class ImageSync:
         if existing and not review_enabled:
             current_url = str(self._get(current_product, "image_url") or "").strip()
             current_hash = str(self._get(current_product, "image_hash") or "").strip()
-            same_source = not current_url or current_url.casefold() == image_url.casefold()
+            same_source = not current_url or self._urls_equivalent(
+                current_url, image_url
+            )
             hash_matches = (
                 not current_hash
                 or str(existing.get("image_hash", "") or "") == current_hash
@@ -149,7 +152,7 @@ class ImageSync:
                 )
             )
             same_source = bool(
-                current_url and current_url.casefold() == image_url.casefold()
+                current_url and self._urls_equivalent(current_url, image_url)
             )
             if same_source and not current_is_generic:
                 if (
@@ -209,7 +212,9 @@ class ImageSync:
                 product.image_url = image_url
 
         old_url = str(self._get(old_product, "image_url") or "").strip()
-        url_changed = bool(old_url and old_url.casefold() != image_url.casefold())
+        url_changed = bool(
+            old_url and not self._urls_equivalent(old_url, image_url)
+        )
 
         # On a new local object or a changed accepted/authoritative source, force
         # a real download. The downloader publishes new bytes to a versioned file
@@ -481,16 +486,42 @@ class ImageSync:
         ]
 
     @staticmethod
+    def _urls_equivalent(left: str, right: str) -> bool:
+        """Compare URL identity without case-folding a case-sensitive path/query."""
+        try:
+            first = urlsplit(str(left or "").strip())
+            second = urlsplit(str(right or "").strip())
+            if (
+                first.scheme.lower() != second.scheme.lower()
+                or (first.hostname or "").casefold()
+                != (second.hostname or "").casefold()
+                or first.path != second.path
+                or first.query != second.query
+                or first.username != second.username
+                or first.password != second.password
+            ):
+                return False
+
+            def effective_port(parsed):
+                if parsed.port is not None:
+                    return parsed.port
+                return 443 if parsed.scheme.lower() == "https" else 80
+
+            return effective_port(first) == effective_port(second)
+        except ValueError:
+            return str(left or "").strip() == str(right or "").strip()
+
+    @staticmethod
     def _has_authoritative_candidate(candidates, image_url: str) -> bool:
-        normalized_url = str(image_url or "").strip().casefold()
+        normalized_url = str(image_url or "").strip()
         if not normalized_url:
             return False
         return any(
             bool(candidate.get("authoritative"))
             and not bool(candidate.get("generic"))
-            and (
-                str(candidate.get("url", "") or "").strip().casefold()
-                == normalized_url
+            and ImageSync._urls_equivalent(
+                str(candidate.get("url", "") or "").strip(),
+                normalized_url,
             )
             for candidate in candidates
         )

@@ -256,8 +256,10 @@ class ImageDownloader:
             )
 
         temporary = target.with_name(f"{target.name}.{uuid4().hex}.tmp")
+        temporary_created = False
         try:
             with temporary.open("xb") as stream:
+                temporary_created = True
                 stream.write(data)
                 stream.flush()
             if self.hash_file(temporary) != image_hash:
@@ -269,7 +271,8 @@ class ImageDownloader:
                 extension,
             )
         finally:
-            temporary.unlink(missing_ok=True)
+            if temporary_created:
+                temporary.unlink(missing_ok=True)
         return to_data_relative_path(target)
 
     @classmethod
@@ -456,15 +459,24 @@ class ImageDownloader:
                 f"{self._safe_code(code)}-{uuid4().hex}{extension}"
             )
             temporary = target.with_name(f"{target.name}.tmp")
+            temporary_created = False
             try:
                 with temporary.open("xb") as stream:
+                    temporary_created = True
                     stream.write(body)
                     stream.flush()
-                if self.hash_file(temporary) != self._sha256_bytes(body):
+                image_hash = self._sha256_bytes(body)
+                if self.hash_file(temporary) != image_hash:
                     raise RuntimeError("La verificación SHA-256 de la descarga falló.")
-                temporary.replace(target)
+                target = self._publish_temporary_without_overwrite(
+                    temporary,
+                    target,
+                    image_hash,
+                    extension,
+                )
             finally:
-                temporary.unlink(missing_ok=True)
+                if temporary_created:
+                    temporary.unlink(missing_ok=True)
             return to_data_relative_path(target)
         finally:
             close = getattr(response, "close", None)
@@ -564,8 +576,10 @@ class ImageDownloader:
                 )
 
             temporary = canonical.with_name(f"{canonical.name}.{uuid4().hex}.tmp")
+            temporary_created = False
             try:
                 with temporary.open("xb") as stream:
+                    temporary_created = True
                     stream.write(body)
                     stream.flush()
                 if self.hash_file(temporary) != image_hash:
@@ -577,7 +591,8 @@ class ImageDownloader:
                     extension,
                 )
             finally:
-                temporary.unlink(missing_ok=True)
+                if temporary_created:
+                    temporary.unlink(missing_ok=True)
             return to_data_relative_path(canonical)
         finally:
             close = getattr(response, "close", None)

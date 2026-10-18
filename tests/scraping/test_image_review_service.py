@@ -179,7 +179,9 @@ def test_image_review_keep_restores_current_image_metadata(monkeypatch, tmp_path
     finalized = service.finalize_selected([review_id])
 
     assert finalized[0]["changed"] is True
-    assert repository.product.image_path == "data/images/products/FB-100.jpg"
+    assert repository.product.image_path == (
+        "data/images/products/FB-100/FB-100-01.jpg"
+    )
     assert repository.product.image_hash == hashlib.sha256(current_bytes).hexdigest()
     assert repository.product.image_url == "https://example.test/old.jpg"
     assert not candidate.exists()

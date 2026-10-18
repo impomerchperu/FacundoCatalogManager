@@ -680,6 +680,11 @@ class ImageReviewService:
 
             if results:
                 self._write(records)
+                if any(
+                    str(record.get("kind", "replacement")) == "gallery"
+                    for record in selected
+                ):
+                    self._cleanup_unused_images()
             return results
 
     def finalize_selected(self, review_ids: list[str]) -> list[dict]:

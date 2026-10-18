@@ -310,8 +310,9 @@ class ImageDownloader:
         old_file_ok = False
         if old_path is not None and old_path.is_file() and current_hash:
             try:
-                old_file_ok = self.hash_file(old_path) == current_hash
-            except OSError:
+                verified_old = self.verify_image_file(old_path)
+                old_file_ok = verified_old["image_hash"] == current_hash
+            except (OSError, ValueError):
                 old_file_ok = False
 
         headers = {"User-Agent": "FacundoCatalogManager/1.0"}

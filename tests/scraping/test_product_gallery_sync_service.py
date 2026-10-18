@@ -193,3 +193,118 @@ def test_primary_image_is_reused_and_all_gallery_files_share_product_folder(
         Path(module.resolve_data_path(image["image_path"])).parent == product_dir
         for image in synced.gallery_images
     )
+
+
+def test_legacy_gallery_removes_primary_hash_duplicate_during_sync(
+    monkeypatch,
+    tmp_path,
+):
+    import hashlib
+
+    import services.scraping.product_gallery_sync_service as module
+
+    monkeypatch.setattr(
+        module,
+        "resolve_data_path",
+        lambda value: (
+            Path(value)
+            if Path(value).is_absolute()
+            else tmp_path / value
+        ),
+    )
+    monkeypatch.setattr(module, "IMAGE_PRODUCTS_DIR", Path("data/images/products"))
+
+    code = "FB-1507"
+    primary_url = "https://site.test/uploads/FB-1507-2.webp"
+    scaled_url = "https://site.test/uploads/FB-1507-2-scaled.webp"
+    alternate_url = "https://site.test/uploads/FB-1507.webp"
+
+    primary_source = tmp_path / "data/images/products/FB-1507.webp"
+    primary_source.parent.mkdir(parents=True)
+    primary_source.write_bytes(b"primary-image")
+
+    gallery_root = tmp_path / "data/images/gallery/FB-1507"
+    gallery_root.mkdir(parents=True)
+    scaled_source = gallery_root / "FB-1507-01.webp"
+    duplicate_source = gallery_root / "FB-1507-02.webp"
+    alternate_source = gallery_root / "FB-1507-03.webp"
+    scaled_source.write_bytes(b"scaled-image")
+    duplicate_source.write_bytes(b"primary-image")
+    alternate_source.write_bytes(b"alternate-image")
+
+    existing = Product(
+        code=code,
+        name="Producto FB-1507",
+        image_url=primary_url,
+        image_path="data/images/products/FB-1507.webp",
+        gallery_images=[
+            {
+                "url": scaled_url,
+                "image_path": "data/images/gallery/FB-1507/FB-1507-01.webp",
+                "position": 1,
+                "source": "woocommerce-gallery",
+            },
+            {
+                "url": primary_url,
+                "image_path": "data/images/gallery/FB-1507/FB-1507-02.webp",
+                "position": 2,
+                "source": "woocommerce-gallery",
+            },
+            {
+                "url": alternate_url,
+                "image_path": "data/images/gallery/FB-1507/FB-1507-03.webp",
+                "position": 3,
+                "source": "woocommerce-gallery",
+            },
+        ],
+    )
+    repository = FakeRepository([existing])
+    review = FakeReviewService(repository)
+
+    product = ScrapedProduct(
+        code=code,
+        name="Producto FB-1507",
+        url="https://site.test/producto/fb-1507/",
+        image_url=primary_url,
+        image_path="data/images/products/FB-1507.webp",
+    )
+    product.image_candidates = []
+
+    service = ProductGallerySyncService(
+        browser=object(),
+        product_extractor=object(),
+        image_downloader=FakeDownloader(tmp_path),
+        review_service=review,
+        max_workers=1,
+        max_candidates=6,
+        refresh_existing=False,
+    )
+
+    synced = service.sync_products([product])[0]
+
+    assert [image["url"] for image in synced.gallery_images] == [
+        primary_url,
+        scaled_url,
+        alternate_url,
+    ]
+    assert len(synced.gallery_images) == 3
+
+    gallery_hashes = [
+        hashlib.sha256(
+            Path(module.resolve_data_path(image["image_path"])).read_bytes()
+        ).hexdigest()
+        for image in synced.gallery_images
+    ]
+    assert len(gallery_hashes) == len(set(gallery_hashes))
+    assert Path(module.resolve_data_path(synced.image_path)) == Path(
+        module.resolve_data_path(synced.gallery_images[0]["image_path"])
+    )
+    assert all(
+        Path(module.resolve_data_path(image["image_path"])) != duplicate_source
+        for image in synced.gallery_images
+    )
+
+    # Normalization removes the obsolete DB reference but leaves physical
+    # deletion to the post-commit unused-image cleanup.
+    assert duplicate_source.is_file()
+

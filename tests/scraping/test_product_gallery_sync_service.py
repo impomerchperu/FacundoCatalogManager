@@ -364,8 +364,6 @@ def test_gallery_sync_drops_scaled_visual_duplicate_before_publishing(
         image.save(stream, format="WEBP", quality=94, method=6)
         return stream.getvalue()
 
-    from PIL import ImageOps
-
     primary_bytes = pattern(512, "royalblue")
     with Image.open(BytesIO(primary_bytes)) as original:
         scaled = original.resize((320, 320), Image.Resampling.LANCZOS)

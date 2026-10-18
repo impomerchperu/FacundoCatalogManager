@@ -73,7 +73,7 @@ class ImageSync:
             ]
             return [future.result() for future in futures]
 
-    def sync_product(
+    def sync_product(  # noqa: PLR0912
         self,
         product,
         old_product=None,

@@ -280,9 +280,10 @@ def test_unidentifiable_active_image_is_preserved_until_reference_is_removed(
         delete=True,
     )
     assert [item["relative"] for item in deleted_after_reference_removed] == [
-        "data/images/products/P001.webp"
+        "data/images/products/P001/P001-01.asset"
     ]
     assert not invalid.exists()
+
 
 def test_cleanup_fails_closed_when_gallery_reference_json_is_malformed(
     tmp_path: Path,

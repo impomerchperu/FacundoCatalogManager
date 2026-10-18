@@ -1093,10 +1093,11 @@ def test_catalog_sync_drops_unidentifiable_and_duplicate_legacy_gallery_entries(
     incoming = Product("P099", "Legacy product", 10)
 
     CatalogSyncService._preserve_existing_image_state(existing, incoming)
+    CatalogSyncService._normalize_product_image_state(incoming)
 
     assert incoming.image_url == existing.image_url
-    assert incoming.image_path == ""
-    assert incoming.image_hash == ""
+    assert incoming.image_path
+    assert incoming.image_hash == hashlib.sha256(valid_duplicate).hexdigest()
     assert len(incoming.gallery_images) == 1
     assert incoming.gallery_images[0]["image_hash"] == hashlib.sha256(valid_duplicate).hexdigest()
     assert Path(

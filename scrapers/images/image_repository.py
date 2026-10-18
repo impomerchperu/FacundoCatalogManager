@@ -4,11 +4,17 @@ from pathlib import Path
 
 from config.runtime_paths import resolve_data_path, to_data_relative_path
 from scrapers.images.image_downloader import ImageDownloader
-from scrapers.images.image_paths import IMAGE_EXTENSIONS, IMAGE_PRODUCTS_DIR
+from scrapers.images.image_paths import (
+    IMAGE_EXTENSIONS,
+    IMAGE_PRODUCTS_DIR,
+    product_image_directory,
+    safe_image_code,
+)
+from scrapers.images.product_image_storage import store_image_in_product_group
 
 
 class ImageRepository:
-    """Localiza imágenes por código y calcula su hash cuando es necesario."""
+    """Find canonical product images and migrate legacy primaries by copying."""
 
     def __init__(self, output_dir: str | Path = IMAGE_PRODUCTS_DIR):
         self.output_dir = resolve_data_path(output_dir)
@@ -18,29 +24,76 @@ class ImageRepository:
         code: str,
         image_url: str | None = None,
     ) -> dict | None:
-        safe_code = ImageDownloader._safe_code(code)
-        if not self.output_dir.exists():
+        safe_code = safe_image_code(code)
+        if not safe_code:
             return None
 
-        if image_url:
-            suffix = Path(image_url.split("?", 1)[0]).suffix.lower()
-            if suffix in IMAGE_EXTENSIONS:
-                preferred = self.output_dir / f"{safe_code}{suffix}"
-                if preferred.is_file():
-                    return {
-                        "image_path": to_data_relative_path(preferred),
-                        "image_hash": ImageDownloader.hash_file(preferred),
-                    }
+        suffix = (
+            Path(image_url.split("?", 1)[0]).suffix.lower()
+            if image_url
+            else ""
+        )
+        group_dir = product_image_directory(
+            safe_code,
+            root=self.output_dir,
+        )
+        grouped = self._find_in_directory(group_dir, safe_code, suffix)
+        if grouped is not None:
+            return self._image_record(grouped)
 
-        matches = sorted(
+        legacy = self._find_in_directory(self.output_dir, safe_code, suffix)
+        if legacy is None:
+            return None
+
+        # Keep the legacy source untouched until the caller persists the new
+        # database reference. The cleanup tool can remove the orphan later.
+        stored_path, stored_hash = store_image_in_product_group(
+            safe_code,
+            legacy,
+            1,
+            root=self.output_dir,
+        )
+        if stored_path:
+            return {
+                "image_path": stored_path,
+                "image_hash": stored_hash,
+            }
+        return self._image_record(legacy)
+
+    @staticmethod
+    def _find_in_directory(
+        directory: Path,
+        safe_code: str,
+        preferred_suffix: str,
+    ) -> Path | None:
+        if not directory.is_dir():
+            return None
+
+        if preferred_suffix in IMAGE_EXTENSIONS:
+            preferred = directory / f"{safe_code}-01{preferred_suffix}"
+            if preferred.is_file():
+                return preferred
+            legacy_preferred = directory / f"{safe_code}{preferred_suffix}"
+            if legacy_preferred.is_file():
+                return legacy_preferred
+
+        grouped_matches = sorted(
             path
-            for path in self.output_dir.glob(f"{safe_code}.*")
+            for path in directory.glob(f"{safe_code}-*")
             if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
         )
-        if not matches:
-            return None
+        if grouped_matches:
+            return grouped_matches[0]
 
-        path = matches[0]
+        legacy_matches = sorted(
+            path
+            for path in directory.glob(f"{safe_code}.*")
+            if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+        )
+        return legacy_matches[0] if legacy_matches else None
+
+    @staticmethod
+    def _image_record(path: Path) -> dict[str, str]:
         return {
             "image_path": to_data_relative_path(path),
             "image_hash": ImageDownloader.hash_file(path),

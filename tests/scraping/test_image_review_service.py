@@ -269,14 +269,13 @@ def test_manual_image_selection_clears_remote_source_and_http_validators(
     service.apply_selection(review_id, "manual", manual_path)
     service.finalize_selected([review_id])
 
-    assert current.image_path.endswith(".webp")
+    assert current.image_path == "data/images/products/FB-101/FB-101-01.webp"
+    assert (products_dir / "FB-101" / "FB-101-01.webp").is_file()
     assert current.image_url == ""
+    assert current.image_hash
     assert current.image_etag == ""
     assert current.image_last_modified == ""
     assert current.image_checked_at == ""
-    assert Path(current.image_path).name == "manual.webp" or Path(
-        str(products_dir / "FB-101" / "FB-101-01.webp")
-    ).is_file()
 
 def test_image_review_delete_current_clears_catalog_only_after_finalize(
     monkeypatch,

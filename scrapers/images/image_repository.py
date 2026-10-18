@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from config.runtime_paths import resolve_data_path, to_data_relative_path
+from config.runtime_paths import DATA_DIR, resolve_data_path, to_data_relative_path
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_paths import (
     IMAGE_EXTENSIONS,
@@ -68,7 +68,7 @@ class ImageRepository:
         candidate = resolve_data_path(raw_path)
         try:
             candidate = candidate.resolve(strict=True)
-            candidate.relative_to(self.output_dir.parent.parent.resolve())
+            candidate.relative_to(DATA_DIR.resolve())
         except (OSError, ValueError):
             return None
         if not candidate.is_file() or candidate.suffix.lower() not in IMAGE_EXTENSIONS:

@@ -96,8 +96,6 @@ def test_revalidate_primary_versions_changed_bytes_without_overwriting_active_fi
     assert result["image_etag"] == '"revision-2"'
 
 
-
-
 def test_verify_image_file_checks_signature_extension_and_hash(tmp_path):
     valid = tmp_path / "sample.jpg"
     valid.write_bytes(JPEG_OLD)

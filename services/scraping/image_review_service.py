@@ -1054,7 +1054,10 @@ class ImageReviewService:
         primary_is_valid = False
 
         if old_primary_path:
-            source = self._resolve_product_image_path(old_primary_path)
+            try:
+                source = self._resolve_product_image_path(old_primary_path)
+            except (OSError, ValueError):
+                source = None
             if source is not None and source.is_file():
                 stored_path, stored_hash = self._store_identifiable_image(
                     code,
@@ -1416,13 +1419,12 @@ class ImageReviewService:
         temporary = destination.with_name(
             f".{destination.name}.{uuid.uuid4().hex}.tmp"
         )
+        temporary_created = False
         try:
-            try:
-                with source.open("rb") as source_stream, temporary.open("xb") as target:
-                    shutil.copyfileobj(source_stream, target)
-                verified = identify_image_file(temporary)
-            except Exception:
-                raise
+            with source.open("rb") as source_stream, temporary.open("xb") as target:
+                temporary_created = True
+                shutil.copyfileobj(source_stream, target)
+            verified = identify_image_file(temporary)
 
             is_valid = (
                 verified["image_hash"] == image_hash
@@ -1446,7 +1448,8 @@ class ImageReviewService:
                 "No se pudo publicar la imagen sin sobrescribir otro archivo."
             )
         finally:
-            temporary.unlink(missing_ok=True)
+            if temporary_created:
+                temporary.unlink(missing_ok=True)
 
     def _set_product_image(
         self,

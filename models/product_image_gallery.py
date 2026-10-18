@@ -15,6 +15,30 @@ def _image_hash(image: dict[str, Any]) -> str:
     return str(image.get("image_hash") or image.get("hash") or "").strip().casefold()
 
 
+def _safe_code(code: object) -> str:
+    value = str(code or "").strip()
+    return "".join(
+        character if character.isalnum() or character in "-_" else "_"
+        for character in value
+    ).casefold()
+
+
+def _is_grouped_product_path(code: object, path: str) -> bool:
+    safe_code = _safe_code(code)
+    if not safe_code:
+        return False
+    parts = [
+        part.casefold()
+        for part in path.replace("\\", "/").split("/")
+        if part
+    ]
+    return any(
+        parts[index : index + 4]
+        == ["data", "images", "products", safe_code]
+        for index in range(max(len(parts) - 3, 0))
+    )
+
+
 def normalize_product_gallery(
     product: object,
     gallery_images: list[dict[str, Any]] | None = None,
@@ -71,6 +95,12 @@ def normalize_product_gallery(
         )
         if match_index is not None:
             matched = normalized.pop(match_index)
+            matched_path = _image_path(matched)
+            if _is_grouped_product_path(
+                getattr(product, "code", ""),
+                matched_path,
+            ):
+                primary["image_path"] = matched_path
             primary.update(
                 {
                     key: value

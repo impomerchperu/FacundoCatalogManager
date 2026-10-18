@@ -12,6 +12,7 @@ from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
 from scrapers.images.product_image_storage import store_image_in_product_group
 from scrapers.images.visual_duplicate_detector import (
+    VisualImageFingerprint,
     build_visual_fingerprint,
     is_generated_resolution_duplicate,
 )
@@ -145,7 +146,7 @@ class ProductGallerySyncService:
         seen_urls: set[str] = set()
         seen_hashes: set[str] = set()
         gallery_images: list[dict[str, Any]] = []
-        visual_fingerprints = []
+        visual_fingerprints: list[VisualImageFingerprint | None] = []
         new_options: list[dict[str, object]] = []
         candidate_by_url = {
             str(candidate.get("url", "") or "").strip().casefold(): candidate

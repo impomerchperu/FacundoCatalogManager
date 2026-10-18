@@ -73,7 +73,7 @@ def test_image_storage_audit_counts_gallery_json_references_and_unknown_suffix_o
     assert active_gallery.is_file()
 
 
-def test_image_storage_audit_reports_malformed_gallery_json_instead_of_silently_ignoring_it(
+def test_image_storage_audit_reports_malformed_gallery_json(
     tmp_path: Path,
 ):
     project = tmp_path
@@ -109,5 +109,7 @@ def test_image_storage_audit_reports_malformed_gallery_json_instead_of_silently_
 
     assert len(report["reference_errors"]) == 1
     assert report["reference_errors"][0]["source"] == "gallery_images"
-    assert "JSON inválido" in report["reference_errors"][0]["error"]
+    assert (
+        "JSON inválido" in report["reference_errors"][0]["error"]
+    )
     assert possibly_referenced.is_file()

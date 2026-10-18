@@ -849,3 +849,46 @@ def test_catalog_sync_does_not_save_an_incomplete_description_for_new_product():
     assert stored is not None
     assert stored.description == ""
     assert result.created == 1
+
+
+def test_failed_image_download_clears_broken_local_reference(tmp_path):
+    existing = Product("FB-9911", "Producto", 10)
+    existing.image_url = "https://example.test/FB-9911-old.jpg"
+    existing.image_path = str(tmp_path / "missing.jpg")
+    existing.image_hash = "stale-hash"
+    existing.image_etag = '"old-etag"'
+    existing.image_last_modified = "Sun, 18 Oct 2026 00:00:00 GMT"
+    existing.image_checked_at = "2026-10-18T00:00:00+00:00"
+
+    incoming = Product("FB-9911", "Producto", 10)
+    incoming.image_url = "https://example.test/FB-9911-new.jpg"
+
+    CatalogSyncService._preserve_existing_image_state(existing, incoming)
+
+    assert incoming.image_url == "https://example.test/FB-9911-new.jpg"
+    assert incoming.image_path == ""
+    assert incoming.image_hash == ""
+    assert incoming.image_etag == ""
+    assert incoming.image_last_modified == ""
+    assert incoming.image_checked_at == ""
+
+
+def test_failed_refresh_keeps_only_a_verified_current_image(tmp_path):
+    current_file = tmp_path / "FB-9912.jpg"
+    current_file.write_bytes(b"\\xff\\xd8\\xffimage\\xff\\xd9")
+
+    existing = Product("FB-9912", "Producto", 10)
+    existing.image_url = "https://example.test/FB-9912-old.jpg"
+    existing.image_path = str(current_file)
+    existing.image_hash = "historically-wrong-hash"
+    existing.image_etag = '"old-etag"'
+
+    incoming = Product("FB-9912", "Producto", 10)
+    incoming.image_url = "https://example.test/FB-9912-new.jpg"
+
+    CatalogSyncService._preserve_existing_image_state(existing, incoming)
+
+    assert incoming.image_url == "https://example.test/FB-9912-old.jpg"
+    assert incoming.image_path == str(current_file)
+    assert incoming.image_hash != "historically-wrong-hash"
+    assert incoming.image_etag == '"old-etag"'

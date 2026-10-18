@@ -164,7 +164,7 @@ class ImageDownloader:
             response = None
             try:
                 current_url = url
-                for redirect_count in range(6):
+                for _ in range(6):
                     self._validate_url(current_url)
                     response = self._request(current_url, headers)
                     status_code = int(getattr(response, "status_code", 200) or 200)

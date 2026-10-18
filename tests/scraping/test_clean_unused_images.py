@@ -546,3 +546,174 @@ def test_cleanup_does_not_discover_staging_artifacts_in_product_folder(
     assert candidates == []
     assert temporary.is_file()
 
+
+
+
+def test_catalog_sync_removes_visual_scaled_duplicate_after_commit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from io import BytesIO
+
+    from PIL import Image, ImageDraw
+
+    from database.db_manager import DBManager
+    from models.product import Product
+    from repositories.product_repository import ProductRepository
+    from services.scraping.catalog_sync_service import CatalogSyncService
+    from services.scraping.product_diff_service import ProductDiffService
+
+    import services.scraping.catalog_sync_service as catalog_sync_module
+    import scrapers.images.product_image_storage as storage_module
+
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "resolve_data_path",
+        lambda value: Path(value) if Path(value).is_absolute() else tmp_path / value,
+    )
+    products_root = tmp_path / "data" / "images" / "products"
+    monkeypatch.setattr(catalog_sync_module, "IMAGE_PRODUCTS_DIR", products_root)
+    monkeypatch.setattr(
+        storage_module,
+        "to_data_relative_path",
+        lambda value: str(Path(value).resolve().relative_to(tmp_path)).replace("\\", "/"),
+    )
+
+    def pattern(size: int, color: str) -> bytes:
+        image = Image.new("RGB", (size, size), "white")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle(
+            (size // 12, size // 12, size * 11 // 12, size * 11 // 12),
+            outline=color,
+            width=max(size // 40, 1),
+        )
+        draw.ellipse(
+            (size // 4, size // 4, size * 3 // 4, size * 3 // 4),
+            fill=color,
+        )
+        draw.line(
+            (size // 12, size // 2, size * 11 // 12, size // 2),
+            fill="gold",
+            width=max(size // 30, 1),
+        )
+        stream = BytesIO()
+        image.save(stream, format="WEBP", quality=94, method=6)
+        return stream.getvalue()
+
+    primary_payload = pattern(512, "royalblue")
+    with Image.open(BytesIO(primary_payload)) as original:
+        scaled_image = original.resize((320, 320), Image.Resampling.LANCZOS)
+        scaled_stream = BytesIO()
+        scaled_image.save(scaled_stream, format="WEBP", quality=92, method=6)
+        scaled_payload = scaled_stream.getvalue()
+    alternate_payload = pattern(256, "crimson")
+
+    code = "FB-1507"
+    product_dir = products_root / code
+    product_dir.mkdir(parents=True)
+    primary_path = product_dir / f"{code}-01.webp"
+    scaled_path = product_dir / f"{code}-02.webp"
+    alternate_path = product_dir / f"{code}-03.webp"
+    primary_path.write_bytes(primary_payload)
+    scaled_path.write_bytes(scaled_payload)
+    alternate_path.write_bytes(alternate_payload)
+
+    db_path = tmp_path / "database" / "catalog.db"
+    db_path.parent.mkdir(parents=True)
+    db = DBManager(db_path=db_path)
+    repository = ProductRepository(db)
+
+    primary_url = "https://site.test/uploads/FB-1507-2.webp"
+    scaled_url = "https://site.test/uploads/FB-1507-2-scaled.webp"
+    alternate_url = "https://site.test/uploads/FB-1507.webp"
+    primary_hash = hashlib.sha256(primary_payload).hexdigest()
+    scaled_hash = hashlib.sha256(scaled_payload).hexdigest()
+    alternate_hash = hashlib.sha256(alternate_payload).hexdigest()
+
+    existing = Product(code, "Producto FB-1507", 10)
+    existing.image_url = primary_url
+    existing.image_path = f"data/images/products/{code}/{code}-01.webp"
+    existing.image_hash = primary_hash
+    existing.gallery_images = [
+        {
+            "url": primary_url,
+            "image_path": existing.image_path,
+            "image_hash": primary_hash,
+            "position": 1,
+            "source": "primary",
+        },
+        {
+            "url": scaled_url,
+            "image_path": f"data/images/products/{code}/{code}-02.webp",
+            "image_hash": scaled_hash,
+            "position": 2,
+            "source": "woocommerce-gallery",
+        },
+        {
+            "url": alternate_url,
+            "image_path": f"data/images/products/{code}/{code}-03.webp",
+            "image_hash": alternate_hash,
+            "position": 3,
+            "source": "woocommerce-gallery",
+        },
+    ]
+    repository.save(existing)
+    db.commit()
+
+    def cleanup():
+        return clean_unused_images(
+            project_root=tmp_path,
+            db_path=db_path,
+            roots=["data/images"],
+            delete=True,
+        )
+
+    service = CatalogSyncService(
+        repository,
+        ProductDiffService(),
+        image_cleanup=cleanup,
+    )
+    incoming = Product(code, "Producto FB-1507", 10)
+    incoming.image_url = primary_url
+    incoming.image_path = f"data/images/products/{code}/{code}-01.webp"
+    incoming.image_hash = primary_hash
+    incoming.gallery_images = [
+        {
+            "url": primary_url,
+            "image_path": incoming.image_path,
+            "image_hash": primary_hash,
+            "position": 1,
+            "source": "primary",
+        },
+        {
+            "url": scaled_url,
+            "image_path": f"data/images/products/{code}/{code}-02.webp",
+            "image_hash": scaled_hash,
+            "position": 2,
+            "source": "woocommerce-gallery",
+        },
+        {
+            "url": alternate_url,
+            "image_path": f"data/images/products/{code}/{code}-03.webp",
+            "image_hash": alternate_hash,
+            "position": 3,
+            "source": "woocommerce-gallery",
+        },
+    ]
+
+    try:
+        result = service.sync([incoming], prune_missing=False)
+        stored = repository.get_by_code(code)
+
+        assert result.updated == 1
+        assert stored is not None
+        assert [image["url"] for image in stored.gallery_images] == [
+            primary_url,
+            alternate_url,
+        ]
+        assert [image["position"] for image in stored.gallery_images] == [1, 2]
+        assert primary_path.is_file()
+        assert alternate_path.is_file()
+        assert not scaled_path.exists()
+    finally:
+        db.close()

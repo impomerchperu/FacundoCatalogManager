@@ -18,6 +18,11 @@ from scrapers.images.image_validation import (
     identify_image_file,
 )
 from scrapers.images.product_image_storage import store_image_in_product_group
+from scrapers.images.visual_duplicate_detector import (
+    VisualImageFingerprint,
+    build_visual_fingerprint,
+    is_generated_resolution_duplicate,
+)
 from services.scraping.category_name_normalizer import (
     merge_category_names,
     split_category_names,
@@ -358,6 +363,20 @@ class CatalogSyncService:
                 primary_path=str(getattr(product, "image_path", "") or ""),
                 primary_hash=str(getattr(product, "image_hash", "") or ""),
             )
+            # The first retained gallery row is the canonical main image. This
+            # also covers the rare case where a higher-resolution generated
+            # variant replaces an earlier, lower-resolution copy.
+            if product.gallery_images:
+                primary = product.gallery_images[0]
+                primary_path = str(primary.get("image_path", "") or "").strip()
+                primary_hash = str(primary.get("image_hash", "") or "").strip()
+                primary_url = str(primary.get("url", "") or "").strip()
+                if primary_path:
+                    product.image_path = primary_path
+                if primary_hash:
+                    product.image_hash = primary_hash
+                if primary_url:
+                    product.image_url = primary_url
         else:
             product.gallery_images = []
 
@@ -486,6 +505,7 @@ class CatalogSyncService:
         normalized: list[dict[str, Any]] = []
         seen_hashes: set[str] = set()
         seen_urls: set[str] = set()
+        visual_fingerprints: list[VisualImageFingerprint | None] = []
 
         if primary_path and primary_hash:
             normalized.append(
@@ -496,6 +516,12 @@ class CatalogSyncService:
                     "position": 1,
                     "source": "primary",
                 }
+            )
+            visual_fingerprints.append(
+                build_visual_fingerprint(
+                    resolve_data_path(primary_path),
+                    primary_url,
+                )
             )
             seen_hashes.add(primary_hash.casefold())
             if primary_url:
@@ -538,6 +564,48 @@ class CatalogSyncService:
             if stored_hash.casefold() in seen_hashes:
                 continue
 
+            fingerprint = build_visual_fingerprint(
+                resolve_data_path(stored_path),
+                url,
+            )
+            duplicate_index = next(
+                (
+                    index
+                    for index, accepted in enumerate(visual_fingerprints)
+                    if is_generated_resolution_duplicate(accepted, fingerprint)
+                ),
+                None,
+            )
+            if duplicate_index is not None:
+                accepted_fingerprint = visual_fingerprints[duplicate_index]
+                if (
+                    fingerprint is not None
+                    and accepted_fingerprint is not None
+                    and fingerprint.area > accepted_fingerprint.area
+                ):
+                    previous = normalized[duplicate_index]
+                    previous_hash = str(previous.get("image_hash", "") or "").strip()
+                    previous_url = str(previous.get("url", "") or "").strip().casefold()
+                    normalized[duplicate_index] = {
+                        **item,
+                        "url": url,
+                        "image_path": stored_path,
+                        "image_hash": stored_hash,
+                        "position": int(previous.get("position", duplicate_index + 1)),
+                        "source": str(item.get("source", "gallery") or "gallery"),
+                    }
+                    visual_fingerprints[duplicate_index] = fingerprint
+                    if previous_hash:
+                        seen_hashes.discard(previous_hash.casefold())
+                    if previous_url:
+                        seen_urls.discard(previous_url)
+                    seen_hashes.add(stored_hash.casefold())
+                    if url:
+                        seen_urls.add(url.casefold())
+                # Keep only one file reference for a generated CMS variant.
+                # Physical deletion remains deferred until after commit.
+                continue
+
             normalized.append(
                 {
                     **item,
@@ -548,6 +616,7 @@ class CatalogSyncService:
                     "source": str(item.get("source", "gallery") or "gallery"),
                 }
             )
+            visual_fingerprints.append(fingerprint)
             seen_hashes.add(stored_hash.casefold())
             if url:
                 seen_urls.add(url.casefold())

@@ -50,7 +50,8 @@ class ScrapingConfig:
 
     image_workers: int = SCRAPING_IMAGE_WORKERS
 
-    # Gallery work is bounded separately so image review stays responsive.
+    # Product-gallery downloads retain every image found on the source page.
+    # Only manual image-review suggestions are capped to keep the queue responsive.
     gallery_workers: int = 4
 
     gallery_max_candidates: int = 6

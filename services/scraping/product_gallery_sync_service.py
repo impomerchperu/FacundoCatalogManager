@@ -11,6 +11,11 @@ from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
 from scrapers.images.product_image_storage import store_image_in_product_group
+from scrapers.images.visual_duplicate_detector import (
+    VisualImageFingerprint,
+    build_visual_fingerprint,
+    is_generated_resolution_duplicate,
+)
 
 
 class ProductGallerySyncService:
@@ -72,6 +77,10 @@ class ProductGallerySyncService:
         return results
 
     def _sync_product(self, product, existing=None):  # noqa: PLR0912
+        initial_image_state = {
+            field: str(getattr(product, field, "") or "")
+            for field in ("image_url", "image_path", "image_hash")
+        }
         existing_gallery = [
             dict(image)
             for image in list(getattr(existing, "gallery_images", []) or [])
@@ -81,6 +90,9 @@ class ProductGallerySyncService:
         product_code = ImageDownloader._safe_code(str(product.code))
         product_dir = products_root / product_code
         product_dir.mkdir(parents=True, exist_ok=True)
+        primary_url_before_gallery_sync = str(
+            getattr(product, "image_url", "") or ""
+        ).strip()
         primary_path = self._canonicalize_primary(
             product,
             existing_gallery,
@@ -88,6 +100,22 @@ class ProductGallerySyncService:
         )
 
         candidates = self._candidate_source(product, existing)
+        primary_url_after_gallery_sync = str(
+            getattr(product, "image_url", "") or ""
+        ).strip()
+        if (
+            primary_url_after_gallery_sync.casefold()
+            != primary_url_before_gallery_sync.casefold()
+        ):
+            # The detail page can correct a category-card image. Do not reuse
+            # that card's bytes for the newly selected gallery primary.
+            product.image_path = ""
+            product.image_hash = ""
+            primary_path = self._canonicalize_primary(
+                product,
+                existing_gallery,
+                products_root,
+            )
         if not candidates:
             product.gallery_images = self._canonicalize_existing_gallery(
                 product,
@@ -141,7 +169,14 @@ class ProductGallerySyncService:
         seen_urls: set[str] = set()
         seen_hashes: set[str] = set()
         gallery_images: list[dict[str, Any]] = []
+        visual_fingerprints: list[VisualImageFingerprint | None] = []
         new_options: list[dict[str, object]] = []
+        gallery_complete = True
+        candidate_by_url = {
+            str(candidate.get("url", "") or "").strip().casefold(): candidate
+            for candidate in normalized
+            if str(candidate.get("url", "") or "").strip()
+        }
         staging_dir = product_dir / ".staging"
         staging_dir.mkdir(parents=True, exist_ok=True)
 
@@ -188,6 +223,34 @@ class ProductGallerySyncService:
                         )
                         downloaded_path = resolve_data_path(staged_path)
                         if downloaded_path.is_file():
+                            staged_fingerprint = build_visual_fingerprint(
+                                downloaded_path,
+                                url,
+                            )
+                            duplicate_index = next(
+                                (
+                                    index
+                                    for index, accepted in enumerate(visual_fingerprints)
+                                    if is_generated_resolution_duplicate(
+                                        accepted,
+                                        staged_fingerprint,
+                                    )
+                                ),
+                                None,
+                            )
+                            if duplicate_index is not None:
+                                accepted_fingerprint = visual_fingerprints[duplicate_index]
+                                if (
+                                    staged_fingerprint is not None
+                                    and accepted_fingerprint is not None
+                                    and staged_fingerprint.area
+                                    <= accepted_fingerprint.area
+                                ):
+                                    # Do not even publish a redundant generated size
+                                    # into canonical storage; the staging file is
+                                    # removed by the finally block below.
+                                    continue
+
                             stored_path, _ = store_image_in_product_group(
                                 product.code,
                                 downloaded_path,
@@ -197,6 +260,7 @@ class ProductGallerySyncService:
                             if stored_path:
                                 path = resolve_data_path(stored_path)
                     except Exception:  # noqa: BLE001
+                        gallery_complete = False
                         continue
                     finally:
                         if downloaded_path is not None:
@@ -204,15 +268,13 @@ class ProductGallerySyncService:
                                 downloaded_path.unlink(missing_ok=True)
 
                 if path is None or not path.is_file():
+                    gallery_complete = False
                     continue
 
                 image_hash = ImageDownloader.hash_file(path)
                 if image_hash and image_hash in seen_hashes:
                     continue
 
-                seen_urls.add(key)
-                if image_hash:
-                    seen_hashes.add(image_hash)
                 item = {
                     "url": url,
                     "image_path": str(path.relative_to(resolve_data_path(".")))
@@ -227,24 +289,87 @@ class ProductGallerySyncService:
                         else str(candidate.get("source", "woocommerce-gallery") or "woocommerce-gallery")
                     ),
                 }
-                gallery_images.append(item)
+                fingerprint = build_visual_fingerprint(path, url)
+                duplicate_index = next(
+                    (
+                        index
+                        for index, accepted in enumerate(visual_fingerprints)
+                        if is_generated_resolution_duplicate(accepted, fingerprint)
+                    ),
+                    None,
+                )
+                if duplicate_index is not None:
+                    accepted_fingerprint = visual_fingerprints[duplicate_index]
+                    if (
+                        fingerprint is not None
+                        and accepted_fingerprint is not None
+                        and fingerprint.area > accepted_fingerprint.area
+                    ):
+                        previous = gallery_images[duplicate_index]
+                        item["position"] = int(previous.get("position", duplicate_index + 1))
+                        gallery_images[duplicate_index] = item
+                        visual_fingerprints[duplicate_index] = fingerprint
+                        previous_url = str(previous.get("url", "") or "").strip().casefold()
+                        previous_hash = str(previous.get("image_hash", "") or "").strip()
+                        seen_urls.discard(previous_url)
+                        seen_urls.add(key)
+                        if previous_hash:
+                            seen_hashes.discard(previous_hash)
+                        if image_hash:
+                            seen_hashes.add(image_hash)
+                    # The same image at a different CMS-generated resolution is
+                    # not another product view. Keep one reference only.
+                    continue
 
-                if not is_primary and not isinstance(existing_item, dict):
-                    new_options.append(
-                        {
-                            "url": url,
-                            "path": item["image_path"],
-                            "hash": image_hash,
-                            "score": int(candidate.get("score", 0) or 0),
-                            "exact_code": bool(candidate.get("exact_code", False)),
-                            "generic": False,
-                            "source": "woocommerce-gallery",
-                            "gallery": True,
-                        }
-                    )
+                seen_urls.add(key)
+                if image_hash:
+                    seen_hashes.add(image_hash)
+                gallery_images.append(item)
+                visual_fingerprints.append(fingerprint)
         finally:
             with suppress(OSError):
                 staging_dir.rmdir()
+
+        if not gallery_complete:
+            # A successful refresh must account for every valid source-gallery
+            # candidate. If any image fails, preserve the complete last-known
+            # gallery instead of committing a partial list and pruning good files.
+            fallback_state = (
+                {
+                    field: str(getattr(existing, field, "") or "")
+                    for field in (
+                        "image_url",
+                        "image_path",
+                        "image_hash",
+                        "image_etag",
+                        "image_last_modified",
+                        "image_checked_at",
+                    )
+                }
+                if existing is not None
+                else initial_image_state
+            )
+            for field, value in fallback_state.items():
+                if hasattr(product, field) or field in initial_image_state:
+                    setattr(product, field, value)
+            fallback_path_value = str(fallback_state.get("image_path", "") or "").strip()
+            fallback_primary_path = (
+                resolve_data_path(fallback_path_value)
+                if fallback_path_value
+                else None
+            )
+            if (
+                fallback_primary_path is not None
+                and not fallback_primary_path.is_file()
+            ):
+                fallback_primary_path = None
+            product.gallery_images = self._canonicalize_existing_gallery(
+                product,
+                existing_gallery,
+                fallback_primary_path,
+                products_root,
+            )
+            return product
 
         if not gallery_images:
             gallery_images = self._canonicalize_existing_gallery(
@@ -256,6 +381,27 @@ class ProductGallerySyncService:
 
         for position, image in enumerate(gallery_images, start=1):
             image["position"] = position
+
+        # Offer only retained images to the human-review queue. The storage
+        # gallery itself is not capped: every valid source-gallery image stays.
+        for image in gallery_images:
+            url = str(image.get("url", "") or "").strip()
+            key = url.casefold()
+            if not url or key == primary_url.casefold() or key in existing_by_url:
+                continue
+            candidate = candidate_by_url.get(key, {})
+            new_options.append(
+                {
+                    "url": url,
+                    "path": str(image.get("image_path", "") or ""),
+                    "hash": str(image.get("image_hash", "") or ""),
+                    "score": int(candidate.get("score", 0) or 0),
+                    "exact_code": bool(candidate.get("exact_code", False)),
+                    "generic": False,
+                    "source": "woocommerce-gallery",
+                    "gallery": True,
+                }
+            )
 
         product.gallery_images = gallery_images
         if gallery_images:
@@ -377,21 +523,39 @@ class ProductGallerySyncService:
         return results
 
     def _candidate_source(self, product, existing):
-        candidates = list(
-            getattr(product, "image_candidates", []) or []
-        )
-        gallery_candidates = [
+        candidates = list(getattr(product, "image_candidates", []) or [])
+        existing_gallery = [
+            dict(image)
+            for image in list(getattr(existing, "gallery_images", []) or [])
+            if isinstance(image, dict)
+        ]
+        detail_candidates = [
             candidate
             for candidate in candidates
-            if bool(candidate.get("gallery"))
+            if isinstance(candidate, dict)
+            and bool(candidate.get("gallery_container"))
             and not bool(candidate.get("generic"))
         ]
-        if gallery_candidates:
-            return gallery_candidates[: self.max_candidates]
+        candidate_gallery = [
+            candidate
+            for candidate in candidates
+            if isinstance(candidate, dict)
+            and bool(candidate.get("gallery"))
+            and not bool(candidate.get("generic"))
+        ]
 
-        existing_gallery = list(
-            getattr(existing, "gallery_images", []) or []
-        )
+        # The collection scraper marks images obtained from a product detail
+        # page. This is already the authoritative ordered gallery; do not go
+        # back to category-card thumbnails or apply a candidate-count limit.
+        image_candidate_source = str(
+            getattr(product, "image_candidates_source", "") or ""
+        ).casefold()
+        if image_candidate_source == "detail":
+            return detail_candidates
+
+        if not self.refresh_existing and candidate_gallery:
+            return candidate_gallery
+
         primary_changed = (
             str(getattr(product, "image_url", "") or "").strip().casefold()
             != str(getattr(existing, "image_url", "") or "").strip().casefold()
@@ -399,36 +563,55 @@ class ProductGallerySyncService:
         needs_detail = (
             self.refresh_existing
             or not existing_gallery
+            or not candidate_gallery
             or primary_changed
             or ProductImageExtractor.is_generic_asset(
                 getattr(product, "image_url", ""),
             )
         )
-        if not needs_detail:
-            return []
 
         detail_url = str(getattr(product, "url", "") or "").strip()
-        if "/producto/" not in detail_url:
-            return []
+        if needs_detail and "/producto/" in detail_url:
+            try:
+                html = self.browser.get(detail_url)
+            except Exception:  # noqa: BLE001
+                # If the page could not be read, never replace a known gallery
+                # with the usually incomplete set of category-card thumbnails.
+                return [] if existing_gallery else candidate_gallery
 
-        try:
-            html = self.browser.get(detail_url)
-        except Exception:  # noqa: BLE001
-            return []
-
-        soup = BeautifulSoup(html, "lxml")
-        detailed = self.product_extractor.extract(
-            soup,
-            url=detail_url,
-            category=str(getattr(product, "category", "") or ""),
-        )
-        return [
-            candidate
-            for candidate in list(
+            soup = BeautifulSoup(html, "lxml")
+            detailed = self.product_extractor.extract(
+                soup,
+                url=detail_url,
+                category=str(getattr(product, "category", "") or ""),
+            )
+            page_candidates = list(
                 getattr(detailed, "image_candidates", []) or []
             )
-            if not bool(candidate.get("generic"))
-        ][: self.max_candidates]
+            page_gallery = [
+                candidate
+                for candidate in page_candidates
+                if isinstance(candidate, dict)
+                and bool(candidate.get("gallery_container"))
+                and not bool(candidate.get("generic"))
+            ]
+            if page_gallery:
+                product.image_candidates = page_gallery
+                product.image_candidates_source = "detail"
+                page_primary_url = str(
+                    page_gallery[0].get("url", "") or ""
+                ).strip()
+                if page_primary_url:
+                    product.image_url = page_primary_url
+                return page_gallery
+
+            # A successful HTTP response without a recognized product-gallery
+            # container is not proof that the gallery is empty.
+            return [] if existing_gallery else candidate_gallery
+
+        if candidate_gallery:
+            return candidate_gallery
+        return []
 
     @staticmethod
     def _normalize_candidates(candidates):
@@ -494,6 +677,6 @@ class ProductGallerySyncService:
             candidate_path=str(first["path"]),
             candidate_hash=str(first["hash"]),
             candidate_url=str(first["url"]),
-            candidate_options=new_options,
+            candidate_options=new_options[: self.max_candidates],
             kind="gallery",
         )

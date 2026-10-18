@@ -92,11 +92,12 @@ class ProductImageExtractor:
                 else ""
             )
             href_folded = href.casefold()
-            gallery = bool(
+            gallery_container = bool(
                 element.find_parent(
                     class_=lambda value: cls._has_gallery_class(value),
                 )
             )
+            gallery = gallery_container
             if not gallery and parent is not None:
                 gallery = cls._is_image_reference(href_folded)
 
@@ -127,6 +128,7 @@ class ProductImageExtractor:
                     width_hint=0,
                     sequence=sequence,
                     gallery=gallery,
+                    gallery_container=gallery_container,
                 )
                 sequence += 1
                 cls._append_candidate(candidates, seen, candidate)
@@ -147,6 +149,7 @@ class ProductImageExtractor:
                         width_hint=width_hint,
                         sequence=sequence,
                         gallery=gallery,
+                        gallery_container=gallery_container,
                     )
                     sequence += 1
                     cls._append_candidate(candidates, seen, candidate)
@@ -171,6 +174,7 @@ class ProductImageExtractor:
                         width_hint=0,
                         sequence=sequence,
                         gallery=gallery,
+                        gallery_container=gallery_container,
                     )
                     sequence += 1
                     cls._append_candidate(candidates, seen, candidate)
@@ -211,6 +215,7 @@ class ProductImageExtractor:
         width_hint,
         sequence,
         gallery,
+        gallery_container=False,
     ) -> dict | None:
         normalized_url = cls._normalize_url(raw_url, base_url=base_url)
         if not normalized_url or normalized_url.startswith("data:image"):
@@ -253,6 +258,7 @@ class ProductImageExtractor:
             "exact_code": bool(exact_filename or exact_path),
             "generic": generic,
             "gallery": gallery,
+            "gallery_container": gallery_container,
             "source": source,
             "sequence": sequence,
         }

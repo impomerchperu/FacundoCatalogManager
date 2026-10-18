@@ -5,6 +5,9 @@ import pytest
 
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_hash import ImageHash
+from tests.scraping.image_test_utils import image_bytes
+
+JPEG_BYTES = image_bytes("JPEG", (10, 20, 30))
 
 
 def test_image_downloader_saves_image(

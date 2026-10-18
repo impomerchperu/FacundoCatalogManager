@@ -67,6 +67,7 @@ class CatalogSyncService:
         self.hash_service = ProductHashService()
         self.result_writer: ScrapingResultWriter | None = None
         self._deferred_image_cleanup = False
+        self._full_sync_in_progress = False
 
     @staticmethod
     def _normalize_code(value) -> str:
@@ -164,6 +165,24 @@ class CatalogSyncService:
             if transaction_started:
                 self._rollback_repository_transaction()
             raise
+
+        image_path_changed = any(
+            any(
+                str(field.get("field", "")) == "image_path"
+                for field in list(change.get("changes", []) or [])
+                if isinstance(field, dict)
+            )
+            for change in result.changes
+            if isinstance(change, dict)
+        )
+        if image_path_changed:
+            self._deferred_image_cleanup = True
+            if (
+                not self._full_sync_in_progress
+                and not self._transaction_is_active()
+            ):
+                self._deferred_image_cleanup = False
+                self._cleanup_unused_images()
 
         result.finish()
         self.last_sync_result = result
@@ -287,12 +306,17 @@ class CatalogSyncService:
         expected_products: int | None = 0,
         expected_category_occurrences: int = 0,
     ):
-        result = self.sync(
-            products,
-            prune_missing=prune_missing,
-            expected_products=expected_products,
-            expected_category_occurrences=expected_category_occurrences,
-        )
+        self._full_sync_in_progress = True
+        try:
+            result = self.sync(
+                products,
+                prune_missing=prune_missing,
+                expected_products=expected_products,
+                expected_category_occurrences=expected_category_occurrences,
+            )
+        finally:
+            self._full_sync_in_progress = False
+
         if (
             prune_missing
             and result.coverage_complete
@@ -305,7 +329,13 @@ class CatalogSyncService:
             if self._transaction_is_active():
                 self._deferred_image_cleanup = True
             else:
+                self._deferred_image_cleanup = False
                 self._cleanup_unused_images()
+        elif self._deferred_image_cleanup and not self._transaction_is_active():
+            # Even an incomplete scrape may have committed safe per-product image
+            # changes; clean only after the catalog transaction has finished.
+            self._deferred_image_cleanup = False
+            self._cleanup_unused_images()
         return result
 
     def finalize_post_commit(self) -> None:

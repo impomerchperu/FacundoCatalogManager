@@ -1601,11 +1601,15 @@ class ImageReviewService:
         temporary = destination.with_name(
             f"{destination.name}.{uuid.uuid4().hex}.tmp"
         )
+        temporary_created = False
         try:
-            shutil.copy2(source, temporary)
+            with source.open("rb") as source_stream, temporary.open("xb") as target:
+                temporary_created = True
+                shutil.copyfileobj(source_stream, target)
             staged = identify_image_file(temporary)
         except Exception:
-            temporary.unlink(missing_ok=True)
+            if temporary_created:
+                temporary.unlink(missing_ok=True)
             raise
 
         matches_source = (
@@ -1613,16 +1617,17 @@ class ImageReviewService:
             and staged["image_extension"] == verified["image_extension"]
         )
         if not matches_source:
-            temporary.unlink(missing_ok=True)
+            if temporary_created:
+                temporary.unlink(missing_ok=True)
             raise ValueError("La imagen temporal no pasó la verificación.")
 
         try:
             os.link(temporary, destination)
         except FileExistsError as error:
-            temporary.unlink(missing_ok=True)
             raise RuntimeError("Ya existe el archivo temporal de revisión.") from error
         finally:
-            temporary.unlink(missing_ok=True)
+            if temporary_created:
+                temporary.unlink(missing_ok=True)
         return to_data_relative_path(destination)
 
     @staticmethod

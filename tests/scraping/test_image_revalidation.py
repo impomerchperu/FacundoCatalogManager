@@ -111,6 +111,33 @@ def test_verify_image_file_checks_signature_extension_and_hash(tmp_path):
         ImageDownloader.verify_image_file(mislabeled)
 
 
+def test_downloader_rejects_private_hosts_and_redirects_before_following(tmp_path, monkeypatch):
+    for url in (
+        "http://127.0.0.1/image.jpg",
+        "http://localhost/image.jpg",
+        "https://[::1]/image.jpg",
+    ):
+        with pytest.raises(ValueError, match="URL de imagen"):
+            ImageDownloader._validate_url(url)
+
+    calls = []
+
+    def fake_request(self, url, headers):
+        calls.append(url)
+        return FakeResponse(
+            status_code=302,
+            headers={"Location": "http://127.0.0.1/internal.jpg"},
+            url=url,
+        )
+
+    monkeypatch.setattr(ImageDownloader, "_request", fake_request)
+    downloader = ImageDownloader(output_dir=tmp_path)
+    with pytest.raises(ValueError):
+        downloader.download_result("P103", "https://example.test/image.jpg")
+
+    assert calls == ["https://example.test/image.jpg"]
+
+
 def test_downloader_rejects_html_disguised_as_an_image(tmp_path, monkeypatch):
     monkeypatch.setattr(
         ImageDownloader,

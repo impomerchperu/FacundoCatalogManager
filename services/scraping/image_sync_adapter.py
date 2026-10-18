@@ -44,12 +44,18 @@ class ImageSyncAdapter:
         self,
         products,
         progress_callback=None,
+        refresh_remote_images: bool = False,
     ):
         """Procesa imágenes principales y galerías, registrando cada etapa."""
         items = list(products or [])
 
         started = time.perf_counter()
-        items = self.image_sync.process(items)
+        if refresh_remote_images:
+            items = self.image_sync.process(
+                items, refresh_remote_images=True
+            )
+        else:
+            items = self.image_sync.process(items)
         _log_timing(
             "SCRAPING TIMING | stage=primary_image_sync | "
             "products=%d | workers=%d | seconds=%.3f",

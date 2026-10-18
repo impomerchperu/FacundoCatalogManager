@@ -112,10 +112,8 @@ class ImageSync:
 
         if existing and review_enabled:
             if self._has_authoritative_candidate(candidates, image_url):
-                image_data = self.image_manager.process(
-                    product.code,
-                    image_url,
-                    force=True,
+                image_data = self._process_image(
+                    product.code, image_url, force=True
                 )
                 if image_data.get("image_path") and image_data.get("image_hash"):
                     return self._apply_image_data(product, image_url, image_data)
@@ -194,10 +192,8 @@ class ImageSync:
         # a real download. The downloader publishes new bytes to a versioned file
         # rather than overwriting whatever SQLite may still reference.
         should_download = not existing or url_changed
-        image_data = self.image_manager.process(
-            product.code,
-            image_url,
-            force=should_download,
+        image_data = self._process_image(
+            product.code, image_url, force=should_download
         )
         if image_data.get("image_path") and image_data.get("image_hash"):
             return self._apply_image_data(product, image_url, image_data)
@@ -213,6 +209,17 @@ class ImageSync:
         product.image_path = ""
         product.image_hash = ""
         return product
+
+    def _process_image(self, code: str, url: str, *, force: bool) -> dict:
+        """Keep compatibility with injected legacy managers lacking force=... ."""
+        if not force:
+            return self.image_manager.process(code, url)
+        try:
+            return self.image_manager.process(code, url, force=True)
+        except TypeError as error:
+            if "force" not in str(error) or "keyword" not in str(error):
+                raise
+            return self.image_manager.process(code, url)
 
     @staticmethod
     def _cache_is_fresh(current_product, *, max_age_seconds: int = 86400) -> bool:

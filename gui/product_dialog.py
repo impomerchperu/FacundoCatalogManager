@@ -499,9 +499,7 @@ class ProductDialog(QDialog):
 
             url = str(image.get("url", "") or "").strip().casefold()
             path_key = stored_path.replace("\\", "/").casefold()
-            hash_value = str(
-                image.get("image_hash", image.get("hash", "")) or stored_hash
-            ).strip().casefold()
+            hash_value = str(stored_hash or "").strip().casefold()
             if (
                 path_key in seen_paths
                 or (url and url in seen_urls)

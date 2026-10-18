@@ -408,6 +408,7 @@ def test_catalog_sync_keeps_unmatched_local_codes_when_coverage_is_incomplete():
     assert repository.get("OLD001") is not None
     assert repository.get("KEEP001") is not None
 
+
 def test_catalog_sync_is_idempotent_after_initial_create():
     repository = InMemoryCatalogRepository()
     service = CatalogSyncService(repository, ProductDiffService())
@@ -457,6 +458,7 @@ def test_catalog_sync_is_idempotent_after_initial_create():
     stored = repository.get("P009")
     assert stored is not None
     assert stored.content_hash
+
 
 def test_catalog_sync_cleans_unused_images_only_after_allowed_prune():
     repository = InMemoryCatalogRepository()
@@ -529,6 +531,7 @@ def test_catalog_sync_does_not_clean_images_when_full_prune_is_blocked():
 
     assert result.deleted == 0
     assert cleanup_calls == []
+
 
 def test_catalog_sync_updates_color_stock_and_reports_the_changed_field():
     repository = InMemoryCatalogRepository()
@@ -902,6 +905,7 @@ def test_failed_refresh_keeps_only_a_verified_current_image(tmp_path):
     assert incoming.image_hash != "historically-wrong-hash"
     assert incoming.image_etag == '"old-etag"'
 
+
 def test_catalog_sync_runs_image_cleanup_after_gallery_reference_update():
     repository = InMemoryCatalogRepository()
     existing = Product("FB-1507", "Producto FB-1507", 10)
@@ -993,6 +997,7 @@ def test_catalog_sync_runs_image_cleanup_after_gallery_reference_update():
         "data/images/products/FB-1507/FB-1507-03.webp",
     ]
 
+
 def test_catalog_sync_drops_unidentifiable_and_duplicate_legacy_gallery_entries(
     tmp_path,
     monkeypatch,
@@ -1066,6 +1071,7 @@ def test_catalog_sync_drops_unidentifiable_and_duplicate_legacy_gallery_entries(
     assert invalid_primary.is_file()
     assert duplicate_gallery.is_file()
     assert invalid_gallery.is_file()
+
 
 def test_catalog_sync_cleans_unused_images_after_new_image_bearing_product():
     repository = InMemoryCatalogRepository()

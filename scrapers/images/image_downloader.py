@@ -531,16 +531,9 @@ class ImageDownloader:
             raise ValueError("La imagen local supera el límite de 20 MiB.")
         body = image_path.read_bytes()
         suffix = image_path.suffix.lower()
-        mime = {
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".png": "image/png",
-            ".webp": "image/webp",
-            ".gif": "image/gif",
-        }.get(suffix)
-        if not mime:
+        if suffix not in IMAGE_EXTENSIONS:
             raise ValueError("La extensión local no es compatible.")
-        detected = cls._verified_extension(body, mime)
+        detected = cls._verified_extension(body, "")
         expected = ".jpg" if suffix == ".jpeg" else suffix
         if detected != expected:
             raise ValueError("La extensión local no coincide con el contenido de imagen.")

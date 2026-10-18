@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from config.runtime_paths import resolve_data_path
 from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.images.image_downloader import ImageDownloader
-from scrapers.images.image_paths import IMAGE_GALLERY_DIR, IMAGE_PRODUCTS_DIR
+from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
 from scrapers.images.product_image_storage import store_image_in_product_group
 
 
@@ -497,32 +497,3 @@ class ProductGallerySyncService:
             candidate_options=new_options,
             kind="gallery",
         )
-
-    @staticmethod
-    def _remove_obsolete_gallery_files(
-        code: str,
-        existing_gallery,
-        current_urls: set[str],
-    ) -> None:
-        del code
-        for item in list(existing_gallery or []):
-            if not isinstance(item, dict):
-                continue
-            url = str(item.get("url", "") or "").strip().casefold()
-            if not url or url in current_urls:
-                continue
-            raw_path = str(
-                item.get("image_path", item.get("path", "")) or ""
-            ).strip()
-            if not raw_path:
-                continue
-            path = resolve_data_path(raw_path)
-            gallery_root = resolve_data_path(IMAGE_GALLERY_DIR).resolve()
-            try:
-                path.resolve().relative_to(gallery_root)
-            except ValueError:
-                continue
-            try:
-                path.unlink(missing_ok=True)
-            except OSError:
-                continue

@@ -1,9 +1,9 @@
 import hashlib
 from pathlib import Path
 
-import scrapers.images.product_image_storage as storage_module
 import pytest
 
+import scrapers.images.product_image_storage as storage_module
 from database.db_manager import DBManager
 from models.product import Product
 from repositories.product_repository import ProductRepository

@@ -183,6 +183,21 @@ class CatalogSyncService:
             for change in result.changes
             if isinstance(change, dict)
         )
+        if not image_path_changed:
+            new_codes = {
+                self._normalize_code(change.get("code", "")).casefold()
+                for change in result.changes
+                if isinstance(change, dict) and change.get("type") == "NEW"
+            }
+            image_path_changed = any(
+                self._normalize_code(getattr(product, "code", "")).casefold()
+                in new_codes
+                and (
+                    str(getattr(product, "image_path", "") or "").strip()
+                    or list(getattr(product, "gallery_images", []) or [])
+                )
+                for product in consolidated
+            )
         if image_path_changed:
             self._deferred_image_cleanup = True
             if (

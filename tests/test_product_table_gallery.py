@@ -145,3 +145,38 @@ def test_gallery_overrides_deduplicate_by_hash_without_hiding_distinct_images(
     assert gallery[0]["image_path"] == str(primary_path)
     assert gallery[1]["image_path"] == str(alternative_path)
     table.close()
+
+
+
+def test_product_table_prefers_grouped_path_when_primary_is_legacy_flat_file():
+    product = Product(
+        code="FB-1507",
+        name="Producto con rutas duplicadas",
+        image_url="https://site.test/FB-1507.webp",
+        image_path="data/images/products/FB-1507.webp",
+        image_hash="same-content",
+        gallery_images=[
+            {
+                "url": "https://site.test/FB-1507.webp",
+                "image_path": "data/images/products/FB-1507/FB-1507-01.webp",
+                "image_hash": "same-content",
+                "position": 1,
+            },
+            {
+                "url": "https://site.test/FB-1507-side.webp",
+                "image_path": "data/images/products/FB-1507/FB-1507-02.webp",
+                "image_hash": "side-content",
+                "position": 2,
+            },
+        ],
+    )
+
+    gallery = ProductTable._product_gallery(product)
+
+    assert len(gallery) == 2
+    assert gallery[0]["image_path"] == (
+        "data/images/products/FB-1507/FB-1507-01.webp"
+    )
+    assert gallery[1]["image_path"] == (
+        "data/images/products/FB-1507/FB-1507-02.webp"
+    )

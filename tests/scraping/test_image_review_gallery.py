@@ -3,6 +3,7 @@ from pathlib import Path
 from models.product import Product
 from services.scraping import image_review_service as module
 from services.scraping.image_review_service import ImageReviewService
+from tests.scraping.image_test_utils import image_bytes
 
 
 class FakeRepository:
@@ -100,7 +101,21 @@ def test_image_review_allows_selecting_a_second_gallery_candidate(
         image_hash="old-hash",
         image_url="https://site.test/old.webp",
     )
-    service = ImageReviewService(FakeRepository(current))
+    def cleanup_unreferenced():
+        references = {
+            Path(module.resolve_data_path(image.get("image_path", ""))).resolve()
+            for image in current.gallery_images
+            if image.get("image_path")
+        }
+        for path in (first, second):
+            if path.resolve() not in references:
+                path.unlink(missing_ok=True)
+        return []
+
+    service = ImageReviewService(
+        FakeRepository(current),
+        image_cleanup=cleanup_unreferenced,
+    )
     service.register_candidate(
         code="FB-4010",
         product_name="Gota Antiestrés",
@@ -158,8 +173,8 @@ def test_image_review_defers_gallery_dismissal_until_batch_finishes(
     gallery_dir.mkdir(parents=True)
     first = gallery_dir / "FB-4010-01.webp"
     second = gallery_dir / "FB-4010-02.webp"
-    first.write_bytes(b"first")
-    second.write_bytes(b"second")
+    first.write_bytes(image_bytes("WEBP", (10, 20, 30)))
+    second.write_bytes(image_bytes("WEBP", (40, 50, 60)))
 
     current = Product(
         code="FB-4010",
@@ -184,7 +199,21 @@ def test_image_review_defers_gallery_dismissal_until_batch_finishes(
             },
         ],
     )
-    service = ImageReviewService(FakeRepository(current))
+    def cleanup_unreferenced():
+        references = {
+            Path(module.resolve_data_path(image.get("image_path", ""))).resolve()
+            for image in current.gallery_images
+            if image.get("image_path")
+        }
+        for path in (first, second):
+            if path.resolve() not in references:
+                path.unlink(missing_ok=True)
+        return []
+
+    service = ImageReviewService(
+        FakeRepository(current),
+        image_cleanup=cleanup_unreferenced,
+    )
     batch = service.begin_batch()
     service.register_candidate(
         code="FB-4010",
@@ -314,6 +343,10 @@ def test_image_review_excluded_gallery_candidate_is_removed_only_on_apply(
         image["url"]
         for image in current.gallery_images
     ] == ["https://site.test/first.webp"]
-    assert first.exists()
+    canonical = Path(
+        module.resolve_data_path(current.gallery_images[0]["image_path"])
+    )
+    assert canonical.is_file()
+    assert not first.exists()
     assert not second.exists()
     assert service.pending() == []

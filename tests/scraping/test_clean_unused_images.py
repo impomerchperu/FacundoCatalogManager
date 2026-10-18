@@ -288,8 +288,6 @@ def test_unidentifiable_active_image_is_preserved_until_reference_is_removed(
 def test_full_catalog_prune_cleans_real_primary_and_gallery_files_after_commit(
     tmp_path: Path,
 ):
-    import json
-
     from database.db_manager import DBManager
     from models.product import Product
     from repositories.product_repository import ProductRepository

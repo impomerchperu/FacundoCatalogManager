@@ -3,9 +3,11 @@ from __future__ import annotations
 import hashlib
 import ipaddress
 import time
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import local
+from typing import cast
 from urllib.parse import urljoin, urlsplit
 from uuid import uuid4
 
@@ -102,7 +104,7 @@ class ImageDownloader:
         if callable(iterator):
             chunks = []
             total = 0
-            for chunk in iterator(chunk_size=64 * 1024):
+            for chunk in cast(Iterable[bytes], iterator(chunk_size=64 * 1024)):
                 if not chunk:
                     continue
                 total += len(chunk)

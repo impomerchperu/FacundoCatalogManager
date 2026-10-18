@@ -76,6 +76,7 @@ class CatalogSyncService:
         self.result_writer: ScrapingResultWriter | None = None
         self._deferred_image_cleanup = False
         self._full_sync_in_progress = False
+        self._image_state_repaired = False
 
     @staticmethod
     def _normalize_code(value) -> str:
@@ -93,6 +94,7 @@ class CatalogSyncService:
         """Sincroniza el catálogo usando códigos reales como identidad."""
         del cleanup_generated
         result = SyncResult()
+        self._image_state_repaired = False
         raw_products = list(products)
         missing_code_products = [
             p
@@ -174,7 +176,7 @@ class CatalogSyncService:
                 self._rollback_repository_transaction()
             raise
 
-        image_path_changed = any(
+        image_path_changed = self._image_state_repaired or any(
             any(
                 str(field.get("field", "")) in {"image_path", "gallery_images"}
                 for field in list(change.get("changes", []) or [])
@@ -229,7 +231,10 @@ class CatalogSyncService:
                 description = getattr(product, "description", "")
                 if not self._description_is_complete(description):
                     product.description = ""
-                self._normalize_product_image_state(product)
+                self._image_state_repaired = (
+                    self._normalize_product_image_state(product)
+                    or self._image_state_repaired
+                )
                 product.content_hash = self.hash_service.generate(product)
                 result.created += 1
                 result.changes.append(
@@ -264,7 +269,10 @@ class CatalogSyncService:
             self._preserve_existing_prices(existing, product)
             self._preserve_existing_description(existing, product)
             self._preserve_existing_image_state(existing, product)
-            self._normalize_product_image_state(product)
+            self._image_state_repaired = (
+                self._normalize_product_image_state(product)
+                or self._image_state_repaired
+            )
             product.content_hash = self.hash_service.generate(product)
             comparison = self.diff_service.compare(existing, product)
             if comparison["changed"]:
@@ -295,8 +303,16 @@ class CatalogSyncService:
 
 
     @classmethod
-    def _normalize_product_image_state(cls, product) -> None:
+    def _normalize_product_image_state(cls, product) -> bool:
         """Persist only decodable image bytes, with a suffix matching real format."""
+        before_path = str(getattr(product, "image_path", "") or "")
+        before_hash = str(getattr(product, "image_hash", "") or "")
+        before_validators = (
+            str(getattr(product, "image_etag", "") or ""),
+            str(getattr(product, "image_last_modified", "") or ""),
+            str(getattr(product, "image_checked_at", "") or ""),
+        )
+        before_gallery = list(getattr(product, "gallery_images", []) or [])
         code = cls._normalize_code(getattr(product, "code", ""))
         raw_path = str(getattr(product, "image_path", "") or "").strip()
         if raw_path and code:
@@ -357,6 +373,21 @@ class CatalogSyncService:
                 primary_path=product.image_path,
                 primary_hash=product.image_hash,
             )
+
+        after_path = str(getattr(product, "image_path", "") or "")
+        after_hash = str(getattr(product, "image_hash", "") or "")
+        after_validators = (
+            str(getattr(product, "image_etag", "") or ""),
+            str(getattr(product, "image_last_modified", "") or ""),
+            str(getattr(product, "image_checked_at", "") or ""),
+        )
+        after_gallery = list(getattr(product, "gallery_images", []) or [])
+        return (
+            before_path != after_path
+            or before_hash != after_hash
+            or before_validators != after_validators
+            or before_gallery != after_gallery
+        )
 
     @classmethod
     def _preserve_existing_image_state(cls, existing, product) -> None:

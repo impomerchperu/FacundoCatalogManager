@@ -772,7 +772,8 @@ class ImageReviewService:
             self._cleanup_selected_records(selected_records)
             self._cleanup_file_states(prepared)
         except OSError:
-            pass
+            LOGGER.exception("No se pudieron limpiar todos los archivos temporales de revisión.")
+        self._cleanup_unused_images()
 
         return results
 
@@ -1303,10 +1304,7 @@ class ImageReviewService:
             product.image_last_modified = ""
             product.image_checked_at = ""
 
-        product.gallery_images = normalize_product_gallery(
-            product,
-            list(getattr(product, "gallery_images", []) or []),
-        )
+        product.gallery_images = self._normalize_identifiable_gallery(product)
 
     def _cleanup_persisted_image_selection(
         self,

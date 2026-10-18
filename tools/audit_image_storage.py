@@ -552,7 +552,7 @@ def _print_missing_references(
     references = report["missing_reference_details"]
     if not references:
         return
-    print("\\nREFERENCIAS INEXISTENTES:")
+    print("\nREFERENCIAS INEXISTENTES:")
     for reference in references[:max_details]:
         print(
             f"  - [{reference['table']}#{reference['rowid']}] "
@@ -567,7 +567,7 @@ def _print_hash_mismatches(
     references = report["hash_mismatch_details"]
     if not references:
         return
-    print("\\nHASHES DISTINTOS:")
+    print("\nHASHES DISTINTOS:")
     for reference in references[:max_details]:
         print(
             f"  - [{reference['table']}#{reference['rowid']}] "
@@ -582,7 +582,7 @@ def _print_cross_root_duplicates(
     groups = report["cross_root_duplicate_groups"]
     if not groups:
         return
-    print("\\nDUPLICADOS ENTRE ROOTS:")
+    print("\nDUPLICADOS ENTRE ROOTS:")
     for group in groups[:max_details]:
         _print_group(group)
 
@@ -594,7 +594,7 @@ def _print_orphan_files(
     records = report["orphan_file_details"]
     if not records:
         return
-    print("\\nARCHIVOS SIN REFERENCIA DB:")
+    print("\nARCHIVOS SIN REFERENCIA DB:")
     for record in records[:max_details]:
         print(
             f"  - {record['path']} "

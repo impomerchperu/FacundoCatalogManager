@@ -4,6 +4,7 @@ import contextlib
 import copy
 import json
 import logging
+import os
 import shutil
 import uuid
 from collections.abc import Callable
@@ -19,7 +20,6 @@ from models.product_image_gallery import normalize_product_gallery
 from repositories.product_repository import ProductRepository
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_paths import (
-    IMAGE_EXTENSIONS,
     IMAGE_GALLERY_DIR,
     IMAGE_PRODUCTS_DIR,
     product_image_directory,
@@ -56,7 +56,7 @@ class ImageReviewService:
             return
         try:
             self.image_cleanup()
-        except Exception:  # noqa: BLE001
+        except Exception:
             LOGGER.exception("No se pudo completar la limpieza post-commit de imágenes.")
 
     def close(self) -> None:
@@ -1026,9 +1026,9 @@ class ImageReviewService:
             return "", ""
         if not stored_path or not stored_hash:
             return "", ""
-        destination = resolve_data_path(stored_path).resolve()
+        destination = Path(resolve_data_path(stored_path)).resolve()
         try:
-            source_resolved = source.resolve()
+            source_resolved = Path(source).resolve()
         except OSError:
             source_resolved = source
         if (

@@ -18,15 +18,15 @@ from models.product import Product
 from models.product_image_gallery import normalize_product_gallery
 from repositories.product_repository import ProductRepository
 from scrapers.images.image_downloader import ImageDownloader
-from scrapers.images.image_validation import (
-    file_extension_matches,
-    identify_image_file,
-)
 from scrapers.images.image_paths import (
     IMAGE_EXTENSIONS,
     IMAGE_GALLERY_DIR,
     IMAGE_PRODUCTS_DIR,
     product_image_directory,
+)
+from scrapers.images.image_validation import (
+    file_extension_matches,
+    identify_image_file,
 )
 from scrapers.images.product_image_storage import store_image_in_product_group
 
@@ -1331,7 +1331,7 @@ class ImageReviewService:
             )
             if persist:
                 self.repository.update(product)
-        except (OSError, ValueError, RuntimeError):
+        except Exception:
             if created_destination:
                 destination.unlink(missing_ok=True)
             raise

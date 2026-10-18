@@ -3,6 +3,9 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+import pytest
+
+import tools.clean_unused_images as cleaner_module
 from tools.clean_unused_images import (
     clean_unused_images,
     find_unused_images,
@@ -280,4 +283,126 @@ def test_unidentifiable_active_image_is_preserved_until_reference_is_removed(
         "data/images/products/P001.webp"
     ]
     assert not invalid.exists()
+
+def test_cleanup_fails_closed_when_gallery_reference_json_is_malformed(
+    tmp_path: Path,
+):
+    project = tmp_path
+    root = project / "data" / "images"
+    root.mkdir(parents=True)
+    possibly_referenced = root / "possibly-active.webp"
+    possibly_referenced.write_bytes(b"not an image, but still referenced")
+
+    db = project / "database" / "catalog.db"
+    db.parent.mkdir()
+    connection = sqlite3.connect(db)
+    connection.execute(
+        """
+        CREATE TABLE products (
+            id INTEGER PRIMARY KEY,
+            code TEXT,
+            image_path TEXT,
+            gallery_images TEXT
+        )
+        """
+    )
+    connection.execute(
+        "INSERT INTO products (code, image_path, gallery_images) VALUES (?, ?, ?)",
+        ("P099", "", "{malformed-json"),
+    )
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(RuntimeError, match="gallery_images no es JSON válido"):
+        clean_unused_images(
+            project_root=project,
+            db_path=db,
+            roots=["data/images"],
+            delete=True,
+        )
+
+    assert possibly_referenced.is_file()
+
+
+def test_cleanup_fails_closed_when_gallery_has_invalid_entry(tmp_path: Path):
+    import json
+
+    project = tmp_path
+    root = project / "data" / "images"
+    root.mkdir(parents=True)
+    possibly_referenced = root / "possibly-active.webp"
+    possibly_referenced.write_bytes(b"legacy image data")
+
+    db = project / "database" / "catalog.db"
+    db.parent.mkdir()
+    connection = sqlite3.connect(db)
+    connection.execute(
+        """
+        CREATE TABLE products (
+            id INTEGER PRIMARY KEY,
+            code TEXT,
+            image_path TEXT,
+            gallery_images TEXT
+        )
+        """
+    )
+    connection.execute(
+        "INSERT INTO products (code, image_path, gallery_images) VALUES (?, ?, ?)",
+        ("P098", "", json.dumps([None])),
+    )
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(RuntimeError, match="entrada de galería inválida"):
+        clean_unused_images(
+            project_root=project,
+            db_path=db,
+            roots=["data/images"],
+            delete=True,
+        )
+
+    assert possibly_referenced.is_file()
+
+
+def test_cleanup_rechecks_references_after_building_candidate_list(
+    tmp_path: Path,
+    monkeypatch,
+):
+    project = tmp_path
+    root = project / "data" / "images"
+    root.mkdir(parents=True)
+    image_path = root / "newly-referenced.webp"
+    image_path.write_bytes(b"artifact")
+
+    db = project / "database" / "catalog.db"
+    db.parent.mkdir()
+    _create_products_db(db)
+
+    original_find_unused = cleaner_module.find_unused_images
+
+    def find_candidates_then_add_reference(**kwargs):
+        candidates = original_find_unused(**kwargs)
+        with sqlite3.connect(db) as connection:
+            connection.execute(
+                "INSERT INTO products (code, image_path) VALUES (?, ?)",
+                ("P777", "data/images/newly-referenced.webp"),
+            )
+            connection.commit()
+        return candidates
+
+    monkeypatch.setattr(
+        cleaner_module,
+        "find_unused_images",
+        find_candidates_then_add_reference,
+    )
+
+    deleted = clean_unused_images(
+        project_root=project,
+        db_path=db,
+        roots=["data/images"],
+        delete=True,
+    )
+
+    assert deleted == []
+    assert image_path.is_file()
 

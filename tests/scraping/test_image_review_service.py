@@ -5,6 +5,7 @@ from models.product import Product
 from repositories.product_repository import ProductRepository
 from services.scraping import image_review_service as module
 from services.scraping.image_review_service import ImageReviewService
+from tests.scraping.image_test_utils import image_bytes
 
 
 class FakeRepository:
@@ -52,7 +53,7 @@ def test_image_review_batch_is_hidden_until_finalize(monkeypatch, tmp_path):
     staging_dir, _products_dir = _patch_paths(monkeypatch, tmp_path)
     candidate = staging_dir / "FB-100-new.jpg"
     candidate.parent.mkdir(parents=True)
-    candidate.write_bytes(b"candidate")
+    candidate.write_bytes(image_bytes("JPEG", (1, 2, 3)))
 
     repository = FakeRepository(
         Product(
@@ -90,8 +91,8 @@ def test_image_review_replace_updates_db_and_keeps_old_image_outside_staging(
     candidate_path = staging_dir / "FB-100-new.webp"
     products_dir.mkdir(parents=True)
     staging_dir.mkdir(parents=True)
-    current_path.write_bytes(b"old-image")
-    candidate_path.write_bytes(b"new-image")
+    current_path.write_bytes(image_bytes("JPEG", (4, 5, 6)))
+    candidate_path.write_bytes(image_bytes("WEBP", (7, 8, 9)))
 
     current = Product(
         code="FB-100",
@@ -138,7 +139,7 @@ def test_image_review_keep_restores_current_image_metadata(monkeypatch, tmp_path
     candidate = staging_dir / "FB-100-new.jpg"
     candidate.parent.mkdir(parents=True)
     products_dir.mkdir(parents=True)
-    candidate.write_bytes(b"candidate")
+    candidate.write_bytes(image_bytes("JPEG", (10, 11, 12)))
 
     product = Product(
         code="FB-100",
@@ -190,7 +191,7 @@ def test_image_review_apply_is_persisted_after_reopening_database(
     products_dir.mkdir(parents=True)
     staging_dir.mkdir(parents=True)
     current_path.write_bytes(b"old-image")
-    candidate_path.write_bytes(b"new-image")
+    candidate_path.write_bytes(image_bytes("WEBP", (16, 17, 18)))
 
     db = DBManager(str(db_path))
     repository = ProductRepository(db)
@@ -239,7 +240,7 @@ def test_manual_image_selection_clears_remote_source_and_http_validators(
     current_path = product_dir / "FB-101-01.jpg"
     current_path.write_bytes(b"old-image")
     manual_path = tmp_path / "manual.webp"
-    manual_path.write_bytes(b"manual-image")
+    manual_path.write_bytes(image_bytes("WEBP", (13, 14, 15)))
 
     current = Product(
         code="FB-101",
@@ -329,7 +330,7 @@ def test_image_review_discards_transient_selections_without_changing_product(
     staging_dir, _products_dir = _patch_paths(monkeypatch, tmp_path)
     staging_dir.mkdir(parents=True)
     candidate_path = staging_dir / "FB-100-new.webp"
-    candidate_path.write_bytes(b"new-image")
+    candidate_path.write_bytes(image_bytes("WEBP", (22, 23, 24)))
 
     current = Product(
         code="FB-100",
@@ -368,7 +369,7 @@ def test_new_scrape_batch_supersedes_previous_review_with_same_hash(
     staging_dir, _products_dir = _patch_paths(monkeypatch, tmp_path)
     staging_dir.mkdir(parents=True)
     candidate_path = staging_dir / "FB-100-new.webp"
-    candidate_path.write_bytes(b"candidate")
+    candidate_path.write_bytes(image_bytes("WEBP", (19, 20, 21)))
 
     current = Product(
         code="FB-100",

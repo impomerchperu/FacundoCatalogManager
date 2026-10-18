@@ -56,3 +56,36 @@ def test_product_group_storage_never_overwrites_different_alternative(
     assert first_hash != second_hash
     assert first.is_file()
     assert second.is_file()
+
+
+
+def test_identical_image_reuses_existing_file_in_the_same_product_group(
+    tmp_path: Path,
+):
+    root = tmp_path / "data" / "images" / "products"
+    source_dir = tmp_path / "legacy"
+    source_dir.mkdir()
+    primary = source_dir / "primary.webp"
+    duplicate = source_dir / "duplicate.webp"
+    primary.write_bytes(b"identical-image")
+    duplicate.write_bytes(b"identical-image")
+
+    primary_path, primary_hash = store_image_in_product_group(
+        "FB-1507",
+        primary,
+        1,
+        root=root,
+    )
+    duplicate_path, duplicate_hash = store_image_in_product_group(
+        "FB-1507",
+        duplicate,
+        2,
+        root=root,
+    )
+
+    product_dir = root / "FB-1507"
+    assert duplicate_path == primary_path
+    assert duplicate_hash == primary_hash
+    assert len(list(product_dir.iterdir())) == 1
+    assert primary.is_file()
+    assert duplicate.is_file()

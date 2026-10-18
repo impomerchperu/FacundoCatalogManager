@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import time
+from datetime import datetime, timezone
 from pathlib import Path
+from threading import local
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 import requests
@@ -15,9 +19,11 @@ from scrapers.images.image_paths import (
     safe_image_code,
 )
 
+_MAX_IMAGE_BYTES = 20 * 1024 * 1024
+
 
 class ImageDownloader:
-    """Descarga una imagen usando un nombre canónico basado en el código."""
+    """Descarga y revalida imágenes sin sobrescribir bytes que sigan activos en BD."""
 
     def __init__(
         self,
@@ -29,37 +35,94 @@ class ImageDownloader:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.request_timeout = int(request_timeout)
         self.max_retries = int(max_retries)
+        self._thread_local = local()
         if self.request_timeout <= 0:
             raise ValueError("request_timeout debe ser mayor que cero.")
         if self.max_retries <= 0:
             raise ValueError("max_retries debe ser mayor que cero.")
 
-    def download(self, code: str, url: str) -> str:
+    def _session(self) -> requests.Session:
+        """Reutiliza conexiones HTTP dentro de cada hilo sin compartir Session."""
+        session = getattr(self._thread_local, "session", None)
+        if session is None:
+            session = requests.Session()
+            self._thread_local.session = session
+        return session
+
+    @staticmethod
+    def _validate_url(url: str) -> None:
+        parsed = urlsplit(str(url or "").strip())
+        if (
+            parsed.scheme.lower() not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            raise ValueError("La URL de imagen no es válida o segura.")
+
+    def _request(self, url: str, headers: dict[str, str]):
+        self._validate_url(url)
+        return self._session().get(
+            url,
+            timeout=self.request_timeout,
+            headers=headers,
+        )
+
+    @staticmethod
+    def _checked_at() -> str:
+        return datetime.now(timezone.utc).isoformat()
+
+    @staticmethod
+    def _sha256_bytes(data: bytes) -> str:
+        return hashlib.sha256(data).hexdigest()
+
+    @staticmethod
+    def _verified_extension(data: bytes, content_type: str) -> str:
+        """Detecta el formato con la firma binaria, no solo por el sufijo de URL."""
+        if not data or len(data) > _MAX_IMAGE_BYTES:
+            raise ValueError("La imagen está vacía o supera el límite de 20 MiB.")
+
+        mime = str(content_type or "").split(";", 1)[0].strip().casefold()
+        formats = (
+            (".jpg", "image/jpeg", data.startswith(b"\xff\xd8\xff") and data.endswith(b"\xff\xd9")),
+            (".png", "image/png", data.startswith(b"\x89PNG\r\n\x1a\n") and b"IEND" in data[-16:]),
+            (".webp", "image/webp", len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"),
+            (".gif", "image/gif", data.startswith((b"GIF87a", b"GIF89a")) and data.endswith(b";")),
+        )
+        for extension, expected_mime, matches in formats:
+            if matches:
+                if mime.startswith("image/") and mime != expected_mime:
+                    raise ValueError(
+                        f"El Content-Type ({mime}) no coincide con la firma {expected_mime}."
+                    )
+                return extension
+
+        raise ValueError("La respuesta no contiene una imagen raster compatible.")
+
+    @staticmethod
+    def _response_metadata(response, checked_at: str) -> dict[str, str]:
+        headers = getattr(response, "headers", {}) or {}
+        return {
+            "image_etag": str(headers.get("ETag", "") or "").strip(),
+            "image_last_modified": str(headers.get("Last-Modified", "") or "").strip(),
+            "image_checked_at": checked_at,
+        }
+
+    def _get_with_retries(self, url: str, headers: dict[str, str]):
         last_error = None
         for attempt in range(self.max_retries):
             try:
-                response = requests.get(
-                    url,
-                    timeout=self.request_timeout,
-                    headers={"User-Agent": "FacundoCatalogManager/1.0"},
-                )
+                response = self._request(url, headers)
+                status_code = int(getattr(response, "status_code", 200) or 200)
+                if status_code == 304:
+                    return response
                 response.raise_for_status()
-
-                extension = self._extension(
-                    url,
-                    response.headers.get("Content-Type", ""),
-                )
-                safe_code = self._safe_code(code)
-                target_dir = product_image_directory(
-                    safe_code,
-                    root=self.output_dir,
-                )
-                target_dir.mkdir(parents=True, exist_ok=True)
-                target = target_dir / f"{safe_code}-01{extension}"
-                temporary = target.with_suffix(target.suffix + ".tmp")
-                temporary.write_bytes(response.content)
-                temporary.replace(target)
-                return to_data_relative_path(target)
+                if status_code != 200:
+                    raise requests.exceptions.HTTPError(
+                        f"Estado HTTP inesperado: {status_code}",
+                        response=response,
+                    )
+                return response
             except requests.exceptions.RequestException as error:
                 last_error = error
                 if not self._is_retryable_error(error):
@@ -71,36 +134,224 @@ class ImageDownloader:
             raise last_error
         raise RuntimeError("No se pudo descargar la imagen.")
 
+    def _store_verified_body(
+        self,
+        code: str,
+        data: bytes,
+        extension: str,
+        image_hash: str,
+        *,
+        position: int | None = None,
+    ) -> str:
+        safe_code = self._safe_code(code)
+        target_dir = (
+            product_image_directory(safe_code, root=self.output_dir)
+        )
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        if position is None:
+            canonical = target_dir / f"{safe_code}-01{extension}"
+        else:
+            canonical = target_dir / f"{safe_code}-{int(position):02d}{extension}"
+
+        if canonical.is_file():
+            try:
+                if self.hash_file(canonical) == image_hash:
+                    return to_data_relative_path(canonical)
+            except OSError:
+                pass
+            # Preserve the previous DB-referenced bytes until the catalog commit.
+            target = target_dir / (
+                f"{safe_code}-{int(position or 1):02d}-{image_hash[:16]}{extension}"
+            )
+        else:
+            target = canonical
+
+        if target.exists():
+            try:
+                if self.hash_file(target) == image_hash:
+                    return to_data_relative_path(target)
+            except OSError:
+                pass
+            target = target.with_name(
+                f"{target.stem}-{uuid4().hex[:8]}{target.suffix}"
+            )
+
+        temporary = target.with_name(f"{target.name}.{uuid4().hex}.tmp")
+        try:
+            with temporary.open("xb") as stream:
+                stream.write(data)
+                stream.flush()
+            if self.hash_file(temporary) != image_hash:
+                raise RuntimeError("La verificación SHA-256 de la descarga falló.")
+            temporary.replace(target)
+        finally:
+            temporary.unlink(missing_ok=True)
+        return to_data_relative_path(target)
+
+    def download_result(self, code: str, url: str) -> dict[str, str]:
+        """Descarga una imagen validada a una ruta versionada y devuelve sus metadatos."""
+        last_error = None
+        for attempt in range(self.max_retries):
+            try:
+                response = self._get_with_retries(
+                    url,
+                    {"User-Agent": "FacundoCatalogManager/1.0"},
+                )
+                try:
+                    body = bytes(response.content or b"")
+                    extension = self._verified_extension(
+                        body,
+                        (getattr(response, "headers", {}) or {}).get("Content-Type", ""),
+                    )
+                    image_hash = self._sha256_bytes(body)
+                    checked_at = self._checked_at()
+                    path = self._store_verified_body(
+                        code, body, extension, image_hash
+                    )
+                    return {
+                        "image_path": path,
+                        "image_hash": image_hash,
+                        **self._response_metadata(response, checked_at),
+                    }
+                finally:
+                    close = getattr(response, "close", None)
+                    if callable(close):
+                        close()
+            except requests.exceptions.RequestException as error:
+                last_error = error
+                if not self._is_retryable_error(error):
+                    raise
+                if attempt < self.max_retries - 1:
+                    time.sleep(attempt + 1)
+
+        if last_error:
+            raise last_error
+        raise RuntimeError("No se pudo descargar la imagen.")
+
+    def revalidate_primary(
+        self,
+        code: str,
+        url: str,
+        *,
+        current_path: str = "",
+        current_hash: str = "",
+        etag: str = "",
+        last_modified: str = "",
+    ) -> dict[str, str | bool]:
+        """Realiza GET condicional y repara solo si los bytes/metadata lo requieren."""
+        self._validate_url(url)
+        old_path = resolve_data_path(current_path) if current_path else None
+        old_file_ok = False
+        if old_path is not None and old_path.is_file() and current_hash:
+            try:
+                old_file_ok = self.hash_file(old_path) == current_hash
+            except OSError:
+                old_file_ok = False
+
+        headers = {"User-Agent": "FacundoCatalogManager/1.0"}
+        if old_file_ok:
+            if etag:
+                headers["If-None-Match"] = etag
+            if last_modified:
+                headers["If-Modified-Since"] = last_modified
+
+        response = self._get_with_retries(url, headers)
+        try:
+            status = int(getattr(response, "status_code", 200) or 200)
+            checked_at = self._checked_at()
+            if status == 304 and old_file_ok and old_path is not None:
+                metadata = self._response_metadata(response, checked_at)
+                return {
+                    "status": "not_modified",
+                    "image_path": to_data_relative_path(old_path),
+                    "image_hash": current_hash,
+                    "image_etag": metadata["image_etag"] or etag,
+                    "image_last_modified": metadata["image_last_modified"] or last_modified,
+                    "image_checked_at": checked_at,
+                }
+
+            if status == 304:
+                # A 304 cannot repair a missing/corrupt local object. Retry unconditionally.
+                close = getattr(response, "close", None)
+                if callable(close):
+                    close()
+                response = self._get_with_retries(
+                    url,
+                    {"User-Agent": "FacundoCatalogManager/1.0"},
+                )
+                status = int(getattr(response, "status_code", 200) or 200)
+                if status == 304:
+                    raise RuntimeError("El servidor devolvió 304 sin una copia local válida.")
+
+            body = bytes(response.content or b"")
+            extension = self._verified_extension(
+                body,
+                (getattr(response, "headers", {}) or {}).get("Content-Type", ""),
+            )
+            image_hash = self._sha256_bytes(body)
+            metadata = self._response_metadata(response, checked_at)
+
+            if old_file_ok and image_hash == current_hash and old_path is not None:
+                return {
+                    "status": "unchanged",
+                    "image_path": to_data_relative_path(old_path),
+                    "image_hash": current_hash,
+                    **metadata,
+                }
+
+            path = self._store_verified_body(code, body, extension, image_hash)
+            return {
+                "status": "downloaded",
+                "image_path": path,
+                "image_hash": image_hash,
+                **metadata,
+            }
+        finally:
+            close = getattr(response, "close", None)
+            if callable(close):
+                close()
+
+    def download(self, code: str, url: str) -> str:
+        """Compatibilidad con consumidores anteriores: devuelve únicamente la ruta."""
+        result = self.download_result(code, url)
+        return result["image_path"]
+
     def download_staged(
         self,
         code: str,
         url: str,
         staging_dir: str | Path,
     ) -> str:
-        """Descarga una imagen sin sobrescribir el almacenamiento vigente."""
+        """Descarga una opción de revisión sin sobrescribir la imagen vigente."""
         staging_path = resolve_data_path(staging_dir)
         staging_path.mkdir(parents=True, exist_ok=True)
-        token = uuid4().hex
         last_error = None
         for attempt in range(self.max_retries):
             try:
-                response = requests.get(
+                response = self._get_with_retries(
                     url,
-                    timeout=self.request_timeout,
-                    headers={"User-Agent": "FacundoCatalogManager/1.0"},
+                    {"User-Agent": "FacundoCatalogManager/1.0"},
                 )
-                response.raise_for_status()
-                extension = self._extension(
-                    url,
-                    response.headers.get("Content-Type", ""),
-                )
-                target = staging_path / (
-                    f"{self._safe_code(code)}-{token}{extension}"
-                )
-                temporary = target.with_suffix(target.suffix + ".tmp")
-                temporary.write_bytes(response.content)
-                temporary.replace(target)
-                return to_data_relative_path(target)
+                try:
+                    body = bytes(response.content or b"")
+                    extension = self._verified_extension(
+                        body,
+                        (getattr(response, "headers", {}) or {}).get("Content-Type", ""),
+                    )
+                    target = staging_path / (
+                        f"{self._safe_code(code)}-{uuid4().hex}{extension}"
+                    )
+                    temporary = target.with_name(f"{target.name}.tmp")
+                    temporary.write_bytes(body)
+                    if self.hash_file(temporary) != self._sha256_bytes(body):
+                        raise RuntimeError("La verificación SHA-256 de la descarga falló.")
+                    temporary.replace(target)
+                    return to_data_relative_path(target)
+                finally:
+                    close = getattr(response, "close", None)
+                    if callable(close):
+                        close()
             except requests.exceptions.RequestException as error:
                 last_error = error
                 if not self._is_retryable_error(error):
@@ -157,29 +408,44 @@ class ImageDownloader:
         position: int,
         output_dir: str | Path,
     ) -> str:
-        """Descarga una imagen de galería con nombre estable por producto/posición."""
-        target_dir = resolve_data_path(output_dir)
-        target_dir.mkdir(parents=True, exist_ok=True)
+        """Descarga una imagen de galería manteniendo los bytes anteriores protegidos."""
         last_error = None
+        target_root = resolve_data_path(output_dir)
+        # Use the same validation/retry/session policy as primary images.
         for attempt in range(self.max_retries):
             try:
-                response = requests.get(
+                response = self._get_with_retries(
                     url,
-                    timeout=self.request_timeout,
-                    headers={"User-Agent": "FacundoCatalogManager/1.0"},
+                    {"User-Agent": "FacundoCatalogManager/1.0"},
                 )
-                response.raise_for_status()
-                extension = self._extension(
-                    url,
-                    response.headers.get("Content-Type", ""),
-                )
-                target = target_dir / (
-                    f"{self._safe_code(code)}-{int(position):02d}{extension}"
-                )
-                temporary = target.with_suffix(target.suffix + ".tmp")
-                temporary.write_bytes(response.content)
-                temporary.replace(target)
-                return to_data_relative_path(target)
+                try:
+                    body = bytes(response.content or b"")
+                    extension = self._verified_extension(
+                        body,
+                        (getattr(response, "headers", {}) or {}).get("Content-Type", ""),
+                    )
+                    image_hash = self._sha256_bytes(body)
+                    safe_code = self._safe_code(code)
+                    target_dir = target_root
+                    target_dir.mkdir(parents=True, exist_ok=True)
+                    canonical = target_dir / f"{safe_code}-{int(position):02d}{extension}"
+                    if canonical.is_file() and self.hash_file(canonical) != image_hash:
+                        canonical = target_dir / (
+                            f"{safe_code}-{int(position):02d}-{image_hash[:16]}{extension}"
+                        )
+                    temporary = canonical.with_name(f"{canonical.name}.{uuid4().hex}.tmp")
+                    temporary.write_bytes(body)
+                    if self.hash_file(temporary) != image_hash:
+                        raise RuntimeError("La verificación SHA-256 de la galería falló.")
+                    if not canonical.exists():
+                        temporary.replace(canonical)
+                    else:
+                        temporary.unlink(missing_ok=True)
+                    return to_data_relative_path(canonical)
+                finally:
+                    close = getattr(response, "close", None)
+                    if callable(close):
+                        close()
             except requests.exceptions.RequestException as error:
                 last_error = error
                 if not self._is_retryable_error(error):

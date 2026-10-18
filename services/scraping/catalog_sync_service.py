@@ -168,7 +168,7 @@ class CatalogSyncService:
 
         image_path_changed = any(
             any(
-                str(field.get("field", "")) == "image_path"
+                str(field.get("field", "")) in {"image_path", "gallery_images"}
                 for field in list(change.get("changes", []) or [])
                 if isinstance(field, dict)
             )

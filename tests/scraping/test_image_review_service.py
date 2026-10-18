@@ -131,8 +131,8 @@ def test_image_review_replace_updates_db_and_keeps_old_image_outside_staging(
     assert finalized[0]["changed"] is True
     assert repository.product.image_path == "data/images/products/FB-100/FB-100-01.webp"
     assert repository.product.image_url == "https://example.test/new.webp"
-    assert destination.read_bytes() == b"new-image"
-    assert current_path.read_bytes() == b"old-image"
+    assert destination.read_bytes() == image_bytes("WEBP", (7, 8, 9))
+    assert current_path.read_bytes() == image_bytes("JPEG", (4, 5, 6))
     assert not candidate_path.exists()
     assert service.pending() == []
 

@@ -29,6 +29,10 @@ class Product:
         self.image_url = ""
         self.image_path = ""
         self.image_hash = ""
+        self.image_etag = ""
+        self.image_last_modified = ""
+        self.image_checked_at = ""
+        self.gallery_images = []
         self.content_hash = ""
 
 

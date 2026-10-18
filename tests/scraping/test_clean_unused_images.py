@@ -52,7 +52,7 @@ def test_find_unused_images_uses_products_as_allowlist(tmp_path: Path):
     db = project / "database" / "catalog.db"
     db.parent.mkdir()
     _create_products_db(db)
-    _insert_product(db, "data/images/products/P001.webp")
+    _insert_product(db, "data/images/products/P001/P001-01.asset")
 
     candidates = find_unused_images(
         project_root=project,
@@ -85,7 +85,7 @@ def test_clean_unused_images_can_delete_only_unreferenced_files(
     db = project / "database" / "catalog.db"
     db.parent.mkdir()
     _create_products_db(db)
-    _insert_product(db, "data/images/products/P001.webp")
+    _insert_product(db, "data/images/products/P001/P001-01.asset")
 
     deleted = clean_unused_images(
         project_root=project,
@@ -250,15 +250,15 @@ def test_unidentifiable_active_image_is_preserved_until_reference_is_removed(
     tmp_path: Path,
 ):
     project = tmp_path
-    root = project / "data" / "images" / "products"
+    root = project / "data" / "images" / "products" / "P001"
     root.mkdir(parents=True)
-    invalid = root / "P001.webp"
+    invalid = root / "P001-01.asset"
     invalid.write_bytes(b"not an identifiable image")
 
     db = project / "database" / "catalog.db"
     db.parent.mkdir()
     _create_products_db(db)
-    _insert_product(db, "data/images/products/P001.webp")
+    _insert_product(db, "data/images/products/P001/P001-01.asset")
 
     deleted_while_referenced = clean_unused_images(
         project_root=project,
@@ -405,4 +405,62 @@ def test_cleanup_rechecks_references_after_building_candidate_list(
 
     assert deleted == []
     assert image_path.is_file()
+
+def test_cleanup_discovers_unidentifiable_artifact_in_product_folder(
+    tmp_path: Path,
+):
+    project = tmp_path
+    product_dir = project / "data" / "images" / "products" / "P777"
+    product_dir.mkdir(parents=True)
+    unidentifiable = product_dir / "P777-01.unknown"
+    unidentifiable.write_bytes(b"unknown/corrupt image payload")
+
+    db = project / "database" / "catalog.db"
+    db.parent.mkdir()
+    _create_products_db(db)
+
+    candidates = find_unused_images(
+        project_root=project,
+        db_path=db,
+        roots=["data/images"],
+    )
+    assert [item["relative"] for item in candidates] == [
+        "data/images/products/P777/P777-01.unknown"
+    ]
+
+    deleted = clean_unused_images(
+        project_root=project,
+        db_path=db,
+        roots=["data/images"],
+        delete=True,
+    )
+    assert [item["relative"] for item in deleted] == [
+        "data/images/products/P777/P777-01.unknown"
+    ]
+    assert not unidentifiable.exists()
+
+
+def test_cleanup_does_not_discover_staging_artifacts_in_product_folder(
+    tmp_path: Path,
+):
+    project = tmp_path
+    staging = (
+        project / "data" / "images" / "products" / "P778" / ".staging"
+    )
+    staging.mkdir(parents=True)
+    temporary = staging / "P778-01.webp.tmp"
+    temporary.write_bytes(b"temporary bytes")
+
+    db = project / "database" / "catalog.db"
+    db.parent.mkdir()
+    _create_products_db(db)
+
+    candidates = find_unused_images(
+        project_root=project,
+        db_path=db,
+        roots=["data/images"],
+    )
+
+    assert candidates == []
+    assert temporary.is_file()
 

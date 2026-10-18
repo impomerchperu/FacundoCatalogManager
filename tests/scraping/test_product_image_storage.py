@@ -2,13 +2,14 @@ from pathlib import Path
 
 from scrapers.images.image_hash import ImageHash
 from scrapers.images.product_image_storage import store_image_in_product_group
+from tests.scraping.image_test_utils import image_bytes
 
 
 def test_legacy_image_is_copied_into_canonical_product_group(tmp_path: Path):
     root = tmp_path / "data" / "images" / "products"
     legacy = root / "FB-1507.webp"
     legacy.parent.mkdir(parents=True)
-    legacy.write_bytes(b"same-primary-image")
+    legacy.write_bytes(image_bytes("WEBP", (1, 2, 3)))
 
     stored_path, stored_hash = store_image_in_product_group(
         "FB-1507",
@@ -32,8 +33,8 @@ def test_product_group_storage_never_overwrites_different_alternative(
     source_dir.mkdir()
     first = source_dir / "first.webp"
     second = source_dir / "second.webp"
-    first.write_bytes(b"first-image")
-    second.write_bytes(b"second-image")
+    first.write_bytes(image_bytes("WEBP", (4, 5, 6)))
+    second.write_bytes(image_bytes("WEBP", (7, 8, 9)))
 
     first_path, first_hash = store_image_in_product_group(
         "FB-1507",
@@ -51,8 +52,8 @@ def test_product_group_storage_never_overwrites_different_alternative(
     assert Path(first_path).is_file()
     assert Path(second_path).is_file()
     assert Path(first_path) != Path(second_path)
-    assert Path(first_path).read_bytes() == b"first-image"
-    assert Path(second_path).read_bytes() == b"second-image"
+    assert Path(first_path).read_bytes() == first.read_bytes()
+    assert Path(second_path).read_bytes() == second.read_bytes()
     assert first_hash != second_hash
     assert first.is_file()
     assert second.is_file()
@@ -66,8 +67,8 @@ def test_identical_image_reuses_existing_file_in_the_same_product_group(
     source_dir.mkdir()
     primary = source_dir / "primary.webp"
     duplicate = source_dir / "duplicate.webp"
-    primary.write_bytes(b"identical-image")
-    duplicate.write_bytes(b"identical-image")
+    primary.write_bytes(image_bytes("WEBP", (10, 11, 12)))
+    duplicate.write_bytes(image_bytes("WEBP", (10, 11, 12)))
 
     primary_path, primary_hash = store_image_in_product_group(
         "FB-1507",

@@ -15,6 +15,11 @@ import requests
 
 from config.runtime_paths import resolve_data_path, to_data_relative_path
 from scrapers.images.image_hash import ImageHash
+from scrapers.images.image_validation import (
+    file_extension_matches,
+    identify_image_bytes,
+    identify_image_file,
+)
 from scrapers.images.image_paths import (
     IMAGE_EXTENSIONS,
     IMAGE_PRODUCTS_DIR,
@@ -128,26 +133,8 @@ class ImageDownloader:
 
     @staticmethod
     def _verified_extension(data: bytes, content_type: str) -> str:
-        """Detecta el formato con la firma binaria, no solo por el sufijo de URL."""
-        if not data or len(data) > _MAX_IMAGE_BYTES:
-            raise ValueError("La imagen está vacía o supera el límite de 20 MiB.")
-
-        mime = str(content_type or "").split(";", 1)[0].strip().casefold()
-        formats = (
-            (".jpg", "image/jpeg", data.startswith(b"\xff\xd8\xff") and data.endswith(b"\xff\xd9")),
-            (".png", "image/png", data.startswith(b"\x89PNG\r\n\x1a\n") and b"IEND" in data[-16:]),
-            (".webp", "image/webp", len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"),
-            (".gif", "image/gif", data.startswith((b"GIF87a", b"GIF89a")) and data.endswith(b";")),
-        )
-        for extension, expected_mime, matches in formats:
-            if matches:
-                if mime.startswith("image/") and mime != expected_mime:
-                    raise ValueError(
-                        f"El Content-Type ({mime}) no coincide con la firma {expected_mime}."
-                    )
-                return extension
-
-        raise ValueError("La respuesta no contiene una imagen raster compatible.")
+        """Decodifica la imagen y obtiene su extensión real, sin confiar en la URL."""
+        return identify_image_bytes(data, content_type)["image_extension"]
 
     @staticmethod
     def _response_metadata(response: requests.Response, checked_at: str) -> dict[str, str]:
@@ -533,20 +520,17 @@ class ImageDownloader:
 
     @classmethod
     def verify_image_file(cls, path: str | Path) -> dict[str, str]:
-        """Read once, verify raster signature/extension and return its SHA-256."""
+        """Decodifica la imagen local y confirma que su sufijo corresponda al formato."""
         image_path = Path(path)
-        if image_path.stat().st_size > _MAX_IMAGE_BYTES:
-            raise ValueError("La imagen local supera el límite de 20 MiB.")
-        body = image_path.read_bytes()
         suffix = image_path.suffix.lower()
         if suffix not in IMAGE_EXTENSIONS:
             raise ValueError("La extensión local no es compatible.")
-        detected = cls._verified_extension(body, "")
-        expected = ".jpg" if suffix == ".jpeg" else suffix
-        if detected != expected:
+        verified = identify_image_file(image_path)
+        detected = verified["image_extension"]
+        if not file_extension_matches(image_path, detected):
             raise ValueError("La extensión local no coincide con el contenido de imagen.")
         return {
-            "image_hash": cls._sha256_bytes(body),
+            "image_hash": verified["image_hash"],
             "image_extension": detected,
         }
 

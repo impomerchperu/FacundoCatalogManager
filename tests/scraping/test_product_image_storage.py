@@ -58,7 +58,6 @@ def test_product_group_storage_never_overwrites_different_alternative(
     assert second.is_file()
 
 
-
 def test_identical_image_reuses_existing_file_in_the_same_product_group(
     tmp_path: Path,
 ):

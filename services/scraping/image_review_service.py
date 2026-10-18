@@ -13,6 +13,7 @@ import requests
 
 from config.runtime_paths import DATA_DIR, resolve_data_path, to_data_relative_path
 from models.product import Product
+from models.product_image_gallery import normalize_product_gallery
 from repositories.product_repository import ProductRepository
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_paths import (
@@ -1143,6 +1144,11 @@ class ImageReviewService:
             )
         else:
             product.image_url = str(record.get("current_url", "") or "")
+
+        product.gallery_images = normalize_product_gallery(
+            product,
+            list(getattr(product, "gallery_images", []) or []),
+        )
 
     def _cleanup_persisted_image_selection(
         self,

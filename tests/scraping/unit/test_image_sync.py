@@ -53,7 +53,6 @@ class ExistingRepository:
         }
 
 
-
 def test_url_comparison_preserves_case_sensitive_path_and_query():
     assert ImageSync._urls_equivalent(
         "https://EXAMPLE.test/FB-100.webp",

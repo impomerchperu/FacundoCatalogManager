@@ -462,12 +462,29 @@ def test_catalog_sync_is_idempotent_after_initial_create():
 
 def test_catalog_sync_cleans_unused_images_only_after_allowed_prune():
     repository = InMemoryCatalogRepository()
-    repository.save(Product("OLD001", "Producto antiguo", 10))
+    old_product = Product("OLD001", "Producto antiguo", 10)
+    old_product.image_path = "data/images/products/OLD001/OLD001-01.webp"
+    old_product.image_hash = "old-image-hash"
+    old_product.gallery_images = [
+        {
+            "url": "https://site.test/old-gallery.webp",
+            "image_path": "data/images/products/OLD001/OLD001-02.webp",
+            "image_hash": "old-gallery-hash",
+            "position": 1,
+        }
+    ]
+    repository.save(old_product)
     cleanup_calls = []
 
     def cleanup():
+        # Cleanup must run after the full-catalog prune has actually removed
+        # the product from the persisted repository, not just after scrape end.
+        assert repository.get("OLD001") is None
         cleanup_calls.append(True)
-        return [{"path": "old.webp"}]
+        return [
+            {"path": "data/images/products/OLD001/OLD001-01.webp"},
+            {"path": "data/images/products/OLD001/OLD001-02.webp"},
+        ]
 
     service = CatalogSyncService(
         repository,
@@ -481,6 +498,7 @@ def test_catalog_sync_cleans_unused_images_only_after_allowed_prune():
     )
 
     assert result.deleted == 1
+    assert repository.get("OLD001") is None
     assert cleanup_calls == [True]
 
 

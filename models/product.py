@@ -30,6 +30,11 @@ class Product:
 
     product_id: int | None = None
 
+    # HTTP validators used to revalidate cached primary images cheaply.
+    image_etag: str = ""
+    image_last_modified: str = ""
+    image_checked_at: str = ""
+
     @property
     def id(self) -> int | None:
         return self.product_id
@@ -71,6 +76,9 @@ class Product:
         self.image_url = self.image_url.strip()
         self.image_path = self.image_path.strip()
         self.image_hash = self.image_hash.strip()
+        self.image_etag = self.image_etag.strip()
+        self.image_last_modified = self.image_last_modified.strip()
+        self.image_checked_at = self.image_checked_at.strip()
         self.gallery_images = [
             dict(image)
             for image in list(self.gallery_images or [])

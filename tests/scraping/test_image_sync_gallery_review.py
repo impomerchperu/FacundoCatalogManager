@@ -101,7 +101,6 @@ def test_image_sync_stages_gallery_alternatives_when_current_image_is_generic():
     )
 
 
-
 class FakeAuthoritativeImageManager:
     def __init__(self):
         self.calls = []
@@ -112,7 +111,6 @@ class FakeAuthoritativeImageManager:
             "image_path": f"data/images/products/{code}.webp",
             "image_hash": "new-hash",
         }
-
 
 
 def test_image_sync_revalidates_same_url_and_propagates_verified_hash_and_etag():

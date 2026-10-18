@@ -54,9 +54,6 @@ class ProductRepository:
                 product.image_etag,
                 product.image_last_modified,
                 product.image_checked_at,
-                product.image_etag,
-                product.image_last_modified,
-                product.image_checked_at,
                 json.dumps(
                     self._clean_gallery_images(product.gallery_images),
                     ensure_ascii=False,
@@ -96,6 +93,9 @@ class ProductRepository:
                 product.image_url,
                 product.image_path,
                 product.image_hash,
+                product.image_etag,
+                product.image_last_modified,
+                product.image_checked_at,
                 json.dumps(
                     self._clean_gallery_images(product.gallery_images),
                     ensure_ascii=False,

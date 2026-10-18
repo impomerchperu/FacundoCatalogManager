@@ -44,12 +44,10 @@ def identify_image_bytes(
                 image.load()
     except ValueError:
         raise
-    except (
-        Image.DecompressionBombError,
-        Image.DecompressionBombWarning,
-        OSError,
-        SyntaxError,
-    ) as error:
+    except Exception as error:
+        # Raster decoders can raise format-specific errors (including EOFError
+        # and struct errors) for truncated or malformed files. Treat any such
+        # decoder failure as an unidentified image, not as a cacheable object.
         raise ValueError(
             "La respuesta no contiene una imagen raster válida o identificable."
         ) from error

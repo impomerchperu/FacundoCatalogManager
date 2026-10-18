@@ -24,6 +24,21 @@ class SafeImageManager:
                 return existing
 
         try:
+            download_result = getattr(self.downloader, "download_result", None)
+            if callable(download_result):
+                result = dict(download_result(code, url) or {})
+                path = str(result.get("image_path", "") or "")
+                if not path:
+                    return self._error_result()
+                image_path = Path(path)
+                if not image_path.is_file():
+                    return self._error_result()
+                actual_hash = ImageDownloader.hash_file(image_path)
+                expected_hash = str(result.get("image_hash", "") or "")
+                if not expected_hash or actual_hash != expected_hash:
+                    return self._error_result("El hash descargado no coincide con el archivo.")
+                return result
+
             path = self.downloader.download(code, url)
             if not path:
                 return self._error_result()

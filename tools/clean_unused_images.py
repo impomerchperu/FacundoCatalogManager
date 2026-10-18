@@ -6,6 +6,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from scrapers.images.image_validation import is_identifiable_image_file
+
 IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif"})
 DEFAULT_ROOTS = ("data/images", "resources/images")
 
@@ -92,7 +94,15 @@ def _iter_image_files(root: Path) -> list[Path]:
 
     files: list[Path] = []
     for path in sorted(root.rglob("*")):
-        if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS:
+        if not path.is_file():
+            continue
+        # Include supported image suffixes even when their bytes are corrupt,
+        # so unreferenced bad files can be cleaned after catalog commit. Also
+        # detect decodable images whose suffix is missing or incorrect.
+        if (
+            path.suffix.lower() in IMAGE_EXTENSIONS
+            or is_identifiable_image_file(path)
+        ):
             files.append(path.resolve())
     return files
 

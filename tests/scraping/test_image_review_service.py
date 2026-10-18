@@ -1,6 +1,7 @@
 import hashlib
 from pathlib import Path
 
+import scrapers.images.product_image_storage as storage_module
 import pytest
 
 from database.db_manager import DBManager
@@ -41,8 +42,6 @@ def _patch_paths(monkeypatch, tmp_path):
             else tmp_path / value
         ),
     )
-    import scrapers.images.product_image_storage as storage_module
-
     monkeypatch.setattr(
         storage_module,
         "to_data_relative_path",

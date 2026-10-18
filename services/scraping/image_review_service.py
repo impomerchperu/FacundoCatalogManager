@@ -964,7 +964,7 @@ class ImageReviewService:
                     1,
                     created_paths,
                 )
-            except (OSError, ValueError):
+            except (OSError, ValueError, RuntimeError):
                 stored_path, stored_hash = "", ""
 
             if stored_path and stored_hash:
@@ -1004,12 +1004,15 @@ class ImageReviewService:
             if product_dir.is_dir() and path.is_file()
         } if product_dir.is_dir() else set()
 
-        stored_path, stored_hash = store_image_in_product_group(
-            code,
-            source,
-            position,
-            root=IMAGE_PRODUCTS_DIR,
-        )
+        try:
+            stored_path, stored_hash = store_image_in_product_group(
+                code,
+                source,
+                position,
+                root=IMAGE_PRODUCTS_DIR,
+            )
+        except (OSError, ValueError, RuntimeError):
+            return "", ""
         if not stored_path or not stored_hash:
             return "", ""
         destination = resolve_data_path(stored_path).resolve()

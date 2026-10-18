@@ -184,7 +184,7 @@ class ImageSync:
                         return self._preserve_current_image(
                             product, current_product, existing, current_url
                         )
-                    if result.get("image_path") and result.get("image_hash"):
+                    if result and result.get("image_path") and result.get("image_hash"):
                         return self._apply_image_data(product, image_url, result)
                     return self._preserve_current_image(
                         product, current_product, existing, current_url
@@ -256,7 +256,7 @@ class ImageSync:
         except TypeError as error:
             if "force" not in str(error) or "keyword" not in str(error):
                 raise
-            return self.image_manager.process(code, url)
+            return cast(dict[str, Any], self.image_manager.process(code, url))
 
     @staticmethod
     def _cache_is_fresh(current_product, *, max_age_seconds: int = 86400) -> bool:

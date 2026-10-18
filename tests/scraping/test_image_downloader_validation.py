@@ -9,7 +9,7 @@ JPEG_BYTES = image_bytes("JPEG", (10, 20, 30))
 
 
 class FakeResponse:
-    content = b"\xff\xd8\xffimage-data\xff\xd9"
+    content = JPEG_BYTES
     headers: ClassVar[dict[str, str]] = {"Content-Type": "image/jpeg"}
 
     def raise_for_status(self):

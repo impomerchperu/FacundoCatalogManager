@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
@@ -355,13 +356,21 @@ class CategoryProductSyncService:
             )
             if self.image_sync_adapter:
                 started = time.perf_counter()
-                products = cast(
-                    list[Any],
-                    self.image_sync_adapter.sync_products(
+                if full_sync and self._supports_keyword(
+                    self.image_sync_adapter.sync_products,
+                    "refresh_remote_images",
+                ):
+                    synced_images = self.image_sync_adapter.sync_products(
                         products,
                         progress_callback=progress_callback,
-                    ),
-                )
+                        refresh_remote_images=bool(allow_prune),
+                    )
+                else:
+                    synced_images = self.image_sync_adapter.sync_products(
+                        products,
+                        progress_callback=progress_callback,
+                    )
+                products = cast(list[Any], synced_images)
                 _log_timing(
                     "SCRAPING TIMING | stage=images | products=%d | seconds=%.3f",
                     len(products),
@@ -758,6 +767,17 @@ class CategoryProductSyncService:
             int(buckets.get("5_10", 0) or 0),
             int(buckets.get("gte_10", 0) or 0),
             slowest_text,
+        )
+
+    @staticmethod
+    def _supports_keyword(method, name: str) -> bool:
+        try:
+            parameters = inspect.signature(method).parameters
+        except (TypeError, ValueError):
+            return False
+        return name in parameters or any(
+            parameter.kind is inspect.Parameter.VAR_KEYWORD
+            for parameter in parameters.values()
         )
 
     def _browser(self):

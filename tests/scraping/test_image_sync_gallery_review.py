@@ -101,7 +101,6 @@ def test_image_sync_stages_gallery_alternatives_when_current_image_is_generic():
     )
 
 
-
 class FakeAuthoritativeImageManager:
     def __init__(self):
         self.calls = []
@@ -113,6 +112,64 @@ class FakeAuthoritativeImageManager:
             "image_hash": "new-hash",
         }
 
+
+def test_image_sync_revalidates_same_url_and_propagates_verified_hash_and_etag():
+    current = Product(
+        code="FB-9910",
+        name="Producto",
+        image_url="https://example.test/FB-9910.jpg",
+        image_path="data/images/products/FB-9910/FB-9910-01.jpg",
+        image_hash="old-hash",
+        image_etag='"v1"',
+        image_checked_at="",
+    )
+
+    class ExistingImageRepository:
+        def find_path(self, path):
+            assert path == current.image_path
+            return {
+                "image_path": current.image_path,
+                "image_hash": "old-hash",
+            }
+
+    class RevalidatingDownloader:
+        def __init__(self):
+            self.calls = []
+
+        def revalidate_primary(self, code, url, **kwargs):
+            self.calls.append((code, url, kwargs))
+            return {
+                "status": "downloaded",
+                "image_path": "data/images/products/FB-9910/FB-9910-01-new.jpg",
+                "image_hash": "new-hash",
+                "image_etag": '"v2"',
+                "image_last_modified": "Sun, 18 Oct 2026 00:00:00 GMT",
+                "image_checked_at": "2026-10-18T01:00:00+00:00",
+            }
+
+    review = FakeReviewService(FakeRepository(current))
+    downloader = RevalidatingDownloader()
+    sync = ImageSync(
+        image_manager=FakeAuthoritativeImageManager(),
+        image_repository=ExistingImageRepository(),
+        review_service=review,
+        image_downloader=downloader,
+    )
+    incoming = Product(
+        code="FB-9910",
+        name="Producto",
+        image_url=current.image_url,
+    )
+
+    result = sync.process([incoming])[0]
+
+    assert len(downloader.calls) == 1
+    assert downloader.calls[0][2]["current_hash"] == "old-hash"
+    assert result.image_path.endswith("FB-9910-01-new.jpg")
+    assert result.image_hash == "new-hash"
+    assert result.image_etag == '"v2"'
+    assert result.image_last_modified.startswith("Sun, 18 Oct 2026")
+    assert result.image_checked_at == "2026-10-18T01:00:00+00:00"
 
 def test_image_sync_applies_authoritative_detail_image_over_existing_primary():
     current = Product(

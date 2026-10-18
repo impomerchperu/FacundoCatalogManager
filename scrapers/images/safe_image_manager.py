@@ -1,7 +1,8 @@
-from pathlib import Path
+from typing import Any, cast
 
 import requests
 
+from config.runtime_paths import resolve_data_path
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_repository import ImageRepository
 
@@ -24,11 +25,29 @@ class SafeImageManager:
                 return existing
 
         try:
+            download_result = getattr(self.downloader, "download_result", None)
+            if callable(download_result):
+                raw_result = download_result(code, url)
+                if not isinstance(raw_result, dict):
+                    return self._error_result()
+                result = cast(dict[str, Any], raw_result)
+                path = str(result.get("image_path", "") or "")
+                if not path:
+                    return self._error_result()
+                image_path = resolve_data_path(path)
+                if not image_path.is_file():
+                    return self._error_result()
+                actual_hash = ImageDownloader.hash_file(image_path)
+                expected_hash = str(result.get("image_hash", "") or "")
+                if not expected_hash or actual_hash != expected_hash:
+                    return self._error_result("El hash descargado no coincide con el archivo.")
+                return result
+
             path = self.downloader.download(code, url)
             if not path:
                 return self._error_result()
 
-            image_path = Path(path)
+            image_path = resolve_data_path(path)
             if not image_path.is_file():
                 return self._error_result()
 

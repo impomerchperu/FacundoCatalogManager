@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
+from config.runtime_paths import resolve_data_path
 from models.scraping.detail_description_policy import (
     is_complete_detail,
     normalize_detail_text,
@@ -67,6 +68,7 @@ class CatalogSyncService:
         self.hash_service = ProductHashService()
         self.result_writer: ScrapingResultWriter | None = None
         self._deferred_image_cleanup = False
+        self._full_sync_in_progress = False
 
     @staticmethod
     def _normalize_code(value) -> str:
@@ -165,6 +167,24 @@ class CatalogSyncService:
                 self._rollback_repository_transaction()
             raise
 
+        image_path_changed = any(
+            any(
+                str(field.get("field", "")) in {"image_path", "gallery_images"}
+                for field in list(change.get("changes", []) or [])
+                if isinstance(field, dict)
+            )
+            for change in result.changes
+            if isinstance(change, dict)
+        )
+        if image_path_changed:
+            self._deferred_image_cleanup = True
+            if (
+                not self._full_sync_in_progress
+                and not self._transaction_is_active()
+            ):
+                self._deferred_image_cleanup = False
+                self._cleanup_unused_images()
+
         result.finish()
         self.last_sync_result = result
         return result
@@ -221,6 +241,7 @@ class CatalogSyncService:
 
             self._preserve_existing_prices(existing, product)
             self._preserve_existing_description(existing, product)
+            self._preserve_existing_image_state(existing, product)
             product.content_hash = self.hash_service.generate(product)
             comparison = self.diff_service.compare(existing, product)
             if comparison["changed"]:
@@ -243,7 +264,67 @@ class CatalogSyncService:
                 )
                 self._save_catalog_product(product, existing)
             else:
+                # Internal HTTP cache metadata is persisted without emitting a
+                # user-facing catalog change for a 304/unchanged image response.
+                if self._image_sync_metadata_changed(existing, product):
+                    self._save_catalog_product(product, existing)
                 result.unchanged += 1
+
+    @classmethod
+    def _preserve_existing_image_state(cls, existing, product) -> None:
+        incoming_path = str(getattr(product, "image_path", "") or "").strip()
+        incoming_hash = str(getattr(product, "image_hash", "") or "").strip()
+        current_path = str(cls._value(existing, "image_path") or "").strip()
+        current_hash = str(cls._value(existing, "image_hash") or "").strip()
+        if not incoming_path and not incoming_hash and (current_path or current_hash):
+            # Preserve the old primary only if the bytes still exist and are a
+            # verified raster. Never persist a known-broken path/hash pair.
+            current_url = str(cls._value(existing, "image_url") or "")
+            try:
+                from scrapers.images.image_downloader import ImageDownloader
+
+                verified = ImageDownloader.verify_image_file(
+                    resolve_data_path(current_path)
+                ) if current_path else {}
+            except (OSError, ValueError):
+                verified = {}
+
+            if verified:
+                product.image_url = current_url
+                product.image_path = current_path
+                product.image_hash = verified["image_hash"]
+                for field in ("image_etag", "image_last_modified", "image_checked_at"):
+                    setattr(product, field, cls._value(existing, field) or "")
+            else:
+                # The local object is unusable; keep the latest source URL so a
+                # later run can retry, but clear invalid local references.
+                if not str(getattr(product, "image_url", "") or "").strip():
+                    product.image_url = current_url
+                product.image_path = ""
+                product.image_hash = ""
+                product.image_etag = ""
+                product.image_last_modified = ""
+                product.image_checked_at = ""
+
+            product.gallery_images = list(
+                cls._value(existing, "gallery_images") or []
+            )
+            return
+
+        if str(getattr(product, "image_url", "") or "").strip() == str(
+            cls._value(existing, "image_url") or ""
+        ).strip() and not str(getattr(product, "image_checked_at", "") or "").strip():
+            for field in ("image_etag", "image_last_modified", "image_checked_at"):
+                if not str(getattr(product, field, "") or "").strip():
+                    setattr(product, field, cls._value(existing, field) or "")
+
+    @staticmethod
+    def _image_sync_metadata_changed(existing, product) -> bool:
+        return any(
+            str(getattr(existing, field, "") or "")
+            != str(getattr(product, field, "") or "")
+            for field in ("image_etag", "image_last_modified", "image_checked_at")
+        )
 
     def sync_full_catalog(
         self,
@@ -252,12 +333,17 @@ class CatalogSyncService:
         expected_products: int | None = 0,
         expected_category_occurrences: int = 0,
     ):
-        result = self.sync(
-            products,
-            prune_missing=prune_missing,
-            expected_products=expected_products,
-            expected_category_occurrences=expected_category_occurrences,
-        )
+        self._full_sync_in_progress = True
+        try:
+            result = self.sync(
+                products,
+                prune_missing=prune_missing,
+                expected_products=expected_products,
+                expected_category_occurrences=expected_category_occurrences,
+            )
+        finally:
+            self._full_sync_in_progress = False
+
         if (
             prune_missing
             and result.coverage_complete
@@ -270,7 +356,13 @@ class CatalogSyncService:
             if self._transaction_is_active():
                 self._deferred_image_cleanup = True
             else:
+                self._deferred_image_cleanup = False
                 self._cleanup_unused_images()
+        elif self._deferred_image_cleanup and not self._transaction_is_active():
+            # Even an incomplete scrape may have committed safe per-product image
+            # changes; clean only after the catalog transaction has finished.
+            self._deferred_image_cleanup = False
+            self._cleanup_unused_images()
         return result
 
     def finalize_post_commit(self) -> None:

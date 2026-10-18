@@ -1,6 +1,7 @@
 """Adapt image synchronization to the scraping pipeline with stage timing."""
 from __future__ import annotations
 
+import inspect
 import time
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,17 @@ class ImageSyncAdapter:
         self.gallery_sync = gallery_sync
 
     @staticmethod
+    def _supports_keyword(method, name: str) -> bool:
+        try:
+            parameters = inspect.signature(method).parameters
+        except (TypeError, ValueError):
+            return False
+        return name in parameters or any(
+            parameter.kind is inspect.Parameter.VAR_KEYWORD
+            for parameter in parameters.values()
+        )
+
+    @staticmethod
     def _http_metrics(browser) -> dict[str, Any]:
         getter = getattr(browser, "get_http_metrics", None)
         if not callable(getter):
@@ -44,12 +56,19 @@ class ImageSyncAdapter:
         self,
         products,
         progress_callback=None,
+        refresh_remote_images: bool = False,
     ):
         """Procesa imágenes principales y galerías, registrando cada etapa."""
         items = list(products or [])
 
         started = time.perf_counter()
-        items = self.image_sync.process(items)
+        process_images = self.image_sync.process
+        if refresh_remote_images and self._supports_keyword(
+            process_images, "refresh_remote_images"
+        ):
+            items = process_images(items, refresh_remote_images=True)
+        else:
+            items = process_images(items)
         _log_timing(
             "SCRAPING TIMING | stage=primary_image_sync | "
             "products=%d | workers=%d | seconds=%.3f",

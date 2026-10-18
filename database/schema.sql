@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS products (
     image_url TEXT,
     image_path TEXT,
     image_hash TEXT DEFAULT '',
+    image_etag TEXT DEFAULT '',
+    image_last_modified TEXT DEFAULT '',
+    image_checked_at TEXT DEFAULT '',
     gallery_images TEXT DEFAULT '[]',
     content_hash TEXT DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

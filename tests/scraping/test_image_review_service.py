@@ -229,6 +229,53 @@ def test_image_review_apply_is_persisted_after_reopening_database(
     reopened.db.close()
 
 
+def test_manual_image_selection_clears_remote_source_and_http_validators(
+    monkeypatch,
+    tmp_path,
+):
+    _, products_dir = _patch_paths(monkeypatch, tmp_path)
+    product_dir = products_dir / "FB-101"
+    product_dir.mkdir(parents=True)
+    current_path = product_dir / "FB-101-01.jpg"
+    current_path.write_bytes(b"old-image")
+    manual_path = tmp_path / "manual.webp"
+    manual_path.write_bytes(b"manual-image")
+
+    current = Product(
+        code="FB-101",
+        name="Producto",
+        image_url="https://example.test/FB-101.jpg",
+        image_path="data/images/products/FB-101/FB-101-01.jpg",
+        image_hash="old-hash",
+        image_etag='"old-etag"',
+        image_last_modified="Sun, 18 Oct 2026 00:00:00 GMT",
+        image_checked_at="2026-10-18T00:00:00+00:00",
+    )
+    service = ImageReviewService(FakeRepository(current))
+    service.register_candidate(
+        code="FB-101",
+        product_name="Producto",
+        current_path=current.image_path,
+        current_hash=current.image_hash,
+        current_url=current.image_url,
+        candidate_path="",
+        candidate_hash="",
+        candidate_url="",
+        allow_manual_only=True,
+    )
+
+    review_id = service.pending()[0]["id"]
+    service.apply_selection(review_id, "manual", manual_path)
+    service.finalize_selected([review_id])
+
+    assert current.image_path == "data/images/products/FB-101/FB-101-01.webp"
+    assert (products_dir / "FB-101" / "FB-101-01.webp").is_file()
+    assert current.image_url == ""
+    assert current.image_hash
+    assert current.image_etag == ""
+    assert current.image_last_modified == ""
+    assert current.image_checked_at == ""
+
 def test_image_review_delete_current_clears_catalog_only_after_finalize(
     monkeypatch,
     tmp_path,

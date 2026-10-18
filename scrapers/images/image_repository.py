@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from config.runtime_paths import resolve_data_path, to_data_relative_path
+from config.runtime_paths import DATA_DIR, resolve_data_path, to_data_relative_path
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_paths import (
     IMAGE_EXTENSIONS,
@@ -23,7 +23,7 @@ class ImageRepository:
         self,
         code: str,
         image_url: str | None = None,
-    ) -> dict | None:
+    ) -> dict[str, str] | None:
         safe_code = safe_image_code(code)
         if not safe_code:
             return None
@@ -59,6 +59,28 @@ class ImageRepository:
                 "image_hash": stored_hash,
             }
         return self._image_record(legacy)
+
+    def find_path(self, image_path: str | Path) -> dict[str, str] | None:
+        """Resolve exactly the image referenced by the catalog, not an older sibling."""
+        raw_path = str(image_path or "").strip()
+        if not raw_path:
+            return None
+        candidate = resolve_data_path(raw_path)
+        try:
+            candidate = candidate.resolve(strict=True)
+            candidate.relative_to(DATA_DIR.resolve())
+        except (OSError, ValueError):
+            return None
+        if not candidate.is_file() or candidate.suffix.lower() not in IMAGE_EXTENSIONS:
+            return None
+        try:
+            verified = ImageDownloader.verify_image_file(candidate)
+        except (OSError, ValueError):
+            return None
+        return {
+            "image_path": to_data_relative_path(candidate),
+            "image_hash": verified["image_hash"],
+        }
 
     @staticmethod
     def _find_in_directory(

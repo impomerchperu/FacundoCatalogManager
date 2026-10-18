@@ -1142,8 +1142,22 @@ class ImageReviewService:
                 record,
                 str(manual_path or ""),
             )
+        elif action == "manual":
+            # A local file has no trustworthy remote representation to revalidate.
+            # Leaving the old source URL would let the next full sync overwrite it.
+            product.image_url = ""
         else:
             product.image_url = str(record.get("current_url", "") or "")
+
+        # Validators are bound to the exact source representation. A reviewed
+        # alternate image must not inherit the old URL's ETag/Last-Modified.
+        if (
+            image_hash != str(record.get("current_hash", "") or "")
+            or product.image_url != str(record.get("current_url", "") or "")
+        ):
+            product.image_etag = ""
+            product.image_last_modified = ""
+            product.image_checked_at = ""
 
         product.gallery_images = normalize_product_gallery(
             product,

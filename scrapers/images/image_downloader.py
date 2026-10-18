@@ -156,7 +156,9 @@ class ImageDownloader:
             "image_checked_at": checked_at,
         }
 
-    def _get_with_retries(self, url: str, headers: dict[str, str]):
+    def _get_with_retries(  # noqa: PLR0912
+        self, url: str, headers: dict[str, str]
+    ):
         last_error = None
         for attempt in range(self.max_retries):
             response = None

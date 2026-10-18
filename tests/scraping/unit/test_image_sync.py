@@ -10,7 +10,7 @@ class FakeManager:
         url,
     ):
         return {
-            "image_path": f"data/images/products/{code}.webp",
+            "image_path": f"data/images/products/{code}/{code}-01.webp",
             "image_hash": "abc123",
         }
 
@@ -34,7 +34,7 @@ def test_image_sync_synchronizes_product_image():
     result = sync.synchronize(Product())
 
     assert Path(result["image_path"]) == Path(
-        "data/images/products/FB-1812.webp"
+        "data/images/products/FB-1812/FB-1812-01.webp"
     )
     assert result["image_hash"] == "abc123"
 
@@ -44,11 +44,11 @@ class ExistingRepository:
         del code
         if image_url and image_url.endswith(".webp"):
             return {
-                "image_path": "data/images/products/FB-1812.webp",
+                "image_path": "data/images/products/FB-1812/FB-1812-01.webp",
                 "image_hash": "webp-hash",
             }
         return {
-            "image_path": "data/images/products/FB-1812.jpg",
+            "image_path": "data/images/products/FB-1812/FB-1812-01.jpg",
             "image_hash": "jpg-hash",
         }
 
@@ -66,6 +66,6 @@ def test_image_sync_uses_repository_image_matching_current_url_extension():
     result = sync.synchronize(ProductWithCurrentWebp())
 
     assert Path(result["image_path"]) == Path(
-        "data/images/products/FB-1812.webp"
+        "data/images/products/FB-1812/FB-1812-01.webp"
     )
     assert result["image_hash"] == "webp-hash"

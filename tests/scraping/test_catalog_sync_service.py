@@ -1,6 +1,8 @@
+import services.scraping.catalog_sync_service as catalog_sync_module
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.product_diff_service import ProductDiffService
 from tests.scraping.catalog_sync_test_doubles import InMemoryCatalogRepository
+from tests.scraping.image_test_utils import image_bytes
 
 
 class Product:
@@ -987,4 +989,81 @@ def test_catalog_sync_runs_image_cleanup_after_gallery_reference_update():
         "data/images/products/FB-1507/FB-1507-02.webp",
         "data/images/products/FB-1507/FB-1507-03.webp",
     ]
+
+def test_catalog_sync_drops_unidentifiable_and_duplicate_legacy_gallery_entries(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "resolve_data_path",
+        lambda value: (
+            value if __import__("pathlib").Path(value).is_absolute()
+            else tmp_path / value
+        ),
+    )
+    product_root = tmp_path / "data" / "images" / "products"
+    gallery_root = tmp_path / "data" / "images" / "gallery" / "P099"
+    product_root.mkdir(parents=True)
+    gallery_root.mkdir(parents=True)
+
+    invalid_primary = product_root / "P099.webp"
+    invalid_primary.write_bytes(b"not an image")
+    valid_duplicate = image_bytes("WEBP", (12, 34, 56))
+    first_gallery = gallery_root / "P099-01.webp"
+    duplicate_gallery = gallery_root / "P099-02.webp"
+    invalid_gallery = gallery_root / "P099-03.webp"
+    first_gallery.write_bytes(valid_duplicate)
+    duplicate_gallery.write_bytes(valid_duplicate)
+    invalid_gallery.write_bytes(b"not a raster")
+
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "IMAGE_PRODUCTS_DIR",
+        product_root,
+    )
+    existing = Product("P099", "Legacy product", 10)
+    existing.image_url = "https://site.test/P099.webp"
+    existing.image_path = "data/images/products/P099.webp"
+    existing.image_hash = "stale-hash"
+    existing.gallery_images = [
+        {
+            "url": "https://site.test/P099-gallery-1.webp",
+            "image_path": "data/images/gallery/P099/P099-01.webp",
+            "image_hash": "old-1",
+            "position": 1,
+        },
+        {
+            "url": "https://site.test/P099-gallery-2.webp",
+            "image_path": "data/images/gallery/P099/P099-02.webp",
+            "image_hash": "old-2",
+            "position": 2,
+        },
+        {
+            "url": "https://site.test/P099-gallery-bad.webp",
+            "image_path": "data/images/gallery/P099/P099-03.webp",
+            "image_hash": "old-bad",
+            "position": 3,
+        },
+    ]
+    incoming = Product("P099", "Legacy product", 10)
+
+    CatalogSyncService._preserve_existing_image_state(existing, incoming)
+
+    assert incoming.image_url == existing.image_url
+    assert incoming.image_path == ""
+    assert incoming.image_hash == ""
+    assert len(incoming.gallery_images) == 1
+    assert incoming.gallery_images[0]["image_hash"] == __import__("hashlib").sha256(
+        valid_duplicate
+    ).hexdigest()
+    assert Path(
+        catalog_sync_module.resolve_data_path(
+            incoming.gallery_images[0]["image_path"]
+        )
+    ).is_file()
+    assert "P099-02.webp" not in incoming.gallery_images[0]["image_path"]
+    assert invalid_primary.is_file()
+    assert duplicate_gallery.is_file()
+    assert invalid_gallery.is_file()
 

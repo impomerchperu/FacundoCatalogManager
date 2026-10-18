@@ -6,7 +6,7 @@ from config.runtime_paths import DATABASE_PATH, SCHEMA_PATH
 class DBManager:
     """Gestiona SQLite con inicialización, migraciones y persistencia segura."""
 
-    SCHEMA_VERSION = 3
+    SCHEMA_VERSION = 4
 
     def __init__(self, db_path=None):
         if db_path is None:
@@ -74,6 +74,14 @@ class DBManager:
                 3,
                 "Persistencia de galerías de imágenes por producto.",
             )
+            current_version = 3
+
+        if current_version < 4:
+            self._migrate_to_v4()
+            self._record_schema_migration(
+                4,
+                "Validadores HTTP y fecha de revalidación de imágenes principales.",
+            )
 
     def _migrate_to_v3(self) -> None:
         self._add_column_if_missing(
@@ -81,6 +89,10 @@ class DBManager:
             "gallery_images",
             "TEXT DEFAULT '[]'",
         )
+
+    def _migrate_to_v4(self) -> None:
+        for column in ("image_etag", "image_last_modified", "image_checked_at"):
+            self._add_column_if_missing("products", column, "TEXT DEFAULT ''")
 
     def _migrate_to_v2(self) -> None:
         self.connection.execute(

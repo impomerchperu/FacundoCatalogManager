@@ -278,14 +278,16 @@ class ImageSync:
     @staticmethod
     def _preserve_current_image(product, current_product, existing, source_url: str):
         product.image_url = source_url
+        # The repository validates the actual bytes; use their hash rather than
+        # preserving a stale DB hash after an interrupted/older write.
         product.image_path = str(
-            ImageSync._get(current_product, "image_path")
-            or existing.get("image_path", "")
+            existing.get("image_path", "")
+            or ImageSync._get(current_product, "image_path")
             or ""
         )
         product.image_hash = str(
-            ImageSync._get(current_product, "image_hash")
-            or existing.get("image_hash", "")
+            existing.get("image_hash", "")
+            or ImageSync._get(current_product, "image_hash")
             or ""
         )
         product.image_etag = str(ImageSync._get(current_product, "image_etag") or "")

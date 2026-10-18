@@ -28,6 +28,7 @@ from scrapers.images.image_paths import (
     IMAGE_PRODUCTS_DIR,
     product_image_directory,
 )
+from scrapers.images.product_image_storage import store_image_in_product_group
 
 QUEUE_PATH = DATA_DIR / "image_review_queue.json"
 STAGING_DIR = DATA_DIR / "image_review_staging"
@@ -921,14 +922,19 @@ class ImageReviewService:
             str(getattr(product, "image_hash", "") or ""),
             str(getattr(product, "image_url", "") or ""),
         )
-        self._apply_kept_image_state(record, product)
+        created_paths: list[Path] = []
+        self._apply_kept_image_state(record, product, created_paths)
         after = (
             str(getattr(product, "image_path", "") or ""),
             str(getattr(product, "image_hash", "") or ""),
             str(getattr(product, "image_url", "") or ""),
         )
         changed = before != after
-        self.repository.update(product)
+        try:
+            self.repository.update(product)
+        except Exception:
+            self._remove_created_paths(created_paths)
+            raise
         self._remove_all_staged_candidates(record)
         if changed:
             self._cleanup_unused_images()
@@ -938,10 +944,16 @@ class ImageReviewService:
             "changed": changed,
         }
 
-    def _apply_kept_image_state(self, record: dict, product) -> None:
-        """Retain a primary only if it is decodable and correctly labeled."""
+    def _apply_kept_image_state(
+        self,
+        record: dict,
+        product,
+        created_paths: list[Path] | None = None,
+    ) -> None:
+        """Keep only decoded image bytes and migrate valid legacy suffixes."""
         source_url = str(record.get("current_url", "") or "")
         raw_path = str(record.get("current_path", "") or "").strip()
+        record_hash = str(record.get("current_hash", "") or "").strip()
         product.image_url = source_url
         product.image_path = ""
         product.image_hash = ""
@@ -952,38 +964,95 @@ class ImageReviewService:
         source = self._resolve_gallery_path(raw_path) if raw_path else None
         if source is not None and source.is_file():
             try:
-                verified = identify_image_file(source)
+                identify_image_file(source)
+                stored_path, stored_hash = self._store_identifiable_image(
+                    str(getattr(product, "code", "") or ""),
+                    source,
+                    1,
+                    created_paths,
+                )
             except (OSError, ValueError):
-                verified = {}
-            if verified and file_extension_matches(source, verified["image_extension"]):
-                product.image_path = to_data_relative_path(source)
-                product.image_hash = verified["image_hash"]
-                product.image_etag = str(record.get("image_etag", "") or "")
-                product.image_last_modified = str(
-                    record.get("image_last_modified", "") or ""
-                )
-                product.image_checked_at = str(
-                    record.get("image_checked_at", "") or ""
-                )
+                stored_path, stored_hash = "", ""
 
-        product.gallery_images = self._normalize_identifiable_gallery(product)
+            if stored_path and stored_hash:
+                product.image_path = stored_path
+                product.image_hash = stored_hash
+                # HTTP validators are usable only when the local bytes still
+                # match the image version stored with the review record.
+                if record_hash and record_hash == stored_hash:
+                    product.image_etag = str(record.get("image_etag", "") or "")
+                    product.image_last_modified = str(
+                        record.get("image_last_modified", "") or ""
+                    )
+                    product.image_checked_at = str(
+                        record.get("image_checked_at", "") or ""
+                    )
 
-    def _normalize_identifiable_gallery(self, product) -> list[dict]:
-        """Discard missing, corrupt, mislabeled, or byte-duplicate gallery items."""
-        has_primary = bool(str(getattr(product, "image_path", "") or "").strip())
+        product.gallery_images = self._normalize_identifiable_gallery(
+            product,
+            created_paths,
+        )
+
+    def _store_identifiable_image(
+        self,
+        code: str,
+        source: Path,
+        position: int,
+        created_paths: list[Path] | None = None,
+    ) -> tuple[str, str]:
+        if not code:
+            return "", ""
+        product_dir = resolve_data_path(
+            product_image_directory(code, root=IMAGE_PRODUCTS_DIR)
+        )
+        before = {
+            path.resolve()
+            for path in product_dir.iterdir()
+            if product_dir.is_dir() and path.is_file()
+        } if product_dir.is_dir() else set()
+
+        stored_path, stored_hash = store_image_in_product_group(
+            code,
+            source,
+            position,
+            root=IMAGE_PRODUCTS_DIR,
+        )
+        if not stored_path or not stored_hash:
+            return "", ""
+        destination = resolve_data_path(stored_path).resolve()
+        try:
+            source_resolved = source.resolve()
+        except OSError:
+            source_resolved = source
+        if (
+            created_paths is not None
+            and destination != source_resolved
+            and destination not in before
+        ):
+            created_paths.append(destination)
+        return stored_path, stored_hash
+
+    def _normalize_identifiable_gallery(
+        self,
+        product,
+        created_paths: list[Path] | None = None,
+    ) -> list[dict]:
+        """Canonicalize decodable gallery images and discard invalid/duplicate bytes."""
+        primary_path = str(getattr(product, "image_path", "") or "").strip()
         primary_hash = (
             str(getattr(product, "image_hash", "") or "").casefold()
-            if has_primary
+            if primary_path
             else ""
         )
         primary_url = (
             str(getattr(product, "image_url", "") or "").strip().casefold()
-            if has_primary
+            if primary_path
             else ""
         )
         seen_hashes = {primary_hash} if primary_hash else set()
         seen_urls = {primary_url} if primary_url else set()
         valid: list[dict] = []
+        code = str(getattr(product, "code", "") or "")
 
         for raw in list(getattr(product, "gallery_images", []) or []):
             if not isinstance(raw, dict):
@@ -991,14 +1060,12 @@ class ImageReviewService:
             raw_path = str(raw.get("image_path", raw.get("path", "")) or "").strip()
             if not raw_path:
                 continue
-            path = self._resolve_gallery_path(raw_path)
-            if path is None or not path.is_file():
+            source = self._resolve_gallery_path(raw_path)
+            if source is None or not source.is_file():
                 continue
             try:
-                verified = identify_image_file(path)
+                verified = identify_image_file(source)
             except (OSError, ValueError):
-                continue
-            if not file_extension_matches(path, verified["image_extension"]):
                 continue
 
             url = str(raw.get("url", "") or "").strip()
@@ -1007,19 +1074,37 @@ class ImageReviewService:
             if image_hash in seen_hashes or (url_key and url_key in seen_urls):
                 continue
 
-            entry = {
-                **raw,
-                "url": url,
-                "image_path": to_data_relative_path(path),
-                "image_hash": verified["image_hash"],
-                "position": len(valid) + 1,
-            }
-            valid.append(entry)
-            seen_hashes.add(image_hash)
+            stored_path, stored_hash = self._store_identifiable_image(
+                code,
+                source,
+                len(valid) + 1,
+                created_paths,
+            )
+            if not stored_path or not stored_hash:
+                continue
+            # storage derives the canonical extension from decoded content.
+            valid.append(
+                {
+                    **raw,
+                    "url": url,
+                    "image_path": stored_path,
+                    "image_hash": stored_hash,
+                    "position": len(valid) + 1,
+                }
+            )
+            seen_hashes.add(stored_hash.casefold())
             if url_key:
                 seen_urls.add(url_key)
 
         return normalize_product_gallery(product, valid)
+
+    @staticmethod
+    def _remove_created_paths(paths: list[Path]) -> None:
+        for path in reversed(paths):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                LOGGER.exception("No se pudo revertir un archivo de imagen recién creado: %s", path)
 
     def _apply_selected_image(
         self,
@@ -1108,7 +1193,8 @@ class ImageReviewService:
             str(getattr(product, "image_checked_at", "") or ""),
             list(getattr(product, "gallery_images", []) or []),
         )
-        self._apply_kept_image_state(record, product)
+        created_paths: list[Path] = []
+        self._apply_kept_image_state(record, product, created_paths)
         after = (
             str(getattr(product, "image_path", "") or ""),
             str(getattr(product, "image_hash", "") or ""),
@@ -1124,7 +1210,11 @@ class ImageReviewService:
             "changed": before != after,
         }
         if persist:
-            self.repository.update(product)
+            try:
+                self.repository.update(product)
+            except Exception:
+                self._remove_created_paths(created_paths)
+                raise
             self._remove_all_staged_candidates(record)
             if result["changed"]:
                 self._cleanup_unused_images()
@@ -1133,6 +1223,7 @@ class ImageReviewService:
             "destination": None,
             "backup": None,
             "destination_existed": False,
+            "created_paths": created_paths,
         }
 
     def _resolve_selected_source(
@@ -1355,6 +1446,11 @@ class ImageReviewService:
 
     @staticmethod
     def _rollback_file_state(state: dict) -> None:
+        created_paths = state.get("created_paths", [])
+        if isinstance(created_paths, list):
+            ImageReviewService._remove_created_paths(
+                [path for path in created_paths if isinstance(path, Path)]
+            )
         destination = state.get("destination")
         backup = state.get("backup")
         existed = bool(state.get("destination_existed", False))

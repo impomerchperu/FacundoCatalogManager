@@ -41,6 +41,16 @@ def _patch_paths(monkeypatch, tmp_path):
             else tmp_path / value
         ),
     )
+    import scrapers.images.product_image_storage as storage_module
+
+    monkeypatch.setattr(
+        storage_module,
+        "to_data_relative_path",
+        lambda value: str(Path(value).resolve().relative_to(tmp_path)).replace(
+            "\\",
+            "/",
+        ),
+    )
     monkeypatch.setattr(
         module,
         "to_data_relative_path",
@@ -578,7 +588,7 @@ def test_review_replacement_never_overwrites_active_canonical_image(
     assert cleanup_observations == [repository.product.image_path]
     assert not active_path.exists()
     assert repository.product.image_path != "data/images/products/FB-105/FB-105-01.webp"
-    new_path = module.resolve_data_path(repository.product.image_path)
+    new_path = Path(module.resolve_data_path(repository.product.image_path))
     assert new_path.is_file()
     assert new_path.read_bytes() == candidate_bytes
 

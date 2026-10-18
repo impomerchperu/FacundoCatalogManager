@@ -156,8 +156,10 @@ def store_image_in_product_group(  # noqa: PLR0912
     temporary = target_dir / (
         f".{product_code}-{normalized_position:02d}-{uuid.uuid4().hex}.tmp"
     )
+    temporary_created = False
     try:
         with source.open("rb") as source_stream, temporary.open("xb") as target_stream:
+            temporary_created = True
             shutil.copyfileobj(source_stream, target_stream)
         stored_temporary = identify_image_file(temporary)
         if (
@@ -197,6 +199,7 @@ def store_image_in_product_group(  # noqa: PLR0912
             # retirement to the reference-checked cleanup to avoid races.
             return "", ""
     finally:
-        temporary.unlink(missing_ok=True)
+        if temporary_created:
+            temporary.unlink(missing_ok=True)
 
     return to_data_relative_path(target), image_hash

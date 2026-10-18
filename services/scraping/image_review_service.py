@@ -841,7 +841,12 @@ class ImageReviewService:
                 "destination_existed": False,
             }
 
-        product.gallery_images = self._normalize_identifiable_gallery(product)
+        created_gallery_paths: list[Path] = []
+        product.gallery_images = self._normalize_identifiable_gallery(
+            product,
+            created_gallery_paths,
+        )
+        file_state.setdefault("created_paths", []).extend(created_gallery_paths)
         for position, image in enumerate(product.gallery_images, start=1):
             image["position"] = position
 
@@ -1155,7 +1160,11 @@ class ImageReviewService:
         product.image_etag = ""
         product.image_last_modified = ""
         product.image_checked_at = ""
-        product.gallery_images = self._normalize_identifiable_gallery(product)
+        created_paths: list[Path] = []
+        product.gallery_images = self._normalize_identifiable_gallery(
+            product,
+            created_paths,
+        )
         result = {
             "code": product.code,
             "action": "delete",
@@ -1163,7 +1172,11 @@ class ImageReviewService:
         }
 
         if persist:
-            self.repository.update(product)
+            try:
+                self.repository.update(product)
+            except Exception:
+                self._remove_created_paths(created_paths)
+                raise
             self._remove_all_staged_candidates(record)
             self._cleanup_unused_images()
             return result
@@ -1172,6 +1185,7 @@ class ImageReviewService:
             "destination": None,
             "backup": None,
             "destination_existed": False,
+            "created_paths": created_paths,
         }
 
     def _apply_keep_selection(
@@ -1324,6 +1338,7 @@ class ImageReviewService:
                     destination.unlink(missing_ok=True)
                 raise
 
+        created_gallery_paths: list[Path] = []
         try:
             self._set_product_image(
                 record,
@@ -1331,10 +1346,12 @@ class ImageReviewService:
                 action,
                 manual_path,
                 destination,
+                created_paths=created_gallery_paths,
             )
             if persist:
                 self.repository.update(product)
         except Exception:
+            self._remove_created_paths(created_gallery_paths)
             if created_destination:
                 destination.unlink(missing_ok=True)
             raise
@@ -1357,6 +1374,7 @@ class ImageReviewService:
                 "destination": destination,
                 "backup": None,
                 "destination_existed": destination_existed,
+                "created_paths": created_gallery_paths,
             },
         )
 
@@ -1380,6 +1398,8 @@ class ImageReviewService:
         action: str,
         manual_path: str | Path | None,
         destination: Path,
+        *,
+        created_paths: list[Path] | None = None,
     ) -> None:
         image_hash = ImageDownloader.hash_file(destination)
         product.image_path = to_data_relative_path(destination)
@@ -1410,7 +1430,10 @@ class ImageReviewService:
             product.image_last_modified = ""
             product.image_checked_at = ""
 
-        product.gallery_images = self._normalize_identifiable_gallery(product)
+        product.gallery_images = self._normalize_identifiable_gallery(
+            product,
+            created_paths,
+        )
 
     def _cleanup_persisted_image_selection(
         self,

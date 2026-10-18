@@ -1,3 +1,6 @@
+import hashlib
+from pathlib import Path
+
 import services.scraping.catalog_sync_service as catalog_sync_module
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.product_diff_service import ProductDiffService
@@ -998,8 +1001,7 @@ def test_catalog_sync_drops_unidentifiable_and_duplicate_legacy_gallery_entries(
         catalog_sync_module,
         "resolve_data_path",
         lambda value: (
-            value if __import__("pathlib").Path(value).is_absolute()
-            else tmp_path / value
+            Path(value) if Path(value).is_absolute() else tmp_path / value
         ),
     )
     product_root = tmp_path / "data" / "images" / "products"
@@ -1054,9 +1056,7 @@ def test_catalog_sync_drops_unidentifiable_and_duplicate_legacy_gallery_entries(
     assert incoming.image_path == ""
     assert incoming.image_hash == ""
     assert len(incoming.gallery_images) == 1
-    assert incoming.gallery_images[0]["image_hash"] == __import__("hashlib").sha256(
-        valid_duplicate
-    ).hexdigest()
+    assert incoming.gallery_images[0]["image_hash"] == hashlib.sha256(valid_duplicate).hexdigest()
     assert Path(
         catalog_sync_module.resolve_data_path(
             incoming.gallery_images[0]["image_path"]

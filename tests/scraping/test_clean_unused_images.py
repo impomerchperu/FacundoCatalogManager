@@ -52,7 +52,7 @@ def test_find_unused_images_uses_products_as_allowlist(tmp_path: Path):
     db = project / "database" / "catalog.db"
     db.parent.mkdir()
     _create_products_db(db)
-    _insert_product(db, "data/images/products/P001/P001-01.asset")
+    _insert_product(db, "data/images/products/P001.webp")
 
     candidates = find_unused_images(
         project_root=project,
@@ -85,7 +85,7 @@ def test_clean_unused_images_can_delete_only_unreferenced_files(
     db = project / "database" / "catalog.db"
     db.parent.mkdir()
     _create_products_db(db)
-    _insert_product(db, "data/images/products/P001/P001-01.asset")
+    _insert_product(db, "data/images/products/P001.webp")
 
     deleted = clean_unused_images(
         project_root=project,

@@ -222,7 +222,6 @@ class CatalogSyncService:
     ) -> None:
         """Persiste campos de productos sin perder categorías ante FULL incompleto."""
         for product in products:
-            product.content_hash = self.hash_service.generate(product)
             existing = existing_by_code.get(
                 self._normalize_code(product.code).casefold()
             )
@@ -230,7 +229,8 @@ class CatalogSyncService:
                 description = getattr(product, "description", "")
                 if not self._description_is_complete(description):
                     product.description = ""
-                    product.content_hash = self.hash_service.generate(product)
+                self._normalize_product_image_state(product)
+                product.content_hash = self.hash_service.generate(product)
                 result.created += 1
                 result.changes.append(
                     {
@@ -264,6 +264,7 @@ class CatalogSyncService:
             self._preserve_existing_prices(existing, product)
             self._preserve_existing_description(existing, product)
             self._preserve_existing_image_state(existing, product)
+            self._normalize_product_image_state(product)
             product.content_hash = self.hash_service.generate(product)
             comparison = self.diff_service.compare(existing, product)
             if comparison["changed"]:
@@ -291,6 +292,67 @@ class CatalogSyncService:
                 if self._image_sync_metadata_changed(existing, product):
                     self._save_catalog_product(product, existing)
                 result.unchanged += 1
+
+
+    @classmethod
+    def _normalize_product_image_state(cls, product) -> None:
+        """Persist only decodable image bytes, with a suffix matching real format."""
+        code = cls._normalize_code(getattr(product, "code", ""))
+        raw_path = str(getattr(product, "image_path", "") or "").strip()
+        if raw_path and code:
+            try:
+                source = resolve_data_path(raw_path)
+                stored_path, stored_hash = store_image_in_product_group(
+                    code,
+                    source,
+                    1,
+                    root=IMAGE_PRODUCTS_DIR,
+                )
+            except (OSError, ValueError):
+                stored_path, stored_hash = "", ""
+            if stored_path and stored_hash:
+                product.image_path = stored_path
+                product.image_hash = stored_hash
+            else:
+                product.image_path = ""
+                product.image_hash = ""
+                product.image_etag = ""
+                product.image_last_modified = ""
+                product.image_checked_at = ""
+        else:
+            # A validator/hash without a decodable local file is not a valid
+            # cache entry. Keep the source URL so a later sync can retry.
+            product.image_path = ""
+            product.image_hash = ""
+            product.image_etag = ""
+            product.image_last_modified = ""
+            product.image_checked_at = ""
+
+        product.gallery_images = cls._normalize_existing_gallery(
+            code=code,
+            gallery=list(getattr(product, "gallery_images", []) or []),
+            primary_url=str(getattr(product, "image_url", "") or ""),
+            primary_path=str(getattr(product, "image_path", "") or ""),
+            primary_hash=str(getattr(product, "image_hash", "") or ""),
+        )
+
+        # If the previous primary was unidentifiable but a valid gallery image
+        # remains, promote the best matching source image instead of leaving an
+        # empty primary reference. A second pass removes its duplicate gallery row.
+        if not str(getattr(product, "image_path", "") or "").strip() and product.gallery_images:
+            primary = product.gallery_images[0]
+            product.image_path = str(primary.get("image_path", "") or "")
+            product.image_hash = str(primary.get("image_hash", "") or "")
+            primary_url = str(primary.get("url", "") or "").strip()
+            if primary_url:
+                product.image_url = primary_url
+            product.gallery_images = cls._normalize_existing_gallery(
+                code=code,
+                gallery=product.gallery_images,
+                primary_url=str(getattr(product, "image_url", "") or ""),
+                primary_path=product.image_path,
+                primary_hash=product.image_hash,
+            )
 
     @classmethod
     def _preserve_existing_image_state(cls, existing, product) -> None:
@@ -400,9 +462,20 @@ class CatalogSyncService:
             if primary_url:
                 seen_urls.add(primary_url.strip().casefold())
 
-        for item in list(gallery or []):
-            if not isinstance(item, dict):
-                continue
+        gallery_items = [
+            item for item in list(gallery or []) if isinstance(item, dict)
+        ]
+        if not primary_path and primary_url:
+            primary_key = primary_url.strip().casefold()
+            gallery_items.sort(
+                key=lambda item: (
+                    0
+                    if str(item.get("url", "") or "").strip().casefold() == primary_key
+                    else 1
+                )
+            )
+
+        for item in gallery_items:
             raw_path = str(
                 item.get("image_path", item.get("path", "")) or ""
             ).strip()

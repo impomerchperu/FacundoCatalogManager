@@ -102,12 +102,7 @@ class ImageReviewService:
                 record.get("batch_id") == batch_id
                 and record.get("status") == "staged"
             ):
-                    if str(record.get("kind", "replacement")) == "gallery":
-                        for option in list(record.get("candidate_options", []) or []):
-                            self._remove_gallery_file(
-                                str(option.get("path", "") or "")
-                            )
-                    else:
+                    if str(record.get("kind", "replacement")) != "gallery":
                         self._remove_all_staged_candidates(record)
                     changed = True
                     continue
@@ -193,9 +188,10 @@ class ImageReviewService:
             else "replacement"
         )
         if not candidate_hash and not allow_manual_only:
-            if normalized_kind == "gallery":
-                self._remove_gallery_file(candidate_path)
-            else:
+            # Do not delete a candidate directly: a legacy gallery path may
+            # still be referenced by a catalog row. The post-commit cleaner
+            # performs the whitelist check before physical deletion.
+            if normalized_kind != "gallery":
                 self._remove_staged_file(candidate_path)
             return None
 
@@ -622,11 +618,8 @@ class ImageReviewService:
                 if str(image.get("url", "") or "").strip().casefold()
                 not in dismissed_urls
             ]
+            product.gallery_images = self._normalize_identifiable_gallery(product)
             self.repository.update(product)
-            for option in options:
-                self._remove_gallery_file(
-                    str(option.get("path", "") or "")
-                )
 
         return {
             "code": product.code,
@@ -1312,9 +1305,10 @@ class ImageReviewService:
             # Exclusive creation guarantees we never replace bytes another
             # catalog row may still reference. A failed write is removed below.
             try:
-                with source.open("rb") as source_stream, destination.open("xb") as target:
-                    shutil.copyfileobj(source_stream, target)
-                created_destination = True
+                with source.open("rb") as source_stream:
+                    with destination.open("xb") as target:
+                        created_destination = True
+                        shutil.copyfileobj(source_stream, target)
                 stored = identify_image_file(destination)
                 if (
                     stored["image_hash"] != image_hash
@@ -1323,7 +1317,7 @@ class ImageReviewService:
                 ):
                     raise ValueError("La imagen copiada no pasó la verificación de contenido.")
             except Exception:
-                if created_destination or destination.exists():
+                if created_destination:
                     destination.unlink(missing_ok=True)
                 raise
 
@@ -1613,21 +1607,6 @@ class ImageReviewService:
                 continue
             return candidate
         return None
-
-    @staticmethod
-    def _remove_gallery_file(value: str) -> None:
-        candidate = ImageReviewService._resolve_gallery_path(value)
-        if candidate is None:
-            return
-        # Do not remove unified product images from a review dismissal: such
-        # a file may also be primary or still referenced by another gallery.
-        # Explicit unused-image cleanup is responsible for physical deletion.
-        try:
-            candidate.resolve().relative_to(
-                resolve_data_path(IMAGE_PRODUCTS_DIR).resolve()
-            )
-        except ValueError:
-            candidate.unlink(missing_ok=True)
 
     @staticmethod
     def _resolve_product_image_path(value: str) -> Path | None:

@@ -90,6 +90,7 @@ def test_identical_image_reuses_existing_file_in_the_same_product_group(
     assert primary.is_file()
     assert duplicate.is_file()
 
+
 def test_product_group_storage_corrects_a_mislabeled_legacy_image(
     tmp_path: Path,
 ):

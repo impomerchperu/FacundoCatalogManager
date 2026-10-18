@@ -454,13 +454,9 @@ class CatalogSyncService:
                 product.image_last_modified = ""
                 product.image_checked_at = ""
 
-            product.gallery_images = cls._normalize_existing_gallery(
-                code=code,
-                gallery=cls._value(existing, "gallery_images") or [],
-                primary_url=str(getattr(product, "image_url", "") or ""),
-                primary_path=str(getattr(product, "image_path", "") or ""),
-                primary_hash=str(getattr(product, "image_hash", "") or ""),
-            )
+            # Defer gallery decoding/canonicalization to
+            # _normalize_product_image_state so a gallery is walked once.
+            product.gallery_images = list(cls._value(existing, "gallery_images") or [])
             return
 
         if str(getattr(product, "image_url", "") or "").strip() == str(

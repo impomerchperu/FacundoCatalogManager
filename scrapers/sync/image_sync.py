@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from datetime import datetime, timezone
 from typing import Any, cast
+
+import requests
 
 from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.images.image_repository import ImageRepository
@@ -32,10 +35,7 @@ class ImageSync:
         result = self.sync_product(product, old_product)
         return {
             "image_path": getattr(result, "image_path", ""),
-            "image_hash": getattr(result, "image_hash", ""),
-        }
-
-    def process(self, products):
+            "im    def process(self, products, *, refresh_remote_images: bool = False):
         items = list(products or [])
         if not items:
             return []
@@ -46,8 +46,9 @@ class ImageSync:
                 self.sync_product(
                     product,
                     current_product=current_products.get(
-                        str(product.code).casefold(),
+                        str(product.code).strip().casefold(),
                     ),
+                    refresh_remote_images=refresh_remote_images,
                 )
                 for product in items
             ]
@@ -59,8 +60,9 @@ class ImageSync:
                     partial(
                         self.sync_product,
                         current_product=current_products.get(
-                            str(product.code).casefold(),
+                            str(product.code).strip().casefold(),
                         ),
+                        refresh_remote_images=refresh_remote_images,
                     ),
                     product,
                 )
@@ -73,34 +75,98 @@ class ImageSync:
         product,
         old_product=None,
         current_product=None,
+        refresh_remote_images: bool = False,
     ):
         image_url = str(getattr(product, "image_url", "") or "").strip()
         if not image_url:
             return product
 
+        current_product = current_product or old_product
+        if old_product is None:
+            old_product = current_product
         review_enabled = (
             self.review_service is not None
             and self.image_downloader is not None
         )
-        existing = (
-            self.image_repository.find(product.code)
-            if review_enabled
-            else self.image_repository.find(product.code, image_url)
-        )
+
+        # When SQLite has an active path, inspect that exact file before looking
+        # for any legacy/sibling image. A lexicographic directory fallback could
+        # otherwise resurrect an obsolete version of the product image.
+        db_path = str(self._get(current_product, "image_path") or "").strip()
+        path_finder = getattr(self.image_repository, "find_path", None)
+        if db_path and callable(path_finder):
+            existing = path_finder(db_path)
+        elif db_path:
+            existing = self.image_repository.find(product.code)
+        else:
+            existing = (
+                self.image_repository.find(product.code)
+                if review_enabled
+                else self.image_repository.find(product.code, image_url)
+            )
+
+        candidates = self._normalized_image_candidates(product, image_url)
 
         if existing and review_enabled:
-            candidates = self._normalized_image_candidates(product, image_url)
             if self._has_authoritative_candidate(candidates, image_url):
                 image_data = self.image_manager.process(
                     product.code,
                     image_url,
                     force=True,
                 )
-                if image_data.get("image_path"):
-                    product.image_url = image_url
-                    product.image_path = image_data.get("image_path", "")
-                    product.image_hash = image_data.get("image_hash", "")
-                    return product
+                if image_data.get("image_path") and image_data.get("image_hash"):
+                    return self._apply_image_data(product, image_url, image_data)
+
+            current_url = str(self._get(current_product, "image_url") or "").strip()
+            current_is_generic = (
+                ProductImageExtractor.is_generic_asset(current_url)
+                or ProductImageExtractor.is_generic_asset(
+                    str(existing.get("image_path", "") or ""),
+                )
+            )
+            same_source = bool(
+                current_url and current_url.casefold() == image_url.casefold()
+            )
+            if same_source and not current_is_generic:
+                if (
+                    not refresh_remote_images
+                    and self._cache_is_fresh(current_product)
+                    and str(existing.get("image_hash", "") or "")
+                    == str(self._get(current_product, "image_hash") or "")
+                ):
+                    return self._preserve_current_image(
+                        product, current_product, existing, image_url
+                    )
+
+                revalidate = getattr(self.image_downloader, "revalidate_primary", None)
+                if callable(revalidate):
+                    try:
+                        result = revalidate(
+                            str(product.code),
+                            image_url,
+                            current_path=str(existing.get("image_path", "") or ""),
+                            current_hash=str(self._get(current_product, "image_hash") or ""),
+                            etag=str(self._get(current_product, "image_etag") or ""),
+                            last_modified=str(
+                                self._get(current_product, "image_last_modified") or ""
+                            ),
+                        )
+                    except (OSError, ValueError, RuntimeError, requests.exceptions.RequestException):
+                        return self._preserve_current_image(
+                            product, current_product, existing, current_url
+                        )
+                    if result.get("image_path") and result.get("image_hash"):
+                        return self._apply_image_data(product, image_url, result)
+                    return self._preserve_current_image(
+                        product, current_product, existing, current_url
+                    )
+
+                # Lightweight test doubles/legacy integrations without HTTP
+                # revalidation keep the currently accepted image unchanged.
+                return self._preserve_current_image(
+                    product, current_product, existing, current_url
+                )
+
             return self._stage_changed_image(
                 product,
                 image_url,
@@ -109,45 +175,93 @@ class ImageSync:
             )
 
         if not existing:
-            candidates = self._normalized_image_candidates(
-                product,
-                image_url,
-            )
             valid_candidates = [
-                candidate
-                for candidate in candidates
+                candidate for candidate in candidates
                 if not candidate.get("generic")
             ]
             preferred = valid_candidates[0] if valid_candidates else None
-            if (
-                ProductImageExtractor.is_generic_asset(image_url)
-                and preferred is not None
-            ):
+            if ProductImageExtractor.is_generic_asset(image_url) and preferred:
                 image_url = str(preferred.get("url", "") or "").strip()
                 product.image_url = image_url
 
-        old_url = self._get(old_product, "image_url")
-        url_changed = bool(old_product and old_url and old_url != image_url)
+        old_url = str(self._get(old_product, "image_url") or "").strip()
+        url_changed = bool(old_url and old_url.casefold() != image_url.casefold())
 
-        if existing and not url_changed:
-            product.image_path = existing["image_path"]
-            product.image_hash = existing.get("image_hash", "")
-            return product
+        # On a new local object or a changed accepted/authoritative source, force
+        # a real download. The downloader publishes new bytes to a versioned file
+        # rather than overwriting whatever SQLite may still reference.
+        should_download = not existing or url_changed
+        image_data = self.image_manager.process(
+            product.code,
+            image_url,
+            force=should_download,
+        )
+        if image_data.get("image_path") and image_data.get("image_hash"):
+            return self._apply_image_data(product, image_url, image_data)
 
-        if url_changed:
-            image_data = self.image_manager.process(
-                product.code,
-                image_url,
-                force=True,
+        if existing and current_product is not None:
+            return self._preserve_current_image(
+                product,
+                current_product,
+                existing,
+                str(self._get(current_product, "image_url") or ""),
             )
-        else:
-            image_data = self.image_manager.process(
-                product.code,
-                image_url,
-            )
 
-        product.image_path = image_data.get("image_path", "")
-        product.image_hash = image_data.get("image_hash", "")
+        product.image_path = ""
+        product.image_hash = ""
+        return product
+
+    @staticmethod
+    def _cache_is_fresh(current_product, *, max_age_seconds: int = 86400) -> bool:
+        value = str(ImageSync._get(current_product, "image_checked_at") or "").strip()
+        if not value:
+            return False
+        try:
+            checked_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if checked_at.tzinfo is None:
+                checked_at = checked_at.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return False
+        age = (datetime.now(timezone.utc) - checked_at.astimezone(timezone.utc)).total_seconds()
+        return 0 <= age < max_age_seconds
+
+    @staticmethod
+    def _apply_image_data(product, image_url: str, image_data: dict):
+        product.image_url = image_url
+        product.image_path = str(image_data.get("image_path", "") or "")
+        product.image_hash = str(image_data.get("image_hash", "") or "")
+        product.image_etag = str(image_data.get("image_etag", "") or "")
+        product.image_last_modified = str(
+            image_data.get("image_last_modified", "") or ""
+        )
+        product.image_checked_at = str(
+            image_data.get("image_checked_at", "") or ""
+        )
+        return product
+
+    @staticmethod
+    def _preserve_current_image(product, current_product, existing, source_url: str):
+        product.image_url = source_url
+        product.image_path = str(
+            ImageSync._get(current_product, "image_path")
+            or existing.get("image_path", "")
+            or ""
+        )
+        product.image_hash = str(
+            ImageSync._get(current_product, "image_hash")
+            or existing.get("image_hash", "")
+            or ""
+        )
+        product.image_etag = str(ImageSync._get(current_product, "image_etag") or "")
+        product.image_last_modified = str(
+            ImageSync._get(current_product, "image_last_modified") or ""
+        )
+        product.image_checked_at = str(
+            ImageSync._get(current_product, "image_checked_at") or ""
+        )
+        return product
+
+image_data.get("image_hash", "")
         return product
 
     def _stage_changed_image(  # noqa: PLR0912

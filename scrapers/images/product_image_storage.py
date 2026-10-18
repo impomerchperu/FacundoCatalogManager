@@ -63,6 +63,12 @@ def store_image_in_product_group(
         extension = ".webp"
 
     target_dir.mkdir(parents=True, exist_ok=True)
+    for existing in sorted(target_dir.iterdir()):
+        if not existing.is_file() or existing.suffix.lower() not in IMAGE_EXTENSIONS:
+            continue
+        if ImageHash().calculate(existing) == image_hash:
+            return to_data_relative_path(existing), image_hash
+
     target = target_dir / f"{product_code}-{max(int(position), 1):02d}{extension}"
     if target.is_file():
         if ImageHash().calculate(target) == image_hash:

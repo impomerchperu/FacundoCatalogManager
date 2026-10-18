@@ -1046,96 +1046,147 @@ class ImageReviewService:
     ) -> list[dict]:
         """Keep only decoded, canonically named images and exact unique bytes."""
         code = str(getattr(product, "code", "") or "")
-        old_primary_path = str(getattr(product, "image_path", "") or "").strip()
         old_primary_hash = str(getattr(product, "image_hash", "") or "").casefold()
         primary_url = str(getattr(product, "image_url", "") or "").strip()
-        primary_path = ""
-        primary_hash = ""
-        primary_is_valid = False
+        primary_path, primary_hash, primary_is_valid = self._normalize_review_primary(
+            product,
+            code,
+            old_primary_hash,
+            created_paths,
+        )
+        valid = self._normalize_review_gallery_entries(
+            product,
+            code,
+            primary_hash=primary_hash if primary_is_valid else "",
+            primary_url=primary_url if primary_is_valid else "",
+            created_paths=created_paths,
+        )
 
-        if old_primary_path:
-            try:
-                source = self._resolve_product_image_path(old_primary_path)
-            except (OSError, ValueError):
-                source = None
-            if source is not None and source.is_file():
-                stored_path, stored_hash = self._store_identifiable_image(
-                    code,
-                    source,
-                    1,
-                    created_paths,
-                )
-                if stored_path and stored_hash:
-                    primary_path = stored_path
-                    primary_hash = stored_hash
-                    primary_is_valid = True
-
-        if primary_is_valid:
-            product.image_path = primary_path
-            product.image_hash = primary_hash
-            if old_primary_hash != primary_hash.casefold():
-                product.image_etag = ""
-                product.image_last_modified = ""
-                product.image_checked_at = ""
-        else:
-            # A stale DB path/hash is not evidence that the source bytes still
-            # exist or can be decoded. Keep the remote URL for future recovery.
-            product.image_path = ""
-            product.image_hash = ""
-            product.image_etag = ""
-            product.image_last_modified = ""
-            product.image_checked_at = ""
-
-        seen_hashes = {primary_hash.casefold()} if primary_hash else set()
-        seen_urls = {primary_url.casefold()} if primary_is_valid and primary_url else set()
-        valid: list[dict] = []
-
-        for raw in list(getattr(product, "gallery_images", []) or []):
-            if not isinstance(raw, dict):
-                continue
-            raw_path = str(raw.get("image_path", raw.get("path", "")) or "").strip()
-            if not raw_path:
-                continue
-            source = self._resolve_gallery_path(raw_path)
-            if source is None or not source.is_file():
-                continue
-            try:
-                verified = identify_image_file(source)
-            except (OSError, ValueError):
-                continue
-
-            url = str(raw.get("url", "") or "").strip()
-            url_key = url.casefold()
-            image_hash = verified["image_hash"].casefold()
-            if image_hash in seen_hashes or (url_key and url_key in seen_urls):
-                continue
-
-            stored_path, stored_hash = self._store_identifiable_image(
-                code,
-                source,
-                len(valid) + 1,
-                created_paths,
-            )
-            if not stored_path or not stored_hash:
-                continue
-            valid.append(
-                {
-                    **raw,
-                    "url": url,
-                    "image_path": stored_path,
-                    "image_hash": stored_hash,
-                    "position": len(valid) + 1,
-                }
-            )
-            seen_hashes.add(stored_hash.casefold())
-            if url_key:
-                seen_urls.add(url_key)
-
-        # normalize_product_gallery injects a primary entry. Do that only when
+        # normalize_product_gallery injects a primary entry; do that only when
         # the primary itself was successfully identified from its local bytes.
         if primary_is_valid:
             return normalize_product_gallery(product, valid)
         return valid
+
+    def _normalize_review_primary(
+        self,
+        product,
+        code: str,
+        old_hash: str,
+        created_paths: list[Path] | None,
+    ) -> tuple[str, str, bool]:
+        raw_path = str(getattr(product, "image_path", "") or "").strip()
+        source = None
+        if raw_path:
+            try:
+                source = self._resolve_product_image_path(raw_path)
+            except (OSError, ValueError):
+                source = None
+
+        stored_path = ""
+        stored_hash = ""
+        if source is not None and source.is_file():
+            stored_path, stored_hash = self._store_identifiable_image(
+                code,
+                source,
+                1,
+                created_paths,
+            )
+
+        if stored_path and stored_hash:
+            product.image_path = stored_path
+            product.image_hash = stored_hash
+            if old_hash != stored_hash.casefold():
+                product.image_etag = ""
+                product.image_last_modified = ""
+                product.image_checked_at = ""
+            return stored_path, stored_hash, True
+
+        # A stale DB path/hash is not evidence that the source bytes still
+        # exist or can be decoded. Keep the remote URL for future recovery.
+        product.image_path = ""
+        product.image_hash = ""
+        product.image_etag = ""
+        product.image_last_modified = ""
+        product.image_checked_at = ""
+        return "", "", False
+
+    def _normalize_review_gallery_entries(
+        self,
+        product,
+        code: str,
+        *,
+        primary_hash: str,
+        primary_url: str,
+        created_paths: list[Path] | None,
+    ) -> list[dict]:
+        seen_hashes = {primary_hash.casefold()} if primary_hash else set()
+        seen_urls = {primary_url.casefold()} if primary_url else set()
+        valid: list[dict] = []
+
+        for raw in list(getattr(product, "gallery_images", []) or []):
+            entry = self._normalize_review_gallery_entry(
+                raw,
+                code,
+                position=len(valid) + 1,
+                seen_hashes=seen_hashes,
+                seen_urls=seen_urls,
+                created_paths=created_paths,
+            )
+            if entry is None:
+                continue
+            valid.append(entry)
+            seen_hashes.add(str(entry["image_hash"]).casefold())
+            url = str(entry.get("url", "") or "").strip()
+            if url:
+                seen_urls.add(url.casefold())
+
+        return valid
+
+    def _normalize_review_gallery_entry(
+        self,
+        raw: object,
+        code: str,
+        *,
+        position: int,
+        seen_hashes: set[str],
+        seen_urls: set[str],
+        created_paths: list[Path] | None,
+    ) -> dict | None:
+        if not isinstance(raw, dict):
+            return None
+        raw_path = str(raw.get("image_path", raw.get("path", "")) or "").strip()
+        if not raw_path:
+            return None
+        source = self._resolve_gallery_path(raw_path)
+        if source is None or not source.is_file():
+            return None
+        try:
+            verified = identify_image_file(source)
+        except (OSError, ValueError):
+            return None
+
+        url = str(raw.get("url", "") or "").strip()
+        url_key = url.casefold()
+        image_hash = verified["image_hash"].casefold()
+        if image_hash in seen_hashes or (url_key and url_key in seen_urls):
+            return None
+
+        stored_path, stored_hash = self._store_identifiable_image(
+            code,
+            source,
+            position,
+            created_paths,
+        )
+        if not stored_path or not stored_hash:
+            return None
+        return {
+            **raw,
+            "url": url,
+            "image_path": stored_path,
+            "image_hash": stored_hash,
+            "position": position,
+        }
 
     def _apply_selected_image(
         self,

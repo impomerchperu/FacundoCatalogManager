@@ -8,6 +8,7 @@ from models.scraping.detail_description_policy import (
     is_complete_detail,
     normalize_detail_text,
 )
+from config.runtime_paths import resolve_data_path
 from models.scraping.sync_result import SyncResult
 from services.scraping.category_name_normalizer import (
     merge_category_names,
@@ -276,12 +277,38 @@ class CatalogSyncService:
         current_path = str(cls._value(existing, "image_path") or "").strip()
         current_hash = str(cls._value(existing, "image_hash") or "").strip()
         if not incoming_path and not incoming_hash and (current_path or current_hash):
-            # A disabled/failed download must not pair a new URL with stale bytes.
-            for field in (
-                "image_url", "image_path", "image_hash", "image_etag",
-                "image_last_modified", "image_checked_at", "gallery_images",
-            ):
-                setattr(product, field, cls._value(existing, field) or "")
+            # Preserve the old primary only if the bytes still exist and are a
+            # verified raster. Never persist a known-broken path/hash pair.
+            current_url = str(cls._value(existing, "image_url") or "")
+            try:
+                from scrapers.images.image_downloader import ImageDownloader
+
+                verified = ImageDownloader.verify_image_file(
+                    resolve_data_path(current_path)
+                ) if current_path else {}
+            except (OSError, ValueError):
+                verified = {}
+
+            if verified:
+                product.image_url = current_url
+                product.image_path = current_path
+                product.image_hash = verified["image_hash"]
+                for field in ("image_etag", "image_last_modified", "image_checked_at"):
+                    setattr(product, field, cls._value(existing, field) or "")
+            else:
+                # The local object is unusable; keep the latest source URL so a
+                # later run can retry, but clear invalid local references.
+                if not str(getattr(product, "image_url", "") or "").strip():
+                    product.image_url = current_url
+                product.image_path = ""
+                product.image_hash = ""
+                product.image_etag = ""
+                product.image_last_modified = ""
+                product.image_checked_at = ""
+
+            product.gallery_images = list(
+                cls._value(existing, "gallery_images") or []
+            )
             return
 
         if str(getattr(product, "image_url", "") or "").strip() == str(

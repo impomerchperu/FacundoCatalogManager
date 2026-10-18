@@ -41,7 +41,7 @@ from scrapers.extractors.category_product_extractor import (
 from scrapers.extractors.product_card_extractor import ProductCardExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
 from scrapers.images.image_downloader import ImageDownloader
-from scrapers.images.image_paths import IMAGE_GALLERY_DIR
+from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping import product_gallery_sync_service as gallery_module
 from services.scraping.category_service import CategoryService
@@ -299,7 +299,7 @@ def main() -> int:
             gallery_module.resolve_data_path = _isolated_path_resolver(
                 storage_root
             )
-            gallery_root = gallery_module.resolve_data_path(IMAGE_GALLERY_DIR)
+            gallery_root = gallery_module.resolve_data_path(IMAGE_PRODUCTS_DIR)
             downloader = _CountingImageDownloader(
                 output_dir=storage_root / "data" / "images" / "products",
                 request_timeout=REQUEST_TIMEOUT,

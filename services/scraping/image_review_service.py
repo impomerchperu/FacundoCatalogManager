@@ -918,16 +918,101 @@ class ImageReviewService:
         raise ValueError("La revisión de imagen ya no está disponible.")
 
     def _keep_current(self, record: dict, product) -> dict:
-        product.image_path = str(record.get("current_path", "") or "")
-        product.image_hash = str(record.get("current_hash", "") or "")
-        product.image_url = str(record.get("current_url", "") or "")
+        before = (
+            str(getattr(product, "image_path", "") or ""),
+            str(getattr(product, "image_hash", "") or ""),
+            str(getattr(product, "image_url", "") or ""),
+        )
+        self._apply_kept_image_state(record, product)
+        after = (
+            str(getattr(product, "image_path", "") or ""),
+            str(getattr(product, "image_hash", "") or ""),
+            str(getattr(product, "image_url", "") or ""),
+        )
+        changed = before != after
         self.repository.update(product)
         self._remove_all_staged_candidates(record)
+        if changed:
+            self._cleanup_unused_images()
         return {
             "code": product.code,
             "action": "keep",
-            "changed": False,
+            "changed": changed,
         }
+
+    def _apply_kept_image_state(self, record: dict, product) -> None:
+        """Retain a primary only if it is decodable and correctly labeled."""
+        source_url = str(record.get("current_url", "") or "")
+        raw_path = str(record.get("current_path", "") or "").strip()
+        product.image_url = source_url
+        product.image_path = ""
+        product.image_hash = ""
+        product.image_etag = ""
+        product.image_last_modified = ""
+        product.image_checked_at = ""
+
+        source = self._resolve_gallery_path(raw_path) if raw_path else None
+        if source is not None and source.is_file():
+            try:
+                verified = identify_image_file(source)
+            except (OSError, ValueError):
+                verified = {}
+            if verified and file_extension_matches(source, verified["image_extension"]):
+                product.image_path = to_data_relative_path(source)
+                product.image_hash = verified["image_hash"]
+                product.image_etag = str(record.get("image_etag", "") or "")
+                product.image_last_modified = str(
+                    record.get("image_last_modified", "") or ""
+                )
+                product.image_checked_at = str(
+                    record.get("image_checked_at", "") or ""
+                )
+
+        product.gallery_images = self._normalize_identifiable_gallery(product)
+
+    def _normalize_identifiable_gallery(self, product) -> list[dict]:
+        """Discard missing, corrupt, mislabeled, or byte-duplicate gallery items."""
+        primary_hash = str(getattr(product, "image_hash", "") or "").casefold()
+        primary_url = str(getattr(product, "image_url", "") or "").strip().casefold()
+        seen_hashes = {primary_hash} if primary_hash else set()
+        seen_urls = {primary_url} if primary_url else set()
+        valid: list[dict] = []
+
+        for raw in list(getattr(product, "gallery_images", []) or []):
+            if not isinstance(raw, dict):
+                continue
+            raw_path = str(raw.get("image_path", raw.get("path", "")) or "").strip()
+            if not raw_path:
+                continue
+            path = self._resolve_gallery_path(raw_path)
+            if path is None or not path.is_file():
+                continue
+            try:
+                verified = identify_image_file(path)
+            except (OSError, ValueError):
+                continue
+            if not file_extension_matches(path, verified["image_extension"]):
+                continue
+
+            url = str(raw.get("url", "") or "").strip()
+            url_key = url.casefold()
+            image_hash = verified["image_hash"].casefold()
+            if image_hash in seen_hashes or (url_key and url_key in seen_urls):
+                continue
+
+            entry = {
+                **raw,
+                "url": url,
+                "image_path": to_data_relative_path(path),
+                "image_hash": verified["image_hash"],
+                "position": len(valid) + 1,
+            }
+            valid.append(entry)
+            seen_hashes.add(image_hash)
+            if url_key:
+                seen_urls.add(url_key)
+
+        return normalize_product_gallery(product, valid)
 
     def _apply_selected_image(
         self,
@@ -1010,17 +1095,20 @@ class ImageReviewService:
         product,
         persist: bool,
     ) -> tuple[dict, dict] | dict:
-        product.image_path = str(record.get("current_path", "") or "")
-        product.image_hash = str(record.get("current_hash", "") or "")
-        product.image_url = str(record.get("current_url", "") or "")
+        self._apply_kept_image_state(record, product)
         result = {
             "code": product.code,
             "action": "keep",
-            "changed": False,
+            "changed": (
+                str(getattr(product, "image_path", "") or "")
+                != str(record.get("current_path", "") or "")
+            ),
         }
         if persist:
             self.repository.update(product)
             self._remove_all_staged_candidates(record)
+            if result["changed"]:
+                self._cleanup_unused_images()
             return result
         return result, {
             "destination": None,

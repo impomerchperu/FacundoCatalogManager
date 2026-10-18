@@ -641,13 +641,29 @@ class ProductCollectionScraper:
         # The detail page, not a category-card thumbnail/srcset, is authoritative
         # for a product gallery. Keep only images actually inside the gallery
         # container so related-product cards elsewhere on the page cannot leak in.
-        detail_gallery_candidates = [
-            dict(candidate)
+        has_container_metadata = any(
+            isinstance(candidate, dict)
+            and "gallery_container" in candidate
             for candidate in detail_candidates
-            if isinstance(candidate, dict)
-            and bool(candidate.get("gallery_container"))
-            and not bool(candidate.get("generic"))
-        ]
+        )
+        if has_container_metadata:
+            detail_gallery_candidates = [
+                dict(candidate)
+                for candidate in detail_candidates
+                if isinstance(candidate, dict)
+                and bool(candidate.get("gallery_container"))
+                and not bool(candidate.get("generic"))
+            ]
+        else:
+            # Compatibility for lightweight/custom extractors used by tests or
+            # integrations which predate the explicit container marker.
+            detail_gallery_candidates = [
+                {**candidate, "gallery_container": True}
+                for candidate in detail_candidates
+                if isinstance(candidate, dict)
+                and bool(candidate.get("gallery"))
+                and not bool(candidate.get("generic"))
+            ]
         product.image_candidates_source = "detail"
         product.image_candidates = detail_gallery_candidates
         if detail_gallery_candidates:

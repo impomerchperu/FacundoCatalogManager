@@ -1048,7 +1048,7 @@ class ImageReviewService:
         code = str(getattr(product, "code", "") or "")
         old_primary_hash = str(getattr(product, "image_hash", "") or "").casefold()
         primary_url = str(getattr(product, "image_url", "") or "").strip()
-        primary_path, primary_hash, primary_is_valid = self._normalize_review_primary(
+        _primary_path, primary_hash, primary_is_valid = self._normalize_review_primary(
             product,
             code,
             old_primary_hash,

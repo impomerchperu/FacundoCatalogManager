@@ -684,6 +684,104 @@ def test_bare_colores_text_triggers_technical_detail_repair():
     ]
 
 
+def test_fb4008_truncated_card_uses_full_woocommerce_short_description():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+    category_scraper.html_override = """
+    <html>
+        <article>
+            <a href="/producto/antiestres-cerebro-largo/">
+                <h2 class="brxe-f31760">Antiestrés Cerebro Largo</h2>
+            </a>
+            <p class="brxe-a26f34">FB-4008</p>
+            <div class="text-content">
+                Color: Blanco. Material: Poliuretano. Dimensiones: 75*63*48mm.
+                Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés,
+            </div>
+            <div class="variaciones-producto"><p>8384</p></div>
+            <div class="content-precio">
+                <h3>Precio Muestra</h3><h4>S/ 4.00</h4>
+            </div>
+            <div class="content-precio">
+                <h3>Precio Ciento</h3><h4>S/ 300.00</h4>
+            </div>
+            <div class="content-precio">
+                <h3>Precio Millar</h3><h4>S/ 2800.00</h4>
+            </div>
+        </article>
+    </html>
+    """
+    category_scraper.detail_html_override = """
+    <html>
+        <h1>Antiestrés Cerebro Largo</h1>
+        <p class="brxe-heading">FB-4008</p>
+        <div class="woocommerce-product-details__short-description">
+            <ul>
+                <li>Color: Blanco.</li>
+                <li>Material: Poliuretano.</li>
+                <li>Dimensiones: 75*63*48mm.</li>
+                <li>Peso Unitario: 23.5 G.</li>
+                <li>Uso Recomendado: Antiestrés, Promocional.</li>
+                <li>Empaque Individual: Bolsa de polietileno.</li>
+                <li>Cantidad Por Caja: 250 Pza.</li>
+                <li>Dimensiones Caja: 50*42*42cm.</li>
+                <li>Cubicaje por Caja: 0.0882 m³/CBM.</li>
+                <li>Peso neto por caja: 5.5 Kg.</li>
+                <li>Peso bruto por caja: 6.25 Kg.</li>
+            </ul>
+        </div>
+        <div id="tab-description" class="woocommerce-Tabs-panel--description">
+            Descripción comercial: no debe reemplazar el Detalle técnico.
+        </div>
+        <div id="tab-additional_information">
+            Información adicional: tampoco es la fuente del Detalle.
+        </div>
+        <div id="tab-reviews">Valoraciones que deben ignorarse.</div>
+        <img class="woocommerce-product-gallery"
+             src="https://example.com/fb-4008.webp">
+        <div class="content-precio">
+            <h3>Precio Muestra</h3><h4>S/ 4.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Ciento</h3><h4>S/ 300.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Millar</h3><h4>S/ 2800.00</h4>
+        </div>
+        Stock Disponible 8384
+    </html>
+    """
+
+    result = scraper.scrape_category(
+        Category(
+            name="Artículos Antiestrés",
+            url="https://example.com/articulos-antiestres/",
+        )
+    )
+
+    assert len(result) == 1
+    assert result[0].code == "FB-4008"
+    assert result[0].description == (
+        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
+        "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
+        "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+    assert "Color: Blanco" not in result[0].description
+    assert "Descripción comercial" not in result[0].description
+    assert "Información adicional" not in result[0].description
+    assert category_scraper.detail_requests == [
+        "https://example.com/producto/antiestres-cerebro-largo/"
+    ]
+    assert scraper.get_detail_metrics()["detail_requests"] == 1
+
+
 def test_incomplete_card_is_not_replaced_by_generic_color_text_from_detail_page():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(

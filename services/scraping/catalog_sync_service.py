@@ -10,7 +10,12 @@ from models.scraping.detail_description_policy import (
     normalize_detail_text,
 )
 from models.scraping.sync_result import SyncResult
+from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
+from scrapers.images.image_validation import (
+    file_extension_matches,
+    identify_image_file,
+)
 from scrapers.images.product_image_storage import store_image_in_product_group
 from services.scraping.category_name_normalizer import (
     merge_category_names,
@@ -286,13 +291,35 @@ class CatalogSyncService:
             stored_path = ""
             stored_hash = ""
             code = str(getattr(product, "code", "") or cls._value(existing, "code") or "")
-            if current_path and code:
-                stored_path, stored_hash = store_image_in_product_group(
-                    code,
-                    resolve_data_path(current_path),
-                    1,
-                    root=IMAGE_PRODUCTS_DIR,
-                )
+            source_path = resolve_data_path(current_path) if current_path else None
+
+            if source_path is not None and source_path.is_file():
+                try:
+                    verified = ImageDownloader.verify_image_file(source_path)
+                except (OSError, ValueError):
+                    try:
+                        detected = identify_image_file(source_path)
+                    except (OSError, ValueError):
+                        detected = {}
+                    if (
+                        detected
+                        and code
+                        and not file_extension_matches(
+                            source_path,
+                            detected["image_extension"],
+                        )
+                    ):
+                        stored_path, stored_hash = store_image_in_product_group(
+                            code,
+                            source_path,
+                            1,
+                            root=IMAGE_PRODUCTS_DIR,
+                        )
+                    else:
+                        detected = {}
+                else:
+                    stored_path = current_path
+                    stored_hash = verified["image_hash"]
 
             if stored_path and stored_hash:
                 product.image_url = current_url

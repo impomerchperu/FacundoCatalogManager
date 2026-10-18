@@ -29,9 +29,14 @@ def product_image_directory(
 def _find_matching_image(
     directory: Path,
     expected_hash: str,
+    *,
+    exclude: Path | None = None,
 ) -> Path | None:
+    excluded_path = exclude.resolve() if exclude is not None else None
     for existing in sorted(directory.iterdir()):
         if not existing.is_file() or existing.suffix.lower() not in IMAGE_EXTENSIONS:
+            continue
+        if excluded_path is not None and existing.resolve() == excluded_path:
             continue
         if ImageHash().calculate(existing) == expected_hash:
             return existing
@@ -81,13 +86,20 @@ def store_image_in_product_group(
         return "", ""
 
     target_dir = product_image_directory(product_code, root=root)
+    image_hash = ImageHash().calculate(source)
     try:
         if source.resolve().parent == target_dir.resolve():
-            return to_data_relative_path(source), ImageHash().calculate(source)
+            existing = _find_matching_image(
+                target_dir,
+                image_hash,
+                exclude=source,
+            )
+            if existing is not None:
+                return to_data_relative_path(existing), image_hash
+            return to_data_relative_path(source), image_hash
     except OSError:
         pass
 
-    image_hash = ImageHash().calculate(source)
     extension = source.suffix.lower()
     if extension not in IMAGE_EXTENSIONS:
         extension = ".webp"

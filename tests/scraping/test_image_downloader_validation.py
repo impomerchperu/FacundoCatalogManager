@@ -2,6 +2,9 @@ from pathlib import Path
 from typing import ClassVar
 
 from scrapers.images.image_downloader import ImageDownloader
+from tests.scraping.image_test_utils import image_bytes
+
+JPEG_BYTES = image_bytes("JPEG", (10, 20, 30))
 
 
 class FakeResponse:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import uuid
 from pathlib import Path
@@ -149,38 +150,53 @@ def store_image_in_product_group(
         extension,
         image_hash,
     )
-    for _attempt in range(5):
-        try:
-            # Exclusive creation prevents a race from overwriting a path that
-            # another worker may already have created or begun referencing.
-            with source.open("rb") as source_stream, target.open("xb") as target_stream:
-                shutil.copyfileobj(source_stream, target_stream)
-            break
-        except FileExistsError:
-            existing = _find_matching_image(
-                target_dir,
-                image_hash,
-                expected_extension=extension,
-            )
-            if existing is not None:
-                return to_data_relative_path(existing), image_hash
-            target = target_dir / (
-                f"{product_code}-{normalized_position:02d}-"
-                f"{image_hash[:8]}-{uuid.uuid4().hex[:8]}{extension}"
-            )
-    else:
-        return "", ""
 
-    # Assert the canonical output is decodable and named for its real format.
+    # Fully materialize and decode a private temporary before publication.
+    # An exception can therefore never leave a truncated canonical image.
+    temporary = target_dir / (
+        f".{product_code}-{normalized_position:02d}-{uuid.uuid4().hex}.tmp"
+    )
     try:
+        with source.open("rb") as source_stream, temporary.open("xb") as target_stream:
+            shutil.copyfileobj(source_stream, target_stream)
+        stored_temporary = identify_image_file(temporary)
+        if (
+            stored_temporary["image_hash"] != image_hash
+            or stored_temporary["image_extension"] != extension
+        ):
+            return "", ""
+
+        for _attempt in range(8):
+            try:
+                # Atomic, no-overwrite publication. This path is on the same
+                # volume as the temporary and is never replaced if it exists.
+                os.link(temporary, target)
+                break
+            except FileExistsError:
+                existing = _find_matching_image(
+                    target_dir,
+                    image_hash,
+                    expected_extension=extension,
+                )
+                if existing is not None:
+                    return to_data_relative_path(existing), image_hash
+                target = target_dir / (
+                    f"{product_code}-{normalized_position:02d}-"
+                    f"{image_hash[:8]}-{uuid.uuid4().hex[:8]}{extension}"
+                )
+        else:
+            return "", ""
+
         stored = identify_image_file(target)
-    except (OSError, ValueError):
-        return "", ""
-    if (
-        stored["image_hash"] != image_hash
-        or stored["image_extension"] != extension
-        or not file_extension_matches(target, extension)
-    ):
-        return "", ""
+        if (
+            stored["image_hash"] != image_hash
+            or stored["image_extension"] != extension
+            or not file_extension_matches(target, extension)
+        ):
+            # The published file was created exclusively by this call. Leave
+            # retirement to the reference-checked cleanup to avoid races.
+            return "", ""
+    finally:
+        temporary.unlink(missing_ok=True)
 
     return to_data_relative_path(target), image_hash

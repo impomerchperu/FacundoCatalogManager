@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from database.db_manager import DBManager
 from models.product import Product
 from repositories.product_repository import ProductRepository
@@ -190,7 +192,7 @@ def test_image_review_apply_is_persisted_after_reopening_database(
     candidate_path = staging_dir / "FB-100-new.webp"
     products_dir.mkdir(parents=True)
     staging_dir.mkdir(parents=True)
-    current_path.write_bytes(b"old-image")
+    current_path.write_bytes(image_bytes("JPEG", (4, 5, 6)))
     candidate_path.write_bytes(image_bytes("WEBP", (16, 17, 18)))
 
     db = DBManager(str(db_path))
@@ -238,7 +240,7 @@ def test_manual_image_selection_clears_remote_source_and_http_validators(
     product_dir = products_dir / "FB-101"
     product_dir.mkdir(parents=True)
     current_path = product_dir / "FB-101-01.jpg"
-    current_path.write_bytes(b"old-image")
+    current_path.write_bytes(image_bytes("JPEG", (4, 5, 6)))
     manual_path = tmp_path / "manual.webp"
     manual_path.write_bytes(image_bytes("WEBP", (13, 14, 15)))
 
@@ -284,7 +286,7 @@ def test_image_review_delete_current_clears_catalog_only_after_finalize(
     _staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
     products_dir.mkdir(parents=True)
     current_path = products_dir / "FB-100.jpg"
-    current_path.write_bytes(b"old-image")
+    current_path.write_bytes(image_bytes("JPEG", (4, 5, 6)))
 
     product = Product(
         code="FB-100",
@@ -294,7 +296,19 @@ def test_image_review_delete_current_clears_catalog_only_after_finalize(
         image_url="https://example.test/old.jpg",
     )
     repository = FakeRepository(product)
-    service = ImageReviewService(repository)
+    cleanup_observations = []
+
+    def cleanup_after_persist():
+        assert repository.product is not None
+        assert repository.product.image_path == ""
+        cleanup_observations.append(current_path.exists())
+        current_path.unlink(missing_ok=True)
+        return []
+
+    service = ImageReviewService(
+        repository,
+        image_cleanup=cleanup_after_persist,
+    )
     service.register_candidate(
         code="FB-100",
         product_name="Producto",
@@ -319,6 +333,7 @@ def test_image_review_delete_current_clears_catalog_only_after_finalize(
     assert repository.product.image_path == ""
     assert repository.product.image_hash == ""
     assert repository.product.image_url == ""
+    assert cleanup_observations == [True]
     assert not current_path.exists()
     assert service.pending() == []
 
@@ -419,3 +434,145 @@ def test_new_scrape_batch_supersedes_previous_review_with_same_hash(
 
     assert len(pending) == 1
     assert pending[0]["id"] != first_id
+
+def test_manual_image_uses_detected_format_not_filename_suffix(
+    monkeypatch,
+    tmp_path,
+):
+    _staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
+    manual_path = tmp_path / "manual.webp"
+    payload = image_bytes("PNG", (33, 44, 55))
+    manual_path.write_bytes(payload)
+
+    product = Product(
+        code="FB-102",
+        name="Producto",
+        image_url="https://example.test/old.webp",
+    )
+    service = ImageReviewService(FakeRepository(product))
+    service.register_candidate(
+        code="FB-102",
+        product_name="Producto",
+        current_path="",
+        current_hash="",
+        current_url=product.image_url,
+        candidate_path="",
+        candidate_hash="",
+        candidate_url="",
+        allow_manual_only=True,
+    )
+
+    review_id = service.pending()[0]["id"]
+    service.apply_selection(review_id, "manual", manual_path)
+    record = service._read()[0]
+    staged = module.ImageReviewService._resolve_staged_path(record["selected_path"])
+    assert staged is not None
+    assert staged.suffix == ".png"
+
+    results = service.finalize_selected([review_id])
+
+    canonical = products_dir / "FB-102" / "FB-102-01.png"
+    assert results[0]["changed"] is True
+    assert Path(product.image_path) == Path("data/images/products/FB-102/FB-102-01.png")
+    assert canonical.is_file()
+    assert canonical.read_bytes() == payload
+    assert not staged.exists()
+
+
+def test_manual_image_rejects_unidentifiable_content(
+    monkeypatch,
+    tmp_path,
+):
+    staging_dir, _products_dir = _patch_paths(monkeypatch, tmp_path)
+    manual_path = tmp_path / "not-an-image.webp"
+    manual_path.write_bytes(b"not an identifiable raster")
+
+    product = Product(
+        code="FB-103",
+        name="Producto",
+        image_url="https://example.test/old.webp",
+        image_path="data/images/products/FB-103.webp",
+        image_hash="old-hash",
+    )
+    service = ImageReviewService(FakeRepository(product))
+    service.register_candidate(
+        code="FB-103",
+        product_name="Producto",
+        current_path=product.image_path,
+        current_hash=product.image_hash,
+        current_url=product.image_url,
+        candidate_path="",
+        candidate_hash="",
+        candidate_url="",
+        allow_manual_only=True,
+    )
+
+    review_id = service.pending()[0]["id"]
+    with pytest.raises(ValueError, match="imagen compatible e identificable"):
+        service.apply_selection(review_id, "manual", manual_path)
+
+    assert not staging_dir.exists() or not list(staging_dir.iterdir())
+    assert service._read()[0].get("selected_action", "") != "manual"
+
+
+def test_review_replacement_never_overwrites_active_canonical_image(
+    monkeypatch,
+    tmp_path,
+):
+    staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
+    product_dir = products_dir / "FB-105"
+    product_dir.mkdir(parents=True)
+    staging_dir.mkdir(parents=True)
+    active_path = product_dir / "FB-105-01.webp"
+    active_bytes = image_bytes("WEBP", (60, 70, 80))
+    candidate_bytes = image_bytes("WEBP", (90, 100, 110))
+    active_path.write_bytes(active_bytes)
+    candidate_path = staging_dir / "FB-105-next.webp"
+    candidate_path.write_bytes(candidate_bytes)
+
+    product = Product(
+        code="FB-105",
+        name="Producto",
+        image_url="https://example.test/old.webp",
+        image_path="data/images/products/FB-105/FB-105-01.webp",
+        image_hash="old-recorded-hash",
+    )
+    repository = FakeRepository(product)
+    cleanup_observations = []
+
+    def cleanup_after_persist():
+        assert repository.product.image_path != "data/images/products/FB-105/FB-105-01.webp"
+        assert active_path.is_file()
+        assert active_path.read_bytes() == active_bytes
+        cleanup_observations.append(repository.product.image_path)
+        active_path.unlink()
+        return []
+
+    service = ImageReviewService(
+        repository,
+        image_cleanup=cleanup_after_persist,
+    )
+    service.register_candidate(
+        code="FB-105",
+        product_name="Producto",
+        current_path=product.image_path,
+        current_hash=product.image_hash,
+        current_url=product.image_url,
+        candidate_path="image_review_staging/FB-105-next.webp",
+        candidate_hash="new-hash",
+        candidate_url="https://example.test/new.webp",
+    )
+
+    review_id = service.pending()[0]["id"]
+    service.apply_selection(review_id, "replace")
+    assert active_path.read_bytes() == active_bytes
+
+    service.finalize_selected([review_id])
+
+    assert cleanup_observations == [repository.product.image_path]
+    assert not active_path.exists()
+    assert repository.product.image_path != "data/images/products/FB-105/FB-105-01.webp"
+    new_path = module.resolve_data_path(repository.product.image_path)
+    assert new_path.is_file()
+    assert new_path.read_bytes() == candidate_bytes
+

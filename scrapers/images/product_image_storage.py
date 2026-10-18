@@ -26,6 +26,40 @@ def product_image_directory(
     return resolve_data_path(root) / safe_product_code(code)
 
 
+def _find_matching_image(
+    directory: Path,
+    expected_hash: str,
+) -> Path | None:
+    for existing in sorted(directory.iterdir()):
+        if not existing.is_file() or existing.suffix.lower() not in IMAGE_EXTENSIONS:
+            continue
+        if ImageHash().calculate(existing) == expected_hash:
+            return existing
+    return None
+
+
+def _available_target(
+    directory: Path,
+    code: str,
+    position: int,
+    extension: str,
+    image_hash: str,
+) -> Path:
+    target = directory / f"{code}-{position:02d}{extension}"
+    if target.is_file():
+        if ImageHash().calculate(target) == image_hash:
+            return target
+        target = directory / f"{code}-{position:02d}-{image_hash[:8]}{extension}"
+
+    collision_index = 1
+    while target.exists() and ImageHash().calculate(target) != image_hash:
+        target = directory / (
+            f"{code}-{position:02d}-{image_hash[:8]}-{collision_index}{extension}"
+        )
+        collision_index += 1
+    return target
+
+
 def store_image_in_product_group(
     code: object,
     source_path: str | Path,
@@ -35,9 +69,8 @@ def store_image_in_product_group(
 ) -> tuple[str, str]:
     """Copy an image into a product's canonical folder without clobbering files.
 
-    A source already inside the canonical product folder is reused. Legacy
-    images are copied to a stable position-based filename. If that filename
-    contains different content, a hash suffix avoids overwriting it.
+    Images with identical content within one product group reuse one stored
+    file. A source already inside the canonical folder is reused as-is.
     """
     source = resolve_data_path(source_path)
     if not source.is_file():
@@ -50,10 +83,7 @@ def store_image_in_product_group(
     target_dir = product_image_directory(product_code, root=root)
     try:
         if source.resolve().parent == target_dir.resolve():
-            return (
-                to_data_relative_path(source),
-                ImageHash().calculate(source),
-            )
+            return to_data_relative_path(source), ImageHash().calculate(source)
     except OSError:
         pass
 
@@ -63,28 +93,17 @@ def store_image_in_product_group(
         extension = ".webp"
 
     target_dir.mkdir(parents=True, exist_ok=True)
-    for existing in sorted(target_dir.iterdir()):
-        if not existing.is_file() or existing.suffix.lower() not in IMAGE_EXTENSIONS:
-            continue
-        if ImageHash().calculate(existing) == image_hash:
-            return to_data_relative_path(existing), image_hash
+    existing = _find_matching_image(target_dir, image_hash)
+    if existing is not None:
+        return to_data_relative_path(existing), image_hash
 
-    target = target_dir / f"{product_code}-{max(int(position), 1):02d}{extension}"
-    if target.is_file():
-        if ImageHash().calculate(target) == image_hash:
-            return to_data_relative_path(target), image_hash
-        target = target_dir / (
-            f"{product_code}-{max(int(position), 1):02d}-{image_hash[:8]}{extension}"
-        )
-
-    collision_index = 1
-    while target.exists() and ImageHash().calculate(target) != image_hash:
-        target = target_dir / (
-            f"{product_code}-{max(int(position), 1):02d}-"
-            f"{image_hash[:8]}-{collision_index}{extension}"
-        )
-        collision_index += 1
-
+    target = _available_target(
+        target_dir,
+        product_code,
+        max(int(position), 1),
+        extension,
+        image_hash,
+    )
     if not target.exists():
         shutil.copy2(source, target)
 

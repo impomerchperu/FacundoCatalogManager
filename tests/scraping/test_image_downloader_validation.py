@@ -64,7 +64,7 @@ def test_image_downloader_uses_decoded_format_instead_of_url_suffix(
 ):
     class PngResponse:
         content = image_bytes("PNG", (23, 45, 67))
-        headers: ClassVar[dict[str, str]] = {"Content-Type": "image/png"}
+        headers: ClassVar[dict[str, str]] = {"Content-Type": "image/webp"}
 
         def raise_for_status(self):
             return None

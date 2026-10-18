@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import os
 import time
 from collections.abc import Iterable
 from datetime import datetime, timezone
@@ -261,10 +262,45 @@ class ImageDownloader:
                 stream.flush()
             if self.hash_file(temporary) != image_hash:
                 raise RuntimeError("La verificación SHA-256 de la descarga falló.")
-            temporary.replace(target)
+            target = self._publish_temporary_without_overwrite(
+                temporary,
+                target,
+                image_hash,
+                extension,
+            )
         finally:
             temporary.unlink(missing_ok=True)
         return to_data_relative_path(target)
+
+    @classmethod
+    def _publish_temporary_without_overwrite(
+        cls,
+        temporary: Path,
+        target: Path,
+        image_hash: str,
+        extension: str,
+    ) -> Path:
+        """Atomically publish verified bytes without replacing an existing path."""
+        for _attempt in range(8):
+            try:
+                # Same-directory hard link is atomic and fails rather than
+                # replacing a path that another worker might already reference.
+                os.link(temporary, target)
+                return target
+            except FileExistsError:
+                try:
+                    verified = cls.verify_image_file(target)
+                except (OSError, ValueError):
+                    verified = {}
+                if (
+                    verified.get("image_hash") == image_hash
+                    and verified.get("image_extension") == extension
+                ):
+                    return target
+                target = target.with_name(
+                    f"{target.stem}-{uuid4().hex[:8]}{target.suffix}"
+                )
+        raise RuntimeError("No se pudo publicar la imagen sin sobrescribir otro archivo.")
 
     def download_result(self, code: str, url: str) -> dict[str, str]:
         """Descarga una imagen validada a una ruta versionada y devuelve sus metadatos."""
@@ -494,25 +530,49 @@ class ImageDownloader:
             safe_code = self._safe_code(code)
             target_root.mkdir(parents=True, exist_ok=True)
             canonical = target_root / f"{safe_code}-{int(position):02d}{extension}"
-            if canonical.is_file() and self.hash_file(canonical) != image_hash:
+            try:
+                existing = self.verify_image_file(canonical)
+            except (OSError, ValueError):
+                existing = {}
+            if (
+                existing.get("image_hash") == image_hash
+                and existing.get("image_extension") == extension
+            ):
+                return to_data_relative_path(canonical)
+
+            if canonical.exists():
                 canonical = target_root / (
                     f"{safe_code}-{int(position):02d}-{image_hash[:16]}{extension}"
                 )
-            if canonical.exists() and self.hash_file(canonical) != image_hash:
+            if canonical.exists():
+                try:
+                    existing = self.verify_image_file(canonical)
+                except (OSError, ValueError):
+                    existing = {}
+                if (
+                    existing.get("image_hash") == image_hash
+                    and existing.get("image_extension") == extension
+                ):
+                    return to_data_relative_path(canonical)
                 canonical = canonical.with_name(
                     f"{canonical.stem}-{uuid4().hex[:8]}{canonical.suffix}"
                 )
-            if not canonical.exists():
-                temporary = canonical.with_name(f"{canonical.name}.{uuid4().hex}.tmp")
-                try:
-                    with temporary.open("xb") as stream:
-                        stream.write(body)
-                        stream.flush()
-                    if self.hash_file(temporary) != image_hash:
-                        raise RuntimeError("La verificación SHA-256 de la galería falló.")
-                    temporary.replace(canonical)
-                finally:
-                    temporary.unlink(missing_ok=True)
+
+            temporary = canonical.with_name(f"{canonical.name}.{uuid4().hex}.tmp")
+            try:
+                with temporary.open("xb") as stream:
+                    stream.write(body)
+                    stream.flush()
+                if self.hash_file(temporary) != image_hash:
+                    raise RuntimeError("La verificación SHA-256 de la galería falló.")
+                canonical = self._publish_temporary_without_overwrite(
+                    temporary,
+                    canonical,
+                    image_hash,
+                    extension,
+                )
+            finally:
+                temporary.unlink(missing_ok=True)
             return to_data_relative_path(canonical)
         finally:
             close = getattr(response, "close", None)

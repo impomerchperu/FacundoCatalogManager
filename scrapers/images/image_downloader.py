@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import local
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 from uuid import uuid4
 
 import requests
@@ -52,13 +53,25 @@ class ImageDownloader:
     @staticmethod
     def _validate_url(url: str) -> None:
         parsed = urlsplit(str(url or "").strip())
+        scheme = parsed.scheme.lower()
+        hostname = (parsed.hostname or "").rstrip(".").casefold()
         if (
-            parsed.scheme.lower() not in {"http", "https"}
-            or not parsed.hostname
+            scheme not in {"http", "https"}
+            or not hostname
             or parsed.username is not None
             or parsed.password is not None
+            or (parsed.port is not None and parsed.port != (443 if scheme == "https" else 80))
+            or hostname == "localhost"
+            or hostname.endswith(".localhost")
+            or hostname.endswith(".local")
         ):
             raise ValueError("La URL de imagen no es válida o segura.")
+        try:
+            address = ipaddress.ip_address(hostname.strip("[]"))
+        except ValueError:
+            address = None
+        if address is not None and not address.is_global:
+            raise ValueError("La URL de imagen no puede apuntar a una IP privada o reservada.")
 
     def _request(self, url: str, headers: dict[str, str]):
         self._validate_url(url)
@@ -67,6 +80,7 @@ class ImageDownloader:
             timeout=self.request_timeout,
             headers=headers,
             stream=True,
+            allow_redirects=False,
         )
 
     @staticmethod
@@ -145,19 +159,51 @@ class ImageDownloader:
     def _get_with_retries(self, url: str, headers: dict[str, str]):
         last_error = None
         for attempt in range(self.max_retries):
+            response = None
             try:
-                response = self._request(url, headers)
-                status_code = int(getattr(response, "status_code", 200) or 200)
-                if status_code == 304:
+                current_url = url
+                for redirect_count in range(6):
+                    self._validate_url(current_url)
+                    response = self._request(current_url, headers)
+                    status_code = int(getattr(response, "status_code", 200) or 200)
+
+                    if status_code in {301, 302, 303, 307, 308}:
+                        location = str(
+                            (getattr(response, "headers", {}) or {}).get("Location", "")
+                            or ""
+                        ).strip()
+                        if not location:
+                            raise requests.exceptions.HTTPError(
+                                "Redirección HTTP sin encabezado Location.",
+                                response=response,
+                            )
+                        next_url = urljoin(current_url, location)
+                        self._validate_response_url(current_url, next_url)
+                        close = getattr(response, "close", None)
+                        if callable(close):
+                            close()
+                        response = None
+                        current_url = next_url
+                        continue
+
+                    if status_code == 304:
+                        return response
+                    response.raise_for_status()
+                    if status_code != 200:
+                        raise requests.exceptions.HTTPError(
+                            f"Estado HTTP inesperado: {status_code}",
+                            response=response,
+                        )
                     return response
-                response.raise_for_status()
-                if status_code != 200:
-                    raise requests.exceptions.HTTPError(
-                        f"Estado HTTP inesperado: {status_code}",
-                        response=response,
-                    )
-                return response
+
+                raise requests.exceptions.TooManyRedirects(
+                    "La descarga superó el máximo de redirecciones."
+                )
             except requests.exceptions.RequestException as error:
+                if response is not None:
+                    close = getattr(response, "close", None)
+                    if callable(close):
+                        close()
                 last_error = error
                 if not self._is_retryable_error(error):
                     raise

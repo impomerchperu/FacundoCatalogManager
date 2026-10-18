@@ -119,7 +119,9 @@ def build_visual_fingerprint(
             dhash=perceptual_hash,
             canvas=canvas,
         )
-    except (OSError, ValueError, RuntimeError, SyntaxError):
+    except Exception:  # noqa: BLE001
+        # Image decoders raise format-specific exceptions for corrupt legacy
+        # files. A failed fingerprint must preserve the candidate.
         return None
 
 

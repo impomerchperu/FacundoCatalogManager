@@ -412,10 +412,10 @@ class CatalogSyncService:
             if source_path is not None and source_path.is_file():
                 try:
                     verified = ImageDownloader.verify_image_file(source_path)
-                except (OSError, ValueError):
+                except (OSError, ValueError, RuntimeError):
                     try:
                         detected = identify_image_file(source_path)
-                    except (OSError, ValueError):
+                    except (OSError, ValueError, RuntimeError):
                         detected = {}
                     if (
                         detected
@@ -425,12 +425,15 @@ class CatalogSyncService:
                             detected["image_extension"],
                         )
                     ):
-                        stored_path, stored_hash = store_image_in_product_group(
-                            code,
-                            source_path,
-                            1,
-                            root=IMAGE_PRODUCTS_DIR,
-                        )
+                        try:
+                            stored_path, stored_hash = store_image_in_product_group(
+                                code,
+                                source_path,
+                                1,
+                                root=IMAGE_PRODUCTS_DIR,
+                            )
+                        except (OSError, ValueError, RuntimeError):
+                            stored_path, stored_hash = "", ""
                     else:
                         detected = {}
                 else:

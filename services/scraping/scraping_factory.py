@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from config.runtime_paths import DATA_DIR, DATABASE_PATH
 from database.db_manager import DBManager
 from repositories.product_repository import ProductRepository
 from repositories.scraping.normalized_scraping_repository import (
@@ -66,8 +67,8 @@ class ScrapingFactory:
 
         def cleanup_unused_images():
             return clean_unused_images(
-                project_root=PROJECT_ROOT,
-                db_path=PROJECT_ROOT / "database" / "catalog.db",
+                project_root=DATA_DIR,
+                db_path=DATABASE_PATH,
                 roots=[
                     Path("data/images"),
                     Path(config.images_folder),

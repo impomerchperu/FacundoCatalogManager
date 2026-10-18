@@ -77,6 +77,10 @@ class ProductGallerySyncService:
         return results
 
     def _sync_product(self, product, existing=None):  # noqa: PLR0912
+        initial_image_state = {
+            field: str(getattr(product, field, "") or "")
+            for field in ("image_url", "image_path", "image_hash")
+        }
         existing_gallery = [
             dict(image)
             for image in list(getattr(existing, "gallery_images", []) or [])
@@ -167,6 +171,7 @@ class ProductGallerySyncService:
         gallery_images: list[dict[str, Any]] = []
         visual_fingerprints: list[VisualImageFingerprint | None] = []
         new_options: list[dict[str, object]] = []
+        gallery_complete = True
         candidate_by_url = {
             str(candidate.get("url", "") or "").strip().casefold(): candidate
             for candidate in normalized
@@ -255,6 +260,7 @@ class ProductGallerySyncService:
                             if stored_path:
                                 path = resolve_data_path(stored_path)
                     except Exception:  # noqa: BLE001
+                        gallery_complete = False
                         continue
                     finally:
                         if downloaded_path is not None:
@@ -262,6 +268,7 @@ class ProductGallerySyncService:
                                 downloaded_path.unlink(missing_ok=True)
 
                 if path is None or not path.is_file():
+                    gallery_complete = False
                     continue
 
                 image_hash = ImageDownloader.hash_file(path)
@@ -322,6 +329,47 @@ class ProductGallerySyncService:
         finally:
             with suppress(OSError):
                 staging_dir.rmdir()
+
+        if not gallery_complete:
+            # A successful refresh must account for every valid source-gallery
+            # candidate. If any image fails, preserve the complete last-known
+            # gallery instead of committing a partial list and pruning good files.
+            fallback_state = (
+                {
+                    field: str(getattr(existing, field, "") or "")
+                    for field in (
+                        "image_url",
+                        "image_path",
+                        "image_hash",
+                        "image_etag",
+                        "image_last_modified",
+                        "image_checked_at",
+                    )
+                }
+                if existing is not None
+                else initial_image_state
+            )
+            for field, value in fallback_state.items():
+                if hasattr(product, field) or field in initial_image_state:
+                    setattr(product, field, value)
+            fallback_path_value = str(fallback_state.get("image_path", "") or "").strip()
+            fallback_primary_path = (
+                resolve_data_path(fallback_path_value)
+                if fallback_path_value
+                else None
+            )
+            if (
+                fallback_primary_path is not None
+                and not fallback_primary_path.is_file()
+            ):
+                fallback_primary_path = None
+            product.gallery_images = self._canonicalize_existing_gallery(
+                product,
+                existing_gallery,
+                fallback_primary_path,
+                products_root,
+            )
+            return product
 
         if not gallery_images:
             gallery_images = self._canonicalize_existing_gallery(

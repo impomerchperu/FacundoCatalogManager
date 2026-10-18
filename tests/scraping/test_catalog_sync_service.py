@@ -1165,3 +1165,72 @@ def test_catalog_sync_cleans_unused_images_after_new_image_bearing_product(
     assert result.created == 1
     assert cleanup_snapshots == ["data/images/products/P101/P101-01.png"]
 
+def test_catalog_sync_clears_unidentifiable_image_refs_before_post_commit_cleanup(
+    tmp_path,
+    monkeypatch,
+):
+    import scrapers.images.product_image_storage as storage_module
+
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "resolve_data_path",
+        lambda value: Path(value) if Path(value).is_absolute() else tmp_path / value,
+    )
+    products_root = tmp_path / "data" / "images" / "products"
+    monkeypatch.setattr(catalog_sync_module, "IMAGE_PRODUCTS_DIR", products_root)
+    monkeypatch.setattr(
+        storage_module,
+        "to_data_relative_path",
+        lambda value: str(Path(value).resolve().relative_to(tmp_path)).replace("\\", "/"),
+    )
+
+    invalid_path = products_root / "P102" / "P102-01.webp"
+    invalid_path.parent.mkdir(parents=True)
+    invalid_path.write_bytes(b"html or arbitrary bytes, not a raster image")
+
+    incoming = Product("P102", "Producto inválido", 10)
+    incoming.image_url = "https://site.test/P102.webp"
+    incoming.image_path = "data/images/products/P102/P102-01.webp"
+    incoming.image_hash = "stale-hash"
+    incoming.image_etag = '"stale-etag"'
+    incoming.gallery_images = [
+        {
+            "url": incoming.image_url,
+            "image_path": incoming.image_path,
+            "image_hash": "stale-hash",
+            "position": 1,
+        }
+    ]
+
+    repository = InMemoryCatalogRepository()
+    cleanup_observations = []
+
+    def cleanup():
+        stored = repository.get("P102")
+        assert stored is not None
+        cleanup_observations.append(
+            (stored.image_path, stored.image_hash, list(stored.gallery_images))
+        )
+        invalid_path.unlink(missing_ok=True)
+        return [{"path": str(invalid_path)}]
+
+    service = CatalogSyncService(
+        repository,
+        ProductDiffService(),
+        image_cleanup=cleanup,
+    )
+    result = service.synchronize([incoming])
+
+    stored = repository.get("P102")
+    assert result.created == 1
+    assert stored is not None
+    assert stored.image_url == "https://site.test/P102.webp"
+    assert stored.image_path == ""
+    assert stored.image_hash == ""
+    assert stored.image_etag == ""
+    assert stored.image_last_modified == ""
+    assert stored.image_checked_at == ""
+    assert stored.gallery_images == []
+    assert cleanup_observations == [("", "", [])]
+    assert not invalid_path.exists()
+

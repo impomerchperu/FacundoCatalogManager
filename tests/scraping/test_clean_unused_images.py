@@ -7,6 +7,7 @@ from tools.clean_unused_images import (
     clean_unused_images,
     find_unused_images,
 )
+from tests.scraping.image_test_utils import image_bytes
 
 
 def _create_products_db(path: Path) -> None:
@@ -217,4 +218,64 @@ def test_cleanup_after_gallery_update_removes_obsolete_duplicate_files(
     assert not old_gallery_scaled.exists()
     assert not old_gallery_duplicate.exists()
     assert not old_gallery_alternate.exists()
+
+def test_cleanup_detects_decodable_image_with_unknown_suffix(tmp_path: Path):
+    project = tmp_path
+    root = project / "data" / "images"
+    root.mkdir(parents=True)
+    hidden_image = root / "legacy-image.asset"
+    hidden_image.write_bytes(image_bytes("PNG", (11, 22, 33)))
+
+    db = project / "database" / "catalog.db"
+    db.parent.mkdir()
+    _create_products_db(db)
+
+    candidates = find_unused_images(
+        project_root=project,
+        db_path=db,
+        roots=["data/images"],
+    )
+
+    assert [item["relative"] for item in candidates] == [
+        "data/images/legacy-image.asset"
+    ]
+
+
+def test_unidentifiable_active_image_is_preserved_until_reference_is_removed(
+    tmp_path: Path,
+):
+    project = tmp_path
+    root = project / "data" / "images" / "products"
+    root.mkdir(parents=True)
+    invalid = root / "P001.webp"
+    invalid.write_bytes(b"not an identifiable image")
+
+    db = project / "database" / "catalog.db"
+    db.parent.mkdir()
+    _create_products_db(db)
+    _insert_product(db, "data/images/products/P001.webp")
+
+    deleted_while_referenced = clean_unused_images(
+        project_root=project,
+        db_path=db,
+        roots=["data/images"],
+        delete=True,
+    )
+    assert deleted_while_referenced == []
+    assert invalid.is_file()
+
+    with sqlite3.connect(db) as connection:
+        connection.execute("UPDATE products SET image_path = ''")
+        connection.commit()
+
+    deleted_after_reference_removed = clean_unused_images(
+        project_root=project,
+        db_path=db,
+        roots=["data/images"],
+        delete=True,
+    )
+    assert [item["relative"] for item in deleted_after_reference_removed] == [
+        "data/images/products/P001.webp"
+    ]
+    assert not invalid.exists()
 

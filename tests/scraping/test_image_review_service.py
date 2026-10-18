@@ -229,7 +229,6 @@ def test_image_review_apply_is_persisted_after_reopening_database(
     reopened.db.close()
 
 
-
 def test_manual_image_selection_clears_remote_source_and_http_validators(
     monkeypatch,
     tmp_path,

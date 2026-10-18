@@ -296,11 +296,17 @@ class ImageDownloader:
                     verified.get("image_hash") == image_hash
                     and verified.get("image_extension") == extension
                 ):
-                    return target
+                    break
                 target = target.with_name(
                     f"{target.stem}-{uuid4().hex[:8]}{target.suffix}"
                 )
-        raise RuntimeError("No se pudo publicar la imagen sin sobrescribir otro archivo.")
+            else:
+                return target
+        else:
+            raise RuntimeError(
+                "No se pudo publicar la imagen sin sobrescribir otro archivo."
+            )
+        return target
 
     def download_result(self, code: str, url: str) -> dict[str, str]:
         """Descarga una imagen validada a una ruta versionada y devuelve sus metadatos."""

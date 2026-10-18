@@ -60,6 +60,21 @@ class ImageRepository:
             }
         return self._image_record(legacy)
 
+    def find_path(self, image_path: str | Path) -> dict | None:
+        """Resolve exactly the image referenced by the catalog, not an older sibling."""
+        raw_path = str(image_path or "").strip()
+        if not raw_path:
+            return None
+        candidate = resolve_data_path(raw_path)
+        try:
+            candidate = candidate.resolve(strict=True)
+            candidate.relative_to(self.output_dir.parent.parent.resolve())
+        except (OSError, ValueError):
+            return None
+        if not candidate.is_file() or candidate.suffix.lower() not in IMAGE_EXTENSIONS:
+            return None
+        return self._image_record(candidate)
+
     @staticmethod
     def _find_in_directory(
         directory: Path,

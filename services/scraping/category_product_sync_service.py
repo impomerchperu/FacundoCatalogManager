@@ -359,7 +359,7 @@ class CategoryProductSyncService:
                     synced_images = self.image_sync_adapter.sync_products(
                         products,
                         progress_callback=progress_callback,
-                        refresh_remote_images=True,
+                        refresh_remote_images=bool(allow_prune),
                     )
                 else:
                     synced_images = self.image_sync_adapter.sync_products(

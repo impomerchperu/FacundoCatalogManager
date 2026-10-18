@@ -10,13 +10,13 @@ from models.scraping.detail_description_policy import (
     normalize_detail_text,
 )
 from models.scraping.sync_result import SyncResult
+from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
+from scrapers.images.product_image_storage import store_image_in_product_group
 from services.scraping.category_name_normalizer import (
     merge_category_names,
     split_category_names,
 )
 from services.scraping.product_hash_service import ProductHashService
-from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
-from scrapers.images.product_image_storage import store_image_in_product_group
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TIMING_LOG = PROJECT_ROOT / "data" / "scraping_timing.log"
@@ -327,9 +327,8 @@ class CatalogSyncService:
                 if not str(getattr(product, field, "") or "").strip():
                     setattr(product, field, cls._value(existing, field) or "")
 
-    @classmethod
+    @staticmethod
     def _normalize_existing_gallery(
-        cls,
         *,
         code: str,
         gallery,

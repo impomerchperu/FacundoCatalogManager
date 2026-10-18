@@ -221,6 +221,7 @@ class CatalogSyncService:
 
             self._preserve_existing_prices(existing, product)
             self._preserve_existing_description(existing, product)
+            self._preserve_existing_image_state(existing, product)
             product.content_hash = self.hash_service.generate(product)
             comparison = self.diff_service.compare(existing, product)
             if comparison["changed"]:
@@ -243,7 +244,41 @@ class CatalogSyncService:
                 )
                 self._save_catalog_product(product, existing)
             else:
+                # Internal HTTP cache metadata is persisted without emitting a
+                # user-facing catalog change for a 304/unchanged image response.
+                if self._image_sync_metadata_changed(existing, product):
+                    self._save_catalog_product(product, existing)
                 result.unchanged += 1
+
+    @classmethod
+    def _preserve_existing_image_state(cls, existing, product) -> None:
+        incoming_path = str(getattr(product, "image_path", "") or "").strip()
+        incoming_hash = str(getattr(product, "image_hash", "") or "").strip()
+        current_path = str(cls._value(existing, "image_path") or "").strip()
+        current_hash = str(cls._value(existing, "image_hash") or "").strip()
+        if not incoming_path and not incoming_hash and (current_path or current_hash):
+            # A disabled/failed download must not pair a new URL with stale bytes.
+            for field in (
+                "image_url", "image_path", "image_hash", "image_etag",
+                "image_last_modified", "image_checked_at",
+            ):
+                setattr(product, field, cls._value(existing, field) or "")
+            return
+
+        if str(getattr(product, "image_url", "") or "").strip() == str(
+            cls._value(existing, "image_url") or ""
+        ).strip():
+            for field in ("image_etag", "image_last_modified", "image_checked_at"):
+                if not str(getattr(product, field, "") or "").strip():
+                    setattr(product, field, cls._value(existing, field) or "")
+
+    @staticmethod
+    def _image_sync_metadata_changed(existing, product) -> bool:
+        return any(
+            str(getattr(existing, field, "") or "")
+            != str(getattr(product, field, "") or "")
+            for field in ("image_etag", "image_last_modified", "image_checked_at")
+        )
 
     def sync_full_catalog(
         self,

@@ -280,6 +280,9 @@ class ImageDownloader:
 
         response = self._get_with_retries(url, headers)
         try:
+            self._validate_response_url(
+                url, str(getattr(response, "url", "") or url)
+            )
             status = int(getattr(response, "status_code", 200) or 200)
             checked_at = self._checked_at()
             if status == 304 and old_file_ok and old_path is not None:
@@ -383,6 +386,7 @@ class ImageDownloader:
             if callable(close):
                 close()
 
+    @staticmethod
     def _is_retryable_error(error):
         if isinstance(
             error,
@@ -471,6 +475,7 @@ class ImageDownloader:
             if callable(close):
                 close()
 
+    @staticmethod
     def hash_file(path: str | Path) -> str:
         image_path = Path(path)
         if not image_path.exists():

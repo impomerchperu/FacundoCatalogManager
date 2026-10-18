@@ -379,7 +379,6 @@ class ProductGallerySyncService:
             product.image_hash = str(first.get("image_hash", "") or "")
         return results
 
-
     def _candidate_source(self, product, existing):
         candidates = list(
             getattr(product, "image_candidates", []) or []

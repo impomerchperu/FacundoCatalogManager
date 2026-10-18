@@ -6,11 +6,11 @@ from pathlib import Path
 import pytest
 
 import tools.clean_unused_images as cleaner_module
+from tests.scraping.image_test_utils import image_bytes
 from tools.clean_unused_images import (
     clean_unused_images,
     find_unused_images,
 )
-from tests.scraping.image_test_utils import image_bytes
 
 
 def _create_products_db(path: Path) -> None:

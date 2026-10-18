@@ -525,6 +525,8 @@ class ImageDownloader:
     def verify_image_file(cls, path: str | Path) -> dict[str, str]:
         """Read once, verify raster signature/extension and return its SHA-256."""
         image_path = Path(path)
+        if image_path.stat().st_size > _MAX_IMAGE_BYTES:
+            raise ValueError("La imagen local supera el límite de 20 MiB.")
         body = image_path.read_bytes()
         suffix = image_path.suffix.lower()
         mime = {

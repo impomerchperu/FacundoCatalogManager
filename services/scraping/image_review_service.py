@@ -1105,14 +1105,6 @@ class ImageReviewService:
 
         return normalize_product_gallery(product, valid)
 
-    @staticmethod
-    def _remove_created_paths(paths: list[Path]) -> None:
-        for path in reversed(paths):
-            try:
-                path.unlink(missing_ok=True)
-            except OSError:
-                LOGGER.exception("No se pudo revertir un archivo de imagen recién creado: %s", path)
-
     def _apply_selected_image(
         self,
         record: dict,
@@ -1383,19 +1375,6 @@ class ImageReviewService:
             },
         )
 
-    @staticmethod
-    def _create_image_backup(
-        destination: Path,
-        destination_existed: bool,
-    ) -> Path | None:
-        if not destination_existed:
-            return None
-        backup = destination.with_name(
-            f"{destination.name}.{uuid.uuid4().hex}.review-backup"
-        )
-        shutil.copy2(destination, backup)
-        return backup
-
     def _set_product_image(
         self,
         record: dict,
@@ -1457,17 +1436,6 @@ class ImageReviewService:
             backup = state.get("backup")
             if isinstance(backup, Path):
                 backup.unlink(missing_ok=True)
-
-    @staticmethod
-    def _restore_image_backup(
-        destination: Path,
-        backup: Path | None,
-        destination_existed: bool,
-    ) -> None:
-        if backup is not None and backup.is_file():
-            backup.replace(destination)
-        elif not destination_existed and destination.is_file():
-            destination.unlink()
 
     @staticmethod
     def _rollback_file_state(state: dict) -> None:

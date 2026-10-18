@@ -8,27 +8,27 @@ def test_image_namer_builds_expected_paths():
         (
             "FB-1812",
             "https://site.com/images/FB-1812.webp",
-            "data/images/products/FB-1812.webp",
+            "data/images/products/FB-1812/FB-1812-01.webp",
         ),
         (
             "FB-1800-AZ",
             "https://site.com/a/b/c.png",
-            "data/images/products/FB-1800-AZ.png",
+            "data/images/products/FB-1800-AZ/FB-1800-AZ-01.png",
         ),
         (
             "ABC123",
             "https://site.com/img/test.jpg",
-            "data/images/products/ABC123.jpg",
+            "data/images/products/ABC123/ABC123-01.jpg",
         ),
         (
             "ABC123",
             "https://site.com/img/test.jpeg",
-            "data/images/products/ABC123.jpeg",
+            "data/images/products/ABC123/ABC123-01.jpeg",
         ),
         (
             "ABC123",
             "",
-            "data/images/products/ABC123.bin",
+            "data/images/products/ABC123/ABC123-01.bin",
         ),
     ]
 
@@ -42,4 +42,4 @@ def test_image_namer_maps_unsupported_url_extension_to_bin():
     assert namer.build(
         "ABC123",
         "https://site.com/image.svg",
-    ) == "data/images/products/ABC123.bin"
+    ) == "data/images/products/ABC123/ABC123-01.bin"

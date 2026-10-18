@@ -57,6 +57,7 @@ def test_image_downloader_sanitizes_code_before_writing_file(
     assert result == expected.as_posix()
     assert expected.exists()
 
+
 def test_image_downloader_uses_decoded_format_instead_of_url_suffix(
     tmp_path,
     monkeypatch,

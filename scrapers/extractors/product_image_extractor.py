@@ -215,7 +215,7 @@ class ProductImageExtractor:
         width_hint,
         sequence,
         gallery,
-        gallery_container,
+        gallery_container=False,
     ) -> dict | None:
         normalized_url = cls._normalize_url(raw_url, base_url=base_url)
         if not normalized_url or normalized_url.startswith("data:image"):

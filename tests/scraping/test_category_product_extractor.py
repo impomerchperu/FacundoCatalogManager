@@ -190,6 +190,23 @@ def test_category_product_extractor_excludes_description_tab_technical_text():
     assert product.description == ""
 
 
+def test_category_product_extractor_rejects_explicit_description_prefix():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-1702</p>
+        <h2 class="brxe-f31760">Producto con texto comercial</h2>
+        <div class="text-content">
+            Descripción: producto promocional. Material: texto comercial,
+            no es un atributo técnico verificado. Dimensiones: texto de marketing.
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.description == ""
+
+
 def test_category_product_extractor_keeps_single_total_stock():
     html = """
     <article>

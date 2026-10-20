@@ -62,6 +62,10 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
     r"dimens(?:i[oó]n(?:es)?)?(?:\s+(?:de\s+)?caj(?:a)?)?|"
     r"cantidad\s+por\s+caj(?:a)?|"
     r"cubicaje(?:\s+por\s+caj(?:a)?)?|"
+    r"funci[oó]n(?:es)?(?:\s+adicionales?)?|"
+    r"rango\s+de\s+espesor(?:\s+polaseal)?|"
+    r"velocidad|tiempo\s+de\s+calentamiento|"
+    r"consumo\s+de\s+energ[ií]a|voltaje|"
     r"material|medidas?|peso\s+unitario|"
     r"uso\s+recomendado|empaque\s+individual"
     r")\s*:?\s*$",

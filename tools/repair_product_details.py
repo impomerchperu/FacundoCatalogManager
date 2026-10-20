@@ -334,6 +334,7 @@ def main(argv: list[str] | None = None) -> int:
 
     db = DBManager()
     browser: Browser | None = None
+    exit_code = 0
     try:
         repository = ProductRepository(db)
         if args.audit_incomplete:
@@ -344,43 +345,44 @@ def main(argv: list[str] | None = None) -> int:
                     indent=2,
                 )
             )
-            return 0
-
-        browser = Browser(http_workers=1)
-        plans = plan_product_detail_repairs(
-            db,
-            repository,
-            args.codes or [],
-            browser=browser,
-        )
-        backup_path = ""
-        applied = 0
-        if args.apply and any(plan.status == "would_update" for plan in plans):
-            backup_path = str(_create_database_backup(db))
-            applied = apply_detail_repairs(db, repository, plans)
-
-        print(
-            json.dumps(
-                {
-                    "mode": "apply" if args.apply else "preview",
-                    "database_backup": backup_path,
-                    "updated": applied,
-                    "items": [asdict(plan) for plan in plans],
-                },
-                ensure_ascii=False,
-                indent=2,
+        else:
+            browser = Browser(http_workers=1)
+            plans = plan_product_detail_repairs(
+                db,
+                repository,
+                args.codes or [],
+                browser=browser,
             )
-        )
-        if any(plan.status == "fetch_error" for plan in plans):
-            return 1
-        return 0
+            backup_path = ""
+            applied = 0
+            if args.apply and any(
+                plan.status == "would_update" for plan in plans
+            ):
+                backup_path = str(_create_database_backup(db))
+                applied = apply_detail_repairs(db, repository, plans)
+
+            print(
+                json.dumps(
+                    {
+                        "mode": "apply" if args.apply else "preview",
+                        "database_backup": backup_path,
+                        "updated": applied,
+                        "items": [asdict(plan) for plan in plans],
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            if any(plan.status == "fetch_error" for plan in plans):
+                exit_code = 1
     except Exception as error:  # noqa: BLE001
         print(f"Error: {type(error).__name__}: {error}", file=sys.stderr)
-        return 2
+        exit_code = 2
     finally:
         if browser is not None:
             browser.close()
         db.close()
+    return exit_code
 
 
 if __name__ == "__main__":

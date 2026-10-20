@@ -503,7 +503,7 @@ def test_cleanup_checks_each_candidate_without_rebuilding_full_reference_snapsho
     )
 
     assert len(deleted) == 80
-    assert len(snapshot_calls) == 1
+    assert len(snapshot_calls) == 2
 
 
 def test_cleanup_rechecks_gallery_reference_after_candidate_list(
@@ -603,6 +603,51 @@ def test_cleanup_checks_candidates_without_rebuilding_full_reference_snapshot(
 
     assert len(deleted) == 80
     assert len(snapshot_calls) == 1
+
+
+def test_cleanup_refreshes_reference_snapshot_after_concurrent_database_commit(
+    tmp_path: Path,
+    monkeypatch,
+):
+    project = tmp_path
+    root = project / "data" / "images"
+    root.mkdir(parents=True)
+    first = root / "orphan-first.webp"
+    second = root / "new-reference.webp"
+    first.write_bytes(b"first")
+    second.write_bytes(b"second")
+
+    db = project / "database" / "catalog.db"
+    db.parent.mkdir()
+    _create_products_db(db)
+
+    original_unlink = Path.unlink
+    reference_added = []
+
+    def unlink_first_then_reference_second(path, *args, **kwargs):
+        if path.resolve() == first.resolve() and not reference_added:
+            with sqlite3.connect(db) as connection:
+                connection.execute(
+                    "INSERT INTO products (code, image_path) VALUES (?, ?)",
+                    ("P779", "data/images/new-reference.webp"),
+                )
+            reference_added.append(True)
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", unlink_first_then_reference_second)
+
+    deleted = clean_unused_images(
+        project_root=project,
+        db_path=db,
+        roots=["data/images"],
+        delete=True,
+    )
+
+    assert [item["relative"] for item in deleted] == [
+        "data/images/orphan-first.webp"
+    ]
+    assert not first.exists()
+    assert second.is_file()
 
 
 def test_cleanup_discovers_unidentifiable_artifact_in_product_folder(

@@ -117,7 +117,7 @@ def test_category_product_extractor_prefers_detail_text_after_color_only_block()
     )
 
 
-def test_category_product_extractor_combines_technical_blocks_for_fb1700_fb6005_fb6002():
+def test_category_product_extractor_merges_fb_detail_blocks():
     cases = (
         (
             "FB-1700",

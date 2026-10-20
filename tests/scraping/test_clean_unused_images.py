@@ -612,8 +612,8 @@ def test_cleanup_refreshes_reference_snapshot_after_concurrent_database_commit(
     project = tmp_path
     root = project / "data" / "images"
     root.mkdir(parents=True)
-    first = root / "orphan-first.webp"
-    second = root / "new-reference.webp"
+    first = root / "a-first.webp"
+    second = root / "z-new-reference.webp"
     first.write_bytes(b"first")
     second.write_bytes(b"second")
 
@@ -629,7 +629,7 @@ def test_cleanup_refreshes_reference_snapshot_after_concurrent_database_commit(
             with sqlite3.connect(db) as connection:
                 connection.execute(
                     "INSERT INTO products (code, image_path) VALUES (?, ?)",
-                    ("P779", "data/images/new-reference.webp"),
+                    ("P779", "data/images/z-new-reference.webp"),
                 )
             reference_added.append(True)
         return original_unlink(path, *args, **kwargs)
@@ -644,7 +644,7 @@ def test_cleanup_refreshes_reference_snapshot_after_concurrent_database_commit(
     )
 
     assert [item["relative"] for item in deleted] == [
-        "data/images/orphan-first.webp"
+        "data/images/a-first.webp"
     ]
     assert not first.exists()
     assert second.is_file()

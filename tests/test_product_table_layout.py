@@ -2130,6 +2130,26 @@ def test_detail_format_preserves_all_color_variants_for_fb6005_and_fb6002():
         assert any(line.startswith("Presentación: ") for line in lines)
 
 
+def test_detail_format_keeps_fb1700_nested_measurements_together():
+    product = Product(
+        code="FB-1700",
+        name="Toalla en Tubo",
+        description=(
+            "Medidas: Envase Largo: 16 cm, Diámetro: 6.5 cm (Aprox), "
+            "Toalla Largo: 80 cm, Ancho: 30 cm. "
+            "Material: Poliéster y Acrílico Transparente. "
+            "Presentación: Individual, Bolsa Plástica."
+        ),
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Medidas: Envase Largo: 16 cm, Diámetro: 6.5 cm (Aprox), "
+        "Toalla Largo: 80 cm, Ancho: 30 cm",
+        "Material: Poliéster y Acrílico Transparente",
+        "Presentación: Individual, Bolsa Plástica",
+    ]
+
+
 def test_detail_format_removes_bullets_and_separates_laminator_fields():
     product = Product(
         code="FB-1500",

@@ -24,6 +24,7 @@ from bs4 import BeautifulSoup
 
 from config.runtime_paths import DATABASE_PATH
 from database.db_manager import DBManager
+from models.product import Product
 from models.scraping.detail_description_policy import (
     has_technical_detail,
     is_complete_detail,
@@ -242,6 +243,24 @@ def plan_product_detail_repairs(
     return plans
 
 
+def _get_unchanged_product(
+    repository: ProductRepository,
+    plan: DetailRepairPlan,
+) -> Product:
+    """Return the planned product only if its identity and Detail are unchanged."""
+    current = repository.get_by_code(plan.code)
+    if (
+        current is None
+        or current.product_id != plan.product_id
+        or str(current.description or "") != plan.old_description
+    ):
+        raise RuntimeError(
+            f"{plan.code}: el producto cambió durante la reparación; "
+            "se revirtieron todas las actualizaciones."
+        )
+    return current
+
+
 def apply_detail_repairs(
     db: DBManager,
     repository: ProductRepository,
@@ -254,19 +273,12 @@ def apply_detail_repairs(
 
     db.begin()
     try:
-        current_by_code = {}
+        current_by_code: dict[str, Product] = {}
         for plan in candidates:
-            current = repository.get_by_code(plan.code)
-            if (
-                current is None
-                or current.product_id != plan.product_id
-                or str(current.description or "") != plan.old_description
-            ):
-                raise RuntimeError(
-                    f"{plan.code}: el producto cambió durante la reparación; "
-                    "se revirtieron todas las actualizaciones."
-                )
-            current_by_code[plan.code] = current
+            current_by_code[plan.code] = _get_unchanged_product(
+                repository,
+                plan,
+            )
 
         hash_service = ProductHashService()
         for plan in candidates:

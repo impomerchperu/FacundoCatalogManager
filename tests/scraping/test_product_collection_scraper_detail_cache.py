@@ -542,14 +542,15 @@ def test_fb4047_truncated_card_detail_uses_only_technical_detail_panel():
     assert result[0].name == "Producto de ejemplo"
     assert result[0].category == "Artículos Antiestrés"
     assert result[0].description == (
-        "Material: Poliuretano. Dimensiones: 55*55*100mm. "
+        "Color: Amarillo, Blanco. Material: Poliuretano. "
+        "Dimensiones: 55*55*100mm. "
         "Peso Unitario: 24 G. Uso Recomendado: Antiestrés, Promocional. "
         "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
         "Dimensiones Caja: 60*33*32cm. Cubicaje por Caja: 0.0634 m³/CBM "
         "Peso neto por caja: 7.5 Kg. Peso bruto por caja: 8.5 Kg. "
         "Leer Menos Certificado SGS"
     )
-    assert "Color: Amarillo" not in result[0].description
+    assert "Color: Amarillo, Blanco" in result[0].description
     assert "Descripción comercial" not in result[0].description
     assert "Información adicional" not in result[0].description
     assert "Valoraciones" not in result[0].description
@@ -767,13 +768,13 @@ def test_fb4008_truncated_card_uses_full_woocommerce_short_description():
     assert len(result) == 1
     assert result[0].code == "FB-4008"
     assert result[0].description == (
-        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Color: Blanco. Material: Poliuretano. Dimensiones: 75*63*48mm. "
         "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
         "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
         "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
         "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
     )
-    assert "Color: Blanco" not in result[0].description
+    assert "Color: Blanco" in result[0].description
     assert "Descripción comercial" not in result[0].description
     assert "Información adicional" not in result[0].description
     assert category_scraper.detail_requests == [

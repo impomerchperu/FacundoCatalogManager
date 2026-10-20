@@ -47,6 +47,30 @@ def test_detail_policy_accepts_complete_fb4047_technical_detail():
     assert normalize_detail_text(FB_4047_DETAIL) == FB_4047_DETAIL
 
 
+def test_detail_policy_recognizes_laminator_fields_and_removes_bullets():
+    source = (
+        "• Función: Caliente / Frío • "
+        "Rango de espesor Polaseal: 75 micras (005) / 125 micras (007) / "
+        "250 micras (010) • Velocidad: 30 mm/min • "
+        "Tiempo de calentamiento: 3-5 min • Consumo de energía: 400W • "
+        "Voltaje: 220v"
+    )
+    expected = (
+        "Función: Caliente / Frío "
+        "Rango de espesor Polaseal: 75 micras (005) / 125 micras (007) / "
+        "250 micras (010) Velocidad: 30 mm/min "
+        "Tiempo de calentamiento: 3-5 min Consumo de energía: 400W "
+        "Voltaje: 220v"
+    )
+
+    assert normalize_detail_text(source) == expected
+    assert has_technical_detail(source)
+    assert is_complete_detail(source)
+    assert not is_complete_detail(
+        "Función: Caliente / Frío. Tiempo de calentamiento"
+    )
+
+
 def test_detail_policy_does_not_treat_general_prose_as_technical_detail():
     prose = (
         "Descripción comercial: ideal para regalo. "

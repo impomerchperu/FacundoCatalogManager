@@ -166,7 +166,7 @@ def test_catalog_sync_preserves_richer_duplicate_product_fields():
     sparse.image_hash = ""
 
     rich = Product("P007", "Producto completo", 8)
-    rich.description = "Detalle completo"
+    rich.description = "Material: Poliuretano. Peso unitario: 23.5 g."
     rich.price_sample = 8
     rich.price_hundred = 70
     rich.price_thousand = 600
@@ -179,7 +179,7 @@ def test_catalog_sync_preserves_richer_duplicate_product_fields():
     assert len(consolidated) == 1
     stored = consolidated[0]
     assert stored.name == "Producto completo"
-    assert stored.description == "Detalle completo"
+    assert stored.description == "Material: Poliuretano. Peso unitario: 23.5 g."
     assert stored.price == 8
     assert stored.price_sample == 8
     assert stored.price_hundred == 70
@@ -191,7 +191,7 @@ def test_catalog_sync_preserves_richer_duplicate_product_fields():
 
 def test_catalog_sync_does_not_overwrite_richer_duplicate_product_fields():
     rich = Product("P008", "Producto completo", 8)
-    rich.description = "Detalle completo"
+    rich.description = "Material: Poliuretano. Peso unitario: 23.5 g."
     rich.price_sample = 8
     rich.price_hundred = 70
     rich.price_thousand = 600
@@ -208,7 +208,7 @@ def test_catalog_sync_does_not_overwrite_richer_duplicate_product_fields():
 
     stored = consolidated[0]
     assert stored.name == "Producto completo"
-    assert stored.description == "Detalle completo"
+    assert stored.description == "Material: Poliuretano. Peso unitario: 23.5 g."
     assert stored.price == 8
     assert stored.price_sample == 8
     assert stored.price_hundred == 70

@@ -106,8 +106,9 @@ def strip_leading_color_field(value: object) -> str:
 
 
 def normalize_detail_text(value: object) -> str:
-    """Normalize whitespace and remove any leading color-only field."""
-    return _WHITESPACE_PATTERN.sub(" ", strip_leading_color_field(value)).strip()
+    """Normalize whitespace without dropping technical color attributes."""
+    text = re.sub(r"[•▪●‣◦]", " ", str(value or ""))
+    return _WHITESPACE_PATTERN.sub(" ", text).strip()
 
 
 def is_complete_detail(value: object) -> bool:

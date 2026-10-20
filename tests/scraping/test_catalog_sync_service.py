@@ -823,7 +823,7 @@ def test_catalog_sync_replaces_existing_description_with_verified_complete_detai
     )
 
 
-def test_catalog_sync_replaces_saved_description_with_complete_incoming_detail():
+def test_catalog_sync_keeps_technical_detail_when_incoming_text_is_commercial_prose():
     repository = InMemoryCatalogRepository()
     existing = Product("P097", "Producto vigente", 10)
     existing.description = (
@@ -842,9 +842,23 @@ def test_catalog_sync_replaces_saved_description_with_complete_incoming_detail()
 
     stored = repository.get("P097")
     assert stored is not None
-    assert stored.description == "Descripción promocional general."
-    assert result.updated == 1
-    assert result.unchanged == 0
+    assert stored.description == existing.description
+    assert result.updated == 0
+    assert result.unchanged == 1
+
+
+def test_catalog_sync_does_not_save_commercial_prose_as_new_technical_detail():
+    repository = InMemoryCatalogRepository()
+    incoming = Product("P095-COMMERCIAL", "Producto nuevo", 10)
+    incoming.description = "Descripción promocional general."
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+
+    stored = repository.get("P095-COMMERCIAL")
+    assert stored is not None
+    assert stored.description == ""
+    assert result.created == 1
 
 
 def test_catalog_sync_uses_more_informative_description_across_duplicate_codes():

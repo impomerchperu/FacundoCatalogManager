@@ -11,6 +11,11 @@ from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
 from scrapers.images.product_image_storage import store_image_in_product_group
+from scrapers.images.visual_duplicate_detector import (
+    VisualImageFingerprint,
+    build_visual_fingerprint,
+    is_generated_resolution_duplicate,
+)
 
 
 class ProductGallerySyncService:
@@ -141,7 +146,13 @@ class ProductGallerySyncService:
         seen_urls: set[str] = set()
         seen_hashes: set[str] = set()
         gallery_images: list[dict[str, Any]] = []
+        visual_fingerprints: list[VisualImageFingerprint | None] = []
         new_options: list[dict[str, object]] = []
+        candidate_by_url = {
+            str(candidate.get("url", "") or "").strip().casefold(): candidate
+            for candidate in normalized
+            if str(candidate.get("url", "") or "").strip()
+        }
         staging_dir = product_dir / ".staging"
         staging_dir.mkdir(parents=True, exist_ok=True)
 
@@ -188,6 +199,33 @@ class ProductGallerySyncService:
                         )
                         downloaded_path = resolve_data_path(staged_path)
                         if downloaded_path.is_file():
+                            staged_fingerprint = build_visual_fingerprint(
+                                downloaded_path,
+                                url,
+                            )
+                            duplicate_index = next(
+                                (
+                                    index
+                                    for index, accepted in enumerate(visual_fingerprints)
+                                    if is_generated_resolution_duplicate(
+                                        accepted,
+                                        staged_fingerprint,
+                                    )
+                                ),
+                                None,
+                            )
+                            if duplicate_index is not None:
+                                accepted_fingerprint = visual_fingerprints[duplicate_index]
+                                if (
+                                    staged_fingerprint is not None
+                                    and accepted_fingerprint is not None
+                                    and staged_fingerprint.area
+                                    <= accepted_fingerprint.area
+                                ):
+                                    # Skip lower/equal CMS variants before publishing
+                                    # another canonical image file.
+                                    continue
+
                             stored_path, _ = store_image_in_product_group(
                                 product.code,
                                 downloaded_path,
@@ -210,9 +248,6 @@ class ProductGallerySyncService:
                 if image_hash and image_hash in seen_hashes:
                     continue
 
-                seen_urls.add(key)
-                if image_hash:
-                    seen_hashes.add(image_hash)
                 item = {
                     "url": url,
                     "image_path": str(path.relative_to(resolve_data_path(".")))
@@ -227,21 +262,49 @@ class ProductGallerySyncService:
                         else str(candidate.get("source", "woocommerce-gallery") or "woocommerce-gallery")
                     ),
                 }
-                gallery_images.append(item)
+                fingerprint = build_visual_fingerprint(path, url)
+                duplicate_index = next(
+                    (
+                        index
+                        for index, accepted in enumerate(visual_fingerprints)
+                        if is_generated_resolution_duplicate(accepted, fingerprint)
+                    ),
+                    None,
+                )
+                if duplicate_index is not None:
+                    accepted_fingerprint = visual_fingerprints[duplicate_index]
+                    if (
+                        fingerprint is not None
+                        and accepted_fingerprint is not None
+                        and fingerprint.area > accepted_fingerprint.area
+                    ):
+                        previous = gallery_images[duplicate_index]
+                        item["position"] = int(
+                            previous.get("position", duplicate_index + 1)
+                        )
+                        gallery_images[duplicate_index] = item
+                        visual_fingerprints[duplicate_index] = fingerprint
+                        previous_url = str(
+                            previous.get("url", "") or ""
+                        ).strip().casefold()
+                        previous_hash = str(
+                            previous.get("image_hash", "") or ""
+                        ).strip()
+                        seen_urls.discard(previous_url)
+                        seen_urls.add(key)
+                        if previous_hash:
+                            seen_hashes.discard(previous_hash)
+                        if image_hash:
+                            seen_hashes.add(image_hash)
+                    # A CMS-generated size variant is not a separate product view.
+                    continue
 
-                if not is_primary and not isinstance(existing_item, dict):
-                    new_options.append(
-                        {
-                            "url": url,
-                            "path": item["image_path"],
-                            "hash": image_hash,
-                            "score": int(candidate.get("score", 0) or 0),
-                            "exact_code": bool(candidate.get("exact_code", False)),
-                            "generic": False,
-                            "source": "woocommerce-gallery",
-                            "gallery": True,
-                        }
-                    )
+                seen_urls.add(key)
+                if image_hash:
+                    seen_hashes.add(image_hash)
+                gallery_images.append(item)
+                visual_fingerprints.append(fingerprint)
+
         finally:
             with suppress(OSError):
                 staging_dir.rmdir()
@@ -256,6 +319,31 @@ class ProductGallerySyncService:
 
         for position, image in enumerate(gallery_images, start=1):
             image["position"] = position
+
+        # Register only retained gallery items. If a larger generated variant
+        # replaced a smaller one, the review queue must use the retained URL/path.
+        for image in gallery_images:
+            retained_url = str(image.get("url", "") or "").strip()
+            retained_key = retained_url.casefold()
+            if (
+                not retained_url
+                or retained_key == primary_url.casefold()
+                or retained_key in existing_by_url
+            ):
+                continue
+            candidate = candidate_by_url.get(retained_key, {})
+            new_options.append(
+                {
+                    "url": retained_url,
+                    "path": str(image.get("image_path", "") or ""),
+                    "hash": str(image.get("image_hash", "") or ""),
+                    "score": int(candidate.get("score", 0) or 0),
+                    "exact_code": bool(candidate.get("exact_code", False)),
+                    "generic": False,
+                    "source": "woocommerce-gallery",
+                    "gallery": True,
+                }
+            )
 
         product.gallery_images = gallery_images
         if gallery_images:

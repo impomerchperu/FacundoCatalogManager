@@ -849,13 +849,13 @@ def test_catalog_sync_keeps_technical_detail_when_incoming_text_is_commercial_pr
 
 def test_catalog_sync_does_not_save_commercial_prose_as_new_technical_detail():
     repository = InMemoryCatalogRepository()
-    incoming = Product("P095-COMMERCIAL", "Producto nuevo", 10)
+    incoming = Product("P094", "Producto nuevo", 10)
     incoming.description = "Descripción promocional general."
 
     service = CatalogSyncService(repository, ProductDiffService())
     result = service.synchronize([incoming])
 
-    stored = repository.get("P095-COMMERCIAL")
+    stored = repository.get("P094")
     assert stored is not None
     assert stored.description == ""
     assert result.created == 1

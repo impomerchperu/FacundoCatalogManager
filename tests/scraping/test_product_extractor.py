@@ -75,7 +75,7 @@ def test_product_extractor_reads_fb4008_technical_summary_outside_tabs():
     assert "Valoraciones" not in result["description"]
 
 
-def test_product_extractor_reads_technical_short_description_and_strips_leading_color():
+def test_product_extractor_reads_technical_short_description_and_preserves_color():
     html = """
     <html>
         <body>

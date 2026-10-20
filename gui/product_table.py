@@ -1222,6 +1222,17 @@ class ProductTable(QTableWidget):
         "precio por ciento": "Precio ciento",
         "precio millar": "Precio millar",
         "precio por millar": "Precio millar",
+        "colores disponibles": "Colores disponibles",
+        "voltaje y frecuencia": "Voltaje y Frecuencia",
+        "tiempo de precalentamiento": "Tiempo de precalentamiento",
+        "temperatura de trabajo": "Temperatura de trabajo",
+        "sistema de calentamiento": "Sistema de calentamiento",
+        "medidas mochila": "Medidas mochila",
+        "medidas cartera": "Medidas cartera",
+        "medidas cartuchera": "Medidas cartuchera",
+        "medidas": "Medidas",
+        "interior": "Interior",
+        "espesor": "Espesor",
         "potencia": "Potencia",
         "dimensiones": "Dimensiones",
         "peso unitario": "Peso Unitario",
@@ -1230,6 +1241,8 @@ class ProductTable(QTableWidget):
         "cantidad por caja": "Cantidad por Caja",
         "dimensiones caja": "Dimensiones Caja",
         "cubicaje por caja": "Cubicaje por Caja",
+        "ancho de entrada": "Ancho de entrada",
+        "espesor máximo de laminación": "Espesor máximo de laminación",
         "peso neto por caja": "Peso neto por caja",
         "peso bruto por caja": "Peso bruto por caja",
         "voltaje": "Voltaje",
@@ -2457,19 +2470,6 @@ class ProductTable(QTableWidget):
         label_key = cls._detail_comparison_key(label)
         value_key = cls._detail_comparison_key(value)
 
-        if label_key == "color":
-            row_colors = {
-                cls._detail_comparison_key(color)
-                for color in product.color_stock
-            }
-            described_colors = [
-                cls._detail_comparison_key(color)
-                for color in re.split(r"\s*[,;/]\s*", value)
-                if color.strip()
-            ]
-            return bool(row_colors and described_colors) and all(
-                color in row_colors for color in described_colors
-            )
         if label_key in {"codigo"}:
             return value_key == cls._detail_comparison_key(product.code)
         if label_key in {"producto", "nombre"}:

@@ -101,6 +101,100 @@ def _active_image_paths(db_path: Path, project_root: Path) -> set[Path]:
     return paths
 
 
+def _reference_path_variants(
+    path: Path,
+    project_root: Path,
+) -> list[str]:
+    """Return normalized absolute/relative forms used by legacy catalog rows."""
+    resolved = path.resolve()
+    values = {str(resolved), resolved.as_posix()}
+    try:
+        relative = resolved.relative_to(project_root.resolve())
+    except ValueError:
+        relative = None
+    if relative is not None:
+        relative_posix = relative.as_posix()
+        relative_native = str(relative)
+        values.update(
+            {
+                relative_posix,
+                relative_native,
+                f"./{relative_posix}",
+                f".\\{relative_native}",
+            }
+        )
+    return sorted(
+        {
+            value.replace("\\", "/").casefold()
+            for value in values
+            if value
+        }
+    )
+
+
+def _image_path_is_active(
+    connection: sqlite3.Connection,
+    columns: set[str],
+    candidate_path: Path,
+    project_root: Path,
+) -> bool:
+    """Recheck one candidate against current DB references without rescanning all rows."""
+    if "image_path" not in columns:
+        raise RuntimeError(
+            "La tabla products no contiene la columna image_path."
+        )
+
+    variants = _reference_path_variants(candidate_path, project_root)
+    if not variants:
+        return False
+
+    normalized_image_path = "lower(replace(COALESCE(image_path, ''), char(92), '/'))"
+    conditions = [
+        f"{normalized_image_path} IN ({', '.join('?' for _ in variants)})"
+    ]
+    parameters: list[str] = list(variants)
+    if "gallery_images" in columns:
+        # JSON may contain POSIX paths, or Windows paths escaped as \\\\.
+        # Normalize backslashes and query only rows that could mention this file.
+        fragments = sorted(
+            set(variants)
+            | {value.replace("/", "//") for value in variants}
+        )
+        normalized_gallery = (
+            "replace(lower(COALESCE(gallery_images, '')), char(92), '/')"
+        )
+        conditions.append(
+            "("
+            + " OR ".join(
+                f"instr({normalized_gallery}, ?) > 0"
+                for _ in fragments
+            )
+            + ")"
+        )
+        parameters.extend(fragments)
+
+    selected_columns = ["image_path"]
+    if "gallery_images" in columns:
+        selected_columns.append("gallery_images")
+    rows = connection.execute(
+        f"SELECT {', '.join(selected_columns)} FROM products "
+        f"WHERE {' OR '.join(conditions)}",
+        parameters,
+    ).fetchall()
+
+    for row in rows:
+        raw_primary = str(row[0] or "").strip()
+        if raw_primary and _resolve_project_path(
+            raw_primary.replace("\\", "/"),
+            project_root,
+        ) == candidate_path:
+            return True
+        if "gallery_images" in columns:
+            if candidate_path in _gallery_image_paths(row[1], project_root):
+                return True
+    return False
+
+
 def _iter_image_files(root: Path) -> list[Path]:
     if not root.is_dir():
         return []
@@ -190,25 +284,43 @@ def clean_unused_images(
     if not delete:
         return candidates
 
-    # Each unlink gets a fresh whitelist snapshot. A prior candidate may
-    # still become referenced while another file is being removed.
+    # Keep checking the live DB before each unlink, but query only rows that
+    # can reference that candidate. Rebuilding every gallery reference for
+    # every orphan makes a full catalog cleanup quadratic in files x products.
     project_root = project_root.resolve()
+    resolved_db_path = db_path.resolve()
     resolved_roots = [
         _resolve_project_path(root, project_root) for root in roots
     ]
     deleted: list[dict[str, Any]] = []
+    connection = sqlite3.connect(resolved_db_path)
+    try:
+        columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(products)")
+        }
+        if "image_path" not in columns:
+            raise RuntimeError(
+                "La tabla products no contiene la columna image_path."
+            )
 
-    for candidate in candidates:
-        path = Path(candidate["path"]).resolve()
-        if not any(_is_within(path, root) for root in resolved_roots):
-            continue
-        if not path.is_file():
-            continue
-        active_paths = _active_image_paths(db_path.resolve(), project_root)
-        if path in active_paths:
-            continue
-        path.unlink()
-        deleted.append(candidate)
+        for candidate in candidates:
+            path = Path(candidate["path"]).resolve()
+            if not any(_is_within(path, root) for root in resolved_roots):
+                continue
+            if not path.is_file():
+                continue
+            if _image_path_is_active(
+                connection,
+                columns,
+                path,
+                project_root,
+            ):
+                continue
+            path.unlink()
+            deleted.append(candidate)
+    finally:
+        connection.close()
 
     return deleted
 

@@ -170,7 +170,7 @@ def test_targeted_detail_repair_rejects_incomplete_extracted_detail():
         )
 
         assert plans[0].status == "skip_invalid_detail"
-        assert "detalle_incompleto_o_truncado" in plans[0].reason
+        assert "detalle_vacío" in plans[0].reason
         assert apply_detail_repairs(db, repository, plans) == 0
     finally:
         db.close()

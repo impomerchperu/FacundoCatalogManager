@@ -320,14 +320,19 @@ class ProductGallerySyncService:
         for position, image in enumerate(gallery_images, start=1):
             image["position"] = position
 
-        # Register only retained gallery items. If a larger generated variant
-        # replaced a smaller one, the review queue must use the retained URL/path.
+        # Register only retained gallery items. Use the final primary URL:
+        # a larger generated variant may have replaced the original primary.
+        retained_primary_url = (
+            str(gallery_images[0].get("url", "") or primary_url).strip().casefold()
+            if gallery_images
+            else primary_url.casefold()
+        )
         for image in gallery_images:
             retained_url = str(image.get("url", "") or "").strip()
             retained_key = retained_url.casefold()
             if (
                 not retained_url
-                or retained_key == primary_url.casefold()
+                or retained_key == retained_primary_url
                 or retained_key in existing_by_url
             ):
                 continue

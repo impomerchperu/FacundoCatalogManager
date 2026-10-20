@@ -54,7 +54,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _TECHNICAL_DETAIL_PATTERN = re.compile(
-    _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\\bcertificado\\s+sgs\\b",
+    _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\bcertificado\s+sgs\b",
     re.IGNORECASE,
 )
 # Detect both visible ellipses and common product-detail labels cut off at

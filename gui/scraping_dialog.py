@@ -166,11 +166,14 @@ class ScrapingDialog(QDialog):
         if total <= 0:
             return
 
-        value = min(100, int(current * 100 / total))
+        # Pipeline progress callbacks can reach 100 during gallery sync,
+        # before catalog persistence, commit, cleanup and resource shutdown.
+        # Only scraping_finished may publish the true terminal 100%.
+        value = min(99, int(current * 100 / total))
         self.progress.setValue(value)
         elapsed = self._format_elapsed()
         self.status_label.setText(
-            f"Extracción en curso • {value}% • {elapsed}",
+            f"Actualización en curso • {value}% • {elapsed}",
         )
 
     def update_elapsed_status(self) -> None:

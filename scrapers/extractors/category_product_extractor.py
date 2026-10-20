@@ -176,7 +176,9 @@ class CategoryProductExtractor:
                 not text
                 or self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text)
                 or not (
-                has_technical_detail(text) or self._is_color_detail_block(text)
+                    has_technical_detail(text)
+                    or self._is_color_detail_block(text)
+                )
             ):
                 continue
             field_boundary = self._NON_DETAIL_FIELD_PATTERN.search(text)

@@ -15,19 +15,33 @@ class ScrapingWorker(QObject):
 
     @Slot()
     def run(self) -> None:
-        """Ejecuta el scraping completo y comunica siempre su resultado."""
+        """Ejecuta scraping y solo notifica el resultado tras liberar recursos."""
         controller = None
+        result = None
+        error_message = None
         try:
             controller = ScrapingController()
             result = controller.run_full_scraping(
                 progress_callback=self.emit_progress,
             )
-            self.finished.emit(result)
         except Exception as error:  # noqa: BLE001
-            self.error.emit(str(error))
+            error_message = str(error)
         finally:
             if controller is not None:
-                controller.close()
+                try:
+                    controller.close()
+                except Exception as error:  # noqa: BLE001
+                    if error_message is None:
+                        error_message = (
+                            "La actualización terminó, pero no se pudieron "
+                            f"liberar todos los recursos: {error}"
+                        )
+
+        # The GUI must not announce completion while close() is still running.
+        if error_message is not None:
+            self.error.emit(error_message)
+        else:
+            self.finished.emit(result)
 
     def emit_progress(self, current: int, total: int) -> None:
         """Envía progreso hacia la interfaz."""

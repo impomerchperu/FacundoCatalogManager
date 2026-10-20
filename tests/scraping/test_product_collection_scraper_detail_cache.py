@@ -451,7 +451,7 @@ def test_category_description_wins_when_it_has_more_explicit_attributes():
         "https://example.com/producto/producto-mas-atributos/"
     ]
     assert result[0].description == (
-        "Material: Poliuretano. Peso neto por caja: 5.5 Kg."
+        "Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg."
     )
 
 

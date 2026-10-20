@@ -460,6 +460,23 @@ def test_product_extractor_ignores_color_only_and_generic_other_fields():
     assert result["description"] == ""
 
 
+def test_product_extractor_rejects_explicit_description_prefix_in_fallback():
+    html = """
+    <html>
+        <body>
+            <div class="text-content">
+                Descripción: producto promocional. Material: texto comercial.
+                Dimensiones: datos publicitarios no validados.
+            </div>
+        </body>
+    </html>
+    """
+
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["description"] == ""
+
+
 def test_product_extractor_collects_only_technical_detail_panel_blocks():
     html = """
     <html>

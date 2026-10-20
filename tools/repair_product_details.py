@@ -15,7 +15,7 @@ import json
 import sqlite3
 import sys
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -287,7 +287,7 @@ def apply_detail_repairs(
 
 def _create_database_backup(db: DBManager) -> Path:
     """Create a consistent SQLite backup before any catalog row is modified."""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
     backup_path = Path(DATABASE_PATH).with_name(
         f"{Path(DATABASE_PATH).stem}.before_detail_repair_{timestamp}"
         f"{Path(DATABASE_PATH).suffix}"

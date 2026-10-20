@@ -327,6 +327,7 @@ class CatalogSyncService:
                     source,
                     1,
                     root=IMAGE_PRODUCTS_DIR,
+                    deduplicate_in_group=False,
                 )
             except (OSError, ValueError, RuntimeError):
                 stored_path, stored_hash = "", ""
@@ -485,6 +486,7 @@ class CatalogSyncService:
         normalized: list[dict[str, Any]] = []
         seen_hashes: set[str] = set()
         seen_urls: set[str] = set()
+        seen_paths: set[str] = set()
 
         if primary_path and primary_hash:
             normalized.append(
@@ -497,6 +499,10 @@ class CatalogSyncService:
                 }
             )
             seen_hashes.add(primary_hash.casefold())
+            primary_path_key = str(
+                resolve_data_path(primary_path).resolve()
+            ).replace("\\", "/").casefold()
+            seen_paths.add(primary_path_key)
             if primary_url:
                 seen_urls.add(primary_url.strip().casefold())
 
@@ -522,18 +528,32 @@ class CatalogSyncService:
             url = str(item.get("url", "") or "").strip()
             if url and url.casefold() in seen_urls:
                 continue
+            source_path = resolve_data_path(raw_path)
+            source_path_key = str(source_path.resolve()).replace(
+                "\\", "/"
+            ).casefold()
+            if source_path_key in seen_paths:
+                continue
 
             try:
                 stored_path, stored_hash = store_image_in_product_group(
                     code,
-                    resolve_data_path(raw_path),
+                    source_path,
                     len(normalized) + 1,
                     root=IMAGE_PRODUCTS_DIR,
+                    deduplicate_in_group=False,
                 )
             except (OSError, ValueError, RuntimeError):
                 continue
             if not stored_path or not stored_hash:
                 continue
+            stored_path_key = str(
+                resolve_data_path(stored_path).resolve()
+            ).replace("\\", "/").casefold()
+            seen_paths.add(source_path_key)
+            if stored_path_key in seen_paths:
+                continue
+            seen_paths.add(stored_path_key)
             if stored_hash.casefold() in seen_hashes:
                 continue
 

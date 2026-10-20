@@ -3,7 +3,6 @@ from models.product import Product
 from models.scraping.scraped_product import ScrapedProduct
 from repositories.product_repository import ProductRepository
 from repositories.scraping.scraped_product_repository import ScrapedProductRepository
-from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.product_hash_service import ProductHashService
 from tools.repair_product_details import (
     apply_detail_repairs,

@@ -95,6 +95,50 @@ def test_scraping_worker_emits_result_only_after_controller_is_closed(monkeypatc
     assert events == ["run", "close", ("finished", fake_result)]
 
 
+def test_scraping_dialog_reserves_100_percent_until_worker_finishes():
+    _qapp()
+    dialog = ScrapingDialog()
+
+    dialog.update_progress(522, 522)
+
+    assert dialog.progress.value() == 99
+    assert "99%" in dialog.status_label.text()
+    assert "100%" not in dialog.status_label.text()
+
+    dialog.scraping_finished(_result())
+
+    assert dialog.progress.value() == 100
+    assert "Actualización completada" in dialog.status_label.text()
+    dialog.close()
+
+
+def test_scraping_worker_emits_result_only_after_controller_is_closed(monkeypatch):
+    from gui.workers.scraping_worker import ScrapingWorker
+
+    events = []
+    fake_result = object()
+
+    class FakeController:
+        def run_full_scraping(self, progress_callback=None):
+            events.append("run")
+            return fake_result
+
+        def close(self):
+            events.append("close")
+
+    monkeypatch.setattr(
+        "gui.workers.scraping_worker.ScrapingController",
+        FakeController,
+    )
+    worker = ScrapingWorker()
+    worker.finished.connect(lambda result: events.append(("finished", result)))
+    worker.error.connect(lambda message: events.append(("error", message)))
+
+    worker.run()
+
+    assert events == ["run", "close", ("finished", fake_result)]
+
+
 def test_scraping_dialog_uses_neutral_detail_table_selection(monkeypatch):
     _qapp()
 

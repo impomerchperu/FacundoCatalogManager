@@ -2084,15 +2084,15 @@ def test_detail_format_preserves_complete_final_box_weight_attributes():
 def test_detail_format_aligns_fb1503_fields_and_preserves_color():
     product = Product(
         code="FB-1503",
-        name="Enmicadora Metálica de Alta precisión A3 – 8309",
+        name="Enmicadora Metálica de Alta precisión A3 - 8309",
         description=(
             "Marca: Bright Office. Modelo: 8309. "
             "Material: Cuerpo metálico reforzado con base "
             "antideslizante y rodillos de alta precisión. "
             "Color: Blanco con detalles negros. "
-            "Voltaje y Frecuencia: AC 220–240V / 50–60Hz. "
-            "Potencia: 620W. Tiempo de precalentamiento: 3–5 minutos. "
-            "Temperatura de trabajo: 80–180 °C. "
+            "Voltaje y Frecuencia: AC 220-240V / 50-60Hz. "
+            "Potencia: 620W. Tiempo de precalentamiento: 3-5 minutos. "
+            "Temperatura de trabajo: 80-180 °C. "
             "Sistema de calentamiento: Tubo de cuarzo (Quartz electric heating tube)"
         ),
     )
@@ -2102,10 +2102,10 @@ def test_detail_format_aligns_fb1503_fields_and_preserves_color():
         "Modelo: 8309",
         "Material: Cuerpo metálico reforzado con base antideslizante y rodillos de alta precisión",
         "Color: Blanco con detalles negros",
-        "Voltaje y Frecuencia: AC 220–240V / 50–60Hz",
+        "Voltaje y Frecuencia: AC 220-240V / 50-60Hz",
         "Potencia: 620W",
-        "Tiempo de precalentamiento: 3–5 minutos",
-        "Temperatura de trabajo: 80–180 °C",
+        "Tiempo de precalentamiento: 3-5 minutos",
+        "Temperatura de trabajo: 80-180 °C",
         "Sistema de calentamiento: Tubo de cuarzo (Quartz electric heating tube)",
     ]
 

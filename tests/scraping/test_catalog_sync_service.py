@@ -867,6 +867,25 @@ def test_catalog_sync_uses_more_informative_description_across_duplicate_codes()
     assert result.created == 1
 
 
+def test_catalog_sync_refreshes_complete_detail_across_duplicate_codes():
+    first = Product("P094", "Producto vigente", 10)
+    first.description = (
+        "Material: ABS. Peso neto por caja: 5.5 Kg. "
+        "Peso bruto por caja: 6.25 Kg."
+    )
+
+    refreshed = Product("P094", "Producto vigente", 10)
+    refreshed.description = (
+        "Material: Poliuretano. Peso neto por caja: 6.5 Kg. "
+        "Peso bruto por caja: 7.25 Kg."
+    )
+
+    consolidated = CatalogSyncService.consolidate_products([first, refreshed])
+
+    assert len(consolidated) == 1
+    assert consolidated[0].description == refreshed.description
+
+
 def test_catalog_sync_does_not_save_an_incomplete_description_for_new_product():
     repository = InMemoryCatalogRepository()
     incoming = Product("P095", "Producto nuevo", 10)

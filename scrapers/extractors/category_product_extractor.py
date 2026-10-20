@@ -187,13 +187,19 @@ class CategoryProductExtractor:
             if not text or text.casefold() in seen:
                 continue
             seen.add(text.casefold())
-            candidates.append(text.rstrip(" .;"))
+            candidates.append(text)
 
         # Color is part of technical detail when accompanied by real attributes,
         # but color-only text must never qualify as a complete Detail value.
         if not any(has_technical_detail(candidate) for candidate in candidates):
             return ""
-        return ". ".join(candidates)
+        if len(candidates) == 1:
+            return candidates[0]
+        prefix = ". ".join(
+            candidate.rstrip(" .;")
+            for candidate in candidates[:-1]
+        )
+        return f"{prefix}. {candidates[-1].lstrip()}"
 
     def _stock(self, soup):
         return sum(self._stock_values(soup))

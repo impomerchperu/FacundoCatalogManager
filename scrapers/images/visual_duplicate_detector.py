@@ -100,7 +100,13 @@ def build_visual_fingerprint(
             )
 
         grayscale = canvas.convert("L").resize((9, 8), Image.Resampling.LANCZOS)
-        pixels = list(grayscale.getdata())
+        # Pillow's typed ImagingCore is not declared Iterable in its stubs.
+        # Sampling the 9x8 grid through getpixel avoids that typing mismatch.
+        pixels = [
+            grayscale.getpixel((x, y))
+            for y in range(8)
+            for x in range(9)
+        ]
         perceptual_hash = 0
         for y in range(8):
             for x in range(8):

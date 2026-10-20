@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from re import IGNORECASE, compile as re_compile
+from re import IGNORECASE
+from re import compile as re_compile
 from urllib.parse import unquote, urlsplit
 
 from PIL import Image, ImageChops, ImageOps, ImageStat

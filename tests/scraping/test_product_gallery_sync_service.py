@@ -53,7 +53,6 @@ class FakeDownloader:
         return str(destination.relative_to(self.tmp_path)).replace("\\", "/")
 
 
-
 class ResolutionVariantDownloader:
     def __init__(self, root: Path):
         self.root = root
@@ -84,6 +83,7 @@ class ResolutionVariantDownloader:
         image.save(destination, format="WEBP", quality=94, method=6)
         self.downloads.append(url)
         return str(destination.relative_to(self.root)).replace("\\", "/")
+
 
 def _candidate(url, position):
     return {

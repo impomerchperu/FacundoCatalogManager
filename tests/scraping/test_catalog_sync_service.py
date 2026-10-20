@@ -847,6 +847,21 @@ def test_catalog_sync_keeps_technical_detail_when_incoming_text_is_commercial_pr
     assert result.unchanged == 1
 
 
+def test_catalog_sync_rejects_description_labeled_technical_looking_text():
+    repository = InMemoryCatalogRepository()
+    incoming = Product("P092", "Producto nuevo", 10)
+    incoming.description = (
+        "Descripción comercial: Material: ABS. Dimensiones: 12 cm."
+    )
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    service.synchronize([incoming])
+
+    stored = repository.get("P092")
+    assert stored is not None
+    assert stored.description == ""
+
+
 def test_catalog_sync_consolidation_does_not_select_commercial_prose_as_detail():
     first = Product("P093", "Producto vigente", 10)
     second = Product("P093", "Producto vigente", 10)

@@ -117,9 +117,13 @@ def normalize_detail_text(value: object) -> str:
 
 
 def is_complete_detail(value: object) -> bool:
-    """Whether Detail is usable as-is, without an ellipsis or cut-off field."""
+    """Whether Detail is technical, usable as-is, and free of cut-off fields."""
     text = normalize_detail_text(value)
-    if not text or text.endswith((",", ";", ":")):
+    if (
+        not text
+        or not has_technical_detail(text)
+        or text.endswith((",", ";", ":"))
+    ):
         return False
     return _DESCRIPTION_TRUNCATION_PATTERN.search(text) is None
 

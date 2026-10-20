@@ -384,10 +384,15 @@ class ProductGallerySyncService:
 
         # Offer only retained images to the human-review queue. The storage
         # gallery itself is not capped: every valid source-gallery image stays.
+        retained_primary_url = (
+            str(gallery_images[0].get("url", "") or primary_url).strip().casefold()
+            if gallery_images
+            else primary_url.casefold()
+        )
         for image in gallery_images:
             url = str(image.get("url", "") or "").strip()
             key = url.casefold()
-            if not url or key == primary_url.casefold() or key in existing_by_url:
+            if not url or key == retained_primary_url or key in existing_by_url:
                 continue
             candidate = candidate_by_url.get(key, {})
             new_options.append(

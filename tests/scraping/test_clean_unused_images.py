@@ -407,6 +407,7 @@ def test_cleanup_rechecks_references_after_building_candidate_list(
     assert deleted == []
     assert image_path.is_file()
 
+
 def test_cleanup_rechecks_gallery_reference_after_candidate_list(
     tmp_path: Path,
     monkeypatch,

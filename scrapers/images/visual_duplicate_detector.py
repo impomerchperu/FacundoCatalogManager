@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-import re
 from urllib.parse import unquote, urlsplit
 
 from PIL import Image, ImageChops, ImageOps, ImageStat

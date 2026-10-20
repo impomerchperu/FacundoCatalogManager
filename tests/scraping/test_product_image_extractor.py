@@ -84,3 +84,40 @@ def test_product_image_extractor_keeps_valid_image_ahead_of_generic_image():
     assert candidates[0]["url"] == (
         "https://site.test/uploads/SFPU-40-copia-6.webp"
     )
+
+
+
+def test_extractor_distinguishes_gallery_container_from_other_image_links():
+    html = """
+    <div class="woocommerce-product-gallery">
+        <div class="woocommerce-product-gallery__image">
+            <a href="https://site.test/uploads/FB-1507-2.webp">
+                <img data-large_image="https://site.test/uploads/FB-1507-2.webp">
+            </a>
+        </div>
+        <div class="woocommerce-product-gallery__image">
+            <a href="https://site.test/uploads/FB-1507-2-scaled.webp">
+                <img data-large_image="https://site.test/uploads/FB-1507-2-scaled.webp">
+            </a>
+        </div>
+    </div>
+    <div class="related-products">
+        <a href="https://site.test/uploads/OTHER.webp">
+            <img src="https://site.test/uploads/OTHER.webp">
+        </a>
+    </div>
+    """
+
+    candidates = ProductImageExtractor.extract_candidates(
+        BeautifulSoup(html, "html.parser"),
+        code="FB-1507",
+        name="Producto FB-1507",
+        base_url="https://site.test/producto/fb-1507/",
+    )
+    by_url = {candidate["url"]: candidate for candidate in candidates}
+
+    assert by_url["https://site.test/uploads/FB-1507-2.webp"]["gallery_container"]
+    assert by_url[
+        "https://site.test/uploads/FB-1507-2-scaled.webp"
+    ]["gallery_container"]
+    assert not by_url["https://site.test/uploads/OTHER.webp"]["gallery_container"]

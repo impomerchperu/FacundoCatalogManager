@@ -78,7 +78,7 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
 
 
 def strip_leading_color_field(value: object) -> str:
-    """Remove a leading Color(s) attribute because it belongs to stock data."""
+    """Remove a leading color label only when a caller explicitly requests it."""
     text = _WHITESPACE_PATTERN.sub(
         " ",
         re.sub(r"[•▪●‣◦]", " ", str(value or "")),

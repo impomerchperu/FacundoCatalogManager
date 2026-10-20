@@ -2475,7 +2475,7 @@ class ProductTable(QTableWidget):
                 else len(raw)
             )
             alias = match.group(1).casefold()
-            label = cls.DETAIL_FIELD_LABELS.get(alias, match.group(1).strip())
+            label = cls.DETAIL_FIELD_LABELS.get(alias) or match.group(1).strip()
             value = raw[match.end() : next_start]
             value = re.sub(r"^[ \t\r\n.;]+", "", value)
             value = re.sub(r"[ \t\r\n.;]+$", "", value)

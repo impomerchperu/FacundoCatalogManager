@@ -813,13 +813,12 @@ class CatalogSyncService:
         )
         existing.description = current_description
         product.description = candidate_description
-        if (
-            cls._description_is_complete(candidate_description)
-            and not cls._description_is_complete(current_description)
-        ):
-            # A complete Detail may repair a clipped stored value. If both
-            # versions are complete, retain the existing source instead of
-            # choosing by length or by the number of parsed attributes.
+        if cls._description_is_complete(candidate_description):
+            # A complete Detail from the current scrape can refresh an older
+            # complete value as well as repair an incomplete one.
+            existing.description = candidate_description
+        elif not current_description and candidate_description:
+            # Retain available text only when there is no prior Detail.
             existing.description = candidate_description
 
         price_fields = (

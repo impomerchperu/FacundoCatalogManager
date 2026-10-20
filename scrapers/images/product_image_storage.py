@@ -90,12 +90,15 @@ def store_image_in_product_group(  # noqa: PLR0912
     position: int,
     *,
     root: str | Path = IMAGE_PRODUCTS_DIR,
+    deduplicate_in_group: bool = True,
 ) -> tuple[str, str]:
     """Store an identifiable image under a content-derived canonical extension.
 
     The source file is never removed or overwritten. If its suffix is wrong,
     a correctly named copy is produced and the old reference can be retired
-    only after the caller persists the new path.
+    only after the caller persists the new path. Callers normalizing an already
+    canonical gallery may disable sibling scanning because they deduplicate
+    validated paths and hashes in the surrounding batch.
     """
     source = resolve_data_path(source_path)
     if not source.is_file():
@@ -123,14 +126,15 @@ def store_image_in_product_group(  # noqa: PLR0912
         source_is_in_group = False
 
     if source_is_in_group and source_suffix_matches:
-        existing = _find_matching_image(
-            target_dir,
-            image_hash,
-            expected_extension=extension,
-            exclude=source,
-        )
-        if existing is not None:
-            return to_data_relative_path(existing), image_hash
+        if deduplicate_in_group:
+            existing = _find_matching_image(
+                target_dir,
+                image_hash,
+                expected_extension=extension,
+                exclude=source,
+            )
+            if existing is not None:
+                return to_data_relative_path(existing), image_hash
         return to_data_relative_path(source), image_hash
 
     target_dir.mkdir(parents=True, exist_ok=True)

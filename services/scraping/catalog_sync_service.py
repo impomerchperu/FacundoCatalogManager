@@ -840,8 +840,12 @@ class CatalogSyncService:
             # A complete Detail from the current scrape can refresh an older
             # complete value as well as repair an incomplete one.
             existing.description = candidate_description
-        elif not current_description and candidate_description:
-            # Retain available text only when there is no prior Detail.
+        elif (
+            not current_description
+            and candidate_description
+            and has_technical_detail(candidate_description)
+        ):
+            # Retain a technical excerpt only when no prior Detail exists.
             existing.description = candidate_description
 
         price_fields = (

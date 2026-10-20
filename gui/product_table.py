@@ -1229,6 +1229,8 @@ class ProductTable(QTableWidget):
         "sistema de calentamiento": "Sistema de calentamiento",
         "medidas mochila": "Medidas mochila",
         "medidas cartera": "Medidas cartera",
+        "envase largo": "Envase Largo",
+        "toalla largo": "Toalla Largo",
         "medidas cartuchera": "Medidas cartuchera",
         "medidas": "Medidas",
         "interior": "Interior",

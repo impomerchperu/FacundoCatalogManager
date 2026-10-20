@@ -45,6 +45,7 @@ def test_detail_policy_accepts_complete_fb4047_technical_detail():
     assert has_technical_detail(FB_4047_DETAIL)
     assert is_complete_detail(FB_4047_DETAIL)
     assert normalize_detail_text(FB_4047_DETAIL) == FB_4047_DETAIL
+    assert has_technical_detail("Certificado SGS")
 
 
 def test_detail_policy_recognizes_laminator_fields_and_removes_bullets():

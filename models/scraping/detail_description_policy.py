@@ -53,6 +53,10 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r")\s*:",
     re.IGNORECASE,
 )
+_TECHNICAL_DETAIL_PATTERN = re.compile(
+    _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\\bcertificado\\s+sgs\\b",
+    re.IGNORECASE,
+)
 # Detect both visible ellipses and common product-detail labels cut off at
 # the end of a category-card excerpt (e.g. "Peso brut" or "Dimens").
 _DESCRIPTION_TRUNCATION_PATTERN = re.compile(

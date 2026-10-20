@@ -81,6 +81,15 @@ def test_detail_policy_recognizes_laminator_fields_and_removes_bullets():
     )
 
 
+def test_detail_policy_rejects_description_prefix_even_when_prose_mentions_fields():
+    assert not has_technical_detail(
+        "Descripción comercial: Material: ABS. Dimensiones: 12 cm."
+    )
+    assert not has_technical_detail(
+        "Información adicional: Material: acero. Potencia: 20 W."
+    )
+
+
 def test_detail_policy_does_not_treat_general_prose_as_technical_detail():
     prose = (
         "Descripción comercial: ideal para regalo. "

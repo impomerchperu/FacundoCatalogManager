@@ -611,9 +611,14 @@ def test_incomplete_gallery_refresh_preserves_last_complete_images(
     assert downloader.downloads == [failed_url]
     assert synced.image_url == primary_url
     assert synced.image_path == f"data/images/products/{code}/{code}-01.webp"
+    assert synced.image_hash == existing.image_hash
     assert [image["url"] for image in synced.gallery_images] == [
         primary_url,
         alternate_url,
+    ]
+    assert [image["image_path"] for image in synced.gallery_images] == [
+        f"data/images/products/{code}/{code}-01.webp",
+        f"data/images/products/{code}/{code}-02.webp",
     ]
     assert [image["position"] for image in synced.gallery_images] == [1, 2]
     assert primary_path.is_file()

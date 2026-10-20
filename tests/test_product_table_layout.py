@@ -2085,7 +2085,8 @@ def test_detail_format_aligns_fb1503_fields_and_preserves_color():
         name="Enmicadora Metálica de Alta precisión A3 – 8309",
         description=(
             "Marca: Bright Office. Modelo: 8309. "
-            "Material: Cuerpo metálico reforzado con base antideslizante y rodillos de alta precisión. "
+            "Material: Cuerpo metálico reforzado con base "
+            "antideslizante y rodillos de alta precisión. "
             "Color: Blanco con detalles negros. "
             "Voltaje y Frecuencia: AC 220–240V / 50–60Hz. "
             "Potencia: 620W. Tiempo de precalentamiento: 3–5 minutos. "

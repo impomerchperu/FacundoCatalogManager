@@ -57,6 +57,11 @@ _TECHNICAL_DETAIL_PATTERN = re.compile(
     _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\bcertificado\s+sgs\b",
     re.IGNORECASE,
 )
+_NON_TECHNICAL_SECTION_PREFIX_PATTERN = re.compile(
+    r"^\s*(?:descripci[oó]n(?:\s+comercial)?|"
+    r"informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
+    re.IGNORECASE,
+)
 # Detect both visible ellipses and common product-detail labels cut off at
 # the end of a category-card excerpt (e.g. "Peso brut" or "Dimens").
 _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
@@ -120,8 +125,11 @@ def is_complete_detail(value: object) -> bool:
 
 
 def has_technical_detail(value: object) -> bool:
-    """Identify a technical-detail block rather than prose from another tab."""
-    return _TECHNICAL_DETAIL_PATTERN.search(normalize_detail_text(value)) is not None
+    """Identify technical attributes, not text explicitly labeled as another section."""
+    text = normalize_detail_text(value)
+    if _NON_TECHNICAL_SECTION_PREFIX_PATTERN.match(text):
+        return False
+    return _TECHNICAL_DETAIL_PATTERN.search(text) is not None
 
 
 def has_multiple_technical_detail_fields(value: object) -> bool:

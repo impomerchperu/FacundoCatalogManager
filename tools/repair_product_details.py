@@ -292,8 +292,11 @@ def _create_database_backup(db: DBManager) -> Path:
         f"{Path(DATABASE_PATH).stem}.before_detail_repair_{timestamp}"
         f"{Path(DATABASE_PATH).suffix}"
     )
-    with sqlite3.connect(str(backup_path)) as destination:
+    destination = sqlite3.connect(str(backup_path))
+    try:
         db.connection.backup(destination)
+    finally:
+        destination.close()
     return backup_path
 
 

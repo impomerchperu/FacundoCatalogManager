@@ -206,9 +206,10 @@ class ProductExtractor:
                     if self._is_excluded_detail_tab(element):
                         continue
                     raw_text = element.get_text(" ", strip=True)
-                    if self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(raw_text):
-                        continue
-                    if not has_technical_detail(raw_text):
+                    if (
+                        self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(raw_text)
+                        or not has_technical_detail(raw_text)
+                    ):
                         continue
                     text = normalize_detail_text(raw_text)
                     if is_complete_detail(text):
@@ -218,9 +219,10 @@ class ProductExtractor:
                 if self._is_excluded_detail_tab(element):
                     continue
                 raw_text = element.get_text(" ", strip=True)
-                if self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(raw_text):
-                    continue
-                if not has_multiple_technical_detail_fields(raw_text):
+                if (
+                    self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(raw_text)
+                    or not has_multiple_technical_detail_fields(raw_text)
+                ):
                     continue
                 text = normalize_detail_text(raw_text)
                 if has_technical_detail(text) and is_complete_detail(text):

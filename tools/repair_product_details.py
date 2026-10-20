@@ -16,6 +16,7 @@ import sqlite3
 import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
+from typing import Any
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -132,7 +133,7 @@ def plan_product_detail_repairs(
     repository: ProductRepository,
     codes: list[str],
     *,
-    browser: Browser,
+    browser: Any,
     extractor: ProductExtractor | None = None,
 ) -> list[DetailRepairPlan]:
     """Fetch only explicitly selected product pages and build a non-mutating plan."""

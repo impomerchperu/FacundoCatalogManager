@@ -42,6 +42,11 @@ class CategoryProductExtractor:
         "woocommerce-Tabs-panel--additional_information",
         "woocommerce-Tabs-panel--reviews",
     })
+    _NON_DETAIL_SECTION_PREFIX_PATTERN = re.compile(
+        r"^\s*(?:descripci[oó]n(?:\s+comercial)?|"
+        r"informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
+        re.IGNORECASE,
+    )
 
     def __init__(self):
         self.price_extractor = PriceExtractor()
@@ -167,7 +172,10 @@ class CategoryProductExtractor:
             text = normalize_detail_text(
                 re.sub(r"\s+", " ", element.get_text(" ", strip=True))
             )
-            if not text or not (
+            if (
+                not text
+                or self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text)
+                or not (
                 has_technical_detail(text) or self._is_color_detail_block(text)
             ):
                 continue

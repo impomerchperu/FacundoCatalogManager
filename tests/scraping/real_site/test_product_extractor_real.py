@@ -84,7 +84,7 @@ def test_product_extractor_real_site_fb4008_technical_detail():
     assert "Peso Unitario: 23.5 G." in detail
     assert "Peso neto por caja: 5.5 Kg." in detail
     assert "Peso bruto por caja: 6.25 Kg." in detail
-    assert "Color: Blanco" not in detail
+    assert "Color: Blanco" in detail
     assert "Información adicional" not in detail
     assert "Valoraciones" not in detail
 

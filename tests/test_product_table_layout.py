@@ -2076,3 +2076,27 @@ def test_detail_format_preserves_complete_final_box_weight_attributes():
         "Peso neto por caja: 5.5 Kg",
         "Peso bruto por caja: 6.25 Kg",
     ]
+
+
+def test_detail_format_removes_bullets_and_separates_laminator_fields():
+    product = Product(
+        code="FB-1500",
+        name="LAMINADORA",
+        description=(
+            "• Función: Caliente / Frío • "
+            "Rango de espesor Polaseal: 75 micras (005) / 125 micras (007) / "
+            "250 micras (010) • Velocidad: 30 mm/min • "
+            "Tiempo de calentamiento: 3-5 min • Consumo de energía: 400W • "
+            "Voltaje: 220v"
+        ),
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Función: Caliente / Frío",
+        "Rango de espesor Polaseal: 75 micras (005) / 125 micras (007) / 250 micras (010)",
+        "Velocidad: 30 mm/min",
+        "Tiempo de calentamiento: 3-5 min",
+        "Consumo de energía: 400W",
+        "Voltaje: 220v",
+    ]
+

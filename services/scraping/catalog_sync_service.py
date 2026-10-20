@@ -471,7 +471,7 @@ class CatalogSyncService:
                     setattr(product, field, cls._value(existing, field) or "")
 
     @staticmethod
-    def _normalize_existing_gallery(
+    def _normalize_existing_gallery(  # noqa: PLR0912
         *,
         code: str,
         gallery,

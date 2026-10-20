@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 from config.runtime_paths import resolve_data_path
 from models.scraping.detail_description_policy import (
+    has_technical_detail,
     is_complete_detail,
     normalize_detail_text,
 )
@@ -860,20 +861,22 @@ class CatalogSyncService:
 
     @classmethod
     def _description_is_complete(cls, value: object) -> bool:
-        return is_complete_detail(value)
+        return has_technical_detail(value) and is_complete_detail(value)
 
     @classmethod
     def _preserve_existing_description(cls, existing, product) -> None:
-        """Preserva texto previo si Detail nuevo es incompleto; elimina solo Color."""
+        """Keep only complete technical Detail; never persist commercial prose."""
         incoming = normalize_detail_text(getattr(product, "description", ""))
         current = normalize_detail_text(cls._value(existing, "description"))
-        product.description = incoming
 
-        if not cls._description_is_complete(incoming):
-            # Do not replace useful stored Detail with a clipped excerpt.
-            # A color-only legacy value normalizes to empty because Color is a
-            # distinct stock field, not part of Detail.
+        if cls._description_is_complete(incoming):
+            product.description = incoming
+        elif cls._description_is_complete(current):
+            # Do not replace useful stored Detail with a clipped or unrelated
+            # section returned by the product page.
             product.description = current
+        else:
+            product.description = ""
 
     @staticmethod
     def _preserve_existing_prices(existing, product) -> None:

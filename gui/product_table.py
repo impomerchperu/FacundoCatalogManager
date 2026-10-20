@@ -1318,6 +1318,18 @@ class ProductTable(QTableWidget):
         + r")\s*:",
         re.IGNORECASE,
     )
+    DETAIL_NESTED_MEASURE_LABELS: ClassVar[frozenset[str]] = frozenset({
+        "envase largo",
+        "toalla largo",
+        "diámetro",
+        "diametro",
+        "largo",
+        "ancho",
+        "alto",
+        "altura",
+        "interior",
+        "espesor",
+    })
     CATEGORY_SOURCE_ROLE = int(Qt.ItemDataRole.UserRole) + 50
     PROGRESSIVE_RENDER_THRESHOLD = 50
     PROGRESSIVE_RENDER_BATCH_SIZE = 40
@@ -2433,6 +2445,23 @@ class ProductTable(QTableWidget):
                 if cleaned:
                     lines.append(cleaned)
             return "\n".join(lines)
+
+        normalized_matches = []
+        inside_measure_value = False
+        for match in matches:
+            alias = match.group(1).casefold()
+            if alias in {"medida", "medidas"}:
+                inside_measure_value = True
+                normalized_matches.append(match)
+                continue
+            if (
+                inside_measure_value
+                and alias in cls.DETAIL_NESTED_MEASURE_LABELS
+            ):
+                continue
+            inside_measure_value = False
+            normalized_matches.append(match)
+        matches = normalized_matches
 
         lines: list[str] = []
         prefix = raw[: matches[0].start()].strip(" \t\r\n.;")

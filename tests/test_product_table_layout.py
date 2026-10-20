@@ -2072,10 +2072,62 @@ def test_detail_format_preserves_complete_final_box_weight_attributes():
     )
 
     assert ProductTable._format_detail(product).splitlines() == [
+        "Color: Blanco",
         "Material: Poliuretano",
         "Peso neto por caja: 5.5 Kg",
         "Peso bruto por caja: 6.25 Kg",
     ]
+
+
+def test_detail_format_aligns_fb1503_fields_and_preserves_color():
+    product = Product(
+        code="FB-1503",
+        name="Enmicadora Metálica de Alta precisión A3 – 8309",
+        description=(
+            "Marca: Bright Office. Modelo: 8309. "
+            "Material: Cuerpo metálico reforzado con base antideslizante y rodillos de alta precisión. "
+            "Color: Blanco con detalles negros. "
+            "Voltaje y Frecuencia: AC 220–240V / 50–60Hz. "
+            "Potencia: 620W. Tiempo de precalentamiento: 3–5 minutos. "
+            "Temperatura de trabajo: 80–180 °C. "
+            "Sistema de calentamiento: Tubo de cuarzo (Quartz electric heating tube)"
+        ),
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Marca: Bright Office",
+        "Modelo: 8309",
+        "Material: Cuerpo metálico reforzado con base antideslizante y rodillos de alta precisión",
+        "Color: Blanco con detalles negros",
+        "Voltaje y Frecuencia: AC 220–240V / 50–60Hz",
+        "Potencia: 620W",
+        "Tiempo de precalentamiento: 3–5 minutos",
+        "Temperatura de trabajo: 80–180 °C",
+        "Sistema de calentamiento: Tubo de cuarzo (Quartz electric heating tube)",
+    ]
+
+
+def test_detail_format_preserves_all_color_variants_for_fb6005_and_fb6002():
+    for code, color_detail in (
+        ("FB-6005", "Colores disponibles: Azul, Rojo, Negro"),
+        ("FB-6002", "Colores disponibles: Azul, Rojo, Negro, Gris"),
+    ):
+        product = Product(
+            code=code,
+            name="Producto con varios colores",
+            description=(
+                "Medidas: Alto 30 cm, Ancho 29 cm. "
+                "Material: Poliéster 230T. "
+                f"{color_detail}. Presentación: Individual."
+            ),
+            color_stock={"Azul": 330, "Rojo": 1022, "Negro": 4},
+            stock=1356,
+        )
+
+        lines = ProductTable._format_detail(product).splitlines()
+        assert color_detail in lines
+        assert any(line.startswith("Material: ") for line in lines)
+        assert any(line.startswith("Presentación: ") for line in lines)
 
 
 def test_detail_format_removes_bullets_and_separates_laminator_fields():

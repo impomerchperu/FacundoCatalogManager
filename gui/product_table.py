@@ -1272,7 +1272,13 @@ class ProductTable(QTableWidget):
         "acabado": "Acabado",
         "funcion": "Función",
         "función": "Función",
+        "funciones adicionales": "Funciones adicionales",
         "funciones": "Funciones",
+        "rango de espesor polaseal": "Rango de espesor Polaseal",
+        "rango de espesor": "Rango de espesor",
+        "tiempo de calentamiento": "Tiempo de calentamiento",
+        "consumo de energía": "Consumo de energía",
+        "consumo de energia": "Consumo de energía",
         "uso": "Uso",
         "aplicacion": "Aplicación",
         "aplicación": "Aplicación",
@@ -2400,6 +2406,7 @@ class ProductTable(QTableWidget):
         """Ordena los atributos del detalle y quita duplicados de la fila."""
         raw = cls._correct_detail_spelling(str(product.description or ""))
         raw = raw.replace("\r\n", "\n").replace("\r", "\n")
+        raw = re.sub(r"[•▪●‣◦]", " ", raw)
         raw = re.sub(r"[ \t]+", " ", raw).strip()
         if not raw:
             return ""

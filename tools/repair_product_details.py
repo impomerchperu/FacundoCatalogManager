@@ -16,8 +16,8 @@ import sqlite3
 import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup

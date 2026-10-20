@@ -113,8 +113,81 @@ def test_category_product_extractor_prefers_detail_text_after_color_only_block()
     product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert product.description == (
-        "Material: Poliuretano. Peso neto por caja: 5.5 Kg."
+        "Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg."
     )
+
+
+def test_category_product_extractor_combines_technical_blocks_for_fb1700_fb6005_fb6002():
+    cases = (
+        (
+            "FB-1700",
+            "Toalla en Tubo",
+            (
+                "Medidas: Envase Largo: 16 cm, Diámetro: 6.5 cm (Aprox), "
+                "Toalla Largo: 80 cm, Ancho: 30 cm",
+                "Material: Poliéster y Acrílico Transparente",
+                "Presentación: Individual, Bolsa Plástica",
+            ),
+        ),
+        (
+            "FB-6005",
+            "Lonchera de Neoprene",
+            (
+                "Medidas: Alto 30 cm, Ancho 29 cm, Interior 14 cm, Espesor 6 mm (Aprox.)",
+                "Material: Neoprene",
+                "Colores disponibles: Azul, Rojo, Negro",
+                "Presentación: Individual, en bolsita plástica transparente",
+            ),
+        ),
+        (
+            "FB-6002",
+            "Mochilas de Lona",
+            (
+                "Medidas: 40 x 30 cm",
+                "Material: Poliéster 230T",
+                "Colores disponibles: Azul, Rojo, Negro, Gris",
+                "Presentación: Individual en bolsa de plástico transparente",
+            ),
+        ),
+    )
+
+    for code, name, blocks in cases:
+        technical_blocks = "".join(
+            f'<div class="text-content">{block}</div>'
+            for block in blocks
+        )
+        html = (
+            "<article>"
+            f'<p class="brxe-a26f34">{code}</p>'
+            f'<h2 class="brxe-f31760">{name}</h2>'
+            f"{technical_blocks}"
+            "</article>"
+        )
+        product = CategoryProductExtractor().extract(
+            BeautifulSoup(html, "lxml"),
+        )
+
+        assert product.code == code
+        assert product.description == ". ".join(blocks)
+        assert "Colores disponibles" in product.description or code == "FB-1700"
+
+
+def test_category_product_extractor_excludes_description_tab_technical_text():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-1701</p>
+        <h2 class="brxe-f31760">Almohadilla de Cuello</h2>
+        <div id="tab-description" class="woocommerce-Tabs-panel--description">
+            <div class="text-content">
+                Descripción: producto promocional. Material: texto no validado.
+            </div>
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.description == ""
 
 
 def test_category_product_extractor_keeps_single_total_stock():

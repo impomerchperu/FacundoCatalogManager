@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+import re
 from urllib.parse import unquote, urlsplit
 
 from PIL import Image, ImageChops, ImageOps, ImageStat
@@ -100,13 +100,9 @@ def build_visual_fingerprint(
             )
 
         grayscale = canvas.convert("L").resize((9, 8), Image.Resampling.LANCZOS)
-        # Pillow's typed ImagingCore is not declared Iterable in its stubs.
-        # Sampling the 9x8 grid through getpixel avoids that typing mismatch.
-        pixels = [
-            grayscale.getpixel((x, y))
-            for y in range(8)
-            for x in range(9)
-        ]
+        # Pillow types ImagingCore inconsistently; bytes returns the grayscale
+        # pixel values as ints and avoids that typing mismatch.
+        pixels = list(grayscale.tobytes())
         perceptual_hash = 0
         for y in range(8):
             for x in range(8):

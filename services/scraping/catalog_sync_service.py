@@ -550,9 +550,10 @@ class CatalogSyncService:
             stored_path_key = str(
                 resolve_data_path(stored_path).resolve()
             ).replace("\\", "/").casefold()
-            seen_paths.add(source_path_key)
             if stored_path_key in seen_paths:
+                seen_paths.add(source_path_key)
                 continue
+            seen_paths.add(source_path_key)
             seen_paths.add(stored_path_key)
             if stored_hash.casefold() in seen_hashes:
                 continue

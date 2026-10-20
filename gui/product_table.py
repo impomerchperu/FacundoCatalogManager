@@ -1283,7 +1283,6 @@ class ProductTable(QTableWidget):
         "tiempo": "Tiempo",
         "diametro": "Diámetro",
         "diámetro": "Diámetro",
-        "espesor": "Espesor",
         "acabado": "Acabado",
         "funcion": "Función",
         "función": "Función",

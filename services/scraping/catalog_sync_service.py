@@ -621,6 +621,7 @@ class CatalogSyncService:
         if not callable(cleanup):
             return
         started = time.perf_counter()
+        _log_timing("SCRAPING TIMING | stage=image_cleanup_started")
         try:
             deleted = cleanup()
         except Exception as error:  # noqa: BLE001

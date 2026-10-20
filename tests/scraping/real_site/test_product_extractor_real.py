@@ -79,7 +79,7 @@ def test_product_extractor_real_site_fb4008_technical_detail():
             "Estructura HTML de los nodos Material: "
             f"{technical_detail_dom_diagnostics[:10]!r}"
         )
-    assert detail.startswith("Material: Poliuretano.")
+    assert detail.startswith("Color: Blanco. Material: Poliuretano.")
     assert "Dimensiones: 75*63*48mm." in detail
     assert "Peso Unitario: 23.5 G." in detail
     assert "Peso neto por caja: 5.5 Kg." in detail

@@ -178,8 +178,8 @@ class ProductExtractor:
 
     @classmethod
     def _is_complete_description(cls, value: str) -> bool:
-        """Compatibilidad histórica para validar el campo Detalle."""
-        return is_complete_detail(value)
+        """Compatibilidad histórica: valida que Detalle sea técnico y completo."""
+        return has_technical_detail(value) and is_complete_detail(value)
 
     @classmethod
     def _is_excluded_detail_tab(cls, element) -> bool:

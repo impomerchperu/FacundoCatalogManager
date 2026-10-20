@@ -26,6 +26,22 @@ class CategoryProductExtractor:
         r"c[oó]digo\s*[:\-]\s*[A-Z0-9-]+))",
         re.IGNORECASE,
     )
+    _COLOR_DETAIL_BLOCK_PATTERN = re.compile(
+        r"^\s*col(?:or|ores)(?:\s+disponibles?)?"
+        r"(?:\s*[:|\-]\s*|\s+)\S",
+        re.IGNORECASE,
+    )
+    _EXCLUDED_DETAIL_TAB_IDS = frozenset({
+        "tab-description",
+        "tab-additional_information",
+        "tab-additional-information",
+        "tab-reviews",
+    })
+    _EXCLUDED_DETAIL_TAB_CLASSES = frozenset({
+        "woocommerce-Tabs-panel--description",
+        "woocommerce-Tabs-panel--additional_information",
+        "woocommerce-Tabs-panel--reviews",
+    })
 
     def __init__(self):
         self.price_extractor = PriceExtractor()
@@ -121,23 +137,53 @@ class CategoryProductExtractor:
         element = soup.select_one("h3.brxe-heading, h3")
         return element.get_text(" ", strip=True) if element else ""
 
+    @classmethod
+    def _is_excluded_detail_block(cls, element) -> bool:
+        """Exclude text inherited from Descripción, información adicional o reseñas."""
+        node = element
+        while node is not None and getattr(node, "attrs", None) is not None:
+            node_id = str(node.get("id", "") or "").strip().casefold()
+            if node_id in cls._EXCLUDED_DETAIL_TAB_IDS:
+                return True
+            classes = {
+                str(value).strip()
+                for value in (node.get("class", []) or [])
+            }
+            if classes & cls._EXCLUDED_DETAIL_TAB_CLASSES:
+                return True
+            node = getattr(node, "parent", None)
+        return False
+
+    @classmethod
+    def _is_color_detail_block(cls, text: str) -> bool:
+        return cls._COLOR_DETAIL_BLOCK_PATTERN.match(text) is not None
+
     def _description(self, soup):
         candidates = []
+        seen: set[str] = set()
         for element in soup.select(".text-content"):
+            if self._is_excluded_detail_block(element):
+                continue
             text = normalize_detail_text(
                 re.sub(r"\s+", " ", element.get_text(" ", strip=True))
             )
-            if not text or not has_technical_detail(text):
+            if not text or not (
+                has_technical_detail(text) or self._is_color_detail_block(text)
+            ):
                 continue
             field_boundary = self._NON_DETAIL_FIELD_PATTERN.search(text)
             if field_boundary is not None:
                 text = text[: field_boundary.start()].strip(" .;:-")
-            if text:
-                candidates.append(text)
+            if not text or text.casefold() in seen:
+                continue
+            seen.add(text.casefold())
+            candidates.append(text.rstrip(" .;"))
 
-        # Detail contains technical attributes only; a leading Color(s) field
-        # is removed because color belongs to the separate stock/color data.
-        return candidates[0] if candidates else ""
+        # Color is part of technical detail when accompanied by real attributes,
+        # but color-only text must never qualify as a complete Detail value.
+        if not any(has_technical_detail(candidate) for candidate in candidates):
+            return ""
+        return ". ".join(candidates)
 
     def _stock(self, soup):
         return sum(self._stock_values(soup))

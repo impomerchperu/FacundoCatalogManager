@@ -1,5 +1,3 @@
-from bs4 import BeautifulSoup
-
 from database.db_manager import DBManager
 from models.product import Product
 from models.scraping.scraped_product import ScrapedProduct

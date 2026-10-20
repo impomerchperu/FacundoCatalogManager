@@ -1,6 +1,8 @@
 import hashlib
 from pathlib import Path
 
+from PIL import Image, ImageDraw
+
 from models.product import Product
 from models.scraping.scraped_product import ScrapedProduct
 from services.scraping.product_gallery_sync_service import (
@@ -50,6 +52,38 @@ class FakeDownloader:
         self.downloads.append(url)
         return str(destination.relative_to(self.tmp_path)).replace("\\", "/")
 
+
+
+class ResolutionVariantDownloader:
+    def __init__(self, root: Path):
+        self.root = root
+        self.downloads: list[str] = []
+
+    def download_gallery(self, code, url, position, output_dir):
+        directory = Path(output_dir)
+        directory.mkdir(parents=True, exist_ok=True)
+        destination = directory / f"{code}-{position:02d}.webp"
+        size = 320 if "-scaled" in url else 512
+        image = Image.new("RGB", (size, size), "white")
+        draw = ImageDraw.Draw(image)
+        margin = max(size // 12, 2)
+        draw.rectangle(
+            (margin, margin, size - margin, size - margin),
+            outline="royalblue",
+            width=max(size // 40, 1),
+        )
+        draw.ellipse(
+            (size // 4, size // 4, size * 3 // 4, size * 3 // 4),
+            fill="royalblue",
+        )
+        draw.line(
+            (margin, size // 2, size - margin, size // 2),
+            fill="gold",
+            width=max(size // 30, 1),
+        )
+        image.save(destination, format="WEBP", quality=94, method=6)
+        self.downloads.append(url)
+        return str(destination.relative_to(self.root)).replace("\\", "/")
 
 def _candidate(url, position):
     return {
@@ -311,4 +345,53 @@ def test_legacy_gallery_removes_primary_hash_duplicate_during_sync(
     # Normalization removes the obsolete DB reference but leaves physical
     # deletion to the post-commit unused-image cleanup.
     assert duplicate_source.is_file()
+
+def test_gallery_sync_chooses_largest_generated_resolution_variant(
+    monkeypatch,
+    tmp_path,
+):
+    import services.scraping.product_gallery_sync_service as module
+
+    monkeypatch.setattr(
+        module,
+        "resolve_data_path",
+        lambda value: (
+            Path(value)
+            if Path(value).is_absolute()
+            else tmp_path / value
+        ),
+    )
+    monkeypatch.setattr(module, "IMAGE_PRODUCTS_DIR", Path("data/images/products"))
+
+    scaled_url = "https://site.test/uploads/FB-1507-2-scaled.webp"
+    original_url = "https://site.test/uploads/FB-1507-2.webp"
+    downloader = ResolutionVariantDownloader(tmp_path)
+    product = ScrapedProduct(
+        code="FB-1507",
+        name="Producto FB-1507",
+        url="https://site.test/producto/fb-1507/",
+        image_url=scaled_url,
+    )
+    product.image_candidates = [
+        _candidate(scaled_url, 1),
+        _candidate(original_url, 2),
+    ]
+
+    service = ProductGallerySyncService(
+        browser=object(),
+        product_extractor=object(),
+        image_downloader=downloader,
+        review_service=None,
+        max_workers=1,
+        max_candidates=6,
+    )
+
+    synced = service._sync_product(product)
+
+    assert downloader.downloads == [scaled_url, original_url]
+    assert [image["url"] for image in synced.gallery_images] == [original_url]
+    assert synced.image_url == original_url
+    stored_path = Path(module.resolve_data_path(synced.image_path))
+    with Image.open(stored_path) as stored_image:
+        assert stored_image.size == (512, 512)
 

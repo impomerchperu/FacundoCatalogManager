@@ -1258,7 +1258,7 @@ def test_price_columns_are_compact_and_currency_is_not_editable():
     table.close()
 
 
-def test_detail_formats_attributes_removes_duplicate_color_and_trailing_periods():
+def test_detail_formats_attributes_and_preserves_color_and_trailing_periods():
     _qapp()
     description = (
         "Color: Azul. Potencia: 560W. Dimensiones: 30*34*33cm. "
@@ -1284,6 +1284,7 @@ def test_detail_formats_attributes_removes_duplicate_color_and_trailing_periods(
     item = table.item(0, ProductTable.DETAIL_COLUMN)
     assert item is not None
     assert item.text().splitlines() == [
+        "Color: Azul",
         "Potencia: 560W",
         "Dimensiones: 30*34*33cm",
         "Peso Unitario: 5.8 Kg",
@@ -1341,7 +1342,7 @@ def test_detail_removes_fields_that_repeat_product_row_data():
     table.close()
 
 
-def test_detail_removes_multiple_colors_already_visible_in_stock():
+def test_detail_preserves_multiple_colors_even_when_visible_in_stock():
     _qapp()
     colors = [
         "Azul", "Blanco", "Celeste", "Morado", "Naranja", "Negro",
@@ -1371,6 +1372,7 @@ def test_detail_removes_multiple_colors_already_visible_in_stock():
     detail = table.item(0, ProductTable.DETAIL_COLUMN)
     assert detail is not None
     assert detail.text().splitlines() == [
+        "Color: " + ", ".join(colors),
         "Material: Poliuretano",
         "Dimensiones: 63mm",
         "Peso Unitario: 19.4 G",

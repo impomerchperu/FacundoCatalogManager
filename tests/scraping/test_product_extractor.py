@@ -63,13 +63,13 @@ def test_product_extractor_reads_fb4008_technical_summary_outside_tabs():
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert result["description"] == (
-        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Color: Blanco. Material: Poliuretano. Dimensiones: 75*63*48mm. "
         "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
         "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
         "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM "
         "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
     )
-    assert "Color: Blanco" not in result["description"]
+    assert "Color: Blanco" in result["description"]
     assert "Texto comercial" not in result["description"]
     assert "Información adicional" not in result["description"]
     assert "Valoraciones" not in result["description"]
@@ -110,13 +110,13 @@ def test_product_extractor_reads_technical_short_description_and_strips_leading_
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert result["description"] == (
-        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Color: Blanco. Material: Poliuretano. Dimensiones: 75*63*48mm. "
         "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
         "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
         "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
         "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
     )
-    assert "Color: Blanco" not in result["description"]
+    assert "Color: Blanco" in result["description"]
     assert "Texto comercial" not in result["description"]
     assert "Información adicional" not in result["description"]
     assert "Valoraciones" not in result["description"]
@@ -157,13 +157,13 @@ def test_product_extractor_reads_technical_detail_from_list_items():
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert result["description"] == (
-        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Color: Blanco. Material: Poliuretano. Dimensiones: 75*63*48mm. "
         "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
         "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
         "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
         "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
     )
-    assert "Color: Blanco" not in result["description"]
+    assert "Color: Blanco" in result["description"]
     assert "Texto comercial" not in result["description"]
     assert "Información adicional" not in result["description"]
     assert "Valoraciones" not in result["description"]
@@ -481,6 +481,6 @@ def test_product_extractor_collects_only_technical_detail_panel_blocks():
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert result["description"] == (
-        "Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
+        "Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
         "Peso bruto por caja: 6.25 Kg. Certificado SGS"
     )

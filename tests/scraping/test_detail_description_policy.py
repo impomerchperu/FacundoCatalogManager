@@ -15,23 +15,32 @@ FB_4047_DETAIL = (
 )
 
 
-def test_detail_policy_removes_leading_color_but_keeps_technical_attributes():
+def test_detail_policy_preserves_leading_color_and_technical_attributes():
     source = (
         "Color: Amarillo, Blanco. Material: Poliuretano. "
         "Dimensiones: 55*55*100mm."
     )
 
-    assert normalize_detail_text(source) == (
+    assert normalize_detail_text(source) == source
+    assert strip_leading_color_field(source) == (
         "Material: Poliuretano. Dimensiones: 55*55*100mm."
     )
 
 
-def test_detail_policy_drops_color_only_text_with_or_without_colon():
-    assert strip_leading_color_field("Color: Blanco.") == ""
-    assert normalize_detail_text("Colores Blanco") == ""
-    assert normalize_detail_text("Color Blanco.") == ""
-    assert normalize_detail_text("Colores disponibles: Amarillo, Blanco") == ""
-    assert normalize_detail_text("Colores Blanco. Material: ABS.") == "Material: ABS."
+def test_detail_policy_preserves_color_text_but_does_not_treat_it_as_technical():
+    color_values = (
+        "Colores Blanco",
+        "Color Blanco.",
+        "Colores disponibles: Amarillo, Blanco",
+    )
+    for value in color_values:
+        normalized = normalize_detail_text(value)
+        assert normalized == value
+        assert not has_technical_detail(normalized)
+
+    assert normalize_detail_text("Colores Blanco. Material: ABS.") == (
+        "Colores Blanco. Material: ABS."
+    )
 
 
 def test_detail_policy_detects_clipped_words_and_ellipsis():

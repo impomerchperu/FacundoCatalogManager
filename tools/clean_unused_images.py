@@ -101,98 +101,26 @@ def _active_image_paths(db_path: Path, project_root: Path) -> set[Path]:
     return paths
 
 
-def _reference_path_variants(
-    path: Path,
-    project_root: Path,
-) -> list[str]:
-    """Return normalized absolute/relative forms used by legacy catalog rows."""
-    resolved = path.resolve()
-    values = {str(resolved), resolved.as_posix()}
-    try:
-        relative = resolved.relative_to(project_root.resolve())
-    except ValueError:
-        relative = None
-    if relative is not None:
-        relative_posix = relative.as_posix()
-        relative_native = str(relative)
-        values.update(
-            {
-                relative_posix,
-                relative_native,
-                f"./{relative_posix}",
-                f".\\{relative_native}",
-            }
-        )
-    return sorted(
-        {
-            value.replace("\\", "/").casefold()
-            for value in values
-            if value
-        }
-    )
-
-
-def _image_path_is_active(
+def _load_stable_active_paths(
     connection: sqlite3.Connection,
-    columns: set[str],
-    candidate_path: Path,
+    db_path: Path,
     project_root: Path,
-) -> bool:
-    """Recheck one candidate against current DB references without rescanning all rows."""
-    if "image_path" not in columns:
-        raise RuntimeError(
-            "La tabla products no contiene la columna image_path."
+) -> tuple[set[Path], int]:
+    """Refresh the full whitelist only when SQLite reports a concurrent commit."""
+    for _attempt in range(3):
+        before = int(
+            connection.execute("PRAGMA data_version").fetchone()[0]
         )
-
-    variants = _reference_path_variants(candidate_path, project_root)
-    if not variants:
-        return False
-
-    normalized_image_path = "lower(replace(COALESCE(image_path, ''), char(92), '/'))"
-    conditions = [
-        f"{normalized_image_path} IN ({', '.join('?' for _ in variants)})"
-    ]
-    parameters: list[str] = list(variants)
-    if "gallery_images" in columns:
-        # JSON may contain POSIX paths, or Windows paths escaped as \\\\.
-        # Normalize backslashes and query only rows that could mention this file.
-        fragments = sorted(
-            set(variants)
-            | {value.replace("/", "//") for value in variants}
+        active_paths = _active_image_paths(db_path, project_root)
+        after = int(
+            connection.execute("PRAGMA data_version").fetchone()[0]
         )
-        normalized_gallery = (
-            "replace(lower(COALESCE(gallery_images, '')), char(92), '/')"
-        )
-        conditions.append(
-            "("
-            + " OR ".join(
-                f"instr({normalized_gallery}, ?) > 0"
-                for _ in fragments
-            )
-            + ")"
-        )
-        parameters.extend(fragments)
+        if before == after:
+            return active_paths, after
 
-    selected_columns = ["image_path"]
-    if "gallery_images" in columns:
-        selected_columns.append("gallery_images")
-    rows = connection.execute(
-        f"SELECT {', '.join(selected_columns)} FROM products "
-        f"WHERE {' OR '.join(conditions)}",
-        parameters,
-    ).fetchall()
-
-    for row in rows:
-        raw_primary = str(row[0] or "").strip()
-        if raw_primary and _resolve_project_path(
-            raw_primary.replace("\\", "/"),
-            project_root,
-        ) == candidate_path:
-            return True
-        if "gallery_images" in columns:
-            if candidate_path in _gallery_image_paths(row[1], project_root):
-                return True
-    return False
+    raise RuntimeError(
+        "No se pueden limpiar imágenes mientras cambia la base de datos."
+    )
 
 
 def _iter_image_files(root: Path) -> list[Path]:
@@ -284,9 +212,9 @@ def clean_unused_images(
     if not delete:
         return candidates
 
-    # Keep checking the live DB before each unlink, but query only rows that
-    # can reference that candidate. Rebuilding every gallery reference for
-    # every orphan makes a full catalog cleanup quadratic in files x products.
+    # Take a fresh whitelist before deletion and refresh it whenever another
+    # SQLite connection commits. This protects concurrent updates without
+    # reparsing every product/gallery row for each orphan file.
     project_root = project_root.resolve()
     resolved_db_path = db_path.resolve()
     resolved_roots = [
@@ -295,28 +223,30 @@ def clean_unused_images(
     deleted: list[dict[str, Any]] = []
     connection = sqlite3.connect(resolved_db_path)
     try:
-        columns = {
-            str(row[1])
-            for row in connection.execute("PRAGMA table_info(products)")
-        }
-        if "image_path" not in columns:
-            raise RuntimeError(
-                "La tabla products no contiene la columna image_path."
-            )
-
+        active_paths, data_version = _load_stable_active_paths(
+            connection,
+            resolved_db_path,
+            project_root,
+        )
         for candidate in candidates:
             path = Path(candidate["path"]).resolve()
             if not any(_is_within(path, root) for root in resolved_roots):
                 continue
             if not path.is_file():
                 continue
-            if _image_path_is_active(
-                connection,
-                columns,
-                path,
-                project_root,
-            ):
+
+            current_version = int(
+                connection.execute("PRAGMA data_version").fetchone()[0]
+            )
+            if current_version != data_version:
+                active_paths, data_version = _load_stable_active_paths(
+                    connection,
+                    resolved_db_path,
+                    project_root,
+                )
+            if path in active_paths:
                 continue
+
             path.unlink()
             deleted.append(candidate)
     finally:

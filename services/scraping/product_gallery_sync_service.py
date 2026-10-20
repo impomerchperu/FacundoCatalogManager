@@ -363,12 +363,21 @@ class ProductGallerySyncService:
                 and not fallback_primary_path.is_file()
             ):
                 fallback_primary_path = None
-            product.gallery_images = self._canonicalize_existing_gallery(
-                product,
-                existing_gallery,
-                fallback_primary_path,
-                products_root,
-            )
+            if existing is not None:
+                # An incomplete refresh must not rewrite the last-known-good
+                # gallery paths. Preserve the persisted references verbatim;
+                # canonicalizing them here can turn relative DB paths into
+                # absolute temporary/test paths and mutate otherwise valid state.
+                product.gallery_images = [
+                    dict(image) for image in existing_gallery
+                ]
+            else:
+                product.gallery_images = self._canonicalize_existing_gallery(
+                    product,
+                    existing_gallery,
+                    fallback_primary_path,
+                    products_root,
+                )
             return product
 
         if not gallery_images:

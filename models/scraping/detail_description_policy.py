@@ -15,10 +15,11 @@ _COLOR_FIELD_PREFIX_PATTERN = re.compile(
 _COLOR_SEPARATOR_PATTERN = re.compile(r"[.;]\s*")
 _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"\b(?:"
-    r"material|"
+    r"funciones\s+adicionales|"
+    r"rango\s+de\s+espesor(?:\s+polaseal)?|"
+    r"tiempo\s+de\s+calentamiento|"
+    r"consumo\s+de\s+energ[ií]a|"
     r"dimensi[oó]n(?:es)?(?:\s+(?:de\s+)?caja)?|"
-    r"medida(?:s)?|"
-    r"di[aá]metro|"
     r"peso\s+(?:unitario|neto|bruto)(?:\s+por(?:\s+caja)?)?|"
     r"uso(?:\s+recomendado)?|"
     r"empaque\s+individual|"
@@ -29,13 +30,27 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"capacidad|"
     r"(?:superficie|[aá]rea)\s+de\s+impresi[oó]n|"
     r"t[eé]cnica\s+de\s+impresi[oó]n|"
+    r"material|"
+    r"medida(?:s)?|"
+    r"di[aá]metro|"
+    r"velocidad|"
+    r"voltaje|"
+    r"potencia|"
+    r"funci[oó]n(?:es)?|"
+    r"temperatura|"
+    r"presi[oó]n|"
+    r"frecuencia|"
+    r"resoluci[oó]n|"
+    r"tama[ñn]o(?:\s+de\s+impresi[oó]n)?|"
+    r"ancho|largo|alto|altura|peso|"
+    r"modelo|tipo|formato|marca|"
+    r"compatibilidad|contenido|incluye|empaque|"
+    r"alimentaci[oó]n|tiempo|espesor|acabado|"
+    r"aplicaci[oó]n|resistencia|"
+    r"unidades\s+por\s+caja|cantidad|unidad|"
     r"propiedades|"
     r"micras"
     r")\s*:",
-    re.IGNORECASE,
-)
-_TECHNICAL_DETAIL_PATTERN = re.compile(
-    _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\bcertificado\s+sgs\b",
     re.IGNORECASE,
 )
 # Detect both visible ellipses and common product-detail labels cut off at
@@ -56,7 +71,10 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
 
 def strip_leading_color_field(value: object) -> str:
     """Remove a leading Color(s) attribute because it belongs to stock data."""
-    text = _WHITESPACE_PATTERN.sub(" ", str(value or "")).strip()
+    text = _WHITESPACE_PATTERN.sub(
+        " ",
+        re.sub(r"[•▪●‣◦]", " ", str(value or "")),
+    ).strip()
     prefix = _COLOR_FIELD_PREFIX_PATTERN.match(text)
     if prefix is None:
         return text

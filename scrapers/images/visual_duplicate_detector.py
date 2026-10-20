@@ -2,18 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from re import compile as re_compile
+from re import IGNORECASE, compile as re_compile
 from urllib.parse import unquote, urlsplit
 
 from PIL import Image, ImageChops, ImageOps, ImageStat
-
 
 _CANVAS_SIZE = 128
 _MAX_DHASH_DISTANCE = 4
 _MAX_NORMALIZED_PIXEL_DIFFERENCE = 1.0
 _MAX_ASPECT_RATIO_DIFFERENCE = 0.005
 _MIN_AREA_DIFFERENCE = 0.02
-_VARIANT_SUFFIX = re_compile(r"-(?:scaled|\d{2,4}x\d{2,4})$", re.IGNORECASE)
+_VARIANT_SUFFIX = re_compile(r"-(?:scaled|\d{2,4}x\d{2,4})$", IGNORECASE)
 
 
 @dataclass(frozen=True)

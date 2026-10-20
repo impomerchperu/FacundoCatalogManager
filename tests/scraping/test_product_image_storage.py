@@ -91,6 +91,43 @@ def test_identical_image_reuses_existing_file_in_the_same_product_group(
     assert duplicate.is_file()
 
 
+def test_canonical_group_normalization_can_skip_redundant_sibling_scan(
+    tmp_path: Path,
+    monkeypatch,
+):
+    import scrapers.images.product_image_storage as storage_module
+
+    root = tmp_path / "data" / "images" / "products"
+    product_dir = root / "FB-1507"
+    product_dir.mkdir(parents=True)
+    canonical = product_dir / "FB-1507-01.webp"
+    sibling = product_dir / "FB-1507-02.webp"
+    payload = image_bytes("WEBP", (10, 11, 12))
+    canonical.write_bytes(payload)
+    sibling.write_bytes(payload)
+
+    def fail_if_scanned(*args, **kwargs):
+        raise AssertionError("Canonical normalization should not rescan sibling files.")
+
+    monkeypatch.setattr(
+        storage_module,
+        "_find_matching_image",
+        fail_if_scanned,
+    )
+
+    stored_path, stored_hash = store_image_in_product_group(
+        "FB-1507",
+        canonical,
+        1,
+        root=root,
+        deduplicate_in_group=False,
+    )
+
+    assert Path(stored_path) == canonical
+    assert stored_hash == ImageHash().calculate(canonical)
+    assert sibling.is_file()
+
+
 def test_product_group_storage_corrects_a_mislabeled_legacy_image(
     tmp_path: Path,
 ):

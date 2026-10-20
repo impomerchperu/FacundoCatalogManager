@@ -847,6 +847,17 @@ def test_catalog_sync_keeps_technical_detail_when_incoming_text_is_commercial_pr
     assert result.unchanged == 1
 
 
+def test_catalog_sync_consolidation_does_not_select_commercial_prose_as_detail():
+    first = Product("P093", "Producto vigente", 10)
+    second = Product("P093", "Producto vigente", 10)
+    second.description = "Descripción comercial: producto promocional."
+
+    consolidated = CatalogSyncService.consolidate_products([first, second])
+
+    assert len(consolidated) == 1
+    assert consolidated[0].description == ""
+
+
 def test_catalog_sync_does_not_save_commercial_prose_as_new_technical_detail():
     repository = InMemoryCatalogRepository()
     incoming = Product("P094", "Producto nuevo", 10)

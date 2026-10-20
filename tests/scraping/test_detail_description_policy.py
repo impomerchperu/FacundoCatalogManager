@@ -37,6 +37,7 @@ def test_detail_policy_preserves_color_text_but_does_not_treat_it_as_technical()
         normalized = normalize_detail_text(value)
         assert normalized == value
         assert not has_technical_detail(normalized)
+        assert not is_complete_detail(normalized)
 
     assert normalize_detail_text("Colores Blanco. Material: ABS.") == (
         "Colores Blanco. Material: ABS."

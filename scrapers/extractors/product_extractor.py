@@ -5,7 +5,6 @@ from typing import ClassVar
 from bs4 import BeautifulSoup
 
 from models.scraping.detail_description_policy import (
-    TECHNICAL_DETAIL_FIELD_PATTERN,
     has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,

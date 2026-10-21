@@ -135,6 +135,7 @@ def test_detail_policy_does_not_treat_general_prose_as_technical_detail():
 
     assert not has_technical_detail(prose)
 
+
 def test_detail_policy_recognizes_laminator_and_printer_specific_labels():
     laminator = (
         "Número de rodillos: 2. Ancho de entrada: 330 mm. "

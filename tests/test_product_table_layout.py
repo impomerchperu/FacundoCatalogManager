@@ -1417,6 +1417,41 @@ def test_detail_formatter_splits_fb2107_fb2043_and_herra03_fields():
                 "Trabajo en scrapbooking: Manipula recortes",
             ],
         ),
+        (
+            "OL381S",
+            (
+                "Número de rodillos: 2. Ancho de entrada: 330 mm. "
+                "Espesor máximo de laminación: 0.5 mm. Soporta: 80 a 125 micrones. "
+                "Tiempo de calentamiento: 3 a 5 minutos. "
+                "Velocidad de laminación: 250 mm/min. "
+                "Cortadora con 3 tipos de corte: Recto, Ondulado y Perforado."
+            ),
+            [
+                "Número de rodillos: 2",
+                "Ancho de entrada: 330 mm",
+                "Espesor máximo de laminación: 0.5 mm",
+                "Soporta: 80 a 125 micrones",
+                "Tiempo de calentamiento: 3 a 5 minutos",
+                "Velocidad de laminación: 250 mm/min",
+                "Cortadora con 3 tipos de corte: Recto, Ondulado y Perforado",
+            ],
+        ),
+        (
+            "MITS-C-CK-D868",
+            (
+                "Tamaño de impresión (cm): 10 x 15. "
+                "Rollos por caja: 2. Impresiones por rollo: 300. "
+                "Válido para impresoras: CP-D90DW-P, CP-D80DW. "
+                "Opciones de acabado: Brillante y mate."
+            ),
+            [
+                "Tamaño de impresión (cm): 10 x 15",
+                "Rollos por caja: 2",
+                "Impresiones por rollo: 300",
+                "Válido para impresoras: CP-D90DW-P, CP-D80DW",
+                "Opciones de acabado: Brillante y mate",
+            ],
+        ),
     )
 
     for code, description, expected in cases:

@@ -784,3 +784,17 @@ def test_product_extractor_keeps_visible_summary_description_and_ignores_tabs():
     assert "Información adicional" not in detail
     assert "Valoraciones" not in detail
 
+
+def test_product_extractor_ignores_role_based_description_tab_content():
+    html = """
+    <html><body>
+      <div role="tabpanel" aria-labelledby="tab-description">
+        <div class="text-content">
+          Material: ABS. Dimensiones: 10 x 5 cm.
+        </div>
+      </div>
+    </body></html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["description"] == ""

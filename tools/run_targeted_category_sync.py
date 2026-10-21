@@ -1,7 +1,7 @@
-"""Run a bounded, directed sync for one category to verify cache-write locking.
+"""Run a bounded, directed multi-category sync to check cache-write locking.
 
-This utility never starts a full-catalog sync and refuses categories whose live
-expected product count exceeds the configured safety limit.
+The utility never starts a full-catalog sync. It validates each live category
+count and enforces a total-product ceiling before writing anything.
 """
 
 from __future__ import annotations
@@ -14,8 +14,13 @@ from services.scraping.category_name_normalizer import normalize_category_name
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TIMING_LOG = PROJECT_ROOT / "data" / "scraping_timing.log"
-TARGET_CATEGORY = "Kits de Herramientas"
-MAX_EXPECTED_PRODUCTS = 10
+TARGET_CATEGORIES = (
+    "Kits de Herramientas",
+    "Lapiceros Ecologicos",
+    "Estuches",
+)
+MAX_EXPECTED_PER_CATEGORY = 10
+MAX_TOTAL_EXPECTED_PRODUCTS = 20
 
 
 def main() -> int:
@@ -34,32 +39,51 @@ def main() -> int:
             f"{time.perf_counter() - discovery_started:.2f} s"
         )
 
-        target_key = normalize_category_name(TARGET_CATEGORY)
-        category = next(
-            (
-                item
-                for item in categories
-                if normalize_category_name(getattr(item, "name", "")) == target_key
-            ),
-            None,
-        )
-        if category is None:
-            names = ", ".join(
-                str(getattr(item, "name", "")) for item in categories
+        categories_by_key = {
+            normalize_category_name(getattr(item, "name", "")): item
+            for item in categories
+        }
+        selected_categories = []
+        total_expected = 0
+
+        for target_name in TARGET_CATEGORIES:
+            target_key = normalize_category_name(target_name)
+            category = categories_by_key.get(target_key)
+            if category is None:
+                names = ", ".join(
+                    str(getattr(item, "name", "")) for item in categories
+                )
+                print(f"ERROR: categoría no encontrada: {target_name}")
+                print(f"Categorías detectadas: {names or '(ninguna)'}")
+                return 2
+
+            expected_count = max(
+                int(getattr(category, "expected_count", 0) or 0),
+                0,
             )
-            print(f"ERROR: categoría no encontrada: {TARGET_CATEGORY}")
-            print(f"Categorías detectadas: {names or '(ninguna)'}")
-            return 2
-
-        expected_count = max(int(getattr(category, "expected_count", 0) or 0), 0)
-        print(f"Categoría: {category.name}")
-        print(f"URL: {category.url}")
-        print(f"Productos esperados: {expected_count}")
-
-        if expected_count > MAX_EXPECTED_PRODUCTS:
             print(
-                "CANCELADO: la categoría supera el límite de seguridad "
-                f"({MAX_EXPECTED_PRODUCTS} productos esperados)."
+                f"Categoría: {category.name} | "
+                f"productos esperados: {expected_count}"
+            )
+            if expected_count > MAX_EXPECTED_PER_CATEGORY:
+                print(
+                    "CANCELADO: la categoría supera el límite de seguridad "
+                    f"({MAX_EXPECTED_PER_CATEGORY} productos): {category.name}"
+                )
+                return 2
+
+            total_expected += expected_count
+            selected_categories.append(category)
+
+        print(f"Categorías seleccionadas: {len(selected_categories)}")
+        print(f"Total esperado: {total_expected}")
+        if total_expected <= 0:
+            print("CANCELADO: el recuento esperado no es positivo.")
+            return 2
+        if total_expected > MAX_TOTAL_EXPECTED_PRODUCTS:
+            print(
+                "CANCELADO: el total supera el límite de seguridad "
+                f"({MAX_TOTAL_EXPECTED_PRODUCTS} productos)."
             )
             return 2
 
@@ -70,13 +94,16 @@ def main() -> int:
             print("ERROR: no se pudo localizar el navegador del scraping.")
             return 2
 
-        # Revalidate cache entries against the origin during this targeted run.
+        # Force network revalidation during this bounded directed run.
         browser._force_source_page_revalidation = True
 
         log_offset = TIMING_LOG.stat().st_size if TIMING_LOG.exists() else 0
         sync_started = time.perf_counter()
-        result = controller.run_scraping(categories=[category])
-        print(f"Duración de sincronización: {time.perf_counter() - sync_started:.2f} s")
+        result = controller.run_scraping(categories=selected_categories)
+        print(
+            "Duración de sincronización: "
+            f"{time.perf_counter() - sync_started:.2f} s"
+        )
 
         errors = list(getattr(result, "errors", []) or [])
         status_getter = getattr(result, "status", None)

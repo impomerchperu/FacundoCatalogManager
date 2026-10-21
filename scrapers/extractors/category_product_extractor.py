@@ -27,11 +27,6 @@ class CategoryProductExtractor:
         r"c[oó]digo\s*[:\-]\s*[A-Z0-9-]+))",
         re.IGNORECASE,
     )
-    _COLOR_DETAIL_BLOCK_PATTERN = re.compile(
-        r"^\s*col(?:or|ores)(?:\s+disponibles?)?"
-        r"(?:\s*[:|\-]\s*|\s+)\S",
-        re.IGNORECASE,
-    )
     _EXCLUDED_DETAIL_TAB_IDS = frozenset({
         "tab-description",
         "tab-additional_information",
@@ -159,10 +154,6 @@ class CategoryProductExtractor:
                 return True
             node = getattr(node, "parent", None)
         return False
-
-    @classmethod
-    def _is_color_detail_block(cls, text: str) -> bool:
-        return cls._COLOR_DETAIL_BLOCK_PATTERN.match(text) is not None
 
     def _description(self, soup):
         candidates = []

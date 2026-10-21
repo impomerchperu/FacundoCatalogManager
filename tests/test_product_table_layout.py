@@ -2180,7 +2180,6 @@ def test_visible_columns_share_extra_width_when_the_table_grows():
     table.close()
 
 
-
 def test_detail_format_preserves_complete_final_box_weight_without_color_line():
     product = Product(
         code="FB-4008",

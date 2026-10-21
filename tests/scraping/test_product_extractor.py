@@ -401,7 +401,7 @@ def test_product_extractor_reads_stock_from_each_variant_node_reverse_order():
     assert result["stock"] == 1356
 
 
-def test_product_extractor_does_not_use_description_tabs_or_generic_text_as_detail():
+def test_product_extractor_keeps_visible_summary_and_ignores_product_tabs():
     html = """
     <html>
         <body>
@@ -422,9 +422,11 @@ def test_product_extractor_does_not_use_description_tabs_or_generic_text_as_deta
     """
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert result["description"] == ""
+    assert result["description"] == (
+        "Material: Decorativo. Esta es una vista previa comercial."
+    )
 
-def test_product_extractor_rejects_incomplete_authoritative_description_even_if_preview_is_longer():
+def test_product_extractor_prefers_visible_summary_over_description_tab():
     html = """
     <html>
         <body>
@@ -433,15 +435,17 @@ def test_product_extractor_rejects_incomplete_authoritative_description_even_if_
                 Peso bruto por...
             </div>
             <div class="text-content">
-                This much longer marketing preview ends cleanly but does not
-                include the confirmed gross weight, so it must not be used.
+                Descripción: Resumen superior visible. Color: Blanco.
+                Presentación: Caja.
             </div>
         </body>
     </html>
     """
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert result["description"] == ""
+    assert result["description"] == (
+        "Descripción: Resumen superior visible. Presentación: Caja."
+    )
 
 
 def test_product_extractor_ignores_color_only_and_generic_other_fields():
@@ -460,7 +464,7 @@ def test_product_extractor_ignores_color_only_and_generic_other_fields():
     assert result["description"] == ""
 
 
-def test_product_extractor_rejects_explicit_description_prefix_in_fallback():
+def test_product_extractor_preserves_explicit_summary_description_prefix():
     html = """
     <html>
         <body>
@@ -474,7 +478,10 @@ def test_product_extractor_rejects_explicit_description_prefix_in_fallback():
 
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert result["description"] == ""
+    assert result["description"] == (
+        "Descripción: producto promocional. Material: texto comercial. "
+        "Dimensiones: datos publicitarios no validados."
+    )
 
 
 

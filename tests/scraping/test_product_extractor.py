@@ -36,7 +36,7 @@ def test_product_extractor():
     assert result["description"] == "Material: ABS. Dimensiones: 10 x 5 cm."
 
 
-def test_product_extractor_reads_fb4008_technical_summary_outside_tabs():
+def test_product_extractor_reads_fb4008_technical_summary_without_color_line():
     html = """
     <html>
         <body>
@@ -63,19 +63,19 @@ def test_product_extractor_reads_fb4008_technical_summary_outside_tabs():
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert result["description"] == (
-        "Color: Blanco. Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
         "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
         "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
         "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM "
         "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
     )
-    assert "Color: Blanco" in result["description"]
+    assert "Color: Blanco" not in result["description"]
     assert "Texto comercial" not in result["description"]
     assert "Información adicional" not in result["description"]
     assert "Valoraciones" not in result["description"]
 
 
-def test_product_extractor_reads_technical_short_description_and_preserves_color():
+def test_product_extractor_reads_technical_short_description_without_color_line():
     html = """
     <html>
         <body>
@@ -477,7 +477,7 @@ def test_product_extractor_rejects_explicit_description_prefix_in_fallback():
     assert result["description"] == ""
 
 
-def test_product_extractor_collects_only_technical_detail_panel_blocks():
+def test_product_extractor_collects_technical_detail_without_color_line():
     html = """
     <html>
         <body>
@@ -498,6 +498,83 @@ def test_product_extractor_collects_only_technical_detail_panel_blocks():
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert result["description"] == (
-        "Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
+        "Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
         "Peso bruto por caja: 6.25 Kg. Certificado SGS"
     )
+
+def test_product_extractor_keeps_fb2107_fields_but_discards_marketing_description():
+    html = """
+    <html><body>
+      <h1>Set de Vino con Juego de Ajedrez</h1>
+      <p style="text-align:left">
+        • <strong>Descripción:</strong> Elegante y funcional set que combina
+        la pasión por el buen vino y el entretenimiento del ajedrez.<br>
+        • <strong>Contiene:</strong> Sacacorchos, tapón metálico para botella,
+        anillo antigoteo y cortagotas/cortacápsulas, más un juego completo
+        de piezas de ajedrez.<br>
+        • <strong>Presentación:</strong> Caja de cartón Blanca.<br>
+        • <strong>Medidas del Estuche:</strong> 15 cm x 17 cm x 4.5 cm.
+      </p>
+    </body></html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    detail = result["description"]
+
+    assert "Descripción:" not in detail
+    assert "Elegante y funcional" not in detail
+    assert "Contiene: Sacacorchos" in detail
+    assert "Presentación: Caja de cartón Blanca" in detail
+    assert "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm" in detail
+
+
+def test_product_extractor_reads_only_structured_fb2043_description_fields():
+    html = """
+    <html><body>
+      <div id="tab-description" class="woocommerce-Tabs-panel--description">
+        <p>Perfecta para quienes buscan una tinta versátil de gran calidad.</p>
+        <ul>
+          <li><strong>Calidad Superior:</strong> Formulada para resultados duraderos.</li>
+          <li><strong>Compatibilidad Confiable:</strong> Diseñada para impresoras compatibles.</li>
+          <li><strong>Procedencia Coreana:</strong> Elaborada en Corea.</li>
+          <li><strong>Facilidad de Uso:</strong> Su presentación facilita la recarga.</li>
+        </ul>
+        <p>Eleva tus proyectos con resultados increíbles.</p>
+      </div>
+      <div id="tab-additional_information">
+        Colores disponibles: Amarillo, Azul, Magenta y Negro.
+      </div>
+    </body></html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    detail = result["description"]
+
+    assert detail.split(" ␞ ") == [
+        "Calidad Superior: Formulada para resultados duraderos.",
+        "Compatibilidad Confiable: Diseñada para impresoras compatibles.",
+        "Procedencia Coreana: Elaborada en Corea.",
+        "Facilidad de Uso: Su presentación facilita la recarga.",
+    ]
+    assert "Perfecta para quienes" not in detail
+    assert "Eleva tus proyectos" not in detail
+    assert "Colores disponibles" not in detail
+
+
+def test_product_extractor_recognizes_herra03_technical_fields():
+    html = """
+    <html><body>
+      <ul class="text-content">
+        <li>Levantamiento de materiales: Ideal para retirar vinilo de una superficie.</li>
+        <li>Proyectos de manualidades: Útil en proyectos creativos.</li>
+        <li>Aplicaciones de vinilo: Levanta y posiciona vinilo adhesivo.</li>
+        <li>Trabajo en scrapbooking: Ayuda a manipular recortes y adhesivos.</li>
+      </ul>
+    </body></html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    detail = result["description"]
+
+    assert "Levantamiento de materiales:" in detail
+    assert "Proyectos de manualidades:" in detail
+    assert "Aplicaciones de vinilo:" in detail
+    assert "Trabajo en scrapbooking:" in detail
+

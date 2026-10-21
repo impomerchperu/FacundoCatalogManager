@@ -9,6 +9,7 @@ from models.scraping.detail_description_policy import (
     has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,
+    is_valid_detail_content,
     normalize_detail_text,
 )
 from scrapers.extractors.code_utils import extract_code_from_soup, normalize_code
@@ -286,18 +287,56 @@ class ProductExtractor:
 
     @classmethod
     def _is_excluded_detail_tab(cls, element) -> bool:
-        """Excluye secciones comerciales genéricas, información adicional y reseñas."""
+        """Exclude tab panels and tab-navigation containers from the summary."""
         node = element
+        tab_container_classes = {
+            "wc-tabs",
+            "wc-tabs-wrapper",
+            "woocommerce-tabs",
+            "tabs-content",
+            "tab-content",
+            "brxe-tabs-nested",
+            "brxe-tabs-content",
+        }
         while node is not None and getattr(node, "attrs", None) is not None:
             node_id = str(node.get("id", "") or "").strip().casefold()
-            if node_id in cls._EXCLUDED_DETAIL_TAB_IDS:
+            if node_id in cls._EXCLUDED_DETAIL_TAB_IDS or node_id.startswith(
+                ("tab-", "tab_")
+            ):
                 return True
+
+            role = str(node.get("role", "") or "").strip().casefold()
+            if role in {"tab", "tablist", "tabpanel"}:
+                return True
+
+            aria_labelled_by = str(node.get("aria-labelledby", "") or "").casefold()
+            if any(
+                token in aria_labelled_by
+                for token in (
+                    "description",
+                    "additional_information",
+                    "additional-information",
+                    "reviews",
+                    "valoraciones",
+                )
+            ):
+                return True
+
             classes = {
-                str(value).strip()
+                str(value).strip().casefold()
                 for value in (node.get("class", []) or [])
             }
-            if classes & cls._EXCLUDED_DETAIL_TAB_CLASSES:
+            if classes & (
+                cls._EXCLUDED_DETAIL_TAB_CLASSES | tab_container_classes
+            ):
                 return True
+            if any(
+                "tabs_panel-content" in class_name
+                or class_name.startswith("woocommerce-tabs-panel--")
+                for class_name in classes
+            ):
+                return True
+
             node = getattr(node, "parent", None)
         return False
 
@@ -333,38 +372,21 @@ class ProductExtractor:
         *,
         require_multiple_fields: bool,
     ) -> str:
-        raw_text = self._detail_text_from_element(element)
-        normalized_prefix = raw_text.lstrip(" \t\r\n␞•▪●‣◦")
-        description_prefix = re.match(
-            r"descripci[oó]n(?:\s+comercial)?\s*[:|\-]\s*",
-            normalized_prefix,
-            re.IGNORECASE,
-        )
-        if description_prefix is not None:
-            next_field = TECHNICAL_DETAIL_FIELD_PATTERN.search(
-                normalized_prefix,
-                description_prefix.end(),
-            )
-            structured_segment = (
-                normalized_prefix[description_prefix.end() : next_field.start()]
-                if next_field is not None
-                else ""
-            )
-            if not structured_segment or "␞" not in structured_segment:
-                # A plain marketing paragraph must not become Detail just because
-                # it mentions words like "Material" or "Dimensiones". Keep the
-                # following fields only when the source marks an HTML boundary.
-                return ""
-        text = normalize_detail_text(raw_text)
+        if self._is_excluded_detail_tab(element):
+            return ""
+
+        text = normalize_detail_text(self._detail_text_from_element(element))
         if (
             not text
             or self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text)
-            or not has_technical_detail(text)
-            or (
-                require_multiple_fields
-                and not has_multiple_technical_detail_fields(text)
-            )
-            or not is_complete_detail(text)
+            or not is_valid_detail_content(text)
+        ):
+            return ""
+
+        if (
+            require_multiple_fields
+            and not has_technical_detail(text)
+            and len(text) < 35
         ):
             return ""
         return text
@@ -418,19 +440,7 @@ class ProductExtractor:
 
     @classmethod
     def _is_excluded_semantic_source(cls, element) -> bool:
-        node = element
-        while node is not None and getattr(node, "attrs", None) is not None:
-            node_id = str(node.get("id", "") or "").strip().casefold()
-            if node_id in cls._SEMANTIC_EXCLUDED_TAB_IDS:
-                return True
-            classes = {
-                str(value).strip()
-                for value in (node.get("class", []) or [])
-            }
-            if classes & cls._SEMANTIC_EXCLUDED_TAB_CLASSES:
-                return True
-            node = getattr(node, "parent", None)
-        return False
+        return cls._is_excluded_detail_tab(element)
 
     def _extract_semantic_detail_fields(self, soup) -> str:
         """Turn explicit compatibility, contents, and tool-function facts into labels."""

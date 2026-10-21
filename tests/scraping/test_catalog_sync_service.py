@@ -842,7 +842,11 @@ def test_catalog_sync_keeps_technical_detail_when_incoming_text_is_commercial_pr
 
     stored = repository.get("P097")
     assert stored is not None
-    assert stored.description == existing.description
+    assert stored.description == (
+        "Material: Poliuretano. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+    assert "Color:" not in stored.description
     assert result.updated == 0
     assert result.unchanged == 1
 

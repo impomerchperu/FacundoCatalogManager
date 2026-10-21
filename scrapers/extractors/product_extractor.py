@@ -452,6 +452,77 @@ class ProductExtractor:
                     return combined
         return ""
 
+    @classmethod
+    def _is_excluded_semantic_source(cls, element) -> bool:
+        node = element
+        while node is not None and getattr(node, "attrs", None) is not None:
+            node_id = str(node.get("id", "") or "").strip().casefold()
+            if node_id in cls._SEMANTIC_EXCLUDED_TAB_IDS:
+                return True
+            classes = {
+                str(value).strip()
+                for value in (node.get("class", []) or [])
+            }
+            if classes & cls._SEMANTIC_EXCLUDED_TAB_CLASSES:
+                return True
+            node = getattr(node, "parent", None)
+        return False
+
+    def _extract_semantic_detail_fields(self, soup) -> str:
+        """Turn explicit compatibility, contents, and tool-function facts into labels."""
+        source_selectors = (
+            ".woocommerce-product-details__short-description",
+            ".x-tabs_panel-content",
+            "#tab-description",
+            ".woocommerce-Tabs-panel--description",
+        )
+        fields: list[str] = []
+        seen: set[str] = set()
+
+        for selector in source_selectors:
+            for element in soup.select(selector):
+                if self._is_excluded_semantic_source(element):
+                    continue
+                source_text = re.sub(
+                    r"\s+",
+                    " ",
+                    element.get_text(" ", strip=True),
+                )
+                if not source_text:
+                    continue
+
+                for label, pattern in self._SEMANTIC_DETAIL_RULES:
+                    for match in pattern.finditer(source_text):
+                        value = re.sub(r"\s+", " ", match.group(1)).strip(
+                            " \t\r\n.;,:"
+                        )
+                        if not value:
+                            continue
+                        if label == "Funciones adicionales":
+                            value = re.sub(
+                                r"^ofrece\s+",
+                                "",
+                                value,
+                                flags=re.IGNORECASE,
+                            )
+                        if not value:
+                            continue
+                        value = value[0].upper() + value[1:]
+                        field = f"{label}: {value}"
+                        identity = normalize_detail_text(field).casefold()
+                        if identity in seen:
+                            continue
+                        seen.add(identity)
+                        fields.append(field)
+
+        if not fields:
+            return ""
+
+        detail = normalize_detail_text(" ␞ ".join(fields))
+        if has_technical_detail(detail) and is_complete_detail(detail):
+            return detail
+        return ""
+
     def extract_detail_text(self, soup) -> str:
         """Extrae atributos etiquetados y elimina texto comercial y líneas de color."""
         for selector_group in self._DETAIL_SELECTORS_BY_PRIORITY:
@@ -481,7 +552,10 @@ class ProductExtractor:
                 if detail:
                     return detail
 
-        return self._extract_labeled_detail_blocks(soup)
+        labeled_details = self._extract_labeled_detail_blocks(soup)
+        if labeled_details:
+            return labeled_details
+        return self._extract_semantic_detail_fields(soup)
 
     def extract_description(self, soup):
         """Conserva la API previa, pero el campo almacenado es Detalle técnico."""

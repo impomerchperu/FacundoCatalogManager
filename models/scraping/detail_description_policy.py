@@ -16,11 +16,13 @@ _DESCRIPTION_FIELD_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _COLOR_FIELD_PATTERN = re.compile(
-    r"(?<!\w)(?:colores\s+disponibles|colores|color)"
-    r"(?!\s+de\s+(?:impresi[oó]n|tinta))"
-    r"(?:\s*[:|\-]\s*|\s+(?=\S))",
+    r"(?<!\\w)(?:(?:disponible\\s+en)\\s+)?"
+    r"(?:colores\\s+disponibles|colores|color)"
+    r"(?!\\s+de\\s+(?:impresi[oó]n|tinta))"
+    r"(?:\\s*[:|\\-]\\s*|\\s+(?=\\S))",
     re.IGNORECASE,
 )
+
 _COLOR_FIELD_PREFIX_PATTERN = re.compile(
     r"^\s*col(?:or|ores)(?:\s+disponibles?)?(?:\s*[:|\-]\s*|\s+)",
     re.IGNORECASE,
@@ -142,20 +144,30 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
 )
 
 
-def _remove_marked_fields(text: str, pattern: re.Pattern[str]) -> str:
+def _remove_marked_fields(
+    text: str,
+    pattern: re.Pattern[str],
+    *,
+    allow_embedded_label: bool = False,
+) -> str:
     """Remove excluded field values up to the next recognized Detail label."""
     for match in reversed(list(pattern.finditer(text))):
         prefix = text[: match.start()].rstrip()
         if prefix and prefix[-1] not in ".;|" + _DETAIL_BOUNDARY:
-            continue
+            # Flattened WooCommerce cards sometimes place "Color: ..." inline
+            # without a period. Only strip such embedded matches when the
+            # field label itself uses an explicit delimiter.
+            explicit_label = re.search(r"[:|\\-]\\s*$", match.group(0)) is not None
+            if not allow_embedded_label or not explicit_label:
+                continue
 
         next_field = _DETAIL_FIELD_LABEL_PATTERN.search(text, match.end())
-        before = text[: match.start()].rstrip(" \t;" + _DETAIL_BOUNDARY)
+        before = text[: match.start()].rstrip(" \\t;" + _DETAIL_BOUNDARY)
         if next_field is None:
             text = before
             continue
 
-        after = text[next_field.start() :].lstrip(" \t.;" + _DETAIL_BOUNDARY)
+        after = text[next_field.start() :].lstrip(" \\t.;" + _DETAIL_BOUNDARY)
         if before and after:
             separator = " " if before.endswith((".", ";")) else ". "
             text = before + separator + after
@@ -198,7 +210,11 @@ def normalize_detail_text(value: object) -> str:
     text = re.sub(r"[•▪●‣◦]+", _DETAIL_BOUNDARY, text)
     text = _WHITESPACE_PATTERN.sub(" ", text).strip()
     text = _remove_marked_fields(text, _DESCRIPTION_FIELD_PATTERN)
-    text = _remove_marked_fields(text, _COLOR_FIELD_PATTERN)
+    text = _remove_marked_fields(
+        text,
+        _COLOR_FIELD_PATTERN,
+        allow_embedded_label=True,
+    )
     text = text.replace(_DETAIL_BOUNDARY, " ")
     # Some catalog cards publish an empty final "Caja:" field after valid
     # specifications. Drop only that empty field so preceding attributes survive.

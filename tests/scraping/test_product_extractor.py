@@ -745,6 +745,7 @@ def test_product_extractor_does_not_promote_generic_marketing_copy_to_detail():
 
     assert result["description"] == ""
 
+
 def test_product_extractor_keeps_visible_summary_description_and_ignores_tabs():
     html = """
     <html><body>
@@ -780,4 +781,4 @@ def test_product_extractor_keeps_visible_summary_description_and_ignores_tabs():
     assert "dato de otra pestaña" not in detail
     assert "Información adicional" not in detail
     assert "Valoraciones" not in detail
-\n
+

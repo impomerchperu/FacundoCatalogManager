@@ -2517,10 +2517,6 @@ class ProductTable(QTableWidget):
         for match in matches:
             alias = match.group(1).casefold()
             if alias in {
-                "descripción comercial",
-                "descripcion comercial",
-                "descripción",
-                "descripcion",
                 "color",
                 "colores",
                 "colores disponibles",

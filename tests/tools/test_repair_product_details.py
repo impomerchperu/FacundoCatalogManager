@@ -13,7 +13,7 @@ from tools.repair_product_details import (
 PRODUCT_URL = (
     "https://stock.importacionesfacundo.com/producto/producto-prueba/"
 )
-VALID_DETAIL = "Color: Rojo. Material: ABS. Dimensiones: 10 x 5 cm."
+VALID_DETAIL = "Material: ABS. Dimensiones: 10 x 5 cm."
 
 
 class StaticBrowser:

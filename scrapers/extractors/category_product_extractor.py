@@ -141,18 +141,56 @@ class CategoryProductExtractor:
 
     @classmethod
     def _is_excluded_detail_block(cls, element) -> bool:
-        """Exclude text inherited from Descripción, información adicional o reseñas."""
+        """Exclude tab panels and their nested content from category summaries."""
         node = element
+        tab_container_classes = {
+            "wc-tabs",
+            "wc-tabs-wrapper",
+            "woocommerce-tabs",
+            "tabs-content",
+            "tab-content",
+            "brxe-tabs-nested",
+            "brxe-tabs-content",
+        }
         while node is not None and getattr(node, "attrs", None) is not None:
             node_id = str(node.get("id", "") or "").strip().casefold()
-            if node_id in cls._EXCLUDED_DETAIL_TAB_IDS:
+            if node_id in cls._EXCLUDED_DETAIL_TAB_IDS or node_id.startswith(
+                ("tab-", "tab_")
+            ):
                 return True
+
+            role = str(node.get("role", "") or "").strip().casefold()
+            if role in {"tab", "tablist", "tabpanel"}:
+                return True
+
+            aria_labelled_by = str(node.get("aria-labelledby", "") or "").casefold()
+            if any(
+                token in aria_labelled_by
+                for token in (
+                    "description",
+                    "additional_information",
+                    "additional-information",
+                    "reviews",
+                    "valoraciones",
+                )
+            ):
+                return True
+
             classes = {
-                str(value).strip()
+                str(value).strip().casefold()
                 for value in (node.get("class", []) or [])
             }
-            if classes & cls._EXCLUDED_DETAIL_TAB_CLASSES:
+            if classes & (
+                cls._EXCLUDED_DETAIL_TAB_CLASSES | tab_container_classes
+            ):
                 return True
+            if any(
+                "tabs_panel-content" in class_name
+                or class_name.startswith("woocommerce-tabs-panel--")
+                for class_name in classes
+            ):
+                return True
+
             node = getattr(node, "parent", None)
         return False
 

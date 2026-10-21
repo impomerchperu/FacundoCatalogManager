@@ -579,3 +579,22 @@ def test_product_extractor_recognizes_herra03_technical_fields():
     assert "Aplicaciones de vinilo:" in detail
     assert "Trabajo en scrapbooking:" in detail
 
+def test_product_extractor_combines_labeled_details_split_across_paragraphs():
+    html = """
+    <html><body>
+      <div class="brxe-div">
+        <p>Levantamiento de materiales: Ideal para retirar vinilo.</p>
+        <p>Proyectos de manualidades: Útil en proyectos creativos.</p>
+        <p>Aplicaciones de vinilo: Levanta y posiciona vinilo adhesivo.</p>
+        <p>Trabajo en scrapbooking: Ayuda a manipular recortes y adhesivos.</p>
+      </div>
+    </body></html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    detail = result["description"]
+
+    assert "Levantamiento de materiales:" in detail
+    assert "Proyectos de manualidades:" in detail
+    assert "Aplicaciones de vinilo:" in detail
+    assert "Trabajo en scrapbooking:" in detail
+

@@ -798,3 +798,71 @@ def test_product_extractor_ignores_role_based_description_tab_content():
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert result["description"] == ""
+
+
+
+def test_product_extractor_uses_herra03_visible_summary_not_description_tab():
+    html = """
+    <html><body>
+      <h1>Espátula</h1>
+      <p class="sku">HERRA-03</p>
+      <div class="woocommerce-product-details__short-description">
+        <ul>
+          <li>Levantamiento de materiales: Ideal para retirar vinilo y papel adhesivo sin dañar la superficie de corte.</li>
+          <li>Proyectos de manualidades: Útil en proyectos que requieren precisión al manipular materiales delicados.</li>
+          <li>Aplicaciones de vinilo: Levanta y posiciona vinilo de manera precisa en la superficie de aplicación.</li>
+          <li>Trabajo en scrapbooking: Ayuda a manipular pequeños recortes y adhesivos con facilidad.</li>
+        </ul>
+      </div>
+      <div id="tab-description" class="woocommerce-Tabs-panel--description">
+        <p>La espátula Silhouette es una herramienta esencial para trabajos creativos.</p>
+        <p>Material: Plástico resistente o metal. Longitud: Estándar.</p>
+      </div>
+      <div id="tab-additional_information">
+        <p>Colores: Blanco</p>
+      </div>
+    </body></html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    detail = result["description"]
+
+    assert result["code"] == "HERRA-03"
+    assert "Levantamiento de materiales:" in detail
+    assert "Proyectos de manualidades:" in detail
+    assert "Aplicaciones de vinilo:" in detail
+    assert "Trabajo en scrapbooking:" in detail
+    assert "Material: Plástico resistente" not in detail
+    assert "Longitud: Estándar" not in detail
+    assert "Colores:" not in detail
+
+
+def test_product_extractor_keeps_visible_thermal_tape_prose_not_tabs():
+    html = """
+    <html><body>
+      <h1>Cinta Térmica 1 x 33 cm</h1>
+      <p class="sku">FB-2009</p>
+      <div class="woocommerce-product-details__short-description">
+        Nuestra cinta térmica es un elemento esencial para tus proyectos de sublimación.
+        Esta cinta se adhiere de manera segura a tus diseños en papel de sublimación y
+        evita que se muevan durante el proceso de transferencia de calor. Su fuerte
+        adherencia y resistencia al calor garantizan que tus creaciones quedarán
+        perfectamente fijadas a tus productos.
+      </div>
+      <div id="tab-description" class="woocommerce-Tabs-panel--description">
+        <p>Descripción inferior no válida como origen de Detalle.</p>
+      </div>
+      <div id="tab-additional_information">
+        <p>Colores: Marrón</p>
+        <p>TAMAÑOS: 1X33 CM</p>
+      </div>
+    </body></html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    detail = result["description"]
+
+    assert result["code"] == "FB-2009"
+    assert "Nuestra cinta térmica" in detail
+    assert "resistencia al calor" in detail
+    assert "Descripción inferior" not in detail
+    assert "Colores:" not in detail
+    assert "TAMAÑOS:" not in detail

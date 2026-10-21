@@ -49,7 +49,6 @@ class ProductExtractor:
     # The dedicated technical panel remains the next-priority source.
     _DETAIL_SELECTORS_BY_PRIORITY: ClassVar[tuple[tuple[str, ...], ...]] = (
         (".woocommerce-product-details__short-description",),
-        (".x-tabs_panel-content",),
     )
     # The live product template also exposes the technical summary in .text-content.
     # It is a lower-priority fallback and must contain multiple technical fields.
@@ -71,10 +70,10 @@ class ProductExtractor:
         "woocommerce-Tabs-panel--description",
         "woocommerce-Tabs-panel--additional_information",
         "woocommerce-Tabs-panel--reviews",
+        "x-tabs_panel-content",
     })
     _NON_DETAIL_SECTION_PREFIX_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"^\s*(?:descripci[oó]n(?:\s+comercial)?|"
-        r"informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
+        r"^\s*(?:informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
         re.IGNORECASE,
     )
 
@@ -165,13 +164,16 @@ class ProductExtractor:
         ),
     )
     _SEMANTIC_EXCLUDED_TAB_IDS: ClassVar[frozenset[str]] = frozenset({
+        "tab-description",
         "tab-additional_information",
         "tab-additional-information",
         "tab-reviews",
     })
     _SEMANTIC_EXCLUDED_TAB_CLASSES: ClassVar[frozenset[str]] = frozenset({
+        "woocommerce-Tabs-panel--description",
         "woocommerce-Tabs-panel--additional_information",
         "woocommerce-Tabs-panel--reviews",
+        "x-tabs_panel-content",
     })
 
     def __init__(self):
@@ -368,51 +370,10 @@ class ProductExtractor:
             return ""
         return text
 
-    def _extract_structured_description_tab(self, soup) -> str:
-        """Acepta campos etiquetados de listas o párrafos, no prosa comercial."""
-        for selector in (
-            "#tab-description",
-            ".woocommerce-Tabs-panel--description",
-        ):
-            for tab in soup.select(selector):
-                blocks = []
-                if getattr(tab, "name", "") in {"p", "li"}:
-                    blocks.append(tab)
-                blocks.extend(tab.select("ul li, ol li, p"))
-                if not blocks:
-                    continue
-
-                details = []
-                seen = set()
-                for block in blocks:
-                    detail = self._validated_detail_candidate(
-                        block,
-                        require_multiple_fields=False,
-                    )
-                    if not detail:
-                        continue
-                    identity = normalize_detail_text(detail).casefold()
-                    if identity in seen:
-                        continue
-                    seen.add(identity)
-                    details.append(detail)
-
-                if not details:
-                    continue
-                text = normalize_detail_text(" ␞ ".join(details))
-                if (
-                    has_multiple_technical_detail_fields(text)
-                    and has_technical_detail(text)
-                    and is_complete_detail(text)
-                ):
-                    return text
-        return ""
-
     def _extract_labeled_detail_blocks(self, soup) -> str:
         """Combina campos etiquetados cuando el tema los separa entre bloques HTML."""
         container_selectors = (
             ".woocommerce-product-details__short-description",
-            ".x-tabs_panel-content",
             ".text-content",
             ".brxe-div",
             ".brxe-text",
@@ -476,9 +437,9 @@ class ProductExtractor:
         """Turn explicit compatibility, contents, and tool-function facts into labels."""
         source_selectors = (
             ".woocommerce-product-details__short-description",
-            ".x-tabs_panel-content",
-            "#tab-description",
-            ".woocommerce-Tabs-panel--description",
+            ".text-content",
+            ".brxe-text",
+            ".brxe-text-basic",
         )
         fields: list[str] = []
         seen: set[str] = set()
@@ -540,10 +501,6 @@ class ProductExtractor:
                     )
                     if detail:
                         return detail
-
-        structured_description = self._extract_structured_description_tab(soup)
-        if structured_description:
-            return structured_description
 
         for selector in self._DETAIL_FALLBACK_SELECTORS:
             for element in soup.select(selector):

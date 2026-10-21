@@ -393,3 +393,30 @@ def test_category_product_extractor_reads_stock_from_each_variant_node():
         "Azul": 330,
     }
     assert product.stock == 1356
+
+
+def test_category_product_extractor_keeps_summary_description_and_removes_color():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-2107</p>
+        <h2 class="brxe-f31760">Set de Vino con Juego de Ajedrez</h2>
+        <div class="text-content">
+            <p>
+                • <strong>Descripción:</strong> Elegante y funcional set que
+                combina la pasión por el buen vino y el entretenimiento del ajedrez.<br>
+                • <strong>Color:</strong> Blanco.<br>
+                • <strong>Contiene:</strong> Sacacorchos, tapón metálico para botella
+                y un juego completo de piezas de ajedrez.<br>
+                • <strong>Presentación:</strong> Caja de cartón Blanca.<br>
+                • <strong>Medidas del Estuche:</strong> 15 cm x 17 cm x 4.5 cm.
+            </p>
+        </div>
+    </article>
+    """
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.description.startswith("Descripción: Elegante y funcional set")
+    assert "Color:" not in product.description
+    assert "Contiene: Sacacorchos" in product.description
+    assert "Presentación: Caja de cartón Blanca" in product.description
+    assert "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm" in product.description

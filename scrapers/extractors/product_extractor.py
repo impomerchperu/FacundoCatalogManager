@@ -289,8 +289,6 @@ class ProductExtractor:
                 details = []
                 seen = set()
                 for block in blocks:
-                    if self._is_excluded_detail_tab(block):
-                        continue
                     detail = self._validated_detail_candidate(
                         block,
                         require_multiple_fields=False,

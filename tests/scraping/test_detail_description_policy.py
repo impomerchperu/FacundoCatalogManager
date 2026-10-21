@@ -164,3 +164,16 @@ def test_detail_policy_recognizes_laminator_and_printer_specific_labels():
     )
     assert has_multiple_technical_detail_fields(legacy_fields)
 
+    sublimation_fields = (
+        "Medida y capacidad: 10.5 cm x 8.5 cm – 444 ml. "
+        "Medida de impresión: 21 x 11 cm. "
+        "Calidad: AAA, alta calidad. Material: Cerámica blanca."
+    )
+    assert has_multiple_technical_detail_fields(sublimation_fields)
+    assert has_technical_detail(sublimation_fields)
+    assert is_complete_detail(sublimation_fields)
+
+    assert not is_complete_detail(
+        "Medida: A4. Paquete: 20 Unidades. Caja:"
+    )
+

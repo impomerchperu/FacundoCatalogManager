@@ -1371,6 +1371,63 @@ def test_detail_table_filters_legacy_description_and_color_fields():
     table.close()
 
 
+def test_detail_formatter_splits_fb2107_fb2043_and_herra03_fields():
+    cases = (
+        (
+            "FB-2107",
+            (
+                "Descripción: texto promocional. Color: Azul. "
+                "Contiene: Tapón y sacacorchos. Presentación: Caja. "
+                "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm."
+            ),
+            [
+                "Contiene: Tapón y sacacorchos",
+                "Presentación: Caja",
+                "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm",
+            ],
+        ),
+        (
+            "FB2043",
+            (
+                "Descripción: texto comercial. "
+                "Calidad Superior: Tinta de alta calidad. "
+                "Compatibilidad Confiable: Impresoras compatibles. "
+                "Procedencia Coreana: Elaborada en Corea. "
+                "Facilidad de Uso: Recarga sencilla."
+            ),
+            [
+                "Calidad Superior: Tinta de alta calidad",
+                "Compatibilidad Confiable: Impresoras compatibles",
+                "Procedencia Coreana: Elaborada en Corea",
+                "Facilidad de Uso: Recarga sencilla",
+            ],
+        ),
+        (
+            "HERRA-03",
+            (
+                "Levantamiento de materiales: Retira vinilo. "
+                "Proyectos de manualidades: Uso creativo. "
+                "Aplicaciones de vinilo: Posiciona adhesivos. "
+                "Trabajo en scrapbooking: Manipula recortes."
+            ),
+            [
+                "Levantamiento de materiales: Retira vinilo",
+                "Proyectos de manualidades: Uso creativo",
+                "Aplicaciones de vinilo: Posiciona adhesivos",
+                "Trabajo en scrapbooking: Manipula recortes",
+            ],
+        ),
+    )
+
+    for code, description, expected in cases:
+        product = Product(
+            code=code,
+            name="Producto de prueba",
+            description=description,
+        )
+        assert ProductTable._format_detail(product).splitlines() == expected
+
+
 def test_detail_removes_color_line_when_variants_are_visible_in_stock():
     _qapp()
     colors = [

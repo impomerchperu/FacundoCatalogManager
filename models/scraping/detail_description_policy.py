@@ -226,7 +226,7 @@ def normalize_detail_text(value: object) -> str:
     text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"[•▪●‣◦]+", _DETAIL_BOUNDARY, text)
     text = _WHITESPACE_PATTERN.sub(" ", text).strip()
-    text = re.sub(r"\\s+:", ":", text)
+    text = re.sub(r"\s+:", ":", text)
     text = _remove_marked_fields(
         text,
         _COLOR_FIELD_PATTERN,
@@ -261,11 +261,11 @@ def has_technical_detail(value: object) -> bool:
 
 _SUMMARY_NOISE_PATTERN = re.compile(
     r"^(?:"
-    r"precio\\b|sku\\b|stock\\b|categor[ií]as?\\b|"
-    r"colores?\\b|disponible\\b|añadir al carrito\\b|limpiar\\b|"
-    r"compartir\\b|informaci[oó]n adicional\\b|reseñas?\\b|"
-    r"valoraciones\\b|tamaños?\\b|"
-    r"este producto no está disponible\\b|sin stock\\b|agotado\\b"
+    r"precio\b|sku\b|stock\b|categor[ií]as?\b|"
+    r"colores?\b|disponible\b|añadir al carrito\b|limpiar\b|"
+    r"compartir\b|informaci[oó]n adicional\b|reseñas?\b|"
+    r"valoraciones\b|tamaños?\b|"
+    r"este producto no está disponible\b|sin stock\b|agotado\b"
     r")",
     re.IGNORECASE,
 )

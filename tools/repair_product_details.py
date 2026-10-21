@@ -57,7 +57,7 @@ def _normalize_code(value: object) -> str:
 
 def _code_identity(value: object) -> str:
     """Compare SKU forms such as FB2043 and FB-2043 without dropping identity."""
-    return re.sub(r"[\\s-]+", "", _normalize_code(value))
+    return re.sub(r"[\s-]+", "", _normalize_code(value))
 
 
 def _is_allowed_source_url(value: object) -> bool:

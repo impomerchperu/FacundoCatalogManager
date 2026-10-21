@@ -6,15 +6,19 @@ from services.scraping.scraping_session import ScrapingSession
 class FakeDB:
     def __init__(self):
         self.operations = []
+        self.transaction_active = False
 
     def begin(self):
         self.operations.append("begin")
+        self.transaction_active = True
 
     def commit(self):
         self.operations.append("commit")
+        self.transaction_active = False
 
     def rollback(self):
         self.operations.append("rollback")
+        self.transaction_active = False
 
 
 class FakeHistoryRepository:
@@ -116,26 +120,8 @@ def test_incomplete_coverage_never_persists_products_to_catalog_repository():
     assert db.operations == ["begin", "rollback", "begin", "commit"]
 
 
-
 def test_scraping_session_flushes_source_cache_after_catalog_commit():
     db = FakeDB()
-    db.transaction_active = False
-
-    def begin():
-        db.operations.append("begin")
-        db.transaction_active = True
-
-    def commit():
-        db.operations.append("commit")
-        db.transaction_active = False
-
-    def rollback():
-        db.operations.append("rollback")
-        db.transaction_active = False
-
-    db.begin = begin
-    db.commit = commit
-    db.rollback = rollback
     flush_observations = []
 
     browser = SimpleNamespace(

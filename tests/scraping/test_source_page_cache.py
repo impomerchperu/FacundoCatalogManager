@@ -132,7 +132,6 @@ def test_only_product_detail_urls_are_cacheable():
     )
 
 
-
 def test_deferred_cache_writes_do_not_conflict_with_catalog_transaction(tmp_path):
     import sqlite3
 

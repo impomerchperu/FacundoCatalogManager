@@ -529,7 +529,7 @@ def test_product_extractor_keeps_fb2107_fields_but_discards_marketing_descriptio
     assert "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm" in detail
 
 
-def test_product_extractor_reads_only_structured_fb2043_description_fields():
+def test_product_extractor_ignores_structured_fields_inside_description_tab():
     html = """
     <html><body>
       <div id="tab-description" class="woocommerce-Tabs-panel--description">
@@ -540,26 +540,17 @@ def test_product_extractor_reads_only_structured_fb2043_description_fields():
           <li><strong>Procedencia Coreana:</strong> Elaborada en Corea.</li>
           <li><strong>Facilidad de Uso:</strong> Su presentación facilita la recarga.</li>
         </ul>
-        <p>Eleva tus proyectos con resultados increíbles.</p>
       </div>
       <div id="tab-additional_information">
         Colores disponibles: Amarillo, Azul, Magenta y Negro.
       </div>
+      <div id="tab-reviews">Valoraciones que no deben usarse como Detalle.</div>
     </body></html>
     """
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
-    detail = result["description"]
 
-    for field in (
-        "Calidad Superior: Formulada para resultados duraderos.",
-        "Compatibilidad Confiable: Diseñada para impresoras compatibles.",
-        "Procedencia Coreana: Elaborada en Corea.",
-        "Facilidad de Uso: Su presentación facilita la recarga.",
-    ):
-        assert field in detail
-    assert "Perfecta para quienes" not in detail
-    assert "Eleva tus proyectos" not in detail
-    assert "Colores disponibles" not in detail
+    assert result["description"] == ""
+
 
 
 def test_product_extractor_recognizes_herra03_technical_fields():
@@ -680,110 +671,67 @@ def test_product_extractor_recognizes_laminator_and_printer_fields():
             assert expected_field in detail
 
 
-def test_product_extractor_structures_explicit_software_and_tool_capabilities():
+def test_product_extractor_ignores_semantic_copy_inside_description_tab():
     cases = (
         (
             "PPMPLUS-CIT",
             """
             <div id="tab-description" class="woocommerce-Tabs-panel--description">
               <p>Imprime fotos de alta calidad desde cualquier dispositivo las 24 horas.</p>
-              <p>Accede a un catálogo online con diseños y campañas estacionales.</p>
               <p>Incluye 1 año de suscripción para 10,000 copias.</p>
               <p>Compatible con impresoras CY-02, CX-02 y CX-02W.</p>
             </div>
             """,
-            (
-                "Función: Imprime fotos de alta calidad desde cualquier dispositivo las 24 horas",
-                "Incluye: 1 año de suscripción para 10,000 copias",
-                "Compatibilidad: Impresoras CY-02, CX-02 y CX-02W",
-            ),
-            ("catálogo online", "campañas estacionales"),
         ),
         (
             "IEV-SFE-CIT",
             """
             <div id="tab-description" class="woocommerce-Tabs-panel--description">
-              <p>Impresión rápida y sencilla con acceso desde cualquier navegador, sin instalación adicional.
-              Incluye NUC dedicado, router WiFi y software especializado (iEvents y Fotomatón).
-              Compatible con impresoras Citizen CX-02 / CY-02 / CZ-01 / CX-02W.
-              Exportación rápida, carrusel personalizable y funcionamiento sin conexión.</p>
+              <p>Incluye NUC dedicado, router WiFi y software especializado.</p>
+              <p>Compatible con impresoras Citizen CX-02 / CY-02 / CZ-01.</p>
             </div>
             """,
-            (
-                "Acceso: Cualquier navegador, sin instalación adicional",
-                "Incluye: NUC dedicado, router WiFi y software especializado (iEvents y Fotomatón)",
-                "Compatibilidad: Impresoras Citizen CX-02 / CY-02 / CZ-01 / CX-02W",
-                "Funciones adicionales: Exportación rápida, carrusel personalizable y funcionamiento sin conexión",
-            ),
-            ("ideal para cualquier tipo de evento",),
         ),
         (
             "IKIOSK-ESTANDAR",
             """
             <div id="tab-description" class="woocommerce-Tabs-panel--description">
-              <p>Imprime fotos y regalos personalizados con facilidad mediante Wifi, Airprint, WhatsApp, Bluetooth o cables.
-              Compatible con impresoras CX-02, CX-02W, y CY-02, ofrece múltiples formatos de impresión y personalización.</p>
+              <p>Imprime fotos y regalos personalizados con facilidad.</p>
+              <p>Compatible con impresoras CX-02, CX-02W y CY-02.</p>
             </div>
             """,
-            (
-                "Función: Imprime fotos y regalos personalizados con facilidad",
-                "Conectividad: Wifi, Airprint, WhatsApp, Bluetooth o cables",
-                "Compatibilidad: Impresoras CX-02, CX-02W, y CY-02",
-                "Funciones adicionales: Múltiples formatos de impresión y personalización",
-            ),
-            (),
         ),
         (
             "CUCH-02",
             """
             <div id="tab-description" class="woocommerce-Tabs-panel--description">
-              <p>La cuchilla de corte profundo es una herramienta diseñada para su uso con máquinas de corte,
-              como las de la marca Cricut, que te permite cortar materiales más gruesos y resistentes.</p>
+              <p>Herramienta para cortar materiales más gruesos y resistentes.</p>
             </div>
             """,
-            (
-                "Compatibilidad: Máquinas de corte, como las de la marca Cricut",
-                "Uso recomendado: Permite cortar materiales más gruesos y resistentes",
-            ),
-            (),
         ),
         (
             "CUCH-06",
             """
             <div id="tab-description" class="woocommerce-Tabs-panel--description">
-              <p>Esta cuchilla se distingue de las cuchillas de corte normales en que, en lugar de cortar
-              a través de un material, crea perforaciones o piquetes en el material.</p>
+              <p>Esta cuchilla crea perforaciones o piquetes en el material.</p>
             </div>
             """,
-            ("Función: Crea perforaciones o piquetes en el material",),
-            (),
         ),
         (
             "CUCH-10",
             """
             <div id="tab-description" class="woocommerce-Tabs-panel--description">
-              <p>Esta cuchilla es especialmente útil para proyectos que requieren cortes profundos en materiales
-              como cartón, cuero, fieltro, espuma, vinilo grueso y otros materiales similares.</p>
+              <p>Útil para cortes profundos en cartón, cuero, fieltro y vinilo.</p>
             </div>
             """,
-            (
-                "Uso recomendado: Proyectos que requieren cortes profundos en materiales como cartón, cuero, fieltro, espuma, vinilo grueso y otros materiales similares",
-                "Materiales: Cartón, cuero, fieltro, espuma, vinilo grueso y otros materiales similares",
-            ),
-            (),
         ),
     )
 
     extractor = ProductExtractor()
-    for code, html, expected_fields, forbidden_text in cases:
-        soup = BeautifulSoup(html, "lxml")
-        result = extractor.extract(soup)
-        detail = result["description"]
-        assert detail, code
-        for field in expected_fields:
-            assert field in detail, f"{code}: {field}"
-        for value in forbidden_text:
-            assert value not in detail, f"{code}: {value}"
+    for code, html in cases:
+        result = extractor.extract(BeautifulSoup(html, "lxml"))
+        assert result["description"] == "", code
+
 
 
 def test_product_extractor_does_not_promote_generic_marketing_copy_to_detail():
@@ -797,3 +745,39 @@ def test_product_extractor_does_not_promote_generic_marketing_copy_to_detail():
 
     assert result["description"] == ""
 
+def test_product_extractor_keeps_visible_summary_description_and_ignores_tabs():
+    html = """
+    <html><body>
+      <div class="brxe-div">
+        <p style="text-align: left">
+          • <strong>Descripción:</strong> Elegante y funcional set que combina
+          la pasión por el buen vino y el entretenimiento del ajedrez.<br>
+          • <strong>Color:</strong> Blanco.<br>
+          • <strong>Contiene:</strong> Sacacorchos, tapón metálico para botella,
+          anillo antigoteo y cortagotas más un juego completo de piezas de ajedrez.<br>
+          • <strong>Presentación:</strong> Caja de cartón Blanca.<br>
+          • <strong>Medidas del Estuche:</strong> 15 cm x 17 cm x 4.5 cm.
+        </p>
+      </div>
+      <div id="tab-description" class="woocommerce-Tabs-panel--description">
+        Descripción comercial de la pestaña que no debe añadirse.
+        <p>Material: dato de otra pestaña que no debe mezclarse.</p>
+      </div>
+      <div id="tab-additional_information">
+        Información adicional: dato que debe ignorarse.
+      </div>
+      <div id="tab-reviews">Valoraciones: reseñas que deben ignorarse.</div>
+    </body></html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    detail = result["description"]
+
+    assert detail.startswith("Descripción: Elegante y funcional set")
+    assert "Contiene: Sacacorchos" in detail
+    assert "Presentación: Caja de cartón Blanca." in detail
+    assert "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm." in detail
+    assert "Color: Blanco" not in detail
+    assert "dato de otra pestaña" not in detail
+    assert "Información adicional" not in detail
+    assert "Valoraciones" not in detail
+\n

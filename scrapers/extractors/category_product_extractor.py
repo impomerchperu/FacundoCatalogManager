@@ -155,30 +155,44 @@ class CategoryProductExtractor:
             node = getattr(node, "parent", None)
         return False
 
-    def _description(self, soup):
+    @classmethod
+    def _description_candidate(cls, element):
+        if cls._is_excluded_detail_block(element):
+            return ""
+
+        text = normalize_detail_text(
+            re.sub(r"\\s+", " ", element.get_text(" ", strip=True))
+        )
+        if (
+            not text
+            or cls._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text)
+            or not has_technical_detail(text)
+            or not is_complete_detail(text)
+        ):
+            return ""
+
+        field_boundary = cls._NON_DETAIL_FIELD_PATTERN.search(text)
+        if field_boundary is not None:
+            text = text[: field_boundary.start()].strip(" .;:-")
+        return text
+
+    @classmethod
+    def _collect_description_candidates(cls, elements):
         candidates = []
         seen: set[str] = set()
-        for element in soup.select(".text-content"):
-            if self._is_excluded_detail_block(element):
+        for element in elements:
+            text = cls._description_candidate(element)
+            identity = text.casefold()
+            if not text or identity in seen:
                 continue
-            text = normalize_detail_text(
-                re.sub(r"\s+", " ", element.get_text(" ", strip=True))
-            )
-            if (
-                not text
-                or self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text)
-                or not has_technical_detail(text)
-                or not is_complete_detail(text)
-            ):
-                continue
-            field_boundary = self._NON_DETAIL_FIELD_PATTERN.search(text)
-            if field_boundary is not None:
-                text = text[: field_boundary.start()].strip(" .;:-")
-            if not text or text.casefold() in seen:
-                continue
-            seen.add(text.casefold())
+            seen.add(identity)
             candidates.append(text)
+        return candidates
 
+    def _description(self, soup):
+        candidates = self._collect_description_candidates(
+            soup.select(".text-content")
+        )
         if not candidates:
             fallback_selectors = (
                 ".brxe-text",
@@ -186,38 +200,17 @@ class CategoryProductExtractor:
                 "ul li",
                 "ol li",
             )
-            for element in soup.select(", ".join(fallback_selectors)):
-                if self._is_excluded_detail_block(element):
-                    continue
-                text = normalize_detail_text(
-                    re.sub(r"\s+", " ", element.get_text(" ", strip=True))
-                )
-                if (
-                    not text
-                    or self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text)
-                    or not has_technical_detail(text)
-                    or not is_complete_detail(text)
-                ):
-                    continue
-                field_boundary = self._NON_DETAIL_FIELD_PATTERN.search(text)
-                if field_boundary is not None:
-                    text = text[: field_boundary.start()].strip(" .;:-")
-                if not text or text.casefold() in seen:
-                    continue
-                seen.add(text.casefold())
-                candidates.append(text)
+            candidates = self._collect_description_candidates(
+                soup.select(", ".join(fallback_selectors))
+            )
 
-        # Variant-color lines are removed by normalize_detail_text; only
-        # candidates containing recognized technical fields are retained.
-        if not any(has_technical_detail(candidate) for candidate in candidates):
+        # Variant-color lines are excluded by normalize_detail_text. Keep only
+        # candidates containing recognized technical fields.
+        if not candidates or not any(
+            has_technical_detail(candidate) for candidate in candidates
+        ):
             return ""
-        if len(candidates) == 1:
-            return candidates[0]
-        prefix = ". ".join(
-            candidate.rstrip(" .;")
-            for candidate in candidates[:-1]
-        )
-        return f"{prefix}. {candidates[-1].lstrip()}"
+        return ". ".join(candidate.rstrip(" .;") for candidate in candidates)
 
     def _stock(self, soup):
         return sum(self._stock_values(soup))

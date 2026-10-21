@@ -52,11 +52,11 @@ class ProductExtractor:
     # The live product template also exposes the technical summary in .text-content.
     # It is a lower-priority fallback and must contain multiple technical fields.
     _DETAIL_FALLBACK_SELECTORS: ClassVar[tuple[str, ...]] = (
-        "ul",
-        "ol",
         ".text-content",
         ".brxe-text",
         ".brxe-text-basic",
+        "ul",
+        "ol",
         "p",
     )
     _EXCLUDED_DETAIL_TAB_IDS: ClassVar[frozenset[str]] = frozenset({

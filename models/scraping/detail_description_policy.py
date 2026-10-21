@@ -173,10 +173,19 @@ def _remove_marked_fields(
         )
         before = text[: match.start()].rstrip(" \t;" + _DETAIL_BOUNDARY)
         if next_field is None:
-            text = before
-            continue
+            # A color field can be followed by ordinary summary prose rather
+            # than another labeled field. Remove only the color sentence.
+            separator_match = _COLOR_SEPARATOR_PATTERN.search(text, match.end())
+            after = (
+                text[separator_match.end() :].lstrip(" \t.;" + _DETAIL_BOUNDARY)
+                if separator_match is not None
+                else ""
+            )
+        else:
+            after = text[next_field.start() :].lstrip(
+                " \t.;" + _DETAIL_BOUNDARY
+            )
 
-        after = text[next_field.start() :].lstrip(" \t.;" + _DETAIL_BOUNDARY)
         if before and after:
             separator = " " if before.endswith((".", ";")) else ". "
             text = before + separator + after

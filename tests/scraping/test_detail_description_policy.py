@@ -179,3 +179,18 @@ def test_detail_policy_recognizes_laminator_and_printer_specific_labels():
     )
     assert is_complete_detail(incomplete_box)
 
+def test_detail_policy_removes_inline_color_labels_from_flattened_card_text():
+    assert normalize_detail_text(
+        "Material: Poliuretano Color: Blanco. Presentación: Caja."
+    ) == "Material: Poliuretano. Presentación: Caja."
+
+    assert normalize_detail_text(
+        "Material: PVC. Disponible en colores: Rojo, Azul. Presentación: Caja."
+    ) == "Material: PVC. Presentación: Caja."
+
+
+def test_detail_policy_preserves_color_of_printing_attribute():
+    source = "Color de impresión: Una cara. Material: PVC."
+
+    assert normalize_detail_text(source) == source
+

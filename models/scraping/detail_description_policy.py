@@ -1,13 +1,26 @@
 """Shared policy for the catalog's Detail field.
 
-Detail is extracted from the category card and, when truncated, repaired only
-from the matching technical-detail block on the individual product page.
+Detail contains labeled product features, not the short marketing paragraph or
+standalone available-colors line. Category-card summaries and product-page
+fallbacks use the same cleanup and completeness rules.
 """
+
 from __future__ import annotations
 
 import re
 
 _WHITESPACE_PATTERN = re.compile(r"\s+")
+_DETAIL_BOUNDARY = "\u241e"
+_DESCRIPTION_FIELD_PATTERN = re.compile(
+    r"(?<!\w)descripci[oó]n(?:\s+comercial)?\s*[:|\-]\s*",
+    re.IGNORECASE,
+)
+_COLOR_FIELD_PATTERN = re.compile(
+    r"(?<!\w)(?:colores\s+disponibles|colores|color)"
+    r"(?!\s+de\s+(?:impresi[oó]n|tinta))"
+    r"(?:\s*[:|\-]\s*|\s+(?=\S))",
+    re.IGNORECASE,
+)
 _COLOR_FIELD_PREFIX_PATTERN = re.compile(
     r"^\s*col(?:or|ores)(?:\s+disponibles?)?(?:\s*[:|\-]\s*|\s+)",
     re.IGNORECASE,
@@ -15,6 +28,26 @@ _COLOR_FIELD_PREFIX_PATTERN = re.compile(
 _COLOR_SEPARATOR_PATTERN = re.compile(r"[.;]\s*")
 _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"\b(?:"
+    r"medidas\s+del\s+estuche|"
+    r"levantamiento\s+de\s+materiales|"
+    r"proyectos\s+de\s+manualidades|"
+    r"aplicaciones\s+de\s+vinilo|"
+    r"trabajo\s+en\s+scrapbooking|"
+    r"calidad\s+superior|"
+    r"compatibilidad\s+confiable|"
+    r"procedencia\s+coreana|"
+    r"facilidad\s+de\s+uso|"
+    r"espesor\s+m[aá]ximo\s+del\s+material|"
+    r"[aá]rea\s+m[aá]xima\s+de\s+corte|"
+    r"[aá]rea\s+de\s+corte|"
+    r"ancho\s+de\s+corte|"
+    r"longitud\s+de\s+corte|"
+    r"fuerza\s+de\s+corte|"
+    r"velocidad\s+de\s+corte|"
+    r"sistema\s+de\s+motor|"
+    r"tipo\s+de\s+luz|"
+    r"espacio\s+libre|"
+    r"interfaz|"
     r"funciones\s+adicionales|"
     r"rango\s+de\s+espesor(?:\s+polaseal)?|"
     r"tiempo\s+de\s+calentamiento|"
@@ -25,7 +58,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"empaque\s+individual|"
     r"cantidad\s+por\s+caja|"
     r"cubicaje(?:\s+por\s+caja)?|"
-    r"presentaci[oó]n|"
+    r"presentaci[oó]n(?:\s+del\s+producto)?|"
     r"gramaje|"
     r"capacidad|"
     r"(?:superficie|[aá]rea)\s+de\s+impresi[oó]n|"
@@ -44,10 +77,11 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"tama[ñn]o(?:\s+de\s+impresi[oó]n)?|"
     r"ancho|largo|alto|altura|peso|"
     r"modelo|tipo|formato|marca|"
-    r"compatibilidad|contenido|incluye|empaque|"
+    r"compatibilidad|contenido|incluye|contiene|empaque|"
     r"alimentaci[oó]n|tiempo|espesor|acabado|"
     r"aplicaci[oó]n|resistencia|"
     r"unidades\s+por\s+caja|cantidad|unidad|"
+    r"caracter[ií]sticas|"
     r"propiedades|"
     r"micras"
     r")\s*:",
@@ -58,12 +92,10 @@ _TECHNICAL_DETAIL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _NON_TECHNICAL_SECTION_PREFIX_PATTERN = re.compile(
-    r"^\s*(?:descripci[oó]n(?:\s+comercial)?|"
-    r"informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
+    r"^\s*(?:informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
     re.IGNORECASE,
 )
-# Detect both visible ellipses and common product-detail labels cut off at
-# the end of a category-card excerpt (e.g. "Peso brut" or "Dimens").
+# Detect visible ellipses and field labels cut off at the end of a card summary.
 _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
     r"\.{2,}|…|"
     r"(?<!\w)(?:"
@@ -82,8 +114,30 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
 )
 
 
+def _remove_marked_fields(text: str, pattern: re.Pattern[str]) -> str:
+    """Remove excluded field values up to the next recognized Detail label."""
+    for match in reversed(list(pattern.finditer(text))):
+        prefix = text[: match.start()].rstrip()
+        if prefix and prefix[-1] not in ".;|" + _DETAIL_BOUNDARY:
+            continue
+
+        next_field = _DETAIL_FIELD_LABEL_PATTERN.search(text, match.end())
+        before = text[: match.start()].rstrip(" \t;" + _DETAIL_BOUNDARY)
+        if next_field is None:
+            text = before
+            continue
+
+        after = text[next_field.start() :].lstrip(" \t.;" + _DETAIL_BOUNDARY)
+        if before and after:
+            separator = " " if before.endswith((".", ";")) else ". "
+            text = before + separator + after
+        else:
+            text = before or after
+    return text
+
+
 def strip_leading_color_field(value: object) -> str:
-    """Remove a leading color label only when a caller explicitly requests it."""
+    """Remove a leading color field from a legacy Detail value."""
     text = _WHITESPACE_PATTERN.sub(
         " ",
         re.sub(r"[•▪●‣◦]", " ", str(value or "")),
@@ -111,13 +165,18 @@ def strip_leading_color_field(value: object) -> str:
 
 
 def normalize_detail_text(value: object) -> str:
-    """Normalize whitespace without dropping technical color attributes."""
-    text = re.sub(r"[•▪●‣◦]", " ", str(value or ""))
+    """Normalize Detail while excluding marketing Description and color fields."""
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"[•▪●‣◦]+", _DETAIL_BOUNDARY, text)
+    text = _WHITESPACE_PATTERN.sub(" ", text).strip()
+    text = _remove_marked_fields(text, _DESCRIPTION_FIELD_PATTERN)
+    text = _remove_marked_fields(text, _COLOR_FIELD_PATTERN)
+    text = text.replace(_DETAIL_BOUNDARY, " ")
     return _WHITESPACE_PATTERN.sub(" ", text).strip()
 
 
 def is_complete_detail(value: object) -> bool:
-    """Whether Detail is technical, usable as-is, and free of cut-off fields."""
+    """Whether Detail has recognized fields and contains no clipped ending."""
     text = normalize_detail_text(value)
     if (
         not text
@@ -129,14 +188,14 @@ def is_complete_detail(value: object) -> bool:
 
 
 def has_technical_detail(value: object) -> bool:
-    """Identify technical attributes, not text explicitly labeled as another section."""
+    """Identify labeled product features, not commercial copy."""
     text = normalize_detail_text(value)
-    if _NON_TECHNICAL_SECTION_PREFIX_PATTERN.match(text):
+    if not text or _NON_TECHNICAL_SECTION_PREFIX_PATTERN.match(text):
         return False
     return _TECHNICAL_DETAIL_PATTERN.search(text) is not None
 
 
 def has_multiple_technical_detail_fields(value: object) -> bool:
-    """Require at least two technical labels for lower-priority text fallbacks."""
+    """Require at least two labeled features for lower-priority fallbacks."""
     text = normalize_detail_text(value)
     return len(_DETAIL_FIELD_LABEL_PATTERN.findall(text)) >= 2

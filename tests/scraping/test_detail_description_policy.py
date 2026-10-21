@@ -173,7 +173,9 @@ def test_detail_policy_recognizes_laminator_and_printer_specific_labels():
     assert has_technical_detail(sublimation_fields)
     assert is_complete_detail(sublimation_fields)
 
-    assert not is_complete_detail(
-        "Medida: A4. Paquete: 20 Unidades. Caja:"
+    incomplete_box = "Medida: A4. Paquete: 20 Unidades. Caja:"
+    assert normalize_detail_text(incomplete_box) == (
+        "Medida: A4. Paquete: 20 Unidades"
     )
+    assert is_complete_detail(incomplete_box)
 

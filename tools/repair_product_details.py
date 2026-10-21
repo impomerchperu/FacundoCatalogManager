@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sqlite3
 import sys
 from dataclasses import asdict, dataclass
@@ -28,6 +29,7 @@ from models.product import Product
 from models.scraping.detail_description_policy import (
     has_technical_detail,
     is_complete_detail,
+    is_valid_detail_content,
     normalize_detail_text,
 )
 from repositories.product_repository import ProductRepository
@@ -51,6 +53,11 @@ class DetailRepairPlan:
 
 def _normalize_code(value: object) -> str:
     return str(value or "").strip().upper()
+
+
+def _code_identity(value: object) -> str:
+    """Compare SKU forms such as FB2043 and FB-2043 without dropping identity."""
+    return re.sub(r"[^A-Z0-9]", "", _normalize_code(value))
 
 
 def _is_allowed_source_url(value: object) -> bool:
@@ -92,11 +99,13 @@ def _detail_issue(value: object) -> str:
     description = normalize_detail_text(value)
     if not description:
         return "detalle_vacío"
-    if not has_technical_detail(description):
-        return "sin_atributos_técnicos_reconocibles"
-    if not is_complete_detail(description):
-        return "detalle_incompleto_o_truncado"
-    return ""
+    if has_technical_detail(description):
+        if not is_complete_detail(description):
+            return "detalle_incompleto_o_truncado"
+        return ""
+    if is_valid_detail_content(description):
+        return ""
+    return "sin_detalle_visible_válido"
 
 
 def audit_incomplete_details(
@@ -140,21 +149,51 @@ def plan_product_detail_repairs(
     """Fetch only explicitly selected product pages and build a non-mutating plan."""
     product_extractor = extractor or ProductExtractor()
     plans: list[DetailRepairPlan] = []
-    normalized_codes = list(dict.fromkeys(_normalize_code(code) for code in codes))
-    normalized_codes = [code for code in normalized_codes if code]
+    normalized_codes = []
+    seen_code_identities: set[str] = set()
+    for raw_code in codes:
+        code = _normalize_code(raw_code)
+        identity = _code_identity(code)
+        if code and identity and identity not in seen_code_identities:
+            normalized_codes.append(code)
+            seen_code_identities.add(identity)
 
-    for code in normalized_codes:
-        product = repository.get_by_code(code)
+    for requested_code in normalized_codes:
+        product = repository.get_by_code(requested_code)
+        if product is None:
+            identity = _code_identity(requested_code)
+            equivalent = [
+                candidate
+                for candidate in repository.get_all()
+                if _code_identity(candidate.code) == identity
+            ]
+            if len(equivalent) == 1:
+                product = equivalent[0]
+            elif len(equivalent) > 1:
+                plans.append(
+                    DetailRepairPlan(
+                        code=requested_code,
+                        status="skip_ambiguous_product_code",
+                        reason=(
+                            "El código sin separadores coincide con varios "
+                            "productos del catálogo; no se modificó ninguno."
+                        ),
+                    )
+                )
+                continue
+
         if product is None:
             plans.append(
                 DetailRepairPlan(
-                    code=code,
+                    code=requested_code,
                     status="skip_product_not_found",
                     reason="El código no existe en el catálogo local.",
                 )
             )
             continue
 
+        # Use the canonical catalog SKU for source URL lookup and page validation.
+        code = _normalize_code(product.code)
         url = _source_product_url(db, code)
         if not url:
             plans.append(

@@ -288,7 +288,7 @@ class ProductExtractor:
     def _is_excluded_detail_tab(cls, element) -> bool:
         """Exclude tab panels and tab-navigation containers from the summary."""
         node = element
-        tab_container_classes = {
+        excluded_widget_classes = {
             "wc-tabs",
             "wc-tabs-wrapper",
             "woocommerce-tabs",
@@ -296,6 +296,21 @@ class ProductExtractor:
             "tab-content",
             "brxe-tabs-nested",
             "brxe-tabs-content",
+            "variations",
+            "variations_form",
+            "variaciones-producto",
+            "variable-items-wrapper",
+            "variable-item",
+            "woocommerce-variation",
+            "content-precio",
+            "product-price",
+            "price",
+            "stock",
+            "product_meta",
+            "woocommerce-product-meta",
+            "woocommerce-product-gallery",
+            "woocommerce-breadcrumb",
+            "cart",
         }
         while node is not None and getattr(node, "attrs", None) is not None:
             node_id = str(node.get("id", "") or "").strip().casefold()
@@ -307,6 +322,14 @@ class ProductExtractor:
             role = str(node.get("role", "") or "").strip().casefold()
             if role in {"tab", "tablist", "tabpanel"}:
                 return True
+
+            if str(getattr(node, "name", "") or "").casefold() == "form":
+                form_classes = {
+                    str(value).strip().casefold()
+                    for value in (node.get("class", []) or [])
+                }
+                if form_classes & {"variations_form", "cart"}:
+                    return True
 
             aria_labelled_by = str(node.get("aria-labelledby", "") or "").casefold()
             if any(
@@ -326,7 +349,7 @@ class ProductExtractor:
                 for value in (node.get("class", []) or [])
             }
             if classes & (
-                cls._EXCLUDED_DETAIL_TAB_CLASSES | tab_container_classes
+                cls._EXCLUDED_DETAIL_TAB_CLASSES | excluded_widget_classes
             ):
                 return True
             if any(

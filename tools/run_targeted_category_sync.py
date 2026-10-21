@@ -19,9 +19,10 @@ TARGET_CATEGORIES = (
     "Kits de Herramientas",
     "Lapiceros Ecologicos",
     "Estuches",
+    "Enmicadoras / Laminadoras",
 )
 MAX_EXPECTED_PER_CATEGORY = 10
-MAX_TOTAL_EXPECTED_PRODUCTS = 20
+MAX_TOTAL_EXPECTED_PRODUCTS = 30
 
 
 def _discover_categories(category_service: Any) -> list[Any]:

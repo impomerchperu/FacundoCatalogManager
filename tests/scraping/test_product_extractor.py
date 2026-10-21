@@ -17,7 +17,7 @@ def test_product_extractor():
                 class="product-image"
                 src="producto.jpg"
             >
-            <div class="x-tabs_panel-content">
+            <div class="woocommerce-product-details__short-description">
                 Material: ABS. Dimensiones: 10 x 5 cm.
             </div>
         </body>
@@ -482,7 +482,7 @@ def test_product_extractor_collects_technical_detail_without_color_line():
     html = """
     <html>
         <body>
-            <div class="x-tabs_panel-content">
+            <div class="woocommerce-product-details__short-description">
                 <div class="brxe-text">
                     Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg.
                 </div>
@@ -504,13 +504,14 @@ def test_product_extractor_collects_technical_detail_without_color_line():
     )
 
 
-def test_product_extractor_keeps_fb2107_fields_but_discards_marketing_description():
+def test_product_extractor_keeps_fb2107_summary_description_and_fields():
     html = """
     <html><body>
       <h1>Set de Vino con Juego de Ajedrez</h1>
       <p style="text-align:left">
         • <strong>Descripción:</strong> Elegante y funcional set que combina
         la pasión por el buen vino y el entretenimiento del ajedrez.<br>
+        • <strong>Color:</strong> Blanco.<br>
         • <strong>Contiene:</strong> Sacacorchos, tapón metálico para botella,
         anillo antigoteo y cortagotas/cortacápsulas, más un juego completo
         de piezas de ajedrez.<br>
@@ -522,8 +523,8 @@ def test_product_extractor_keeps_fb2107_fields_but_discards_marketing_descriptio
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
     detail = result["description"]
 
-    assert "Descripción:" not in detail
-    assert "Elegante y funcional" not in detail
+    assert "Descripción: Elegante y funcional set" in detail
+    assert "Color: Blanco" not in detail
     assert "Contiene: Sacacorchos" in detail
     assert "Presentación: Caja de cartón Blanca" in detail
     assert "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm" in detail

@@ -237,9 +237,9 @@ class ProductExtractor:
         require_multiple_fields: bool,
     ) -> str:
         raw_text = self._detail_text_from_element(element)
-        normalized_prefix = raw_text.lstrip(" \\t\\r\\n␞•▪●‣◦")
+        normalized_prefix = raw_text.lstrip(" \t\r\n␞•▪●‣◦")
         description_prefix = re.match(
-            r"descripci[oó]n(?:\\s+comercial)?\\s*[:|\\-]\\s*",
+            r"descripci[oó]n(?:\s+comercial)?\s*[:|\-]\s*",
             normalized_prefix,
             re.IGNORECASE,
         )

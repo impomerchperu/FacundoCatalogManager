@@ -48,6 +48,9 @@ def test_detail_policy_removes_color_lines_without_dropping_neighboring_fields()
     assert normalize_detail_text(
         "Color de impresión: Una cara. Material: PVC."
     ) == "Color de impresión: Una cara. Material: PVC."
+    assert normalize_detail_text(
+        "Color: Blanco. Descripción: Elegante. Contiene: Tapa."
+    ) == "Descripción: Elegante. Contiene: Tapa."
 
 
 def test_detail_policy_detects_clipped_words_and_ellipsis():

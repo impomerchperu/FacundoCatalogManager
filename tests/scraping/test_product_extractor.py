@@ -679,3 +679,120 @@ def test_product_extractor_recognizes_laminator_and_printer_fields():
         for expected_field in expected_fields:
             assert expected_field in detail
 
+def test_product_extractor_structures_explicit_software_and_tool_capabilities():
+    cases = (
+        (
+            "PPMPLUS-CIT",
+            """
+            <div id="tab-description" class="woocommerce-Tabs-panel--description">
+              <p>Imprime fotos de alta calidad desde cualquier dispositivo las 24 horas.</p>
+              <p>Accede a un catálogo online con diseños y campañas estacionales.</p>
+              <p>Incluye 1 año de suscripción para 10,000 copias.</p>
+              <p>Compatible con impresoras CY-02, CX-02 y CX-02W.</p>
+            </div>
+            """,
+            (
+                "Función: Imprime fotos de alta calidad desde cualquier dispositivo las 24 horas",
+                "Incluye: 1 año de suscripción para 10,000 copias",
+                "Compatibilidad: Impresoras CY-02, CX-02 y CX-02W",
+            ),
+            ("catálogo online", "campañas estacionales"),
+        ),
+        (
+            "IEV-SFE-CIT",
+            """
+            <div id="tab-description" class="woocommerce-Tabs-panel--description">
+              <p>Impresión rápida y sencilla con acceso desde cualquier navegador, sin instalación adicional.
+              Incluye NUC dedicado, router WiFi y software especializado (iEvents y Fotomatón).
+              Compatible con impresoras Citizen CX-02 / CY-02 / CZ-01 / CX-02W.
+              Exportación rápida, carrusel personalizable y funcionamiento sin conexión.</p>
+            </div>
+            """,
+            (
+                "Acceso: Cualquier navegador, sin instalación adicional",
+                "Incluye: NUC dedicado, router WiFi y software especializado (iEvents y Fotomatón)",
+                "Compatibilidad: Impresoras Citizen CX-02 / CY-02 / CZ-01 / CX-02W",
+                "Funciones adicionales: Exportación rápida, carrusel personalizable y funcionamiento sin conexión",
+            ),
+            ("ideal para cualquier tipo de evento",),
+        ),
+        (
+            "IKIOSK-ESTANDAR",
+            """
+            <div id="tab-description" class="woocommerce-Tabs-panel--description">
+              <p>Imprime fotos y regalos personalizados con facilidad mediante Wifi, Airprint, WhatsApp, Bluetooth o cables.
+              Compatible con impresoras CX-02, CX-02W, y CY-02, ofrece múltiples formatos de impresión y personalización.</p>
+            </div>
+            """,
+            (
+                "Función: Imprime fotos y regalos personalizados con facilidad mediante Wifi, Airprint, WhatsApp, Bluetooth o cables",
+                "Conectividad: Wifi, Airprint, WhatsApp, Bluetooth o cables",
+                "Compatibilidad: Impresoras CX-02, CX-02W, y CY-02",
+                "Funciones adicionales: Múltiples formatos de impresión y personalización",
+            ),
+            (),
+        ),
+        (
+            "CUCH-02",
+            """
+            <div id="tab-description" class="woocommerce-Tabs-panel--description">
+              <p>La cuchilla de corte profundo es una herramienta diseñada para su uso con máquinas de corte,
+              como las de la marca Cricut, que te permite cortar materiales más gruesos y resistentes.</p>
+            </div>
+            """,
+            (
+                "Compatibilidad: Máquinas de corte, como las de la marca Cricut",
+                "Uso recomendado: Permite cortar materiales más gruesos y resistentes",
+            ),
+            (),
+        ),
+        (
+            "CUCH-06",
+            """
+            <div id="tab-description" class="woocommerce-Tabs-panel--description">
+              <p>Esta cuchilla se distingue de las cuchillas de corte normales en que, en lugar de cortar
+              a través de un material, crea perforaciones o piquetes en el material.</p>
+            </div>
+            """,
+            ("Función: Crea perforaciones o piquetes en el material",),
+            (),
+        ),
+        (
+            "CUCH-10",
+            """
+            <div id="tab-description" class="woocommerce-Tabs-panel--description">
+              <p>Esta cuchilla es especialmente útil para proyectos que requieren cortes profundos en materiales
+              como cartón, cuero, fieltro, espuma, vinilo grueso y otros materiales similares.</p>
+            </div>
+            """,
+            (
+                "Uso recomendado: Proyectos que requieren cortes profundos en materiales como cartón, cuero, fieltro, espuma, vinilo grueso y otros materiales similares",
+                "Materiales: Cartón, cuero, fieltro, espuma, vinilo grueso y otros materiales similares",
+            ),
+            (),
+        ),
+    )
+
+    extractor = ProductExtractor()
+    for code, html, expected_fields, forbidden_text in cases:
+        soup = BeautifulSoup(html, "lxml")
+        result = extractor.extract(soup)
+        detail = result["description"]
+        assert detail, code
+        for field in expected_fields:
+            assert field in detail, f"{code}: {field}"
+        for value in forbidden_text:
+            assert value not in detail, f"{code}: {value}"
+
+
+def test_product_extractor_does_not_promote_generic_marketing_copy_to_detail():
+    html = """
+    <div id="tab-description" class="woocommerce-Tabs-panel--description">
+      <p>El producto ideal para regalar en cualquier ocasión.</p>
+      <p>Eleva tu negocio con una experiencia única y resultados increíbles.</p>
+    </div>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["description"] == ""
+

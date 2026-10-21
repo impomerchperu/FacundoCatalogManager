@@ -94,7 +94,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"medida(?:s)?|"
     r"di[aá]metro|"
     r"velocidad|"
-    r"voltaje\\s+y\\s+frecuencia|"
+    r"voltaje\s+y\s+frecuencia|"
     r"voltaje|"
     r"potencia|"
     r"funci[oó]n(?:es)?|"

@@ -1258,7 +1258,7 @@ def test_price_columns_are_compact_and_currency_is_not_editable():
     table.close()
 
 
-def test_detail_formats_attributes_and_preserves_color_and_trailing_periods():
+def test_detail_formats_attributes_without_color_line_or_trailing_periods():
     _qapp()
     description = (
         "Color: Azul. Potencia: 560W. Dimensiones: 30*34*33cm. "
@@ -1284,7 +1284,6 @@ def test_detail_formats_attributes_and_preserves_color_and_trailing_periods():
     item = table.item(0, ProductTable.DETAIL_COLUMN)
     assert item is not None
     assert item.text().splitlines() == [
-        "Color: Azul",
         "Potencia: 560W",
         "Dimensiones: 30*34*33cm",
         "Peso Unitario: 5.8 Kg",
@@ -1297,7 +1296,7 @@ def test_detail_formats_attributes_and_preserves_color_and_trailing_periods():
         "Peso bruto por caja: 6.9 Kg",
     ]
     assert all(not line.endswith(".") for line in item.text().splitlines())
-    assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignTop
     assert item.textAlignment() & Qt.AlignmentFlag.AlignLeft
     expected_detail_height = (
         ProductDetailDelegate.content_height(
@@ -1342,7 +1341,7 @@ def test_detail_removes_fields_that_repeat_product_row_data():
     table.close()
 
 
-def test_detail_preserves_multiple_colors_even_when_visible_in_stock():
+def test_detail_removes_color_line_when_variants_are_visible_in_stock():
     _qapp()
     colors = [
         "Azul", "Blanco", "Celeste", "Morado", "Naranja", "Negro",
@@ -1372,7 +1371,6 @@ def test_detail_preserves_multiple_colors_even_when_visible_in_stock():
     detail = table.item(0, ProductTable.DETAIL_COLUMN)
     assert detail is not None
     assert detail.text().splitlines() == [
-        "Color: " + ", ".join(colors),
         "Material: Poliuretano",
         "Dimensiones: 63mm",
         "Peso Unitario: 19.4 G",
@@ -1779,7 +1777,7 @@ def test_initial_product_order_uses_full_category_names_alphabetically():
     table.close()
 
 
-def test_detail_cell_is_vertically_centered():
+def test_detail_cell_is_top_aligned():
     _qapp()
     table = ProductTable(_Controller())
     table.resize(1500, 700)
@@ -1798,7 +1796,7 @@ def test_detail_cell_is_vertically_centered():
 
     item = table.item(0, ProductTable.DETAIL_COLUMN)
     assert item is not None
-    assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignTop
     assert ProductImageDelegate.CELL_HORIZONTAL_PADDING == 1
     assert ProductImageDelegate.CELL_VERTICAL_PADDING == 1
     assert ProductImageDelegate.cell_content_rect(
@@ -2061,7 +2059,7 @@ def test_visible_columns_share_extra_width_when_the_table_grows():
 
 
 
-def test_detail_format_preserves_complete_final_box_weight_attributes():
+def test_detail_format_preserves_complete_final_box_weight_without_color_line():
     product = Product(
         code="FB-4008",
         name="Producto peso por caja",
@@ -2074,14 +2072,13 @@ def test_detail_format_preserves_complete_final_box_weight_attributes():
     )
 
     assert ProductTable._format_detail(product).splitlines() == [
-        "Color: Blanco",
         "Material: Poliuretano",
         "Peso neto por caja: 5.5 Kg",
         "Peso bruto por caja: 6.25 Kg",
     ]
 
 
-def test_detail_format_aligns_fb1503_fields_and_preserves_color():
+def test_detail_format_aligns_fb1503_fields_without_color_line():
     product = Product(
         code="FB-1503",
         name="Enmicadora Metálica de Alta precisión A3 - 8309",
@@ -2101,7 +2098,6 @@ def test_detail_format_aligns_fb1503_fields_and_preserves_color():
         "Marca: Bright Office",
         "Modelo: 8309",
         "Material: Cuerpo metálico reforzado con base antideslizante y rodillos de alta precisión",
-        "Color: Blanco con detalles negros",
         "Voltaje y Frecuencia: AC 220-240V / 50-60Hz",
         "Potencia: 620W",
         "Tiempo de precalentamiento: 3-5 minutos",
@@ -2110,7 +2106,7 @@ def test_detail_format_aligns_fb1503_fields_and_preserves_color():
     ]
 
 
-def test_detail_format_preserves_all_color_variants_for_fb6005_and_fb6002():
+def test_detail_format_removes_available_color_line_for_fb6005_and_fb6002():
     for code, color_detail in (
         ("FB-6005", "Colores disponibles: Azul, Rojo, Negro"),
         ("FB-6002", "Colores disponibles: Azul, Rojo, Negro, Gris"),
@@ -2128,7 +2124,7 @@ def test_detail_format_preserves_all_color_variants_for_fb6005_and_fb6002():
         )
 
         lines = ProductTable._format_detail(product).splitlines()
-        assert color_detail in lines
+        assert color_detail not in lines
         assert any(line.startswith("Material: ") for line in lines)
         assert any(line.startswith("Presentación: ") for line in lines)
 

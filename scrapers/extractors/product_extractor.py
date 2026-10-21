@@ -273,20 +273,39 @@ class ProductExtractor:
         return text
 
     def _extract_structured_description_tab(self, soup) -> str:
-        """Acepta listas de atributos etiquetados, no párrafos comerciales completos."""
+        """Acepta campos etiquetados de listas o párrafos, no prosa comercial."""
         for selector in (
             "#tab-description",
             ".woocommerce-Tabs-panel--description",
         ):
             for tab in soup.select(selector):
-                list_items = tab.select("ul li, ol li")
-                if len(list_items) < 2:
+                blocks = []
+                if getattr(tab, "name", "") in {"p", "li"}:
+                    blocks.append(tab)
+                blocks.extend(tab.select("ul li, ol li, p"))
+                if not blocks:
                     continue
-                raw_text = " \u241e ".join(
-                    self._detail_text_from_element(item)
-                    for item in list_items
-                )
-                text = normalize_detail_text(raw_text)
+
+                details = []
+                seen = set()
+                for block in blocks:
+                    if self._is_excluded_detail_tab(block):
+                        continue
+                    detail = self._validated_detail_candidate(
+                        block,
+                        require_multiple_fields=False,
+                    )
+                    if not detail:
+                        continue
+                    identity = normalize_detail_text(detail).casefold()
+                    if identity in seen:
+                        continue
+                    seen.add(identity)
+                    details.append(detail)
+
+                if not details:
+                    continue
+                text = normalize_detail_text(" ␞ ".join(details))
                 if (
                     has_multiple_technical_detail_fields(text)
                     and has_technical_detail(text)

@@ -156,3 +156,11 @@ def test_detail_policy_recognizes_laminator_and_printer_specific_labels():
     assert has_technical_detail(laminator)
     assert has_technical_detail(printer)
 
+    legacy_fields = (
+        "Medidas mochila: 30 x 25 cm. "
+        "Tamaño cinta: 1 metro. "
+        "Forro: Biocuero. "
+        "Presentación del Estuche: Caja de cartón."
+    )
+    assert has_multiple_technical_detail_fields(legacy_fields)
+

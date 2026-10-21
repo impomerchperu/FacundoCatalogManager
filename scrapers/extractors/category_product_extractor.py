@@ -2,6 +2,7 @@ import re
 
 from models.scraping.detail_description_policy import (
     has_technical_detail,
+    is_complete_detail,
     normalize_detail_text,
 )
 from models.scraping.scraped_product import ScrapedProduct
@@ -175,10 +176,8 @@ class CategoryProductExtractor:
             if (
                 not text
                 or self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text)
-                or not (
-                    has_technical_detail(text)
-                    or self._is_color_detail_block(text)
-                )
+                or not has_technical_detail(text)
+                or not is_complete_detail(text)
             ):
                 continue
             field_boundary = self._NON_DETAIL_FIELD_PATTERN.search(text)

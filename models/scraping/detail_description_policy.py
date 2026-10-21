@@ -55,6 +55,8 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"trabajo\s+en\s+scrapbooking|"
     r"calidad\s+superior|"
     r"calidad|"
+    r"acceso|
+    r"conectividad|
     r"compatibilidad\s+confiable|"
     r"procedencia\s+coreana|"
     r"facilidad\s+de\s+uso|"
@@ -85,6 +87,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"capacidad|"
     r"(?:superficie|[aá]rea)\s+de\s+impresi[oó]n|"
     r"t[eé]cnica\s+de\s+impresi[oó]n|"
+    r"materiales|"
     r"material|"
     r"medida(?:s)?|"
     r"di[aá]metro|"

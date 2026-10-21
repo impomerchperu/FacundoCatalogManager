@@ -236,6 +236,21 @@ class ProductExtractor:
         require_multiple_fields: bool,
     ) -> str:
         raw_text = self._detail_text_from_element(element)
+        normalized_prefix = raw_text.lstrip(" \\t\\r\\n␞•▪●‣◦")
+        description_prefix = re.match(
+            r"descripci[oó]n(?:\\s+comercial)?\\s*[:|\\-]\\s*",
+            normalized_prefix,
+            re.IGNORECASE,
+        )
+        if (
+            description_prefix is not None
+            and normalized_prefix.count("␞") <= 1
+        ):
+            # A plain marketing paragraph must not become Detail just because
+            # it mentions words like "Material" or "Dimensiones". Structured
+            # fields separated by <br>, list items, or block elements retain
+            # enough boundaries to distinguish those fields from the intro.
+            return ""
         text = normalize_detail_text(raw_text)
         if (
             not text

@@ -219,9 +219,51 @@ def test_audit_incomplete_details_lists_only_values_rejected_by_shared_policy():
         report = audit_incomplete_details(db, repository, limit=10)
 
         assert report["mode"] == "audit_only"
-        assert report["total_incomplete"] == 2
+        assert report["total_incomplete"] == 1
         items = report["items"]
         assert isinstance(items, list)
-        assert [item["code"] for item in items] == ["FB-1700", "FB-6005"]
+        assert [item["code"] for item in items] == ["FB-1700"]
+    finally:
+        db.close()
+
+
+def test_targeted_detail_repair_accepts_visible_summary_prose_and_removes_color():
+    detail = (
+        "Descripción: Cinta térmica para proyectos de sublimación. "
+        "Color: Marrón. Resiste altas temperaturas y mantiene el diseño fijo."
+    )
+    expected = (
+        "Descripción: Cinta térmica para proyectos de sublimación. "
+        "Resiste altas temperaturas y mantiene el diseño fijo."
+    )
+    db, repository = _seed_catalog(description="")
+    browser = StaticBrowser(_product_html(detail=detail))
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-1700"],
+            browser=browser,
+        )
+        assert plans[0].status == "would_update"
+        assert plans[0].new_description == expected
+    finally:
+        db.close()
+
+
+def test_targeted_detail_repair_resolves_sku_without_hyphen():
+    db, repository = _seed_catalog(code="TB-5050", description="")
+    browser = StaticBrowser(_product_html(code="TB-5050"))
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["TB5050"],
+            browser=browser,
+        )
+        assert len(plans) == 1
+        assert plans[0].code == "TB-5050"
+        assert plans[0].status == "would_update"
+        assert browser.requested_urls == [PRODUCT_URL]
     finally:
         db.close()

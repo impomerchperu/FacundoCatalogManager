@@ -1,4 +1,5 @@
 from models.scraping.detail_description_policy import (
+    has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,
     normalize_detail_text,

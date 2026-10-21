@@ -114,7 +114,7 @@ def audit_incomplete_details(
     *,
     limit: int = 100,
 ) -> dict[str, object]:
-    """List local Detail values that fail the shared technical-detail policy."""
+    """List local Detail values that fail the visible-summary policy."""
     findings: list[dict[str, object]] = []
     for product in sorted(repository.get_all(), key=lambda item: item.code.casefold()):
         reason = _detail_issue(product.description)

@@ -477,6 +477,7 @@ def test_product_extractor_rejects_explicit_description_prefix_in_fallback():
     assert result["description"] == ""
 
 
+
 def test_product_extractor_collects_technical_detail_without_color_line():
     html = """
     <html>
@@ -501,6 +502,7 @@ def test_product_extractor_collects_technical_detail_without_color_line():
         "Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
         "Peso bruto por caja: 6.25 Kg. Certificado SGS"
     )
+
 
 def test_product_extractor_keeps_fb2107_fields_but_discards_marketing_description():
     html = """
@@ -579,6 +581,7 @@ def test_product_extractor_recognizes_herra03_technical_fields():
     assert "Aplicaciones de vinilo:" in detail
     assert "Trabajo en scrapbooking:" in detail
 
+
 def test_product_extractor_combines_labeled_details_split_across_paragraphs():
     html = """
     <html><body>
@@ -597,6 +600,7 @@ def test_product_extractor_combines_labeled_details_split_across_paragraphs():
     assert "Proyectos de manualidades:" in detail
     assert "Aplicaciones de vinilo:" in detail
     assert "Trabajo en scrapbooking:" in detail
+
 
 def test_product_extractor_keeps_herra03_fields_from_description_tab_paragraphs():
     html = """
@@ -619,6 +623,7 @@ def test_product_extractor_keeps_herra03_fields_from_description_tab_paragraphs(
     assert "Proyectos de manualidades:" in detail
     assert "Aplicaciones de vinilo:" in detail
     assert "Trabajo en scrapbooking:" in detail
+
 
 
 def test_product_extractor_recognizes_laminator_and_printer_fields():

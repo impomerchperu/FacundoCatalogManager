@@ -2,6 +2,8 @@ import contextlib
 import re
 from typing import ClassVar
 
+from bs4 import BeautifulSoup
+
 from models.scraping.detail_description_policy import (
     has_multiple_technical_detail_fields,
     has_technical_detail,
@@ -54,6 +56,9 @@ class ProductExtractor:
         "ul",
         "ol",
         ".text-content",
+        ".brxe-text",
+        ".brxe-text-basic",
+        "p",
     )
     _EXCLUDED_DETAIL_TAB_IDS: ClassVar[frozenset[str]] = frozenset({
         "tab-description",
@@ -183,7 +188,7 @@ class ProductExtractor:
 
     @classmethod
     def _is_excluded_detail_tab(cls, element) -> bool:
-        """No usa texto de las pestañas Descripción, Información adicional ni Reseñas."""
+        """Excluye secciones comerciales genéricas, información adicional y reseñas."""
         node = element
         while node is not None and getattr(node, "attrs", None) is not None:
             node_id = str(node.get("id", "") or "").strip().casefold()
@@ -198,35 +203,104 @@ class ProductExtractor:
             node = getattr(node, "parent", None)
         return False
 
+    @staticmethod
+    def _detail_text_from_element(element) -> str:
+        """Preserva límites HTML entre viñetas y saltos sin separar etiquetas y valores."""
+        boundary = "__FACUNDO_DETAIL_BOUNDARY__"
+        markup = str(element)
+        markup = re.sub(
+            r"<br\\b[^>]*>",
+            boundary,
+            markup,
+            flags=re.IGNORECASE,
+        )
+        markup = re.sub(
+            r"<(?:li|p|div|h[1-6])\\b[^>]*>",
+            boundary,
+            markup,
+            flags=re.IGNORECASE,
+        )
+        markup = re.sub(
+            r"</(?:li|p|div|h[1-6])\\s*>",
+            boundary,
+            markup,
+            flags=re.IGNORECASE,
+        )
+        text = BeautifulSoup(markup, "lxml").get_text(" ", strip=True)
+        return text.replace(boundary, " \u241e ")
+
+    def _validated_detail_candidate(
+        self,
+        element,
+        *,
+        require_multiple_fields: bool,
+    ) -> str:
+        raw_text = self._detail_text_from_element(element)
+        text = normalize_detail_text(raw_text)
+        if (
+            not text
+            or self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text)
+            or not has_technical_detail(text)
+            or (
+                require_multiple_fields
+                and not has_multiple_technical_detail_fields(text)
+            )
+            or not is_complete_detail(text)
+        ):
+            return ""
+        return text
+
+    def _extract_structured_description_tab(self, soup) -> str:
+        """Acepta listas de atributos etiquetados, no párrafos comerciales completos."""
+        for selector in (
+            "#tab-description",
+            ".woocommerce-Tabs-panel--description",
+        ):
+            for tab in soup.select(selector):
+                list_items = tab.select("ul li, ol li")
+                if len(list_items) < 2:
+                    continue
+                raw_text = " \u241e ".join(
+                    self._detail_text_from_element(item)
+                    for item in list_items
+                )
+                text = normalize_detail_text(raw_text)
+                if (
+                    has_multiple_technical_detail_fields(text)
+                    and has_technical_detail(text)
+                    and is_complete_detail(text)
+                ):
+                    return text
+        return ""
+
     def extract_detail_text(self, soup) -> str:
-        """Extrae solo el bloque técnico equivalente al Detalle de la tarjeta."""
+        """Extrae atributos etiquetados y elimina texto comercial y líneas de color."""
         for selector_group in self._DETAIL_SELECTORS_BY_PRIORITY:
             for selector in selector_group:
                 for element in soup.select(selector):
                     if self._is_excluded_detail_tab(element):
                         continue
-                    raw_text = element.get_text(" ", strip=True)
-                    if (
-                        self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(raw_text)
-                        or not has_technical_detail(raw_text)
-                    ):
-                        continue
-                    text = normalize_detail_text(raw_text)
-                    if is_complete_detail(text):
-                        return text
+                    detail = self._validated_detail_candidate(
+                        element,
+                        require_multiple_fields=False,
+                    )
+                    if detail:
+                        return detail
+
+        structured_description = self._extract_structured_description_tab(soup)
+        if structured_description:
+            return structured_description
+
         for selector in self._DETAIL_FALLBACK_SELECTORS:
             for element in soup.select(selector):
                 if self._is_excluded_detail_tab(element):
                     continue
-                raw_text = element.get_text(" ", strip=True)
-                if (
-                    self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(raw_text)
-                    or not has_multiple_technical_detail_fields(raw_text)
-                ):
-                    continue
-                text = normalize_detail_text(raw_text)
-                if has_technical_detail(text) and is_complete_detail(text):
-                    return text
+                detail = self._validated_detail_candidate(
+                    element,
+                    require_multiple_fields=True,
+                )
+                if detail:
+                    return detail
         return ""
 
     def extract_description(self, soup):

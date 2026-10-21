@@ -5,6 +5,7 @@ from typing import ClassVar
 from bs4 import BeautifulSoup
 
 from models.scraping.detail_description_policy import (
+    TECHNICAL_DETAIL_FIELD_PATTERN,
     has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,
@@ -242,15 +243,21 @@ class ProductExtractor:
             normalized_prefix,
             re.IGNORECASE,
         )
-        if (
-            description_prefix is not None
-            and normalized_prefix.count("␞") <= 1
-        ):
-            # A plain marketing paragraph must not become Detail just because
-            # it mentions words like "Material" or "Dimensiones". Structured
-            # fields separated by <br>, list items, or block elements retain
-            # enough boundaries to distinguish those fields from the intro.
-            return ""
+        if description_prefix is not None:
+            next_field = TECHNICAL_DETAIL_FIELD_PATTERN.search(
+                normalized_prefix,
+                description_prefix.end(),
+            )
+            structured_segment = (
+                normalized_prefix[description_prefix.end() : next_field.start()]
+                if next_field is not None
+                else ""
+            )
+            if not structured_segment or "␞" not in structured_segment:
+                # A plain marketing paragraph must not become Detail just because
+                # it mentions words like "Material" or "Dimensiones". Keep the
+                # following fields only when the source marks an HTML boundary.
+                return ""
         text = normalize_detail_text(raw_text)
         if (
             not text

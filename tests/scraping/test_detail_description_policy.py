@@ -88,15 +88,15 @@ def test_detail_policy_recognizes_laminator_fields_and_removes_bullets():
     )
 
 
-def test_detail_policy_strips_marketing_intro_but_keeps_labeled_attributes():
+def test_detail_policy_preserves_summary_description_and_labeled_attributes():
     source = (
-        "Descripción comercial: Producto ideal para regalo. "
+        "Descripción: Elegante y funcional. Color: Blanco. "
         "Contiene: Tapa. Presentación: Caja. "
         "Medidas del Estuche: 15 x 17 cm."
     )
     cleaned = (
-        "Contiene: Tapa. Presentación: Caja. "
-        "Medidas del Estuche: 15 x 17 cm."
+        "Descripción: Elegante y funcional. Contiene: Tapa. "
+        "Presentación: Caja. Medidas del Estuche: 15 x 17 cm."
     )
 
     assert normalize_detail_text(source) == cleaned
@@ -193,4 +193,18 @@ def test_detail_policy_preserves_color_of_printing_attribute():
     source = "Color de impresión: Una cara. Material: PVC."
 
     assert normalize_detail_text(source) == source
+
+def test_detail_policy_preserves_summary_description_while_removing_only_color():
+    source = (
+        "Descripción: Elegante y funcional set. "
+        "Color: Blanco. Contiene: Sacacorchos. "
+        "Presentación: Caja de cartón Blanca. "
+        "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm."
+    )
+    assert normalize_detail_text(source) == (
+        "Descripción: Elegante y funcional set. "
+        "Contiene: Sacacorchos. "
+        "Presentación: Caja de cartón Blanca. "
+        "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm."
+    )
 

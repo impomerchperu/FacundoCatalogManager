@@ -161,7 +161,7 @@ class CategoryProductExtractor:
             return ""
 
         text = normalize_detail_text(
-            re.sub(r"\\s+", " ", element.get_text(" ", strip=True))
+            re.sub(r"\s+", " ", element.get_text(" ", strip=True))
         )
         if (
             not text

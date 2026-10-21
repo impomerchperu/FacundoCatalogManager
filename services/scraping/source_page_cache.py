@@ -273,7 +273,7 @@ class PersistentSourcePageCache:
         for index, entry in enumerate(pending):
             try:
                 self.repository.save_entry(entry)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 with self._pending_lock:
                     for remaining in pending[index:]:
                         self._pending_entries.setdefault(

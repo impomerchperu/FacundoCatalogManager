@@ -178,7 +178,10 @@ class Browser:
         """Persist deferred cache writes after the catalog transaction ends."""
         cache = self._source_page_cache
         flush = getattr(cache, "flush_pending", None)
-        return int(flush() or 0) if callable(flush) else 0
+        if not callable(flush):
+            return 0
+        result = flush()
+        return result if isinstance(result, int) else 0
 
     def fetch(self, url):
         return self.get(url)

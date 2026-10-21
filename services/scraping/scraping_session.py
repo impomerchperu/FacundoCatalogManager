@@ -147,7 +147,7 @@ class ScrapingSession:
         if callable(browser_getter):
             try:
                 browser = browser_getter()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 LOGGER.exception("No se pudo localizar el navegador para vaciar el caché.")
 
         if browser is None:
@@ -162,8 +162,9 @@ class ScrapingSession:
         if not callable(flush):
             return
         try:
-            pending = int(flush() or 0)
-        except Exception:  # noqa: BLE001
+            flush_result = flush()
+            pending = flush_result if isinstance(flush_result, int) else 0
+        except Exception:
             # The cache is an optimization; a cache write failure must not
             # undo a catalog commit or mask the original scraping result.
             LOGGER.exception("No se pudo persistir el caché de páginas de producto.")

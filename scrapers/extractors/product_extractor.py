@@ -78,6 +78,98 @@ class ProductExtractor:
         re.IGNORECASE,
     )
 
+    _SEMANTIC_DETAIL_RULES: ClassVar[tuple[tuple[str, re.Pattern[str]], ...]] = (
+        (
+            "Compatibilidad",
+            re.compile(
+                r"\bcompatible con\s+(.+?)(?=,\s*ofrece\b|\.\s+[A-ZÁÉÍÓÚÑ]|[!?]|$)",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "Incluye",
+            re.compile(
+                r"\bincluye\s+(.+?)(?=\.\s+[A-ZÁÉÍÓÚÑ]|[!?]|$)",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "Acceso",
+            re.compile(r"\bacceso\s+desde\s+([^.!?]+)", re.IGNORECASE),
+        ),
+        (
+            "Conectividad",
+            re.compile(
+                r"\bmediante\s+((?:wi-?fi|airprint|whatsapp|bluetooth)[^.!?]+)",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "Función",
+            re.compile(r"\b(imprime fotos[^.!?]+)", re.IGNORECASE),
+        ),
+        (
+            "Funciones adicionales",
+            re.compile(
+                r"\b(exportaci[oó]n rápida,\s*carrusel personalizable y "
+                r"funcionamiento sin conexi[oó]n)",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "Funciones adicionales",
+            re.compile(
+                r"\b(ofrece múltiples formatos de impresión y personalización)",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "Compatibilidad",
+            re.compile(
+                r"\b(máquinas de corte,\s*como las de la marca Cricut)",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "Función",
+            re.compile(r"\b(crea perforaciones o piquetes[^.!?]*)", re.IGNORECASE),
+        ),
+        (
+            "Uso recomendado",
+            re.compile(
+                r"\b(?:te\s+)?(permite cortar materiales más gruesos y resistentes[^.!?]*)",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "Uso recomendado",
+            re.compile(
+                r"\b(proyectos que requieren cortes profundos en materiales como[^.!?]*)",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "Materiales",
+            re.compile(r"\bmateriales como\s+([^.!?]+)", re.IGNORECASE),
+        ),
+        (
+            "Función",
+            re.compile(
+                r"\b(se ajusta automáticamente según el tipo de material que estés cortando)",
+                re.IGNORECASE,
+            ),
+        ),
+    )
+    _SEMANTIC_EXCLUDED_TAB_IDS: ClassVar[frozenset[str]] = frozenset({
+        "tab-additional_information",
+        "tab-additional-information",
+        "tab-reviews",
+    })
+    _SEMANTIC_EXCLUDED_TAB_CLASSES: ClassVar[frozenset[str]] = frozenset({
+        "woocommerce-Tabs-panel--additional_information",
+        "woocommerce-Tabs-panel--reviews",
+    })
+
     def __init__(self):
         self.price_extractor = PriceExtractor()
         self.stock_extractor = StockExtractor()

@@ -226,6 +226,7 @@ def normalize_detail_text(value: object) -> str:
     text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"[•▪●‣◦]+", _DETAIL_BOUNDARY, text)
     text = _WHITESPACE_PATTERN.sub(" ", text).strip()
+    text = re.sub(r"\\s+:", ":", text)
     text = _remove_marked_fields(
         text,
         _COLOR_FIELD_PATTERN,

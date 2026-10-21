@@ -125,7 +125,6 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
     r"\.{2,}|…|"
     r"(?<!\w)(?:"
     r"peso\s+(?:br(?:u(?:t(?:o)?)?)?|net(?:o)?)(?:\s+por(?:\s+caj(?:a)?)?)?|"
-    r"caja|"
     r"dimens(?:i[oó]n(?:es)?)?(?:\s+(?:de\s+)?caj(?:a)?)?|"
     r"cantidad\s+por\s+caj(?:a)?|"
     r"cubicaje(?:\s+por\s+caj(?:a)?)?|"

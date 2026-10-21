@@ -1,8 +1,8 @@
-"""Shared policy for the catalog's Detail field.
+"""Shared policy for the catalog Detail field.
 
-Detail contains labeled product features, not the short marketing paragraph or
-standalone available-colors line. Category-card summaries and product-page
-fallbacks use the same cleanup and completeness rules.
+Preserve the visible product summary, including its Description label, and
+other labeled attributes. Remove only color fields from that same summary.
+Product-page tab panels are excluded by the extractor before this policy runs.
 """
 
 from __future__ import annotations
@@ -205,7 +205,7 @@ def strip_leading_color_field(value: object) -> str:
 
 
 def normalize_detail_text(value: object) -> str:
-    """Normalize Detail while excluding marketing Description and color fields."""
+    """Preserve the summary Description and remove only color fields."""
     text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"[•▪●‣◦]+", _DETAIL_BOUNDARY, text)
     text = _WHITESPACE_PATTERN.sub(" ", text).strip()

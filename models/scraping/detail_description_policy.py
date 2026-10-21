@@ -249,6 +249,37 @@ def has_technical_detail(value: object) -> bool:
     return _TECHNICAL_DETAIL_PATTERN.search(text) is not None
 
 
+_SUMMARY_NOISE_PATTERN = re.compile(
+    r"^(?:"
+    r"precio\\b|sku\\b|stock\\b|categor[ií]as?\\b|"
+    r"colores?\\b|disponible\\b|añadir al carrito\\b|limpiar\\b|"
+    r"compartir\\b|informaci[oó]n adicional\\b|reseñas?\\b|"
+    r"valoraciones\\b|tamaños?\\b|"
+    r"este producto no está disponible\\b|sin stock\\b|agotado\\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def is_valid_detail_content(value: object) -> bool:
+    """Accept technical fields or meaningful prose from the visible summary.
+
+    The extractor excludes Description, Additional Information and Reviews tab
+    panels before calling this policy, so ordinary summary prose is valid too.
+    """
+    text = normalize_detail_text(value)
+    if (
+        not text
+        or _NON_TECHNICAL_SECTION_PREFIX_PATTERN.match(text)
+        or text.endswith((",", ";", ":"))
+        or _SUMMARY_NOISE_PATTERN.match(text)
+    ):
+        return False
+    if has_technical_detail(text):
+        return is_complete_detail(text)
+    return len(text) >= 20
+
+
 def has_multiple_technical_detail_fields(value: object) -> bool:
     """Require at least two labeled features for lower-priority fallbacks."""
     text = normalize_detail_text(value)

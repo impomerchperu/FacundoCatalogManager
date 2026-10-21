@@ -288,6 +288,54 @@ class ProductExtractor:
                     return text
         return ""
 
+    def _extract_labeled_detail_blocks(self, soup) -> str:
+        """Combina campos etiquetados cuando el tema los separa entre bloques HTML."""
+        container_selectors = (
+            ".woocommerce-product-details__short-description",
+            ".x-tabs_panel-content",
+            ".text-content",
+            ".brxe-div",
+            ".brxe-text",
+            ".brxe-text-basic",
+        )
+        block_selector = "li, p, .brxe-text, .brxe-text-basic"
+
+        for container_selector in container_selectors:
+            for container in soup.select(container_selector):
+                if self._is_excluded_detail_tab(container):
+                    continue
+                blocks = container.select(block_selector)
+                if len(blocks) < 2:
+                    continue
+
+                details = []
+                seen = set()
+                for block in blocks:
+                    if self._is_excluded_detail_tab(block):
+                        continue
+                    detail = self._validated_detail_candidate(
+                        block,
+                        require_multiple_fields=False,
+                    )
+                    if not detail:
+                        continue
+                    identity = normalize_detail_text(detail).casefold()
+                    if identity in seen:
+                        continue
+                    seen.add(identity)
+                    details.append(detail)
+
+                if len(details) < 2:
+                    continue
+                combined = normalize_detail_text(" ␞ ".join(details))
+                if (
+                    has_multiple_technical_detail_fields(combined)
+                    and has_technical_detail(combined)
+                    and is_complete_detail(combined)
+                ):
+                    return combined
+        return ""
+
     def extract_detail_text(self, soup) -> str:
         """Extrae atributos etiquetados y elimina texto comercial y líneas de color."""
         for selector_group in self._DETAIL_SELECTORS_BY_PRIORITY:
@@ -316,7 +364,8 @@ class ProductExtractor:
                 )
                 if detail:
                     return detail
-        return ""
+
+        return self._extract_labeled_detail_blocks(soup)
 
     def extract_description(self, soup):
         """Conserva la API previa, pero el campo almacenado es Detalle técnico."""

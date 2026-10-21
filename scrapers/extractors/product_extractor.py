@@ -106,7 +106,11 @@ class ProductExtractor:
         ),
         (
             "Función",
-            re.compile(r"\b(imprime fotos[^.!?]+)", re.IGNORECASE),
+            re.compile(
+                r"\b(imprime fotos y regalos personalizados con facilidad|"
+                r"imprime fotos[^.!?]+)",
+                re.IGNORECASE,
+            ),
         ),
         (
             "Funciones adicionales",

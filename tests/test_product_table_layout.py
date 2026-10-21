@@ -2292,3 +2292,26 @@ def test_detail_format_removes_bullets_and_separates_laminator_fields():
         "Voltaje: 220v",
     ]
 
+def test_detail_formatter_removes_inline_color_and_aligns_technical_fields():
+    product = Product(
+        code="HL-3000",
+        name="Producto de impresión",
+        description=(
+            "Material: PVC Color: Blanco. Presentación: Caja. "
+            "Interfaz: USB. Técnica de impresión: Térmica directa. "
+            "Dimensión: 220 x 140 mm. Características: Velocidad alta. "
+            "Propiedades: Resistente. Micras: 75."
+        ),
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Material: PVC",
+        "Presentación: Caja",
+        "Interfaz: USB",
+        "Técnica de impresión: Térmica directa",
+        "Dimensión: 220 x 140 mm",
+        "Características: Velocidad alta",
+        "Propiedades: Resistente",
+        "Micras: 75",
+    ]
+

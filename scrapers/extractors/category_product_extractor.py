@@ -179,6 +179,34 @@ class CategoryProductExtractor:
             seen.add(text.casefold())
             candidates.append(text)
 
+        if not candidates:
+            fallback_selectors = (
+                ".brxe-text",
+                ".brxe-text-basic",
+                "ul li",
+                "ol li",
+            )
+            for element in soup.select(", ".join(fallback_selectors)):
+                if self._is_excluded_detail_block(element):
+                    continue
+                text = normalize_detail_text(
+                    re.sub(r"\\s+", " ", element.get_text(" ", strip=True))
+                )
+                if (
+                    not text
+                    or self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text)
+                    or not has_technical_detail(text)
+                    or not is_complete_detail(text)
+                ):
+                    continue
+                field_boundary = self._NON_DETAIL_FIELD_PATTERN.search(text)
+                if field_boundary is not None:
+                    text = text[: field_boundary.start()].strip(" .;:-")
+                if not text or text.casefold() in seen:
+                    continue
+                seen.add(text.casefold())
+                candidates.append(text)
+
         # Variant-color lines are removed by normalize_detail_text; only
         # candidates containing recognized technical fields are retained.
         if not any(has_technical_detail(candidate) for candidate in candidates):

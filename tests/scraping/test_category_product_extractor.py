@@ -45,6 +45,31 @@ def test_category_product_extractor_maps_visible_stock_to_colors():
     assert product.description == ""
 
 
+def test_category_product_extractor_falls_back_to_bricks_detail_blocks():
+    html = """
+    <article>
+        <p class="brxe-a26f34">CAM-03</p>
+        <h2 class="brxe-f31760">Plotter de Corte Cameo 4 Plus</h2>
+        <div class="brxe-text-basic">
+            Ancho de Corte: Hasta 15 pulgadas.
+            Longitud de Corte: Hasta 10 pies con materiales seleccionados.
+            Fuerza de Corte: 5,000 gramos.
+            Velocidad de Corte: Hasta 30 cm/segundo.
+            Sistema de Motor: Dual.
+            Espacio Libre: 3 mm.
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert "Ancho de Corte: Hasta 15 pulgadas" in product.description
+    assert "Longitud de Corte: Hasta 10 pies" in product.description
+    assert "Fuerza de Corte: 5,000 gramos" in product.description
+    assert "Sistema de Motor: Dual" in product.description
+    assert "Espacio Libre: 3 mm" in product.description
+
+
 def test_category_product_extractor_recognizes_sublimation_fields():
     html = """
     <article>

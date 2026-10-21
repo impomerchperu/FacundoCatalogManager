@@ -1,9 +1,9 @@
 from config.scraping_config import JETSMARTFILTERS_AJAX_URL
+from scrapers.browser import Browser
 from services.scraping.source_page_cache import (
     PersistentSourcePageCache,
     PersistentSourcePageRepository,
 )
-from scrapers.browser import Browser
 
 
 class FakeResponse:

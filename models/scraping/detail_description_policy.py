@@ -117,6 +117,11 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
+_DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = re.compile(
+    r"(?<!\\w)descripci[oó]n(?:\\s+comercial)?\\s*:\\s*|"
+    + _DETAIL_FIELD_LABEL_PATTERN.pattern,
+    re.IGNORECASE,
+)
 
 _TECHNICAL_DETAIL_PATTERN = re.compile(
     _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\bcertificado\s+sgs\b",
@@ -162,7 +167,10 @@ def _remove_marked_fields(
             if not allow_embedded_label or not explicit_label:
                 continue
 
-        next_field = _DETAIL_FIELD_LABEL_PATTERN.search(text, match.end())
+        next_field = _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.search(
+            text,
+            match.end(),
+        )
         before = text[: match.start()].rstrip(" \t;" + _DETAIL_BOUNDARY)
         if next_field is None:
             text = before

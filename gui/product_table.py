@@ -41,8 +41,8 @@ from config.runtime_paths import resolve_data_path
 from controllers.product_controller import ProductController
 from gui.product_category_delegate import ProductCategoryDelegate
 from models.product import Product
-from models.scraping.detail_description_policy import normalize_detail_text
 from models.product_image_gallery import normalize_product_gallery
+from models.scraping.detail_description_policy import normalize_detail_text
 from services.scraping.category_name_normalizer import (
     display_category_name,
     split_category_names,
@@ -1204,7 +1204,6 @@ class ProductTable(QTableWidget):
         "descripcion comercial": "Descripción",
         "descripción": "Descripción",
         "descripcion": "Descripción",
-        "colores disponibles": "Colores disponibles",
         "colores": "Colores",
         "color": "Color",
         "medidas del estuche": "Medidas del Estuche",

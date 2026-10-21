@@ -679,6 +679,7 @@ def test_product_extractor_recognizes_laminator_and_printer_fields():
         for expected_field in expected_fields:
             assert expected_field in detail
 
+
 def test_product_extractor_structures_explicit_software_and_tool_capabilities():
     cases = (
         (

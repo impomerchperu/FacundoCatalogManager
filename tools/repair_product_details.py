@@ -6,7 +6,7 @@ Examples:
     python -m tools.repair_product_details --codes FB-1700 FB-6005 FB-6002 FB-1503 --apply
 
 The default mode is a preview. Applying changes updates only products.description and
-products.content_hash after validating the live page's product code and technical Detail.
+products.content_hash after validating the live page's product code and visible Detail content.
 """
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ def _normalize_code(value: object) -> str:
 
 def _code_identity(value: object) -> str:
     """Compare SKU forms such as FB2043 and FB-2043 without dropping identity."""
-    return re.sub(r"[^A-Z0-9]", "", _normalize_code(value))
+    return re.sub(r"[\\s-]+", "", _normalize_code(value))
 
 
 def _is_allowed_source_url(value: object) -> bool:
@@ -354,7 +354,7 @@ def _create_database_backup(db: DBManager) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Audita Detalle o repara códigos específicos; nunca inicia un FULL."
+            "Audita Detalle visible o repara códigos específicos; nunca inicia un FULL."
         )
     )
     selection = parser.add_mutually_exclusive_group(required=True)

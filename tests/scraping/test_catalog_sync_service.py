@@ -847,8 +847,9 @@ def test_catalog_sync_keeps_technical_detail_when_incoming_text_is_commercial_pr
         "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
     )
     assert "Color:" not in stored.description
-    assert result.updated == 0
-    assert result.unchanged == 1
+    # Cleaning the legacy color field is a single legitimate catalog update.
+    assert result.updated == 1
+    assert result.unchanged == 0
 
 
 def test_catalog_sync_preserves_summary_description_with_technical_fields():

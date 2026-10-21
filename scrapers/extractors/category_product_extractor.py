@@ -190,7 +190,7 @@ class CategoryProductExtractor:
                 if self._is_excluded_detail_block(element):
                     continue
                 text = normalize_detail_text(
-                    re.sub(r"\\s+", " ", element.get_text(" ", strip=True))
+                    re.sub(r"\s+", " ", element.get_text(" ", strip=True))
                 )
                 if (
                     not text

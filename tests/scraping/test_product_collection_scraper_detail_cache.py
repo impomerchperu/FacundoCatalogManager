@@ -365,7 +365,7 @@ def test_detail_enrichment_merges_missing_fields_and_prices():
     <html>
         <h1>Producto detalle completo</h1>
         <p class="brxe-heading">FB-1240</p>
-        <div class="x-tabs_panel-content">
+        <div class="woocommerce-product-details__short-description">
             Material: ABS. Dimensiones: 10 x 5 cm. Certificado SGS
         </div>
         <img class="woocommerce-product-gallery" src="producto-detalle.jpg">
@@ -645,7 +645,7 @@ def test_bare_colores_text_triggers_technical_detail_repair():
     <html>
         <h1>Antiestrés Cerebro Largo</h1>
         <p class="brxe-heading">FB-4008</p>
-        <div class="x-tabs_panel-content">
+        <div class="woocommerce-product-details__short-description">
             Material: Poliuretano. Dimensiones: 85*95*50mm.
             Peso Unitario: 25.4 G. Uso Recomendado: Antiestrés, Promocional.
         </div>

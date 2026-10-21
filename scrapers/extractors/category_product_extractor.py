@@ -3,8 +3,7 @@ import re
 from bs4 import BeautifulSoup
 
 from models.scraping.detail_description_policy import (
-    TECHNICAL_DETAIL_FIELD_PATTERN,
-    has_technical_detail,
+    is_valid_detail_content,
     normalize_detail_text,
 )
 from models.scraping.scraped_product import ScrapedProduct
@@ -188,37 +187,16 @@ class CategoryProductExtractor:
         if cls._is_excluded_detail_block(element):
             return ""
 
-        raw_text = cls._detail_text_from_element(element)
-        normalized_prefix = raw_text.lstrip(" \t\r\n␞•▪●‣◦")
-        description_prefix = re.match(
-            r"descripci[oó]n(?:\s+comercial)?\s*[:|\-]\s*",
-            normalized_prefix,
-            re.IGNORECASE,
-        )
-        if description_prefix is not None:
-            next_field = TECHNICAL_DETAIL_FIELD_PATTERN.search(
-                normalized_prefix,
-                description_prefix.end(),
-            )
-            segment = (
-                normalized_prefix[description_prefix.end() : next_field.start()]
-                if next_field is not None
-                else ""
-            )
-            if not segment or "␞" not in segment:
-                # No convertir prosa comercial que menciona falsamente
-                # atributos técnicos en un Detalle estructurado.
-                return ""
-
-        text = normalize_detail_text(raw_text)
+        text = normalize_detail_text(cls._detail_text_from_element(element))
         if (
             not text
             or cls._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text)
-            or not has_technical_detail(text)
+            or not is_valid_detail_content(text)
         ):
             return ""
-        # Conserva el fragmento de la tarjeta cuando acaba truncado; la capa
-        # de enriquecimiento decidirá si puede repararlo desde la página visible.
+
+        # Keep prose and technical attributes from the visible category summary.
+        # Product-page tab panels are excluded before this method is called.
         field_boundary = cls._NON_DETAIL_FIELD_PATTERN.search(text)
         if field_boundary is not None:
             text = text[: field_boundary.start()].strip(" .;:-")
@@ -252,9 +230,7 @@ class CategoryProductExtractor:
                 soup.select(", ".join(fallback_selectors))
             )
 
-        if not candidates or not any(
-            has_technical_detail(candidate) for candidate in candidates
-        ):
+        if not candidates:
             return ""
         if len(candidates) == 1:
             return candidates[0]

@@ -229,7 +229,7 @@ def plan_product_detail_repairs(
             continue
 
         scraped_code = _normalize_code(getattr(scraped, "code", ""))
-        if scraped_code != code:
+        if _code_identity(scraped_code) != _code_identity(code):
             plans.append(
                 DetailRepairPlan(
                     code=code,

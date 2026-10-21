@@ -1,7 +1,7 @@
 """Run a bounded, directed multi-category sync to check cache-write locking.
 
-The utility never starts a full-catalog sync. It validates each live category
-count and enforces a total-product ceiling before writing anything.
+The utility never starts a full-catalog sync. It validates live category counts
+and enforces per-category and total-product ceilings before writing anything.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ TARGET_CATEGORIES = (
     "Enmicadoras / Laminadoras",
 )
 MAX_EXPECTED_PER_CATEGORY = 10
-MAX_TOTAL_EXPECTED_PRODUCTS = 30
+MAX_TOTAL_EXPECTED_PRODUCTS = 35
 
 
 def _discover_categories(category_service: Any) -> list[Any]:
@@ -38,6 +38,7 @@ def _select_categories(categories: list[Any]) -> tuple[list[Any], int] | None:
         for item in categories
     }
     selected = []
+    selected_keys = set()
     total_expected = 0
 
     for target_name in TARGET_CATEGORIES:
@@ -46,13 +47,13 @@ def _select_categories(categories: list[Any]) -> tuple[list[Any], int] | None:
             names = ", ".join(
                 str(getattr(item, "name", "")) for item in categories
             )
-            print(f"ERROR: categoría no encontrada: {target_name}")
+            print(f"ERROR: categoría requerida no encontrada: {target_name}")
             print(f"Categorías detectadas: {names or '(ninguna)'}")
             return None
 
         expected_count = max(int(getattr(category, "expected_count", 0) or 0), 0)
         print(
-            f"Categoría: {category.name} | "
+            f"Categoría requerida: {category.name} | "
             f"productos esperados: {expected_count}"
         )
         if expected_count > MAX_EXPECTED_PER_CATEGORY:
@@ -63,19 +64,41 @@ def _select_categories(categories: list[Any]) -> tuple[list[Any], int] | None:
             return None
 
         selected.append(category)
+        selected_keys.add(normalize_category_name(category.name))
         total_expected += expected_count
 
-    print(f"Categorías seleccionadas: {len(selected)}")
-    print(f"Total esperado: {total_expected}")
     if total_expected <= 0:
         print("CANCELADO: el recuento esperado no es positivo.")
         return None
     if total_expected > MAX_TOTAL_EXPECTED_PRODUCTS:
         print(
-            "CANCELADO: el total supera el límite de seguridad "
+            "CANCELADO: las categorías requeridas superan el límite total "
             f"({MAX_TOTAL_EXPECTED_PRODUCTS} productos)."
         )
         return None
+
+    optional_added = 0
+    for category in categories:
+        key = normalize_category_name(getattr(category, "name", ""))
+        if key in selected_keys:
+            continue
+        expected_count = max(int(getattr(category, "expected_count", 0) or 0), 0)
+        if expected_count <= 0 or expected_count > MAX_EXPECTED_PER_CATEGORY:
+            continue
+        if total_expected + expected_count > MAX_TOTAL_EXPECTED_PRODUCTS:
+            continue
+        selected.append(category)
+        selected_keys.add(key)
+        total_expected += expected_count
+        optional_added += 1
+        print(
+            f"Categoría adicional incluida: {category.name} | "
+            f"productos esperados: {expected_count}"
+        )
+
+    print(f"Categorías seleccionadas: {len(selected)}")
+    print(f"Categorías adicionales incluidas: {optional_added}")
+    print(f"Total esperado: {total_expected}")
     return selected, total_expected
 
 

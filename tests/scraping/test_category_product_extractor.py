@@ -440,3 +440,20 @@ def test_category_product_extractor_ignores_text_nested_in_description_tab():
     product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert product.description == ""
+
+
+def test_category_product_extractor_ignores_role_based_description_tab_content():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-9992</p>
+        <h2 class="brxe-f31760">Producto con panel de pestaña</h2>
+        <div role="tabpanel" aria-labelledby="tab-description">
+            <div class="text-content">
+                Material: ABS. Dimensiones: 10 x 5 cm.
+            </div>
+        </div>
+    </article>
+    """
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.description == ""

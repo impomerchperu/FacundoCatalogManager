@@ -134,3 +134,24 @@ def test_detail_policy_does_not_treat_general_prose_as_technical_detail():
     )
 
     assert not has_technical_detail(prose)
+
+def test_detail_policy_recognizes_laminator_and_printer_specific_labels():
+    laminator = (
+        "Número de rodillos: 2. Ancho de entrada: 330 mm. "
+        "Espesor máximo de laminación: 0.5 mm. Soporta: 80 a 125 micrones. "
+        "Tiempo de calentamiento: 3 a 5 minutos. "
+        "Velocidad de laminación: 250 mm/min. "
+        "Cortadora con 3 tipos de corte: Recto, Ondulado y Perforado."
+    )
+    printer = (
+        "Tamaño de impresión (cm): 10 x 15. "
+        "Rollos por caja: 2. Impresiones por rollo: 300. "
+        "Válido para impresoras: CP-D90DW-P, CP-D80DW. "
+        "Opciones de acabado: Brillante y mate."
+    )
+
+    assert has_multiple_technical_detail_fields(laminator)
+    assert has_multiple_technical_detail_fields(printer)
+    assert has_technical_detail(laminator)
+    assert has_technical_detail(printer)
+

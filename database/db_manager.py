@@ -6,7 +6,7 @@ from config.runtime_paths import DATABASE_PATH, SCHEMA_PATH
 class DBManager:
     """Gestiona SQLite con inicialización, migraciones y persistencia segura."""
 
-    SCHEMA_VERSION = 4
+    SCHEMA_VERSION = 5
 
     def __init__(self, db_path=None):
         if db_path is None:
@@ -82,12 +82,42 @@ class DBManager:
                 4,
                 "Validadores HTTP y fecha de revalidación de imágenes principales.",
             )
+            current_version = 4
+
+        if current_version < 5:
+            self._migrate_to_v5()
+            self._record_schema_migration(
+                5,
+                "Caché persistente de páginas de producto y validadores HTTP.",
+            )
 
     def _migrate_to_v3(self) -> None:
         self._add_column_if_missing(
             "products",
             "gallery_images",
             "TEXT DEFAULT '[]'",
+        )
+
+    def _migrate_to_v5(self) -> None:
+        self.connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS source_page_cache (
+                normalized_url TEXT PRIMARY KEY,
+                original_url TEXT NOT NULL,
+                effective_url TEXT NOT NULL,
+                html_zlib BLOB NOT NULL,
+                content_sha256 TEXT NOT NULL,
+                etag TEXT NOT NULL DEFAULT '',
+                last_modified TEXT NOT NULL DEFAULT '',
+                fetched_at TEXT NOT NULL,
+                checked_at TEXT NOT NULL,
+                status_code INTEGER NOT NULL DEFAULT 200
+            )
+            """
+        )
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_source_page_cache_checked_at "
+            "ON source_page_cache(checked_at)"
         )
 
     def _migrate_to_v4(self) -> None:

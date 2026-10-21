@@ -1,4 +1,8 @@
 from config.scraping_config import JETSMARTFILTERS_AJAX_URL
+from services.scraping.source_page_cache import (
+    PersistentSourcePageCache,
+    PersistentSourcePageRepository,
+)
 from scrapers.browser import Browser
 
 
@@ -113,3 +117,17 @@ def test_browser_close_closes_owned_http_sessions_once(monkeypatch):
     browser.close()
 
     assert [session.close_calls for session in created_sessions] == [1, 1]
+
+def test_browser_reuses_persistent_cache_for_product_details(tmp_path):
+    session = FakeSession()
+    browser = Browser(session=session)
+    repository = PersistentSourcePageRepository(tmp_path / "catalog.db")
+    cache = PersistentSourcePageCache(repository, ttl_seconds=3600)
+    browser.configure_source_page_cache(cache)
+
+    url = "https://example.test/producto/item/"
+    assert browser.get(url) == "<html>fixture</html>"
+    assert browser.get(url) == "<html>fixture</html>"
+
+    assert len(session.get_calls) == 1
+    assert cache.get_metrics()["fresh_hits"] == 1

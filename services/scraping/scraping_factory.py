@@ -114,11 +114,31 @@ class ScrapingFactory:
             image_sync.image_downloader = image_downloader
             image_sync_adapter = ImageSyncAdapter(image_sync=image_sync)
 
+        # A local import avoids introducing a factory/module-level dependency cycle.
+        from services.scraping.source_page_cache import (
+            PersistentSourcePageCache,
+            PersistentSourcePageRepository,
+        )
+
         browser = Browser(
             request_timeout=config.request_timeout,
             max_retries=config.max_retries,
             http_workers=config.http_workers,
         )
+        database_row = db.connection.execute("PRAGMA database_list").fetchone()
+        database_path = (
+            str(database_row["file"] or "") if database_row is not None else ""
+        )
+        if database_path:
+            page_repository = PersistentSourcePageRepository(database_path)
+            page_cache = PersistentSourcePageCache(
+                page_repository,
+                ttl_seconds=config.source_page_cache_ttl_seconds,
+            )
+            browser.configure_source_page_cache(
+                page_cache,
+                force_revalidate=config.refresh_source_pages,
+            )
         if image_sync_adapter is not None:
             gallery_sync = ProductGallerySyncService(
                 browser=browser,

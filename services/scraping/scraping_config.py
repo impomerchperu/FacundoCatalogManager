@@ -57,6 +57,10 @@ class ScrapingConfig:
 
     refresh_galleries: bool = True
 
+    # Caché persistente del HTML de fichas de producto.
+    source_page_cache_ttl_seconds: int = 86400
+    refresh_source_pages: bool = False
+
     enabled_categories: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -80,6 +84,8 @@ class ScrapingConfig:
             raise ValueError("gallery_workers debe ser mayor que cero.")
         if self.gallery_max_candidates <= 0:
             raise ValueError("gallery_max_candidates debe ser mayor que cero.")
+        if self.source_page_cache_ttl_seconds < 0:
+            raise ValueError("source_page_cache_ttl_seconds no puede ser negativo.")
 
     def is_category_enabled(self, category: str) -> bool:
         """Determina si una categoría debe procesarse."""

@@ -255,7 +255,13 @@ class CategoryProductExtractor:
             has_technical_detail(candidate) for candidate in candidates
         ):
             return ""
-        return ". ".join(candidate.rstrip(" .;") for candidate in candidates)
+        if len(candidates) == 1:
+            return candidates[0]
+        prefix = ". ".join(
+            candidate.rstrip(" .;")
+            for candidate in candidates[:-1]
+        )
+        return f"{prefix}. {candidates[-1].lstrip()}"
 
     def _stock(self, soup):
         return sum(self._stock_values(soup))

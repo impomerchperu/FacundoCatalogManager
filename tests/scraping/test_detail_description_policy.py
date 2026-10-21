@@ -2,6 +2,7 @@ from models.scraping.detail_description_policy import (
     has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,
+    is_valid_detail_content,
     normalize_detail_text,
     strip_leading_color_field,
 )
@@ -211,3 +212,13 @@ def test_detail_policy_preserves_summary_description_while_removing_only_color()
         "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm."
     )
 
+
+def test_detail_policy_accepts_visible_summary_prose_but_rejects_color_only_text():
+    assert is_valid_detail_content(
+        "Nuestra cinta térmica se adhiere de manera segura y resiste el calor."
+    )
+    assert is_valid_detail_content(
+        "Descripción: Elegante y funcional set. Contiene: Sacacorchos."
+    )
+    assert not is_valid_detail_content("Colores: Blanco, Rojo.")
+    assert not is_valid_detail_content("Precio muestra: S/ 6.00")

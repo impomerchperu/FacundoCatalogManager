@@ -113,7 +113,7 @@ def test_category_product_extractor_prefers_detail_text_after_color_only_block()
     product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert product.description == (
-        "Color: Blanco. Material: Poliuretano. Peso neto por caja: 5.5 Kg."
+        "Material: Poliuretano. Peso neto por caja: 5.5 Kg."
     )
 
 
@@ -168,8 +168,13 @@ def test_category_product_extractor_merges_fb_detail_blocks():
         )
 
         assert product.code == code
-        assert product.description == ". ".join(blocks)
-        assert "Colores disponibles" in product.description or code == "FB-1700"
+        expected_blocks = [
+            block
+            for block in blocks
+            if not block.casefold().startswith("colores disponibles:")
+        ]
+        assert product.description == ". ".join(expected_blocks)
+        assert "Colores disponibles" not in product.description
 
 
 def test_category_product_extractor_excludes_description_tab_technical_text():

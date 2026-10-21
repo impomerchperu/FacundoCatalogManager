@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import sqlite3
 import zlib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
@@ -132,7 +132,8 @@ class PersistentSourcePageRepository:
             status_code=int(row["status_code"] or 200),
         )
 
-    def store(self, url: str, html: str, response: Any) -> CachedSourcePage:
+    def make_entry(self, url: str, html: str, response: Any) -> CachedSourcePage:
+        """Build a cache entry without opening a SQLite write transaction."""
         normalized_url = normalize_source_url(url)
         original_url = str(url).strip()
         response_url = str(getattr(response, "url", "") or original_url)
@@ -140,11 +141,22 @@ class PersistentSourcePageRepository:
         headers = getattr(response, "headers", {}) or {}
         now = _utc_now()
         payload = html.encode("utf-8")
-        digest = hashlib.sha256(payload).hexdigest()
-        compressed = zlib.compress(payload, level=6)
-        etag = _header_value(headers, "ETag")
-        last_modified = _header_value(headers, "Last-Modified")
-        status_code = int(getattr(response, "status_code", 200) or 200)
+        return CachedSourcePage(
+            normalized_url=normalized_url,
+            original_url=original_url,
+            effective_url=effective_url,
+            html=html,
+            content_sha256=hashlib.sha256(payload).hexdigest(),
+            etag=_header_value(headers, "ETag"),
+            last_modified=_header_value(headers, "Last-Modified"),
+            fetched_at=now,
+            checked_at=now,
+            status_code=int(getattr(response, "status_code", 200) or 200),
+        )
+
+    def save_entry(self, entry: CachedSourcePage) -> None:
+        """Persist an entry in a short transaction owned by this repository."""
+        compressed = zlib.compress(entry.html.encode("utf-8"), level=6)
         connection = self._connect()
         try:
             connection.execute(
@@ -166,25 +178,29 @@ class PersistentSourcePageRepository:
                     status_code=excluded.status_code
                 """,
                 (
-                    normalized_url,
-                    original_url,
-                    effective_url,
+                    entry.normalized_url,
+                    entry.original_url,
+                    entry.effective_url,
                     sqlite3.Binary(compressed),
-                    digest,
-                    etag,
-                    last_modified,
-                    now,
-                    now,
-                    status_code,
+                    entry.content_sha256,
+                    entry.etag,
+                    entry.last_modified,
+                    entry.fetched_at,
+                    entry.checked_at,
+                    entry.status_code,
                 ),
             )
             connection.commit()
         finally:
             connection.close()
-        entry = self.get(normalized_url)
-        if entry is None:
+
+    def store(self, url: str, html: str, response: Any) -> CachedSourcePage:
+        entry = self.make_entry(url, html, response)
+        self.save_entry(entry)
+        saved = self.get(entry.normalized_url)
+        if saved is None:
             raise RuntimeError("No se pudo verificar la página guardada en caché.")
-        return entry
+        return saved
 
     def mark_checked(self, url: str, response_headers: Any = None) -> None:
         key = normalize_source_url(url)
@@ -215,11 +231,15 @@ class PersistentSourcePageCache:
         repository: PersistentSourcePageRepository,
         *,
         ttl_seconds: int = 86400,
+        defer_writes: bool = False,
     ) -> None:
         if int(ttl_seconds) < 0:
             raise ValueError("ttl_seconds no puede ser negativo.")
         self.repository = repository
         self.ttl_seconds = int(ttl_seconds)
+        self.defer_writes = bool(defer_writes)
+        self._pending_lock = Lock()
+        self._pending_entries: dict[str, CachedSourcePage] = {}
         self._metrics_lock = Lock()
         self._metrics: dict[str, int] = {
             "fresh_hits": 0,
@@ -230,6 +250,38 @@ class PersistentSourcePageCache:
             "empty_response_fallbacks": 0,
             "request_errors": 0,
         }
+
+    def _get_entry(self, normalized_url: str) -> CachedSourcePage | None:
+        if self.defer_writes:
+            with self._pending_lock:
+                pending = self._pending_entries.get(normalized_url)
+            if pending is not None:
+                return pending
+        return self.repository.get(normalized_url)
+
+    def _queue_entry(self, entry: CachedSourcePage) -> None:
+        with self._pending_lock:
+            self._pending_entries[entry.normalized_url] = entry
+
+    def flush_pending(self) -> int:
+        """Write deferred cache entries after the catalog transaction finishes."""
+        if not self.defer_writes:
+            return 0
+        with self._pending_lock:
+            pending = list(self._pending_entries.values())
+            self._pending_entries.clear()
+        for index, entry in enumerate(pending):
+            try:
+                self.repository.save_entry(entry)
+            except Exception:
+                with self._pending_lock:
+                    for remaining in pending[index:]:
+                        self._pending_entries.setdefault(
+                            remaining.normalized_url,
+                            remaining,
+                        )
+                raise
+        return len(pending)
 
     @staticmethod
     def is_cacheable_url(url: str) -> bool:
@@ -296,7 +348,7 @@ class PersistentSourcePageCache:
         force: bool = False,
     ) -> str:
         normalized_url = normalize_source_url(url)
-        entry = self.repository.get(normalized_url)
+        entry = self._get_entry(normalized_url)
         cached_html = self._fresh_cached_html(entry, force)
         if cached_html is not None:
             return cached_html
@@ -322,7 +374,19 @@ class PersistentSourcePageCache:
         status_code = int(getattr(response, "status_code", 200) or 200)
         response_headers = getattr(response, "headers", {}) or {}
         if status_code == 304 and entry is not None:
-            self.repository.mark_checked(normalized_url, response_headers)
+            if self.defer_writes:
+                checked_entry = replace(
+                    entry,
+                    etag=_header_value(response_headers, "ETag") or entry.etag,
+                    last_modified=(
+                        _header_value(response_headers, "Last-Modified")
+                        or entry.last_modified
+                    ),
+                    checked_at=_utc_now(),
+                )
+                self._queue_entry(checked_entry)
+            else:
+                self.repository.mark_checked(normalized_url, response_headers)
             self._increment("not_modified_304")
             return entry.html
         if status_code >= 400:
@@ -335,7 +399,10 @@ class PersistentSourcePageCache:
                 self._increment("empty_response_fallbacks")
                 return entry.html
             return html_value
-        self.repository.store(url, html_value, response)
+        if self.defer_writes:
+            self._queue_entry(self.repository.make_entry(url, html_value, response))
+        else:
+            self.repository.store(url, html_value, response)
         self._increment("updated_200")
         return html_value
 

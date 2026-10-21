@@ -130,3 +130,63 @@ def test_only_product_detail_urls_are_cacheable():
     assert not PersistentSourcePageCache.is_cacheable_url(
         "https://example.test/categoria/item/"
     )
+
+
+
+def test_deferred_cache_writes_do_not_conflict_with_catalog_transaction(tmp_path):
+    import sqlite3
+
+    database_path = tmp_path / "catalog.db"
+    catalog_connection = sqlite3.connect(database_path, timeout=2)
+    catalog_connection.execute("PRAGMA journal_mode=WAL")
+    catalog_connection.execute(
+        "CREATE TABLE catalog_transaction_probe (id INTEGER PRIMARY KEY)"
+    )
+    catalog_connection.commit()
+
+    repository = PersistentSourcePageRepository(database_path)
+    cache = PersistentSourcePageCache(
+        repository,
+        ttl_seconds=3600,
+        defer_writes=True,
+    )
+    url = "https://example.test/producto/deferred-write/"
+    fetch_calls = []
+
+    def fetcher(headers):
+        fetch_calls.append(dict(headers))
+        return FakeResponse(
+            "<html>deferred page</html>",
+            headers={"ETag": '"deferred-v1"'},
+            url=url,
+        )
+
+    try:
+        catalog_connection.execute("BEGIN")
+        catalog_connection.execute(
+            "SELECT normalized_url FROM source_page_cache"
+        ).fetchall()
+
+        assert cache.get_html(url, fetcher) == "<html>deferred page</html>"
+        assert repository.get(url) is None
+
+        # The catalog connection can still commit after a cache miss, because
+        # the fetched HTML has only been queued in memory at this point.
+        catalog_connection.execute(
+            "INSERT INTO catalog_transaction_probe DEFAULT VALUES"
+        )
+        catalog_connection.commit()
+
+        # The same URL can be served from the in-memory pending entry without
+        # another HTTP request, before the entry is flushed to SQLite.
+        assert cache.get_html(url, fetcher) == "<html>deferred page</html>"
+        assert len(fetch_calls) == 1
+
+        assert cache.flush_pending() == 1
+        saved = repository.get(url)
+        assert saved is not None
+        assert saved.html == "<html>deferred page</html>"
+    finally:
+        if catalog_connection.in_transaction:
+            catalog_connection.rollback()
+        catalog_connection.close()

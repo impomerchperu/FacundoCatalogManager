@@ -134,6 +134,7 @@ class ScrapingFactory:
             page_cache = PersistentSourcePageCache(
                 page_repository,
                 ttl_seconds=config.source_page_cache_ttl_seconds,
+                defer_writes=True,
             )
             browser.configure_source_page_cache(
                 page_cache,

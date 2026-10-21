@@ -174,6 +174,12 @@ class Browser:
         if cache is not None:
             cache.reset_metrics()
 
+    def flush_source_page_cache(self) -> int:
+        """Persist deferred cache writes after the catalog transaction ends."""
+        cache = self._source_page_cache
+        flush = getattr(cache, "flush_pending", None)
+        return int(flush() or 0) if callable(flush) else 0
+
     def fetch(self, url):
         return self.get(url)
 

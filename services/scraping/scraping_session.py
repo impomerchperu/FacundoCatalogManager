@@ -1,7 +1,10 @@
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from models.scraping.scraping_history import ScrapingHistory
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -132,7 +135,41 @@ class ScrapingSession:
                 self.result.errors.append(
                     f"No se pudo registrar el historial del error: {history_error}"
                 )
+        finally:
+            self._flush_source_page_cache()
         return self.result
+
+    def _flush_source_page_cache(self) -> None:
+        """Flush pending HTML writes only after catalog commit/rollback."""
+        sync_service = getattr(self.runner, "scraping_service", None)
+        browser = None
+        browser_getter = getattr(sync_service, "_browser", None)
+        if callable(browser_getter):
+            try:
+                browser = browser_getter()
+            except Exception:  # noqa: BLE001
+                LOGGER.exception("No se pudo localizar el navegador para vaciar el caché.")
+
+        if browser is None:
+            scraper_service = getattr(sync_service, "scraper_service", None)
+            scraper = getattr(scraper_service, "scraper", None)
+            browser = getattr(scraper, "browser", None)
+            if browser is None:
+                category_scraper = getattr(scraper, "category_scraper", None)
+                browser = getattr(category_scraper, "browser", None)
+
+        flush = getattr(browser, "flush_source_page_cache", None)
+        if not callable(flush):
+            return
+        try:
+            pending = int(flush() or 0)
+        except Exception:  # noqa: BLE001
+            # The cache is an optimization; a cache write failure must not
+            # undo a catalog commit or mask the original scraping result.
+            LOGGER.exception("No se pudo persistir el caché de páginas de producto.")
+            return
+        if pending:
+            LOGGER.info("Páginas de producto persistidas en caché: %d", pending)
 
     def _finalize_catalog_post_commit(self) -> None:
         """Finaliza tareas de catálogo que requieren la transacción ya confirmada."""

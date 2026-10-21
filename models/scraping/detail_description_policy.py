@@ -200,7 +200,7 @@ def normalize_detail_text(value: object) -> str:
     text = text.replace(_DETAIL_BOUNDARY, " ")
     # Some catalog cards publish an empty final "Caja:" field after valid
     # specifications. Drop only that empty field so preceding attributes survive.
-    text = re.sub(r"(?:[.;]\\s*)?\\bcaja\\s*:\\s*$", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?:[.;]\s*)?\bcaja\s*:\s*$", "", text, flags=re.IGNORECASE)
     return _WHITESPACE_PATTERN.sub(" ", text).strip(" .;")
 
 

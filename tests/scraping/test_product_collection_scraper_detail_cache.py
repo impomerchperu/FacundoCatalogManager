@@ -455,7 +455,7 @@ def test_category_description_wins_when_it_has_more_explicit_attributes():
     )
 
 
-def test_fb4047_truncated_card_detail_uses_only_technical_detail_panel():
+def test_fb4047_truncated_card_uses_visible_summary_and_ignores_tabs():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(
         category_scraper,
@@ -497,7 +497,7 @@ def test_fb4047_truncated_card_detail_uses_only_technical_detail_panel():
     <html>
         <h1>Producto de ejemplo</h1>
         <p class="brxe-heading">FB-4047</p>
-        <div class="x-tabs_panel-content">
+        <div class="woocommerce-product-details__short-description">
             Color: Amarillo, Blanco. Material: Poliuretano.
             Dimensiones: 55*55*100mm. Peso Unitario: 24 G.
             Uso Recomendado: Antiestrés, Promocional.
@@ -542,8 +542,7 @@ def test_fb4047_truncated_card_detail_uses_only_technical_detail_panel():
     assert result[0].name == "Producto de ejemplo"
     assert result[0].category == "Artículos Antiestrés"
     assert result[0].description == (
-
-        "Dimensiones: 55*55*100mm. "
+        "Material: Poliuretano. Dimensiones: 55*55*100mm. "
         "Peso Unitario: 24 G. Uso Recomendado: Antiestrés, Promocional. "
         "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
         "Dimensiones Caja: 60*33*32cm. Cubicaje por Caja: 0.0634 m³/CBM "

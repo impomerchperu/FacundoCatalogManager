@@ -1341,6 +1341,36 @@ def test_detail_removes_fields_that_repeat_product_row_data():
     table.close()
 
 
+def test_detail_table_filters_legacy_description_and_color_fields():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.load_products(
+        [
+            Product(
+                code="FB-2107",
+                name="Set de Vino con Juego de Ajedrez",
+                description=(
+                    "Descripción: texto promocional. Color: Azul. "
+                    "Contiene: Tapón y sacacorchos. "
+                    "Presentación: Caja. "
+                    "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm."
+                ),
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert item.text().splitlines() == [
+        "Contiene: Tapón y sacacorchos",
+        "Presentación: Caja",
+        "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm",
+    ]
+
+    table.close()
+
+
 def test_detail_removes_color_line_when_variants_are_visible_in_stock():
     _qapp()
     colors = [

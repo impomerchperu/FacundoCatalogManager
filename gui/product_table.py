@@ -1124,19 +1124,12 @@ class ProductDetailDelegate(ProductCellDelegate):
             styled_option.rect.width() - (2 * self.HORIZONTAL_PADDING),
             1,
         )
-        layouts, layout_height = self._layout_text(
+        layouts, _layout_height = self._layout_text(
             text,
             styled_option.font,
             text_width,
         )
-        available_height = max(
-            styled_option.rect.height() - (2 * self.VERTICAL_PADDING),
-            0,
-        )
-        vertical_offset = max(
-            (available_height - layout_height) / 2,
-            0,
-        )
+        vertical_offset = 0
         painter.save()
         painter.setPen(styled_option.palette.color(QPalette.ColorRole.Text))
         for layout, top_offset in layouts:
@@ -1206,7 +1199,35 @@ class ProductTable(QTableWidget):
     DEFAULT_PRICE_COLUMN_WIDTH = 110
     FIXED_PRICE_COLUMN_WIDTH = 88
     DETAIL_FIELD_LABELS: ClassVar[dict[str, str]] = {
+        "descripción comercial": "Descripción",
+        "descripcion comercial": "Descripción",
+        "descripción": "Descripción",
+        "descripcion": "Descripción",
+        "colores disponibles": "Colores disponibles",
+        "colores": "Colores",
         "color": "Color",
+        "medidas del estuche": "Medidas del Estuche",
+        "levantamiento de materiales": "Levantamiento de materiales",
+        "proyectos de manualidades": "Proyectos de manualidades",
+        "aplicaciones de vinilo": "Aplicaciones de vinilo",
+        "trabajo en scrapbooking": "Trabajo en scrapbooking",
+        "calidad superior": "Calidad Superior",
+        "compatibilidad confiable": "Compatibilidad Confiable",
+        "procedencia coreana": "Procedencia Coreana",
+        "facilidad de uso": "Facilidad de Uso",
+        "espesor máximo del material": "Espesor máximo del material",
+        "area máxima de corte": "Área máxima de corte",
+        "área máxima de corte": "Área máxima de corte",
+        "area de corte": "Área de corte",
+        "área de corte": "Área de corte",
+        "ancho de corte": "Ancho de Corte",
+        "longitud de corte": "Longitud de Corte",
+        "fuerza de corte": "Fuerza de Corte",
+        "velocidad de corte": "Velocidad de Corte",
+        "sistema de motor": "Sistema de Motor",
+        "tipo de luz": "Tipo de luz",
+        "espacio libre": "Espacio Libre",
+        "contiene": "Contiene",
         "codigo": "Código",
         "código": "Código",
         "producto": "Producto",
@@ -1276,6 +1297,7 @@ class ProductTable(QTableWidget):
         "compatibilidad": "Compatibilidad",
         "contenido": "Contenido",
         "incluye": "Incluye",
+        "presentación del producto": "Presentación del producto",
         "empaque": "Empaque",
         "medida": "Medida",
         "alimentacion": "Alimentación",
@@ -1999,7 +2021,7 @@ class ProductTable(QTableWidget):
         detail_item = self.item(row, self.DETAIL_COLUMN)
         if detail_item is not None:
             detail_item.setTextAlignment(
-                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+                Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft,
             )
         self._set_category_item(row, product.category)
         self._set_stock_widget(row, product)
@@ -2450,6 +2472,16 @@ class ProductTable(QTableWidget):
         inside_measure_value = False
         for match in matches:
             alias = match.group(1).casefold()
+            if alias in {
+                "descripción comercial",
+                "descripcion comercial",
+                "descripción",
+                "descripcion",
+                "color",
+                "colores",
+                "colores disponibles",
+            }:
+                continue
             if alias in {"medida", "medidas"}:
                 inside_measure_value = True
                 normalized_matches.append(match)

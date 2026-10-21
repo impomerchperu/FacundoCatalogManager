@@ -125,10 +125,16 @@ class ScrapingFactory:
             max_retries=config.max_retries,
             http_workers=config.http_workers,
         )
-        database_row = db.connection.execute("PRAGMA database_list").fetchone()
-        database_path = (
-            str(database_row["file"] or "") if database_row is not None else ""
-        )
+        database_path = ""
+        database_connection = getattr(db, "connection", None)
+        execute = getattr(database_connection, "execute", None)
+        if callable(execute):
+            database_row = execute("PRAGMA database_list").fetchone()
+            database_path = (
+                str(database_row["file"] or "")
+                if database_row is not None
+                else ""
+            )
         if database_path:
             page_repository = PersistentSourcePageRepository(database_path)
             page_cache = PersistentSourcePageCache(

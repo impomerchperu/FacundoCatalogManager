@@ -52,6 +52,17 @@ class ImageSyncAdapter:
             return {}
         return result if isinstance(result, dict) else {}
 
+    @staticmethod
+    def _source_page_cache_metrics(browser) -> dict[str, Any]:
+        getter = getattr(browser, "get_source_page_cache_metrics", None)
+        if not callable(getter):
+            return {}
+        try:
+            result = getter() or {}
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return {}
+        return result if isinstance(result, dict) else {}
+
     def sync_products(
         self,
         products,
@@ -80,6 +91,7 @@ class ImageSyncAdapter:
         if self.gallery_sync is not None:
             browser = getattr(self.gallery_sync, "browser", None)
             before = self._http_metrics(browser)
+            cache_before = self._source_page_cache_metrics(browser)
             gallery_started = time.perf_counter()
             items = self.gallery_sync.sync_products(
                 items,
@@ -87,6 +99,7 @@ class ImageSyncAdapter:
             )
             elapsed = time.perf_counter() - gallery_started
             after = self._http_metrics(browser)
+            cache_after = self._source_page_cache_metrics(browser)
             detail_requests = max(
                 int(after.get("detail_http_requests", 0) or 0)
                 - int(before.get("detail_http_requests", 0) or 0),
@@ -116,4 +129,30 @@ class ImageSyncAdapter:
                 retries,
                 elapsed,
             )
+            if cache_before or cache_after:
+                cache_fields = (
+                    "fresh_hits",
+                    "network_validations",
+                    "not_modified_304",
+                    "updated_200",
+                    "stale_fallbacks",
+                    "empty_response_fallbacks",
+                    "request_errors",
+                )
+                cache_deltas = {
+                    field: max(
+                        int(cache_after.get(field, 0) or 0)
+                        - int(cache_before.get(field, 0) or 0),
+                        0,
+                    )
+                    for field in cache_fields
+                }
+                _log_timing(
+                    "SCRAPING TIMING | stage=gallery_source_page_cache "
+                    "| fresh_hits=%d | network_validations=%d "
+                    "| not_modified_304=%d | updated_200=%d "
+                    "| stale_fallbacks=%d | empty_response_fallbacks=%d "
+                    "| request_errors=%d",
+                    *(cache_deltas[field] for field in cache_fields),
+                )
         return items

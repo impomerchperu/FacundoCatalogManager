@@ -243,6 +243,7 @@ class CategoryProductSyncService:
         )
         self._log_detail_metrics()
         self._log_http_metrics()
+        self._log_source_page_cache_metrics()
 
         raw_products = list(products)
         started = time.perf_counter()
@@ -726,6 +727,27 @@ class CategoryProductSyncService:
             int(values.get("detail_cache_hits", 0) or 0),
             int(values.get("detail_cache_size", 0) or 0),
             int(values.get("detail_skipped", 0) or 0),
+        )
+
+    def _log_source_page_cache_metrics(self):
+        browser = self._browser()
+        metrics = getattr(browser, "get_source_page_cache_metrics", None)
+        if not callable(metrics):
+            return
+        values = cast(dict[str, Any], metrics() or {})
+        _log_timing(
+            "SCRAPING TIMING | stage=source_page_cache_collection "
+            "| fresh_hits=%d | network_validations=%d "
+            "| not_modified_304=%d | updated_200=%d "
+            "| stale_fallbacks=%d | empty_response_fallbacks=%d "
+            "| request_errors=%d",
+            int(values.get("fresh_hits", 0) or 0),
+            int(values.get("network_validations", 0) or 0),
+            int(values.get("not_modified_304", 0) or 0),
+            int(values.get("updated_200", 0) or 0),
+            int(values.get("stale_fallbacks", 0) or 0),
+            int(values.get("empty_response_fallbacks", 0) or 0),
+            int(values.get("request_errors", 0) or 0),
         )
 
     def _log_http_metrics(self):

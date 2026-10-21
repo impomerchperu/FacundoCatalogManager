@@ -28,6 +28,8 @@ _COLOR_FIELD_PREFIX_PATTERN = re.compile(
 _COLOR_SEPARATOR_PATTERN = re.compile(r"[.;]\s*")
 _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"\b(?:"
+    r"medida y capacidad|"
+    r"medida de impresi[oó]n|"
     r"medidas\s+del\s+estuche|"
     r"medidas\s+(?:de\s+)?(?:estuche|mochila|cartera|cartuchera)|"
     r"presentaci[oó]n\s+del\s+estuche|"
@@ -52,6 +54,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"aplicaciones\s+de\s+vinilo|"
     r"trabajo\s+en\s+scrapbooking|"
     r"calidad\s+superior|"
+    r"calidad|"
     r"compatibilidad\s+confiable|"
     r"procedencia\s+coreana|"
     r"facilidad\s+de\s+uso|"
@@ -97,6 +100,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"ancho|largo|alto|altura|peso|"
     r"modelo|tipo|formato|marca|"
     r"compatibilidad|contenido|incluye|contiene|empaque|"
+    r"paquete|caja|forro|"
     r"alimentaci[oó]n|tiempo|espesor|acabado|"
     r"aplicaci[oó]n|resistencia|"
     r"unidades\s+por\s+caja|cantidad|unidad|"
@@ -121,6 +125,7 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
     r"\.{2,}|…|"
     r"(?<!\w)(?:"
     r"peso\s+(?:br(?:u(?:t(?:o)?)?)?|net(?:o)?)(?:\s+por(?:\s+caj(?:a)?)?)?|"
+    r"caja|"
     r"dimens(?:i[oó]n(?:es)?)?(?:\s+(?:de\s+)?caj(?:a)?)?|"
     r"cantidad\s+por\s+caj(?:a)?|"
     r"cubicaje(?:\s+por\s+caj(?:a)?)?|"

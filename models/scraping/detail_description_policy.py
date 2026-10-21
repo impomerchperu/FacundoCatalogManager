@@ -16,10 +16,10 @@ _DESCRIPTION_FIELD_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _COLOR_FIELD_PATTERN = re.compile(
-    r"(?<!\\w)(?:(?:disponible\\s+en)\\s+)?"
-    r"(?:colores\\s+disponibles|colores|color)"
-    r"(?!\\s+de\\s+(?:impresi[oó]n|tinta))"
-    r"(?:\\s*[:|\\-]\\s*|\\s+(?=\\S))",
+    r"(?<!\w)(?:(?:disponible\s+en)\s+)?"
+    r"(?:colores\s+disponibles|colores|color)"
+    r"(?!\s+de\s+(?:impresión|tinta))"
+    r"(?:\s*[:|\-]\s*|\s+(?=\S))",
     re.IGNORECASE,
 )
 
@@ -157,24 +157,23 @@ def _remove_marked_fields(
             # Flattened WooCommerce cards sometimes place "Color: ..." inline
             # without a period. Only strip such embedded matches when the
             # field label itself uses an explicit delimiter.
-            explicit_label = re.search(r"[:|\\-]\\s*$", match.group(0)) is not None
+            explicit_label = re.search(r"[:|\-]\s*$", match.group(0)) is not None
             if not allow_embedded_label or not explicit_label:
                 continue
 
         next_field = _DETAIL_FIELD_LABEL_PATTERN.search(text, match.end())
-        before = text[: match.start()].rstrip(" \\t;" + _DETAIL_BOUNDARY)
+        before = text[: match.start()].rstrip(" \t;" + _DETAIL_BOUNDARY)
         if next_field is None:
             text = before
             continue
 
-        after = text[next_field.start() :].lstrip(" \\t.;" + _DETAIL_BOUNDARY)
+        after = text[next_field.start() :].lstrip(" \t.;" + _DETAIL_BOUNDARY)
         if before and after:
             separator = " " if before.endswith((".", ";")) else ". "
             text = before + separator + after
         else:
             text = before or after
     return text
-
 
 def strip_leading_color_field(value: object) -> str:
     """Remove a leading color field from a legacy Detail value."""

@@ -594,7 +594,7 @@ def test_product_extractor_combines_labeled_details_split_across_paragraphs():
     assert "Trabajo en scrapbooking:" in detail
 
 
-def test_product_extractor_keeps_herra03_fields_from_description_tab_paragraphs():
+def test_product_extractor_ignores_herra03_fields_from_description_tab_paragraphs():
     html = """
     <html><body>
       <div id="tab-description" class="woocommerce-Tabs-panel--description">
@@ -607,14 +607,8 @@ def test_product_extractor_keeps_herra03_fields_from_description_tab_paragraphs(
     </body></html>
     """
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
-    detail = result["description"]
 
-    assert "Descripción comercial" not in detail
-    assert "herramienta práctica" not in detail
-    assert "Levantamiento de materiales:" in detail
-    assert "Proyectos de manualidades:" in detail
-    assert "Aplicaciones de vinilo:" in detail
-    assert "Trabajo en scrapbooking:" in detail
+    assert result["description"] == ""
 
 
 

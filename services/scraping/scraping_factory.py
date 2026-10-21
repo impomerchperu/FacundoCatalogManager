@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any, cast
 
 from config.runtime_paths import DATA_DIR, DATABASE_PATH
 from database.db_manager import DBManager
@@ -129,7 +130,7 @@ class ScrapingFactory:
         database_connection = getattr(db, "connection", None)
         execute = getattr(database_connection, "execute", None)
         if callable(execute):
-            database_row = execute("PRAGMA database_list").fetchone()
+            database_row = cast(Any, execute("PRAGMA database_list")).fetchone()
             database_path = (
                 str(database_row["file"] or "")
                 if database_row is not None

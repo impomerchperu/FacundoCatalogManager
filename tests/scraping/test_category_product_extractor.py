@@ -420,3 +420,20 @@ def test_category_product_extractor_keeps_summary_description_and_removes_color(
     assert "Contiene: Sacacorchos" in product.description
     assert "Presentación: Caja de cartón Blanca" in product.description
     assert "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm" in product.description
+
+
+def test_category_product_extractor_ignores_text_nested_in_description_tab():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-9991</p>
+        <h2 class="brxe-f31760">Producto con datos solo en pestaña</h2>
+        <div class="x-tabs_panel-content">
+            <div class="text-content">
+                Material: ABS. Dimensiones: 10 x 5 cm.
+            </div>
+        </div>
+    </article>
+    """
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.description == ""

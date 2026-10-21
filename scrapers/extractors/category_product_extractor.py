@@ -39,6 +39,7 @@ class CategoryProductExtractor:
         "woocommerce-Tabs-panel--description",
         "woocommerce-Tabs-panel--additional_information",
         "woocommerce-Tabs-panel--reviews",
+        "x-tabs_panel-content",
     })
     _NON_DETAIL_SECTION_PREFIX_PATTERN = re.compile(
         r"^\s*(?:informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",

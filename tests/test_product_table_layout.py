@@ -1341,7 +1341,7 @@ def test_detail_removes_fields_that_repeat_product_row_data():
     table.close()
 
 
-def test_detail_table_filters_legacy_description_and_color_fields():
+def test_detail_table_preserves_summary_description_and_removes_only_color():
     _qapp()
     table = ProductTable(_Controller())
     table.load_products(
@@ -1363,6 +1363,7 @@ def test_detail_table_filters_legacy_description_and_color_fields():
     item = table.item(0, ProductTable.DETAIL_COLUMN)
     assert item is not None
     assert item.text().splitlines() == [
+        "Descripción: texto promocional",
         "Contiene: Tapón y sacacorchos",
         "Presentación: Caja",
         "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm",
@@ -1381,6 +1382,7 @@ def test_detail_formatter_splits_fb2107_fb2043_and_herra03_fields():
                 "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm."
             ),
             [
+                "Descripción: texto promocional",
                 "Contiene: Tapón y sacacorchos",
                 "Presentación: Caja",
                 "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm",
@@ -1389,7 +1391,6 @@ def test_detail_formatter_splits_fb2107_fb2043_and_herra03_fields():
         (
             "FB2043",
             (
-                "Descripción: texto comercial. "
                 "Calidad Superior: Tinta de alta calidad. "
                 "Compatibilidad Confiable: Impresoras compatibles. "
                 "Procedencia Coreana: Elaborada en Corea. "

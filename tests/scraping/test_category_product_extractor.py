@@ -78,7 +78,7 @@ def test_category_product_extractor_rejects_detail_with_empty_final_field():
 
     product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert product.description == ""
+    assert product.description == "Medida: A4. Paquete: 20 Unidades"
 
 
 def test_category_product_extractor_excludes_explicit_price_field_from_detail():

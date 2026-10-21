@@ -598,3 +598,56 @@ def test_product_extractor_combines_labeled_details_split_across_paragraphs():
     assert "Aplicaciones de vinilo:" in detail
     assert "Trabajo en scrapbooking:" in detail
 
+def test_product_extractor_recognizes_laminator_and_printer_fields():
+    cases = (
+        (
+            "OL381S",
+            """
+            <div class="text-content">
+              Número de rodillos: 2. Ancho de entrada: 330 mm.
+              Espesor máximo de laminación: 0.5 mm. Soporta: 80 a 125 micrones.
+              Tiempo de calentamiento: 3 a 5 minutos.
+              Velocidad de laminación: 250 mm/min.
+              Cortadora con 3 tipos de corte: Recto, Ondulado y Perforado.
+            </div>
+            """,
+            (
+                "Número de rodillos: 2",
+                "Ancho de entrada: 330 mm",
+                "Espesor máximo de laminación: 0.5 mm",
+                "Soporta: 80 a 125 micrones",
+                "Tiempo de calentamiento: 3 a 5 minutos",
+                "Velocidad de laminación: 250 mm/min",
+                "Cortadora con 3 tipos de corte: Recto, Ondulado y Perforado",
+            ),
+        ),
+        (
+            "MITS-C-CK-D868",
+            """
+            <div class="text-content">
+              Tamaño de impresión (cm): 10 x 15. Rollos por caja: 2.
+              Impresiones por rollo: 300.
+              Válido para impresoras: CP-D90DW-P, CP-D80DW.
+              Opciones de acabado: Brillante y mate.
+            </div>
+            """,
+            (
+                "Tamaño de impresión (cm): 10 x 15",
+                "Rollos por caja: 2",
+                "Impresiones por rollo: 300",
+                "Válido para impresoras: CP-D90DW-P, CP-D80DW",
+                "Opciones de acabado: Brillante y mate",
+            ),
+        ),
+    )
+    extractor = ProductExtractor()
+    for code, detail_html, expected_fields in cases:
+        soup = BeautifulSoup(
+            f"<html><body><p class='brxe-heading'>{code}</p>{detail_html}</body></html>",
+            "lxml",
+        )
+        result = extractor.extract(soup)
+        detail = result["description"]
+        for expected_field in expected_fields:
+            assert expected_field in detail
+

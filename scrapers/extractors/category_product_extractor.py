@@ -179,8 +179,8 @@ class CategoryProductExtractor:
             seen.add(text.casefold())
             candidates.append(text)
 
-        # Color is part of technical detail when accompanied by real attributes,
-        # but color-only text must never qualify as a complete Detail value.
+        # Variant-color lines are removed by normalize_detail_text; only
+        # candidates containing recognized technical fields are retained.
         if not any(has_technical_detail(candidate) for candidate in candidates):
             return ""
         if len(candidates) == 1:

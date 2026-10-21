@@ -94,6 +94,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"medida(?:s)?|"
     r"di[aá]metro|"
     r"velocidad|"
+    r"voltaje\\s+y\\s+frecuencia|"
     r"voltaje|"
     r"potencia|"
     r"funci[oó]n(?:es)?|"
@@ -208,7 +209,6 @@ def normalize_detail_text(value: object) -> str:
     text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"[•▪●‣◦]+", _DETAIL_BOUNDARY, text)
     text = _WHITESPACE_PATTERN.sub(" ", text).strip()
-    text = _remove_marked_fields(text, _DESCRIPTION_FIELD_PATTERN)
     text = _remove_marked_fields(
         text,
         _COLOR_FIELD_PATTERN,
@@ -218,7 +218,7 @@ def normalize_detail_text(value: object) -> str:
     # Some catalog cards publish an empty final "Caja:" field after valid
     # specifications. Drop only that empty field so preceding attributes survive.
     text = re.sub(r"(?:[.;]\s*)?\bcaja\s*:\s*$", "", text, flags=re.IGNORECASE)
-    return _WHITESPACE_PATTERN.sub(" ", text).strip(" .;")
+    return _WHITESPACE_PATTERN.sub(" ", text).strip(" ;")
 
 
 def is_complete_detail(value: object) -> bool:

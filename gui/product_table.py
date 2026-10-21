@@ -41,6 +41,7 @@ from config.runtime_paths import resolve_data_path
 from controllers.product_controller import ProductController
 from gui.product_category_delegate import ProductCategoryDelegate
 from models.product import Product
+from models.scraping.detail_description_policy import normalize_detail_text
 from models.product_image_gallery import normalize_product_gallery
 from services.scraping.category_name_normalizer import (
     display_category_name,
@@ -2452,7 +2453,9 @@ class ProductTable(QTableWidget):
     @classmethod
     def _format_detail(cls, product: Product) -> str:
         """Ordena los atributos del detalle y quita duplicados de la fila."""
-        raw = cls._correct_detail_spelling(str(product.description or ""))
+        raw = normalize_detail_text(
+            cls._correct_detail_spelling(str(product.description or ""))
+        )
         raw = raw.replace("\r\n", "\n").replace("\r", "\n")
         raw = re.sub(r"[•▪●‣◦]", " ", raw)
         raw = re.sub(r"[ \t]+", " ", raw).strip()

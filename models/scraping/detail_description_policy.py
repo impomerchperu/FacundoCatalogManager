@@ -198,7 +198,10 @@ def normalize_detail_text(value: object) -> str:
     text = _remove_marked_fields(text, _DESCRIPTION_FIELD_PATTERN)
     text = _remove_marked_fields(text, _COLOR_FIELD_PATTERN)
     text = text.replace(_DETAIL_BOUNDARY, " ")
-    return _WHITESPACE_PATTERN.sub(" ", text).strip()
+    # Some catalog cards publish an empty final "Caja:" field after valid
+    # specifications. Drop only that empty field so preceding attributes survive.
+    text = re.sub(r"(?:[.;]\\s*)?\\bcaja\\s*:\\s*$", "", text, flags=re.IGNORECASE)
+    return _WHITESPACE_PATTERN.sub(" ", text).strip(" .;")
 
 
 def is_complete_detail(value: object) -> bool:

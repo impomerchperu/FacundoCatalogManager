@@ -209,19 +209,19 @@ class ProductExtractor:
         boundary = "__FACUNDO_DETAIL_BOUNDARY__"
         markup = str(element)
         markup = re.sub(
-            r"<br\\b[^>]*>",
+            r"<br\b[^>]*>",
             boundary,
             markup,
             flags=re.IGNORECASE,
         )
         markup = re.sub(
-            r"<(?:li|p|div|h[1-6])\\b[^>]*>",
+            r"<(?:li|p|div|h[1-6])\b[^>]*>",
             boundary,
             markup,
             flags=re.IGNORECASE,
         )
         markup = re.sub(
-            r"</(?:li|p|div|h[1-6])\\s*>",
+            r"</(?:li|p|div|h[1-6])\s*>",
             boundary,
             markup,
             flags=re.IGNORECASE,

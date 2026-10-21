@@ -162,19 +162,19 @@ class CategoryProductExtractor:
         boundary = "__FACUNDO_DETAIL_BOUNDARY__"
         markup = str(element)
         markup = re.sub(
-            r"<br\\b[^>]*>",
+            r"<br\b[^>]*>",
             boundary,
             markup,
             flags=re.IGNORECASE,
         )
         markup = re.sub(
-            r"<(?:li|p|div|h[1-6])\\b[^>]*>",
+            r"<(?:li|p|div|h[1-6])\b[^>]*>",
             boundary,
             markup,
             flags=re.IGNORECASE,
         )
         markup = re.sub(
-            r"</(?:li|p|div|h[1-6])\\s*>",
+            r"</(?:li|p|div|h[1-6])\s*>",
             boundary,
             markup,
             flags=re.IGNORECASE,
@@ -188,9 +188,9 @@ class CategoryProductExtractor:
             return ""
 
         raw_text = cls._detail_text_from_element(element)
-        normalized_prefix = raw_text.lstrip(" \\t\\r\\n␞•▪●‣◦")
+        normalized_prefix = raw_text.lstrip(" \t\r\n␞•▪●‣◦")
         description_prefix = re.match(
-            r"descripci[oó]n(?:\\s+comercial)?\\s*[:|\\-]\\s*",
+            r"descripci[oó]n(?:\s+comercial)?\s*[:|\-]\s*,
             normalized_prefix,
             re.IGNORECASE,
         )

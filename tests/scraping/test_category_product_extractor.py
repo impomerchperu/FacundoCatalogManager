@@ -76,7 +76,7 @@ def test_category_product_extractor_recognizes_sublimation_fields():
         <p class="brxe-a26f34">FB-2003</p>
         <h2 class="brxe-f31760">Jarrito de Cerámica</h2>
         <div class="text-content">
-            Medida y capacidad: 10.5 cm x 8.5 cm – 444 ml.
+            Medida y capacidad: 10.5 cm x 8.5 cm \u2013 444 ml.
             Medida de impresión: 21 x 11 cm.
             Calidad: AAA, alta calidad.
             Material: Cerámica blanca.
@@ -86,7 +86,7 @@ def test_category_product_extractor_recognizes_sublimation_fields():
 
     product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert "Medida y capacidad: 10.5 cm x 8.5 cm – 444 ml" in product.description
+    assert "Medida y capacidad: 10.5 cm x 8.5 cm \u2013 444 ml" in product.description
     assert "Medida de impresión: 21 x 11 cm" in product.description
     assert "Calidad: AAA, alta calidad" in product.description
     assert "Material: Cerámica blanca" in product.description

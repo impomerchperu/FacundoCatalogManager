@@ -87,6 +87,8 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r")\s*:",
     re.IGNORECASE,
 )
+TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
+
 _TECHNICAL_DETAIL_PATTERN = re.compile(
     _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\bcertificado\s+sgs\b",
     re.IGNORECASE,

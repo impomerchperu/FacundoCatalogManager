@@ -79,7 +79,8 @@ def main() -> int:
         print(f"Duración de sincronización: {time.perf_counter() - sync_started:.2f} s")
 
         errors = list(getattr(result, "errors", []) or [])
-        status = result.status() if callable(getattr(result, "status", None)) else "UNKNOWN"
+        status_getter = getattr(result, "status", None)
+        status = status_getter() if callable(status_getter) else "UNKNOWN"
         print(f"Estado: {status}")
         for field in (
             "categories_processed",

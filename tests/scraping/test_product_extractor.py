@@ -725,7 +725,7 @@ def test_product_extractor_structures_explicit_software_and_tool_capabilities():
             </div>
             """,
             (
-                "Función: Imprime fotos y regalos personalizados con facilidad mediante Wifi, Airprint, WhatsApp, Bluetooth o cables",
+                "Función: Imprime fotos y regalos personalizados con facilidad",
                 "Conectividad: Wifi, Airprint, WhatsApp, Bluetooth o cables",
                 "Compatibilidad: Impresoras CX-02, CX-02W, y CY-02",
                 "Funciones adicionales: Múltiples formatos de impresión y personalización",

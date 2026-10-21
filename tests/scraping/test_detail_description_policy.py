@@ -15,19 +15,18 @@ FB_4047_DETAIL = (
 )
 
 
-def test_detail_policy_preserves_leading_color_and_technical_attributes():
+def test_detail_policy_removes_color_line_and_preserves_technical_attributes():
     source = (
         "Color: Amarillo, Blanco. Material: Poliuretano. "
         "Dimensiones: 55*55*100mm."
     )
+    expected = "Material: Poliuretano. Dimensiones: 55*55*100mm."
 
-    assert normalize_detail_text(source) == source
-    assert strip_leading_color_field(source) == (
-        "Material: Poliuretano. Dimensiones: 55*55*100mm."
-    )
+    assert normalize_detail_text(source) == expected
+    assert strip_leading_color_field(source) == expected
 
 
-def test_detail_policy_preserves_color_text_but_does_not_treat_it_as_technical():
+def test_detail_policy_removes_color_lines_without_dropping_neighboring_fields():
     color_values = (
         "Colores Blanco",
         "Color Blanco.",
@@ -35,13 +34,16 @@ def test_detail_policy_preserves_color_text_but_does_not_treat_it_as_technical()
     )
     for value in color_values:
         normalized = normalize_detail_text(value)
-        assert normalized == value
+        assert normalized == ""
         assert not has_technical_detail(normalized)
         assert not is_complete_detail(normalized)
 
     assert normalize_detail_text("Colores Blanco. Material: ABS.") == (
-        "Colores Blanco. Material: ABS."
+        "Material: ABS."
     )
+    assert normalize_detail_text(
+        "Material: ABS. Colores disponibles: Azul, Rojo. Presentación: Caja."
+    ) == "Material: ABS. Presentación: Caja."
 
 
 def test_detail_policy_detects_clipped_words_and_ellipsis():
@@ -82,12 +84,42 @@ def test_detail_policy_recognizes_laminator_fields_and_removes_bullets():
     )
 
 
-def test_detail_policy_rejects_description_prefix_even_when_prose_mentions_fields():
+def test_detail_policy_strips_marketing_intro_but_keeps_labeled_attributes():
+    source = (
+        "Descripción comercial: Producto ideal para regalo. "
+        "Contiene: Tapa. Presentación: Caja. "
+        "Medidas del Estuche: 15 x 17 cm."
+    )
+    cleaned = (
+        "Contiene: Tapa. Presentación: Caja. "
+        "Medidas del Estuche: 15 x 17 cm."
+    )
+
+    assert normalize_detail_text(source) == cleaned
+    assert has_technical_detail(cleaned)
+    assert is_complete_detail(cleaned)
     assert not has_technical_detail(
-        "Descripción comercial: Material: ABS. Dimensiones: 12 cm."
+        "Descripción comercial: ideal para regalo. "
+        "Consulta las condiciones comerciales."
     )
     assert not has_technical_detail(
         "Información adicional: Material: acero. Potencia: 20 W."
+    )
+    assert has_multiple_technical_detail_fields(
+        "Levantamiento de materiales: retirar vinilo. "
+        "Proyectos de manualidades: uso general. "
+        "Aplicaciones de vinilo: levantar y posicionar. "
+        "Trabajo en scrapbooking: manipular adhesivos."
+    )
+    assert has_multiple_technical_detail_fields(
+        "Calidad Superior: tinta de calidad. "
+        "Compatibilidad Confiable: uso con impresoras. "
+        "Procedencia Coreana: fabricación coreana. "
+        "Facilidad de Uso: botella fácil de usar."
+    )
+    assert has_multiple_technical_detail_fields(
+        "Ancho de Corte: 38 cm. Longitud de Corte: 3 m. "
+        "Fuerza de Corte: 210 gf. Sistema de Motor: doble."
     )
 
 

@@ -130,7 +130,8 @@ class ScrapingFactory:
         database_connection = getattr(db, "connection", None)
         execute = getattr(database_connection, "execute", None)
         if callable(execute):
-            database_row = cast(Any, execute("PRAGMA database_list")).fetchone()
+            cursor = cast(Any, execute("PRAGMA database_list"))
+            database_row = cursor.fetchone()
             database_path = (
                 str(database_row["file"] or "")
                 if database_row is not None

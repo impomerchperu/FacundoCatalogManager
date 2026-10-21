@@ -118,7 +118,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
 )
 TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
 _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = re.compile(
-    r"(?<!\\w)descripci[oó]n(?:\\s+comercial)?\\s*:\\s*|"
+    r"(?<!\w)descripci[oó]n(?:\s+comercial)?\s*:\s*|"
     + _DETAIL_FIELD_LABEL_PATTERN.pattern,
     re.IGNORECASE,
 )

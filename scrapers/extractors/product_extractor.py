@@ -602,6 +602,13 @@ class ProductExtractor:
                     if detail:
                         return detail
 
+        # Before inspecting generic leaf nodes (such as a single <p>), combine
+        # labeled sibling blocks from the same detail container. Otherwise the
+        # first technical paragraph wins and the remaining fields are lost.
+        labeled_details = self._extract_labeled_detail_blocks(soup)
+        if labeled_details:
+            return labeled_details
+
         for selector in self._DETAIL_FALLBACK_SELECTORS:
             for element in soup.select(selector):
                 if self._is_excluded_detail_tab(element):
@@ -613,9 +620,6 @@ class ProductExtractor:
                 if detail:
                     return detail
 
-        labeled_details = self._extract_labeled_detail_blocks(soup)
-        if labeled_details:
-            return labeled_details
         return self._extract_semantic_detail_fields(soup)
 
     def extract_description(self, soup):

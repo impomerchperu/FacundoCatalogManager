@@ -16,6 +16,7 @@ from PySide6.QtGui import (
     QPen,
     QPixmap,
     QPixmapCache,
+    QTextCharFormat,
     QTextLayout,
     QTextOption,
 )
@@ -1042,6 +1043,21 @@ class ProductDetailDelegate(ProductCellDelegate):
     VERTICAL_PADDING = 8
     LINE_SPACING_REDUCTION = 1
     PARAGRAPH_SPACING_REDUCTION = 2
+    _BOLD_DETAIL_LABEL_PATTERN = re.compile(
+        r"(?<!\w)(?:"
+        r"descripci[oó]n(?:\s+comercial)?|contiene|"
+        r"presentaci[oó]n(?:\s+(?:del\s+)?(?:producto|estuche))?|"
+        r"medidas?\s+del\s+estuche|medida(?:s)?\s+de\s+impresi[oó]n|"
+        r"materiales?|dimensiones?|peso(?:\s+(?:unitario|neto|bruto))?|"
+        r"uso(?:\s+recomendado)?|tama[ñn]o(?:\s+(?:de\s+)?impresi[oó]n)?|"
+        r"capacidad|incluye|contenido|cantidad(?:\s+por\s+caja)?|"
+        r"cubicaje(?:\s+por\s+caja)?|gramaje|di[aá]metro|voltaje|potencia|"
+        r"temperatura|presi[oó]n|frecuencia|resoluci[oó]n|compatibilidad|"
+        r"conectividad|funci[oó]n(?:es)?(?:\s+adicionales)?|"
+        r"[aá]rea\s+de\s+impresi[oó]n|t[eé]cnica\s+de\s+impresi[oó]n"
+        r")\s*:",
+        re.IGNORECASE,
+    )
 
     @classmethod
     def _layout_text(
@@ -1060,6 +1076,16 @@ class ProductDetailDelegate(ProductCellDelegate):
         paragraphs = text.splitlines() or [text]
         for paragraph_index, paragraph in enumerate(paragraphs):
             layout = QTextLayout(paragraph, font)
+            formats: list[QTextLayout.FormatRange] = []
+            for match in cls._BOLD_DETAIL_LABEL_PATTERN.finditer(paragraph):
+                char_format = QTextCharFormat()
+                char_format.setFontWeight(QFont.Weight.Bold)
+                format_range = QTextLayout.FormatRange()
+                format_range.start = match.start()
+                format_range.length = match.end() - match.start()
+                format_range.format = char_format
+                formats.append(format_range)
+            layout.setFormats(formats)
             text_option = QTextOption()
             text_option.setWrapMode(
                 QTextOption.WrapMode.WordWrap,

@@ -169,7 +169,7 @@ def test_targeted_detail_repair_rejects_incomplete_extracted_detail():
         )
 
         assert plans[0].status == "skip_invalid_detail"
-        assert "detalle_vacío" in plans[0].reason
+        assert "detalle_incompleto_o_truncado" in plans[0].reason
         assert apply_detail_repairs(db, repository, plans) == 0
     finally:
         db.close()
@@ -219,10 +219,10 @@ def test_audit_incomplete_details_lists_only_values_rejected_by_shared_policy():
         report = audit_incomplete_details(db, repository, limit=10)
 
         assert report["mode"] == "audit_only"
-        assert report["total_incomplete"] == 1
+        assert report["total_incomplete"] == 0
         items = report["items"]
         assert isinstance(items, list)
-        assert [item["code"] for item in items] == ["FB-1700"]
+        assert items == []
     finally:
         db.close()
 
@@ -267,3 +267,63 @@ def test_targeted_detail_repair_resolves_sku_without_hyphen():
         assert browser.requested_urls == [PRODUCT_URL]
     finally:
         db.close()
+
+
+def test_authoritative_empty_detail_is_preserved_without_fallback():
+    db, repository = _seed_catalog(code="FB-2114", description="Detalle comercial antiguo")
+    html = """
+    <html><body>
+      <h1>Producto de prueba</h1>
+      <p class="brxe-heading">FB-2114</p>
+      <div id="brxe-jhzpri">
+        <h3>Producto de prueba</h3>
+        <p></p>
+      </div>
+      <div class="text-content">
+        Este texto pertenece a otra sección y no debe sustituir a Detalle.
+      </div>
+    </body></html>
+    """
+    browser = StaticBrowser(html)
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-2114"],
+            browser=browser,
+        )
+
+        assert len(plans) == 1
+        assert plans[0].status == "would_update"
+        assert plans[0].new_description == ""
+        stored = repository.get_by_code("FB-2114")
+        assert stored is not None
+        assert stored.description == "Detalle comercial antiguo"
+
+        assert apply_detail_repairs(db, repository, plans) == 1
+        stored = repository.get_by_code("FB-2114")
+        assert stored is not None
+        assert stored.description == ""
+    finally:
+        db.close()
+
+
+def test_authoritative_marketing_copy_is_valid_detail_content():
+    from bs4 import BeautifulSoup
+    from scrapers.extractors.product_extractor import ProductExtractor
+
+    detail = (
+        "Amplía tus opciones de estilo con nuestro Gorro Sublimable. "
+        "Este versátil gorro te permite personalizarlo con tus diseños, "
+        "imágenes o logotipos favoritos, lo que lo convierte en una excelente "
+        "elección para destacar tu individualidad o promocionar tu marca."
+    )
+    html = f"""
+    <html><body>
+      <h1>Gorro Sublimable</h1>
+      <p class="brxe-heading">HL-3000</p>
+      <div id="brxe-jhzpri"><p>{detail}</p></div>
+    </body></html>
+    """
+    extracted = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    assert extracted["description"] == detail

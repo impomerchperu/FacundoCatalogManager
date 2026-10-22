@@ -457,3 +457,33 @@ def test_category_product_extractor_ignores_role_based_description_tab_content()
     product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert product.description == ""
+
+
+def test_empty_text_content_does_not_fall_back_to_unrelated_blocks():
+    html = (
+        '<article><p class="brxe-a26f34">FB-2114</p>'
+        '<h2 class="brxe-f31760">Producto sin detalle</h2>'
+        '<div class="text-content"></div>'
+        '<div class="brxe-text-basic">Material: ABS. Dimensiones: 10 x 5 cm. '
+        'Este texto no pertenece al campo Detalle.</div></article>'
+    )
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    assert product.code == "FB-2114"
+    assert product.description == ""
+
+
+def test_category_product_extractor_preserves_hl_3000_marketing_copy():
+    detail = (
+        "Amplía tus opciones de estilo con nuestro Gorro Sublimable. "
+        "Este versátil gorro te permite personalizarlo con tus diseños, "
+        "imágenes o logotipos favoritos, lo que lo convierte en una excelente "
+        "elección para destacar tu individualidad o promocionar tu marca."
+    )
+    html = (
+        '<article><p class="brxe-a26f34">HL-3000</p>'
+        '<h2 class="brxe-f31760">Gorro Sublimable</h2>'
+        f'<div class="text-content">{detail}</div></article>'
+    )
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    assert product.code == "HL-3000"
+    assert product.description == detail

@@ -222,3 +222,23 @@ def test_detail_policy_accepts_visible_summary_prose_but_rejects_color_only_text
     )
     assert not is_valid_detail_content("Colores: Blanco, Rojo.")
     assert not is_valid_detail_content("Precio muestra: S/ 6.00")
+
+
+def test_size_label_is_valid_technical_detail():
+    from models.scraping.detail_description_policy import (
+        has_technical_detail,
+        is_complete_detail,
+        is_complete_detail_content,
+        is_valid_detail_content,
+    )
+
+    detail = (
+        "Tamaño: 15 x 20 cm "
+        "Medida de impresión: 30 x 20cm "
+        "Material: Piedra"
+    )
+
+    assert has_technical_detail(detail)
+    assert is_complete_detail(detail)
+    assert is_valid_detail_content(detail)
+    assert is_complete_detail_content(detail)

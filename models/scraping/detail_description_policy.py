@@ -264,7 +264,7 @@ _SUMMARY_NOISE_PATTERN = re.compile(
     r"precio\b|sku\b|stock\b|categor[ií]as?\b|"
     r"colores?\b|disponible\b|añadir al carrito\b|limpiar\b|"
     r"compartir\b|informaci[oó]n adicional\b|reseñas?\b|"
-    r"valoraciones\b|tamaños?\b|"
+    r"valoraciones\b|"
     r"este producto no está disponible\b|sin stock\b|agotado\b"
     r")",
     re.IGNORECASE,

@@ -519,7 +519,76 @@ class ProductExtractor:
             return detail
         return ""
 
+    def extract_authoritative_detail_text(self, soup) -> tuple[bool, str]:
+        """Return whether the authoritative Detail field was found and its value."""
+        product_block = soup.select_one("#brxe-jhzpri")
+        if product_block is not None and not self._is_excluded_detail_tab(product_block):
+            elements = soup.select(
+                "#brxe-jhzpri > ul > li, #brxe-jhzpri > p"
+            )
+            elements = [
+                element
+                for element in elements
+                if not self._is_excluded_detail_tab(element)
+            ]
+            if elements:
+                first_nonempty = ""
+                valid_parts: list[str] = []
+                for element in elements:
+                    text = normalize_detail_text(
+                        self._detail_text_from_element(element)
+                    )
+                    if not text:
+                        continue
+                    if not first_nonempty:
+                        first_nonempty = text
+                    candidate = self._validated_detail_candidate(
+                        element,
+                        require_multiple_fields=False,
+                    )
+                    if candidate:
+                        valid_parts.append(candidate)
+
+                if valid_parts:
+                    return True, normalize_detail_text(" ␞ ".join(valid_parts))
+                # An identified but empty field remains authoritative.
+                return True, first_nonempty
+
+        summaries = [
+            element
+            for element in soup.select(
+                ".woocommerce-product-details__short-description"
+            )
+            if not self._is_excluded_detail_tab(element)
+        ]
+        if summaries:
+            first_nonempty = ""
+            for element in summaries:
+                text = normalize_detail_text(
+                    self._detail_text_from_element(element)
+                )
+                if not text:
+                    continue
+                if not first_nonempty:
+                    first_nonempty = text
+                candidate = self._validated_detail_candidate(
+                    element,
+                    require_multiple_fields=False,
+                )
+                if candidate:
+                    return True, candidate
+            return True, first_nonempty
+
+        return False, ""
+
     def extract_detail_text(self, soup) -> str:
+        """Use the identified Detail field before considering generic fallbacks."""
+        field_found, detail = self.extract_authoritative_detail_text(soup)
+        if field_found:
+            return detail
+        return self._extract_detail_text_fallback(soup)
+
+    def _extract_detail_text_fallback(self, soup) -> str:
         """Extrae atributos etiquetados y elimina texto comercial y líneas de color."""
         for selector_group in self._DETAIL_SELECTORS_BY_PRIORITY:
             for selector in selector_group:

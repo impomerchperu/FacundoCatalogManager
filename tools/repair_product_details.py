@@ -117,6 +117,10 @@ def audit_incomplete_details(
     """List local Detail values that fail the visible-summary policy."""
     findings: list[dict[str, object]] = []
     for product in sorted(repository.get_all(), key=lambda item: item.code.casefold()):
+        # Un Detalle vacío puede ser correcto si el campo de origen está vacío.
+        # Por sí solo no constituye un defecto que deba repararse.
+        if not str(product.description or "").strip():
+            continue
         reason = _detail_issue(product.description)
         if not reason:
             continue
@@ -210,6 +214,9 @@ def plan_product_detail_repairs(
         try:
             html = browser.get(url)
             soup = BeautifulSoup(html, "lxml")
+            detail_field_found, authoritative_detail = (
+                product_extractor.extract_authoritative_detail_text(soup)
+            )
             scraped = product_extractor.extract(
                 soup,
                 url=url,
@@ -248,8 +255,27 @@ def plan_product_detail_repairs(
             )
             continue
 
-        candidate = normalize_detail_text(getattr(scraped, "description", ""))
-        issue = _detail_issue(candidate)
+        if not detail_field_found:
+            plans.append(
+                DetailRepairPlan(
+                    code=code,
+                    status="skip_authoritative_detail_not_found",
+                    url=url,
+                    product_id=product.product_id,
+                    old_description=str(product.description or ""),
+                    new_description=normalize_detail_text(
+                        getattr(scraped, "description", "")
+                    ),
+                    reason=(
+                        "No se identificó el campo autorizado Detalle en la página; "
+                        "se omitió la reparación para no tomar contenido alternativo."
+                    ),
+                )
+            )
+            continue
+
+        candidate = normalize_detail_text(authoritative_detail)
+        issue = _detail_issue(candidate) if candidate else ""
         if issue:
             plans.append(
                 DetailRepairPlan(

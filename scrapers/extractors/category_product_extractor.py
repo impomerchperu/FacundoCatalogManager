@@ -277,10 +277,12 @@ class CategoryProductExtractor:
         return candidates
 
     def _description(self, soup):
-        candidates = self._collect_description_candidates(
-            soup.select(".text-content")
-        )
-        if not candidates:
+        authoritative_elements = soup.select(".text-content")
+        if authoritative_elements:
+            candidates = self._collect_description_candidates(authoritative_elements)
+            if not candidates:
+                return ""
+        else:
             fallback_selectors = (
                 ".brxe-text",
                 ".brxe-text-basic",

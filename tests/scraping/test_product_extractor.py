@@ -866,3 +866,45 @@ def test_product_extractor_keeps_visible_thermal_tape_prose_not_tabs():
     assert "Descripción inferior" not in detail
     assert "Colores:" not in detail
     assert "TAMAÑOS:" not in detail
+
+
+def test_product_extractor_reads_authoritative_paragraph_from_brxe_jhzpri():
+    html = """
+    <html><body>
+      <div id="brxe-jhzpri" class="brxe-div gap--s">
+        <h3>Set de Vino con Juego de Ajedrez</h3>
+        <h3></h3><p></p>
+        <p style="text-align: left">
+          &#8226; <strong>Descripción:</strong> Elegante y funcional set
+          que combina la pasión por el buen vino y el entretenimiento
+          del ajedrez.<br>
+          &#8226; <strong>Color:</strong> Blanco.<br>
+          &#8226; <strong>Contiene:</strong> Sacacorchos, tapón metálico
+          para botella, anillo antigoteo y cortagotas, más piezas de ajedrez.<br>
+          &#8226; <strong>Presentación:</strong> Caja de cartón Blanca.<br>
+          &#8226; <strong>Medidas del Estuche:</strong> 15 cm x 17 cm x 4.5 cm.
+        </p>
+        <div id="brxe-pvgljs">
+          Este producto no está disponible porque no quedan existencias.
+        </div>
+        <div id="brxe-tscbph">
+          <p>SKU: FB-2107</p>
+          <p>Categorías: Cocina, Mesa y Hogar</p>
+        </div>
+        <div id="brxe-miyybm">COMPARTIR:</div>
+      </div>
+    </body></html>
+    """
+
+    detail = ProductExtractor().extract(
+        BeautifulSoup(html, "lxml")
+    )["description"]
+
+    assert "Descripción: Elegante y funcional set" in detail
+    assert "Contiene: Sacacorchos" in detail
+    assert "Presentación: Caja de cartón Blanca." in detail
+    assert "Medidas del Estuche: 15 cm x 17 cm x 4.5 cm." in detail
+    assert "Color:" not in detail
+    assert "SKU:" not in detail
+    assert "Categorías:" not in detail
+    assert "Este producto no está disponible" not in detail

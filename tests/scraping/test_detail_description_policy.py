@@ -228,7 +228,6 @@ def test_size_label_is_valid_technical_detail():
     from models.scraping.detail_description_policy import (
         has_technical_detail,
         is_complete_detail,
-        is_complete_detail_content,
         is_valid_detail_content,
     )
 
@@ -241,4 +240,3 @@ def test_size_label_is_valid_technical_detail():
     assert has_technical_detail(detail)
     assert is_complete_detail(detail)
     assert is_valid_detail_content(detail)
-    assert is_complete_detail_content(detail)

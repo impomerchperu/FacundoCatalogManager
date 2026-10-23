@@ -2336,3 +2336,11 @@ def test_detail_delegate_bolds_labels_not_in_a_fixed_allowlist():
         "Características especiales:",
         "Tamaño del paquete:",
     ]
+
+
+def test_detail_delegate_vertically_centers_content_in_taller_rows():
+    delegate = ProductDetailDelegate()
+
+    assert delegate._vertical_text_offset(rect_height=80, content_height=24) == 28
+    assert delegate._vertical_text_offset(rect_height=40, content_height=24) == 8
+    assert delegate._vertical_text_offset(rect_height=20, content_height=24) == 8

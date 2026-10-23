@@ -1120,6 +1120,14 @@ class ProductDetailDelegate(ProductCellDelegate):
         _, height = cls._layout_text(text, font, width)
         return height
 
+    @classmethod
+    def _vertical_text_offset(cls, rect_height: int, content_height: int) -> float:
+        """Center the detail vertically while preserving the minimum top padding."""
+        return max(
+            float(cls.VERTICAL_PADDING),
+            (rect_height - content_height) / 2,
+        )
+
     def paint(self, painter: QPainter, option, index) -> None:
         styled_option = QStyleOptionViewItem(option)
         self.initStyleOption(styled_option, index)
@@ -1141,12 +1149,15 @@ class ProductDetailDelegate(ProductCellDelegate):
             styled_option.rect.width() - (2 * self.HORIZONTAL_PADDING),
             1,
         )
-        layouts, _layout_height = self._layout_text(
+        layouts, layout_height = self._layout_text(
             text,
             styled_option.font,
             text_width,
         )
-        vertical_offset = 0
+        vertical_text_offset = self._vertical_text_offset(
+            styled_option.rect.height(),
+            layout_height,
+        )
         painter.save()
         painter.setPen(styled_option.palette.color(QPalette.ColorRole.Text))
         for layout, top_offset in layouts:
@@ -1154,10 +1165,7 @@ class ProductDetailDelegate(ProductCellDelegate):
                 painter,
                 QPointF(
                     styled_option.rect.left() + self.HORIZONTAL_PADDING,
-                    styled_option.rect.top()
-                    + self.VERTICAL_PADDING
-                    + vertical_offset
-                    + top_offset,
+                    styled_option.rect.top() + vertical_text_offset + top_offset,
                 ),
             )
         painter.restore()

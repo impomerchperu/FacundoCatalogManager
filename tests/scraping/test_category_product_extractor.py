@@ -92,7 +92,7 @@ def test_category_product_extractor_recognizes_sublimation_fields():
     assert "Material: Cerámica blanca" in product.description
 
 
-def test_category_product_extractor_rejects_detail_with_empty_final_field():
+def test_category_product_extractor_preserves_empty_final_caja_field():
     html = """
     <article>
         <p class="brxe-a26f34">FB-7080</p>
@@ -103,7 +103,23 @@ def test_category_product_extractor_rejects_detail_with_empty_final_field():
 
     product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert product.description == "Medida: A4. Paquete: 20 Unidades"
+    assert product.description == "Medida: A4. Paquete: 20 Unidades. Caja:"
+
+
+def test_category_product_extractor_preserves_populated_caja_field():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-7080</p>
+        <h2 class="brxe-f31760">Laminado A4</h2>
+        <div class="text-content">Medida: A4. Paquete: 20 Unidades. Caja: 100 unidades.</div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.description == (
+        "Medida: A4. Paquete: 20 Unidades. Caja: 100 unidades."
+    )
 
 
 def test_category_product_extractor_excludes_explicit_price_field_from_detail():

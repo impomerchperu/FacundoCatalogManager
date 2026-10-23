@@ -214,15 +214,28 @@ class ProductExtractor:
         return result
 
     @classmethod
-    def _normalize_code_candidate(cls, text: str) -> str:
+    def _normalize_code_candidate(
+        cls,
+        text: str,
+        *,
+        allow_alpha_only: bool = False,
+    ) -> str:
         """Valida un código completo sin asumir un prefijo concreto."""
-        return normalize_code(text)
+        return normalize_code(text, allow_alpha_only=allow_alpha_only)
 
     @classmethod
-    def _find_code_token(cls, text: str) -> str:
-        """Busca un código dentro de texto explícitamente marcado como SKU."""
+    def _find_code_token(
+        cls,
+        text: str,
+        *,
+        allow_alpha_only: bool = False,
+    ) -> str:
+        """Busca un código en texto con una etiqueta explícita de SKU/código."""
         for token in re.split(r"\s+", str(text).strip()):
-            code = cls._normalize_code_candidate(token)
+            code = cls._normalize_code_candidate(
+                token,
+                allow_alpha_only=allow_alpha_only,
+            )
             if code:
                 return code
         return ""
@@ -250,7 +263,10 @@ class ProductExtractor:
                     or element.get("data-sku")
                     or element.get_text(" ", strip=True)
                 )
-                code = self._normalize_code_candidate(str(text))
+                code = self._normalize_code_candidate(
+                    str(text),
+                    allow_alpha_only=selector in {"p.brxe-heading", "span.sku", ".sku"},
+                )
                 if code:
                     return code
 
@@ -259,13 +275,19 @@ class ProductExtractor:
             parent = text_node.parent
             if parent is None:
                 continue
-            code = self._find_code_token(parent.get_text(" ", strip=True))
+            code = self._find_code_token(
+                parent.get_text(" ", strip=True),
+                allow_alpha_only=True,
+            )
             if code:
                 return code
 
             sibling = parent.find_next(string=True)
             if sibling is not None:
-                code = self._find_code_token(str(sibling))
+                code = self._find_code_token(
+                    str(sibling),
+                    allow_alpha_only=True,
+                )
                 if code:
                     return code
 

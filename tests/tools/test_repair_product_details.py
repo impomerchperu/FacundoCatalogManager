@@ -312,7 +312,6 @@ def test_authoritative_empty_detail_is_preserved_without_fallback():
 
 
 def test_authoritative_marketing_copy_is_valid_detail_content():
-
     detail = (
         "Amplía tus opciones de estilo con nuestro Gorro Sublimable. "
         "Este versátil gorro te permite personalizarlo con tus diseños, "

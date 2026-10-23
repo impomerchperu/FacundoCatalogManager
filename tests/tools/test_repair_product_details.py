@@ -11,11 +11,11 @@ from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.product_hash_service import ProductHashService
 from tools.repair_product_details import (
     _emit_json_report,
+    _resolve_category_batches,
     apply_detail_repairs,
     audit_incomplete_details,
     audit_source_details,
     plan_product_detail_repairs,
-    _resolve_category_batches,
 )
 
 PRODUCT_URL = (

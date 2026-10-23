@@ -166,7 +166,10 @@ def test_product_extractor_preserves_color_list_inside_description_value():
 
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert "Resaltadores en 5 colores: Fucsia, Naranja, Amarillo, Verde y Celeste." in result["description"]
+    assert (
+        "Resaltadores en 5 colores: Fucsia, Naranja, Amarillo, Verde y Celeste."
+        in result["description"]
+    )
     assert "Dentro de un pote." in result["description"]
     assert "Material: Plástico." in result["description"]
     assert "Presentación: Individual" in result["description"]

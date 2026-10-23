@@ -385,7 +385,7 @@ def audit_source_details(
             completed_plans[product.code] = plan
             completed_count += 1
             if progress is not None:
-                progress(completed_count, len(products), plan)
+                progress(completed_count, len(selected_products), plan)
 
     plans = [completed_plans[product.code] for product in selected_products]
     counts = Counter(plan.status for plan in plans)
@@ -406,8 +406,6 @@ def audit_source_details(
         "status_counts": dict(sorted(counts.items())),
         "items": [asdict(plan) for plan in plans],
     }
-
-
 
 def _resolve_category_batches(
     repository: ProductRepository,
@@ -646,11 +644,13 @@ def _repair_categories_by_batch(
             unresolved_codes.update(_blocking_detail_codes(verification))
             verification_runs = result["verification_runs"]
             if isinstance(verification_runs, list):
-                verification_runs.append({
-                    "attempt": attempt,
-                    "summary": _source_audit_summary(verification),
-                    "items": verification.get("items", []),
-                })
+                verification_runs.append(
+                    {
+                        "attempt": attempt,
+                        "summary": _source_audit_summary(verification),
+                        "items": verification.get("items", []),
+                    }
+                )
 
             if int(verification.get("fetch_errors") or 0) > 0:
                 outcome = "verification_fetch_error"
@@ -727,6 +727,7 @@ def _repair_categories_by_batch(
         "unresolved_codes": sorted(unresolved_codes, key=str.casefold),
         "category_results": category_results,
     }
+
 
 def _emit_json_report(
     report: dict[str, object],

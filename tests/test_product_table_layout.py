@@ -2344,3 +2344,24 @@ def test_detail_delegate_vertically_centers_content_in_taller_rows():
     assert delegate._vertical_text_offset(rect_height=80, content_height=24) == 28
     assert delegate._vertical_text_offset(rect_height=40, content_height=24) == 8
     assert delegate._vertical_text_offset(rect_height=20, content_height=24) == 8
+
+
+def test_detail_formatter_preserves_empty_caja_field_for_future_updates():
+    product = Product(
+        code="FB-7080",
+        name="Laminado en frío",
+        description="Medida: A4. Paquete: 20 Unidades. Caja:",
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Medida: A4",
+        "Paquete: 20 Unidades",
+        "Caja:",
+    ]
+
+    product.description = "Medida: A4. Paquete: 20 Unidades. Caja: 100 unidades."
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Medida: A4",
+        "Paquete: 20 Unidades",
+        "Caja: 100 unidades",
+    ]

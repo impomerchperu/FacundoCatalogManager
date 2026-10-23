@@ -179,9 +179,15 @@ def test_detail_policy_recognizes_laminator_and_printer_specific_labels():
 
     incomplete_box = "Medida: A4. Paquete: 20 Unidades. Caja:"
     assert normalize_detail_text(incomplete_box) == (
-        "Medida: A4. Paquete: 20 Unidades"
+        "Medida: A4. Paquete: 20 Unidades. Caja:"
     )
     assert is_complete_detail(incomplete_box)
+    assert is_valid_detail_content(incomplete_box)
+    assert not is_complete_detail("Caja:")
+    assert not is_valid_detail_content("Caja:")
+    assert normalize_detail_text(
+        "Medida: A4. Paquete: 20 Unidades. Caja: 100 unidades."
+    ) == "Medida: A4. Paquete: 20 Unidades. Caja: 100 unidades."
 
 def test_detail_policy_removes_inline_color_labels_from_flattened_card_text():
     assert normalize_detail_text(

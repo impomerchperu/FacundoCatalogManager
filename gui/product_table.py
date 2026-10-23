@@ -2576,11 +2576,13 @@ class ProductTable(QTableWidget):
             value = re.sub(r"^[ \t\r\n.;]+", "", value)
             value = re.sub(r"[ \t\r\n.;]+$", "", value)
             value = re.sub(r"\s+", " ", value).strip()
-            if not value or cls._detail_field_duplicates_row(
-                label,
-                value,
-                product,
-            ):
+            if not value:
+                # Keep the recognized source label even when its value is
+                # empty, so a later source update can populate it normally.
+                if alias == "caja":
+                    lines.append(f"{label}:")
+                continue
+            if cls._detail_field_duplicates_row(label, value, product):
                 continue
             lines.append(f"{label}: {value}".rstrip(" ."))
 

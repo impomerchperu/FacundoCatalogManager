@@ -148,6 +148,10 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
     r")\s*:?\s*$",
     re.IGNORECASE,
 )
+_EMPTY_TRAILING_BOX_FIELD_PATTERN = re.compile(
+    r"(?:[.;]\s*)?\bcaja\s*:\s*$",
+    re.IGNORECASE,
+)
 
 
 def _remove_marked_fields(
@@ -236,27 +240,32 @@ def normalize_detail_text(value: object) -> str:
         allow_embedded_label=True,
     )
     text = text.replace(_DETAIL_BOUNDARY, " ")
-    # Some catalog cards publish an empty final "Caja:" field after valid
-    # specifications. Drop only that empty field so preceding attributes survive.
-    text = re.sub(r"(?:[.;]\s*)?\bcaja\s*:\s*$", "", text, flags=re.IGNORECASE)
+    # Preserve an empty terminal "Caja:" field: if the source fills it later,
+    # the label remains part of the Detail payload and can be compared on sync.
     return _WHITESPACE_PATTERN.sub(" ", text).strip(" ;")
 
 
 def is_complete_detail(value: object) -> bool:
-    """Whether Detail has recognized fields and contains no clipped ending."""
+    """Whether Detail is complete, allowing an empty final Caja field."""
     text = normalize_detail_text(value)
+    # An empty Caja label is a real source field, not a truncation marker.
+    # Validate the fields before it, but keep the label in the normalized text.
+    validation_text = _EMPTY_TRAILING_BOX_FIELD_PATTERN.sub("", text).rstrip(" .;")
     if (
-        not text
-        or not has_technical_detail(text)
-        or text.endswith((",", ";", ":"))
+        not validation_text
+        or not has_technical_detail(validation_text)
+        or validation_text.endswith((",", ";", ":"))
     ):
         return False
-    return _DESCRIPTION_TRUNCATION_PATTERN.search(text) is None
+    return _DESCRIPTION_TRUNCATION_PATTERN.search(validation_text) is None
 
 
 def has_technical_detail(value: object) -> bool:
     """Identify labeled product features, not commercial copy."""
     text = normalize_detail_text(value)
+    # The empty Caja label alone should not turn a prose-only description into
+    # a technical detail. A populated Caja field remains a recognized label.
+    text = _EMPTY_TRAILING_BOX_FIELD_PATTERN.sub("", text).rstrip(" .;")
     if not text or _NON_TECHNICAL_SECTION_PREFIX_PATTERN.match(text):
         return False
     return _TECHNICAL_DETAIL_PATTERN.search(text) is not None
@@ -281,10 +290,14 @@ def is_valid_detail_content(value: object) -> bool:
     panels before calling this policy, so ordinary summary prose is valid too.
     """
     text = normalize_detail_text(value)
+    has_empty_terminal_box = (
+        _EMPTY_TRAILING_BOX_FIELD_PATTERN.search(text) is not None
+    )
     if (
         not text
         or _NON_TECHNICAL_SECTION_PREFIX_PATTERN.match(text)
-        or text.endswith((",", ";", ":"))
+        or text.endswith((",", ";"))
+        or (text.endswith(":") and not has_empty_terminal_box)
         or _SUMMARY_NOISE_PATTERN.match(text)
     ):
         return False

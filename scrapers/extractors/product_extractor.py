@@ -265,7 +265,13 @@ class ProductExtractor:
                 )
                 code = self._normalize_code_candidate(
                     str(text),
-                    allow_alpha_only=selector in {"p.brxe-heading", "span.sku", ".sku"},
+                    allow_alpha_only=selector in {
+                        "p.brxe-heading",
+                        "span.sku",
+                        ".sku",
+                        "[sku]",
+                        "[data-sku]",
+                    },
                 )
                 if code:
                     return code

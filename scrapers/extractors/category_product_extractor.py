@@ -20,6 +20,10 @@ class CategoryProductExtractor:
     """Extrae productos desde tarjetas y filas de tabla de categoría."""
 
     SOURCE = "importacionesfacundo"
+    _EXPLICIT_CODE_MARKER_PATTERN = re.compile(
+        r"\b(?:sku|c[oó]digo|cod)\s*[:#-]\s*([A-Z0-9][A-Z0-9._/-]{0,31})",
+        re.IGNORECASE,
+    )
     _NON_DETAIL_FIELD_PATTERN = re.compile(
         r"(?:"
         r"\bstock\s+disponible\s*:?\s*\d[\d,.]*|"
@@ -88,8 +92,13 @@ class CategoryProductExtractor:
         return element.get("href", "") if element else ""
 
     @classmethod
-    def _normalize_code(cls, text: str) -> str:
-        return normalize_code_token(text)
+    def _normalize_code(
+        cls,
+        text: str,
+        *,
+        allow_alpha_only: bool = False,
+    ) -> str:
+        return normalize_code_token(text, allow_alpha_only=allow_alpha_only)
 
     @classmethod
     def _code(cls, soup):
@@ -110,9 +119,29 @@ class CategoryProductExtractor:
                     or element.get("data-sku")
                     or element.get_text(" ", strip=True)
                 )
-                code = cls._normalize_code(text)
+                code = cls._normalize_code(
+                    text,
+                    allow_alpha_only=selector in {
+                        "p.brxe-a26f34",
+                        "span.sku",
+                        ".sku",
+                        "p[class*='sku']",
+                        "span[class*='sku']",
+                    },
+                )
                 if code:
                     return code
+
+        marked_code = cls._EXPLICIT_CODE_MARKER_PATTERN.search(
+            soup.get_text(" ", strip=True)
+        )
+        if marked_code is not None:
+            code = cls._normalize_code(
+                marked_code.group(1),
+                allow_alpha_only=True,
+            )
+            if code:
+                return code
 
         name_element = soup.select_one("h2.brxe-f31760, h2.brxe-heading, h2, h3")
         for text_node in soup.find_all(string=True):

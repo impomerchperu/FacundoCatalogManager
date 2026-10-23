@@ -274,7 +274,7 @@ class CategoryProductExtractor:
         # truth if the individual page has no usable Detail. The collection
         # scraper can still request the page, but must not lose the card value
         # merely because the excerpt ends with an ellipsis.
-        if technical and re.search(r"(?:\\.{2,}|…)$", text):
+        if technical and re.search(r"(?:\.{2,}|…)$", text):
             return text
         return ""
 

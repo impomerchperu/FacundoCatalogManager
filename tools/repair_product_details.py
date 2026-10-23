@@ -536,7 +536,7 @@ def _blocking_detail_codes(report: dict[str, object]) -> set[str]:
     }
 
 
-def _repair_categories_by_batch(
+def _repair_categories_by_batch(  # noqa: PLR0912
     db: DBManager,
     repository: ProductRepository,
     requested_categories: list[str],
@@ -841,7 +841,7 @@ def _create_database_backup(db: DBManager) -> Path:
     return backup_path
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
     parser = argparse.ArgumentParser(
         description=(
             "Audita Detalle visible o repara códigos/categorías; nunca inicia un FULL."

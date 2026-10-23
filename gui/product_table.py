@@ -2576,17 +2576,31 @@ class ProductTable(QTableWidget):
             value = re.sub(r"^[ \t\r\n.;]+", "", value)
             value = re.sub(r"[ \t\r\n.;]+$", "", value)
             value = re.sub(r"\s+", " ", value).strip()
-            if not value:
-                # Keep the recognized source label even when its value is
-                # empty, so a later source update can populate it normally.
-                if alias == "caja":
-                    lines.append(f"{label}:")
-                continue
-            if cls._detail_field_duplicates_row(label, value, product):
-                continue
-            lines.append(f"{label}: {value}".rstrip(" ."))
+            line = cls._format_detail_field_line(
+                alias,
+                label,
+                value,
+                product,
+            )
+            if line is not None:
+                lines.append(line)
 
         return "\n".join(line for line in lines if line.strip())
+
+    @classmethod
+    def _format_detail_field_line(
+        cls,
+        alias: str,
+        label: str,
+        value: str,
+        product: Product,
+    ) -> str | None:
+        """Keep empty Caja visible while skipping other empty or duplicate fields."""
+        if not value:
+            return f"{label}:" if alias == "caja" else None
+        if cls._detail_field_duplicates_row(label, value, product):
+            return None
+        return f"{label}: {value}".rstrip(" .")
 
     @classmethod
     def _detail_field_duplicates_row(

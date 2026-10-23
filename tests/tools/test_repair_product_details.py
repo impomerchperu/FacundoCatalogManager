@@ -337,12 +337,18 @@ def test_audit_source_details_checks_catalog_without_modifying_products():
     db, repository = _seed_catalog(description="")
     browser = StaticBrowser(_product_html(detail=VALID_DETAIL))
     try:
+        progress_events = []
         report = audit_source_details(
             db,
             repository,
             browser=browser,
+            workers=2,
+            progress=lambda completed, total, plan: progress_events.append(
+                (completed, total, plan.code, plan.status)
+            ),
         )
 
+        assert progress_events == [(1, 1, "FB-1700", "would_update")]
         assert report["mode"] == "source_audit_only"
         assert report["catalog_total"] == 1
         assert report["source_fields_compared"] == 1

@@ -16,10 +16,11 @@ import re
 import sqlite3
 import sys
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
@@ -183,19 +184,28 @@ def _plan_single_product_detail_repair(
     *,
     browser: Any,
     extractor: ProductExtractor,
+    product_override: Product | None = None,
+    source_url_override: str | None = None,
 ) -> DetailRepairPlan:
     """Build one repair plan; never write product data."""
-    product, resolution_plan = _resolve_requested_product(
-        repository,
-        requested_code,
-    )
-    if resolution_plan is not None:
-        return resolution_plan
-    if product is None:
-        raise RuntimeError("La resolución de producto no devolvió resultado.")
+    if product_override is None:
+        product, resolution_plan = _resolve_requested_product(
+            repository,
+            requested_code,
+        )
+        if resolution_plan is not None:
+            return resolution_plan
+        if product is None:
+            raise RuntimeError("La resolución de producto no devolvió resultado.")
+    else:
+        product = product_override
 
     code = _normalize_code(product.code)
-    url = _source_product_url(db, code)
+    url = (
+        _source_product_url(db, code)
+        if source_url_override is None
+        else source_url_override
+    )
     if not url:
         return DetailRepairPlan(
             code=code,
@@ -325,19 +335,53 @@ def audit_source_details(
     *,
     browser: Any,
     extractor: ProductExtractor | None = None,
+    workers: int = 8,
+    progress: Callable[[int, int, DetailRepairPlan], None] | None = None,
 ) -> dict[str, object]:
-    """Compare every catalog Detail against its authoritative live product page."""
+    """Compare all catalog Details with source pages using bounded concurrency."""
+    if workers < 1:
+        raise ValueError("workers debe ser al menos 1.")
+
     products = sorted(
         repository.get_all(),
         key=lambda product: product.code.casefold(),
     )
-    plans = plan_product_detail_repairs(
-        db,
-        repository,
-        [product.code for product in products],
-        browser=browser,
-        extractor=extractor,
-    )
+    # Resolve URLs before starting HTTP workers: the shared SQLite connection and
+    # repository stay on this thread; only in-memory products/URLs cross workers.
+    products_and_urls = [
+        (product, _source_product_url(db, product.code))
+        for product in products
+    ]
+    product_extractor = extractor or ProductExtractor()
+    completed_plans: dict[str, DetailRepairPlan] = {}
+    completed_count = 0
+
+    with ThreadPoolExecutor(
+        max_workers=workers,
+        thread_name_prefix="detail-audit",
+    ) as executor:
+        futures = {
+            executor.submit(
+                _plan_single_product_detail_repair,
+                db,
+                repository,
+                product.code,
+                browser=browser,
+                extractor=product_extractor,
+                product_override=product,
+                source_url_override=url,
+            ): product
+            for product, url in products_and_urls
+        }
+        for future in as_completed(futures):
+            product = futures[future]
+            plan = future.result()
+            completed_plans[product.code] = plan
+            completed_count += 1
+            if progress is not None:
+                progress(completed_count, len(products), plan)
+
+    plans = [completed_plans[product.code] for product in products]
     counts = Counter(plan.status for plan in plans)
     comparable_statuses = {"unchanged", "would_update", "skip_invalid_detail"}
     compared = sum(counts[status] for status in comparable_statuses)
@@ -376,6 +420,22 @@ def _emit_json_report(
     summary["report_file"] = str(destination.resolve())
     summary["items_saved"] = len(items) if isinstance(items, list) else 0
     print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+
+def _log_audit_progress(
+    completed: int,
+    total: int,
+    plan: DetailRepairPlan,
+) -> None:
+    """Report coarse-grained progress without flooding the terminal."""
+    if completed == 1 or completed % 10 == 0 or completed == total:
+        percent = round(completed * 100 / max(total, 1))
+        print(
+            f"[Auditoría Detalle] {completed}/{total} ({percent}%) "
+            f"| {plan.code}: {plan.status}",
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def _get_unchanged_product(
@@ -476,6 +536,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Guarda el JSON completo en un archivo UTF-8 y muestra un resumen en consola.",
     )
     parser.add_argument(
+        "--audit-workers",
+        type=int,
+        default=8,
+        help="Solicitudes simultáneas para --audit-source (1 a 16; predeterminado: 8).",
+    )
+    parser.add_argument(
         "--apply",
         action="store_true",
         help="Aplica los detalles válidos; por defecto solo muestra una vista previa.",
@@ -491,6 +557,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--apply no se puede usar con los modos de auditoría.")
     if args.limit < 1:
         parser.error("--limit debe ser al menos 1.")
+    if not 1 <= args.audit_workers <= 16:
+        parser.error("--audit-workers debe estar entre 1 y 16.")
 
     db = DBManager()
     browser: Browser | None = None
@@ -501,11 +569,14 @@ def main(argv: list[str] | None = None) -> int:
             report = audit_incomplete_details(db, repository, limit=args.limit)
             _emit_json_report(report, args.output)
         elif args.audit_source:
-            browser = Browser(http_workers=1)
+            browser = Browser(http_workers=args.audit_workers)
+            browser.enable_thread_sessions()
             report = audit_source_details(
                 db,
                 repository,
                 browser=browser,
+                workers=args.audit_workers,
+                progress=_log_audit_progress,
             )
             _emit_json_report(report, args.output)
             if report["fetch_errors"]:

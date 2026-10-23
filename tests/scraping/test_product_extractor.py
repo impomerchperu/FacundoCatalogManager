@@ -122,6 +122,56 @@ def test_product_extractor_reads_technical_short_description_without_color_line(
     assert "Valoraciones" not in result["description"]
 
 
+def test_product_extractor_preserves_all_authoritative_fields_outside_color_field():
+    html = """
+    <html><body>
+      <p class="brxe-heading">FB-2020</p>
+      <div id="brxe-jhzpri">
+        <ul>
+          <li>Material: Cartón resistente.</li>
+          <li>Micrones: 100.</li>
+          <li>Piezas: 63.</li>
+          <li>Forma: Rectángulo.</li>
+          <li>Color: Blanco.</li>
+          <li>Caja:</li>
+        </ul>
+      </div>
+      <div id="tab-description">
+        Texto de otra pestaña que no debe mezclarse.
+      </div>
+    </body></html>
+    """
+
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["description"] == (
+        "Material: Cartón resistente. Micrones: 100. Piezas: 63. "
+        "Forma: Rectángulo. Caja:"
+    )
+    assert "Color: Blanco" not in result["description"]
+    assert "otra pestaña" not in result["description"]
+
+
+def test_product_extractor_preserves_color_list_inside_description_value():
+    html = """
+    <html><body>
+      <p class="brxe-heading">FB-1308</p>
+      <div class="woocommerce-product-details__short-description">
+        Descripción: Resaltadores en 5 colores: Fucsia, Naranja, Amarillo,
+        Verde y Celeste. Dentro de un pote. Material: Plástico.
+        Presentación: Individual en bolsa plástica transparente.
+      </div>
+    </body></html>
+    """
+
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert "Resaltadores en 5 colores: Fucsia, Naranja, Amarillo, Verde y Celeste." in result["description"]
+    assert "Dentro de un pote." in result["description"]
+    assert "Material: Plástico." in result["description"]
+    assert "Presentación: Individual" in result["description"]
+
+
 def test_product_extractor_reads_technical_detail_from_list_items():
     html = """
     <html>

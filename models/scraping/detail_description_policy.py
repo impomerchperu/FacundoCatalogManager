@@ -164,6 +164,18 @@ def _remove_marked_fields(
     for match in reversed(list(pattern.finditer(text))):
         prefix = text[: match.start()].rstrip()
         if prefix and prefix[-1] not in ".;|" + _DETAIL_BOUNDARY:
+            # A plural "colores:" can be part of a Description value (for
+            # example, "Resaltadores en 5 colores: Fucsia, ..."), not a field
+            # of its own. Do not cut a sentence in the middle merely because
+            # the phrase contains a colon.
+            is_embedded_color_list = re.match(
+                r"^colores\s*[:|]\s*",
+                match.group(0),
+                re.IGNORECASE,
+            ) is not None
+            if is_embedded_color_list:
+                continue
+
             # Flattened WooCommerce cards sometimes place "Color: ..." inline
             # without a period. Only strip such embedded matches when the
             # field label itself uses an explicit delimiter.

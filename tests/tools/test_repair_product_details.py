@@ -15,6 +15,7 @@ from tools.repair_product_details import (
     audit_incomplete_details,
     audit_source_details,
     plan_product_detail_repairs,
+    _resolve_category_batches,
 )
 
 PRODUCT_URL = (
@@ -83,6 +84,44 @@ def _seed_catalog(
             )
         )
     return db, repository
+
+
+def test_category_batches_resolve_canonical_names_and_multi_category_products():
+    db = DBManager(":memory:")
+    repository = ProductRepository(db)
+    repository.save(
+        Product(
+            code="FB-1700",
+            name="Producto en dos categorías",
+            category="Bolsas / Mochilas, Cocina, Mesa y Hogar",
+            description=VALID_DETAIL,
+        )
+    )
+    repository.save(
+        Product(
+            code="FB-1701",
+            name="Producto solo en bolsas",
+            category="Bolsas / Mochilas",
+            description=VALID_DETAIL,
+        )
+    )
+    try:
+        batches = _resolve_category_batches(
+            repository,
+            ["Cocina, Mesa y Hogar", "Bolsas / Mochilas"],
+        )
+
+        assert [name for name, _ in batches] == [
+            "Cocina, Mesa y Hogar",
+            "Bolsas / Mochilas",
+        ]
+        assert [product.code for product in batches[0][1]] == ["FB-1700"]
+        assert {product.code for product in batches[1][1]} == {
+            "FB-1700",
+            "FB-1701",
+        }
+    finally:
+        db.close()
 
 
 def test_targeted_detail_repair_preview_does_not_modify_catalog():

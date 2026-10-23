@@ -204,6 +204,20 @@ def test_detail_policy_preserves_color_of_printing_attribute():
 
     assert normalize_detail_text(source) == source
 
+
+def test_detail_policy_does_not_truncate_color_list_inside_description_value():
+    source = (
+        "Descripción: Resaltadores en 5 colores: Fucsia, Naranja, "
+        "Amarillo, Verde y Celeste. Dentro de un pote. "
+        "Material: Plástico. Presentación: Bolsa plástica."
+    )
+
+    assert normalize_detail_text(source) == source
+    assert normalize_detail_text(
+        "Material: Plástico. Colores disponibles: Fucsia, Verde. "
+        "Presentación: Bolsa plástica."
+    ) == "Material: Plástico. Presentación: Bolsa plástica."
+
 def test_detail_policy_preserves_summary_description_while_removing_only_color():
     source = (
         "Descripción: Elegante y funcional set. "

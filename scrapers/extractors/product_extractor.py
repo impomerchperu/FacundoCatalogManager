@@ -532,27 +532,15 @@ class ProductExtractor:
                 if not self._is_excluded_detail_tab(element)
             ]
             if elements:
-                first_nonempty = ""
-                valid_parts: list[str] = []
-                for element in elements:
-                    text = normalize_detail_text(
-                        self._detail_text_from_element(element)
-                    )
-                    if not text:
-                        continue
-                    if not first_nonempty:
-                        first_nonempty = text
-                    candidate = self._validated_detail_candidate(
-                        element,
-                        require_multiple_fields=False,
-                    )
-                    if candidate:
-                        valid_parts.append(candidate)
-
-                if valid_parts:
-                    return True, normalize_detail_text(" ␞ ".join(valid_parts))
-                # An identified but empty field remains authoritative.
-                return True, first_nonempty
+                # The selected page field is authoritative as a whole. Do not
+                # discard individual paragraphs merely because a label is not
+                # in our technical-field vocabulary (e.g. Piezas, Forma,
+                # Micrones, or supplier-specific attributes).
+                field_text = " ␞ ".join(
+                    self._detail_text_from_element(element)
+                    for element in elements
+                )
+                return True, normalize_detail_text(field_text)
 
         summaries = [
             element
@@ -562,22 +550,12 @@ class ProductExtractor:
             if not self._is_excluded_detail_tab(element)
         ]
         if summaries:
-            first_nonempty = ""
-            for element in summaries:
-                text = normalize_detail_text(
-                    self._detail_text_from_element(element)
-                )
-                if not text:
-                    continue
-                if not first_nonempty:
-                    first_nonempty = text
-                candidate = self._validated_detail_candidate(
-                    element,
-                    require_multiple_fields=False,
-                )
-                if candidate:
-                    return True, candidate
-            return True, first_nonempty
+            # Use the complete value of the first authoritative summary.
+            # Validation is applied to the field as a whole by the repair
+            # planner; per-fragment filtering silently lost valid attributes.
+            return True, normalize_detail_text(
+                self._detail_text_from_element(summaries[0])
+            )
 
         return False, ""
 

@@ -37,6 +37,11 @@ from models.scraping.detail_description_policy import (
 from repositories.product_repository import ProductRepository
 from scrapers.browser import Browser
 from scrapers.extractors.product_extractor import ProductExtractor
+from services.scraping.category_name_normalizer import (
+    canonical_category_name,
+    normalize_category_name,
+    split_category_names,
+)
 from services.scraping.product_hash_service import ProductHashService
 
 _ALLOWED_HOSTS = frozenset({"stock.importacionesfacundo.com"})
@@ -337,20 +342,21 @@ def audit_source_details(
     extractor: ProductExtractor | None = None,
     workers: int = 8,
     progress: Callable[[int, int, DetailRepairPlan], None] | None = None,
+    products: list[Product] | None = None,
 ) -> dict[str, object]:
-    """Compare all catalog Details with source pages using bounded concurrency."""
+    """Compare selected catalog Details with source pages using bounded concurrency."""
     if workers < 1:
         raise ValueError("workers debe ser al menos 1.")
 
-    products = sorted(
-        repository.get_all(),
+    selected_products = sorted(
+        products if products is not None else repository.get_all(),
         key=lambda product: product.code.casefold(),
     )
     # Resolve URLs before starting HTTP workers: the shared SQLite connection and
     # repository stay on this thread; only in-memory products/URLs cross workers.
     products_and_urls = [
         (product, _source_product_url(db, product.code))
-        for product in products
+        for product in selected_products
     ]
     product_extractor = extractor or ProductExtractor()
     completed_plans: dict[str, DetailRepairPlan] = {}
@@ -381,13 +387,13 @@ def audit_source_details(
             if progress is not None:
                 progress(completed_count, len(products), plan)
 
-    plans = [completed_plans[product.code] for product in products]
+    plans = [completed_plans[product.code] for product in selected_products]
     counts = Counter(plan.status for plan in plans)
     comparable_statuses = {"unchanged", "would_update", "skip_invalid_detail"}
     compared = sum(counts[status] for status in comparable_statuses)
     return {
         "mode": "source_audit_only",
-        "catalog_total": len(products),
+        "catalog_total": len(selected_products),
         "plans_returned": len(plans),
         "source_fields_compared": compared,
         "candidate_differences": counts["would_update"],
@@ -401,6 +407,326 @@ def audit_source_details(
         "items": [asdict(plan) for plan in plans],
     }
 
+
+
+def _resolve_category_batches(
+    repository: ProductRepository,
+    requested_categories: list[str],
+) -> list[tuple[str, list[Product]]]:
+    """Resolve category names and deduplicated products for category-by-category repair."""
+    products = sorted(
+        repository.get_all(),
+        key=lambda product: product.code.casefold(),
+    )
+    names_by_key: dict[str, str] = {}
+    category_keys_by_code: dict[str, set[str]] = {}
+
+    for product in products:
+        code_key = product.code.casefold()
+        category_keys: set[str] = set()
+        for raw_name in split_category_names(product.category):
+            name = canonical_category_name(raw_name)
+            key = normalize_category_name(name)
+            if not key:
+                continue
+            names_by_key.setdefault(key, name)
+            category_keys.add(key)
+        category_keys_by_code[code_key] = category_keys
+
+    requested: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    unknown: list[str] = []
+    for raw_name in requested_categories:
+        name = canonical_category_name(raw_name)
+        key = normalize_category_name(name)
+        if not key:
+            continue
+        if key not in names_by_key:
+            unknown.append(str(raw_name))
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        requested.append((names_by_key[key], key))
+
+    if unknown:
+        raise ValueError(
+            "No se encontraron estas categorías en products.category: "
+            + ", ".join(unknown)
+        )
+    if not requested:
+        raise ValueError("Debe indicarse al menos una categoría válida.")
+
+    batches: list[tuple[str, list[Product]]] = []
+    for name, key in requested:
+        category_products = [
+            product
+            for product in products
+            if key in category_keys_by_code.get(product.code.casefold(), set())
+        ]
+        if not category_products:
+            raise ValueError(
+                f"La categoría {name!r} no contiene productos en el catálogo."
+            )
+        batches.append((name, category_products))
+    return batches
+
+
+def _plans_from_audit_report(report: dict[str, object]) -> list[DetailRepairPlan]:
+    """Rehydrate validated non-mutating audit rows for the transactional writer."""
+    raw_items = report.get("items", [])
+    if not isinstance(raw_items, list):
+        return []
+    plans: list[DetailRepairPlan] = []
+    for raw_item in raw_items:
+        if not isinstance(raw_item, dict):
+            continue
+        raw_product_id = raw_item.get("product_id")
+        product_id = (
+            int(raw_product_id)
+            if isinstance(raw_product_id, int) and not isinstance(raw_product_id, bool)
+            else None
+        )
+        plans.append(
+            DetailRepairPlan(
+                code=str(raw_item.get("code") or ""),
+                status=str(raw_item.get("status") or ""),
+                url=str(raw_item.get("url") or ""),
+                old_description=str(raw_item.get("old_description") or ""),
+                new_description=str(raw_item.get("new_description") or ""),
+                reason=str(raw_item.get("reason") or ""),
+                product_id=product_id,
+            )
+        )
+    return plans
+
+
+def _source_audit_summary(report: dict[str, object]) -> dict[str, object]:
+    """Keep category progress reports compact while detailed records go to JSON."""
+    keys = (
+        "catalog_total",
+        "source_fields_compared",
+        "candidate_differences",
+        "invalid_source_details",
+        "fetch_errors",
+        "products_without_source_url",
+        "authoritative_detail_not_found",
+        "status_counts",
+    )
+    return {key: report.get(key) for key in keys}
+
+
+def _blocking_detail_codes(report: dict[str, object]) -> set[str]:
+    """Collect products that could not be safely verified from the source field."""
+    blocking_statuses = {
+        "fetch_error",
+        "skip_invalid_detail",
+        "skip_source_url_not_found",
+        "skip_authoritative_detail_not_found",
+        "skip_code_mismatch",
+        "skip_product_changed",
+    }
+    raw_items = report.get("items", [])
+    if not isinstance(raw_items, list):
+        return set()
+    return {
+        str(item.get("code") or "")
+        for item in raw_items
+        if isinstance(item, dict)
+        and str(item.get("status") or "") in blocking_statuses
+        and str(item.get("code") or "")
+    }
+
+
+def _repair_categories_by_batch(
+    db: DBManager,
+    repository: ProductRepository,
+    requested_categories: list[str],
+    *,
+    browser: Browser,
+    workers: int,
+    apply: bool,
+) -> dict[str, object]:
+    """Preview, apply and verify Details one category at a time, with a single backup."""
+    batches = _resolve_category_batches(repository, requested_categories)
+    backup_path = ""
+    total_updated = 0
+    total_fetch_errors = 0
+    candidate_differences_remaining = 0
+    unresolved_codes: set[str] = set()
+    category_results: list[dict[str, object]] = []
+
+    total_occurrences = sum(len(products) for _, products in batches)
+    print(
+        f"[Detalle por categoría] {len(batches)} categorías; "
+        f"{total_occurrences} productos/categoría antes de deduplicar.",
+        file=sys.stderr,
+        flush=True,
+    )
+
+    for category, category_products in batches:
+        print(
+            f"[Detalle por categoría] Iniciando: {category} "
+            f"({len(category_products)} productos).",
+            file=sys.stderr,
+            flush=True,
+        )
+        preview = audit_source_details(
+            db,
+            repository,
+            browser=browser,
+            workers=workers,
+            products=category_products,
+            progress=_log_audit_progress,
+        )
+        preview_summary = _source_audit_summary(preview)
+        preview_fetch_errors = int(preview.get("fetch_errors") or 0)
+        total_fetch_errors += preview_fetch_errors
+        unresolved_codes.update(_blocking_detail_codes(preview))
+        result: dict[str, object] = {
+            "category": category,
+            "products": len(category_products),
+            "preview": preview_summary,
+            "preview_items": preview.get("items", []),
+            "updated": 0,
+            "verification_runs": [],
+            "outcome": "preview_only",
+        }
+
+        if not apply:
+            candidate_differences_remaining += int(
+                preview.get("candidate_differences") or 0
+            )
+            category_results.append(result)
+            continue
+
+        if preview_fetch_errors:
+            result["outcome"] = "blocked_fetch_errors"
+            candidate_differences_remaining += int(
+                preview.get("candidate_differences") or 0
+            )
+            category_results.append(result)
+            continue
+
+        plans = _plans_from_audit_report(preview)
+        proposed_updates = sum(plan.status == "would_update" for plan in plans)
+        if proposed_updates and not backup_path:
+            backup_path = str(_create_database_backup(db))
+
+        updated = apply_detail_repairs(db, repository, plans)
+        category_updated = updated
+        total_updated += updated
+        result["updated"] = updated
+
+        if updated == 0:
+            if int(preview.get("candidate_differences") or 0) > 0:
+                result["outcome"] = "needs_review_no_valid_updates"
+                candidate_differences_remaining += int(
+                    preview.get("candidate_differences") or 0
+                )
+            elif _blocking_detail_codes(preview):
+                result["outcome"] = "verified_with_skips"
+            else:
+                result["outcome"] = "verified_no_changes"
+            category_results.append(result)
+            continue
+
+        outcome = "differences_remaining"
+        for attempt in range(1, 3):
+            current_batch = _resolve_category_batches(repository, [category])[0][1]
+            verification = audit_source_details(
+                db,
+                repository,
+                browser=browser,
+                workers=workers,
+                products=current_batch,
+                progress=_log_audit_progress,
+            )
+            total_fetch_errors += int(verification.get("fetch_errors") or 0)
+            unresolved_codes.update(_blocking_detail_codes(verification))
+            verification_runs = result["verification_runs"]
+            if isinstance(verification_runs, list):
+                verification_runs.append({
+                    "attempt": attempt,
+                    "summary": _source_audit_summary(verification),
+                    "items": verification.get("items", []),
+                })
+
+            if int(verification.get("fetch_errors") or 0) > 0:
+                outcome = "verification_fetch_error"
+                candidate_differences_remaining += int(
+                    verification.get("candidate_differences") or 0
+                )
+                break
+
+            remaining = int(verification.get("candidate_differences") or 0)
+            if remaining == 0:
+                outcome = (
+                    "verified_with_skips"
+                    if _blocking_detail_codes(verification)
+                    else "verified"
+                )
+                break
+
+            if attempt == 1:
+                followup_plans = _plans_from_audit_report(verification)
+                followup_updated = apply_detail_repairs(
+                    db,
+                    repository,
+                    followup_plans,
+                )
+                total_updated += followup_updated
+                category_updated += followup_updated
+                result["updated"] = category_updated
+                if followup_updated > 0:
+                    continue
+
+            outcome = "differences_remaining"
+            candidate_differences_remaining += remaining
+            break
+
+        result["outcome"] = outcome
+        category_results.append(result)
+
+    # Only codes still blocked in source validation or with an unresolved difference
+    # prevent a false-green outcome; exact differences are retained in the report.
+    if apply:
+        for result in category_results:
+            if result.get("outcome") in {
+                "blocked_fetch_errors",
+                "verification_fetch_error",
+                "needs_review_no_valid_updates",
+                "differences_remaining",
+            }:
+                items = result.get("preview_items", [])
+                if isinstance(items, list):
+                    unresolved_codes.update(
+                        str(item.get("code") or "")
+                        for item in items
+                        if isinstance(item, dict)
+                        and str(item.get("status") or "") == "would_update"
+                        and str(item.get("code") or "")
+                    )
+
+    unique_product_codes = {
+        product.code
+        for _, products in batches
+        for product in products
+    }
+    return {
+        "mode": "category_apply_and_verify" if apply else "category_preview",
+        "categories_requested": [name for name, _ in batches],
+        "category_count": len(batches),
+        "products_in_scope": len(unique_product_codes),
+        "category_occurrences": total_occurrences,
+        "database_backup": backup_path,
+        "updated": total_updated,
+        "fetch_errors": total_fetch_errors,
+        "candidate_differences_remaining": candidate_differences_remaining,
+        "unresolved_products": len(unresolved_codes),
+        "unresolved_codes": sorted(unresolved_codes, key=str.casefold),
+        "category_results": category_results,
+    }
 
 def _emit_json_report(
     report: dict[str, object],
@@ -416,9 +742,16 @@ def _emit_json_report(
     destination = output_path.expanduser()
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(serialized + "\n", encoding="utf-8")
-    summary = {key: value for key, value in report.items() if key != "items"}
+    summary = {
+        key: value
+        for key, value in report.items()
+        if key not in {"items", "category_results"}
+    }
     summary["report_file"] = str(destination.resolve())
     summary["items_saved"] = len(items) if isinstance(items, list) else 0
+    category_results = report.get("category_results")
+    if isinstance(category_results, list):
+        summary["category_results_saved"] = len(category_results)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
@@ -510,7 +843,7 @@ def _create_database_backup(db: DBManager) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Audita Detalle visible o repara códigos específicos; nunca inicia un FULL."
+            "Audita Detalle visible o repara códigos/categorías; nunca inicia un FULL."
         )
     )
     selection = parser.add_mutually_exclusive_group(required=True)
@@ -519,6 +852,15 @@ def main(argv: list[str] | None = None) -> int:
         nargs="+",
         metavar="CODE",
         help="Códigos exactos que se deben revisar (las páginas se consultan individualmente).",
+    )
+    selection.add_argument(
+        "--categories",
+        nargs="+",
+        metavar="CATEGORY",
+        help=(
+            "Previsualiza, aplica y audita productos por categoría, de una en una. "
+            "El modo --apply hace respaldo y verifica cada categoría después de actualizar."
+        ),
     )
     selection.add_argument(
         "--audit-incomplete",
@@ -539,7 +881,7 @@ def main(argv: list[str] | None = None) -> int:
         "--audit-workers",
         type=int,
         default=8,
-        help="Solicitudes simultáneas para --audit-source (1 a 16; predeterminado: 8).",
+        help="Solicitudes simultáneas para auditorías por fuente/categoría (1 a 16; predeterminado: 8).",
     )
     parser.add_argument(
         "--apply",
@@ -580,6 +922,25 @@ def main(argv: list[str] | None = None) -> int:
             )
             _emit_json_report(report, args.output)
             if report["fetch_errors"]:
+                exit_code = 1
+        elif args.categories:
+            browser = Browser(http_workers=args.audit_workers)
+            browser.enable_thread_sessions()
+            report = _repair_categories_by_batch(
+                db,
+                repository,
+                args.categories,
+                browser=browser,
+                workers=args.audit_workers,
+                apply=args.apply,
+            )
+            _emit_json_report(report, args.output)
+            if report["fetch_errors"]:
+                exit_code = 1
+            if args.apply and (
+                report["unresolved_products"]
+                or report["candidate_differences_remaining"]
+            ):
                 exit_code = 1
         else:
             browser = Browser(http_workers=1)

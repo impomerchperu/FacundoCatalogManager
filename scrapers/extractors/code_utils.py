@@ -86,6 +86,8 @@ def extract_code_from_soup(soup, *, fallback, extractor=None) -> str:
         ".sku_wrapper .sku",
         ".product_meta .sku",
         "[itemprop='sku']",
+        "[data-sku]",
+        "[sku]",
     }
     for selector in selectors:
         for element in soup.select(selector):

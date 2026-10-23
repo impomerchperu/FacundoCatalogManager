@@ -127,6 +127,8 @@ class CategoryProductExtractor:
                         ".sku",
                         "p[class*='sku']",
                         "span[class*='sku']",
+                        "[sku]",
+                        "[data-sku]",
                     },
                 )
                 if code:

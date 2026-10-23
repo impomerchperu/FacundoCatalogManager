@@ -1,3 +1,5 @@
+import json
+
 from bs4 import BeautifulSoup
 
 from database.db_manager import DBManager
@@ -11,6 +13,7 @@ from tools.repair_product_details import (
     apply_detail_repairs,
     audit_incomplete_details,
     audit_source_details,
+    _emit_json_report,
     plan_product_detail_repairs,
 )
 
@@ -355,13 +358,16 @@ def test_audit_source_details_checks_catalog_without_modifying_products():
 
 
 def test_json_report_writes_full_records_and_prints_summary(tmp_path, capsys):
-    from tools.repair_product_details import _emit_json_report
-    import json
-
     report = {
         "mode": "source_audit_only",
         "catalog_total": 1,
-        "items": [{"code": "FB-1700", "old_description": "", "new_description": "Prueba"}],
+        "items": [
+            {
+                "code": "FB-1700",
+                "old_description": "",
+                "new_description": "Prueba",
+            },
+        ],
     }
     output = tmp_path / "reports" / "detail_audit.json"
 

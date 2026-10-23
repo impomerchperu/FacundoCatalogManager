@@ -14,8 +14,8 @@ import argparse
 import json
 import re
 import sqlite3
-from collections import Counter
 import sys
+from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -371,7 +371,7 @@ def _emit_json_report(
 
     destination = output_path.expanduser()
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(serialized + "\\n", encoding="utf-8")
+    destination.write_text(serialized + "\n", encoding="utf-8")
     summary = {key: value for key, value in report.items() if key != "items"}
     summary["report_file"] = str(destination.resolve())
     summary["items_saved"] = len(items) if isinstance(items, list) else 0

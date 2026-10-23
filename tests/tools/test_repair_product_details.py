@@ -10,6 +10,7 @@ from services.scraping.product_hash_service import ProductHashService
 from tools.repair_product_details import (
     apply_detail_repairs,
     audit_incomplete_details,
+    audit_source_details,
     plan_product_detail_repairs,
 )
 
@@ -327,3 +328,48 @@ def test_authoritative_marketing_copy_is_valid_detail_content():
     """
     extracted = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
     assert extracted["description"] == detail
+
+
+def test_audit_source_details_checks_catalog_without_modifying_products():
+    db, repository = _seed_catalog(description="")
+    browser = StaticBrowser(_product_html(detail=VALID_DETAIL))
+    try:
+        report = audit_source_details(
+            db,
+            repository,
+            browser=browser,
+        )
+
+        assert report["mode"] == "source_audit_only"
+        assert report["catalog_total"] == 1
+        assert report["source_fields_compared"] == 1
+        assert report["candidate_differences"] == 1
+        assert report["status_counts"] == {"would_update": 1}
+        assert browser.requested_urls == [PRODUCT_URL]
+
+        stored = repository.get_by_code("FB-1700")
+        assert stored is not None
+        assert stored.description == ""
+    finally:
+        db.close()
+
+
+def test_json_report_writes_full_records_and_prints_summary(tmp_path, capsys):
+    from tools.repair_product_details import _emit_json_report
+    import json
+
+    report = {
+        "mode": "source_audit_only",
+        "catalog_total": 1,
+        "items": [{"code": "FB-1700", "old_description": "", "new_description": "Prueba"}],
+    }
+    output = tmp_path / "reports" / "detail_audit.json"
+
+    _emit_json_report(report, output)
+
+    saved = json.loads(output.read_text(encoding="utf-8"))
+    console = json.loads(capsys.readouterr().out)
+    assert saved == report
+    assert console["items_saved"] == 1
+    assert console["report_file"] == str(output.resolve())
+    assert "items" not in console

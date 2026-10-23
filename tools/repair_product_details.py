@@ -14,6 +14,7 @@ import argparse
 import json
 import re
 import sqlite3
+from collections import Counter
 import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -318,6 +319,65 @@ def plan_product_detail_repairs(
     ]
 
 
+def audit_source_details(
+    db: DBManager,
+    repository: ProductRepository,
+    *,
+    browser: Any,
+    extractor: ProductExtractor | None = None,
+) -> dict[str, object]:
+    """Compare every catalog Detail against its authoritative live product page."""
+    products = sorted(
+        repository.get_all(),
+        key=lambda product: product.code.casefold(),
+    )
+    plans = plan_product_detail_repairs(
+        db,
+        repository,
+        [product.code for product in products],
+        browser=browser,
+        extractor=extractor,
+    )
+    counts = Counter(plan.status for plan in plans)
+    comparable_statuses = {"unchanged", "would_update", "skip_invalid_detail"}
+    compared = sum(counts[status] for status in comparable_statuses)
+    return {
+        "mode": "source_audit_only",
+        "catalog_total": len(products),
+        "plans_returned": len(plans),
+        "source_fields_compared": compared,
+        "candidate_differences": counts["would_update"],
+        "invalid_source_details": counts["skip_invalid_detail"],
+        "fetch_errors": counts["fetch_error"],
+        "products_without_source_url": counts["skip_source_url_not_found"],
+        "authoritative_detail_not_found": counts[
+            "skip_authoritative_detail_not_found"
+        ],
+        "status_counts": dict(sorted(counts.items())),
+        "items": [asdict(plan) for plan in plans],
+    }
+
+
+def _emit_json_report(
+    report: dict[str, object],
+    output_path: Path | None,
+) -> None:
+    """Print a report or write full records to UTF-8 and print only its summary."""
+    serialized = json.dumps(report, ensure_ascii=False, indent=2)
+    items = report.get("items", [])
+    if output_path is None:
+        print(serialized)
+        return
+
+    destination = output_path.expanduser()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(serialized + "\\n", encoding="utf-8")
+    summary = {key: value for key, value in report.items() if key != "items"}
+    summary["report_file"] = str(destination.resolve())
+    summary["items_saved"] = len(items) if isinstance(items, list) else 0
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+
 def _get_unchanged_product(
     repository: ProductRepository,
     plan: DetailRepairPlan,
@@ -405,6 +465,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Lista detalles locales incompletos sin hacer solicitudes web ni escribir productos.",
     )
+    selection.add_argument(
+        "--audit-source",
+        action="store_true",
+        help="Compara el Detalle de todos los productos con su página de origen; es solo lectura.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="Guarda el JSON completo en un archivo UTF-8 y muestra un resumen en consola.",
+    )
     parser.add_argument(
         "--apply",
         action="store_true",
@@ -417,8 +487,8 @@ def main(argv: list[str] | None = None) -> int:
         help="Máximo de filas que se muestran en la auditoría local (predeterminado: 100).",
     )
     args = parser.parse_args(argv)
-    if args.apply and args.audit_incomplete:
-        parser.error("--apply no se puede usar con --audit-incomplete.")
+    if args.apply and (args.audit_incomplete or args.audit_source):
+        parser.error("--apply no se puede usar con los modos de auditoría.")
     if args.limit < 1:
         parser.error("--limit debe ser al menos 1.")
 
@@ -428,13 +498,18 @@ def main(argv: list[str] | None = None) -> int:
     try:
         repository = ProductRepository(db)
         if args.audit_incomplete:
-            print(
-                json.dumps(
-                    audit_incomplete_details(db, repository, limit=args.limit),
-                    ensure_ascii=False,
-                    indent=2,
-                )
+            report = audit_incomplete_details(db, repository, limit=args.limit)
+            _emit_json_report(report, args.output)
+        elif args.audit_source:
+            browser = Browser(http_workers=1)
+            report = audit_source_details(
+                db,
+                repository,
+                browser=browser,
             )
+            _emit_json_report(report, args.output)
+            if report["fetch_errors"]:
+                exit_code = 1
         else:
             browser = Browser(http_workers=1)
             plans = plan_product_detail_repairs(
@@ -451,18 +526,13 @@ def main(argv: list[str] | None = None) -> int:
                 backup_path = str(_create_database_backup(db))
                 applied = apply_detail_repairs(db, repository, plans)
 
-            print(
-                json.dumps(
-                    {
-                        "mode": "apply" if args.apply else "preview",
-                        "database_backup": backup_path,
-                        "updated": applied,
-                        "items": [asdict(plan) for plan in plans],
-                    },
-                    ensure_ascii=False,
-                    indent=2,
-                )
-            )
+            report = {
+                "mode": "apply" if args.apply else "preview",
+                "database_backup": backup_path,
+                "updated": applied,
+                "items": [asdict(plan) for plan in plans],
+            }
+            _emit_json_report(report, args.output)
             if any(plan.status == "fetch_error" for plan in plans):
                 exit_code = 1
     except Exception as error:  # noqa: BLE001

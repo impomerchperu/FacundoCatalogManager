@@ -142,6 +142,151 @@ def audit_incomplete_details(
     }
 
 
+def _resolve_requested_product(
+    repository: ProductRepository,
+    requested_code: str,
+) -> tuple[Product | None, DetailRepairPlan | None]:
+    """Resolve a requested SKU without guessing when its normalized form is ambiguous."""
+    product = repository.get_by_code(requested_code)
+    if product is not None:
+        return product, None
+
+    identity = _code_identity(requested_code)
+    equivalent = [
+        candidate
+        for candidate in repository.get_all()
+        if _code_identity(candidate.code) == identity
+    ]
+    if len(equivalent) == 1:
+        return equivalent[0], None
+    if len(equivalent) > 1:
+        return None, DetailRepairPlan(
+            code=requested_code,
+            status="skip_ambiguous_product_code",
+            reason=(
+                "El código sin separadores coincide con varios "
+                "productos del catálogo; no se modificó ninguno."
+            ),
+        )
+    return None, DetailRepairPlan(
+        code=requested_code,
+        status="skip_product_not_found",
+        reason="El código no existe en el catálogo local.",
+    )
+
+
+def _plan_single_product_detail_repair(
+    db: DBManager,
+    repository: ProductRepository,
+    requested_code: str,
+    *,
+    browser: Any,
+    extractor: ProductExtractor,
+) -> DetailRepairPlan:
+    """Build one repair plan; never write product data."""
+    product, resolution_plan = _resolve_requested_product(
+        repository,
+        requested_code,
+    )
+    if resolution_plan is not None:
+        return resolution_plan
+    if product is None:
+        raise RuntimeError("La resolución de producto no devolvió resultado.")
+
+    code = _normalize_code(product.code)
+    url = _source_product_url(db, code)
+    if not url:
+        return DetailRepairPlan(
+            code=code,
+            status="skip_source_url_not_found",
+            product_id=product.product_id,
+            old_description=str(product.description or ""),
+            reason="No hay una URL de origen válida guardada para este código.",
+        )
+
+    try:
+        html = browser.get(url)
+        soup = BeautifulSoup(html, "lxml")
+        detail_field_found, authoritative_detail = (
+            extractor.extract_authoritative_detail_text(soup)
+        )
+        scraped = extractor.extract(
+            soup,
+            url=url,
+            category=product.category,
+        )
+    except Exception as error:  # noqa: BLE001
+        return DetailRepairPlan(
+            code=code,
+            status="fetch_error",
+            url=url,
+            product_id=product.product_id,
+            old_description=str(product.description or ""),
+            reason=f"{type(error).__name__}: {error}",
+        )
+
+    scraped_code = _normalize_code(getattr(scraped, "code", ""))
+    current_description = str(product.description or "")
+    if _code_identity(scraped_code) != _code_identity(code):
+        return DetailRepairPlan(
+            code=code,
+            status="skip_code_mismatch",
+            url=url,
+            product_id=product.product_id,
+            old_description=current_description,
+            new_description=normalize_detail_text(
+                getattr(scraped, "description", "")
+            ),
+            reason=(
+                "El código extraído de la página no coincide "
+                f"(obtenido: {scraped_code or 'vacío'})."
+            ),
+        )
+
+    if not detail_field_found:
+        return DetailRepairPlan(
+            code=code,
+            status="skip_authoritative_detail_not_found",
+            url=url,
+            product_id=product.product_id,
+            old_description=current_description,
+            new_description=normalize_detail_text(
+                getattr(scraped, "description", "")
+            ),
+            reason=(
+                "No se identificó el campo autorizado Detalle en la página; "
+                "se omitió la reparación para no tomar contenido alternativo."
+            ),
+        )
+
+    candidate = normalize_detail_text(authoritative_detail)
+    issue = _detail_issue(candidate) if candidate else ""
+    if issue:
+        return DetailRepairPlan(
+            code=code,
+            status="skip_invalid_detail",
+            url=url,
+            product_id=product.product_id,
+            old_description=current_description,
+            new_description=candidate,
+            reason=f"El detalle extraído no pasó la validación: {issue}.",
+        )
+
+    status = (
+        "unchanged"
+        if normalize_detail_text(current_description) == candidate
+        else "would_update"
+    )
+    return DetailRepairPlan(
+        code=code,
+        status=status,
+        url=url,
+        product_id=product.product_id,
+        old_description=current_description,
+        new_description=candidate,
+    )
+
+
 def plan_product_detail_repairs(
     db: DBManager,
     repository: ProductRepository,
@@ -152,8 +297,7 @@ def plan_product_detail_repairs(
 ) -> list[DetailRepairPlan]:
     """Fetch only explicitly selected product pages and build a non-mutating plan."""
     product_extractor = extractor or ProductExtractor()
-    plans: list[DetailRepairPlan] = []
-    normalized_codes = []
+    normalized_codes: list[str] = []
     seen_code_identities: set[str] = set()
     for raw_code in codes:
         code = _normalize_code(raw_code)
@@ -162,150 +306,16 @@ def plan_product_detail_repairs(
             normalized_codes.append(code)
             seen_code_identities.add(identity)
 
-    for requested_code in normalized_codes:
-        product = repository.get_by_code(requested_code)
-        if product is None:
-            identity = _code_identity(requested_code)
-            equivalent = [
-                candidate
-                for candidate in repository.get_all()
-                if _code_identity(candidate.code) == identity
-            ]
-            if len(equivalent) == 1:
-                product = equivalent[0]
-            elif len(equivalent) > 1:
-                plans.append(
-                    DetailRepairPlan(
-                        code=requested_code,
-                        status="skip_ambiguous_product_code",
-                        reason=(
-                            "El código sin separadores coincide con varios "
-                            "productos del catálogo; no se modificó ninguno."
-                        ),
-                    )
-                )
-                continue
-
-        if product is None:
-            plans.append(
-                DetailRepairPlan(
-                    code=requested_code,
-                    status="skip_product_not_found",
-                    reason="El código no existe en el catálogo local.",
-                )
-            )
-            continue
-
-        # Use the canonical catalog SKU for source URL lookup and page validation.
-        code = _normalize_code(product.code)
-        url = _source_product_url(db, code)
-        if not url:
-            plans.append(
-                DetailRepairPlan(
-                    code=code,
-                    status="skip_source_url_not_found",
-                    product_id=product.product_id,
-                    old_description=str(product.description or ""),
-                    reason="No hay una URL de origen válida guardada para este código.",
-                )
-            )
-            continue
-
-        try:
-            html = browser.get(url)
-            soup = BeautifulSoup(html, "lxml")
-            detail_field_found, authoritative_detail = (
-                product_extractor.extract_authoritative_detail_text(soup)
-            )
-            scraped = product_extractor.extract(
-                soup,
-                url=url,
-                category=product.category,
-            )
-        except Exception as error:  # noqa: BLE001
-            plans.append(
-                DetailRepairPlan(
-                    code=code,
-                    status="fetch_error",
-                    url=url,
-                    product_id=product.product_id,
-                    old_description=str(product.description or ""),
-                    reason=f"{type(error).__name__}: {error}",
-                )
-            )
-            continue
-
-        scraped_code = _normalize_code(getattr(scraped, "code", ""))
-        if _code_identity(scraped_code) != _code_identity(code):
-            plans.append(
-                DetailRepairPlan(
-                    code=code,
-                    status="skip_code_mismatch",
-                    url=url,
-                    product_id=product.product_id,
-                    old_description=str(product.description or ""),
-                    new_description=normalize_detail_text(
-                        getattr(scraped, "description", "")
-                    ),
-                    reason=(
-                        "El código extraído de la página no coincide "
-                        f"(obtenido: {scraped_code or 'vacío'})."
-                    ),
-                )
-            )
-            continue
-
-        if not detail_field_found:
-            plans.append(
-                DetailRepairPlan(
-                    code=code,
-                    status="skip_authoritative_detail_not_found",
-                    url=url,
-                    product_id=product.product_id,
-                    old_description=str(product.description or ""),
-                    new_description=normalize_detail_text(
-                        getattr(scraped, "description", "")
-                    ),
-                    reason=(
-                        "No se identificó el campo autorizado Detalle en la página; "
-                        "se omitió la reparación para no tomar contenido alternativo."
-                    ),
-                )
-            )
-            continue
-
-        candidate = normalize_detail_text(authoritative_detail)
-        issue = _detail_issue(candidate) if candidate else ""
-        if issue:
-            plans.append(
-                DetailRepairPlan(
-                    code=code,
-                    status="skip_invalid_detail",
-                    url=url,
-                    product_id=product.product_id,
-                    old_description=str(product.description or ""),
-                    new_description=candidate,
-                    reason=f"El detalle extraído no pasó la validación: {issue}.",
-                )
-            )
-            continue
-
-        current = str(product.description or "")
-        if normalize_detail_text(current) == candidate:
-            status = "unchanged"
-        else:
-            status = "would_update"
-        plans.append(
-            DetailRepairPlan(
-                code=code,
-                status=status,
-                url=url,
-                product_id=product.product_id,
-                old_description=current,
-                new_description=candidate,
-            )
+    return [
+        _plan_single_product_detail_repair(
+            db,
+            repository,
+            requested_code,
+            browser=browser,
+            extractor=product_extractor,
         )
-    return plans
+        for requested_code in normalized_codes
+    ]
 
 
 def _get_unchanged_product(

@@ -1,8 +1,11 @@
+from bs4 import BeautifulSoup
+
 from database.db_manager import DBManager
 from models.product import Product
 from models.scraping.scraped_product import ScrapedProduct
 from repositories.product_repository import ProductRepository
 from repositories.scraping.scraped_product_repository import ScrapedProductRepository
+from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.product_hash_service import ProductHashService
 from tools.repair_product_details import (
     apply_detail_repairs,
@@ -309,8 +312,6 @@ def test_authoritative_empty_detail_is_preserved_without_fallback():
 
 
 def test_authoritative_marketing_copy_is_valid_detail_content():
-    from bs4 import BeautifulSoup
-    from scrapers.extractors.product_extractor import ProductExtractor
 
     detail = (
         "Amplía tus opciones de estilo con nuestro Gorro Sublimable. "

@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 
 import scrapers.collectors  # noqa: F401
+from scrapers.extractors.code_utils import normalize_code
 from scrapers.extractors.product_extractor import ProductExtractor
 
 
@@ -42,3 +43,10 @@ def test_product_extractor_accepts_alpha_only_sku_from_explicit_json_ld():
     soup = BeautifulSoup(html, "html.parser")
 
     assert ProductExtractor().extract_code(soup) == "TPSTCB"
+
+
+def test_alpha_only_code_is_not_accepted_without_explicit_sku_context():
+    assert normalize_code("TPSTCB") == ""
+    assert ProductExtractor().extract_code(
+        BeautifulSoup("<h1>TPSTCB</h1>", "html.parser")
+    ) == ""

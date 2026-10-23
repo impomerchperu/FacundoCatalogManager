@@ -10,10 +10,10 @@ from repositories.scraping.scraped_product_repository import ScrapedProductRepos
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.product_hash_service import ProductHashService
 from tools.repair_product_details import (
+    _emit_json_report,
     apply_detail_repairs,
     audit_incomplete_details,
     audit_source_details,
-    _emit_json_report,
     plan_product_detail_repairs,
 )
 

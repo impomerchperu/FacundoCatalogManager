@@ -43,3 +43,13 @@ def test_product_code_normalization_accepts_published_letter_only_skus():
         "IKIOSK-ESTANDAR",
     ):
         assert extractor._normalize_code(code) == code
+
+
+def test_category_product_extractor_accepts_alpha_only_sku_from_card_marker():
+    extractor = CategoryProductExtractor()
+    soup = BeautifulSoup(
+        "<article><h2>Taza Enamel 12 oz</h2><p>SKU: TPSTCB</p></article>",
+        "lxml",
+    )
+
+    assert extractor._code(soup) == "TPSTCB"

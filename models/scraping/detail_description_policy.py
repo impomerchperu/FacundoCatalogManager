@@ -250,7 +250,7 @@ def is_complete_detail(value: object) -> bool:
     text = normalize_detail_text(value)
     # An empty Caja label is a real source field, not a truncation marker.
     # Validate the fields before it, but keep the label in the normalized text.
-    validation_text = _EMPTY_TRAILING_BOX_FIELD_PATTERN.sub("", text).rstrip(" .;")
+    validation_text = _EMPTY_TRAILING_BOX_FIELD_PATTERN.sub("", text).rstrip(" ;")
     if (
         not validation_text
         or not has_technical_detail(validation_text)

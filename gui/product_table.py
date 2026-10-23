@@ -1043,20 +1043,10 @@ class ProductDetailDelegate(ProductCellDelegate):
     VERTICAL_PADDING = 8
     LINE_SPACING_REDUCTION = 1
     PARAGRAPH_SPACING_REDUCTION = 2
+    # Labels on the source page are bold regardless of their wording. Detect
+    # any field-like label ending in ":" rather than maintaining a short allowlist.
     _BOLD_DETAIL_LABEL_PATTERN = re.compile(
-        r"(?<!\w)(?:"
-        r"descripci[oó]n(?:\s+comercial)?|contiene|"
-        r"presentaci[oó]n(?:\s+(?:del\s+)?(?:producto|estuche))?|"
-        r"medidas?\s+del\s+estuche|medida(?:s)?\s+de\s+impresi[oó]n|"
-        r"materiales?|dimensiones?|peso(?:\s+(?:unitario|neto|bruto))?|"
-        r"uso(?:\s+recomendado)?|tama[ñn]o(?:\s+(?:de\s+)?impresi[oó]n)?|"
-        r"capacidad|incluye|contenido|cantidad(?:\s+por\s+caja)?|"
-        r"cubicaje(?:\s+por\s+caja)?|gramaje|di[aá]metro|voltaje|potencia|"
-        r"temperatura|presi[oó]n|frecuencia|resoluci[oó]n|compatibilidad|"
-        r"conectividad|funci[oó]n(?:es)?(?:\s+adicionales)?|"
-        r"[aá]rea\s+de\s+impresi[oó]n|t[eé]cnica\s+de\s+impresi[oó]n"
-        r")\s*:",
-        re.IGNORECASE,
+        r"(?<!\w)([A-ZÁÉÍÓÚÜÑ][\wÁÉÍÓÚÜÑáéíóúüñ ()/_-]{0,60}):"
     )
 
     @classmethod

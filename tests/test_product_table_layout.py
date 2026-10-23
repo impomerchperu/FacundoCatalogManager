@@ -2316,3 +2316,23 @@ def test_detail_formatter_removes_inline_color_and_aligns_technical_fields():
         "Micras: 75",
     ]
 
+
+def test_detail_delegate_bolds_labels_not_in_a_fixed_allowlist():
+    text = (
+        "Medida y capacidad: 10 ml. "
+        "Composición: Algodón. "
+        "Características especiales: Resistente. "
+        "Tamaño del paquete: 5 unidades."
+    )
+
+    labels = [
+        match.group(0)
+        for match in ProductDetailDelegate._BOLD_DETAIL_LABEL_PATTERN.finditer(text)
+    ]
+
+    assert labels == [
+        "Medida y capacidad:",
+        "Composición:",
+        "Características especiales:",
+        "Tamaño del paquete:",
+    ]

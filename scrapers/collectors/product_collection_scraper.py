@@ -682,7 +682,10 @@ class ProductCollectionScraper:
             product.image_candidates = detail_gallery_candidates
 
         product.url = detail_url
-        detail_code = normalize_code(getattr(detailed_product, "code", ""))
+        detail_code = normalize_code(
+            getattr(detailed_product, "code", ""),
+            allow_alpha_only=True,
+        )
         if detail_code:
             product.code = detail_code
 

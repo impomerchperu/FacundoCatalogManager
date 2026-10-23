@@ -487,3 +487,17 @@ def test_category_product_extractor_preserves_hl_3000_marketing_copy():
     product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
     assert product.code == "HL-3000"
     assert product.description == detail
+
+
+def test_category_product_extractor_does_not_use_short_generic_prose_as_detail():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-1235</p>
+        <h2 class="brxe-f31760">Producto completo</h2>
+        <div class="text-content">Descripción promocional general.</div>
+    </article>
+    """
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.code == "FB-1235"
+    assert product.description == ""

@@ -3,6 +3,7 @@ import re
 from bs4 import BeautifulSoup
 
 from models.scraping.detail_description_policy import (
+    has_technical_detail,
     is_valid_detail_content,
     normalize_detail_text,
 )
@@ -249,19 +250,33 @@ class CategoryProductExtractor:
             return ""
 
         text = normalize_detail_text(cls._detail_text_from_element(element))
-        if (
-            not text
-            or cls._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text)
-            or not is_valid_detail_content(text)
-        ):
+        if not text or cls._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text):
             return ""
 
-        # Keep prose and technical attributes from the visible category summary.
-        # Product-page tab panels are excluded before this method is called.
+        # Remove stock, price and SKU fragments before deciding whether the text
+        # belongs to Detail; these fields must never become part of its value.
         field_boundary = cls._NON_DETAIL_FIELD_PATTERN.search(text)
         if field_boundary is not None:
             text = text[: field_boundary.start()].strip(" .;:-")
-        return text
+        if not text:
+            return ""
+
+        technical = has_technical_detail(text)
+        if is_valid_detail_content(text):
+            # A short generic sentence in a card is not enough to establish
+            # that it is the product's Detail field. Long marketing copy such
+            # as HL-3000 remains valid because it is the actual field content.
+            if not technical and len(text) < 35:
+                return ""
+            return text
+
+        # Preserve a visibly truncated technical card value as the source of
+        # truth if the individual page has no usable Detail. The collection
+        # scraper can still request the page, but must not lose the card value
+        # merely because the excerpt ends with an ellipsis.
+        if technical and re.search(r"(?:\\.{2,}|…)$", text):
+            return text
+        return ""
 
     @classmethod
     def _collect_description_candidates(cls, elements):

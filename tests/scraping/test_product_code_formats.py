@@ -25,3 +25,20 @@ def test_product_extractor_keeps_numeric_hybrid_codes_supported():
     soup = BeautifulSoup('<span class="sku">FB-1800</span>', "html.parser")
 
     assert extractor.extract_code(soup) == "FB-1800"
+
+
+def test_product_extractor_accepts_alpha_only_sku_from_explicit_selector():
+    soup = BeautifulSoup('<span class="sku">TPSTCB</span>', "html.parser")
+
+    assert ProductExtractor().extract_code(soup) == "TPSTCB"
+
+
+def test_product_extractor_accepts_alpha_only_sku_from_explicit_json_ld():
+    html = '''
+    <script type="application/ld+json">
+      {"@type":"Product","sku":"TPSTCB"}
+    </script>
+    '''
+    soup = BeautifulSoup(html, "html.parser")
+
+    assert ProductExtractor().extract_code(soup) == "TPSTCB"

@@ -133,7 +133,7 @@ _NON_TECHNICAL_SECTION_PREFIX_PATTERN = re.compile(
 )
 # Detect visible ellipses and field labels cut off at the end of a card summary.
 _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
-    r"\.{2,}|…|"
+    r"\.{3,}|…|"
     r"(?<!\w)(?:"
     r"peso\s+(?:br(?:u(?:t(?:o)?)?)?|net(?:o)?)(?:\s+por(?:\s+caj(?:a)?)?)?|"
     r"dimens(?:i[oó]n(?:es)?)?(?:\s+(?:de\s+)?caj(?:a)?)?|"
@@ -226,6 +226,9 @@ def normalize_detail_text(value: object) -> str:
     text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"[•▪●‣◦]+", _DETAIL_BOUNDARY, text)
     text = _WHITESPACE_PATTERN.sub(" ", text).strip()
+    # Repair doubled sentence punctuation while preserving three-dot ellipses,
+    # which remain a signal that the source Detail may be truncated.
+    text = re.sub(r"(?<!\.)\.\.(?!\.)", ".", text)
     text = re.sub(r"\s+:", ":", text)
     text = _remove_marked_fields(
         text,

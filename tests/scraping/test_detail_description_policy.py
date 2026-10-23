@@ -240,3 +240,24 @@ def test_size_label_is_valid_technical_detail():
     assert has_technical_detail(detail)
     assert is_complete_detail(detail)
     assert is_valid_detail_content(detail)
+
+
+def test_detail_policy_repairs_double_period_without_hiding_truncation():
+    source = (
+        "Descripción: Llavero circular de metal sublimable. "
+        "Material: Metal con placa sublimable.. "
+        "Medida: Aprox. 4 cm de diámetro. "
+        "Presentación: Bolsa plástica transparente."
+    )
+    expected = (
+        "Descripción: Llavero circular de metal sublimable. "
+        "Material: Metal con placa sublimable. "
+        "Medida: Aprox. 4 cm de diámetro. "
+        "Presentación: Bolsa plástica transparente."
+    )
+
+    assert normalize_detail_text(source) == expected
+    assert is_complete_detail(source)
+    assert is_valid_detail_content(source)
+    assert not is_complete_detail("Material: ABS...")
+    assert not is_complete_detail("Material: ABS. Peso bruto…")

@@ -1043,6 +1043,7 @@ class ProductDetailDelegate(ProductCellDelegate):
     VERTICAL_PADDING = 8
     LINE_SPACING_REDUCTION = 1
     PARAGRAPH_SPACING_REDUCTION = 2
+    GRIDLINE_ALLOWANCE = 1
     # Labels on the source page are bold regardless of their wording. Detect
     # any field-like label ending in ":" rather than maintaining a short allowlist.
     _BOLD_DETAIL_LABEL_PATTERN = re.compile(
@@ -1122,11 +1123,9 @@ class ProductDetailDelegate(ProductCellDelegate):
 
     @classmethod
     def _vertical_text_offset(cls, rect_height: int, content_height: int) -> float:
-        """Center the detail vertically while preserving the minimum top padding."""
-        return max(
-            float(cls.VERTICAL_PADDING),
-            (rect_height - content_height) / 2,
-        )
+        """Keep technical details top-aligned even when another cell makes the row taller."""
+        del rect_height, content_height
+        return float(cls.VERTICAL_PADDING)
 
     def paint(self, painter: QPainter, option, index) -> None:
         styled_option = QStyleOptionViewItem(option)
@@ -2928,15 +2927,24 @@ class ProductTable(QTableWidget):
 
         detail_item = self.item(row, self.DETAIL_COLUMN)
         if detail_item is not None and detail_item.text():
-            detail_height = ProductDetailDelegate.content_height(
-                detail_item.text(),
-                self.font(),
-                max(
-                    self.columnWidth(self.DETAIL_COLUMN)
-                    - (2 * ProductDetailDelegate.HORIZONTAL_PADDING),
-                    1,
-                ),
-            ) + (2 * ProductDetailDelegate.VERTICAL_PADDING)
+            # QTableWidget's painted cell rect excludes the right gridline.
+            # Match the delegate's actual wrapping width and reserve the bottom
+            # gridline so a final wrapped line cannot be clipped.
+            detail_width = max(
+                self.columnWidth(self.DETAIL_COLUMN)
+                - ProductDetailDelegate.GRIDLINE_ALLOWANCE
+                - (2 * ProductDetailDelegate.HORIZONTAL_PADDING),
+                1,
+            )
+            detail_height = (
+                ProductDetailDelegate.content_height(
+                    detail_item.text(),
+                    self.font(),
+                    detail_width,
+                )
+                + (2 * ProductDetailDelegate.VERTICAL_PADDING)
+                + ProductDetailDelegate.GRIDLINE_ALLOWANCE
+            )
             content_height = max(content_height, detail_height)
 
         stock_item = self.item(row, self.STOCK_COLUMN)

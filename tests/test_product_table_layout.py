@@ -2401,10 +2401,69 @@ def test_detail_delegate_bolds_labels_not_in_a_fixed_allowlist():
     ]
 
 
-def test_detail_delegate_vertically_centers_content_in_taller_rows():
+
+def test_detail_row_height_matches_wrapped_content_width_and_gridline():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1080, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-1507",
+                name="Laminadora A3 PAMUNDO Multi PRO800 8 en 1",
+                category="Enmicadoras / Laminadoras",
+                description=(
+                    "Marca: PAMUNDO. Modelo: Multi PRO800. "
+                    "Material: Cuerpo compacto y ligero con rodillos de alta precisión. "
+                    "Potencia: 390 W. Tiempo de precalentamiento: 2–3 minutos. "
+                    "Temperatura de trabajo: Modo caliente y frío con interruptor. "
+                    "Sistema de calentamiento: Sistema de 2 rodillos de alta eficiencia. "
+                    "Ancho máximo de laminado: 325 mm (Hasta tamaño A3). "
+                    "Velocidad de laminado: 280 mm/min. "
+                    "Espesor de mica compatible: 75 - 125 micrones. "
+                    "Espesor máximo de laminado: 0.5 mm. "
+                    "Sistema antiatasco: Palanca de liberación manual."
+                ),
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    def assert_detail_fits_row():
+        item = table.item(0, ProductTable.DETAIL_COLUMN)
+        assert item is not None
+        paint_width = max(
+            table.columnWidth(ProductTable.DETAIL_COLUMN)
+            - ProductDetailDelegate.GRIDLINE_ALLOWANCE
+            - (2 * ProductDetailDelegate.HORIZONTAL_PADDING),
+            1,
+        )
+        required_height = (
+            ProductDetailDelegate.content_height(
+                item.text(),
+                table.font(),
+                paint_width,
+            )
+            + (2 * ProductDetailDelegate.VERTICAL_PADDING)
+            + ProductDetailDelegate.GRIDLINE_ALLOWANCE
+        )
+        assert table.rowHeight(0) >= required_height
+
+    table.setColumnWidth(ProductTable.DETAIL_COLUMN, 220)
+    QApplication.processEvents()
+    assert_detail_fits_row()
+
+    table.setColumnWidth(ProductTable.DETAIL_COLUMN, 340)
+    QApplication.processEvents()
+    assert_detail_fits_row()
+    table.close()
+
+
+def test_detail_delegate_keeps_content_top_aligned_in_taller_rows():
     delegate = ProductDetailDelegate()
 
-    assert delegate._vertical_text_offset(rect_height=80, content_height=24) == 28
+    assert delegate._vertical_text_offset(rect_height=80, content_height=24) == 8
     assert delegate._vertical_text_offset(rect_height=40, content_height=24) == 8
     assert delegate._vertical_text_offset(rect_height=20, content_height=24) == 8
 

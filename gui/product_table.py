@@ -2591,70 +2591,87 @@ class ProductTable(QTableWidget):
         if not raw:
             return ""
 
-        lines: list[str] = []
-        # Keep paragraph/list boundaries captured from the product page. Within
-        # each source line, split every recognized or source-specific field label.
-        for segment in raw.splitlines():
-            segment = re.sub(r"[ \t]+", " ", segment).strip()
-            if not segment:
-                continue
-
-            matches = list(cls.DETAIL_FIELD_LABEL_PATTERN.finditer(segment))
-            if not matches:
-                cleaned = re.sub(r"[ \t.;]+$", "", segment)
-                if cleaned:
-                    lines.append(cleaned)
-                continue
-
-            normalized_matches = []
-            inside_measure_value = False
-            for match in matches:
-                alias = match.group(1).strip().casefold()
-                if alias == "colores disponibles":
-                    continue
-                if alias in {"medida", "medidas"} | cls.DETAIL_PARENT_MEASURE_LABELS:
-                    inside_measure_value = True
-                    normalized_matches.append(match)
-                    continue
-                if (
-                    inside_measure_value
-                    and alias in cls.DETAIL_NESTED_MEASURE_LABELS
-                ):
-                    continue
-                inside_measure_value = False
-                normalized_matches.append(match)
-            if not normalized_matches:
-                continue
-            matches = normalized_matches
-
-            prefix = segment[: matches[0].start()].strip(" \t\r\n.;")
-            if prefix:
-                lines.append(re.sub(r"[ \t.;]+$", "", prefix))
-
-            for index, match in enumerate(matches):
-                next_start = (
-                    matches[index + 1].start()
-                    if index + 1 < len(matches)
-                    else len(segment)
-                )
-                alias = match.group(1).strip().casefold()
-                label = cls.DETAIL_FIELD_LABELS.get(alias) or match.group(1).strip()
-                value = segment[match.end() : next_start]
-                value = re.sub(r"^[ \t\r\n.;]+", "", value)
-                value = re.sub(r"[ \t\r\n.;]+$", "", value)
-                value = re.sub(r"\s+", " ", value).strip()
-                line = cls._format_detail_field_line(
-                    alias,
-                    label,
-                    value,
-                    product,
-                )
-                if line is not None:
-                    lines.append(line)
-
+        lines = [
+            line
+            for segment in raw.splitlines()
+            for line in cls._format_detail_segment(segment, product)
+        ]
         return cls._format_nested_estuche_resaltador_measurements(
             "\n".join(line for line in lines if line.strip()),
         )
+
+    @classmethod
+    def _format_detail_segment(
+        cls,
+        segment: str,
+        product: Product,
+    ) -> list[str]:
+        """Format one source paragraph without merging neighboring fields."""
+        segment = re.sub(r"[ \t]+", " ", segment).strip()
+        if not segment:
+            return []
+
+        matches = list(cls.DETAIL_FIELD_LABEL_PATTERN.finditer(segment))
+        if not matches:
+            cleaned = re.sub(r"[ \t.;]+$", "", segment)
+            return [cleaned] if cleaned else []
+
+        matches = cls._select_detail_field_matches(matches)
+        if not matches:
+            return []
+
+        lines: list[str] = []
+        prefix = segment[: matches[0].start()].strip(" \t\r\n.;")
+        if prefix:
+            lines.append(re.sub(r"[ \t.;]+$", "", prefix))
+
+        for index, match in enumerate(matches):
+            next_start = (
+                matches[index + 1].start()
+                if index + 1 < len(matches)
+                else len(segment)
+            )
+            alias = match.group(1).strip().casefold()
+            label = cls.DETAIL_FIELD_LABELS.get(alias) or match.group(1).strip()
+            value = segment[match.end() : next_start]
+            value = re.sub(r"^[ \t\r\n.;]+", "", value)
+            value = re.sub(r"[ \t\r\n.;]+$", "", value)
+            value = re.sub(r"\s+", " ", value).strip()
+            line = cls._format_detail_field_line(
+                alias,
+                label,
+                value,
+                product,
+            )
+            if line is not None:
+                lines.append(line)
+
+        return lines
+
+    @classmethod
+    def _select_detail_field_matches(
+        cls,
+        matches: list[re.Match[str]],
+    ) -> list[re.Match[str]]:
+        """Ignore removable color variants and nested measure sublabels."""
+        selected: list[re.Match[str]] = []
+        inside_measure_value = False
+        for match in matches:
+            alias = match.group(1).strip().casefold()
+            if alias == "colores disponibles":
+                continue
+            if alias in {"medida", "medidas"} | cls.DETAIL_PARENT_MEASURE_LABELS:
+                inside_measure_value = True
+                selected.append(match)
+                continue
+            if (
+                inside_measure_value
+                and alias in cls.DETAIL_NESTED_MEASURE_LABELS
+            ):
+                continue
+            inside_measure_value = False
+            selected.append(match)
+        return selected
 
     @staticmethod
     def _format_nested_estuche_resaltador_measurements(text: str) -> str:

@@ -2303,7 +2303,7 @@ def test_detail_bold_format_covers_only_mousepad_field_label():
 def test_imp_cz01_detail_format_preserves_labels_and_separates_usb_from_modes():
     product = Product(
         code="IMP-CZ-01",
-        name="Impresora Fotográfica Térmica – Modelo CZ-01 – Citizen",
+        name="Impresora Fotográfica Térmica \u2013 Modelo CZ-01 \u2013 Citizen",
         description=(
             "Sublimación térmica (300/600 ppp) \u241e "
             "Rápida: Desde 16.3s por impresión \u241e "

@@ -350,8 +350,8 @@ def test_detail_policy_removes_price_includes_igv_for_every_product():
 
 def test_detail_policy_can_preserve_source_field_boundaries_for_alignment():
     source = (
-        "Tipo de encuadernado: Espiral simple (tipo coil) \\u241e "
-        "Hasta 12 hojas (70 g/m²) por pasada \\u241e "
+        "Tipo de encuadernado: Espiral simple (tipo coil) \u241e "
+        "Hasta 12 hojas (70 g/m²) por pasada \u241e "
         "Capacidad de encuadernado: Hasta 450 hojas"
     )
     assert normalize_detail_text(source) == (

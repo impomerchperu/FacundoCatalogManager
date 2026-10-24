@@ -149,7 +149,7 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
     r"\.{3,}|…|"
     r"(?<!\w)(?:"
     r"peso\s+(?:br(?:u(?:t(?:o)?)?)?|net(?:o)?)(?:\s+por(?:\s+caj(?:a)?)?)?|"
-    r"dimens(?:i[oó]n(?:es)?)?(?:\s+(?:de\s+)?caj(?:a)?)?|"
+    r"dimens(?:i[oó]n(?:es)?)?(?:\s+(?:de\s+)?caj(?:a)?|\s+del?\s+producto)?|"
     r"cantidad\s+por\s+caj(?:a)?|"
     r"cubicaje(?:\s+por\s+caj(?:a)?)?|"
     r"funci[oó]n(?:es)?(?:\s+adicionales?)?|"
@@ -159,6 +159,19 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
     r"material|medidas?|peso\s+unitario|"
     r"uso\s+recomendado|empaque\s+individual"
     r")\s*:?\s*$",
+    re.IGNORECASE,
+)
+# Catch a dimension value cut off after its final multiplication separator, e.g.
+# "Dimensiones del producto: 410 × 208 ×". A generic trailing-label check does
+# not detect this because the field already contains partial numeric content.
+_INCOMPLETE_TRAILING_DIMENSION_PATTERN = re.compile(
+    r"(?<!\\w)(?:"
+    r"dimens(?:i[oó]n(?:es)?)?(?:\\s+(?:de\\s+)?caj(?:a)?|\\s+del?\\s+producto)?|"
+    r"medidas?(?:\\s+del?\\s+producto)?"
+    r")\\s*:\\s*"
+    r"\\d+(?:[.,]\\d+)?(?:\\s*(?:mm|cm|m))?"
+    r"(?:\\s*[x×*]\\s*\\d+(?:[.,]\\d+)?(?:\\s*(?:mm|cm|m))?)*"
+    r"\\s*[x×*]\\s*$",
     re.IGNORECASE,
 )
 _EMPTY_TRAILING_BOX_FIELD_PATTERN = re.compile(
@@ -351,7 +364,10 @@ def is_complete_detail(value: object) -> bool:
         or validation_text.endswith((",", ";", ":"))
     ):
         return False
-    return _DESCRIPTION_TRUNCATION_PATTERN.search(validation_text) is None
+    return (
+        _DESCRIPTION_TRUNCATION_PATTERN.search(validation_text) is None
+        and _INCOMPLETE_TRAILING_DIMENSION_PATTERN.search(validation_text) is None
+    )
 
 
 def has_technical_detail(value: object) -> bool:

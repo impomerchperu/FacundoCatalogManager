@@ -267,6 +267,31 @@ def test_targeted_detail_repair_rejects_incomplete_extracted_detail():
         db.close()
 
 
+def test_targeted_detail_repair_rejects_incomplete_trailing_dimension():
+    db, repository = _seed_catalog()
+    detail = (
+        "Marca: Bright Office. Modelo: 230. "
+        "Dimensiones del producto: 410 × 208 ×"
+    )
+    browser = StaticBrowser(_product_html(detail=detail))
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-1700"],
+            browser=browser,
+        )
+
+        assert plans[0].status == "skip_invalid_detail"
+        assert "detalle_incompleto_o_truncado" in plans[0].reason
+        assert apply_detail_repairs(db, repository, plans) == 0
+        stored = repository.get_by_code("FB-1700")
+        assert stored is not None
+        assert stored.description == "Detalle original"
+    finally:
+        db.close()
+
+
 def test_targeted_detail_repair_does_not_fetch_urls_from_untrusted_hosts():
     db, repository = _seed_catalog(
         source_url="https://example.com/not-the-product-page/"

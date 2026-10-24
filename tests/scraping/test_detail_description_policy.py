@@ -61,6 +61,24 @@ def test_detail_policy_detects_clipped_words_and_ellipsis():
     assert not is_complete_detail("Material: ABS. Cantidad por caj...")
 
 
+def test_detail_policy_rejects_incomplete_trailing_product_dimensions():
+    incomplete = (
+        "Marca: Bright Office. Modelo: 230. "
+        "Dimensiones del producto: 410 × 208 ×"
+    )
+    complete = (
+        "Marca: Bright Office. Modelo: 230. "
+        "Dimensiones del producto: 410 × 208 × 110 mm."
+    )
+
+    assert has_technical_detail(incomplete)
+    assert not is_complete_detail(incomplete)
+    assert not is_valid_detail_content(incomplete)
+    assert is_complete_detail(complete)
+    assert is_valid_detail_content(complete)
+    assert not is_complete_detail("Dimensiones del producto:")
+
+
 def test_detail_policy_accepts_complete_fb4047_technical_detail():
     assert has_technical_detail(FB_4047_DETAIL)
     assert is_complete_detail(FB_4047_DETAIL)

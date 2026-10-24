@@ -276,8 +276,8 @@ def normalize_detail_text(value: object) -> str:
     text = re.sub(r"\.{3,}", ellipsis_placeholder, text)
     text = re.sub(r"(?<!\.)\.\.(?!\.)", ".", text)
     text = re.sub(r"([.;|])\s*(?:[.;|]\s*)+", r"\1 ", text)
-    text = text.replace(ellipsis_placeholder, "...")
     text = re.sub(r"^\s*[.;|]+\s*|\s*[;|]+\s*$", "", text)
+    text = text.replace(ellipsis_placeholder, "...")
     text = re.sub(r"\s+:", ":", text)
     text = _remove_marked_fields(
         text,

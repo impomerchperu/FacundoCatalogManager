@@ -174,6 +174,8 @@ _INCOMPLETE_TRAILING_DIMENSION_PATTERN = re.compile(
     r"\s*[x\u00d7*]\s*$",
     re.IGNORECASE,
 )
+
+
 def remove_incomplete_trailing_dimension_field(value: object) -> str:
     """Drop only a terminal, clearly truncated dimension field.
 

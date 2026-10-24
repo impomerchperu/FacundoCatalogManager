@@ -38,6 +38,18 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"envase\s+largo|"
     r"toalla\s+largo|"
     r"tama[ñn]o\s+cinta|"
+    r"tipo\s+de\s+encuadernaci[oó]n|"
+    r"tipo\s+de\s+encuadernado|"
+    r"capacidad\s+de\s+encuadernaci[oó]n|"
+    r"capacidad\s+de\s+encuadernado|"
+    r"tipo\s+de\s+corte|"
+    r"capacidad\s+de\s+corte|"
+    r"tama[ñn]o\s+de\s+corte\s+m[aá]ximo|"
+    r"dimensiones\s+del\s+producto|"
+    r"peso\s+neto\s+aproximado|"
+    r"t[eé]cnica\s+de\s+aplicaci[oó]n|"
+    r"color\s+de\s+tinta|"
+    r"fecha|forma|"
     r"color\s+de\s+impresi[oó]n|"
     r"[aá]rea\s+de\s+trabajo|"
     r"empaque\s+por\s+caja|"
@@ -80,6 +92,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"consumo\s+de\s+energ[ií]a|"
     r"dimensi[oó]n(?:es)?(?:\s+(?:de\s+)?caja)?|"
     r"peso\s+(?:unitario|neto|bruto)(?:\s+por(?:\s+caja)?)?|"
+    r"uso\s+ideal|"
     r"uso(?:\s+recomendado)?|"
     r"empaque\s+individual|"
     r"cantidad\s+por\s+caja|"
@@ -148,6 +161,10 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
     r")\s*:?\s*$",
     re.IGNORECASE,
 )
+_PRICE_INCLUDES_IGV_PATTERN = re.compile(
+    r"(?<!\w)precio\s+incluye\s+igv(?!\w)",
+    re.IGNORECASE,
+)
 _EMPTY_TRAILING_BOX_FIELD_PATTERN = re.compile(
     r"(?:[.;]\s*)?\bcaja\s*:\s*$",
     re.IGNORECASE,
@@ -163,23 +180,34 @@ def _remove_marked_fields(
     """Remove excluded field values up to the next recognized Detail label."""
     for match in reversed(list(pattern.finditer(text))):
         prefix = text[: match.start()].rstrip()
-        if prefix and prefix[-1] not in ".;|" + _DETAIL_BOUNDARY:
-            # A plural "colores:" can be part of a Description value (for
-            # example, "Resaltadores en 5 colores: Fucsia, ..."), not a field
-            # of its own. Do not cut a sentence in the middle merely because
-            # the phrase contains a colon.
-            is_embedded_color_list = re.match(
-                r"^colores\s*[:|]\s*",
-                match.group(0),
+        explicit_label = re.search(r"[:|\-]\s*$", match.group(0)) is not None
+        is_embedded_color_list = re.match(
+            r"^colores\s*[:|]\s*",
+            match.group(0),
+            re.IGNORECASE,
+        ) is not None
+        if is_embedded_color_list:
+            continue
+
+        # "Colores anaranjado, Verde..." can be descriptive prose after the
+        # Description label, not a standalone color-variant field. Preserve
+        # it when there is no explicit field delimiter; actual "Colores:"
+        # and "Colores disponibles:" fields still get removed.
+        if not explicit_label:
+            preceding_labels = list(
+                _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.finditer(prefix)
+            )
+            if preceding_labels and re.match(
+                r"descripci[oó]n(?:\s+comercial)?\s*:",
+                preceding_labels[-1].group(0),
                 re.IGNORECASE,
-            ) is not None
-            if is_embedded_color_list:
+            ):
                 continue
 
+        if prefix and prefix[-1] not in ".;|" + _DETAIL_BOUNDARY:
             # Flattened WooCommerce cards sometimes place "Color: ..." inline
             # without a period. Only strip such embedded matches when the
             # field label itself uses an explicit delimiter.
-            explicit_label = re.search(r"[:|\-]\s*$", match.group(0)) is not None
             if not allow_embedded_label or not explicit_label:
                 continue
 
@@ -245,6 +273,9 @@ def normalize_detail_text(value: object) -> str:
     # Repair doubled sentence punctuation while preserving three-dot ellipses,
     # which remain a signal that the source Detail may be truncated.
     text = re.sub(r"(?<!\.)\.\.(?!\.)", ".", text)
+    text = _PRICE_INCLUDES_IGV_PATTERN.sub("", text)
+    text = re.sub(r"([.;|])\s*(?:[.;|]\s*)+", r"\1 ", text)
+    text = re.sub(r"^\s*[.;|]+\s*|\s*[.;|]+\s*$", "", text)
     text = re.sub(r"\s+:", ":", text)
     text = _remove_marked_fields(
         text,

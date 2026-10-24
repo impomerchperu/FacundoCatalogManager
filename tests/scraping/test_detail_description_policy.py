@@ -100,6 +100,45 @@ def test_detail_policy_rejects_incomplete_trailing_product_dimensions():
     assert not is_complete_detail("Dimensiones del producto:")
 
 
+def test_detail_policy_recognizes_product_dimensions_and_box_weight_labels():
+    source = (
+        "Dimensiones del producto: 500 x 240 x 105 mm\\n"
+        "Peso bruto / caja: 18 kg / Peso neto / caja: 16 kg\\n"
+        "Medidas de la caja máster: 56.5 x 30 x 32.5 cm"
+    )
+
+    assert has_technical_detail(source)
+    assert is_complete_detail(source)
+    assert is_valid_detail_content(source)
+    assert has_multiple_technical_detail_fields(source)
+
+
+def test_detail_policy_normalizes_nonbreaking_space_indentation():
+    source = (
+        "\\u00a0Dimensiones del producto: 500 x 240 x 105 mm\\n"
+        "\\u00a0Peso bruto / caja: 18 kg\\n"
+        "\\u00a0Medidas de la caja máster: 56.5 x 30 x 32.5 cm"
+    )
+
+    assert normalize_detail_text(source, preserve_boundaries=True).splitlines() == [
+        "Dimensiones del producto: 500 x 240 x 105 mm",
+        "Peso bruto / caja: 18 kg",
+        "Medidas de la caja máster: 56.5 x 30 x 32.5 cm",
+    ]
+
+
+def test_detail_policy_recognizes_printing_technique():
+    source = (
+        "Medida: 20 x 20 cm. Material: Neopreno para sublimación. "
+        "Técnica de impresión: Sublimación "
+        "(área de impresión recomendada: 21 x 21 cm)"
+    )
+
+    assert has_technical_detail(source)
+    assert is_complete_detail(source)
+    assert is_valid_detail_content(source)
+
+
 def test_detail_policy_accepts_complete_fb4047_technical_detail():
     assert has_technical_detail(FB_4047_DETAIL)
     assert is_complete_detail(FB_4047_DETAIL)

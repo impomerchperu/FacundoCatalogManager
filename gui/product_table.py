@@ -2618,9 +2618,21 @@ class ProductTable(QTableWidget):
         if not segment:
             return []
 
+        # A nested label in parentheses belongs to the value of the printing
+        # technique field, not to a separate field in the table. Protect its
+        # colon while detecting field boundaries, then restore it for display.
+        protected_colon = "\ue001"
+        if re.search(r"(?i)(?<!\w)t[eé]cnica\s+de\s+impresi[oó]n\s*:", segment):
+            segment = re.sub(
+                r"(?i)(área\s+de\s+impresi[oó]n\s+recomendada)\s*:",
+                lambda match: f"{match.group(1)}{protected_colon}",
+                segment,
+            )
+
         matches = list(cls.DETAIL_FIELD_LABEL_PATTERN.finditer(segment))
         if not matches:
             cleaned = re.sub(r"[ \t.;]+$", "", segment)
+            cleaned = cleaned.replace(protected_colon, ":")
             return [cleaned] if cleaned else []
 
         matches = cls._select_detail_field_matches(matches)
@@ -2641,6 +2653,7 @@ class ProductTable(QTableWidget):
             alias = match.group(1).strip().casefold()
             label = cls.DETAIL_FIELD_LABELS.get(alias) or match.group(1).strip()
             value = segment[match.end() : next_start]
+            value = value.replace(protected_colon, ":")
             value = re.sub(r"^[ \t\r\n.;]+", "", value)
             trailing_separators = (
                 r"[ \t\r\n.;/]+$"

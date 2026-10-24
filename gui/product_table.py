@@ -2595,26 +2595,91 @@ class ProductTable(QTableWidget):
 
     @classmethod
     def _format_detail(cls, product: Product) -> str:
-        """Ordena el detalle por los límites fuente y las etiquetas detectadas."""
+        """Format each source row while preserving its explicit field grouping."""
         raw_description = cls._correct_detail_spelling(
             str(product.description or "")
         )
-        raw = normalize_detail_text(
-            raw_description,
-            preserve_boundaries=True,
+        raw_description = raw_description.replace("\\r\\n", "\\n").replace(
+            "\\r", "\\n"
         )
-        raw = raw.replace("\r\n", "\n").replace("\r", "\n")
-        raw = re.sub(r"[ \t]+", " ", raw).strip()
-        if not raw:
+        source_segments = re.split(r"[\\n\\u241e•▪●‣◦]+", raw_description)
+        if not any(segment.strip() for segment in source_segments):
             return ""
 
-        lines = [
+        lines: list[str] = []
+        for source_segment in source_segments:
+            source_segment = re.sub(r"[ \\t]+", " ", source_segment).strip()
+            if not source_segment:
+                continue
+
+            if cls._has_explicit_source_grouping(source_segment):
+                # Normalize whitespace but do not let generic label detection
+                # discard an unlisted leading label from a grouped source row.
+                # Color-bearing rows still pass through the shared removal policy.
+                source_labels = list(
+                    cls.DETAIL_FIELD_LABEL_PATTERN.finditer(source_segment)
+                )
+                has_color_field = any(
+                    match.group(1).strip().casefold()
+                    in {"color", "colores", "colores disponibles"}
+                    for match in source_labels
+                )
+                if has_color_field:
+                    segment = normalize_detail_text(
+                        source_segment,
+                        preserve_boundaries=True,
+                    )
+                else:
+                    segment = re.sub(
+                        r"[\\u200e\\u200f\\u202a-\\u202e\\u2066-\\u2069\\ufeff]",
+                        "",
+                        source_segment,
+                    )
+                    segment = re.sub(
+                        r"(?:\\s*,\\s*|\\s+)?\\bprecio\\s+incluye\\s+igv\\b\\.?",
+                        "",
+                        segment,
+                        flags=re.IGNORECASE,
+                    )
+                    segment = re.sub(r"\\s+", " ", segment).strip()
+            else:
+                segment = normalize_detail_text(
+                    source_segment,
+                    preserve_boundaries=True,
+                )
+                segment = re.sub(r"[ \\t]+", " ", segment).strip()
+
+            lines.extend(
+                cls._format_detail_segment(part, product)
+                for part in segment.splitlines()
+                if part.strip()
+            )
+        flattened_lines = [
             line
-            for segment in raw.splitlines()
-            for line in cls._format_detail_segment(segment, product)
+            for grouped_lines in lines
+            for line in (
+                grouped_lines if isinstance(grouped_lines, list) else [grouped_lines]
+            )
+            if line.strip()
         ]
         return cls._format_nested_estuche_resaltador_measurements(
-            "\n".join(line for line in lines if line.strip()),
+            "\\n".join(flattened_lines),
+        )
+
+    @classmethod
+    def _has_explicit_source_grouping(cls, segment: str) -> bool:
+        """Recognize grouped fields from separators rather than product identity."""
+        matches = cls._select_detail_field_matches(
+            list(cls.DETAIL_FIELD_LABEL_PATTERN.finditer(segment))
+        )
+        if len(matches) > 1 and any(
+            segment[:match.start()].rstrip().endswith("/")
+            for match in matches[1:]
+        ):
+            return True
+        return (
+            len(matches) == 1
+            and segment[: matches[0].start()].rstrip().endswith("|")
         )
 
     @classmethod

@@ -281,3 +281,68 @@ def test_detail_policy_repairs_double_period_without_hiding_truncation():
     assert is_valid_detail_content(source)
     assert not is_complete_detail("Material: ABS...")
     assert not is_complete_detail("Material: ABS. Peso bruto…")
+
+
+
+def test_detail_policy_keeps_usage_ideal_after_removing_available_colors():
+    source = (
+        "Colores disponibles: Azul, Negro. "
+        "Uso ideal: Escritorio y oficina. "
+        "Presentación: Individual, bolsa plástica."
+    )
+
+    assert normalize_detail_text(source) == (
+        "Uso ideal: Escritorio y oficina. "
+        "Presentación: Individual, bolsa plástica."
+    )
+
+
+def test_detail_policy_preserves_color_enumeration_inside_highlighter_description():
+    source = (
+        "Descripción: Resaltador con 5 puntas. "
+        "Colores anaranjado, Verde, Amarillo, Turqueza y Rosado. "
+        "Presentación: Individual, en bolsa de plástico transparente."
+    )
+
+    assert normalize_detail_text(source) == source
+    assert is_complete_detail(source)
+
+
+def test_detail_policy_preserves_color_of_ink_and_strips_only_variant_colors():
+    source = (
+        "Colores: Rojo, Negro, Azul. "
+        "Color de tinta: Líquida color negro. "
+        "Presentación: Bolsa plástica transparente."
+    )
+
+    assert normalize_detail_text(source) == (
+        "Color de tinta: Líquida color negro. "
+        "Presentación: Bolsa plástica transparente."
+    )
+
+
+def test_detail_policy_removes_price_includes_igv_without_losing_neighboring_fields():
+    source = (
+        "Medida: 10 cm. Precio incluye IGV. "
+        "Presentación: Individual."
+    )
+
+    assert normalize_detail_text(source) == (
+        "Medida: 10 cm. Presentación: Individual."
+    )
+
+
+def test_detail_policy_recognizes_application_shape_date_cutting_and_binding_fields():
+    source = (
+        "Técnica de aplicación: Serigrafía. Forma: Rectángulo. "
+        "Fecha: 2026 – 2027. Tipo de corte: Manual. "
+        "Capacidad de corte: 12 hojas. "
+        "Tamaño de corte máximo: A3. "
+        "Tipo de encuadernado: Espiral simple. "
+        "Capacidad de encuadernado: 450 hojas. "
+        "Color de tinta: Líquida color negro. Uso ideal: Oficina."
+    )
+
+    assert has_technical_detail(source)
+    assert is_complete_detail(source)
+    assert is_valid_detail_content(source)

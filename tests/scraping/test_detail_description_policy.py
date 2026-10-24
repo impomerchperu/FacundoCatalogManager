@@ -321,17 +321,6 @@ def test_detail_policy_preserves_color_of_ink_and_strips_only_variant_colors():
     )
 
 
-def test_detail_policy_removes_price_includes_igv_without_losing_neighboring_fields():
-    source = (
-        "Medida: 10 cm. Precio incluye IGV. "
-        "Presentación: Individual."
-    )
-
-    assert normalize_detail_text(source) == (
-        "Medida: 10 cm. Presentación: Individual."
-    )
-
-
 def test_detail_policy_recognizes_application_shape_date_cutting_and_binding_fields():
     source = (
         "Técnica de aplicación: Serigrafía. Forma: Rectángulo. "

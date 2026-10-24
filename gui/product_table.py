@@ -2595,27 +2595,26 @@ class ProductTable(QTableWidget):
 
     @classmethod
     def _format_detail(cls, product: Product) -> str:
-        """Format each source row while preserving its explicit field grouping."""
+        """Format source rows without losing labels or explicit field grouping."""
         raw_description = cls._correct_detail_spelling(
             str(product.description or "")
         )
-        raw_description = raw_description.replace("\\r\\n", "\\n").replace(
-            "\\r", "\\n"
+        raw_description = raw_description.replace("\r\n", "\n").replace(
+            "\r", "\n"
         )
-        source_segments = re.split(r"[\\n\\u241e•▪●‣◦]+", raw_description)
+        source_segments = re.split(r"[\n\u241e•▪●‣◦]+", raw_description)
         if not any(segment.strip() for segment in source_segments):
             return ""
 
         lines: list[str] = []
         for source_segment in source_segments:
-            source_segment = re.sub(r"[ \\t]+", " ", source_segment).strip()
+            source_segment = re.sub(r"[ \t]+", " ", source_segment).strip()
             if not source_segment:
                 continue
 
             if cls._has_explicit_source_grouping(source_segment):
-                # Normalize whitespace but do not let generic label detection
-                # discard an unlisted leading label from a grouped source row.
-                # Color-bearing rows still pass through the shared removal policy.
+                # Keep an unlisted leading field label. Rows containing a
+                # removable color field still pass through the shared policy.
                 source_labels = list(
                     cls.DETAIL_FIELD_LABEL_PATTERN.finditer(source_segment)
                 )
@@ -2631,56 +2630,50 @@ class ProductTable(QTableWidget):
                     )
                 else:
                     segment = re.sub(
-                        r"[\\u200e\\u200f\\u202a-\\u202e\\u2066-\\u2069\\ufeff]",
+                        r"[\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]",
                         "",
                         source_segment,
                     )
                     segment = re.sub(
-                        r"(?:\\s*,\\s*|\\s+)?\\bprecio\\s+incluye\\s+igv\\b\\.?",
+                        r"(?:\s*,\s*|\s+)?\bprecio\s+incluye\s+igv\b\.?",
                         "",
                         segment,
                         flags=re.IGNORECASE,
                     )
-                    segment = re.sub(r"\\s+", " ", segment).strip()
+                    segment = re.sub(r"\s+", " ", segment).strip()
             else:
                 segment = normalize_detail_text(
                     source_segment,
                     preserve_boundaries=True,
                 )
-                segment = re.sub(r"[ \\t]+", " ", segment).strip()
+                segment = re.sub(r"[ \t]+", " ", segment).strip()
 
-            lines.extend(
-                cls._format_detail_segment(part, product)
-                for part in segment.splitlines()
-                if part.strip()
-            )
-        flattened_lines = [
-            line
-            for grouped_lines in lines
-            for line in (
-                grouped_lines if isinstance(grouped_lines, list) else [grouped_lines]
-            )
-            if line.strip()
-        ]
+            for part in segment.splitlines():
+                if part.strip():
+                    lines.extend(cls._format_detail_segment(part, product))
+
         return cls._format_nested_estuche_resaltador_measurements(
-            "\\n".join(flattened_lines),
+            "\n".join(line for line in lines if line.strip()),
         )
 
     @classmethod
     def _has_explicit_source_grouping(cls, segment: str) -> bool:
-        """Recognize grouped fields from separators rather than product identity."""
-        matches = cls._select_detail_field_matches(
-            list(cls.DETAIL_FIELD_LABEL_PATTERN.finditer(segment))
-        )
-        if len(matches) > 1 and any(
-            segment[:match.start()].rstrip().endswith("/")
-            for match in matches[1:]
-        ):
-            return True
-        return (
-            len(matches) == 1
-            and segment[: matches[0].start()].rstrip().endswith("|")
-        )
+        """Detect grouped fields from source separators, not product identity."""
+        # The first label may be supplier-specific and absent from our label
+        # vocabulary; detect the row shape independently of that vocabulary.
+        starts_with_label = re.match(
+            r"^\s*[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:",
+            segment,
+        ) is not None
+        grouped_after_slash = re.search(
+            r"/\s*[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:",
+            segment,
+        ) is not None
+        grouped_after_pipe = re.search(
+            r"\|\s*[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:",
+            segment,
+        ) is not None
+        return starts_with_label and (grouped_after_slash or grouped_after_pipe)
 
     @classmethod
     def _format_detail_segment(
@@ -2714,13 +2707,9 @@ class ProductTable(QTableWidget):
         if not matches:
             return []
 
-        # A slash immediately before another recognized label means both
-        # fields were grouped on the same source row. Preserve that grouping
-        # without depending on particular labels, product codes, or categories.
-        if len(matches) > 1 and any(
-            segment[:match.start()].rstrip().endswith("/")
-            for match in matches[1:]
-        ):
+        # Grouping is determined from the source separators, even when the
+        # first label is supplier-specific and not in the known-label map.
+        if cls._has_explicit_source_grouping(segment):
             cleaned = segment.replace(protected_colon, ":")
             cleaned = re.sub(r"[ \t.;]+$", "", cleaned)
             return [cleaned] if cleaned else []

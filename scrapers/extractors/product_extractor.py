@@ -425,7 +425,10 @@ class ProductExtractor:
         if self._is_excluded_detail_tab(element):
             return ""
 
-        text = normalize_detail_text(self._detail_text_from_element(element))
+        text = normalize_detail_text(
+            self._detail_text_from_element(element),
+            preserve_boundaries=True,
+        )
         if (
             not text
             or self._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text)
@@ -479,7 +482,10 @@ class ProductExtractor:
 
                 if len(details) < 2:
                     continue
-                combined = normalize_detail_text(" ␞ ".join(details))
+                combined = normalize_detail_text(
+                    " ␞ ".join(details),
+                    preserve_boundaries=True,
+                )
                 if (
                     has_multiple_technical_detail_fields(combined)
                     and has_technical_detail(combined)
@@ -542,7 +548,10 @@ class ProductExtractor:
         if not fields:
             return ""
 
-        detail = normalize_detail_text(" ␞ ".join(fields))
+        detail = normalize_detail_text(
+            " ␞ ".join(fields),
+            preserve_boundaries=True,
+        )
         if has_technical_detail(detail) and is_complete_detail(detail):
             return detail
         return ""
@@ -598,7 +607,10 @@ class ProductExtractor:
 
     def extract_detail_text(self, soup) -> str:
         """Use the identified Detail field before considering generic fallbacks."""
-        field_found, detail = self.extract_authoritative_detail_text(soup)
+        field_found, detail = self.extract_authoritative_detail_text(
+            soup,
+            preserve_boundaries=True,
+        )
         if field_found:
             return detail
         return self._extract_detail_text_fallback(soup)

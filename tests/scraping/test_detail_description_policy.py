@@ -65,7 +65,7 @@ def test_detail_policy_detects_clipped_words_and_ellipsis():
 def test_detail_policy_removes_only_incomplete_trailing_dimension_field():
     incomplete = (
         "Marca: Bright Office. Modelo: 230.\n"
-        "Dimensiones del producto: 410 \\u00d7 208 \\u00d7"
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7"
     )
     cleaned = "Marca: Bright Office. Modelo: 230."
     complete = (

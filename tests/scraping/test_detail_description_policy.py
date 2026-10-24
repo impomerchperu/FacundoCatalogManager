@@ -64,11 +64,11 @@ def test_detail_policy_detects_clipped_words_and_ellipsis():
 def test_detail_policy_rejects_incomplete_trailing_product_dimensions():
     incomplete = (
         "Marca: Bright Office. Modelo: 230. "
-        "Dimensiones del producto: 410 × 208 ×"
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7"
     )
     complete = (
         "Marca: Bright Office. Modelo: 230. "
-        "Dimensiones del producto: 410 × 208 × 110 mm."
+        "Dimensiones del producto: 410 x 208 x 110 mm."
     )
 
     assert has_technical_detail(incomplete)

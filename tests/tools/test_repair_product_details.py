@@ -271,7 +271,7 @@ def test_targeted_detail_repair_rejects_incomplete_trailing_dimension():
     db, repository = _seed_catalog()
     detail = (
         "Marca: Bright Office. Modelo: 230. "
-        "Dimensiones del producto: 410 × 208 ×"
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7"
     )
     browser = StaticBrowser(_product_html(detail=detail))
     try:

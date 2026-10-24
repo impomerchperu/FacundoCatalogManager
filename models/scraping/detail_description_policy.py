@@ -162,7 +162,7 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 # Catch a dimension value cut off after its final multiplication separator, e.g.
-# "Dimensiones del producto: 410 × 208 ×". A generic trailing-label check does
+# "Dimensiones del producto: 410 x 208 x". A generic trailing-label check does
 # not detect this because the field already contains partial numeric content.
 _INCOMPLETE_TRAILING_DIMENSION_PATTERN = re.compile(
     r"(?<!\w)(?:"
@@ -170,8 +170,8 @@ _INCOMPLETE_TRAILING_DIMENSION_PATTERN = re.compile(
     r"medidas?(?:\s+del?\s+producto)?"
     r")\s*:\s*"
     r"\d+(?:[.,]\d+)?(?:\s*(?:mm|cm|m))?"
-    r"(?:\s*[x×*]\s*\d+(?:[.,]\d+)?(?:\s*(?:mm|cm|m))?)*"
-    r"\s*[x×*]\s*$",
+    r"(?:\s*[x\u00d7*]\s*\d+(?:[.,]\d+)?(?:\s*(?:mm|cm|m))?)*"
+    r"\s*[x\u00d7*]\s*$",
     re.IGNORECASE,
 )
 _EMPTY_TRAILING_BOX_FIELD_PATTERN = re.compile(

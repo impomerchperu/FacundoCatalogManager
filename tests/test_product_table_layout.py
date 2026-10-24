@@ -2399,23 +2399,97 @@ def test_detail_formatter_preserves_fb1503_compound_labels_and_alignment():
     ]
 
 
-def test_detail_formatter_keeps_recommended_print_area_inside_printing_technique():
+def test_fb1503_detail_cell_is_top_aligned_and_row_height_fits():
+    _qapp()
     product = Product(
-        code="FB-2032",
-        name="Mouse Pad Redondo 20 x 20 cm x 5 mm",
+        code="FB-1503",
+        name="Enmicadora Metálica de Alta precisión A3",
         description=(
-            "Medida: 20 x 20 cm (espesor: 5 mm)\n"
-            "Material: Neopreno para sublimación\n"
-            "Técnica de impresión: Sublimación "
-            "(área de impresión recomendada: 21 x 21 cm)"
+            "\u00a0Dimensiones del producto: 500 \u00d7 240 \u00d7 105 mm\n"
+            "\u00a0Peso bruto / caja: 18 kg / Peso neto / caja: 16 kg\n"
+            "\u00a0Medidas de la caja máster: 56.5 \u00d7 30 \u00d7 32.5 cm"
         ),
     )
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products([product])
+    QApplication.processEvents()
 
-    assert ProductTable._format_detail(product).splitlines() == [
-        "Medida: 20 x 20 cm (espesor: 5 mm)",
-        "Material: Neopreno para sublimación",
-        "Técnica de impresión: Sublimación (área de impresión recomendada: 21 x 21 cm)",
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert item.text().splitlines() == [
+        "Dimensiones del producto: 500 \u00d7 240 \u00d7 105 mm",
+        "Peso bruto / caja: 18 kg",
+        "Peso neto / caja: 16 kg",
+        "Medidas de la caja máster: 56.5 \u00d7 30 \u00d7 32.5 cm",
     ]
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignTop
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignLeft
+    expected_height = (
+        ProductDetailDelegate.content_height(
+            item.text(),
+            table.font(),
+            max(
+                table.columnWidth(ProductTable.DETAIL_COLUMN)
+                - (2 * ProductDetailDelegate.HORIZONTAL_PADDING),
+                1,
+            ),
+        )
+        + (2 * ProductDetailDelegate.VERTICAL_PADDING)
+    )
+    assert table.rowHeight(0) >= expected_height
+    table.close()
+
+
+def test_detail_formatter_recognizes_printing_technique_for_mouse_pads():
+    products = [
+        (
+            "FB-2035",
+            "Mouse Pad A4 30 x 20 cm x 5 mm",
+            "30 x 20 cm (espesor: 5 mm)",
+            "31 x 21 cm",
+        ),
+        (
+            "FB-2015",
+            "Mouse Pad Cuadrado 20 x 20 cm x 5 mm",
+            "20 x 20 cm (espesor: 5 mm)",
+            "21 x 21 cm",
+        ),
+        (
+            "FB-2013",
+            "Mouse Pad Rectangular 19.5 x 23.5 cm x 5 mm",
+            "19.5 x 23.5 cm (espesor: 5 mm)",
+            "20.5 x 24.5 cm",
+        ),
+        (
+            "FB-2032",
+            "Mouse Pad Redondo 20 x 20 cm x 5 mm",
+            "20 x 20 cm (espesor: 5 mm)",
+            "21 x 21 cm",
+        ),
+    ]
+
+    for code, name, measure, print_area in products:
+        product = Product(
+            code=code,
+            name=name,
+            description=(
+                f"Medida: {measure}\n"
+                "Material: Neopreno para sublimación\n"
+                "Técnica de impresión: Sublimación "
+                f"(área de impresión recomendada: {print_area})"
+            ),
+        )
+
+        assert ProductTable._format_detail(product).splitlines() == [
+            f"Medida: {measure}",
+            "Material: Neopreno para sublimación",
+            (
+                "Técnica de impresión: Sublimación "
+                f"(área de impresión recomendada: {print_area})"
+            ),
+        ], code
 
 
 def test_detail_delegate_bolds_labels_not_in_a_fixed_allowlist():

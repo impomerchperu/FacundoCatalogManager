@@ -272,7 +272,7 @@ def normalize_detail_text(value: object) -> str:
     # which remain a signal that the source Detail may be truncated.
     text = re.sub(r"(?<!\.)\.\.(?!\.)", ".", text)
     text = re.sub(r"([.;|])\s*(?:[.;|]\s*)+", r"\1 ", text)
-    text = re.sub(r"^\s*[.;|]+\s*|\s*[.;|]+\s*$", "", text)
+    text = re.sub(r"^\s*[.;|]+\s*|\s*[;|]+\s*$", "", text)
     text = re.sub(r"\s+:", ":", text)
     text = _remove_marked_fields(
         text,

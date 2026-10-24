@@ -2385,17 +2385,17 @@ def test_detail_formatter_preserves_fb1503_compound_labels_and_alignment():
         code="FB-1503",
         name="Enmicadora Metálica de Alta precisión A3",
         description=(
-            "\\u00a0Dimensiones del producto: 500 \\u00d7 240 \\u00d7 105 mm\\n"
-            "\\u00a0Peso bruto / caja: 18 kg / Peso neto / caja: 16 kg\\n"
-            "\\u00a0Medidas de la caja máster: 56.5 \\u00d7 30 \\u00d7 32.5 cm"
+            "\u00a0Dimensiones del producto: 500 \u00d7 240 \u00d7 105 mm\n"
+            "\u00a0Peso bruto / caja: 18 kg / Peso neto / caja: 16 kg\n"
+            "\u00a0Medidas de la caja máster: 56.5 \u00d7 30 \u00d7 32.5 cm"
         ),
     )
 
     assert ProductTable._format_detail(product).splitlines() == [
-        "Dimensiones del producto: 500 \\u00d7 240 \\u00d7 105 mm",
+        "Dimensiones del producto: 500 \u00d7 240 \u00d7 105 mm",
         "Peso bruto / caja: 18 kg",
         "Peso neto / caja: 16 kg",
-        "Medidas de la caja máster: 56.5 \\u00d7 30 \\u00d7 32.5 cm",
+        "Medidas de la caja máster: 56.5 \u00d7 30 \u00d7 32.5 cm",
     ]
 
 
@@ -2404,8 +2404,8 @@ def test_detail_formatter_keeps_recommended_print_area_inside_printing_technique
         code="FB-2032",
         name="Mouse Pad Redondo 20 x 20 cm x 5 mm",
         description=(
-            "Medida: 20 x 20 cm (espesor: 5 mm)\\n"
-            "Material: Neopreno para sublimación\\n"
+            "Medida: 20 x 20 cm (espesor: 5 mm)\n"
+            "Material: Neopreno para sublimación\n"
             "Técnica de impresión: Sublimación "
             "(área de impresión recomendada: 21 x 21 cm)"
         ),

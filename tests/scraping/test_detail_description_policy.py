@@ -4,6 +4,7 @@ from models.scraping.detail_description_policy import (
     is_complete_detail,
     is_valid_detail_content,
     normalize_detail_text,
+    remove_incomplete_trailing_dimension_field,
     strip_leading_color_field,
 )
 
@@ -59,6 +60,26 @@ def test_detail_policy_detects_clipped_words_and_ellipsis():
     assert not is_complete_detail("Material: ABS. Peso bruto…")
     assert not is_complete_detail("Material: ABS. Dimens")
     assert not is_complete_detail("Material: ABS. Cantidad por caj...")
+
+
+def test_detail_policy_removes_only_incomplete_trailing_dimension_field():
+    incomplete = (
+        "Marca: Bright Office. Modelo: 230.\\n"
+        "Dimensiones del producto: 410 \\u00d7 208 \\u00d7"
+    )
+    cleaned = "Marca: Bright Office. Modelo: 230."
+    complete = (
+        "Marca: Bright Office. Modelo: 230. "
+        "Dimensiones del producto: 410 x 208 x 110 mm."
+    )
+    only_incomplete = "Dimensiones del producto: 410 x 208 x"
+
+    assert remove_incomplete_trailing_dimension_field(incomplete) == cleaned
+    assert remove_incomplete_trailing_dimension_field(complete) == complete
+    assert (
+        remove_incomplete_trailing_dimension_field(only_incomplete)
+        == only_incomplete
+    )
 
 
 def test_detail_policy_rejects_incomplete_trailing_product_dimensions():

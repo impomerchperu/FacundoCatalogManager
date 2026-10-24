@@ -237,7 +237,17 @@ def _remove_marked_fields(
             )
 
         if before and after:
-            if preserve_boundaries:
+            boundary_end = (
+                next_field.start()
+                if next_field is not None
+                else (
+                    separator_match.end()
+                    if separator_match is not None
+                    else match.end()
+                )
+            )
+            removed_region = text[match.start():boundary_end]
+            if preserve_boundaries and ("\n" in removed_region or _DETAIL_BOUNDARY in removed_region):
                 separator = "\n"
             else:
                 separator = " " if before.endswith((".", ";")) else ". "

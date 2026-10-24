@@ -2644,7 +2644,7 @@ class ProductTable(QTableWidget):
             return []
 
         lines: list[str] = []
-        prefix = segment[: matches[0].start()].strip(" \t\r\n.;")
+        prefix = segment[: matches[0].start()].strip(" \t\r\n.;|")
         if prefix:
             lines.append(re.sub(r"[ \t.;]+$", "", prefix))
 

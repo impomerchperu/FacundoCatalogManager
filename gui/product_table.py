@@ -1228,8 +1228,6 @@ class ProductTable(QTableWidget):
         "descripcion comercial": "Descripción",
         "descripción": "Descripción",
         "descripcion": "Descripción",
-        "colores": "Colores",
-        "color": "Color",
         "interfaz": "Interfaz",
         "técnica de impresión": "Técnica de impresión",
         "tecnica de impresion": "Técnica de impresión",
@@ -1250,6 +1248,23 @@ class ProductTable(QTableWidget):
         "caja": "Caja",
         "medidas de estuche": "Medidas de Estuche",
         "presentación del estuche": "Presentación del Estuche",
+        "uso ideal": "Uso ideal",
+        "fecha": "Fecha",
+        "forma": "Forma",
+        "técnica de aplicación": "Técnica de aplicación",
+        "tecnica de aplicacion": "Técnica de aplicación",
+        "tipo de corte": "Tipo de corte",
+        "capacidad de corte": "Capacidad de corte",
+        "tamaño de corte máximo": "Tamaño de corte máximo",
+        "tamano de corte maximo": "Tamaño de corte máximo",
+        "dimensiones del producto": "Dimensiones del producto",
+        "peso neto aproximado": "Peso neto aproximado",
+        "tipo de encuadernado": "Tipo de encuadernado",
+        "capacidad de encuadernado": "Capacidad de encuadernado",
+        "tipo de encuadernación": "Tipo de encuadernación",
+        "tipo de encuadernacion": "Tipo de encuadernación",
+        "capacidad de encuadernación": "Capacidad de encuadernación",
+        "capacidad de encuadernacion": "Capacidad de encuadernación",
         "presentacion del estuche": "Presentación del Estuche",
         "número de rodillos": "Número de rodillos",
         "numero de rodillos": "Número de rodillos",
@@ -1386,6 +1401,7 @@ class ProductTable(QTableWidget):
         "aplicación": "Aplicación",
         "area de trabajo": "Área de trabajo",
         "área de trabajo": "Área de trabajo",
+        "color de tinta": "Color de tinta",
         "color de impresion": "Color de impresión",
         "color de impresión": "Color de impresión",
         "cubicaje": "Cubicaje",
@@ -1679,6 +1695,7 @@ class ProductTable(QTableWidget):
         for column, width in self.MIN_COLUMN_WIDTHS.items():
             self.setColumnWidth(column, width)
         self.setColumnHidden(self.CATEGORY_COLUMN, True)
+        header.sectionResized.connect(self._handle_section_resized)
 
     def _show_image_context_menu(self, position) -> None:
         index = self.indexAt(position)
@@ -1760,6 +1777,29 @@ class ProductTable(QTableWidget):
         ]
         self._rendered_products[index.row()] = product
         self._set_active_image(index.row(), active_index)
+
+    def _handle_section_resized(
+        self,
+        logical_index: int,
+        old_size: int,
+        new_size: int,
+    ) -> None:
+        """Recalculate wrapped text heights when a visible text column changes."""
+        del old_size, new_size
+        if logical_index not in {self.NAME_COLUMN, self.DETAIL_COLUMN}:
+            return
+        if getattr(self, "_is_fitting_columns", False) or self._rendering:
+            return
+
+        self._row_adjust_generation += 1
+        generation = self._row_adjust_generation
+        QTimer.singleShot(
+            0,
+            lambda generation=generation: self._adjust_table_rows_batch(
+                generation,
+                0,
+            ),
+        )
 
     def _handle_header_click(self, column: int) -> None:
         if column not in self.SORTABLE_COLUMNS:
@@ -2534,15 +2574,16 @@ class ProductTable(QTableWidget):
                 cleaned = re.sub(r"[ \t.;]+$", "", candidate.strip())
                 if cleaned:
                     lines.append(cleaned)
-            return "\n".join(lines)
+            return cls._format_fb1305_nested_measurements(
+                "\n".join(lines),
+                product.code,
+            )
 
         normalized_matches = []
         inside_measure_value = False
         for match in matches:
             alias = match.group(1).casefold()
             if alias in {
-                "color",
-                "colores",
                 "colores disponibles",
             }:
                 continue
@@ -2585,7 +2626,45 @@ class ProductTable(QTableWidget):
             if line is not None:
                 lines.append(line)
 
-        return "\n".join(line for line in lines if line.strip())
+        return cls._format_fb1305_nested_measurements(
+            "\n".join(line for line in lines if line.strip()),
+            product.code,
+        )
+
+    @staticmethod
+    def _format_fb1305_nested_measurements(text: str, product_code: str) -> str:
+        """Keep estuche and resaltador measurements on separate, readable lines."""
+        if str(product_code or "").strip().casefold() != "fb-1305":
+            return text
+
+        formatted_lines: list[str] = []
+        for line in text.splitlines():
+            separator = re.search(
+                r"\s+(?=2\s*\.\s*Resaltador\s*:)",
+                line,
+                re.IGNORECASE,
+            )
+            if separator is None:
+                formatted_lines.append(line)
+                continue
+
+            estuche = re.sub(
+                r"\b1\s*\.\s*Estuche\s*:",
+                "1. Estuche:",
+                line[: separator.start()].rstrip(),
+                flags=re.IGNORECASE,
+            )
+            resaltador = re.sub(
+                r"^2\s*\.\s*Resaltador\s*:",
+                "2. Resaltador:",
+                line[separator.start():].strip(),
+                flags=re.IGNORECASE,
+            )
+            if estuche:
+                formatted_lines.append(estuche)
+            if resaltador:
+                formatted_lines.append(resaltador)
+        return "\n".join(formatted_lines)
 
     @classmethod
     def _format_detail_field_line(

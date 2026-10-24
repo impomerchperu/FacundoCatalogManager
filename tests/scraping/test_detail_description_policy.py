@@ -102,8 +102,8 @@ def test_detail_policy_rejects_incomplete_trailing_product_dimensions():
 
 def test_detail_policy_recognizes_product_dimensions_and_box_weight_labels():
     source = (
-        "Dimensiones del producto: 500 x 240 x 105 mm\\n"
-        "Peso bruto / caja: 18 kg / Peso neto / caja: 16 kg\\n"
+        "Dimensiones del producto: 500 x 240 x 105 mm\n"
+        "Peso bruto / caja: 18 kg / Peso neto / caja: 16 kg\n"
         "Medidas de la caja máster: 56.5 x 30 x 32.5 cm"
     )
 
@@ -115,9 +115,9 @@ def test_detail_policy_recognizes_product_dimensions_and_box_weight_labels():
 
 def test_detail_policy_normalizes_nonbreaking_space_indentation():
     source = (
-        "\\u00a0Dimensiones del producto: 500 x 240 x 105 mm\\n"
-        "\\u00a0Peso bruto / caja: 18 kg\\n"
-        "\\u00a0Medidas de la caja máster: 56.5 x 30 x 32.5 cm"
+        "\u00a0Dimensiones del producto: 500 x 240 x 105 mm\n"
+        "\u00a0Peso bruto / caja: 18 kg\n"
+        "\u00a0Medidas de la caja máster: 56.5 x 30 x 32.5 cm"
     )
 
     assert normalize_detail_text(source, preserve_boundaries=True).splitlines() == [

@@ -1229,6 +1229,10 @@ class ProductTable(QTableWidget):
         "descripcion": "Descripción",
         "interfaz": "Interfaz",
         "técnica de impresión": "Técnica de impresión",
+        "medidas de la caja máster": "Medidas de la caja máster",
+        "medidas de la caja master": "Medidas de la caja máster",
+        "peso bruto / caja": "Peso bruto / caja",
+        "peso neto / caja": "Peso neto / caja",
         "tecnica de impresion": "Técnica de impresión",
         "superficie de impresión": "Superficie de impresión",
         "superficie de impresion": "Superficie de impresión",
@@ -2638,7 +2642,12 @@ class ProductTable(QTableWidget):
             label = cls.DETAIL_FIELD_LABELS.get(alias) or match.group(1).strip()
             value = segment[match.end() : next_start]
             value = re.sub(r"^[ \t\r\n.;]+", "", value)
-            value = re.sub(r"[ \t\r\n.;]+$", "", value)
+            trailing_separators = (
+                r"[ \t\r\n.;/]+$"
+                if index + 1 < len(matches)
+                else r"[ \t\r\n.;]+$"
+            )
+            value = re.sub(trailing_separators, "", value)
             value = re.sub(r"\s+", " ", value).strip()
             line = cls._format_detail_field_line(
                 alias,
@@ -2661,6 +2670,20 @@ class ProductTable(QTableWidget):
         inside_measure_value = False
         for match in matches:
             alias = match.group(1).strip().casefold()
+            if alias in {"área de impresión", "area de impresion"}:
+                prefix = match.string[: match.start()]
+                open_parenthesis = prefix.rfind("(")
+                close_parenthesis = prefix.rfind(")")
+                if open_parenthesis > close_parenthesis:
+                    has_parent_technique = any(
+                        previous.start() > close_parenthesis
+                        and previous.start() < match.start()
+                        and previous.group(1).strip().casefold()
+                        in {"técnica de impresión", "tecnica de impresion"}
+                        for previous in matches
+                    )
+                    if has_parent_technique:
+                        continue
             if alias == "colores disponibles":
                 continue
             if alias in {"medida", "medidas"} | cls.DETAIL_PARENT_MEASURE_LABELS:

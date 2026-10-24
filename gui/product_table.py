@@ -2556,11 +2556,66 @@ class ProductTable(QTableWidget):
         return corrected
 
     @classmethod
+    def _correct_requested_highlighter_descriptions(
+        cls,
+        detail: str,
+        product_code: str,
+    ) -> str:
+        """Use the requested common wording without dropping other product fields."""
+        requested_codes = {
+            "fb-1313",
+            "fb-1300",
+            "fb-1315",
+            "fb-1310",
+            "fb-1304",
+        }
+        if str(product_code or "").strip().casefold() not in requested_codes:
+            return detail
+
+        matches = list(cls.DETAIL_FIELD_LABEL_PATTERN.finditer(detail))
+        description_match = next(
+            (
+                match
+                for match in matches
+                if match.group(1).casefold()
+                in {
+                    "descripción comercial",
+                    "descripcion comercial",
+                    "descripción",
+                    "descripcion",
+                }
+            ),
+            None,
+        )
+        if description_match is None:
+            return detail
+
+        next_field = next(
+            (
+                match
+                for match in matches
+                if match.start() >= description_match.end()
+            ),
+            None,
+        )
+        value_end = next_field.start() if next_field is not None else len(detail)
+        replacement = (
+            " Resaltador con 5 puntas. "
+            "Colores anaranjado, Verde, Amarillo, Turqueza y Rosado. "
+        )
+        return (
+            detail[: description_match.end()]
+            + replacement
+            + detail[value_end:]
+        )
+
+    @classmethod
     def _format_detail(cls, product: Product) -> str:
         """Ordena los atributos del detalle y quita duplicados de la fila."""
         raw = normalize_detail_text(
             cls._correct_detail_spelling(str(product.description or ""))
         )
+        raw = cls._correct_requested_highlighter_descriptions(raw, product.code)
         raw = raw.replace("\r\n", "\n").replace("\r", "\n")
         raw = re.sub(r"[•▪●‣◦]", " ", raw)
         raw = re.sub(r"[ \t]+", " ", raw).strip()

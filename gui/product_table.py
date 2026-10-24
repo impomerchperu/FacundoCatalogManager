@@ -1404,7 +1404,7 @@ class ProductTable(QTableWidget):
         "color de tinta": "Color de tinta",
         "color de impresion": "Color de impresión",
         "color de impresión": "Color de impresión",
-        
+
         "cubicaje": "Cubicaje",
         "resistencia": "Resistencia",
         "empaque por caja": "Empaque por caja",

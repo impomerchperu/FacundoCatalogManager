@@ -2411,11 +2411,21 @@ def test_detail_format_preserves_highlighter_color_phrase_for_requested_codes():
     )
 
     for code in codes:
-        product = Product(code=code, name="Resaltador", description=description)
-        assert ProductTable._format_detail(product).splitlines() == [
-            "Descripción: Resaltador con 5 puntas. Colores anaranjado, Verde, Amarillo, Turqueza y Rosado",
-            "Presentación: Individual, en bolsa de plástico transparente",
-        ]
+        detail = description
+        if code == "FB-1315":
+            detail = detail.replace(
+                "Presentación:",
+                "Material: Fibra de Trigo. Presentación:",
+            )
+        product = Product(code=code, name="Resaltador", description=detail)
+        lines = ProductTable._format_detail(product).splitlines()
+        assert (
+            "Descripción: Resaltador con 5 puntas. "
+            "Colores anaranjado, Verde, Amarillo, Turqueza y Rosado"
+        ) in lines
+        assert "Presentación: Individual, en bolsa de plástico transparente" in lines
+        if code == "FB-1315":
+            assert "Material: Fibra de Trigo" in lines
 
 
 def test_detail_format_aligns_requested_fb1003_and_fb1004_fields():

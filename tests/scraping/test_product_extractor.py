@@ -598,10 +598,10 @@ def test_product_extractor_collects_technical_detail_without_color_line():
     """
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert result["description"] == (
-        "Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
-        "Peso bruto por caja: 6.25 Kg. Certificado SGS"
-    )
+    assert result["description"].splitlines() == [
+        "Material: Poliuretano. Peso neto por caja: 5.5 Kg.",
+        "Peso bruto por caja: 6.25 Kg. Certificado SGS",
+    ]
 
 
 def test_product_extractor_keeps_fb2107_summary_description_and_fields():

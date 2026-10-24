@@ -2763,6 +2763,22 @@ def test_detail_delegate_centers_content_when_row_has_extra_height():
     assert delegate._vertical_text_offset(rect_height=20, content_height=24) == 8
 
 
+def test_detail_formatter_preserves_source_grouping_without_product_specific_rules():
+    product = Product(
+        code="TEST-GROUPING-01",
+        name="Producto de prueba",
+        description=(
+            "Atributo: Primero / Segundo campo: Segundo valor\n"
+            "Prefijo de conexión | Modo: Activo"
+        ),
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Atributo: Primero / Segundo campo: Segundo valor",
+        "Prefijo de conexión | Modo: Activo",
+    ]
+
+
 def test_detail_formatter_preserves_empty_caja_field_for_future_updates():
     product = Product(
         code="FB-7080",

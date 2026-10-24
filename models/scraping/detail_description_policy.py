@@ -186,13 +186,22 @@ def _remove_marked_fields(
             match.group(0),
             re.IGNORECASE,
         ) is not None
-        if is_embedded_color_list:
-            continue
 
-        # "Colores anaranjado, Verde..." can be descriptive prose after the
-        # Description label, not a standalone color-variant field. Preserve
-        # it when there is no explicit field delimiter; actual "Colores:"
-        # and "Colores disponibles:" fields still get removed.
+        if prefix and prefix[-1] not in ".;|" + _DETAIL_BOUNDARY:
+            # "Resaltadores en 5 colores: ..." is descriptive prose, but a
+            # standalone "Colores:" field should still be removed.
+            if is_embedded_color_list:
+                continue
+
+            # Flattened WooCommerce cards sometimes place "Color: ..." inline
+            # without a period. Only strip embedded matches when the field
+            # label uses an explicit delimiter.
+            if not allow_embedded_label or not explicit_label:
+                continue
+
+        # "Colores anaranjado, Verde..." may be part of a labelled
+        # Description value, not a separate color-variant field. Preserve it
+        # when it has no explicit delimiter, even after a sentence boundary.
         if not explicit_label:
             preceding_labels = list(
                 _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.finditer(prefix)
@@ -202,13 +211,6 @@ def _remove_marked_fields(
                 preceding_labels[-1].group(0),
                 re.IGNORECASE,
             ):
-                continue
-
-        if prefix and prefix[-1] not in ".;|" + _DETAIL_BOUNDARY:
-            # Flattened WooCommerce cards sometimes place "Color: ..." inline
-            # without a period. Only strip such embedded matches when the
-            # field label itself uses an explicit delimiter.
-            if not allow_embedded_label or not explicit_label:
                 continue
 
         next_field = _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.search(

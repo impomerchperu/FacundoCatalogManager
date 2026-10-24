@@ -174,6 +174,22 @@ _INCOMPLETE_TRAILING_DIMENSION_PATTERN = re.compile(
     r"\s*[x\u00d7*]\s*$",
     re.IGNORECASE,
 )
+def remove_incomplete_trailing_dimension_field(value: object) -> str:
+    """Drop only a terminal, clearly truncated dimension field.
+
+    Preserve earlier source fields and never infer the missing dimension.
+    If the dimension is the only content, leave it unchanged so validation
+    can reject the otherwise empty detail.
+    """
+    text = str(value or "")
+    match = _INCOMPLETE_TRAILING_DIMENSION_PATTERN.search(text)
+    if match is None:
+        return text
+
+    prefix = text[: match.start()].rstrip()
+    return prefix if prefix else text
+
+
 _EMPTY_TRAILING_BOX_FIELD_PATTERN = re.compile(
     r"(?:[.;]\s*)?\bcaja\s*:\s*$",
     re.IGNORECASE,

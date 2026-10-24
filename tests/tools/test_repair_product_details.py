@@ -267,12 +267,12 @@ def test_targeted_detail_repair_rejects_incomplete_extracted_detail():
         db.close()
 
 
-def test_targeted_detail_repair_rejects_incomplete_trailing_dimension():
-    db, repository = _seed_catalog()
+def test_targeted_detail_repair_removes_incomplete_trailing_dimension_field():
     detail = (
         "Marca: Bright Office. Modelo: 230. "
-        "Dimensiones del producto: 410 \u00d7 208 \u00d7"
+        "Dimensiones del producto: 410 \\u00d7 208 \\u00d7"
     )
+    db, repository = _seed_catalog(description=detail)
     browser = StaticBrowser(_product_html(detail=detail))
     try:
         plans = plan_product_detail_repairs(
@@ -282,12 +282,15 @@ def test_targeted_detail_repair_rejects_incomplete_trailing_dimension():
             browser=browser,
         )
 
-        assert plans[0].status == "skip_invalid_detail"
-        assert "detalle_incompleto_o_truncado" in plans[0].reason
-        assert apply_detail_repairs(db, repository, plans) == 0
+        expected = "Marca: Bright Office. Modelo: 230."
+        assert plans[0].status == "would_update"
+        assert plans[0].new_description == expected
+        assert "Dimensiones del producto" not in plans[0].new_description
+        assert apply_detail_repairs(db, repository, plans) == 1
+
         stored = repository.get_by_code("FB-1700")
         assert stored is not None
-        assert stored.description == "Detalle comercial antiguo"
+        assert stored.description == expected
     finally:
         db.close()
 

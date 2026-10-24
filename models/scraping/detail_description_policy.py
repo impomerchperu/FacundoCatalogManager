@@ -270,8 +270,13 @@ def normalize_detail_text(value: object) -> str:
     text = _WHITESPACE_PATTERN.sub(" ", text).strip()
     # Repair doubled sentence punctuation while preserving three-dot ellipses,
     # which remain a signal that the source Detail may be truncated.
+    # Protect visible ellipses before repairing doubled sentence punctuation:
+    # an ellipsis indicates a clipped source and must remain detectable below.
+    ellipsis_placeholder = "\uE000"
+    text = re.sub(r"\.{3,}", ellipsis_placeholder, text)
     text = re.sub(r"(?<!\.)\.\.(?!\.)", ".", text)
     text = re.sub(r"([.;|])\s*(?:[.;|]\s*)+", r"\1 ", text)
+    text = text.replace(ellipsis_placeholder, "...")
     text = re.sub(r"^\s*[.;|]+\s*|\s*[;|]+\s*$", "", text)
     text = re.sub(r"\s+:", ":", text)
     text = _remove_marked_fields(

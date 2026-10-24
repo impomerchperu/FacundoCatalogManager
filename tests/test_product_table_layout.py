@@ -1952,8 +1952,10 @@ def test_detail_cell_is_vertically_centered_and_left_aligned():
     table.close()
 
 
-def test_detail_delegate_centers_short_text_and_insets_tall_text():
-    assert ProductDetailDelegate._vertical_text_offset(100, 40) == 30.0
+def test_detail_delegate_keeps_fixed_top_inset_for_short_and_tall_text():
+    assert ProductDetailDelegate._vertical_text_offset(100, 40) == float(
+        ProductDetailDelegate.VERTICAL_PADDING
+    )
     assert (
         ProductDetailDelegate._vertical_text_offset(60, 80)
         == float(ProductDetailDelegate.VERTICAL_PADDING)
@@ -2372,10 +2374,7 @@ def test_imp_cz01_detail_format_preserves_labels_and_separates_usb_from_modes():
         table.font(),
         detail_width,
     )
-    expected_offset = max(
-        (table.rowHeight(0) - detail_height) / 2,
-        float(ProductDetailDelegate.VERTICAL_PADDING),
-    )
+    expected_offset = float(ProductDetailDelegate.VERTICAL_PADDING)
     assert ProductDetailDelegate._vertical_text_offset(
         table.rowHeight(0),
         detail_height,

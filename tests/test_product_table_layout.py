@@ -2234,9 +2234,9 @@ def test_detail_format_aligns_unlisted_source_field_labels_and_source_lines():
         name="Impresora fotográfica",
         description=(
             "Impresión térmica (300/600 ppp) \u241e "
-            "Velocidad : 12.4s por 4×6″ | 21.9s por 6×8″ \u241e "
+            "Velocidad : 12.4s por 4\u00d76″ | 21.9s por 6\u00d78″ \u241e "
             "Modos : Alta velocidad / calidad \u241e "
-            "Capacidad : 700 hojas (4×6″) | 350 hojas (6×8″) \u241e "
+            "Capacidad : 700 hojas (4\u00d76″) | 350 hojas (6\u00d78″) \u241e "
             "Acabado : Brillante / Mate \u241e "
             "Tamaño : 322x351x281mm | 13.8kg"
         ),
@@ -2244,9 +2244,9 @@ def test_detail_format_aligns_unlisted_source_field_labels_and_source_lines():
 
     assert ProductTable._format_detail(product).splitlines() == [
         "Impresión térmica (300/600 ppp)",
-        "Velocidad: 12.4s por 4×6″ | 21.9s por 6×8″",
+        "Velocidad: 12.4s por 4\u00d76″ | 21.9s por 6\u00d78″",
         "Modos: Alta velocidad / calidad",
-        "Capacidad: 700 hojas (4×6″) | 350 hojas (6×8″)",
+        "Capacidad: 700 hojas (4\u00d76″) | 350 hojas (6\u00d78″)",
         "Acabado: Brillante / Mate",
         "Tamaño: 322x351x281mm | 13.8kg",
     ]

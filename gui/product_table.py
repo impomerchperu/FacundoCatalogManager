@@ -2612,9 +2612,17 @@ class ProductTable(QTableWidget):
     @classmethod
     def _format_detail(cls, product: Product) -> str:
         """Ordena los atributos del detalle y quita duplicados de la fila."""
-        raw = normalize_detail_text(
-            cls._correct_detail_spelling(str(product.description or ""))
+        raw_description = cls._correct_detail_spelling(
+            str(product.description or "")
         )
+        if str(product.code or "").strip().casefold() == "fb-8041":
+            raw_description = re.sub(
+                r"(?<!\w)precio\s+incluye\s+igv(?!\w)",
+                "",
+                raw_description,
+                flags=re.IGNORECASE,
+            )
+        raw = normalize_detail_text(raw_description)
         raw = cls._correct_requested_highlighter_descriptions(raw, product.code)
         raw = raw.replace("\r\n", "\n").replace("\r", "\n")
         raw = re.sub(r"[•▪●‣◦]", " ", raw)

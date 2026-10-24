@@ -287,7 +287,7 @@ def test_targeted_detail_repair_rejects_incomplete_trailing_dimension():
         assert apply_detail_repairs(db, repository, plans) == 0
         stored = repository.get_by_code("FB-1700")
         assert stored is not None
-        assert stored.description == "Detalle original"
+        assert stored.description == "Detalle comercial antiguo"
     finally:
         db.close()
 

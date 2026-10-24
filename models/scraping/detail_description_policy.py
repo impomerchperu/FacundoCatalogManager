@@ -165,13 +165,13 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
 # "Dimensiones del producto: 410 × 208 ×". A generic trailing-label check does
 # not detect this because the field already contains partial numeric content.
 _INCOMPLETE_TRAILING_DIMENSION_PATTERN = re.compile(
-    r"(?<!\\w)(?:"
-    r"dimens(?:i[oó]n(?:es)?)?(?:\\s+(?:de\\s+)?caj(?:a)?|\\s+del?\\s+producto)?|"
-    r"medidas?(?:\\s+del?\\s+producto)?"
-    r")\\s*:\\s*"
-    r"\\d+(?:[.,]\\d+)?(?:\\s*(?:mm|cm|m))?"
-    r"(?:\\s*[x×*]\\s*\\d+(?:[.,]\\d+)?(?:\\s*(?:mm|cm|m))?)*"
-    r"\\s*[x×*]\\s*$",
+    r"(?<!\w)(?:"
+    r"dimens(?:i[oó]n(?:es)?)?(?:\s+(?:de\s+)?caj(?:a)?|\s+del?\s+producto)?|"
+    r"medidas?(?:\s+del?\s+producto)?"
+    r")\s*:\s*"
+    r"\d+(?:[.,]\d+)?(?:\s*(?:mm|cm|m))?"
+    r"(?:\s*[x×*]\s*\d+(?:[.,]\d+)?(?:\s*(?:mm|cm|m))?)*"
+    r"\s*[x×*]\s*$",
     re.IGNORECASE,
 )
 _EMPTY_TRAILING_BOX_FIELD_PATTERN = re.compile(

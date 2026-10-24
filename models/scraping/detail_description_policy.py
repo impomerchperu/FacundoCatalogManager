@@ -246,6 +246,7 @@ def _remove_marked_fields(
             text = before or after
     return text
 
+
 def strip_leading_color_field(value: object) -> str:
     """Remove a leading color field from a legacy Detail value."""
     text = _WHITESPACE_PATTERN.sub(

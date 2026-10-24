@@ -324,7 +324,7 @@ def test_detail_policy_preserves_color_of_ink_and_strips_only_variant_colors():
 def test_detail_policy_recognizes_application_shape_date_cutting_and_binding_fields():
     source = (
         "Técnica de aplicación: Serigrafía. Forma: Rectángulo. "
-        "Fecha: 2026 – 2027. Tipo de corte: Manual. "
+        "Fecha: 2026 \u2013 2027. Tipo de corte: Manual. "
         "Capacidad de corte: 12 hojas. "
         "Tamaño de corte máximo: A3. "
         "Tipo de encuadernado: Espiral simple. "

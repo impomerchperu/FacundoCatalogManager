@@ -10,6 +10,7 @@ from models.scraping.detail_description_policy import (
     is_complete_detail,
     is_valid_detail_content,
     normalize_detail_text,
+    remove_incomplete_trailing_dimension_field,
 )
 from scrapers.extractors.code_utils import extract_code_from_soup, normalize_code
 from scrapers.extractors.price_extractor import PriceExtractor
@@ -589,9 +590,11 @@ class ProductExtractor:
                     self._detail_text_from_element(element)
                     for element in elements
                 )
-                return True, normalize_detail_text(
-                    field_text,
-                    preserve_boundaries=preserve_boundaries,
+                return True, remove_incomplete_trailing_dimension_field(
+                    normalize_detail_text(
+                        field_text,
+                        preserve_boundaries=preserve_boundaries,
+                    )
                 )
 
         summaries = [
@@ -605,9 +608,11 @@ class ProductExtractor:
             # Use the complete value of the first authoritative summary.
             # Validation is applied to the field as a whole by the repair
             # planner; per-fragment filtering silently lost valid attributes.
-            return True, normalize_detail_text(
-                self._detail_text_from_element(summaries[0]),
-                preserve_boundaries=preserve_boundaries,
+            return True, remove_incomplete_trailing_dimension_field(
+                normalize_detail_text(
+                    self._detail_text_from_element(summaries[0]),
+                    preserve_boundaries=preserve_boundaries,
+                )
             )
 
         return False, ""

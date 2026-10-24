@@ -1044,10 +1044,12 @@ class ProductDetailDelegate(ProductCellDelegate):
     LINE_SPACING_REDUCTION = 1
     PARAGRAPH_SPACING_REDUCTION = 2
     GRIDLINE_ALLOWANCE = 1
-    # Labels on the source page are bold regardless of their wording. Detect
-    # any field-like label ending in ":" rather than maintaining a short allowlist.
+    # Detail is rendered paragraph-by-paragraph. Bold only the field label at
+    # the start of the formatted line; a colon inside a value such as
+    # "(área de impresión recomendada: ...)" is not another field label.
+    # Numbered labels like "1. Estuche:" are also supported.
     _BOLD_DETAIL_LABEL_PATTERN = re.compile(
-        r"(?<!\w)([A-ZÁÉÍÓÚÜÑ][\wÁÉÍÓÚÜÑáéíóúüñ ()/_-]{0,60}):"
+        r"^(?:\s*\d+\.\s*)?([A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}):"
     )
 
     @classmethod
@@ -1072,8 +1074,8 @@ class ProductDetailDelegate(ProductCellDelegate):
                 char_format = QTextCharFormat()
                 char_format.setFontWeight(QFont.Weight.Bold)
                 format_range = QTextLayout.FormatRange()
-                format_range.start = match.start()
-                format_range.length = match.end() - match.start()
+                format_range.start = match.start(1)
+                format_range.length = match.end() - match.start(1)
                 format_range.format = char_format
                 formats.append(format_range)
             layout.setFormats(formats)
@@ -1123,9 +1125,11 @@ class ProductDetailDelegate(ProductCellDelegate):
 
     @classmethod
     def _vertical_text_offset(cls, rect_height: int, content_height: int) -> float:
-        """Keep technical details top-aligned even when another cell makes the row taller."""
-        del rect_height, content_height
-        return float(cls.VERTICAL_PADDING)
+        """Center short detail blocks and keep a safe inset when content is taller."""
+        return max(
+            (rect_height - content_height) / 2,
+            float(cls.VERTICAL_PADDING),
+        )
 
     def paint(self, painter: QPainter, option, index) -> None:
         styled_option = QStyleOptionViewItem(option)
@@ -2155,7 +2159,7 @@ class ProductTable(QTableWidget):
         detail_item = self.item(row, self.DETAIL_COLUMN)
         if detail_item is not None:
             detail_item.setTextAlignment(
-                Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft,
+                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
             )
         self._set_category_item(row, product.category)
         self._set_stock_widget(row, product)

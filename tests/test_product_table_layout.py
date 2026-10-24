@@ -1296,7 +1296,7 @@ def test_detail_formats_attributes_without_color_line_or_trailing_periods():
         "Peso bruto por caja: 6.9 Kg",
     ]
     assert all(not line.endswith(".") for line in item.text().splitlines())
-    assert item.textAlignment() & Qt.AlignmentFlag.AlignTop
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
     assert item.textAlignment() & Qt.AlignmentFlag.AlignLeft
     expected_detail_height = (
         ProductDetailDelegate.content_height(
@@ -1900,7 +1900,7 @@ def test_initial_product_order_uses_full_category_names_alphabetically():
     table.close()
 
 
-def test_detail_cell_is_top_aligned():
+def test_detail_cell_is_vertically_centered_and_left_aligned():
     _qapp()
     table = ProductTable(_Controller())
     table.resize(1500, 700)
@@ -1919,7 +1919,8 @@ def test_detail_cell_is_top_aligned():
 
     item = table.item(0, ProductTable.DETAIL_COLUMN)
     assert item is not None
-    assert item.textAlignment() & Qt.AlignmentFlag.AlignTop
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignLeft
     assert ProductImageDelegate.CELL_HORIZONTAL_PADDING == 1
     assert ProductImageDelegate.CELL_VERTICAL_PADDING == 1
     assert ProductImageDelegate.cell_content_rect(
@@ -1949,6 +1950,14 @@ def test_detail_cell_is_top_aligned():
     assert table.rowHeight(0) >= expected_detail_height
 
     table.close()
+
+
+def test_detail_delegate_centers_short_text_and_insets_tall_text():
+    assert ProductDetailDelegate._vertical_text_offset(100, 40) == 30.0
+    assert (
+        ProductDetailDelegate._vertical_text_offset(60, 80)
+        == float(ProductDetailDelegate.VERTICAL_PADDING)
+    )
 
 
 def test_row_height_tracks_tallest_text_or_image_and_skips_padding_for_tall_rows(
@@ -2228,6 +2237,69 @@ def test_detail_format_aligns_fb1503_fields_without_color_line():
     ]
 
 
+def test_detail_format_splits_fb1503_box_weights_into_aligned_fields():
+    product = Product(
+        code="FB-1503",
+        name="Enmicadora Metálica de Alta precisión A3 - 8309",
+        description=(
+            "Marca: Bright Office\n"
+            "Modelo: 8309\n"
+            "Material: Cuerpo metálico reforzado con base antideslizante y rodillos de alta precisión\n"
+            "Voltaje y Frecuencia: AC 220–240V / 50–60Hz\n"
+            "Potencia: 620W\n"
+            "Tiempo de precalentamiento: 3–5 minutos\n"
+            "Temperatura de trabajo: 80–180 °C\n"
+            "Sistema de calentamiento: Tubo de cuarzo (Quartz electric heating tube)\n"
+            "Cantidad de rodillos: 4\n"
+            "Ancho máximo de enmicado: 330 mm (tamaño A3)\n"
+            "Espesor máximo de lámina: 1 mm\n"
+            "Velocidad de laminado: 0.5 m/min\n"
+            "Dimensiones del producto: 500 × 240 × 105 mm\n"
+            "Peso bruto / caja: 18 kg / Peso neto / caja: 16 kg\n"
+            "Medidas de la caja máster: 56.5 × 30 × 32.5 cm"
+        ),
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Marca: Bright Office",
+        "Modelo: 8309",
+        "Material: Cuerpo metálico reforzado con base antideslizante y rodillos de alta precisión",
+        "Voltaje y Frecuencia: AC 220–240V / 50–60Hz",
+        "Potencia: 620W",
+        "Tiempo de precalentamiento: 3–5 minutos",
+        "Temperatura de trabajo: 80–180 °C",
+        "Sistema de calentamiento: Tubo de cuarzo (Quartz electric heating tube)",
+        "Cantidad de rodillos: 4",
+        "Ancho máximo de enmicado: 330 mm (tamaño A3)",
+        "Espesor máximo de lámina: 1 mm",
+        "Velocidad de laminado: 0.5 m/min",
+        "Dimensiones del producto: 500 × 240 × 105 mm",
+        "Peso bruto / caja: 18 kg",
+        "Peso neto / caja: 16 kg",
+        "Medidas de la caja máster: 56.5 × 30 × 32.5 cm",
+    ]
+
+
+def test_detail_bold_format_covers_only_mousepad_field_label():
+    areas = ("31 x 21 cm", "21 x 21 cm", "20.5 x 24.5 cm", "21 x 21 cm")
+    label = "Técnica de impresión:"
+    for area in areas:
+        paragraph = (
+            f"{label} Sublimación "
+            f"(área de impresión recomendada: {area})"
+        )
+        layouts, _height = ProductDetailDelegate._layout_text(
+            paragraph,
+            _qapp().font(),
+            600,
+        )
+        formats = layouts[0][0].formats()
+        assert len(formats) == 1
+        assert formats[0].start == 0
+        assert formats[0].length == len(label)
+        assert paragraph[formats[0].start : formats[0].start + formats[0].length] == label
+
+
 def test_detail_format_aligns_unlisted_source_field_labels_and_source_lines():
     product = Product(
         code="IMP-CY02",
@@ -2424,7 +2496,7 @@ def test_fb1503_detail_cell_is_top_aligned_and_row_height_fits():
         "Peso neto / caja: 16 kg",
         "Medidas de la caja máster: 56.5 \u00d7 30 \u00d7 32.5 cm",
     ]
-    assert item.textAlignment() & Qt.AlignmentFlag.AlignTop
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
     assert item.textAlignment() & Qt.AlignmentFlag.AlignLeft
     expected_height = (
         ProductDetailDelegate.content_height(

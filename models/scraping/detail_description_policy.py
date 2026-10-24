@@ -33,6 +33,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"medida y capacidad|"
     r"medida de impresi[oó]n|"
     r"medidas\s+del\s+estuche|"
+    r"medidas\s+de\s+la\s+caja\s+m[aá]ster|"
     r"medidas\s+(?:de\s+)?(?:estuche|mochila|cartera|cartuchera)|"
     r"presentaci[oó]n\s+del\s+estuche|"
     r"envase\s+largo|"
@@ -91,6 +92,8 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"tiempo\s+de\s+calentamiento|"
     r"consumo\s+de\s+energ[ií]a|"
     r"dimensi[oó]n(?:es)?(?:\s+(?:de\s+)?caja)?|"
+    r"peso\s+bruto\s*/\s*caja|"
+    r"peso\s+neto\s*/\s*caja|"
     r"peso\s+(?:unitario|neto|bruto)(?:\s+por(?:\s+caja)?)?|"
     r"uso\s+ideal|"
     r"uso(?:\s+recomendado)?|"
@@ -339,7 +342,7 @@ def normalize_detail_text(
     if preserve_boundaries:
         # Retain explicit source line breaks and the marker used by the HTML
         # extractor, while normalizing whitespace within each individual line.
-        text = re.sub(r"[ \t\f\v]+", " ", text)
+        text = re.sub(r"[^\S\n]+", " ", text)
         text = re.sub(r"[ \t]*" + re.escape(_DETAIL_BOUNDARY) + r"[ \t]*", "\n", text)
         text = re.sub(r"[ \t]*\n[ \t]*", "\n", text)
         text = re.sub(r"\n{2,}", "\n", text).strip()

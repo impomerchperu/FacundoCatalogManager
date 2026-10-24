@@ -2365,3 +2365,153 @@ def test_detail_formatter_preserves_empty_caja_field_for_future_updates():
         "Paquete: 20 Unidades",
         "Caja: 100 unidades",
     ]
+
+
+
+def test_detail_format_preserves_fb8024_usage_ideal_after_removing_color_variants():
+    product = Product(
+        code="FB-8024",
+        name="Producto",
+        description=(
+            "Colores disponibles: Azul, Rojo. "
+            "Uso ideal: Oficina y escritorio. "
+            "Presentación: Individual, bolsa plástica."
+        ),
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Uso ideal: Oficina y escritorio",
+        "Presentación: Individual, bolsa plástica",
+    ]
+
+
+def test_detail_format_preserves_fb2200_color_of_ink_but_removes_variant_colors():
+    product = Product(
+        code="FB-2200",
+        name="Lapicero metálico",
+        description=(
+            "Medidas: Largo: 14.5 cm. Diámetro: 1 cm. "
+            "Colores: Rojo, Negro, Azul, Gris Gun y Silver. "
+            "Color de tinta: Líquida color negro. "
+            "Presentación: Bolsa plástica transparente."
+        ),
+    )
+
+    lines = ProductTable._format_detail(product).splitlines()
+    assert "Color de tinta: Líquida color negro" in lines
+    assert not any(line.startswith("Colores:") for line in lines)
+
+
+def test_detail_format_preserves_highlighter_color_phrase_for_requested_codes():
+    codes = ("FB-1313", "FB-1300", "FB-1315", "FB-1310", "FB-1304")
+    description = (
+        "Descripción: Resaltador con 5 puntas. "
+        "Colores anaranjado, Verde, Amarillo, Turqueza y Rosado. "
+        "Presentación: Individual, en bolsa de plástico transparente."
+    )
+
+    for code in codes:
+        product = Product(code=code, name="Resaltador", description=description)
+        assert ProductTable._format_detail(product).splitlines() == [
+            "Descripción: Resaltador con 5 puntas. Colores anaranjado, Verde, Amarillo, Turqueza y Rosado",
+            "Presentación: Individual, en bolsa de plástico transparente",
+        ]
+
+
+def test_detail_format_aligns_requested_fb1003_and_fb1004_fields():
+    product_1003 = Product(
+        code="FB-1003",
+        name="Calendario",
+        description=(
+            "Presentación: Individual, Bolsa Plástica. "
+            "Fecha: 2026 – 2027."
+        ),
+    )
+    product_1004 = Product(
+        code="FB-1004",
+        name="Producto",
+        description=(
+            "Técnica de aplicación: Serigrafía. "
+            "Forma: Rectángulo. "
+            "Presentación: Individual, en bolsita plástica transparente."
+        ),
+    )
+
+    assert ProductTable._format_detail(product_1003).splitlines() == [
+        "Presentación: Individual, Bolsa Plástica",
+        "Fecha: 2026 – 2027",
+    ]
+    assert ProductTable._format_detail(product_1004).splitlines() == [
+        "Técnica de aplicación: Serigrafía",
+        "Forma: Rectángulo",
+        "Presentación: Individual, en bolsita plástica transparente",
+    ]
+
+
+def test_detail_format_splits_fb1305_nested_estuche_and_resaltador_measurements():
+    product = Product(
+        code="FB-1305",
+        name="Set de resaltadores",
+        description=(
+            "Medida: 1.Estuche: Alto: 8 cm Ancho: 12.5 cm "
+            "2.Resaltador: Alto 6 cm Ancho: 2.00 cm. "
+            "Descripción: Estuche modelo maletín rectangular. "
+            "Colores: Blanco transparente. "
+            "Presentación del producto: Individual, en bolsa de plástico transparente."
+        ),
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Medida: 1. Estuche: Alto: 8 cm Ancho: 12.5 cm",
+        "2. Resaltador: Alto 6 cm Ancho: 2.00 cm",
+        "Descripción: Estuche modelo maletín rectangular",
+        "Presentación del producto: Individual, en bolsa de plástico transparente",
+    ]
+
+
+def test_detail_format_removes_price_includes_igv_for_fb8041():
+    product = Product(
+        code="FB-8041",
+        name="Producto",
+        description=(
+            "Material: Metal. Precio incluye IGV. "
+            "Presentación: Bolsa plástica transparente."
+        ),
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Material: Metal",
+        "Presentación: Bolsa plástica transparente",
+    ]
+
+
+def test_detail_column_resize_recalculates_row_height_for_wrapped_content():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="FB-2009",
+                name="Producto con detalle extenso",
+                description=(
+                    "Descripción: " + "texto descriptivo de prueba " * 18
+                ),
+                category="Oficina",
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    header = table.horizontalHeader()
+    header.resizeSection(ProductTable.DETAIL_COLUMN, 700)
+    QApplication.processEvents()
+    wide_height = table.rowHeight(0)
+
+    header.resizeSection(ProductTable.DETAIL_COLUMN, 110)
+    QApplication.processEvents()
+    narrow_height = table.rowHeight(0)
+
+    assert narrow_height > wide_height
+    table.close()

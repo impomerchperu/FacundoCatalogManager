@@ -1404,6 +1404,7 @@ class ProductTable(QTableWidget):
         "color de tinta": "Color de tinta",
         "color de impresion": "Color de impresión",
         "color de impresión": "Color de impresión",
+        "cubicaje por caja": "Cubicaje por Caja",
         "cubicaje": "Cubicaje",
         "resistencia": "Resistencia",
         "empaque por caja": "Empaque por caja",
@@ -1417,13 +1418,16 @@ class ProductTable(QTableWidget):
     # "Modos:", "Acabado:", "Material de la hoja:" without SKU-specific rules.
     # Known aliases are case-insensitive; the generic fallback requires an
     # uppercase initial to avoid splitting ordinary lowercase prose at colons.
+    _DETAIL_FIELD_LABEL_ALIASES_PATTERN: ClassVar[str] = "|".join(
+        re.escape(label)
+        for label in sorted(DETAIL_FIELD_LABELS, key=len, reverse=True)
+    )
     DETAIL_FIELD_LABEL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
         r"(?<!\w)((?i:"
-        + "|".join(
-            re.escape(label)
-            for label in sorted(DETAIL_FIELD_LABELS, key=len, reverse=True)
-        )
-        + r")|(?-i:[A-ZÁÉÍÓÚÜÑ][\wÁÉÍÓÚÜÑáéíóúüñ ()/_-]{0,60}?))\s*:"
+        + _DETAIL_FIELD_LABEL_ALIASES_PATTERN
+        + r")|(?-i:(?![^:\n]{0,60}\b(?i:"
+        + _DETAIL_FIELD_LABEL_ALIASES_PATTERN
+        + r")\s*:)[A-ZÁÉÍÓÚÜÑ][\wÁÉÍÓÚÜÑáéíóúüñ ()/_-]{0,60}?))\s*:"
     )
     DETAIL_NESTED_MEASURE_LABELS: ClassVar[frozenset[str]] = frozenset({
         "envase largo",

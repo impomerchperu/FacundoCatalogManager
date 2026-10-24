@@ -1070,6 +1070,13 @@ class ProductDetailDelegate(ProductCellDelegate):
             layout = QTextLayout(paragraph, font)
             formats: list[QTextLayout.FormatRange] = []
             for match in cls._BOLD_DETAIL_LABEL_PATTERN.finditer(paragraph):
+                label_key = " ".join(match.group(1).split()).casefold()
+                if label_key in {
+                    "peso bruto / caja",
+                    "peso neto / caja",
+                    "medidas de la caja máster",
+                }:
+                    continue
                 char_format = QTextCharFormat()
                 char_format.setFontWeight(QFont.Weight.Bold)
                 format_range = QTextLayout.FormatRange()
@@ -1124,8 +1131,11 @@ class ProductDetailDelegate(ProductCellDelegate):
 
     @classmethod
     def _vertical_text_offset(cls, rect_height: int, content_height: int) -> float:
-        """Keep the detail block top-aligned with a fixed inset."""
-        return float(cls.VERTICAL_PADDING)
+        """Center short detail blocks and keep a safe inset for taller content."""
+        return max(
+            (rect_height - content_height) / 2,
+            float(cls.VERTICAL_PADDING),
+        )
 
     def paint(self, painter: QPainter, option, index) -> None:
         styled_option = QStyleOptionViewItem(option)
@@ -2639,8 +2649,35 @@ class ProductTable(QTableWidget):
         if not matches:
             return []
 
+        # Keep the combined FB-1503 shipping-weight source line intact instead
+        # of turning its two related values into separate display rows.
+        matched_label_keys = {
+            cls._detail_comparison_key(match.group(1))
+            for match in matches
+        }
+        if len(matches) == 2 and matched_label_keys == {
+            "peso bruto caja",
+            "peso neto caja",
+        }:
+            cleaned = segment.replace(protected_colon, ":")
+            cleaned = re.sub(r"[ \t.;]+$", "", cleaned)
+            return [cleaned] if cleaned else []
+
         lines: list[str] = []
-        prefix = segment[: matches[0].start()].strip(" \t\r\n.;|")
+        raw_prefix = segment[: matches[0].start()]
+        prefix = raw_prefix.strip(" \t\r\n.;|")
+        combined_label_prefix = ""
+        if (
+            len(matches) == 1
+            and matches[0].group(1).strip().casefold() == "modos"
+            and re.fullmatch(
+                r"\s*USB\s*2\.0\s*\|\s*",
+                raw_prefix,
+                flags=re.IGNORECASE,
+            )
+        ):
+            combined_label_prefix = f"{prefix} | "
+            prefix = ""
         if prefix:
             lines.append(re.sub(r"[ \t.;]+$", "", prefix))
 
@@ -2652,6 +2689,8 @@ class ProductTable(QTableWidget):
             )
             alias = match.group(1).strip().casefold()
             label = cls.DETAIL_FIELD_LABELS.get(alias) or match.group(1).strip()
+            if index == 0 and combined_label_prefix:
+                label = f"{combined_label_prefix}{label}"
             value = segment[match.end() : next_start]
             value = value.replace(protected_colon, ":")
             value = re.sub(r"^[ \t\r\n.;]+", "", value)

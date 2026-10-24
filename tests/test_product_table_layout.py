@@ -2245,18 +2245,18 @@ def test_detail_format_splits_fb1503_box_weights_into_aligned_fields():
             "Marca: Bright Office\n"
             "Modelo: 8309\n"
             "Material: Cuerpo metálico reforzado con base antideslizante y rodillos de alta precisión\n"
-            "Voltaje y Frecuencia: AC 220–240V / 50–60Hz\n"
+            "Voltaje y Frecuencia: AC 220\u2013240V / 50\u201360Hz\n"
             "Potencia: 620W\n"
-            "Tiempo de precalentamiento: 3–5 minutos\n"
-            "Temperatura de trabajo: 80–180 °C\n"
+            "Tiempo de precalentamiento: 3\u20135 minutos\n"
+            "Temperatura de trabajo: 80\u2013180 °C\n"
             "Sistema de calentamiento: Tubo de cuarzo (Quartz electric heating tube)\n"
             "Cantidad de rodillos: 4\n"
             "Ancho máximo de enmicado: 330 mm (tamaño A3)\n"
             "Espesor máximo de lámina: 1 mm\n"
             "Velocidad de laminado: 0.5 m/min\n"
-            "Dimensiones del producto: 500 × 240 × 105 mm\n"
+            "Dimensiones del producto: 500 \u00d7 240 \u00d7 105 mm\n"
             "Peso bruto / caja: 18 kg / Peso neto / caja: 16 kg\n"
-            "Medidas de la caja máster: 56.5 × 30 × 32.5 cm"
+            "Medidas de la caja máster: 56.5 \u00d7 30 \u00d7 32.5 cm"
         ),
     )
 
@@ -2264,19 +2264,19 @@ def test_detail_format_splits_fb1503_box_weights_into_aligned_fields():
         "Marca: Bright Office",
         "Modelo: 8309",
         "Material: Cuerpo metálico reforzado con base antideslizante y rodillos de alta precisión",
-        "Voltaje y Frecuencia: AC 220–240V / 50–60Hz",
+        "Voltaje y Frecuencia: AC 220\u2013240V / 50\u201360Hz",
         "Potencia: 620W",
-        "Tiempo de precalentamiento: 3–5 minutos",
-        "Temperatura de trabajo: 80–180 °C",
+        "Tiempo de precalentamiento: 3\u20135 minutos",
+        "Temperatura de trabajo: 80\u2013180 °C",
         "Sistema de calentamiento: Tubo de cuarzo (Quartz electric heating tube)",
         "Cantidad de rodillos: 4",
         "Ancho máximo de enmicado: 330 mm (tamaño A3)",
         "Espesor máximo de lámina: 1 mm",
         "Velocidad de laminado: 0.5 m/min",
-        "Dimensiones del producto: 500 × 240 × 105 mm",
+        "Dimensiones del producto: 500 \u00d7 240 \u00d7 105 mm",
         "Peso bruto / caja: 18 kg",
         "Peso neto / caja: 16 kg",
-        "Medidas de la caja máster: 56.5 × 30 × 32.5 cm",
+        "Medidas de la caja máster: 56.5 \u00d7 30 \u00d7 32.5 cm",
     ]
 
 
@@ -2298,6 +2298,89 @@ def test_detail_bold_format_covers_only_mousepad_field_label():
         assert formats[0].start == 0
         assert formats[0].length == len(label)
         assert paragraph[formats[0].start : formats[0].start + formats[0].length] == label
+
+
+def test_imp_cz01_detail_format_preserves_labels_and_separates_usb_from_modes():
+    product = Product(
+        code="IMP-CZ-01",
+        name="Impresora Fotográfica Térmica – Modelo CZ-01 – Citizen",
+        description=(
+            "Sublimación térmica (300/600 ppp) \u241e "
+            "Rápida: Desde 16.3s por impresión \u241e "
+            "USB 2.0 | Modos: Alta velocidad / calidad \u241e "
+            "Capacidad: Hasta 150 hojas por rollo \u241e "
+            "Acabado: Brillante / Mate \u241e "
+            "Compacta: 208x240x198mm | 5.8kg"
+        ),
+    )
+
+    expected = [
+        "Sublimación térmica (300/600 ppp)",
+        "Rápida: Desde 16.3s por impresión",
+        "USB 2.0",
+        "Modos: Alta velocidad / calidad",
+        "Capacidad: Hasta 150 hojas por rollo",
+        "Acabado: Brillante / Mate",
+        "Compacta: 208x240x198mm | 5.8kg",
+    ]
+    formatted = ProductTable._format_detail(product)
+    assert formatted.splitlines() == expected
+
+    delegate = ProductDetailDelegate()
+    font = _qapp().font()
+    bold_labels = {
+        "Rápida:": "Rápida: Desde 16.3s por impresión",
+        "Modos:": "Modos: Alta velocidad / calidad",
+        "Capacidad:": "Capacidad: Hasta 150 hojas por rollo",
+        "Acabado:": "Acabado: Brillante / Mate",
+        "Compacta:": "Compacta: 208x240x198mm | 5.8kg",
+    }
+    for line in expected:
+        layouts, _height = delegate._layout_text(line, font, 600)
+        formats = layouts[0][0].formats()
+        expected_label = next(
+            (label for label, value in bold_labels.items() if value == line),
+            None,
+        )
+        if expected_label is None:
+            assert formats == []
+            continue
+        assert len(formats) == 1
+        assert formats[0].start == 0
+        assert formats[0].length == len(expected_label)
+        assert line[: formats[0].length] == expected_label
+
+    table = ProductTable(_Controller())
+    table.resize(1700, 700)
+    table.show()
+    table.load_products([product])
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert item.text().splitlines() == expected
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
+    assert item.textAlignment() & Qt.AlignmentFlag.AlignLeft
+
+    detail_width = max(
+        table.columnWidth(ProductTable.DETAIL_COLUMN)
+        - (2 * ProductDetailDelegate.HORIZONTAL_PADDING),
+        1,
+    )
+    detail_height = ProductDetailDelegate.content_height(
+        item.text(),
+        table.font(),
+        detail_width,
+    )
+    expected_offset = max(
+        (table.rowHeight(0) - detail_height) / 2,
+        float(ProductDetailDelegate.VERTICAL_PADDING),
+    )
+    assert ProductDetailDelegate._vertical_text_offset(
+        table.rowHeight(0),
+        detail_height,
+    ) == expected_offset
+    table.close()
 
 
 def test_detail_format_aligns_unlisted_source_field_labels_and_source_lines():

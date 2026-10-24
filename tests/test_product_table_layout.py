@@ -1952,10 +1952,8 @@ def test_detail_cell_is_vertically_centered_and_left_aligned():
     table.close()
 
 
-def test_detail_delegate_keeps_fixed_top_inset_for_short_and_tall_text():
-    assert ProductDetailDelegate._vertical_text_offset(100, 40) == float(
-        ProductDetailDelegate.VERTICAL_PADDING
-    )
+def test_detail_delegate_centers_short_text_and_insets_tall_text():
+    assert ProductDetailDelegate._vertical_text_offset(100, 40) == 30.0
     assert (
         ProductDetailDelegate._vertical_text_offset(60, 80)
         == float(ProductDetailDelegate.VERTICAL_PADDING)
@@ -2239,7 +2237,7 @@ def test_detail_format_aligns_fb1503_fields_without_color_line():
     ]
 
 
-def test_detail_format_splits_fb1503_box_weights_into_aligned_fields():
+def test_detail_format_preserves_fb1503_box_weights_on_source_line():
     product = Product(
         code="FB-1503",
         name="Enmicadora Metálica de Alta precisión A3 - 8309",
@@ -2276,8 +2274,7 @@ def test_detail_format_splits_fb1503_box_weights_into_aligned_fields():
         "Espesor máximo de lámina: 1 mm",
         "Velocidad de laminado: 0.5 m/min",
         "Dimensiones del producto: 500 \u00d7 240 \u00d7 105 mm",
-        "Peso bruto / caja: 18 kg",
-        "Peso neto / caja: 16 kg",
+        "Peso bruto / caja: 18 kg / Peso neto / caja: 16 kg",
         "Medidas de la caja máster: 56.5 \u00d7 30 \u00d7 32.5 cm",
     ]
 
@@ -2302,7 +2299,7 @@ def test_detail_bold_format_covers_only_mousepad_field_label():
         assert paragraph[formats[0].start : formats[0].start + formats[0].length] == label
 
 
-def test_imp_cz01_detail_format_preserves_labels_and_separates_usb_from_modes():
+def test_imp_cz01_detail_format_preserves_combined_usb_and_modes_label():
     product = Product(
         code="IMP-CZ-01",
         name="Impresora Fotográfica Térmica \u2013 Modelo CZ-01 \u2013 Citizen",
@@ -2319,8 +2316,7 @@ def test_imp_cz01_detail_format_preserves_labels_and_separates_usb_from_modes():
     expected = [
         "Sublimación térmica (300/600 ppp)",
         "Rápida: Desde 16.3s por impresión",
-        "USB 2.0",
-        "Modos: Alta velocidad / calidad",
+        "USB 2.0 | Modos: Alta velocidad / calidad",
         "Capacidad: Hasta 150 hojas por rollo",
         "Acabado: Brillante / Mate",
         "Compacta: 208x240x198mm | 5.8kg",
@@ -2332,7 +2328,7 @@ def test_imp_cz01_detail_format_preserves_labels_and_separates_usb_from_modes():
     font = _qapp().font()
     bold_labels = {
         "Rápida:": "Rápida: Desde 16.3s por impresión",
-        "Modos:": "Modos: Alta velocidad / calidad",
+        "USB 2.0 | Modos:": "USB 2.0 | Modos: Alta velocidad / calidad",
         "Capacidad:": "Capacidad: Hasta 150 hojas por rollo",
         "Acabado:": "Acabado: Brillante / Mate",
         "Compacta:": "Compacta: 208x240x198mm | 5.8kg",
@@ -2374,7 +2370,10 @@ def test_imp_cz01_detail_format_preserves_labels_and_separates_usb_from_modes():
         table.font(),
         detail_width,
     )
-    expected_offset = float(ProductDetailDelegate.VERTICAL_PADDING)
+    expected_offset = max(
+        (table.rowHeight(0) - detail_height) / 2,
+        float(ProductDetailDelegate.VERTICAL_PADDING),
+    )
     assert ProductDetailDelegate._vertical_text_offset(
         table.rowHeight(0),
         detail_height,
@@ -2545,15 +2544,30 @@ def test_detail_formatter_preserves_fb1503_compound_labels_and_alignment():
         ),
     )
 
-    assert ProductTable._format_detail(product).splitlines() == [
+    expected = [
         "Dimensiones del producto: 500 \u00d7 240 \u00d7 105 mm",
-        "Peso bruto / caja: 18 kg",
-        "Peso neto / caja: 16 kg",
+        "Peso bruto / caja: 18 kg / Peso neto / caja: 16 kg",
         "Medidas de la caja máster: 56.5 \u00d7 30 \u00d7 32.5 cm",
     ]
+    assert ProductTable._format_detail(product).splitlines() == expected
+
+    delegate = ProductDetailDelegate()
+    for line, bold_label in (
+        (expected[0], "Dimensiones del producto:"),
+        (expected[1], None),
+        (expected[2], None),
+    ):
+        layouts, _height = delegate._layout_text(line, _qapp().font(), 600)
+        formats = layouts[0][0].formats()
+        if bold_label is None:
+            assert formats == []
+        else:
+            assert len(formats) == 1
+            assert formats[0].start == 0
+            assert formats[0].length == len(bold_label)
 
 
-def test_fb1503_detail_cell_is_top_aligned_and_row_height_fits():
+def test_fb1503_detail_cell_is_vertically_centered_and_row_height_fits():
     _qapp()
     product = Product(
         code="FB-1503",
@@ -2574,8 +2588,7 @@ def test_fb1503_detail_cell_is_top_aligned_and_row_height_fits():
     assert item is not None
     assert item.text().splitlines() == [
         "Dimensiones del producto: 500 \u00d7 240 \u00d7 105 mm",
-        "Peso bruto / caja: 18 kg",
-        "Peso neto / caja: 16 kg",
+        "Peso bruto / caja: 18 kg / Peso neto / caja: 16 kg",
         "Medidas de la caja máster: 56.5 \u00d7 30 \u00d7 32.5 cm",
     ]
     assert item.textAlignment() & Qt.AlignmentFlag.AlignVCenter
@@ -2593,6 +2606,22 @@ def test_fb1503_detail_cell_is_top_aligned_and_row_height_fits():
         + (2 * ProductDetailDelegate.VERTICAL_PADDING)
     )
     assert table.rowHeight(0) >= expected_height
+    detail_height = ProductDetailDelegate.content_height(
+        item.text(),
+        table.font(),
+        max(
+            table.columnWidth(ProductTable.DETAIL_COLUMN)
+            - (2 * ProductDetailDelegate.HORIZONTAL_PADDING),
+            1,
+        ),
+    )
+    assert ProductDetailDelegate._vertical_text_offset(
+        table.rowHeight(0),
+        detail_height,
+    ) == max(
+        (table.rowHeight(0) - detail_height) / 2,
+        float(ProductDetailDelegate.VERTICAL_PADDING),
+    )
     table.close()
 
 
@@ -2726,10 +2755,10 @@ def test_detail_row_height_matches_wrapped_content_width_and_gridline():
     table.close()
 
 
-def test_detail_delegate_keeps_content_top_aligned_in_taller_rows():
+def test_detail_delegate_centers_content_when_row_has_extra_height():
     delegate = ProductDetailDelegate()
 
-    assert delegate._vertical_text_offset(rect_height=80, content_height=24) == 8
+    assert delegate._vertical_text_offset(rect_height=80, content_height=24) == 28
     assert delegate._vertical_text_offset(rect_height=40, content_height=24) == 8
     assert delegate._vertical_text_offset(rect_height=20, content_height=24) == 8
 

@@ -1044,12 +1044,11 @@ class ProductDetailDelegate(ProductCellDelegate):
     LINE_SPACING_REDUCTION = 1
     PARAGRAPH_SPACING_REDUCTION = 2
     GRIDLINE_ALLOWANCE = 1
-    # Detail is rendered paragraph-by-paragraph. Bold only the field label at
-    # the start of the formatted line; a colon inside a value such as
-    # "(área de impresión recomendada: ...)" is not another field label.
+    # Bold labels at the start of a line or sentence. A colon inside a value
+    # such as "(área de impresión recomendada: ...)" is not another label.
     # Numbered labels like "1. Estuche:" are also supported.
     _BOLD_DETAIL_LABEL_PATTERN = re.compile(
-        r"^(?:\s*\d+\.\s*)?([A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}):"
+        r"(?:(?<=^)|(?<=[.!?]\s))(?:\s*\d+\.\s*)?([A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}):"
     )
 
     @classmethod
@@ -1125,11 +1124,8 @@ class ProductDetailDelegate(ProductCellDelegate):
 
     @classmethod
     def _vertical_text_offset(cls, rect_height: int, content_height: int) -> float:
-        """Center short detail blocks and keep a safe inset when content is taller."""
-        return max(
-            (rect_height - content_height) / 2,
-            float(cls.VERTICAL_PADDING),
-        )
+        """Keep the detail block top-aligned with a fixed inset."""
+        return float(cls.VERTICAL_PADDING)
 
     def paint(self, painter: QPainter, option, index) -> None:
         styled_option = QStyleOptionViewItem(option)

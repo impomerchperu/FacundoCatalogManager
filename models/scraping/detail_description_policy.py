@@ -161,10 +161,6 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
     r")\s*:?\s*$",
     re.IGNORECASE,
 )
-_PRICE_INCLUDES_IGV_PATTERN = re.compile(
-    r"(?<!\w)precio\s+incluye\s+igv(?!\w)",
-    re.IGNORECASE,
-)
 _EMPTY_TRAILING_BOX_FIELD_PATTERN = re.compile(
     r"(?:[.;]\s*)?\bcaja\s*:\s*$",
     re.IGNORECASE,
@@ -275,7 +271,6 @@ def normalize_detail_text(value: object) -> str:
     # Repair doubled sentence punctuation while preserving three-dot ellipses,
     # which remain a signal that the source Detail may be truncated.
     text = re.sub(r"(?<!\.)\.\.(?!\.)", ".", text)
-    text = _PRICE_INCLUDES_IGV_PATTERN.sub("", text)
     text = re.sub(r"([.;|])\s*(?:[.;|]\s*)+", r"\1 ", text)
     text = re.sub(r"^\s*[.;|]+\s*|\s*[.;|]+\s*$", "", text)
     text = re.sub(r"\s+:", ":", text)

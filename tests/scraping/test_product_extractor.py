@@ -109,13 +109,18 @@ def test_product_extractor_reads_technical_short_description_without_color_line(
     """
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert result["description"] == (
-        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
-        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
-        "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
-        "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
-        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
-    )
+    assert result["description"].splitlines() == [
+        "Material: Poliuretano.",
+        "Dimensiones: 75*63*48mm.",
+        "Peso Unitario: 23.5 G.",
+        "Uso Recomendado: Antiestrés, Promocional.",
+        "Empaque Individual: Bolsa de polietileno.",
+        "Cantidad Por Caja: 250 Pza.",
+        "Dimensiones Caja: 50*42*42cm.",
+        "Cubicaje por Caja: 0.0882 m³/CBM.",
+        "Peso neto por caja: 5.5 Kg.",
+        "Peso bruto por caja: 6.25 Kg.",
+    ]
     assert "Color: Blanco" not in result["description"]
     assert "Texto comercial" not in result["description"]
     assert "Información adicional" not in result["description"]
@@ -144,10 +149,13 @@ def test_product_extractor_preserves_all_authoritative_fields_outside_color_fiel
 
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert result["description"] == (
-        "Material: Cartón resistente. Micrones: 100. Piezas: 63. "
-        "Forma: Rectángulo. Caja:"
-    )
+    assert result["description"].splitlines() == [
+        "Material: Cartón resistente.",
+        "Micrones: 100.",
+        "Piezas: 63.",
+        "Forma: Rectángulo.",
+        "Caja:",
+    ]
     assert "Color: Blanco" not in result["description"]
     assert "otra pestaña" not in result["description"]
 
@@ -236,13 +244,18 @@ def test_product_extractor_reads_technical_detail_from_list_items():
     """
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert result["description"] == (
-        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
-        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
-        "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
-        "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
-        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
-    )
+    assert result["description"].splitlines() == [
+        "Material: Poliuretano.",
+        "Dimensiones: 75*63*48mm.",
+        "Peso Unitario: 23.5 G.",
+        "Uso Recomendado: Antiestrés, Promocional.",
+        "Empaque Individual: Bolsa de polietileno.",
+        "Cantidad Por Caja: 250 Pza.",
+        "Dimensiones Caja: 50*42*42cm.",
+        "Cubicaje por Caja: 0.0882 m³/CBM.",
+        "Peso neto por caja: 5.5 Kg.",
+        "Peso bruto por caja: 6.25 Kg.",
+    ]
     assert "Color: Blanco" not in result["description"]
     assert "Texto comercial" not in result["description"]
     assert "Información adicional" not in result["description"]

@@ -414,7 +414,14 @@ class ProductExtractor:
             flags=re.IGNORECASE,
         )
         text = BeautifulSoup(markup, "lxml").get_text(" ", strip=True)
-        return text.replace(boundary, " \u241e ")
+        # Source indentation/newlines inside one text node are not field
+        # boundaries. Collapse whitespace per chunk while retaining markers
+        # inserted between structural HTML elements.
+        chunks = [
+            re.sub(r"\s+", " ", chunk).strip()
+            for chunk in text.split(boundary)
+        ]
+        return " ␞ ".join(chunks)
 
     def _validated_detail_candidate(
         self,

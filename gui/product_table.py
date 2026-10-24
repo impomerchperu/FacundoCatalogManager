@@ -2665,8 +2665,10 @@ class ProductTable(QTableWidget):
             r"^\s*[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:",
             segment,
         ) is not None
+        # A slash is a grouping separator only when spaced on both sides;
+        # otherwise unit notation such as "m³/CBM" can swallow later fields.
         grouped_after_slash = re.search(
-            r"/\s*[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:",
+            r"\s+/\s+[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:",
             segment,
         ) is not None
         grouped_after_pipe = re.search(

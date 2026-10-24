@@ -2436,7 +2436,7 @@ def test_detail_format_aligns_requested_fb1003_and_fb1004_fields():
         name="Calendario",
         description=(
             "Presentación: Individual, Bolsa Plástica. "
-            "Fecha: 2026 – 2027."
+            "Fecha: 2026 \u2013 2027."
         ),
     )
     product_1004 = Product(
@@ -2451,7 +2451,7 @@ def test_detail_format_aligns_requested_fb1003_and_fb1004_fields():
 
     assert ProductTable._format_detail(product_1003).splitlines() == [
         "Presentación: Individual, Bolsa Plástica",
-        "Fecha: 2026 – 2027",
+        "Fecha: 2026 \u2013 2027",
     ]
     assert ProductTable._format_detail(product_1004).splitlines() == [
         "Técnica de aplicación: Serigrafía",

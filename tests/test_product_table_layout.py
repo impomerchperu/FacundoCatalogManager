@@ -2385,21 +2385,23 @@ def test_detail_format_preserves_fb8024_usage_ideal_after_removing_color_variant
     ]
 
 
-def test_detail_format_preserves_fb2200_color_of_ink_but_removes_variant_colors():
-    product = Product(
-        code="FB-2200",
-        name="Lapicero metálico",
-        description=(
-            "Medidas: Largo: 14.5 cm. Diámetro: 1 cm. "
-            "Colores: Rojo, Negro, Azul, Gris Gun y Silver. "
-            "Color de tinta: Líquida color negro. "
-            "Presentación: Bolsa plástica transparente."
-        ),
+def test_detail_format_preserves_color_of_ink_for_fb2005_and_fb2200():
+    description = (
+        "Medidas: Largo: 14.5 cm. Diámetro: 1 cm. "
+        "Colores: Rojo, Negro, Azul, Gris Gun y Silver. "
+        "Color de tinta: Líquida color negro. "
+        "Presentación: Bolsa plástica transparente."
     )
+    for code in ("FB-2005", "FB-2200"):
+        product = Product(
+            code=code,
+            name="Lapicero metálico",
+            description=description,
+        )
 
-    lines = ProductTable._format_detail(product).splitlines()
-    assert "Color de tinta: Líquida color negro" in lines
-    assert not any(line.startswith("Colores:") for line in lines)
+        lines = ProductTable._format_detail(product).splitlines()
+        assert "Color de tinta: Líquida color negro" in lines
+        assert not any(line.startswith("Colores:") for line in lines)
 
 
 def test_detail_format_preserves_highlighter_color_phrase_for_requested_codes():
@@ -2479,20 +2481,29 @@ def test_detail_format_splits_fb1305_nested_estuche_and_resaltador_measurements(
     ]
 
 
-def test_detail_format_removes_price_includes_igv_for_fb8041():
+def test_detail_format_removes_price_includes_igv_only_for_fb8041():
+    description = (
+        "Material: Metal. Precio incluye IGV. "
+        "Presentación: Bolsa plástica transparente."
+    )
     product = Product(
         code="FB-8041",
         name="Producto",
-        description=(
-            "Material: Metal. Precio incluye IGV. "
-            "Presentación: Bolsa plástica transparente."
-        ),
+        description=description,
     )
 
     assert ProductTable._format_detail(product).splitlines() == [
         "Material: Metal",
         "Presentación: Bolsa plástica transparente",
     ]
+
+    other_product = Product(
+        code="FB-8042",
+        name="Producto",
+        description=description,
+    )
+    other_detail = "\n".join(ProductTable._format_detail(other_product).splitlines())
+    assert "Precio incluye IGV" in other_detail
 
 
 def test_detail_column_resize_recalculates_row_height_for_wrapped_content():

@@ -2649,16 +2649,13 @@ class ProductTable(QTableWidget):
         if not matches:
             return []
 
-        # Keep the combined FB-1503 shipping-weight source line intact instead
-        # of turning its two related values into separate display rows.
-        matched_label_keys = {
-            cls._detail_comparison_key(match.group(1))
-            for match in matches
-        }
-        if len(matches) == 2 and matched_label_keys == {
-            "peso bruto caja",
-            "peso neto caja",
-        }:
+        # A slash immediately before another recognized label means both
+        # fields were grouped on the same source row. Preserve that grouping
+        # without depending on particular labels, product codes, or categories.
+        if len(matches) > 1 and any(
+            segment[:match.start()].rstrip().endswith("/")
+            for match in matches[1:]
+        ):
             cleaned = segment.replace(protected_colon, ":")
             cleaned = re.sub(r"[ \t.;]+$", "", cleaned)
             return [cleaned] if cleaned else []
@@ -2667,15 +2664,9 @@ class ProductTable(QTableWidget):
         raw_prefix = segment[: matches[0].start()]
         prefix = raw_prefix.strip(" \t\r\n.;|")
         combined_label_prefix = ""
-        if (
-            len(matches) == 1
-            and matches[0].group(1).strip().casefold() == "modos"
-            and re.fullmatch(
-                r"\s*USB\s*2\.0\s*\|\s*",
-                raw_prefix,
-                flags=re.IGNORECASE,
-            )
-        ):
+        if len(matches) == 1 and raw_prefix.rstrip().endswith("|"):
+            # Keep a descriptive prefix with the sole label that follows it
+            # when the source uses a vertical bar as the grouping separator.
             combined_label_prefix = f"{prefix} | "
             prefix = ""
         if prefix:

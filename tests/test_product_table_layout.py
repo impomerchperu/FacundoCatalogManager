@@ -2416,7 +2416,7 @@ def test_detail_row_height_matches_wrapped_content_width_and_gridline():
                 description=(
                     "Marca: PAMUNDO. Modelo: Multi PRO800. "
                     "Material: Cuerpo compacto y ligero con rodillos de alta precisión. "
-                    "Potencia: 390 W. Tiempo de precalentamiento: 2–3 minutos. "
+                    "Potencia: 390 W. Tiempo de precalentamiento: 2-3 minutos. "
                     "Temperatura de trabajo: Modo caliente y frío con interruptor. "
                     "Sistema de calentamiento: Sistema de 2 rodillos de alta eficiencia. "
                     "Ancho máximo de laminado: 325 mm (Hasta tamaño A3). "

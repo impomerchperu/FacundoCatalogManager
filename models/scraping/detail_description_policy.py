@@ -166,12 +166,20 @@ _EMPTY_TRAILING_BOX_FIELD_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# This is catalog-wide commercial noise, not a product attribute. Strip it
+# consistently from every Detail value instead of special-casing one SKU.
+_PRICE_INCLUDES_IGV_PATTERN = re.compile(
+    r"(?:\s*,\s*|\s+)?\bprecio\s+incluye\s+igv\b\.?",
+    re.IGNORECASE,
+)
+
 
 def _remove_marked_fields(
     text: str,
     pattern: re.Pattern[str],
     *,
     allow_embedded_label: bool = False,
+    preserve_boundaries: bool = False,
 ) -> str:
     """Remove excluded field values up to the next recognized Detail label."""
     for match in reversed(list(pattern.finditer(text))):
@@ -213,23 +221,26 @@ def _remove_marked_fields(
             text,
             match.end(),
         )
-        before = text[: match.start()].rstrip(" \t;" + _DETAIL_BOUNDARY)
+        before = text[: match.start()].rstrip(" \t;\n" + _DETAIL_BOUNDARY)
         if next_field is None:
             # A color field can be followed by ordinary summary prose rather
             # than another labeled field. Remove only the color sentence.
             separator_match = _COLOR_SEPARATOR_PATTERN.search(text, match.end())
             after = (
-                text[separator_match.end() :].lstrip(" \t.;" + _DETAIL_BOUNDARY)
+                text[separator_match.end() :].lstrip(" \t.;\n" + _DETAIL_BOUNDARY)
                 if separator_match is not None
                 else ""
             )
         else:
             after = text[next_field.start() :].lstrip(
-                " \t.;" + _DETAIL_BOUNDARY
+                " \t.;\n" + _DETAIL_BOUNDARY
             )
 
         if before and after:
-            separator = " " if before.endswith((".", ";")) else ". "
+            if preserve_boundaries:
+                separator = "\n"
+            else:
+                separator = " " if before.endswith((".", ";")) else ". "
             text = before + separator + after
         else:
             text = before or after
@@ -263,30 +274,54 @@ def strip_leading_color_field(value: object) -> str:
     return ""
 
 
-def normalize_detail_text(value: object) -> str:
-    """Preserve the summary Description and remove only color fields."""
+def normalize_detail_text(
+    value: object,
+    *,
+    preserve_boundaries: bool = False,
+) -> str:
+    """Normalize Detail text, optionally preserving source HTML field boundaries.
+
+    The default remains a single-line canonical form for comparisons and policy
+    checks. Repair/display paths may request preserved line boundaries so that
+    unlabeled source paragraphs are not merged into the preceding attribute.
+    """
     text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    # Remove invisible direction controls that can make source labels/values
+    # look misaligned when copied from product pages.
+    text = re.sub(r"[\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]", "", text)
+    text = _PRICE_INCLUDES_IGV_PATTERN.sub("", text)
     text = re.sub(r"[•▪●‣◦]+", _DETAIL_BOUNDARY, text)
-    text = _WHITESPACE_PATTERN.sub(" ", text).strip()
-    # Repair doubled sentence punctuation while preserving three-dot ellipses,
-    # which remain a signal that the source Detail may be truncated.
+    if preserve_boundaries:
+        # Retain explicit source line breaks and the marker used by the HTML
+        # extractor, while normalizing whitespace within each individual line.
+        text = re.sub(r"[ \t\f\v]+", " ", text)
+        text = re.sub(r"[ \t]*" + re.escape(_DETAIL_BOUNDARY) + r"[ \t]*", "\n", text)
+        text = re.sub(r"[ \t]*\n[ \t]*", "\n", text)
+        text = re.sub(r"\n{2,}", "\n", text).strip()
+    else:
+        text = _WHITESPACE_PATTERN.sub(" ", text).strip()
     # Protect visible ellipses before repairing doubled sentence punctuation:
     # an ellipsis indicates a clipped source and must remain detectable below.
     ellipsis_placeholder = "\uE000"
     text = re.sub(r"\.{3,}", ellipsis_placeholder, text)
     text = re.sub(r"(?<!\.)\.\.(?!\.)", ".", text)
-    text = re.sub(r"([.;|])\s*(?:[.;|]\s*)+", r"\1 ", text)
-    text = re.sub(r"^\s*[.;|]+\s*|\s*[;|]+\s*$", "", text)
+    text = re.sub(r"([.;|])[ \t]*(?:[.;|][ \t]*)+", r"\1 ", text)
+    text = re.sub(r"^[ \t]*[.;|]+[ \t]*|[ \t]*[;|]+[ \t]*$", "", text)
     text = text.replace(ellipsis_placeholder, "...")
     text = re.sub(r"\s+:", ":", text)
     text = _remove_marked_fields(
         text,
         _COLOR_FIELD_PATTERN,
         allow_embedded_label=True,
+        preserve_boundaries=preserve_boundaries,
     )
-    text = text.replace(_DETAIL_BOUNDARY, " ")
-    # Preserve an empty terminal "Caja:" field: if the source fills it later,
-    # the label remains part of the Detail payload and can be compared on sync.
+    text = text.replace(_DETAIL_BOUNDARY, "\n" if preserve_boundaries else " ")
+    text = re.sub(r"\s+:", ":", text)
+    if preserve_boundaries:
+        text = re.sub(r"[ \t]*\n[ \t]*", "\n", text)
+        text = re.sub(r"\n{2,}", "\n", text)
+        return text.strip(" \n;")
+    # Preserve an empty terminal "Caja:" field for future source updates.
     return _WHITESPACE_PATTERN.sub(" ", text).strip(" ;")
 
 

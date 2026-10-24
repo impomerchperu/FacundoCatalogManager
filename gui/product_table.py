@@ -1413,14 +1413,17 @@ class ProductTable(QTableWidget):
         "peso neto": "Peso neto",
         "peso bruto": "Peso bruto",
     }
+    # Prefer known aliases, but also recognize source-specific labels such as
+    # "Modos:", "Acabado:", "Material de la hoja:" without SKU-specific rules.
+    # Known aliases are case-insensitive; the generic fallback requires an
+    # uppercase initial to avoid splitting ordinary lowercase prose at colons.
     DETAIL_FIELD_LABEL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"(?<!\w)("
+        r"(?<!\w)((?i:"
         + "|".join(
             re.escape(label)
             for label in sorted(DETAIL_FIELD_LABELS, key=len, reverse=True)
         )
-        + r")\s*:",
-        re.IGNORECASE,
+        + r")|(?-i:[A-ZÁÉÍÓÚÜÑ][\wÁÉÍÓÚÜÑáéíóúüñ ()/_-]{0,60}?))\s*:"
     )
     DETAIL_NESTED_MEASURE_LABELS: ClassVar[frozenset[str]] = frozenset({
         "envase largo",
@@ -1430,9 +1433,27 @@ class ProductTable(QTableWidget):
         "largo",
         "ancho",
         "alto",
+        "alt",
         "altura",
+        "esp",
         "interior",
         "espesor",
+        "estuche",
+        "resaltador",
+        "usb",
+        "mochila",
+        "cartera",
+        "cartuchera",
+    })
+    DETAIL_PARENT_MEASURE_LABELS: ClassVar[frozenset[str]] = frozenset({
+        "medidas del estuche",
+        "medidas estuche",
+        "medidas de estuche",
+        "medida del estuche",
+        "medidas mochila",
+        "medidas cartera",
+        "medidas cartuchera",
+        "medidas usb",
     })
     CATEGORY_SOURCE_ROLE = int(Qt.ItemDataRole.UserRole) + 50
     PROGRESSIVE_RENDER_THRESHOLD = 50
@@ -2556,150 +2577,88 @@ class ProductTable(QTableWidget):
         return corrected
 
     @classmethod
-    def _correct_requested_highlighter_descriptions(
-        cls,
-        detail: str,
-        product_code: str,
-    ) -> str:
-        """Use the requested common wording without dropping other product fields."""
-        requested_codes = {
-            "fb-1313",
-            "fb-1300",
-            "fb-1315",
-            "fb-1310",
-            "fb-1304",
-        }
-        if str(product_code or "").strip().casefold() not in requested_codes:
-            return detail
-
-        matches = list(cls.DETAIL_FIELD_LABEL_PATTERN.finditer(detail))
-        description_match = next(
-            (
-                match
-                for match in matches
-                if match.group(1).casefold()
-                in {
-                    "descripción comercial",
-                    "descripcion comercial",
-                    "descripción",
-                    "descripcion",
-                }
-            ),
-            None,
-        )
-        if description_match is None:
-            return detail
-
-        next_field = next(
-            (
-                match
-                for match in matches
-                if match.start() >= description_match.end()
-            ),
-            None,
-        )
-        value_end = next_field.start() if next_field is not None else len(detail)
-        replacement = (
-            " Resaltador con 5 puntas. "
-            "Colores anaranjado, Verde, Amarillo, Turqueza y Rosado. "
-        )
-        return (
-            detail[: description_match.end()]
-            + replacement
-            + detail[value_end:]
-        )
-
-    @classmethod
     def _format_detail(cls, product: Product) -> str:
-        """Ordena los atributos del detalle y quita duplicados de la fila."""
+        """Ordena el detalle por los límites fuente y las etiquetas detectadas."""
         raw_description = cls._correct_detail_spelling(
             str(product.description or "")
         )
-        if str(product.code or "").strip().casefold() == "fb-8041":
-            raw_description = re.sub(
-                r"(?<!\w)precio\s+incluye\s+igv(?!\w)",
-                "",
-                raw_description,
-                flags=re.IGNORECASE,
-            )
-        raw = normalize_detail_text(raw_description)
-        raw = cls._correct_requested_highlighter_descriptions(raw, product.code)
+        raw = normalize_detail_text(
+            raw_description,
+            preserve_boundaries=True,
+        )
         raw = raw.replace("\r\n", "\n").replace("\r", "\n")
-        raw = re.sub(r"[•▪●‣◦]", " ", raw)
         raw = re.sub(r"[ \t]+", " ", raw).strip()
         if not raw:
             return ""
 
-        matches = list(cls.DETAIL_FIELD_LABEL_PATTERN.finditer(raw))
-        if not matches:
-            lines = []
-            for candidate in raw.splitlines():
-                cleaned = re.sub(r"[ \t.;]+$", "", candidate.strip())
+        lines: list[str] = []
+        # Keep paragraph/list boundaries captured from the product page. Within
+        # each source line, split every recognized or source-specific field label.
+        for segment in raw.splitlines():
+            segment = re.sub(r"[ \t]+", " ", segment).strip()
+            if not segment:
+                continue
+
+            matches = list(cls.DETAIL_FIELD_LABEL_PATTERN.finditer(segment))
+            if not matches:
+                cleaned = re.sub(r"[ \t.;]+$", "", segment)
                 if cleaned:
                     lines.append(cleaned)
-            return cls._format_fb1305_nested_measurements(
-                "\n".join(lines),
-                product.code,
-            )
+                continue
 
-        normalized_matches = []
-        inside_measure_value = False
-        for match in matches:
-            alias = match.group(1).casefold()
-            if alias in {
-                "colores disponibles",
-            }:
-                continue
-            if alias in {"medida", "medidas"}:
-                inside_measure_value = True
-                normalized_matches.append(match)
-                continue
-            if (
-                inside_measure_value
-                and alias in cls.DETAIL_NESTED_MEASURE_LABELS
-            ):
-                continue
+            normalized_matches = []
             inside_measure_value = False
-            normalized_matches.append(match)
-        matches = normalized_matches
+            for match in matches:
+                alias = match.group(1).strip().casefold()
+                if alias == "colores disponibles":
+                    continue
+                if alias in {"medida", "medidas"} | cls.DETAIL_PARENT_MEASURE_LABELS:
+                    inside_measure_value = True
+                    normalized_matches.append(match)
+                    continue
+                if (
+                    inside_measure_value
+                    and alias in cls.DETAIL_NESTED_MEASURE_LABELS
+                ):
+                    continue
+                inside_measure_value = False
+                normalized_matches.append(match)
+            if not normalized_matches:
+                continue
+            matches = normalized_matches
 
-        lines: list[str] = []
-        prefix = raw[: matches[0].start()].strip(" \t\r\n.;")
-        if prefix:
-            lines.append(re.sub(r"[ \t.;]+$", "", prefix))
+            prefix = segment[: matches[0].start()].strip(" \t\r\n.;")
+            if prefix:
+                lines.append(re.sub(r"[ \t.;]+$", "", prefix))
 
-        for index, match in enumerate(matches):
-            next_start = (
-                matches[index + 1].start()
-                if index + 1 < len(matches)
-                else len(raw)
-            )
-            alias = match.group(1).casefold()
-            label = cls.DETAIL_FIELD_LABELS.get(alias) or match.group(1).strip()
-            value = raw[match.end() : next_start]
-            value = re.sub(r"^[ \t\r\n.;]+", "", value)
-            value = re.sub(r"[ \t\r\n.;]+$", "", value)
-            value = re.sub(r"\s+", " ", value).strip()
-            line = cls._format_detail_field_line(
-                alias,
-                label,
-                value,
-                product,
-            )
-            if line is not None:
-                lines.append(line)
+            for index, match in enumerate(matches):
+                next_start = (
+                    matches[index + 1].start()
+                    if index + 1 < len(matches)
+                    else len(segment)
+                )
+                alias = match.group(1).strip().casefold()
+                label = cls.DETAIL_FIELD_LABELS.get(alias) or match.group(1).strip()
+                value = segment[match.end() : next_start]
+                value = re.sub(r"^[ \t\r\n.;]+", "", value)
+                value = re.sub(r"[ \t\r\n.;]+$", "", value)
+                value = re.sub(r"\s+", " ", value).strip()
+                line = cls._format_detail_field_line(
+                    alias,
+                    label,
+                    value,
+                    product,
+                )
+                if line is not None:
+                    lines.append(line)
 
-        return cls._format_fb1305_nested_measurements(
+        return cls._format_nested_estuche_resaltador_measurements(
             "\n".join(line for line in lines if line.strip()),
-            product.code,
         )
 
     @staticmethod
-    def _format_fb1305_nested_measurements(text: str, product_code: str) -> str:
-        """Keep estuche and resaltador measurements on separate, readable lines."""
-        if str(product_code or "").strip().casefold() != "fb-1305":
-            return text
-
+    def _format_nested_estuche_resaltador_measurements(text: str) -> str:
+        """Split numbered estuche/resaltador measurements independent of SKU."""
         formatted_lines: list[str] = []
         for line in text.splitlines():
             separator = re.search(
@@ -2711,16 +2670,26 @@ class ProductTable(QTableWidget):
                 formatted_lines.append(line)
                 continue
 
+            estuche_source = line[: separator.start()].rstrip()
+            resaltador_source = line[separator.start():].strip()
+            if not re.search(
+                r"\b1\s*\.\s*Estuche\s*:",
+                estuche_source,
+                re.IGNORECASE,
+            ):
+                formatted_lines.append(line)
+                continue
+
             estuche = re.sub(
                 r"\b1\s*\.\s*Estuche\s*:",
                 "1. Estuche:",
-                line[: separator.start()].rstrip(),
+                estuche_source,
                 flags=re.IGNORECASE,
             )
             resaltador = re.sub(
                 r"^2\s*\.\s*Resaltador\s*:",
                 "2. Resaltador:",
-                line[separator.start():].strip(),
+                resaltador_source,
                 flags=re.IGNORECASE,
             )
             if estuche:

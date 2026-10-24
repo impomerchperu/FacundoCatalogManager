@@ -149,6 +149,52 @@ def test_targeted_detail_repair_preview_does_not_modify_catalog():
         db.close()
 
 
+def test_targeted_detail_repair_preserves_unlabelled_source_field_boundaries():
+    flattened_detail = (
+        "Tipo de encuadernado: Espiral simple (tipo coil) "
+        "Hasta 12 hojas (70 g/m²) por pasada "
+        "Capacidad de encuadernado: Hasta 450 hojas"
+    )
+    db, repository = _seed_catalog(
+        code="FB-1902",
+        description=flattened_detail,
+    )
+    html = """
+    <html><body>
+      <p class="brxe-heading">FB-1902</p>
+      <div id="brxe-jhzpri">
+        <ul>
+          <li>Tipo de encuadernado: Espiral simple (tipo coil)</li>
+          <li>Hasta 12 hojas (70 g/m²) por pasada</li>
+          <li>Capacidad de encuadernado: Hasta 450 hojas</li>
+        </ul>
+      </div>
+    </body></html>
+    """
+    browser = StaticBrowser(html)
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-1902"],
+            browser=browser,
+        )
+
+        assert len(plans) == 1
+        assert plans[0].status == "would_update"
+        assert plans[0].new_description.splitlines() == [
+            "Tipo de encuadernado: Espiral simple (tipo coil)",
+            "Hasta 12 hojas (70 g/m²) por pasada",
+            "Capacidad de encuadernado: Hasta 450 hojas",
+        ]
+        assert apply_detail_repairs(db, repository, plans) == 1
+        stored = repository.get_by_code("FB-1902")
+        assert stored is not None
+        assert stored.description.splitlines() == plans[0].new_description.splitlines()
+    finally:
+        db.close()
+
+
 def test_targeted_detail_repair_updates_only_detail_and_content_hash():
     db, repository = _seed_catalog()
     browser = StaticBrowser(_product_html())

@@ -2228,6 +2228,69 @@ def test_detail_format_aligns_fb1503_fields_without_color_line():
     ]
 
 
+def test_detail_format_aligns_unlisted_source_field_labels_and_source_lines():
+    product = Product(
+        code="IMP-CY02",
+        name="Impresora fotográfica",
+        description=(
+            "Impresión térmica (300/600 ppp) \u241e "
+            "Velocidad : 12.4s por 4×6″ | 21.9s por 6×8″ \u241e "
+            "Modos : Alta velocidad / calidad \u241e "
+            "Capacidad : 700 hojas (4×6″) | 350 hojas (6×8″) \u241e "
+            "Acabado : Brillante / Mate \u241e "
+            "Tamaño : 322x351x281mm | 13.8kg"
+        ),
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Impresión térmica (300/600 ppp)",
+        "Velocidad: 12.4s por 4×6″ | 21.9s por 6×8″",
+        "Modos: Alta velocidad / calidad",
+        "Capacidad: 700 hojas (4×6″) | 350 hojas (6×8″)",
+        "Acabado: Brillante / Mate",
+        "Tamaño: 322x351x281mm | 13.8kg",
+    ]
+
+
+def test_detail_format_keeps_unlabelled_source_paragraphs_separate():
+    product = Product(
+        code="FB-1902",
+        name="Espiraladora",
+        description=(
+            "Tipo de encuadernado: Espiral simple (tipo coil) \u241e "
+            "Hasta 12 hojas (70 g/m²) por pasada \u241e "
+            "Capacidad de encuadernado: Hasta 450 hojas"
+        ),
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Tipo de encuadernado: Espiral simple (tipo coil)",
+        "Hasta 12 hojas (70 g/m²) por pasada",
+        "Capacidad de encuadernado: Hasta 450 hojas",
+    ]
+
+
+def test_detail_format_keeps_abbreviated_dimensions_under_medida():
+    product = Product(
+        code="FB-1310",
+        name="Resaltador de mano",
+        description=(
+            "Medida: Alt: 7.40 cm Ancho: 9.40 cm Esp: 1.90 cm "
+            "Descripción: Resaltador en forma de Mano, con 5 puntas. "
+            "Colores Anaranjado, Verde, Amarillo, Turqueza y Rosado. "
+            "Presentación: Individual, en bolsa de plástico transparente."
+        ),
+    )
+
+    lines = ProductTable._format_detail(product).splitlines()
+    assert lines[0] == "Medida: Alt: 7.40 cm Ancho: 9.40 cm Esp: 1.90 cm"
+    assert (
+        "Descripción: Resaltador en forma de Mano, con 5 puntas. "
+        "Colores Anaranjado, Verde, Amarillo, Turqueza y Rosado"
+    ) in lines
+    assert "Presentación: Individual, en bolsa de plástico transparente" in lines
+
+
 def test_detail_format_removes_available_color_line_for_fb6005_and_fb6002():
     for code, color_detail in (
         ("FB-6005", "Colores disponibles: Azul, Rojo, Negro"),
@@ -2404,27 +2467,42 @@ def test_detail_format_preserves_color_of_ink_for_fb2005_and_fb2200():
         assert not any(line.startswith("Colores:") for line in lines)
 
 
-def test_detail_format_preserves_highlighter_color_phrase_for_requested_codes():
-    codes = ("FB-1313", "FB-1300", "FB-1315", "FB-1310", "FB-1304")
-    description = (
-        "Descripción: Resaltador con 5 puntas. "
-        "Colores anaranjado, Verde, Amarillo, Turqueza y Rosado. "
-        "Presentación: Individual, en bolsa de plástico transparente."
-    )
-
-    for code in codes:
-        detail = description
-        if code == "FB-1315":
-            detail = detail.replace(
-                "Presentación:",
-                "Material: Fibra de Trigo. Presentación:",
-            )
-        product = Product(code=code, name="Resaltador", description=detail)
-        lines = ProductTable._format_detail(product).splitlines()
-        assert (
+def test_detail_format_preserves_each_highlighter_page_text_without_sku_substitution():
+    source_descriptions = {
+        "FB-1313": (
             "Descripción: Resaltador con 5 puntas. "
-            "Colores anaranjado, Verde, Amarillo, Turqueza y Rosado"
-        ) in lines
+            "Colores anaranjado, Verde, Amarillo, Turqueza y Rosado. "
+            "Presentación: Individual, en bolsa de plástico transparente."
+        ),
+        "FB-1300": (
+            "Descripción: Resaltador en forma de estrella con 5 puntas. "
+            "Colores Anaranjado, Verde, Amarillo, Turqueza y Rosado. "
+            "Presentación: Individual, en bolsa de plástico transparente."
+        ),
+        "FB-1315": (
+            "Descripción: Resaltador en forma de estrella con 5 puntas. "
+            "Colores Anaranjado, Verde, Amarillo, Turqueza y Rosado. "
+            "Material: Fibra de Trigo. "
+            "Presentación: Individual, en bolsa de plástico transparente."
+        ),
+        "FB-1310": (
+            "Descripción: Resaltador en forma de Mano, con 5 puntas. "
+            "Colores Anaranjado, Verde, Amarillo, Turqueza y Rosado. "
+            "Presentación: Individual, en bolsa de plástico transparente."
+        ),
+        "FB-1304": (
+            "Descripción: Resaltador en forma de Mano, con 5 puntas. "
+            "Colores Anaranjado, Verde, Amarillo, Turqueza y Rosado "
+            "Presentación: Individual, en bolsa de plástico transparente."
+        ),
+    }
+
+    for code, description in source_descriptions.items():
+        product = Product(code=code, name="Resaltador", description=description)
+        lines = ProductTable._format_detail(product).splitlines()
+        expected_description = description.split(" Presentación:")[0]
+        expected_description = expected_description.split(" Material:")[0].rstrip(".")
+        assert expected_description in lines
         assert "Presentación: Individual, en bolsa de plástico transparente" in lines
         if code == "FB-1315":
             assert "Material: Fibra de Trigo" in lines
@@ -2481,29 +2559,24 @@ def test_detail_format_splits_fb1305_nested_estuche_and_resaltador_measurements(
     ]
 
 
-def test_detail_format_removes_price_includes_igv_only_for_fb8041():
+def test_detail_format_removes_price_includes_igv_for_every_product():
     description = (
         "Material: Metal. Precio incluye IGV. "
         "Presentación: Bolsa plástica transparente."
     )
-    product = Product(
-        code="FB-8041",
-        name="Producto",
-        description=description,
-    )
+    for code in ("FB-8041", "FB-8042", "OTRO-01"):
+        product = Product(
+            code=code,
+            name="Producto",
+            description=description,
+        )
 
-    assert ProductTable._format_detail(product).splitlines() == [
-        "Material: Metal",
-        "Presentación: Bolsa plástica transparente",
-    ]
-
-    other_product = Product(
-        code="FB-8042",
-        name="Producto",
-        description=description,
-    )
-    other_detail = "\n".join(ProductTable._format_detail(other_product).splitlines())
-    assert "Precio incluye IGV" in other_detail
+        lines = ProductTable._format_detail(product).splitlines()
+        assert lines == [
+            "Material: Metal",
+            "Presentación: Bolsa plástica transparente",
+        ]
+        assert not any("precio incluye igv" in line.casefold() for line in lines)
 
 
 def test_detail_column_resize_recalculates_row_height_for_wrapped_content():

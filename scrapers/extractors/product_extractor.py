@@ -547,7 +547,12 @@ class ProductExtractor:
             return detail
         return ""
 
-    def extract_authoritative_detail_text(self, soup) -> tuple[bool, str]:
+    def extract_authoritative_detail_text(
+        self,
+        soup,
+        *,
+        preserve_boundaries: bool = False,
+    ) -> tuple[bool, str]:
         """Return whether the authoritative Detail field was found and its value."""
         product_block = soup.select_one("#brxe-jhzpri")
         if product_block is not None and not self._is_excluded_detail_tab(product_block):
@@ -568,7 +573,10 @@ class ProductExtractor:
                     self._detail_text_from_element(element)
                     for element in elements
                 )
-                return True, normalize_detail_text(field_text)
+                return True, normalize_detail_text(
+                    field_text,
+                    preserve_boundaries=preserve_boundaries,
+                )
 
         summaries = [
             element
@@ -582,7 +590,8 @@ class ProductExtractor:
             # Validation is applied to the field as a whole by the repair
             # planner; per-fragment filtering silently lost valid attributes.
             return True, normalize_detail_text(
-                self._detail_text_from_element(summaries[0])
+                self._detail_text_from_element(summaries[0]),
+                preserve_boundaries=preserve_boundaries,
             )
 
         return False, ""

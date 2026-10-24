@@ -335,3 +335,44 @@ def test_detail_policy_recognizes_application_shape_date_cutting_and_binding_fie
     assert has_technical_detail(source)
     assert is_complete_detail(source)
     assert is_valid_detail_content(source)
+
+
+
+def test_detail_policy_removes_price_includes_igv_for_every_product():
+    assert normalize_detail_text(
+        "Material: Metal. Precio incluye IGV. Presentación: Bolsa plástica."
+    ) == "Material: Metal. Presentación: Bolsa plástica."
+    assert normalize_detail_text(
+        "Presentación: Bolsa plástica, precio incluye IGV."
+    ) == "Presentación: Bolsa plástica"
+    assert normalize_detail_text("Precio incluye IGV.") == ""
+
+
+def test_detail_policy_can_preserve_source_field_boundaries_for_alignment():
+    source = (
+        "Tipo de encuadernado: Espiral simple (tipo coil) \\u241e "
+        "Hasta 12 hojas (70 g/m²) por pasada \\u241e "
+        "Capacidad de encuadernado: Hasta 450 hojas"
+    )
+    assert normalize_detail_text(source) == (
+        "Tipo de encuadernado: Espiral simple (tipo coil) "
+        "Hasta 12 hojas (70 g/m²) por pasada "
+        "Capacidad de encuadernado: Hasta 450 hojas"
+    )
+    assert normalize_detail_text(
+        source,
+        preserve_boundaries=True,
+    ).splitlines() == [
+        "Tipo de encuadernado: Espiral simple (tipo coil)",
+        "Hasta 12 hojas (70 g/m²) por pasada",
+        "Capacidad de encuadernado: Hasta 450 hojas",
+    ]
+
+
+
+def test_detail_policy_removes_invisible_direction_marks_from_field_values():
+    assert normalize_detail_text("Forma: \u200eRectángulo") == "Forma: Rectángulo"
+    assert normalize_detail_text(
+        "Forma: \u200eRectángulo",
+        preserve_boundaries=True,
+    ) == "Forma: Rectángulo"

@@ -224,7 +224,10 @@ def _plan_single_product_detail_repair(
         html = browser.get(url)
         soup = BeautifulSoup(html, "lxml")
         detail_field_found, authoritative_detail = (
-            extractor.extract_authoritative_detail_text(soup)
+            extractor.extract_authoritative_detail_text(
+                soup,
+                preserve_boundaries=True,
+            )
         )
         scraped = extractor.extract(
             soup,
@@ -275,7 +278,10 @@ def _plan_single_product_detail_repair(
             ),
         )
 
-    candidate = normalize_detail_text(authoritative_detail)
+    candidate = normalize_detail_text(
+        authoritative_detail,
+        preserve_boundaries=True,
+    )
     issue = _detail_issue(candidate) if candidate else ""
     if issue:
         return DetailRepairPlan(
@@ -290,7 +296,10 @@ def _plan_single_product_detail_repair(
 
     status = (
         "unchanged"
-        if normalize_detail_text(current_description) == candidate
+        if normalize_detail_text(
+            current_description,
+            preserve_boundaries=True,
+        ) == candidate
         else "would_update"
     )
     return DetailRepairPlan(

@@ -152,6 +152,33 @@ def test_product_extractor_preserves_all_authoritative_fields_outside_color_fiel
     assert "otra pestaña" not in result["description"]
 
 
+def test_authoritative_detail_extraction_can_preserve_source_html_boundaries():
+    html = """
+    <html><body>
+      <p class="brxe-heading">FB-1902</p>
+      <div id="brxe-jhzpri">
+        <ul>
+          <li>Tipo de encuadernado: Espiral simple (tipo coil)</li>
+          <li>Hasta 12 hojas (70 g/m²) por pasada</li>
+          <li>Capacidad de encuadernado: Hasta 450 hojas</li>
+        </ul>
+      </div>
+    </body></html>
+    """
+    extractor = ProductExtractor()
+    field_found, detail = extractor.extract_authoritative_detail_text(
+        BeautifulSoup(html, "lxml"),
+        preserve_boundaries=True,
+    )
+
+    assert field_found
+    assert detail.splitlines() == [
+        "Tipo de encuadernado: Espiral simple (tipo coil)",
+        "Hasta 12 hojas (70 g/m²) por pasada",
+        "Capacidad de encuadernado: Hasta 450 hojas",
+    ]
+
+
 def test_product_extractor_preserves_color_list_inside_description_value():
     html = """
     <html><body>

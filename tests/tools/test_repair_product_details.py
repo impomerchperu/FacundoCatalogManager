@@ -269,11 +269,24 @@ def test_targeted_detail_repair_rejects_incomplete_extracted_detail():
 
 def test_targeted_detail_repair_removes_incomplete_trailing_dimension_field():
     detail = (
-        "Marca: Bright Office. Modelo: 230. "
-        "Dimensiones del producto: 410 \u00d7 208 \u00d7"
+        "Marca: Bright Office\\n"
+        "Modelo: 230\\n"
+        "Dimensiones del producto: 410 \\u00d7 208 \\u00d7"
     )
     db, repository = _seed_catalog(description=detail)
-    browser = StaticBrowser(_product_html(detail=detail))
+    html = """
+    <html><body>
+      <p class="brxe-heading">FB-1700</p>
+      <div id="brxe-jhzpri">
+        <ul>
+          <li>Marca: Bright Office</li>
+          <li>Modelo: 230</li>
+          <li>Dimensiones del producto: 410 \\u00d7 208 \\u00d7</li>
+        </ul>
+      </div>
+    </body></html>
+    """
+    browser = StaticBrowser(html)
     try:
         plans = plan_product_detail_repairs(
             db,
@@ -282,7 +295,7 @@ def test_targeted_detail_repair_removes_incomplete_trailing_dimension_field():
             browser=browser,
         )
 
-        expected = "Marca: Bright Office. Modelo: 230."
+        expected = "Marca: Bright Office\\nModelo: 230"
         assert plans[0].status == "would_update"
         assert plans[0].new_description == expected
         assert "Dimensiones del producto" not in plans[0].new_description

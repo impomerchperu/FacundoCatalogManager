@@ -408,3 +408,35 @@ Este comando abre la base de datos del proyecto en modo solo lectura. El informe
 - [x] CI aprobado para el codigo actualizado en `71698ad8`: Ruff limpio, Pyright sin errores, 995 pruebas aprobadas y 11 deseleccionadas.
 - [ ] Volver a ejecutar el auditor para obtener la comparacion contra HTML real de `FB-1908`, `FB-4047` y los otros SKU objetivo.
 - [ ] Si no se encuentra una pagina por SKU ni por titulo exacto unico, consultar el informe completo en `%TEMP%` y revisar de forma puntual si existe otro identificador de producto en la cache. No inferir relaciones a partir del menu global de otra pagina.
+
+
+## Resultado de evidencia del catálogo y auditoría de ocurrencias — 2026-10-25
+
+### Resultado del auditor de páginas cacheadas
+
+- [x] El usuario ejecutó `tools/audit_product_source_evidence.py`; ambas bases siguen con integridad `ok`, sin modificaciones.
+- [x] El HTML cacheado de `FB-1908` fue encontrado con coincidencia de SKU explícito y captura del 2026-10-24. Su bloque taxonómico de ficha declara `Artículos de Oficina` y `Nuevos Productos`; la segunda categoría no forma parte de las 24 categorías maestras monitorizadas.
+- [x] El producto tiene 24 relaciones `product_categories` en la base del proyecto. Esto es una anomalía que debe comprobarse, pero el bloque de taxonomía de la ficha no enumera necesariamente todas las categorías en cuyos listados aparece el SKU. La implementación `category_product_sync_service._record_category_occurrence` registra ocurrencias de listado por categoría; por ello no se deben borrar 23 relaciones solo por ausencia en la taxonomía de la ficha.
+- [x] La página cacheada de `FB-4047` declara una única categoría, `Artículos Antiestrés`, que coincide con su relación actual de listado. El detalle técnico también coincide con los campos guardados.
+- [x] La galería almacenada de `FB-4047` contiene la imagen principal `SFPU-38.webp`, más `FOCO-AMARILLO.webp` y `MEZCLADOR-CAMION-copia.webp`. El nombre de la segunda alternativa es sospechoso, pero el nombre de archivo por sí solo no demuestra el contenido visual ni autoriza a borrar la referencia.
+- [x] La auditoría de páginas cacheadas se amplió para comparar las imágenes de la galería detectadas en el HTML localmente guardado contra las URL de galería almacenadas. La herramienta no realiza solicitudes de red, no corrige la galería y marca diferencias como candidatas a revisión.
+- [x] Las páginas públicas actuales también muestran `FB-1908` en [Artículos de Oficina](https://stock.importacionesfacundo.com/categoria-producto/articulos-de-oficina/) y [Nuevos Productos](https://stock.importacionesfacundo.com/categoria-producto/nuevos-productos/). Los fragmentos de esas dos listas mostraron stocks distintos (447100 y 434200), por lo que no se toma el valor de una lista aislada como autorización para cambiar el stock aplicado del proyecto.
+
+### Auditoría en vivo de pertenencia a categorías
+
+- [x] Se añadió `tools/audit_category_memberships_live_readonly.py` para recolectar solo páginas de listado de las 24 categorías monitorizadas, sin solicitar páginas de detalle de producto.
+- [x] El auditor compara para los SKU seleccionados las categorías donde aparecen las tarjetas live con sus relaciones actuales en `product_categories`. Comprueba los conteos esperados por categoría y las tarjetas sin código.
+- [x] Si hay una discrepancia de conteos, faltan categorías o quedan tarjetas sin código, el resultado se marca `INCONCLUSIVE_INCOMPLETE_LIVE_COVERAGE`; las relaciones no son aptas para limpieza. Incluso con cobertura completa, el resultado solo es `REVIEW_ONLY_COVERAGE_VERIFIED` y no modifica la base.
+- [x] CI del HEAD `8ed6814a`: Ruff limpio, Pyright 0 errores/advertencias/informaciones y 999 pruebas aprobadas con 11 deseleccionadas.
+- [ ] Ejecutar el auditor de ocurrencias en el equipo local para confirmar en cuáles de las 24 categorías aparece realmente `FB-1908`; el informe debe quedar con cobertura completa antes de decidir cualquier eliminación de relación.
+- [ ] Revisar el campo `source_gallery_images` y los conjuntos de URL discordantes en el nuevo informe de evidencia de `FB-4047`. Una URL presente en la página cacheada demuestra procedencia del HTML, no la corrección visual del contenido.
+- [ ] No modificar stock ni aplicar eliminaciones de categoría/galería hasta revisar ambos informes. No borrar ningún archivo de imagen durante esta verificación.
+
+Comandos después de sincronizar la rama actual:
+
+```powershell
+python tools/audit_product_source_evidence.py
+python tools/audit_category_memberships_live_readonly.py --codes FB-1908 FB-4047 FB-4048 FB-3024 TPSTCB
+```
+
+El primer comando lee la caché local. El segundo descarga únicamente las páginas de listado monitorizadas para observar las ocurrencias por categoría y lee la base en modo SQLite de solo lectura; no enriquece productos desde sus páginas de detalle y no ejecuta sincronización ni reparaciones.

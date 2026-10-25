@@ -2,14 +2,14 @@
 
 Fecha de actualización: 2026-10-25
 Rama predeterminada/de promoción: `main` (`47a840f5`, corte de auditoría)
-Rama de integración activa: `feat/product-table-layout` (HEAD de código/pruebas validado por CI: `5ed7a406`; commits posteriores solo documentales)
-Estado: `main` sigue en el commit que integró la PR #19 el 2026-10-02. La rama de integración es descendiente directo de `main` y no está detrás. El usuario confirmó localmente en `b611d17a` Ruff limpio, Pyright sin errores/advertencias/informaciones, 57 pruebas focales aprobadas y 983 pruebas aprobadas con 11 deseleccionadas. Después se añadieron dos regresiones de migraciones SQLite; GitHub Quality CI pasó para `5ed7a406` (Ruff, Pyright y Pytest en éxito; `live-catalog` omitido intencionalmente). Esta validación no debe confundirse con una validación del HEAD de `main`.
+Rama de integración activa: `feat/product-table-layout` (HEAD de código/pruebas validado por CI: `19513cda`; commits posteriores solo documentales)
+Estado: `main` sigue en el commit que integró la PR #19 el 2026-10-02. La rama de integración es descendiente directo de `main` y no está detrás. El usuario confirmó localmente en `b611d17a` Ruff limpio, Pyright sin errores/advertencias/informaciones, 57 pruebas focales aprobadas y 983 pruebas aprobadas con 11 deseleccionadas. Después se añadieron tres regresiones de migraciones SQLite y una migración v6 para preservar nombres de color heredados sin inventar stock; GitHub Quality CI pasó para `19513cda` (Ruff, Pyright y Pytest en éxito; `live-catalog` omitido intencionalmente). Esta validación no debe confundirse con una validación del HEAD de `main`.
 
 La PR de promoción es la [#30](https://github.com/impomerchperu/FacundoCatalogManager/pull/30), abierta en borrador contra `main`. Las PR #20, #23, #24, #28 y #29 se cerraron como supersedidas después de comparar contenido y consolidar una sola ruta de integración. Sus referencias de rama no se borraron. La PR #30 permanece sin fusionar hasta cerrar los bloqueos de cobertura y rendimiento y completar la revisión del diff neto. GitHub reporta el diff limpio y Quality CI verde en `5ed7a406`; las referencias antiguas de ramas siguen conservadas.
 
 El checklist maestro actualizado de ramas, migraciones SQLite, consolidación de archivos/carpetas, imágenes, cobertura y promoción a `main` está en [FCM_BRANCH_AND_PROJECT_CLEANUP_CHECKLIST.md](FCM_BRANCH_AND_PROJECT_CLEANUP_CHECKLIST.md). Sus hallazgos y gates de cierre prevalecen sobre las referencias históricas de estado que queden en secciones anteriores de este documento.
 
-**Riesgo de migración por resolver:** la migración v1 elimina la columna heredada `colors` de `products` y `scraped_products` sin copiar explícitamente su contenido a otro campo. Antes de declarar cerrada la auditoría de migraciones, verificarlo con fixtures que tengan datos históricos; no inferir stock por color ni descartar nombres de colores sin comprobar que sean redundantes.
+**Mitigación de migración:** el esquema v6 copia el contenido heredado de `colors` a `legacy_colors` antes de quitar la columna antigua, si los valores aún existen, y no convierte los nombres en cantidades de stock. **Pendiente de auditoría local:** si la base persistente ya fue migrada por una versión anterior que eliminaba `colors` sin copia, comprobar si hay un backup anterior que permita recuperarlos; esa información no puede reconstruirse a partir de la base ya migrada.
 
 ## 1. Objetivo del proyecto
 
@@ -296,8 +296,8 @@ La PR #20 no modifica scraping, persistencia, cobertura ni concurrencia; por ell
 - PR #20: cerrada como supersedida por #30; no fusionada separadamente.
 - La ruta vigente de promoción es PR #30, borrador desde `feat/product-table-layout` hacia `main`.
 - Validación local de `b611d17a`: Ruff limpio, Pyright sin errores/advertencias/informaciones, 57 pruebas focales y 983 pruebas de suite (11 deseleccionadas).
-- Quality CI para el HEAD actual `5ed7a406`: Ruff, Pyright y Pytest en éxito; `live-catalog` skipped por diseño.
-- Bloqueos: reconciliar 522 vs 523 apariciones del catálogo, repetir perfiles comparables 12 vs 8 workers de categoría, revisar el descarte de la columna heredada `colors` en la migración v1 y completar la revisión del diff neto.
+- Quality CI para el HEAD de código/pruebas `19513cda`: Ruff, Pyright y Pytest en éxito; `live-catalog` skipped por diseño.
+- Bloqueos: reconciliar 522 vs 523 apariciones del catálogo, repetir perfiles comparables 12 vs 8 workers de categoría, determinar si la base local ya perdió nombres de `colors` por migraciones anteriores y completar la revisión del diff neto.
 
 La promoción a `main` no se considera completada hasta cerrar estos gates y validar el HEAD resultante de `main`.
 ### Gate de promoción

@@ -172,4 +172,3 @@ def test_product_group_storage_rejects_unidentifiable_content(
     assert stored_hash == ""
     assert source.is_file()
     assert not (root / "FB-9999").exists()
-

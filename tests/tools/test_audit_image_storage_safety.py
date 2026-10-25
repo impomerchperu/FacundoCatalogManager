@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from pathlib import Path
 
 from tools.audit_image_storage import audit
 
 
-def _create_catalog(tmp_path, gallery_images: str) -> object:
+def _create_catalog(tmp_path: Path, gallery_images: str) -> Path:
     db_path = tmp_path / "database" / "catalog.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as connection:
@@ -34,7 +35,7 @@ def _create_catalog(tmp_path, gallery_images: str) -> object:
 
 
 def test_audit_scans_unknown_suffixes_in_product_storage_and_reads_gallery_references(
-    tmp_path,
+    tmp_path: Path,
 ):
     image_root = tmp_path / "data" / "images"
     product_dir = image_root / "products" / "FB-4008"
@@ -75,7 +76,7 @@ def test_audit_scans_unknown_suffixes_in_product_storage_and_reads_gallery_refer
     assert active_gallery.is_file()
 
 
-def test_audit_marks_malformed_gallery_json_as_incomplete(tmp_path):
+def test_audit_marks_malformed_gallery_json_as_incomplete(tmp_path: Path):
     image_root = tmp_path / "data" / "images"
     product_dir = image_root / "products" / "FB-4008"
     product_dir.mkdir(parents=True)
@@ -102,7 +103,7 @@ def test_audit_marks_malformed_gallery_json_as_incomplete(tmp_path):
 
 
 def test_audit_reports_invalid_gallery_items_without_hiding_valid_references(
-    tmp_path,
+    tmp_path: Path,
 ):
     image_root = tmp_path / "data" / "images"
     product_dir = image_root / "products" / "FB-4008"

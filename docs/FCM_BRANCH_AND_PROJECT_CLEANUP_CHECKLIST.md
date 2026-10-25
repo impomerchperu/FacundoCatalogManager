@@ -345,3 +345,34 @@ Estas coincidencias son candidatos de codigo renovado, no una autorizacion para 
 - [ ] Clasificar y limpiar los 51 archivos de base de datos solo despues de comparar contenido, referencias y capacidad de restauracion.
 
 La politica de migracion es: snapshot reciente del proyecto como autoridad para valores actuales de catalogo; datos antiguos solo como recuperacion o para completar elementos cuya vigencia sea confirmada independientemente. Nunca sumar stock entre snapshots ni reemplazar campos recientes solo porque la base antigua contenga un valor distinto.
+
+
+## Validacion de conciliacion y evidencia de fuente — 2026-10-25
+
+### Validacion local del HEAD sincronizado
+
+- [x] El usuario sincronizo por fast-forward `feat/product-table-layout` de `c91b843f` a `50558ab1`; `git diff --check origin/main...HEAD` paso.
+- [x] Ruff: `All checks passed!`.
+- [x] Pyright: 0 errores, 0 advertencias, 0 informaciones.
+- [x] Pruebas de `tests/tools/test_audit_catalog_consolidation.py`: 4 aprobadas.
+- [x] Suite completa: 990 aprobadas, 11 deseleccionadas.
+- [x] `tools/audit_catalog_consolidation.py` termino con ambas bases abiertas en modo solo lectura. No modifico bases, imagenes ni archivos de origen.
+- [x] La base del proyecto reporta esquema 6, 518 productos y 545 relaciones; LOCALAPPDATA reporta esquema 2, 519 productos y 523 relaciones. La captura aplicada mas reciente del proyecto es 2026-10-24; la de LOCALAPPDATA es 2026-09-26.
+- [x] La nueva salida identifica cuatro pares candidatos a cambio de codigo usando nombre normalizado y hash SHA-256 exacto. La regla sigue siendo de deteccion para revision, nunca de merge automatico.
+
+### Evidencia contrastada con las fichas oficiales
+
+- [x] [Maquina Doble Estacion Freesub — ficha oficial](https://stock.importacionesfacundo.com/producto/maquina-doble-estacion-freesub/) muestra SKU `FB-3024` y detalle total de 560 W; en la descripcion funcional explica dos estaciones de 280 W cada una. Esto reconcilia el valor antiguo de 280 W por estacion con el total de 560 W, aunque no autoriza combinar automaticamente `FB-3024` con `ST-210`.
+- [x] [Taza Enamel 12 oz — ficha oficial](https://stock.importacionesfacundo.com/producto/taza-enamel-12-oz/) muestra SKU `TPSTCB`, y sus medidas, capacidad, medida de impresion y material coinciden con la ficha reciente del proyecto. Esto respalda `TPSTCB` como codigo actual frente al candidato antiguo `TPSTCB-01`; preservar el registro historico hasta completar la conciliacion.
+- [x] Los resultados publicos de [Nuevos Productos](https://stock.importacionesfacundo.com/categoria-producto/nuevos-productos/) y [Articulos de Oficina](https://stock.importacionesfacundo.com/categoria-producto/articulos-de-oficina/) muestran `FB-1908` como Tarjeta de PVC CR80. El catalogo del proyecto actualmente asocia este codigo a 23 categorias, lo que permanece como anomalia prioritaria y no debe aceptarse ni repararse por conjetura.
+- [ ] Comprobar en la cache HTML local del producto `FB-1908` que categorias declara la pagina del producto y contrastarlas con `product_categories`; no inferir que las dos listas publicas localizadas constituyen necesariamente el conjunto completo.
+- [ ] Auditar las imagenes alternativas de `FB-4047`: la galeria guardada incluye `FOCO-AMARILLO.webp` y `MEZCLADOR-CAMION-copia.webp`. La segunda parece ajena al producto y debe verificarse visualmente/procedencia antes de reparar; no borrar archivos de imagen en esta fase.
+- [ ] Revisar los candidatos restantes `FB-4047` ↔ `FB-4042` y `FB-4048` ↔ `FB-4043` por codigo vigente y galeria. La coincidencia de nombre e imagen identifica una posible renovacion, no basta por si sola para fusionar registros.
+
+### Regla para discrepancias con paginas publicas
+
+Las fichas y resultados web pueden proceder de paginas cacheadas con fecha anterior a la ultima captura local. Los campos de identificacion y detalle se usan como evidencia auxiliar; sus cantidades de stock no reemplazan la captura aplicada del 2026-10-24 sin una observacion mas reciente y verificable. No recuperar cantidades antiguas, no sumar snapshots y no sustituir el stock reciente por un numero mayor solo porque aparezca en una pagina historica.
+
+### Siguiente paso seguro
+
+Generar una auditoria no destructiva de `source_page_cache` para extraer, desde el HTML almacenado en la BD del proyecto, los enlaces de categoria del producto y contrastarlos con sus relaciones normalizadas. Ejecutar despues una revision focal de las galerias de `FB-1908`, `FB-4047` y de los pares candidatos. Solo con esa evidencia decidir las correcciones; aplicar por lote transaccional y categoria con respaldo recuperable y auditoria posterior.

@@ -401,16 +401,27 @@ Este bloque es la decisión vigente y reemplaza las referencias históricas ante
 La rama local se sincronizó por fast-forward en `2aa8229a`; Quality CI de ese commit pasó (Ruff, Pyright y 1005 pruebas aprobadas / 11 deseleccionadas). La PR #30 continúa sin fusionar.
 
 
-## 14. Benchmark controlado de workers de categoría — protocolo automatizado, 2026-10-25
+## 14. Benchmark controlado de workers de categoría — resultado medido, 2026-10-25
 
-La comparación local de `category_workers=12` frente a 8 aún no se ha ejecutado con la nueva herramienta. Se añadió un orquestador para hacerla con un solo comando después de sincronizar la rama y pasar la validación local:
+Se ejecutó `python tools/benchmark_category_workers.py` después de sincronizar `ed50c4e0`; Ruff pasó, Pyright reportó 0 errores/advertencias/informaciones y Pytest aprobó 1019 pruebas con 11 deseleccionadas. El benchmark completo terminó con seis ensayos válidos.
 
-```powershell
-python tools/benchmark_category_workers.py
-```
+**Baseline comprobado antes del ensayo:** `database/catalog.db` abrió en solo lectura, `integrity=ok`, esquema v6, 518 productos, 522 relaciones y 24 categorías.
 
-El orquestador abre `database/catalog.db` en modo solo lectura para validarlo y crear una semilla por `sqlite3.Connection.backup`. Exige esquema v6, integridad `ok`, 518 productos, 522 relaciones producto-categoría y 24 categorías. Genera una copia SQLite independiente por ensayo, sin compartir caché mutada entre ejecuciones.
+| Ensayo | Workers | Profile (s) | Total medido (s) | HTTP requests | Retries | Errores |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 12 | 62.220 | 64.830 | 130 | 0 | 0 |
+| 2 | 8 | 66.980 | 69.370 | 130 | 0 | 0 |
+| 3 | 8 | 80.215 | 82.722 | 130 | 0 | 0 |
+| 4 | 12 | 82.435 | 85.111 | 130 | 0 | 0 |
+| 5 | 12 | 81.885 | 84.384 | 130 | 0 | 0 |
+| 6 | 8 | 84.198 | 86.859 | 130 | 0 | 0 |
 
-El orden de medición es `12, 8, 8, 12, 12, 8`. Se mantienen detalle=24, HTTP=28, JSF=8, sesiones por hilo y `download_images=False`; únicamente cambia `category_workers`. Cada ensayo tiene JSON/log separado en `%TEMP%`. Las copias y la semilla se eliminan al finalizar; la base original no se usa para persistir resultados ni se sincroniza el catálogo.
+- Mediana de `profile_seconds`: 8 workers = 80.215 s; 12 workers = 81.885 s.
+- Mejora de 8 frente a 12 según la mediana del perfil: **2.04%** (1.670 s). Mediana del total medido: 82.722 s con 8 frente a 84.384 s con 12 (~1.97%).
+- Rango entre el mínimo y el máximo: 8 workers = 17.218 s; 12 workers = 20.215 s. Los rangos se superponen ampliamente.
+- Los seis ensayos mantuvieron 130 solicitudes cada uno, cero reintentos y cero errores; el orquestador solo aceptó las ejecuciones que pasaron sus verificaciones de cobertura/configuración.
+- Informe final de la máquina local: `%TEMP%\fcm_category_worker_benchmark_20261025_192020_19676\summary.json`. Los informes por ensayo y logs se conservaron en el mismo directorio; los archivos DB temporales de ensayo se eliminaron.
 
-La herramienta exige 24 categorías y cobertura de 522 apariciones esperadas/colectadas/enriquecidas, configuración constante y cero errores terminales. Si una corrida no cumple, escribe `failure.json` y aborta; no calcula una conclusión con muestras incompletas. El resumen reporta medianas/rangos de tiempo, latencia P50/P95/P99, solicitudes, reintentos, errores y espera de semáforo. El porcentaje positivo indica que 8 workers fue más rápido en la mediana; no cambia el default productivo, que permanece en 12 hasta que se revisen los datos.
+**Decisión:** mantener `category_workers=12` en producción. El 2.04% observado con 8 workers es menor que la variabilidad entre corridas (17–20 s de rango), por lo que estas seis ejecuciones no muestran una ventaja consistente suficiente para cambiar el valor predeterminado. No se cambió el default ni el catálogo real.
+
+Pendientes separados: revisión del diff neto de la PR #30 e inspección visual de `MEZCLADOR-CAMION-copia.webp` en la galería de `FB-4047`. La PR #30 continúa sin fusionar.

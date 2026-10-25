@@ -471,18 +471,17 @@ Este estado reemplaza las notas históricas del checklist que marcaban 522/523 a
 **Pendientes separados de la cobertura:** benchmark controlado de workers de categoría (12 vs. 8), revisión completa del diff neto para PR #30 y verificación visual de `MEZCLADOR-CAMION-copia.webp` en la galería de `FB-4047`. La PR sigue en borrador y no se ha fusionado.
 
 
-## Protocolo reproducible de benchmark de workers de categoría — actualización 2026-10-25
+## Benchmark de workers de categoría — ejecución cerrada, 2026-10-25
 
-La comparación de `category_workers=12` frente a `category_workers=8` sigue pendiente de ejecución local. El control de seguridad y la orquestación están implementados:
+- [x] Baseline de origen validado en modo de solo lectura: `integrity=ok`, esquema v6, 518 productos, 522 relaciones, 24 categorías.
+- [x] Ejecutados seis ensayos balanceados `12, 8, 8, 12, 12, 8`, con copia SQLite independiente por ensayo y descarga de imágenes desactivada.
+- [x] Todos los ensayos fueron válidos: 24 categorías, 522 apariciones esperadas/colectadas/enriquecidas, 130 solicitudes por corrida, cero reintentos y cero errores.
+- [x] Tiempos de perfil (s): 12 workers = 62.220 / 82.435 / 81.885; 8 workers = 66.980 / 80.215 / 84.198.
+- [x] Medianas: 12 workers = **81.885 s**; 8 workers = **80.215 s**. Mejora aparente con 8 workers = **2.04%** (1.670 s); medianas del total medido = 84.384 s con 12 y 82.722 s con 8 (~1.97% de mejora).
+- [x] Variación observada: rango de 20.215 s con 12 workers y 17.218 s con 8. Esa dispersión es muy superior a la diferencia de medianas y los rangos se superponen.
+- [x] Informe principal conservado en `%TEMP%\fcm_category_worker_benchmark_20261025_192020_19676\summary.json`.
+- [x] **Decisión: mantener `category_workers=12` en producción.** La mejora aparente de 8 workers no es concluyente frente a la variabilidad observada; no modificar la configuración basándose en estas seis corridas.
+- [x] Las bases SQLite temporales se eliminaron al finalizar; la DB original se utilizó en solo lectura para crear la semilla. No se aplicaron cambios de producto, stock ni imágenes.
+- [ ] Revisar el diff neto de la PR #30 y validar visualmente `MEZCLADOR-CAMION-copia.webp` de `FB-4047` antes de decidir la promoción.
 
-- [x] `tools/profile_category_workers.py` exige una base SQLite temporal aislada, verifica integridad y esquema v6, y rechaza las rutas canónicas del proyecto y AppData.
-- [x] `tools/benchmark_category_workers.py` crea una semilla mediante la API backup de SQLite, valida el baseline vigente y ejecuta seis ensayos con una copia independiente por ensayo.
-- [x] El orden es balanceado: `12, 8, 8, 12, 12, 8`. Mantiene detalle=24, HTTP=28, JSF=8, sesiones por hilo y `download_images=False`; solo varía `category_workers`.
-- [x] Cada ejecución guarda JSON/logs únicos en `%TEMP%`, elimina las copias SQLite temporales y conserva la base original abierta en modo solo lectura.
-- [x] La herramienta valida 24 categorías, 522 apariciones esperadas/colectadas/enriquecidas, configuración fija y cero errores HTTP terminales. Si un ensayo falla, guarda `failure.json` y no calcula una conclusión con resultados incompletos.
-- [x] El resumen compara medianas/rangos, latencias P50/P95/P99, solicitudes, reintentos, errores y espera de semáforo. La herramienta no cambia el default productivo.
-- [ ] Sincronizar el commit más reciente, ejecutar Ruff, Pyright y Pytest localmente y confirmar CI verde.
-- [ ] Ejecutar `python tools/benchmark_category_workers.py` y compartir `SUMMARY_JSON` (o `FAILURE_JSON` si una comprobación falla).
-- [ ] Mantener 12 como valor productivo hasta revisar evidencia de las seis corridas; no cambiar configuración por una sola medición.
-
-No se ejecuta FULL de sincronización, no se escriben productos, no se descargan imágenes y no se modifica el stock o la base SQLite original durante el benchmark.
+No se ejecutó sincronización FULL ni descarga de imágenes durante este benchmark. La PR #30 permanece abierta en borrador y sin fusionar.

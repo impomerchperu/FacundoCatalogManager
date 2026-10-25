@@ -610,3 +610,82 @@ def test_cleanup_does_not_discover_staging_artifacts_in_product_folder(
     assert candidates == []
     assert temporary.is_file()
 
+def test_full_catalog_prune_cleans_real_primary_and_gallery_files_after_commit(
+    tmp_path: Path,
+):
+    from database.db_manager import DBManager
+    from models.product import Product
+    from repositories.product_repository import ProductRepository
+    from services.scraping.catalog_sync_service import CatalogSyncService
+    from services.scraping.product_diff_service import ProductDiffService
+
+    project = tmp_path
+    db_path = project / "database" / "catalog.db"
+    db_path.parent.mkdir(parents=True)
+    image_root = project / "data" / "images" / "products" / "OLD001"
+    image_root.mkdir(parents=True)
+
+    primary = image_root / "OLD001-01.webp"
+    gallery = image_root / "OLD001-02.png"
+    primary.write_bytes(image_bytes("WEBP", (10, 20, 30)))
+    gallery.write_bytes(image_bytes("PNG", (30, 20, 10)))
+
+    db = DBManager(db_path=db_path)
+    repository = ProductRepository(db)
+    old = Product("OLD001", "Producto retirado", 10)
+    old.image_path = "data/images/products/OLD001/OLD001-01.webp"
+    old.image_hash = "primary-hash"
+    old.gallery_images = [
+        {
+            "url": "https://site.test/OLD001-gallery.png",
+            "image_path": "data/images/products/OLD001/OLD001-02.png",
+            "image_hash": "gallery-hash",
+            "position": 1,
+        }
+    ]
+    repository.save(old)
+    db.commit()
+
+    cleanup_results: list[list[dict[str, object]]] = []
+
+    def cleanup():
+        with sqlite3.connect(db_path) as connection:
+            row = connection.execute(
+                "SELECT COUNT(*) FROM products WHERE code = ?",
+                ("OLD001",),
+            ).fetchone()
+        assert row is not None and row[0] == 0
+
+        deleted = clean_unused_images(
+            project_root=project,
+            db_path=db_path,
+            roots=["data/images"],
+            delete=True,
+        )
+        cleanup_results.append(deleted)
+        return deleted
+
+    service = CatalogSyncService(
+        repository,
+        ProductDiffService(),
+        image_cleanup=cleanup,
+    )
+    result = service.sync_full_catalog(
+        [Product("KEEP001", "Producto vigente", 20)],
+        expected_products=1,
+    )
+
+    try:
+        assert result.deleted == 1
+        assert repository.get_by_code("OLD001") is None
+        assert len(cleanup_results) == 1
+        assert {
+            str(item["relative"]) for item in cleanup_results[0]
+        } == {
+            "data/images/products/OLD001/OLD001-01.webp",
+            "data/images/products/OLD001/OLD001-02.png",
+        }
+        assert not primary.exists()
+        assert not gallery.exists()
+    finally:
+        db.close()

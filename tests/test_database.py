@@ -341,7 +341,7 @@ def test_database_migrates_v2_run_history_relationship_from_v1():
 
     db.close()
 
-def test_database_migrates_from_v2_to_v5_idempotently_and_preserves_product_data():
+def test_database_migrates_from_v2_to_v6_idempotently_and_preserves_product_data():
     db = DBManager(":memory:")
     db.execute_query(
         "INSERT INTO products (code, name, stock) VALUES (?, ?, ?)",
@@ -370,6 +370,7 @@ def test_database_migrates_from_v2_to_v5_idempotently_and_preserves_product_data
         "image_etag",
         "image_last_modified",
         "image_checked_at",
+        "legacy_colors",
     } <= columns
 
     cache = db.fetch_one(
@@ -399,7 +400,7 @@ def test_database_migrates_from_v2_to_v5_idempotently_and_preserves_product_data
     versions = db.fetch_all(
         "SELECT version FROM schema_migrations ORDER BY version"
     )
-    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6]
     db.close()
 
 def test_database_migrates_legacy_download_changes_without_losing_history():
@@ -473,4 +474,75 @@ def test_database_migrates_legacy_download_changes_without_losing_history():
     )
     assert legacy_rows is not None
     assert legacy_rows["total"] == 1
+    db.close()
+
+def test_database_migration_preserves_legacy_color_names_without_inventing_stock():
+    import json
+
+    db = DBManager(":memory:")
+    db.execute_query(
+        "ALTER TABLE products ADD COLUMN colors TEXT DEFAULT '[]'"
+    )
+    db.execute_query(
+        "ALTER TABLE scraped_products ADD COLUMN colors TEXT DEFAULT '[]'"
+    )
+
+    product_colors = json.dumps(["Azul", "Verde"], ensure_ascii=False)
+    scraped_colors = json.dumps(["Negro", "Blanco"], ensure_ascii=False)
+    product_stock = json.dumps({"Rojo": 4}, ensure_ascii=False)
+
+    db.execute_query(
+        """
+        INSERT INTO products (code, name, color_stock, colors)
+        VALUES (?, ?, ?, ?)
+        """,
+        ("MIGRATION-COLORS", "Producto heredado", product_stock, product_colors),
+    )
+    db.execute_query(
+        """
+        INSERT INTO scraped_products (
+            source, url, code, name, color_stock, colors
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "legacy",
+            "https://example.invalid/producto/migration-colors/",
+            "MIGRATION-COLORS",
+            "Producto heredado",
+            "{}",
+            scraped_colors,
+        ),
+    )
+
+    # Re-run the legacy migration path as if opening an unversioned older DB.
+    db.execute_query("DELETE FROM schema_migrations")
+    db._run_migrations()
+
+    product = db.fetch_one(
+        "SELECT color_stock, legacy_colors FROM products WHERE code=?",
+        ("MIGRATION-COLORS",),
+    )
+    scraped = db.fetch_one(
+        "SELECT color_stock, legacy_colors FROM scraped_products WHERE code=?",
+        ("MIGRATION-COLORS",),
+    )
+    assert product is not None and scraped is not None
+    assert product["legacy_colors"] == product_colors
+    assert scraped["legacy_colors"] == scraped_colors
+    # Preserve actual numeric counts only; the legacy color-name list must not
+    # be converted into invented zero/positive stock values.
+    assert json.loads(product["color_stock"]) == {"Rojo": 4}
+    assert json.loads(scraped["color_stock"]) == {}
+
+    product_columns = {
+        row["name"] for row in db.fetch_all("PRAGMA table_info(products)")
+    }
+    scraped_columns = {
+        row["name"] for row in db.fetch_all("PRAGMA table_info(scraped_products)")
+    }
+    assert "colors" not in product_columns
+    assert "colors" not in scraped_columns
+    assert "legacy_colors" in product_columns
+    assert "legacy_colors" in scraped_columns
     db.close()

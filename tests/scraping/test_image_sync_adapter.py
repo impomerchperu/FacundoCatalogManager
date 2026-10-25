@@ -106,4 +106,3 @@ def test_image_sync_adapter_logs_gallery_source_cache_metrics(monkeypatch):
     assert "updated_200=1" in cache_logs[0]
     assert "stale_fallbacks=1" in cache_logs[0]
     assert "request_errors=1" in cache_logs[0]
-

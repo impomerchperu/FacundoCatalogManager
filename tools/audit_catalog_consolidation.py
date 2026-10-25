@@ -13,6 +13,7 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 PROJECT_ROOT = Path.cwd().resolve()
@@ -83,8 +84,8 @@ def _readonly_connection(path: Path) -> sqlite3.Connection:
     return connection
 
 
-def _read_database(path: Path, label: str) -> dict[str, object]:
-    result: dict[str, object] = {
+def _read_database(path: Path, label: str) -> dict[str, Any]:
+    result: dict[str, Any] = {
         "label": label,
         "path": str(path),
         "exists": path.is_file(),
@@ -160,7 +161,7 @@ def _read_database(path: Path, label: str) -> dict[str, object]:
 
         product_columns = tables["products"]
         result["product_table_available"] = True
-        product_rows: dict[str, dict[str, object]] = {}
+        product_rows: dict[str, dict[str, Any]] = {}
         duplicate_codes: set[str] = set()
         id_to_code: dict[object, str] = {}
         select_columns = ", ".join(
@@ -256,8 +257,8 @@ def _safe_value(value: object) -> object:
 
 
 def _product_comparison(
-    project: dict[str, object], local: dict[str, object]
-) -> dict[str, object]:
+    project: dict[str, Any], local: dict[str, Any]
+) -> dict[str, Any]:
     project_rows = project.get("product_rows", {})
     local_rows = local.get("product_rows", {})
     if not isinstance(project_rows, dict) or not isinstance(local_rows, dict):
@@ -278,7 +279,7 @@ def _product_comparison(
     )
 
     difference_counts: dict[str, int] = {}
-    difference_samples: dict[str, list[dict[str, object]]] = {}
+    difference_samples: dict[str, list[dict[str, Any]]] = {}
     for code in sorted(common_codes):
         project_row = project_rows[code]
         local_row = local_rows[code]
@@ -318,8 +319,8 @@ def _product_comparison(
 
 
 def _relation_comparison(
-    project: dict[str, object], local: dict[str, object]
-) -> dict[str, object]:
+    project: dict[str, Any], local: dict[str, Any]
+) -> dict[str, Any]:
     project_relations = project.get("relations", {})
     local_relations = local.get("relations", {})
     if not project.get("relations_available") or not local.get(
@@ -362,13 +363,13 @@ def _relation_comparison(
     }
 
 
-def build_report(project_path: Path, local_path: Path) -> dict[str, object]:
+def build_report(project_path: Path, local_path: Path) -> dict[str, Any]:
     project = _read_database(project_path, "PROJECT")
     local = _read_database(local_path, "LOCALAPPDATA")
     project_tables = set(project.get("tables", {}))
     local_tables = set(local.get("tables", {}))
     shared_tables = project_tables & local_tables
-    schema_differences: dict[str, object] = {
+    schema_differences: dict[str, Any] = {
         "tables_only_in_project": sorted(project_tables - local_tables),
         "tables_only_in_localappdata": sorted(local_tables - project_tables),
         "columns_only_in_project": {},

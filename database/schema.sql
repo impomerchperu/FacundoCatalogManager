@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS products (
     price_thousand REAL DEFAULT 0,
     stock INTEGER DEFAULT 0,
     color_stock TEXT DEFAULT '{}',
+    -- Archived labels from the removed legacy colors field; never treated as stock counts.
+    legacy_colors TEXT DEFAULT '[]',
     image_url TEXT,
     image_path TEXT,
     image_hash TEXT DEFAULT '',
@@ -47,6 +49,8 @@ CREATE TABLE IF NOT EXISTS scraped_products (
     price_hundred REAL DEFAULT 0,
     price_thousand REAL DEFAULT 0,
     color_stock TEXT DEFAULT '{}',
+    -- Preserve legacy color names even when their stock quantities are unknown.
+    legacy_colors TEXT DEFAULT '[]',
     image_url TEXT,
     image_path TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

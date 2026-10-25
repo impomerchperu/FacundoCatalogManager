@@ -313,4 +313,3 @@ def product_search_priority(product: Product, search_text: str) -> int | None:
         matched_priorities.append(min(priorities))
 
     return min(matched_priorities) if matched_priorities else None
-

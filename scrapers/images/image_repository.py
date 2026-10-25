@@ -172,4 +172,3 @@ class ImageRepository:
                 continue
             return candidate
         return None
-

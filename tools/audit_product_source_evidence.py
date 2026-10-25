@@ -22,6 +22,8 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
 
+from scrapers.extractors.product_image_extractor import ProductImageExtractor
+
 PROJECT_ROOT = Path.cwd().resolve()
 PROJECT_DATABASE = PROJECT_ROOT / "database" / "catalog.db"
 TEMP = Path(os.environ.get("TEMP", str(Path.home())))
@@ -409,11 +411,69 @@ def _product_categories(
     ]
 
 
+def _source_gallery_evidence(
+    html: str,
+    *,
+    base_url: str,
+    product_code: str,
+    product_name: str,
+    stored_gallery: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Compare gallery candidates in cached HTML against stored gallery URLs."""
+    soup = BeautifulSoup(html, "html.parser")
+    candidates = ProductImageExtractor.extract_candidates(
+        soup,
+        code=product_code,
+        name=product_name,
+        base_url=base_url,
+    )
+    source_gallery = [
+        {
+            "url": str(candidate.get("url", "") or ""),
+            "source": str(candidate.get("source", "") or ""),
+            "generic": bool(candidate.get("generic")),
+            "exact_code": bool(candidate.get("exact_code")),
+            "gallery_container": bool(candidate.get("gallery_container")),
+        }
+        for candidate in candidates
+        if candidate.get("gallery") or candidate.get("gallery_container")
+    ]
+    source_by_url = {
+        str(item["url"]).casefold(): item
+        for item in source_gallery
+        if item.get("url")
+    }
+    stored_urls = {
+        str(item.get("url", "") or "").strip().casefold()
+        for item in stored_gallery
+        if str(item.get("url", "") or "").strip()
+    }
+    source_urls = set(source_by_url)
+    return {
+        "source_gallery_images": source_gallery,
+        "stored_gallery_urls_not_found_in_cached_source": sorted(
+            stored_urls - source_urls
+        ),
+        "source_gallery_urls_not_stored_in_database": sorted(
+            source_urls - stored_urls
+        ),
+        "gallery_comparison_note": (
+            "A URL present in the cached HTML proves it was supplied by that page, "
+            "not that the image itself is semantically correct. A URL absent from "
+            "this extraction is a review candidate, not an automatic deletion."
+        ),
+    }
+
+
 def _source_page_evidence(
     urls: list[str],
     cache_index: dict[str, dict[str, Any]],
     master_category_urls: set[str],
     project_relation_urls: set[str],
+    *,
+    product_code: str,
+    product_name: str,
+    stored_gallery: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     evidence: list[dict[str, Any]] = []
     seen_cache_keys: set[str] = set()
@@ -453,6 +513,13 @@ def _source_page_evidence(
             item["url"] for item in categories["declared_categories"]
         }
         known_declared = declared_urls & master_category_urls
+        source_gallery = _source_gallery_evidence(
+            html,
+            base_url=str(cache_record.get("effective_url", "") or url),
+            product_code=product_code,
+            product_name=product_name,
+            stored_gallery=stored_gallery,
+        )
         item: dict[str, Any] = {
             "source_url": url,
             "cache_status": "decoded",
@@ -463,17 +530,27 @@ def _source_page_evidence(
             "status_code": cache_record.get("status_code"),
             "content_sha256": cache_record.get("content_sha256"),
             **categories,
+            **source_gallery,
             "declared_categories_known_to_catalog": sorted(known_declared),
             "declared_categories_not_in_catalog_master": sorted(
                 declared_urls - master_category_urls
             ),
         }
         if categories["authoritative"]:
-            item["project_relations_absent_from_product_page"] = sorted(
+            not_declared_in_taxonomy = sorted(
                 project_relation_urls - known_declared
+            )
+            item["project_relations_absent_from_product_page"] = not_declared_in_taxonomy
+            item["project_occurrence_relations_not_declared_in_taxonomy"] = (
+                not_declared_in_taxonomy
             )
             item["page_categories_missing_from_project_relations"] = sorted(
                 known_declared - project_relation_urls
+            )
+            item["relation_comparison_scope"] = (
+                "The page taxonomy is not the same as occurrence-based category "
+                "memberships harvested from category listings. Verify live listing "
+                "occurrences before changing any product_categories relation."
             )
         else:
             item["comparison_status"] = "not_comparable_without_scoped_category_links"
@@ -599,6 +676,9 @@ def build_report(database_path: Path, codes: tuple[str, ...] | list[str]) -> dic
                 cache_index,
                 master_category_urls,
                 relation_urls,
+                product_code=actual_code,
+                product_name=product_info["name"],
+                stored_gallery=product_info["gallery_images"],
             )
             if not source_urls:
                 product["source_url_status"] = (

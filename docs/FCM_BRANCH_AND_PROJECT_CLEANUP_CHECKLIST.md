@@ -260,7 +260,7 @@ El paso a `main` solo ocurre después de cerrar los gates funcionales documentad
 
 ### Regla de seguridad
 No se ha eliminado, sobrescrito ni migrado ninguna base, imagen, archivo o rama. El próximo cambio de datos requiere un plan de migración explícito, copia de seguridad recuperable, comparación previa y auditoría posterior.
- 
+
 ## Actualizacion de comparacion de catalogos — 2026-10-25
 
 ### Resultado confirmado

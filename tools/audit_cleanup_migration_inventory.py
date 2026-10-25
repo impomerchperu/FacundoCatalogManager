@@ -308,7 +308,7 @@ def main() -> int:
             "live code paths, product keys, content and backups first."
         ),
     }
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     output_path = TEMP / f"fcm_cleanup_migration_inventory_{stamp}.json"
     output_path.write_text(
         json.dumps(report, ensure_ascii=False, indent=2),

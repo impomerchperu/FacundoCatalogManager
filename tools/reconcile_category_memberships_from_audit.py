@@ -314,17 +314,17 @@ def apply_reported_repairs(  # noqa: PLR0912
             connection.execute("PRAGMA data_version").fetchone()[0]
         )
         if locked_data_version != backup_data_version:
-            raise RuntimeError(
+            raise RuntimeError(  # noqa: TRY301
                 "La base cambió antes de bloquearla; no se aplicó ningún cambio."
-            )  # noqa: TRY301
+            )
         integrity = str(connection.execute("PRAGMA integrity_check").fetchone()[0])
         if integrity != "ok":
             raise ValueError(f"integrity_check antes de reparar: {integrity}")  # noqa: TRY301
         plans = build_repair_plans(connection, report, codes)
         if plans != initial_plans:
-            raise RuntimeError(
+            raise RuntimeError(  # noqa: TRY301
                 "El plan cambió mientras se preparaba la reparación; vuelva a auditar."
-            )  # noqa: TRY301
+            )
         changed = [plan for plan in plans if plan.changed]
         for plan in changed:
             for category_id, name in plan.remove:

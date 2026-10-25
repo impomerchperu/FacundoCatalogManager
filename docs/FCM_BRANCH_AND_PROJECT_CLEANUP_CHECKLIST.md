@@ -21,11 +21,11 @@
 
 | PR | Estado | Tratamiento |
 |---|---|---|
-| [#30 — Integración consolidada](https://github.com/impomerchperu/FacundoCatalogManager/pull/30) | Única PR abierta; borrador; base `main`, head `feat/product-table-layout` | Ruta única de promoción; baseline de catálogo `522/518/4/24` y comparación de snapshots verificados; no fusionar hasta completar benchmark de workers, revisión neta, galería pendiente y checks de integración. |
+| [#30 — Integración consolidada](https://github.com/impomerchperu/FacundoCatalogManager/pull/30) | Única PR abierta; borrador; base `main`, head `feat/product-table-layout` | Ruta única de promoción; baseline vigente `522/518/4/24` y comparación de snapshots verificados; benchmark controlado cerrado con decisión de mantener 12 workers; no fusionar hasta completar revisión neta, galería de `FB-4047` y gates de integración. |
 | #20, #23, #24 | Cerradas como supersedidas | Sus ramas fuente están incorporadas como ancestros de la rama de integración; no integrar por rutas paralelas. |
 | #28, #29 | Cerradas como supersedidas | Su funcionalidad tiene equivalentes más recientes en la rama de integración; se portaron las dos regresiones faltantes. Mantener los refs por ahora para comparación final. |
 
-La PR #30 contiene un diff neto de 132 archivos respecto a `main`. GitHub reporta que la rama es mergeable y el estado del diff está limpio; la PR sigue en borrador hasta completar los gates restantes. La cobertura del catálogo ya está validada en `522/518/4/24`; la comparación de bases no exige fusión de snapshots. Permanecen pendientes el benchmark controlado de workers, la revisión completa del diff neto, la inspección visual de la galería de `FB-4047` y los checks de integración correspondientes. Las referencias de ramas fuente cerradas no han sido borradas.
+La PR #30 contiene un diff neto reportado actualmente en 144 archivos respecto a `main`. GitHub reporta que la rama es mergeable y el estado del diff está limpio; la PR sigue en borrador hasta completar los gates restantes. La cobertura del catálogo `522/518/4/24` está validada y las cifras `523/519` pertenecen al snapshot antiguo de AppData, no constituyen un diferencial pendiente que deba resolverse fusionando bases. El benchmark controlado de workers ya está cerrado; siguen pendientes la revisión completa del diff neto, la inspección visual del archivo exacto de `FB-4047` y los checks de GUI/integración correspondientes. Las referencias de ramas fuente cerradas no han sido borradas.
 
 **Causa de la acumulación:** el trabajo reciente se desarrolló y se fusionó en la rama de integración en lugar de promoverse a la rama predeterminada. Además, varias PR permanecieron abiertas y sus ramas fuente no se retiraron. Las ramas creadas a partir de bases antiguas pueden aparecer divergentes por *squash* o integración de commits; el conteo de commits, por sí solo, no demuestra que falten cambios ni que sea seguro borrar una rama.
 
@@ -432,7 +432,7 @@ Este comando abre la base de datos del proyecto en modo solo lectura. El informe
 - [x] Revisadas las URL de galería de `FB-4047`: la fuente cacheada incluye las tres imágenes guardadas y no se encontraron diferencias de URL. La corrección visual de `MEZCLADOR-CAMION-copia.webp` sigue abierta.
 - [x] Stock sin cambios. Tras validar cobertura, se corrigieron localmente solo las relaciones de `FB-1908` (23 retiradas; una relación conservada) con copia de seguridad y comprobación posterior. No se borraron ni cambiaron archivos de imagen.
 
-Comandos después de sincronizar la rama actual:
+Comandos después de sincronizar la rama actual (usa el bloque de PowerShell compartido al cierre de esta tarea; el objetivo debe ser el HEAD remoto más reciente, no un SHA histórico):
 
 ```powershell
 python tools/audit_product_source_evidence.py
@@ -468,7 +468,7 @@ Este estado reemplaza las notas históricas del checklist que marcaban 522/523 a
 
 **Política de datos:** el snapshot del proyecto del 24/10/2026 es el catálogo objetivo actual. No mezclar snapshots, sumar cantidades, restaurar stocks antiguos ni importar automáticamente productos exclusivos de AppData. Las diferencias de detalle, stock/color_stock e imágenes deben tratarse como historial entre capturas; los cambios futuros requieren evidencia de fuente actual.
 
-**Pendientes separados de la cobertura:** benchmark controlado de workers de categoría (12 vs. 8), revisión completa del diff neto para PR #30 y verificación visual de `MEZCLADOR-CAMION-copia.webp` en la galería de `FB-4047`. La PR sigue en borrador y no se ha fusionado.
+**Pendientes separados de la cobertura:** revisión completa del diff neto para PR #30 y verificación visual del archivo local `MEZCLADOR-CAMION-copia.webp` en la galería de `FB-4047`. El benchmark de workers está completado; se conserva `category_workers=12` porque la mejora aparente de 8 workers (2,04 %) quedó dentro de la variabilidad observada.
 
 
 ## Benchmark de workers de categoría — ejecución cerrada, 2026-10-25
@@ -485,3 +485,13 @@ Este estado reemplaza las notas históricas del checklist que marcaban 522/523 a
 - [ ] Revisar el diff neto de la PR #30 y validar visualmente `MEZCLADOR-CAMION-copia.webp` de `FB-4047` antes de decidir la promoción.
 
 No se ejecutó sincronización FULL ni descarga de imágenes durante este benchmark. La PR #30 permanece abierta en borrador y sin fusionar.
+
+
+## Estado actualizado de sincronización y promoción — 2026-10-25
+
+- [x] Benchmark categoría: seis ensayos válidos; `category_workers=12` se mantiene porque la mejora aparente con 8 fue 2,04 % y menor que la variabilidad de las corridas.
+- [x] CI del commit documental `19b419fd002a070c7c83cfeba36c10308b6ffade` completó con éxito (Ruff, Pyright y Pytest; `live-catalog` omitido por diseño). Los cambios documentales realizados después deben validarse de nuevo en CI.
+- [ ] Sincronizar la copia local solo tras comprobar el HEAD remoto actual de la rama; verificar rama, estado de trabajo limpio y ancestry antes de `git pull --ff-only`.
+- [ ] Revisar por áreas el diff neto de la PR #30 (144 archivos reportados por GitHub); no usar únicamente el conteo de commits como criterio de integridad.
+- [ ] Inspeccionar el archivo local `data/images/products/FB-4047/FB-4047-03.webp` y confirmar si corresponde a un camión mezclador o al foco antiestrés. La búsqueda web por el nombre sospechoso sugiere posible contaminación, pero la imagen exacta no está versionada; no borrar ni cambiar referencias de la base sin inspección y respaldo.
+- [ ] Completar los checks de GUI/release que correspondan. No fusionar la PR #30 únicamente porque CI esté verde.

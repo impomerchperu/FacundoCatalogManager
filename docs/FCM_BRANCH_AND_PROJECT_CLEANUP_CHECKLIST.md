@@ -260,3 +260,41 @@ El paso a `main` solo ocurre después de cerrar los gates funcionales documentad
 
 ### Regla de seguridad
 No se ha eliminado, sobrescrito ni migrado ninguna base, imagen, archivo o rama. El próximo cambio de datos requiere un plan de migración explícito, copia de seguridad recuperable, comparación previa y auditoría posterior.
+ 
+## Actualizacion de comparacion de catalogos — 2026-10-25
+
+### Resultado confirmado
+- [x] La validacion anterior de la rama paso: Ruff correcto, Pyright 0 errores y suite 989 passed, 11 deselected.
+- [x] La auditoria comparativa se ejecuto con ambas bases en modo SQLite de solo lectura; integridad ok en ambas.
+- [x] No se modifico ninguna base, imagen o archivo de origen durante la comparacion.
+- [x] Catalogo del proyecto: esquema 6, 518 productos, 545 relaciones producto-categoria.
+- [x] Catalogo de LOCALAPPDATA: esquema 2, 519 productos, 523 relaciones producto-categoria.
+- [x] Codigos compartidos: 514.
+- [x] Exclusivos del proyecto: FB-3024, FB-4047, FB-4048, TPSTCB.
+- [x] Exclusivos de LOCALAPPDATA: FB-2111, FB-4042, FB-4043, ST-210, TPSTCB-01.
+- [x] Codigos con relaciones de categoria distintas: 10.
+
+### Conteo de campos distintos en productos compartidos
+| Campo | Productos distintos |
+|---|---:|
+| image_path | 514 |
+| content_hash | 496 |
+| description | 487 |
+| color_stock | 272 |
+| stock | 272 |
+| image_hash | 25 |
+| image_url | 8 |
+| price, price_hundred, price_sample, price_thousand | 7 en cada campo |
+| name | 4 |
+
+Estos conteos significan que el valor almacenado difiere entre bases; no significan automaticamente que el proyecto sea correcto en cada campo. En particular, no asumir que image_path indica imagen incorrecta: pueden diferir rutas relativas y absolutas. La discrepancia de stock/color_stock requiere inspeccionar valores y contrastarlos con la fuente del catalogo.
+
+### Proxima tarea publicada
+- [x] tools/audit_catalog_consolidation.py genera muestras de diferencias por campo y por relacion de categoria en consola, ademas de guardarlas en JSON.
+- [ ] Sincronizar el commit que añade las muestras en consola; volver a ejecutar Ruff, Pyright, pruebas especificas y suite completa.
+- [ ] Inspeccionar las muestras y clasificar discrepancias en diferencias de formato, datos historicos validos y errores reales.
+- [ ] Redactar el plan de migracion antes de modificar la base instalada o consolidar los datos.
+- [ ] No borrar aun ninguna de las 51 bases candidatas. Primero comprobar referencias, recuperabilidad y contenido exclusivo.
+
+### Politica provisional de fuente canonica
+database/catalog.db del proyecto es la referencia tecnica provisional por su esquema mas reciente e historial de scraping mas completo. La base de LOCALAPPDATA tiene cinco codigos exclusivos y un producto neto adicional, por lo que debe seguir preservandose hasta resolver las diferencias. La consolidacion debe importar selectivamente los datos validos; no consiste en copiar una base completa sobre la otra.

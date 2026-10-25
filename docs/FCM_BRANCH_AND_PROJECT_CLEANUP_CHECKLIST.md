@@ -298,7 +298,7 @@ Estos conteos significan que el valor almacenado difiere entre bases; no signifi
 
 ### Politica provisional de fuente canonica
 database/catalog.db del proyecto es la referencia tecnica provisional por su esquema mas reciente e historial de scraping mas completo. La base de LOCALAPPDATA tiene cinco codigos exclusivos y un producto neto adicional, por lo que debe seguir preservandose hasta resolver las diferencias. La consolidacion debe importar selectivamente los datos validos; no consiste en copiar una base completa sobre la otra.
- 
+
 ## Siguiente iteracion de conciliacion — 2026-10-25
 
 La comparacion validada localmente reporto 989 pruebas aprobadas y 11 omitidas, antes de los cambios de diagnostico añadidos en esta iteracion.

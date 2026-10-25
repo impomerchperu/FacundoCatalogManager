@@ -92,10 +92,11 @@ def _gallery_image_entries(
         reference_errors.append(error)
 
     try:
-        if isinstance(raw, (str, bytes, bytearray)):
-            payload = json.loads(raw)
-        else:
-            payload = raw
+        payload = (
+            json.loads(raw)
+            if isinstance(raw, (str, bytes, bytearray))
+            else raw
+        )
     except (TypeError, UnicodeDecodeError, json.JSONDecodeError) as error:
         record_error(f"JSON inválido: {type(error).__name__}")
         return []
@@ -757,7 +758,7 @@ def _print_group(group: list[dict[str, Any]]) -> None:
         )
 
 
-def print_report(report: dict[str, Any], max_details: int = 100) -> None:
+def _print_report_overview(report: dict[str, Any]) -> None:
     print(f"Proyecto: {report['project_root']}")
     print(f"DB: {report['db_path']}")
     for root in report["roots"]:
@@ -774,18 +775,28 @@ def print_report(report: dict[str, Any], max_details: int = 100) -> None:
         "Auditoría de referencias completa: "
         f"{report.get('reference_audit_complete', True)}"
     )
-    reference_errors = report.get("reference_errors", [])
-    if reference_errors:
-        print(
-            "ADVERTENCIA: existen referencias de galería no interpretables; "
-            "los conteos de huérfanos no son definitivos."
-        )
-        for error in reference_errors[:max_details]:
-            print(
-                f"  - [{error.get('table')}#{error.get('rowid')}] "
-                f"{error.get('code')}: {error.get('error')}"
-            )
 
+
+def _print_reference_errors(
+    report: dict[str, Any],
+    max_details: int,
+) -> None:
+    errors = report.get("reference_errors", [])
+    if not errors:
+        return
+
+    print(
+        "ADVERTENCIA: existen referencias de galería no interpretables; "
+        "los conteos de huérfanos no son definitivos."
+    )
+    for error in errors[:max_details]:
+        print(
+            f"  - [{error.get('table')}#{error.get('rowid')}] "
+            f"{error.get('code')}: {error.get('error')}"
+        )
+
+
+def _print_report_summary_counts(report: dict[str, Any]) -> None:
     print(f"Archivos referenciados: {report['referenced_files']}")
     print(f"Archivos sin referencia DB: {report['orphan_files']}")
     print(
@@ -810,7 +821,7 @@ def print_report(report: dict[str, Any], max_details: int = 100) -> None:
         f"{len(report['duplicate_groups'])}"
     )
     print(
-        "Grupos con contenido id?ntico de fuentes distintas: "
+        "Grupos con contenido idéntico de fuentes distintas: "
         f"{len(report['same_content_different_source_groups'])}"
     )
     print(
@@ -832,40 +843,68 @@ def print_report(report: dict[str, Any], max_details: int = 100) -> None:
     print(f"Rutas DB repetidas: {len(report['db_path_duplicates'])}")
     print(f"URLs DB repetidas: {len(report['db_url_duplicates'])}")
 
-    if report["missing_reference_details"]:
-        print("\nREFERENCIAS INEXISTENTES:")
-        for reference in report["missing_reference_details"][:max_details]:
-            print(
-                f"  - [{reference['table']}#{reference['rowid']}] "
-                f"{reference['code']}: {reference['image_path']}"
-            )
 
-    if report["hash_mismatch_details"]:
-        print("\nHASHES DISTINTOS:")
-        for reference in report["hash_mismatch_details"][:max_details]:
-            print(
-                f"  - [{reference['table']}#{reference['rowid']}] "
-                f"{reference['code']}: {reference['image_path']}"
-            )
+def _print_missing_references(report: dict[str, Any], max_details: int) -> None:
+    references = report["missing_reference_details"]
+    if not references:
+        return
+    print("\\nREFERENCIAS INEXISTENTES:")
+    for reference in references[:max_details]:
+        print(
+            f"  - [{reference['table']}#{reference['rowid']}] "
+            f"{reference['code']}: {reference['image_path']}"
+        )
 
-    if report["cross_root_duplicate_groups"]:
-        print("\nDUPLICADOS ENTRE ROOTS:")
-        for group in report["cross_root_duplicate_groups"][:max_details]:
-            _print_group(group)
 
-    if report["orphan_file_details"]:
-        print("\nARCHIVOS SIN REFERENCIA DB:")
-        for record in report["orphan_file_details"][:max_details]:
-            print(
-                f"  - {record['path']} "
-                f"({record['size']} bytes, sha256={record['sha256']})"
-            )
-        if len(report["orphan_file_details"]) > max_details:
-            print(
-                f"  ... {len(report['orphan_file_details']) - max_details} "
-                "más; use --json para el reporte completo."
-            )
+def _print_hash_mismatches(report: dict[str, Any], max_details: int) -> None:
+    references = report["hash_mismatch_details"]
+    if not references:
+        return
+    print("\\nHASHES DISTINTOS:")
+    for reference in references[:max_details]:
+        print(
+            f"  - [{reference['table']}#{reference['rowid']}] "
+            f"{reference['code']}: {reference['image_path']}"
+        )
 
+
+def _print_cross_root_duplicates(
+    report: dict[str, Any],
+    max_details: int,
+) -> None:
+    groups = report["cross_root_duplicate_groups"]
+    if not groups:
+        return
+    print("\\nDUPLICADOS ENTRE ROOTS:")
+    for group in groups[:max_details]:
+        _print_group(group)
+
+
+def _print_orphan_files(report: dict[str, Any], max_details: int) -> None:
+    records = report["orphan_file_details"]
+    if not records:
+        return
+    print("\\nARCHIVOS SIN REFERENCIA DB:")
+    for record in records[:max_details]:
+        print(
+            f"  - {record['path']} "
+            f"({record['size']} bytes, sha256={record['sha256']})"
+        )
+    if len(records) > max_details:
+        print(
+            f"  ... {len(records) - max_details} "
+            "más; use --json para el reporte completo."
+        )
+
+
+def print_report(report: dict[str, Any], max_details: int = 100) -> None:
+    _print_report_overview(report)
+    _print_reference_errors(report, max_details)
+    _print_report_summary_counts(report)
+    _print_missing_references(report, max_details)
+    _print_hash_mismatches(report, max_details)
+    _print_cross_root_duplicates(report, max_details)
+    _print_orphan_files(report, max_details)
 
 def _json_safe(value: Any) -> Any:
     """Recursively convert nested report values into JSON-safe data."""

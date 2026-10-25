@@ -1,8 +1,8 @@
 # FCM — Checklist maestro de auditoría, limpieza y consolidación
 
-**Fecha de corte:** 2026-10-25  
-**Rama predeterminada:** `main`  
-**Rama de integración de trabajo:** `feat/product-table-layout`  
+**Fecha de corte:** 2026-10-25
+**Rama predeterminada:** `main`
+**Rama de integración de trabajo:** `feat/product-table-layout`
 **Propósito:** recuperar una ruta clara hacia `main`, resolver PR apiladas y limpiar el repositorio sin perder funciones, historial, datos ni capacidad de recuperación.
 
 ## 1. Diagnóstico confirmado

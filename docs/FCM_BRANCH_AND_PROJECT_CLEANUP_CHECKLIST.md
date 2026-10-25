@@ -397,3 +397,14 @@ python tools/audit_product_source_evidence.py
 ```
 
 Este comando abre la base de datos del proyecto en modo solo lectura. El informe JSON se guarda en `%TEMP%`; no se toca la base instalada de LOCALAPPDATA y no se modifica ni elimina ninguna imagen. Se debe compartir solo la salida `PRODUCT_SOURCE_EVIDENCE` de los códigos indicados o las secciones de relaciones discrepantes, no es necesario pegar todo el informe.
+
+
+### Seguimiento a la primera ejecucion de evidencia — 2026-10-25
+
+- [x] La ejecucion local reporto integridad SQLite `ok` para ambas bases; el proyecto conserva 518 productos/545 relaciones y LOCALAPPDATA 519 productos/523 relaciones. Los conteos de campos no cambian la politica: no fusionar snapshots ni sumar stock.
+- [x] El primer informe de evidencia mostró seis registros solicitados, pero no encontro URLs asociadas en `scraped_products`; por ello no llego a comparar las paginas cacheadas. Este resultado se registro como limitacion de cobertura de la herramienta, no como prueba de que no existan paginas en caché.
+- [x] La herramienta se amplio para localizar pagina de producto directamente en `source_page_cache` por SKU dentro de selectores explicitos (`p.brxe-heading`, `span.sku`, `[sku]`, `[data-sku]`, `.sku`). Si no hay SKU, solo acepta como fallback un titulo exacto que corresponda a una unica pagina cacheada; coincidencias ambiguas no se seleccionan.
+- [x] La salida de galeria elimina duplicados de URL al mostrar la imagen principal y las alternativas, sin modificar `gallery_images` de la base de datos.
+- [x] CI aprobado para el codigo actualizado en `71698ad8`: Ruff limpio, Pyright sin errores, 995 pruebas aprobadas y 11 deseleccionadas.
+- [ ] Volver a ejecutar el auditor para obtener la comparacion contra HTML real de `FB-1908`, `FB-4047` y los otros SKU objetivo.
+- [ ] Si no se encuentra una pagina por SKU ni por titulo exacto unico, consultar el informe completo en `%TEMP%` y revisar de forma puntual si existe otro identificador de producto en la cache. No inferir relaciones a partir del menu global de otra pagina.

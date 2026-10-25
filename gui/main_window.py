@@ -43,7 +43,10 @@ from gui.scraping_dialog import ScrapingDialog
 from gui.workers.catalog_bootstrap_worker import CatalogBootstrapWorker
 from gui.workers.catalog_load_worker import CatalogLoadWorker
 from models.product import Product
-from services.product_search import product_matches_search
+from services.product_search import (
+    product_matches_search,
+    product_search_priority,
+)
 from services.scraping.category_name_normalizer import (
     available_category_names,
     split_category_names,
@@ -1182,11 +1185,13 @@ class MainWindow(QMainWindow):
         products = list(self.all_products)
         search_text = self.search_box.text().strip()
         if search_text:
-            products = [
-                product
-                for product in products
-                if self.product_matches_search(product, search_text)
-            ]
+            prioritized: list[tuple[int, int, Product]] = []
+            for original_index, product in enumerate(products):
+                priority = product_search_priority(product, search_text)
+                if priority is not None:
+                    prioritized.append((priority, original_index, product))
+            prioritized.sort(key=lambda item: (item[0], item[1]))
+            products = [product for _, _, product in prioritized]
         if self.selected_categories:
             products = [
                 product

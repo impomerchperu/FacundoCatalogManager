@@ -4,7 +4,11 @@ from PySide6.QtWidgets import QApplication, QLabel, QLineEdit, QToolButton
 
 from gui.main_window import MainWindow, SearchLineEdit
 from models.product import Product
-from services.product_search import normalize_search_text, product_matches_search
+from services.product_search import (
+    normalize_search_text,
+    product_matches_search,
+    product_search_priority,
+)
 
 
 def _qapp():
@@ -193,3 +197,50 @@ def test_search_box_filters_immediately_and_clearing_restores_products():
 
     app.search_box.deleteLater()
     app.product_counter.deleteLater()
+
+def test_product_search_priority_matches_requested_field_order():
+    products = [
+        Product(code="PRICE", name="Artículo", price_sample=75.0),
+        Product(code="STOCK", name="Artículo", stock=75),
+        Product(code="DETAIL", name="Artículo", description="75 unidades"),
+        Product(code="SKU-75", name="Artículo"),
+        Product(code="CATEGORY", name="Artículo", category="Promociones 75"),
+        Product(code="NAME", name="Artículo 75"),
+    ]
+
+    assert [product_search_priority(product, "75") for product in products] == [
+        4,
+        3,
+        2,
+        1,
+        0,
+        0,
+    ]
+
+
+def test_main_window_orders_search_results_by_priority_and_keeps_ties_stable():
+    _qapp()
+    app = MainWindow.__new__(MainWindow)
+    app.search_box = QLineEdit()
+    app.search_box.setText("75")
+    app.all_products = [
+        Product(code="PRICE", name="Artículo", price_sample=75.0),
+        Product(code="STOCK", name="Artículo", stock=75),
+        Product(code="DETAIL", name="Artículo", description="75 unidades"),
+        Product(code="SKU-75", name="Artículo"),
+        Product(code="CATEGORY", name="Artículo", category="Promociones 75"),
+        Product(code="NAME", name="Artículo 75"),
+    ]
+    app.selected_categories = set()
+    app.stock_only = False
+
+    assert [product.code for product in app._filtered_products()] == [
+        "CATEGORY",
+        "NAME",
+        "SKU-75",
+        "DETAIL",
+        "STOCK",
+        "PRICE",
+    ]
+    app.search_box.deleteLater()
+

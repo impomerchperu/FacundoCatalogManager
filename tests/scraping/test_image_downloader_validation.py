@@ -85,4 +85,3 @@ def test_image_downloader_uses_decoded_format_instead_of_url_suffix(
     assert Path(result) == expected
     assert expected.is_file()
     assert identify_image_file(expected)["image_extension"] == ".png"
-

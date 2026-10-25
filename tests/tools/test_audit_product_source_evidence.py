@@ -228,6 +228,10 @@ def test_report_compares_cached_categories_and_does_not_modify_database(
     assert page["project_relations_absent_from_product_page"] == [
         "https://example.test/categoria-producto/articulos-de-oficina"
     ]
+    assert page["project_occurrence_relations_not_declared_in_taxonomy"] == [
+        "https://example.test/categoria-producto/articulos-de-oficina"
+    ]
+    assert "not the same as occurrence-based category memberships" in page["relation_comparison_scope"]
     assert page["page_categories_missing_from_project_relations"] == []
     assert product["product"]["gallery_images"][1]["source"] == "woocommerce-gallery"
     assert report["safety"]["database_rows_modified"] is False
@@ -297,4 +301,55 @@ def test_report_finds_cached_product_page_by_sku_without_scraped_product_row(
     assert page["project_relations_absent_from_product_page"] == [
         "https://example.test/categoria-producto/articulos-de-oficina"
     ]
+    assert database.read_bytes() == before
+
+
+def test_report_compares_cached_source_gallery_without_mutating_database(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "catalog.db"
+    html = """
+    <html>
+      <h1 class="product_title">Tarjeta PVC CR80</h1>
+      <span class="sku">FB-1908</span>
+      <div class="product_meta">
+        <span class="posted_in">
+          Categorías:
+          <a href="/categoria-producto/articulos-de-antiestres/">
+            Artículos Antiestrés
+          </a>
+        </span>
+      </div>
+      <div class="woocommerce-product-gallery">
+        <a href="/wp-content/uploads/2025/08/FB-1908.webp">
+          <img
+            src="/wp-content/uploads/2025/08/FB-1908-300x300.webp"
+            data-large_image="/wp-content/uploads/2025/08/FB-1908.webp"
+            alt="Tarjeta PVC"
+          />
+        </a>
+        <a href="/wp-content/uploads/2025/08/MEZCLADOR-CAMION-copia.webp">
+          <img
+            src="/wp-content/uploads/2025/08/MEZCLADOR-CAMION-copia.webp"
+            alt="Imagen alternativa"
+          />
+        </a>
+      </div>
+    </html>
+    """
+    _create_database(database, html)
+    before = database.read_bytes()
+
+    product = build_report(database, ["FB-1908"])["products"][0]
+    page = product["source_page_evidence"][0]
+    source_urls = {item["url"] for item in page["source_gallery_images"]}
+
+    assert "https://example.test/wp-content/uploads/2025/08/FB-1908.webp" in source_urls
+    assert (
+        "https://example.test/wp-content/uploads/2025/08/MEZCLADOR-CAMION-copia.webp"
+        in source_urls
+    )
+    assert page["gallery_comparison_note"].startswith(
+        "A URL present in the cached HTML proves it was supplied by that page"
+    )
     assert database.read_bytes() == before

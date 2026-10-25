@@ -241,6 +241,7 @@ def _collect_live_category_memberships(
                 url = str(getattr(product, "url", "") or "").strip()
                 if not code:
                     category_missing_code_count += 1
+                    missing_code_occurrence_count += 1
                     if name or url:
                         missing_code_cards.append(
                             {
@@ -267,7 +268,7 @@ def _collect_live_category_memberships(
 
         coverage_complete = (
             not category_count_gap
-            and not missing_code_cards
+            and missing_code_occurrence_count == 0
             and len(categories) == EXPECTED_CATEGORIES
         )
         metrics = {
@@ -276,7 +277,7 @@ def _collect_live_category_memberships(
             "expected_category_occurrences": total_expected_occurrences,
             "collected_category_cards": total_cards,
             "category_count_gaps": category_count_gap,
-            "missing_code_card_count": len(missing_code_cards),
+            "missing_code_card_count": missing_code_occurrence_count,
             "missing_code_card_samples": missing_code_cards[:50],
             "coverage_complete": coverage_complete,
             "categories": categories_report,

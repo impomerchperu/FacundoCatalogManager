@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
+import subprocess
+import sys
 import zlib
 from pathlib import Path
 
@@ -353,3 +356,26 @@ def test_report_compares_cached_source_gallery_without_mutating_database(
         "A URL present in the cached HTML proves it was supplied by that page"
     )
     assert database.read_bytes() == before
+
+def test_script_help_runs_when_called_outside_repository_root(
+    tmp_path: Path,
+) -> None:
+    repository_root = Path(__file__).resolve().parents[2]
+    script = repository_root / "tools" / "audit_product_source_evidence.py"
+    environment = os.environ.copy()
+    environment.pop("PYTHONPATH", None)
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "--database" in result.stdout
+    assert "--codes" in result.stdout
+

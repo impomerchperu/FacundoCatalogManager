@@ -378,4 +378,3 @@ def test_script_help_runs_when_called_outside_repository_root(
     assert result.returncode == 0, result.stderr
     assert "--database" in result.stdout
     assert "--codes" in result.stdout
-

@@ -191,4 +191,3 @@ class CategorySelector(QComboBox):
             view = self.view()
             if isinstance(view, QListView):
                 view.setRowHidden(row, False)
-

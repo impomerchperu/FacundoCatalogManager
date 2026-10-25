@@ -2,8 +2,10 @@
 
 Fecha de actualización: 2026-10-25
 Rama predeterminada/de promoción: `main` (`47a840f5`, corte de auditoría)
-Rama de integración activa: `feat/product-table-layout` (`40cf1285`, HEAD validado por el usuario antes de actualizar esta documentación)
-Estado: `main` sigue en el commit que integró la PR #19 el 2026-10-02. La rama de integración es descendiente directo de `main` y está 1.266 commits por delante, 0 por detrás. El usuario confirmó en el HEAD `40cf1285` Ruff limpio, Pyright sin errores/advertencias/informaciones, 13 pruebas focales aprobadas y 981 pruebas aprobadas con 11 deseleccionadas. Esta validación no debe confundirse con una validación del HEAD de `main`.
+Rama de integración activa: `feat/product-table-layout` (`b611d17a`, HEAD validado por el usuario el 2026-10-25)
+Estado: `main` sigue en el commit que integró la PR #19 el 2026-10-02. La rama de integración es descendiente directo de `main` y está 1.271 commits por delante, 0 por detrás. El usuario confirmó en el HEAD `b611d17a` Ruff limpio, Pyright sin errores/advertencias/informaciones, 57 pruebas focales aprobadas y 983 pruebas aprobadas con 11 deseleccionadas. Esta validación no debe confundirse con una validación del HEAD de `main`.
+
+La PR de promoción es la [#30](https://github.com/impomerchperu/FacundoCatalogManager/pull/30), abierta en borrador contra `main`. Las PR #20, #23, #24, #28 y #29 se cerraron como supersedidas después de comparar contenido y consolidar una sola ruta de integración. Sus referencias de rama no se borraron. La PR #30 permanece sin fusionar hasta cerrar los bloqueos de cobertura y rendimiento, revisar el diff neto y verificar los checks del HEAD exacto.
 
 El checklist maestro actualizado de ramas, migraciones SQLite, consolidación de archivos/carpetas, imágenes, cobertura y promoción a `main` está en [FCM_BRANCH_AND_PROJECT_CLEANUP_CHECKLIST.md](FCM_BRANCH_AND_PROJECT_CLEANUP_CHECKLIST.md). Sus hallazgos y gates de cierre prevalecen sobre las referencias históricas de estado que queden en secciones anteriores de este documento.
 
@@ -262,7 +264,7 @@ La infraestructura de distribución está implementada en `main`: rutas persiste
 
 ### Excel
 
-La PR #19 ya fue integrada en `main` y dejó alineados los exportadores con el contrato actual del catálogo. La PR #20, actualmente abierta contra `main`, contiene el rediseño estable del exportador Excel y la selección de categorías.
+La PR #19 ya fue integrada en `main` y dejó alineados los exportadores con el contrato actual del catálogo. El contenido del rediseño Excel de la antigua PR #20 está incluido en la rama de integración; esa PR fue cerrada como supersedida por la ruta única de promoción #30.
 
 Estado documentado del exportador en la rama activa:
 
@@ -289,16 +291,13 @@ La PR #20 no modifica scraping, persistencia, cobertura ni concurrencia; por ell
 
 ### Estado de PR
 
-- PR #20: abierta;
-- base: `main`;
-- head: `fix/excel-table-repair`;
-- mergeable: true;
-- estado de merge actual: limpio;
-- check `test` fue success en `a3e3fb97`; los commits documentales posteriores (`5895f870` y `ca782a65`) generan nuevos workflows Quality sobre sus respectivos HEAD y deben validarse por separado;
-- `live-catalog`: skipped intencionalmente.
+- PR #20: cerrada como supersedida por #30; no fusionada separadamente.
+- La ruta vigente de promoción es PR #30, borrador desde `feat/product-table-layout` hacia `main`.
+- Validación local de `b611d17a`: Ruff limpio, Pyright sin errores/advertencias/informaciones, 57 pruebas focales y 983 pruebas de suite (11 deseleccionadas).
+- Checks de CI del HEAD de promoción: deben confirmarse en la PR #30.
+- Bloqueos: reconciliar 522 vs 523 apariciones del catálogo, repetir perfiles comparables 12 vs 8 workers de categoría y completar la revisión del diff neto.
 
-La promoción a `main` no se considera completada hasta cerrar la validación local y revisar el diff completo de la PR.
-
+La promoción a `main` no se considera completada hasta cerrar estos gates y validar el HEAD resultante de `main`.
 ### Gate de promoción
 
 Antes de fusionar cualquier cambio pre-`v0.3.0`:
@@ -319,7 +318,7 @@ La validación FULL real no debe repetirse por cambios puramente de Excel que no
 El camino de cierre queda deliberadamente separado en capas:
 
 ### Capa 1 — Integración funcional
-- [ ] cerrar y fusionar PR #20 cuando la validación local y el artefacto Excel sean aceptados;
+- [ ] completar los gates de PR #30 y promover el conjunto consolidado a `main` solo después de resolver cobertura, rendimiento, revisión neta y CI.
 - [ ] confirmar que `main` conserva el baseline de scraping, persistencia, stock por color e imágenes;
 - [ ] ejecutar suite completa sobre el HEAD resultante de `main`.
 
@@ -367,4 +366,4 @@ main
 
 El 2026-10-04 se completó satisfactoriamente el smoke funcional real del exportador Excel. Se verificaron selección individual y múltiple de categorías, cancelación sin exportación, apertura sin reparación de XLSX, imágenes visibles y proporcionales, anclaje/redimensionamiento con celdas, ausencia de filtros/tablas/fondos y exactitud de encabezados, precios, COLOR y STOCK.
 
-El gate funcional del exportador queda **cerrado**. La PR #20 puede pasar a revisión final e integración; no se requieren más cambios de diseño en Excel salvo defecto reproducible.
+El gate funcional del exportador queda **cerrado** y su contenido está incluido en la rama de integración. La promoción se realizará mediante PR #30 junto con el resto del conjunto validado; no se requieren más cambios de diseño en Excel salvo defecto reproducible.

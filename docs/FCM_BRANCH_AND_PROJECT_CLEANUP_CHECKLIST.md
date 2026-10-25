@@ -317,3 +317,31 @@ Cambios diagnosticos en la rama pendientes de validar localmente:
 - Se añadieron pruebas para la normalizacion del texto y frescura de las fuentes; volver a ejecutar Ruff, Pyright, las pruebas especificas y la suite completa.
 
 Criterio de cierre de esta fase: no migrar ni borrar hasta que los codigos exclusivos, las relaciones anomalas, las descripciones tecnicas y las diferencias de stock tengan una decision documentada. A continuacion, generar un plan transaccional de migracion con copia recuperable y pruebas de igualdad post-migracion.
+
+## Politica de autoridad temporal y codigos posiblemente renovados — 2026-10-25
+
+### Regla confirmada para la conciliacion
+- [x] Priorizar la captura completa mas reciente para representar el estado actual del catalogo: PROJECT tiene scraping aplicado hasta 2026-10-24; LOCALAPPDATA se queda en 2026-09-26.
+- [x] Para el stock actual, usar el valor de la captura reciente del proyecto, no el mayor valor ni una suma entre bases. La reduccion es coherente con una captura mas nueva; no combinar snapshots de fechas distintas.
+- [x] Para campos que recibieron los ajustes de calidad buscados, preservar la version reciente del proyecto como principal. Usar los datos antiguos como referencia de recuperacion, no para revertir automaticamente esos ajustes.
+- [x] Mantener excepciones explicitas para anomalias verificadas en la base reciente: por ejemplo, FB-1908 con relaciones de categoria anormalmente extensas y productos con URLs/galerias de imagen que parecen ajenas. La fecha mas reciente no valida automaticamente una relacion o imagen evidentemente inconsistente.
+
+### Codigos exclusivos: no asumir que son productos nuevos
+La auditoria encontro coincidencias de nombre e image_hash entre codigos exclusivos de ambos snapshots:
+- FB-4047 (reciente) y FB-4042 (antiguo): Foco Antiestres; misma imagen; stock 212 frente a 414.
+- FB-4048 (reciente) y FB-4043 (antiguo): Pelota Mundo Mano Antiestres; misma imagen y stock 487.
+- TPSTCB (reciente) y TPSTCB-01 (antiguo): Taza Enamel 12 oz; misma imagen, stock y color_stock.
+- FB-3024 (reciente) y ST-210 (antiguo): Maquina Doble Estacion Freesub; misma imagen, pero la descripcion indica especificaciones diferentes (560 W frente a 280 W). Requiere comprobacion de origen antes de decidir si es una renovacion de codigo o una asociacion incorrecta.
+
+Estas coincidencias son candidatos de codigo renovado, no una autorizacion para combinar ni borrar registros. La base antigua debe mantenerse intacta hasta resolverlos. FB-2111 solo aparece en LOCALAPPDATA; no se debe reimportar sin confirmar que sigue vigente en la fuente actual.
+
+### Diagnostico adicional publicado
+- [x] La auditoria informa las marcas temporales de scraping para valorar la frescura.
+- [x] La auditoria clasifica diferencias de descripcion explicables por espacios/saltos de linea frente a diferencias de contenido tras normalizar espacios.
+- [x] La auditoria informa productos exclusivos con sus campos esenciales y detecta candidatos de codigo renovado mediante nombre normalizado + SHA-256 exacto de imagen.
+- [ ] Validar los cambios diagnosticos con Ruff, Pyright y suite completa.
+- [ ] Inspeccionar los candidatos y sus valores con la captura actual, incluida la cache HTML cuando corresponda.
+- [ ] Preparar migracion selectiva desde el snapshot reciente a una ubicacion de datos canonica, conservando una copia recuperable antes de cambios.
+- [ ] Clasificar y limpiar los 51 archivos de base de datos solo despues de comparar contenido, referencias y capacidad de restauracion.
+
+La politica de migracion es: snapshot reciente del proyecto como autoridad para valores actuales de catalogo; datos antiguos solo como recuperacion o para completar elementos cuya vigencia sea confirmada independientemente. Nunca sumar stock entre snapshots ni reemplazar campos recientes solo porque la base antigua contenga un valor distinto.

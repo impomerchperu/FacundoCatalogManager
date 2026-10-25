@@ -1,8 +1,11 @@
 # FCM — Plan Maestro
 
-Fecha de actualización: 2026-10-04
-Branch oficial: `main`
-Estado: `main` mantiene el baseline funcional de `v0.2.0`; la siguiente línea de trabajo es el cierre y promoción controlada del conjunto pre-`v0.3.0`, con la PR #20 dedicada al exportador Excel.
+Fecha de actualización: 2026-10-25
+Rama predeterminada/de promoción: `main` (`47a840f5`, corte de auditoría)
+Rama de integración activa: `feat/product-table-layout` (`40cf1285`, HEAD validado por el usuario antes de actualizar esta documentación)
+Estado: `main` sigue en el commit que integró la PR #19 el 2026-10-02. La rama de integración es descendiente directo de `main` y está 1.266 commits por delante, 0 por detrás. El usuario confirmó en el HEAD `40cf1285` Ruff limpio, Pyright sin errores/advertencias/informaciones, 13 pruebas focales aprobadas y 981 pruebas aprobadas con 11 deseleccionadas. Esta validación no debe confundirse con una validación del HEAD de `main`.
+
+El checklist maestro actualizado de ramas, migraciones SQLite, consolidación de archivos/carpetas, imágenes, cobertura y promoción a `main` está en [FCM_BRANCH_AND_PROJECT_CLEANUP_CHECKLIST.md](FCM_BRANCH_AND_PROJECT_CLEANUP_CHECKLIST.md). Sus hallazgos y gates de cierre prevalecen sobre las referencias históricas de estado que queden en secciones anteriores de este documento.
 
 ## 1. Objetivo del proyecto
 
@@ -34,7 +37,7 @@ La autoridad funcional se divide de forma explícita:
 - 0 errores invalidantes.
 
 ### Runtime de scraping validado
-- Categorías: 12 workers.
+- Categorías: 12 workers en la configuración actual. La auditoría nueva debe reconciliar este valor con una comparación previa que informó mejor tiempo con 8; no se cambiará la concurrencia sin repetir mediciones controladas.
 - Detalle: 24 workers.
 - HTTP: 28 workers.
 - JetSmartFilters: 8 solicitudes concurrentes.
@@ -245,7 +248,7 @@ main
 
 ## 8. Próximo hito
 
-El hardening de workers, la cobertura FULL, el historial, la distribución y el pulido visual quedaron consolidados. La siguiente acción de release es ejecutar el build Windows de `0.2.0`, validar sus artefactos y completar tag/release.
+La siguiente prioridad es restablecer una ruta de promoción controlada desde `feat/product-table-layout` hacia `main`, resolver PR apiladas y completar la limpieza segura de ramas, migraciones, archivos y herramientas conforme al checklist maestro de auditoría.
 
 Mientras tanto, `main` es el baseline funcional de referencia.
 

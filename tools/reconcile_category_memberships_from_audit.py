@@ -73,7 +73,7 @@ def _key(value: object) -> str:
 
 def _unique_names(values: object, context: str) -> dict[str, str]:
     if not isinstance(values, list):
-        raise ValueError(f"{context}: se esperaba una lista de categorías.")
+        raise TypeError(f"{context}: se esperaba una lista de categorías.")
     result: dict[str, str] = {}
     for value in values:
         name = str(value or "").strip()
@@ -94,7 +94,7 @@ def _validate_report(report: dict[str, Any]) -> None:
         raise ValueError("El informe no es una auditoría de categorías íntegra y reconocida.")
     metrics = report.get("live_metrics")
     if not isinstance(metrics, dict):
-        raise ValueError("El informe no contiene métricas de cobertura.")
+        raise TypeError("El informe no contiene métricas de cobertura.")
     try:
         found = int(metrics.get("categories_found", 0))
         expected = int(metrics.get("categories_expected", 0))
@@ -132,7 +132,7 @@ def load_report(path: Path) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"No se pudo leer el informe {path}: {exc}") from exc
     if not isinstance(value, dict):
-        raise ValueError("El informe debe contener un objeto JSON.")
+        raise TypeError("El informe debe contener un objeto JSON.")
     _validate_report(value)
     return value
 
@@ -142,11 +142,11 @@ def _target_results(
 ) -> dict[str, dict[str, Any]]:
     raw = report.get("target_results")
     if not isinstance(raw, list):
-        raise ValueError("El informe no contiene target_results.")
+        raise TypeError("El informe no contiene target_results.")
     indexed: dict[str, dict[str, Any]] = {}
     for item in raw:
         if not isinstance(item, dict):
-            raise ValueError("El informe contiene un destino inválido.")
+            raise TypeError("El informe contiene un destino inválido.")
         code = str(item.get("code", "") or "").strip().upper()
         if not code or code in indexed:
             raise ValueError(f"Código vacío o duplicado en el informe: {code!r}.")
@@ -277,7 +277,7 @@ def _make_backup(connection: sqlite3.Connection) -> Path:
     return path
 
 
-def apply_reported_repairs(
+def apply_reported_repairs(  # noqa: PLR0912
     database_path: Path,
     report: dict[str, Any],
     codes: list[str] | tuple[str, ...] | None = None,
@@ -295,7 +295,7 @@ def apply_reported_repairs(
         connection.execute("BEGIN IMMEDIATE")
         integrity = str(connection.execute("PRAGMA integrity_check").fetchone()[0])
         if integrity != "ok":
-            raise ValueError(f"integrity_check antes de reparar: {integrity}")
+            raise ValueError(f"integrity_check antes de reparar: {integrity}")  # noqa: TRY301
         plans = build_repair_plans(connection, report, codes)
         changed = [plan for plan in plans if plan.changed]
         if not changed:
@@ -310,7 +310,7 @@ def apply_reported_repairs(
                     (plan.product_id, category_id),
                 )
                 if cursor.rowcount != 1:
-                    raise RuntimeError(f"{plan.code}: no se pudo retirar la relación {name!r}.")
+                    raise RuntimeError(f"{plan.code}: no se pudo retirar la relación {name!r}.")  # noqa: TRY301
             for category_id, name in plan.add:
                 try:
                     connection.execute(
@@ -330,12 +330,12 @@ def apply_reported_repairs(
                 ).fetchall()
             }
             if final_keys != set(plan.live_keys):
-                raise RuntimeError(f"{plan.code}: relaciones finales inesperadas; rollback.")
+                raise RuntimeError(f"{plan.code}: relaciones finales inesperadas; rollback.")  # noqa: TRY301
         result = str(connection.execute("PRAGMA integrity_check").fetchone()[0])
         if result != "ok":
-            raise RuntimeError(f"integrity_check antes del commit: {result}")
+            raise RuntimeError(f"integrity_check antes del commit: {result}")  # noqa: TRY301
         connection.commit()
-        return plans, backup
+        return plans, backup  # noqa: TRY300
     except Exception:
         if connection.in_transaction:
             connection.rollback()
@@ -358,7 +358,7 @@ def main() -> int:
         reported_database = Path(str(report["database"])).expanduser().resolve()
         database = args.database.expanduser().resolve() if args.database else reported_database
         if database != reported_database:
-            raise ValueError("La DB indicada no coincide con la DB del informe.")
+            raise ValueError("La DB indicada no coincide con la DB del informe.")  # noqa: TRY301
         if args.apply:
             plans, backup = apply_reported_repairs(database, report, args.codes)
         else:
@@ -389,8 +389,8 @@ def main() -> int:
             f"database_rows_modified={str(changed).lower()}|"
             "product_stock_modified=False|images_modified=False|source_files_modified=False"
         )
-        return 0
-    except (OSError, sqlite3.Error, ValueError, RuntimeError) as exc:
+        return 0  # noqa: TRY300
+    except (OSError, sqlite3.Error, TypeError, ValueError, RuntimeError) as exc:
         parser.exit(2, f"ERROR|{exc}\n")
 
 

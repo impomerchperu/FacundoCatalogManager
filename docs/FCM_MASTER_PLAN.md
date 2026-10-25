@@ -383,4 +383,3 @@ La herramienta `tools/reconcile_category_memberships_from_audit.py` se ejecutó 
 - No se debe inferir un stock correcto de `FB-1908` a partir de las listas: se habían observado valores distintos (447100 en Artículos de Oficina y 434200 en Nuevos Productos). No se actualizó stock.
 
 La reparación puntual no cierra la reconciliación global 522/523 apariciones ni 518/519 productos, el comparativo de concurrencia, la comparación de bases locales ni los demás gates de promoción. La PR #30 permanece abierta sin fusionar.
-

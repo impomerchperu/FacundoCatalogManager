@@ -453,4 +453,3 @@ Este resultado actualiza y reemplaza las tareas pendientes de la sección de evi
 - Calidad de código verificada en la rama `feat/product-table-layout`, HEAD `77e026bcf893b2b4715c31a9e413d33bebf3f889`: Ruff limpio, Pyright 0 errores, Pytest 1005 passed / 11 deselected; CI verde.
 
 No cerrar aún el diferencial global 522/523 apariciones y 518/519 productos. Tampoco modificar existencias de `FB-1908`: las listas oficiales examinadas presentaron valores distintos. La revisión visual de la galería de `FB-4047` sigue pendiente. La PR #30 y los gates de promoción a `main` permanecen abiertos.
-

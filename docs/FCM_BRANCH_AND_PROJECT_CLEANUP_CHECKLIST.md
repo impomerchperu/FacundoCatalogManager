@@ -473,15 +473,16 @@ Este estado reemplaza las notas históricas del checklist que marcaban 522/523 a
 
 ## Protocolo reproducible de benchmark de workers de categoría — actualización 2026-10-25
 
-La comparación de `category_workers=12` frente a `category_workers=8` sigue pendiente de repetirse con un método controlado. El script de perfil se endureció para exigir una copia aislada de SQLite, verificar integridad/esquema v6, permitir una ruta de salida por ejecución y rechazar explícitamente las bases canónicas del proyecto y AppData.
+La comparación de `category_workers=12` frente a `category_workers=8` sigue pendiente de ejecución local. El control de seguridad y la orquestación están implementados:
 
-- [ ] Sincronizar el commit que incorpora aislamiento de DB y rutas de salida únicas.
-- [ ] Crear mediante la API de backup de SQLite una copia semilla de `database/catalog.db`; no copiar a ciegas un archivo que pueda tener WAL activo.
-- [ ] Ejecutar seis perfiles en orden balanceado `12, 8, 8, 12, 12, 8`; cada ejecución recibe una copia independiente idéntica de la semilla y su propio JSON en `%TEMP%`.
-- [ ] Mantener fijos `detail_workers=24`, `http_workers=28`, `jsf_http_concurrency=8`, sesiones por hilo y `download_images=False`; variar únicamente los workers de categoría.
-- [ ] Aceptar un perfil para comparación solo si mantiene 24 categorías y la cobertura reportada coincide con los conteos actuales, sin diferencia entre expected/collected/enriched ni errores terminales.
-- [ ] Comparar mediana y dispersión de `profile_seconds`, latencia P50/P95/P99, solicitudes, reintentos, errores, esperas de semáforo y métricas de caché. No decidir a partir de una sola corrida.
-- [ ] Conservar el default de producción en 12 hasta que los seis informes respaldan de forma consistente una decisión.
-- [ ] Registrar los JSON, la decisión y el efecto observado; no aplicar sincronización de catálogo, no descargar imágenes y no modificar stock en este benchmark.
+- [x] `tools/profile_category_workers.py` exige una base SQLite temporal aislada, verifica integridad y esquema v6, y rechaza las rutas canónicas del proyecto y AppData.
+- [x] `tools/benchmark_category_workers.py` crea una semilla mediante la API backup de SQLite, valida el baseline vigente y ejecuta seis ensayos con una copia independiente por ensayo.
+- [x] El orden es balanceado: `12, 8, 8, 12, 12, 8`. Mantiene detalle=24, HTTP=28, JSF=8, sesiones por hilo y `download_images=False`; solo varía `category_workers`.
+- [x] Cada ejecución guarda JSON/logs únicos en `%TEMP%`, elimina las copias SQLite temporales y conserva la base original abierta en modo solo lectura.
+- [x] La herramienta valida 24 categorías, 522 apariciones esperadas/colectadas/enriquecidas, configuración fija y cero errores HTTP terminales. Si un ensayo falla, guarda `failure.json` y no calcula una conclusión con resultados incompletos.
+- [x] El resumen compara medianas/rangos, latencias P50/P95/P99, solicitudes, reintentos, errores y espera de semáforo. La herramienta no cambia el default productivo.
+- [ ] Sincronizar el commit más reciente, ejecutar Ruff, Pyright y Pytest localmente y confirmar CI verde.
+- [ ] Ejecutar `python tools/benchmark_category_workers.py` y compartir `SUMMARY_JSON` (o `FAILURE_JSON` si una comprobación falla).
+- [ ] Mantener 12 como valor productivo hasta revisar evidencia de las seis corridas; no cambiar configuración por una sola medición.
 
-Comando objetivo por ensayo después de sincronizar la herramienta: establecer `FCM_PROFILE_CATEGORY_WORKERS`, `FCM_PROFILE_DB_PATH` a la copia temporal de ese ensayo y `FCM_PROFILE_OUTPUT_PATH` al JSON único; ejecutar `python tools/profile_category_workers.py`. La herramienta valida la copia antes de abrir el pipeline y muestra la ruta de DB/report en la salida.
+No se ejecuta FULL de sincronización, no se escriben productos, no se descargan imágenes y no se modifica el stock o la base SQLite original durante el benchmark.

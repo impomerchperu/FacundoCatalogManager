@@ -401,15 +401,16 @@ Este bloque es la decisión vigente y reemplaza las referencias históricas ante
 La rama local se sincronizó por fast-forward en `2aa8229a`; Quality CI de ese commit pasó (Ruff, Pyright y 1005 pruebas aprobadas / 11 deseleccionadas). La PR #30 continúa sin fusionar.
 
 
-## 14. Benchmark controlado de workers de categoría — protocolo actualizado, 2026-10-25
+## 14. Benchmark controlado de workers de categoría — protocolo automatizado, 2026-10-25
 
-No se cambia el default de producción `category_workers=12` antes de medirlo contra 8 con repeticiones comparables. La herramienta `tools/profile_category_workers.py` exige ahora `FCM_PROFILE_DB_PATH` a una copia SQLite temporal (integridad `ok`, esquema v6), rechaza expresamente la base de proyecto y AppData, y enruta el profiler hacia esa copia. `FCM_PROFILE_OUTPUT_PATH` permite guardar cada informe sin sobrescribir el anterior.
+La comparación local de `category_workers=12` frente a 8 aún no se ha ejecutado con la nueva herramienta. Se añadió un orquestador para hacerla con un solo comando después de sincronizar la rama y pasar la validación local:
 
-Diseño de prueba:
-- Se parte de una única copia semilla de `database/catalog.db`, creada con la API `sqlite3.Connection.backup`.
-- Se ejecutan seis ensayos con una copia independiente idéntica por ensayo, en orden `12, 8, 8, 12, 12, 8`.
-- Se mantienen constantes detalle=24, HTTP=28, JSF=8, sesiones por hilo y sin descarga de imágenes.
-- Cada ensayo genera un JSON separado en `%TEMP%`. Solo se comparan corridas con 24 categorías y cobertura esperada/colectada/enriquecida coincidente; cualquier error terminal o desfase invalida esa corrida.
-- Se comparan la mediana y dispersión de `profile_seconds`, P50/P95/P99, cantidad de solicitudes, reintentos, errores, espera de semáforo y comportamiento de caché.
+```powershell
+python tools/benchmark_category_workers.py
+```
 
-El perfil no ejecuta una sincronización FULL, no aplica productos a `products`, no sincroniza imágenes y no modifica el catálogo real. El DBManager y la caché operan sobre una copia temporal. Mantener 12 como valor productivo hasta analizar los informes; el resultado no debe inferirse antes de ejecutar los ensayos locales.
+El orquestador abre `database/catalog.db` en modo solo lectura para validarlo y crear una semilla por `sqlite3.Connection.backup`. Exige esquema v6, integridad `ok`, 518 productos, 522 relaciones producto-categoría y 24 categorías. Genera una copia SQLite independiente por ensayo, sin compartir caché mutada entre ejecuciones.
+
+El orden de medición es `12, 8, 8, 12, 12, 8`. Se mantienen detalle=24, HTTP=28, JSF=8, sesiones por hilo y `download_images=False`; únicamente cambia `category_workers`. Cada ensayo tiene JSON/log separado en `%TEMP%`. Las copias y la semilla se eliminan al finalizar; la base original no se usa para persistir resultados ni se sincroniza el catálogo.
+
+La herramienta exige 24 categorías y cobertura de 522 apariciones esperadas/colectadas/enriquecidas, configuración constante y cero errores terminales. Si una corrida no cumple, escribe `failure.json` y aborta; no calcula una conclusión con muestras incompletas. El resumen reporta medianas/rangos de tiempo, latencia P50/P95/P99, solicitudes, reintentos, errores y espera de semáforo. El porcentaje positivo indica que 8 workers fue más rápido en la mediana; no cambia el default productivo, que permanece en 12 hasta que se revisen los datos.

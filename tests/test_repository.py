@@ -329,5 +329,3 @@ def test_service_syncs_product_category_relationships(repository):
     )
     assert new_link["total"] == 1
     assert anti_link["total"] == 1
-
-

@@ -152,3 +152,72 @@ La auditoría se cierra cuando:
 8. Ruff, Pyright, suite, smoke GUI y checks del commit de promoción pasan.
 
 **Regla de seguridad:** preservar primero, comparar contenido segundo, validar sustitución tercero y borrar al final. La limpieza no consiste en reducir artificialmente el número de ramas ni en mover archivos sin pruebas.
+
+
+## 12. Flujo de trabajo permanente: repositorio único y ramas mínimas
+
+Estas reglas son operativas y prevalecen sobre instrucciones anteriores que pidieran descargar archivos generados manualmente.
+
+### Cambios y archivos
+
+- No pedir al usuario que descargue a mano scripts, documentos o código que pueda incorporarse al repositorio. Editar los archivos directamente en GitHub sobre la rama apropiada, ejecutar los checks disponibles y entregar comandos PowerShell para sincronizar y validar el mismo checkout local.
+- El proyecto local canónico es `C:\\Proyectos\\FacundoCatalogManager`. No crear ni mantener una segunda carpeta de proyecto como método de trabajo.
+- Versionar herramientas reutilizables de auditoría en `tools/`; no versionar bases de datos reales, backups locales ni informes efímeros. El inventario inicial queda disponible como `tools/audit_cleanup_migration_inventory.py`, que abre SQLite en modo solo lectura y genera el JSON bajo `%TEMP%`.
+- La auditoría no autoriza eliminaciones: primero comparar códigos y relaciones, identificar cuál base utiliza realmente la aplicación, verificar backups recuperables, migrar/consolidar y comprobar el resultado; después poner candidatos en cuarentena y borrar únicamente con evidencia.
+
+### Modelo de ramas
+
+- `main` es la única rama estable y la fuente canónica una vez promovida y validada la integración.
+- Mientras la PR #30 permanezca abierta, `feat/product-table-layout` es la única rama de integración para el conjunto consolidado. Incorporar allí los ajustes que formen parte de ese conjunto; no abrir otra rama solo para duplicar la auditoría o el checkpoint.
+- Crear una rama de desarrollo/validación únicamente si existe trabajo independiente que realmente se desarrollará en paralelo y que no está ya contenido en la PR #30. Cada rama activa debe tener propósito, alcance, validaciones y ruta de vuelta a `main` explícitos.
+- Mantener `archive/recovery-catalog-202609` protegida hasta confirmar qué recuperación aporta y cerrar la reconciliación de datos.
+- No borrar ramas históricas por su antigüedad, número de commits o apariencia de divergencia. Después de promover y validar `main`, comparar su contenido exclusivo; retirar únicamente ramas cuya funcionalidad esté demostrablemente integrada y que no tengan valor de recuperación.
+- Las PR #20, #23, #24, #28 y #29 ya constan como supersedidas por la ruta única #30; no volver a integrar su contenido en rutas paralelas.
+
+### Sincronización local de la rama de integración
+
+El asistente debe entregar comandos de sincronización que fallen explícitamente ante errores de red/Git, rama incorrecta, cambios locales sin guardar o validaciones fallidas. Usar `git pull --ff-only`; no usar `reset --hard`, force-push ni limpiar el árbol automáticamente.
+
+Plantilla de sincronización y validación local:
+
+```powershell
+$ErrorActionPreference = "Stop"
+Set-Location "C:\\Proyectos\\FacundoCatalogManager"
+$targetBranch = "feat/product-table-layout"
+
+$currentBranch = (git branch --show-current).Trim()
+if ($LASTEXITCODE -ne 0) { throw "Falló git branch." }
+if ($currentBranch -ne $targetBranch) {
+    throw "Rama actual '$currentBranch'; se esperaba '$targetBranch'. No se cambió de rama automáticamente."
+}
+
+$dirty = @(git status --porcelain)
+if ($LASTEXITCODE -ne 0) { throw "Falló git status." }
+if ($dirty.Count -gt 0) {
+    $dirty
+    throw "Hay cambios locales sin guardar. No se sincronizó para evitar perderlos."
+}
+
+git fetch origin
+if ($LASTEXITCODE -ne 0) { throw "Falló git fetch origin." }
+
+git pull --ff-only origin $targetBranch
+if ($LASTEXITCODE -ne 0) { throw "Falló git pull --ff-only." }
+
+git diff --check "origin/main...HEAD"
+if ($LASTEXITCODE -ne 0) { throw "Falló git diff --check respecto a main." }
+
+python -m ruff check .
+if ($LASTEXITCODE -ne 0) { throw "Falló Ruff." }
+
+python -m pyright
+if ($LASTEXITCODE -ne 0) { throw "Falló Pyright." }
+
+python -m pytest -q
+if ($LASTEXITCODE -ne 0) { throw "Falló la suite completa." }
+
+git status --short
+if ($LASTEXITCODE -ne 0) { throw "Falló la comprobación final del estado Git." }
+```
+
+El paso a `main` solo ocurre después de cerrar los gates funcionales documentados en esta checklist, aprobar la PR de integración y validar el HEAD resultante de `main`.

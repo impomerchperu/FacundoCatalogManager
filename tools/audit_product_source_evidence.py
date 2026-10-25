@@ -240,6 +240,105 @@ def _source_urls_for_code(
     return []
 
 
+def _page_has_explicit_product_code(html: str, code: str) -> bool:
+    """Match a SKU only inside the page's explicit code/SKU elements."""
+    expected = re.compile(
+        rf"(?<![A-Z0-9]){re.escape(code)}(?![A-Z0-9])",
+        flags=re.IGNORECASE,
+    )
+    soup = BeautifulSoup(html, "html.parser")
+    selectors = (
+        "p.brxe-heading",
+        "span.sku",
+        "[sku]",
+        "[data-sku]",
+        ".sku",
+    )
+    for selector in selectors:
+        for element in soup.select(selector):
+            candidates = [
+                str(element.get("sku", "") or ""),
+                str(element.get("data-sku", "") or ""),
+                element.get_text(" ", strip=True),
+            ]
+            if any(expected.search(value) for value in candidates):
+                return True
+    return False
+
+
+def _page_product_name(html: str) -> str:
+    """Extract a likely title for the lower-confidence cache-name fallback."""
+    soup = BeautifulSoup(html, "html.parser")
+    for selector in (
+        "h1.product_title",
+        "h1.brxe-heading",
+        "h1",
+        "h2.brxe-heading",
+        "h2",
+    ):
+        element = soup.select_one(selector)
+        if element is not None:
+            value = re.sub(r"\s+", " ", element.get_text(" ", strip=True)).strip()
+            if value:
+                return value
+    return ""
+
+
+def _normalize_product_name(value: object) -> str:
+    return " ".join(str(value or "").casefold().split())
+
+
+def _find_cached_pages_for_product(
+    cache_index: dict[str, dict[str, Any]],
+    code: str,
+    name: str,
+) -> list[dict[str, str]]:
+    """Find a page by explicit SKU; use a unique exact title only as fallback."""
+    unique_records: dict[str, dict[str, Any]] = {}
+    for record in cache_index.values():
+        key = normalize_source_url(record.get("normalized_url", ""))
+        if key:
+            unique_records.setdefault(key, record)
+
+    sku_matches: list[dict[str, str]] = []
+    name_matches: list[dict[str, str]] = []
+    expected_name = _normalize_product_name(name)
+
+    for record in unique_records.values():
+        html = _decode_cached_html(record)
+        if html is None:
+            continue
+
+        url = str(
+            record.get("effective_url")
+            or record.get("original_url")
+            or record.get("normalized_url")
+            or ""
+        ).strip()
+        if not url:
+            continue
+
+        page_info = {
+            "url": url,
+            "match_basis": "",
+        }
+        if _page_has_explicit_product_code(html, code):
+            page_info["match_basis"] = "explicit_sku_in_cached_html"
+            sku_matches.append(page_info)
+            continue
+
+        page_name = _normalize_product_name(_page_product_name(html))
+        if expected_name and page_name == expected_name:
+            page_info["match_basis"] = "unique_exact_product_title_fallback"
+            name_matches.append(page_info)
+
+    if sku_matches:
+        return sku_matches
+    if len(name_matches) == 1:
+        return name_matches
+    return []
+
+
 def _cache_index(connection: sqlite3.Connection, tables: set[str]) -> dict[str, dict[str, Any]]:
     if "source_page_cache" not in tables:
         return {}
@@ -471,9 +570,27 @@ def build_report(database_path: Path, codes: tuple[str, ...] | list[str]) -> dic
                 actual_code,
                 product_info["name"],
             )
+            source_url_match_basis = (
+                "scraped_products_record" if source_urls else ""
+            )
+            if not source_urls:
+                cached_matches = _find_cached_pages_for_product(
+                    cache_index,
+                    actual_code,
+                    product_info["name"],
+                )
+                source_urls = [
+                    str(item["url"])
+                    for item in cached_matches
+                    if item.get("url")
+                ]
+                if cached_matches:
+                    source_url_match_basis = str(cached_matches[0]["match_basis"])
+
             product["product_status"] = "found"
             product["product"] = product_info
             product["source_urls"] = source_urls
+            product["source_url_match_basis"] = source_url_match_basis or None
             product["source_page_evidence"] = _source_page_evidence(
                 source_urls,
                 cache_index,
@@ -481,12 +598,18 @@ def build_report(database_path: Path, codes: tuple[str, ...] | list[str]) -> dic
                 relation_urls,
             )
             if not source_urls:
-                product["source_url_status"] = "not_found_in_scraped_products"
+                product["source_url_status"] = (
+                    "no_cached_product_page_match_by_sku_or_unique_exact_title"
+                    if cache_index
+                    else "not_found_in_scraped_products_and_cache_unavailable"
+                )
             elif all(
                 item.get("cache_status") == "not_found"
                 for item in product["source_page_evidence"]
             ):
                 product["source_url_status"] = "url_found_but_no_cached_page"
+            else:
+                product["source_url_status"] = "cached_product_page_found"
             report["products"].append(product)
 
     finally:

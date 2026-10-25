@@ -139,7 +139,7 @@ def _exclusive_product_samples(
 
 def _normalize_description(value: object) -> str:
     """Normalize whitespace only; preserve technical words and punctuation."""
-    return re.sub(r"\\s+", " ", str(value or "")).strip()
+    return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
 def _read_database(path: Path, label: str) -> dict[str, Any]:  # noqa: PLR0912

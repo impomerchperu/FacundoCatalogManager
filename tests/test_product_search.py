@@ -243,4 +243,3 @@ def test_main_window_orders_search_results_by_priority_and_keeps_ties_stable():
         "PRICE",
     ]
     app.search_box.deleteLater()
-

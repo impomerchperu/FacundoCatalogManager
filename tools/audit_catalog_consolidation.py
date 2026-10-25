@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
@@ -603,6 +604,9 @@ def build_report(project_path: Path, local_path: Path) -> dict[str, Any]:
 
 
 def main() -> int:
+    # Keep JSON/text diagnostics printable in Windows consoles using legacy code pages.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="backslashreplace")
     if LOCALAPPDATA_DATABASE is None:
         raise SystemExit("No existe la variable de entorno LOCALAPPDATA.")
     report = build_report(PROJECT_DATABASE, LOCALAPPDATA_DATABASE)

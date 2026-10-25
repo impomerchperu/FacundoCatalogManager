@@ -92,8 +92,11 @@ def _gallery_image_entries(
         reference_errors.append(error)
 
     try:
-        payload = json.loads(raw) if isinstance(raw, (str, bytes, bytearray)) else raw
-    except (TypeError, json.JSONDecodeError) as error:
+        if isinstance(raw, (str, bytes, bytearray)):
+            payload = json.loads(raw)
+        else:
+            payload = raw
+    except (TypeError, UnicodeDecodeError, json.JSONDecodeError) as error:
         record_error(f"JSON inválido: {type(error).__name__}")
         return []
 

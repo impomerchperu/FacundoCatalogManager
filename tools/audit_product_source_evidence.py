@@ -14,7 +14,7 @@ import os
 import re
 import sqlite3
 import zlib
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -514,7 +514,7 @@ def main() -> int:
         raise SystemExit(f"No existe la base de datos indicada: {database_path}")
 
     report = build_report(database_path, args.codes)
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     report_path = TEMP / f"fcm_product_source_evidence_audit_{stamp}.json"
     report_path.write_text(
         json.dumps(report, ensure_ascii=False, indent=2, default=str) + "\n",

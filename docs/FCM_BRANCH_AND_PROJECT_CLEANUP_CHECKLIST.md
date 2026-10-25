@@ -298,3 +298,22 @@ Estos conteos significan que el valor almacenado difiere entre bases; no signifi
 
 ### Politica provisional de fuente canonica
 database/catalog.db del proyecto es la referencia tecnica provisional por su esquema mas reciente e historial de scraping mas completo. La base de LOCALAPPDATA tiene cinco codigos exclusivos y un producto neto adicional, por lo que debe seguir preservandose hasta resolver las diferencias. La consolidacion debe importar selectivamente los datos validos; no consiste en copiar una base completa sobre la otra.
+ 
+## Siguiente iteracion de conciliacion — 2026-10-25
+
+La comparacion validada localmente reporto 989 pruebas aprobadas y 11 omitidas, antes de los cambios de diagnostico añadidos en esta iteracion.
+
+Hallazgos para resolver antes de migrar:
+- Stock y color_stock difieren para 272 productos compartidos. No sumar cantidades ni escoger maximos; comparar frescura de los datos y validar contra una fuente confiable.
+- Las diferencias brutas de descripcion incluyen saltos de linea y espacios, pero hay ejemplos con contenido tecnico real distinto (por ejemplo, 861-A4 pierde la etiqueta Color: Blanco en el proyecto respecto de LOCALAPPDATA).
+- Varios image_url de LOCALAPPDATA apuntan a placeholders aunque el proyecto tiene URLs especificas; verificar los archivos persistidos antes de promover imagenes.
+- FB-1908 tiene 23 relaciones de categoria en el proyecto y ninguna en LOCALAPPDATA. Tratar como anomalia prioritaria y revisar el historial/origen de esas relaciones antes de modificarlo.
+- TPSTCB y TPSTCB-01 son codigos distintos en las bases; revisar nombre, detalle, precios e imagen antes de decidir si representan productos diferentes o un cambio de codigo.
+
+Cambios diagnosticos en la rama pendientes de validar localmente:
+- La auditoria comparativa incluye las ultimas marcas temporales de scraping_runs y scraping_history.
+- Incluye los datos esenciales de los productos exclusivos de cada base para identificar si deben importarse, actualizarse o investigarse.
+- Separa las diferencias de descripcion que se explican solo por espacios/saltos de linea de las diferencias de contenido despues de normalizar espacios.
+- Se añadieron pruebas para la normalizacion del texto y frescura de las fuentes; volver a ejecutar Ruff, Pyright, las pruebas especificas y la suite completa.
+
+Criterio de cierre de esta fase: no migrar ni borrar hasta que los codigos exclusivos, las relaciones anomalas, las descripciones tecnicas y las diferencias de stock tengan una decision documentada. A continuacion, generar un plan transaccional de migracion con copia recuperable y pruebas de igualdad post-migracion.

@@ -13,6 +13,7 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import zlib
 from datetime import datetime, timezone
 from pathlib import Path
@@ -495,6 +496,9 @@ def build_report(database_path: Path, codes: tuple[str, ...] | list[str]) -> dic
 
 
 def main() -> int:
+    # Keep JSON/text diagnostics printable in Windows consoles using legacy code pages.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="backslashreplace")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--database",

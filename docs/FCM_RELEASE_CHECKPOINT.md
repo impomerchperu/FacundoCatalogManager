@@ -218,7 +218,7 @@ La mejora de progreso ya quedó validada sin requerir otro FULL real. El benchma
 
 ## Seguimiento v0.3.0 — Exportador Excel
 
-Actualización: 2026-10-04  
+Actualización: 2026-10-04
 Rama de trabajo: `fix/excel-table-repair`
 
 El bloque de ajustes del exportador Excel queda **cerrado temporalmente**. El estado validado y conservado es:

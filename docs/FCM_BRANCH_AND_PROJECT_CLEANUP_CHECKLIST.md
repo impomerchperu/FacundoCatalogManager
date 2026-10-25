@@ -9,12 +9,12 @@
 
 - [x] Se verificó el estado de las ramas remotas: existen 13 referencias de rama.
 - [x] `main` apunta a `47a840f5`, commit que integró la PR #19 el 2026-10-02.
-- [x] `feat/product-table-layout` es descendiente directo de `main` y no está detrás. El HEAD de código/pruebas validado por Quality CI es `5ed7a406`; los commits documentales posteriores actualizan el checklist y el plan maestro.
-- [x] El usuario validó localmente el código de `b611d17a`: Ruff limpio; Pyright con 0 errores, advertencias e informaciones; 57 pruebas focales aprobadas; suite completa con 983 aprobadas y 11 deseleccionadas. Posteriormente se añadieron dos pruebas de migración; Quality CI pasó en `5ed7a406` con Ruff, Pyright y Pytest en éxito.
+- [x] `feat/product-table-layout` es descendiente directo de `main` y no está detrás. El HEAD de código/pruebas validado por Quality CI es `19513cda`; los commits documentales posteriores actualizan el checklist y el plan maestro.
+- [x] El usuario validó localmente el código de `b611d17a`: Ruff limpio; Pyright con 0 errores, advertencias e informaciones; 57 pruebas focales aprobadas; suite completa con 983 aprobadas y 11 deseleccionadas. Después se añadieron tres regresiones de migración; Quality CI pasó en `19513cda` con Ruff, Pyright y Pytest en éxito.
 - [x] Se confirmó que #25, #26 y #27 se integraron en `feat/product-table-layout`, no directamente en `main`.
 - [x] Se comprobó que las ramas fuente de #20, #23 y #24 ya forman parte de la rama de integración; las tres PR se cerraron como supersedidas por la ruta única #30.
 - [x] Se comparó el contenido exclusivo de #28/#29 con la implementación actual; se portaron a la rama activa las regresiones FB-4008 y limpieza post-prune SQLite real. Las PR se cerraron como supersedidas por #30, sin borrar sus ramas fuente.
-- [x] `database/db_manager.py` administra migraciones versionadas hasta la versión 5 y registra el historial en `schema_migrations`. No existe actualmente una carpeta independiente `database/migrations/`.
+- [x] `database/db_manager.py` administra migraciones versionadas hasta la versión 6 y registra el historial en `schema_migrations`. No existe actualmente una carpeta independiente `database/migrations/`.
 - [x] La auditoría histórica de limpieza de 2026-09-27 no basta para dar por limpias las ramas actuales ni las nuevas herramientas y cambios posteriores.
 
 ### Estado de PR al 2026-10-25
@@ -81,13 +81,14 @@ La PR #30 contiene un diff neto de 132 archivos respecto a `main`. GitHub report
 
 - [x] Identificar el punto de entrada: `DBManager.initialize_database()` ejecuta `database/schema.sql` y luego las migraciones versionadas.
 - [x] Registrar que la versión actual del esquema es 5, con ledger `schema_migrations` y funciones de migración dentro de `database/db_manager.py`.
-- [x] Validar por CI el avance simulado v2→v5, la idempotencia del ledger y la migración de `download_changes` legado sin perder cambios históricos.
+- [x] Validar por CI el avance simulado v2→v6, la idempotencia del ledger y la migración de `download_changes` legado sin perder cambios históricos.
 - [x] Confirmar que los tests cubren el ledger y el rechazo de una versión de esquema posterior a la soportada.
-- [ ] Revisar una por una las migraciones v1–v5 contra el esquema actual, las columnas/tablas resultantes y los datos que deben conservar.
+- [ ] Revisar una por una las migraciones v1–v6 contra el esquema actual, las columnas/tablas resultantes y los datos que deben conservar.
 - [ ] Probar el arranque desde una BD vacía y desde copias representativas de los estados anteriores; validar idempotencia de una segunda apertura.
-- [x] Añadir pruebas para la migración v2→v5 conservando datos e idempotencia, y para restaurar `download_changes` legado con FK a historial; Quality CI pasó en `5ed7a406`.
+- [x] Añadir pruebas para la migración v2→v6 conservando datos e idempotencia, restaurar `download_changes` legado con FK a historial y conservar nombres de colores heredados; Quality CI pasó en `19513cda`.
 - [ ] Probar rollback/recuperación frente a una migración fallida y la ruta de backup/restore sobre copias, sin tocar la BD real.
-- [ ] Revisar específicamente la migración v1: elimina `colors` de `products` y `scraped_products` sin copia explícita a otro campo. Confirmar con fixtures de datos heredados si el contenido era redundante o debe preservarse; nunca inferir cantidades por color.
+- [x] La migración v1 y v6 ahora copian el contenido original de `colors` a `legacy_colors` antes de quitar la columna antigua, cuando los valores todavía existen; la regresión valida ambas tablas y confirma que no se infiere stock.
+- [ ] Verificar si la base de datos local ya pasó por la versión antigua que eliminaba `colors` sin respaldo. Los valores previamente eliminados no se pueden reconstruir desde la base actual; solo recuperar desde una copia anterior si se necesita restituirlos.
 - [ ] Aclarar en documentación qué define `schema.sql` y qué cambios pertenecen a cada versión de migración.
 - [ ] Decidir si separar las migraciones en un módulo o carpeta dedicada mejora de verdad la mantenibilidad. No mover funciones ni crear estructura vacía antes de tener los tests de compatibilidad.
 - [ ] Mantener rechazo explícito de esquemas futuros y no cambiar números/versiones sin una migración y pruebas asociadas.
@@ -128,7 +129,7 @@ La PR #30 contiene un diff neto de 132 archivos respecto a `main`. GitHub report
 - [x] Pyright: 0 errores, advertencias e informaciones en el HEAD validado por el usuario.
 - [x] Suite completa del HEAD `b611d17a`: 983 aprobadas, 11 deseleccionadas; pruebas focales de sincronización/limpieza: 57 aprobadas.
 - [x] Volver a ejecutar las comprobaciones focales después de portar las regresiones de #28; el HEAD `b611d17a` pasó las comprobaciones locales reportadas.
-- [x] Quality CI pasó para el HEAD de código/pruebas `5ed7a406`: Ruff, Pyright y Pytest en éxito; el job `live-catalog` fue omitido intencionalmente en la PR. Los cambios documentales posteriores no modificaron ese código.
+- [x] Quality CI pasó para el HEAD de código/pruebas `19513cda`: Ruff, Pyright y Pytest en éxito; el job `live-catalog` fue omitido intencionalmente en la PR. Los cambios documentales posteriores no modificaron ese código.
 - [ ] Verificar CI/Actions para el commit exacto de promoción; el estado local verde no sustituye la comprobación del commit de destino.
 - [ ] Hacer smoke test de GUI: tabla, categorías, búsqueda, CRUD, stock/color, galería, cola de revisión, historial y actualización.
 - [ ] Verificar generación y apertura real de XLSX, CSV y PDF; Excel debe abrir sin reparación y conservar el contrato acordado.

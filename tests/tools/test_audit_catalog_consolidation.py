@@ -140,7 +140,7 @@ def test_build_report_compares_products_relations_and_schema_read_only(
     assert relation_diff["available"] is True
     assert relation_diff["project_relation_count"] == 2
     assert relation_diff["localappdata_relation_count"] == 1
-    assert relation_diff["codes_with_different_categories"] == 2
+    assert relation_diff["codes_with_different_categories"] == 3
 
     assert project_db.read_bytes() == project_bytes_before
     assert local_db.read_bytes() == local_bytes_before

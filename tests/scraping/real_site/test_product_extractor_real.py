@@ -87,4 +87,3 @@ def test_product_extractor_real_site_fb4008_technical_detail():
     assert "Color: Blanco" in detail
     assert "Información adicional" not in detail
     assert "Valoraciones" not in detail
-

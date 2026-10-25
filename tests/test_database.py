@@ -340,3 +340,64 @@ def test_database_migrates_v2_run_history_relationship_from_v1():
     )["version"] == DBManager.SCHEMA_VERSION
 
     db.close()
+
+def test_database_migrates_from_v2_to_v5_idempotently_and_preserves_product_data():
+    db = DBManager(":memory:")
+    db.execute_query(
+        "INSERT INTO products (code, name, stock) VALUES (?, ?, ?)",
+        ("MIGRATION-001", "Producto de migración", 17),
+    )
+
+    # Recreate the schema surface of a v2 database, then run the real v3-v5
+    # migration path. The existing product row must survive every ALTER TABLE.
+    for column in (
+        "gallery_images",
+        "image_etag",
+        "image_last_modified",
+        "image_checked_at",
+    ):
+        db.execute_query(f"ALTER TABLE products DROP COLUMN {column}")
+    db.execute_query("DROP TABLE source_page_cache")
+    db.execute_query("DELETE FROM schema_migrations WHERE version >= 3")
+
+    db._run_migrations()
+
+    columns = {
+        row["name"] for row in db.fetch_all("PRAGMA table_info(products)")
+    }
+    assert {
+        "gallery_images",
+        "image_etag",
+        "image_last_modified",
+        "image_checked_at",
+    } <= columns
+
+    cache = db.fetch_one(
+        "SELECT name FROM sqlite_master "
+        "WHERE type = 'table' AND name = 'source_page_cache'"
+    )
+    assert cache is not None
+    cache_index = db.fetch_one(
+        "SELECT name FROM sqlite_master "
+        "WHERE type = 'index' AND name = 'idx_source_page_cache_checked_at'"
+    )
+    assert cache_index is not None
+
+    stored = db.fetch_one(
+        "SELECT code, name, stock, gallery_images, image_etag "
+        "FROM products WHERE code = ?",
+        ("MIGRATION-001",),
+    )
+    assert stored is not None
+    assert stored["name"] == "Producto de migración"
+    assert stored["stock"] == 17
+    assert stored["gallery_images"] == "[]"
+    assert stored["image_etag"] == ""
+
+    # Re-running migrations must not duplicate ledger records or mutate data.
+    db._run_migrations()
+    versions = db.fetch_all(
+        "SELECT version FROM schema_migrations ORDER BY version"
+    )
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5]
+    db.close()

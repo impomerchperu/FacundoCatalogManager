@@ -376,3 +376,24 @@ Las fichas y resultados web pueden proceder de paginas cacheadas con fecha anter
 ### Siguiente paso seguro
 
 Generar una auditoria no destructiva de `source_page_cache` para extraer, desde el HTML almacenado en la BD del proyecto, los enlaces de categoria del producto y contrastarlos con sus relaciones normalizadas. Ejecutar despues una revision focal de las galerias de `FB-1908`, `FB-4047` y de los pares candidatos. Solo con esa evidencia decidir las correcciones; aplicar por lote transaccional y categoria con respaldo recuperable y auditoria posterior.
+
+
+## Auditoria de evidencia HTML en caché — validacion de herramienta, 2026-10-25
+
+- [x] Se incorporo `tools/audit_product_source_evidence.py` para comparar de forma no destructiva los enlaces de categoria almacenados en el HTML de producto contra las relaciones de `product_categories`.
+- [x] La herramienta usa `source_page_cache` de `database/catalog.db`, descomprime los HTML guardados y busca categorias declaradas en bloques acotados de WooCommerce (`.posted_in` o bloque etiquetado `Categorías:`). Los enlaces encontrados solo en el menu global se muestran como candidatos no autoritativos y no se utilizan para concluir discrepancias.
+- [x] El informe incluye fecha de captura/verificacion, estado de la caché, relaciones actuales, enlaces declarados por la ficha y galería guardada; no realiza peticiones web, no actualiza SQLite y escribe el JSON solo en `%TEMP%`.
+- [x] Se añadieron cuatro pruebas de regresion para extraccion de categorias acotada, comparacion con relaciones, lectura de solo lectura y ausencia de producto/cache.
+- [x] CI de GitHub Actions pasó en `a8f0d5f1`: Ruff limpio, Pyright 0 errores/advertencias/informaciones y 994 pruebas aprobadas con 11 deseleccionadas. El job `live-catalog` se omitió intencionalmente.
+- [ ] Ejecutar la nueva herramienta sobre la base del proyecto en el equipo Windows y revisar el informe generado. La herramienta puede informar datos pero no los corrige.
+- [ ] Priorizar el bloque `PRODUCT_SOURCE_EVIDENCE` para `FB-1908`: validar si la ficha en caché sustenta la lista actual de 23 categorias.
+- [ ] Revisar el HTML cacheado y la galeria de `FB-4047`; las URLs de la galeria almacenada incluyen `FOCO-AMARILLO.webp` y `MEZCLADOR-CAMION-copia.webp`. No borrar imagenes ni modificar la galeria hasta confirmar procedencia.
+- [ ] Comparar tambien `FB-3024`, `FB-4048` y `TPSTCB` con la ficha cacheada para cerrar la conciliacion de SKU/detalle; no sustituir stock mas reciente por valores de paginas posiblemente historicas.
+
+Comando de ejecución local despues de sincronizar la rama:
+
+```powershell
+python tools/audit_product_source_evidence.py
+```
+
+Este comando abre la base de datos del proyecto en modo solo lectura. El informe JSON se guarda en `%TEMP%`; no se toca la base instalada de LOCALAPPDATA y no se modifica ni elimina ninguna imagen. Se debe compartir solo la salida `PRODUCT_SOURCE_EVIDENCE` de los códigos indicados o las secciones de relaciones discrepantes, no es necesario pegar todo el informe.

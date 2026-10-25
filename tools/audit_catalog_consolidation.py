@@ -501,8 +501,32 @@ def main() -> int:
                 separators=(",", ":"),
             )
         )
+        field_samples = product_diff.get("field_difference_samples", {})
+        for column, samples in sorted(field_samples.items()):
+            print(
+                "PRODUCT_FIELD_SAMPLE|"
+                + str(column)
+                + "|"
+                + json.dumps(
+                    samples[:5],
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    default=str,
+                )
+            )
     else:
         print("PRODUCT_COMPARISON_UNAVAILABLE|" + str(product_diff.get("reason")))
+
+    category_diff = report["category_differences"]
+    print(
+        "CATEGORY_DIFFERENCES|"
+        + json.dumps(
+            category_diff,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            default=str,
+        )
+    )
 
     relation_diff = report["product_category_relation_differences"]
     print(
@@ -515,6 +539,16 @@ def main() -> int:
         + "|changed_codes="
         + str(relation_diff.get("codes_with_different_categories", "n/a"))
     )
+    if relation_diff.get("available"):
+        print(
+            "CATEGORY_RELATION_SAMPLES|"
+            + json.dumps(
+                relation_diff.get("samples", [])[:20],
+                ensure_ascii=False,
+                separators=(",", ":"),
+                default=str,
+            )
+        )
     print(f"REPORT_JSON|{output_path}")
     print("NO_DATABASE_OR_SOURCE_FILE_MODIFICATIONS")
     return 0

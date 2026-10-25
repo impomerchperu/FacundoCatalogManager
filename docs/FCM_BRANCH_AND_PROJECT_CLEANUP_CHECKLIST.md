@@ -21,11 +21,11 @@
 
 | PR | Estado | Tratamiento |
 |---|---|---|
-| [#30 — Integración consolidada](https://github.com/impomerchperu/FacundoCatalogManager/pull/30) | Única PR abierta; borrador; base `main`, head `feat/product-table-layout` | Ruta única de promoción; no fusionar hasta resolver los bloqueos de cobertura, workers, revisión neta y checks. |
+| [#30 — Integración consolidada](https://github.com/impomerchperu/FacundoCatalogManager/pull/30) | Única PR abierta; borrador; base `main`, head `feat/product-table-layout` | Ruta única de promoción; baseline de catálogo `522/518/4/24` y comparación de snapshots verificados; no fusionar hasta completar benchmark de workers, revisión neta, galería pendiente y checks de integración. |
 | #20, #23, #24 | Cerradas como supersedidas | Sus ramas fuente están incorporadas como ancestros de la rama de integración; no integrar por rutas paralelas. |
 | #28, #29 | Cerradas como supersedidas | Su funcionalidad tiene equivalentes más recientes en la rama de integración; se portaron las dos regresiones faltantes. Mantener los refs por ahora para comparación final. |
 
-La PR #30 contiene un diff neto de 132 archivos respecto a `main`. GitHub reporta que la rama es mergeable y el estado del diff está limpio, pero la PR sigue en borrador por los gates funcionales pendientes. Las referencias de ramas fuente cerradas no han sido borradas.
+La PR #30 contiene un diff neto de 132 archivos respecto a `main`. GitHub reporta que la rama es mergeable y el estado del diff está limpio; la PR sigue en borrador hasta completar los gates restantes. La cobertura del catálogo ya está validada en `522/518/4/24`; la comparación de bases no exige fusión de snapshots. Permanecen pendientes el benchmark controlado de workers, la revisión completa del diff neto, la inspección visual de la galería de `FB-4047` y los checks de integración correspondientes. Las referencias de ramas fuente cerradas no han sido borradas.
 
 **Causa de la acumulación:** el trabajo reciente se desarrolló y se fusionó en la rama de integración en lugar de promoverse a la rama predeterminada. Además, varias PR permanecieron abiertas y sus ramas fuente no se retiraron. Las ramas creadas a partir de bases antiguas pueden aparecer divergentes por *squash* o integración de commits; el conteo de commits, por sí solo, no demuestra que falten cambios ni que sea seguro borrar una rama.
 
@@ -452,4 +452,20 @@ Este resultado actualiza y reemplaza las tareas pendientes de la sección de evi
 - Informe posterior: `%TEMP%\\fcm_live_category_membership_audit_20261025_183037.json`.
 - Calidad de código verificada en la rama `feat/product-table-layout`, HEAD `77e026bcf893b2b4715c31a9e413d33bebf3f889`: Ruff limpio, Pyright 0 errores, Pytest 1005 passed / 11 deselected; CI verde.
 
-No cerrar aún el diferencial global 522/523 apariciones y 518/519 productos. Tampoco modificar existencias de `FB-1908`: las listas oficiales examinadas presentaron valores distintos. La revisión visual de la galería de `FB-4047` sigue pendiente. La PR #30 y los gates de promoción a `main` permanecen abiertos.
+Actualización posterior: el diferencial `522/523` apariciones y `518/519` productos no es un bloqueo pendiente del catálogo vigente. La captura del proyecto coincide con la auditoría live completa en `522/518/4/24`; las cifras `523/519` pertenecen a AppData, snapshot del 26/09/2026. No modificar el stock de `FB-1908` basándose en listados con existencias contradictorias. La revisión visual de la galería de `FB-4047` y los demás gates de promoción siguen abiertos.
+
+## Baseline vigente del catálogo y cierre de comparación de snapshots — 2026-10-25
+
+Este estado reemplaza las notas históricas del checklist que marcaban 522/523 apariciones y 518/519 productos como un diferencial global sin resolver.
+
+- [x] Se acepta como baseline vigente **522 apariciones / 518 productos únicos / 4 productos multi-categoría / 24 categorías**.
+- [x] Auditoría live de solo lectura completa: 24/24 categorías, 522/522 tarjetas esperadas, 0 tarjetas sin código e integridad `ok`.
+- [x] `database/catalog.db`: esquema 6, 518 productos y 522 relaciones; última captura aplicada 2026-10-24.
+- [x] `%LOCALAPPDATA%\FacundoCatalogManager\database\catalog.db`: esquema 2, 519 productos y 523 relaciones; última captura aplicada 2026-09-26. Es un snapshot antiguo, no una fuente de filas a incorporar al catálogo vigente.
+- [x] Solo en proyecto: `FB-3024`, `FB-4047`, `FB-4048`, `TPSTCB`. Candidatos de código anterior en AppData: `ST-210`, `FB-4042`, `FB-4043`, `TPSTCB-01`. La coincidencia de nombre e imagen SHA-256 y la presencia de los códigos actuales en la auditoría live respalda mantener los códigos recientes; no hacer merge automático.
+- [x] `FB-2111` solo aparece en AppData y no aparece entre las tarjetas de las 24 categorías auditadas. No reimportar salvo evidencia nueva de publicación.
+- [x] La comparación fue de solo lectura: ninguna base, existencias, detalle o imagen fue modificada.
+
+**Política de datos:** el snapshot del proyecto del 24/10/2026 es el catálogo objetivo actual. No mezclar snapshots, sumar cantidades, restaurar stocks antiguos ni importar automáticamente productos exclusivos de AppData. Las diferencias de detalle, stock/color_stock e imágenes deben tratarse como historial entre capturas; los cambios futuros requieren evidencia de fuente actual.
+
+**Pendientes separados de la cobertura:** benchmark controlado de workers de categoría (12 vs. 8), revisión completa del diff neto para PR #30 y verificación visual de `MEZCLADOR-CAMION-copia.webp` en la galería de `FB-4047`. La PR sigue en borrador y no se ha fusionado.

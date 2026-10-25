@@ -10,7 +10,7 @@
 - [x] Se verificó el estado de las ramas remotas: existen 13 referencias de rama.
 - [x] `main` apunta a `47a840f5`, commit que integró la PR #19 el 2026-10-02.
 - [x] `feat/product-table-layout` es descendiente directo de `main` y no está detrás. El HEAD de código/pruebas validado por Quality CI es `19513cda`; los commits documentales posteriores actualizan el checklist y el plan maestro.
-- [x] El usuario validó localmente el código de `b611d17a`: Ruff limpio; Pyright con 0 errores, advertencias e informaciones; 57 pruebas focales aprobadas; suite completa con 983 aprobadas y 11 deseleccionadas. Después se añadieron tres regresiones de migración; Quality CI pasó en `19513cda` con Ruff, Pyright y Pytest en éxito.
+- [x] El usuario validó localmente el HEAD `710048b5`: Ruff limpio; Pyright con 0 errores, advertencias e informaciones; 68 pruebas focales aprobadas; suite completa con 986 aprobadas y 11 deseleccionadas. Quality CI también pasó en el HEAD de código/pruebas `19513cda` tras añadir tres regresiones de migración.
 - [x] Se confirmó que #25, #26 y #27 se integraron en `feat/product-table-layout`, no directamente en `main`.
 - [x] Se comprobó que las ramas fuente de #20, #23 y #24 ya forman parte de la rama de integración; las tres PR se cerraron como supersedidas por la ruta única #30.
 - [x] Se comparó el contenido exclusivo de #28/#29 con la implementación actual; se portaron a la rama activa las regresiones FB-4008 y limpieza post-prune SQLite real. Las PR se cerraron como supersedidas por #30, sin borrar sus ramas fuente.
@@ -54,7 +54,7 @@ La PR #30 contiene un diff neto de 132 archivos respecto a `main`. GitHub report
 - [x] Confirmar que la política activa de Detalle distingue campos técnicos, texto comercial y señales de truncamiento.
 - [x] Portar una regresión para recuperar el Detalle completo de FB-4008 sin incluir Color como campo técnico.
 - [x] Portar una prueba de integración que comprueba con SQLite real que el producto se elimina antes de limpiar sus imágenes primaria y de galería.
-- [x] Ejecutar en el HEAD `b611d17a`: Ruff limpio, Pyright sin errores, 57 pruebas focales y suite completa con 983 aprobadas/11 deseleccionadas.
+- [x] Ejecutar en el HEAD `710048b5`: Ruff limpio, Pyright sin errores, 68 pruebas focales y suite completa con 986 aprobadas/11 deseleccionadas.
 - [x] Comparar la implementación visual de #29: el detector y las pruebas de variantes escaladas ya existen en la rama de integración; esta conserva además las referencias de galería existentes ante una actualización incompleta.
 - [ ] Reabrir cualquiera de las PR solo si una revisión posterior identifica una diferencia funcional concreta que no esté cubierta en `feat/product-table-layout`.
 - [ ] No modificar el catálogo real ni retirar imágenes canónicas en esta fase; las auditorías reales permanecen no destructivas.
@@ -80,7 +80,7 @@ La PR #30 contiene un diff neto de 132 archivos respecto a `main`. GitHub report
 ## 6. Fase E — Auditoría de migraciones y persistencia SQLite
 
 - [x] Identificar el punto de entrada: `DBManager.initialize_database()` ejecuta `database/schema.sql` y luego las migraciones versionadas.
-- [x] Registrar que la versión actual del esquema es 5, con ledger `schema_migrations` y funciones de migración dentro de `database/db_manager.py`.
+- [x] Registrar que la versión actual del esquema es 6, con ledger `schema_migrations` y funciones de migración dentro de `database/db_manager.py`.
 - [x] Validar por CI el avance simulado v2→v6, la idempotencia del ledger y la migración de `download_changes` legado sin perder cambios históricos.
 - [x] Confirmar que los tests cubren el ledger y el rechazo de una versión de esquema posterior a la soportada.
 - [ ] Revisar una por una las migraciones v1–v6 contra el esquema actual, las columnas/tablas resultantes y los datos que deben conservar.
@@ -88,7 +88,9 @@ La PR #30 contiene un diff neto de 132 archivos respecto a `main`. GitHub report
 - [x] Añadir pruebas para la migración v2→v6 conservando datos e idempotencia, restaurar `download_changes` legado con FK a historial y conservar nombres de colores heredados; Quality CI pasó en `19513cda`.
 - [ ] Probar rollback/recuperación frente a una migración fallida y la ruta de backup/restore sobre copias, sin tocar la BD real.
 - [x] La migración v1 y v6 ahora copian el contenido original de `colors` a `legacy_colors` antes de quitar la columna antigua, cuando los valores todavía existen; la regresión valida ambas tablas y confirma que no se infiere stock.
-- [ ] Verificar si la base de datos local ya pasó por la versión antigua que eliminaba `colors` sin respaldo. Los valores previamente eliminados no se pueden reconstruir desde la base actual; solo recuperar desde una copia anterior si se necesita restituirlos.
+- [x] Auditar en modo solo lectura los archivos `catalog*` localizados en las carpetas del proyecto y `%LOCALAPPDATA%`: todos dieron `integrity=ok`, y ninguno conserva las columnas `colors` o `legacy_colors`.
+- [ ] El catálogo del proyecto está en esquema 5 con 518 productos; `%LOCALAPPDATA%\FacundoCatalogManager\database\catalog.db` está en esquema 2 con 519. Comparar los códigos de producto y `color_stock` de ambas bases antes de promover o actualizar datos.
+- [ ] No se encontró, entre los archivos localizados, una copia con la columna `colors`. Si es necesario recuperar esos nombres, ampliar la búsqueda a cualquier respaldo externo a las carpetas revisadas antes de concluir que no existe una copia recuperable.
 - [ ] Aclarar en documentación qué define `schema.sql` y qué cambios pertenecen a cada versión de migración.
 - [ ] Decidir si separar las migraciones en un módulo o carpeta dedicada mejora de verdad la mantenibilidad. No mover funciones ni crear estructura vacía antes de tener los tests de compatibilidad.
 - [ ] Mantener rechazo explícito de esquemas futuros y no cambiar números/versiones sin una migración y pruebas asociadas.
@@ -127,8 +129,8 @@ La PR #30 contiene un diff neto de 132 archivos respecto a `main`. GitHub report
 
 - [x] Ruff: limpio en el HEAD validado por el usuario.
 - [x] Pyright: 0 errores, advertencias e informaciones en el HEAD validado por el usuario.
-- [x] Suite completa del HEAD `b611d17a`: 983 aprobadas, 11 deseleccionadas; pruebas focales de sincronización/limpieza: 57 aprobadas.
-- [x] Volver a ejecutar las comprobaciones focales después de portar las regresiones de #28; el HEAD `b611d17a` pasó las comprobaciones locales reportadas.
+- [x] Suite completa del HEAD `710048b5`: 986 aprobadas, 11 deseleccionadas; pruebas focales de base de datos, sincronización y limpieza: 68 aprobadas.
+- [x] Volver a ejecutar las comprobaciones focales después de portar las regresiones de #28; el HEAD `710048b5` pasó las comprobaciones locales reportadas.
 - [x] Quality CI pasó para el HEAD de código/pruebas `19513cda`: Ruff, Pyright y Pytest en éxito; el job `live-catalog` fue omitido intencionalmente en la PR. Los cambios documentales posteriores no modificaron ese código.
 - [ ] Verificar CI/Actions para el commit exacto de promoción; el estado local verde no sustituye la comprobación del commit de destino.
 - [ ] Hacer smoke test de GUI: tabla, categorías, búsqueda, CRUD, stock/color, galería, cola de revisión, historial y actualización.

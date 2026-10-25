@@ -9,8 +9,8 @@
 
 - [x] Se verificó el estado de las ramas remotas: existen 13 referencias de rama.
 - [x] `main` apunta a `47a840f5`, commit que integró la PR #19 el 2026-10-02.
-- [x] `feat/product-table-layout` está en `b611d17a`; es descendiente directo de `main`, con 1.271 commits por delante y ninguno por detrás.
-- [x] El usuario validó `b611d17a`: Ruff limpio; Pyright con 0 errores, advertencias e informaciones; 57 pruebas focales aprobadas; suite completa con 983 aprobadas y 11 deseleccionadas.
+- [x] `feat/product-table-layout` está en `5ed7a406`; es descendiente directo de `main`, con 1.275 commits por delante y ninguno por detrás.
+- [x] El usuario validó localmente el código de `b611d17a`: Ruff limpio; Pyright con 0 errores, advertencias e informaciones; 57 pruebas focales aprobadas; suite completa con 983 aprobadas y 11 deseleccionadas. Posteriormente se añadieron dos pruebas de migración; Quality CI pasó en `5ed7a406` con Ruff, Pyright y Pytest en éxito.
 - [x] Se confirmó que #25, #26 y #27 se integraron en `feat/product-table-layout`, no directamente en `main`.
 - [x] Se comprobó que las ramas fuente de #20, #23 y #24 ya forman parte de la rama de integración; las tres PR se cerraron como supersedidas por la ruta única #30.
 - [x] Se comparó el contenido exclusivo de #28/#29 con la implementación actual; se portaron a la rama activa las regresiones FB-4008 y limpieza post-prune SQLite real. Las PR se cerraron como supersedidas por #30, sin borrar sus ramas fuente.
@@ -25,7 +25,7 @@
 | #20, #23, #24 | Cerradas como supersedidas | Sus ramas fuente están incorporadas como ancestros de la rama de integración; no integrar por rutas paralelas. |
 | #28, #29 | Cerradas como supersedidas | Su funcionalidad tiene equivalentes más recientes en la rama de integración; se portaron las dos regresiones faltantes. Mantener los refs por ahora para comparación final. |
 
-La PR #30 contiene el diff neto de 132 archivos y 1.271 commits respecto a `main`. GitHub reporta que la rama es mergeable, pero la PR sigue en borrador y quedan gates pendientes. Las referencias de ramas fuente cerradas no han sido borradas.
+La PR #30 contiene el diff neto de 132 archivos y 1.275 commits respecto a `main`. GitHub reporta que la rama es mergeable y el estado del diff está limpio, pero la PR sigue en borrador por los gates funcionales pendientes. Las referencias de ramas fuente cerradas no han sido borradas.
 
 **Causa de la acumulación:** el trabajo reciente se desarrolló y se fusionó en la rama de integración en lugar de promoverse a la rama predeterminada. Además, varias PR permanecieron abiertas y sus ramas fuente no se retiraron. Las ramas creadas a partir de bases antiguas pueden aparecer divergentes por *squash* o integración de commits; el conteo de commits, por sí solo, no demuestra que falten cambios ni que sea seguro borrar una rama.
 
@@ -81,9 +81,11 @@ La PR #30 contiene el diff neto de 132 archivos y 1.271 commits respecto a `main
 
 - [x] Identificar el punto de entrada: `DBManager.initialize_database()` ejecuta `database/schema.sql` y luego las migraciones versionadas.
 - [x] Registrar que la versión actual del esquema es 5, con ledger `schema_migrations` y funciones de migración dentro de `database/db_manager.py`.
+- [x] Validar por CI el avance simulado v2→v5, la idempotencia del ledger y la migración de `download_changes` legado sin perder cambios históricos.
 - [x] Confirmar que los tests cubren el ledger y el rechazo de una versión de esquema posterior a la soportada.
 - [ ] Revisar una por una las migraciones v1–v5 contra el esquema actual, las columnas/tablas resultantes y los datos que deben conservar.
 - [ ] Probar el arranque desde una BD vacía y desde copias representativas de los estados anteriores; validar idempotencia de una segunda apertura.
+- [x] Añadir pruebas para la migración v2→v5 conservando datos e idempotencia, y para restaurar `download_changes` legado con FK a historial; Quality CI pasó en `5ed7a406`.
 - [ ] Probar rollback/recuperación frente a una migración fallida y la ruta de backup/restore sobre copias, sin tocar la BD real.
 - [ ] Aclarar en documentación qué define `schema.sql` y qué cambios pertenecen a cada versión de migración.
 - [ ] Decidir si separar las migraciones en un módulo o carpeta dedicada mejora de verdad la mantenibilidad. No mover funciones ni crear estructura vacía antes de tener los tests de compatibilidad.
@@ -125,6 +127,7 @@ La PR #30 contiene el diff neto de 132 archivos y 1.271 commits respecto a `main
 - [x] Pyright: 0 errores, advertencias e informaciones en el HEAD validado por el usuario.
 - [x] Suite completa del HEAD `b611d17a`: 983 aprobadas, 11 deseleccionadas; pruebas focales de sincronización/limpieza: 57 aprobadas.
 - [x] Volver a ejecutar las comprobaciones focales después de portar las regresiones de #28; el HEAD `b611d17a` pasó las comprobaciones locales reportadas.
+- [x] Quality CI pasó para el HEAD actual `5ed7a406`: Ruff, Pyright y Pytest en éxito; el job `live-catalog` fue omitido intencionalmente en la PR.
 - [ ] Verificar CI/Actions para el commit exacto de promoción; el estado local verde no sustituye la comprobación del commit de destino.
 - [ ] Hacer smoke test de GUI: tabla, categorías, búsqueda, CRUD, stock/color, galería, cola de revisión, historial y actualización.
 - [ ] Verificar generación y apertura real de XLSX, CSV y PDF; Excel debe abrir sin reparación y conservar el contrato acordado.

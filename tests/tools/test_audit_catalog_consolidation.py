@@ -2,10 +2,10 @@ import sqlite3
 from pathlib import Path
 
 from tools.audit_catalog_consolidation import (
+    _normalize_description,
     build_report,
     normalize_category_url,
     normalize_code,
-    _normalize_description,
     normalize_json_value,
 )
 
@@ -97,7 +97,7 @@ def _create_catalog(
 
 def test_normalizers_match_codes_urls_and_json_without_data_loss() -> None:
     assert normalize_code(" fb-0001 ") == "FB-0001"
-    assert normalize_description("Line one\n   Line two") == "Line one Line two"
+    assert _normalize_description("Line one\n   Line two") == "Line one Line two"
     assert normalize_category_url(
         "HTTPS://Example.test/category/a/?preview=1#details"
     ) == "https://example.test/category/a"

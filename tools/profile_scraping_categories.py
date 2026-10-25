@@ -94,7 +94,7 @@ def _build_latency_percentiles(http_metrics: dict[str, Any]) -> dict[str, dict[s
 
 def _build_source_page_cache_payload(metrics: dict[str, Any]) -> dict[str, Any]:
     """Expone ahorro de red por caché para no confundirlo con solicitudes omitidas."""
-    result = {
+    result: dict[str, Any] = {
         key: max(int(metrics.get(key, 0) or 0), 0)
         for key in (
             "fresh_hits",
@@ -118,7 +118,7 @@ def _build_coverage_payload(rows: list[dict[str, Any]]) -> dict[str, Any]:
     expected = sum(max(int(row.get("expected", 0) or 0), 0) for row in rows)
     collected = sum(max(int(row.get("collected", 0) or 0), 0) for row in rows)
     enriched = sum(max(int(row.get("enriched", 0) or 0), 0) for row in rows)
-    mismatches = []
+    mismatches: list[dict[str, Any]] = []
     for row in rows:
         expected_count = max(int(row.get("expected", 0) or 0), 0)
         collected_count = max(int(row.get("collected", 0) or 0), 0)

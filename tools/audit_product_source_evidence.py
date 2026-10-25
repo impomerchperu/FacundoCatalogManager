@@ -163,8 +163,10 @@ def _columns(connection: sqlite3.Connection, table: str) -> set[str]:
 def _decode_gallery(value: object, primary_url: object) -> list[dict[str, Any]]:
     images: list[dict[str, Any]] = []
     main_url = str(primary_url or "").strip()
+    seen_urls: set[str] = set()
     if main_url:
         images.append({"source": "primary", "position": 1, "url": main_url})
+        seen_urls.add(main_url.casefold())
 
     try:
         parsed = json.loads(str(value or "[]"))
@@ -177,8 +179,9 @@ def _decode_gallery(value: object, primary_url: object) -> list[dict[str, Any]]:
         if not isinstance(item, dict):
             continue
         url = str(item.get("url", "") or "").strip()
-        if not url:
+        if not url or url.casefold() in seen_urls:
             continue
+        seen_urls.add(url.casefold())
         images.append(
             {
                 "source": str(item.get("source", "") or ""),

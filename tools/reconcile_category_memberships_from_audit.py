@@ -292,17 +292,40 @@ def apply_reported_repairs(  # noqa: PLR0912
     backup: Path | None = None
     try:
         connection.execute("PRAGMA foreign_keys=ON")
+        initial_data_version = int(
+            connection.execute("PRAGMA data_version").fetchone()[0]
+        )
+        initial_plans = build_repair_plans(connection, report, codes)
+        changed = [plan for plan in initial_plans if plan.changed]
+        if not changed:
+            return initial_plans, None
+
+        # Back up before opening a write transaction; verify no other connection
+        # changed the database between the backup and acquiring the write lock.
+        backup = _make_backup(connection)
+        backup_data_version = int(
+            connection.execute("PRAGMA data_version").fetchone()[0]
+        )
+        if backup_data_version != initial_data_version:
+            raise RuntimeError("La base cambió durante la copia; vuelva a auditar.")  # noqa: TRY301
+
         connection.execute("BEGIN IMMEDIATE")
+        locked_data_version = int(
+            connection.execute("PRAGMA data_version").fetchone()[0]
+        )
+        if locked_data_version != backup_data_version:
+            raise RuntimeError(
+                "La base cambió antes de bloquearla; no se aplicó ningún cambio."
+            )  # noqa: TRY301
         integrity = str(connection.execute("PRAGMA integrity_check").fetchone()[0])
         if integrity != "ok":
             raise ValueError(f"integrity_check antes de reparar: {integrity}")  # noqa: TRY301
         plans = build_repair_plans(connection, report, codes)
+        if plans != initial_plans:
+            raise RuntimeError(
+                "El plan cambió mientras se preparaba la reparación; vuelva a auditar."
+            )  # noqa: TRY301
         changed = [plan for plan in plans if plan.changed]
-        if not changed:
-            connection.commit()
-            return plans, None
-
-        backup = _make_backup(connection)
         for plan in changed:
             for category_id, name in plan.remove:
                 cursor = connection.execute(

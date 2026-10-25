@@ -906,7 +906,7 @@ def test_mixed_generic_and_valid_candidates_only_queues_valid_image(
     assert (ledger_path.parent / valid["stored_path"]).is_file()
     assert not marker_path.exists()
     assert valid_path.is_file()
-def test_legacy_keep_migrates_when_optional_provenance_is_missing(
+def test_legacy_keep_without_provenance_does_not_hide_new_source_review(
     monkeypatch,
     tmp_path,
 ):
@@ -977,9 +977,11 @@ def test_legacy_keep_migrates_when_optional_provenance_is_missing(
     )
     service.finalize_batch(batch)
 
-    assert result is None
-    assert service.pending() == []
-    assert not candidate_path.exists()
+    assert result is not None
+    pending = service.pending()
+    assert len(pending) == 1
+    assert pending[0]["candidate_url"] == candidate_url
+    assert candidate_path.is_file()
 
     ledger_path = service._observation_ledger_path()
     ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
@@ -987,7 +989,7 @@ def test_legacy_keep_migrates_when_optional_provenance_is_missing(
         item for item in ledger
         if item["code"] == "FB-100" and item["image_url"] == candidate_url
     )
-    assert observation["review_state"] == "reviewed"
-    assert observation["resolution"] == "keep"
+    assert observation["review_state"] == "queued"
+    assert observation["resolution"] == ""
     assert observation["source_page_url"] == source_page
     assert (ledger_path.parent / observation["stored_path"]).is_file()

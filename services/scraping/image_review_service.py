@@ -411,12 +411,14 @@ class ImageReviewService:
                     continue
                 if old_url != str(image_url or "").strip():
                     continue
+                # Unknown legacy provenance cannot confirm that a candidate
+                # came from the same source page and extraction method.
                 requested_page = str(source_page_url or "").strip()
-                if old_page and requested_page and old_page != requested_page:
+                if old_page != requested_page:
                     continue
 
                 requested_method = str(extraction_source or "").strip().casefold()
-                if old_method and requested_method and old_method != requested_method:
+                if old_method != requested_method:
                     continue
                 return resolution
 

@@ -84,7 +84,7 @@ def _readonly_connection(path: Path) -> sqlite3.Connection:
     return connection
 
 
-def _read_database(path: Path, label: str) -> dict[str, Any]:
+def _read_database(path: Path, label: str) -> dict[str, Any]:  # noqa: PLR0912
     result: dict[str, Any] = {
         "label": label,
         "path": str(path),

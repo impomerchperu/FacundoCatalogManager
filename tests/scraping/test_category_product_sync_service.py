@@ -319,4 +319,3 @@ def test_source_page_cache_metrics_are_logged(tmp_path, monkeypatch):
     assert "fresh_hits=7" in logged
     assert "network_validations=4" in logged
     assert "updated_200=3" in logged
-

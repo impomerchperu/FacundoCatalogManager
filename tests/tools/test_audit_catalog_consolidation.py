@@ -2,6 +2,7 @@ import sqlite3
 from pathlib import Path
 
 from tools.audit_catalog_consolidation import (
+    _find_exclusive_rekey_candidates,
     _normalize_description,
     build_report,
     normalize_category_url,
@@ -188,3 +189,52 @@ def test_missing_database_is_reported_without_creating_it(tmp_path: Path) -> Non
     assert report["localappdata_database"]["exists"] is False
     assert not project_db.exists()
     assert not local_db.exists()
+
+
+def test_possible_rekey_requires_matching_name_and_exact_image_hash() -> None:
+    image_hash = "a" * 64
+    project_rows = {
+        "FB-4047": {
+            "code": "FB-4047",
+            "name": "Foco Antiestrés",
+            "image_hash": image_hash,
+            "stock": 212,
+            "color_stock": '{"Blanco":212}',
+        },
+        "FB-4048": {
+            "code": "FB-4048",
+            "name": "Pelota Mundo Mano Antiestrés",
+            "image_hash": "b" * 64,
+            "stock": 487,
+        },
+    }
+    local_rows = {
+        "FB-4042": {
+            "code": "FB-4042",
+            "name": "Foco Antiestrés",
+            "image_hash": image_hash,
+            "stock": 414,
+            "color_stock": '{"Blanco":414}',
+        },
+        "FB-9999": {
+            "code": "FB-9999",
+            "name": "Otro producto",
+            "image_hash": image_hash,
+            "stock": 1,
+        },
+    }
+
+    candidates = _find_exclusive_rekey_candidates(
+        project_rows,
+        local_rows,
+        ["FB-4047", "FB-4048"],
+        ["FB-4042", "FB-9999"],
+    )
+
+    assert len(candidates) == 1
+    candidate = candidates[0]
+    assert candidate["current_project_code"] == "FB-4047"
+    assert candidate["older_localappdata_code"] == "FB-4042"
+    assert candidate["decision"] == "REVIEW_ONLY_NOT_AUTO_MERGED"
+    assert candidate["project"]["stock"] == 212
+    assert candidate["localappdata"]["stock"] == 414

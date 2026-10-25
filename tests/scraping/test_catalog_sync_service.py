@@ -270,6 +270,40 @@ def test_incomplete_full_sync_preserves_existing_category_memberships():
     assert result.unchanged == 1
 
 
+def test_full_sync_blocks_prune_when_category_occurrences_are_missing():
+    repository = InMemoryCatalogRepository()
+    existing = Product(
+        "KEEP001",
+        "Producto vigente",
+        20,
+        category="Categoria A, Categoria B",
+    )
+    repository.save(existing)
+    repository.save(Product("OLD001", "Producto anterior", 10))
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    incoming = Product(
+        "KEEP001",
+        "Producto vigente",
+        20,
+        category="Categoria A",
+    )
+    result = service.sync_full_catalog(
+        [incoming],
+        expected_products=1,
+        expected_category_occurrences=2,
+    )
+
+    stored = repository.get("KEEP001")
+    assert result.coverage_complete is False
+    assert result.success is False
+    assert result.deleted == 0
+    assert repository.get("OLD001") is not None
+    assert stored is not None
+    assert stored.category == existing.category
+    assert result.updated == 0
+
+
 def test_full_sync_removes_stale_categories_from_existing_product():
     repository = InMemoryCatalogRepository()
     existing = Product(

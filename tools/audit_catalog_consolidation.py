@@ -157,7 +157,7 @@ def _read_database(path: Path, label: str) -> dict[str, Any]:  # noqa: PLR0912
 
         if "products" not in table_names or "code" not in tables["products"]:
             result["inspection"] = "missing_products_code"
-            return result
+            return result  # noqa: TRY300
 
         product_columns = tables["products"]
         result["product_table_available"] = True

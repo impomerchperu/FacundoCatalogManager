@@ -196,6 +196,7 @@ def _collect_live_category_memberships(
     live_memberships: dict[str, set[str]] = defaultdict(set)
     categories_report: list[dict[str, Any]] = []
     missing_code_cards: list[dict[str, str]] = []
+    missing_code_occurrence_count = 0
     total_expected_occurrences = 0
     total_cards = 0
     category_count_gap = False

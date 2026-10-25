@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -84,6 +85,63 @@ def _readonly_connection(path: Path) -> sqlite3.Connection:
     return connection
 
 
+def _latest_activity(
+    connection: sqlite3.Connection,
+    table_columns: dict[str, list[str]],
+) -> dict[str, dict[str, str | None]]:
+    """Capture latest timestamps that help compare data freshness."""
+    candidate_columns = {
+        "scraping_runs": ("started_at", "finished_at"),
+        "scraping_history": ("started_at", "finished_at", "applied_at"),
+        "download_history": ("downloaded_at", "created_at", "finished_at"),
+    }
+    result: dict[str, dict[str, str | None]] = {}
+    for table, columns in candidate_columns.items():
+        if table not in table_columns:
+            continue
+        available = [column for column in columns if column in table_columns[table]]
+        if not available:
+            continue
+        quoted_table = _quote_identifier(table)
+        timestamps: dict[str, str | None] = {}
+        for column in available:
+            quoted_column = _quote_identifier(column)
+            value = connection.execute(
+                f"SELECT MAX({quoted_column}) FROM {quoted_table}"
+            ).fetchone()[0]
+            timestamps[column] = str(value) if value is not None else None
+        result[table] = timestamps
+    return result
+
+
+def _exclusive_product_samples(
+    rows: dict[str, dict[str, Any]],
+    codes: list[str],
+) -> list[dict[str, Any]]:
+    """Retain enough row fields to investigate exclusive product codes."""
+    selected = (
+        "code", "name", "category", "description", "stock", "color_stock",
+        "price", "price_sample", "price_hundred", "price_thousand",
+        "image_url", "image_path", "image_hash", "gallery_images",
+    )
+    result = []
+    for code in codes[:MAX_SAMPLES]:
+        row = rows.get(code, {})
+        result.append(
+            {
+                field: _safe_value(row[field])
+                for field in selected
+                if field in row
+            }
+        )
+    return result
+
+
+def _normalize_description(value: object) -> str:
+    """Normalize whitespace only; preserve technical words and punctuation."""
+    return re.sub(r"\\s+", " ", str(value or "")).strip()
+
+
 def _read_database(path: Path, label: str) -> dict[str, Any]:  # noqa: PLR0912
     result: dict[str, Any] = {
         "label": label,
@@ -102,6 +160,7 @@ def _read_database(path: Path, label: str) -> dict[str, Any]:  # noqa: PLR0912
         "relations": {},
         "product_table_available": False,
         "relations_available": False,
+        "latest_activity": {},
     }
     if not path.is_file():
         result["inspection"] = "missing"
@@ -147,6 +206,7 @@ def _read_database(path: Path, label: str) -> dict[str, Any]:  # noqa: PLR0912
                 counts[table_name] = None
         result["tables"] = tables
         result["table_counts"] = counts
+        result["latest_activity"] = _latest_activity(connection, tables)
 
         if "schema_migrations" in table_names:
             columns = tables["schema_migrations"]
@@ -280,6 +340,8 @@ def _product_comparison(
 
     difference_counts: dict[str, int] = {}
     difference_samples: dict[str, list[dict[str, Any]]] = {}
+    description_whitespace_only_codes: list[str] = []
+    description_content_difference_samples: list[dict[str, Any]] = []
     for code in sorted(common_codes):
         project_row = project_rows[code]
         local_row = local_rows[code]
@@ -288,6 +350,19 @@ def _product_comparison(
             local_value = normalize_json_value(local_row.get(column), column)
             if project_value == local_value:
                 continue
+            if column == "description":
+                project_text = _normalize_description(project_value)
+                local_text = _normalize_description(local_value)
+                if project_text == local_text:
+                    description_whitespace_only_codes.append(code)
+                elif len(description_content_difference_samples) < MAX_SAMPLES:
+                    description_content_difference_samples.append(
+                        {
+                            "code": code,
+                            "project": _safe_value(project_value),
+                            "localappdata": _safe_value(local_value),
+                        }
+                    )
             difference_counts[column] = difference_counts.get(column, 0) + 1
             samples = difference_samples.setdefault(column, [])
             if len(samples) < MAX_SAMPLES:
@@ -315,6 +390,21 @@ def _product_comparison(
         "common_product_columns_compared": common_columns,
         "field_difference_product_counts": difference_counts,
         "field_difference_samples": difference_samples,
+        "description_whitespace_only_difference_products": len(
+            description_whitespace_only_codes
+        ),
+        "description_whitespace_only_samples": description_whitespace_only_codes[:MAX_SAMPLES],
+        "description_substantive_difference_products": (
+            difference_counts.get("description", 0)
+            - len(description_whitespace_only_codes)
+        ),
+        "description_substantive_difference_samples": description_content_difference_samples,
+        "exclusive_product_samples_project": _exclusive_product_samples(
+            project_rows, sorted(project_codes - local_codes)
+        ),
+        "exclusive_product_samples_localappdata": _exclusive_product_samples(
+            local_rows, sorted(local_codes - project_codes)
+        ),
     }
 
 
@@ -475,6 +565,19 @@ def main() -> int:
             + str(tables.get("product_categories", "n/a"))
         )
 
+    for database_key in ("project_database", "localappdata_database"):
+        database = report[database_key]
+        print(
+            "LATEST_ACTIVITY|"
+            + str(database.get("label"))
+            + "|"
+            + json.dumps(
+                database.get("latest_activity", {}),
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+        )
+
     product_diff = report["product_differences"]
     if product_diff.get("available"):
         print(
@@ -499,6 +602,39 @@ def main() -> int:
                 product_diff.get("field_difference_product_counts"),
                 ensure_ascii=False,
                 separators=(",", ":"),
+            )
+        )
+        print(
+            "DESCRIPTION_DIFF_CLASSIFICATION|whitespace_only="
+            + str(product_diff.get("description_whitespace_only_difference_products"))
+            + "|substantive="
+            + str(product_diff.get("description_substantive_difference_products"))
+        )
+        print(
+            "EXCLUSIVE_PRODUCTS_PROJECT|"
+            + json.dumps(
+                product_diff.get("exclusive_product_samples_project", []),
+                ensure_ascii=False,
+                separators=(",", ":"),
+                default=str,
+            )
+        )
+        print(
+            "EXCLUSIVE_PRODUCTS_LOCALAPPDATA|"
+            + json.dumps(
+                product_diff.get("exclusive_product_samples_localappdata", []),
+                ensure_ascii=False,
+                separators=(",", ":"),
+                default=str,
+            )
+        )
+        print(
+            "DESCRIPTION_SUBSTANTIVE_SAMPLES|"
+            + json.dumps(
+                product_diff.get("description_substantive_difference_samples", []),
+                ensure_ascii=False,
+                separators=(",", ":"),
+                default=str,
             )
         )
         field_samples = product_diff.get("field_difference_samples", {})

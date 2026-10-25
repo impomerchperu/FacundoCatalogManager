@@ -141,6 +141,7 @@ class CatalogSyncService:
             prune_missing
             and result.products_expected > 0
             and result.products_unique >= result.products_expected
+            and result.coverage_complete
             and result.missing_code == 0
             and not result.has_errors
         )

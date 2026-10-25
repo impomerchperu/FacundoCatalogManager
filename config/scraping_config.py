@@ -69,4 +69,3 @@ SCRAPING_JSF_PAGE_WORKERS = 2
 # collection variance, so 16 is the current validated ImageSync candidate
 # while main remains unchanged.
 SCRAPING_IMAGE_WORKERS = 16
-

@@ -185,4 +185,3 @@ def test_build_coverage_payload_identifies_category_level_mismatch():
         {"category": "A", "expected": 2, "collected": 1, "enriched": 1},
         {"category": "B", "expected": 3, "collected": 3, "enriched": 2},
     ]
-

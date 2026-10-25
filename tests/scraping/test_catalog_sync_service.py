@@ -1317,3 +1317,40 @@ def test_catalog_sync_clears_unidentifiable_image_refs_before_post_commit_cleanu
     assert cleanup_observations == [("", "", [])]
     assert not invalid_path.exists()
 
+def test_catalog_sync_repairs_truncated_fb4008_detail_with_complete_technical_source():
+    repository = InMemoryCatalogRepository()
+    existing = Product("FB-4008", "Antiestrés Cerebro Largo", 4.0)
+    existing.description = (
+        "Color: Blanco. Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés,"
+    )
+    existing.price_sample = 4.0
+    repository.save(existing)
+
+    incoming = Product("FB-4008", "Antiestrés Cerebro Largo", 4.0)
+    incoming.description = (
+        "Color: Blanco. Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
+        "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
+        "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+    incoming.price_sample = 4.0
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+
+    stored = repository.get("FB-4008")
+    assert stored is not None
+    assert stored.description == (
+        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
+        "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
+        "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+    assert result.updated == 1
+    assert any(
+        change["field"] == "description"
+        for change in result.changes[0]["changes"]
+    )

@@ -9,23 +9,23 @@
 
 - [x] Se verificó el estado de las ramas remotas: existen 13 referencias de rama.
 - [x] `main` apunta a `47a840f5`, commit que integró la PR #19 el 2026-10-02.
-- [x] `feat/product-table-layout` apuntaba al inicio de esta auditoría a `40cf1285`; es descendiente directo de `main`, con 1.266 commits por delante y ninguno por detrás.
-- [x] El usuario validó ese HEAD: Ruff limpio; Pyright con 0 errores, advertencias e informaciones; 13 pruebas focales aprobadas; suite completa con 981 aprobadas y 11 deseleccionadas.
+- [x] `feat/product-table-layout` está en `b611d17a`; es descendiente directo de `main`, con 1.271 commits por delante y ninguno por detrás.
+- [x] El usuario validó `b611d17a`: Ruff limpio; Pyright con 0 errores, advertencias e informaciones; 57 pruebas focales aprobadas; suite completa con 983 aprobadas y 11 deseleccionadas.
 - [x] Se confirmó que #25, #26 y #27 se integraron en `feat/product-table-layout`, no directamente en `main`.
-- [x] Se comprobó que los cambios de las ramas fuente de #20, #23 y #24 ya forman parte de la rama de integración, aunque esas PR siguen abiertas contra `main`.
-- [x] Se identificaron dos PR posteriores que todavía contienen trabajo separado: #28 y #29. La #28 informa conflictos/no mergeable; la #29 está apilada sobre #28.
+- [x] Se comprobó que las ramas fuente de #20, #23 y #24 ya forman parte de la rama de integración; las tres PR se cerraron como supersedidas por la ruta única #30.
+- [x] Se comparó el contenido exclusivo de #28/#29 con la implementación actual; se portaron a la rama activa las regresiones FB-4008 y limpieza post-prune SQLite real. Las PR se cerraron como supersedidas por #30, sin borrar sus ramas fuente.
 - [x] `database/db_manager.py` administra migraciones versionadas hasta la versión 5 y registra el historial en `schema_migrations`. No existe actualmente una carpeta independiente `database/migrations/`.
 - [x] La auditoría histórica de limpieza de 2026-09-27 no basta para dar por limpias las ramas actuales ni las nuevas herramientas y cambios posteriores.
 
-### PR abiertas en el corte de auditoría
+### Estado de PR al 2026-10-25
 
-| PR | Base → rama fuente | Estado y tratamiento |
+| PR | Estado | Tratamiento |
 |---|---|---|
-| #20 | `main` ← `fix/excel-table-repair` | Abierta; conservar hasta resolver su promoción/integración. Su contenido ya está en la rama de integración. |
-| #23 | `main` ← `feat/image-review-queue` | Borrador; el HEAD fuente está incluido en la rama de integración. Resolver al integrar el conjunto validado en `main`. |
-| #24 | `main` ← `feat/image-gallery-robustness` | Borrador; el HEAD fuente está incluido en la rama de integración. Resolver al integrar el conjunto validado en `main`. |
-| #28 | `feat/product-table-layout` ← `fix/detail-refresh-and-image-cleanup-proof` | Borrador; trabajo único sobre Detalle técnico y auditoría de imágenes. No fusionar sin portar sus cambios a un HEAD actualizado y volver a validarlos. |
-| #29 | `fix/detail-refresh-and-image-cleanup-proof` ← `fix/image-visual-deduplication` | Borrador apilado sobre #28; sus pruebas todavía necesitan ejecución. Resolver después de #28. |
+| [#30 — Integración consolidada](https://github.com/impomerchperu/FacundoCatalogManager/pull/30) | Única PR abierta; borrador; base `main`, head `feat/product-table-layout` | Ruta única de promoción; no fusionar hasta resolver los bloqueos de cobertura, workers, revisión neta y checks. |
+| #20, #23, #24 | Cerradas como supersedidas | Sus ramas fuente están incorporadas como ancestros de la rama de integración; no integrar por rutas paralelas. |
+| #28, #29 | Cerradas como supersedidas | Su funcionalidad tiene equivalentes más recientes en la rama de integración; se portaron las dos regresiones faltantes. Mantener los refs por ahora para comparación final. |
+
+La PR #30 contiene el diff neto de 132 archivos y 1.271 commits respecto a `main`. GitHub reporta que la rama es mergeable, pero la PR sigue en borrador y quedan gates pendientes. Las referencias de ramas fuente cerradas no han sido borradas.
 
 **Causa de la acumulación:** el trabajo reciente se desarrolló y se fusionó en la rama de integración en lugar de promoverse a la rama predeterminada. Además, varias PR permanecieron abiertas y sus ramas fuente no se retiraron. Las ramas creadas a partir de bases antiguas pueden aparecer divergentes por *squash* o integración de commits; el conteo de commits, por sí solo, no demuestra que falten cambios ni que sea seguro borrar una rama.
 
@@ -47,16 +47,17 @@
 - [ ] Después de promover, repetir la validación sobre `main` y confirmar que las PR redundantes quedan cerradas o que tienen una razón explícita para permanecer abiertas.
 - [ ] No considerar el proyecto integrado solo porque la rama de trabajo esté verde: la prueba local no valida automáticamente el HEAD de `main`.
 
-## 4. Fase C — Portar y resolver el trabajo único de #28 y #29
+## 4. Fase C — Cierre técnico de #28 y #29
 
-- [ ] Crear una rama limpia basada en el HEAD de integración más reciente para portar los cambios exclusivos de #28; no intentar esconder la divergencia ni descartar commits.
-- [ ] Preservar el contrato de Detalle técnico: texto completo, sin truncamientos ni reemplazo por texto promocional, y con recuperación del detalle de la página cuando corresponda.
-- [ ] Mantener la política de auditoría de imágenes *fail-closed* ante referencias JSON inválidas o artefactos sin extensión reconocida.
-- [ ] Ejecutar las pruebas focales de reparación de Detalle, limpieza post-commit, auditoría de referencias, Ruff, Pyright y suite completa.
-- [ ] Portar después el trabajo de #29 sobre deduplicación visual de variantes escaladas y orden de galería, solo encima de la base validada.
-- [ ] Validar que las imágenes visualmente distintas nunca se descarten por similitud débil y que una descarga parcial no reemplace una galería completa.
-- [ ] No cambiar el catálogo real ni retirar imágenes canónicas hasta que las pruebas, la auditoría no destructiva y la revisión del cambio estén completas.
-
+- [x] Comparar las modificaciones de #28 y #29 contra el HEAD actual en lugar de aplicar commits antiguos de forma mecánica.
+- [x] Confirmar que la auditoría activa de imágenes informa errores de referencias JSON inválidas y audita archivos de extensiones desconocidas en el almacén del catálogo.
+- [x] Confirmar que la política activa de Detalle distingue campos técnicos, texto comercial y señales de truncamiento.
+- [x] Portar una regresión para recuperar el Detalle completo de FB-4008 sin incluir Color como campo técnico.
+- [x] Portar una prueba de integración que comprueba con SQLite real que el producto se elimina antes de limpiar sus imágenes primaria y de galería.
+- [x] Ejecutar en el HEAD `b611d17a`: Ruff limpio, Pyright sin errores, 57 pruebas focales y suite completa con 983 aprobadas/11 deseleccionadas.
+- [x] Comparar la implementación visual de #29: el detector y las pruebas de variantes escaladas ya existen en la rama de integración; esta conserva además las referencias de galería existentes ante una actualización incompleta.
+- [ ] Reabrir cualquiera de las PR solo si una revisión posterior identifica una diferencia funcional concreta que no esté cubierta en `feat/product-table-layout`.
+- [ ] No modificar el catálogo real ni retirar imágenes canónicas en esta fase; las auditorías reales permanecen no destructivas.
 ## 5. Fase D — Retirar ramas sin perder trabajo
 
 ### Conservar por ahora
@@ -64,13 +65,13 @@
 - [ ] `main`: rama predeterminada y destino de promoción.
 - [ ] `feat/product-table-layout`: mantener hasta completar la promoción y la validación posterior.
 - [ ] `archive/recovery-catalog-202609`: conservar como recuperación histórica, sin fusionarla automáticamente.
-- [ ] `fix/detail-refresh-and-image-cleanup-proof` y `fix/image-visual-deduplication`: conservar mientras #28/#29 tengan cambios no integrados.
+- [x] PR #28 y #29 cerradas como supersedidas por #30 tras comparar código y pruebas. Mantener los refs remotos hasta completar la promoción a `main` y una última comparación; cerrar las PR no elimina esas ramas.
 
 ### Candidatas a retirar después de resolver PR y comparar contenido
 
 - [ ] `feature/current-exporters`: #19 ya se integró en `main`; verificar y retirar la referencia antigua.
-- [ ] `fix/excel-table-repair`: no retirar mientras #20 permanezca abierto; resolverlo tras la promoción.
-- [ ] `feat/image-review-queue` y `feat/image-gallery-robustness`: no retirar mientras #23/#24 permanezcan abiertos; sus HEAD ya están incorporados en la rama de integración.
+- [x] `fix/excel-table-repair`: PR #20 cerrada como supersedida; mantener el ref hasta la promoción a `main` y la limpieza final.
+- [x] `feat/image-review-queue` y `feat/image-gallery-robustness`: PR #23/#24 cerradas como supersedidas; sus HEAD ya están incorporados. Mantener refs hasta la limpieza final posterior a la promoción.
 - [ ] `fix/detail-alignment-general-rules`: comprobar que no tenga trabajo exclusivo antes de retirarla.
 - [ ] `fix/image-sync-consistency`, `test/gallery-duplicate-cleanup` y `fix/image-format-identification`: las PR #25–#27 están fusionadas en la rama de integración, pero hubo divergencia por historial; comparar el cambio funcional antes de retirar sus refs.
 - [ ] Tras retirar refs remotas aprobadas, eliminar sus referencias locales; nunca retirar una rama por el mero hecho de estar muchos commits detrás.
@@ -122,8 +123,8 @@
 
 - [x] Ruff: limpio en el HEAD validado por el usuario.
 - [x] Pyright: 0 errores, advertencias e informaciones en el HEAD validado por el usuario.
-- [x] Suite completa de ese HEAD: 981 aprobadas, 11 deseleccionadas.
-- [ ] Volver a ejecutar todas las comprobaciones focales después de portar #28/#29.
+- [x] Suite completa del HEAD `b611d17a`: 983 aprobadas, 11 deseleccionadas; pruebas focales de sincronización/limpieza: 57 aprobadas.
+- [x] Volver a ejecutar las comprobaciones focales después de portar las regresiones de #28; el HEAD `b611d17a` pasó las comprobaciones locales reportadas.
 - [ ] Verificar CI/Actions para el commit exacto de promoción; el estado local verde no sustituye la comprobación del commit de destino.
 - [ ] Hacer smoke test de GUI: tabla, categorías, búsqueda, CRUD, stock/color, galería, cola de revisión, historial y actualización.
 - [ ] Verificar generación y apertura real de XLSX, CSV y PDF; Excel debe abrir sin reparación y conservar el contrato acordado.

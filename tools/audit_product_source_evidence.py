@@ -478,7 +478,7 @@ def _source_page_evidence(
     return evidence
 
 
-def build_report(database_path: Path, codes: tuple[str, ...] | list[str]) -> dict[str, Any]:
+def build_report(database_path: Path, codes: tuple[str, ...] | list[str]) -> dict[str, Any]:  # noqa: PLR0912
     """Read target products, their stored page HTML and category relations."""
     report: dict[str, Any] = {
         "database": str(database_path),

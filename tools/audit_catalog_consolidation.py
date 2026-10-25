@@ -21,13 +21,13 @@ from urllib.parse import urlsplit, urlunsplit
 PROJECT_ROOT = Path.cwd().resolve()
 PROJECT_DATABASE = PROJECT_ROOT / "database" / "catalog.db"
 LOCALAPPDATA_VALUE = os.environ.get("LOCALAPPDATA")
-if not LOCALAPPDATA_VALUE:
-    raise SystemExit("No existe la variable de entorno LOCALAPPDATA.")
 LOCALAPPDATA_DATABASE = (
     Path(LOCALAPPDATA_VALUE)
     / "FacundoCatalogManager"
     / "database"
     / "catalog.db"
+    if LOCALAPPDATA_VALUE
+    else None
 )
 TEMP = Path(os.environ.get("TEMP", str(Path.home())))
 JSON_COLUMNS = {"color_stock", "legacy_colors", "gallery_images"}
@@ -603,6 +603,8 @@ def build_report(project_path: Path, local_path: Path) -> dict[str, Any]:
 
 
 def main() -> int:
+    if LOCALAPPDATA_DATABASE is None:
+        raise SystemExit("No existe la variable de entorno LOCALAPPDATA.")
     report = build_report(PROJECT_DATABASE, LOCALAPPDATA_DATABASE)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     output_path = TEMP / f"fcm_catalog_consolidation_audit_{stamp}.json"

@@ -469,3 +469,19 @@ Este estado reemplaza las notas históricas del checklist que marcaban 522/523 a
 **Política de datos:** el snapshot del proyecto del 24/10/2026 es el catálogo objetivo actual. No mezclar snapshots, sumar cantidades, restaurar stocks antiguos ni importar automáticamente productos exclusivos de AppData. Las diferencias de detalle, stock/color_stock e imágenes deben tratarse como historial entre capturas; los cambios futuros requieren evidencia de fuente actual.
 
 **Pendientes separados de la cobertura:** benchmark controlado de workers de categoría (12 vs. 8), revisión completa del diff neto para PR #30 y verificación visual de `MEZCLADOR-CAMION-copia.webp` en la galería de `FB-4047`. La PR sigue en borrador y no se ha fusionado.
+
+
+## Protocolo reproducible de benchmark de workers de categoría — actualización 2026-10-25
+
+La comparación de `category_workers=12` frente a `category_workers=8` sigue pendiente de repetirse con un método controlado. El script de perfil se endureció para exigir una copia aislada de SQLite, verificar integridad/esquema v6, permitir una ruta de salida por ejecución y rechazar explícitamente las bases canónicas del proyecto y AppData.
+
+- [ ] Sincronizar el commit que incorpora aislamiento de DB y rutas de salida únicas.
+- [ ] Crear mediante la API de backup de SQLite una copia semilla de `database/catalog.db`; no copiar a ciegas un archivo que pueda tener WAL activo.
+- [ ] Ejecutar seis perfiles en orden balanceado `12, 8, 8, 12, 12, 8`; cada ejecución recibe una copia independiente idéntica de la semilla y su propio JSON en `%TEMP%`.
+- [ ] Mantener fijos `detail_workers=24`, `http_workers=28`, `jsf_http_concurrency=8`, sesiones por hilo y `download_images=False`; variar únicamente los workers de categoría.
+- [ ] Aceptar un perfil para comparación solo si mantiene 24 categorías y la cobertura reportada coincide con los conteos actuales, sin diferencia entre expected/collected/enriched ni errores terminales.
+- [ ] Comparar mediana y dispersión de `profile_seconds`, latencia P50/P95/P99, solicitudes, reintentos, errores, esperas de semáforo y métricas de caché. No decidir a partir de una sola corrida.
+- [ ] Conservar el default de producción en 12 hasta que los seis informes respaldan de forma consistente una decisión.
+- [ ] Registrar los JSON, la decisión y el efecto observado; no aplicar sincronización de catálogo, no descargar imágenes y no modificar stock en este benchmark.
+
+Comando objetivo por ensayo después de sincronizar la herramienta: establecer `FCM_PROFILE_CATEGORY_WORKERS`, `FCM_PROFILE_DB_PATH` a la copia temporal de ese ensayo y `FCM_PROFILE_OUTPUT_PATH` al JSON único; ejecutar `python tools/profile_category_workers.py`. La herramienta valida la copia antes de abrir el pipeline y muestra la ruta de DB/report en la salida.

@@ -20,7 +20,16 @@ from services.scraping.scraping_config import ScrapingConfig
 from services.scraping.scraping_factory import ScrapingFactory
 
 
-OUTPUT_PATH = PROJECT_ROOT / "data" / "scraping_category_profile.json"
+DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "scraping_category_profile.json"
+
+
+def _resolve_output_path() -> Path:
+    """Resolve a per-run report path without overwriting prior benchmark reports."""
+    raw_path = os.getenv("FCM_PROFILE_OUTPUT_PATH", "").strip()
+    if not raw_path:
+        return DEFAULT_OUTPUT_PATH
+    path = Path(raw_path).expanduser()
+    return path if path.is_absolute() else PROJECT_ROOT / path
 
 
 def _timed_collect(
@@ -356,8 +365,9 @@ def main() -> int:
         "rows": rows,
     }
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_PATH.write_text(
+    output_path = _resolve_output_path()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
@@ -368,7 +378,7 @@ def main() -> int:
     print(f"category_workers={config.category_workers}")
     print(f"http_workers={config.http_workers}")
     print(f"jsf_http_concurrency={config.jsf_http_concurrency}")
-    print(f"output={OUTPUT_PATH}")
+    print(f"output={output_path}")
     coverage = payload["coverage"]
     print(
         "coverage="

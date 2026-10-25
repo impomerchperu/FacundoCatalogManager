@@ -4,6 +4,7 @@ from tools.profile_scraping_categories import (
     _build_source_page_cache_payload,
     _enable_thread_sessions,
     _profile_category_workers,
+    _resolve_output_path,
 )
 
 
@@ -185,3 +186,27 @@ def test_build_coverage_payload_identifies_category_level_mismatch():
         {"category": "A", "expected": 2, "collected": 1, "enriched": 1},
         {"category": "B", "expected": 3, "collected": 3, "enriched": 2},
     ]
+
+
+
+def test_resolve_output_path_defaults_to_repository_profile(monkeypatch):
+    from tools.profile_scraping_categories import DEFAULT_OUTPUT_PATH
+
+    monkeypatch.delenv("FCM_PROFILE_OUTPUT_PATH", raising=False)
+
+    assert _resolve_output_path() == DEFAULT_OUTPUT_PATH
+
+
+def test_resolve_output_path_accepts_absolute_per_run_report(monkeypatch, tmp_path):
+    output = tmp_path / "trial-12.json"
+    monkeypatch.setenv("FCM_PROFILE_OUTPUT_PATH", str(output))
+
+    assert _resolve_output_path() == output
+
+
+def test_resolve_output_path_anchors_relative_path_to_project(monkeypatch):
+    from tools.profile_scraping_categories import PROJECT_ROOT
+
+    monkeypatch.setenv("FCM_PROFILE_OUTPUT_PATH", "temp/profile.json")
+
+    assert _resolve_output_path() == PROJECT_ROOT / "temp" / "profile.json"

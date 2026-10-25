@@ -65,20 +65,49 @@ def _image_reference_tables(connection: sqlite3.Connection) -> list[str]:
     ]
 
 
-def _gallery_image_entries(raw: Any) -> list[dict[str, Any]]:
-    """Parse local image references stored in a product gallery JSON list."""
-    if not isinstance(raw, str) or not raw.strip():
+def _gallery_image_entries(
+    raw: Any,
+    *,
+    reference_errors: list[dict[str, Any]] | None = None,
+    table: str = "products",
+    rowid: Any = None,
+    code: str = "",
+) -> list[dict[str, Any]]:
+    """Parse gallery references and report malformed entries instead of hiding them."""
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
         return []
 
+    def record_error(message: str, *, position: int | None = None) -> None:
+        if reference_errors is None:
+            return
+        error: dict[str, Any] = {
+            "table": table,
+            "rowid": rowid,
+            "code": code,
+            "source": "gallery_images",
+            "error": message,
+        }
+        if position is not None:
+            error["position"] = position
+        reference_errors.append(error)
+
     try:
-        payload = json.loads(raw)
-    except json.JSONDecodeError:
+        payload = json.loads(raw) if isinstance(raw, (str, bytes, bytearray)) else raw
+    except (TypeError, json.JSONDecodeError) as error:
+        record_error(f"JSON inválido: {type(error).__name__}")
         return []
 
     if not isinstance(payload, list):
+        record_error("El valor gallery_images no es una lista.")
         return []
 
-    return [entry for entry in payload if isinstance(entry, dict)]
+    entries: list[dict[str, Any]] = []
+    for position, entry in enumerate(payload, start=1):
+        if not isinstance(entry, dict):
+            record_error("Entrada de galería inválida.", position=position)
+            continue
+        entries.append(entry)
+    return entries
 
 
 def _product_source_page_urls_by_code(
@@ -173,6 +202,7 @@ def _collect_row_image_references(
     table: str,
     values: dict[str, Any],
     project_root: Path,
+    reference_errors: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Collect primary and gallery images, preserving extraction provenance."""
     references: list[dict[str, Any]] = []
@@ -196,7 +226,13 @@ def _collect_row_image_references(
         project_root,
     )
 
-    for entry in _gallery_image_entries(values.get("gallery_images")):
+    for entry in _gallery_image_entries(
+        values.get("gallery_images"),
+        reference_errors=reference_errors,
+        table=table,
+        rowid=values.get("rowid"),
+        code=str(values.get("code") or ""),
+    ):
         gallery_details = {
             **base_details,
             "image_hash": str(entry.get("image_hash") or ""),
@@ -219,6 +255,7 @@ def _collect_row_image_references(
 def _collect_db_references(
     db_path: Path,
     project_root: Path,
+    reference_errors: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     references: list[dict[str, Any]] = []
     if not db_path.is_file():
@@ -268,6 +305,7 @@ def _collect_db_references(
                         table,
                         values,
                         project_root,
+                        reference_errors,
                     )
                 )
     finally:
@@ -295,7 +333,32 @@ def _scan_files(
         for path in sorted(root.rglob("*")):
             if not path.is_file():
                 continue
-            if path.suffix.lower() not in IMAGE_EXTENSIONS:
+
+            parts = {part.casefold() for part in path.parts}
+            name = path.name.casefold()
+            if (
+                ".staging" in parts
+                or name.endswith(
+                    (".tmp", ".review-tmp", ".review-backup", ".review-delete-backup")
+                )
+            ):
+                continue
+
+            # Product/gallery directories and flat data/images legacy files are
+            # dedicated catalog storage. Scan unknown extensions there too so
+            # corrupt/legacy assets are visible, while leaving resources/images
+            # and unrelated resource trees extension-filtered.
+            catalog_storage_path = bool({"products", "gallery"} & parts)
+            flat_legacy_catalog_file = (
+                root.name.casefold() == "images"
+                and root.parent.name.casefold() == "data"
+                and path.parent.resolve() == root.resolve()
+            )
+            if (
+                path.suffix.lower() not in IMAGE_EXTENSIONS
+                and not catalog_storage_path
+                and not flat_legacy_catalog_file
+            ):
                 continue
 
             resolved = path.resolve()
@@ -542,7 +605,12 @@ def audit(
     roots = [_resolve_project_path(root, project_root) for root in roots]
 
     files = _scan_files(roots, project_root)
-    references = _collect_db_references(db_path, project_root)
+    reference_errors: list[dict[str, Any]] = []
+    references = _collect_db_references(
+        db_path,
+        project_root,
+        reference_errors,
+    )
 
     file_by_path = {record["path"]: record for record in files}
     references_by_path: dict[Path, list[dict[str, Any]]] = defaultdict(list)
@@ -636,6 +704,8 @@ def audit(
             for label in sorted({record["root"] for record in files})
         },
         "db_references_total": len(references),
+        "reference_audit_complete": not reference_errors,
+        "reference_errors": reference_errors,
         "db_references_by_table": {
             table: sum(reference["table"] == table for reference in references)
             for table in sorted({reference["table"] for reference in references})
@@ -697,6 +767,21 @@ def print_report(report: dict[str, Any], max_details: int = 100) -> None:
     print(f"Referencias DB: {report['db_references_total']}")
     for table, count in report["db_references_by_table"].items():
         print(f"  {table}: {count}")
+    print(
+        "Auditoría de referencias completa: "
+        f"{report.get('reference_audit_complete', True)}"
+    )
+    reference_errors = report.get("reference_errors", [])
+    if reference_errors:
+        print(
+            "ADVERTENCIA: existen referencias de galería no interpretables; "
+            "los conteos de huérfanos no son definitivos."
+        )
+        for error in reference_errors[:max_details]:
+            print(
+                f"  - [{error.get('table')}#{error.get('rowid')}] "
+                f"{error.get('code')}: {error.get('error')}"
+            )
 
     print(f"Archivos referenciados: {report['referenced_files']}")
     print(f"Archivos sin referencia DB: {report['orphan_files']}")

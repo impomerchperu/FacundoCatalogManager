@@ -209,4 +209,3 @@ def test_category_export_dialog_supports_minimize_and_maximize():
 
     dialog.deleteLater()
     app.processEvents()
-

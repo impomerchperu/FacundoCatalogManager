@@ -2,10 +2,10 @@
 
 Fecha de actualización: 2026-10-25
 Rama predeterminada/de promoción: `main` (`47a840f5`, corte de auditoría)
-Rama de integración activa: `feat/product-table-layout` (`b611d17a`, HEAD validado por el usuario el 2026-10-25)
-Estado: `main` sigue en el commit que integró la PR #19 el 2026-10-02. La rama de integración es descendiente directo de `main` y está 1.271 commits por delante, 0 por detrás. El usuario confirmó en el HEAD `b611d17a` Ruff limpio, Pyright sin errores/advertencias/informaciones, 57 pruebas focales aprobadas y 983 pruebas aprobadas con 11 deseleccionadas. Esta validación no debe confundirse con una validación del HEAD de `main`.
+Rama de integración activa: `feat/product-table-layout` (`5ed7a406`, HEAD con Quality CI verde el 2026-10-25)
+Estado: `main` sigue en el commit que integró la PR #19 el 2026-10-02. La rama de integración es descendiente directo de `main` y está 1.275 commits por delante, 0 por detrás. El usuario confirmó localmente en `b611d17a` Ruff limpio, Pyright sin errores/advertencias/informaciones, 57 pruebas focales aprobadas y 983 pruebas aprobadas con 11 deseleccionadas. Después se añadieron dos regresiones de migraciones SQLite; GitHub Quality CI pasó para `5ed7a406` (Ruff, Pyright y Pytest en éxito; `live-catalog` omitido intencionalmente). Esta validación no debe confundirse con una validación del HEAD de `main`.
 
-La PR de promoción es la [#30](https://github.com/impomerchperu/FacundoCatalogManager/pull/30), abierta en borrador contra `main`. Las PR #20, #23, #24, #28 y #29 se cerraron como supersedidas después de comparar contenido y consolidar una sola ruta de integración. Sus referencias de rama no se borraron. La PR #30 permanece sin fusionar hasta cerrar los bloqueos de cobertura y rendimiento, revisar el diff neto y verificar los checks del HEAD exacto.
+La PR de promoción es la [#30](https://github.com/impomerchperu/FacundoCatalogManager/pull/30), abierta en borrador contra `main`. Las PR #20, #23, #24, #28 y #29 se cerraron como supersedidas después de comparar contenido y consolidar una sola ruta de integración. Sus referencias de rama no se borraron. La PR #30 permanece sin fusionar hasta cerrar los bloqueos de cobertura y rendimiento y completar la revisión del diff neto. GitHub reporta el diff limpio y Quality CI verde en `5ed7a406`; las referencias antiguas de ramas siguen conservadas.
 
 El checklist maestro actualizado de ramas, migraciones SQLite, consolidación de archivos/carpetas, imágenes, cobertura y promoción a `main` está en [FCM_BRANCH_AND_PROJECT_CLEANUP_CHECKLIST.md](FCM_BRANCH_AND_PROJECT_CLEANUP_CHECKLIST.md). Sus hallazgos y gates de cierre prevalecen sobre las referencias históricas de estado que queden en secciones anteriores de este documento.
 
@@ -294,7 +294,7 @@ La PR #20 no modifica scraping, persistencia, cobertura ni concurrencia; por ell
 - PR #20: cerrada como supersedida por #30; no fusionada separadamente.
 - La ruta vigente de promoción es PR #30, borrador desde `feat/product-table-layout` hacia `main`.
 - Validación local de `b611d17a`: Ruff limpio, Pyright sin errores/advertencias/informaciones, 57 pruebas focales y 983 pruebas de suite (11 deseleccionadas).
-- Checks de CI del HEAD de promoción: deben confirmarse en la PR #30.
+- Quality CI para el HEAD actual `5ed7a406`: Ruff, Pyright y Pytest en éxito; `live-catalog` skipped por diseño.
 - Bloqueos: reconciliar 522 vs 523 apariciones del catálogo, repetir perfiles comparables 12 vs 8 workers de categoría y completar la revisión del diff neto.
 
 La promoción a `main` no se considera completada hasta cerrar estos gates y validar el HEAD resultante de `main`.

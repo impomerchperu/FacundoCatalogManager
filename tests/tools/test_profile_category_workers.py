@@ -7,8 +7,8 @@ from config.scraping_config import SCRAPING_CATEGORY_WORKERS
 from database import db_manager
 from services.scraping import scraping_factory
 from tools.profile_category_workers import (
-    _ExperimentScrapingConfig,
     _configure_isolated_database,
+    _ExperimentScrapingConfig,
 )
 
 
@@ -76,5 +76,5 @@ def test_profile_accepts_verified_isolated_database_and_redirects_dependencies(
     monkeypatch.setenv("FCM_PROFILE_DB_PATH", str(isolated))
 
     assert _configure_isolated_database() == isolated.resolve()
-    assert db_manager.DATABASE_PATH == isolated.resolve()
-    assert scraping_factory.DATABASE_PATH == isolated.resolve()
+    assert isolated.resolve() == db_manager.DATABASE_PATH
+    assert isolated.resolve() == scraping_factory.DATABASE_PATH

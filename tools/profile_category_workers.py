@@ -93,7 +93,6 @@ def _configure_isolated_database() -> Path:
 def main() -> int:
     database_path = _configure_isolated_database()
     profiler.ScrapingConfig = _ExperimentScrapingConfig
-    profiler.OUTPUT_PATH = profiler._resolve_output_path()
     print(f"profile_database={database_path}")
     return profiler.main()
 

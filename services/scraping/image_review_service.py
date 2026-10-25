@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import hashlib
 import json
 import logging
 import os
+import re
 import shutil
 import uuid
 from collections.abc import Callable
@@ -163,9 +165,595 @@ class ImageReviewService:
                     "exact_code": bool(candidate.get("exact_code", False)),
                     "generic": bool(candidate.get("generic", False)),
                     "source": str(candidate.get("source", "") or ""),
+                    "source_page_url": str(
+                        candidate.get(
+                            "source_page_url",
+                            candidate.get("page_url", candidate.get("product_url", "")),
+                        ) or ""
+                    ),
+                    "extraction_source": str(
+                        candidate.get("extraction_source", "") or ""
+                    ),
                 }
             )
         return staged
+
+
+    @staticmethod
+    def _observation_ledger_path() -> Path:
+        return QUEUE_PATH.with_name("image_review_observations.json")
+
+    @staticmethod
+    def _observation_archive_root() -> Path:
+        return QUEUE_PATH.parent / "image_review_observed"
+
+    @staticmethod
+    def _is_generic_observation_url(url: str) -> bool:
+        filename = str(url or "").split("#", 1)[0].split("?", 1)[0]
+        filename = filename.rsplit("/", 1)[-1]
+        filename = re.sub(
+            r"-(?:\d+x\d+|scaled)(?=\.[^.]+$)",
+            "",
+            filename,
+            flags=re.IGNORECASE,
+        ).casefold()
+        return filename in {
+            "placeholder-img.webp",
+            "woocommerce-placeholder.png",
+            "nuevo-producto.png",
+            "nuevo-producto.webp",
+        }
+
+    @staticmethod
+    def _read_observations() -> list[dict]:
+        path = ImageReviewService._observation_ledger_path()
+        if not path.is_file():
+            return []
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            raise ValueError(
+                f"Could not read image observation history: {path}"
+            ) from error
+        if not isinstance(payload, list):
+            raise TypeError(
+                f"Invalid image observation history format: {path}"
+            )
+        return [item for item in payload if isinstance(item, dict)]
+
+    @staticmethod
+    def _write_observations(records: list[dict]) -> None:
+        path = ImageReviewService._observation_ledger_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps(records, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        temporary.replace(path)
+
+    @staticmethod
+    def _observation_key(
+        *,
+        code: str,
+        kind: str,
+        current_hash: str,
+        image_hash: str,
+        image_url: str,
+        source_page_url: str,
+        extraction_source: str,
+    ) -> str:
+        # A changed local primary image creates a new review identity.
+        identity = {
+            "code": str(code or "").strip().casefold(),
+            "kind": str(kind or "replacement").strip().casefold(),
+            "current_hash": str(current_hash or "").strip().casefold(),
+            "image_hash": str(image_hash or "").strip().casefold(),
+            "image_url": str(image_url or "").strip(),
+            "source_page_url": str(source_page_url or "").strip(),
+            "extraction_source": str(extraction_source or "").strip().casefold(),
+        }
+        payload = json.dumps(
+            identity,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    def _observation_source_path(
+        self,
+        value: str,
+        kind: str,
+        *,
+        current_image: bool = False,
+    ) -> Path | None:
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+
+        if current_image:
+            try:
+                candidate = self._resolve_product_image_path(raw)
+            except (OSError, ValueError):
+                return None
+            return candidate if candidate is not None and candidate.is_file() else None
+
+        candidate = self._resolve_staged_path(raw)
+        if candidate is not None and candidate.is_file():
+            return candidate
+
+        if str(kind or "").strip().casefold() == "gallery":
+            candidate = self._resolve_gallery_path(raw)
+            if candidate is not None and candidate.is_file():
+                return candidate
+        return None
+
+    def _archive_observation_image(
+        self,
+        *,
+        code: str,
+        observation_key: str,
+        source_path: Path | None,
+    ) -> str:
+        """Preserve a copy outside the temporary review staging directory."""
+        if source_path is None or not source_path.is_file():
+            return ""
+
+        try:
+            content = source_path.read_bytes()
+        except OSError:
+            LOGGER.exception("Could not read observed image: %s", source_path)
+            return ""
+
+        actual_hash = hashlib.sha256(content).hexdigest()
+        safe_code = re.sub(
+            r"[^A-Za-z0-9._-]+",
+            "_",
+            str(code or "").strip(),
+        ).strip("._-")[:80] or "unknown"
+
+        extension = source_path.suffix.casefold()
+        if extension not in {
+            ".jpg", ".jpeg", ".png", ".webp", ".gif",
+            ".bmp", ".tif", ".tiff",
+        }:
+            extension = ".img"
+
+        relative = (
+            Path("image_review_observed")
+            / safe_code
+            / f"{observation_key[:24]}-{actual_hash[:12]}{extension}"
+        )
+        destination = QUEUE_PATH.parent / relative
+
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if not destination.is_file():
+                destination.write_bytes(content)
+        except OSError:
+            LOGGER.exception("Could not archive observed image for %s", code)
+            return ""
+
+        return relative.as_posix()
+
+    @staticmethod
+    def _legacy_observation_resolution(  # noqa: PLR0912
+        existing_records: list[dict],
+        *,
+        code: str,
+        kind: str,
+        current_hash: str,
+        image_hash: str,
+        image_url: str,
+        source_page_url: str,
+        extraction_source: str,
+        manual_only: bool,
+    ) -> str:
+        """Migrate older decisions only when their known identity matches."""
+        allowed = {
+            "keep", "replace", "candidate", "manual", "delete",
+            "accept_gallery", "dismiss_gallery",
+        }
+
+        for record in existing_records:
+            if str(record.get("status", "")).casefold() != "resolved":
+                continue
+            resolution = str(record.get("resolution", "") or "").casefold()
+            if resolution not in allowed:
+                continue
+            if str(record.get("code", "")).casefold() != code.casefold():
+                continue
+            if str(record.get("current_hash", "") or "").casefold() != (
+                str(current_hash or "").casefold()
+            ):
+                continue
+
+            old_kind = str(
+                record.get("kind", "replacement") or "replacement"
+            ).casefold()
+            if old_kind != str(kind).casefold():
+                continue
+
+            if manual_only:
+                if (
+                    bool(record.get("manual_only"))
+                    and not str(record.get("candidate_hash", "") or "")
+                    and not list(record.get("candidate_options", []) or [])
+                ):
+                    return resolution
+                continue
+
+            old_options = list(record.get("candidate_options", []) or [])
+            if not old_options:
+                old_options = [record]
+
+            for option in old_options:
+                old_hash = str(
+                    option.get("hash", record.get("candidate_hash", "")) or ""
+                ).strip().casefold()
+                old_url = str(
+                    option.get("url", record.get("candidate_url", "")) or ""
+                ).strip()
+                old_page = str(
+                    option.get(
+                        "source_page_url",
+                        record.get("source_page_url", ""),
+                    ) or ""
+                ).strip()
+                old_method = str(
+                    option.get("extraction_source")
+                    or record.get("extraction_source")
+                    or ""
+                ).strip().casefold()
+
+                if old_hash != str(image_hash or "").strip().casefold():
+                    continue
+                if old_url != str(image_url or "").strip():
+                    continue
+                requested_page = str(source_page_url or "").strip()
+                if old_page and requested_page and old_page != requested_page:
+                    continue
+
+                requested_method = str(extraction_source or "").strip().casefold()
+                if old_method and requested_method and old_method != requested_method:
+                    continue
+                return resolution
+
+        return ""
+
+    def _record_candidate_observations(  # noqa: PLR0912
+        self,
+        *,
+        code: str,
+        product_name: str,
+        current_path: str,
+        current_hash: str,
+        current_url: str,
+        kind: str,
+        candidate_path: str,
+        candidate_hash: str,
+        candidate_url: str,
+        candidate_options: list[dict],
+        allow_manual_only: bool,
+        existing_records: list[dict],
+    ) -> tuple[list[str], list[str], bool, bool]:
+        """Archive observations and identify candidates eligible for review."""
+        current_is_generic = self._is_generic_observation_url(current_url)
+        inputs = [dict(option) for option in candidate_options]
+
+        if not inputs and candidate_hash:
+            inputs = [{
+                "path": candidate_path,
+                "hash": candidate_hash,
+                "url": candidate_url,
+                "source_page_url": "",
+                "extraction_source": (
+                    "gallery" if kind == "gallery" else "primary"
+                ),
+                "gallery": kind == "gallery",
+            }]
+        elif not inputs and allow_manual_only:
+            if current_is_generic and current_path:
+                inputs = [{
+                    "_current_image": True,
+                    "path": current_path,
+                    "hash": current_hash,
+                    "url": current_url,
+                    "source_page_url": "",
+                    "extraction_source": "primary_current",
+                    "generic": True,
+                }]
+            else:
+                inputs = [{
+                    "_manual_only": True,
+                    "path": "",
+                    "hash": "",
+                    "url": "",
+                    "source_page_url": "",
+                    "extraction_source": "manual_only",
+                }]
+
+        if not inputs:
+            return [], [], False, current_is_generic
+
+        def option_is_generic(option: dict) -> bool:
+            if option.get("_manual_only") or option.get("_current_image"):
+                return True
+            url = str(option.get("url", option.get("candidate_url", "")) or "")
+            return bool(
+                option.get("generic", False)
+                or self._is_generic_observation_url(url)
+            )
+
+        generic_only = current_is_generic and all(
+            option_is_generic(option) for option in inputs
+        )
+
+        observations = self._read_observations()
+        by_key = {
+            str(item.get("observation_key", "")): item
+            for item in observations
+            if str(item.get("observation_key", ""))
+        }
+        keys: list[str] = []
+        queue_keys: list[str] = []
+        all_reviewed = True
+        changed = False
+        now = self._now()
+
+        for option in inputs:
+            is_manual = bool(option.get("_manual_only"))
+            is_current_image = bool(option.get("_current_image"))
+            path_value = str(option.get("path", "") or "").strip()
+            image_url = str(
+                option.get("url", option.get("candidate_url", "")) or ""
+            ).strip()
+            source_page_url = str(
+                option.get(
+                    "source_page_url",
+                    option.get("page_url", option.get("product_url", "")),
+                ) or ""
+            ).strip()
+
+            extraction_source = str(
+                option.get("extraction_source")
+                or option.get("source")
+                or (
+                    "manual_only"
+                    if is_manual
+                    else (
+                        "primary_current"
+                        if is_current_image
+                        else (
+                            "gallery"
+                            if bool(option.get("gallery", kind == "gallery"))
+                            else "primary"
+                        )
+                    )
+                )
+            ).strip()
+
+            source_path = (
+                self._observation_source_path(
+                    path_value,
+                    kind,
+                    current_image=is_current_image,
+                )
+                if path_value and not is_manual
+                else None
+            )
+            image_hash = str(
+                option.get("hash", option.get("image_hash", "")) or ""
+            ).strip()
+
+            if not image_hash and source_path is not None:
+                try:
+                    image_hash = hashlib.sha256(
+                        source_path.read_bytes()
+                    ).hexdigest()
+                except OSError:
+                    image_hash = ""
+
+            if not image_hash and not is_manual:
+                all_reviewed = False
+                continue
+
+            queue_eligible = (
+                not option_is_generic(option)
+                or (is_manual and not current_is_generic)
+            )
+
+            key = self._observation_key(
+                code=code,
+                kind=kind,
+                current_hash=current_hash,
+                image_hash=image_hash,
+                image_url=image_url,
+                source_page_url=source_page_url,
+                extraction_source=extraction_source,
+            )
+            keys.append(key)
+            if queue_eligible:
+                queue_keys.append(key)
+            entry = by_key.get(key)
+
+            if entry is None:
+                resolution = self._legacy_observation_resolution(
+                    existing_records,
+                    code=code,
+                    kind=kind,
+                    current_hash=current_hash,
+                    image_hash=image_hash,
+                    image_url=image_url,
+                    source_page_url=source_page_url,
+                    extraction_source=extraction_source,
+                    manual_only=is_manual,
+                )
+                initial_state = (
+                    "reviewed"
+                    if resolution
+                    else (
+                        "observed_not_queued"
+                        if generic_only or not queue_eligible
+                        else "unreviewed"
+                    )
+                )
+                entry = {
+                    "observation_key": key,
+                    "code": str(code),
+                    "product_name": str(product_name or ""),
+                    "kind": str(kind or "replacement"),
+                    "current_hash": str(current_hash or ""),
+                    "current_url": str(current_url or ""),
+                    "image_hash": image_hash,
+                    "image_url": image_url,
+                    "source_page_url": source_page_url,
+                    "extraction_source": extraction_source,
+                    "source": str(option.get("source", "") or ""),
+                    "generic": option_is_generic(option),
+                    "stored_path": "",
+                    "review_state": initial_state,
+                    "resolution": resolution,
+                    "first_seen_at": now,
+                    "last_seen_at": now,
+                    "last_reviewed_at": now if resolution else "",
+                    "seen_count": 1,
+                    "manual_only": is_manual,
+                }
+                observations.append(entry)
+                by_key[key] = entry
+                changed = True
+            else:
+                entry["last_seen_at"] = now
+                entry["seen_count"] = int(entry.get("seen_count", 0) or 0) + 1
+                entry["current_hash"] = str(current_hash or "")
+                entry["current_url"] = str(current_url or "")
+                if not entry.get("product_name") and product_name:
+                    entry["product_name"] = str(product_name)
+                changed = True
+
+            if not is_manual:
+                stored = str(entry.get("stored_path", "") or "")
+                stored_file = QUEUE_PATH.parent / Path(stored) if stored else None
+                if stored_file is None or not stored_file.is_file():
+                    archived = self._archive_observation_image(
+                        code=code,
+                        observation_key=key,
+                        source_path=source_path,
+                    )
+                    if archived:
+                        entry["stored_path"] = archived
+                        changed = True
+
+            if not queue_eligible:
+                if str(entry.get("review_state", "")) != "reviewed":
+                    entry["review_state"] = "observed_not_queued"
+                    entry["not_queued_reason"] = (
+                        "manual_only_while_current_primary_is_generic"
+                        if is_manual and current_is_generic
+                        else "generic_candidate"
+                    )
+                    changed = True
+            elif str(entry.get("review_state", "")) != "reviewed":
+                all_reviewed = False
+
+            if not is_manual:
+                stored = str(entry.get("stored_path", "") or "")
+                stored_file = QUEUE_PATH.parent / Path(stored) if stored else None
+                if (
+                    (stored_file is None or not stored_file.is_file())
+                    and queue_eligible
+                ):
+                    all_reviewed = False
+
+        if changed:
+            self._write_observations(observations)
+
+        unique_keys = list(dict.fromkeys(keys))
+        unique_queue_keys = list(dict.fromkeys(queue_keys))
+        return (
+            unique_keys,
+            unique_queue_keys,
+            bool(unique_queue_keys) and all_reviewed,
+            generic_only,
+        )
+
+    def _update_observation_states(
+        self,
+        observation_keys: set[str],
+        *,
+        state: str,
+        resolution: str = "",
+        reason: str = "",
+        preserve_reviewed: bool = False,
+    ) -> None:
+        if not observation_keys:
+            return
+        try:
+            observations = self._read_observations()
+            changed = False
+            now = self._now()
+            for entry in observations:
+                if str(entry.get("observation_key", "")) not in observation_keys:
+                    continue
+                if (
+                    preserve_reviewed
+                    and str(entry.get("review_state", "")) == "reviewed"
+                ):
+                    continue
+                entry["review_state"] = state
+                entry["last_seen_at"] = now
+                if resolution:
+                    entry["resolution"] = resolution
+                if reason:
+                    entry["not_queued_reason"] = reason
+                changed = True
+            if changed:
+                self._write_observations(observations)
+        except (OSError, ValueError, TypeError):
+            LOGGER.exception("Could not update image observation status.")
+
+    def _mark_observations_queued(self, record: dict) -> None:
+        keys = {
+            str(value).strip()
+            for value in list(record.get("observation_keys", []) or [])
+            if str(value).strip()
+        }
+        self._update_observation_states(
+            keys,
+            state="queued",
+            preserve_reviewed=True,
+        )
+
+    def _mark_observations_not_queued(
+        self,
+        keys: list[str],
+        *,
+        reason: str = "generic_only_while_current_primary_is_generic",
+    ) -> None:
+        self._update_observation_states(
+            set(keys),
+            state="observed_not_queued",
+            reason=reason,
+            preserve_reviewed=True,
+        )
+
+    def _mark_observations_reviewed(
+        self,
+        record: dict,
+        resolution: str,
+    ) -> None:
+        keys = {
+            str(value).strip()
+            for value in list(record.get("observation_keys", []) or [])
+            if str(value).strip()
+        }
+        self._update_observation_states(
+            keys,
+            state="reviewed",
+            resolution=str(resolution or "resolved"),
+        )
 
     def register_candidate(  # noqa: PLR0912
         self,
@@ -197,6 +785,25 @@ class ImageReviewService:
 
         with self._lock:
             records = self._read()
+            (
+                observation_keys,
+                queue_observation_keys,
+                observations_already_reviewed,
+                generic_only,
+            ) = self._record_candidate_observations(
+                    code=code,
+                    product_name=product_name,
+                    current_path=current_path,
+                    current_hash=current_hash,
+                    current_url=current_url,
+                    kind=normalized_kind,
+                    candidate_path=candidate_path,
+                    candidate_hash=candidate_hash,
+                    candidate_url=candidate_url,
+                    candidate_options=list(candidate_options or []),
+                    allow_manual_only=allow_manual_only,
+                    existing_records=records,
+                )
             for record in records:
                 same_code = (
                     str(record.get("code", "")).casefold()
@@ -234,8 +841,28 @@ class ImageReviewService:
                         "hash": str(option.get("hash", "") or ""),
                         "score": int(option.get("score", 0) or 0),
                         "exact_code": bool(option.get("exact_code", False)),
-                        "generic": bool(option.get("generic", False)),
                         "source": str(option.get("source", "") or ""),
+                        "source_page_url": str(
+                            option.get(
+                                "source_page_url",
+                                option.get("page_url", option.get("product_url", "")),
+                            ) or ""
+                        ),
+                        "extraction_source": str(
+                            option.get("extraction_source")
+                            or option.get("source")
+                            or (
+                                "gallery"
+                                if bool(
+                                    option.get("gallery", normalized_kind == "gallery")
+                                )
+                                else "primary"
+                            )
+                        ),
+                        "generic": bool(
+                            option.get("generic", False)
+                            or self._is_generic_observation_url(url)
+                        ),
                         "gallery": bool(
                             option.get("gallery", normalized_kind == "gallery")
                         ),
@@ -249,8 +876,15 @@ class ImageReviewService:
                         "hash": str(candidate_hash or ""),
                         "score": 0,
                         "exact_code": False,
-                        "generic": False,
                         "source": "",
+                        "source_page_url": "",
+                        "extraction_source": (
+                            "gallery" if normalized_kind == "gallery" else "primary"
+                        ),
+                        "generic": self._is_generic_observation_url(
+                            str(candidate_url or "")
+                        ),
+                        "gallery": normalized_kind == "gallery",
                     }
                 ]
 
@@ -275,6 +909,113 @@ class ImageReviewService:
                     "generic": False,
                     "source": "",
                 }
+
+            if generic_only:
+                protected_paths: set[str] = set()
+                queue_changed = False
+                for existing_record in records:
+                    if (
+                        str(existing_record.get("code", "")).casefold()
+                        != str(code).casefold()
+                        or existing_record.get("status") not in {"pending", "staged"}
+                    ):
+                        continue
+
+                    active_options = list(
+                        existing_record.get("candidate_options", []) or []
+                    )
+                    active_urls = [
+                        str(option.get("url", "") or "")
+                        for option in active_options
+                    ]
+                    if not active_urls:
+                        active_urls = [
+                            str(existing_record.get("candidate_url", "") or "")
+                        ]
+                    active_has_valid_image = any(
+                        not (
+                            self._is_generic_observation_url(url)
+                        )
+                        for url in active_urls
+                        if url
+                    )
+                    same_primary = (
+                        str(existing_record.get("current_hash", "") or "").casefold()
+                        == str(current_hash or "").casefold()
+                    )
+                    if active_has_valid_image and same_primary:
+                        protected_paths.update(
+                            str(option.get("path", "") or "")
+                            for option in active_options
+                            if str(option.get("path", "") or "").strip()
+                        )
+                        continue
+
+                    if str(existing_record.get("kind", "replacement")) != "gallery":
+                        self._remove_all_staged_candidates(existing_record)
+                    existing_record["status"] = "resolved"
+                    existing_record["resolution"] = "generic_only_waiting"
+                    existing_record["updated_at"] = self._now()
+                    queue_changed = True
+
+                if queue_changed:
+                    self._write(records)
+
+                self._mark_observations_not_queued(observation_keys)
+                self._remove_staged_candidates_except(
+                    {
+                        "candidate_options": options,
+                        "candidate_path": candidate_path,
+                    },
+                    protected_paths,
+                )
+                return None
+
+            all_options = options
+            generic_options = [
+                option for option in all_options if bool(option.get("generic", False))
+            ]
+            eligible_options = [
+                option for option in all_options if not bool(option.get("generic", False))
+            ]
+
+            if generic_options:
+                generic_keys = sorted(
+                    set(observation_keys) - set(queue_observation_keys)
+                )
+                self._mark_observations_not_queued(
+                    generic_keys,
+                    reason="generic_candidate",
+                )
+                protected_paths = {
+                    str(option.get("path", "") or "").strip()
+                    for option in eligible_options
+                    if str(option.get("path", "") or "").strip()
+                }
+                self._remove_staged_candidates_except(
+                    {
+                        "candidate_options": all_options,
+                        "candidate_path": candidate_path,
+                    },
+                    protected_paths,
+                )
+
+            options = eligible_options
+            # Manual-only reviews intentionally start without candidates.
+            # Preserve that path; only suppress empty non-manual reviews.
+            if not options and not allow_manual_only:
+                return None
+
+            observation_keys = queue_observation_keys
+
+            if observations_already_reviewed and observation_keys:
+                self._remove_all_staged_candidates(
+                    {
+                        "candidate_options": options,
+                        "candidate_path": candidate_path,
+                    }
+                )
+                return None
 
             normalized_code = str(code).casefold()
             protected_paths = {
@@ -316,12 +1057,16 @@ class ImageReviewService:
                 "candidate_hash": primary["hash"],
                 "candidate_url": primary["url"],
                 "candidate_options": options,
+                "observation_keys": observation_keys,
+                "source_page_url": str(primary.get("source_page_url", "") or ""),
+                "extraction_source": str(primary.get("extraction_source", "") or ""),
                 "excluded_options": [],
                 "kind": normalized_kind,
                 "manual_only": bool(allow_manual_only and not options),
             }
             records.append(record)
             self._write(records)
+            self._mark_observations_queued(record)
             return dict(record)
 
     def pending(self) -> list[dict]:
@@ -674,6 +1419,12 @@ class ImageReviewService:
 
             if results:
                 self._write(records)
+                for resolved_record in selected:
+                    if resolved_record.get("status") == "resolved":
+                        self._mark_observations_reviewed(
+                            resolved_record,
+                            str(resolved_record.get("resolution", "") or ""),
+                        )
                 if any(
                     str(record.get("kind", "replacement")) == "gallery"
                     for record in selected
@@ -772,6 +1523,11 @@ class ImageReviewService:
         # El catálogo y la cola ya están confirmados. La limpieza es posterior
         # para evitar perder candidatos antes de un commit exitoso.
         try:
+            for resolved_record in selected_records:
+                self._mark_observations_reviewed(
+                    resolved_record,
+                    str(resolved_record.get("resolution", "") or ""),
+                )
             self._cleanup_selected_records(selected_records)
             self._cleanup_file_states(prepared)
         except OSError:

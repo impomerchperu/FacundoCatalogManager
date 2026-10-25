@@ -450,6 +450,230 @@ def test_new_scrape_batch_supersedes_previous_review_with_same_hash(
     assert len(pending) == 1
     assert pending[0]["id"] != first_id
 
+
+def test_reviewed_observation_is_archived_and_new_source_can_be_reviewed(
+    monkeypatch,
+    tmp_path,
+):
+    import hashlib
+    import json
+
+    staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
+    staging_dir.mkdir(parents=True)
+    products_dir.mkdir(parents=True)
+
+    current_path = products_dir / "FB-100.jpg"
+    candidate_path = staging_dir / "FB-100-observed.webp"
+    current_path.write_bytes(image_bytes("JPEG", (10, 11, 12)))
+    candidate_bytes = image_bytes("WEBP", (13, 14, 15))
+    candidate_path.write_bytes(candidate_bytes)
+
+    current_hash = hashlib.sha256(current_path.read_bytes()).hexdigest()
+    current = Product(
+        code="FB-100",
+        name="Product",
+        image_path="data/images/products/FB-100.jpg",
+        image_hash=current_hash,
+        image_url="https://example.test/current.jpg",
+    )
+    service = ImageReviewService(FakeRepository(current))
+    image_url = "https://example.test/uploads/candidate.webp"
+    first_page = "https://example.test/product/first/"
+    candidate_hash = hashlib.sha256(candidate_bytes).hexdigest()
+
+    def register(page_url):
+        return service.register_candidate(
+            code="FB-100",
+            product_name="Product",
+            current_path=current.image_path,
+            current_hash=current.image_hash,
+            current_url=current.image_url,
+            candidate_path="image_review_staging/FB-100-observed.webp",
+            candidate_hash=candidate_hash,
+            candidate_url=image_url,
+            candidate_options=[
+                {
+                    "path": "image_review_staging/FB-100-observed.webp",
+                    "hash": candidate_hash,
+                    "url": image_url,
+                    "source_page_url": page_url,
+                    "extraction_source": "primary",
+                    "generic": False,
+                }
+            ],
+        )
+
+    batch = service.begin_batch()
+    assert register(first_page) is not None
+    service.finalize_batch(batch)
+
+    review_id = service.pending()[0]["id"]
+    service.apply_selection(review_id, "keep")
+    service.finalize_selected([review_id])
+
+    ledger_path = service._observation_ledger_path()
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    first_observation = next(
+        item
+        for item in ledger
+        if item["source_page_url"] == first_page
+        and item["code"] == "FB-100"
+    )
+    archived_file = ledger_path.parent / first_observation["stored_path"]
+    assert first_observation["review_state"] == "reviewed"
+    assert archived_file.is_file()
+
+    # Same source, image and primary hash: do not reopen the same review.
+    candidate_path.write_bytes(candidate_bytes)
+    batch = service.begin_batch()
+    assert register(first_page) is None
+    service.finalize_batch(batch)
+    assert service.pending() == []
+    assert archived_file.is_file()
+
+    # Identical bytes from a different product page require a separate review.
+    second_page = "https://example.test/product/second/"
+    candidate_path.write_bytes(candidate_bytes)
+    batch = service.begin_batch()
+    assert register(second_page) is not None
+    service.finalize_batch(batch)
+
+    pending = service.pending()
+    assert len(pending) == 1
+    assert pending[0]["candidate_options"][0]["source_page_url"] == second_page
+
+    # A changed local primary hash also creates a fresh observation identity.
+    current.image_hash = "changed-primary-hash"
+    candidate_path.write_bytes(candidate_bytes)
+    batch = service.begin_batch()
+    assert register(first_page) is not None
+    service.finalize_batch(batch)
+
+    pending = service.pending()
+    assert len(pending) == 1
+    assert pending[0]["current_hash"] == "changed-primary-hash"
+    assert pending[0]["candidate_options"][0]["source_page_url"] == first_page
+
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    observations = [
+        item
+        for item in ledger
+        if item["code"] == "FB-100" and item["image_url"] == image_url
+    ]
+    assert {item["source_page_url"] for item in observations} == {
+        first_page,
+        second_page,
+    }
+    assert all(
+        (ledger_path.parent / item["stored_path"]).is_file()
+        for item in observations
+    )
+
+
+def test_generic_only_candidates_are_archived_but_not_queued_until_valid_image(
+    monkeypatch,
+    tmp_path,
+):
+    import hashlib
+    import json
+
+    staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
+    staging_dir.mkdir(parents=True)
+    products_dir.mkdir(parents=True)
+
+    current_path = products_dir / "FB-100.jpg"
+    current_bytes = image_bytes("JPEG", (20, 21, 22))
+    current_path.write_bytes(current_bytes)
+    current_hash = hashlib.sha256(current_bytes).hexdigest()
+    current = Product(
+        code="FB-100",
+        name="Product",
+        image_path="data/images/products/FB-100.jpg",
+        image_hash=current_hash,
+        image_url=(
+            "https://example.test/uploads/Placeholder-img.webp"
+        ),
+    )
+    service = ImageReviewService(FakeRepository(current))
+
+    marker_path = staging_dir / "FB-100-marker.webp"
+    marker_bytes = image_bytes("WEBP", (23, 24, 25))
+    marker_path.write_bytes(marker_bytes)
+    marker_hash = hashlib.sha256(marker_bytes).hexdigest()
+    marker_url = (
+        "https://example.test/uploads/Placeholder-img-600x600.webp"
+    )
+
+    batch = service.begin_batch()
+    result = service.register_candidate(
+        code="FB-100",
+        product_name="Product",
+        current_path=current.image_path,
+        current_hash=current.image_hash,
+        current_url=current.image_url,
+        candidate_path="image_review_staging/FB-100-marker.webp",
+        candidate_hash=marker_hash,
+        candidate_url=marker_url,
+        candidate_options=[
+            {
+                "path": "image_review_staging/FB-100-marker.webp",
+                "hash": marker_hash,
+                "url": marker_url,
+                "source_page_url": "https://example.test/product/100/",
+                "extraction_source": "primary",
+                "generic": True,
+            }
+        ],
+    )
+    assert result is None
+    service.finalize_batch(batch)
+    assert service.pending() == []
+    assert not marker_path.exists()
+
+    ledger_path = service._observation_ledger_path()
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    marker_observation = next(
+        item for item in ledger if item["image_url"] == marker_url
+    )
+    marker_archive = ledger_path.parent / marker_observation["stored_path"]
+    assert marker_observation["review_state"] == "observed_not_queued"
+    assert marker_archive.is_file()
+
+    valid_path = staging_dir / "FB-100-valid.webp"
+    valid_bytes = image_bytes("WEBP", (26, 27, 28))
+    valid_path.write_bytes(valid_bytes)
+    valid_hash = hashlib.sha256(valid_bytes).hexdigest()
+    valid_url = "https://example.test/uploads/FB-100-valid.webp"
+
+    batch = service.begin_batch()
+    result = service.register_candidate(
+        code="FB-100",
+        product_name="Product",
+        current_path=current.image_path,
+        current_hash=current.image_hash,
+        current_url=current.image_url,
+        candidate_path="image_review_staging/FB-100-valid.webp",
+        candidate_hash=valid_hash,
+        candidate_url=valid_url,
+        candidate_options=[
+            {
+                "path": "image_review_staging/FB-100-valid.webp",
+                "hash": valid_hash,
+                "url": valid_url,
+                "source_page_url": "https://example.test/product/100/",
+                "extraction_source": "primary",
+                "generic": False,
+            }
+        ],
+    )
+    assert result is not None
+    service.finalize_batch(batch)
+
+    pending = service.pending()
+    assert len(pending) == 1
+    assert pending[0]["candidate_hash"] == valid_hash
+    assert marker_archive.is_file()
+
 def test_manual_image_uses_detected_format_not_filename_suffix(
     monkeypatch,
     tmp_path,
@@ -590,4 +814,180 @@ def test_review_replacement_never_overwrites_active_canonical_image(
     new_path = Path(module.resolve_data_path(repository.product.image_path))
     assert new_path.is_file()
     assert new_path.read_bytes() == candidate_bytes
+def test_mixed_generic_and_valid_candidates_only_queues_valid_image(
+    monkeypatch,
+    tmp_path,
+):
+    import hashlib
+    import json
 
+    staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
+    staging_dir.mkdir(parents=True)
+    products_dir.mkdir(parents=True)
+
+    current_path = products_dir / "FB-100.jpg"
+    current_bytes = image_bytes("JPEG", (30, 31, 32))
+    current_path.write_bytes(current_bytes)
+    current_hash = hashlib.sha256(current_bytes).hexdigest()
+
+    current = Product(
+        code="FB-100",
+        name="Product",
+        image_path="data/images/products/FB-100.jpg",
+        image_hash=current_hash,
+        image_url="https://example.test/uploads/Placeholder-img.webp",
+    )
+    service = ImageReviewService(FakeRepository(current))
+
+    marker_path = staging_dir / "FB-100-marker.webp"
+    valid_path = staging_dir / "FB-100-valid.webp"
+    marker_bytes = image_bytes("WEBP", (33, 34, 35))
+    valid_bytes = image_bytes("WEBP", (36, 37, 38))
+    marker_path.write_bytes(marker_bytes)
+    valid_path.write_bytes(valid_bytes)
+
+    marker_hash = hashlib.sha256(marker_bytes).hexdigest()
+    valid_hash = hashlib.sha256(valid_bytes).hexdigest()
+    marker_url = (
+        "https://example.test/uploads/Placeholder-img-600x600.webp"
+    )
+    valid_url = "https://example.test/uploads/FB-100-valid.webp"
+    source_page = "https://example.test/product/100/"
+
+    batch = service.begin_batch()
+    result = service.register_candidate(
+        code="FB-100",
+        product_name="Product",
+        current_path=current.image_path,
+        current_hash=current.image_hash,
+        current_url=current.image_url,
+        candidate_path="image_review_staging/FB-100-marker.webp",
+        candidate_hash=marker_hash,
+        candidate_url=marker_url,
+        candidate_options=[
+            {
+                "path": "image_review_staging/FB-100-marker.webp",
+                "hash": marker_hash,
+                "url": marker_url,
+                "source_page_url": source_page,
+                "extraction_source": "primary",
+                "generic": True,
+            },
+            {
+                "path": "image_review_staging/FB-100-valid.webp",
+                "hash": valid_hash,
+                "url": valid_url,
+                "source_page_url": source_page,
+                "extraction_source": "primary",
+                "generic": False,
+            },
+        ],
+    )
+
+    assert result is not None
+    service.finalize_batch(batch)
+
+    pending = service.pending()
+    assert len(pending) == 1
+    queued_urls = {
+        option["url"] for option in pending[0]["candidate_options"]
+    }
+    assert valid_url in queued_urls
+    assert marker_url not in queued_urls
+
+    ledger_path = service._observation_ledger_path()
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    marker = next(item for item in ledger if item["image_url"] == marker_url)
+    valid = next(item for item in ledger if item["image_url"] == valid_url)
+
+    assert marker["review_state"] == "observed_not_queued"
+    assert valid["review_state"] == "queued"
+    assert (ledger_path.parent / marker["stored_path"]).is_file()
+    assert (ledger_path.parent / valid["stored_path"]).is_file()
+    assert not marker_path.exists()
+    assert valid_path.is_file()
+def test_legacy_keep_migrates_when_optional_provenance_is_missing(
+    monkeypatch,
+    tmp_path,
+):
+    import hashlib
+    import json
+
+    staging_dir, products_dir = _patch_paths(monkeypatch, tmp_path)
+    staging_dir.mkdir(parents=True)
+    products_dir.mkdir(parents=True)
+
+    current_path = products_dir / "FB-100.jpg"
+    current_bytes = image_bytes("JPEG", (40, 41, 42))
+    current_path.write_bytes(current_bytes)
+    current_hash = hashlib.sha256(current_bytes).hexdigest()
+
+    candidate_path = staging_dir / "FB-100-observed.webp"
+    candidate_bytes = image_bytes("WEBP", (43, 44, 45))
+    candidate_path.write_bytes(candidate_bytes)
+    candidate_hash = hashlib.sha256(candidate_bytes).hexdigest()
+
+    candidate_url = "https://example.test/uploads/FB-100-observed.webp"
+    source_page = "https://example.test/product/FB-100/"
+
+    current = Product(
+        code="FB-100",
+        name="Product",
+        image_path="data/images/products/FB-100.jpg",
+        image_hash=current_hash,
+        image_url="https://example.test/uploads/FB-100-current.jpg",
+    )
+    service = ImageReviewService(FakeRepository(current))
+
+    # Reproduce an old resolved queue record without provenance metadata.
+    service._write([{
+        "id": "legacy-FB-100",
+        "code": "FB-100",
+        "status": "resolved",
+        "resolution": "keep",
+        "kind": "replacement",
+        "current_hash": current_hash,
+        "candidate_hash": candidate_hash,
+        "candidate_url": candidate_url,
+        "candidate_options": [{
+            "path": "image_review_staging/FB-100-observed.webp",
+            "hash": candidate_hash,
+            "url": candidate_url,
+        }],
+    }])
+
+    batch = service.begin_batch()
+    result = service.register_candidate(
+        code="FB-100",
+        product_name="Product",
+        current_path=current.image_path,
+        current_hash=current_hash,
+        current_url=current.image_url,
+        candidate_path="image_review_staging/FB-100-observed.webp",
+        candidate_hash=candidate_hash,
+        candidate_url=candidate_url,
+        candidate_options=[{
+            "path": "image_review_staging/FB-100-observed.webp",
+            "hash": candidate_hash,
+            "url": candidate_url,
+            "source_page_url": source_page,
+            "extraction_source": "primary",
+            "generic": False,
+        }],
+    )
+    service.finalize_batch(batch)
+
+    assert result is None
+    assert service.pending() == []
+    assert not candidate_path.exists()
+
+    ledger_path = service._observation_ledger_path()
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    observation = next(
+        item for item in ledger
+        if item["code"] == "FB-100" and item["image_url"] == candidate_url
+    )
+    assert observation["review_state"] == "reviewed"
+    assert observation["resolution"] == "keep"
+    assert observation["source_page_url"] == source_page
+    assert (ledger_path.parent / observation["stored_path"]).is_file()

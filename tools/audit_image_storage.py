@@ -65,6 +65,157 @@ def _image_reference_tables(connection: sqlite3.Connection) -> list[str]:
     ]
 
 
+def _gallery_image_entries(raw: Any) -> list[dict[str, Any]]:
+    """Parse local image references stored in a product gallery JSON list."""
+    if not isinstance(raw, str) or not raw.strip():
+        return []
+
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+
+    if not isinstance(payload, list):
+        return []
+
+    return [entry for entry in payload if isinstance(entry, dict)]
+
+
+def _product_source_page_urls_by_code(
+    connection: sqlite3.Connection,
+) -> dict[str, list[str]]:
+    """Resolve the product pages from which each product was extracted."""
+    table_rows = connection.execute(
+        "SELECT name FROM sqlite_master "
+        "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+    ).fetchall()
+    tables = {str(row[0]) for row in table_rows}
+    urls_by_code: dict[str, set[str]] = defaultdict(set)
+
+    source_tables = (
+        ("scraping_product_occurrences", "product_url", False),
+        ("scraped_products", "url", True),
+    )
+
+    for table, url_column, fallback in source_tables:
+        if table not in tables:
+            continue
+
+        columns = _table_columns(connection, table)
+        if not {"code", url_column}.issubset(columns):
+            continue
+
+        query = (
+            f"SELECT {_quote_identifier('code')}, "
+            f"{_quote_identifier(url_column)} "
+            f"FROM {_quote_identifier(table)}"
+        )
+
+        for raw_code, raw_url in connection.execute(query).fetchall():
+            code = str(raw_code or "").strip()
+            url = str(raw_url or "").strip()
+
+            if not code or not url:
+                continue
+            if fallback and code in urls_by_code:
+                continue
+
+            urls_by_code[code].add(url)
+
+    return {
+        code: sorted(urls)
+        for code, urls in urls_by_code.items()
+    }
+
+
+def _add_image_reference(
+    references: list[dict[str, Any]],
+    row_references: dict[Path, dict[str, Any]],
+    raw_path: Any,
+    details: dict[str, Any],
+    project_root: Path,
+) -> None:
+    """Add one image reference, deduplicating paths within the same DB row."""
+    normalized = _normalized_db_path(raw_path, project_root)
+    if normalized is None:
+        return
+
+    image_hash = str(details.get("image_hash") or "")
+    image_url = str(details.get("image_url") or "")
+    source_page_urls = list(details.get("source_page_urls") or [])
+    existing = row_references.get(normalized)
+
+    if existing is not None:
+        if not existing["image_hash"] and image_hash:
+            existing["image_hash"] = image_hash
+        if not existing["image_url"] and image_url:
+            existing["image_url"] = image_url
+        if not existing["source_page_urls"] and source_page_urls:
+            existing["source_page_urls"] = source_page_urls
+        return
+
+    reference = {
+        "table": details["table"],
+        "rowid": details["rowid"],
+        "code": details["code"],
+        "image_path": str(raw_path or ""),
+        "resolved_path": normalized,
+        "image_hash": image_hash,
+        "image_url": image_url,
+        "source": str(details.get("source") or ""),
+        "source_page_urls": source_page_urls,
+    }
+    references.append(reference)
+    row_references[normalized] = reference
+
+
+def _collect_row_image_references(
+    table: str,
+    values: dict[str, Any],
+    project_root: Path,
+) -> list[dict[str, Any]]:
+    """Collect primary and gallery images, preserving extraction provenance."""
+    references: list[dict[str, Any]] = []
+    row_references: dict[Path, dict[str, Any]] = {}
+
+    base_details = {
+        "table": table,
+        "rowid": values.get("rowid"),
+        "code": str(values.get("code") or ""),
+        "image_hash": str(values.get("image_hash") or ""),
+        "image_url": str(values.get("image_url") or ""),
+        "source": "primary" if table == "products" else "",
+        "source_page_urls": list(values.get("source_page_urls") or []),
+    }
+
+    _add_image_reference(
+        references,
+        row_references,
+        values.get("image_path"),
+        base_details,
+        project_root,
+    )
+
+    for entry in _gallery_image_entries(values.get("gallery_images")):
+        gallery_details = {
+            **base_details,
+            "image_hash": str(entry.get("image_hash") or ""),
+            "image_url": str(
+                entry.get("url") or entry.get("image_url") or ""
+            ),
+            "source": str(entry.get("source") or ""),
+        }
+        _add_image_reference(
+            references,
+            row_references,
+            entry.get("image_path") or entry.get("path"),
+            gallery_details,
+            project_root,
+        )
+
+    return references
+
+
 def _collect_db_references(
     db_path: Path,
     project_root: Path,
@@ -75,40 +226,53 @@ def _collect_db_references(
 
     connection = sqlite3.connect(db_path)
     try:
+        source_urls_by_code = _product_source_page_urls_by_code(connection)
+
         for table in _image_reference_tables(connection):
             columns = _table_columns(connection, table)
             if "image_path" not in columns:
                 continue
 
             selected = ["rowid", "image_path"]
-            for optional in ("code", "image_hash", "image_url"):
+            for optional in (
+                "code",
+                "image_hash",
+                "image_url",
+                "gallery_images",
+            ):
                 if optional in columns:
                     selected.append(optional)
 
+            quoted_table = _quote_identifier(table)
+            selected_sql = ", ".join(
+                _quote_identifier(column) for column in selected
+            )
             rows = connection.execute(
-                f"SELECT {', '.join(selected)} FROM {table}"
+                f"SELECT {selected_sql} FROM {quoted_table}"
             ).fetchall()
+
             for row in rows:
                 values = dict(zip(selected, row, strict=True))
-                normalized = _normalized_db_path(
-                    values.get("image_path"),
-                    project_root,
-                )
-                if normalized is None:
-                    continue
-                references.append(
-                    {
-                        "table": table,
-                        "rowid": values.get("rowid"),
-                        "code": str(values.get("code") or ""),
-                        "image_path": str(values.get("image_path") or ""),
-                        "resolved_path": normalized,
-                        "image_hash": str(values.get("image_hash") or ""),
-                        "image_url": str(values.get("image_url") or ""),
-                    }
+
+                if table == "products":
+                    code = str(values.get("code") or "").strip()
+                    values["source_page_urls"] = source_urls_by_code.get(
+                        code,
+                        [],
+                    )
+                else:
+                    values["source_page_urls"] = []
+
+                references.extend(
+                    _collect_row_image_references(
+                        table,
+                        values,
+                        project_root,
+                    )
                 )
     finally:
         connection.close()
+
     return references
 
 
@@ -160,6 +324,213 @@ def _scan_files(
     return records
 
 
+def _annotate_source_provenance(
+    files: list[dict[str, Any]],
+    references: list[dict[str, Any]],
+) -> None:
+    """Attach product-page URL, image URL and extraction method to each file."""
+    identities_by_path: dict[
+        Path, set[tuple[str, str, str]]
+    ] = defaultdict(set)
+    incomplete_paths: set[Path] = set()
+    page_urls_by_path: dict[Path, set[str]] = defaultdict(set)
+    image_urls_by_path: dict[Path, set[str]] = defaultdict(set)
+    methods_by_path: dict[Path, set[str]] = defaultdict(set)
+
+    for reference in references:
+        if reference["table"] != "products":
+            continue
+
+        image_path = reference["resolved_path"]
+        page_urls = {
+            str(url).strip()
+            for url in (reference.get("source_page_urls") or [])
+            if str(url).strip()
+        }
+        image_url = str(reference.get("image_url") or "").strip()
+        method = str(reference.get("source") or "").strip()
+
+        page_urls_by_path[image_path].update(page_urls)
+        if image_url:
+            image_urls_by_path[image_path].add(image_url)
+        if method:
+            methods_by_path[image_path].add(method)
+
+        if len(page_urls) == 1 and image_url and method:
+            identities_by_path[image_path].add(
+                (next(iter(page_urls)), image_url, method)
+            )
+        else:
+            incomplete_paths.add(image_path)
+
+    for record in files:
+        image_path = record["path"]
+        identities = sorted(identities_by_path.get(image_path, set()))
+        page_urls = sorted(page_urls_by_path.get(image_path, set()))
+        image_urls = sorted(image_urls_by_path.get(image_path, set()))
+        methods = sorted(methods_by_path.get(image_path, set()))
+
+        record["source_page_urls"] = page_urls
+        record["image_urls"] = image_urls
+        record["source_urls"] = image_urls
+        record["extraction_sources"] = methods
+
+        if len(identities) == 1 and image_path not in incomplete_paths:
+            (
+                record["source_page_url"],
+                record["source_url"],
+                record["extraction_source"],
+            ) = identities[0]
+            record["source_provenance"] = "known"
+        elif identities:
+            record["source_page_url"] = (
+                page_urls[0] if len(page_urls) == 1 else ""
+            )
+            record["source_url"] = (
+                image_urls[0] if len(image_urls) == 1 else ""
+            )
+            record["extraction_source"] = (
+                methods[0] if len(methods) == 1 else ""
+            )
+            record["source_provenance"] = "ambiguous"
+        else:
+            record["source_page_url"] = (
+                page_urls[0] if len(page_urls) == 1 else ""
+            )
+            record["source_url"] = (
+                image_urls[0] if len(image_urls) == 1 else ""
+            )
+            record["extraction_source"] = (
+                methods[0] if len(methods) == 1 else ""
+            )
+            record["source_provenance"] = "unknown"
+
+
+def _collect_image_group_maps(
+    files: list[dict[str, Any]],
+) -> tuple[
+    dict[str, list[dict[str, Any]]],
+    dict[str, list[dict[str, Any]]],
+    dict[str, list[dict[str, Any]]],
+    dict[tuple[str, str, str, str], list[dict[str, Any]]],
+]:
+    """Build hash, filename, code-variant and fully source-aware groups."""
+    hash_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    filename_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    code_variant_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    source_hash_groups: dict[
+        tuple[str, str, str, str], list[dict[str, Any]]
+    ] = defaultdict(list)
+
+    for record in files:
+        hash_groups[record["sha256"]].append(record)
+        filename_groups[record["path"].name.casefold()].append(record)
+        code_variant_groups[record["path"].stem.casefold()].append(record)
+
+        if record["source_provenance"] == "known":
+            source_hash_groups[
+                (
+                    str(record["sha256"]),
+                    str(record["source_page_url"]),
+                    str(record["source_url"]),
+                    str(record["extraction_source"]),
+                )
+            ].append(record)
+
+    return (
+        hash_groups,
+        filename_groups,
+        code_variant_groups,
+        source_hash_groups,
+    )
+
+
+def _groups_with_multiple_records(
+    groups: dict[Any, list[dict[str, Any]]],
+) -> list[list[dict[str, Any]]]:
+    return [group for group in groups.values() if len(group) > 1]
+
+
+def _groups_with_different_sources(
+    groups: list[list[dict[str, Any]]],
+) -> list[list[dict[str, Any]]]:
+    result = []
+    for group in groups:
+        sources = {
+            (
+                record["source_page_url"],
+                record["source_url"],
+                record["extraction_source"],
+            )
+            for record in group
+            if record["source_provenance"] == "known"
+        }
+        if len(sources) > 1:
+            result.append(group)
+    return result
+
+
+def _groups_with_unknown_sources(
+    groups: list[list[dict[str, Any]]],
+) -> list[list[dict[str, Any]]]:
+    return [
+        group
+        for group in groups
+        if any(
+            record["source_provenance"] != "known"
+            for record in group
+        )
+    ]
+
+
+def _groups_across_roots(
+    groups: list[list[dict[str, Any]]],
+) -> list[list[dict[str, Any]]]:
+    return [
+        group
+        for group in groups
+        if len({record["root"] for record in group}) > 1
+    ]
+
+
+def _classify_image_groups(
+    files: list[dict[str, Any]],
+    references: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Separate exact extraction sources from content-only coincidences."""
+    _annotate_source_provenance(files, references)
+
+    (
+        hash_groups,
+        filename_groups,
+        code_variant_groups,
+        source_hash_groups,
+    ) = _collect_image_group_maps(files)
+
+    content_duplicates = _groups_with_multiple_records(hash_groups)
+    confirmed_duplicates = _groups_with_multiple_records(source_hash_groups)
+
+    return {
+        "duplicate_groups": confirmed_duplicates,
+        "content_duplicate_groups": content_duplicates,
+        "same_content_different_source_groups": (
+            _groups_with_different_sources(content_duplicates)
+        ),
+        "same_content_unknown_source_groups": (
+            _groups_with_unknown_sources(content_duplicates)
+        ),
+        "cross_root_duplicate_groups": (
+            _groups_across_roots(confirmed_duplicates)
+        ),
+        "same_filename_groups": _groups_with_multiple_records(filename_groups),
+        "same_code_variant_groups": (
+            _groups_with_multiple_records(code_variant_groups)
+        ),
+    }
+
+
+
+
 def audit(
     *,
     project_root: Path,
@@ -178,22 +549,7 @@ def audit(
     for reference in references:
         references_by_path[reference["resolved_path"]].append(reference)
 
-    hash_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    filename_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    code_variant_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for record in files:
-        hash_groups[record["sha256"]].append(record)
-        filename_groups[record["path"].name.casefold()].append(record)
-        code_variant_groups[record["path"].stem.casefold()].append(record)
-
-    duplicate_groups = [
-        group for group in hash_groups.values() if len(group) > 1
-    ]
-    cross_root_duplicate_groups = [
-        group
-        for group in duplicate_groups
-        if len({record["root"] for record in group}) > 1
-    ]
+    image_groups = _classify_image_groups(files, references)
 
     active_references = [
         reference
@@ -294,14 +650,7 @@ def audit(
         "hash_match_references": len(hash_match),
         "hash_mismatch_references": len(hash_mismatch),
         "hash_missing_references": len(hash_missing),
-        "duplicate_groups": duplicate_groups,
-        "cross_root_duplicate_groups": cross_root_duplicate_groups,
-        "same_filename_groups": [
-            group for group in filename_groups.values() if len(group) > 1
-        ],
-        "same_code_variant_groups": [
-            group for group in code_variant_groups.values() if len(group) > 1
-        ],
+        **image_groups,
         "db_path_duplicates": sorted(
             (
                 {"path": path, "references": count}
@@ -368,7 +717,18 @@ def print_report(report: dict[str, Any], max_details: int = 100) -> None:
     print(f"Hashes DB coincidentes: {report['hash_match_references']}")
     print(f"Hashes DB ausentes: {report['hash_missing_references']}")
     print(f"Hashes DB distintos: {report['hash_mismatch_references']}")
-    print(f"Grupos duplicados por hash: {len(report['duplicate_groups'])}")
+    print(
+        "Grupos duplicados por hash y fuente: "
+        f"{len(report['duplicate_groups'])}"
+    )
+    print(
+        "Grupos con contenido id?ntico de fuentes distintas: "
+        f"{len(report['same_content_different_source_groups'])}"
+    )
+    print(
+        "Grupos con procedencia desconocida o ambigua: "
+        f"{len(report['same_content_unknown_source_groups'])}"
+    )
     print(
         "Grupos duplicados entre roots: "
         f"{len(report['cross_root_duplicate_groups'])}"
@@ -419,40 +779,25 @@ def print_report(report: dict[str, Any], max_details: int = 100) -> None:
             )
 
 
-def _json_safe(report: dict[str, Any]) -> dict[str, Any]:
-    serializable = dict(report)
-    for key in (
-        "duplicate_groups",
-        "cross_root_duplicate_groups",
-        "same_filename_groups",
-        "same_code_variant_groups",
-    ):
-        serializable[key] = [
-            [
-                {**record, "path": str(record["path"])}
-                for record in group
-            ]
-            for group in serializable[key]
-        ]
-    for key in (
-        "missing_reference_details",
-        "missing_active_reference_details",
-        "hash_mismatch_details",
-    ):
-        serializable[key] = [
-            {**reference, "resolved_path": str(reference["resolved_path"])}
-            for reference in serializable[key]
-        ]
-    for key in (
-        "orphan_file_details",
-        "active_orphan_file_details",
-        "legacy_only_file_details",
-    ):
-        serializable[key] = [
-            {**record, "path": str(record["path"])}
-            for record in serializable[key]
-        ]
-    return serializable
+def _json_safe(value: Any) -> Any:
+    """Recursively convert nested report values into JSON-safe data."""
+    if isinstance(value, Path):
+        return value.as_posix()
+    if isinstance(value, dict):
+        return {
+            str(key): _json_safe(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        return sorted(
+            (_json_safe(item) for item in value),
+            key=repr,
+        )
+    return value
+
+
 
 
 def main() -> None:

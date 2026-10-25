@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sqlite3
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -316,6 +317,67 @@ def _safe_value(value: object) -> object:
     return str(value)
 
 
+def _normalize_product_name(value: object) -> str:
+    """Normalize accents, punctuation, and whitespace for conservative matching."""
+    decomposed = unicodedata.normalize("NFKD", str(value or ""))
+    ascii_text = decomposed.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", " ", ascii_text.casefold()).strip()
+
+
+def _find_exclusive_rekey_candidates(
+    project_rows: dict[str, dict[str, Any]],
+    local_rows: dict[str, dict[str, Any]],
+    project_only_codes: list[str],
+    local_only_codes: list[str],
+) -> list[dict[str, Any]]:
+    """Flag possible product-code changes using matching name and SHA-256 image hash.
+
+    These are review candidates only. A matching image and name is not enough to
+    merge records or discard either code automatically.
+    """
+    local_index: dict[tuple[str, str], list[str]] = {}
+    for code in local_only_codes:
+        row = local_rows.get(code, {})
+        name = _normalize_product_name(row.get("name"))
+        image_hash = str(row.get("image_hash") or "").strip().casefold()
+        if not name or not re.fullmatch(r"[0-9a-f]{64}", image_hash):
+            continue
+        local_index.setdefault((name, image_hash), []).append(code)
+
+    result: list[dict[str, Any]] = []
+    fields = (
+        "name", "stock", "color_stock", "price", "price_sample",
+        "price_hundred", "price_thousand", "image_url", "description",
+    )
+    for project_code in project_only_codes:
+        row = project_rows.get(project_code, {})
+        name = _normalize_product_name(row.get("name"))
+        image_hash = str(row.get("image_hash") or "").strip().casefold()
+        if not name or not re.fullmatch(r"[0-9a-f]{64}", image_hash):
+            continue
+        for local_code in local_index.get((name, image_hash), []):
+            local_row = local_rows.get(local_code, {})
+            result.append(
+                {
+                    "current_project_code": project_code,
+                    "older_localappdata_code": local_code,
+                    "match_basis": "exact normalized name and exact image SHA-256",
+                    "decision": "REVIEW_ONLY_NOT_AUTO_MERGED",
+                    "project": {
+                        field: _safe_value(row.get(field))
+                        for field in fields
+                        if field in row
+                    },
+                    "localappdata": {
+                        field: _safe_value(local_row.get(field))
+                        for field in fields
+                        if field in local_row
+                    },
+                }
+            )
+    return result
+
+
 def _product_comparison(
     project: dict[str, Any], local: dict[str, Any]
 ) -> dict[str, Any]:
@@ -404,6 +466,12 @@ def _product_comparison(
         ),
         "exclusive_product_samples_localappdata": _exclusive_product_samples(
             local_rows, sorted(local_codes - project_codes)
+        ),
+        "possible_rekey_candidates": _find_exclusive_rekey_candidates(
+            project_rows,
+            local_rows,
+            sorted(project_codes - local_codes),
+            sorted(local_codes - project_codes),
         ),
     }
 
@@ -623,6 +691,15 @@ def main() -> int:
             "EXCLUSIVE_PRODUCTS_LOCALAPPDATA|"
             + json.dumps(
                 product_diff.get("exclusive_product_samples_localappdata", []),
+                ensure_ascii=False,
+                separators=(",", ":"),
+                default=str,
+            )
+        )
+        print(
+            "POSSIBLE_REKEY_CANDIDATES|"
+            + json.dumps(
+                product_diff.get("possible_rekey_candidates", []),
                 ensure_ascii=False,
                 separators=(",", ":"),
                 default=str,

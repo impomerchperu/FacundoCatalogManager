@@ -428,9 +428,9 @@ Este comando abre la base de datos del proyecto en modo solo lectura. El informe
 - [x] El auditor compara para los SKU seleccionados las categorías donde aparecen las tarjetas live con sus relaciones actuales en `product_categories`. Comprueba los conteos esperados por categoría y las tarjetas sin código.
 - [x] Si hay una discrepancia de conteos, faltan categorías o quedan tarjetas sin código, el resultado se marca `INCONCLUSIVE_INCOMPLETE_LIVE_COVERAGE`; las relaciones no son aptas para limpieza. Incluso con cobertura completa, el resultado solo es `REVIEW_ONLY_COVERAGE_VERIFIED` y no modifica la base.
 - [x] CI del HEAD `8ed6814a`: Ruff limpio, Pyright 0 errores/advertencias/informaciones y 999 pruebas aprobadas con 11 deseleccionadas.
-- [ ] Ejecutar el auditor de ocurrencias en el equipo local para confirmar en cuáles de las 24 categorías aparece realmente `FB-1908`; el informe debe quedar con cobertura completa antes de decidir cualquier eliminación de relación.
-- [ ] Revisar el campo `source_gallery_images` y los conjuntos de URL discordantes en el nuevo informe de evidencia de `FB-4047`. Una URL presente en la página cacheada demuestra procedencia del HTML, no la corrección visual del contenido.
-- [ ] No modificar stock ni aplicar eliminaciones de categoría/galería hasta revisar ambos informes. No borrar ningún archivo de imagen durante esta verificación.
+- [x] Auditor de ocurrencias ejecutado en el equipo local con cobertura completa: 24/24 categorías, 522/522 tarjetas y 0 tarjetas sin código. `FB-1908` aparece únicamente en `Artículos de Oficina` entre las categorías monitorizadas.
+- [x] Revisadas las URL de galería de `FB-4047`: la fuente cacheada incluye las tres imágenes guardadas y no se encontraron diferencias de URL. La corrección visual de `MEZCLADOR-CAMION-copia.webp` sigue abierta.
+- [x] Stock sin cambios. Tras validar cobertura, se corrigieron localmente solo las relaciones de `FB-1908` (23 retiradas; una relación conservada) con copia de seguridad y comprobación posterior. No se borraron ni cambiaron archivos de imagen.
 
 Comandos después de sincronizar la rama actual:
 
@@ -440,3 +440,17 @@ python tools/audit_category_memberships_live_readonly.py --codes FB-1908 FB-4047
 ```
 
 El primer comando lee la caché local. El segundo descarga únicamente las páginas de listado monitorizadas para observar las ocurrencias por categoría y lee la base en modo SQLite de solo lectura; no enriquece productos desde sus páginas de detalle y no ejecuta sincronización ni reparaciones.
+
+## Cierre verificado de auditoría de ocurrencias — 2026-10-25
+
+Este resultado actualiza y reemplaza las tareas pendientes de la sección de evidencia de catálogo que antecede.
+
+- Auditoría live: `integrity=ok`, 24/24 categorías, 522/522 tarjetas, 0 tarjetas sin código.
+- `FB-1908`: la relación maestra final local es únicamente `Artículos de Oficina`; la auditoría posterior no informó relaciones extra ni faltantes.
+- `FB-4047`, `FB-4048`, `FB-3024` y `TPSTCB`: relaciones de DB coincidentes con sus listados reales.
+- Respaldo transaccional íntegro: `%TEMP%\\fcm_catalog_before_category_repair_20261025_183001_627168.db`.
+- Informe posterior: `%TEMP%\\fcm_live_category_membership_audit_20261025_183037.json`.
+- Calidad de código verificada en la rama `feat/product-table-layout`, HEAD `77e026bcf893b2b4715c31a9e413d33bebf3f889`: Ruff limpio, Pyright 0 errores, Pytest 1005 passed / 11 deselected; CI verde.
+
+No cerrar aún el diferencial global 522/523 apariciones y 518/519 productos. Tampoco modificar existencias de `FB-1908`: las listas oficiales examinadas presentaron valores distintos. La revisión visual de la galería de `FB-4047` sigue pendiente. La PR #30 y los gates de promoción a `main` permanecen abiertos.
+

@@ -2,8 +2,8 @@
 
 Fecha de actualización: 2026-10-25
 Rama predeterminada/de promoción: `main` (`47a840f5`, corte de auditoría)
-Rama de integración activa: `feat/product-table-layout` (HEAD de código/pruebas validado por CI: `19513cda`; commits posteriores solo documentales)
-Estado: `main` sigue en el commit que integró la PR #19 el 2026-10-02. La rama de integración es descendiente directo de `main` y no está detrás. El usuario confirmó localmente en `710048b5` Ruff limpio, Pyright sin errores/advertencias/informaciones, 68 pruebas focales aprobadas y 986 pruebas aprobadas con 11 deseleccionadas. Después se añadieron tres regresiones de migraciones SQLite y una migración v6 para preservar nombres de color heredados sin inventar stock; GitHub Quality CI pasó para `19513cda` (Ruff, Pyright y Pytest en éxito; `live-catalog` omitido intencionalmente). Esta validación no debe confundirse con una validación del HEAD de `main`.
+Rama de integración activa: `feat/product-table-layout` (HEAD de código/pruebas validado por CI: `77e026bc`)
+Estado verificado en el equipo local el 25/10/2026: HEAD `77e026bcf893b2b4715c31a9e413d33bebf3f889`; `git diff --check origin/main...HEAD` y Ruff pasaron; Pyright reportó 0 errores, 0 advertencias y 0 informaciones; Pytest aprobó 1005 pruebas con 11 deseleccionadas. Quality CI pasó en el mismo HEAD (Ruff, Pyright y 1005 pruebas; `live-catalog` omitido por diseño). La auditoría live de 24 categorías llevó a una reparación de relaciones de categorías solo en la DB local para `FB-1908`; no se modificó una DB versionada. Esta validación no equivale a validar el HEAD de `main` ni a fusionar la PR #30.
 
 La PR de promoción es la [#30](https://github.com/impomerchperu/FacundoCatalogManager/pull/30), abierta en borrador contra `main`. Las PR #20, #23, #24, #28 y #29 se cerraron como supersedidas después de comparar contenido y consolidar una sola ruta de integración. Sus referencias de rama no se borraron. La PR #30 permanece sin fusionar hasta cerrar los bloqueos de cobertura, rendimiento y auditoría de base local y completar la revisión del diff neto. GitHub reporta el diff limpio; Quality CI pasó en el HEAD de código/pruebas `19513cda` y nuevamente en el HEAD documental `0536819e`. Las referencias antiguas de ramas siguen conservadas.
 
@@ -31,14 +31,12 @@ La autoridad funcional se divide de forma explícita:
 ## 2. Estado funcional actual
 
 ### Cobertura operativa
-- 24 categorías.
-- 523 apariciones producto-categoría.
-- 519 productos únicos.
-- 4 productos multi-categoría.
-- 523 relaciones producto-categoría.
-- `coverage_complete=1`.
-- `coverage_gap=0`.
-- 0 errores invalidantes.
+
+**Referencia histórica de una ejecución FULL completa:** 24 categorías, 523 apariciones producto-categoría, 519 productos únicos y 4 productos multi-categoría. Este baseline histórico no se debe confundir con los listados live más recientes.
+
+**Auditoría live del 25/10/2026:** 24/24 categorías, 522 tarjetas recolectadas de 522 esperadas, 0 tarjetas sin código e `integrity=ok`. La cobertura de las 24 páginas monitorizadas fue completa. Sin embargo, el diferencial histórico 523 frente a 522 apariciones y 519 frente a 518 productos del catálogo del proyecto sigue abierto y debe reconciliarse mediante códigos, URLs y trazabilidad de scraping.
+
+**Reparación local verificada:** las relaciones de `FB-1908` se corrigieron de 24 a una sola categoría (`Artículos de Oficina`) tras confirmar su presencia en los listados reales. La reparación no resuelve por sí sola el diferencial global de productos/apariciones.
 
 ### Runtime de scraping validado
 - Categorías: 12 workers en la configuración actual. La auditoría nueva debe reconciliar este valor con una comparación previa que informó mejor tiempo con 8; no se cambiará la concurrencia sin repetir mediciones controladas.
@@ -295,9 +293,10 @@ El contenido original de la PR #20 era un cambio aislado del exportador y no req
 
 - PR #20: cerrada como supersedida por #30; no fusionada separadamente.
 - La ruta vigente de promoción es PR #30, borrador desde `feat/product-table-layout` hacia `main`.
-- Validación local de `710048b5`: Ruff limpio, Pyright sin errores/advertencias/informaciones, 68 pruebas focales y 986 pruebas de suite (11 deseleccionadas).
-- Quality CI para el HEAD de código/pruebas `19513cda`: Ruff, Pyright y Pytest en éxito; `live-catalog` skipped por diseño.
-- Bloqueos: reconciliar 522 vs 523 apariciones del catálogo, repetir perfiles comparables 12 vs 8 workers de categoría, comparar las bases locales de esquema 5/518 productos y esquema 2/519 productos, y completar la revisión del diff neto.
+- Última validación local en `77e026bc`: `git diff --check`, Ruff y Pyright correctos; 1005 pruebas aprobadas y 11 deseleccionadas.
+- Quality CI del HEAD `77e026bc`: éxito; 1005 pruebas, Ruff y Pyright correctos; `live-catalog` omitido por diseño.
+- Bloqueos todavía abiertos: reconciliar el diferencial global 522 vs. 523 apariciones y 518 vs. 519 productos; repetir perfiles comparables de 12 vs. 8 workers de categoría; comparar las bases locales del proyecto y AppData por código, relaciones, detalle y stock por color; completar la revisión del diff neto.
+- Cerrada localmente la anomalía de categorías de `FB-1908`: 23 relaciones retiradas y una conservada (`Artículos de Oficina`) tras cobertura live íntegra; sin cambios de existencias o imágenes.
 
 La promoción a `main` no se considera completada hasta cerrar estos gates y validar el HEAD resultante de `main`.
 ### Gate de promoción
@@ -369,3 +368,19 @@ main
 El 2026-10-04 se completó satisfactoriamente el smoke funcional real del exportador Excel. Se verificaron selección individual y múltiple de categorías, cancelación sin exportación, apertura sin reparación de XLSX, imágenes visibles y proporcionales, anclaje/redimensionamiento con celdas, ausencia de filtros/tablas/fondos y exactitud de encabezados, precios, COLOR y STOCK.
 
 El gate funcional del exportador queda **cerrado** y su contenido está incluido en la rama de integración. La promoción se realizará mediante PR #30 junto con el resto del conjunto validado; no se requieren más cambios de diseño en Excel salvo defecto reproducible.
+
+## 12. Reconciliación verificada de categorías y evidencia de imágenes — 2026-10-25
+
+La auditoría `tools/audit_category_memberships_live_readonly.py` terminó con `integrity=ok`, cobertura `24/24`, 522 de 522 tarjetas esperadas y 0 tarjetas sin código. El informe posterior está en el entorno local del usuario: `%TEMP%\\fcm_live_category_membership_audit_20261025_183037.json`.
+
+La herramienta `tools/reconcile_category_memberships_from_audit.py` se ejecutó primero en modo de vista previa y luego con `--apply` limitado a `FB-1908`. Verificó que las relaciones actuales coincidieran con las auditadas, que la cobertura estuviera completa, que la tabla maestra contuviera las categorías y que la base superara `integrity_check`; aplicó cambios en transacción y comprobó las relaciones finales.
+
+- `FB-1908`: 24 relaciones antes; 23 retiradas y 0 agregadas; una única relación final: `Artículos de Oficina`.
+- Copia de seguridad validada: `%TEMP%\\fcm_catalog_before_category_repair_20261025_183001_627168.db`.
+- Después de la reparación, la auditoría confirmó que `FB-1908`, `FB-4047`, `FB-4048`, `FB-3024` y `TPSTCB` coincidían entre las relaciones de DB y los listados live.
+- La reparación fue solo en `database/catalog.db` local, ignorada por Git. No se modificaron stock, detalles, galería, archivos de imagen ni otros productos.
+- Evidencia de galería previa: las tres URL guardadas de `FB-4047` aparecen en el HTML cacheado, sin diferencias de URL. La corrección visual de `MEZCLADOR-CAMION-copia.webp` sigue pendiente; procedencia desde el HTML no prueba que el contenido sea correcto.
+- No se debe inferir un stock correcto de `FB-1908` a partir de las listas: se habían observado valores distintos (447100 en Artículos de Oficina y 434200 en Nuevos Productos). No se actualizó stock.
+
+La reparación puntual no cierra la reconciliación global 522/523 apariciones ni 518/519 productos, el comparativo de concurrencia, la comparación de bases locales ni los demás gates de promoción. La PR #30 permanece abierta sin fusionar.
+

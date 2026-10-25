@@ -221,3 +221,42 @@ if ($LASTEXITCODE -ne 0) { throw "Falló la comprobación final del estado Git."
 ```
 
 El paso a `main` solo ocurre después de cerrar los gates funcionales documentados en esta checklist, aprobar la PR de integración y validar el HEAD resultante de `main`.
+
+## Actualización de ejecución — 2026-10-25
+
+### Validaciones locales registradas
+- [x] Sincronización fast-forward de feat/product-table-layout hasta 0e931ec7.
+- [x] git diff --check origin/main...HEAD.
+- [x] python -m ruff check .
+- [x] python -m pyright: 0 errores, 0 advertencias, 0 informaciones.
+- [x] python -m pytest -q: 986 aprobadas, 11 omitidas, 19,19 s.
+- Nota: estas validaciones ocurrieron antes de añadir tools/audit_catalog_consolidation.py y su nueva prueba; volver a ejecutar validaciones después de sincronizar esos cambios.
+
+### Inventario local de solo lectura
+- [x] Inventario ejecutado; no modificó bases de datos ni archivos.
+- [x] Informe creado en %TEMP%\fcm_cleanup_migration_inventory_20261025_164817.json en el equipo local.
+- [x] El inventario encontró 51 candidatos de base de datos entre el proyecto y LOCALAPPDATA.
+- [x] Todos los candidatos mostrados informaron integridad SQLite ok.
+- [x] Árbol del proyecto: 1.587 archivos / 1.269,784 MiB; database/: 149 archivos / 1.139,266 MiB; data/: 1.056 archivos / 125,945 MiB.
+- [x] Árbol de %LOCALAPPDATA%\FacundoCatalogManager: 612 archivos / 100,737 MiB.
+
+### Diferencias que requieren conciliación
+| Métrica | Proyecto | %LOCALAPPDATA% |
+|---|---:|---:|
+| Productos | 518 | 519 |
+| Categorías | 24 | 24 |
+| Relaciones producto-categoría | 545 | 523 |
+| Apariciones históricas de productos | 39.954 | 20.597 |
+| Historial de scraping | 218 | 170 |
+| source_page_cache | 518 | No está presente |
+| Versión de esquema registrada | 6 | 2 |
+
+- config.runtime_paths usa PROJECT_ROOT/database/catalog.db en modo desarrollo y %LOCALAPPDATA%\FacundoCatalogManager\database\catalog.db en modo congelado/instalado. Son ubicaciones de datos distintas según el modo de ejecución, no dos copias del código fuente. Antes de unificarlas hay que decidir expresamente la política deseada para desarrollo frente a instalación.
+- [ ] Ejecutar tools/audit_catalog_consolidation.py para comparar códigos de producto, campos compartidos, stock por color, imágenes y relaciones de categoría entre las dos bases principales.
+- [ ] Revisar las diferencias de producto y categoría y decidir la política de migración sin sobrescribir automáticamente ninguna base.
+- [ ] Clasificar las 51 bases candidatas por contenido lógico y uso. Los conteos e integridad correctos no demuestran por sí solos que un respaldo se pueda borrar.
+- [ ] Identificar el producto adicional de %LOCALAPPDATA% y las diferencias en relaciones antes de la consolidación.
+- [ ] Solo después de identificar la base canónica y probar recuperación, poner residuos en cuarentena y eliminar únicamente lo demostrado como redundante.
+
+### Regla de seguridad
+No se ha eliminado, sobrescrito ni migrado ninguna base, imagen, archivo o rama. El próximo cambio de datos requiere un plan de migración explícito, copia de seguridad recuperable, comparación previa y auditoría posterior.

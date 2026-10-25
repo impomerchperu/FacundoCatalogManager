@@ -515,4 +515,3 @@ class ProductRepository:
             gallery_images=self._json_gallery_images(row["gallery_images"]),
             content_hash=row["content_hash"],
         )
-

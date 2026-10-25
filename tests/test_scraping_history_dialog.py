@@ -708,4 +708,3 @@ def test_history_dialog_supports_minimize_and_maximize():
 
     dialog.close()
     app.processEvents()
-

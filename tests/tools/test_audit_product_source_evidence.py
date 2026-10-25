@@ -74,7 +74,13 @@ def test_labeled_category_block_fallback_is_scoped() -> None:
     ]
 
 
-def _create_database(path: Path, html: str, *, with_cache: bool = True) -> None:
+def _create_database(
+    path: Path,
+    html: str,
+    *,
+    with_cache: bool = True,
+    with_scraped_record: bool = True,
+) -> None:
     product_url = "https://example.test/producto/fb-1908/"
     category_antiestres = "https://example.test/categoria-producto/articulos-de-antiestres/"
     category_office = "https://example.test/categoria-producto/articulos-de-oficina/"
@@ -156,10 +162,11 @@ def _create_database(path: Path, html: str, *, with_cache: bool = True) -> None:
             "INSERT INTO product_categories VALUES (?, ?)",
             [(1, 1), (1, 2)],
         )
-        connection.execute(
-            "INSERT INTO scraped_products VALUES (?, ?, ?, ?, ?, ?)",
-            (1, "test", product_url, "FB-1908", "Tarjeta PVC CR80", "2026-10-24"),
-        )
+        if with_scraped_record:
+            connection.execute(
+                "INSERT INTO scraped_products VALUES (?, ?, ?, ?, ?, ?)",
+                (1, "test", product_url, "FB-1908", "Tarjeta PVC CR80", "2026-10-24"),
+            )
         if with_cache:
             connection.execute(
                 """
@@ -241,4 +248,53 @@ def test_report_marks_missing_cache_and_missing_products_without_creating_data(
         "/categoria-producto/insumos-de-sublimacion/",
         "https://example.test/producto/a/",
     ) == "https://example.test/categoria-producto/insumos-de-sublimacion"
+    assert database.read_bytes() == before
+
+
+def test_report_finds_cached_product_page_by_sku_without_scraped_product_row(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "catalog.db"
+    html = """
+    <html>
+      <head><title>Tarjeta de PVC CR80</title></head>
+      <body>
+        <h1 class="product_title">Tarjeta de PVC CR80</h1>
+        <span class="sku">FB-1908</span>
+        <div class="product_meta">
+          <span class="posted_in">
+            Categorías:
+            <a href="/categoria-producto/articulos-de-antiestres/">
+              Artículos Antiestrés
+            </a>
+          </span>
+        </div>
+      </body>
+    </html>
+    """
+    _create_database(database, html, with_scraped_record=False)
+    before = database.read_bytes()
+
+    report = build_report(database, ["FB-1908"])
+    product = report["products"][0]
+
+    assert product["source_url_status"] == "cached_product_page_found"
+    assert product["source_url_match_basis"] == "explicit_sku_in_cached_html"
+    assert product["source_urls"] == [
+        "https://example.test/producto/fb-1908/"
+    ]
+    assert len(product["source_page_evidence"]) == 1
+    page = product["source_page_evidence"][0]
+    assert page["cache_status"] == "decoded"
+    assert page["method"] == "woocommerce_posted_in"
+    assert page["authoritative"] is True
+    assert page["declared_categories"] == [
+        {
+            "name": "Artículos Antiestrés",
+            "url": "https://example.test/categoria-producto/articulos-de-antiestres",
+        }
+    ]
+    assert page["project_relations_absent_from_product_page"] == [
+        "https://example.test/categoria-producto/articulos-de-oficina"
+    ]
     assert database.read_bytes() == before

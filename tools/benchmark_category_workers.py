@@ -8,6 +8,7 @@ import statistics
 import subprocess
 import sys
 import tempfile
+from contextlib import suppress
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -102,10 +103,8 @@ def _create_seed_database(source_path: Path, seed_path: Path) -> dict[str, Any]:
 
 def _remove_sqlite_files(path: Path) -> None:
     for candidate in (path, Path(str(path) + "-wal"), Path(str(path) + "-shm")):
-        try:
+        with suppress(OSError):
             candidate.unlink(missing_ok=True)
-        except OSError:
-            pass
 
 
 def _validate_profile_payload(
@@ -326,7 +325,7 @@ def main() -> int:
         print(f"SUMMARY_JSON|{summary_path}")
         print("PRODUCTION_DEFAULT_CHANGED|False")
         return 0
-    except Exception as error:
+    except (OSError, RuntimeError, ValueError, sqlite3.Error, subprocess.SubprocessError) as error:
         failure = {
             "report_type": "FCM_CATEGORY_WORKER_BENCHMARK_FAILURE",
             "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -343,6 +342,8 @@ def main() -> int:
         print(f"BENCHMARK_FAILED|{failure['error']}")
         print(f"FAILURE_JSON|{failure_path}")
         return 1
+    else:
+        return 0
     finally:
         _remove_sqlite_files(seed_path)
 

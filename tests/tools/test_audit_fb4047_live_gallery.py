@@ -173,7 +173,7 @@ def test_identity_name_does_not_mistake_distributor_modal_for_product():
         "lxml",
     )
 
-    name, source = audit_module._identity_product_name(
+    name, _ = audit_module._identity_product_name(
         soup,
         "Acceso Exclusivo para Distribuidores",
     )

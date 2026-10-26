@@ -112,7 +112,6 @@ def _candidate_urls(candidates: list[dict]) -> list[dict[str, object]]:
     return selected
 
 
-
 def _identity_product_name(soup, extractor_name: str) -> tuple[str, str]:
     """Prefer a product title over an unrelated distributor-modal heading."""
     selectors = (

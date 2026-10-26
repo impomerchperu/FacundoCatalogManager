@@ -217,3 +217,26 @@ def test_forced_revalidation_does_not_use_stale_html_after_request_failure(tmp_p
     assert saved is not None
     assert saved.html == expected_html
 
+def test_forced_revalidation_rejects_empty_response_instead_of_using_cached_html(
+    tmp_path,
+):
+    repository = PersistentSourcePageRepository(tmp_path / "catalog.db")
+    cache = PersistentSourcePageCache(repository, ttl_seconds=3600)
+    url = "https://example.test/producto/foco-antiestres/"
+    cached_html = "<html>copia anterior</html>"
+    cache.get_html(
+        url,
+        lambda headers: FakeResponse(cached_html, url=url),
+    )
+
+    with pytest.raises(RuntimeError, match="HTML vacío"):
+        cache.get_html(
+            url,
+            lambda headers: FakeResponse("", status_code=200, url=url),
+            force=True,
+            allow_stale_fallback=False,
+        )
+
+    assert repository.get(url).html == cached_html
+    assert cache.get_metrics()["empty_response_fallbacks"] == 1
+

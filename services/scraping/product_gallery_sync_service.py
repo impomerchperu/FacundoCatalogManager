@@ -742,29 +742,9 @@ class ProductGallerySyncService:
                         existing_gallery,
                     )
 
-                recovery_urls = self.VERIFIED_GALLERY_RECOVERY_URLS.get(
-                    product_code,
-                    (),
-                )
-                known_urls = {
-                    str(candidate.get("url", "") or "").strip().casefold()
-                    for candidate in page_gallery
-                }
-                for recovery_url in recovery_urls:
-                    if recovery_url.casefold() in known_urls:
-                        continue
-                    page_gallery.append(
-                        {
-                            "url": recovery_url,
-                            "score": 300,
-                            "exact_code": False,
-                            "generic": False,
-                            "gallery": True,
-                            "gallery_container": True,
-                            "source": "verified-historical-gallery-recovery",
-                            "sequence": len(page_gallery),
-                        }
-                    )
+                # Once the live response is identified as the actual product
+                # page, its extracted gallery is authoritative. Do not append
+                # a historical URL that the current gallery no longer lists.
 
             if page_gallery:
                 product.image_candidates = page_gallery

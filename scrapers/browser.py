@@ -186,6 +186,11 @@ class Browser:
     def fetch(self, url):
         return self.get(url)
 
+    def get_uncached(self, url):
+        """Fetch live HTML through the project HTTP pipeline without touching page cache."""
+        response = self._get_response(url)
+        return response.text if hasattr(response, "text") else response
+
     def get(self, url, *, force_revalidate=False):
         cache = self._source_page_cache
         if cache is not None and cache.is_cacheable_url(url):

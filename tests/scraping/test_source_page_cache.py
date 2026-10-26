@@ -237,6 +237,8 @@ def test_forced_revalidation_rejects_empty_response_instead_of_using_cached_html
             allow_stale_fallback=False,
         )
 
-    assert repository.get(url).html == cached_html
+    saved = repository.get(url)
+    assert saved is not None
+    assert saved.html == cached_html
     assert cache.get_metrics()["empty_response_fallbacks"] == 1
 

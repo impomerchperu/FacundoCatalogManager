@@ -710,3 +710,86 @@ def test_fb4047_revalidates_live_page_instead_of_reusing_cached_detail_candidate
     ]
     assert product.image_candidates_source == "detail"
 
+def test_fb4047_recovers_verified_gallery_when_live_page_returns_access_gate():
+    from types import SimpleNamespace
+
+    primary_url = "https://site.test/uploads/SFPU-38.webp"
+    second_url = "https://site.test/uploads/FOCO-AMARILLO.webp"
+    recovered_url = (
+        "https://stock.importacionesfacundo.com/wp-content/uploads/2025/08/"
+        "MEZCLADOR-CAMION-copia.webp"
+    )
+    detail_url = "https://stock.importacionesfacundo.com/producto/foco-antiestres/"
+
+    class GatedBrowser:
+        def __init__(self):
+            self.calls = []
+
+        def get(self, url, *, force_revalidate=False):
+            self.calls.append((url, force_revalidate))
+            assert force_revalidate is True
+            return (
+                "<html><h1>Acceso Exclusivo para Distribuidores</h1>"
+                "<span class='sku'>FB-4047</span></html>"
+            )
+
+    class GatedExtractor:
+        def extract(self, soup, *, url, category):
+            assert "Acceso Exclusivo para Distribuidores" in soup.get_text()
+            return SimpleNamespace(
+                code="FB-4047",
+                name="Acceso Exclusivo para Distribuidores",
+                image_candidates=[],
+            )
+
+    browser = GatedBrowser()
+    existing = Product(
+        code="FB-4047",
+        name="Foco Antiestrés",
+        image_url=primary_url,
+        gallery_images=[
+            {
+                "url": primary_url,
+                "image_path": "data/images/products/FB-4047/FB-4047-01.webp",
+                "image_hash": "primary-hash",
+                "position": 1,
+                "source": "primary",
+            },
+            {
+                "url": second_url,
+                "image_path": "data/images/products/FB-4047/FB-4047-02.webp",
+                "image_hash": "second-hash",
+                "position": 2,
+                "source": "woocommerce-gallery",
+            },
+        ],
+    )
+    product = ScrapedProduct(
+        code="FB-4047",
+        name="Foco Antiestrés",
+        url=detail_url,
+        image_url=primary_url,
+    )
+    product.image_candidates = [
+        _candidate(primary_url, 1),
+        _candidate(second_url, 2),
+    ]
+    product.image_candidates_source = "detail"
+
+    service = ProductGallerySyncService(
+        browser=browser,
+        product_extractor=GatedExtractor(),
+        image_downloader=object(),
+        refresh_existing=True,
+    )
+
+    candidates = service._candidate_source(product, existing)
+
+    assert browser.calls == [(detail_url, True)]
+    assert [candidate["url"] for candidate in candidates] == [
+        primary_url,
+        second_url,
+        recovered_url,
+    ]
+    assert candidates[-1]["source"] == "verified-historical-gallery-recovery"
+

@@ -707,6 +707,14 @@ class ProductGallerySyncService:
                     )
                 return [] if existing_gallery else candidate_gallery
 
+            if not isinstance(html, str) or not html.strip():
+                if force_live_revalidation:
+                    return self._known_fb4047_gallery_recovery_candidates(
+                        product,
+                        existing_gallery,
+                    )
+                return [] if existing_gallery else candidate_gallery
+
             soup = BeautifulSoup(html, "lxml")
             detailed = self.product_extractor.extract(
                 soup,

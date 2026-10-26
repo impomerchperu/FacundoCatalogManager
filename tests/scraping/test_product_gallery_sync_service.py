@@ -725,9 +725,8 @@ def test_fb4047_recovers_verified_gallery_when_live_page_returns_access_gate():
         def __init__(self):
             self.calls = []
 
-        def get(self, url, *, force_revalidate=False):
-            self.calls.append((url, force_revalidate))
-            assert force_revalidate is True
+        def get_uncached(self, url):
+            self.calls.append((url, "uncached"))
             return (
                 "<html><h1>Acceso Exclusivo para Distribuidores</h1>"
                 "<span class='sku'>FB-4047</span></html>"
@@ -785,7 +784,7 @@ def test_fb4047_recovers_verified_gallery_when_live_page_returns_access_gate():
 
     candidates = service._candidate_source(product, existing)
 
-    assert browser.calls == [(detail_url, True)]
+    assert browser.calls == [(detail_url, "uncached")]
     assert [candidate["url"] for candidate in candidates] == [
         primary_url,
         second_url,

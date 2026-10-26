@@ -648,6 +648,8 @@ def test_fb4047_revalidates_live_page_instead_of_reusing_cached_detail_candidate
         def extract(self, soup, *, url, category):
             assert "respuesta viva" in soup.get_text()
             return SimpleNamespace(
+                code="FB-4047",
+                name="Foco Antiestrés",
                 image_candidates=[
                     {
                         **_candidate(primary_url, 1),
@@ -657,7 +659,7 @@ def test_fb4047_revalidates_live_page_instead_of_reusing_cached_detail_candidate
                         **_candidate(third_url, 2),
                         "gallery_container": True,
                     },
-                ]
+                ],
             )
 
     browser = FreshBrowser()

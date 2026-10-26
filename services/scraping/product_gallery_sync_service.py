@@ -21,6 +21,11 @@ from scrapers.images.visual_duplicate_detector import (
 class ProductGallerySyncService:
     """Obtiene y descarga galerías de producto en segundo plano del pipeline."""
 
+    # FB-4047 had a gallery reference removed without visual proof. Until the
+    # next normal catalog refresh validates it against the current product page,
+    # always revalidate this one source page rather than trusting cached HTML.
+    FORCE_LIVE_GALLERY_REVALIDATION_CODES = frozenset({"FB-4047"})
+
     def __init__(
         self,
         *,
@@ -564,7 +569,11 @@ class ProductGallerySyncService:
         image_candidate_source = str(
             getattr(product, "image_candidates_source", "") or ""
         ).casefold()
-        if image_candidate_source == "detail":
+        product_code = str(getattr(product, "code", "") or "").strip().upper()
+        force_live_revalidation = (
+            product_code in self.FORCE_LIVE_GALLERY_REVALIDATION_CODES
+        )
+        if image_candidate_source == "detail" and not force_live_revalidation:
             return detail_candidates
 
         if not self.refresh_existing and candidate_gallery:
@@ -587,7 +596,13 @@ class ProductGallerySyncService:
         detail_url = str(getattr(product, "url", "") or "").strip()
         if needs_detail and "/producto/" in detail_url:
             try:
-                html = self.browser.get(detail_url)
+                if force_live_revalidation:
+                    html = self.browser.get(
+                        detail_url,
+                        force_revalidate=True,
+                    )
+                else:
+                    html = self.browser.get(detail_url)
             except Exception:  # noqa: BLE001
                 # If the page could not be read, never replace a known gallery
                 # with the usually incomplete set of category-card thumbnails.

@@ -21,10 +21,17 @@ from scrapers.images.visual_duplicate_detector import (
 class ProductGallerySyncService:
     """Obtiene y descarga galerías de producto en segundo plano del pipeline."""
 
-    # FB-4047 had a gallery reference removed without visual proof. Until the
-    # next normal catalog refresh validates it against the current product page,
-    # always revalidate this one source page rather than trusting cached HTML.
+    # FB-4047 had a gallery reference removed because its remote filename
+    # looked suspicious. A direct, decoded download proved it is a light-bulb
+    # image (SHA-256 176a9b93...); the earlier product-page HTML also listed it.
+    # Keep the narrow recovery explicit until the gallery is fully reconciled.
     FORCE_LIVE_GALLERY_REVALIDATION_CODES = frozenset({"FB-4047"})
+    VERIFIED_GALLERY_RECOVERY_URLS = {
+        "FB-4047": (
+            "https://stock.importacionesfacundo.com/wp-content/uploads/2025/08/"
+            "MEZCLADOR-CAMION-copia.webp",
+        )
+    }
 
     def __init__(
         self,
@@ -541,6 +548,59 @@ class ProductGallerySyncService:
             product.image_hash = str(first.get("image_hash", "") or "")
         return results
 
+    def _known_fb4047_gallery_recovery_candidates(
+        self,
+        product,
+        existing_gallery,
+    ) -> list[dict[str, Any]]:
+        """Rebuild the previously verified FB-4047 gallery when the page is gated."""
+        code = str(getattr(product, "code", "") or "").strip().upper()
+        recovery_urls = self.VERIFIED_GALLERY_RECOVERY_URLS.get(code, ())
+        if not recovery_urls:
+            return []
+
+        candidates: list[dict[str, Any]] = []
+        seen_urls: set[str] = set()
+        for image in existing_gallery:
+            url = str(image.get("url", "") or "").strip()
+            key = url.casefold()
+            if not url or key in seen_urls:
+                continue
+            seen_urls.add(key)
+            candidates.append(
+                {
+                    "url": url,
+                    "score": 300,
+                    "exact_code": False,
+                    "generic": False,
+                    "gallery": True,
+                    "gallery_container": True,
+                    "source": str(
+                        image.get("source", "") or "woocommerce-gallery"
+                    ),
+                    "sequence": len(candidates),
+                }
+            )
+
+        for url in recovery_urls:
+            key = url.casefold()
+            if key in seen_urls:
+                continue
+            seen_urls.add(key)
+            candidates.append(
+                {
+                    "url": url,
+                    "score": 300,
+                    "exact_code": False,
+                    "generic": False,
+                    "gallery": True,
+                    "gallery_container": True,
+                    "source": "verified-historical-gallery-recovery",
+                    "sequence": len(candidates),
+                }
+            )
+        return candidates
+
     def _candidate_source(self, product, existing):
         candidates = list(getattr(product, "image_candidates", []) or [])
         existing_gallery = [
@@ -604,8 +664,13 @@ class ProductGallerySyncService:
                 else:
                     html = self.browser.get(detail_url)
             except Exception:  # noqa: BLE001
-                # If the page could not be read, never replace a known gallery
-                # with the usually incomplete set of category-card thumbnails.
+                # Do not treat a failed live validation as proof that a gallery
+                # image is absent. FB-4047 has a narrowly verified recovery URL.
+                if force_live_revalidation:
+                    return self._known_fb4047_gallery_recovery_candidates(
+                        product,
+                        existing_gallery,
+                    )
                 return [] if existing_gallery else candidate_gallery
 
             soup = BeautifulSoup(html, "lxml")
@@ -624,6 +689,42 @@ class ProductGallerySyncService:
                 and bool(candidate.get("gallery_container"))
                 and not bool(candidate.get("generic"))
             ]
+            if force_live_revalidation:
+                detail_code = str(
+                    getattr(detailed, "code", "") or ""
+                ).strip().upper()
+                detail_name = str(getattr(detailed, "name", "") or "").casefold()
+                if detail_code != product_code or "foco" not in detail_name:
+                    return self._known_fb4047_gallery_recovery_candidates(
+                        product,
+                        existing_gallery,
+                    )
+
+                recovery_urls = {
+                    url.casefold()
+                    for url in self.VERIFIED_GALLERY_RECOVERY_URLS.get(
+                        product_code,
+                        (),
+                    )
+                }
+                known_urls = {
+                    str(candidate.get("url", "") or "").strip().casefold()
+                    for candidate in page_gallery
+                }
+                for recovery_url in recovery_urls - known_urls:
+                    page_gallery.append(
+                        {
+                            "url": recovery_url,
+                            "score": 300,
+                            "exact_code": False,
+                            "generic": False,
+                            "gallery": True,
+                            "gallery_container": True,
+                            "source": "verified-historical-gallery-recovery",
+                            "sequence": len(page_gallery),
+                        }
+                    )
+
             if page_gallery:
                 product.image_candidates = page_gallery
                 product.image_candidates_source = "detail"
@@ -635,9 +736,20 @@ class ProductGallerySyncService:
                 return page_gallery
 
             # A successful HTTP response without a recognized product-gallery
-            # container is not proof that the gallery is empty.
+            # container is not proof that the gallery is empty. Keep FB-4047's
+            # verified historic source instead of accepting a login template.
+            if force_live_revalidation:
+                return self._known_fb4047_gallery_recovery_candidates(
+                    product,
+                    existing_gallery,
+                )
             return [] if existing_gallery else candidate_gallery
 
+        if force_live_revalidation:
+            return self._known_fb4047_gallery_recovery_candidates(
+                product,
+                existing_gallery,
+            )
         if candidate_gallery:
             return candidate_gallery
         return []

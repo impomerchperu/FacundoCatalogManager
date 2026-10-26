@@ -106,7 +106,7 @@ def test_scraping_runner_scales_sync_categories_progress_to_full_pipeline():
         progress_callback=lambda current, total: progress.append((current, total)),
     )
 
-    assert progress == [(1, 4), (2, 4), (3, 4), (4, 4)]
+    assert progress == [(1, 6), (2, 6), (4, 6), (6, 6)]
 
 
 def test_scraping_runner_logs_error_and_total_on_sync_failure(tmp_path, monkeypatch):

@@ -24,10 +24,16 @@ class Product:
     image_url: str = ""
     image_path: str = ""
     image_hash: str = ""
+    gallery_images: list[dict[str, object]] = field(default_factory=list)
 
     content_hash: str = ""
 
     product_id: int | None = None
+
+    # HTTP validators used to revalidate cached primary images cheaply.
+    image_etag: str = ""
+    image_last_modified: str = ""
+    image_checked_at: str = ""
 
     @property
     def id(self) -> int | None:
@@ -70,6 +76,15 @@ class Product:
         self.image_url = self.image_url.strip()
         self.image_path = self.image_path.strip()
         self.image_hash = self.image_hash.strip()
+        self.image_etag = self.image_etag.strip()
+        self.image_last_modified = self.image_last_modified.strip()
+        self.image_checked_at = self.image_checked_at.strip()
+        self.gallery_images = [
+            dict(image)
+            for image in list(self.gallery_images or [])
+            if isinstance(image, dict)
+            and str(image.get("image_path", image.get("path", "")) or "").strip()
+        ]
         self.content_hash = self.content_hash.strip()
         return self
 

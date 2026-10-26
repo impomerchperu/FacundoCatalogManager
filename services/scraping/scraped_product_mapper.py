@@ -29,6 +29,14 @@ class ScrapedProductMapper:
             image_url=scraped_product.image_url,
             image_path=scraped_product.image_path,
             image_hash=scraped_product.image_hash,
+            image_etag=scraped_product.image_etag,
+            image_last_modified=scraped_product.image_last_modified,
+            image_checked_at=scraped_product.image_checked_at,
+            gallery_images=[
+                dict(image)
+                for image in list(getattr(scraped_product, "gallery_images", []) or [])
+                if isinstance(image, dict)
+            ],
             content_hash=self.hash_service.generate(scraped_product),
         )
 

@@ -19,9 +19,7 @@ class ProductDiffService:
             self.hash_service.CONTENT_FIELDS
         )
 
-        self.image_fields = (
-            self.hash_service.IMAGE_FIELDS
-        )
+        self.image_fields = self.hash_service.IMAGE_FIELDS
 
 
     def compare(

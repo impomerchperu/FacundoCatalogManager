@@ -93,6 +93,12 @@ class ScrapingHistoryDialog(QDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self.setWindowFlags(
+            Qt.WindowType.Window
+            | Qt.WindowType.WindowMinimizeButtonHint
+            | Qt.WindowType.WindowMaximizeButtonHint
+            | Qt.WindowType.WindowCloseButtonHint
+        )
         self.db = DBManager()
         self.repository = ScrapingHistoryRepository(self.db)
         self.detail_dialog: QDialog | None = None

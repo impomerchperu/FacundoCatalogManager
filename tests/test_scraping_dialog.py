@@ -51,6 +51,50 @@ def test_scraping_dialog_shows_session_result_without_attribute_error(monkeypatc
     dialog.close()
 
 
+def test_scraping_dialog_reserves_100_percent_until_worker_finishes():
+    _qapp()
+    dialog = ScrapingDialog()
+
+    dialog.update_progress(522, 522)
+
+    assert dialog.progress.value() == 99
+    assert "99%" in dialog.status_label.text()
+    assert "100%" not in dialog.status_label.text()
+
+    dialog.scraping_finished(_result())
+
+    assert dialog.progress.value() == 100
+    assert "Actualización completada" in dialog.status_label.text()
+    dialog.close()
+
+
+def test_scraping_worker_emits_result_only_after_controller_is_closed(monkeypatch):
+    from gui.workers.scraping_worker import ScrapingWorker
+
+    events = []
+    fake_result = object()
+
+    class FakeController:
+        def run_full_scraping(self, progress_callback=None):
+            events.append("run")
+            return fake_result
+
+        def close(self):
+            events.append("close")
+
+    monkeypatch.setattr(
+        "gui.workers.scraping_worker.ScrapingController",
+        FakeController,
+    )
+    worker = ScrapingWorker()
+    worker.finished.connect(lambda result: events.append(("finished", result)))
+    worker.error.connect(lambda message: events.append(("error", message)))
+
+    worker.run()
+
+    assert events == ["run", "close", ("finished", fake_result)]
+
+
 def test_scraping_dialog_uses_neutral_detail_table_selection(monkeypatch):
     _qapp()
 
@@ -87,6 +131,8 @@ def test_scraping_dialog_uses_neutral_detail_table_selection(monkeypatch):
     assert dialog.BODY_FONT_SIZE == 13
     assert dialog.BUTTON_HEIGHT == 34
     assert "selection-background-color: #fbfdff;" in stylesheet
+    assert detail_dialog.windowFlags() & Qt.WindowType.WindowMinimizeButtonHint
+    assert detail_dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
 
     detail_dialog.close()
     dialog.close()
@@ -101,6 +147,8 @@ def test_scraping_dialog_remains_visible_as_independent_window(monkeypatch):
 
     assert dialog.parentWidget() is None
     assert dialog.windowFlags() & Qt.WindowType.Window
+    assert not dialog.windowFlags() & Qt.WindowType.WindowMinimizeButtonHint
+    assert not dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
 
     monkeypatch.setattr(
         "PySide6.QtCore.QThread.start",
@@ -215,6 +263,7 @@ def test_main_window_refreshes_catalog_and_history_after_successful_scraping():
 
     window = MainWindow.__new__(MainWindow)
     window.refresh_catalog = lambda: calls.append("catalog")
+    window.open_pending_image_review = lambda: calls.append("image_review")
     window.history_dialog = FakeHistoryDialog()
     window.scraping_dialog = FakeScrapingDialog()
 
@@ -223,6 +272,7 @@ def test_main_window_refreshes_catalog_and_history_after_successful_scraping():
     assert calls == [
         "catalog",
         "history",
+        "image_review",
         ("title", "Actualización completada"),
         "raise",
         "activate",

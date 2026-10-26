@@ -68,19 +68,19 @@ def test_uses_product_table_when_visual_cards_do_not_have_all_prices():
     )
 
 
-def test_uses_complete_visual_cards_when_table_is_also_present():
+def test_uses_category_table_when_visual_cards_contain_featured_products():
     html = """
     <div class="jsfb-filterable">
-        <h2>Producto visual completo</h2>
-        <a href="/producto/visual/"><img src="visual.jpg"></a>
+        <p class="brxe-a26f34">FB-1908</p>
+        <a href="/producto/tarjeta-pvc-cr80/"><h2>Tarjeta de PVC CR80</h2></a>
         <div class="content-precio">
-            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+            <h3>Precio Muestra</h3><h4>S/ 45.00</h4>
         </div>
         <div class="content-precio">
-            <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+            <h3>Precio Ciento</h3><h4>S/ 400.00</h4>
         </div>
         <div class="content-precio">
-            <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+            <h3>Precio Millar</h3><h4>S/ 600.00</h4>
         </div>
     </div>
     <table>
@@ -89,18 +89,18 @@ def test_uses_complete_visual_cards_when_table_is_also_present():
         </thead>
         <tbody>
             <tr>
-                <td>F320</td>
+                <td>FB-5001</td>
                 <td>
-                    <a href="/producto/maquina-f320/">
-                        <h2>Maquina F320</h2>
+                    <a href="/producto/lampara-escritorio/">
+                        <h2>Lámpara de escritorio</h2>
                     </a>
                 </td>
             </tr>
             <tr>
-                <td>F110</td>
+                <td>FB-5002</td>
                 <td>
-                    <a href="/producto/maquina-f110/">
-                        <h2>Maquina F110</h2>
+                    <a href="/producto/organizador-escritorio/">
+                        <h2>Organizador de escritorio</h2>
                     </a>
                 </td>
             </tr>
@@ -111,8 +111,48 @@ def test_uses_complete_visual_cards_when_table_is_also_present():
     soup = BeautifulSoup(html, "lxml")
     cards = ProductCardExtractor().extract(soup)
 
+    assert len(cards) == 2
+    assert [card.select_one('a[href*="/producto/"]')["href"] for card in cards] == [
+        "/producto/lampara-escritorio/",
+        "/producto/organizador-escritorio/",
+    ]
+
+
+def test_uses_category_table_when_a_visual_card_lacks_product_link():
+    html = """
+    <div class="jsfb-filterable">
+        <a href="/producto/producto-de-categoria/">
+            <h2>Producto de categoría</h2>
+        </a>
+        <div class="content-precio">
+            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+        </div>
+    </div>
+    <div class="jsfb-filterable">
+        <p class="brxe-a26f34">FB-1908</p>
+        <h2>Producto destacado sin enlace de categoría</h2>
+    </div>
+    <table><tbody>
+        <tr>
+            <td><a href="/producto/producto-de-categoria/">Producto</a></td>
+        </tr>
+    </tbody></table>
+    """
+
+    soup = BeautifulSoup(html, "lxml")
+    cards = ProductCardExtractor().extract(soup)
+
     assert len(cards) == 1
-    assert cards[0].get("class") == ["jsfb-filterable"]
+    assert cards[0].name == "tr"
+    assert cards[0].select_one('a[href*="/producto/"]')["href"] == (
+        "/producto/producto-de-categoria/"
+    )
 
 
 def test_uses_product_table_when_any_visual_card_is_missing_price():

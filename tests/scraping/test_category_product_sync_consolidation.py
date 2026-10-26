@@ -36,7 +36,8 @@ class FakeImageSync:
     def __init__(self):
         self.received = []
 
-    def sync_products(self, products):
+    def sync_products(self, products, progress_callback=None):
+        del progress_callback
         self.received = list(products)
         return products
 

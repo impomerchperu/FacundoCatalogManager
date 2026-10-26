@@ -6,7 +6,7 @@ from config.runtime_paths import DATABASE_PATH, SCHEMA_PATH
 class DBManager:
     """Gestiona SQLite con inicialización, migraciones y persistencia segura."""
 
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 6
 
     def __init__(self, db_path=None):
         if db_path is None:
@@ -66,6 +66,107 @@ class DBManager:
                 2,
                 "Relación explícita entre ejecuciones de scraping e historial.",
             )
+            current_version = 2
+
+        if current_version < 3:
+            self._migrate_to_v3()
+            self._record_schema_migration(
+                3,
+                "Persistencia de galerías de imágenes por producto.",
+            )
+            current_version = 3
+
+        if current_version < 4:
+            self._migrate_to_v4()
+            self._record_schema_migration(
+                4,
+                "Validadores HTTP y fecha de revalidación de imágenes principales.",
+            )
+            current_version = 4
+
+        if current_version < 5:
+            self._migrate_to_v5()
+            self._record_schema_migration(
+                5,
+                "Caché persistente de páginas de producto y validadores HTTP.",
+            )
+            current_version = 5
+
+        if current_version < 6:
+            self._migrate_to_v6()
+            self._record_schema_migration(
+                6,
+                "Conserva nombres de color heredados sin inventar cantidades de stock.",
+            )
+
+    def _migrate_to_v3(self) -> None:
+        self._add_column_if_missing(
+            "products",
+            "gallery_images",
+            "TEXT DEFAULT '[]'",
+        )
+
+    def _migrate_to_v6(self) -> None:
+        """Preserva etiquetas antiguas de color sin inferir distribución de stock."""
+        self._migrate_legacy_colors("products")
+        self._migrate_legacy_colors("scraped_products")
+
+    def _migrate_legacy_colors(self, table_name: str) -> None:
+        """Conserva el JSON original de colores antes de retirar la columna antigua."""
+        if not self._table_exists(table_name):
+            return
+
+        self._add_column_if_missing(
+            table_name,
+            "legacy_colors",
+            "TEXT DEFAULT '[]'",
+        )
+        columns = {
+            row["name"]
+            for row in self.fetch_all(f"PRAGMA table_info({table_name})")
+        }
+        if "colors" not in columns:
+            return
+
+        self.connection.execute(
+            f"""
+            UPDATE {table_name}
+            SET legacy_colors = colors
+            WHERE colors IS NOT NULL
+              AND TRIM(colors) NOT IN ('', '[]')
+              AND (
+                  legacy_colors IS NULL
+                  OR TRIM(legacy_colors) IN ('', '[]')
+              )
+            """
+        )
+        self._remove_legacy_colors_column(table_name)
+
+    def _migrate_to_v5(self) -> None:
+        self.connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS source_page_cache (
+                normalized_url TEXT PRIMARY KEY,
+                original_url TEXT NOT NULL,
+                effective_url TEXT NOT NULL,
+                html_zlib BLOB NOT NULL,
+                content_sha256 TEXT NOT NULL,
+                etag TEXT NOT NULL DEFAULT '',
+                last_modified TEXT NOT NULL DEFAULT '',
+                fetched_at TEXT NOT NULL,
+                checked_at TEXT NOT NULL,
+                status_code INTEGER NOT NULL DEFAULT 200
+            )
+            """
+        )
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_source_page_cache_checked_at "
+            "ON source_page_cache(checked_at)"
+        )
+
+    def _migrate_to_v4(self) -> None:
+        for column in ("image_etag", "image_last_modified", "image_checked_at"):
+            self._add_column_if_missing("products", column, "TEXT DEFAULT ''")
 
     def _migrate_to_v2(self) -> None:
         self.connection.execute(
@@ -119,8 +220,8 @@ class DBManager:
         ):
             self._add_column_if_missing("scraping_history", column, definition)
         self._restore_applied_history_marker()
-        self._remove_legacy_colors_column("products")
-        self._remove_legacy_colors_column("scraped_products")
+        self._migrate_legacy_colors("products")
+        self._migrate_legacy_colors("scraped_products")
         self._migrate_download_changes()
         self._migrate_scraping_run_categories()
         self._normalize_existing_product_categories()

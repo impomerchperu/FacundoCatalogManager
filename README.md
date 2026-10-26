@@ -1,6 +1,6 @@
 # Facundo Catalog Manager
 
-**Referencia funcional actual:** catálogo vivo validado en `main` con `523 / 519 / 4`, cobertura completa y runtime productivo `8 / 24 / 28`. La versión en preparación es `0.2.0`; la release publicada de referencia continúa siendo `v0.1.1`.
+**Referencia de `main` (corte histórico):** `523 / 519 / 4`, cobertura completa y runtime de categorías/detalle/HTTP `8 / 24 / 28`. **Candidata `feat/product-table-layout` (PR #30, aún sin fusionar):** auditoría live del 25/10/2026 con `522 / 518 / 4 / 24` y configuración probada `12 / 24 / 28`. No mezclar bases ni snapshots: cada FULL debe validarse contra los conteos publicados en esa ejecución. La versión del código candidata debe distinguirse del estado de la rama `main`.
 
 Aplicación de escritorio en Python + PySide6 para mantener el catálogo de Importaciones Facundo, ejecutar sincronizaciones FULL y exportar la información a Excel, PDF y CSV.
 
@@ -21,18 +21,18 @@ La aplicación publica el nombre y la versión mediante los metadatos estándar 
 
 ## Scraping FULL
 
-Una ejecución FULL válida debe cubrir las 24 categorías y alcanzar los totales publicados por las propias categorías en esa ejecución. La referencia operativa actual es 523 apariciones, 519 productos únicos, 4 productos presentes en múltiples categorías y 523 relaciones producto-categoría. La referencia histórica 534/530/4 queda registrada únicamente como evidencia de auditoría e historial Git; no se mantiene un snapshot operativo dentro del repositorio.
+Una ejecución FULL válida debe cubrir las 24 categorías y alcanzar los totales publicados por las propias categorías en esa ejecución. El snapshot operativo de `main` usado en la validación anterior fue de 523 apariciones, 519 productos únicos, 4 productos en múltiples categorías y 523 relaciones. La auditoría live de la candidata `feat/product-table-layout` del 25/10/2026 obtuvo 522 apariciones, 518 productos únicos, 4 productos multi-categoría y 522 relaciones (`522/518/4/24`). La referencia histórica 534/530/4 es solo evidencia de auditoría e historial; el conteo de cada FULL lo determina el inventario publicado en esa ejecución.
 
 Una ejecución válida debe mantener `coverage_complete=1`, `coverage_gap=0` y cero errores invalidantes. Una ejecución incompleta o inconsistente no debe utilizarse para hacer un prune destructivo del catálogo persistido. La reconciliación de bootstrap selecciona la ejecución FULL exitosa más reciente que además sea consistente con sus métricas y sus ocurrencias reales.
 
-La configuración de producción actual, validada y preservada para `0.2.0`, es:
+La configuración base que se había validado en `main` era:
 
 - Categorías: `8` workers.
 - Detalle: `24` workers.
 - HTTP: `28` workers.
 - JetSmartFilters HTTP: `8` de concurrencia.
 
-El valor de 24 workers de detalle fue seleccionado tras benchmarks controlados en el sitio real frente a 16 workers. La validación E2E de producción bajo `8 / 24 / 28` confirmó `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, `0` retries y `0` errores HTTP terminales.
+El valor de 24 workers de detalle fue seleccionado tras benchmarks controlados en el sitio real frente a 16 workers. La validación anterior de `main` bajo `8 / 24 / 28` confirmó `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, `0` retries y `0` errores HTTP terminales. En la candidata `feat/product-table-layout`, seis ensayos controlados de 8 vs. 12 workers de categoría no mostraron ventaja concluyente con 8 (mejora de mediana aparente 2,04%, menor que la dispersión); por eso se conserva `12 / 24 / 28` en esa rama. Esta diferencia no cambia `main` mientras la PR #30 siga sin fusionarse.
 
 ## Stock por color
 
@@ -96,7 +96,7 @@ El workflow de GitHub Actions ejecuta Ruff, Pyright y Pytest automáticamente. L
 
 ## Estado validado de la rama
 
-El baseline validado cubre el flujo completo de scraping, persistencia y bootstrap con referencia operativa viva `523 / 519 / 4`, cobertura completa, catálogo reconciliado `519 / 523`, historial persistente y E2E de producción bajo `8 / 24 / 28`. La versión estable publicada es `v0.1.1` y `VERSION` se encuentra en `0.2.0` para la siguiente release candidate.
+El baseline documentado de `main` cubre scraping, persistencia y bootstrap con snapshot `523 / 519 / 4`, cobertura completa e historial persistente bajo `8 / 24 / 28`. La candidata `feat/product-table-layout` tiene auditoría live completa `522 / 518 / 4 / 24`; el benchmark aconseja conservar `12 / 24 / 28` en la rama candidata. La PR #30 permanece en borrador y no se ha fusionado, por lo que estos resultados no deben presentarse como el estado ya desplegado de `main`.
 
 La referencia funcional es móvil: cada FULL completo, consistente y sin errores sustituye la referencia anterior con los conteos publicados por el sitio. Las invariantes de cobertura deben preservarse en toda optimización posterior.
 

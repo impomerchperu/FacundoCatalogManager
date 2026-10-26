@@ -31,7 +31,10 @@ class ScrapingDialog(QDialog):
         # Windows la trate como una ventana normal y pueda alternarse con
         # MainWindow mediante clic o Alt+Tab.
         super().__init__(parent)
-        self.setWindowFlag(Qt.WindowType.Window, True)
+        self.setWindowFlags(
+            Qt.WindowType.Window
+            | Qt.WindowType.WindowCloseButtonHint
+        )
 
         self.scraping_thread: QThread | None = None
         self.worker: ScrapingWorker | None = None
@@ -163,11 +166,14 @@ class ScrapingDialog(QDialog):
         if total <= 0:
             return
 
-        value = min(100, int(current * 100 / total))
+        # Pipeline progress callbacks can reach 100 during gallery sync,
+        # before catalog persistence, commit, cleanup and resource shutdown.
+        # Only scraping_finished may publish the true terminal 100%.
+        value = min(99, int(current * 100 / total))
         self.progress.setValue(value)
         elapsed = self._format_elapsed()
         self.status_label.setText(
-            f"Extracción en curso • {value}% • {elapsed}",
+            f"Actualización en curso • {value}% • {elapsed}",
         )
 
     def update_elapsed_status(self) -> None:
@@ -279,6 +285,12 @@ class ScrapingDialog(QDialog):
 
         dialog = QDialog(self)
         self.detail_dialog = dialog
+        dialog.setWindowFlags(
+            Qt.WindowType.Window
+            | Qt.WindowType.WindowMinimizeButtonHint
+            | Qt.WindowType.WindowMaximizeButtonHint
+            | Qt.WindowType.WindowCloseButtonHint
+        )
         dialog.setWindowTitle("Detalle de la descarga")
         dialog.resize(1000, 600)
         dialog.setModal(False)

@@ -25,6 +25,8 @@ class ScrapedProduct:
 
     image_url: str = ""
     image_path: str = ""
+    image_candidates: list[dict[str, object]] = field(default_factory=list)
+    gallery_images: list[dict[str, object]] = field(default_factory=list)
 
     image_hash: str = ""
 
@@ -35,6 +37,11 @@ class ScrapedProduct:
     scraped_at: str = ""
 
     updated_at: str = ""
+
+    # Transferred from image synchronization to catalog persistence.
+    image_etag: str = ""
+    image_last_modified: str = ""
+    image_checked_at: str = ""
 
     def __setattr__(self, name, value):
         object.__setattr__(self, name, value)

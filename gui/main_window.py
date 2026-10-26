@@ -1,13 +1,18 @@
+import sqlite3
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QPoint, Qt, QThread, QTimer
+from PySide6.QtCore import QPoint, QRect, QSize, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import (
+    QColor,
     QFocusEvent,
     QFont,
     QFontMetrics,
+    QIcon,
     QKeyEvent,
     QPainter,
     QPaintEvent,
+    QPen,
+    QPixmap,
     QResizeEvent,
 )
 from PySide6.QtWidgets import (
@@ -16,6 +21,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMainWindow,
@@ -25,25 +31,142 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QStyle,
     QStyleOptionButton,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 from config.runtime_paths import is_frozen
 from controllers.product_controller import ProductController
-from gui.product_table import ProductTable
+from gui.product_table import ProductImageDelegate, ProductTable
 from gui.scraping_dialog import ScrapingDialog
 from gui.workers.catalog_bootstrap_worker import CatalogBootstrapWorker
 from gui.workers.catalog_load_worker import CatalogLoadWorker
 from models.product import Product
-from services.scraping.category_name_normalizer import split_category_names
+from services.product_search import (
+    product_matches_search,
+    product_search_priority,
+)
+from services.scraping.category_name_normalizer import (
+    available_category_names,
+    split_category_names,
+)
+from services.scraping.image_review_service import ImageReviewService
 
 if TYPE_CHECKING:
+    from gui.image_review_dialog import ImageReviewDialog
     from gui.scraping_history_dialog import ScrapingHistoryDialog
 
 
+class SearchLineEdit(QLineEdit):
+    """Campo de búsqueda con un botón de borrado visible y accesible."""
+
+    CLEAR_BUTTON_SIZE = 28
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setTextMargins(0, 0, self.CLEAR_BUTTON_SIZE + 10, 0)
+
+        self.clear_button = QToolButton(self)
+        self.clear_button.setObjectName("search_clear_button")
+        self.clear_button.setAccessibleName("Limpiar búsqueda")
+        self.clear_button.setToolTip("Limpiar búsqueda")
+        self.clear_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.clear_button.setAutoRaise(False)
+        self.clear_button.setFixedSize(
+            self.CLEAR_BUTTON_SIZE,
+            self.CLEAR_BUTTON_SIZE,
+        )
+        self.clear_button.setIcon(self._create_clear_icon())
+        self.clear_button.setIconSize(QSize(19, 19))
+        self.clear_button.setStyleSheet(
+            "QToolButton {"
+            " background-color: transparent;"
+            " border: 1px solid transparent;"
+            " border-radius: 5px;"
+            " padding: 2px;"
+            "}"
+            ' QToolButton[hasText="true"] {'
+            " background-color: #dbeafe;"
+            " border: 1px solid #60a5fa;"
+            "}"
+            ' QToolButton[hasText="true"]:hover {'
+            " background-color: #bfdbfe;"
+            " border-color: #2563eb;"
+            "}"
+            ' QToolButton[hasText="true"]:pressed {'
+            " background-color: #93c5fd;"
+            "}"
+        )
+        self.clear_button.clicked.connect(self.clear)
+        self.textChanged.connect(self._sync_clear_button)
+        self._position_clear_button()
+        self._sync_clear_button()
+
+    @staticmethod
+    def _create_clear_icon() -> QIcon:
+        """Draw a recognizable broom icon without platform-dependent glyphs."""
+
+        pixmap = QPixmap(24, 24)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        handle_pen = QPen(QColor("#80552c"))
+        handle_pen.setWidth(3)
+        handle_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(handle_pen)
+        painter.drawLine(17, 3, 8, 15)
+
+        bristle_pen = QPen(QColor("#173f6d"))
+        bristle_pen.setWidth(1)
+        painter.setPen(bristle_pen)
+        painter.setBrush(QColor("#f4c56a"))
+        painter.drawPolygon(
+            [
+                QPoint(5, 12),
+                QPoint(13, 16),
+                QPoint(10, 21),
+                QPoint(2, 18),
+            ],
+        )
+        painter.setPen(QPen(QColor("#b7791f"), 1))
+        painter.drawLine(4, 18, 6, 14)
+        painter.drawLine(6, 19, 8, 15)
+        painter.drawLine(8, 20, 10, 16)
+        painter.end()
+        return QIcon(pixmap)
+
+    def _position_clear_button(self) -> None:
+        if not hasattr(self, "clear_button"):
+            return
+        self.clear_button.move(
+            self.width() - self.clear_button.width() - 5,
+            (self.height() - self.clear_button.height()) // 2,
+        )
+        self.clear_button.raise_()
+
+    def _sync_clear_button(self, _text: str = "") -> None:
+        # Keep the icon visible, but emphasize the button only when it can clear
+        # a non-empty search.
+        has_text = bool(self.text())
+        if self.clear_button.property("hasText") != has_text:
+            self.clear_button.setProperty("hasText", has_text)
+            style = self.clear_button.style()
+            style.unpolish(self.clear_button)
+            style.polish(self.clear_button)
+        self.clear_button.setVisible(True)
+        self.clear_button.update()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._position_clear_button()
+
+
 class CategoryFilterButton(QPushButton):
-    """Botón de categoría con navegación vertical por teclado."""
+    """Botón de categoría con navegación vertical y edición por doble clic."""
+
+    doubleClicked = Signal()
 
     def __init__(
         self,
@@ -51,6 +174,7 @@ class CategoryFilterButton(QPushButton):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(text, parent)
+        self.toggled.connect(self._sync_checked_font)
         self._focus_frame = QFrame(self)
         self._focus_frame.setObjectName("category_focus_frame")
         self._focus_frame.setAttribute(
@@ -65,6 +189,18 @@ class CategoryFilterButton(QPushButton):
         )
         self._focus_frame.hide()
         self._focus_frame.raise_()
+
+    def _sync_checked_font(self, checked: bool) -> None:
+        font = QFont(self.font())
+        font.setBold(checked)
+        self.setFont(font)
+
+    def mouseDoubleClickEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.doubleClicked.emit()
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
 
     def _update_focus_frame(self) -> None:
         self._focus_frame.setGeometry(
@@ -90,13 +226,57 @@ class CategoryFilterButton(QPushButton):
         option = QStyleOptionButton()
         self.initStyleOption(option)
         option.state &= ~QStyle.StateFlag.State_HasFocus
-
+        count_value = self.property("category_count")
         painter = QPainter(self)
+        if not isinstance(count_value, int):
+            self.style().drawControl(
+                QStyle.ControlElement.CE_PushButton, option, painter, self
+            )
+            return
+
+        display_text = str(
+            self.property("category_display_text")
+            or self.property("category_text")
+            or self.text()
+        )
+        option.text = ""
         self.style().drawControl(
-            QStyle.ControlElement.CE_PushButton,
-            option,
-            painter,
-            self,
+            QStyle.ControlElement.CE_PushButton, option, painter, self
+        )
+        metrics = QFontMetrics(self.font())
+        padding = 4
+        gap = 8
+        content = self.rect().adjusted(padding, 0, -padding, 0)
+        count_text = str(count_value)
+        count_width = min(metrics.horizontalAdvance(count_text), content.width())
+        count_rect = QRect(
+            max(content.right() - count_width + 1, content.left()),
+            content.top(),
+            count_width,
+            content.height(),
+        )
+        label_rect = QRect(
+            content.left(),
+            content.top(),
+            max(count_rect.left() - content.left() - gap, 1),
+            content.height(),
+        )
+        display_text = metrics.elidedText(
+            display_text,
+            Qt.TextElideMode.ElideRight,
+            label_rect.width(),
+        )
+        painter.setFont(self.font())
+        painter.setPen(QColor("#173f6d"))
+        painter.drawText(
+            label_rect,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            display_text,
+        )
+        painter.drawText(
+            count_rect,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            count_text,
         )
 
     def _navigation_buttons(self) -> list["CategoryFilterButton"]:
@@ -230,6 +410,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.controller = ProductController()
+        self.image_review_service = ImageReviewService()
         self.setWindowTitle("Facundo Catalog Manager")
         self.setStyleSheet("QMainWindow { background-color: #ffffff; }")
         self.resize(self.INITIAL_WINDOW_WIDTH, self.INITIAL_WINDOW_HEIGHT)
@@ -245,6 +426,7 @@ class MainWindow(QMainWindow):
         self.categories_visible = False
         self.scraping_dialog: ScrapingDialog | None = None
         self.history_dialog: ScrapingHistoryDialog | None = None
+        self.image_review_dialog: ImageReviewDialog | None = None
         self.catalog_bootstrap_thread: QThread | None = None
         self.catalog_bootstrap_worker: CatalogBootstrapWorker | None = None
         self.catalog_bootstrap_running = False
@@ -252,6 +434,10 @@ class MainWindow(QMainWindow):
         self.catalog_bootstrap_blocked_buttons: list[QPushButton] = []
         self.catalog_load_thread: QThread | None = None
         self.catalog_load_worker: CatalogLoadWorker | None = None
+        self.image_review_button: QPushButton | None = None
+        self.image_review_poll_timer = QTimer(self)
+        self.image_review_poll_timer.setInterval(700)
+        self.image_review_poll_timer.timeout.connect(self._refresh_image_review_state)
 
         central = QWidget()
         central.setObjectName("main_content")
@@ -260,7 +446,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
-        self.search_box = QLineEdit()
+        self.search_box = SearchLineEdit()
         self.search_box.setPlaceholderText("Buscar producto...")
         self.search_box.setMinimumHeight(self.SEARCH_HEIGHT)
         self.search_box.setMinimumWidth(0)
@@ -282,6 +468,9 @@ class MainWindow(QMainWindow):
         self.search_box.textChanged.connect(self.search_products)
 
         self.table = ProductTable(self.controller)
+        self.table.cellDoubleClicked.connect(self._table_cell_double_clicked)
+        self.table.itemChanged.connect(self._table_item_changed)
+        self._table_edit_guard = False
         self.create_filter_controls(layout)
 
         counter_layout = QHBoxLayout()
@@ -312,6 +501,8 @@ class MainWindow(QMainWindow):
         # independientemente.
         QTimer.singleShot(0, self._start_catalog_bootstrap)
         QTimer.singleShot(0, self._load_initial_catalog)
+        self.image_review_poll_timer.start()
+        self._refresh_image_review_state()
 
     def _start_catalog_bootstrap(self) -> None:
         """Ejecuta la reparación inicial en segundo plano."""
@@ -615,19 +806,28 @@ class MainWindow(QMainWindow):
 
     def _add_action_buttons(self, layout: QHBoxLayout) -> None:
         buttons = [
-            ("Exportar Excel", self.export_excel),
-            ("Exportar PDF", self.export_pdf),
-            ("Exportar CSV", self.export_csv),
-            ("Actualizar catálogo", self.open_scraping),
+            ("Imágenes (0)", self.open_pending_image_review),
+            ("Exportar", self.export_catalog),
+            ("Importar", self.import_products),
+            ("Nuevo", self.new_product),
+            ("Editar", self.edit_product),
+            ("Eliminar", self.delete_selected),
+            ("Actualizar Catálogo", self.open_scraping),
             ("Historial", self.open_scraping_history),
         ]
         for text, callback in buttons:
             button = QPushButton(text)
+            if text == "Imágenes (0)":
+                button.setObjectName("image_review_button")
+                button.setCheckable(True)
             self._configure_action_button(button)
             button.setFixedWidth(button.sizeHint().width())
             button.clicked.connect(callback)
             layout.addWidget(button)
-            if text == "Actualizar catálogo":
+            if text == "Imágenes (0)":
+                self.image_review_button = button
+                button.setFixedWidth(115)
+            if text == "Actualizar Catálogo":
                 self.catalog_bootstrap_blocked_buttons.append(button)
 
     @classmethod
@@ -653,7 +853,14 @@ class MainWindow(QMainWindow):
             "}"
             " QPushButton:hover { background-color: #eef5fb; }"
             " QPushButton:pressed { background-color: #dbeeff; }"
+            " QPushButton:checked {"
+            " background-color: #d8edf7;"
+            " border: 1px solid #a9cfe2;"
+            " color: #173f6d;"
+            " font-weight: bold;"
+            "}"
         )
+        button.setFixedHeight(cls.ACTION_BUTTON_HEIGHT)
 
     @classmethod
     def _configure_toggle_button(cls, button: QPushButton, *texts: str) -> None:
@@ -738,8 +945,16 @@ class MainWindow(QMainWindow):
         width = cls._category_button_width(button, text)
         if max_width is not None:
             width = max_width
+            count_value = button.property("category_count")
+            count_width = (
+                QFontMetrics(font).horizontalAdvance(str(count_value)) + 8
+                if isinstance(count_value, int)
+                else 0
+            )
             text_width = max(
-                max_width - (2 * cls.CATEGORY_BUTTON_HORIZONTAL_PADDING),
+                max_width
+                - (2 * cls.CATEGORY_BUTTON_HORIZONTAL_PADDING)
+                - count_width,
                 1,
             )
             text = QFontMetrics(font).elidedText(
@@ -758,14 +973,21 @@ class MainWindow(QMainWindow):
         self.category_toggle_button.setText(
             "Ocultar Categorías" if visible else "Filtrar Categorías",
         )
-        self.category_toggle_button.setFixedWidth(
-            self._category_sidebar_open_width,
-        )
+        sidebar_width = self._category_sidebar_open_width
+        if self.category_toggle_button.width() != sidebar_width:
+            self.category_toggle_button.setFixedWidth(sidebar_width)
         self.category_sidebar.setVisible(visible)
         self.category_scroll.setVisible(visible)
-        self.category_sidebar.setFixedWidth(
-            self._category_sidebar_open_width,
+        if self.category_sidebar.width() != sidebar_width:
+            self.category_sidebar.setFixedWidth(sidebar_width)
+        table = getattr(self, "table", None)
+        set_column_distribution = getattr(
+            table,
+            "set_even_column_distribution",
+            None,
         )
+        if callable(set_column_distribution):
+            set_column_distribution(not visible)
 
     def refresh_catalog(self) -> None:
         self._apply_catalog_products(self.controller.get_products())
@@ -773,6 +995,11 @@ class MainWindow(QMainWindow):
     def _apply_catalog_products(self, products: list[Product]) -> None:
         self.all_products = list(products)
         self.table.set_category_reference_products(self.all_products)
+        self.table.set_category_editor_options(
+            available_category_names(
+                *(product.category for product in self.all_products)
+            )
+        )
         self.table.load_products(self.all_products)
         self.rebuild_category_filters()
         self.apply_filters()
@@ -794,19 +1021,28 @@ class MainWindow(QMainWindow):
         self.category_buttons = [self.all_categories_button]
         self._clear_category_rows()
 
-        categories = sorted(
-            {
-                category
-                for product in self.all_products
-                for category in self._product_categories(product)
-            },
-            key=str.casefold,
-        )
+        categories = {
+            category
+            for product in self.all_products
+            for category in self._product_categories(product)
+        }
+        categories = sorted(categories, key=str.casefold)
         self.selected_categories.intersection_update(set(categories))
+
+        category_counts: dict[str, int] = {}
+        for product in self.all_products:
+            for category in self._product_categories(product):
+                key = category.casefold()
+                category_counts[key] = category_counts.get(key, 0) + 1
 
         for category in categories:
             button = CategoryFilterButton(category)
             button.setProperty("category_text", category)
+            button.setProperty("category_display_text", category)
+            button.setProperty(
+                "category_count",
+                category_counts.get(category.casefold(), 0),
+            )
             button.setCheckable(True)
             button.setChecked(category in self.selected_categories)
             button.setStyleSheet(self._category_button_style())
@@ -815,6 +1051,9 @@ class MainWindow(QMainWindow):
                     value,
                     checked,
                 ),
+            )
+            button.doubleClicked.connect(
+                lambda value=category: self.rename_category_button(value)
             )
             self.category_buttons.append(button)
 
@@ -840,7 +1079,6 @@ class MainWindow(QMainWindow):
     def _prepare_category_filter_layout(self) -> None:
         if not hasattr(self, "category_layout") or not self.category_buttons:
             return
-
         self._clear_category_rows()
 
         reference_font = QFont(self.category_buttons[0].font())
@@ -849,25 +1087,43 @@ class MainWindow(QMainWindow):
         reference_bold_font.setBold(True)
         reference_metrics = QFontMetrics(reference_font)
         reference_bold_metrics = QFontMetrics(reference_bold_font)
+        button_texts = [
+            str(
+                button.property("category_display_text")
+                or button.property("category_text")
+                or button.text(),
+            ).replace("\n", " ")
+            for button in self.category_buttons
+        ]
         reference_text_width = max(
-            reference_metrics.horizontalAdvance(self.CATEGORY_SIDEBAR_REFERENCE_TEXT),
+            reference_metrics.horizontalAdvance(
+                self.CATEGORY_SIDEBAR_REFERENCE_TEXT,
+            ),
             reference_bold_metrics.horizontalAdvance(
                 self.CATEGORY_SIDEBAR_REFERENCE_TEXT,
             ),
         )
+        count_metrics = QFontMetrics(reference_font)
+        maximum_count_width = max(
+            (
+                count_metrics.horizontalAdvance(str(button.property("category_count")))
+                for button in self.category_buttons
+                if isinstance(button.property("category_count"), int)
+            ),
+            default=0,
+        )
+        count_reserve = maximum_count_width + 8 if maximum_count_width else 0
         category_button_width = (
             reference_text_width
             + (2 * self.CATEGORY_BUTTON_HORIZONTAL_PADDING)
+            + count_reserve
         )
         self._category_sidebar_button_width = category_button_width
         self._category_sidebar_open_width = (
             category_button_width + (2 * self.CATEGORY_SIDEBAR_HORIZONTAL_PADDING)
         )
 
-        for button in self.category_buttons:
-            text = str(
-                button.property("category_text") or button.text(),
-            ).replace("\n", " ")
+        for button, text in zip(self.category_buttons, button_texts, strict=True):
             self._fit_category_button(
                 button,
                 text,
@@ -885,16 +1141,19 @@ class MainWindow(QMainWindow):
             maximum=self.category_scroll.verticalScrollBar().maximum(),
         )
         if self.categories_visible:
-            self.category_sidebar.setFixedWidth(
-                self._category_sidebar_open_width,
-            )
+            self.category_sidebar.setFixedWidth(self._category_sidebar_open_width)
 
     def _update_all_categories_button(self) -> None:
         self.all_categories_button.setChecked(not self.selected_categories)
         self.all_categories_button.setText("Todas las categorías")
+        self.all_categories_button.setProperty("category_text", "Todas las categorías")
         self.all_categories_button.setProperty(
-            "category_text",
+            "category_display_text",
             "Todas las categorías",
+        )
+        self.all_categories_button.setProperty(
+            "category_count",
+            len(getattr(self, "all_products", [])),
         )
 
     def clear_category_filters(self) -> None:
@@ -906,6 +1165,7 @@ class MainWindow(QMainWindow):
         self.apply_filters()
 
     def toggle_category(self, category: str, checked: bool) -> None:
+        self.table.clearSelection()
         if checked:
             self.selected_categories.add(category)
         else:
@@ -921,15 +1181,17 @@ class MainWindow(QMainWindow):
         )
         self.apply_filters()
 
-    def apply_filters(self) -> None:
+    def _filtered_products(self) -> list[Product]:
         products = list(self.all_products)
-        search_text = self.search_box.text().strip().casefold()
+        search_text = self.search_box.text().strip()
         if search_text:
-            products = [
-                product
-                for product in products
-                if self.product_matches_search(product, search_text)
-            ]
+            prioritized: list[tuple[int, int, Product]] = []
+            for original_index, product in enumerate(products):
+                priority = product_search_priority(product, search_text)
+                if priority is not None:
+                    prioritized.append((priority, original_index, product))
+            prioritized.sort(key=lambda item: (item[0], item[1]))
+            products = [product for _, _, product in prioritized]
         if self.selected_categories:
             products = [
                 product
@@ -940,20 +1202,20 @@ class MainWindow(QMainWindow):
             ]
         if self.stock_only:
             products = [product for product in products if product.stock > 0]
+        return products
+
+    def apply_filters(self) -> None:
+        search_text = self.search_box.text().strip()
+        products = self._filtered_products()
         self.table.show_only_products(products)
         self.table.set_search_text(search_text)
+        scrollbar = self.table.verticalScrollBar()
+        scrollbar.setValue(scrollbar.minimum())
         self.update_product_counter(len(products))
 
     @staticmethod
     def product_matches_search(product: Product, search_text: str) -> bool:
-        values = (
-            product.code,
-            product.name,
-            product.description,
-            product.category,
-            ", ".join(product.color_stock.keys()),
-        )
-        return any(search_text in str(value).casefold() for value in values)
+        return product_matches_search(product, search_text)
 
     def open_scraping(self) -> None:
         if getattr(self, "catalog_bootstrap_running", False):
@@ -996,10 +1258,90 @@ class MainWindow(QMainWindow):
     def _history_closed(self) -> None:
         self.history_dialog = None
 
+    def _refresh_image_review_state(self) -> None:
+        button = getattr(self, "image_review_button", None)
+        service = getattr(self, "image_review_service", None)
+        if button is None or service is None:
+            return
+        try:
+            records = service.available()
+        except Exception:  # noqa: BLE001
+            return
+
+        count = len(records)
+        gallery_count = sum(
+            1
+            for record in records
+            if str(record.get("kind", "replacement")) == "gallery"
+        )
+        replacement_count = count - gallery_count
+        button.setText(f"Imágenes ({count})")
+        button.setToolTip(
+            f"{gallery_count} galerías nuevas · "
+            f"{replacement_count} reemplazos pendientes."
+            if count
+            else "No hay cambios de imagen pendientes."
+        )
+        button.setCheckable(True)
+        button.setChecked(count > 0)
+        self._configure_action_button(button)
+
+        gallery_overrides: dict[str, list[dict]] = {}
+        for record in records:
+            if (
+                str(record.get("kind", "replacement")) != "gallery"
+                or str(record.get("selected_action", "") or "")
+                == "dismiss_gallery"
+            ):
+                continue
+            code = str(record.get("code", "") or "").strip().casefold()
+            if not code:
+                continue
+            excluded = {
+                str(value).strip()
+                for value in list(record.get("excluded_options", []) or [])
+                if str(value).strip()
+            }
+            gallery_overrides[code] = [
+                dict(option)
+                for option in list(record.get("candidate_options", []) or [])
+                if str(option.get("path", "") or "").strip() not in excluded
+            ]
+        self.table.set_gallery_overrides(gallery_overrides)
+
+    def open_pending_image_review(self) -> None:
+        if self.image_review_dialog is not None:
+            self.image_review_dialog.raise_()
+            self.image_review_dialog.activateWindow()
+            return
+
+        from gui.image_review_dialog import ImageReviewDialog
+
+        dialog = ImageReviewDialog(
+            service=self.image_review_service,
+            on_catalog_changed=self.refresh_catalog,
+            parent=self,
+        )
+        if not dialog.records:
+            dialog.close()
+            return
+
+        self.image_review_dialog = dialog
+        dialog.finished.connect(self._image_review_dialog_closed)
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def _image_review_dialog_closed(self) -> None:
+        self.image_review_dialog = None
+        self._refresh_image_review_state()
+
     def scraping_finished(self) -> None:
         self.refresh_catalog()
+        self._refresh_image_review_state()
         if self.history_dialog is not None:
             self.history_dialog.load_history()
+        self.open_pending_image_review()
         if self.scraping_dialog is not None:
             self.scraping_dialog.setWindowTitle("Actualización completada")
             self.scraping_dialog.raise_()
@@ -1033,7 +1375,7 @@ class MainWindow(QMainWindow):
         if row < 0:
             QMessageBox.warning(self, "Editar", "Seleccione un producto.")
             return
-        item = self.table.item(row, 1)
+        item = self.table.item(row, self.table.CODE_COLUMN)
         if item is None:
             return
         product_id = item.data(Qt.ItemDataRole.UserRole)
@@ -1050,7 +1392,7 @@ class MainWindow(QMainWindow):
         row = self.table.currentRow()
         if row < 0:
             return
-        item = self.table.item(row, 1)
+        item = self.table.item(row, self.table.CODE_COLUMN)
         if item is None:
             return
         product_id = item.data(Qt.ItemDataRole.UserRole)
@@ -1066,20 +1408,384 @@ class MainWindow(QMainWindow):
             self.controller.delete_product(product_id)
             self.refresh_catalog()
 
+    def delete_selected(self) -> None:
+        """Elimina el producto o la única categoría seleccionada."""
+        row = self.table.currentRow()
+        if row >= 0 and not self.table.isRowHidden(row):
+            self.delete_product()
+            return
+
+        categories = sorted(self.selected_categories, key=str.casefold)
+        if len(categories) > 1:
+            QMessageBox.warning(
+                self,
+                "Eliminar categoría",
+                "Seleccione una sola categoría para eliminarla.",
+            )
+            return
+        if len(categories) == 1:
+            category = categories[0]
+            response = QMessageBox.question(
+                self,
+                "Confirmar eliminación",
+                (
+                    f"¿Desea eliminar la categoría “{category}” del catálogo?\n\n"
+                    "Los productos se conservarán y mantendrán sus demás categorías."
+                ),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if response == QMessageBox.StandardButton.Yes:
+                self.controller.delete_category(category)
+                self.selected_categories.discard(category)
+                self.refresh_catalog()
+            return
+
+        QMessageBox.warning(
+            self,
+            "Eliminar",
+            "Seleccione un producto o una categoría.",
+        )
+
+    def _table_cell_double_clicked(self, row: int, column: int) -> None:
+        if column != self.table.IMAGE_COLUMN:
+            return
+        if row < 0 or row >= len(self.table._rendered_products):
+            return
+        product = self.table._rendered_products[row]
+        if product.id is None:
+            return
+
+        from gui.product_image_gallery_dialog import ProductImageGalleryDialog
+
+        image_item = self.table.item(row, self.table.IMAGE_COLUMN)
+        raw_gallery = (
+            image_item.data(ProductImageDelegate.GALLERY_ROLE)
+            if image_item is not None
+            else None
+        )
+        gallery_images = (
+            [dict(image) for image in raw_gallery if isinstance(image, dict)]
+            if isinstance(raw_gallery, list)
+            else None
+        )
+        raw_active_index = (
+            image_item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE)
+            if image_item is not None
+            else 0
+        )
+        try:
+            active_index = int(raw_active_index or 0)
+        except (TypeError, ValueError):
+            active_index = 0
+        dialog = ProductImageGalleryDialog(
+            product,
+            parent=self,
+            gallery_images=gallery_images,
+            active_index=active_index,
+        )
+        dialog.exec()
+
+    @staticmethod
+    def _parse_inline_number(value: str) -> float:
+        text = str(value or "").strip().replace("S/", "").replace(" ", "")
+        if "," in text and "." in text:
+            text = text.replace(",", "")
+        elif "," in text:
+            text = text.replace(",", ".")
+        try:
+            return max(float(text), 0)
+        except ValueError as error:
+            raise ValueError("Ingrese un valor numérico válido.") from error
+
+    @staticmethod
+    def _parse_color_stock(value: str) -> dict[str, int]:
+        color_stock: dict[str, int] = {}
+        seen: set[str] = set()
+        for line in str(value or "").splitlines():
+            entry = line.strip()
+            if not entry:
+                continue
+            if ":" not in entry:
+                raise ValueError(
+                    "Use una línea por color con el formato «Color: cantidad»."
+                )
+            color, quantity_text = entry.rsplit(":", 1)
+            color = color.strip()
+            if not color:
+                raise ValueError("Cada fila de stock debe tener un nombre de color.")
+            key = color.casefold()
+            if key in seen:
+                raise ValueError(f"El color «{color}» está repetido.")
+            normalized_quantity = (
+                quantity_text.strip().replace(",", "").replace(" ", "")
+            )
+            try:
+                quantity = int(normalized_quantity)
+            except ValueError as error:
+                raise ValueError(
+                    f"La cantidad de stock para «{color}» debe ser un entero."
+                ) from error
+            if quantity < 0:
+                raise ValueError(
+                    f"La cantidad de stock para «{color}» no puede ser negativa."
+                )
+            seen.add(key)
+            color_stock[color] = quantity
+        return color_stock
+
+    @staticmethod
+    def _update_product_from_cell(
+        product: Product,
+        column: int,
+        value: str,
+        table: ProductTable,
+    ) -> None:
+        if column == table.CODE_COLUMN:
+            product.code = value.strip()
+        elif column == table.NAME_COLUMN:
+            product.name = value.strip()
+        elif column == table.DETAIL_COLUMN:
+            product.description = value.strip()
+        elif column == table.CATEGORY_COLUMN:
+            product.category = value.replace("\n", ", ").strip()
+        elif column == table.PRICE_SAMPLE_COLUMN:
+            price = MainWindow._parse_inline_number(value)
+            product.price = price
+            product.price_sample = price
+        elif column == table.PRICE_HUNDRED_COLUMN:
+            product.price_hundred = MainWindow._parse_inline_number(value)
+        elif column == table.PRICE_THOUSAND_COLUMN:
+            product.price_thousand = MainWindow._parse_inline_number(value)
+        elif column == table.STOCK_COLUMN:
+            if product.color_stock:
+                product.color_stock = MainWindow._parse_color_stock(value)
+                if product.color_stock:
+                    product.stock = sum(product.color_stock.values())
+            else:
+                product.stock = max(
+                    round(MainWindow._parse_inline_number(value)),
+                    0,
+                )
+        else:
+            raise LookupError
+
+    def _table_item_changed(self, item) -> None:
+        if (
+            self._table_edit_guard
+            or getattr(self.table, "_rendering", False)
+            or item is None
+        ):
+            return
+        row = item.row()
+        column = item.column()
+        if column == self.table.IMAGE_COLUMN:
+            return
+        if not (0 <= row < len(self.table._rendered_products)):
+            return
+
+        product_id_item = self.table.item(row, self.table.CODE_COLUMN)
+        if product_id_item is None:
+            return
+        product_id = product_id_item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(product_id, int):
+            return
+
+        product = self.controller.get_product_by_id(product_id)
+        if product is None:
+            return
+        try:
+            self._update_product_from_cell(
+                product,
+                column,
+                item.text(),
+                self.table,
+            )
+            self.controller.update_product(product)
+        except (sqlite3.Error, ValueError) as error:
+            self.refresh_catalog()
+            QMessageBox.warning(
+                self,
+                "Edición de producto",
+                str(error),
+            )
+            return
+        except LookupError:
+            return
+
+        self.refresh_catalog()
+
+    def rename_category_button(self, category: str) -> None:
+        value, accepted = QInputDialog.getText(
+            self,
+            "Editar categoría",
+            "Nuevo nombre:",
+            text=category,
+        )
+        if not accepted:
+            return
+        new_name = value.strip()
+        if not new_name:
+            return
+        try:
+            self.controller.rename_category(category, new_name)
+        except (sqlite3.Error, ValueError) as error:
+            QMessageBox.warning(
+                self,
+                "Editar categoría",
+                str(error),
+            )
+            return
+
+        if category in self.selected_categories:
+            self.selected_categories.discard(category)
+            self.selected_categories.add(new_name)
+        self.refresh_catalog()
+
+    def import_products(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Importar carga masiva",
+            "",
+            (
+                "Archivos compatibles (*.csv *.xlsx *.xlsm);;"
+                "CSV (*.csv);;Excel (*.xlsx *.xlsm)"
+            ),
+        )
+        if not filename:
+            return
+
+        from services.product_import import ProductImportService
+
+        try:
+            products = ProductImportService.import_products(filename)
+        except (OSError, ValueError) as error:
+            QMessageBox.warning(self, "Importar carga masiva", str(error))
+            return
+
+        from gui.product_import_preview_dialog import ProductImportPreviewDialog
+
+        preview = ProductImportPreviewDialog(
+            products,
+            current_products=self.all_products,
+            parent=self,
+        )
+        if preview.exec() != preview.DialogCode.Accepted:
+            return
+
+        try:
+            saved = self.controller.save_products(preview.accepted_products)
+        except (sqlite3.Error, ValueError) as error:
+            QMessageBox.critical(
+                self,
+                "Importar carga masiva",
+                str(error),
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            "Importar carga masiva",
+            f"Se procesaron {len(saved)} productos correctamente.",
+        )
+        self.refresh_catalog()
+
     def search_products(self, _text: str) -> None:
         self.apply_filters()
 
-    def export_excel(self) -> None:
-        from exporters.excel_exporter import ExcelExporter
+    def export_catalog(self) -> None:
+        from gui.excel_category_dialog import ExcelCategorySelectionDialog
 
+        products = list(self.all_products)
+        if not products:
+            QMessageBox.information(
+                self,
+                "Exportar catálogo",
+                "No hay productos disponibles para exportar.",
+            )
+            return
+
+        categories = {
+            category
+            for product in products
+            for category in self._product_categories(product)
+        }
+        filtered_products = self._filtered_products()
+        filtered_categories = {
+            category
+            for product in filtered_products
+            for category in self._product_categories(product)
+        }
+        if self.selected_categories:
+            initial_selected = set(self.selected_categories)
+        elif self.stock_only or self.search_box.text().strip():
+            initial_selected = filtered_categories
+        else:
+            initial_selected = categories
+
+        category_dialog = ExcelCategorySelectionDialog(
+            categories,
+            products,
+            self,
+            initial_selected_categories=initial_selected,
+            stock_only=self.stock_only,
+            on_export=self._export_selected_format,
+        )
+        category_dialog.exec()
+
+    def export_excel(self) -> None:
+        """Compatibilidad para llamadas existentes: abre el selector de formatos."""
+        self.export_catalog()
+
+    def _export_selected_format(
+        self,
+        format_name: str,
+        products: list[Product],
+    ) -> bool:
+        exporters = {
+            "excel": (
+                "Excel",
+                "catalogo.xlsx",
+                "Excel (*.xlsx)",
+            ),
+            "csv": (
+                "CSV",
+                "catalogo.csv",
+                "CSV (*.csv)",
+            ),
+            "pdf": (
+                "PDF",
+                "catalogo.pdf",
+                "PDF (*.pdf)",
+            ),
+        }
+        export_spec = exporters.get(str(format_name).strip().casefold())
+        if export_spec is None:
+            raise ValueError("Formato de exportación no válido.")
+
+        normalized_format = str(format_name).strip().casefold()
+        label, default_name, file_filter = export_spec
         filename, _ = QFileDialog.getSaveFileName(
             self,
-            "Guardar Excel",
-            "catalogo.xlsx",
-            "Excel (*.xlsx)",
+            f"Guardar {label}",
+            default_name,
+            file_filter,
         )
-        if filename:
-            ExcelExporter.export(self.controller.get_products(), filename)
+        if not filename:
+            return False
+
+        if normalized_format == "excel":
+            from exporters.excel_exporter import ExcelExporter
+
+            ExcelExporter.export(products, filename)
+        elif normalized_format == "csv":
+            from exporters.csv_exporter import CSVExporter
+
+            CSVExporter.export(products, filename)
+        else:
+            from exporters.pdf_exporter import PDFExporter
+
+            PDFExporter.export(products, filename)
+        return True
 
     def export_pdf(self) -> None:
         from exporters.pdf_exporter import PDFExporter
@@ -1140,6 +1846,9 @@ class MainWindow(QMainWindow):
             self.scraping_dialog.close()
         if self.history_dialog is not None:
             self.history_dialog.close()
+        if self.image_review_dialog is not None:
+            self.image_review_dialog.close()
+        self.image_review_service.close()
 
         self._wait_for_thread(self.catalog_load_thread)
         self._wait_for_thread(self.catalog_bootstrap_thread)

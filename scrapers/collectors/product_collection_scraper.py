@@ -12,8 +12,14 @@ from config.scraping_config import (
     SCRAPING_MAX_WORKERS,
 )
 from models.scraping.category import Category
+from models.scraping.detail_description_policy import (
+    has_technical_detail,
+    is_complete_detail,
+    normalize_detail_text,
+)
 from scrapers.extractors.code_utils import normalize_code
 from scrapers.extractors.price_extractor import PriceExtractor
+from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
 )
@@ -21,6 +27,13 @@ from scrapers.extractors.variant_color_stock_extractor import (
 
 class ProductCollectionScraper:
     """Recorre todas las páginas de una categoría y extrae sus productos."""
+
+    # WooCommerce currently serves an incorrect card image for these two SKUs.
+    # Their product detail pages are the authoritative image source.
+    AUTHORITATIVE_DETAIL_IMAGE_CODES: ClassVar[frozenset[str]] = frozenset({
+        "FB-3017",
+        "FB-3018",
+    })
 
     _PRICE_FIELDS = (
         "price_sample",
@@ -408,9 +421,15 @@ class ProductCollectionScraper:
 
     @classmethod
     def _detail_skip_reason(cls, card: Any, product: Any) -> str | None:
+        # Check the category card first. A product URL alone is not a reason
+        # to fetch its detail page when the available fields are already sound.
         stock_values = cls._stock_values(card)
+        if "description" in cls._missing_detail_fields(product):
+            return None
         if cls._has_complete_card_color_stock(card, product, stock_values):
             if cls._missing_price_fields(card, product):
+                return None
+            if cls._image_needs_detail(product):
                 return None
             return "complete_color_stock"
 
@@ -420,6 +439,8 @@ class ProductCollectionScraper:
         if cls._missing_detail_fields(product):
             return None
         if cls._missing_price_fields(card, product):
+            return None
+        if cls._image_needs_detail(product):
             return None
         return "complete_single_stock"
 
@@ -432,15 +453,48 @@ class ProductCollectionScraper:
             return "missing_fields"
         if cls._missing_price_fields(card, product):
             return "missing_prices"
+        if cls._image_needs_detail(product):
+            return "image_quality"
         return "other"
 
     @classmethod
-    def _missing_detail_fields(cls, product: Any) -> tuple[str, ...]:
-        return tuple(
-            field
-            for field in cls._REQUIRED_DETAIL_FIELDS
-            if not str(getattr(product, field, "")).strip()
+    def _image_needs_detail(cls, product: Any) -> bool:
+        code = normalize_code(str(getattr(product, "code", "") or ""))
+        if code in cls.AUTHORITATIVE_DETAIL_IMAGE_CODES:
+            return True
+        image_url = str(getattr(product, "image_url", "") or "").strip()
+        return not image_url or ProductImageExtractor.is_generic_asset(image_url)
+
+    @classmethod
+    def _card_has_detail_link(cls, card: Any) -> bool:
+        try:
+            link = card.select_one('a[href*="/producto/"]')
+        except AttributeError:
+            return False
+        href = link.get("href") if link is not None else ""
+        return isinstance(href, str) and bool(href.strip())
+
+    @classmethod
+    def _description_is_complete(cls, value: str) -> bool:
+        return has_technical_detail(value) and is_complete_detail(value)
+
+    @classmethod
+    def _description_needs_detail(cls, product: Any) -> bool:
+        """Detecta fragmentos de texto, sin usar la longitud como criterio."""
+        return not cls._description_is_complete(
+            str(getattr(product, "description", "") or "")
         )
+
+    @classmethod
+    def _missing_detail_fields(cls, product: Any) -> tuple[str, ...]:
+        missing: list[str] = []
+        for field in cls._REQUIRED_DETAIL_FIELDS:
+            if field == "description":
+                if cls._description_needs_detail(product):
+                    missing.append(field)
+            elif not str(getattr(product, field, "")).strip():
+                missing.append(field)
+        return tuple(missing)
 
     @staticmethod
     def _stock_request_reason(card: Any, stock_values: list[int]) -> str:
@@ -559,6 +613,9 @@ class ProductCollectionScraper:
         product: Any,
         category_name: str,
     ) -> Any:
+        card_description = normalize_detail_text(
+            getattr(product, "description", "")
+        )
         if self.detail_extractor is None:
             return product
         link = card.select_one('a[href*="/producto/"]')
@@ -573,18 +630,92 @@ class ProductCollectionScraper:
             category_name,
         )
         if detailed_product is None:
+            # A failed detail request must never replace category-card text.
+            product.description = card_description
             return product
 
+        needs_image_repair = self._image_needs_detail(product)
+        detail_candidates = list(
+            getattr(detailed_product, "image_candidates", []) or []
+        )
+        # The detail page, not a category-card thumbnail/srcset, is authoritative
+        # for a product gallery. Keep only images actually inside the gallery
+        # container so related-product cards elsewhere on the page cannot leak in.
+        has_container_metadata = any(
+            isinstance(candidate, dict)
+            and "gallery_container" in candidate
+            for candidate in detail_candidates
+        )
+        if has_container_metadata:
+            detail_gallery_candidates = [
+                dict(candidate)
+                for candidate in detail_candidates
+                if isinstance(candidate, dict)
+                and bool(candidate.get("gallery_container"))
+                and not bool(candidate.get("generic"))
+            ]
+        else:
+            # Compatibility for lightweight/custom extractors used by tests or
+            # integrations which predate the explicit container marker.
+            detail_gallery_candidates = [
+                {**candidate, "gallery_container": True}
+                for candidate in detail_candidates
+                if isinstance(candidate, dict)
+                and bool(candidate.get("gallery"))
+                and not bool(candidate.get("generic"))
+            ]
+        product.image_candidates_source = "detail"
+        product.image_candidates = detail_gallery_candidates
+        if detail_gallery_candidates:
+            # Keep the main image aligned with the source page's own ordering.
+            page_primary_url = str(
+                detail_gallery_candidates[0].get("url", "") or ""
+            ).strip()
+            if page_primary_url:
+                product.image_url = page_primary_url
+            code = normalize_code(str(getattr(product, "code", "") or ""))
+            if code in self.AUTHORITATIVE_DETAIL_IMAGE_CODES:
+                detail_gallery_candidates = [
+                    {**candidate, "authoritative": True}
+                    for candidate in detail_gallery_candidates
+                ]
+            product.image_candidates = detail_gallery_candidates
+
         product.url = detail_url
-        detail_code = normalize_code(getattr(detailed_product, "code", ""))
+        detail_code = normalize_code(
+            getattr(detailed_product, "code", ""),
+            allow_alpha_only=True,
+        )
         if detail_code:
             product.code = detail_code
 
-        for field in ("name", "description", "image_url"):
-            current = str(getattr(product, field, "") or "").strip()
-            detail_value = getattr(detailed_product, field, "")
-            if not current and str(detail_value or "").strip():
-                setattr(product, field, detail_value)
+        current_name = str(getattr(product, "name", "") or "").strip()
+        detail_name = str(getattr(detailed_product, "name", "") or "").strip()
+        if not current_name and detail_name:
+            product.name = detail_name
+
+        # The category-card Detail remains the source of truth whenever it is
+        # complete. Use the individual page only to repair that same field when
+        # the card text is truncated; unrelated page sections are never merged.
+        detail_description = normalize_detail_text(
+            getattr(detailed_product, "description", "")
+        )
+        card_description_is_complete = self._description_is_complete(
+            card_description
+        )
+        detail_description_is_complete = self._description_is_complete(
+            detail_description
+        )
+        if not card_description_is_complete and detail_description_is_complete:
+            product.description = detail_description
+        else:
+            product.description = card_description
+
+        detail_image = str(
+            getattr(detailed_product, "image_url", "") or ""
+        ).strip()
+        if needs_image_repair and detail_image:
+            product.image_url = detail_image
 
         for field in self._PRICE_FIELDS:
             current = float(getattr(product, field, 0.0) or 0.0)

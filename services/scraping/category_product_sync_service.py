@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
@@ -242,6 +243,7 @@ class CategoryProductSyncService:
         )
         self._log_detail_metrics()
         self._log_http_metrics()
+        self._log_source_page_cache_metrics()
 
         raw_products = list(products)
         started = time.perf_counter()
@@ -282,6 +284,7 @@ class CategoryProductSyncService:
         synced_products = self.sync_products(
             raw_products,
             full_sync=full_mode,
+            progress_callback=progress_callback,
             allow_prune=complete,
             expected_products=len(coverage_products) if full_mode else 0,
             expected_category_occurrences=expected_category_occurrences,
@@ -316,6 +319,7 @@ class CategoryProductSyncService:
         products,
         full_sync=False,
         allow_prune=False,
+        progress_callback=None,
         expected_products=0,
         expected_category_occurrences=0,
     ):
@@ -353,7 +357,21 @@ class CategoryProductSyncService:
             )
             if self.image_sync_adapter:
                 started = time.perf_counter()
-                products = cast(list[Any], self.image_sync_adapter.sync_products(products))
+                if full_sync and self._supports_keyword(
+                    self.image_sync_adapter.sync_products,
+                    "refresh_remote_images",
+                ):
+                    synced_images = self.image_sync_adapter.sync_products(
+                        products,
+                        progress_callback=progress_callback,
+                        refresh_remote_images=bool(allow_prune),
+                    )
+                else:
+                    synced_images = self.image_sync_adapter.sync_products(
+                        products,
+                        progress_callback=progress_callback,
+                    )
+                products = cast(list[Any], synced_images)
                 _log_timing(
                     "SCRAPING TIMING | stage=images | products=%d | seconds=%.3f",
                     len(products),
@@ -435,7 +453,12 @@ class CategoryProductSyncService:
             synced_product = synced_by_code.get(code.casefold())
             if synced_product is None:
                 continue
-            for field in ("image_path", "image_hash", "content_hash"):
+            for field in (
+                "image_path",
+                "image_hash",
+                "gallery_images",
+                "content_hash",
+            ):
                 value = getattr(synced_product, field, "")
                 if value:
                     setattr(raw_product, field, value)
@@ -706,6 +729,27 @@ class CategoryProductSyncService:
             int(values.get("detail_skipped", 0) or 0),
         )
 
+    def _log_source_page_cache_metrics(self):
+        browser = self._browser()
+        metrics = getattr(browser, "get_source_page_cache_metrics", None)
+        if not callable(metrics):
+            return
+        values = cast(dict[str, Any], metrics() or {})
+        _log_timing(
+            "SCRAPING TIMING | stage=source_page_cache_collection "
+            "| fresh_hits=%d | network_validations=%d "
+            "| not_modified_304=%d | updated_200=%d "
+            "| stale_fallbacks=%d | empty_response_fallbacks=%d "
+            "| request_errors=%d",
+            int(values.get("fresh_hits", 0) or 0),
+            int(values.get("network_validations", 0) or 0),
+            int(values.get("not_modified_304", 0) or 0),
+            int(values.get("updated_200", 0) or 0),
+            int(values.get("stale_fallbacks", 0) or 0),
+            int(values.get("empty_response_fallbacks", 0) or 0),
+            int(values.get("request_errors", 0) or 0),
+        )
+
     def _log_http_metrics(self):
         browser = self._browser()
         metrics = getattr(browser, "get_http_metrics", None)
@@ -745,6 +789,17 @@ class CategoryProductSyncService:
             int(buckets.get("5_10", 0) or 0),
             int(buckets.get("gte_10", 0) or 0),
             slowest_text,
+        )
+
+    @staticmethod
+    def _supports_keyword(method, name: str) -> bool:
+        try:
+            parameters = inspect.signature(method).parameters
+        except (TypeError, ValueError):
+            return False
+        return name in parameters or any(
+            parameter.kind is inspect.Parameter.VAR_KEYWORD
+            for parameter in parameters.values()
         )
 
     def _browser(self):

@@ -1,5 +1,6 @@
 import threading
 import time
+from typing import Any
 
 import requests
 
@@ -33,6 +34,8 @@ class Browser:
             self.session = requests.Session()
 
         self.headers = DEFAULT_HEADERS
+        self._source_page_cache: Any | None = None
+        self._force_source_page_revalidation = False
         self.timeout = (
             REQUEST_TIMEOUT if request_timeout is None else int(request_timeout)
         )
@@ -156,12 +159,60 @@ class Browser:
         """Use one requests session per worker thread for concurrent scraping."""
         self._use_thread_sessions = True
 
+    def configure_source_page_cache(self, cache, *, force_revalidate: bool = False) -> None:
+        """Configura la caché compartida por recolección y sincronización de galerías."""
+        self._source_page_cache = cache
+        self._force_source_page_revalidation = bool(force_revalidate)
+
+    def get_source_page_cache_metrics(self):
+        """Devuelve contadores de caché para auditorías y medición de rendimiento."""
+        cache = self._source_page_cache
+        return cache.get_metrics() if cache is not None else {}
+
+    def reset_source_page_cache_metrics(self):
+        cache = self._source_page_cache
+        if cache is not None:
+            cache.reset_metrics()
+
+    def flush_source_page_cache(self) -> int:
+        """Persist deferred cache writes after the catalog transaction ends."""
+        cache = self._source_page_cache
+        flush = getattr(cache, "flush_pending", None)
+        if not callable(flush):
+            return 0
+        result = flush()
+        return result if isinstance(result, int) else 0
+
     def fetch(self, url):
         return self.get(url)
 
-    def get(self, url):
+    def get_uncached(self, url):
+        """Fetch live HTML through the project HTTP pipeline without touching page cache."""
+        response = self._get_response(url)
+        return response.text if hasattr(response, "text") else response
+
+    def get(self, url, *, force_revalidate=False):
+        cache = self._source_page_cache
+        if cache is not None and cache.is_cacheable_url(url):
+            force = self._force_source_page_revalidation or bool(force_revalidate)
+            return cache.get_html(
+                url,
+                lambda conditional_headers: self._get_response(url, conditional_headers),
+                force=force,
+                # A forced validation is evidence-driven: if the site cannot be
+                # reached, do not silently treat old HTML as a live confirmation.
+                allow_stale_fallback=not force,
+            )
+        response = self._get_response(url)
+        return response.text if hasattr(response, "text") else response
+
+    def _get_response(self, url, additional_headers=None):
+        """Devuelve Response y conserva el mismo pipeline de métricas/reintentos."""
         last_error = None
         session = self._get_session()
+        request_headers = dict(self.headers or {})
+        if additional_headers:
+            request_headers.update(dict(additional_headers))
 
         for attempt in range(self.max_retries):
             acquire_started = time.perf_counter()
@@ -174,21 +225,18 @@ class Browser:
             try:
                 response = session.get(
                     url,
-                    headers=self.headers,
+                    headers=request_headers,
                     timeout=self.timeout,
                 )
-
                 if hasattr(response, "raise_for_status"):
                     response.raise_for_status()
             except requests.exceptions.RequestException as error:
                 elapsed = time.perf_counter() - started
                 self._finish_request(elapsed, success=False, url=url)
                 last_error = error
-
                 if not self._is_retryable_error(error):
                     self._record_terminal_error()
                     raise
-
                 if attempt < self.max_retries - 1:
                     self._record_retry(
                         url=url,
@@ -203,7 +251,6 @@ class Browser:
             else:
                 elapsed = time.perf_counter() - started
                 self._finish_request(elapsed, success=True, url=url)
-
                 if attempt:
                     self._record_retry(
                         url=url,
@@ -212,9 +259,6 @@ class Browser:
                         elapsed=elapsed,
                         attempt=attempt,
                     )
-
-                if hasattr(response, "text"):
-                    return response.text
                 return response
             finally:
                 self._http_semaphore.release()
@@ -223,8 +267,9 @@ class Browser:
                 self._record_retry_sleep(attempt + 1)
                 time.sleep(attempt + 1)
 
-        if last_error:
+        if last_error is not None:
             raise last_error
+        raise RuntimeError("La solicitud HTTP terminó sin respuesta ni error.")
 
     def post(self, url, data=None, headers=None):
         """POST using the same concurrency, retry and metrics pipeline as GET."""

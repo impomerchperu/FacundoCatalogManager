@@ -1,5 +1,7 @@
 from pathlib import Path
+from typing import Any, cast
 
+from config.runtime_paths import DATA_DIR, DATABASE_PATH
 from database.db_manager import DBManager
 from repositories.product_repository import ProductRepository
 from repositories.scraping.normalized_scraping_repository import (
@@ -30,11 +32,13 @@ from services.scraping.category_product_scraping_service import (
     CategoryProductScrapingService,
 )
 from services.scraping.category_service import CategoryService
+from services.scraping.image_review_service import ImageReviewService
 from services.scraping.image_sync_adapter import ImageSyncAdapter
 from services.scraping.normalized_category_product_sync_service import (
     NormalizedCategoryProductSyncService,
 )
 from services.scraping.product_diff_service import ProductDiffService
+from services.scraping.product_gallery_sync_service import ProductGallerySyncService
 from services.scraping.scraped_product_mapper import ScrapedProductMapper
 from services.scraping.scraped_product_persistence_service import (
     ScrapedProductPersistenceService,
@@ -64,8 +68,8 @@ class ScrapingFactory:
 
         def cleanup_unused_images():
             return clean_unused_images(
-                project_root=PROJECT_ROOT,
-                db_path=PROJECT_ROOT / "database" / "catalog.db",
+                project_root=DATA_DIR,
+                db_path=DATABASE_PATH,
                 roots=[
                     Path("data/images"),
                     Path(config.images_folder),
@@ -87,6 +91,7 @@ class ScrapingFactory:
         history_repository = ScrapingHistoryRepository(db)
 
         image_sync_adapter = None
+        gallery_sync = None
         if config.download_images:
             image_output_dir = Path(config.images_folder)
             if image_output_dir.name.casefold() != "products":
@@ -98,17 +103,63 @@ class ScrapingFactory:
                 max_retries=config.max_retries,
             )
             image_manager = SafeImageManager(downloader=image_downloader)
+            image_review_service = ImageReviewService(
+                repository=product_repository,
+                image_cleanup=cleanup_unused_images,
+            )
             image_sync = ImageSync(
                 image_manager=image_manager,
                 max_workers=config.image_workers,
             )
+            image_sync.review_service = image_review_service
+            image_sync.image_downloader = image_downloader
             image_sync_adapter = ImageSyncAdapter(image_sync=image_sync)
+
+        # A local import avoids introducing a factory/module-level dependency cycle.
+        from services.scraping.source_page_cache import (
+            PersistentSourcePageCache,
+            PersistentSourcePageRepository,
+        )
 
         browser = Browser(
             request_timeout=config.request_timeout,
             max_retries=config.max_retries,
             http_workers=config.http_workers,
         )
+        database_path = ""
+        database_connection = getattr(db, "connection", None)
+        execute = getattr(database_connection, "execute", None)
+        if callable(execute):
+            cursor = cast(Any, execute("PRAGMA database_list"))
+            database_row = cursor.fetchone()
+            database_path = (
+                str(database_row["file"] or "")
+                if database_row is not None
+                else ""
+            )
+        if database_path:
+            page_repository = PersistentSourcePageRepository(database_path)
+            page_cache = PersistentSourcePageCache(
+                page_repository,
+                ttl_seconds=config.source_page_cache_ttl_seconds,
+                defer_writes=True,
+            )
+            browser.configure_source_page_cache(
+                page_cache,
+                force_revalidate=config.refresh_source_pages,
+            )
+        if image_sync_adapter is not None:
+            gallery_sync = ProductGallerySyncService(
+                browser=browser,
+                product_extractor=ProductExtractor(),
+                image_downloader=image_downloader,
+                review_service=image_review_service,
+                max_workers=config.gallery_workers,
+                max_candidates=config.gallery_max_candidates,
+                refresh_existing=config.refresh_galleries,
+            )
+            image_sync_adapter.gallery_sync = gallery_sync
+
         category_scraper = ResilientCategoryScraper(
             browser=browser,
             category_extractor=CategoryExtractor(),

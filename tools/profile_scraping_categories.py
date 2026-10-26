@@ -20,7 +20,16 @@ from services.scraping.scraping_config import ScrapingConfig
 from services.scraping.scraping_factory import ScrapingFactory
 
 
-OUTPUT_PATH = PROJECT_ROOT / "data" / "scraping_category_profile.json"
+DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "scraping_category_profile.json"
+
+
+def _resolve_output_path() -> Path:
+    """Resolve a per-run report path without overwriting prior benchmark reports."""
+    raw_path = os.getenv("FCM_PROFILE_OUTPUT_PATH", "").strip()
+    if not raw_path:
+        return DEFAULT_OUTPUT_PATH
+    path = Path(raw_path).expanduser()
+    return path if path.is_absolute() else PROJECT_ROOT / path
 
 
 def _timed_collect(
@@ -77,6 +86,70 @@ def _enable_thread_sessions(browser: Any) -> bool:
 
 def _average(total: float, count: int) -> float:
     return total / count if count else 0.0
+
+
+def _build_latency_percentiles(http_metrics: dict[str, Any]) -> dict[str, dict[str, float]]:
+    """Conserva p50/p95/p99 por clase para distinguir latencia típica y colas lentas."""
+    raw = dict(http_metrics.get("http_latency_percentiles", {}) or {})
+    result: dict[str, dict[str, float]] = {}
+    for request_class in ("category", "jsf", "detail", "other"):
+        values = dict(raw.get(request_class, {}) or {})
+        result[request_class] = {
+            percentile: float(values.get(percentile, 0.0) or 0.0)
+            for percentile in ("p50", "p95", "p99")
+        }
+    return result
+
+
+def _build_source_page_cache_payload(metrics: dict[str, Any]) -> dict[str, Any]:
+    """Expone ahorro de red por caché para no confundirlo con solicitudes omitidas."""
+    result: dict[str, Any] = {
+        key: max(int(metrics.get(key, 0) or 0), 0)
+        for key in (
+            "fresh_hits",
+            "network_validations",
+            "not_modified_304",
+            "updated_200",
+            "stale_fallbacks",
+            "empty_response_fallbacks",
+            "request_errors",
+        )
+    }
+    observations = result["fresh_hits"] + result["network_validations"]
+    result["fresh_hit_rate"] = (
+        result["fresh_hits"] / observations if observations else None
+    )
+    return result
+
+
+def _build_coverage_payload(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Contrasta lo recolectado/enriquecido con los totales actuales de cada categoría."""
+    expected = sum(max(int(row.get("expected", 0) or 0), 0) for row in rows)
+    collected = sum(max(int(row.get("collected", 0) or 0), 0) for row in rows)
+    enriched = sum(max(int(row.get("enriched", 0) or 0), 0) for row in rows)
+    mismatches: list[dict[str, Any]] = []
+    for row in rows:
+        expected_count = max(int(row.get("expected", 0) or 0), 0)
+        collected_count = max(int(row.get("collected", 0) or 0), 0)
+        enriched_count = max(int(row.get("enriched", 0) or 0), 0)
+        if expected_count != collected_count or collected_count != enriched_count:
+            mismatches.append(
+                {
+                    "category": str(row.get("category", "") or "(sin nombre)"),
+                    "expected": expected_count,
+                    "collected": collected_count,
+                    "enriched": enriched_count,
+                }
+            )
+    return {
+        "expected_category_occurrences": expected,
+        "collected_category_occurrences": collected,
+        "enriched_category_occurrences": enriched,
+        "collected_minus_expected": collected - expected,
+        "enriched_minus_collected": enriched - collected,
+        "matches_current_category_counts": not mismatches,
+        "mismatched_categories": mismatches,
+    }
 
 
 def _build_http_payload(http_metrics: dict[str, Any]) -> dict[str, Any]:
@@ -157,6 +230,7 @@ def _build_http_payload(http_metrics: dict[str, Any]) -> dict[str, Any]:
             key: int(buckets.get(key, 0) or 0)
             for key in ("lt_0_5", "0_5_1", "1_2", "2_5", "5_10", "gte_10")
         },
+        "latency_percentiles": _build_latency_percentiles(http_metrics),
         "slowest_requests": slowest_requests,
         "retry_events": retry_events,
     }
@@ -255,13 +329,25 @@ def main() -> int:
                 )
 
     http_metrics: dict[str, Any] = {}
+    source_page_cache_metrics: dict[str, Any] = {}
     if browser is not None:
         get_http_metrics = getattr(browser, "get_http_metrics", None)
         if callable(get_http_metrics):
             http_metrics = dict(get_http_metrics() or {})
+        get_source_page_cache_metrics = getattr(
+            browser, "get_source_page_cache_metrics", None
+        )
+        if callable(get_source_page_cache_metrics):
+            source_page_cache_metrics = dict(
+                get_source_page_cache_metrics() or {}
+            )
 
     rows.sort(key=lambda row: row["total_seconds"], reverse=True)
     http_payload = _build_http_payload(http_metrics)
+    source_cache_payload = _build_source_page_cache_payload(
+        source_page_cache_metrics
+    )
+    coverage_payload = _build_coverage_payload(rows)
     payload = {
         "categories": len(categories),
         "category_workers": config.category_workers,
@@ -273,12 +359,15 @@ def main() -> int:
         "thread_sessions": thread_sessions,
         "discovery_seconds": round(discovery_seconds, 3),
         "profile_seconds": round(time.perf_counter() - profile_started, 3),
+        "coverage": coverage_payload,
+        "source_page_cache": source_cache_payload,
         "http": http_payload,
         "rows": rows,
     }
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_PATH.write_text(
+    output_path = _resolve_output_path()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
@@ -289,7 +378,34 @@ def main() -> int:
     print(f"category_workers={config.category_workers}")
     print(f"http_workers={config.http_workers}")
     print(f"jsf_http_concurrency={config.jsf_http_concurrency}")
-    print(f"output={OUTPUT_PATH}")
+    print(f"output={output_path}")
+    coverage = payload["coverage"]
+    print(
+        "coverage="
+        f"expected:{coverage['expected_category_occurrences']} "
+        f"collected:{coverage['collected_category_occurrences']} "
+        f"enriched:{coverage['enriched_category_occurrences']} "
+        f"collected_delta:{coverage['collected_minus_expected']} "
+        f"enriched_delta:{coverage['enriched_minus_collected']} "
+        f"matches_current_counts:{coverage['matches_current_category_counts']}"
+    )
+    for mismatch in coverage["mismatched_categories"]:
+        print(
+            "coverage_mismatch="
+            f"{mismatch['category']} expected:{mismatch['expected']} "
+            f"collected:{mismatch['collected']} enriched:{mismatch['enriched']}"
+        )
+    cache = payload["source_page_cache"]
+    print(
+        "source_page_cache="
+        f"fresh_hits:{cache['fresh_hits']} "
+        f"network_validations:{cache['network_validations']} "
+        f"not_modified_304:{cache['not_modified_304']} "
+        f"updated_200:{cache['updated_200']} "
+        f"stale_fallbacks:{cache['stale_fallbacks']} "
+        f"errors:{cache['request_errors']} "
+        f"fresh_hit_rate:{cache['fresh_hit_rate']}"
+    )
     http = payload["http"]
     print(
         "http="
@@ -352,6 +468,7 @@ def main() -> int:
         f"other:{http['semaphore_wait_count_by_class']['other']}"
     )
     print(f"latency_buckets={http['latency_buckets']}")
+    print(f"latency_percentiles={http['latency_percentiles']}")
     if http["slowest_requests"]:
         print("slowest_requests=")
         for elapsed, url in http["slowest_requests"][:10]:

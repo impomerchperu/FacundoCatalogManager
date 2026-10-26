@@ -43,3 +43,42 @@ def test_product_code_normalization_accepts_published_letter_only_skus():
         "IKIOSK-ESTANDAR",
     ):
         assert extractor._normalize_code(code) == code
+
+
+def test_category_product_extractor_accepts_alpha_only_sku_from_card_marker():
+    extractor = CategoryProductExtractor()
+    soup = BeautifulSoup(
+        "<article><h2>Taza Enamel 12 oz</h2><p>SKU: TPSTCB</p></article>",
+        "lxml",
+    )
+
+    assert extractor._code(soup) == "TPSTCB"
+
+
+def test_product_collection_scraper_backfills_alpha_only_detail_code():
+    product = type("Product", (), {"code": "", "url": "", "description": ""})()
+    detail_product = type(
+        "DetailProduct",
+        (),
+        {"code": "TPSTCB", "name": "Taza Enamel 12 oz", "description": ""},
+    )()
+    card = BeautifulSoup(
+        '<article><a href="/producto/taza-enamel-12-oz/">Taza Enamel</a></article>',
+        "lxml",
+    )
+    scraper = object.__new__(ProductCollectionScraper)
+    scraper.detail_extractor = object()
+    scraper._detail_cache_key = lambda _card, _product, _url: "url:taza-enamel"
+    scraper._get_detailed_product = lambda _key, _url, _category: detail_product
+
+    result = scraper._enrich_from_detail_page(
+        card,
+        "https://stock.importacionesfacundo.com/categoria-producto/insumos-de-sublimacion/",
+        product,
+        "Insumos de Sublimación",
+    )
+
+    assert result.code == "TPSTCB"
+    assert result.url == (
+        "https://stock.importacionesfacundo.com/producto/taza-enamel-12-oz/"
+    )

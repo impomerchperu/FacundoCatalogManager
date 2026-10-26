@@ -12,8 +12,12 @@ CODE_PATTERN = re.compile(
 CODE_SEPARATORS = frozenset("-_./")
 
 
-def normalize_code(value: object) -> str:
-    """Normalize a SKU/code candidate without assuming a fixed prefix."""
+def normalize_code(
+    value: object,
+    *,
+    allow_alpha_only: bool = False,
+) -> str:
+    """Normalize a code; pure-letter SKUs require an explicit trusted context."""
     candidate = str(value or "").strip().strip(".,:;()[]{}")
     candidate = re.sub(
         r"^(?:sku|c[oó]digo|cod)\s*[:#-]?\s*",
@@ -25,15 +29,24 @@ def normalize_code(value: object) -> str:
         return ""
     if not any(char.isalpha() for char in candidate):
         return ""
-    if not any(char.isdigit() or char in CODE_SEPARATORS for char in candidate):
+    has_numeric_or_separator = any(
+        char.isdigit() or char in CODE_SEPARATORS for char in candidate
+    )
+    if not has_numeric_or_separator and (
+        not allow_alpha_only or len(candidate) < 4
+    ):
         return ""
     return candidate.upper()
 
 
-def normalize_code_token(text: object) -> str:
-    """Find the first valid code token in a whitespace-separated string."""
+def normalize_code_token(
+    text: object,
+    *,
+    allow_alpha_only: bool = False,
+) -> str:
+    """Find a valid token, allowing letter-only SKUs only in a trusted context."""
     for token in re.split(r"\s+", str(text or "").strip()):
-        code = normalize_code(token)
+        code = normalize_code(token, allow_alpha_only=allow_alpha_only)
         if code:
             return code
     return ""
@@ -44,7 +57,7 @@ def find_code_in_json(value: object) -> str:
     if isinstance(value, dict):
         for key, item in value.items():
             if str(key).casefold() == "sku":
-                code = normalize_code(item)
+                code = normalize_code(item, allow_alpha_only=True)
                 if code:
                     return code
             code = find_code_in_json(item)
@@ -68,6 +81,14 @@ def extract_code_from_soup(soup, *, fallback, extractor=None) -> str:
         "[data-sku]",
         "[sku]",
     )
+    alpha_sku_selectors = {
+        "span.sku",
+        ".sku_wrapper .sku",
+        ".product_meta .sku",
+        "[itemprop='sku']",
+        "[data-sku]",
+        "[sku]",
+    }
     for selector in selectors:
         for element in soup.select(selector):
             values = (
@@ -77,7 +98,10 @@ def extract_code_from_soup(soup, *, fallback, extractor=None) -> str:
                 element.get_text(" ", strip=True),
             )
             for value in values:
-                code = normalize_code(value)
+                code = normalize_code(
+                    value,
+                    allow_alpha_only=selector in alpha_sku_selectors,
+                )
                 if code:
                     return code
 

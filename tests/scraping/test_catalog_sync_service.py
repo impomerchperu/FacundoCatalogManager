@@ -1,6 +1,11 @@
+import hashlib
+from pathlib import Path
+
+import services.scraping.catalog_sync_service as catalog_sync_module
 from services.scraping.catalog_sync_service import CatalogSyncService
 from services.scraping.product_diff_service import ProductDiffService
 from tests.scraping.catalog_sync_test_doubles import InMemoryCatalogRepository
+from tests.scraping.image_test_utils import image_bytes
 
 
 class Product:
@@ -29,6 +34,10 @@ class Product:
         self.image_url = ""
         self.image_path = ""
         self.image_hash = ""
+        self.image_etag = ""
+        self.image_last_modified = ""
+        self.image_checked_at = ""
+        self.gallery_images = []
         self.content_hash = ""
 
 
@@ -157,7 +166,7 @@ def test_catalog_sync_preserves_richer_duplicate_product_fields():
     sparse.image_hash = ""
 
     rich = Product("P007", "Producto completo", 8)
-    rich.description = "Detalle completo"
+    rich.description = "Material: Poliuretano. Peso unitario: 23.5 g."
     rich.price_sample = 8
     rich.price_hundred = 70
     rich.price_thousand = 600
@@ -170,7 +179,7 @@ def test_catalog_sync_preserves_richer_duplicate_product_fields():
     assert len(consolidated) == 1
     stored = consolidated[0]
     assert stored.name == "Producto completo"
-    assert stored.description == "Detalle completo"
+    assert stored.description == "Material: Poliuretano. Peso unitario: 23.5 g."
     assert stored.price == 8
     assert stored.price_sample == 8
     assert stored.price_hundred == 70
@@ -182,7 +191,7 @@ def test_catalog_sync_preserves_richer_duplicate_product_fields():
 
 def test_catalog_sync_does_not_overwrite_richer_duplicate_product_fields():
     rich = Product("P008", "Producto completo", 8)
-    rich.description = "Detalle completo"
+    rich.description = "Material: Poliuretano. Peso unitario: 23.5 g."
     rich.price_sample = 8
     rich.price_hundred = 70
     rich.price_thousand = 600
@@ -199,7 +208,7 @@ def test_catalog_sync_does_not_overwrite_richer_duplicate_product_fields():
 
     stored = consolidated[0]
     assert stored.name == "Producto completo"
-    assert stored.description == "Detalle completo"
+    assert stored.description == "Material: Poliuretano. Peso unitario: 23.5 g."
     assert stored.price == 8
     assert stored.price_sample == 8
     assert stored.price_hundred == 70
@@ -227,6 +236,69 @@ def test_catalog_sync_reports_duplicate_occurrences_across_multiple_categories()
     assert result.processed == 4
     assert result.classified_total == 2
     assert result.counts_are_consistent
+
+
+def test_incomplete_full_sync_preserves_existing_category_memberships():
+    repository = InMemoryCatalogRepository()
+    existing = Product(
+        "FB-1908",
+        "Tarjeta de PVC 5.4 x 8.6 cm - CR80",
+        45,
+        category=(
+            "Artículos de Oficina, Papeles Fotográficos Koala Paper, "
+            "Promocionales, Jarros Mug"
+        ),
+    )
+    repository.save(existing)
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    incoming = Product(
+        "FB-1908",
+        "Tarjeta de PVC 5.4 x 8.6 cm - CR80",
+        45,
+        category="Artículos de Oficina",
+    )
+    result = service.sync_full_catalog(
+        [incoming],
+        expected_products=2,
+    )
+
+    stored = repository.get("FB-1908")
+    assert stored is not None
+    assert stored.category == existing.category
+    assert result.updated == 0
+    assert result.unchanged == 1
+
+
+def test_full_sync_removes_stale_categories_from_existing_product():
+    repository = InMemoryCatalogRepository()
+    existing = Product(
+        "FB-1908",
+        "Tarjeta de PVC 5.4 x 8.6 cm - CR80",
+        45,
+        category=(
+            "Artículos de Oficina, Papeles Fotográficos Koala Paper, "
+            "Promocionales, Jarros Mug"
+        ),
+    )
+    repository.save(existing)
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    incoming = Product(
+        "FB-1908",
+        "Tarjeta de PVC 5.4 x 8.6 cm - CR80",
+        45,
+        category="Artículos de Oficina",
+    )
+    result = service.sync_full_catalog(
+        [incoming],
+        expected_products=1,
+    )
+
+    stored = repository.get("FB-1908")
+    assert stored is not None
+    assert result.updated == 1
+    assert stored.category == "Artículos de Oficina"
 
 
 def test_catalog_sync_preserves_categories_across_separate_category_syncs():
@@ -336,6 +408,7 @@ def test_catalog_sync_keeps_unmatched_local_codes_when_coverage_is_incomplete():
     assert repository.get("OLD001") is not None
     assert repository.get("KEEP001") is not None
 
+
 def test_catalog_sync_is_idempotent_after_initial_create():
     repository = InMemoryCatalogRepository()
     service = CatalogSyncService(repository, ProductDiffService())
@@ -386,14 +459,32 @@ def test_catalog_sync_is_idempotent_after_initial_create():
     assert stored is not None
     assert stored.content_hash
 
+
 def test_catalog_sync_cleans_unused_images_only_after_allowed_prune():
     repository = InMemoryCatalogRepository()
-    repository.save(Product("OLD001", "Producto antiguo", 10))
+    old_product = Product("OLD001", "Producto antiguo", 10)
+    old_product.image_path = "data/images/products/OLD001/OLD001-01.webp"
+    old_product.image_hash = "old-image-hash"
+    old_product.gallery_images = [
+        {
+            "url": "https://site.test/old-gallery.webp",
+            "image_path": "data/images/products/OLD001/OLD001-02.webp",
+            "image_hash": "old-gallery-hash",
+            "position": 1,
+        }
+    ]
+    repository.save(old_product)
     cleanup_calls = []
 
     def cleanup():
+        # Cleanup must run after the full-catalog prune has actually removed
+        # the product from the persisted repository, not just after scrape end.
+        assert repository.get("OLD001") is None
         cleanup_calls.append(True)
-        return [{"path": "old.webp"}]
+        return [
+            {"path": "data/images/products/OLD001/OLD001-01.webp"},
+            {"path": "data/images/products/OLD001/OLD001-02.webp"},
+        ]
 
     service = CatalogSyncService(
         repository,
@@ -407,6 +498,7 @@ def test_catalog_sync_cleans_unused_images_only_after_allowed_prune():
     )
 
     assert result.deleted == 1
+    assert repository.get("OLD001") is None
     assert cleanup_calls == [True]
 
 
@@ -457,6 +549,7 @@ def test_catalog_sync_does_not_clean_images_when_full_prune_is_blocked():
 
     assert result.deleted == 0
     assert cleanup_calls == []
+
 
 def test_catalog_sync_updates_color_stock_and_reports_the_changed_field():
     repository = InMemoryCatalogRepository()
@@ -675,3 +768,589 @@ def test_catalog_sync_does_not_start_a_nested_transaction():
     assert repository.db.commits == 0
     assert repository.db.rollbacks == 0
 
+
+def test_catalog_sync_preserves_existing_description_when_source_detail_is_incomplete():
+    repository = InMemoryCatalogRepository()
+    existing = Product("P099", "Producto vigente", 10)
+    existing.description = (
+        "Material: ABS. Peso neto por caja: 5.5 Kg. "
+        "Peso bruto por caja: 6.25 Kg."
+    )
+    existing.price_sample = 10.0
+    repository.save(existing)
+
+    incoming = Product("P099", "Producto vigente", 10)
+    incoming.description = ""
+    incoming.price_sample = 10.0
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+
+    stored = repository.get("P099")
+    assert stored is not None
+    assert stored.description == existing.description
+    assert result.updated == 0
+    assert result.unchanged == 1
+
+
+def test_catalog_sync_replaces_existing_description_with_verified_complete_detail():
+    repository = InMemoryCatalogRepository()
+    existing = Product("P098", "Producto vigente", 10)
+    existing.description = "Resumen antiguo de la tarjeta."
+    existing.price_sample = 10.0
+    repository.save(existing)
+
+    incoming = Product("P098", "Producto vigente", 10)
+    incoming.description = (
+        "Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
+        "Peso bruto por caja: 6.25 Kg."
+    )
+    incoming.price_sample = 10.0
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+
+    stored = repository.get("P098")
+    assert stored is not None
+    assert stored.description == (
+        "Material: Poliuretano. Peso neto por caja: 5.5 Kg. "
+        "Peso bruto por caja: 6.25 Kg."
+    )
+    assert result.updated == 1
+    assert any(
+        change["field"] == "description"
+        for change in result.changes[0]["changes"]
+    )
+
+
+def test_catalog_sync_keeps_technical_detail_when_incoming_text_is_commercial_prose():
+    repository = InMemoryCatalogRepository()
+    existing = Product("P097", "Producto vigente", 10)
+    existing.description = (
+        "Color: Blanco. Material: Poliuretano. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+    existing.price_sample = 10.0
+    repository.save(existing)
+
+    incoming = Product("P097", "Producto vigente", 10)
+    incoming.description = "Descripción promocional general."
+    incoming.price_sample = 10.0
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+
+    stored = repository.get("P097")
+    assert stored is not None
+    assert stored.description == (
+        "Material: Poliuretano. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+    assert "Color:" not in stored.description
+    # Cleaning the legacy color field is a single legitimate catalog update.
+    assert result.updated == 1
+    assert result.unchanged == 0
+
+
+def test_catalog_sync_preserves_summary_description_with_technical_fields():
+    repository = InMemoryCatalogRepository()
+    incoming = Product("P092", "Producto nuevo", 10)
+    incoming.description = (
+        "Descripción: Elegante y funcional. Material: ABS. Dimensiones: 12 cm."
+    )
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    service.synchronize([incoming])
+
+    stored = repository.get("P092")
+    assert stored is not None
+    assert stored.description == incoming.description
+
+
+def test_catalog_sync_consolidation_does_not_select_commercial_prose_as_detail():
+    first = Product("P093", "Producto vigente", 10)
+    second = Product("P093", "Producto vigente", 10)
+    second.description = "Descripción comercial: producto promocional."
+
+    consolidated = CatalogSyncService.consolidate_products([first, second])
+
+    assert len(consolidated) == 1
+    assert consolidated[0].description == ""
+
+
+def test_catalog_sync_does_not_save_commercial_prose_as_new_technical_detail():
+    repository = InMemoryCatalogRepository()
+    incoming = Product("P094", "Producto nuevo", 10)
+    incoming.description = "Descripción promocional general."
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+
+    stored = repository.get("P094")
+    assert stored is not None
+    assert stored.description == ""
+    assert result.created == 1
+
+
+def test_catalog_sync_uses_more_informative_description_across_duplicate_codes():
+    repository = InMemoryCatalogRepository()
+    service = CatalogSyncService(repository, ProductDiffService())
+
+    first = Product("P096", "Producto vigente", 10)
+    first.description = "Material: ABS. Peso bruto por..."
+    second = Product("P096", "Producto vigente", 10)
+    second.description = (
+        "Color: Blanco. Material: Poliuretano. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+
+    result = service.synchronize([first, second])
+
+    stored = repository.get("P096")
+    assert stored is not None
+    assert stored.description == second.description
+    assert result.created == 1
+
+
+def test_catalog_sync_refreshes_complete_detail_across_duplicate_codes():
+    first = Product("P094", "Producto vigente", 10)
+    first.description = (
+        "Material: ABS. Peso neto por caja: 5.5 Kg. "
+        "Peso bruto por caja: 6.25 Kg."
+    )
+
+    refreshed = Product("P094", "Producto vigente", 10)
+    refreshed.description = (
+        "Material: Poliuretano. Peso neto por caja: 6.5 Kg. "
+        "Peso bruto por caja: 7.25 Kg."
+    )
+
+    consolidated = CatalogSyncService.consolidate_products([first, refreshed])
+
+    assert len(consolidated) == 1
+    assert consolidated[0].description == refreshed.description
+
+
+def test_catalog_sync_does_not_save_an_incomplete_description_for_new_product():
+    repository = InMemoryCatalogRepository()
+    incoming = Product("P095", "Producto nuevo", 10)
+    incoming.description = "Material: ABS. Peso bruto por..."
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+
+    stored = repository.get("P095")
+    assert stored is not None
+    assert stored.description == ""
+    assert result.created == 1
+
+
+def test_failed_image_download_clears_broken_local_reference(tmp_path):
+    existing = Product("FB-9911", "Producto", 10)
+    existing.image_url = "https://example.test/FB-9911-old.jpg"
+    existing.image_path = str(tmp_path / "missing.jpg")
+    existing.image_hash = "stale-hash"
+    existing.image_etag = '"old-etag"'
+    existing.image_last_modified = "Sun, 18 Oct 2026 00:00:00 GMT"
+    existing.image_checked_at = "2026-10-18T00:00:00+00:00"
+
+    incoming = Product("FB-9911", "Producto", 10)
+    incoming.image_url = "https://example.test/FB-9911-new.jpg"
+
+    CatalogSyncService._preserve_existing_image_state(existing, incoming)
+
+    assert incoming.image_url == "https://example.test/FB-9911-new.jpg"
+    assert incoming.image_path == ""
+    assert incoming.image_hash == ""
+    assert incoming.image_etag == ""
+    assert incoming.image_last_modified == ""
+    assert incoming.image_checked_at == ""
+
+
+def test_failed_refresh_keeps_only_a_verified_current_image(tmp_path):
+    current_file = tmp_path / "FB-9912.jpg"
+    current_file.write_bytes(image_bytes("JPEG", (34, 56, 78)))
+
+    existing = Product("FB-9912", "Producto", 10)
+    existing.image_url = "https://example.test/FB-9912-old.jpg"
+    existing.image_path = str(current_file)
+    existing.image_hash = "historically-wrong-hash"
+    existing.image_etag = '"old-etag"'
+
+    incoming = Product("FB-9912", "Producto", 10)
+    incoming.image_url = "https://example.test/FB-9912-new.jpg"
+
+    CatalogSyncService._preserve_existing_image_state(existing, incoming)
+
+    assert incoming.image_url == "https://example.test/FB-9912-old.jpg"
+    assert incoming.image_path == str(current_file)
+    assert incoming.image_hash != "historically-wrong-hash"
+    assert incoming.image_etag == '"old-etag"'
+
+
+def test_catalog_sync_runs_image_cleanup_after_gallery_reference_update(
+    tmp_path,
+    monkeypatch,
+):
+    import scrapers.images.product_image_storage as storage_module
+
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "resolve_data_path",
+        lambda value: Path(value) if Path(value).is_absolute() else tmp_path / value,
+    )
+    products_root = tmp_path / "data" / "images" / "products"
+    monkeypatch.setattr(catalog_sync_module, "IMAGE_PRODUCTS_DIR", products_root)
+    monkeypatch.setattr(
+        storage_module,
+        "to_data_relative_path",
+        lambda value: str(Path(value).resolve().relative_to(tmp_path)).replace("\\", "/"),
+    )
+
+    old_primary = products_root / "FB-1507.webp"
+    legacy_gallery = tmp_path / "data" / "images" / "gallery" / "FB-1507"
+    product_dir = products_root / "FB-1507"
+    legacy_gallery.mkdir(parents=True)
+    product_dir.mkdir(parents=True)
+    primary_bytes = image_bytes("WEBP", (12, 34, 56))
+    scaled_bytes = image_bytes("WEBP", (56, 67, 78))
+    alternate_bytes = image_bytes("WEBP", (89, 90, 91))
+    old_primary.write_bytes(primary_bytes)
+    (legacy_gallery / "FB-1507-01.webp").write_bytes(scaled_bytes)
+    (legacy_gallery / "FB-1507-02.webp").write_bytes(primary_bytes)
+    (legacy_gallery / "FB-1507-03.webp").write_bytes(alternate_bytes)
+    canonical_primary = product_dir / "FB-1507-01.webp"
+    canonical_scaled = product_dir / "FB-1507-02.webp"
+    canonical_alternate = product_dir / "FB-1507-03.webp"
+    canonical_primary.write_bytes(primary_bytes)
+    canonical_scaled.write_bytes(scaled_bytes)
+    canonical_alternate.write_bytes(alternate_bytes)
+
+    repository = InMemoryCatalogRepository()
+    existing = Product("FB-1507", "Producto FB-1507", 10)
+    existing.image_url = "https://site.test/uploads/FB-1507-2.webp"
+    existing.image_path = "data/images/products/FB-1507.webp"
+    existing.image_hash = hashlib.sha256(primary_bytes).hexdigest()
+    existing.gallery_images = [
+        {
+            "url": "https://site.test/uploads/FB-1507-2-scaled.webp",
+            "image_path": "data/images/gallery/FB-1507/FB-1507-01.webp",
+            "image_hash": hashlib.sha256(scaled_bytes).hexdigest(),
+            "position": 1,
+        },
+        {
+            "url": "https://site.test/uploads/FB-1507-2.webp",
+            "image_path": "data/images/gallery/FB-1507/FB-1507-02.webp",
+            "image_hash": hashlib.sha256(primary_bytes).hexdigest(),
+            "position": 2,
+        },
+        {
+            "url": "https://site.test/uploads/FB-1507.webp",
+            "image_path": "data/images/gallery/FB-1507/FB-1507-03.webp",
+            "image_hash": hashlib.sha256(alternate_bytes).hexdigest(),
+            "position": 3,
+        },
+    ]
+    repository.save(existing)
+
+    incoming = Product("FB-1507", "Producto FB-1507", 10)
+    incoming.image_url = existing.image_url
+    incoming.image_path = "data/images/products/FB-1507/FB-1507-01.webp"
+    incoming.image_hash = hashlib.sha256(primary_bytes).hexdigest()
+    incoming.gallery_images = [
+        {
+            "url": existing.image_url,
+            "image_path": incoming.image_path,
+            "image_hash": incoming.image_hash,
+            "position": 1,
+        },
+        {
+            "url": "https://site.test/uploads/FB-1507-2-scaled.webp",
+            "image_path": "data/images/products/FB-1507/FB-1507-02.webp",
+            "image_hash": hashlib.sha256(scaled_bytes).hexdigest(),
+            "position": 2,
+        },
+        {
+            "url": "https://site.test/uploads/FB-1507.webp",
+            "image_path": "data/images/products/FB-1507/FB-1507-03.webp",
+            "image_hash": hashlib.sha256(alternate_bytes).hexdigest(),
+            "position": 3,
+        },
+    ]
+
+    cleanup_snapshots = []
+
+    def cleanup():
+        stored = repository.get("FB-1507")
+        assert stored is not None
+        cleanup_snapshots.append(
+            {
+                "image_path": stored.image_path,
+                "gallery_paths": [
+                    image["image_path"] for image in stored.gallery_images
+                ],
+            }
+        )
+        return []
+
+    service = CatalogSyncService(
+        repository,
+        ProductDiffService(),
+        image_cleanup=cleanup,
+    )
+    result = service.sync([incoming], prune_missing=False)
+
+    assert result.updated == 1
+    assert any(
+        change["field"] == "gallery_images"
+        for change in result.changes[0]["changes"]
+    )
+    assert len(cleanup_snapshots) == 1
+    assert cleanup_snapshots[0]["image_path"] == incoming.image_path
+    assert "data/images/gallery/FB-1507/FB-1507-02.webp" not in (
+        cleanup_snapshots[0]["gallery_paths"]
+    )
+    assert cleanup_snapshots[0]["gallery_paths"] == [
+        incoming.image_path,
+        "data/images/products/FB-1507/FB-1507-02.webp",
+        "data/images/products/FB-1507/FB-1507-03.webp",
+    ]
+
+
+def test_catalog_sync_drops_unidentifiable_and_duplicate_legacy_gallery_entries(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "resolve_data_path",
+        lambda value: (
+            Path(value) if Path(value).is_absolute() else tmp_path / value
+        ),
+    )
+    product_root = tmp_path / "data" / "images" / "products"
+    gallery_root = tmp_path / "data" / "images" / "gallery" / "P099"
+    product_root.mkdir(parents=True)
+    gallery_root.mkdir(parents=True)
+
+    invalid_primary = product_root / "P099.webp"
+    invalid_primary.write_bytes(b"not an image")
+    valid_duplicate = image_bytes("WEBP", (12, 34, 56))
+    first_gallery = gallery_root / "P099-01.webp"
+    duplicate_gallery = gallery_root / "P099-02.webp"
+    invalid_gallery = gallery_root / "P099-03.webp"
+    first_gallery.write_bytes(valid_duplicate)
+    duplicate_gallery.write_bytes(valid_duplicate)
+    invalid_gallery.write_bytes(b"not a raster")
+
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "IMAGE_PRODUCTS_DIR",
+        product_root,
+    )
+    existing = Product("P099", "Legacy product", 10)
+    existing.image_url = "https://site.test/P099.webp"
+    existing.image_path = "data/images/products/P099.webp"
+    existing.image_hash = "stale-hash"
+    existing.gallery_images = [
+        {
+            "url": "https://site.test/P099-gallery-1.webp",
+            "image_path": "data/images/gallery/P099/P099-01.webp",
+            "image_hash": "old-1",
+            "position": 1,
+        },
+        {
+            "url": "https://site.test/P099-gallery-2.webp",
+            "image_path": "data/images/gallery/P099/P099-02.webp",
+            "image_hash": "old-2",
+            "position": 2,
+        },
+        {
+            "url": "https://site.test/P099-gallery-bad.webp",
+            "image_path": "data/images/gallery/P099/P099-03.webp",
+            "image_hash": "old-bad",
+            "position": 3,
+        },
+    ]
+    incoming = Product("P099", "Legacy product", 10)
+
+    CatalogSyncService._preserve_existing_image_state(existing, incoming)
+    CatalogSyncService._normalize_product_image_state(incoming)
+
+    assert incoming.image_url == "https://site.test/P099-gallery-1.webp"
+    assert incoming.image_path
+    assert incoming.image_hash == hashlib.sha256(valid_duplicate).hexdigest()
+    assert len(incoming.gallery_images) == 1
+    assert incoming.gallery_images[0]["image_hash"] == hashlib.sha256(valid_duplicate).hexdigest()
+    assert Path(
+        catalog_sync_module.resolve_data_path(
+            incoming.gallery_images[0]["image_path"]
+        )
+    ).is_file()
+    assert "P099-02.webp" not in incoming.gallery_images[0]["image_path"]
+    assert invalid_primary.is_file()
+    assert duplicate_gallery.is_file()
+    assert invalid_gallery.is_file()
+
+
+def test_catalog_sync_cleans_unused_images_after_new_image_bearing_product(
+    tmp_path,
+    monkeypatch,
+):
+    import scrapers.images.product_image_storage as storage_module
+
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "resolve_data_path",
+        lambda value: Path(value) if Path(value).is_absolute() else tmp_path / value,
+    )
+    products_root = tmp_path / "data" / "images" / "products"
+    monkeypatch.setattr(catalog_sync_module, "IMAGE_PRODUCTS_DIR", products_root)
+    monkeypatch.setattr(
+        storage_module,
+        "to_data_relative_path",
+        lambda value: str(Path(value).resolve().relative_to(tmp_path)).replace("\\", "/"),
+    )
+    source = products_root / "P101" / "P101-01.png"
+    source.parent.mkdir(parents=True)
+    payload = image_bytes("PNG", (42, 53, 64))
+    source.write_bytes(payload)
+
+    repository = InMemoryCatalogRepository()
+    cleanup_snapshots = []
+
+    def cleanup():
+        stored = repository.get("P101")
+        assert stored is not None
+        cleanup_snapshots.append(stored.image_path)
+        return [{"path": "legacy/orphan.webp"}]
+
+    incoming = Product("P101", "Nuevo producto", 10)
+    incoming.image_path = "data/images/products/P101/P101-01.png"
+    incoming.image_hash = hashlib.sha256(payload).hexdigest()
+    incoming.gallery_images = [
+        {
+            "url": "https://site.test/P101.png",
+            "image_path": incoming.image_path,
+            "image_hash": incoming.image_hash,
+            "position": 1,
+            "source": "primary",
+        }
+    ]
+
+    service = CatalogSyncService(
+        repository,
+        ProductDiffService(),
+        image_cleanup=cleanup,
+    )
+    result = service.synchronize([incoming])
+
+    assert result.created == 1
+    assert cleanup_snapshots == ["data/images/products/P101/P101-01.png"]
+
+def test_catalog_sync_clears_unidentifiable_image_refs_before_post_commit_cleanup(
+    tmp_path,
+    monkeypatch,
+):
+    import scrapers.images.product_image_storage as storage_module
+
+    monkeypatch.setattr(
+        catalog_sync_module,
+        "resolve_data_path",
+        lambda value: Path(value) if Path(value).is_absolute() else tmp_path / value,
+    )
+    products_root = tmp_path / "data" / "images" / "products"
+    monkeypatch.setattr(catalog_sync_module, "IMAGE_PRODUCTS_DIR", products_root)
+    monkeypatch.setattr(
+        storage_module,
+        "to_data_relative_path",
+        lambda value: str(Path(value).resolve().relative_to(tmp_path)).replace("\\", "/"),
+    )
+
+    invalid_path = products_root / "P102" / "P102-01.webp"
+    invalid_path.parent.mkdir(parents=True)
+    invalid_path.write_bytes(b"html or arbitrary bytes, not a raster image")
+
+    incoming = Product("P102", "Producto inválido", 10)
+    incoming.image_url = "https://site.test/P102.webp"
+    incoming.image_path = "data/images/products/P102/P102-01.webp"
+    incoming.image_hash = "stale-hash"
+    incoming.image_etag = '"stale-etag"'
+    incoming.gallery_images = [
+        {
+            "url": incoming.image_url,
+            "image_path": incoming.image_path,
+            "image_hash": "stale-hash",
+            "position": 1,
+        }
+    ]
+
+    repository = InMemoryCatalogRepository()
+    cleanup_observations = []
+
+    def cleanup():
+        stored = repository.get("P102")
+        assert stored is not None
+        cleanup_observations.append(
+            (stored.image_path, stored.image_hash, list(stored.gallery_images))
+        )
+        invalid_path.unlink(missing_ok=True)
+        return [{"path": str(invalid_path)}]
+
+    service = CatalogSyncService(
+        repository,
+        ProductDiffService(),
+        image_cleanup=cleanup,
+    )
+    result = service.synchronize([incoming])
+
+    stored = repository.get("P102")
+    assert result.created == 1
+    assert stored is not None
+    assert stored.image_url == "https://site.test/P102.webp"
+    assert stored.image_path == ""
+    assert stored.image_hash == ""
+    assert stored.image_etag == ""
+    assert stored.image_last_modified == ""
+    assert stored.image_checked_at == ""
+    assert stored.gallery_images == []
+    assert cleanup_observations == [("", "", [])]
+    assert not invalid_path.exists()
+
+def test_catalog_sync_repairs_truncated_fb4008_detail_with_complete_technical_source():
+    repository = InMemoryCatalogRepository()
+    existing = Product("FB-4008", "Antiestrés Cerebro Largo", 4.0)
+    existing.description = (
+        "Color: Blanco. Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés,"
+    )
+    existing.price_sample = 4.0
+    repository.save(existing)
+
+    incoming = Product("FB-4008", "Antiestrés Cerebro Largo", 4.0)
+    incoming.description = (
+        "Color: Blanco. Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
+        "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
+        "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+    incoming.price_sample = 4.0
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    result = service.synchronize([incoming])
+
+    stored = repository.get("FB-4008")
+    assert stored is not None
+    assert stored.description == (
+        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
+        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
+        "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
+        "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
+        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
+    )
+    assert result.updated == 1
+    assert any(
+        change["field"] == "description"
+        for change in result.changes[0]["changes"]
+    )

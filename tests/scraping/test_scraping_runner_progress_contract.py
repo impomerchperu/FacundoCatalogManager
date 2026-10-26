@@ -18,7 +18,7 @@ def test_progress_contract_reports_collection_then_terminal_pipeline_completion(
         progress_callback=lambda current, total: progress.append((current, total)),
     )
 
-    assert progress == [(1, 6), (2, 6), (3, 6), (6, 6)]
+    assert progress == [(1, 9), (2, 9), (3, 9), (9, 9)]
 
 
 def test_progress_contract_does_not_expose_unvalidated_enrichment_steps():
@@ -38,5 +38,5 @@ def test_progress_contract_does_not_expose_unvalidated_enrichment_steps():
         progress_callback=lambda current, total: progress.append((current, total)),
     )
 
-    assert progress == [(1, 4), (2, 4), (4, 4)]
+    assert progress == [(1, 6), (2, 6), (6, 6)]
     assert all(current not in {3} for current, _ in progress)

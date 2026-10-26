@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sqlite3
 from pathlib import Path
 from typing import Any
+
+from scrapers.images.image_validation import is_identifiable_image_file
 
 IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif"})
 DEFAULT_ROOTS = ("data/images", "resources/images")
@@ -24,6 +27,43 @@ def _is_within(path: Path, root: Path) -> bool:
     return True
 
 
+def _gallery_image_paths(
+    raw_gallery: object,
+    project_root: Path,
+) -> set[Path]:
+    if raw_gallery in (None, ""):
+        return set()
+    try:
+        gallery_images = json.loads(raw_gallery)
+    except (TypeError, json.JSONDecodeError) as error:
+        # A broken gallery record may hide an active file reference. Fail closed.
+        raise RuntimeError(
+            "No se puede limpiar imágenes: gallery_images no es JSON válido."
+        ) from error
+    if not isinstance(gallery_images, list):
+        raise TypeError(
+            "No se puede limpiar imágenes: gallery_images no es una lista."
+        )
+
+    paths: set[Path] = set()
+    for image in gallery_images:
+        if not isinstance(image, dict):
+            raise TypeError(
+                "No se puede limpiar imágenes: hay una entrada de galería inválida."
+            )
+        gallery_path = str(
+            image.get("image_path", image.get("path", "")) or ""
+        ).strip()
+        if gallery_path:
+            paths.add(
+                _resolve_project_path(
+                    gallery_path.replace("\\", "/"),
+                    project_root,
+                )
+            )
+    return paths
+
+
 def _active_image_paths(db_path: Path, project_root: Path) -> set[Path]:
     if not db_path.is_file():
         raise FileNotFoundError(f"Base de datos no encontrada: {db_path}")
@@ -39,24 +79,48 @@ def _active_image_paths(db_path: Path, project_root: Path) -> set[Path]:
                 "La tabla products no contiene la columna image_path."
             )
 
+        gallery_column = "gallery_images" if "gallery_images" in columns else None
+        selected_columns = ["image_path"]
+        if gallery_column:
+            selected_columns.append(gallery_column)
         rows = connection.execute(
-            "SELECT image_path FROM products "
-            "WHERE image_path IS NOT NULL AND TRIM(image_path) <> ''"
+            "SELECT " + ", ".join(selected_columns) + " FROM products"
         ).fetchall()
     finally:
         connection.close()
 
     paths: set[Path] = set()
-    for (raw_path,) in rows:
-        value = str(raw_path or "").strip()
+    for row in rows:
+        value = str(row[0] or "").strip()
         if value:
             paths.add(
-                _resolve_project_path(
-                    value.replace("\\", "/"),
-                    project_root,
-                )
+                _resolve_project_path(value.replace("\\", "/"), project_root)
             )
+        if gallery_column and len(row) > 1:
+            paths.update(_gallery_image_paths(row[1], project_root))
     return paths
+
+
+def _load_stable_active_paths(
+    connection: sqlite3.Connection,
+    db_path: Path,
+    project_root: Path,
+) -> tuple[set[Path], int]:
+    """Refresh the full whitelist only when SQLite reports a concurrent commit."""
+    for _attempt in range(3):
+        before = int(
+            connection.execute("PRAGMA data_version").fetchone()[0]
+        )
+        active_paths = _active_image_paths(db_path, project_root)
+        after = int(
+            connection.execute("PRAGMA data_version").fetchone()[0]
+        )
+        if before == after:
+            return active_paths, after
+
+    raise RuntimeError(
+        "No se pueden limpiar imágenes mientras cambia la base de datos."
+    )
 
 
 def _iter_image_files(root: Path) -> list[Path]:
@@ -65,7 +129,35 @@ def _iter_image_files(root: Path) -> list[Path]:
 
     files: list[Path] = []
     for path in sorted(root.rglob("*")):
-        if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS:
+        if not path.is_file():
+            continue
+        parts = {part.casefold() for part in path.parts}
+        name = path.name.casefold()
+        if (
+            ".staging" in parts
+            or name.endswith((".tmp", ".review-tmp", ".review-backup", ".review-delete-backup"))
+        ):
+            continue
+
+        # Product/gallery directories are dedicated to catalog image assets:
+        # include unknown/corrupt suffixes too, so an unidentifiable legacy
+        # object is removed after its DB reference has been retired. The DB
+        # allowlist below still protects every path referenced by the catalog.
+        catalog_storage_path = bool({"products", "gallery"} & parts)
+        # The root itself may still contain pre-directory legacy files named
+        # by product code. It is also dedicated to catalog images, unlike
+        # resources/images, so an unidentifiable orphan there is cleanable too.
+        flat_legacy_catalog_file = (
+            root.name.casefold() == "images"
+            and root.parent.name.casefold() == "data"
+            and path.parent.resolve() == root.resolve()
+        )
+        if (
+            catalog_storage_path
+            or flat_legacy_catalog_file
+            or path.suffix.lower() in IMAGE_EXTENSIONS
+            or is_identifiable_image_file(path)
+        ):
             files.append(path.resolve())
     return files
 
@@ -120,20 +212,45 @@ def clean_unused_images(
     if not delete:
         return candidates
 
-    # Re-read the whitelist immediately before deletion so files referenced by
-    # a newly persisted product are never removed by a stale candidate list.
+    # Take a fresh whitelist before deletion and refresh it whenever another
+    # SQLite connection commits. This protects concurrent updates without
+    # reparsing every product/gallery row for each orphan file.
     project_root = project_root.resolve()
-    active_paths = _active_image_paths(db_path.resolve(), project_root)
+    resolved_db_path = db_path.resolve()
+    resolved_roots = [
+        _resolve_project_path(root, project_root) for root in roots
+    ]
     deleted: list[dict[str, Any]] = []
+    connection = sqlite3.connect(resolved_db_path)
+    try:
+        active_paths, data_version = _load_stable_active_paths(
+            connection,
+            resolved_db_path,
+            project_root,
+        )
+        for candidate in candidates:
+            path = Path(candidate["path"]).resolve()
+            if not any(_is_within(path, root) for root in resolved_roots):
+                continue
+            if not path.is_file():
+                continue
 
-    for candidate in candidates:
-        path = Path(candidate["path"]).resolve()
-        if path in active_paths:
-            continue
-        if not path.is_file():
-            continue
-        path.unlink()
-        deleted.append(candidate)
+            current_version = int(
+                connection.execute("PRAGMA data_version").fetchone()[0]
+            )
+            if current_version != data_version:
+                active_paths, data_version = _load_stable_active_paths(
+                    connection,
+                    resolved_db_path,
+                    project_root,
+                )
+            if path in active_paths:
+                continue
+
+            path.unlink()
+            deleted.append(candidate)
+    finally:
+        connection.close()
 
     return deleted
 
@@ -164,6 +281,15 @@ def main() -> None:
         help="Ruta a la SQLite del catálogo.",
     )
     parser.add_argument(
+        "--data-root",
+        type=Path,
+        default=None,
+        help=(
+            "Raíz donde se resuelven las rutas relativas guardadas en SQLite. "
+            "Por defecto usa los dos niveles superiores de la ruta de la base."
+        ),
+    )
+    parser.add_argument(
         "--root",
         action="append",
         dest="roots",
@@ -180,9 +306,15 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    database_path = _resolve_project_path(args.db, project_root)
+    data_root = (
+        _resolve_project_path(args.data_root, project_root)
+        if args.data_root is not None
+        else database_path.parent.parent
+    )
     candidates = clean_unused_images(
-        project_root=project_root,
-        db_path=_resolve_project_path(args.db, project_root),
+        project_root=data_root,
+        db_path=database_path,
         roots=args.roots,
         delete=args.delete,
     )

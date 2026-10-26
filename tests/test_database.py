@@ -315,7 +315,7 @@ def test_database_migrates_v2_run_history_relationship_from_v1():
         "DROP TABLE scraping_run_history"
     )
     db.execute_query(
-        "DELETE FROM schema_migrations WHERE version=2"
+        "DELETE FROM schema_migrations WHERE version >= 2"
     )
 
     assert db.fetch_one(
@@ -339,4 +339,210 @@ def test_database_migrates_v2_run_history_relationship_from_v1():
         "SELECT MAX(version) AS version FROM schema_migrations"
     )["version"] == DBManager.SCHEMA_VERSION
 
+    db.close()
+
+def test_database_migrates_from_v2_to_v6_idempotently_and_preserves_product_data():
+    db = DBManager(":memory:")
+    db.execute_query(
+        "INSERT INTO products (code, name, stock) VALUES (?, ?, ?)",
+        ("MIGRATION-001", "Producto de migración", 17),
+    )
+
+    # Recreate the schema surface of a v2 database, then run the real v3-v5
+    # migration path. The existing product row must survive every ALTER TABLE.
+    for column in (
+        "gallery_images",
+        "image_etag",
+        "image_last_modified",
+        "image_checked_at",
+    ):
+        db.execute_query(f"ALTER TABLE products DROP COLUMN {column}")
+    db.execute_query("DROP TABLE source_page_cache")
+    db.execute_query("DELETE FROM schema_migrations WHERE version >= 3")
+
+    db._run_migrations()
+
+    columns = {
+        row["name"] for row in db.fetch_all("PRAGMA table_info(products)")
+    }
+    assert {
+        "gallery_images",
+        "image_etag",
+        "image_last_modified",
+        "image_checked_at",
+        "legacy_colors",
+    } <= columns
+
+    cache = db.fetch_one(
+        "SELECT name FROM sqlite_master "
+        "WHERE type = 'table' AND name = 'source_page_cache'"
+    )
+    assert cache is not None
+    cache_index = db.fetch_one(
+        "SELECT name FROM sqlite_master "
+        "WHERE type = 'index' AND name = 'idx_source_page_cache_checked_at'"
+    )
+    assert cache_index is not None
+
+    stored = db.fetch_one(
+        "SELECT code, name, stock, gallery_images, image_etag "
+        "FROM products WHERE code = ?",
+        ("MIGRATION-001",),
+    )
+    assert stored is not None
+    assert stored["name"] == "Producto de migración"
+    assert stored["stock"] == 17
+    assert stored["gallery_images"] == "[]"
+    assert stored["image_etag"] == ""
+
+    # Re-running migrations must not duplicate ledger records or mutate data.
+    db._run_migrations()
+    versions = db.fetch_all(
+        "SELECT version FROM schema_migrations ORDER BY version"
+    )
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6]
+    db.close()
+
+def test_database_migrates_legacy_download_changes_without_losing_history():
+    db = DBManager(":memory:")
+    db.execute_query(
+        """
+        INSERT INTO scraping_history (started_at, finished_at, status, message)
+        VALUES (?, ?, 'SUCCESS', ?)
+        """,
+        ("2026-10-01T00:00:00", "2026-10-01T00:00:01", "Historial heredado"),
+    )
+    history_id = db.fetch_one(
+        "SELECT id FROM scraping_history ORDER BY id DESC LIMIT 1"
+    )["id"]
+
+    # Emulate an older download_changes table without its required history FK.
+    db.execute_query("DROP TABLE download_changes")
+    db.execute_query(
+        """
+        CREATE TABLE download_changes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            history_id INTEGER NOT NULL,
+            change_type TEXT NOT NULL,
+            code TEXT NOT NULL,
+            product_name TEXT NOT NULL,
+            field_name TEXT,
+            field_label TEXT NOT NULL,
+            old_value TEXT,
+            new_value TEXT
+        )
+        """
+    )
+    db.execute_query(
+        """
+        INSERT INTO download_changes (
+            history_id, change_type, code, product_name,
+            field_name, field_label, old_value, new_value
+        )
+        VALUES (?, 'UPDATED', ?, ?, 'description', 'Detalle', ?, ?)
+        """,
+        (history_id, "MIGRATION-002", "Producto heredado", "old", "new"),
+    )
+    db.execute_query("DELETE FROM schema_migrations")
+
+    db._run_migrations()
+
+    restored = db.fetch_all(
+        """
+        SELECT history_id, change_type, code, field_name, old_value, new_value
+        FROM download_changes
+        WHERE history_id = ?
+        """,
+        (history_id,),
+    )
+    assert len(restored) == 1
+    assert restored[0]["change_type"] == "UPDATED"
+    assert restored[0]["code"] == "MIGRATION-002"
+    assert restored[0]["field_name"] == "description"
+    assert restored[0]["old_value"] == "old"
+    assert restored[0]["new_value"] == "new"
+
+    foreign_keys = db.fetch_all("PRAGMA foreign_key_list(download_changes)")
+    assert any(
+        row["table"] == "scraping_history"
+        and row["from"] == "history_id"
+        and row["to"] == "id"
+        for row in foreign_keys
+    )
+    legacy_rows = db.fetch_one(
+        "SELECT COUNT(*) AS total FROM download_changes_legacy"
+    )
+    assert legacy_rows is not None
+    assert legacy_rows["total"] == 1
+    db.close()
+
+def test_database_migration_preserves_legacy_color_names_without_inventing_stock():
+    import json
+
+    db = DBManager(":memory:")
+    db.execute_query(
+        "ALTER TABLE products ADD COLUMN colors TEXT DEFAULT '[]'"
+    )
+    db.execute_query(
+        "ALTER TABLE scraped_products ADD COLUMN colors TEXT DEFAULT '[]'"
+    )
+
+    product_colors = json.dumps(["Azul", "Verde"], ensure_ascii=False)
+    scraped_colors = json.dumps(["Negro", "Blanco"], ensure_ascii=False)
+    product_stock = json.dumps({"Rojo": 4}, ensure_ascii=False)
+
+    db.execute_query(
+        """
+        INSERT INTO products (code, name, color_stock, colors)
+        VALUES (?, ?, ?, ?)
+        """,
+        ("MIGRATION-COLORS", "Producto heredado", product_stock, product_colors),
+    )
+    db.execute_query(
+        """
+        INSERT INTO scraped_products (
+            source, url, code, name, color_stock, colors
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "legacy",
+            "https://example.invalid/producto/migration-colors/",
+            "MIGRATION-COLORS",
+            "Producto heredado",
+            "{}",
+            scraped_colors,
+        ),
+    )
+
+    # Re-run the legacy migration path as if opening an unversioned older DB.
+    db.execute_query("DELETE FROM schema_migrations")
+    db._run_migrations()
+
+    product = db.fetch_one(
+        "SELECT color_stock, legacy_colors FROM products WHERE code=?",
+        ("MIGRATION-COLORS",),
+    )
+    scraped = db.fetch_one(
+        "SELECT color_stock, legacy_colors FROM scraped_products WHERE code=?",
+        ("MIGRATION-COLORS",),
+    )
+    assert product is not None and scraped is not None
+    assert product["legacy_colors"] == product_colors
+    assert scraped["legacy_colors"] == scraped_colors
+    # Preserve actual numeric counts only; the legacy color-name list must not
+    # be converted into invented zero/positive stock values.
+    assert json.loads(product["color_stock"]) == {"Rojo": 4}
+    assert json.loads(scraped["color_stock"]) == {}
+
+    product_columns = {
+        row["name"] for row in db.fetch_all("PRAGMA table_info(products)")
+    }
+    scraped_columns = {
+        row["name"] for row in db.fetch_all("PRAGMA table_info(scraped_products)")
+    }
+    assert "colors" not in product_columns
+    assert "colors" not in scraped_columns
+    assert "legacy_colors" in product_columns
+    assert "legacy_colors" in scraped_columns
     db.close()

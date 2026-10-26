@@ -1,7 +1,10 @@
 from tools.profile_scraping_categories import (
+    _build_coverage_payload,
     _build_http_payload,
+    _build_source_page_cache_payload,
     _enable_thread_sessions,
     _profile_category_workers,
+    _resolve_output_path,
 )
 
 
@@ -93,3 +96,117 @@ def test_profile_category_workers_defaults_to_none(monkeypatch):
     monkeypatch.delenv("FCM_PROFILE_CATEGORY_WORKERS", raising=False)
 
     assert _profile_category_workers() is None
+
+
+def test_build_http_payload_preserves_latency_percentiles():
+    payload = _build_http_payload(
+        {
+            "http_latency_percentiles": {
+                "category": {"p50": 0.2, "p95": 1.5, "p99": 2.0},
+                "detail": {"p50": 0.4, "p95": 2.5, "p99": 4.0},
+            }
+        }
+    )
+
+    assert payload["latency_percentiles"]["category"] == {
+        "p50": 0.2,
+        "p95": 1.5,
+        "p99": 2.0,
+    }
+    assert payload["latency_percentiles"]["detail"] == {
+        "p50": 0.4,
+        "p95": 2.5,
+        "p99": 4.0,
+    }
+    assert payload["latency_percentiles"]["jsf"] == {
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+    }
+
+
+def test_build_source_page_cache_payload_reports_fresh_hit_rate():
+    payload = _build_source_page_cache_payload(
+        {
+            "fresh_hits": 3,
+            "network_validations": 7,
+            "not_modified_304": 4,
+            "updated_200": 3,
+            "stale_fallbacks": 1,
+            "request_errors": 1,
+        }
+    )
+
+    assert payload["fresh_hits"] == 3
+    assert payload["network_validations"] == 7
+    assert payload["not_modified_304"] == 4
+    assert payload["updated_200"] == 3
+    assert payload["stale_fallbacks"] == 1
+    assert payload["request_errors"] == 1
+    assert payload["fresh_hit_rate"] == 0.3
+
+
+def test_build_source_page_cache_payload_has_no_rate_without_observations():
+    payload = _build_source_page_cache_payload({})
+
+    assert payload["fresh_hit_rate"] is None
+
+
+def test_build_coverage_payload_reports_complete_current_category_counts():
+    payload = _build_coverage_payload(
+        [
+            {"category": "A", "expected": 2, "collected": 2, "enriched": 2},
+            {"category": "B", "expected": 3, "collected": 3, "enriched": 3},
+        ]
+    )
+
+    assert payload == {
+        "expected_category_occurrences": 5,
+        "collected_category_occurrences": 5,
+        "enriched_category_occurrences": 5,
+        "collected_minus_expected": 0,
+        "enriched_minus_collected": 0,
+        "matches_current_category_counts": True,
+        "mismatched_categories": [],
+    }
+
+
+def test_build_coverage_payload_identifies_category_level_mismatch():
+    payload = _build_coverage_payload(
+        [
+            {"category": "A", "expected": 2, "collected": 1, "enriched": 1},
+            {"category": "B", "expected": 3, "collected": 3, "enriched": 2},
+        ]
+    )
+
+    assert payload["matches_current_category_counts"] is False
+    assert payload["collected_minus_expected"] == -1
+    assert payload["enriched_minus_collected"] == -1
+    assert payload["mismatched_categories"] == [
+        {"category": "A", "expected": 2, "collected": 1, "enriched": 1},
+        {"category": "B", "expected": 3, "collected": 3, "enriched": 2},
+    ]
+
+
+
+def test_resolve_output_path_defaults_to_repository_profile(monkeypatch):
+    from tools.profile_scraping_categories import DEFAULT_OUTPUT_PATH
+
+    monkeypatch.delenv("FCM_PROFILE_OUTPUT_PATH", raising=False)
+
+    assert _resolve_output_path() == DEFAULT_OUTPUT_PATH
+
+
+def test_resolve_output_path_accepts_absolute_per_run_report(monkeypatch, tmp_path):
+    output = tmp_path / "trial-12.json"
+    monkeypatch.setenv("FCM_PROFILE_OUTPUT_PATH", str(output))
+
+    assert _resolve_output_path() == output
+
+
+def test_resolve_output_path_anchors_relative_path_to_project(monkeypatch):
+    from tools.profile_scraping_categories import PROJECT_ROOT
+
+    monkeypatch.setenv("FCM_PROFILE_OUTPUT_PATH", "temp/profile.json")
+
+    assert _resolve_output_path() == PROJECT_ROOT / "temp" / "profile.json"

@@ -1,8 +1,16 @@
 import re
 
+from bs4 import BeautifulSoup
+
+from models.scraping.detail_description_policy import (
+    has_technical_detail,
+    is_valid_detail_content,
+    normalize_detail_text,
+)
 from models.scraping.scraped_product import ScrapedProduct
 from scrapers.extractors.code_utils import normalize_code_token
 from scrapers.extractors.price_extractor import PriceExtractor
+from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.extractors.variant_color_stock_extractor import (
     extract_variant_color_stock,
 )
@@ -12,6 +20,35 @@ class CategoryProductExtractor:
     """Extrae productos desde tarjetas y filas de tabla de categoría."""
 
     SOURCE = "importacionesfacundo"
+    _EXPLICIT_CODE_MARKER_PATTERN = re.compile(
+        r"\b(?:sku|c[oó]digo|cod)\s*[:#-]\s*([A-Z0-9][A-Z0-9._/-]{0,31})",
+        re.IGNORECASE,
+    )
+    _NON_DETAIL_FIELD_PATTERN = re.compile(
+        r"(?:"
+        r"\bstock\s+disponible\s*:?\s*\d[\d,.]*|"
+        r"(?:^|[.!?;]\s+)precio\s+(?:muestra|ciento|millar)"
+        r"\s*(?::\s*(?:s/\s*)?|s/\s*|-\s*)(?:\d|consultar|disponible)|"
+        r"(?:^|[.!?]\s+)(?:sku\s*[:\-]\s*[A-Z0-9-]+|"
+        r"c[oó]digo\s*[:\-]\s*[A-Z0-9-]+))",
+        re.IGNORECASE,
+    )
+    _EXCLUDED_DETAIL_TAB_IDS = frozenset({
+        "tab-description",
+        "tab-additional_information",
+        "tab-additional-information",
+        "tab-reviews",
+    })
+    _EXCLUDED_DETAIL_TAB_CLASSES = frozenset({
+        "woocommerce-Tabs-panel--description",
+        "woocommerce-Tabs-panel--additional_information",
+        "woocommerce-Tabs-panel--reviews",
+        "x-tabs_panel-content",
+    })
+    _NON_DETAIL_SECTION_PREFIX_PATTERN = re.compile(
+        r"^\s*(?:informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
+        re.IGNORECASE,
+    )
 
     def __init__(self):
         self.price_extractor = PriceExtractor()
@@ -24,11 +61,19 @@ class CategoryProductExtractor:
             total_stock = sum(color_stock.values())
 
         price_sample = self.price_extractor.extract_sample(card)
-        return ScrapedProduct(
+        code = self._code(card)
+        name = self._name(card)
+        image_candidates = ProductImageExtractor.extract_candidates(
+            card,
+            code=code,
+            name=name,
+            base_url=ProductImageExtractor.BASE_URL,
+        )
+        result = ScrapedProduct(
             source=self.SOURCE,
             url=url or self._url(card),
-            code=self._code(card),
-            name=self._name(card),
+            code=code,
+            name=name,
             category=category,
             description=self._description(card),
             stock=total_stock,
@@ -37,16 +82,23 @@ class CategoryProductExtractor:
             price_hundred=self.price_extractor.extract_hundred(card),
             price_thousand=self.price_extractor.extract_thousand(card),
             color_stock=color_stock,
-            image_url=self._image(card),
+            image_url=image_candidates[0]["url"] if image_candidates else "",
         )
+        result.image_candidates = image_candidates
+        return result
 
     def _url(self, soup):
         element = soup.select_one('a[href*="/producto/"]')
         return element.get("href", "") if element else ""
 
     @classmethod
-    def _normalize_code(cls, text: str) -> str:
-        return normalize_code_token(text)
+    def _normalize_code(
+        cls,
+        text: str,
+        *,
+        allow_alpha_only: bool = False,
+    ) -> str:
+        return normalize_code_token(text, allow_alpha_only=allow_alpha_only)
 
     @classmethod
     def _code(cls, soup):
@@ -67,9 +119,31 @@ class CategoryProductExtractor:
                     or element.get("data-sku")
                     or element.get_text(" ", strip=True)
                 )
-                code = cls._normalize_code(text)
+                code = cls._normalize_code(
+                    text,
+                    allow_alpha_only=selector in {
+                        "p.brxe-a26f34",
+                        "span.sku",
+                        ".sku",
+                        "p[class*='sku']",
+                        "span[class*='sku']",
+                        "[sku]",
+                        "[data-sku]",
+                    },
+                )
                 if code:
                     return code
+
+        marked_code = cls._EXPLICIT_CODE_MARKER_PATTERN.search(
+            soup.get_text(" ", strip=True)
+        )
+        if marked_code is not None:
+            code = cls._normalize_code(
+                marked_code.group(1),
+                allow_alpha_only=True,
+            )
+            if code:
+                return code
 
         name_element = soup.select_one("h2.brxe-f31760, h2.brxe-heading, h2, h3")
         for text_node in soup.find_all(string=True):
@@ -97,9 +171,183 @@ class CategoryProductExtractor:
         element = soup.select_one("h3.brxe-heading, h3")
         return element.get_text(" ", strip=True) if element else ""
 
+    @classmethod
+    def _is_excluded_detail_block(cls, element) -> bool:
+        """Exclude tab panels and their nested content from category summaries."""
+        node = element
+        excluded_widget_classes = {
+            "wc-tabs",
+            "wc-tabs-wrapper",
+            "woocommerce-tabs",
+            "tabs-content",
+            "tab-content",
+            "brxe-tabs-nested",
+            "brxe-tabs-content",
+            "variations",
+            "variations_form",
+            "variaciones-producto",
+            "variable-items-wrapper",
+            "variable-item",
+            "woocommerce-variation",
+            "content-precio",
+            "product-price",
+            "price",
+            "stock",
+            "product_meta",
+            "woocommerce-product-meta",
+            "woocommerce-product-gallery",
+            "woocommerce-breadcrumb",
+            "cart",
+        }
+        while node is not None and getattr(node, "attrs", None) is not None:
+            node_id = str(node.get("id", "") or "").strip().casefold()
+            if node_id in cls._EXCLUDED_DETAIL_TAB_IDS or node_id.startswith(
+                ("tab-", "tab_")
+            ):
+                return True
+
+            role = str(node.get("role", "") or "").strip().casefold()
+            if role in {"tab", "tablist", "tabpanel"}:
+                return True
+
+            if str(getattr(node, "name", "") or "").casefold() == "form":
+                form_classes = {
+                    str(value).strip().casefold()
+                    for value in (node.get("class", []) or [])
+                }
+                if form_classes & {"variations_form", "cart"}:
+                    return True
+
+            aria_labelled_by = str(node.get("aria-labelledby", "") or "").casefold()
+            if any(
+                token in aria_labelled_by
+                for token in (
+                    "description",
+                    "additional_information",
+                    "additional-information",
+                    "reviews",
+                    "valoraciones",
+                )
+            ):
+                return True
+
+            classes = {
+                str(value).strip().casefold()
+                for value in (node.get("class", []) or [])
+            }
+            if classes & (
+                cls._EXCLUDED_DETAIL_TAB_CLASSES | excluded_widget_classes
+            ):
+                return True
+            if any(
+                "tabs_panel-content" in class_name
+                or class_name.startswith("woocommerce-tabs-panel--")
+                for class_name in classes
+            ):
+                return True
+
+            node = getattr(node, "parent", None)
+        return False
+
+    @staticmethod
+    def _detail_text_from_element(element) -> str:
+        """Preserva límites HTML para distinguir la descripción del resto."""
+        boundary = "__FACUNDO_DETAIL_BOUNDARY__"
+        markup = str(element)
+        markup = re.sub(
+            r"<br\b[^>]*>",
+            boundary,
+            markup,
+            flags=re.IGNORECASE,
+        )
+        markup = re.sub(
+            r"<(?:li|p|div|h[1-6])\b[^>]*>",
+            boundary,
+            markup,
+            flags=re.IGNORECASE,
+        )
+        markup = re.sub(
+            r"</(?:li|p|div|h[1-6])\s*>",
+            boundary,
+            markup,
+            flags=re.IGNORECASE,
+        )
+        text = BeautifulSoup(markup, "lxml").get_text(" ", strip=True)
+        return text.replace(boundary, " ␞ ")
+
+    @classmethod
+    def _description_candidate(cls, element) -> str:
+        if cls._is_excluded_detail_block(element):
+            return ""
+
+        text = normalize_detail_text(cls._detail_text_from_element(element))
+        if not text or cls._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text):
+            return ""
+
+        # Remove stock, price and SKU fragments before deciding whether the text
+        # belongs to Detail; these fields must never become part of its value.
+        field_boundary = cls._NON_DETAIL_FIELD_PATTERN.search(text)
+        if field_boundary is not None:
+            text = text[: field_boundary.start()].strip(" .;:-")
+        if not text:
+            return ""
+
+        technical = has_technical_detail(text)
+        if is_valid_detail_content(text):
+            # A short generic sentence in a card is not enough to establish
+            # that it is the product's Detail field. Long marketing copy such
+            # as HL-3000 remains valid because it is the actual field content.
+            if not technical and len(text) < 35:
+                return ""
+            return text
+
+        # Preserve a visibly truncated technical card value as the source of
+        # truth if the individual page has no usable Detail. The collection
+        # scraper can still request the page, but must not lose the card value
+        # merely because the excerpt ends with an ellipsis.
+        if technical and re.search(r"(?:\.{2,}|…)$", text):
+            return text
+        return ""
+
+    @classmethod
+    def _collect_description_candidates(cls, elements):
+        candidates = []
+        seen: set[str] = set()
+        for element in elements:
+            text = cls._description_candidate(element)
+            identity = text.casefold()
+            if not text or identity in seen:
+                continue
+            seen.add(identity)
+            candidates.append(text)
+        return candidates
+
     def _description(self, soup):
-        element = soup.select_one(".text-content")
-        return element.get_text(" ", strip=True) if element else ""
+        authoritative_elements = soup.select(".text-content")
+        if authoritative_elements:
+            candidates = self._collect_description_candidates(authoritative_elements)
+            if not candidates:
+                return ""
+        else:
+            fallback_selectors = (
+                ".brxe-text",
+                ".brxe-text-basic",
+                "ul li",
+                "ol li",
+            )
+            candidates = self._collect_description_candidates(
+                soup.select(", ".join(fallback_selectors))
+            )
+
+        if not candidates:
+            return ""
+        if len(candidates) == 1:
+            return candidates[0]
+        prefix = ". ".join(
+            candidate.rstrip(" .;")
+            for candidate in candidates[:-1]
+        )
+        return f"{prefix}. {candidates[-1].lstrip()}"
 
     def _stock(self, soup):
         return sum(self._stock_values(soup))

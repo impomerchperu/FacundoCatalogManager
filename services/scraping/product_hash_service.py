@@ -22,6 +22,8 @@ class ProductHashService:
     IMAGE_FIELDS: ClassVar[list[str]] = [
         "image_url",
         "image_path",
+        "image_hash",
+        "gallery_images",
     ]
 
     def generate(self, product) -> str:

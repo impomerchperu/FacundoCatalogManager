@@ -282,3 +282,40 @@ def test_sync_categories_keeps_error_when_category_recovery_fails():
         "Error de red en categoría 'Categoria persistente': timed out attempt 1",
         "Reintento fallido en categoría 'Categoria persistente': timed out attempt 2",
     ]
+
+
+def test_source_page_cache_metrics_are_logged(tmp_path, monkeypatch):
+    import services.scraping.category_product_sync_service as module
+
+    timing_path = tmp_path / "scraping_timing.log"
+    monkeypatch.setattr(module, "TIMING_LOG", timing_path)
+
+    class FakeBrowser:
+        def get_source_page_cache_metrics(self):
+            return {
+                "fresh_hits": 7,
+                "network_validations": 4,
+                "not_modified_304": 1,
+                "updated_200": 3,
+                "stale_fallbacks": 0,
+                "empty_response_fallbacks": 0,
+                "request_errors": 0,
+            }
+
+    class FakeScraper:
+        browser = FakeBrowser()
+
+    class FakeScrapingService:
+        scraper = FakeScraper()
+
+    service = CategoryProductSyncService(
+        FakeScrapingService(),
+        object(),
+    )
+    service._log_source_page_cache_metrics()
+
+    logged = timing_path.read_text(encoding="utf-8")
+    assert "stage=source_page_cache_collection" in logged
+    assert "fresh_hits=7" in logged
+    assert "network_validations=4" in logged
+    assert "updated_200=3" in logged

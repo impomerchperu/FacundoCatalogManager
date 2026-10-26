@@ -50,6 +50,17 @@ class ScrapingConfig:
 
     image_workers: int = SCRAPING_IMAGE_WORKERS
 
+    # Gallery work is bounded separately so image review stays responsive.
+    gallery_workers: int = 4
+
+    gallery_max_candidates: int = 6
+
+    refresh_galleries: bool = True
+
+    # Caché persistente del HTML de fichas de producto.
+    source_page_cache_ttl_seconds: int = 86400
+    refresh_source_pages: bool = False
+
     enabled_categories: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -69,6 +80,12 @@ class ScrapingConfig:
             raise ValueError("jsf_page_workers debe ser mayor que cero.")
         if self.image_workers <= 0:
             raise ValueError("image_workers debe ser mayor que cero.")
+        if self.gallery_workers <= 0:
+            raise ValueError("gallery_workers debe ser mayor que cero.")
+        if self.gallery_max_candidates <= 0:
+            raise ValueError("gallery_max_candidates debe ser mayor que cero.")
+        if self.source_page_cache_ttl_seconds < 0:
+            raise ValueError("source_page_cache_ttl_seconds no puede ser negativo.")
 
     def is_category_enabled(self, category: str) -> bool:
         """Determina si una categoría debe procesarse."""

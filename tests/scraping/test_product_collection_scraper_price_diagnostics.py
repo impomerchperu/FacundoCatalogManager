@@ -6,7 +6,7 @@ from scrapers.extractors.product_extractor import ProductExtractor
 
 def _run_missing_price_case(
     price_html: str,
-    description: str = "Producto con precios parciales.",
+    description: str = "Material: ABS. Dimensiones: 10 x 5 cm.",
 ):
     class CategoryScraper:
         def get_category_pages(self, url):
@@ -94,7 +94,7 @@ def test_missing_multiple_advertised_prices_are_all_recorded():
         "requested_missing_thousand": 1,
     }
 
-def test_description_text_does_not_trigger_price_detail_recovery():
+def test_commercial_prose_is_not_detail_or_advertised_price_tier():
     metrics = _run_missing_price_case(
         "",
         description=(
@@ -103,8 +103,10 @@ def test_description_text_does_not_trigger_price_detail_recovery():
         ),
     )
 
-    assert metrics["detail_requests"] == 0
+    # Commercial prose is not technical Detail or an advertised price tier.
+    assert metrics["detail_requests"] == 1
     assert metrics["detail_reason_counts"] == {
-        "skipped_complete_single_stock": 1,
+        "requested_missing_fields": 1,
+        "requested_missing_description": 1,
     }
 

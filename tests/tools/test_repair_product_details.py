@@ -1,0 +1,513 @@
+import json
+
+from bs4 import BeautifulSoup
+
+from database.db_manager import DBManager
+from models.product import Product
+from models.scraping.scraped_product import ScrapedProduct
+from repositories.product_repository import ProductRepository
+from repositories.scraping.scraped_product_repository import ScrapedProductRepository
+from scrapers.extractors.product_extractor import ProductExtractor
+from services.scraping.product_hash_service import ProductHashService
+from tools.repair_product_details import (
+    _emit_json_report,
+    _resolve_category_batches,
+    apply_detail_repairs,
+    audit_incomplete_details,
+    audit_source_details,
+    plan_product_detail_repairs,
+)
+
+PRODUCT_URL = (
+    "https://stock.importacionesfacundo.com/producto/producto-prueba/"
+)
+VALID_DETAIL = "Material: ABS. Dimensiones: 10 x 5 cm."
+
+
+class StaticBrowser:
+    def __init__(self, html: str):
+        self.html = html
+        self.requested_urls: list[str] = []
+
+    def get(self, url: str) -> str:
+        self.requested_urls.append(url)
+        return self.html
+
+
+def _product_html(
+    code: str = "FB-1700",
+    detail: str = VALID_DETAIL,
+) -> str:
+    return f"""
+    <html>
+      <body>
+        <h1>Producto de prueba</h1>
+        <p class="brxe-heading">{code}</p>
+        <div class="woocommerce-product-details__short-description">
+          {detail}
+        </div>
+      </body>
+    </html>
+    """
+
+
+def _seed_catalog(
+    *,
+    code: str = "FB-1700",
+    description: str = "Detalle comercial antiguo",
+    source_url: str = PRODUCT_URL,
+) -> tuple[DBManager, ProductRepository]:
+    db = DBManager(":memory:")
+    repository = ProductRepository(db)
+    repository.save(
+        Product(
+            code=code,
+            name="Producto guardado",
+            category="Promocionales",
+            description=description,
+            price=10,
+            price_sample=10,
+            stock=7,
+            image_url="https://stock.importacionesfacundo.com/imagen.jpg",
+            image_path="images/FB-1700.jpg",
+            image_hash="image-hash",
+        )
+    )
+    if source_url:
+        ScrapedProductRepository(db).save(
+            ScrapedProduct(
+                source="importacionesfacundo",
+                url=source_url,
+                code=code,
+                name="Producto guardado",
+                category="Promocionales",
+            )
+        )
+    return db, repository
+
+
+def test_category_batches_resolve_canonical_names_and_multi_category_products():
+    db = DBManager(":memory:")
+    repository = ProductRepository(db)
+    repository.save(
+        Product(
+            code="FB-1700",
+            name="Producto en dos categorías",
+            category="Bolsas / Mochilas, Cocina, Mesa y Hogar",
+            description=VALID_DETAIL,
+        )
+    )
+    repository.save(
+        Product(
+            code="FB-1701",
+            name="Producto solo en bolsas",
+            category="Bolsas / Mochilas",
+            description=VALID_DETAIL,
+        )
+    )
+    try:
+        batches = _resolve_category_batches(
+            repository,
+            ["Cocina, Mesa y Hogar", "Bolsas / Mochilas"],
+        )
+
+        assert [name for name, _ in batches] == [
+            "Cocina, Mesa y Hogar",
+            "Bolsas / Mochilas",
+        ]
+        assert [product.code for product in batches[0][1]] == ["FB-1700"]
+        assert {product.code for product in batches[1][1]} == {
+            "FB-1700",
+            "FB-1701",
+        }
+    finally:
+        db.close()
+
+
+def test_targeted_detail_repair_preview_does_not_modify_catalog():
+    db, repository = _seed_catalog()
+    browser = StaticBrowser(_product_html())
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["fb-1700", "FB-1700"],
+            browser=browser,
+        )
+
+        assert len(plans) == 1
+        assert plans[0].status == "would_update"
+        assert plans[0].new_description == VALID_DETAIL
+        assert plans[0].old_description == "Detalle comercial antiguo"
+        assert browser.requested_urls == [PRODUCT_URL]
+
+        stored = repository.get_by_code("FB-1700")
+        assert stored is not None
+        assert stored.description == "Detalle comercial antiguo"
+        assert stored.image_path == "images/FB-1700.jpg"
+    finally:
+        db.close()
+
+
+def test_targeted_detail_repair_preserves_unlabelled_source_field_boundaries():
+    flattened_detail = (
+        "Tipo de encuadernado: Espiral simple (tipo coil) "
+        "Hasta 12 hojas (70 g/m²) por pasada "
+        "Capacidad de encuadernado: Hasta 450 hojas"
+    )
+    db, repository = _seed_catalog(
+        code="FB-1902",
+        description=flattened_detail,
+    )
+    html = """
+    <html><body>
+      <p class="brxe-heading">FB-1902</p>
+      <div id="brxe-jhzpri">
+        <ul>
+          <li>Tipo de encuadernado: Espiral simple (tipo coil)</li>
+          <li>Hasta 12 hojas (70 g/m²) por pasada</li>
+          <li>Capacidad de encuadernado: Hasta 450 hojas</li>
+        </ul>
+      </div>
+    </body></html>
+    """
+    browser = StaticBrowser(html)
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-1902"],
+            browser=browser,
+        )
+
+        assert len(plans) == 1
+        assert plans[0].status == "would_update"
+        assert plans[0].new_description.splitlines() == [
+            "Tipo de encuadernado: Espiral simple (tipo coil)",
+            "Hasta 12 hojas (70 g/m²) por pasada",
+            "Capacidad de encuadernado: Hasta 450 hojas",
+        ]
+        assert apply_detail_repairs(db, repository, plans) == 1
+        stored = repository.get_by_code("FB-1902")
+        assert stored is not None
+        assert stored.description.splitlines() == plans[0].new_description.splitlines()
+    finally:
+        db.close()
+
+
+def test_targeted_detail_repair_updates_only_detail_and_content_hash():
+    db, repository = _seed_catalog()
+    browser = StaticBrowser(_product_html())
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-1700"],
+            browser=browser,
+        )
+
+        updated = apply_detail_repairs(db, repository, plans)
+
+        assert updated == 1
+        assert plans[0].status == "updated"
+        stored = repository.get_by_code("FB-1700")
+        assert stored is not None
+        assert stored.description == VALID_DETAIL
+        assert stored.name == "Producto guardado"
+        assert stored.category == "Promocionales"
+        assert stored.price == 10
+        assert stored.price_sample == 10
+        assert stored.stock == 7
+        assert stored.image_url == (
+            "https://stock.importacionesfacundo.com/imagen.jpg"
+        )
+        assert stored.image_path == "images/FB-1700.jpg"
+        assert stored.image_hash == "image-hash"
+        assert stored.content_hash == ProductHashService().generate(stored)
+    finally:
+        db.close()
+
+
+def test_targeted_detail_repair_rejects_a_page_with_a_different_product_code():
+    db, repository = _seed_catalog()
+    browser = StaticBrowser(_product_html(code="FB-1701"))
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-1700"],
+            browser=browser,
+        )
+
+        assert plans[0].status == "skip_code_mismatch"
+        assert "FB-1701" in plans[0].reason
+        assert apply_detail_repairs(db, repository, plans) == 0
+        stored = repository.get_by_code("FB-1700")
+        assert stored is not None
+        assert stored.description == "Detalle comercial antiguo"
+    finally:
+        db.close()
+
+
+def test_targeted_detail_repair_rejects_incomplete_extracted_detail():
+    db, repository = _seed_catalog()
+    browser = StaticBrowser(_product_html(detail="Material:"))
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-1700"],
+            browser=browser,
+        )
+
+        assert plans[0].status == "skip_invalid_detail"
+        assert "detalle_incompleto_o_truncado" in plans[0].reason
+        assert apply_detail_repairs(db, repository, plans) == 0
+    finally:
+        db.close()
+
+
+def test_targeted_detail_repair_removes_incomplete_trailing_dimension_field():
+    detail = (
+        "Marca: Bright Office\n"
+        "Modelo: 230\n"
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7"
+    )
+    db, repository = _seed_catalog(description=detail)
+    html = """
+    <html><body>
+      <p class="brxe-heading">FB-1700</p>
+      <div id="brxe-jhzpri">
+        <ul>
+          <li>Marca: Bright Office</li>
+          <li>Modelo: 230</li>
+          <li>Dimensiones del producto: 410 \u00d7 208 \u00d7</li>
+        </ul>
+      </div>
+    </body></html>
+    """
+    browser = StaticBrowser(html)
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-1700"],
+            browser=browser,
+        )
+
+        expected = "Marca: Bright Office\nModelo: 230"
+        assert plans[0].status == "would_update"
+        assert plans[0].new_description == expected
+        assert "Dimensiones del producto" not in plans[0].new_description
+        assert apply_detail_repairs(db, repository, plans) == 1
+
+        stored = repository.get_by_code("FB-1700")
+        assert stored is not None
+        assert stored.description == expected
+    finally:
+        db.close()
+
+
+def test_targeted_detail_repair_does_not_fetch_urls_from_untrusted_hosts():
+    db, repository = _seed_catalog(
+        source_url="https://example.com/not-the-product-page/"
+    )
+    browser = StaticBrowser(_product_html())
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-1700"],
+            browser=browser,
+        )
+
+        assert plans[0].status == "skip_source_url_not_found"
+        assert browser.requested_urls == []
+        assert apply_detail_repairs(db, repository, plans) == 0
+    finally:
+        db.close()
+
+
+def test_audit_incomplete_details_lists_only_values_rejected_by_shared_policy():
+    db = DBManager(":memory:")
+    repository = ProductRepository(db)
+    repository.save(
+        Product(code="FB-1700", name="Sin detalle", description="")
+    )
+    repository.save(
+        Product(
+            code="FB-6005",
+            name="Texto comercial",
+            description="Descripción comercial: artículo práctico.",
+        )
+    )
+    repository.save(
+        Product(
+            code="FB-6002",
+            name="Detalle completo",
+            description=VALID_DETAIL,
+        )
+    )
+    try:
+        report = audit_incomplete_details(db, repository, limit=10)
+
+        assert report["mode"] == "audit_only"
+        assert report["total_incomplete"] == 0
+        items = report["items"]
+        assert isinstance(items, list)
+        assert items == []
+    finally:
+        db.close()
+
+
+def test_targeted_detail_repair_accepts_visible_summary_prose_and_removes_color():
+    detail = (
+        "Descripción: Cinta térmica para proyectos de sublimación. "
+        "Color: Marrón. Resiste altas temperaturas y mantiene el diseño fijo."
+    )
+    expected = (
+        "Descripción: Cinta térmica para proyectos de sublimación. "
+        "Resiste altas temperaturas y mantiene el diseño fijo."
+    )
+    db, repository = _seed_catalog(description="")
+    browser = StaticBrowser(_product_html(detail=detail))
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-1700"],
+            browser=browser,
+        )
+        assert plans[0].status == "would_update"
+        assert plans[0].new_description == expected
+    finally:
+        db.close()
+
+
+def test_targeted_detail_repair_resolves_sku_without_hyphen():
+    db, repository = _seed_catalog(code="TB-5050", description="")
+    browser = StaticBrowser(_product_html(code="TB-5050"))
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["TB5050"],
+            browser=browser,
+        )
+        assert len(plans) == 1
+        assert plans[0].code == "TB-5050"
+        assert plans[0].status == "would_update"
+        assert browser.requested_urls == [PRODUCT_URL]
+    finally:
+        db.close()
+
+
+def test_authoritative_empty_detail_is_preserved_without_fallback():
+    db, repository = _seed_catalog(code="FB-2114", description="Detalle comercial antiguo")
+    html = """
+    <html><body>
+      <h1>Producto de prueba</h1>
+      <p class="brxe-heading">FB-2114</p>
+      <div id="brxe-jhzpri">
+        <h3>Producto de prueba</h3>
+        <p></p>
+      </div>
+      <div class="text-content">
+        Este texto pertenece a otra sección y no debe sustituir a Detalle.
+      </div>
+    </body></html>
+    """
+    browser = StaticBrowser(html)
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-2114"],
+            browser=browser,
+        )
+
+        assert len(plans) == 1
+        assert plans[0].status == "would_update"
+        assert plans[0].new_description == ""
+        stored = repository.get_by_code("FB-2114")
+        assert stored is not None
+        assert stored.description == "Detalle comercial antiguo"
+
+        assert apply_detail_repairs(db, repository, plans) == 1
+        stored = repository.get_by_code("FB-2114")
+        assert stored is not None
+        assert stored.description == ""
+    finally:
+        db.close()
+
+
+def test_authoritative_marketing_copy_is_valid_detail_content():
+    detail = (
+        "Amplía tus opciones de estilo con nuestro Gorro Sublimable. "
+        "Este versátil gorro te permite personalizarlo con tus diseños, "
+        "imágenes o logotipos favoritos, lo que lo convierte en una excelente "
+        "elección para destacar tu individualidad o promocionar tu marca."
+    )
+    html = f"""
+    <html><body>
+      <h1>Gorro Sublimable</h1>
+      <p class="brxe-heading">HL-3000</p>
+      <div id="brxe-jhzpri"><p>{detail}</p></div>
+    </body></html>
+    """
+    extracted = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+    assert extracted["description"] == detail
+
+
+def test_audit_source_details_checks_catalog_without_modifying_products():
+    db, repository = _seed_catalog(description="")
+    browser = StaticBrowser(_product_html(detail=VALID_DETAIL))
+    try:
+        progress_events = []
+        report = audit_source_details(
+            db,
+            repository,
+            browser=browser,
+            workers=2,
+            progress=lambda completed, total, plan: progress_events.append(
+                (completed, total, plan.code, plan.status)
+            ),
+        )
+
+        assert progress_events == [(1, 1, "FB-1700", "would_update")]
+        assert report["mode"] == "source_audit_only"
+        assert report["catalog_total"] == 1
+        assert report["source_fields_compared"] == 1
+        assert report["candidate_differences"] == 1
+        assert report["status_counts"] == {"would_update": 1}
+        assert browser.requested_urls == [PRODUCT_URL]
+
+        stored = repository.get_by_code("FB-1700")
+        assert stored is not None
+        assert stored.description == ""
+    finally:
+        db.close()
+
+
+def test_json_report_writes_full_records_and_prints_summary(tmp_path, capsys):
+    report = {
+        "mode": "source_audit_only",
+        "catalog_total": 1,
+        "items": [
+            {
+                "code": "FB-1700",
+                "old_description": "",
+                "new_description": "Prueba",
+            },
+        ],
+    }
+    output = tmp_path / "reports" / "detail_audit.json"
+
+    _emit_json_report(report, output)
+
+    saved = json.loads(output.read_text(encoding="utf-8"))
+    console = json.loads(capsys.readouterr().out)
+    assert saved == report
+    assert console["items_saved"] == 1
+    assert console["report_file"] == str(output.resolve())
+    assert "items" not in console

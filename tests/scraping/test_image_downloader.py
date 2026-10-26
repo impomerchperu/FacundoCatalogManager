@@ -5,6 +5,9 @@ import pytest
 
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_hash import ImageHash
+from tests.scraping.image_test_utils import image_bytes
+
+JPEG_BYTES = image_bytes("JPEG", (10, 20, 30))
 
 
 def test_image_downloader_saves_image(
@@ -12,7 +15,7 @@ def test_image_downloader_saves_image(
     monkeypatch,
 ):
     class FakeResponse:
-        content = b"\xff\xd8fake-image-data"
+        content = JPEG_BYTES
         headers: ClassVar[dict[str, str]] = {"Content-Type": "image/jpeg"}
 
         def raise_for_status(self):
@@ -26,8 +29,9 @@ def test_image_downloader_saves_image(
         return FakeResponse()
 
     monkeypatch.setattr(
-        "scrapers.images.image_downloader.requests.get",
-        fake_get,
+        ImageDownloader,
+        "_request",
+        lambda self, url, headers: fake_get(url, self.request_timeout, headers),
     )
 
     downloader = ImageDownloader(
@@ -39,19 +43,50 @@ def test_image_downloader_saves_image(
         "http://image.jpg",
     )
 
-    file = Path(tmp_path) / "P001.jpg"
+    file = Path(tmp_path) / "P001" / "P001-01.jpg"
 
     assert result == file.as_posix()
     assert file.exists()
-    assert file.read_bytes() == b"\xff\xd8fake-image-data"
+    assert file.read_bytes() == JPEG_BYTES
+
+
+def test_image_downloader_stages_image_without_overwriting_canonical_file(
+    tmp_path,
+    monkeypatch,
+):
+    class FakeResponse:
+        content = JPEG_BYTES
+        headers: ClassVar[dict[str, str]] = {"Content-Type": "image/jpeg"}
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(
+        ImageDownloader,
+        "_request",
+        lambda self, url, headers: FakeResponse(),
+    )
+
+    staging = tmp_path / "review"
+    downloader = ImageDownloader(
+        output_dir=tmp_path / "products",
+    )
+
+    result = downloader.download_staged("P004", "http://image.jpg", staging)
+
+    staged_files = list(staging.glob("P004-*.jpg"))
+    assert len(staged_files) == 1
+    assert Path(result).name == staged_files[0].name
+    assert staged_files[0].read_bytes() == JPEG_BYTES
+    assert not (tmp_path / "products" / "P004" / "P004-01.jpg").exists()
 
 
 def test_image_downloader_uses_custom_http_settings(tmp_path, monkeypatch):
     calls = []
 
     class FakeResponse:
-        content = b"fake-image-data"
-        headers: ClassVar[dict[str, str]] = {"Content-Type": "image/png"}
+        content = JPEG_BYTES
+        headers: ClassVar[dict[str, str]] = {"Content-Type": "image/jpeg"}
 
         def raise_for_status(self):
             pass
@@ -61,8 +96,9 @@ def test_image_downloader_uses_custom_http_settings(tmp_path, monkeypatch):
         return FakeResponse()
 
     monkeypatch.setattr(
-        "scrapers.images.image_downloader.requests.get",
-        fake_get,
+        ImageDownloader,
+        "_request",
+        lambda self, url, headers: fake_get(url, self.request_timeout, headers),
     )
 
     downloader = ImageDownloader(
@@ -86,7 +122,7 @@ def test_image_downloader_retries_transient_failures(tmp_path, monkeypatch):
     calls = []
 
     class FakeResponse:
-        content = b"fake-image-data"
+        content = JPEG_BYTES
         headers: ClassVar[dict[str, str]] = {"Content-Type": "image/jpeg"}
 
         def raise_for_status(self):
@@ -99,8 +135,9 @@ def test_image_downloader_retries_transient_failures(tmp_path, monkeypatch):
         return FakeResponse()
 
     monkeypatch.setattr(
-        "scrapers.images.image_downloader.requests.get",
-        fake_get,
+        ImageDownloader,
+        "_request",
+        lambda self, url, headers: fake_get(url, self.request_timeout, headers),
     )
     monkeypatch.setattr(
         "scrapers.images.image_downloader.time.sleep",
@@ -114,7 +151,7 @@ def test_image_downloader_retries_transient_failures(tmp_path, monkeypatch):
 
     result = downloader.download("P003", "http://image.jpg")
 
-    assert result == (Path(tmp_path) / "P003.jpg").as_posix()
+    assert result == (Path(tmp_path) / "P003" / "P003-01.jpg").as_posix()
     assert len(calls) == 3
 
 

@@ -801,6 +801,126 @@ def test_fb4047_valid_live_gallery_does_not_restore_absent_historical_url():
     assert recovered_url not in [candidate["url"] for candidate in candidates]
 
 
+def test_fb4047_recovery_hash_mismatch_preserves_existing_gallery(
+    monkeypatch,
+    tmp_path,
+):
+    import services.scraping.product_gallery_sync_service as module
+    from scrapers.images.image_downloader import ImageDownloader
+
+    monkeypatch.setattr(
+        module,
+        "resolve_data_path",
+        lambda value: (
+            Path(value)
+            if Path(value).is_absolute()
+            else tmp_path / value
+        ),
+    )
+    monkeypatch.setattr(
+        module,
+        "IMAGE_PRODUCTS_DIR",
+        Path("data/images/products"),
+    )
+
+    code = "FB-4047"
+    primary_url = "https://site.test/uploads/FB-4047-main.webp"
+    second_url = "https://site.test/uploads/FB-4047-second.webp"
+    recovered_url = (
+        "https://stock.importacionesfacundo.com/wp-content/uploads/2025/08/"
+        "MEZCLADOR-CAMION-copia.webp"
+    )
+    detail_url = "https://stock.importacionesfacundo.com/producto/foco-antiestres/"
+    product_dir = tmp_path / "data/images/products" / code
+    product_dir.mkdir(parents=True)
+    primary_path = product_dir / f"{code}-01.webp"
+    second_path = product_dir / f"{code}-02.webp"
+    primary_path.write_bytes(image_bytes("WEBP", (20, 30, 40)))
+    second_path.write_bytes(image_bytes("WEBP", (50, 60, 70)))
+    primary_hash = ImageDownloader.hash_file(primary_path)
+    second_hash = ImageDownloader.hash_file(second_path)
+
+    existing = Product(
+        code=code,
+        name="Foco Antiestrés",
+        image_url=primary_url,
+        image_path=f"data/images/products/{code}/{code}-01.webp",
+        image_hash=primary_hash,
+        gallery_images=[
+            {
+                "url": primary_url,
+                "image_path": f"data/images/products/{code}/{code}-01.webp",
+                "image_hash": primary_hash,
+                "position": 1,
+                "source": "primary",
+            },
+            {
+                "url": second_url,
+                "image_path": f"data/images/products/{code}/{code}-02.webp",
+                "image_hash": second_hash,
+                "position": 2,
+                "source": "woocommerce-gallery",
+            },
+        ],
+    )
+
+    class GatedBrowser:
+        def get_uncached(self, url):
+            assert url == detail_url
+            return (
+                "<html><h1>Acceso Exclusivo para Distribuidores</h1>"
+                "<span class='sku'>FB-4047</span></html>"
+            )
+
+    class GatedExtractor:
+        def extract(self, soup, *, url, category):
+            assert "Acceso Exclusivo para Distribuidores" in soup.get_text()
+            return type(
+                "ExtractedPage",
+                (),
+                {
+                    "code": code,
+                    "name": "Acceso Exclusivo para Distribuidores",
+                    "image_candidates": [],
+                },
+            )()
+
+    product = ScrapedProduct(
+        code=code,
+        name="Foco Antiestrés",
+        url=detail_url,
+        image_url=primary_url,
+        image_path=f"data/images/products/{code}/{code}-01.webp",
+        image_hash=primary_hash,
+    )
+    product.image_candidates = [
+        _candidate(primary_url, 1),
+        _candidate(second_url, 2),
+    ]
+    product.image_candidates_source = "detail"
+    downloader = FakeDownloader(tmp_path)
+    service = ProductGallerySyncService(
+        browser=GatedBrowser(),
+        product_extractor=GatedExtractor(),
+        image_downloader=downloader,
+        refresh_existing=True,
+    )
+
+    synced = service._sync_product(product, existing)
+
+    assert downloader.downloads == [recovered_url]
+    assert synced.image_url == primary_url
+    assert synced.image_path == existing.image_path
+    assert synced.image_hash == primary_hash
+    assert [image["url"] for image in synced.gallery_images] == [
+        primary_url,
+        second_url,
+    ]
+    assert primary_path.is_file()
+    assert second_path.is_file()
+    assert not (product_dir / f"{code}-03.webp").exists()
+
+
 def test_fb4047_recovers_verified_gallery_when_live_page_returns_access_gate():
     from types import SimpleNamespace
 

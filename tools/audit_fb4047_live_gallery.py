@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from textwrap import wrap
 
@@ -15,6 +14,10 @@ from scrapers.images.image_downloader import ImageDownloader
 
 PRODUCT_CODE = "FB-4047"
 PRODUCT_URL = "https://stock.importacionesfacundo.com/producto/foco-antiestres/"
+SUSPECT_IMAGE_URL = (
+    "https://stock.importacionesfacundo.com/wp-content/uploads/2025/08/"
+    "MEZCLADOR-CAMION-copia.webp"
+)
 
 
 def _candidate_urls(candidates: list[dict]) -> list[dict[str, object]]:
@@ -142,21 +145,43 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:
                 f"La página solicitada devolvió el código {extracted_code!r}, "
                 f"no {PRODUCT_CODE!r}."
             )
-        if "foco" not in extracted_name.casefold():
-            raise RuntimeError(
-                f"El nombre extraído no parece corresponder al foco: {extracted_name!r}."
+
+        page_identity_valid = "foco" in extracted_name.casefold()
+        report["page_identity_valid"] = page_identity_valid
+        if page_identity_valid:
+            candidates = _candidate_urls(
+                list(getattr(extracted, "image_candidates", []) or [])
+            )
+            if not candidates:
+                errors.append(
+                    {
+                        "stage": "gallery_extraction",
+                        "error": (
+                            "La ficha fue identificada por código y nombre, pero "
+                            "ProductExtractor no encontró imágenes no genéricas "
+                            "dentro del contenedor oficial de galería."
+                        ),
+                    }
+                )
+        else:
+            # A gateway/login template can contain the requested SKU in metadata
+            # while exposing no authentic product name or gallery. Do not treat
+            # any images from that response as authoritative product candidates.
+            candidates = []
+            report["page_fetch"] = "unexpected_template"
+            errors.append(
+                {
+                    "stage": "page_identity",
+                    "error": (
+                        "La respuesta contiene el código esperado, pero el nombre "
+                        f"extraído es {extracted_name!r}; no se considera una "
+                        "ficha de producto válida."
+                    ),
+                }
             )
 
-        candidates = _candidate_urls(
-            list(getattr(extracted, "image_candidates", []) or [])
-        )
         report["gallery_candidate_count"] = len(candidates)
         report["gallery_candidates"] = candidates
-        if not candidates:
-            raise RuntimeError(
-                "ProductExtractor no encontró imágenes no genéricas dentro "
-                "del contenedor oficial de galería."
-            )
 
         downloader = ImageDownloader(
             output_dir=images_dir,
@@ -216,8 +241,69 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:
             {key: value for key, value in item.items() if key != "local_path"}
             for item in image_records
         ]
+        contact_sheet_records = list(image_records)
+        diagnostic_record: dict[str, object] | None = None
+        if not page_identity_valid or not candidates:
+            # This download is only to inspect the bytes of the previously
+            # flagged URL. It is explicitly not evidence that the current page
+            # includes it in the product gallery.
+            diagnostic_dir = images_dir / "diagnostic-only"
+            diagnostic_record = {
+                "position": "diagnostic-only",
+                "url": SUSPECT_IMAGE_URL,
+                "source": "historical-suspect-url; not verified as a current gallery member",
+                "status": "download_failed",
+                "evidence_type": "diagnostic_only_not_gallery_membership",
+            }
+            try:
+                stored_path = downloader.download_gallery(
+                    PRODUCT_CODE,
+                    SUSPECT_IMAGE_URL,
+                    1,
+                    diagnostic_dir,
+                )
+                local_path = Path(stored_path)
+                if not local_path.is_absolute():
+                    local_path = Path.cwd() / local_path
+                verified = downloader.verify_image_file(local_path)
+                with Image.open(local_path) as source:
+                    source.verify()
+                with Image.open(local_path) as source:
+                    width, height = source.size
+                diagnostic_record.update(
+                    {
+                        "status": "downloaded",
+                        "filename": (
+                            "DIAGNOSTIC ONLY — NOT PROVEN TO BE A GALLERY IMAGE"
+                        ),
+                        "actual_filename": local_path.name,
+                        "local_path": str(local_path),
+                        "format": verified["image_extension"].lstrip(".").upper(),
+                        "width": width,
+                        "height": height,
+                        "sha256": verified["image_hash"],
+                        "size_bytes": local_path.stat().st_size,
+                        "extension_matches_content": True,
+                    }
+                )
+                contact_sheet_records.append(diagnostic_record)
+            except Exception as error:  # noqa: BLE001
+                diagnostic_record["error"] = f"{type(error).__name__}: {error}"
+                errors.append(
+                    {
+                        "stage": "diagnostic_asset_download",
+                        "url": SUSPECT_IMAGE_URL,
+                        "error": diagnostic_record["error"],
+                    }
+                )
+            report["diagnostic_asset_result"] = {
+                key: value
+                for key, value in diagnostic_record.items()
+                if key != "local_path"
+            }
+
         sheet_path = output_dir / "FB-4047_live_gallery_contact_sheet.png"
-        if _write_contact_sheet(image_records, sheet_path):
+        if _write_contact_sheet(contact_sheet_records, sheet_path):
             report["contact_sheet"] = sheet_path.name
         downloaded_count = sum(
             item.get("status") == "downloaded" for item in image_records
@@ -230,11 +316,15 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:
                     "stage": "completeness",
                     "error": (
                         f"Solo se descargaron y verificaron {downloaded_count} "
-                        f"de {len(candidates)} imágenes candidatas."
+                        f"de {len(candidates)} imágenes candidatas de la ficha."
                     ),
                 }
             )
-        exit_code = 0 if downloaded_count == len(candidates) else 1
+        exit_code = (
+            0
+            if page_identity_valid and candidates and downloaded_count == len(candidates)
+            else 1
+        )
     except Exception as error:  # noqa: BLE001
         report["page_fetch"] = (
             "failed" if report["page_fetch"] == "not_started" else report["page_fetch"]

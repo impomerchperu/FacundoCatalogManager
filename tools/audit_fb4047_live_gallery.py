@@ -113,7 +113,6 @@ def _candidate_urls(candidates: list[dict]) -> list[dict[str, object]]:
     return selected
 
 
-
 def _verified_recovery_record(
     product_code: str,
     record: dict[str, object] | None,
@@ -233,7 +232,9 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
         "errors": [],
     }
     errors = report["errors"]
+    warnings = report["warnings"]
     assert isinstance(errors, list)
+    assert isinstance(warnings, list)
     browser = Browser(request_timeout=30, max_retries=2, http_workers=2)
     collector: ProductCollectionScraper | None = None
 

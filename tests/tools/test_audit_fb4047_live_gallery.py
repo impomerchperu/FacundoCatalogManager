@@ -130,10 +130,11 @@ def test_category_route_failure_falls_back_without_marking_page_valid(monkeypatc
 
 def test_fb4047_pinned_recovery_requires_exact_known_bytes():
     url = audit_module.SUSPECT_IMAGE_URL
-    expected = (
-        audit_module.ProductGallerySyncService
-        .VERIFIED_GALLERY_RECOVERY_SHA256_BY_URL[url.casefold()]
+    expected = audit_module.ProductGallerySyncService._verified_gallery_recovery_hash(
+        "FB-4047",
+        url,
     )
+    assert expected
     valid_record = {
         "url": url,
         "status": "downloaded",
@@ -159,10 +160,11 @@ def test_fb4047_pinned_recovery_requires_exact_known_bytes():
 
 def test_fb4047_gated_detail_can_pass_only_as_verified_recovery():
     url = audit_module.SUSPECT_IMAGE_URL
-    expected = (
-        audit_module.ProductGallerySyncService
-        .VERIFIED_GALLERY_RECOVERY_SHA256_BY_URL[url.casefold()]
+    expected = audit_module.ProductGallerySyncService._verified_gallery_recovery_hash(
+        "FB-4047",
+        url,
     )
+    assert expected
     record = {
         "url": url,
         "status": "downloaded",

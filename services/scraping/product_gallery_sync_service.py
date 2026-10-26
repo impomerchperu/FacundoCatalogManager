@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import suppress
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from bs4 import BeautifulSoup
 
@@ -26,7 +26,7 @@ class ProductGallerySyncService:
     # image (SHA-256 176a9b93...); the earlier product-page HTML also listed it.
     # Keep the narrow recovery explicit until the gallery is fully reconciled.
     FORCE_LIVE_GALLERY_REVALIDATION_CODES = frozenset({"FB-4047"})
-    VERIFIED_GALLERY_RECOVERY_URLS = {
+    VERIFIED_GALLERY_RECOVERY_URLS: ClassVar[dict[str, tuple[str, ...]]] = {
         "FB-4047": (
             "https://stock.importacionesfacundo.com/wp-content/uploads/2025/08/"
             "MEZCLADOR-CAMION-copia.webp",
@@ -601,7 +601,7 @@ class ProductGallerySyncService:
             )
         return candidates
 
-    def _candidate_source(self, product, existing):
+    def _candidate_source(self, product, existing):  # noqa: PLR0912
         candidates = list(getattr(product, "image_candidates", []) or [])
         existing_gallery = [
             dict(image)

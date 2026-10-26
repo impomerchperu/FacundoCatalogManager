@@ -411,7 +411,12 @@ class PersistentSourcePageCache:
         if not html_value.strip():
             if entry is not None:
                 self._increment("empty_response_fallbacks")
-                return entry.html
+                if allow_stale_fallback:
+                    return entry.html
+                raise RuntimeError(
+                    "La validación obligatoria de la página devolvió HTML vacío: "
+                    f"{url}"
+                )
             return html_value
         if self.defer_writes:
             self._queue_entry(self.repository.make_entry(url, html_value, response))

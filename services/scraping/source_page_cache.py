@@ -346,6 +346,7 @@ class PersistentSourcePageCache:
         fetcher: Callable[[Mapping[str, str]], Any],
         *,
         force: bool = False,
+        allow_stale_fallback: bool = True,
     ) -> str:
         normalized_url = normalize_source_url(url)
         entry = self._get_entry(normalized_url)
@@ -358,11 +359,17 @@ class PersistentSourcePageCache:
             response = fetcher(request_headers)
         except requests.exceptions.RequestException:
             self._increment("request_errors")
-            if entry is not None:
+            if entry is not None and allow_stale_fallback:
                 self._increment("stale_fallbacks")
                 return entry.html
             raise
-        return self._process_response(url, normalized_url, entry, response)
+        return self._process_response(
+            url,
+            normalized_url,
+            entry,
+            response,
+            allow_stale_fallback=allow_stale_fallback,
+        )
 
     def _process_response(
         self,
@@ -370,6 +377,8 @@ class PersistentSourcePageCache:
         normalized_url: str,
         entry: CachedSourcePage | None,
         response: Any,
+        *,
+        allow_stale_fallback: bool = True,
     ) -> str:
         status_code = int(getattr(response, "status_code", 200) or 200)
         response_headers = getattr(response, "headers", {}) or {}
@@ -390,7 +399,12 @@ class PersistentSourcePageCache:
             self._increment("not_modified_304")
             return entry.html
         if status_code >= 400:
-            return self._handle_http_error(url, entry, response)
+            return self._handle_http_error(
+                url,
+                entry,
+                response,
+                allow_stale_fallback=allow_stale_fallback,
+            )
         html_value = getattr(response, "text", "")
         if not isinstance(html_value, str):
             html_value = str(html_value or "")
@@ -411,6 +425,8 @@ class PersistentSourcePageCache:
         url: str,
         entry: CachedSourcePage | None,
         response: Any,
+        *,
+        allow_stale_fallback: bool = True,
     ) -> str:
         raise_for_status = getattr(response, "raise_for_status", None)
         if callable(raise_for_status):
@@ -418,11 +434,11 @@ class PersistentSourcePageCache:
                 raise_for_status()
             except requests.exceptions.RequestException:
                 self._increment("request_errors")
-                if entry is not None:
+                if entry is not None and allow_stale_fallback:
                     self._increment("stale_fallbacks")
                     return entry.html
                 raise
-        if entry is not None:
+        if entry is not None and allow_stale_fallback:
             self._increment("stale_fallbacks")
             return entry.html
         raise requests.exceptions.HTTPError(f"HTTP error al consultar {url}")

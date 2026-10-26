@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import requests
 
 from services.scraping.source_page_cache import (
@@ -189,3 +190,30 @@ def test_deferred_cache_writes_do_not_conflict_with_catalog_transaction(tmp_path
         if catalog_connection.in_transaction:
             catalog_connection.rollback()
         catalog_connection.close()
+
+def test_forced_revalidation_does_not_use_stale_html_after_request_failure(tmp_path):
+    repository = PersistentSourcePageRepository(tmp_path / "catalog.db")
+    cache = PersistentSourcePageCache(repository, ttl_seconds=3600)
+    url = "https://example.test/producto/foco-antiestres/"
+    expected_html = "<html>copia anterior</html>"
+    cache.get_html(
+        url,
+        lambda headers: FakeResponse(expected_html, url=url),
+    )
+
+    def failed_fetch(headers):
+        raise requests.exceptions.Timeout("no se pudo validar la página actual")
+
+    with pytest.raises(requests.exceptions.Timeout):
+        cache.get_html(
+            url,
+            failed_fetch,
+            force=True,
+            allow_stale_fallback=False,
+        )
+
+    assert cache.get_metrics()["stale_fallbacks"] == 0
+    saved = repository.get(url)
+    assert saved is not None
+    assert saved.html == expected_html
+

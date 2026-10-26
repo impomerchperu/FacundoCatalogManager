@@ -126,3 +126,76 @@ def test_category_route_failure_falls_back_without_marking_page_valid(monkeypatc
     ]
     assert collector is not None
     assert collector.closed is False
+
+
+def test_fb4047_pinned_recovery_requires_exact_known_bytes():
+    url = audit_module.SUSPECT_IMAGE_URL
+    expected = (
+        audit_module.ProductGallerySyncService
+        .VERIFIED_GALLERY_RECOVERY_SHA256_BY_URL[url.casefold()]
+    )
+    valid_record = {
+        "url": url,
+        "status": "downloaded",
+        "sha256": expected,
+        "extension_matches_content": True,
+    }
+
+    assert audit_module._verified_recovery_record("FB-4047", valid_record)
+    assert not audit_module._verified_recovery_record(
+        "FB-4047",
+        {**valid_record, "sha256": "0" * 64},
+    )
+    assert not audit_module._verified_recovery_record(
+        "FB-4047",
+        {**valid_record, "url": "https://example.test/untrusted.webp"},
+    )
+    assert not audit_module._verified_recovery_record("FB-4048", valid_record)
+    assert not audit_module._verified_recovery_record(
+        "FB-4047",
+        {**valid_record, "extension_matches_content": False},
+    )
+
+
+def test_fb4047_gated_detail_can_pass_only_as_verified_recovery():
+    url = audit_module.SUSPECT_IMAGE_URL
+    expected = (
+        audit_module.ProductGallerySyncService
+        .VERIFIED_GALLERY_RECOVERY_SHA256_BY_URL[url.casefold()]
+    )
+    record = {
+        "url": url,
+        "status": "downloaded",
+        "sha256": expected,
+        "extension_matches_content": True,
+    }
+
+    assert audit_module._verified_recovery_fallback(
+        product_code="FB-4047",
+        extracted_code="FB-4047",
+        page_identity_valid=False,
+        category_target_found=True,
+        diagnostic_record=record,
+    )
+    assert not audit_module._verified_recovery_fallback(
+        product_code="FB-4047",
+        extracted_code="FB-4047",
+        page_identity_valid=False,
+        category_target_found=False,
+        diagnostic_record=record,
+    )
+    assert not audit_module._verified_recovery_fallback(
+        product_code="FB-4047",
+        extracted_code="FB-4048",
+        page_identity_valid=False,
+        category_target_found=True,
+        diagnostic_record=record,
+    )
+    assert not audit_module._verified_recovery_fallback(
+        product_code="FB-4047",
+        extracted_code="FB-4047",
+        page_identity_valid=True,
+        category_target_found=True,
+        diagnostic_record=record,
+    )
+

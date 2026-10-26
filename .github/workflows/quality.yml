@@ -63,7 +63,7 @@ jobs:
 
   live-fb4047-gallery:
     if: github.event_name == 'pull_request' && github.head_ref == 'feat/product-table-layout'
-    name: Scrape current FB-4047 gallery
+    name: Audit FB-4047 live gallery or pinned recovery
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -78,10 +78,10 @@ jobs:
       - name: Install scraping dependencies
         run: python -m pip install requests beautifulsoup4 lxml pillow
 
-      - name: Fetch product page and verify image files
+      - name: Fetch live gallery or verify pinned FB-4047 recovery
         run: python -m tools.audit_fb4047_live_gallery --output-dir audit-output
 
-      - name: Publish audit report and contact sheet
+      - name: Publish audit report and contact sheet (including degraded status)
         if: always()
         uses: actions/upload-artifact@v4
         with:

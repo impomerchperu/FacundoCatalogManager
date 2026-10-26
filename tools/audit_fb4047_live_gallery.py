@@ -15,6 +15,7 @@ from scrapers.extractors.category_product_extractor import CategoryProductExtrac
 from scrapers.extractors.product_card_extractor import ProductCardExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
 from scrapers.images.image_downloader import ImageDownloader
+from services.scraping.product_gallery_sync_service import ProductGallerySyncService
 
 PRODUCT_CODE = "FB-4047"
 PRODUCT_URL = "https://stock.importacionesfacundo.com/producto/foco-antiestres/"
@@ -112,6 +113,45 @@ def _candidate_urls(candidates: list[dict]) -> list[dict[str, object]]:
     return selected
 
 
+
+def _verified_recovery_record(
+    product_code: str,
+    record: dict[str, object] | None,
+) -> bool:
+    """Accept only the exact bytes pinned by the image-gallery recovery policy."""
+    if not isinstance(record, dict):
+        return False
+    url = str(record.get("url") or "").strip()
+    expected_hash = ProductGallerySyncService._verified_gallery_recovery_hash(
+        product_code,
+        url,
+    )
+    actual_hash = str(record.get("sha256") or "").strip().casefold()
+    return bool(
+        expected_hash
+        and record.get("status") == "downloaded"
+        and record.get("extension_matches_content") is True
+        and actual_hash == expected_hash.casefold()
+    )
+
+
+def _verified_recovery_fallback(
+    *,
+    product_code: str,
+    extracted_code: str,
+    page_identity_valid: bool,
+    category_target_found: bool,
+    diagnostic_record: dict[str, object] | None,
+) -> bool:
+    """Recognize a safe recovery outcome without claiming live gallery membership."""
+    return bool(
+        not page_identity_valid
+        and category_target_found
+        and str(extracted_code or "").strip().upper() == product_code.upper()
+        and _verified_recovery_record(product_code, diagnostic_record)
+    )
+
+
 def _wrap_url(url: str, width: int = 68) -> list[str]:
     return wrap(url, width=width, break_long_words=True, break_on_hyphens=False)
 
@@ -181,6 +221,10 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
         "page_fetch": "not_started",
         "product_code_extracted": "",
         "product_name_extracted": "",
+        "audit_status": "not_started",
+        "current_gallery_verified": False,
+        "recovery_asset_verified": False,
+        "recovery_status": "not_checked",
         "gallery_candidate_count": 0,
         "gallery_candidates": [],
         "image_results": [],
@@ -392,11 +436,79 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
                     ),
                 }
             )
-        exit_code = (
-            0
-            if page_identity_valid and candidates and downloaded_count == len(candidates)
-            else 1
+
+        diagnostic_value = report.get("diagnostic_asset_result")
+        diagnostic_record = (
+            diagnostic_value if isinstance(diagnostic_value, dict) else None
         )
+        recovery_verified = _verified_recovery_record(
+            PRODUCT_CODE,
+            diagnostic_record,
+        )
+        current_gallery_verified = bool(
+            page_identity_valid
+            and candidates
+            and downloaded_count == len(candidates)
+            and not errors
+        )
+        recovery_fallback_verified = _verified_recovery_fallback(
+            product_code=PRODUCT_CODE,
+            extracted_code=extracted_code,
+            page_identity_valid=page_identity_valid,
+            category_target_found=bool(report.get("category_target_found")),
+            diagnostic_record=diagnostic_record,
+        )
+        report["current_gallery_verified"] = current_gallery_verified
+        report["recovery_asset_verified"] = recovery_verified
+
+        if current_gallery_verified:
+            report["audit_status"] = "live_gallery_verified"
+            report["recovery_status"] = "not_needed"
+            exit_code = 0
+        elif recovery_fallback_verified:
+            # The live detail endpoint is returning an access template. Do not
+            # claim that this proves current gallery membership. It is safe to
+            # pass the recovery gate only because the category resolved FB-4047
+            # and the separately downloaded asset matches the pinned SHA-256.
+            page_identity_errors = [
+                item for item in errors
+                if isinstance(item, dict)
+                and item.get("stage") == "page_identity"
+            ]
+            errors[:] = [
+                item for item in errors
+                if not (
+                    isinstance(item, dict)
+                    and item.get("stage") == "page_identity"
+                )
+            ]
+            warnings.append(
+                {
+                    "stage": "live_page_unavailable",
+                    "error": (
+                        "El detalle live devolvió una plantilla de acceso; "
+                        "la galería actual no se certifica. La recuperación "
+                        "histórica de FB-4047 sí quedó verificada por SHA-256."
+                    ),
+                    "current_gallery_verified": False,
+                    "recovery_asset_verified": True,
+                }
+            )
+            if page_identity_errors:
+                report["page_identity_diagnostic"] = page_identity_errors[0]
+            report["audit_status"] = "recovery_verified_live_page_unavailable"
+            report["recovery_status"] = "verified_pinned_asset"
+            # Any error other than the recognized access template is still fatal.
+            exit_code = 0 if not errors else 1
+            if errors:
+                report["audit_status"] = "failed"
+                report["recovery_status"] = "verified_asset_but_other_errors"
+        else:
+            report["audit_status"] = "failed"
+            report["recovery_status"] = (
+                "unverified" if diagnostic_record is not None else "not_checked"
+            )
+            exit_code = 1
     except Exception as error:  # noqa: BLE001
         report["page_fetch"] = (
             "failed" if report["page_fetch"] == "not_started" else report["page_fetch"]
@@ -426,6 +538,10 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
                 "report": report_path.name,
                 "product_code_extracted": report["product_code_extracted"],
                 "product_name_extracted": report["product_name_extracted"],
+                "audit_status": report["audit_status"],
+                "current_gallery_verified": report["current_gallery_verified"],
+                "recovery_asset_verified": report["recovery_asset_verified"],
+                "recovery_status": report["recovery_status"],
                 "gallery_candidate_count": report["gallery_candidate_count"],
                 "downloaded_and_verified_count": report.get(
                     "downloaded_and_verified_count", 0

@@ -98,7 +98,7 @@ def _write_contact_sheet(
     return True
 
 
-def audit(output_dir: Path) -> tuple[dict[str, object], int]:
+def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
     output_dir.mkdir(parents=True, exist_ok=True)
     images_dir = output_dir / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
@@ -127,7 +127,7 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:
         html = browser.get(PRODUCT_URL, force_revalidate=True)
         report["page_fetch"] = "success"
         if not html or not str(html).strip():
-            raise RuntimeError("La página del producto devolvió HTML vacío.")
+            raise RuntimeError("La página del producto devolvió HTML vacío.")  # noqa: TRY301
 
         soup = BeautifulSoup(html, "lxml")
         extracted = ProductExtractor().extract(
@@ -141,7 +141,7 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:
         report["product_name_extracted"] = extracted_name
 
         if extracted_code != PRODUCT_CODE:
-            raise RuntimeError(
+            raise RuntimeError(  # noqa: TRY301
                 f"La página solicitada devolvió el código {extracted_code!r}, "
                 f"no {PRODUCT_CODE!r}."
             )

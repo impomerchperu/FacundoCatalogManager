@@ -79,7 +79,7 @@ jobs:
         run: python -m pip install requests beautifulsoup4 lxml pillow
 
       - name: Fetch product page and verify image files
-        run: python tools/audit_fb4047_live_gallery.py --output-dir audit-output
+        run: python -m tools.audit_fb4047_live_gallery --output-dir audit-output
 
       - name: Publish audit report and contact sheet
         if: always()

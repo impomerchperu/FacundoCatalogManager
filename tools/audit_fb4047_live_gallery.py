@@ -112,6 +112,67 @@ def _candidate_urls(candidates: list[dict]) -> list[dict[str, object]]:
     return selected
 
 
+
+def _identity_product_name(soup, extractor_name: str) -> tuple[str, str]:
+    """Prefer a product title over an unrelated distributor-modal heading."""
+    selectors = (
+        ".single-product .product_title",
+        ".product .product_title",
+        ".product_title",
+        ".single-product .summary h1",
+        ".product .summary h1",
+        ".summary h1",
+        ".single-product .summary h2.brxe-heading",
+        ".product .summary h2.brxe-heading",
+        ".summary h2.brxe-heading",
+        ".single-product .summary h3.brxe-heading",
+        ".product .summary h3.brxe-heading",
+        ".summary h3.brxe-heading",
+        ".single-product .product h1",
+        ".single-product .product h2.brxe-heading",
+        ".single-product .product h3.brxe-heading",
+        ".product h1",
+        ".product h2.brxe-heading",
+        ".product h3.brxe-heading",
+        "main h1",
+        "h1",
+        "h2.brxe-heading",
+        "h3.brxe-heading",
+    )
+    observed: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for selector in selectors:
+        for element in soup.select(selector):
+            name = element.get_text(" ", strip=True)
+            item = (name, selector)
+            if name and item not in seen:
+                observed.append(item)
+                seen.add(item)
+
+    # SEO metadata may retain the product title even when a modal is the first heading.
+    for selector, attribute in (
+        ('meta[property="og:title"]', "content"),
+        ('meta[name="twitter:title"]', "content"),
+    ):
+        element = soup.select_one(selector)
+        value = str(element.get(attribute, "") or "").strip() if element else ""
+        item = (value, selector)
+        if value and item not in seen:
+            observed.append(item)
+            seen.add(item)
+
+    # This audit targets FB-4047, so prefer the title that identifies its product.
+    matching = next(
+        (item for item in observed if "foco" in item[0].casefold()),
+        None,
+    )
+    if matching is not None:
+        return matching
+    if observed:
+        return observed[0]
+    return str(extractor_name or "").strip(), "ProductExtractor fallback"
+
+
 def _wrap_url(url: str, width: int = 68) -> list[str]:
     return wrap(url, width=width, break_long_words=True, break_on_hyphens=False)
 
@@ -181,6 +242,8 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
         "page_fetch": "not_started",
         "product_code_extracted": "",
         "product_name_extracted": "",
+        "product_name_extractor_value": "",
+        "product_name_identity_source": "",
         "gallery_candidate_count": 0,
         "gallery_candidates": [],
         "image_results": [],
@@ -209,8 +272,14 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
         )
         extracted_code = str(getattr(extracted, "code", "") or "").strip().upper()
         extracted_name = str(getattr(extracted, "name", "") or "").strip()
+        identity_name, identity_name_source = _identity_product_name(
+            soup,
+            extracted_name,
+        )
         report["product_code_extracted"] = extracted_code
-        report["product_name_extracted"] = extracted_name
+        report["product_name_extracted"] = identity_name
+        report["product_name_extractor_value"] = extracted_name
+        report["product_name_identity_source"] = identity_name_source
 
         if extracted_code != PRODUCT_CODE:
             raise RuntimeError(  # noqa: TRY301
@@ -218,7 +287,7 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
                 f"no {PRODUCT_CODE!r}."
             )
 
-        page_identity_valid = "foco" in extracted_name.casefold()
+        page_identity_valid = "foco" in identity_name.casefold()
         report["page_identity_valid"] = page_identity_valid
         if page_identity_valid:
             candidates = _candidate_urls(
@@ -245,9 +314,9 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
                 {
                     "stage": "page_identity",
                     "error": (
-                        "La respuesta contiene el código esperado, pero el nombre "
-                        f"extraído es {extracted_name!r}; no se considera una "
-                        "ficha de producto válida."
+                        "La respuesta contiene el código esperado, pero el título "
+                        f"identificado es {identity_name!r} (fuente: "
+                        f"{identity_name_source}); no se considera una ficha válida."
                     ),
                 }
             )
@@ -426,6 +495,8 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
                 "report": report_path.name,
                 "product_code_extracted": report["product_code_extracted"],
                 "product_name_extracted": report["product_name_extracted"],
+                "product_name_extractor_value": report["product_name_extractor_value"],
+                "product_name_identity_source": report["product_name_identity_source"],
                 "gallery_candidate_count": report["gallery_candidate_count"],
                 "downloaded_and_verified_count": report.get(
                     "downloaded_and_verified_count", 0

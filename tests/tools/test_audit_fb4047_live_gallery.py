@@ -126,3 +126,58 @@ def test_category_route_failure_falls_back_without_marking_page_valid(monkeypatc
     ]
     assert collector is not None
     assert collector.closed is False
+
+
+def test_identity_name_prefers_product_title_over_distributor_modal():
+    soup = BeautifulSoup(
+        """
+        <html>
+          <body class="single-product">
+            <div class="distributor-modal">
+              <h2 class="brxe-heading">Acceso Exclusivo para Distribuidores</h2>
+            </div>
+            <main class="product">
+              <div class="summary">
+                <h1 class="product_title">Foco Antiestrés</h1>
+              </div>
+              <div class="woocommerce-product-gallery">
+                <img src="https://stock.importacionesfacundo.com/foco.webp">
+              </div>
+            </main>
+          </body>
+        </html>
+        """,
+        "lxml",
+    )
+
+    name, source = audit_module._identity_product_name(
+        soup,
+        "Acceso Exclusivo para Distribuidores",
+    )
+
+    assert name == "Foco Antiestrés"
+    assert "product_title" in source
+
+
+def test_identity_name_does_not_mistake_distributor_modal_for_product():
+    soup = BeautifulSoup(
+        """
+        <html>
+          <body>
+            <div class="distributor-modal">
+              <h2 class="brxe-heading">Acceso Exclusivo para Distribuidores</h2>
+            </div>
+          </body>
+        </html>
+        """,
+        "lxml",
+    )
+
+    name, source = audit_module._identity_product_name(
+        soup,
+        "Acceso Exclusivo para Distribuidores",
+    )
+
+    assert name == "Acceso Exclusivo para Distribuidores"
+    assert "foco" not in name.casefold()
+

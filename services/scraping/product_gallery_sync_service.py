@@ -700,18 +700,17 @@ class ProductGallerySyncService:
                         existing_gallery,
                     )
 
-                recovery_urls = {
-                    url.casefold()
-                    for url in self.VERIFIED_GALLERY_RECOVERY_URLS.get(
-                        product_code,
-                        (),
-                    )
-                }
+                recovery_urls = self.VERIFIED_GALLERY_RECOVERY_URLS.get(
+                    product_code,
+                    (),
+                )
                 known_urls = {
                     str(candidate.get("url", "") or "").strip().casefold()
                     for candidate in page_gallery
                 }
-                for recovery_url in recovery_urls - known_urls:
+                for recovery_url in recovery_urls:
+                    if recovery_url.casefold() in known_urls:
+                        continue
                     page_gallery.append(
                         {
                             "url": recovery_url,

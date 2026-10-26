@@ -1,9 +1,24 @@
 # FCM — Checklist maestro de auditoría, limpieza y consolidación
 
-**Fecha de corte:** 2026-10-25
-**Rama predeterminada:** `main`
-**Rama de integración de trabajo:** `feat/product-table-layout`
-**Propósito:** recuperar una ruta clara hacia `main`, resolver PR apiladas y limpiar el repositorio sin perder funciones, historial, datos ni capacidad de recuperación.
+**Fecha de actualización:** 2026-10-26
+**Rama predeterminada y canónica:** `main`
+**Integración consolidada:** PR #30, squash merge `085d6a50a7730e0546775d75ff2d105997edb619`
+**Rama de integración temporal:** `feat/product-table-layout` (el árbol es idéntico a `main`; queda pendiente eliminar la referencia tras sincronizar la copia local).
+**Propósito:** conservar una sola ruta estable en `main`, retirar ramas ya sustituidas sin perder historial útil ni capacidad de recuperación.
+
+## Estado posterior a la promoción — 2026-10-26
+
+- [x] PR #30 fue fusionada mediante squash en `main`: `085d6a50a7730e0546775d75ff2d105997edb619`.
+- [x] El árbol del commit de `main` coincide exactamente con el árbol de la candidata validada `feat/product-table-layout` (`409604fb50f4b522ed56316d843ed31749f18be2)); no se perdió código funcional en el squash.
+- [x] Quality CI #3885 en el HEAD de `main`: Ruff y Pyright correctos; Pytest `1032 passed, 11 deselected`.
+- [x] El auditor live de FB-4047 reconoce la recuperación segura: categoría resuelta por código, recurso histórico descargado y SHA-256 exacto. `recovery_asset_verified=true`, `current_gallery_verified=false`; la galería actual no se presenta como verificada cuando el endpoint entrega la plantilla de acceso. La prueba live no escribió en SQLite.
+- [x] PR #20, #23, #24, #28 y #29 permanecen cerradas como sustituidas; no hay que reabrirlas ni fusionarlas por separado. #25–#27 se integraron antes en la candidata y ya están incluidas en el árbol de `main`.
+- [ ] Retirar las ramas de trabajo redundantes una vez sincronizada y validada la copia Windows. Conservar `archive/recovery-catalog-202609` mientras siga pendiente la auditoría de recuperación histórica.
+- [ ] Ejecutar en Windows el smoke test de GUI/exportadores y una actualización focalizada de galería de FB-4047; auditar las referencias persistidas y el hash después de la sincronización. No se ha ejecutado una sincronización FULL ni se ha modificado la base de datos local.
+
+> Este estado posterior a la promoción es la referencia actual. Las secciones del checklist fechadas el 25/10 son el plan previo a la fusión y se conservan como historial de decisiones; no deben interpretarse como indicación de que la PR #30 siga abierta.
+
+
 
 ## 1. Diagnóstico confirmado
 
@@ -17,7 +32,7 @@
 - [x] `database/db_manager.py` administra migraciones versionadas hasta la versión 6 y registra el historial en `schema_migrations`. No existe actualmente una carpeta independiente `database/migrations/`.
 - [x] La auditoría histórica de limpieza de 2026-09-27 no basta para dar por limpias las ramas actuales ni las nuevas herramientas y cambios posteriores.
 
-### Estado de PR al 2026-10-25
+### Estado de PR al 2026-10-25 (histórico, previo a promoción)
 
 | PR | Estado | Tratamiento |
 |---|---|---|
@@ -168,7 +183,7 @@ Estas reglas son operativas y prevalecen sobre instrucciones anteriores que pidi
 ### Modelo de ramas
 
 - `main` es la única rama estable y la fuente canónica una vez promovida y validada la integración.
-- Mientras la PR #30 permanezca abierta, `feat/product-table-layout` es la única rama de integración para el conjunto consolidado. Incorporar allí los ajustes que formen parte de ese conjunto; no abrir otra rama solo para duplicar la auditoría o el checkpoint.
+- La PR #30 ya está fusionada y `main` es la fuente canónica. No volver a utilizar `feat/product-table-layout` como rama de integración; para trabajo nuevo independiente, crear una rama de alcance acotado desde el HEAD actual de `main` y retirarla después de fusionar y validar.
 - Crear una rama de desarrollo/validación únicamente si existe trabajo independiente que realmente se desarrollará en paralelo y que no está ya contenido en la PR #30. Cada rama activa debe tener propósito, alcance, validaciones y ruta de vuelta a `main` explícitos.
 - Mantener `archive/recovery-catalog-202609` protegida hasta confirmar qué recuperación aporta y cerrar la reconciliación de datos.
 - No borrar ramas históricas por su antigüedad, número de commits o apariencia de divergencia. Después de promover y validar `main`, comparar su contenido exclusivo; retirar únicamente ramas cuya funcionalidad esté demostrablemente integrada y que no tengan valor de recuperación.

@@ -1,6 +1,6 @@
 # Facundo Catalog Manager
 
-**Referencia de `main` (corte histórico):** `523 / 519 / 4`, cobertura completa y runtime de categorías/detalle/HTTP `8 / 24 / 28`. **Candidata `feat/product-table-layout` (PR #30, aún sin fusionar):** auditoría live del 25/10/2026 con `522 / 518 / 4 / 24` y configuración probada `12 / 24 / 28`. No mezclar bases ni snapshots: cada FULL debe validarse contra los conteos publicados en esa ejecución. La versión del código candidata debe distinguirse del estado de la rama `main`.
+**Referencia canónica de `main` (26/10/2026):** PR #30 se integró mediante squash en `085d6a50a7730e0546775d75ff2d105997edb619`. Quality CI #3885 pasó (Ruff, Pyright y Pytest: 1032 aprobadas, 11 deseleccionadas). El último inventario de catálogo registrado, del 25/10/2026 antes de la promoción, fue `522 / 518 / 4 / 24`; no se ha ejecutado un FULL live posterior a la promoción. El runtime de código actual usa categorías/detalle/HTTP `12 / 24 / 28`. No mezclar bases ni snapshots: cada FULL debe validarse contra los conteos publicados por esa ejecución. En FB-4047 está verificado el recurso histórico con SHA-256 fijado, pero cuando el servidor devuelve la plantilla de acceso no se afirma que la galería live actual se haya certificado.
 
 Aplicación de escritorio en Python + PySide6 para mantener el catálogo de Importaciones Facundo, ejecutar sincronizaciones FULL y exportar la información a Excel, PDF y CSV.
 
@@ -21,24 +21,26 @@ La aplicación publica el nombre y la versión mediante los metadatos estándar 
 
 ## Scraping FULL
 
-Una ejecución FULL válida debe cubrir las 24 categorías y alcanzar los totales publicados por las propias categorías en esa ejecución. El snapshot operativo de `main` usado en la validación anterior fue de 523 apariciones, 519 productos únicos, 4 productos en múltiples categorías y 523 relaciones. La auditoría live de la candidata `feat/product-table-layout` del 25/10/2026 obtuvo 522 apariciones, 518 productos únicos, 4 productos multi-categoría y 522 relaciones (`522/518/4/24`). La referencia histórica 534/530/4 es solo evidencia de auditoría e historial; el conteo de cada FULL lo determina el inventario publicado en esa ejecución.
+Una ejecución FULL válida debe cubrir las 24 categorías y alcanzar los totales publicados por las propias categorías en esa ejecución. El inventario auditado el 25/10/2026 antes de la promoción registró 522 apariciones, 518 productos únicos, 4 productos multi-categoría y 522 relaciones (`522/518/4/24`). El snapshot anterior de `main` de 523/519/4 y la referencia histórica 534/530/4 son evidencia histórica, no objetivos que deban forzarse mezclando bases. El siguiente FULL del código consolidado debe compararse con el inventario que publique el sitio durante esa ejecución.
 
 Una ejecución válida debe mantener `coverage_complete=1`, `coverage_gap=0` y cero errores invalidantes. Una ejecución incompleta o inconsistente no debe utilizarse para hacer un prune destructivo del catálogo persistido. La reconciliación de bootstrap selecciona la ejecución FULL exitosa más reciente que además sea consistente con sus métricas y sus ocurrencias reales.
 
-La configuración base que se había validado en `main` era:
+La configuración actual de código en `main` es:
 
-- Categorías: `8` workers.
+- Categorías: `12` workers.
 - Detalle: `24` workers.
 - HTTP: `28` workers.
 - JetSmartFilters HTTP: `8` de concurrencia.
+- JetSmartFilters page workers: `2`.
+- Sincronización de imágenes: `16` workers.
 
-El valor de 24 workers de detalle fue seleccionado tras benchmarks controlados en el sitio real frente a 16 workers. La validación anterior de `main` bajo `8 / 24 / 28` confirmó `24 / 523 / 519 / 4`, DB `519 / 523`, historial aplicado, `0` retries y `0` errores HTTP terminales. En la candidata `feat/product-table-layout`, seis ensayos controlados de 8 vs. 12 workers de categoría no mostraron ventaja concluyente con 8 (mejora de mediana aparente 2,04%, menor que la dispersión); por eso se conserva `12 / 24 / 28` en esa rama. Esta diferencia no cambia `main` mientras la PR #30 siga sin fusionarse.
+El valor de 24 workers de detalle se seleccionó tras benchmarks controlados en el sitio real. Los ensayos de categorías no demostraron una mejora reproducible al bajar de 12 a 8 workers; por eso se conserva `12 / 24 / 28`. La cobertura histórica de catálogo no se considera una validación FULL del código posterior a la promoción.
 
 ## Stock por color
 
 La sincronización conserva el stock por color cuando el sitio publica una asociación demostrable entre color y cantidad. El catálogo persiste esos datos en `products.color_stock` y la columna **Stock** los muestra como `color → cantidad`.
 
-La garantía está validada sobre las 24 categorías reales: una ejecución FULL reciente confirmó `523/523` apariciones con `color_stock`, `24/24` categorías representadas y `0` inconsistencias entre el stock total y la suma de sus colores. Las pruebas FULL y de concurrencia incluyen estas invariantes para detectar regresiones.
+La validación previa de stock por color confirmó `523/523` apariciones con `color_stock`, `24/24` categorías y `0` inconsistencias en ese inventario histórico. La auditoría del 25/10 registró después `522/518/4/24`. No se ha ejecutado un FULL live con el código consolidado en `main`; las invariantes de stock por color siguen cubiertas por las pruebas automatizadas y deben comprobarse en el próximo FULL controlado.
 
 No se distribuye artificialmente un stock total entre colores cuando el sitio no publica cantidades asociables de forma inequívoca.
 ## Historial
@@ -49,11 +51,13 @@ El detalle de cambios se ordena por código de producto. La UI permite consultar
 
 ## Validación
 
-Última validación local confirmada en `main` antes de las mejoras de la candidata `0.2.0`:
+Validación de calidad del `main` consolidado (`085d6a50`, Quality CI #3885, 26/10/2026):
 
-- Ruff: `All checks passed!`.
+- Ruff: éxito.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Pytest: `582 passed, 10 deselected`.
+- Pytest: `1032 passed, 11 deselected`.
+- El trabajo `live-fb4047-gallery` se ejecuta como comprobación de recuperación si el detalle está restringido; su informe distingue `recovery_asset_verified=true` de `current_gallery_verified=false`.
+- El trabajo `live-catalog` fue omitido; esto no equivale a una prueba FULL contra el sitio después de la promoción.
 
 
 Comprobaciones estáticas:

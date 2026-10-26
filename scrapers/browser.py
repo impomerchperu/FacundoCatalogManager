@@ -186,13 +186,17 @@ class Browser:
     def fetch(self, url):
         return self.get(url)
 
-    def get(self, url):
+    def get(self, url, *, force_revalidate=False):
         cache = self._source_page_cache
         if cache is not None and cache.is_cacheable_url(url):
+            force = self._force_source_page_revalidation or bool(force_revalidate)
             return cache.get_html(
                 url,
                 lambda conditional_headers: self._get_response(url, conditional_headers),
-                force=self._force_source_page_revalidation,
+                force=force,
+                # A forced validation is evidence-driven: if the site cannot be
+                # reached, do not silently treat old HTML as a live confirmation.
+                allow_stale_fallback=not force,
             )
         response = self._get_response(url)
         return response.text if hasattr(response, "text") else response

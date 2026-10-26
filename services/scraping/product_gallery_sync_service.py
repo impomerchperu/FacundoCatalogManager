@@ -657,10 +657,15 @@ class ProductGallerySyncService:
         if needs_detail and "/producto/" in detail_url:
             try:
                 if force_live_revalidation:
-                    html = self.browser.get(
-                        detail_url,
-                        force_revalidate=True,
-                    )
+                    live_getter = getattr(self.browser, "get_uncached", None)
+                    if callable(live_getter):
+                        # Never cache a login/gateway page as the product's source HTML.
+                        html = live_getter(detail_url)
+                    else:
+                        html = self.browser.get(
+                            detail_url,
+                            force_revalidate=True,
+                        )
                 else:
                     html = self.browser.get(detail_url)
             except Exception:  # noqa: BLE001

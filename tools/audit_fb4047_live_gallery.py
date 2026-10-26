@@ -9,15 +9,82 @@ from bs4 import BeautifulSoup
 from PIL import Image, ImageDraw, ImageOps
 
 from scrapers.browser import Browser
+from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
+from scrapers.collectors.resilient_category_scraper import ResilientCategoryScraper
+from scrapers.extractors.category_product_extractor import CategoryProductExtractor
+from scrapers.extractors.product_card_extractor import ProductCardExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
 from scrapers.images.image_downloader import ImageDownloader
 
 PRODUCT_CODE = "FB-4047"
 PRODUCT_URL = "https://stock.importacionesfacundo.com/producto/foco-antiestres/"
+CATEGORY_URL = (
+    "https://stock.importacionesfacundo.com/categoria-producto/"
+    "articulos-de-antiestres/"
+)
+CATEGORY_NAME = "Artículos Antiestrés"
 SUSPECT_IMAGE_URL = (
     "https://stock.importacionesfacundo.com/wp-content/uploads/2025/08/"
     "MEZCLADOR-CAMION-copia.webp"
 )
+
+
+def _collect_detail_url_from_category(
+    browser: Browser,
+    report: dict[str, object],
+) -> tuple[str, ProductCollectionScraper | None]:
+    """Prime the same HTTP session through the project's normal category pipeline."""
+    collector: ProductCollectionScraper | None = None
+    report["category_url"] = CATEGORY_URL
+    report["category_page_status"] = "not_started"
+    report["category_products_found"] = 0
+    report["category_target_found"] = False
+    report["category_match_method"] = ""
+    warnings = report["warnings"]
+    assert isinstance(warnings, list)
+
+    try:
+        category_scraper = ResilientCategoryScraper(browser=browser)
+        collector = ProductCollectionScraper(
+            category_scraper,
+            ProductCardExtractor(),
+            CategoryProductExtractor(),
+            ProductExtractor(),
+            max_workers=1,
+            category_page_workers=1,
+        )
+        collected = collector.collect_category(CATEGORY_URL)
+        report["category_page_status"] = "success"
+        report["category_products_found"] = len(collected)
+
+        for card, page_url, product in collected:
+            detail_url = collector._card_detail_url(card, page_url, product)
+            code = str(getattr(product, "code", "") or "").strip().upper()
+            if code == PRODUCT_CODE:
+                report["category_target_found"] = True
+                report["category_match_method"] = "product_code"
+                return detail_url or PRODUCT_URL, collector
+
+        # A product card may omit its SKU. The canonical product path is a
+        # narrower fallback locator, but the detail page must still validate
+        # its SKU and name before its images are trusted.
+        for card, page_url, product in collected:
+            detail_url = collector._card_detail_url(card, page_url, product)
+            if detail_url.rstrip("/").casefold() == PRODUCT_URL.rstrip("/").casefold():
+                report["category_target_found"] = True
+                report["category_match_method"] = "canonical_product_url"
+                return detail_url, collector
+
+    except Exception as error:  # noqa: BLE001
+        report["category_page_status"] = "failed"
+        warnings.append(
+            {
+                "stage": "category_scraping",
+                "error": f"{type(error).__name__}: {error}",
+            }
+        )
+
+    return PRODUCT_URL, collector
 
 
 def _candidate_urls(candidates: list[dict]) -> list[dict[str, object]]:
@@ -106,9 +173,11 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
         "product_code_requested": PRODUCT_CODE,
         "product_url": PRODUCT_URL,
         "validation_method": (
-            "Project Browser (no persistent cache configured), ProductExtractor, "
-            "ImageDownloader, and decoded raster verification."
+            "Project ProductCollectionScraper category-to-detail route on one "
+            "Browser session, ProductExtractor, ImageDownloader, and decoded "
+            "raster verification. No persistent cache or database sync."
         ),
+        "warnings": [],
         "page_fetch": "not_started",
         "product_code_extracted": "",
         "product_name_extracted": "",
@@ -122,9 +191,12 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
     errors = report["errors"]
     assert isinstance(errors, list)
     browser = Browser(request_timeout=30, max_retries=2, http_workers=2)
+    collector: ProductCollectionScraper | None = None
 
     try:
-        html = browser.get(PRODUCT_URL, force_revalidate=True)
+        detail_url, collector = _collect_detail_url_from_category(browser, report)
+        report["product_url"] = detail_url
+        html = browser.get(detail_url, force_revalidate=True)
         report["page_fetch"] = "success"
         if not html or not str(html).strip():
             raise RuntimeError("La página del producto devolvió HTML vacío.")  # noqa: TRY301
@@ -132,8 +204,8 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
         soup = BeautifulSoup(html, "lxml")
         extracted = ProductExtractor().extract(
             soup,
-            url=PRODUCT_URL,
-            category="Artículos Antiestrés",
+            url=detail_url,
+            category=CATEGORY_NAME,
         )
         extracted_code = str(getattr(extracted, "code", "") or "").strip().upper()
         extracted_name = str(getattr(extracted, "name", "") or "").strip()
@@ -338,7 +410,10 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
         report["http_metrics"] = browser.get_http_metrics()
         exit_code = 1
     finally:
-        browser.close()
+        if collector is not None:
+            collector.close()
+        else:
+            browser.close()
 
     report_path = output_dir / "FB-4047_live_gallery_audit.json"
     report_path.write_text(
@@ -356,6 +431,10 @@ def audit(output_dir: Path) -> tuple[dict[str, object], int]:  # noqa: PLR0912
                     "downloaded_and_verified_count", 0
                 ),
                 "contact_sheet": report["contact_sheet"],
+                "category_page_status": report["category_page_status"],
+                "category_products_found": report["category_products_found"],
+                "category_target_found": report["category_target_found"],
+                "warnings": report["warnings"],
                 "errors": errors,
             },
             ensure_ascii=False,

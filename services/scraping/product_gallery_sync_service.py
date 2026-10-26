@@ -32,6 +32,12 @@ class ProductGallerySyncService:
             "MEZCLADOR-CAMION-copia.webp",
         )
     }
+    VERIFIED_GALLERY_RECOVERY_SHA256_BY_URL: ClassVar[dict[str, str]] = {
+        (
+            "https://stock.importacionesfacundo.com/wp-content/uploads/2025/08/"
+            "mezclador-camion-copia.webp"
+        ): "176a9b93be51c07a3b062e72a4a2a2062f11de56d9256c1b4e8f1ba100270f83"
+    }
 
     def __init__(
         self,
@@ -201,10 +207,14 @@ class ProductGallerySyncService:
 
                 is_primary = bool(primary_url and key == primary_url.casefold())
                 existing_item = existing_by_url.get(key)
+                recovery_hash = self._verified_gallery_recovery_hash(
+                    product.code,
+                    url,
+                )
                 path = None
                 if is_primary and primary_path is not None and primary_path.is_file():
                     path = primary_path
-                elif isinstance(existing_item, dict):
+                elif isinstance(existing_item, dict) and not recovery_hash:
                     raw_path = str(
                         existing_item.get(
                             "image_path",
@@ -235,6 +245,15 @@ class ProductGallerySyncService:
                         )
                         downloaded_path = resolve_data_path(staged_path)
                         if downloaded_path.is_file():
+                            if (
+                                recovery_hash
+                                and ImageDownloader.hash_file(downloaded_path).casefold()
+                                != recovery_hash
+                            ):
+                                # A URL whose bytes changed is not the asset that
+                                # was visually approved. Preserve the prior gallery.
+                                gallery_complete = False
+                                continue
                             staged_fingerprint = build_visual_fingerprint(
                                 downloaded_path,
                                 url,
@@ -547,6 +566,16 @@ class ProductGallerySyncService:
             product.image_url = str(first.get("url", "") or "") or primary_url
             product.image_hash = str(first.get("image_hash", "") or "")
         return results
+
+    @classmethod
+    def _verified_gallery_recovery_hash(cls, product_code, url):
+        """Return a pinned SHA-256 only for the explicitly verified recovery asset."""
+        if str(product_code or "").strip().upper() != "FB-4047":
+            return ""
+        return cls.VERIFIED_GALLERY_RECOVERY_SHA256_BY_URL.get(
+            str(url or "").strip().casefold(),
+            "",
+        )
 
     def _known_fb4047_gallery_recovery_candidates(
         self,

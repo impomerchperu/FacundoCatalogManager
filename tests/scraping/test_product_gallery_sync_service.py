@@ -1002,4 +1002,3 @@ def test_fb4047_recovers_verified_gallery_when_live_page_returns_access_gate():
         recovered_url,
     ]
     assert candidates[-1]["source"] == "verified-historical-gallery-recovery"
-

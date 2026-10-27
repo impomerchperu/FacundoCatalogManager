@@ -146,4 +146,3 @@ def test_browser_get_uncached_does_not_write_product_page_cache(tmp_path):
     assert repository.get(url) is None
     assert cache.get_metrics()["updated_200"] == 0
     assert cache.get_metrics()["fresh_hits"] == 0
-

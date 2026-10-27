@@ -200,4 +200,3 @@ def test_fb4047_gated_detail_can_pass_only_as_verified_recovery():
         category_target_found=True,
         diagnostic_record=record,
     )
-

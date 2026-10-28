@@ -1,4 +1,3 @@
-from pathlib import Path
 from types import SimpleNamespace
 
 from tools.repair_fb4047_gallery import (

@@ -104,6 +104,19 @@ def _candidate_coverage(
     }
 
 
+
+def _gallery_signature(gallery: list[dict[str, Any]]) -> tuple[tuple[str, str, str, int], ...]:
+    return tuple(
+        (
+            str(item.get("url") or "").strip().casefold(),
+            str(item.get("image_path") or "").strip().replace("\\\\", "/").casefold(),
+            str(item.get("image_hash") or "").strip().casefold(),
+            int(item.get("position", 0) or 0),
+        )
+        for item in gallery
+        if isinstance(item, dict)
+    )
+
 def _verify_gallery_files(
     gallery: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -324,8 +337,11 @@ def repair(*, apply: bool) -> dict[str, Any]:  # noqa: PLR0912
 
         # Preserve the previously stored Detail when it is already complete.
         # If it is incomplete, repair it from the complete, code-matched source page.
-        current_detail = normalize_detail_text(existing.description)
-        live_detail = normalize_detail_text(getattr(live_product, "description", ""))
+        current_detail = str(existing.description or "").strip()
+        live_detail = normalize_detail_text(
+            getattr(live_product, "description", ""),
+            preserve_boundaries=True,
+        )
         detail_to_store = current_detail
         if not has_technical_detail(current_detail) or not is_complete_detail(current_detail):
             detail_to_store = live_detail
@@ -384,16 +400,50 @@ def repair(*, apply: bool) -> dict[str, Any]:  # noqa: PLR0912
                 f"de la página: {len(verified_files)} != {len(source_urls)}."
             )  # noqa: TRY301
 
-        # Update only the requested product's image fields and Detail repair.
-        existing.image_url = str(synced.image_url or existing.image_url)
-        existing.image_path = str(synced.image_path or existing.image_path)
-        existing.image_hash = str(synced.image_hash or existing.image_hash)
-        existing.gallery_images = synced_gallery
-        existing.description = detail_to_store
-
+        # Begin a short transaction and avoid overwriting unrelated product fields.
+        original_image_state = (
+            str(existing.image_url or ""),
+            str(existing.image_path or ""),
+            str(existing.image_hash or ""),
+            _gallery_signature(existing.gallery_images),
+            str(existing.description or ""),
+        )
+        clean_gallery = repository._clean_gallery_images(synced_gallery)
         db.begin()
         try:
-            repository.update(existing)
+            current = repository.get_by_code(PRODUCT_CODE)
+            if current is None or current.product_id != existing.product_id:
+                raise RuntimeError("FB-4047 cambió durante el scraping; no se escribirá.")  # noqa: TRY301
+            current_image_state = (
+                str(current.image_url or ""),
+                str(current.image_path or ""),
+                str(current.image_hash or ""),
+                _gallery_signature(current.gallery_images),
+                str(current.description or ""),
+            )
+            if current_image_state != original_image_state:
+                raise RuntimeError(
+                    "La imagen/galería/Detalle guardado cambió durante el scraping; "
+                    "se cancela para no sobrescribir cambios concurrentes."
+                )  # noqa: TRY301
+            cursor = db.execute_query(
+                """
+                UPDATE products
+                SET description=?, image_url=?, image_path=?, image_hash=?, gallery_images=?
+                WHERE id=? AND code=? COLLATE NOCASE
+                """,
+                (
+                    detail_to_store,
+                    str(synced.image_url or existing.image_url),
+                    str(synced.image_path or existing.image_path),
+                    str(synced.image_hash or existing.image_hash),
+                    json.dumps(clean_gallery, ensure_ascii=False),
+                    existing.product_id,
+                    PRODUCT_CODE,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise RuntimeError("No se actualizó exactamente un registro de FB-4047.")  # noqa: TRY301
             reread = repository.get_by_code(PRODUCT_CODE)
             if reread is None:
                 raise RuntimeError("FB-4047 desapareció al verificar la escritura.")  # noqa: TRY301
@@ -408,7 +458,9 @@ def repair(*, apply: bool) -> dict[str, Any]:  # noqa: PLR0912
                 raise RuntimeError(
                     "La cantidad de imágenes verificadas tras escribir no coincide."
                 )  # noqa: TRY301
-            if normalize_detail_text(reread.description) != detail_to_store:
+            if normalize_detail_text(
+                reread.description, preserve_boundaries=True
+            ) != normalize_detail_text(detail_to_store, preserve_boundaries=True):
                 raise RuntimeError("El Detail persistido no coincide con el validado.")  # noqa: TRY301
             db.commit()
             committed = True

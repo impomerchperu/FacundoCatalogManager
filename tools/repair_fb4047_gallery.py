@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sqlite3
 import sys
 import tempfile
-from datetime import datetime
+from contextlib import suppress
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -140,7 +140,7 @@ def _verify_gallery_files(
 def _backup_database(db_path: Path) -> Path:
     if not db_path.is_file():
         raise FileNotFoundError(f"No existe la base de datos del catálogo: {db_path}")
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     backup_path = Path(tempfile.gettempdir()) / f"FCM_catalog_before_FB4047_{stamp}.db"
     if backup_path.exists():
         raise FileExistsError(f"El backup ya existe y no se sobrescribirá: {backup_path}")
@@ -178,10 +178,8 @@ def _remove_new_files(directory: Path, before: set[Path]) -> None:
         key=lambda item: len(item.parts),
         reverse=True,
     ):
-        try:
+        with suppress(OSError):
             path.rmdir()
-        except OSError:
-            pass
 
 
 def _collect_category_target() -> tuple[str, Any]:
@@ -254,9 +252,9 @@ def _fetch_live_detail(url: str) -> tuple[str, Any, list[dict[str, Any]]]:
     return html, extracted, candidates
 
 
-def repair(*, apply: bool) -> dict[str, Any]:
+def repair(*, apply: bool) -> dict[str, Any]:  # noqa: PLR0912
     if not apply:
-        raise ValueError("La actualización requiere el argumento explícito --apply.")
+        raise ValueError("La actualización requiere el argumento explícito --apply.")  # noqa: TRY301
 
     db_path = Path(DATABASE_PATH).resolve()
     backup_path = _backup_database(db_path)
@@ -332,7 +330,7 @@ def repair(*, apply: bool) -> dict[str, Any]:
         if not has_technical_detail(current_detail) or not is_complete_detail(current_detail):
             detail_to_store = live_detail
         if not has_technical_detail(detail_to_store) or not is_complete_detail(detail_to_store):
-            raise RuntimeError("No hay un Detail técnico completo y seguro para persistir.")
+            raise RuntimeError("No hay un Detail técnico completo y seguro para persistir.")  # noqa: TRY301
 
         scraped = ScrapedProduct(
             source="importacionesfacundo",
@@ -379,12 +377,12 @@ def repair(*, apply: bool) -> dict[str, Any]:
             raise RuntimeError(
                 "No se guardaron todas las imágenes fuente de FB-4047. "
                 f"URLs pendientes: {missing!r}. No se modificará SQLite."
-            )
+            )  # noqa: TRY301
         if len(verified_files) != len(source_urls):
             raise RuntimeError(
                 "La cantidad de imágenes verificadas no coincide con las candidatas "
                 f"de la página: {len(verified_files)} != {len(source_urls)}."
-            )
+            )  # noqa: TRY301
 
         # Update only the requested product's image fields and Detail repair.
         existing.image_url = str(synced.image_url or existing.image_url)
@@ -398,20 +396,20 @@ def repair(*, apply: bool) -> dict[str, Any]:
             repository.update(existing)
             reread = repository.get_by_code(PRODUCT_CODE)
             if reread is None:
-                raise RuntimeError("FB-4047 desapareció al verificar la escritura.")
+                raise RuntimeError("FB-4047 desapareció al verificar la escritura.")  # noqa: TRY301
             persisted_urls = _gallery_urls(reread.gallery_images)
             persisted_coverage = _candidate_coverage(source_urls, reread.gallery_images)
             persisted_files = _verify_gallery_files(reread.gallery_images)
             if not persisted_coverage["all_candidates_stored"]:
                 raise RuntimeError(
                     "La lectura de comprobación no contiene todas las imágenes fuente."
-                )
+                )  # noqa: TRY301
             if len(persisted_files) != len(source_urls):
                 raise RuntimeError(
                     "La cantidad de imágenes verificadas tras escribir no coincide."
-                )
+                )  # noqa: TRY301
             if normalize_detail_text(reread.description) != detail_to_store:
-                raise RuntimeError("El Detail persistido no coincide con el validado.")
+                raise RuntimeError("El Detail persistido no coincide con el validado.")  # noqa: TRY301
             db.commit()
             committed = True
             report["database_writes"] = True
@@ -432,7 +430,7 @@ def repair(*, apply: bool) -> dict[str, Any]:
         db.close()
 
     report_path = Path(tempfile.gettempdir()) / (
-        "FCM_FB4047_repair_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".json"
+        "FCM_FB4047_repair_" + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + ".json"
     )
     report_path.write_text(
         json.dumps(report, ensure_ascii=False, indent=2),

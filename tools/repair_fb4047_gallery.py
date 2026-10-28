@@ -3,13 +3,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import shutil
 import sqlite3
 import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from bs4 import BeautifulSoup
 
 from config.runtime_paths import DATABASE_PATH, resolve_data_path
 from database.db_manager import DBManager
@@ -230,8 +231,6 @@ def _fetch_live_detail(url: str) -> tuple[str, Any, list[dict[str, Any]]]:
         browser.close()
     if not isinstance(html, str) or not html.strip():
         raise RuntimeError("La ficha live devolvió HTML vacío.")
-    from bs4 import BeautifulSoup
-
     extracted = ProductExtractor().extract(
         BeautifulSoup(html, "lxml"),
         url=url,

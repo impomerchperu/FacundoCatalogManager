@@ -1003,6 +1003,7 @@ def test_fb4047_recovers_verified_gallery_when_live_page_returns_access_gate():
     ]
     assert candidates[-1]["source"] == "verified-historical-gallery-recovery"
 
+
 def test_fb4047_uses_corroborated_live_gallery_when_title_is_access_gate():
     from types import SimpleNamespace
 

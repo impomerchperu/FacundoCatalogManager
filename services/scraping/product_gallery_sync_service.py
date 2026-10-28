@@ -7,6 +7,11 @@ from typing import Any, ClassVar, cast
 from bs4 import BeautifulSoup
 
 from config.runtime_paths import resolve_data_path
+from models.scraping.detail_description_policy import (
+    has_technical_detail,
+    is_complete_detail,
+    normalize_detail_text,
+)
 from scrapers.extractors.product_image_extractor import ProductImageExtractor
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_paths import IMAGE_PRODUCTS_DIR
@@ -736,15 +741,36 @@ class ProductGallerySyncService:
                     getattr(detailed, "code", "") or ""
                 ).strip().upper()
                 detail_name = str(getattr(detailed, "name", "") or "").casefold()
-                if detail_code != product_code or "foco" not in detail_name:
+                detail_description = normalize_detail_text(
+                    getattr(detailed, "description", "")
+                )
+                source_product_name = str(
+                    getattr(product, "name", "") or ""
+                ).casefold()
+                # FB-4047's endpoint may render an access-gate heading while
+                # retaining the SKU, complete technical summary and explicit
+                # WooCommerce gallery in the returned HTML. The category page
+                # already identified the product by SKU/name; in that specific
+                # case require all three corroborating signals before trusting
+                # the live gallery. A bare gate page (no gallery/details) still
+                # falls back to the pinned recovery path below.
+                corroborated_product_page = bool(
+                    page_gallery
+                    and "foco" in source_product_name
+                    and has_technical_detail(detail_description)
+                    and is_complete_detail(detail_description)
+                )
+                if detail_code != product_code or (
+                    "foco" not in detail_name and not corroborated_product_page
+                ):
                     return self._known_fb4047_gallery_recovery_candidates(
                         product,
                         existing_gallery,
                     )
 
-                # Once the live response is identified as the actual product
-                # page, its extracted gallery is authoritative. Do not append
-                # a historical URL that the current gallery no longer lists.
+                # Once the live response is identified by matching SKU and the
+                # page's product-specific evidence, its ordered gallery is
+                # authoritative. Do not append historical URLs absent from it.
 
             if page_gallery:
                 product.image_candidates = page_gallery

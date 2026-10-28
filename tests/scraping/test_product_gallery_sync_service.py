@@ -1002,3 +1002,103 @@ def test_fb4047_recovers_verified_gallery_when_live_page_returns_access_gate():
         recovered_url,
     ]
     assert candidates[-1]["source"] == "verified-historical-gallery-recovery"
+
+def test_fb4047_uses_corroborated_live_gallery_when_title_is_access_gate():
+    from types import SimpleNamespace
+
+    primary_url = (
+        "https://stock.importacionesfacundo.com/wp-content/uploads/2025/08/"
+        "SFPU-38.webp"
+    )
+    second_url = (
+        "https://stock.importacionesfacundo.com/wp-content/uploads/2024/05/"
+        "FOCO-AMARILLO.webp"
+    )
+    third_url = (
+        "https://stock.importacionesfacundo.com/wp-content/uploads/2025/08/"
+        "MEZCLADOR-CAMION-copia.webp"
+    )
+    detail_url = "https://stock.importacionesfacundo.com/producto/foco-antiestres/"
+    detail_description = (
+        "Material: Poliuretano. Dimensiones: 55*55*100mm. Peso Unitario: 24 G. "
+        "Uso Recomendado: Antiestrés, Promocional. Empaque Individual: Bolsa de "
+        "polietileno. Cantidad Por Caja: 250 Pza. Dimensiones Caja: 60*33*32cm. "
+        "Cubicaje por Caja: 0.0634 m³/CBM Peso neto por caja: 7.5 Kg. "
+        "Peso bruto por caja: 8.5 Kg."
+    )
+
+    class LiveBrowser:
+        def __init__(self):
+            self.calls = []
+
+        def get_uncached(self, url):
+            self.calls.append(url)
+            return "<html><body>HTML de FB-4047 con galería</body></html>"
+
+    class LiveExtractor:
+        def extract(self, soup, *, url, category):
+            assert "HTML de FB-4047 con galería" in soup.get_text()
+            return SimpleNamespace(
+                code="FB-4047",
+                name="Acceso Exclusivo para Distribuidores",
+                description=detail_description,
+                image_candidates=[
+                    {**_candidate(primary_url, 1), "gallery_container": True},
+                    {**_candidate(second_url, 2), "gallery_container": True},
+                    {**_candidate(third_url, 3), "gallery_container": True},
+                ],
+            )
+
+    browser = LiveBrowser()
+    existing = Product(
+        code="FB-4047",
+        name="Foco Antiestrés",
+        description=detail_description,
+        image_url=primary_url,
+        gallery_images=[
+            {
+                "url": primary_url,
+                "image_path": "data/images/products/FB-4047/FB-4047-01.webp",
+                "image_hash": "primary-hash",
+                "position": 1,
+                "source": "woocommerce-gallery",
+            },
+            {
+                "url": second_url,
+                "image_path": "data/images/products/FB-4047/FB-4047-02.webp",
+                "image_hash": "second-hash",
+                "position": 2,
+                "source": "woocommerce-gallery",
+            },
+        ],
+    )
+    product = ScrapedProduct(
+        code="FB-4047",
+        name="Foco Antiestrés",
+        description=detail_description,
+        url=detail_url,
+        image_url=primary_url,
+    )
+    product.image_candidates = [
+        _candidate(primary_url, 1),
+        _candidate("https://site.test/stale-candidate.webp", 2),
+    ]
+    product.image_candidates_source = "detail"
+
+    service = ProductGallerySyncService(
+        browser=browser,
+        product_extractor=LiveExtractor(),
+        image_downloader=object(),
+        refresh_existing=True,
+    )
+
+    candidates = service._candidate_source(product, existing)
+
+    assert browser.calls == [detail_url]
+    assert [candidate["url"] for candidate in candidates] == [
+        primary_url,
+        second_url,
+        third_url,
+    ]
+    assert product.image_candidates_source == "detail"
+    assert product.image_url == primary_url

@@ -1,11 +1,11 @@
 from types import SimpleNamespace
 
+from tests.scraping.image_test_utils import image_bytes
 from tools.repair_fb4047_gallery import (
     _candidate_coverage,
     _gallery_urls,
     _unique_gallery_candidates,
 )
-from tests.scraping.image_test_utils import image_bytes
 
 
 def test_unique_gallery_candidates_keeps_order_and_excludes_non_gallery_and_generic():

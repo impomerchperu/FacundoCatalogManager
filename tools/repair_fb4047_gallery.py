@@ -267,7 +267,7 @@ def _fetch_live_detail(url: str) -> tuple[str, Any, list[dict[str, Any]]]:
 
 def repair(*, apply: bool) -> dict[str, Any]:  # noqa: PLR0912
     if not apply:
-        raise ValueError("La actualización requiere el argumento explícito --apply.")  # noqa: TRY301
+        raise ValueError("La actualización requiere el argumento explícito --apply.")
 
     db_path = Path(DATABASE_PATH).resolve()
     backup_path = _backup_database(db_path)
@@ -393,12 +393,12 @@ def repair(*, apply: bool) -> dict[str, Any]:  # noqa: PLR0912
             raise RuntimeError(
                 "No se guardaron todas las imágenes fuente de FB-4047. "
                 f"URLs pendientes: {missing!r}. No se modificará SQLite."
-            )  # noqa: TRY301
+            )
         if len(verified_files) != len(source_urls):
-            raise RuntimeError(
+            raise RuntimeError(  # noqa: TRY301
                 "La cantidad de imágenes verificadas no coincide con las candidatas "
                 f"de la página: {len(verified_files)} != {len(source_urls)}."
-            )  # noqa: TRY301
+            )
 
         # Begin a short transaction and avoid overwriting unrelated product fields.
         original_image_state = (
@@ -425,7 +425,7 @@ def repair(*, apply: bool) -> dict[str, Any]:  # noqa: PLR0912
                 raise RuntimeError(
                     "La imagen/galería/Detalle guardado cambió durante el scraping; "
                     "se cancela para no sobrescribir cambios concurrentes."
-                )  # noqa: TRY301
+                )
             cursor = db.execute_query(
                 """
                 UPDATE products
@@ -451,13 +451,13 @@ def repair(*, apply: bool) -> dict[str, Any]:  # noqa: PLR0912
             persisted_coverage = _candidate_coverage(source_urls, reread.gallery_images)
             persisted_files = _verify_gallery_files(reread.gallery_images)
             if not persisted_coverage["all_candidates_stored"]:
-                raise RuntimeError(
+                raise RuntimeError(  # noqa: TRY301
                     "La lectura de comprobación no contiene todas las imágenes fuente."
-                )  # noqa: TRY301
+                )
             if len(persisted_files) != len(source_urls):
-                raise RuntimeError(
+                raise RuntimeError(  # noqa: TRY301
                     "La cantidad de imágenes verificadas tras escribir no coincide."
-                )  # noqa: TRY301
+                )
             if normalize_detail_text(
                 reread.description, preserve_boundaries=True
             ) != normalize_detail_text(detail_to_store, preserve_boundaries=True):

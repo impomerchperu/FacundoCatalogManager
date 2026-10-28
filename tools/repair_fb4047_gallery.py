@@ -390,7 +390,7 @@ def repair(*, apply: bool) -> dict[str, Any]:  # noqa: PLR0912
         }
         if not coverage["all_candidates_stored"] or coverage["missing_urls"]:
             missing = coverage["missing_urls"]
-            raise RuntimeError(  # noqa: TRY301  # noqa: TRY301
+            raise RuntimeError(  # noqa: TRY301
                 "No se guardaron todas las imágenes fuente de FB-4047. "
                 f"URLs pendientes: {missing!r}. No se modificará SQLite."
             )
@@ -422,7 +422,7 @@ def repair(*, apply: bool) -> dict[str, Any]:  # noqa: PLR0912
                 str(current.description or ""),
             )
             if current_image_state != original_image_state:
-                raise RuntimeError(  # noqa: TRY301  # noqa: TRY301
+                raise RuntimeError(  # noqa: TRY301
                     "La imagen/galería/Detalle guardado cambió durante el scraping; "
                     "se cancela para no sobrescribir cambios concurrentes."
                 )

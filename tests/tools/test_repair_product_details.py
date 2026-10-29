@@ -343,6 +343,64 @@ def test_repair_reextracts_visible_card_detail_when_scraped_description_is_empty
         db.close()
 
 
+def test_fb5016_empty_shipping_values_do_not_clear_the_category_detail():
+    db, repository = _seed_catalog(code="FB-5016", description="")
+    browser = StaticBrowser(_product_html(code="FB-5016"))
+    product = repository.get_by_code("FB-5016")
+    card = BeautifulSoup(
+        """
+        <article>
+          <p class="brxe-a26f34">FB-5016</p>
+          <h2 class="brxe-f31760">Wincha Multiherramienta Eliza 3m</h2>
+        <div class="text-content">
+            <p>Color: Negro.</p>
+            <p>Material: Bambú y ABS.</p>
+            <p>Dimensiones: 9.8*6*2.5cm.</p>
+            <p>Peso Unitario: 105.5 G.</p>
+            <p>Uso Recomendado: Medir distancias y longitudes + Marcar y anotar notas.</p>
+            <p>Empaque Individual: Individual, caja diseño kraft.</p>
+            <p>Cantidad Por Caja: 100 Pza.</p>
+            <p>Dimensiones Caja:</p>
+            <p>Cubicaje por Caja: m³/CBM</p>
+            <p>Peso neto por caja:</p>
+            <p>Peso bruto por caja:</p>
+        </div>
+        </article>
+        """,
+        "lxml",
+    ).article
+    assert product is not None
+    assert card is not None
+
+    try:
+        card_description = CategoryProductExtractor()._description(card)
+        assert card_description
+        assert "Material: Bambú y ABS" in card_description
+        assert "Peso bruto por caja:" in card_description
+        assert "Color:" not in card_description
+
+        plan = _plan_category_card_detail(
+            db,
+            repository,
+            product,
+            card,
+            card_description,
+            source_url=PRODUCT_URL,
+            category_name="Artículos de Escritorio",
+            browser=browser,
+        )
+
+        assert plan.status == "would_update"
+        assert "Material: Bambú y ABS" in plan.new_description
+        assert "Dimensiones: 9.8*6*2.5cm" in plan.new_description
+        assert "Peso bruto por caja:" in plan.new_description
+        assert "Color:" not in plan.new_description
+        assert "tarjeta de categoría" in plan.reason
+        assert browser.requested_urls == []
+    finally:
+        db.close()
+
+
 def test_empty_identified_category_detail_is_not_supplemented_from_product_page():
     db, repository = _seed_catalog(description=VALID_DETAIL)
     browser = StaticBrowser(_product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm."))

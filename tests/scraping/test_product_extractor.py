@@ -127,6 +127,46 @@ def test_product_extractor_reads_technical_short_description_without_color_line(
     assert "Valoraciones" not in result["description"]
 
 
+def test_product_extractor_preserves_nonempty_fields_when_shipping_values_are_blank():
+    html = """
+    <html><body>
+      <h1>Wincha Multiherramienta Eliza 3m</h1>
+      <p class="brxe-heading">FB-5016</p>
+      <div class="woocommerce-product-details__short-description">
+        <ul>
+          <li>Color: Negro.</li>
+          <li>Material: Bambú y ABS.</li>
+          <li>Dimensiones: 9.8*6*2.5cm.</li>
+          <li>Peso Unitario: 105.5 G.</li>
+          <li>Uso Recomendado: Medir distancias y longitudes + Marcar y anotar notas.</li>
+          <li>Empaque Individual: Individual, caja diseño kraft.</li>
+          <li>Cantidad Por Caja: 100 Pza.</li>
+          <li>Dimensiones Caja:</li>
+          <li>Cubicaje por Caja: m³/CBM</li>
+          <li>Peso neto por caja:</li>
+          <li>Peso bruto por caja:</li>
+        </ul>
+      </div>
+      <div id="tab-description">Texto comercial ajeno al Detalle.</div>
+    </body></html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["description"].splitlines() == [
+        "Material: Bambú y ABS.",
+        "Dimensiones: 9.8*6*2.5cm.",
+        "Peso Unitario: 105.5 G.",
+        "Uso Recomendado: Medir distancias y longitudes + Marcar y anotar notas.",
+        "Empaque Individual: Individual, caja diseño kraft.",
+        "Cantidad Por Caja: 100 Pza.",
+        "Dimensiones Caja:",
+        "Cubicaje por Caja: m³/CBM",
+        "Peso neto por caja:",
+        "Peso bruto por caja:",
+    ]
+    assert "Texto comercial ajeno" not in result["description"]
+
+
 def test_product_extractor_preserves_all_authoritative_fields_outside_color_field():
     html = """
     <html><body>

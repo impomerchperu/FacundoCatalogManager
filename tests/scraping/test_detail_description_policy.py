@@ -218,6 +218,43 @@ def test_detail_policy_does_not_treat_general_prose_as_technical_detail():
     assert not has_technical_detail(prose)
 
 
+def test_detail_policy_keeps_populated_detail_with_empty_shipping_labels():
+    source = "\n".join(
+        (
+            "Color: Negro.",
+            "Material: Bambú y ABS.",
+            "Dimensiones: 9.8*6*2.5cm.",
+            "Peso Unitario: 105.5 G.",
+            "Uso Recomendado: Medir distancias y longitudes + Marcar y anotar notas.",
+            "Empaque Individual: Individual, caja diseño kraft.",
+            "Cantidad Por Caja: 100 Pza.",
+            "Dimensiones Caja:",
+            "Cubicaje por Caja: m³/CBM",
+            "Peso neto por caja:",
+            "Peso bruto por caja:",
+        )
+    )
+    detail = normalize_detail_text(source, preserve_boundaries=True)
+
+    assert "Color:" not in detail
+    assert "Material: Bambú y ABS." in detail
+    assert "Dimensiones: 9.8*6*2.5cm." in detail
+    assert "Peso Unitario: 105.5 G." in detail
+    assert "Uso Recomendado: Medir distancias" in detail
+    assert "Empaque Individual: Individual, caja diseño kraft." in detail
+    assert "Cantidad Por Caja: 100 Pza." in detail
+    assert "Dimensiones Caja:" in detail
+    assert "Cubicaje por Caja: m³/CBM" in detail
+    assert "Peso neto por caja:" in detail
+    assert detail.endswith("Peso bruto por caja:")
+    assert is_complete_detail(detail)
+    assert is_valid_detail_content(detail)
+
+    # A shipping label alone is still not usable Detail.
+    assert not is_complete_detail("Peso bruto por caja:")
+    assert not is_valid_detail_content("Peso bruto por caja:")
+
+
 def test_detail_policy_recognizes_laminator_and_printer_specific_labels():
     laminator = (
         "Número de rodillos: 2. Ancho de entrada: 330 mm. "

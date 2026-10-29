@@ -195,10 +195,32 @@ def remove_incomplete_trailing_dimension_field(value: object) -> str:
     return prefix if prefix else text
 
 
-_EMPTY_TRAILING_BOX_FIELD_PATTERN = re.compile(
-    r"(?:[.;]\s*)?\bcaja\s*:\s*$",
+# These source logistics labels may legitimately have no supplied value. Keep
+# the labels in the saved Detail, but omit a chain of empty terminal labels only
+# while validating completeness. Other terminal labels still signal truncation.
+_EMPTY_TRAILING_DETAIL_FIELD_PATTERN = re.compile(
+    r"(?:[.;]\s*)?\b(?:"
+    r"dimensiones\s+(?:de\s+)?(?:la\s+)?caja(?:\s+m[aá]ster)?|"
+    r"cubicaje(?:\s+por\s+caja)?|"
+    r"peso\s+(?:neto|bruto)(?:\s+(?:por\s+caja|/\s*caja))?|"
+    r"caja"
+    r")\s*:\s*$",
     re.IGNORECASE,
 )
+
+
+def _strip_allowed_empty_trailing_detail_fields(value: object) -> str:
+    """Remove whitelisted empty terminal shipping labels for validation only."""
+    text = str(value or "").rstrip()
+    while text:
+        match = _EMPTY_TRAILING_DETAIL_FIELD_PATTERN.search(text)
+        if match is None:
+            break
+        prefix = text[: match.start()].rstrip(" .;\t\r\n")
+        if not prefix:
+            return ""
+        text = prefix
+    return text
 
 # This is catalog-wide commercial noise, not a product attribute. Strip it
 # consistently from every Detail value instead of special-casing one SKU.
@@ -376,9 +398,9 @@ def normalize_detail_text(
 def is_complete_detail(value: object) -> bool:
     """Whether Detail is complete, allowing an empty final Caja field."""
     text = normalize_detail_text(value)
-    # An empty Caja label is a real source field, not a truncation marker.
-    # Validate the fields before it, but keep the label in the normalized text.
-    validation_text = _EMPTY_TRAILING_BOX_FIELD_PATTERN.sub("", text).rstrip(" ;")
+    # Validate without allowed blank logistics labels at the end. The original
+    # text remains untouched, so those source labels are preserved in the catalog.
+    validation_text = _strip_allowed_empty_trailing_detail_fields(text).rstrip(" ;")
     if (
         not validation_text
         or not has_technical_detail(validation_text)
@@ -394,9 +416,9 @@ def is_complete_detail(value: object) -> bool:
 def has_technical_detail(value: object) -> bool:
     """Identify labeled product features, not commercial copy."""
     text = normalize_detail_text(value)
-    # The empty Caja label alone should not turn a prose-only description into
-    # a technical detail. A populated Caja field remains a recognized label.
-    text = _EMPTY_TRAILING_BOX_FIELD_PATTERN.sub("", text).rstrip(" .;")
+    # Empty terminal logistics labels are retained in source text but do not
+    # establish technical content by themselves.
+    text = _strip_allowed_empty_trailing_detail_fields(text).rstrip(" .;")
     if not text or _NON_TECHNICAL_SECTION_PREFIX_PATTERN.match(text):
         return False
     return _TECHNICAL_DETAIL_PATTERN.search(text) is not None
@@ -421,20 +443,18 @@ def is_valid_detail_content(value: object) -> bool:
     panels before calling this policy, so ordinary summary prose is valid too.
     """
     text = normalize_detail_text(value)
-    has_empty_terminal_box = (
-        _EMPTY_TRAILING_BOX_FIELD_PATTERN.search(text) is not None
-    )
+    validation_text = _strip_allowed_empty_trailing_detail_fields(text)
     if (
         not text
-        or _NON_TECHNICAL_SECTION_PREFIX_PATTERN.match(text)
-        or text.endswith((",", ";"))
-        or (text.endswith(":") and not has_empty_terminal_box)
-        or _SUMMARY_NOISE_PATTERN.match(text)
+        or not validation_text
+        or _NON_TECHNICAL_SECTION_PREFIX_PATTERN.match(validation_text)
+        or validation_text.endswith((",", ";", ":"))
+        or _SUMMARY_NOISE_PATTERN.match(validation_text)
     ):
         return False
-    if has_technical_detail(text):
+    if has_technical_detail(validation_text):
         return is_complete_detail(text)
-    return len(text) >= 20
+    return len(validation_text) >= 20
 
 
 def has_multiple_technical_detail_fields(value: object) -> bool:

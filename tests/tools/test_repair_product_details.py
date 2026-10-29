@@ -15,6 +15,7 @@ from tools.repair_product_details import (
     _card_detail_field_is_identified,
     _emit_json_report,
     _plan_category_card_detail,
+    _plan_from_detail_candidate,
     _resolve_category_batches,
     apply_detail_repairs,
     audit_incomplete_details,
@@ -246,6 +247,28 @@ def test_category_audit_compares_live_card_field_not_product_page_field():
         assert plan["new_description"] == card_description
         assert plan["reason"].find("tarjeta de categoría") >= 0
         assert browser.requested_urls == []
+    finally:
+        db.close()
+
+
+def test_category_detail_preview_ignores_boundary_only_changes():
+    db, repository = _seed_catalog(
+        description="Material: ABS. Dimensiones: 10 x 5 cm."
+    )
+    product = repository.get_by_code("FB-1700")
+    assert product is not None
+    candidate = "Material: ABS.\nDimensiones: 10 x 5 cm."
+
+    try:
+        plan = _plan_from_detail_candidate(
+            product,
+            PRODUCT_URL,
+            candidate,
+            reason="Detalle live de tarjeta",
+        )
+
+        assert plan.status == "unchanged"
+        assert plan.new_description == candidate
     finally:
         db.close()
 

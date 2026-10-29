@@ -558,6 +558,10 @@ def _card_detail_field_is_identified(card: Any, description: str) -> bool:
     extractor = CategoryProductExtractor()
     if str(description or "").strip():
         return True
+    # Use the same category-card extraction policy as the catalog scraper.
+    # Empty .text-content shells must not override valid visible fallback text.
+    if extractor._description(card).strip():
+        return True
 
     authoritative = [
         element
@@ -586,11 +590,9 @@ def _plan_from_detail_candidate(
 ) -> DetailRepairPlan:
     """Build a plan from an accepted Detail field without writing the database."""
     old_description = str(product.description or "")
-    normalized_old = normalize_detail_text(
-        old_description,
-        preserve_boundaries=True,
-    )
-    normalized_candidate = normalize_detail_text(
+    normalized_old = normalize_detail_text(old_description)
+    normalized_candidate = normalize_detail_text(candidate)
+    preserved_candidate = normalize_detail_text(
         candidate,
         preserve_boundaries=True,
     )
@@ -604,7 +606,7 @@ def _plan_from_detail_candidate(
         url=url,
         product_id=product.product_id,
         old_description=old_description,
-        new_description=normalized_candidate,
+        new_description=preserved_candidate,
         reason=reason,
     )
 

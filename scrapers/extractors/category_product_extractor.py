@@ -323,12 +323,18 @@ class CategoryProductExtractor:
         return candidates
 
     def _description(self, soup):
-        authoritative_elements = soup.select(".text-content")
-        if authoritative_elements:
-            candidates = self._collect_description_candidates(authoritative_elements)
-            if not candidates:
-                return ""
-        else:
+        # Only non-excluded .text-content blocks establish the authoritative
+        # Detail field. A text-content selector inside a tab panel must not
+        # suppress the visible Detail fields elsewhere in the category card.
+        authoritative_elements = [
+            element
+            for element in soup.select(".text-content")
+            if not self._is_excluded_detail_block(element)
+        ]
+        candidates = self._collect_description_candidates(authoritative_elements)
+        if authoritative_elements and not candidates:
+            return ""
+        if not candidates:
             fallback_selectors = (
                 ".brxe-text",
                 ".brxe-text-basic",

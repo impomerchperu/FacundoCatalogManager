@@ -564,9 +564,9 @@ def _card_detail_field_is_identified(card: Any, description: str) -> bool:
         for element in card.select(".text-content")
         if not extractor._is_excluded_detail_block(element)
     ]
-    if authoritative:
-        # A real .text-content block is the category card's Detail field even
-        # when its value is empty or contains only the separately excluded Color.
+    if any(not element.get_text(" ", strip=True) for element in authoritative):
+        # An explicitly empty, identified block is authoritative. A block that
+        # contains only Color or generic text is not itself a valid Detail value.
         return True
 
     fallback_selectors = (".brxe-text", ".brxe-text-basic", "ul li", "ol li")

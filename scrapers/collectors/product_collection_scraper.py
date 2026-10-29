@@ -17,6 +17,7 @@ from models.scraping.detail_description_policy import (
     is_complete_detail,
     normalize_detail_text,
 )
+from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.code_utils import normalize_code
 from scrapers.extractors.price_extractor import PriceExtractor
 from scrapers.extractors.product_image_extractor import ProductImageExtractor
@@ -353,7 +354,7 @@ class ProductCollectionScraper:
             with self._detail_metrics_lock:
                 self._record_detail_reason(f"requested_{request_reason}")
                 if request_reason == "missing_fields":
-                    missing_fields = self._missing_detail_fields(product)
+                    missing_fields = self._missing_detail_fields(product, card=card)
                     for field in missing_fields:
                         self._record_detail_reason(f"requested_missing_{field}")
                 if request_reason == "missing_prices":
@@ -424,7 +425,7 @@ class ProductCollectionScraper:
         # Check the category card first. A product URL alone is not a reason
         # to fetch its detail page when the available fields are already sound.
         stock_values = cls._stock_values(card)
-        if "description" in cls._missing_detail_fields(product):
+        if "description" in cls._missing_detail_fields(product, card=card):
             return None
         if cls._has_complete_card_color_stock(card, product, stock_values):
             if cls._missing_price_fields(card, product):
@@ -436,7 +437,7 @@ class ProductCollectionScraper:
         if len(stock_values) != 1:
             return None
 
-        if cls._missing_detail_fields(product):
+        if cls._missing_detail_fields(product, card=card):
             return None
         if cls._missing_price_fields(card, product):
             return None
@@ -486,10 +487,34 @@ class ProductCollectionScraper:
         )
 
     @classmethod
-    def _missing_detail_fields(cls, product: Any) -> tuple[str, ...]:
+    def _has_authoritative_empty_card_detail(cls, card: Any, product: Any) -> bool:
+        """Identify an empty card Detail so another page field cannot replace it."""
+        if str(getattr(product, "description", "") or "").strip():
+            return False
+        try:
+            elements = card.select(".text-content")
+        except AttributeError:
+            return False
+        return any(
+            not CategoryProductExtractor._is_excluded_detail_block(element)
+            for element in elements
+        )
+
+    @classmethod
+    def _missing_detail_fields(
+        cls,
+        product: Any,
+        *,
+        card: Any = None,
+    ) -> tuple[str, ...]:
         missing: list[str] = []
         for field in cls._REQUIRED_DETAIL_FIELDS:
             if field == "description":
+                if (
+                    card is not None
+                    and cls._has_authoritative_empty_card_detail(card, product)
+                ):
+                    continue
                 if cls._description_needs_detail(product):
                     missing.append(field)
             elif not str(getattr(product, field, "")).strip():
@@ -700,13 +725,20 @@ class ProductCollectionScraper:
         detail_description = normalize_detail_text(
             getattr(detailed_product, "description", "")
         )
+        card_detail_is_authoritatively_empty = (
+            self._has_authoritative_empty_card_detail(card, product)
+        )
         card_description_is_complete = self._description_is_complete(
             card_description
         )
         detail_description_is_complete = self._description_is_complete(
             detail_description
         )
-        if not card_description_is_complete and detail_description_is_complete:
+        if (
+            not card_detail_is_authoritatively_empty
+            and not card_description_is_complete
+            and detail_description_is_complete
+        ):
             product.description = detail_description
         else:
             product.description = card_description

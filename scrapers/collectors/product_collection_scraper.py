@@ -497,6 +497,7 @@ class ProductCollectionScraper:
             return False
         return any(
             not CategoryProductExtractor._is_excluded_detail_block(element)
+            and not element.get_text(" ", strip=True)
             for element in elements
         )
 

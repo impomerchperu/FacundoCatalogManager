@@ -170,8 +170,14 @@ def test_category_preview_uses_authoritative_product_page_detail_and_excludes_ta
         assert report["fetch_errors"] == 0
         assert report["candidate_differences_remaining"] == 1
 
-        category = report["category_results"][0]
-        plan = category["preview_items"][0]
+        category_results = report.get("category_results")
+        assert isinstance(category_results, list)
+        category = category_results[0]
+        assert isinstance(category, dict)
+        preview_items = category.get("preview_items")
+        assert isinstance(preview_items, list)
+        plan = preview_items[0]
+        assert isinstance(plan, dict)
         assert plan["code"] == "FB-1700"
         assert plan["status"] == "would_update"
         assert (

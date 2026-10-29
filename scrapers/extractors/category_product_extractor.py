@@ -340,23 +340,24 @@ class CategoryProductExtractor:
                 "ol li",
             )
             fallback_elements = list(soup.select(", ".join(fallback_selectors)))
-            has_empty_authoritative_shell = any(
-                not element.get_text(" ", strip=True)
+            authoritative_residue = [
+                normalize_detail_text(self._detail_text_from_element(element))
                 for element in authoritative_elements
-            )
+            ]
 
-            if authoritative_elements and not has_empty_authoritative_shell:
-                # Non-empty authoritative blocks that contain only Color or
-                # unrelated text must not be replaced by other card content.
+            # A .text-content block that normalizes to empty may be an empty
+            # shell or a Color-only field. Neither proves that the actual Detail
+            # is empty when several labeled Detail fields are visible beside it.
+            # Keep non-Color text authoritative: it must not be replaced by
+            # unrelated sibling content.
+            if authoritative_elements and any(authoritative_residue):
                 return ""
 
             if authoritative_elements:
-                # Some cards contain an empty .text-content shell alongside
-                # the visible Detail split into multiple labeled paragraphs.
-                # Prefer those leaf blocks only when the source independently
-                # exposes at least two valid Detail fragments. A single
-                # unrelated fallback block must not override an identified
-                # empty Detail field.
+                # Recover sibling Detail blocks only when the authoritative
+                # wrappers are empty/Color-only and the source independently
+                # exposes at least two valid Detail fragments. One unrelated
+                # fallback block is not enough to override an empty field.
                 expanded_fallback_elements = []
                 for element in fallback_elements:
                     child_blocks = element.select("p, li")

@@ -174,9 +174,18 @@ def test_category_preview_uses_authoritative_product_page_detail_and_excludes_ta
         plan = category["preview_items"][0]
         assert plan["code"] == "FB-1700"
         assert plan["status"] == "would_update"
-        assert "Descripción: Set funcional de prueba." in plan["new_description"]
-        assert "Contiene: Cinta métrica, destornillador y nivel." in plan["new_description"]
-        assert "Presentación: Caja de diseño kraft." in plan["new_description"]
+        assert (
+            "Descripción: Set funcional de prueba."
+            in plan["new_description"]
+        )
+        assert (
+            "Contiene: Cinta métrica, destornillador y nivel."
+            in plan["new_description"]
+        )
+        assert (
+            "Presentación: Caja de diseño kraft."
+            in plan["new_description"]
+        )
         assert "Color:" not in plan["new_description"]
         assert "TEXTO AJENO" not in plan["new_description"]
         assert "Información adicional" not in plan["new_description"]

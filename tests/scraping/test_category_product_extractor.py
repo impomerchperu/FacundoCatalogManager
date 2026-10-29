@@ -504,6 +504,34 @@ def test_empty_text_content_shell_uses_multiple_visible_fallback_detail_fields()
     assert "Color:" not in product.description
 
 
+def test_color_only_text_content_does_not_hide_visible_multiblock_detail():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-5016</p>
+        <h2 class="brxe-f31760">Wincha Multiherramienta Eliza 3m</h2>
+        <div class="text-content">Color: Negro con…</div>
+        <div class="brxe-text-basic">
+            <p>Medidas: 6 cm x 9.6 cm x 2.2 cm (Aprox)</p>
+            <p>Material: Bambú y ABS</p>
+            <p>Funciones: 7 funciones (cinta métrica de 3 m, destornillador con puntas planas, philips y allen, nivel integrado)</p>
+            <p>Accesorios: 5 piezas incluidas</p>
+            <p>Peso: 108 gr (Aprox)</p>
+            <p>Presentación: Individual, caja diseño kraft</p>
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert "Medidas: 6 cm x 9.6 cm x 2.2 cm (Aprox)" in product.description
+    assert "Material: Bambú y ABS" in product.description
+    assert "Funciones: 7 funciones" in product.description
+    assert "Accesorios: 5 piezas incluidas" in product.description
+    assert "Peso: 108 gr (Aprox)" in product.description
+    assert "Presentación: Individual, caja diseño kraft" in product.description
+    assert "Color:" not in product.description
+
+
 def test_empty_text_content_does_not_fall_back_to_unrelated_blocks():
     html = (
         '<article><p class="brxe-a26f34">FB-2114</p>'

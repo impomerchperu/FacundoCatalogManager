@@ -28,7 +28,6 @@ from bs4 import BeautifulSoup
 from config.runtime_paths import DATABASE_PATH
 from database.db_manager import DBManager
 from models.product import Product
-from models.scraping.category import Category
 from models.scraping.detail_description_policy import (
     has_technical_detail,
     is_complete_detail,
@@ -37,11 +36,6 @@ from models.scraping.detail_description_policy import (
 )
 from repositories.product_repository import ProductRepository
 from scrapers.browser import Browser
-from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
-from scrapers.collectors.resilient_category_scraper import ResilientCategoryScraper
-from scrapers.extractors.category_extractor import CategoryExtractor
-from scrapers.extractors.category_product_extractor import CategoryProductExtractor
-from scrapers.extractors.product_card_extractor import ProductCardExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.category_name_normalizer import (
     canonical_category_name,
@@ -49,7 +43,6 @@ from services.scraping.category_name_normalizer import (
     split_category_names,
 )
 from services.scraping.product_hash_service import ProductHashService
-from services.scraping.scraping_config import ScrapingConfig
 
 _ALLOWED_HOSTS = frozenset({"stock.importacionesfacundo.com"})
 
@@ -539,7 +532,6 @@ def _blocking_detail_codes(report: dict[str, object]) -> set[str]:
         "skip_authoritative_detail_not_found",
         "skip_code_mismatch",
         "skip_product_changed",
-        "skip_card_product_not_found",
     }
     raw_items = report.get("items", [])
     if not isinstance(raw_items, list):
@@ -553,250 +545,6 @@ def _blocking_detail_codes(report: dict[str, object]) -> set[str]:
     }
 
 
-def _card_detail_field_is_identified(card: Any, description: str) -> bool:
-    """Tell an identified empty card Detail apart from a missing card field."""
-    extractor = CategoryProductExtractor()
-    if str(description or "").strip():
-        return True
-    # Use the same category-card extraction policy as the catalog scraper.
-    # Empty .text-content shells must not override valid visible fallback text.
-    if extractor._description(card).strip():
-        return True
-
-    authoritative = [
-        element
-        for element in card.select(".text-content")
-        if not extractor._is_excluded_detail_block(element)
-    ]
-    if any(not element.get_text(" ", strip=True) for element in authoritative):
-        # An explicitly empty, identified block is authoritative. A block that
-        # contains only Color or generic text is not itself a valid Detail value.
-        return True
-
-    fallback_selectors = (".brxe-text", ".brxe-text-basic", "ul li", "ol li")
-    return any(
-        not extractor._is_excluded_detail_block(element)
-        and bool(extractor._description_candidate(element))
-        for element in card.select(", ".join(fallback_selectors))
-    )
-
-
-def _plan_from_detail_candidate(
-    product: Product,
-    url: str,
-    candidate: str,
-    *,
-    reason: str,
-) -> DetailRepairPlan:
-    """Build a plan from an accepted Detail field without writing the database."""
-    old_description = str(product.description or "")
-    normalized_old = normalize_detail_text(old_description)
-    normalized_candidate = normalize_detail_text(candidate)
-    preserved_candidate = normalize_detail_text(
-        candidate,
-        preserve_boundaries=True,
-    )
-    return DetailRepairPlan(
-        code=product.code,
-        status=(
-            "unchanged"
-            if normalized_old == normalized_candidate
-            else "would_update"
-        ),
-        url=url,
-        product_id=product.product_id,
-        old_description=old_description,
-        new_description=preserved_candidate,
-        reason=reason,
-    )
-
-
-def _plan_category_card_detail(
-    db: DBManager,
-    repository: ProductRepository,
-    product: Product,
-    card: Any,
-    card_description: str,
-    *,
-    source_url: str,
-    category_name: str,
-    browser: Browser,
-) -> DetailRepairPlan:
-    """Use live category-card Detail first, supplementing only missing/incomplete values."""
-    candidate = normalize_detail_text(
-        card_description,
-        preserve_boundaries=True,
-    )
-    if not candidate:
-        # The collection scraper can leave source_product.description empty even
-        # when the same card still exposes recoverable Detail in sibling blocks.
-        # Re-extract from the raw card before interpreting it as authoritative
-        # empty; otherwise _card_detail_field_is_identified may detect that
-        # visible Detail exists while this planner still proposes clearing it.
-        extracted_card_detail = CategoryProductExtractor()._description(card)
-        candidate = normalize_detail_text(
-            extracted_card_detail,
-            preserve_boundaries=True,
-        )
-    field_identified = _card_detail_field_is_identified(card, candidate)
-
-    if field_identified and not candidate:
-        return _plan_from_detail_candidate(
-            product,
-            source_url,
-            "",
-            reason=(
-                "El campo Detalle de la tarjeta está identificado y vacío; "
-                "se conserva vacío y no se sustituye con la página individual."
-            ),
-        )
-
-    if candidate and not _detail_issue(candidate):
-        return _plan_from_detail_candidate(
-            product,
-            source_url,
-            candidate,
-            reason="Detalle obtenido del campo autorizado de la tarjeta de categoría.",
-        )
-
-    # Only a missing/unidentified or incomplete/truncated card value allows the
-    # product-page field to supplement it. The single-product planner validates
-    # page identity, authoritative field presence, and completeness before use.
-    return _plan_single_product_detail_repair(
-        db,
-        repository,
-        product.code,
-        browser=browser,
-        product_override=product,
-        source_url_override=source_url,
-        extractor=ProductExtractor(),
-    )
-
-
-def _audit_live_category_cards(  # noqa: PLR0912
-    db: DBManager,
-    repository: ProductRepository,
-    category: Category,
-    category_products: list[Product],
-    *,
-    browser: Browser,
-    collection_scraper: ProductCollectionScraper,
-) -> tuple[dict[str, object], bool]:
-    """Compare one live category's card fields with its DB rows, without mutation."""
-    raw_products = collection_scraper.collect_category(category)
-    live_by_identity: dict[str, tuple[Any, str, Any]] = {}
-    duplicate_live_codes: set[str] = set()
-    unidentified_cards = 0
-
-    for item in raw_products:
-        if not isinstance(item, tuple) or len(item) != 3:
-            unidentified_cards += 1
-            continue
-        card, _page_url, source_product = item
-        code = _normalize_code(getattr(source_product, "code", ""))
-        identity = _code_identity(code)
-        if not identity:
-            unidentified_cards += 1
-            continue
-        if identity in live_by_identity:
-            duplicate_live_codes.add(code)
-            continue
-        live_by_identity[identity] = (card, str(getattr(source_product, "url", "") or ""), source_product)
-
-    local_by_identity: dict[str, Product] = {}
-    duplicate_local_codes: set[str] = set()
-    for product in category_products:
-        identity = _code_identity(product.code)
-        if identity in local_by_identity:
-            duplicate_local_codes.add(product.code)
-            continue
-        local_by_identity[identity] = product
-
-    plans: list[DetailRepairPlan] = []
-    missing_live_codes: list[str] = []
-    for identity, product in local_by_identity.items():
-        source = live_by_identity.get(identity)
-        if source is None:
-            missing_live_codes.append(product.code)
-            plans.append(
-                DetailRepairPlan(
-                    code=product.code,
-                    status="skip_card_product_not_found",
-                    product_id=product.product_id,
-                    old_description=str(product.description or ""),
-                    reason=(
-                        "El producto del catálogo local no se identificó por código "
-                        "en las tarjetas actuales de esta categoría."
-                    ),
-                )
-            )
-            continue
-
-        card, source_url, source_product = source
-        plans.append(
-            _plan_category_card_detail(
-                db,
-                repository,
-                product,
-                card,
-                str(getattr(source_product, "description", "") or ""),
-                source_url=source_url,
-                category_name=category.name,
-                browser=browser,
-            )
-        )
-
-    coverage_issues: list[str] = []
-    expected_count = max(int(getattr(category, "expected_count", 0) or 0), 0)
-    if expected_count and len(raw_products) != expected_count:
-        coverage_issues.append(
-            f"El sitio publica {expected_count} productos, pero se extrajeron "
-            f"{len(raw_products)} tarjetas únicas."
-        )
-    if missing_live_codes:
-        coverage_issues.append(
-            "No se encontraron en la categoría los códigos locales: "
-            + ", ".join(sorted(missing_live_codes, key=str.casefold))
-        )
-    if duplicate_live_codes:
-        coverage_issues.append(
-            "Hay códigos duplicados en las tarjetas live: "
-            + ", ".join(sorted(duplicate_live_codes, key=str.casefold))
-        )
-    if duplicate_local_codes:
-        coverage_issues.append(
-            "Hay códigos locales ambiguos: "
-            + ", ".join(sorted(duplicate_local_codes, key=str.casefold))
-        )
-    if unidentified_cards:
-        coverage_issues.append(
-            f"{unidentified_cards} tarjetas no tienen un código identificable."
-        )
-
-    counts = Counter(plan.status for plan in plans)
-    compared_statuses = {"unchanged", "would_update", "skip_invalid_detail"}
-    report: dict[str, object] = {
-        "mode": "category_card_source_audit",
-        "catalog_total": len(category_products),
-        "live_category_cards": len(raw_products),
-        "source_fields_compared": sum(
-            counts[status] for status in compared_statuses
-        ),
-        "candidate_differences": counts["would_update"],
-        "invalid_source_details": counts["skip_invalid_detail"],
-        "fetch_errors": counts["fetch_error"],
-        "products_without_source_url": counts["skip_source_url_not_found"],
-        "authoritative_detail_not_found": counts[
-            "skip_authoritative_detail_not_found"
-        ],
-        "status_counts": dict(sorted(counts.items())),
-        "coverage_verified": not coverage_issues,
-        "coverage_issues": coverage_issues,
-        "items": [asdict(plan) for plan in plans],
-    }
-    return report, not coverage_issues
-
-
 def _repair_categories_by_batch(  # noqa: PLR0912
     db: DBManager,
     repository: ProductRepository,
@@ -806,7 +554,7 @@ def _repair_categories_by_batch(  # noqa: PLR0912
     workers: int,
     apply: bool,
 ) -> dict[str, object]:
-    """Audit and repair category-card Detail values one category at a time."""
+    """Preview, apply and verify Details one category at a time, with a single backup."""
     batches = _resolve_category_batches(repository, requested_categories)
     backup_path = ""
     total_updated = 0
@@ -814,206 +562,160 @@ def _repair_categories_by_batch(  # noqa: PLR0912
     candidate_differences_remaining = 0
     unresolved_codes: set[str] = set()
     category_results: list[dict[str, object]] = []
+
     total_occurrences = sum(len(products) for _, products in batches)
-
-    category_scraper = ResilientCategoryScraper(
-        browser=browser,
-        category_extractor=CategoryExtractor(),
+    print(
+        f"[Detalle por categoría] {len(batches)} categorías; "
+        f"{total_occurrences} productos/categoría antes de deduplicar.",
+        file=sys.stderr,
+        flush=True,
     )
-    collection_scraper = ProductCollectionScraper(
-        category_scraper,
-        ProductCardExtractor(),
-        CategoryProductExtractor(),
-        ProductExtractor(),
-        max_workers=workers,
-        category_page_workers=1,
-    )
-    try:
-        live_categories = category_scraper.scrape(ScrapingConfig().catalog_url)
-        live_categories_by_key = {
-            normalize_category_name(getattr(item, "name", "")): item
-            for item in live_categories or []
-            if normalize_category_name(getattr(item, "name", ""))
-        }
-        if not live_categories_by_key:
-            raise RuntimeError("No se pudieron descubrir las categorías live del catálogo.")
 
+    for category, category_products in batches:
         print(
-            f"[Detalle por categoría] {len(batches)} categorías; "
-            f"{total_occurrences} productos locales en el ámbito.",
+            f"[Detalle por categoría] Iniciando: {category} "
+            f"({len(category_products)} productos).",
             file=sys.stderr,
             flush=True,
         )
+        preview = audit_source_details(
+            db,
+            repository,
+            browser=browser,
+            workers=workers,
+            products=category_products,
+            progress=_log_audit_progress,
+        )
+        preview_summary = _source_audit_summary(preview)
+        preview_fetch_errors = int(preview.get("fetch_errors") or 0)
+        total_fetch_errors += preview_fetch_errors
+        unresolved_codes.update(_blocking_detail_codes(preview))
+        result: dict[str, object] = {
+            "category": category,
+            "products": len(category_products),
+            "preview": preview_summary,
+            "preview_items": preview.get("items", []),
+            "updated": 0,
+            "verification_runs": [],
+            "outcome": "preview_only",
+        }
 
-        for category_name, category_products in batches:
-            print(
-                f"[Detalle por categoría] Iniciando: {category_name} "
-                f"({len(category_products)} productos).",
-                file=sys.stderr,
-                flush=True,
+        if not apply:
+            candidate_differences_remaining += int(
+                preview.get("candidate_differences") or 0
             )
-            live_category = live_categories_by_key.get(
-                normalize_category_name(category_name)
+            category_results.append(result)
+            continue
+
+        if preview_fetch_errors:
+            result["outcome"] = "blocked_fetch_errors"
+            candidate_differences_remaining += int(
+                preview.get("candidate_differences") or 0
             )
-            if live_category is None:
-                raise ValueError(
-                    f"La categoría local {category_name!r} no se encontró en el "
-                    "listado de categorías live; no se aplicarán cambios."
-                )
+            category_results.append(result)
+            continue
 
-            try:
-                preview, coverage_verified = _audit_live_category_cards(
-                    db,
-                    repository,
-                    live_category,
-                    category_products,
-                    browser=browser,
-                    collection_scraper=collection_scraper,
-                )
-            except Exception as error:  # noqa: BLE001
-                message = f"{type(error).__name__}: {error}"
-                failed_plans = [
-                    DetailRepairPlan(
-                        code=product.code,
-                        status="fetch_error",
-                        product_id=product.product_id,
-                        old_description=str(product.description or ""),
-                        reason=message,
-                    )
-                    for product in category_products
-                ]
-                preview = {
-                    "mode": "category_card_source_audit",
-                    "catalog_total": len(category_products),
-                    "live_category_cards": 0,
-                    "source_fields_compared": 0,
-                    "candidate_differences": 0,
-                    "invalid_source_details": 0,
-                    "fetch_errors": len(failed_plans),
-                    "products_without_source_url": 0,
-                    "authoritative_detail_not_found": 0,
-                    "status_counts": {"fetch_error": len(failed_plans)},
-                    "coverage_verified": False,
-                    "coverage_issues": [message],
-                    "items": [asdict(plan) for plan in failed_plans],
-                }
-                coverage_verified = False
+        plans = _plans_from_audit_report(preview)
+        proposed_updates = sum(plan.status == "would_update" for plan in plans)
+        if proposed_updates and not backup_path:
+            backup_path = str(_create_database_backup(db))
 
-            preview_summary = _source_audit_summary(preview)
-            preview_summary["live_category_cards"] = preview.get("live_category_cards")
-            preview_summary["coverage_verified"] = coverage_verified
-            preview_summary["coverage_issues"] = preview.get("coverage_issues", [])
-            preview_fetch_errors = int(preview.get("fetch_errors") or 0)
-            total_fetch_errors += preview_fetch_errors
-            unresolved_codes.update(_blocking_detail_codes(preview))
-            if not coverage_verified:
-                unresolved_codes.update(product.code for product in category_products)
+        updated = apply_detail_repairs(db, repository, plans)
+        category_updated = updated
+        total_updated += updated
+        result["updated"] = updated
 
-            result: dict[str, object] = {
-                "category": category_name,
-                "products": len(category_products),
-                "preview": preview_summary,
-                "preview_items": preview.get("items", []),
-                "updated": 0,
-                "verification_runs": [],
-                "coverage_verified": coverage_verified,
-                "coverage_issues": preview.get("coverage_issues", []),
-                "outcome": "preview_only",
-            }
-
-            if not apply:
+        if updated == 0:
+            if int(preview.get("candidate_differences") or 0) > 0:
+                result["outcome"] = "needs_review_no_valid_updates"
                 candidate_differences_remaining += int(
                     preview.get("candidate_differences") or 0
                 )
-                category_results.append(result)
-                continue
+            elif _blocking_detail_codes(preview):
+                result["outcome"] = "verified_with_skips"
+            else:
+                result["outcome"] = "verified_no_changes"
+            category_results.append(result)
+            continue
 
-            # Never write from an incomplete category scrape or from a category
-            # whose product-card coverage/identity could not be reconciled.
-            if preview_fetch_errors or not coverage_verified:
-                result["outcome"] = (
-                    "blocked_fetch_errors"
-                    if preview_fetch_errors
-                    else "blocked_category_coverage"
-                )
-                candidate_differences_remaining += int(
-                    preview.get("candidate_differences") or 0
-                )
-                category_results.append(result)
-                continue
-
-            plans = _plans_from_audit_report(preview)
-            proposed_updates = sum(plan.status == "would_update" for plan in plans)
-            if proposed_updates and not backup_path:
-                backup_path = str(_create_database_backup(db))
-
-            updated = apply_detail_repairs(db, repository, plans)
-            total_updated += updated
-            result["updated"] = updated
-
-            try:
-                verification, verification_coverage = _audit_live_category_cards(
-                    db,
-                    repository,
-                    live_category,
-                    _resolve_category_batches(repository, [category_name])[0][1],
-                    browser=browser,
-                    collection_scraper=collection_scraper,
-                )
-            except Exception as error:  # noqa: BLE001
-                verification = {
-                    "candidate_differences": 0,
-                    "fetch_errors": 1,
-                    "items": [],
-                    "coverage_issues": [f"{type(error).__name__}: {error}"],
-                }
-                verification_coverage = False
+        outcome = "differences_remaining"
+        for attempt in range(1, 3):
+            current_batch = _resolve_category_batches(repository, [category])[0][1]
+            verification = audit_source_details(
+                db,
+                repository,
+                browser=browser,
+                workers=workers,
+                products=current_batch,
+                progress=_log_audit_progress,
+            )
             total_fetch_errors += int(verification.get("fetch_errors") or 0)
             unresolved_codes.update(_blocking_detail_codes(verification))
-            if not verification_coverage:
-                unresolved_codes.update(product.code for product in category_products)
-
             verification_runs = result["verification_runs"]
             if isinstance(verification_runs, list):
                 verification_runs.append(
                     {
-                        "attempt": 1,
+                        "attempt": attempt,
                         "summary": _source_audit_summary(verification),
-                        "coverage_verified": verification_coverage,
-                        "coverage_issues": verification.get("coverage_issues", []),
                         "items": verification.get("items", []),
                     }
                 )
 
-            remaining = int(verification.get("candidate_differences") or 0)
             if int(verification.get("fetch_errors") or 0) > 0:
                 outcome = "verification_fetch_error"
-                candidate_differences_remaining += remaining
-            elif not verification_coverage:
-                outcome = "verification_coverage_mismatch"
-                candidate_differences_remaining += remaining
-            elif remaining:
-                outcome = "differences_remaining"
-                candidate_differences_remaining += remaining
-                unresolved_codes.update(
-                    str(item.get("code") or "")
-                    for item in verification.get("items", [])
-                    if isinstance(item, dict)
-                    and str(item.get("status") or "") == "would_update"
-                    and str(item.get("code") or "")
+                candidate_differences_remaining += int(
+                    verification.get("candidate_differences") or 0
                 )
-            else:
+                break
+
+            remaining = int(verification.get("candidate_differences") or 0)
+            if remaining == 0:
                 outcome = (
                     "verified_with_skips"
                     if _blocking_detail_codes(verification)
                     else "verified"
                 )
-            result["outcome"] = outcome
-            result["verification_summary"] = _source_audit_summary(verification)
-            category_results.append(result)
+                break
 
-    finally:
-        collection_scraper.close()
+            if attempt == 1:
+                followup_plans = _plans_from_audit_report(verification)
+                followup_updated = apply_detail_repairs(
+                    db,
+                    repository,
+                    followup_plans,
+                )
+                total_updated += followup_updated
+                category_updated += followup_updated
+                result["updated"] = category_updated
+                if followup_updated > 0:
+                    continue
+
+            outcome = "differences_remaining"
+            candidate_differences_remaining += remaining
+            break
+
+        result["outcome"] = outcome
+        category_results.append(result)
+
+    # Only codes still blocked in source validation or with an unresolved difference
+    # prevent a false-green outcome; exact differences are retained in the report.
+    if apply:
+        for result in category_results:
+            if result.get("outcome") in {
+                "blocked_fetch_errors",
+                "verification_fetch_error",
+                "needs_review_no_valid_updates",
+                "differences_remaining",
+            }:
+                items = result.get("preview_items", [])
+                if isinstance(items, list):
+                    unresolved_codes.update(
+                        str(item.get("code") or "")
+                        for item in items
+                        if isinstance(item, dict)
+                        and str(item.get("status") or "") == "would_update"
+                        and str(item.get("code") or "")
+                    )
 
     unique_product_codes = {
         product.code

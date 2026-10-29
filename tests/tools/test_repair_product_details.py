@@ -290,6 +290,59 @@ def test_color_only_category_block_uses_visible_sibling_detail_fields():
         db.close()
 
 
+def test_repair_reextracts_visible_card_detail_when_scraped_description_is_empty():
+    db, repository = _seed_catalog(description="Detalle comercial antiguo")
+    browser = StaticBrowser(
+        _product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm.")
+    )
+    product = repository.get_by_code("FB-1700")
+    card = BeautifulSoup(
+        """
+        <article>
+          <div class="text-content">Color: Negro con…</div>
+          <div class="brxe-text-basic">
+            <p>Medidas: 6 cm x 9.6 cm x 2.2 cm (Aprox)</p>
+            <p>Material: Bambú y ABS</p>
+            <p>Funciones: 7 funciones (cinta métrica de 3 m, destornillador con puntas planas, philips y allen, nivel integrado)</p>
+            <p>Accesorios: 5 piezas incluidas</p>
+            <p>Peso: 108 gr (Aprox)</p>
+            <p>Presentación: Individual, caja diseño kraft</p>
+          </div>
+        </article>
+        """,
+        "lxml",
+    ).article
+    assert product is not None
+    assert card is not None
+
+    try:
+        # Mirrors the live report: the collection result says blank, but the
+        # raw category card still contains the source Detail in sibling blocks.
+        plan = _plan_category_card_detail(
+            db,
+            repository,
+            product,
+            card,
+            "",
+            source_url=PRODUCT_URL,
+            category_name="Artículos de Escritorio",
+            browser=browser,
+        )
+
+        assert plan.status == "would_update"
+        assert "Medidas: 6 cm x 9.6 cm x 2.2 cm (Aprox)" in plan.new_description
+        assert "Material: Bambú y ABS" in plan.new_description
+        assert "Funciones: 7 funciones" in plan.new_description
+        assert "Accesorios: 5 piezas incluidas" in plan.new_description
+        assert "Peso: 108 gr (Aprox)" in plan.new_description
+        assert "Presentación: Individual, caja diseño kraft" in plan.new_description
+        assert "Color:" not in plan.new_description
+        assert "tarjeta de categoría" in plan.reason
+        assert browser.requested_urls == []
+    finally:
+        db.close()
+
+
 def test_empty_identified_category_detail_is_not_supplemented_from_product_page():
     db, repository = _seed_catalog(description=VALID_DETAIL)
     browser = StaticBrowser(_product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm."))

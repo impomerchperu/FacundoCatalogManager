@@ -627,6 +627,17 @@ def _plan_category_card_detail(
         card_description,
         preserve_boundaries=True,
     )
+    if not candidate:
+        # The collection scraper can leave source_product.description empty even
+        # when the same card still exposes recoverable Detail in sibling blocks.
+        # Re-extract from the raw card before interpreting it as authoritative
+        # empty; otherwise _card_detail_field_is_identified may detect that
+        # visible Detail exists while this planner still proposes clearing it.
+        extracted_card_detail = CategoryProductExtractor()._description(card)
+        candidate = normalize_detail_text(
+            extracted_card_detail,
+            preserve_boundaries=True,
+        )
     field_identified = _card_detail_field_is_identified(card, candidate)
 
     if field_identified and not candidate:

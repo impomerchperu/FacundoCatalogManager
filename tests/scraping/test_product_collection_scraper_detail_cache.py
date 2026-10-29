@@ -611,6 +611,73 @@ def test_color_only_card_detail_does_not_fall_back_to_description_tab():
     assert result[0].description == ""
 
 
+def test_empty_identified_card_detail_stays_empty_when_page_has_detail():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+    category_scraper.html_override = """
+    <html>
+        <article>
+            <a href="/producto/producto-detalle-vacio/">
+                <img src="https://example.com/Logo-Facundo-2026.webp">
+                <h2 class="brxe-f31760">Producto con Detalle vacío</h2>
+            </a>
+            <p class="brxe-a26f34">FB-1242</p>
+            <div class="text-content"></div>
+            <div class="brxe-text-basic">Material: ABS. Dimensiones: 99 x 99 cm.</div>
+            <div class="variaciones-producto"><p>10</p></div>
+            <div class="content-precio">
+                <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+            </div>
+            <div class="content-precio">
+                <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+            </div>
+            <div class="content-precio">
+                <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+            </div>
+        </article>
+    </html>
+    """
+    category_scraper.detail_html_override = """
+    <html>
+        <h1>Producto con Detalle vacío</h1>
+        <p class="brxe-heading">FB-1242</p>
+        <div class="woocommerce-product-details__short-description">
+            Material: PLÁSTICO. Dimensiones: 99 x 99 cm.
+        </div>
+        <img class="woocommerce-product-gallery"
+             src="https://example.com/producto-real.webp">
+        <div class="content-precio">
+            <h3>Precio Muestra</h3><h4>S/ 8.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Ciento</h3><h4>S/ 700.00</h4>
+        </div>
+        <div class="content-precio">
+            <h3>Precio Millar</h3><h4>S/ 6500.00</h4>
+        </div>
+        Stock Disponible 10
+    </html>
+    """
+
+    result = scraper.scrape_category(
+        Category(
+            name="Promocionales",
+            url="https://example.com/promocionales/",
+        )
+    )
+
+    assert len(result) == 1
+    assert category_scraper.detail_requests == [
+        "https://example.com/producto/producto-detalle-vacio/"
+    ]
+    assert result[0].description == ""
+
+
 def test_bare_colores_text_triggers_technical_detail_repair():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(

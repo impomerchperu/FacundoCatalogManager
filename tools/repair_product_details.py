@@ -656,6 +656,7 @@ def _plan_category_card_detail(
         browser=browser,
         product_override=product,
         source_url_override=source_url,
+        extractor=ProductExtractor(),
     )
 
 

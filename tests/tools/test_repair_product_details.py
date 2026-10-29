@@ -189,6 +189,57 @@ def test_category_card_fallback_detail_survives_excluded_text_content_block():
         db.close()
 
 
+def test_empty_text_content_shell_does_not_clear_visible_multiblock_category_detail():
+    db, repository = _seed_catalog(description="Detalle comercial antiguo")
+    browser = StaticBrowser(
+        _product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm.")
+    )
+    product = repository.get_by_code("FB-1700")
+    card = BeautifulSoup(
+        """
+        <article>
+          <div class="text-content"></div>
+          <div class="brxe-text-basic">
+            <p>Medidas: 6 cm x 9.6 cm x 2.2 cm (Aprox)</p>
+            <p>Material: Bambú y ABS</p>
+            <p>Funciones: 7 funciones (cinta métrica de 3 m, destornillador con puntas planas, philips y allen, nivel integrado)</p>
+            <p>Accesorios: 5 piezas incluidas</p>
+            <p>Peso: 108 gr (Aprox)</p>
+            <p>Color: Negro con…</p>
+            <p>Presentación: Individual, caja diseño kraft</p>
+          </div>
+        </article>
+        """,
+        "lxml",
+    ).article
+    assert product is not None
+    assert card is not None
+
+    try:
+        card_description = CategoryProductExtractor()._description(card)
+        assert "Medidas: 6 cm x 9.6 cm x 2.2 cm (Aprox)" in card_description
+        assert "Presentación: Individual, caja diseño kraft" in card_description
+        assert "Color:" not in card_description
+
+        plan = _plan_category_card_detail(
+            db,
+            repository,
+            product,
+            card,
+            card_description,
+            source_url=PRODUCT_URL,
+            category_name="Artículos de Escritorio",
+            browser=browser,
+        )
+
+        assert plan.status == "would_update"
+        assert plan.new_description == card_description
+        assert "tarjeta de categoría" in plan.reason
+        assert browser.requested_urls == []
+    finally:
+        db.close()
+
+
 def test_empty_identified_category_detail_is_not_supplemented_from_product_page():
     db, repository = _seed_catalog(description=VALID_DETAIL)
     browser = StaticBrowser(_product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm."))

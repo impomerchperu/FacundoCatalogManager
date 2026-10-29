@@ -29,11 +29,6 @@ from config.runtime_paths import DATABASE_PATH
 from database.db_manager import DBManager
 from models.product import Product
 from models.scraping.category import Category
-from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
-from scrapers.collectors.resilient_category_scraper import ResilientCategoryScraper
-from scrapers.extractors.category_extractor import CategoryExtractor
-from scrapers.extractors.category_product_extractor import CategoryProductExtractor
-from scrapers.extractors.product_card_extractor import ProductCardExtractor
 from models.scraping.detail_description_policy import (
     has_technical_detail,
     is_complete_detail,
@@ -42,14 +37,19 @@ from models.scraping.detail_description_policy import (
 )
 from repositories.product_repository import ProductRepository
 from scrapers.browser import Browser
+from scrapers.collectors.product_collection_scraper import ProductCollectionScraper
+from scrapers.collectors.resilient_category_scraper import ResilientCategoryScraper
+from scrapers.extractors.category_extractor import CategoryExtractor
+from scrapers.extractors.category_product_extractor import CategoryProductExtractor
+from scrapers.extractors.product_card_extractor import ProductCardExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
-from services.scraping.scraping_config import ScrapingConfig
 from services.scraping.category_name_normalizer import (
     canonical_category_name,
     normalize_category_name,
     split_category_names,
 )
 from services.scraping.product_hash_service import ProductHashService
+from services.scraping.scraping_config import ScrapingConfig
 
 _ALLOWED_HOSTS = frozenset({"stock.importacionesfacundo.com"})
 
@@ -659,7 +659,7 @@ def _plan_category_card_detail(
     )
 
 
-def _audit_live_category_cards(
+def _audit_live_category_cards(  # noqa: PLR0912
     db: DBManager,
     repository: ProductRepository,
     category: Category,

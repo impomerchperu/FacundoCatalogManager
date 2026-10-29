@@ -81,7 +81,9 @@ def test_visible_jetsmartfilters_pagination_is_honored():
         expected_count=0,
     )
 
-    assert calls == [2, 3, 4, 5]
+    # Pages 2 and 3 are requested concurrently, so their invocation order is
+    # nondeterministic. Assert the complete set of requested pages instead.
+    assert sorted(calls) == [2, 3, 4, 5]
     assert result == [
         category_url,
         f"{category_url.rstrip('/')}?product-page=2",

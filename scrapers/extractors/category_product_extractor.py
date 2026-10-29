@@ -323,12 +323,17 @@ class CategoryProductExtractor:
         return candidates
 
     def _description(self, soup):
-        # Prefer valid candidates in the authoritative selector, but do not let
-        # an empty/unrelated .text-content wrapper hide populated Detail fields
-        # elsewhere in the same category card.
-        candidates = self._collect_description_candidates(
-            soup.select(".text-content")
-        )
+        # Only non-excluded .text-content blocks establish the authoritative
+        # Detail field. A text-content selector inside a tab panel must not
+        # suppress the visible Detail fields elsewhere in the category card.
+        authoritative_elements = [
+            element
+            for element in soup.select(".text-content")
+            if not self._is_excluded_detail_block(element)
+        ]
+        candidates = self._collect_description_candidates(authoritative_elements)
+        if authoritative_elements and not candidates:
+            return ""
         if not candidates:
             fallback_selectors = (
                 ".brxe-text",

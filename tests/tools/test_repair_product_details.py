@@ -137,7 +137,7 @@ def test_complete_category_card_detail_is_authoritative_over_product_page():
         db.close()
 
 
-def test_category_card_fallback_detail_survives_empty_text_content_shell():
+def test_category_card_fallback_detail_survives_excluded_text_content_block():
     db, repository = _seed_catalog(description="Detalle anterior")
     browser = StaticBrowser(
         _product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm.")
@@ -146,7 +146,9 @@ def test_category_card_fallback_detail_survives_empty_text_content_shell():
     card = BeautifulSoup(
         """
         <article>
-          <div class="text-content"></div>
+          <div id="tab-description" role="tabpanel">
+            <div class="text-content"></div>
+          </div>
           <div class="brxe-text-basic">
             <p>Medidas: 6 cm x 9.6 cm x 2.2 cm (Aprox)</p>
             <p>Material: Bambú y ABS</p>

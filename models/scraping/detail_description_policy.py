@@ -121,7 +121,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"tama[ñn]o(?:\s+(?:de\s+)?impresi[oó]n)?(?:\s*\([^)]*\))?|"
     r"ancho|largo|alto|altura|peso|"
     r"modelo|tipo|formato|marca|"
-    r"compatibilidad|contenido|incluye|contiene|empaque|"
+    r"compatibilidad|contenido|incluye|contiene|accesorios|empaque|"
     r"paquete|caja|forro|"
     r"alimentaci[oó]n|tiempo|espesor|acabado|"
     r"aplicaci[oó]n|resistencia|"

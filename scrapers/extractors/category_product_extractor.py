@@ -332,8 +332,6 @@ class CategoryProductExtractor:
             if not self._is_excluded_detail_block(element)
         ]
         candidates = self._collect_description_candidates(authoritative_elements)
-        if authoritative_elements and not candidates:
-            return ""
         if not candidates:
             fallback_selectors = (
                 ".brxe-text",
@@ -341,9 +339,40 @@ class CategoryProductExtractor:
                 "ul li",
                 "ol li",
             )
-            candidates = self._collect_description_candidates(
-                soup.select(", ".join(fallback_selectors))
+            fallback_elements = list(soup.select(", ".join(fallback_selectors)))
+            has_empty_authoritative_shell = any(
+                not element.get_text(" ", strip=True)
+                for element in authoritative_elements
             )
+
+            if authoritative_elements and not has_empty_authoritative_shell:
+                # Non-empty authoritative blocks that contain only Color or
+                # unrelated text must not be replaced by other card content.
+                return ""
+
+            if authoritative_elements:
+                # Some cards contain an empty .text-content shell alongside
+                # the visible Detail split into multiple labeled paragraphs.
+                # Prefer those leaf blocks only when the source independently
+                # exposes at least two valid Detail fragments. A single
+                # unrelated fallback block must not override an identified
+                # empty Detail field.
+                expanded_fallback_elements = []
+                for element in fallback_elements:
+                    child_blocks = element.select("p, li")
+                    if len(child_blocks) >= 2:
+                        expanded_fallback_elements.extend(child_blocks)
+                    else:
+                        expanded_fallback_elements.append(element)
+
+                fallback_candidates = self._collect_description_candidates(
+                    expanded_fallback_elements
+                )
+                if len(fallback_candidates) < 2:
+                    return ""
+                candidates = fallback_candidates
+            else:
+                candidates = self._collect_description_candidates(fallback_elements)
 
         if not candidates:
             return ""

@@ -323,12 +323,13 @@ class CategoryProductExtractor:
         return candidates
 
     def _description(self, soup):
-        authoritative_elements = soup.select(".text-content")
-        if authoritative_elements:
-            candidates = self._collect_description_candidates(authoritative_elements)
-            if not candidates:
-                return ""
-        else:
+        # Prefer valid candidates in the authoritative selector, but do not let
+        # an empty/unrelated .text-content wrapper hide populated Detail fields
+        # elsewhere in the same category card.
+        candidates = self._collect_description_candidates(
+            soup.select(".text-content")
+        )
+        if not candidates:
             fallback_selectors = (
                 ".brxe-text",
                 ".brxe-text-basic",

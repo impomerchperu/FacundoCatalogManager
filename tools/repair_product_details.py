@@ -558,6 +558,10 @@ def _card_detail_field_is_identified(card: Any, description: str) -> bool:
     extractor = CategoryProductExtractor()
     if str(description or "").strip():
         return True
+    # Use the same category-card extraction policy as the catalog scraper.
+    # Empty .text-content shells must not override valid visible fallback text.
+    if extractor._description(card).strip():
+        return True
 
     authoritative = [
         element

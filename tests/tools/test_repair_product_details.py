@@ -8,6 +8,7 @@ from models.scraping.category import Category
 from models.scraping.scraped_product import ScrapedProduct
 from repositories.product_repository import ProductRepository
 from repositories.scraping.scraped_product_repository import ScrapedProductRepository
+from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.product_hash_service import ProductHashService
 from tools.repair_product_details import (
@@ -93,9 +94,7 @@ def _seed_catalog(
 
 def test_category_detail_field_is_identified_even_when_empty():
     empty_detail_card = BeautifulSoup(
-        '<article><div class="text-content"></div>'
-        '<div class="brxe-text-basic">Material: ABS. Dimensiones: 10 x 5 cm.</div>'
-        "</article>",
+        '<article><div class="text-content"></div></article>',
         "lxml",
     ).article
     assert empty_detail_card is not None
@@ -138,14 +137,62 @@ def test_complete_category_card_detail_is_authoritative_over_product_page():
         db.close()
 
 
+def test_category_card_fallback_detail_survives_empty_text_content_shell():
+    db, repository = _seed_catalog(description="Detalle anterior")
+    browser = StaticBrowser(
+        _product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm.")
+    )
+    product = repository.get_by_code("FB-1700")
+    card = BeautifulSoup(
+        """
+        <article>
+          <div class="text-content"></div>
+          <div class="brxe-text-basic">
+            <p>Medidas: 6 cm x 9.6 cm x 2.2 cm (Aprox)</p>
+            <p>Material: Bambú y ABS</p>
+            <p>Funciones: 7 funciones (cinta métrica de 3 m, destornillador con puntas planas, philips y allen, nivel integrado)</p>
+            <p>Accesorios: 5 piezas incluidas</p>
+            <p>Peso: 108 gr (Aprox)</p>
+            <p>Presentación: Individual, caja diseño kraft</p>
+          </div>
+        </article>
+        """,
+        "lxml",
+    ).article
+    assert product is not None
+    assert card is not None
+    try:
+        card_description = CategoryProductExtractor()._description(card)
+        assert "Medidas: 6 cm x 9.6 cm x 2.2 cm (Aprox)" in card_description
+        assert "Material: Bambú y ABS" in card_description
+        assert "Accesorios: 5 piezas incluidas" in card_description
+        assert _card_detail_field_is_identified(card, "") is True
+
+        plan = _plan_category_card_detail(
+            db,
+            repository,
+            product,
+            card,
+            card_description,
+            source_url=PRODUCT_URL,
+            category_name="Artículos de Escritorio",
+            browser=browser,
+        )
+
+        assert plan.status == "would_update"
+        assert plan.new_description == card_description
+        assert "tarjeta de categoría" in plan.reason
+        assert browser.requested_urls == []
+    finally:
+        db.close()
+
+
 def test_empty_identified_category_detail_is_not_supplemented_from_product_page():
     db, repository = _seed_catalog(description=VALID_DETAIL)
     browser = StaticBrowser(_product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm."))
     product = repository.get_by_code("FB-1700")
     card = BeautifulSoup(
-        '<article><div class="text-content"></div>'
-        '<div class="brxe-text-basic">Material: ABS. Dimensiones: 10 x 5 cm.</div>'
-        "</article>",
+        '<article><div class="text-content"></div></article>',
         "lxml",
     ).article
     assert product is not None

@@ -492,6 +492,10 @@ class ProductCollectionScraper:
         if str(getattr(product, "description", "") or "").strip():
             return False
         try:
+            # Match the card extractor's field identification. An empty wrapper
+            # is not authoritative when another visible block contains Detail.
+            if CategoryProductExtractor()._description(card).strip():
+                return False
             elements = card.select(".text-content")
         except AttributeError:
             return False

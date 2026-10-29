@@ -4,13 +4,17 @@ from bs4 import BeautifulSoup
 
 from database.db_manager import DBManager
 from models.product import Product
+from models.scraping.category import Category
 from models.scraping.scraped_product import ScrapedProduct
 from repositories.product_repository import ProductRepository
 from repositories.scraping.scraped_product_repository import ScrapedProductRepository
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.product_hash_service import ProductHashService
 from tools.repair_product_details import (
+    _audit_live_category_cards,
+    _card_detail_field_is_identified,
     _emit_json_report,
+    _plan_category_card_detail,
     _resolve_category_batches,
     apply_detail_repairs,
     audit_incomplete_details,
@@ -84,6 +88,166 @@ def _seed_catalog(
             )
         )
     return db, repository
+
+
+def test_category_detail_field_is_identified_even_when_empty():
+    empty_detail_card = BeautifulSoup(
+        '<article><div class="text-content"></div>'
+        '<div class="brxe-text-basic">Material: ABS. Dimensiones: 10 x 5 cm.</div>'
+        "</article>",
+        "lxml",
+    ).article
+    assert empty_detail_card is not None
+
+    assert _card_detail_field_is_identified(empty_detail_card, "") is True
+
+
+def test_complete_category_card_detail_is_authoritative_over_product_page():
+    db, repository = _seed_catalog(description="Detalle guardado anterior")
+    browser = StaticBrowser(_product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm."))
+    product = repository.get_by_code("FB-1700")
+    card = BeautifulSoup(
+        '<article><div class="text-content">'
+        "Material: ABS. Dimensiones: 10 x 5 cm. Presentación: Individual."
+        "</div></article>",
+        "lxml",
+    ).article
+    assert product is not None
+    assert card is not None
+    card_description = (
+        "Material: ABS. Dimensiones: 10 x 5 cm. Presentación: Individual."
+    )
+    try:
+        plan = _plan_category_card_detail(
+            db,
+            repository,
+            product,
+            card,
+            card_description,
+            source_url=PRODUCT_URL,
+            category_name="Promocionales",
+            browser=browser,
+        )
+
+        assert plan.status == "would_update"
+        assert plan.new_description == card_description
+        assert "tarjeta de categoría" in plan.reason
+        assert browser.requested_urls == []
+    finally:
+        db.close()
+
+
+def test_empty_identified_category_detail_is_not_supplemented_from_product_page():
+    db, repository = _seed_catalog(description=VALID_DETAIL)
+    browser = StaticBrowser(_product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm."))
+    product = repository.get_by_code("FB-1700")
+    card = BeautifulSoup(
+        '<article><div class="text-content"></div>'
+        '<div class="brxe-text-basic">Material: ABS. Dimensiones: 10 x 5 cm.</div>'
+        "</article>",
+        "lxml",
+    ).article
+    assert product is not None
+    assert card is not None
+    try:
+        plan = _plan_category_card_detail(
+            db,
+            repository,
+            product,
+            card,
+            "",
+            source_url=PRODUCT_URL,
+            category_name="Promocionales",
+            browser=browser,
+        )
+
+        assert plan.status == "would_update"
+        assert plan.new_description == ""
+        assert "identificado y vacío" in plan.reason
+        assert browser.requested_urls == []
+    finally:
+        db.close()
+
+
+def test_truncated_category_detail_uses_complete_product_page_field():
+    db, repository = _seed_catalog(description="Material: ABS. Dimensiones: 8 x 4 cm.")
+    browser = StaticBrowser(_product_html(detail=VALID_DETAIL))
+    product = repository.get_by_code("FB-1700")
+    card = BeautifulSoup(
+        '<article><div class="text-content">'
+        "Material: ABS. Dimensiones: 10 x 5 cm…"
+        "</div></article>",
+        "lxml",
+    ).article
+    assert product is not None
+    assert card is not None
+    try:
+        plan = _plan_category_card_detail(
+            db,
+            repository,
+            product,
+            card,
+            "Material: ABS. Dimensiones: 10 x 5 cm…",
+            source_url=PRODUCT_URL,
+            category_name="Promocionales",
+            browser=browser,
+        )
+
+        assert plan.status == "would_update"
+        assert plan.new_description == VALID_DETAIL
+        assert browser.requested_urls == [PRODUCT_URL]
+    finally:
+        db.close()
+
+
+def test_category_audit_compares_live_card_field_not_product_page_field():
+    db, repository = _seed_catalog(description=VALID_DETAIL)
+    product = repository.get_by_code("FB-1700")
+    assert product is not None
+    card_description = "Material: ABS. Dimensiones: 12 x 6 cm."
+    card = BeautifulSoup(
+        f'<article><div class="text-content">{card_description}</div></article>',
+        "lxml",
+    ).article
+    assert card is not None
+    source_product = ScrapedProduct(
+        code="FB-1700",
+        name="Producto guardado",
+        category="Promocionales",
+        url=PRODUCT_URL,
+        description=card_description,
+    )
+
+    class StaticCollectionScraper:
+        def collect_category(self, category):
+            assert category.name == "Promocionales"
+            return [(card, "https://stock.importacionesfacundo.com/categoria/", source_product)]
+
+    browser = StaticBrowser(
+        _product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm.")
+    )
+    try:
+        report, coverage_verified = _audit_live_category_cards(
+            db,
+            repository,
+            Category(
+                name="Promocionales",
+                url="https://stock.importacionesfacundo.com/categoria/promocionales/",
+                expected_count=1,
+            ),
+            [product],
+            browser=browser,
+            collection_scraper=StaticCollectionScraper(),
+        )
+
+        assert coverage_verified is True
+        assert report["candidate_differences"] == 1
+        plan = report["items"][0]
+        assert plan["new_description"] == card_description
+        assert plan["reason"].find("tarjeta de categoría") >= 0
+        assert browser.requested_urls == []
+    finally:
+        db.close()
 
 
 def test_category_batches_resolve_canonical_names_and_multi_category_products():

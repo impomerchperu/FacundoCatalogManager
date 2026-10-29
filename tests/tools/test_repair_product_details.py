@@ -11,6 +11,7 @@ from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.product_hash_service import ProductHashService
 from tools.repair_product_details import (
     _emit_json_report,
+    _repair_categories_by_batch,
     _resolve_category_batches,
     apply_detail_repairs,
     audit_incomplete_details,
@@ -120,6 +121,70 @@ def test_category_batches_resolve_canonical_names_and_multi_category_products():
             "FB-1700",
             "FB-1701",
         }
+    finally:
+        db.close()
+
+
+def test_category_preview_uses_authoritative_product_page_detail_and_excludes_tabs():
+    detail_html = """
+    <html><body>
+      <h1>Set de prueba</h1>
+      <p class="brxe-heading">FB-1700</p>
+      <div id="brxe-jhzpri">
+        <h3>Set de prueba</h3>
+        <h3></h3>
+        <p></p>
+        <p>
+          <strong>Descripción:</strong> Set funcional de prueba.
+          <br>
+          <strong>Color:</strong> Negro con detalles en bambú.
+          <br>
+          <strong>Contiene:</strong> Cinta métrica, destornillador y nivel.
+          <br>
+          <strong>Presentación:</strong> Caja de diseño kraft.
+        </p>
+      </div>
+      <div id="tab-description" class="woocommerce-Tabs-panel--description">
+        Material: TEXTO AJENO. Dimensiones: 999 x 999 cm.
+      </div>
+      <div id="tab-additional_information">
+        Información adicional que no pertenece al Detalle.
+      </div>
+    </body></html>
+    """
+    db, repository = _seed_catalog(description="Detalle comercial antiguo")
+    browser = StaticBrowser(detail_html)
+    try:
+        report = _repair_categories_by_batch(
+            db,
+            repository,
+            ["Promocionales"],
+            browser=browser,
+            workers=2,
+            apply=False,
+        )
+
+        assert report["mode"] == "category_preview"
+        assert report["category_count"] == 1
+        assert report["products_in_scope"] == 1
+        assert report["fetch_errors"] == 0
+        assert report["candidate_differences_remaining"] == 1
+
+        category = report["category_results"][0]
+        plan = category["preview_items"][0]
+        assert plan["code"] == "FB-1700"
+        assert plan["status"] == "would_update"
+        assert "Descripción: Set funcional de prueba." in plan["new_description"]
+        assert "Contiene: Cinta métrica, destornillador y nivel." in plan["new_description"]
+        assert "Presentación: Caja de diseño kraft." in plan["new_description"]
+        assert "Color:" not in plan["new_description"]
+        assert "TEXTO AJENO" not in plan["new_description"]
+        assert "Información adicional" not in plan["new_description"]
+        assert browser.requested_urls == [PRODUCT_URL]
+
+        stored = repository.get_by_code("FB-1700")
+        assert stored is not None
+        assert stored.description == "Detalle comercial antiguo"
     finally:
         db.close()
 

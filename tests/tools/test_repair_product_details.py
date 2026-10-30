@@ -13,6 +13,7 @@ from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.product_hash_service import ProductHashService
 from tools.repair_product_details import (
     _audit_live_category_cards,
+    _blocking_detail_codes,
     _card_detail_field_is_identified,
     _emit_json_report,
     _plan_category_card_detail,
@@ -635,6 +636,129 @@ def test_category_audit_compares_live_card_field_not_product_page_field():
         assert plan["new_description"] == card_description
         assert plan["reason"].find("tarjeta de categoría") >= 0
         assert browser.requested_urls == []
+    finally:
+        db.close()
+
+
+def test_complete_live_category_does_not_block_on_stale_local_membership():
+    db, repository = _seed_catalog(description=VALID_DETAIL)
+    product = repository.get_by_code("FB-1700")
+    assert product is not None
+    repository.save(
+        Product(
+            code="TEST-LOCAL-ONLY",
+            name="Producto local fuera de la categoría live",
+            category="Promocionales",
+            description="Detalle local sin cotejo en esta categoría",
+        )
+    )
+    card = BeautifulSoup(
+        f'<article><div class="text-content">{VALID_DETAIL}</div></article>',
+        "lxml",
+    ).article
+    assert card is not None
+    source_product = ScrapedProduct(
+        code="FB-1700",
+        name="Producto guardado",
+        category="Promocionales",
+        url=PRODUCT_URL,
+        description=VALID_DETAIL,
+    )
+
+    class StaticCollectionScraper:
+        def collect_category(self, category):
+            assert category.name == "Promocionales"
+            return [(card, "https://stock.importacionesfacundo.com/categoria/", source_product)]
+
+    try:
+        report, coverage_verified = _audit_live_category_cards(
+            db,
+            repository,
+            Category(
+                name="Promocionales",
+                url="https://stock.importacionesfacundo.com/categoria/promocionales/",
+                expected_count=1,
+            ),
+            [product, repository.get_by_code("TEST-LOCAL-ONLY")],
+            browser=StaticBrowser(""),
+            collection_scraper=StaticCollectionScraper(),
+        )
+
+        assert coverage_verified is True
+        assert report["catalog_total"] == 2
+        assert report["live_category_cards"] == 1
+        assert report["coverage_issues"] == []
+        assert report["local_products_not_in_live_category"] == [
+            "TEST-LOCAL-ONLY"
+        ]
+        assert len(report["coverage_warnings"]) == 1
+        plans = {item["code"]: item for item in report["items"]}
+        assert plans["FB-1700"]["status"] == "unchanged"
+        assert (
+            plans["TEST-LOCAL-ONLY"]["status"]
+            == "skip_local_product_not_in_live_category"
+        )
+        assert _blocking_detail_codes(report) == set()
+    finally:
+        db.close()
+
+
+def test_local_product_absence_still_blocks_when_live_count_is_incomplete():
+    db, repository = _seed_catalog(description=VALID_DETAIL)
+    product = repository.get_by_code("FB-1700")
+    assert product is not None
+    repository.save(
+        Product(
+            code="TEST-LOCAL-ONLY",
+            name="Producto local adicional",
+            category="Promocionales",
+            description="Detalle local",
+        )
+    )
+    card = BeautifulSoup(
+        f'<article><div class="text-content">{VALID_DETAIL}</div></article>',
+        "lxml",
+    ).article
+    assert card is not None
+    source_product = ScrapedProduct(
+        code="FB-1700",
+        name="Producto guardado",
+        category="Promocionales",
+        url=PRODUCT_URL,
+        description=VALID_DETAIL,
+    )
+
+    class StaticCollectionScraper:
+        def collect_category(self, category):
+            assert category.name == "Promocionales"
+            return [(card, "https://stock.importacionesfacundo.com/categoria/", source_product)]
+
+    try:
+        report, coverage_verified = _audit_live_category_cards(
+            db,
+            repository,
+            Category(
+                name="Promocionales",
+                url="https://stock.importacionesfacundo.com/categoria/promocionales/",
+                expected_count=2,
+            ),
+            [product, repository.get_by_code("TEST-LOCAL-ONLY")],
+            browser=StaticBrowser(""),
+            collection_scraper=StaticCollectionScraper(),
+        )
+
+        assert coverage_verified is False
+        assert report["coverage_warnings"] == []
+        assert report["local_products_not_in_live_category"] == []
+        assert any(
+            "No se encontraron en la categoría" in issue
+            for issue in report["coverage_issues"]
+        )
+        plans = {item["code"]: item for item in report["items"]}
+        assert (
+            plans["TEST-LOCAL-ONLY"]["status"]
+            == "skip_card_product_not_found"
+        )
     finally:
         db.close()
 

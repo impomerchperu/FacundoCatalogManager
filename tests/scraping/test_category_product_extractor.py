@@ -573,14 +573,14 @@ def test_color_only_text_content_does_not_hide_visible_multiblock_detail():
 
 def test_empty_text_content_does_not_fall_back_to_unrelated_blocks():
     html = (
-        '<article><p class="brxe-a26f34">TEST-EMPTY-DETAIL</p>'
+        '<article><p class="brxe-a26f34">TEST-002</p>'
         '<h2 class="brxe-f31760">Producto sin detalle</h2>'
         '<div class="text-content"></div>'
         '<div class="brxe-text-basic">Material: ABS. Dimensiones: 10 x 5 cm. '
         'Este texto no pertenece al campo Detalle.</div></article>'
     )
     product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
-    assert product.code == "TEST-EMPTY-DETAIL"
+    assert product.code == "TEST-002"
     assert product.description == ""
 
 

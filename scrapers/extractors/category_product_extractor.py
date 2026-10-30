@@ -409,14 +409,14 @@ class CategoryProductExtractor:
     def _join_description_candidates(candidates):
         if not candidates:
             return ""
-        if len(candidates) == 1:
-            return candidates[0]
-        prefix = ". ".join(
-            candidate.rstrip(" .;")
-            for candidate in candidates[:-1]
-        )
-        separator = " " if prefix.endswith((";", ":")) else ". "
-        return f"{prefix}{separator}{candidates[-1].lstrip()}"
+        result = candidates[0]
+        for candidate in candidates[1:]:
+            previous = result.rstrip()
+            if previous.endswith(":"):
+                result = f"{previous} {candidate.lstrip()}"
+            else:
+                result = f"{previous.rstrip(' .;')}. {candidate.lstrip()}"
+        return result
 
     def _description(self, soup):
         # Only non-excluded .text-content blocks establish the authoritative

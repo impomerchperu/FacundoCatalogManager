@@ -140,7 +140,7 @@ _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = re.compile(
 )
 
 _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN = re.compile(
-    r"^\\s*(?:" + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern + r")\\s*$",
+    r"^\s*(?:" + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern + r")\s*$",
     re.IGNORECASE,
 )
 

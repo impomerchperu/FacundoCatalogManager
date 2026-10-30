@@ -334,6 +334,89 @@ class CategoryProductExtractor:
             candidates.append(text)
         return candidates
 
+    @classmethod
+    def _expand_detail_fallback_elements(cls, elements):
+        expanded = []
+        for element in elements:
+            child_blocks = element.select("p, li")
+            if len(child_blocks) >= 2:
+                expanded.extend(child_blocks)
+            else:
+                expanded.append(element)
+        return expanded
+
+    @classmethod
+    def _recover_authoritative_empty_field_candidates(
+        cls,
+        soup,
+        authoritative_elements,
+        fallback_elements,
+    ):
+        authoritative_residue = [
+            normalize_detail_text(cls._detail_text_from_element(element))
+            for element in authoritative_elements
+        ]
+        if any(
+            text and not is_empty_detail_field_fragment(text)
+            for text in authoritative_residue
+        ):
+            return []
+
+        expanded_fallback = cls._expand_detail_fallback_elements(
+            fallback_elements
+        )
+        valid_fallback = cls._collect_description_candidates(expanded_fallback)
+        if len(valid_fallback) < 2:
+            return []
+
+        empty_authoritative = [
+            element
+            for element, text in zip(
+                authoritative_elements,
+                authoritative_residue,
+                strict=True,
+            )
+            if is_empty_detail_field_fragment(text)
+        ]
+        combined = [*expanded_fallback, *empty_authoritative]
+        document_order = {
+            id(element): position
+            for position, element in enumerate(soup.descendants)
+            if getattr(element, "name", None)
+        }
+        combined.sort(
+            key=lambda element: document_order.get(id(element), 10**9)
+        )
+        return cls._collect_description_candidates(
+            combined,
+            include_empty_fields=True,
+        )
+
+    @classmethod
+    def _recover_fallback_detail_candidates(cls, fallback_elements):
+        expanded_fallback = cls._expand_detail_fallback_elements(
+            fallback_elements
+        )
+        valid_candidates = cls._collect_description_candidates(expanded_fallback)
+        if not valid_candidates:
+            return []
+        return cls._collect_description_candidates(
+            expanded_fallback,
+            include_empty_fields=True,
+        )
+
+    @staticmethod
+    def _join_description_candidates(candidates):
+        if not candidates:
+            return ""
+        if len(candidates) == 1:
+            return candidates[0]
+        prefix = ". ".join(
+            candidate.rstrip(" .;")
+            for candidate in candidates[:-1]
+        )
+        return f"{prefix}. {candidates[-1].lstrip()}"
+
     def _description(self, soup):
         # Only non-excluded .text-content blocks establish the authoritative
         # Detail field. A text-content selector inside a tab panel must not
@@ -351,104 +434,26 @@ class CategoryProductExtractor:
                 authoritative_elements,
                 include_empty_fields=True,
             )
+            return self._join_description_candidates(candidates)
 
-        if not candidates:
-            fallback_selectors = (
-                ".brxe-text",
-                ".brxe-text-basic",
-                "ul li",
-                "ol li",
-            )
-            fallback_elements = list(soup.select(", ".join(fallback_selectors)))
-            authoritative_residue = [
-                normalize_detail_text(self._detail_text_from_element(element))
-                for element in authoritative_elements
-            ]
-            blocking_authoritative_residue = [
-                text
-                for text in authoritative_residue
-                if text and not is_empty_detail_field_fragment(text)
-            ]
-
-            # A non-empty authoritative block that is not a recognized empty
-            # Detail attribute remains authoritative. Do not replace unrelated
-            # text or malformed content with fallback siblings.
-            if authoritative_elements and blocking_authoritative_residue:
-                return ""
-
-            if authoritative_elements:
-                # Recover sibling Detail only when the visible fallback contains
-                # multiple independently valid fragments. This avoids treating
-                # one unrelated text block as the product's Detail field.
-                expanded_fallback_elements = []
-                for element in fallback_elements:
-                    child_blocks = element.select("p, li")
-                    if len(child_blocks) >= 2:
-                        expanded_fallback_elements.extend(child_blocks)
-                    else:
-                        expanded_fallback_elements.append(element)
-
-                valid_fallback_candidates = self._collect_description_candidates(
-                    expanded_fallback_elements
-                )
-                if len(valid_fallback_candidates) < 2:
-                    return ""
-
-                empty_authoritative_elements = [
-                    element
-                    for element, text in zip(
-                        authoritative_elements,
-                        authoritative_residue,
-                        strict=True,
-                    )
-                    if is_empty_detail_field_fragment(text)
-                ]
-                combined_elements = [
-                    *expanded_fallback_elements,
-                    *empty_authoritative_elements,
-                ]
-                document_order = {
-                    id(element): position
-                    for position, element in enumerate(soup.descendants)
-                    if getattr(element, "name", None)
-                }
-                combined_elements.sort(
-                    key=lambda element: document_order.get(id(element), 10**9)
-                )
-                candidates = self._collect_description_candidates(
-                    combined_elements,
-                    include_empty_fields=True,
-                )
-            else:
-                # Split structured fallback blocks into their visible fields.
-                # Empty labels are retained only when at least one valid Detail
-                # field accompanies them; a lone empty label is still empty Detail.
-                expanded_fallback_elements = []
-                for element in fallback_elements:
-                    child_blocks = element.select("p, li")
-                    if len(child_blocks) >= 2:
-                        expanded_fallback_elements.extend(child_blocks)
-                    else:
-                        expanded_fallback_elements.append(element)
-
-                valid_fallback_candidates = self._collect_description_candidates(
-                    expanded_fallback_elements
-                )
-                if valid_fallback_candidates:
-                    candidates = self._collect_description_candidates(
-                        expanded_fallback_elements,
-                        include_empty_fields=True,
-                    )
-
-        if not candidates:
-            return ""
-        if len(candidates) == 1:
-            return candidates[0]
-        prefix = ". ".join(
-            candidate.rstrip(" .;")
-            for candidate in candidates[:-1]
+        fallback_selectors = (
+            ".brxe-text",
+            ".brxe-text-basic",
+            "ul li",
+            "ol li",
         )
-        return f"{prefix}. {candidates[-1].lstrip()}"
+        fallback_elements = list(soup.select(", ".join(fallback_selectors)))
+        if authoritative_elements:
+            candidates = self._recover_authoritative_empty_field_candidates(
+                soup,
+                authoritative_elements,
+                fallback_elements,
+            )
+        else:
+            candidates = self._recover_fallback_detail_candidates(
+                fallback_elements
+            )
+        return self._join_description_candidates(candidates)
 
     def _stock(self, soup):
         return sum(self._stock_values(soup))

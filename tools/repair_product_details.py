@@ -584,10 +584,28 @@ def _card_detail_field_is_identified(card: Any, description: str) -> bool:
         return True
 
     fallback_selectors = (".brxe-text", ".brxe-text-basic", "ul li", "ol li")
-    return any(
-        not extractor._is_excluded_detail_block(element)
-        and bool(extractor._description_candidate(element))
+    fallback_elements = [
+        element
         for element in card.select(", ".join(fallback_selectors))
+        if not extractor._is_excluded_detail_block(element)
+    ]
+    fallback_field_elements = list(fallback_elements)
+    for element in fallback_elements:
+        fallback_field_elements.extend(element.select("p, li"))
+
+    if any(
+        is_empty_detail_field_fragment(
+            normalize_detail_text(
+                extractor._detail_text_from_element(element)
+            )
+        )
+        for element in fallback_field_elements
+    ):
+        return True
+
+    return any(
+        bool(extractor._description_candidate(element))
+        for element in fallback_elements
     )
 
 

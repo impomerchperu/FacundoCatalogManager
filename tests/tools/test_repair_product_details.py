@@ -676,7 +676,13 @@ def test_complete_live_category_does_not_block_on_stale_local_membership():
     class StaticCollectionScraper:
         def collect_category(self, category):
             assert category.name == "Promocionales"
-            return [(card, "https://stock.importacionesfacundo.com/categoria/", source_product)]
+            return [
+                (
+                    card,
+                    "https://stock.importacionesfacundo.com/categoria/",
+                    source_product,
+                )
+            ]
 
     try:
         report, coverage_verified = _audit_live_category_cards(
@@ -741,7 +747,13 @@ def test_local_product_absence_still_blocks_when_live_count_is_incomplete():
     class StaticCollectionScraper:
         def collect_category(self, category):
             assert category.name == "Promocionales"
-            return [(card, "https://stock.importacionesfacundo.com/categoria/", source_product)]
+            return [
+                (
+                    card,
+                    "https://stock.importacionesfacundo.com/categoria/",
+                    source_product,
+                )
+            ]
 
     try:
         report, coverage_verified = _audit_live_category_cards(
@@ -752,7 +764,7 @@ def test_local_product_absence_still_blocks_when_live_count_is_incomplete():
                 url="https://stock.importacionesfacundo.com/categoria/promocionales/",
                 expected_count=2,
             ),
-            [product, repository.get_by_code("TEST-LOCAL-ONLY")],
+            [product, local_only],
             browser=StaticBrowser(""),
             collection_scraper=StaticCollectionScraper(),
         )

@@ -608,7 +608,7 @@ def test_category_product_extractor_keeps_valid_sibling_fields_around_an_empty_d
     product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert product.code == "TEST-001"
-    assert "Empaque Individual:" in product.description
+    assert "Empaque Individual: Material: Poliester." in product.description
     assert "Material: Poliester." in product.description
     assert "Dimensiones: 15.5*3cm." in product.description
     assert "Peso Unitario: 2 G." in product.description

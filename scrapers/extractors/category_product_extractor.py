@@ -420,13 +420,25 @@ class CategoryProductExtractor:
                     include_empty_fields=True,
                 )
             else:
-                # Without an authoritative wrapper, keep the existing fallback
-                # behavior but preserve empty labels when the whole block also
-                # contains valid Detail.
-                candidates = self._collect_description_candidates(
-                    fallback_elements,
-                    include_empty_fields=True,
+                # Split structured fallback blocks into their visible fields.
+                # Empty labels are retained only when at least one valid Detail
+                # field accompanies them; a lone empty label is still empty Detail.
+                expanded_fallback_elements = []
+                for element in fallback_elements:
+                    child_blocks = element.select("p, li")
+                    if len(child_blocks) >= 2:
+                        expanded_fallback_elements.extend(child_blocks)
+                    else:
+                        expanded_fallback_elements.append(element)
+
+                valid_fallback_candidates = self._collect_description_candidates(
+                    expanded_fallback_elements
                 )
+                if valid_fallback_candidates:
+                    candidates = self._collect_description_candidates(
+                        expanded_fallback_elements,
+                        include_empty_fields=True,
+                    )
 
         if not candidates:
             return ""

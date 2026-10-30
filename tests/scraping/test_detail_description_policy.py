@@ -2,6 +2,7 @@ from models.scraping.detail_description_policy import (
     has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,
+    is_empty_detail_field_fragment,
     is_valid_detail_content,
     normalize_detail_text,
     remove_incomplete_trailing_dimension_field,
@@ -98,6 +99,22 @@ def test_detail_policy_rejects_incomplete_trailing_product_dimensions():
     assert is_complete_detail(complete)
     assert is_valid_detail_content(complete)
     assert not is_complete_detail("Dimensiones del producto:")
+
+
+def test_detail_policy_recognizes_empty_intermediate_detail_field_without_accepting_it_alone():
+    detail = (
+        "Material: Poliester. Dimensiones: 15.5*3cm. "
+        "Empaque Individual: Cantidad Por Caja: 5000 Pza. "
+        "Peso neto por caja: 10 Kg."
+    )
+
+    assert is_empty_detail_field_fragment("Empaque Individual:")
+    assert is_empty_detail_field_fragment("Peso bruto por caja:")
+    assert not is_empty_detail_field_fragment("Empaque Individual: Bolsa transparente.")
+    assert is_complete_detail(detail)
+    assert is_valid_detail_content(detail)
+    assert not is_complete_detail("Empaque Individual:")
+    assert not is_valid_detail_content("Empaque Individual:")
 
 
 def test_detail_policy_recognizes_product_dimensions_and_box_weight_labels():

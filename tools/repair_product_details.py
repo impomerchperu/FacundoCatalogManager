@@ -32,6 +32,7 @@ from models.scraping.category import Category
 from models.scraping.detail_description_policy import (
     has_technical_detail,
     is_complete_detail,
+    is_empty_detail_field_fragment,
     is_valid_detail_content,
     normalize_detail_text,
 )
@@ -568,6 +569,15 @@ def _card_detail_field_is_identified(card: Any, description: str) -> bool:
         for element in card.select(".text-content")
         if not extractor._is_excluded_detail_block(element)
     ]
+    if any(
+        is_empty_detail_field_fragment(
+            normalize_detail_text(
+                extractor._detail_text_from_element(element)
+            )
+        )
+        for element in authoritative
+    ):
+        return True
     if any(not element.get_text(" ", strip=True) for element in authoritative):
         # An explicitly empty, identified block is authoritative. A block that
         # contains only Color or generic text is not itself a valid Detail value.

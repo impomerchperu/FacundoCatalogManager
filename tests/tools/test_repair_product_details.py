@@ -611,7 +611,13 @@ def test_category_audit_compares_live_card_field_not_product_page_field():
     class StaticCollectionScraper:
         def collect_category(self, category):
             assert category.name == "Promocionales"
-            return [(card, "https://stock.importacionesfacundo.com/categoria/", source_product)]
+            return [
+                (
+                    card,
+                    "https://stock.importacionesfacundo.com/categoria/",
+                    source_product,
+                )
+            ]
 
     browser = StaticBrowser(
         _product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm.")
@@ -652,6 +658,8 @@ def test_complete_live_category_does_not_block_on_stale_local_membership():
             description="Detalle local sin cotejo en esta categoría",
         )
     )
+    local_only = repository.get_by_code("TEST-LOCAL-ONLY")
+    assert local_only is not None
     card = BeautifulSoup(
         f'<article><div class="text-content">{VALID_DETAIL}</div></article>',
         "lxml",
@@ -679,7 +687,7 @@ def test_complete_live_category_does_not_block_on_stale_local_membership():
                 url="https://stock.importacionesfacundo.com/categoria/promocionales/",
                 expected_count=1,
             ),
-            [product, repository.get_by_code("TEST-LOCAL-ONLY")],
+            [product, local_only],
             browser=StaticBrowser(""),
             collection_scraper=StaticCollectionScraper(),
         )
@@ -715,6 +723,8 @@ def test_local_product_absence_still_blocks_when_live_count_is_incomplete():
             description="Detalle local",
         )
     )
+    local_only = repository.get_by_code("TEST-LOCAL-ONLY")
+    assert local_only is not None
     card = BeautifulSoup(
         f'<article><div class="text-content">{VALID_DETAIL}</div></article>',
         "lxml",

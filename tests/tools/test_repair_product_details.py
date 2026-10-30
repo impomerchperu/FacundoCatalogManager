@@ -401,6 +401,96 @@ def test_fb5016_empty_shipping_values_do_not_clear_the_category_detail():
         db.close()
 
 
+def test_category_repair_keeps_sibling_detail_when_an_intermediate_attribute_is_empty():
+    test_code = "TEST-001"
+    db, repository = _seed_catalog(code=test_code, description="Detalle anterior")
+    browser = StaticBrowser(
+        _product_html(
+            code=test_code,
+            detail="Material: TEXTO DE LA PÁGINA INDIVIDUAL. Dimensiones: 99 x 99 cm.",
+        )
+    )
+    product = repository.get_by_code(test_code)
+    card = BeautifulSoup(
+        """
+        <article>
+          <p class="brxe-a26f34">TEST-001</p>
+          <h2 class="brxe-f31760">Producto de prueba</h2>
+          <div class="text-content">Empaque Individual:</div>
+          <div class="brxe-text-basic">
+            <p>Material: Poliester.</p>
+            <p>Dimensiones: 15.5*3cm.</p>
+            <p>Peso Unitario: 2 G.</p>
+            <p>Uso Recomendado: Estuche para bolígrafos.</p>
+            <p>Cantidad Por Caja: 5000 Pza.</p>
+            <p>Dimensiones Caja: 37*33*25cm.</p>
+            <p>Cubicaje por Caja: 0.030525 m³/CBM.</p>
+            <p>Peso neto por caja: 10 Kg.</p>
+            <p>Peso bruto por caja: 11 Kg.</p>
+          </div>
+        </article>
+        """,
+        "lxml",
+    ).article
+    assert product is not None
+    assert card is not None
+
+    try:
+        card_description = CategoryProductExtractor()._description(card)
+        assert "Empaque Individual:" in card_description
+
+        plan = _plan_category_card_detail(
+            db,
+            repository,
+            product,
+            card,
+            card_description,
+            source_url=PRODUCT_URL,
+            category_name="Artículos de Escritorio",
+            browser=browser,
+        )
+
+        assert plan.status == "would_update"
+        assert "Material: Poliester." in plan.new_description
+        assert "Empaque Individual:" in plan.new_description
+        assert "TEXTO DE LA PÁGINA INDIVIDUAL" not in plan.new_description
+        assert "tarjeta de categoría" in plan.reason
+        assert browser.requested_urls == []
+    finally:
+        db.close()
+
+
+def test_empty_category_detail_label_is_identified_and_kept_empty():
+    test_code = "TEST-EMPTY-DETAIL"
+    db, repository = _seed_catalog(code=test_code, description=VALID_DETAIL)
+    browser = StaticBrowser(_product_html(code=test_code))
+    product = repository.get_by_code(test_code)
+    card = BeautifulSoup(
+        '<article><div class="text-content">Empaque Individual:</div></article>',
+        "lxml",
+    ).article
+    assert product is not None
+    assert card is not None
+
+    try:
+        plan = _plan_category_card_detail(
+            db,
+            repository,
+            product,
+            card,
+            "",
+            source_url=PRODUCT_URL,
+            category_name="Promocionales",
+            browser=browser,
+        )
+
+        assert plan.new_description == ""
+        assert "campo Detalle" in plan.reason
+        assert browser.requested_urls == []
+    finally:
+        db.close()
+
+
 def test_empty_identified_category_detail_is_not_supplemented_from_product_page():
     db, repository = _seed_catalog(description=VALID_DETAIL)
     browser = StaticBrowser(_product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm."))

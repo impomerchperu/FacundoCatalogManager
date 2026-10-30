@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 
 from models.scraping.detail_description_policy import (
     has_technical_detail,
+    is_empty_detail_field_fragment,
     is_valid_detail_content,
     normalize_detail_text,
 )
@@ -310,11 +311,22 @@ class CategoryProductExtractor:
         return ""
 
     @classmethod
-    def _collect_description_candidates(cls, elements):
+    def _collect_description_candidates(
+        cls,
+        elements,
+        *,
+        include_empty_fields: bool = False,
+    ):
         candidates = []
         seen: set[str] = set()
         for element in elements:
             text = cls._description_candidate(element)
+            if not text and include_empty_fields:
+                raw_text = normalize_detail_text(
+                    cls._detail_text_from_element(element)
+                )
+                if is_empty_detail_field_fragment(raw_text):
+                    text = raw_text
             identity = text.casefold()
             if not text or identity in seen:
                 continue
@@ -332,6 +344,14 @@ class CategoryProductExtractor:
             if not self._is_excluded_detail_block(element)
         ]
         candidates = self._collect_description_candidates(authoritative_elements)
+        if candidates:
+            # Keep recognized blank attributes when other authoritative Detail
+            # fields in the same card provide valid content.
+            candidates = self._collect_description_candidates(
+                authoritative_elements,
+                include_empty_fields=True,
+            )
+
         if not candidates:
             fallback_selectors = (
                 ".brxe-text",
@@ -344,20 +364,22 @@ class CategoryProductExtractor:
                 normalize_detail_text(self._detail_text_from_element(element))
                 for element in authoritative_elements
             ]
+            blocking_authoritative_residue = [
+                text
+                for text in authoritative_residue
+                if text and not is_empty_detail_field_fragment(text)
+            ]
 
-            # A .text-content block that normalizes to empty may be an empty
-            # shell or a Color-only field. Neither proves that the actual Detail
-            # is empty when several labeled Detail fields are visible beside it.
-            # Keep non-Color text authoritative: it must not be replaced by
-            # unrelated sibling content.
-            if authoritative_elements and any(authoritative_residue):
+            # A non-empty authoritative block that is not a recognized empty
+            # Detail attribute remains authoritative. Do not replace unrelated
+            # text or malformed content with fallback siblings.
+            if authoritative_elements and blocking_authoritative_residue:
                 return ""
 
             if authoritative_elements:
-                # Recover sibling Detail blocks only when the authoritative
-                # wrappers are empty/Color-only and the source independently
-                # exposes at least two valid Detail fragments. One unrelated
-                # fallback block is not enough to override an empty field.
+                # Recover sibling Detail only when the visible fallback contains
+                # multiple independently valid fragments. This avoids treating
+                # one unrelated text block as the product's Detail field.
                 expanded_fallback_elements = []
                 for element in fallback_elements:
                     child_blocks = element.select("p, li")
@@ -366,14 +388,45 @@ class CategoryProductExtractor:
                     else:
                         expanded_fallback_elements.append(element)
 
-                fallback_candidates = self._collect_description_candidates(
+                valid_fallback_candidates = self._collect_description_candidates(
                     expanded_fallback_elements
                 )
-                if len(fallback_candidates) < 2:
+                if len(valid_fallback_candidates) < 2:
                     return ""
-                candidates = fallback_candidates
+
+                empty_authoritative_elements = [
+                    element
+                    for element, text in zip(
+                        authoritative_elements,
+                        authoritative_residue,
+                        strict=True,
+                    )
+                    if is_empty_detail_field_fragment(text)
+                ]
+                combined_elements = [
+                    *expanded_fallback_elements,
+                    *empty_authoritative_elements,
+                ]
+                document_order = {
+                    id(element): position
+                    for position, element in enumerate(soup.descendants)
+                    if getattr(element, "name", None)
+                }
+                combined_elements.sort(
+                    key=lambda element: document_order.get(id(element), 10**9)
+                )
+                candidates = self._collect_description_candidates(
+                    combined_elements,
+                    include_empty_fields=True,
+                )
             else:
-                candidates = self._collect_description_candidates(fallback_elements)
+                # Without an authoritative wrapper, keep the existing fallback
+                # behavior but preserve empty labels when the whole block also
+                # contains valid Detail.
+                candidates = self._collect_description_candidates(
+                    fallback_elements,
+                    include_empty_fields=True,
+                )
 
         if not candidates:
             return ""

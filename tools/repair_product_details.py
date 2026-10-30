@@ -527,6 +527,8 @@ def _source_audit_summary(report: dict[str, object]) -> dict[str, object]:
         "products_without_source_url",
         "authoritative_detail_not_found",
         "status_counts",
+        "coverage_warnings",
+        "local_products_not_in_live_category",
     )
     return {key: report.get(key) for key in keys}
 
@@ -775,13 +777,46 @@ def _audit_live_category_cards(  # noqa: PLR0912
         )
 
     coverage_issues: list[str] = []
+    coverage_warnings: list[str] = []
     expected_count = max(int(getattr(category, "expected_count", 0) or 0), 0)
+    live_count_matches_expected = bool(
+        expected_count and len(raw_products) == expected_count
+    )
+    live_identity_coverage_verified = (
+        live_count_matches_expected
+        and not duplicate_live_codes
+        and unidentified_cards == 0
+    )
     if expected_count and len(raw_products) != expected_count:
         coverage_issues.append(
             f"El sitio publica {expected_count} productos, pero se extrajeron "
             f"{len(raw_products)} tarjetas únicas."
         )
-    if missing_live_codes:
+    local_products_not_in_live_category: list[str] = []
+    if missing_live_codes and live_identity_coverage_verified:
+        # The live category is complete against the site's published count.
+        # Local-only rows are stale category membership, not missing live cards:
+        # skip their Detail comparison without blocking verified live products.
+        local_products_not_in_live_category = sorted(
+            missing_live_codes,
+            key=str.casefold,
+        )
+        missing_codes_text = ", ".join(local_products_not_in_live_category)
+        coverage_warnings.append(
+            "La extracción live coincide con los "
+            f"{expected_count} productos publicados. Se omitió el cotejo de "
+            "Detalle para productos que siguen asociados localmente, pero no "
+            f"aparecen en esta categoría: {missing_codes_text}."
+        )
+        for plan in plans:
+            if plan.status == "skip_card_product_not_found":
+                plan.status = "skip_local_product_not_in_live_category"
+                plan.reason = (
+                    "El producto sigue asociado a esta categoría en el catálogo "
+                    "local, pero no aparece en la categoría live completa; se "
+                    "omite sin modificar el producto ni sus categorías."
+                )
+    elif missing_live_codes:
         coverage_issues.append(
             "No se encontraron en la categoría los códigos locales: "
             + ", ".join(sorted(missing_live_codes, key=str.casefold))
@@ -820,6 +855,8 @@ def _audit_live_category_cards(  # noqa: PLR0912
         "status_counts": dict(sorted(counts.items())),
         "coverage_verified": not coverage_issues,
         "coverage_issues": coverage_issues,
+        "coverage_warnings": coverage_warnings,
+        "local_products_not_in_live_category": local_products_not_in_live_category,
         "items": [asdict(plan) for plan in plans],
     }
     return report, not coverage_issues
@@ -946,6 +983,7 @@ def _repair_categories_by_batch(  # noqa: PLR0912
                 "verification_runs": [],
                 "coverage_verified": coverage_verified,
                 "coverage_issues": preview.get("coverage_issues", []),
+                "coverage_warnings": preview.get("coverage_warnings", []),
                 "outcome": "preview_only",
             }
 
@@ -1009,6 +1047,7 @@ def _repair_categories_by_batch(  # noqa: PLR0912
                         "summary": _source_audit_summary(verification),
                         "coverage_verified": verification_coverage,
                         "coverage_issues": verification.get("coverage_issues", []),
+                        "coverage_warnings": verification.get("coverage_warnings", []),
                         "items": verification.get("items", []),
                     }
                 )

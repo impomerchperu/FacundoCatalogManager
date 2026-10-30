@@ -621,6 +621,23 @@ def test_category_product_extractor_keeps_valid_sibling_fields_around_an_empty_d
     assert "Color:" not in product.description
 
 
+def test_empty_fallback_detail_attribute_does_not_become_description():
+    html = """
+    <article>
+        <p class="brxe-a26f34">TEST-003</p>
+        <h2 class="brxe-f31760">Producto sin atributos informados</h2>
+        <div class="brxe-text-basic">
+            <p>Empaque Individual:</p>
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.code == "TEST-003"
+    assert product.description == ""
+
+
 def test_category_product_extractor_preserves_hl_3000_marketing_copy():
     detail = (
         "Amplía tus opciones de estilo con nuestro Gorro Sublimable. "

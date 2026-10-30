@@ -573,14 +573,68 @@ def test_color_only_text_content_does_not_hide_visible_multiblock_detail():
 
 def test_empty_text_content_does_not_fall_back_to_unrelated_blocks():
     html = (
-        '<article><p class="brxe-a26f34">FB-2114</p>'
+        '<article><p class="brxe-a26f34">TEST-002</p>'
         '<h2 class="brxe-f31760">Producto sin detalle</h2>'
         '<div class="text-content"></div>'
         '<div class="brxe-text-basic">Material: ABS. Dimensiones: 10 x 5 cm. '
         'Este texto no pertenece al campo Detalle.</div></article>'
     )
     product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
-    assert product.code == "FB-2114"
+    assert product.code == "TEST-002"
+    assert product.description == ""
+
+
+def test_category_product_extractor_keeps_valid_sibling_fields_around_an_empty_detail_attribute():
+    html = """
+    <article>
+        <p class="brxe-a26f34">TEST-001</p>
+        <h2 class="brxe-f31760">Producto de prueba</h2>
+        <div class="text-content">Empaque Individual:</div>
+        <div class="brxe-text-basic">
+            <p>Color: Negro.</p>
+            <p>Material: Poliester.</p>
+            <p>Dimensiones: 15.5*3cm.</p>
+            <p>Peso Unitario: 2 G.</p>
+            <p>Uso Recomendado: Estuche para bolígrafos.</p>
+            <p>Cantidad Por Caja: 5000 Pza.</p>
+            <p>Dimensiones Caja: 37*33*25cm.</p>
+            <p>Cubicaje por Caja: 0.030525 m³/CBM.</p>
+            <p>Peso neto por caja: 10 Kg.</p>
+            <p>Peso bruto por caja: 11 Kg.</p>
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.code == "TEST-001"
+    assert "Empaque Individual: Material: Poliester." in product.description
+    assert "Material: Poliester." in product.description
+    assert "Dimensiones: 15.5*3cm." in product.description
+    assert "Peso Unitario: 2 G." in product.description
+    assert "Uso Recomendado: Estuche para bolígrafos." in product.description
+    assert "Cantidad Por Caja: 5000 Pza." in product.description
+    assert "Dimensiones Caja: 37*33*25cm." in product.description
+    assert "Cubicaje por Caja: 0.030525 m³/CBM." in product.description
+    assert "Peso neto por caja: 10 Kg." in product.description
+    assert "Peso bruto por caja: 11 Kg." in product.description
+    assert "Color:" not in product.description
+
+
+def test_empty_fallback_detail_attribute_does_not_become_description():
+    html = """
+    <article>
+        <p class="brxe-a26f34">TEST-003</p>
+        <h2 class="brxe-f31760">Producto sin atributos informados</h2>
+        <div class="brxe-text-basic">
+            <p>Empaque Individual:</p>
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.code == "TEST-003"
     assert product.description == ""
 
 

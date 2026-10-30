@@ -32,6 +32,7 @@ from models.scraping.category import Category
 from models.scraping.detail_description_policy import (
     has_technical_detail,
     is_complete_detail,
+    is_empty_detail_field_fragment,
     is_valid_detail_content,
     normalize_detail_text,
 )
@@ -568,16 +569,43 @@ def _card_detail_field_is_identified(card: Any, description: str) -> bool:
         for element in card.select(".text-content")
         if not extractor._is_excluded_detail_block(element)
     ]
+    if any(
+        is_empty_detail_field_fragment(
+            normalize_detail_text(
+                extractor._detail_text_from_element(element)
+            )
+        )
+        for element in authoritative
+    ):
+        return True
     if any(not element.get_text(" ", strip=True) for element in authoritative):
         # An explicitly empty, identified block is authoritative. A block that
         # contains only Color or generic text is not itself a valid Detail value.
         return True
 
     fallback_selectors = (".brxe-text", ".brxe-text-basic", "ul li", "ol li")
-    return any(
-        not extractor._is_excluded_detail_block(element)
-        and bool(extractor._description_candidate(element))
+    fallback_elements = [
+        element
         for element in card.select(", ".join(fallback_selectors))
+        if not extractor._is_excluded_detail_block(element)
+    ]
+    fallback_field_elements = list(fallback_elements)
+    for element in fallback_elements:
+        fallback_field_elements.extend(element.select("p, li"))
+
+    if any(
+        is_empty_detail_field_fragment(
+            normalize_detail_text(
+                extractor._detail_text_from_element(element)
+            )
+        )
+        for element in fallback_field_elements
+    ):
+        return True
+
+    return any(
+        bool(extractor._description_candidate(element))
+        for element in fallback_elements
     )
 
 

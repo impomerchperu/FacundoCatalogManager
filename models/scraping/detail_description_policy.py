@@ -139,6 +139,12 @@ _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN = re.compile(
+    r"^\s*(?:" + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern + r")\s*$",
+    re.IGNORECASE,
+)
+
+
 _TECHNICAL_DETAIL_PATTERN = re.compile(
     _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\bcertificado\s+sgs\b",
     re.IGNORECASE,
@@ -455,6 +461,12 @@ def is_valid_detail_content(value: object) -> bool:
     if has_technical_detail(validation_text):
         return is_complete_detail(text)
     return len(validation_text) >= 20
+
+
+def is_empty_detail_field_fragment(value: object) -> bool:
+    """Recognize a known Detail label whose value is empty, without validating it alone."""
+    text = normalize_detail_text(value)
+    return bool(text) and _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN.fullmatch(text) is not None
 
 
 def has_multiple_technical_detail_fields(value: object) -> bool:

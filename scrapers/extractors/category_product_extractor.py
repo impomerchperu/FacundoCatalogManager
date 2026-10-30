@@ -415,7 +415,8 @@ class CategoryProductExtractor:
             candidate.rstrip(" .;")
             for candidate in candidates[:-1]
         )
-        return f"{prefix}. {candidates[-1].lstrip()}"
+        separator = " " if prefix.endswith((";", ":")) else ". "
+        return f"{prefix}{separator}{candidates[-1].lstrip()}"
 
     def _description(self, soup):
         # Only non-excluded .text-content blocks establish the authoritative

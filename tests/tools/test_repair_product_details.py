@@ -491,6 +491,43 @@ def test_empty_category_detail_label_is_identified_and_kept_empty():
         db.close()
 
 
+def test_empty_fallback_detail_attribute_is_identified_without_page_supplement():
+    test_code = "TEST-EMPTY-FALLBACK"
+    db, repository = _seed_catalog(code=test_code, description=VALID_DETAIL)
+    browser = StaticBrowser(_product_html(code=test_code))
+    product = repository.get_by_code(test_code)
+    card = BeautifulSoup(
+        """
+        <article>
+          <div class="brxe-text-basic">
+            <p>Empaque Individual:</p>
+          </div>
+        </article>
+        """,
+        "lxml",
+    ).article
+    assert product is not None
+    assert card is not None
+
+    try:
+        plan = _plan_category_card_detail(
+            db,
+            repository,
+            product,
+            card,
+            "",
+            source_url=PRODUCT_URL,
+            category_name="Promocionales",
+            browser=browser,
+        )
+
+        assert plan.new_description == ""
+        assert "campo Detalle" in plan.reason
+        assert browser.requested_urls == []
+    finally:
+        db.close()
+
+
 def test_empty_identified_category_detail_is_not_supplemented_from_product_page():
     db, repository = _seed_catalog(description=VALID_DETAIL)
     browser = StaticBrowser(_product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm."))

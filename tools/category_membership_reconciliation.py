@@ -286,6 +286,12 @@ def audit_live_category_memberships(  # noqa: PLR0912
             product_id = int(product.product_id)
             old_text_keys = text_categories_by_product.get(product_id, set())
             old_relation_keys = relation_keys_by_product.get(product_id, set())
+            old_relation_ids = sorted(
+                relation_ids_by_product.get(product_id, [])
+            )
+            has_duplicate_or_unmapped_relations = (
+                len(old_relation_ids) != len(old_relation_keys)
+            )
             old_union = old_text_keys | old_relation_keys
             added = [
                 name
@@ -343,10 +349,11 @@ def audit_live_category_memberships(  # noqa: PLR0912
                         "source_categories": source_categories,
                     }
                 )
-            if old_text_keys != source_keys or old_relation_keys != source_keys:
-                old_relation_ids = sorted(
-                    relation_ids_by_product.get(product_id, [])
-                )
+            if (
+                old_text_keys != source_keys
+                or old_relation_keys != source_keys
+                or has_duplicate_or_unmapped_relations
+            ):
                 changed_items.append(
                     {
                         "code": product.code,
@@ -364,6 +371,9 @@ def audit_live_category_memberships(  # noqa: PLR0912
                         "old_category_text_keys": sorted(old_text_keys),
                         "old_category_relation_keys": sorted(old_relation_keys),
                         "old_category_relation_ids": old_relation_ids,
+                        "has_duplicate_or_unmapped_relations": (
+                            has_duplicate_or_unmapped_relations
+                        ),
                         "source_categories": source_categories,
                         "source_category_keys": sorted(source_keys),
                         "added_categories": added,

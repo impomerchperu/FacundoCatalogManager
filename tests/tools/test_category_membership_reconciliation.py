@@ -90,7 +90,7 @@ def test_membership_audit_plans_removal_from_stale_database_category():
         assert report["coverage_verified"] is True
         assert report["category_occurrences"] == 2
         assert set(raw_by_category) == {
-            "articulos de escritorio",
+            "articulos escritorio",
             "estuches",
         }
         assert report["products_with_membership_changes"] == 1

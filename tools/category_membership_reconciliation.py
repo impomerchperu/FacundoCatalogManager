@@ -245,36 +245,37 @@ def audit_live_category_memberships(  # noqa: PLR0912
 
     changed_items: list[dict[str, object]] = []
     unchanged_products = 0
-    products_not_found: list[dict[str, object]] = []
+    products_without_live_category_membership: list[dict[str, object]] = []
     products_with_source_membership = 0
     memberships_to_add = 0
     memberships_to_remove = 0
 
     if not coverage_issues:
         for identity, product in products_by_identity.items():
-            source_membership = live_memberships.get(identity)
-            if not source_membership:
-                products_not_found.append(
+            source_membership = live_memberships.get(identity, {})
+            current_categories = sorted(
+                {
+                    *[
+                        canonical_category_name(name)
+                        for name in split_category_names(product.category)
+                    ],
+                    *relation_names_by_product.get(
+                        int(product.product_id or 0),
+                        [],
+                    ),
+                },
+                key=str.casefold,
+            )
+            if source_membership:
+                products_with_source_membership += 1
+            else:
+                products_without_live_category_membership.append(
                     {
                         "code": product.code,
-                        "current_categories": sorted(
-                            {
-                                *[
-                                    canonical_category_name(name)
-                                    for name in split_category_names(product.category)
-                                ],
-                                *relation_names_by_product.get(
-                                    int(product.product_id or 0),
-                                    [],
-                                ),
-                            },
-                            key=str.casefold,
-                        ),
+                        "current_categories": current_categories,
                     }
                 )
-                continue
 
-            products_with_source_membership += 1
             source_keys = set(source_membership)
             source_categories = list(source_membership.values())
             product_id = int(product.product_id)
@@ -330,8 +331,13 @@ def audit_live_category_memberships(  # noqa: PLR0912
                         "added_categories": added,
                         "removed_categories": removed,
                         "reason": (
-                            "La pertenencia se ajustará al conjunto completo de "
-                            "categorías donde aparece el código en las páginas live."
+                            "El código no aparece en ninguna categoría live; "
+                            "se retirarán sus pertenencias sin borrar el producto."
+                            if not source_membership
+                            else (
+                                "La pertenencia se ajustará al conjunto completo de "
+                                "categorías donde aparece el código en las páginas live."
+                            )
                         ),
                     }
                 )
@@ -385,7 +391,9 @@ def audit_live_category_memberships(  # noqa: PLR0912
         "category_occurrences": occurrences,
         "catalog_products": len(products),
         "products_with_source_membership": products_with_source_membership,
-        "products_not_found_in_any_live_category": products_not_found,
+        "products_without_live_category_membership": (
+            products_without_live_category_membership
+        ),
         "live_products_not_in_database": live_products_not_in_database,
         "live_multi_category_products": multi_category_products,
         "products_with_membership_changes": len(changed_items),

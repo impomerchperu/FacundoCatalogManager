@@ -159,6 +159,39 @@ class NormalizedScrapingRepository:
         products,
         product_repository,
         occurrence_metadata=None,
+        *,
+        replace_category_memberships: bool = False,
+    ) -> int:
+        """Persist occurrences and optionally replace memberships after a validated FULL."""
+        owns_transaction = not self.db._transaction_active
+        if owns_transaction:
+            self.db.begin()
+        try:
+            actual = self._persist_occurrences(
+                run_id,
+                categories,
+                products,
+                product_repository,
+                occurrence_metadata=occurrence_metadata,
+                replace_category_memberships=replace_category_memberships,
+            )
+            if owns_transaction:
+                self.db.commit()
+        except Exception:
+            if owns_transaction:
+                self.db.rollback()
+            raise
+        return actual
+
+    def _persist_occurrences(
+        self,
+        run_id: int,
+        categories,
+        products,
+        product_repository,
+        occurrence_metadata=None,
+        *,
+        replace_category_memberships: bool,
     ) -> int:
         category_ids = {}
         for category in categories:
@@ -185,6 +218,8 @@ class NormalizedScrapingRepository:
         now = self._now()
         occurrences = 0
         seen = set()
+        desired_category_ids_by_product: dict[int, set[int]] = {}
+
         for product in products:
             code = str(getattr(product, "code", "")).strip().upper()
             if not code:
@@ -199,6 +234,10 @@ class NormalizedScrapingRepository:
                     "No existe el producto maestro para registrar la ocurrencia: "
                     f"code={code}."
                 )
+            desired_ids = desired_category_ids_by_product.setdefault(
+                int(product_id),
+                set(),
+            )
             product_categories = {
                 normalized
                 for item in split_category_names(getattr(product, "category", ""))
@@ -207,6 +246,7 @@ class NormalizedScrapingRepository:
             for category_name, category_id in category_ids.items():
                 if category_name not in product_categories:
                     continue
+                desired_ids.add(category_id)
                 key = (run_id, category_id, code.casefold())
                 if key in seen:
                     continue
@@ -256,4 +296,20 @@ class NormalizedScrapingRepository:
                     ),
                 )
                 occurrences += 1
+
+        if replace_category_memberships:
+            for product_id, desired_ids in desired_category_ids_by_product.items():
+                if desired_ids:
+                    placeholders = ", ".join("?" for _ in desired_ids)
+                    self.db.execute_query(
+                        "DELETE FROM product_categories "
+                        f"WHERE product_id=? AND category_id NOT IN ({placeholders})",
+                        (product_id, *sorted(desired_ids)),
+                    )
+                else:
+                    self.db.execute_query(
+                        "DELETE FROM product_categories WHERE product_id=?",
+                        (product_id,),
+                    )
+
         return occurrences

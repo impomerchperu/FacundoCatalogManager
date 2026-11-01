@@ -221,6 +221,7 @@ def test_complete_full_run_replaces_stale_normalized_category_memberships():
             category="Categoría A, Categoría B",
         )
     )
+    assert master.product_id is not None
     product_repository.sync_product_categories(
         master.product_id,
         "Categoría A, Categoría B",
@@ -284,6 +285,7 @@ def test_directed_run_preserves_normalized_category_memberships_not_reobserved()
             category="Categoría A, Categoría B",
         )
     )
+    assert master.product_id is not None
     product_repository.sync_product_categories(
         master.product_id,
         "Categoría A, Categoría B",

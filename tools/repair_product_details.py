@@ -1151,7 +1151,16 @@ def _repair_categories_by_batch(  # noqa: PLR0912
         for product in products
     }
     return {
-        "mode": "category_apply_and_verify" if apply else "category_preview",
+        "mode": (
+            "category_apply_and_verify"
+            if apply
+            else (
+                "category_membership_apply"
+                if apply_category_memberships
+                else "category_preview"
+            )
+        ),
+        "detail_mode": "apply" if apply else "preview",
         "categories_requested": [name for name, _ in batches],
         "category_count": len(batches),
         "products_in_scope": len(unique_product_codes),
@@ -1165,7 +1174,10 @@ def _repair_categories_by_batch(  # noqa: PLR0912
         "category_results": category_results,
         "category_membership_audit": membership_audit,
         "category_membership_apply": category_membership_apply,
-        "category_memberships_applied": bool(apply_category_memberships),
+        "category_memberships_apply_requested": bool(apply_category_memberships),
+        "category_memberships_applied": bool(
+            membership_audit and membership_audit.get("applied") is True
+        ),
     }
 
 

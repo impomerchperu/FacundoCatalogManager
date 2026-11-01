@@ -313,3 +313,87 @@ def test_database_product_absent_from_every_live_category_loses_all_memberships(
         assert relations == []
     finally:
         db.close()
+
+def test_membership_audit_removes_duplicate_logical_category_relationships():
+    db = DBManager(":memory:")
+    repository = ProductRepository(db)
+    product = repository.save(
+        Product(
+            code="FB-1602",
+            name="Producto Estuches",
+            category="Estuches",
+        )
+    )
+    assert product.product_id is not None
+
+    from repositories.scraping.normalized_scraping_repository import (
+        NormalizedScrapingRepository,
+    )
+
+    normalized_repository = NormalizedScrapingRepository(db)
+    official_id = normalized_repository.upsert_category(
+        "Estuches",
+        "https://stock.importacionesfacundo.com/categoria/estuches/",
+        1,
+    )
+    duplicate_id = normalized_repository.upsert_category(
+        "Estuches",
+        "https://stock.importacionesfacundo.com/categoria/estuches-antiguo/",
+        1,
+    )
+    for category_id in (official_id, duplicate_id):
+        db.execute_query(
+            """
+            INSERT INTO product_categories
+                (product_id, category_id, first_seen_at, last_seen_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (product.product_id, category_id, "seed", "seed"),
+        )
+
+    live_category = Category(
+        name="Estuches",
+        url="https://stock.importacionesfacundo.com/categoria/estuches/",
+        expected_count=1,
+    )
+    collection = StaticCollectionScraper(
+        {"Estuches": [_source_card("FB-1602")]}
+    )
+
+    try:
+        report, _ = audit_live_category_memberships(
+            db,
+            repository,
+            [live_category],
+            collection_scraper=collection,
+        )
+
+        assert report["coverage_verified"] is True
+        assert report["products_with_membership_changes"] == 1
+        item = report["items"][0]
+        assert item["code"] == "FB-1602"
+        assert item["has_duplicate_or_unmapped_relations"] is True
+        assert len(item["old_category_relation_ids"]) == 2
+
+        apply_live_category_membership_reconciliation(
+            db,
+            repository,
+            report,
+            [live_category],
+        )
+
+        relation_rows = db.fetch_all(
+            """
+            SELECT c.canonical_url
+            FROM product_categories AS pc
+            JOIN categories AS c ON c.id = pc.category_id
+            WHERE pc.product_id=?
+            """,
+            (product.product_id,),
+        )
+        assert [row["canonical_url"] for row in relation_rows] == [
+            "https://stock.importacionesfacundo.com/categoria/estuches"
+        ]
+    finally:
+        db.close()
+

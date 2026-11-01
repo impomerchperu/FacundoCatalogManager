@@ -276,7 +276,7 @@ class CategoryProductExtractor:
         text = BeautifulSoup(markup, "lxml").get_text(" ", strip=True)
         # Ignore physical newlines used only to indent source HTML. Semantic
         # boundaries are represented by the explicit marker inserted above.
-        text = re.sub(r"\\s+", " ", text)
+        text = re.sub(r"\s+", " ", text)
         return text.replace(boundary, " ␞ ")
 
     @classmethod

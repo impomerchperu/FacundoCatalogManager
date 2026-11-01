@@ -1540,4 +1540,3 @@ def test_global_membership_apply_loads_and_passes_reviewed_preview(
     assert calls["approved_audit"] == approved_audit
     assert calls["browser_closed"] is True
     assert calls["database_closed"] is True
-

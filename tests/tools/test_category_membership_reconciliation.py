@@ -450,4 +450,3 @@ def test_membership_apply_approval_rejects_incomplete_fresh_coverage():
 
     with pytest.raises(ValueError, match="cobertura actual"):
         validate_membership_audit_approval(current, approved)
-

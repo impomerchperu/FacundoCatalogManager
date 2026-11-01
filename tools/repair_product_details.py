@@ -885,7 +885,11 @@ def _repair_categories_by_batch(  # noqa: PLR0912
     skip_detail_audit: bool = False,
 ) -> dict[str, object]:
     """Audit Detail by category and optionally reconcile global category membership."""
-    batches = _resolve_category_batches(repository, requested_categories)
+    batches = (
+        []
+        if skip_detail_audit
+        else _resolve_category_batches(repository, requested_categories)
+    )
     backup_path = ""
     total_updated = 0
     total_fetch_errors = 0
@@ -1336,7 +1340,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
             "Audita Detalle visible o repara códigos/categorías; nunca inicia un FULL."
         )
     )
-    selection = parser.add_mutually_exclusive_group(required=True)
+    selection = parser.add_mutually_exclusive_group(required=False)
     selection.add_argument(
         "--codes",
         nargs="+",
@@ -1421,6 +1425,26 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
         parser.error(
             "--apply-category-memberships requiere --reconcile-category-memberships."
         )
+    if (
+        args.reconcile_category_memberships
+        and not args.categories
+        and not args.skip_detail_audit
+    ):
+        parser.error(
+            "Sin --categories, --reconcile-category-memberships requiere "
+            "--skip-detail-audit."
+        )
+    if not (
+        args.codes
+        or args.categories
+        or args.audit_incomplete
+        or args.audit_source
+        or args.reconcile_category_memberships
+    ):
+        parser.error(
+            "Debe indicar --codes, --categories, una auditoría o "
+            "--reconcile-category-memberships."
+        )
     if args.skip_detail_audit and not args.reconcile_category_memberships:
         parser.error(
             "--skip-detail-audit requiere --reconcile-category-memberships."
@@ -1449,13 +1473,13 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
             _emit_json_report(report, args.output)
             if report["fetch_errors"]:
                 exit_code = 1
-        elif args.categories:
+        elif args.categories or args.reconcile_category_memberships:
             browser = Browser(http_workers=args.audit_workers)
             browser.enable_thread_sessions()
             report = _repair_categories_by_batch(
                 db,
                 repository,
-                args.categories,
+                args.categories or [],
                 browser=browser,
                 workers=args.audit_workers,
                 apply=args.apply,

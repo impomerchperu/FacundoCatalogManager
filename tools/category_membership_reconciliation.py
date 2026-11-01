@@ -546,7 +546,7 @@ def _ensure_live_category_rows(
     return category_ids
 
 
-def apply_live_category_membership_reconciliation(  # noqa: PLR0912
+def apply_live_category_membership_reconciliation(
     db: DBManager,
     repository: ProductRepository,
     audit_report: dict[str, object],

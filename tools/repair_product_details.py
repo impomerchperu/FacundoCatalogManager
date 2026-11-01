@@ -50,11 +50,11 @@ from services.scraping.category_name_normalizer import (
     split_category_names,
 )
 from services.scraping.product_hash_service import ProductHashService
+from services.scraping.scraping_config import ScrapingConfig
 from tools.category_membership_reconciliation import (
     apply_live_category_membership_reconciliation,
     audit_live_category_memberships,
 )
-from services.scraping.scraping_config import ScrapingConfig
 
 _ALLOWED_HOSTS = frozenset({"stock.importacionesfacundo.com"})
 

@@ -183,7 +183,7 @@ class NormalizedScrapingRepository:
             raise
         return actual
 
-    def _persist_occurrences(
+    def _persist_occurrences(  # noqa: PLR0912
         self,
         run_id: int,
         categories,

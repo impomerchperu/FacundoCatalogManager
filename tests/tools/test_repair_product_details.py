@@ -11,6 +11,7 @@ from repositories.scraping.scraped_product_repository import ScrapedProductRepos
 from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.product_extractor import ProductExtractor
 from services.scraping.product_hash_service import ProductHashService
+from tools import repair_product_details as repair_module
 from tools.repair_product_details import (
     _audit_live_category_cards,
     _blocking_detail_codes,
@@ -1284,8 +1285,6 @@ def test_json_report_writes_full_records_and_prints_summary(tmp_path, capsys):
     assert "items" not in console
 
 def test_global_membership_audit_runs_without_local_detail_categories(monkeypatch):
-    import tools.repair_product_details as repair_module
-
     calls = {}
 
     class FakeDatabase:

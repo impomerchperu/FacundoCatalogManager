@@ -72,7 +72,7 @@ def _relation_snapshot(
     return dict(keys_by_product), dict(names_by_product)
 
 
-def audit_live_category_memberships(
+def audit_live_category_memberships(  # noqa: PLR0912
     db: DBManager,
     repository: ProductRepository,
     categories: list[Any],
@@ -477,7 +477,7 @@ def _ensure_live_category_rows(
     return category_ids
 
 
-def apply_live_category_membership_reconciliation(
+def apply_live_category_membership_reconciliation(  # noqa: TRY301
     db: DBManager,
     repository: ProductRepository,
     audit_report: dict[str, object],
@@ -491,7 +491,7 @@ def apply_live_category_membership_reconciliation(
 
     raw_items = audit_report.get("items", [])
     if not isinstance(raw_items, list):
-        raise ValueError("El informe de categorías no contiene una lista válida.")
+        raise TypeError("El informe de categorías no contiene una lista válida.")
 
     pending = [
         item
@@ -624,12 +624,13 @@ def apply_live_category_membership_reconciliation(
             memberships_removed += int(item.get("memberships_removed") or len(
                 item.get("removed_categories") or []
             ))
-            item["status"] = "updated"
-
         db.commit()
     except Exception:
         db.rollback()
         raise
+
+    for item in pending:
+        item["status"] = "updated"
 
     updated_products = len(pending)
     audit_report["applied"] = True

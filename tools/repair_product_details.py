@@ -1417,10 +1417,6 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
         parser.error("--apply no se puede usar con los modos de auditoría.")
     if args.limit < 1:
         parser.error("--limit debe ser al menos 1.")
-    if args.reconcile_category_memberships and not args.categories:
-        parser.error(
-            "--reconcile-category-memberships requiere --categories."
-        )
     if args.apply_category_memberships and not args.reconcile_category_memberships:
         parser.error(
             "--apply-category-memberships requiere --reconcile-category-memberships."

@@ -50,6 +50,10 @@ from services.scraping.category_name_normalizer import (
     split_category_names,
 )
 from services.scraping.product_hash_service import ProductHashService
+from tools.category_membership_reconciliation import (
+    apply_live_category_membership_reconciliation,
+    audit_live_category_memberships,
+)
 from services.scraping.scraping_config import ScrapingConfig
 
 _ALLOWED_HOSTS = frozenset({"stock.importacionesfacundo.com"})
@@ -715,9 +719,11 @@ def _audit_live_category_cards(  # noqa: PLR0912
     *,
     browser: Browser,
     collection_scraper: ProductCollectionScraper,
+    raw_products: list[Any] | None = None,
 ) -> tuple[dict[str, object], bool]:
     """Compare one live category's card fields with its DB rows, without mutation."""
-    raw_products = collection_scraper.collect_category(category)
+    if raw_products is None:
+        raw_products = collection_scraper.collect_category(category)
     live_by_identity: dict[str, tuple[Any, str, Any]] = {}
     duplicate_live_codes: set[str] = set()
     unidentified_cards = 0
@@ -874,8 +880,9 @@ def _repair_categories_by_batch(  # noqa: PLR0912
     browser: Browser,
     workers: int,
     apply: bool,
+    reconcile_category_memberships: bool = False,
 ) -> dict[str, object]:
-    """Audit and repair category-card Detail values one category at a time."""
+    """Audit Detail by category and optionally reconcile global category membership."""
     batches = _resolve_category_batches(repository, requested_categories)
     backup_path = ""
     total_updated = 0
@@ -906,6 +913,27 @@ def _repair_categories_by_batch(  # noqa: PLR0912
         }
         if not live_categories_by_key:
             raise RuntimeError("No se pudieron descubrir las categorías live del catálogo.")
+
+        membership_audit: dict[str, object] | None = None
+        membership_raw_by_category: dict[str, list[Any]] = {}
+        if reconcile_category_memberships:
+            membership_audit, membership_raw_by_category = (
+                audit_live_category_memberships(
+                    db,
+                    repository,
+                    list(live_categories or []),
+                    collection_scraper=collection_scraper,
+                )
+            )
+            print(
+                "[Categorías live] Reconciliación global: "
+                f"{membership_audit.get('categories_scanned', 0)}/"
+                f"{len(live_categories or [])} categorías; "
+                f"cobertura={membership_audit.get('coverage_verified')}; "
+                f"cambios={membership_audit.get('products_with_membership_changes', 0)}.",
+                file=sys.stderr,
+                flush=True,
+            )
 
         print(
             f"[Detalle por categoría] {len(batches)} categorías; "
@@ -938,6 +966,13 @@ def _repair_categories_by_batch(  # noqa: PLR0912
                     category_products,
                     browser=browser,
                     collection_scraper=collection_scraper,
+                    raw_products=(
+                        membership_raw_by_category.get(
+                            normalize_category_name(category_name)
+                        )
+                        if reconcile_category_memberships
+                        else None
+                    ),
                 )
             except Exception as error:  # noqa: BLE001
                 message = f"{type(error).__name__}: {error}"
@@ -992,6 +1027,18 @@ def _repair_categories_by_batch(  # noqa: PLR0912
             }
 
             if not apply:
+                candidate_differences_remaining += int(
+                    preview.get("candidate_differences") or 0
+                )
+                category_results.append(result)
+                continue
+
+            if (
+                reconcile_category_memberships
+                and membership_audit is not None
+                and membership_audit.get("coverage_verified") is not True
+            ):
+                result["outcome"] = "blocked_global_category_membership_coverage"
                 candidate_differences_remaining += int(
                     preview.get("candidate_differences") or 0
                 )
@@ -1086,6 +1133,29 @@ def _repair_categories_by_batch(  # noqa: PLR0912
     finally:
         collection_scraper.close()
 
+    category_membership_apply: dict[str, int] = {
+        "updated_products": 0,
+        "memberships_added": 0,
+        "memberships_removed": 0,
+    }
+    if (
+        apply
+        and reconcile_category_memberships
+        and membership_audit is not None
+        and membership_audit.get("coverage_verified") is True
+    ):
+        pending_memberships = int(
+            membership_audit.get("products_with_membership_changes") or 0
+        )
+        if pending_memberships and not backup_path:
+            backup_path = str(_create_database_backup(db))
+        category_membership_apply = apply_live_category_membership_reconciliation(
+            db,
+            repository,
+            membership_audit,
+            list(live_categories or []),
+        )
+
     unique_product_codes = {
         product.code
         for _, products in batches
@@ -1104,6 +1174,8 @@ def _repair_categories_by_batch(  # noqa: PLR0912
         "unresolved_products": len(unresolved_codes),
         "unresolved_codes": sorted(unresolved_codes, key=str.casefold),
         "category_results": category_results,
+        "category_membership_audit": membership_audit,
+        "category_membership_apply": category_membership_apply,
     }
 
 
@@ -1124,8 +1196,15 @@ def _emit_json_report(
     summary = {
         key: value
         for key, value in report.items()
-        if key not in {"items", "category_results"}
+        if key not in {"items", "category_results", "category_membership_audit"}
     }
+    membership_audit = report.get("category_membership_audit")
+    if isinstance(membership_audit, dict):
+        summary["category_membership_audit"] = {
+            key: value
+            for key, value in membership_audit.items()
+            if key not in {"items", "products_not_found_in_any_live_category", "live_products_not_in_database", "live_multi_category_products"}
+        }
     summary["report_file"] = str(destination.resolve())
     summary["items_saved"] = len(items) if isinstance(items, list) else 0
     category_results = report.get("category_results")
@@ -1268,6 +1347,14 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
         help="Aplica los detalles válidos; por defecto solo muestra una vista previa.",
     )
     parser.add_argument(
+        "--reconcile-category-memberships",
+        action="store_true",
+        help=(
+            "Audita todas las categorías live y prepara altas/bajas de pertenencias; "
+            "solo las aplica junto con --apply y con cobertura global completa."
+        ),
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         default=100,
@@ -1278,6 +1365,10 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
         parser.error("--apply no se puede usar con los modos de auditoría.")
     if args.limit < 1:
         parser.error("--limit debe ser al menos 1.")
+    if args.reconcile_category_memberships and not args.categories:
+        parser.error(
+            "--reconcile-category-memberships requiere --categories."
+        )
     if not 1 <= args.audit_workers <= 16:
         parser.error("--audit-workers debe estar entre 1 y 16.")
 
@@ -1312,6 +1403,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
                 browser=browser,
                 workers=args.audit_workers,
                 apply=args.apply,
+                reconcile_category_memberships=args.reconcile_category_memberships,
             )
             _emit_json_report(report, args.output)
             if report["fetch_errors"]:
@@ -1319,6 +1411,19 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
             if args.apply and (
                 report["unresolved_products"]
                 or report["candidate_differences_remaining"]
+            ):
+                exit_code = 1
+            membership_audit = report.get("category_membership_audit")
+            if (
+                args.reconcile_category_memberships
+                and isinstance(membership_audit, dict)
+                and membership_audit.get("coverage_verified") is not True
+            ):
+                exit_code = 1
+            if (
+                args.reconcile_category_memberships
+                and isinstance(membership_audit, dict)
+                and int(membership_audit.get("fetch_errors") or 0) > 0
             ):
                 exit_code = 1
         else:

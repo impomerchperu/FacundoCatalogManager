@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, NoReturn
 from urllib.parse import urlsplit
 
 from database.db_manager import DBManager
@@ -31,6 +31,10 @@ def _category_url_key(value: object) -> str:
     if parts.scheme not in {"http", "https"} or not parts.netloc:
         return ""
     return (parts.scheme + "://" + parts.netloc + parts.path).rstrip("/").casefold()
+
+
+def _raise_reconciliation_error(message: str) -> NoReturn:
+    raise RuntimeError(message)
 
 
 def _category_keys(value: object) -> set[str]:
@@ -477,7 +481,7 @@ def _ensure_live_category_rows(
     return category_ids
 
 
-def apply_live_category_membership_reconciliation(  # noqa: TRY301
+def apply_live_category_membership_reconciliation(  # noqa: PLR0912
     db: DBManager,
     repository: ProductRepository,
     audit_report: dict[str, object],
@@ -529,7 +533,7 @@ def apply_live_category_membership_reconciliation(  # noqa: TRY301
                     item.get("old_category_text") or ""
                 )
             ):
-                raise RuntimeError(
+                _raise_reconciliation_error(
                     f"{code}: el producto cambió desde la auditoría; "
                     "se revirtió la reconciliación completa."
                 )
@@ -544,7 +548,7 @@ def apply_live_category_membership_reconciliation(  # noqa: TRY301
             if current_relation_ids != list(
                 item.get("old_category_relation_ids") or []
             ):
-                raise RuntimeError(
+                _raise_reconciliation_error(
                     f"{code}: cambiaron las relaciones de categoría desde la "
                     "auditoría; se revirtió la reconciliación completa."
                 )
@@ -563,7 +567,7 @@ def apply_live_category_membership_reconciliation(  # noqa: TRY301
                 if key in category_ids
             }
             if len(desired_ids) != len(source_keys):
-                raise RuntimeError(
+                _raise_reconciliation_error(
                     f"{code}: falta resolver una categoría live en la base de datos."
                 )
 
@@ -613,7 +617,7 @@ def apply_live_category_membership_reconciliation(  # noqa: TRY301
                 or _category_keys(stored_product.category) != source_keys
                 or stored_relation_ids != desired_ids
             ):
-                raise RuntimeError(
+                _raise_reconciliation_error(
                     f"{code}: la verificación posterior de categorías no coincide "
                     "con la fuente live; se revirtió la reconciliación completa."
                 )

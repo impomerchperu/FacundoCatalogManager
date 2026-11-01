@@ -6,6 +6,9 @@ from database.db_manager import DBManager
 from models.product import Product
 from models.scraping.category import Category
 from repositories.product_repository import ProductRepository
+from repositories.scraping.normalized_scraping_repository import (
+    NormalizedScrapingRepository,
+)
 from services.scraping.product_hash_service import ProductHashService
 from tools.category_membership_reconciliation import (
     apply_live_category_membership_reconciliation,
@@ -325,10 +328,6 @@ def test_membership_audit_removes_duplicate_logical_category_relationships():
         )
     )
     assert product.product_id is not None
-
-    from repositories.scraping.normalized_scraping_repository import (
-        NormalizedScrapingRepository,
-    )
 
     normalized_repository = NormalizedScrapingRepository(db)
     official_id = normalized_repository.upsert_category(

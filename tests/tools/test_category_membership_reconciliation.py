@@ -103,6 +103,18 @@ def test_membership_audit_plans_removal_from_stale_database_category():
         assert item["source_categories"] == ["Estuches"]
         assert item["added_categories"] == []
         assert item["removed_categories"] == ["Artículos de Escritorio"]
+        assert item["stale_from_category_text"] == ["Artículos de Escritorio"]
+        assert item["stale_from_category_relation"] == [
+            "Artículos de Escritorio"
+        ]
+        database_multi = report["database_multi_category_products"]
+        assert len(database_multi) == 1
+        assert database_multi[0]["code"] == "FB-1600"
+        assert database_multi[0]["database_categories"] == [
+            "Artículos de Escritorio",
+            "Estuches",
+        ]
+        assert database_multi[0]["source_categories"] == ["Estuches"]
     finally:
         db.close()
 
@@ -137,6 +149,8 @@ def test_membership_audit_detects_new_multi_category_membership():
             "Estuches",
         ]
         assert item["added_categories"] == ["Estuches"]
+        assert item["missing_from_category_text"] == ["Estuches"]
+        assert item["missing_from_category_relation"] == ["Estuches"]
         multi_category = report["live_multi_category_products"]
         assert len(multi_category) == 1
         assert multi_category[0]["categories"] == [

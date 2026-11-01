@@ -281,7 +281,13 @@ class CategoryProductExtractor:
         if cls._is_excluded_detail_block(element):
             return ""
 
-        text = normalize_detail_text(cls._detail_text_from_element(element))
+        # Keep HTML block boundaries (e.g. separate <li>/<p> Detail fields).
+        # Category cards are the authoritative source when complete, so flattening
+        # these boundaries here would irreversibly damage the stored Detail text.
+        text = normalize_detail_text(
+            cls._detail_text_from_element(element),
+            preserve_boundaries=True,
+        )
         if not text or cls._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text):
             return ""
 

@@ -1397,6 +1397,28 @@ def test_global_membership_apply_requires_approved_preview_report(capsys):
     assert "--approved-membership-report" in capsys.readouterr().err
 
 
+
+def test_global_membership_apply_rejects_combining_detail_apply(
+    capsys,
+    tmp_path,
+):
+    approved_path = tmp_path / "approved.json"
+    with pytest.raises(SystemExit) as error:
+        repair_module.main(
+            [
+                "--reconcile-category-memberships",
+                "--skip-detail-audit",
+                "--apply-category-memberships",
+                "--approved-membership-report",
+                str(approved_path),
+                "--apply",
+            ]
+        )
+
+    assert error.value.code == 2
+    assert "no se combina con --apply" in capsys.readouterr().err
+
+
 def test_global_membership_apply_loads_and_passes_reviewed_preview(
     monkeypatch,
     tmp_path,

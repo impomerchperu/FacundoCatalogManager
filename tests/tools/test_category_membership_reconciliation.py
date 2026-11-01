@@ -1,0 +1,283 @@
+from types import SimpleNamespace
+
+import pytest
+
+from database.db_manager import DBManager
+from models.product import Product
+from models.scraping.category import Category
+from repositories.product_repository import ProductRepository
+from services.scraping.product_hash_service import ProductHashService
+from tools.category_membership_reconciliation import (
+    apply_live_category_membership_reconciliation,
+    audit_live_category_memberships,
+)
+
+
+def _seed_product(
+    repository: ProductRepository,
+    code: str,
+    category: str,
+) -> Product:
+    product = repository.save(
+        Product(
+            code=code,
+            name=f"Producto {code}",
+            category=category,
+            description="Material: ABS.",
+        )
+    )
+    assert product.product_id is not None
+    repository.sync_product_categories(product.product_id, category)
+    return product
+
+
+class StaticCollectionScraper:
+    def __init__(self, products_by_category):
+        self.products_by_category = products_by_category
+
+    def collect_category(self, category):
+        return self.products_by_category[category.name]
+
+
+def _source_card(code: str):
+    return (
+        None,
+        f"https://stock.importacionesfacundo.com/categoria/{code.lower()}/",
+        SimpleNamespace(code=code, name=f"Producto {code}"),
+    )
+
+
+def _categories(desktop_count: int, case_count: int):
+    return [
+        Category(
+            name="Artículos de Escritorio",
+            url="https://stock.importacionesfacundo.com/categoria/escritorio/",
+            expected_count=desktop_count,
+        ),
+        Category(
+            name="Estuches",
+            url="https://stock.importacionesfacundo.com/categoria/estuches/",
+            expected_count=case_count,
+        ),
+    ]
+
+
+def test_membership_audit_plans_removal_from_stale_database_category():
+    db = DBManager(":memory:")
+    repository = ProductRepository(db)
+    _seed_product(
+        repository,
+        "FB-1600",
+        "Artículos de Escritorio, Estuches",
+    )
+    _seed_product(repository, "FB-1601", "Artículos de Escritorio")
+
+    collection = StaticCollectionScraper(
+        {
+            "Artículos de Escritorio": [_source_card("FB-1601")],
+            "Estuches": [_source_card("FB-1600")],
+        }
+    )
+
+    try:
+        report, raw_by_category = audit_live_category_memberships(
+            db,
+            repository,
+            _categories(1, 1),
+            collection_scraper=collection,
+        )
+
+        assert report["coverage_verified"] is True
+        assert report["category_occurrences"] == 2
+        assert set(raw_by_category) == {
+            "articulos de escritorio",
+            "estuches",
+        }
+        assert report["products_with_membership_changes"] == 1
+        item = report["items"][0]
+        assert item["code"] == "FB-1600"
+        assert item["old_categories_text"] == [
+            "Artículos de Escritorio",
+            "Estuches",
+        ]
+        assert item["source_categories"] == ["Estuches"]
+        assert item["added_categories"] == []
+        assert item["removed_categories"] == ["Artículos de Escritorio"]
+    finally:
+        db.close()
+
+
+def test_membership_audit_detects_new_multi_category_membership():
+    db = DBManager(":memory:")
+    repository = ProductRepository(db)
+    _seed_product(repository, "FB-1700", "Artículos de Escritorio")
+
+    collection = StaticCollectionScraper(
+        {
+            "Artículos de Escritorio": [_source_card("FB-1700")],
+            "Estuches": [_source_card("FB-1700")],
+        }
+    )
+
+    try:
+        report, _ = audit_live_category_memberships(
+            db,
+            repository,
+            _categories(1, 1),
+            collection_scraper=collection,
+        )
+
+        assert report["coverage_verified"] is True
+        assert report["products_with_membership_changes"] == 1
+        assert report["memberships_to_add"] == 1
+        item = report["items"][0]
+        assert item["code"] == "FB-1700"
+        assert item["source_categories"] == [
+            "Artículos de Escritorio",
+            "Estuches",
+        ]
+        assert item["added_categories"] == ["Estuches"]
+        multi_category = report["live_multi_category_products"]
+        assert len(multi_category) == 1
+        assert multi_category[0]["categories"] == [
+            "Artículos de Escritorio",
+            "Estuches",
+        ]
+    finally:
+        db.close()
+
+
+def test_membership_apply_updates_text_and_normalized_relationships():
+    db = DBManager(":memory:")
+    repository = ProductRepository(db)
+    _seed_product(
+        repository,
+        "FB-1600",
+        "Artículos de Escritorio, Estuches",
+    )
+    _seed_product(repository, "FB-1601", "Artículos de Escritorio")
+
+    collection = StaticCollectionScraper(
+        {
+            "Artículos de Escritorio": [_source_card("FB-1601")],
+            "Estuches": [_source_card("FB-1600")],
+        }
+    )
+
+    try:
+        report, _ = audit_live_category_memberships(
+            db,
+            repository,
+            _categories(1, 1),
+            collection_scraper=collection,
+        )
+        result = apply_live_category_membership_reconciliation(
+            db,
+            repository,
+            report,
+            _categories(1, 1),
+        )
+
+        product = repository.get_by_code("FB-1600")
+        assert product is not None
+        assert product.category == "Estuches"
+        assert product.content_hash == ProductHashService().generate(product)
+
+        relations = db.fetch_all(
+            """
+            SELECT c.name
+            FROM product_categories AS pc
+            JOIN categories AS c ON c.id = pc.category_id
+            WHERE pc.product_id=?
+            ORDER BY c.name
+            """,
+            (product.product_id,),
+        )
+        assert [row["name"] for row in relations] == ["Estuches"]
+        assert result == {
+            "updated_products": 1,
+            "memberships_added": 0,
+            "memberships_removed": 1,
+        }
+        assert report["applied"] is True
+        assert report["items"][0]["status"] == "updated"
+    finally:
+        db.close()
+
+
+def test_incomplete_live_category_coverage_blocks_membership_apply():
+    db = DBManager(":memory:")
+    repository = ProductRepository(db)
+    _seed_product(
+        repository,
+        "FB-1600",
+        "Artículos de Escritorio, Estuches",
+    )
+    categories = _categories(2, 1)
+    collection = StaticCollectionScraper(
+        {
+            "Artículos de Escritorio": [_source_card("FB-1600")],
+            "Estuches": [_source_card("FB-1600")],
+        }
+    )
+
+    try:
+        report, _ = audit_live_category_memberships(
+            db,
+            repository,
+            categories,
+            collection_scraper=collection,
+        )
+
+        assert report["coverage_verified"] is False
+        assert any("publica 2 productos" in issue for issue in report["coverage_issues"])
+        assert report["items"] == []
+        with pytest.raises(ValueError, match="cobertura live completa"):
+            apply_live_category_membership_reconciliation(
+                db,
+                repository,
+                report,
+                categories,
+            )
+
+        product = repository.get_by_code("FB-1600")
+        assert product is not None
+        assert product.category == "Artículos de Escritorio, Estuches"
+    finally:
+        db.close()
+
+
+def test_database_product_absent_from_every_live_category_is_left_untouched():
+    db = DBManager(":memory:")
+    repository = ProductRepository(db)
+    _seed_product(repository, "FB-1600", "Estuches")
+    _seed_product(repository, "FB-1601", "Artículos de Escritorio")
+
+    collection = StaticCollectionScraper(
+        {
+            "Artículos de Escritorio": [_source_card("FB-1601")],
+            "Estuches": [_source_card("FB-9999")],
+        }
+    )
+
+    try:
+        report, _ = audit_live_category_memberships(
+            db,
+            repository,
+            _categories(1, 1),
+            collection_scraper=collection,
+        )
+
+        assert report["coverage_verified"] is True
+        assert report["items"] == []
+        assert report["products_not_found_in_any_live_category"] == [
+            {
+                "code": "FB-1600",
+                "current_categories": ["Estuches"],
+            }
+        ]
+        product = repository.get_by_code("FB-1600")
+        assert product is not None
+        assert product.category == "Estuches"
+    finally:
+        db.close()

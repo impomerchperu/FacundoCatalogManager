@@ -1197,6 +1197,7 @@ def _emit_json_report(
                 "items",
                 "products_without_live_category_membership",
                 "live_products_not_in_database",
+                "database_multi_category_products",
                 "live_multi_category_products",
             }
         }
@@ -1208,6 +1209,9 @@ def _emit_json_report(
         )
         membership_summary["live_products_not_in_database_count"] = len(
             membership_audit.get("live_products_not_in_database", [])
+        )
+        membership_summary["database_multi_category_products_count"] = len(
+            membership_audit.get("database_multi_category_products", [])
         )
         membership_summary["live_multi_category_products_count"] = len(
             membership_audit.get("live_multi_category_products", [])

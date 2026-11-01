@@ -367,4 +367,3 @@ def test_directed_run_preserves_normalized_category_memberships_not_reobserved()
         "Categoría B",
     ]
     db.close()
-

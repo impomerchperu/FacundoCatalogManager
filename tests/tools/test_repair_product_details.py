@@ -1317,6 +1317,7 @@ def test_global_membership_audit_runs_without_local_detail_categories(monkeypatc
         reconcile_category_memberships,
         apply_category_memberships,
         skip_detail_audit,
+        approved_membership_audit=None,
     ):
         calls.update(
             {
@@ -1326,6 +1327,7 @@ def test_global_membership_audit_runs_without_local_detail_categories(monkeypatc
                 "reconcile": reconcile_category_memberships,
                 "apply_memberships": apply_category_memberships,
                 "skip_detail": skip_detail_audit,
+                "approved_membership_audit": approved_membership_audit,
             }
         )
         return {
@@ -1380,4 +1382,140 @@ def test_global_membership_audit_rejects_independent_detail_audit_flags(capsys):
 
     assert error.value.code == 2
     assert "--reconcile-category-memberships no se combina" in capsys.readouterr().err
+
+def test_global_membership_apply_requires_approved_preview_report(capsys):
+    with pytest.raises(SystemExit) as error:
+        repair_module.main(
+            [
+                "--reconcile-category-memberships",
+                "--skip-detail-audit",
+                "--apply-category-memberships",
+            ]
+        )
+
+    assert error.value.code == 2
+    assert "--approved-membership-report" in capsys.readouterr().err
+
+
+def test_global_membership_apply_loads_and_passes_reviewed_preview(
+    monkeypatch,
+    tmp_path,
+):
+    calls = {}
+    approved_audit = {
+        "coverage_verified": True,
+        "coverage_issues": [],
+        "fetch_errors": 0,
+        "categories_scanned": 24,
+        "category_scans": [{"category": "Estuches"}],
+        "category_occurrences": 1,
+        "catalog_products": 1,
+        "products_with_source_membership": 1,
+        "products_without_live_category_membership": [],
+        "live_products_not_in_database": [],
+        "live_multi_category_products": [],
+        "database_multi_category_products": [],
+        "products_with_membership_changes": 1,
+        "memberships_to_add": 0,
+        "memberships_to_remove": 1,
+        "unchanged_products": 0,
+        "items": [{"code": "FB-1600", "source_categories": ["Estuches"]}],
+    }
+    approved_path = tmp_path / "category_membership_preview.json"
+    approved_path.write_text(
+        json.dumps(
+            {
+                "mode": "category_membership_preview",
+                "detail_audit_skipped": True,
+                "category_membership_audit": approved_audit,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class FakeDatabase:
+        def close(self):
+            calls["database_closed"] = True
+
+    class FakeBrowser:
+        def __init__(self, *, http_workers):
+            calls["http_workers"] = http_workers
+
+        def enable_thread_sessions(self):
+            calls["thread_sessions_enabled"] = True
+
+        def close(self):
+            calls["browser_closed"] = True
+
+    class FakeProductRepository:
+        def __init__(self, db):
+            calls["repository_database"] = db
+
+    def fake_repair_categories(
+        db,
+        repository,
+        requested_categories,
+        *,
+        browser,
+        workers,
+        apply,
+        reconcile_category_memberships,
+        apply_category_memberships,
+        skip_detail_audit,
+        approved_membership_audit,
+    ):
+        calls.update(
+            {
+                "requested_categories": requested_categories,
+                "workers": workers,
+                "apply": apply,
+                "reconcile": reconcile_category_memberships,
+                "apply_memberships": apply_category_memberships,
+                "skip_detail": skip_detail_audit,
+                "approved_audit": approved_membership_audit,
+            }
+        )
+        return {
+            "fetch_errors": 0,
+            "unresolved_products": 0,
+            "candidate_differences_remaining": 0,
+            "category_membership_audit": {
+                "coverage_verified": True,
+                "fetch_errors": 0,
+                "applied": True,
+            },
+            "category_memberships_applied": True,
+        }
+
+    monkeypatch.setattr(repair_module, "DBManager", FakeDatabase)
+    monkeypatch.setattr(repair_module, "Browser", FakeBrowser)
+    monkeypatch.setattr(repair_module, "ProductRepository", FakeProductRepository)
+    monkeypatch.setattr(
+        repair_module,
+        "_repair_categories_by_batch",
+        fake_repair_categories,
+    )
+    monkeypatch.setattr(repair_module, "_emit_json_report", lambda *_args: None)
+
+    result = repair_module.main(
+        [
+            "--reconcile-category-memberships",
+            "--skip-detail-audit",
+            "--apply-category-memberships",
+            "--approved-membership-report",
+            str(approved_path),
+            "--audit-workers",
+            "3",
+        ]
+    )
+
+    assert result == 0
+    assert calls["requested_categories"] == []
+    assert calls["apply"] is False
+    assert calls["reconcile"] is True
+    assert calls["apply_memberships"] is True
+    assert calls["skip_detail"] is True
+    assert calls["approved_audit"] == approved_audit
+    assert calls["browser_closed"] is True
+    assert calls["database_closed"] is True
 

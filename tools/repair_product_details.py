@@ -317,6 +317,10 @@ def _plan_single_product_detail_repair(
         product_id=product.product_id,
         old_description=current_description,
         new_description=candidate,
+        reason=(
+            "Detalle obtenido del campo autorizado de la ficha individual "
+            "después de validar el código del producto."
+        ),
     )
 
 

@@ -1282,3 +1282,89 @@ def test_json_report_writes_full_records_and_prints_summary(tmp_path, capsys):
     assert console["items_saved"] == 1
     assert console["report_file"] == str(output.resolve())
     assert "items" not in console
+
+def test_global_membership_audit_runs_without_local_detail_categories(monkeypatch):
+    import tools.repair_product_details as repair_module
+
+    calls = {}
+
+    class FakeDatabase:
+        def close(self):
+            calls["database_closed"] = True
+
+    class FakeBrowser:
+        def __init__(self, *, http_workers):
+            calls["http_workers"] = http_workers
+
+        def enable_thread_sessions(self):
+            calls["thread_sessions_enabled"] = True
+
+        def close(self):
+            calls["browser_closed"] = True
+
+    class FakeProductRepository:
+        def __init__(self, db):
+            calls["repository_database"] = db
+
+    def fake_repair_categories(
+        db,
+        repository,
+        requested_categories,
+        *,
+        browser,
+        workers,
+        apply,
+        reconcile_category_memberships,
+        apply_category_memberships,
+        skip_detail_audit,
+    ):
+        calls.update(
+            {
+                "requested_categories": requested_categories,
+                "workers": workers,
+                "apply": apply,
+                "reconcile": reconcile_category_memberships,
+                "apply_memberships": apply_category_memberships,
+                "skip_detail": skip_detail_audit,
+            }
+        )
+        return {
+            "fetch_errors": 0,
+            "unresolved_products": 0,
+            "candidate_differences_remaining": 0,
+            "category_membership_audit": {
+                "coverage_verified": True,
+                "fetch_errors": 0,
+            },
+        }
+
+    monkeypatch.setattr(repair_module, "DBManager", FakeDatabase)
+    monkeypatch.setattr(repair_module, "Browser", FakeBrowser)
+    monkeypatch.setattr(repair_module, "ProductRepository", FakeProductRepository)
+    monkeypatch.setattr(
+        repair_module,
+        "_repair_categories_by_batch",
+        fake_repair_categories,
+    )
+    monkeypatch.setattr(repair_module, "_emit_json_report", lambda *_args: None)
+
+    result = repair_module.main(
+        [
+            "--reconcile-category-memberships",
+            "--skip-detail-audit",
+            "--audit-workers",
+            "3",
+        ]
+    )
+
+    assert result == 0
+    assert calls["requested_categories"] == []
+    assert calls["workers"] == 3
+    assert calls["apply"] is False
+    assert calls["reconcile"] is True
+    assert calls["apply_memberships"] is False
+    assert calls["skip_detail"] is True
+    assert calls["thread_sessions_enabled"] is True
+    assert calls["browser_closed"] is True
+    assert calls["database_closed"] is True
+

@@ -222,12 +222,28 @@ def test_complete_full_run_replaces_stale_normalized_category_memberships():
         )
     )
     assert master.product_id is not None
-    product_repository.sync_product_categories(
-        master.product_id,
-        "Categoría A, Categoría B",
-    )
-
     repository = NormalizedScrapingRepository(db)
+    initial_category_ids = [
+        repository.upsert_category(
+            "Categoría A",
+            "https://example.test/categoria-a/",
+            1,
+        ),
+        repository.upsert_category(
+            "Categoría B",
+            "https://example.test/categoria-b/",
+            1,
+        ),
+    ]
+    for category_id in initial_category_ids:
+        db.execute_query(
+            """
+            INSERT INTO product_categories
+                (product_id, category_id, first_seen_at, last_seen_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (master.product_id, category_id, "seed", "seed"),
+        )
     categories = [
         Category(
             name="Categoría A",
@@ -286,12 +302,28 @@ def test_directed_run_preserves_normalized_category_memberships_not_reobserved()
         )
     )
     assert master.product_id is not None
-    product_repository.sync_product_categories(
-        master.product_id,
-        "Categoría A, Categoría B",
-    )
-
     repository = NormalizedScrapingRepository(db)
+    initial_category_ids = [
+        repository.upsert_category(
+            "Categoría A",
+            "https://example.test/categoria-a/",
+            1,
+        ),
+        repository.upsert_category(
+            "Categoría B",
+            "https://example.test/categoria-b/",
+            1,
+        ),
+    ]
+    for category_id in initial_category_ids:
+        db.execute_query(
+            """
+            INSERT INTO product_categories
+                (product_id, category_id, first_seen_at, last_seen_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (master.product_id, category_id, "seed", "seed"),
+        )
     categories = [
         Category(
             name="Categoría A",

@@ -247,7 +247,7 @@ def test_incomplete_live_category_coverage_blocks_membership_apply():
         db.close()
 
 
-def test_database_product_absent_from_every_live_category_is_left_untouched():
+def test_database_product_absent_from_every_live_category_loses_all_memberships():
     db = DBManager(":memory:")
     repository = ProductRepository(db)
     _seed_product(repository, "FB-1600", "Estuches")
@@ -269,15 +269,33 @@ def test_database_product_absent_from_every_live_category_is_left_untouched():
         )
 
         assert report["coverage_verified"] is True
-        assert report["items"] == []
-        assert report["products_not_found_in_any_live_category"] == [
+        assert report["products_without_live_category_membership"] == [
             {
                 "code": "FB-1600",
                 "current_categories": ["Estuches"],
             }
         ]
+        item = next(
+            item for item in report["items"] if item["code"] == "FB-1600"
+        )
+        assert item["source_categories"] == []
+        assert item["removed_categories"] == ["Estuches"]
+
+        result = apply_live_category_membership_reconciliation(
+            db,
+            repository,
+            report,
+            _categories(1, 1),
+        )
+
         product = repository.get_by_code("FB-1600")
         assert product is not None
-        assert product.category == "Estuches"
+        assert product.category == ""
+        assert result["memberships_removed"] == 1
+        relations = db.fetch_all(
+            "SELECT category_id FROM product_categories WHERE product_id=?",
+            (product.product_id,),
+        )
+        assert relations == []
     finally:
         db.close()

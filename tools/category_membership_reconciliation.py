@@ -464,6 +464,53 @@ def audit_live_category_memberships(  # noqa: PLR0912
     return report, live_raw_by_category
 
 
+def validate_membership_audit_approval(
+    current_audit: dict[str, object],
+    approved_audit: dict[str, object],
+) -> None:
+    """Refuse apply when a fresh live/DB plan differs from the reviewed preview."""
+    if current_audit.get("coverage_verified") is not True:
+        raise ValueError(
+            "La cobertura actual de categorías no está completa; "
+            "no se puede aplicar el informe aprobado."
+        )
+    if approved_audit.get("coverage_verified") is not True:
+        raise ValueError(
+            "El informe aprobado no acredita cobertura completa."
+        )
+
+    fields = (
+        "coverage_issues",
+        "fetch_errors",
+        "categories_scanned",
+        "category_scans",
+        "category_occurrences",
+        "catalog_products",
+        "products_with_source_membership",
+        "products_without_live_category_membership",
+        "live_products_not_in_database",
+        "live_multi_category_products",
+        "database_multi_category_products",
+        "products_with_membership_changes",
+        "memberships_to_add",
+        "memberships_to_remove",
+        "unchanged_products",
+        "items",
+    )
+    changed = [
+        field
+        for field in fields
+        if current_audit.get(field) != approved_audit.get(field)
+    ]
+    if changed:
+        raise ValueError(
+            "La auditoría live o la base de datos cambiaron respecto al informe "
+            "revisado. No se aplicó ninguna categoría. Campos distintos: "
+            + ", ".join(changed)
+            + ". Genera y revisa una nueva vista previa."
+        )
+
+
 def _ensure_live_category_rows(
     db: DBManager,
     categories: list[Any],

@@ -1457,6 +1457,11 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
             "--apply-category-memberships requiere --skip-detail-audit "
             "para no mezclar cambios de Detalle."
         )
+    if args.apply_category_memberships and args.apply:
+        parser.error(
+            "--apply-category-memberships no se combina con --apply; "
+            "las reparaciones de Detalle son independientes."
+        )
     if args.apply_category_memberships and not args.approved_membership_report:
         parser.error(
             "--apply-category-memberships requiere --approved-membership-report."

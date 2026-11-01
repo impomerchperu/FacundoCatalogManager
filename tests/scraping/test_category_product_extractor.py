@@ -262,9 +262,9 @@ def test_category_product_extractor_preserves_boundaries_between_card_list_field
         <div class="text-content">
             <ul>
                 <li>Impresión térmica (300/600 ppp)</li>
-                <li>Velocidad : Desde 8.4s (4×6″) hasta 20.8s (6×9″)</li>
+                <li>Velocidad : Desde 8.4s (4\u00d76″) hasta 20.8s (6\u00d79″)</li>
                 <li>Modos : Alta velocidad / calidad</li>
-                <li>Capacidad : Hasta 400 hojas (4×6″)</li>
+                <li>Capacidad : Hasta 400 hojas (4\u00d76″)</li>
                 <li>Acabado : Brillante / Mate / Mate fino / Brillo</li>
                 <li>Tamaño : 275x366x170mm | 12kg</li>
             </ul>
@@ -277,9 +277,9 @@ def test_category_product_extractor_preserves_boundaries_between_card_list_field
     assert product.code == "IMP-CX02"
     assert product.description.splitlines() == [
         "Impresión térmica (300/600 ppp)",
-        "Velocidad: Desde 8.4s (4×6″) hasta 20.8s (6×9″)",
+        "Velocidad: Desde 8.4s (4\u00d76″) hasta 20.8s (6\u00d79″)",
         "Modos: Alta velocidad / calidad",
-        "Capacidad: Hasta 400 hojas (4×6″)",
+        "Capacidad: Hasta 400 hojas (4\u00d76″)",
         "Acabado: Brillante / Mate / Mate fino / Brillo",
         "Tamaño: 275x366x170mm | 12kg",
     ]

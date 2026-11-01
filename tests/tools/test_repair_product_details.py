@@ -585,6 +585,7 @@ def test_truncated_category_detail_uses_complete_product_page_field():
 
         assert plan.status == "would_update"
         assert plan.new_description == VALID_DETAIL
+        assert "campo autorizado de la ficha individual" in plan.reason
         assert browser.requested_urls == [PRODUCT_URL]
     finally:
         db.close()

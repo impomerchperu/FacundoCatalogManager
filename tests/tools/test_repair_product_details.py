@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from bs4 import BeautifulSoup
 
 from database.db_manager import DBManager
@@ -1366,4 +1367,17 @@ def test_global_membership_audit_runs_without_local_detail_categories(monkeypatc
     assert calls["thread_sessions_enabled"] is True
     assert calls["browser_closed"] is True
     assert calls["database_closed"] is True
+
+def test_global_membership_audit_rejects_independent_detail_audit_flags(capsys):
+    with pytest.raises(SystemExit) as error:
+        repair_module.main(
+            [
+                "--reconcile-category-memberships",
+                "--skip-detail-audit",
+                "--audit-incomplete",
+            ]
+        )
+
+    assert error.value.code == 2
+    assert "--reconcile-category-memberships no se combina" in capsys.readouterr().err
 

@@ -698,9 +698,6 @@ def apply_live_category_membership_reconciliation(  # noqa: PLR0912
         db.rollback()
         raise
 
-    for item in pending:
-        item["status"] = "updated"
-
     updated_products = len(pending)
     audit_report["applied"] = True
     audit_report["updated_products"] = updated_products

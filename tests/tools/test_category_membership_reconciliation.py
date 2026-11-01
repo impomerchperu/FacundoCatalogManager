@@ -13,6 +13,7 @@ from services.scraping.product_hash_service import ProductHashService
 from tools.category_membership_reconciliation import (
     apply_live_category_membership_reconciliation,
     audit_live_category_memberships,
+    validate_membership_audit_approval,
 )
 
 
@@ -395,4 +396,58 @@ def test_membership_audit_removes_duplicate_logical_category_relationships():
         ]
     finally:
         db.close()
+
+def test_membership_apply_approval_requires_exact_preview_match():
+    approved = {
+        "coverage_verified": True,
+        "coverage_issues": [],
+        "fetch_errors": 0,
+        "categories_scanned": 24,
+        "category_scans": [{"category": "Estuches", "expected": 1, "actual": 1}],
+        "category_occurrences": 1,
+        "catalog_products": 1,
+        "products_with_source_membership": 1,
+        "products_without_live_category_membership": [],
+        "live_products_not_in_database": [],
+        "live_multi_category_products": [],
+        "database_multi_category_products": [],
+        "products_with_membership_changes": 1,
+        "memberships_to_add": 0,
+        "memberships_to_remove": 1,
+        "unchanged_products": 0,
+        "items": [
+            {
+                "code": "FB-1600",
+                "source_categories": ["Estuches"],
+                "removed_categories": ["Artículos de Escritorio"],
+            }
+        ],
+    }
+
+    validate_membership_audit_approval(dict(approved), dict(approved))
+
+    changed = dict(approved)
+    changed["items"] = [
+        {
+            "code": "FB-1600",
+            "source_categories": ["Estuches", "Artículos de Escritorio"],
+            "removed_categories": [],
+        }
+    ]
+    with pytest.raises(ValueError, match="items"):
+        validate_membership_audit_approval(changed, approved)
+
+
+def test_membership_apply_approval_rejects_incomplete_fresh_coverage():
+    approved = {
+        "coverage_verified": True,
+        "items": [],
+    }
+    current = {
+        "coverage_verified": False,
+        "items": [],
+    }
+
+    with pytest.raises(ValueError, match="cobertura actual"):
+        validate_membership_audit_approval(current, approved)
 

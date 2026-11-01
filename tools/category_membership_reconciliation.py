@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from datetime import datetime, timezone
-import re
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -43,7 +43,6 @@ def _category_keys(value: object) -> set[str]:
 
 def _relation_snapshot(
     db: DBManager,
-    products: list[Any],
     live_categories_by_url: dict[str, str],
 ) -> tuple[dict[int, set[str]], dict[int, list[str]]]:
     """Read normalized memberships, resolving renamed labels by canonical URL."""
@@ -90,10 +89,12 @@ def audit_live_category_memberships(
     category_urls_by_key: dict[str, str] = {}
     live_memberships: dict[str, dict[str, str]] = defaultdict(dict)
     live_product_names: dict[str, str] = {}
+    live_product_codes: dict[str, str] = {}
     live_raw_by_category: dict[str, list[Any]] = {}
     coverage_issues: list[str] = []
     category_scans: list[dict[str, object]] = []
     occurrences = 0
+    fetch_errors = 0
 
     if not categories:
         coverage_issues.append("No se descubrieron categorías live.")
@@ -128,6 +129,7 @@ def audit_live_category_memberships(
         try:
             raw_products = collection_scraper.collect_category(category)
         except Exception as error:  # noqa: BLE001
+            fetch_errors += 1
             coverage_issues.append(
                 f"{name}: {type(error).__name__}: {error}"
             )
@@ -155,6 +157,7 @@ def audit_live_category_memberships(
                 continue
             seen_in_category.add(identity)
             live_memberships[identity][key] = name
+            live_product_codes.setdefault(identity, code)
             live_product_names.setdefault(
                 identity,
                 str(getattr(source_product, "name", "") or "").strip(),
@@ -226,7 +229,6 @@ def audit_live_category_memberships(
     }
     relation_keys_by_product, relation_names_by_product = _relation_snapshot(
         db,
-        products,
         live_by_url,
     )
     relation_ids_by_product: dict[int, list[int]] = defaultdict(list)
@@ -336,17 +338,7 @@ def audit_live_category_memberships(
 
     live_products_not_in_database = [
         {
-            "code": next(
-                (
-                    str(getattr(item[2], "code", "") or "").strip().upper()
-                    for raw in live_raw_by_category.values()
-                    for item in raw
-                    if isinstance(item, tuple)
-                    and len(item) == 3
-                    and _code_identity(getattr(item[2], "code", "")) == identity
-                ),
-                identity,
-            ),
+            "code": live_product_codes.get(identity, identity),
             "categories": list(memberships.values()),
         }
         for identity, memberships in live_memberships.items()
@@ -363,14 +355,7 @@ def audit_live_category_memberships(
                 "code": (
                     str(product.code)
                     if product is not None
-                    else next(
-                        (
-                            code["code"]
-                            for code in live_products_not_in_database
-                            if _code_identity(code["code"]) == identity
-                        ),
-                        identity,
-                    )
+                    else live_product_codes.get(identity, identity)
                 ),
                 "name": (
                     str(product.name)
@@ -390,6 +375,7 @@ def audit_live_category_memberships(
         "mode": "live_category_membership_audit",
         "coverage_verified": coverage_verified,
         "coverage_issues": coverage_issues,
+        "fetch_errors": fetch_errors,
         "categories_scanned": len(category_scans),
         "category_scans": category_scans,
         "category_occurrences": occurrences,
@@ -514,6 +500,10 @@ def apply_live_category_membership_reconciliation(
         and item.get("status") == "would_update"
     ]
     if not pending:
+        audit_report["applied"] = True
+        audit_report["updated_products"] = 0
+        audit_report["memberships_added"] = 0
+        audit_report["memberships_removed"] = 0
         return {
             "updated_products": 0,
             "memberships_added": 0,
@@ -608,6 +598,24 @@ def apply_live_category_membership_reconciliation(
                         last_seen_at=excluded.last_seen_at
                     """,
                     (expected_id, category_id, now, now),
+                )
+
+            stored_product = repository.get_by_code(code)
+            stored_relation_ids = {
+                int(row["category_id"])
+                for row in db.fetch_all(
+                    "SELECT category_id FROM product_categories WHERE product_id=?",
+                    (expected_id,),
+                )
+            }
+            if (
+                stored_product is None
+                or _category_keys(stored_product.category) != source_keys
+                or stored_relation_ids != desired_ids
+            ):
+                raise RuntimeError(
+                    f"{code}: la verificación posterior de categorías no coincide "
+                    "con la fuente live; se revirtió la reconciliación completa."
                 )
 
             memberships_added += int(item.get("memberships_added") or len(

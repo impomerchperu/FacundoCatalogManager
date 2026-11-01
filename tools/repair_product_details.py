@@ -54,6 +54,7 @@ from services.scraping.scraping_config import ScrapingConfig
 from tools.category_membership_reconciliation import (
     apply_live_category_membership_reconciliation,
     audit_live_category_memberships,
+    validate_membership_audit_approval,
 )
 
 _ALLOWED_HOSTS = frozenset({"stock.importacionesfacundo.com"})
@@ -883,6 +884,7 @@ def _repair_categories_by_batch(  # noqa: PLR0912
     reconcile_category_memberships: bool = False,
     apply_category_memberships: bool = False,
     skip_detail_audit: bool = False,
+    approved_membership_audit: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Audit Detail by category and optionally reconcile global category membership."""
     batches = (
@@ -931,6 +933,17 @@ def _repair_categories_by_batch(  # noqa: PLR0912
                     collection_scraper=collection_scraper,
                 )
             )
+            if apply_category_memberships:
+                if approved_membership_audit is None:
+                    raise ValueError(
+                        "Se requiere un informe de vista previa aprobado "
+                        "para aplicar cambios de categorías."
+                    )
+                validate_membership_audit_approval(
+                    membership_audit,
+                    approved_membership_audit,
+                )
+
             print(
                 "[Categorías live] Reconciliación global: "
                 f"{membership_audit.get('categories_scanned', 0)}/"
@@ -1190,6 +1203,9 @@ def _repair_categories_by_batch(  # noqa: PLR0912
         "category_memberships_applied": bool(
             membership_audit and membership_audit.get("applied") is True
         ),
+        "category_membership_approval_matched": bool(
+            apply_category_memberships and approved_membership_audit is not None
+        ),
     }
 
 
@@ -1399,6 +1415,14 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
         ),
     )
     parser.add_argument(
+        "--approved-membership-report",
+        type=Path,
+        help=(
+            "JSON category_membership_preview previamente revisado; "
+            "obligatorio para --apply-category-memberships."
+        ),
+    )
+    parser.add_argument(
         "--skip-detail-audit",
         action="store_true",
         help=(
@@ -1428,6 +1452,20 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
         parser.error(
             "--apply-category-memberships requiere --reconcile-category-memberships."
         )
+    if args.apply_category_memberships and not args.skip_detail_audit:
+        parser.error(
+            "--apply-category-memberships requiere --skip-detail-audit "
+            "para no mezclar cambios de Detalle."
+        )
+    if args.apply_category_memberships and not args.approved_membership_report:
+        parser.error(
+            "--apply-category-memberships requiere --approved-membership-report."
+        )
+    if args.approved_membership_report and not args.apply_category_memberships:
+        parser.error(
+            "--approved-membership-report solo se usa junto con "
+            "--apply-category-memberships."
+        )
     if (
         args.reconcile_category_memberships
         and not args.categories
@@ -1454,6 +1492,33 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
         )
     if not 1 <= args.audit_workers <= 16:
         parser.error("--audit-workers debe estar entre 1 y 16.")
+
+    approved_membership_audit: dict[str, object] | None = None
+    if args.apply_category_memberships:
+        try:
+            approved_report = json.loads(
+                args.approved_membership_report.read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError) as error:
+            parser.error(
+                "No se pudo leer el informe de vista previa aprobado: "
+                f"{type(error).__name__}: {error}"
+            )
+        if (
+            not isinstance(approved_report, dict)
+            or approved_report.get("mode") != "category_membership_preview"
+            or approved_report.get("detail_audit_skipped") is not True
+        ):
+            parser.error(
+                "El informe aprobado debe ser una vista previa "
+                "category_membership_preview sin auditoría de Detalle."
+            )
+        raw_approved_audit = approved_report.get("category_membership_audit")
+        if not isinstance(raw_approved_audit, dict):
+            parser.error(
+                "El informe aprobado no contiene category_membership_audit."
+            )
+        approved_membership_audit = raw_approved_audit
 
     db = DBManager()
     browser: Browser | None = None
@@ -1489,6 +1554,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
                 reconcile_category_memberships=args.reconcile_category_memberships,
                 apply_category_memberships=args.apply_category_memberships,
                 skip_detail_audit=args.skip_detail_audit,
+                approved_membership_audit=approved_membership_audit,
             )
             _emit_json_report(report, args.output)
             if report["fetch_errors"]:

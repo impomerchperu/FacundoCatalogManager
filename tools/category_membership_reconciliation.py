@@ -244,6 +244,7 @@ def audit_live_category_memberships(  # noqa: PLR0912
         )
 
     changed_items: list[dict[str, object]] = []
+    database_multi_category_products: list[dict[str, object]] = []
     unchanged_products = 0
     products_without_live_category_membership: list[dict[str, object]] = []
     products_with_source_membership = 0
@@ -305,6 +306,39 @@ def audit_live_category_memberships(  # noqa: PLR0912
                 for key, name in old_names_by_key.items()
                 if key not in source_keys
             ]
+            missing_from_category_text = [
+                name
+                for key, name in source_membership.items()
+                if key not in old_text_keys
+            ]
+            missing_from_category_relation = [
+                name
+                for key, name in source_membership.items()
+                if key not in old_relation_keys
+            ]
+            stale_from_category_text = [
+                name
+                for key, name in old_names_by_key.items()
+                if key not in source_keys and key in old_text_keys
+            ]
+            stale_from_category_relation = [
+                name
+                for name in relation_names_by_product.get(product_id, [])
+                if normalize_category_name(canonical_category_name(name))
+                not in source_keys
+            ]
+            if len(old_names_by_key) > 1:
+                database_multi_category_products.append(
+                    {
+                        "code": product.code,
+                        "name": product.name,
+                        "database_categories": sorted(
+                            old_names_by_key.values(),
+                            key=str.casefold,
+                        ),
+                        "source_categories": source_categories,
+                    }
+                )
             if old_text_keys != source_keys or old_relation_keys != source_keys:
                 old_relation_ids = sorted(
                     relation_ids_by_product.get(product_id, [])
@@ -330,6 +364,14 @@ def audit_live_category_memberships(  # noqa: PLR0912
                         "source_category_keys": sorted(source_keys),
                         "added_categories": added,
                         "removed_categories": removed,
+                        "missing_from_category_text": missing_from_category_text,
+                        "missing_from_category_relation": (
+                            missing_from_category_relation
+                        ),
+                        "stale_from_category_text": stale_from_category_text,
+                        "stale_from_category_relation": (
+                            stale_from_category_relation
+                        ),
                         "reason": (
                             "El código no aparece en ninguna categoría live; "
                             "se retirarán sus pertenencias sin borrar el producto."
@@ -395,6 +437,7 @@ def audit_live_category_memberships(  # noqa: PLR0912
             products_without_live_category_membership
         ),
         "live_products_not_in_database": live_products_not_in_database,
+        "database_multi_category_products": database_multi_category_products,
         "live_multi_category_products": multi_category_products,
         "products_with_membership_changes": len(changed_items),
         "memberships_to_add": memberships_to_add,

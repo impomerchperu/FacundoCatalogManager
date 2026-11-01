@@ -191,6 +191,7 @@ def audit_live_category_memberships(  # noqa: PLR0912
         category_scans.append(
             {
                 "category": name,
+                "url": url_key,
                 "expected": expected_count,
                 "actual": actual_count,
                 "unique_codes": len(seen_in_category),

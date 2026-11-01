@@ -881,6 +881,7 @@ def _repair_categories_by_batch(  # noqa: PLR0912
     workers: int,
     apply: bool,
     reconcile_category_memberships: bool = False,
+    apply_category_memberships: bool = False,
 ) -> dict[str, object]:
     """Audit Detail by category and optionally reconcile global category membership."""
     batches = _resolve_category_batches(repository, requested_categories)
@@ -1033,18 +1034,6 @@ def _repair_categories_by_batch(  # noqa: PLR0912
                 category_results.append(result)
                 continue
 
-            if (
-                reconcile_category_memberships
-                and membership_audit is not None
-                and membership_audit.get("coverage_verified") is not True
-            ):
-                result["outcome"] = "blocked_global_category_membership_coverage"
-                candidate_differences_remaining += int(
-                    preview.get("candidate_differences") or 0
-                )
-                category_results.append(result)
-                continue
-
             # Never write from an incomplete category scrape or from a category
             # whose product-card coverage/identity could not be reconciled.
             if preview_fetch_errors or not coverage_verified:
@@ -1139,7 +1128,7 @@ def _repair_categories_by_batch(  # noqa: PLR0912
         "memberships_removed": 0,
     }
     if (
-        apply
+        apply_category_memberships
         and reconcile_category_memberships
         and membership_audit is not None
         and membership_audit.get("coverage_verified") is True
@@ -1176,6 +1165,7 @@ def _repair_categories_by_batch(  # noqa: PLR0912
         "category_results": category_results,
         "category_membership_audit": membership_audit,
         "category_membership_apply": category_membership_apply,
+        "category_memberships_applied": bool(apply_category_memberships),
     }
 
 
@@ -1351,7 +1341,15 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
         action="store_true",
         help=(
             "Audita todas las categorías live y prepara altas/bajas de pertenencias; "
-            "solo las aplica junto con --apply y con cobertura global completa."
+            "por defecto solo genera una vista previa."
+        ),
+    )
+    parser.add_argument(
+        "--apply-category-memberships",
+        action="store_true",
+        help=(
+            "Aplica solo las altas/bajas de categorías verificadas; requiere "
+            "--reconcile-category-memberships y cobertura global completa."
         ),
     )
     parser.add_argument(
@@ -1368,6 +1366,10 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
     if args.reconcile_category_memberships and not args.categories:
         parser.error(
             "--reconcile-category-memberships requiere --categories."
+        )
+    if args.apply_category_memberships and not args.reconcile_category_memberships:
+        parser.error(
+            "--apply-category-memberships requiere --reconcile-category-memberships."
         )
     if not 1 <= args.audit_workers <= 16:
         parser.error("--audit-workers debe estar entre 1 y 16.")
@@ -1404,6 +1406,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
                 workers=args.audit_workers,
                 apply=args.apply,
                 reconcile_category_memberships=args.reconcile_category_memberships,
+                apply_category_memberships=args.apply_category_memberships,
             )
             _emit_json_report(report, args.output)
             if report["fetch_errors"]:
@@ -1415,13 +1418,13 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
                 exit_code = 1
             membership_audit = report.get("category_membership_audit")
             if (
-                args.reconcile_category_memberships
+                args.apply_category_memberships
                 and isinstance(membership_audit, dict)
                 and membership_audit.get("coverage_verified") is not True
             ):
                 exit_code = 1
             if (
-                args.reconcile_category_memberships
+                args.apply_category_memberships
                 and isinstance(membership_audit, dict)
                 and int(membership_audit.get("fetch_errors") or 0) > 0
             ):

@@ -10,6 +10,7 @@ class FakeNormalizedRepository:
     def __init__(self):
         self.modes = []
         self.finished = []
+        self.replace_membership_flags = []
 
     def start_run(self, *, mode, categories_requested, expected_category_occurrences):
         self.modes.append(mode)
@@ -22,7 +23,10 @@ class FakeNormalizedRepository:
         products,
         product_repository,
         occurrence_metadata=None,
+        *,
+        replace_category_memberships=False,
     ):
+        self.replace_membership_flags.append(replace_category_memberships)
         return 0
 
     def finish_run(
@@ -85,6 +89,7 @@ def test_normalized_sync_categories_defaults_to_directed(monkeypatch):
     service.sync_categories([Category(name="Categoría A", url="https://example.test/a")])
 
     assert repository.modes == ["directed"]
+    assert repository.replace_membership_flags == [False]
 
 
 def test_normalized_sync_categories_uses_full_mode_when_runner_marks_full():
@@ -113,6 +118,7 @@ def test_normalized_sync_categories_uses_full_mode_when_runner_marks_full():
     )
 
     assert repository.modes == ["full"]
+    assert repository.replace_membership_flags == [True]
 
 
 def test_full_mode_records_incomplete_run_without_persisting_occurrences():
@@ -142,6 +148,7 @@ def test_full_mode_records_incomplete_run_without_persisting_occurrences():
     )
 
     assert repository.modes == ["full"]
+    assert repository.replace_membership_flags == []
     assert repository.finished == [
         {
             "run_id": 1,

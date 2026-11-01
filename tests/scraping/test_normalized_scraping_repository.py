@@ -210,3 +210,161 @@ def test_normalized_repository_does_not_hide_a_category_gap_with_global_overage(
     assert run["status"] == "ERROR"
 
     db.close()
+
+def test_complete_full_run_replaces_stale_normalized_category_memberships():
+    db = DBManager(":memory:")
+    product_repository = ProductRepository(db)
+    master = product_repository.save(
+        Product(
+            code="FB-3000",
+            name="Producto multicategoría",
+            category="Categoría A, Categoría B",
+        )
+    )
+    assert master.product_id is not None
+    repository = NormalizedScrapingRepository(db)
+    initial_category_ids = [
+        repository.upsert_category(
+            "Categoría A",
+            "https://example.test/categoria-a/",
+            1,
+        ),
+        repository.upsert_category(
+            "Categoría B",
+            "https://example.test/categoria-b/",
+            1,
+        ),
+    ]
+    for category_id in initial_category_ids:
+        db.execute_query(
+            """
+            INSERT INTO product_categories
+                (product_id, category_id, first_seen_at, last_seen_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (master.product_id, category_id, "seed", "seed"),
+        )
+    categories = [
+        Category(
+            name="Categoría A",
+            url="https://example.test/categoria-a/",
+            expected_count=1,
+        ),
+        Category(
+            name="Categoría B",
+            url="https://example.test/categoria-b/",
+            expected_count=1,
+        ),
+    ]
+    run_id = repository.start_run(
+        mode="full",
+        categories_requested=2,
+        expected_category_occurrences=1,
+    )
+
+    actual = repository.persist_occurrences(
+        run_id,
+        categories,
+        [
+            Product(
+                code="FB-3000",
+                name="Producto multicategoría",
+                category="Categoría A",
+            )
+        ],
+        product_repository,
+        replace_category_memberships=True,
+    )
+
+    assert actual == 1
+    relations = db.fetch_all(
+        """
+        SELECT c.name
+        FROM product_categories AS pc
+        JOIN categories AS c ON c.id = pc.category_id
+        WHERE pc.product_id=?
+        ORDER BY c.name
+        """,
+        (master.product_id,),
+    )
+    assert [row["name"] for row in relations] == ["Categoría A"]
+    db.close()
+
+
+def test_directed_run_preserves_normalized_category_memberships_not_reobserved():
+    db = DBManager(":memory:")
+    product_repository = ProductRepository(db)
+    master = product_repository.save(
+        Product(
+            code="FB-3001",
+            name="Producto multicategoría",
+            category="Categoría A, Categoría B",
+        )
+    )
+    assert master.product_id is not None
+    repository = NormalizedScrapingRepository(db)
+    initial_category_ids = [
+        repository.upsert_category(
+            "Categoría A",
+            "https://example.test/categoria-a/",
+            1,
+        ),
+        repository.upsert_category(
+            "Categoría B",
+            "https://example.test/categoria-b/",
+            1,
+        ),
+    ]
+    for category_id in initial_category_ids:
+        db.execute_query(
+            """
+            INSERT INTO product_categories
+                (product_id, category_id, first_seen_at, last_seen_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (master.product_id, category_id, "seed", "seed"),
+        )
+    categories = [
+        Category(
+            name="Categoría A",
+            url="https://example.test/categoria-a/",
+            expected_count=1,
+        ),
+    ]
+    run_id = repository.start_run(
+        mode="directed",
+        categories_requested=1,
+        expected_category_occurrences=1,
+    )
+
+    actual = repository.persist_occurrences(
+        run_id,
+        categories,
+        [
+            Product(
+                code="FB-3001",
+                name="Producto multicategoría",
+                category="Categoría A",
+            )
+        ],
+        product_repository,
+        replace_category_memberships=False,
+    )
+
+    assert actual == 1
+    relations = db.fetch_all(
+        """
+        SELECT c.name
+        FROM product_categories AS pc
+        JOIN categories AS c ON c.id = pc.category_id
+        WHERE pc.product_id=?
+        ORDER BY c.name
+        """,
+        (master.product_id,),
+    )
+    assert [row["name"] for row in relations] == [
+        "Categoría A",
+        "Categoría B",
+    ]
+    db.close()
+

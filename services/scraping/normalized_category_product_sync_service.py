@@ -202,6 +202,7 @@ class NormalizedCategoryProductSyncService(CategoryProductSyncService):
                 occurrence_metadata=self._build_occurrence_metadata(
                     categories, products
                 ),
+                replace_category_memberships=(mode == "full"),
             )
             repository.finish_run(
                 run_id,

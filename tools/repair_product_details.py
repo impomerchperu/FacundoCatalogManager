@@ -51,6 +51,11 @@ from services.scraping.category_name_normalizer import (
 )
 from services.scraping.product_hash_service import ProductHashService
 from services.scraping.scraping_config import ScrapingConfig
+from tools.category_membership_reconciliation import (
+    apply_live_category_membership_reconciliation,
+    audit_live_category_memberships,
+    validate_membership_audit_approval,
+)
 
 _ALLOWED_HOSTS = frozenset({"stock.importacionesfacundo.com"})
 
@@ -715,9 +720,11 @@ def _audit_live_category_cards(  # noqa: PLR0912
     *,
     browser: Browser,
     collection_scraper: ProductCollectionScraper,
+    raw_products: list[Any] | None = None,
 ) -> tuple[dict[str, object], bool]:
     """Compare one live category's card fields with its DB rows, without mutation."""
-    raw_products = collection_scraper.collect_category(category)
+    if raw_products is None:
+        raw_products = collection_scraper.collect_category(category)
     live_by_identity: dict[str, tuple[Any, str, Any]] = {}
     duplicate_live_codes: set[str] = set()
     unidentified_cards = 0
@@ -874,9 +881,17 @@ def _repair_categories_by_batch(  # noqa: PLR0912
     browser: Browser,
     workers: int,
     apply: bool,
+    reconcile_category_memberships: bool = False,
+    apply_category_memberships: bool = False,
+    skip_detail_audit: bool = False,
+    approved_membership_audit: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    """Audit and repair category-card Detail values one category at a time."""
-    batches = _resolve_category_batches(repository, requested_categories)
+    """Audit Detail by category and optionally reconcile global category membership."""
+    batches = (
+        []
+        if skip_detail_audit
+        else _resolve_category_batches(repository, requested_categories)
+    )
     backup_path = ""
     total_updated = 0
     total_fetch_errors = 0
@@ -907,6 +922,38 @@ def _repair_categories_by_batch(  # noqa: PLR0912
         if not live_categories_by_key:
             raise RuntimeError("No se pudieron descubrir las categorías live del catálogo.")
 
+        membership_audit: dict[str, object] | None = None
+        membership_raw_by_category: dict[str, list[Any]] = {}
+        if reconcile_category_memberships:
+            membership_audit, membership_raw_by_category = (
+                audit_live_category_memberships(
+                    db,
+                    repository,
+                    list(live_categories or []),
+                    collection_scraper=collection_scraper,
+                )
+            )
+            if apply_category_memberships:
+                if approved_membership_audit is None:
+                    raise ValueError(
+                        "Se requiere un informe de vista previa aprobado "
+                        "para aplicar cambios de categorías."
+                    )
+                validate_membership_audit_approval(
+                    membership_audit,
+                    approved_membership_audit,
+                )
+
+            print(
+                "[Categorías live] Reconciliación global: "
+                f"{membership_audit.get('categories_scanned', 0)}/"
+                f"{len(live_categories or [])} categorías; "
+                f"cobertura={membership_audit.get('coverage_verified')}; "
+                f"cambios={membership_audit.get('products_with_membership_changes', 0)}.",
+                file=sys.stderr,
+                flush=True,
+            )
+
         print(
             f"[Detalle por categoría] {len(batches)} categorías; "
             f"{total_occurrences} productos locales en el ámbito.",
@@ -915,6 +962,8 @@ def _repair_categories_by_batch(  # noqa: PLR0912
         )
 
         for category_name, category_products in batches:
+            if skip_detail_audit:
+                break
             print(
                 f"[Detalle por categoría] Iniciando: {category_name} "
                 f"({len(category_products)} productos).",
@@ -938,6 +987,13 @@ def _repair_categories_by_batch(  # noqa: PLR0912
                     category_products,
                     browser=browser,
                     collection_scraper=collection_scraper,
+                    raw_products=(
+                        membership_raw_by_category.get(
+                            normalize_category_name(category_name)
+                        )
+                        if reconcile_category_memberships
+                        else None
+                    ),
                 )
             except Exception as error:  # noqa: BLE001
                 message = f"{type(error).__name__}: {error}"
@@ -1086,13 +1142,49 @@ def _repair_categories_by_batch(  # noqa: PLR0912
     finally:
         collection_scraper.close()
 
+    category_membership_apply: dict[str, int] = {
+        "updated_products": 0,
+        "memberships_added": 0,
+        "memberships_removed": 0,
+    }
+    if (
+        apply_category_memberships
+        and reconcile_category_memberships
+        and membership_audit is not None
+        and membership_audit.get("coverage_verified") is True
+    ):
+        pending_memberships = int(
+            membership_audit.get("products_with_membership_changes") or 0
+        )
+        if pending_memberships and not backup_path:
+            backup_path = str(_create_database_backup(db))
+        category_membership_apply = apply_live_category_membership_reconciliation(
+            db,
+            repository,
+            membership_audit,
+            list(live_categories or []),
+        )
+
     unique_product_codes = {
         product.code
         for _, products in batches
         for product in products
     }
     return {
-        "mode": "category_apply_and_verify" if apply else "category_preview",
+        "mode": (
+            "category_apply_and_verify"
+            if apply
+            else (
+                "category_membership_apply"
+                if apply_category_memberships
+                else (
+                    "category_membership_preview"
+                    if skip_detail_audit
+                    else "category_preview"
+                )
+            )
+        ),
+        "detail_mode": "apply" if apply else "preview",
         "categories_requested": [name for name, _ in batches],
         "category_count": len(batches),
         "products_in_scope": len(unique_product_codes),
@@ -1104,6 +1196,16 @@ def _repair_categories_by_batch(  # noqa: PLR0912
         "unresolved_products": len(unresolved_codes),
         "unresolved_codes": sorted(unresolved_codes, key=str.casefold),
         "category_results": category_results,
+        "category_membership_audit": membership_audit,
+        "category_membership_apply": category_membership_apply,
+        "category_memberships_apply_requested": bool(apply_category_memberships),
+        "detail_audit_skipped": bool(skip_detail_audit),
+        "category_memberships_applied": bool(
+            membership_audit and membership_audit.get("applied") is True
+        ),
+        "category_membership_approval_matched": bool(
+            apply_category_memberships and approved_membership_audit is not None
+        ),
     }
 
 
@@ -1124,8 +1226,37 @@ def _emit_json_report(
     summary = {
         key: value
         for key, value in report.items()
-        if key not in {"items", "category_results"}
+        if key not in {"items", "category_results", "category_membership_audit"}
     }
+    membership_audit = report.get("category_membership_audit")
+    if isinstance(membership_audit, dict):
+        membership_summary = {
+            key: value
+            for key, value in membership_audit.items()
+            if key not in {
+                "items",
+                "products_without_live_category_membership",
+                "live_products_not_in_database",
+                "database_multi_category_products",
+                "live_multi_category_products",
+            }
+        }
+        membership_summary["membership_items_saved"] = len(
+            membership_audit.get("items", [])
+        )
+        membership_summary["products_without_live_category_membership_count"] = len(
+            membership_audit.get("products_without_live_category_membership", [])
+        )
+        membership_summary["live_products_not_in_database_count"] = len(
+            membership_audit.get("live_products_not_in_database", [])
+        )
+        membership_summary["database_multi_category_products_count"] = len(
+            membership_audit.get("database_multi_category_products", [])
+        )
+        membership_summary["live_multi_category_products_count"] = len(
+            membership_audit.get("live_multi_category_products", [])
+        )
+        summary["category_membership_audit"] = membership_summary
     summary["report_file"] = str(destination.resolve())
     summary["items_saved"] = len(items) if isinstance(items, list) else 0
     category_results = report.get("category_results")
@@ -1225,7 +1356,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
             "Audita Detalle visible o repara códigos/categorías; nunca inicia un FULL."
         )
     )
-    selection = parser.add_mutually_exclusive_group(required=True)
+    selection = parser.add_mutually_exclusive_group(required=False)
     selection.add_argument(
         "--codes",
         nargs="+",
@@ -1268,6 +1399,38 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
         help="Aplica los detalles válidos; por defecto solo muestra una vista previa.",
     )
     parser.add_argument(
+        "--reconcile-category-memberships",
+        action="store_true",
+        help=(
+            "Audita todas las categorías live y prepara altas/bajas de pertenencias; "
+            "por defecto solo genera una vista previa."
+        ),
+    )
+    parser.add_argument(
+        "--apply-category-memberships",
+        action="store_true",
+        help=(
+            "Aplica solo las altas/bajas de categorías verificadas; requiere "
+            "--reconcile-category-memberships y cobertura global completa."
+        ),
+    )
+    parser.add_argument(
+        "--approved-membership-report",
+        type=Path,
+        help=(
+            "JSON category_membership_preview previamente revisado; "
+            "obligatorio para --apply-category-memberships."
+        ),
+    )
+    parser.add_argument(
+        "--skip-detail-audit",
+        action="store_true",
+        help=(
+            "Ejecuta solo la auditoría global de categorías, sin consultar "
+            "los detalles de producto. Requiere --reconcile-category-memberships."
+        ),
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         default=100,
@@ -1278,8 +1441,89 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
         parser.error("--apply no se puede usar con los modos de auditoría.")
     if args.limit < 1:
         parser.error("--limit debe ser al menos 1.")
+    if args.reconcile_category_memberships and (
+        args.codes or args.audit_incomplete or args.audit_source
+    ):
+        parser.error(
+            "--reconcile-category-memberships no se combina con --codes "
+            "ni con auditorías de Detalle independientes."
+        )
+    if args.apply_category_memberships and not args.reconcile_category_memberships:
+        parser.error(
+            "--apply-category-memberships requiere --reconcile-category-memberships."
+        )
+    if args.apply_category_memberships and not args.skip_detail_audit:
+        parser.error(
+            "--apply-category-memberships requiere --skip-detail-audit "
+            "para no mezclar cambios de Detalle."
+        )
+    if args.apply_category_memberships and args.apply:
+        parser.error(
+            "--apply-category-memberships no se combina con --apply; "
+            "las reparaciones de Detalle son independientes."
+        )
+    if args.apply_category_memberships and not args.approved_membership_report:
+        parser.error(
+            "--apply-category-memberships requiere --approved-membership-report."
+        )
+    if args.approved_membership_report and not args.apply_category_memberships:
+        parser.error(
+            "--approved-membership-report solo se usa junto con "
+            "--apply-category-memberships."
+        )
+    if (
+        args.reconcile_category_memberships
+        and not args.categories
+        and not args.skip_detail_audit
+    ):
+        parser.error(
+            "Sin --categories, --reconcile-category-memberships requiere "
+            "--skip-detail-audit."
+        )
+    if not (
+        args.codes
+        or args.categories
+        or args.audit_incomplete
+        or args.audit_source
+        or args.reconcile_category_memberships
+    ):
+        parser.error(
+            "Debe indicar --codes, --categories, una auditoría o "
+            "--reconcile-category-memberships."
+        )
+    if args.skip_detail_audit and not args.reconcile_category_memberships:
+        parser.error(
+            "--skip-detail-audit requiere --reconcile-category-memberships."
+        )
     if not 1 <= args.audit_workers <= 16:
         parser.error("--audit-workers debe estar entre 1 y 16.")
+
+    approved_membership_audit: dict[str, object] | None = None
+    if args.apply_category_memberships:
+        try:
+            approved_report = json.loads(
+                args.approved_membership_report.read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError) as error:
+            parser.error(
+                "No se pudo leer el informe de vista previa aprobado: "
+                f"{type(error).__name__}: {error}"
+            )
+        if (
+            not isinstance(approved_report, dict)
+            or approved_report.get("mode") != "category_membership_preview"
+            or approved_report.get("detail_audit_skipped") is not True
+        ):
+            parser.error(
+                "El informe aprobado debe ser una vista previa "
+                "category_membership_preview sin auditoría de Detalle."
+            )
+        raw_approved_audit = approved_report.get("category_membership_audit")
+        if not isinstance(raw_approved_audit, dict):
+            parser.error(
+                "El informe aprobado no contiene category_membership_audit."
+            )
+        approved_membership_audit = raw_approved_audit
 
     db = DBManager()
     browser: Browser | None = None
@@ -1302,16 +1546,20 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
             _emit_json_report(report, args.output)
             if report["fetch_errors"]:
                 exit_code = 1
-        elif args.categories:
+        elif args.categories or args.reconcile_category_memberships:
             browser = Browser(http_workers=args.audit_workers)
             browser.enable_thread_sessions()
             report = _repair_categories_by_batch(
                 db,
                 repository,
-                args.categories,
+                args.categories or [],
                 browser=browser,
                 workers=args.audit_workers,
                 apply=args.apply,
+                reconcile_category_memberships=args.reconcile_category_memberships,
+                apply_category_memberships=args.apply_category_memberships,
+                skip_detail_audit=args.skip_detail_audit,
+                approved_membership_audit=approved_membership_audit,
             )
             _emit_json_report(report, args.output)
             if report["fetch_errors"]:
@@ -1319,6 +1567,19 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
             if args.apply and (
                 report["unresolved_products"]
                 or report["candidate_differences_remaining"]
+            ):
+                exit_code = 1
+            membership_audit = report.get("category_membership_audit")
+            if (
+                args.apply_category_memberships
+                and isinstance(membership_audit, dict)
+                and membership_audit.get("coverage_verified") is not True
+            ):
+                exit_code = 1
+            if (
+                args.apply_category_memberships
+                and isinstance(membership_audit, dict)
+                and int(membership_audit.get("fetch_errors") or 0) > 0
             ):
                 exit_code = 1
         else:

@@ -1180,6 +1180,55 @@ def test_authoritative_marketing_copy_is_valid_detail_content():
     assert extracted["description"] == detail
 
 
+def test_truncated_narrative_category_card_uses_product_page_fallback():
+    full_detail = (
+        "Obtén un acabado brillante y duradero en tus proyectos de sublimación. "
+        "Este resistente papel teflón protege tus estampados y garantiza "
+        "transferencias de alta calidad."
+    )
+    truncated_card_detail = (
+        "Obtén un acabado brillante y duradero en tus proyectos de sublimación. "
+        "Este resistente papel teflón protege tus estampados y garantiza "
+        "transferencias de alta calidad…"
+    )
+    db, repository = _seed_catalog(
+        code="TB-5050",
+        description=full_detail,
+    )
+    browser = StaticBrowser(
+        _product_html(code="TB-5050", detail=full_detail)
+    )
+    product = repository.get_by_code("TB-5050")
+    card = BeautifulSoup(
+        f'<article><div class="text-content">{truncated_card_detail}</div></article>',
+        "lxml",
+    ).article
+    assert product is not None
+    assert card is not None
+
+    try:
+        plan = _plan_category_card_detail(
+            db,
+            repository,
+            product,
+            card,
+            truncated_card_detail,
+            source_url=PRODUCT_URL,
+            category_name="Insumos de Sublimación",
+            browser=browser,
+        )
+
+        assert plan.status == "unchanged"
+        assert plan.new_description == full_detail
+        assert browser.requested_urls == [PRODUCT_URL]
+
+        stored = repository.get_by_code("TB-5050")
+        assert stored is not None
+        assert stored.description == full_detail
+    finally:
+        db.close()
+
+
 def test_audit_source_details_checks_catalog_without_modifying_products():
     db, repository = _seed_catalog(description="")
     browser = StaticBrowser(_product_html(detail=VALID_DETAIL))

@@ -882,6 +882,7 @@ def _repair_categories_by_batch(  # noqa: PLR0912
     apply: bool,
     reconcile_category_memberships: bool = False,
     apply_category_memberships: bool = False,
+    skip_detail_audit: bool = False,
 ) -> dict[str, object]:
     """Audit Detail by category and optionally reconcile global category membership."""
     batches = _resolve_category_batches(repository, requested_categories)
@@ -944,6 +945,8 @@ def _repair_categories_by_batch(  # noqa: PLR0912
         )
 
         for category_name, category_products in batches:
+            if skip_detail_audit:
+                break
             print(
                 f"[Detalle por categoría] Iniciando: {category_name} "
                 f"({len(category_products)} productos).",
@@ -1157,7 +1160,11 @@ def _repair_categories_by_batch(  # noqa: PLR0912
             else (
                 "category_membership_apply"
                 if apply_category_memberships
-                else "category_preview"
+                else (
+                    "category_membership_preview"
+                    if skip_detail_audit
+                    else "category_preview"
+                )
             )
         ),
         "detail_mode": "apply" if apply else "preview",
@@ -1175,6 +1182,7 @@ def _repair_categories_by_batch(  # noqa: PLR0912
         "category_membership_audit": membership_audit,
         "category_membership_apply": category_membership_apply,
         "category_memberships_apply_requested": bool(apply_category_memberships),
+        "detail_audit_skipped": bool(skip_detail_audit),
         "category_memberships_applied": bool(
             membership_audit and membership_audit.get("applied") is True
         ),
@@ -1387,6 +1395,14 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
         ),
     )
     parser.add_argument(
+        "--skip-detail-audit",
+        action="store_true",
+        help=(
+            "Ejecuta solo la auditoría global de categorías, sin consultar "
+            "los detalles de producto. Requiere --reconcile-category-memberships."
+        ),
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         default=100,
@@ -1404,6 +1420,10 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
     if args.apply_category_memberships and not args.reconcile_category_memberships:
         parser.error(
             "--apply-category-memberships requiere --reconcile-category-memberships."
+        )
+    if args.skip_detail_audit and not args.reconcile_category_memberships:
+        parser.error(
+            "--skip-detail-audit requiere --reconcile-category-memberships."
         )
     if not 1 <= args.audit_workers <= 16:
         parser.error("--audit-workers debe estar entre 1 y 16.")
@@ -1441,6 +1461,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
                 apply=args.apply,
                 reconcile_category_memberships=args.reconcile_category_memberships,
                 apply_category_memberships=args.apply_category_memberships,
+                skip_detail_audit=args.skip_detail_audit,
             )
             _emit_json_report(report, args.output)
             if report["fetch_errors"]:

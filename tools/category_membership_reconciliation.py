@@ -28,7 +28,11 @@ def _category_url_key(value: object) -> str:
         parts = urlsplit(url)
     except ValueError:
         return ""
-    if parts.scheme not in {"http", "https"} or not parts.netloc:
+    if (
+        parts.scheme not in {"http", "https"}
+        or (parts.hostname or "").casefold() != "stock.importacionesfacundo.com"
+        or not parts.netloc
+    ):
         return ""
     return (parts.scheme + "://" + parts.netloc + parts.path).rstrip("/").casefold()
 

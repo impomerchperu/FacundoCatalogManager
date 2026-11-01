@@ -456,6 +456,7 @@ def is_valid_detail_content(value: object) -> bool:
         or _NON_TECHNICAL_SECTION_PREFIX_PATTERN.match(validation_text)
         or validation_text.endswith((",", ";", ":"))
         or _SUMMARY_NOISE_PATTERN.match(validation_text)
+        or _DESCRIPTION_TRUNCATION_PATTERN.search(validation_text)
     ):
         return False
     if has_technical_detail(validation_text):

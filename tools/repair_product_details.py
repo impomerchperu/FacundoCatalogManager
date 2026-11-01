@@ -1190,11 +1190,29 @@ def _emit_json_report(
     }
     membership_audit = report.get("category_membership_audit")
     if isinstance(membership_audit, dict):
-        summary["category_membership_audit"] = {
+        membership_summary = {
             key: value
             for key, value in membership_audit.items()
-            if key not in {"items", "products_not_found_in_any_live_category", "live_products_not_in_database", "live_multi_category_products"}
+            if key not in {
+                "items",
+                "products_without_live_category_membership",
+                "live_products_not_in_database",
+                "live_multi_category_products",
+            }
         }
+        membership_summary["membership_items_saved"] = len(
+            membership_audit.get("items", [])
+        )
+        membership_summary["products_without_live_category_membership_count"] = len(
+            membership_audit.get("products_without_live_category_membership", [])
+        )
+        membership_summary["live_products_not_in_database_count"] = len(
+            membership_audit.get("live_products_not_in_database", [])
+        )
+        membership_summary["live_multi_category_products_count"] = len(
+            membership_audit.get("live_multi_category_products", [])
+        )
+        summary["category_membership_audit"] = membership_summary
     summary["report_file"] = str(destination.resolve())
     summary["items_saved"] = len(items) if isinstance(items, list) else 0
     category_results = report.get("category_results")

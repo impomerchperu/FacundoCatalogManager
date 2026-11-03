@@ -295,7 +295,7 @@ def _plan_single_product_detail_repair(
         authoritative_detail,
         preserve_boundaries=True,
     )
-    issue = _detail_issue(candidate) if candidate else ""
+    issue = _detail_issue(candidate) if candidate else "detalle_incompleto_o_truncado"
     if issue:
         return DetailRepairPlan(
             code=code,

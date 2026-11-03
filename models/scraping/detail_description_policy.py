@@ -528,8 +528,8 @@ def clean_extracted_detail_text(value: object) -> str:
 
         if (
             cleaned
-            and re.search(r"[x×*]\\s*$", cleaned[-1])
-            and re.match(r"^\\d", line)
+            and re.search(r"[x×*]\s*$", cleaned[-1])
+            and re.match(r"^\d", line)
         ):
             # A supplier may split the final dimension component into its own
             # paragraph. Join only a numeric continuation after a trailing

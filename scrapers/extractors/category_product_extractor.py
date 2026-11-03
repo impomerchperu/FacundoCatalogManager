@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from models.scraping.detail_description_policy import (
     clean_extracted_detail_text,
     has_technical_detail,
+    is_detail_grouping_label,
     is_empty_detail_field_fragment,
     is_valid_detail_content,
     normalize_detail_text,
@@ -366,10 +367,20 @@ class CategoryProductExtractor:
         if len(valid_fallback) < 2:
             return []
 
-        # Do not serialize an identified-but-empty label into the product
-        # Detail. Empty wrappers only permit the already validated fallback
-        # blocks to be recovered.
-        return cls._collect_description_candidates(expanded_fallback)
+        # Some card layouts put a grouping label in .text-content and its
+        # values in sibling Bricks blocks. Keep only recognized grouping labels
+        # when a populated fallback immediately supplies their subfields.
+        grouping_labels = [
+            normalize_detail_text(text).removesuffix(":").strip()
+            for text in authoritative_residue
+            if is_empty_detail_field_fragment(text)
+            and is_detail_grouping_label(text)
+        ]
+        if grouping_labels and valid_fallback:
+            valid_fallback[0] = (
+                f"{grouping_labels[0]}: {valid_fallback[0]}"
+            )
+        return valid_fallback
 
     @classmethod
     def _recover_fallback_detail_candidates(cls, fallback_elements):

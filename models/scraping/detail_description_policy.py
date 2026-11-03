@@ -526,6 +526,18 @@ def clean_extracted_detail_text(value: object) -> str:
             )
             line = line[: match.start()].rstrip(" .;") + separator
 
+        if (
+            cleaned
+            and re.search(r"[x×*]\\s*$", cleaned[-1])
+            and re.match(r"^\\d", line)
+        ):
+            # A supplier may split the final dimension component into its own
+            # paragraph. Join only a numeric continuation after a trailing
+            # multiplication separator; unrelated prose/fields stay separate.
+            cleaned[-1] = f"{cleaned[-1].rstrip()} {line}"
+            index += 1
+            continue
+
         if line:
             cleaned.append(line)
         index += 1

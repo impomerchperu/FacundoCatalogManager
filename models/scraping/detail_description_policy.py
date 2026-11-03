@@ -32,6 +32,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"\b(?:"
     r"medida y capacidad|"
     r"medida de impresi[oó]n|"
+    r"medidas\s+del\s+producto|"
     r"medidas\s+del\s+estuche|"
     r"medidas\s+de\s+la\s+caja\s+m[aá]ster|"
     r"medidas\s+(?:de\s+)?(?:estuche|mochila|cartera|cartuchera)|"
@@ -468,6 +469,106 @@ def is_empty_detail_field_fragment(value: object) -> bool:
     """Recognize a known Detail label whose value is empty, without validating it alone."""
     text = normalize_detail_text(value)
     return bool(text) and _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN.fullmatch(text) is not None
+
+
+_DETAIL_FIELD_LABEL_START_PATTERN = re.compile(
+    r"^\s*(?:" + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern + r")",
+    re.IGNORECASE,
+)
+_EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
+    r"(?:^|[.;]\s*)(?:"
+    + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern
+    + r")\s*$",
+    re.IGNORECASE,
+)
+
+
+_DETAIL_GROUPING_LABELS = frozenset({
+    "medidas",
+    "medida",
+    "dimensiones",
+    "dimensiones del producto",
+    "medidas del producto",
+    "empaque individual",
+    "medidas del estuche",
+    "medidas mochila",
+    "medidas de la caja máster",
+    "medidas de la caja master",
+})
+
+
+def is_detail_grouping_label(value: object) -> bool:
+    """Whether an empty source label groups following Detail subfields."""
+    label = normalize_detail_text(value).removesuffix(":").strip().casefold()
+    return label in _DETAIL_GROUPING_LABELS
+
+
+def clean_extracted_detail_text(value: object) -> str:
+    """Prepare extracted Detail for storage without empty labels or lost split values.
+
+    The raw normalizer intentionally keeps empty labels available to the repair
+    audit so it can distinguish an explicitly identified empty field from a
+    missing field. This output-only step removes labels with no value and joins
+    a label-only paragraph to its following value paragraph when the HTML splits
+    them (commonly around <strong>/<b> markup).
+    """
+    normalized = normalize_detail_text(value, preserve_boundaries=True)
+    lines = [line.strip() for line in normalized.splitlines()]
+    cleaned: list[str] = []
+    index = 0
+
+    while index < len(lines):
+        line = lines[index]
+        if not line:
+            index += 1
+            continue
+
+        if is_empty_detail_field_fragment(line):
+            next_line = lines[index + 1].strip() if index + 1 < len(lines) else ""
+            if next_line:
+                label = line.rstrip().removesuffix(":").strip()
+                label_key = normalize_detail_text(label).casefold()
+                next_is_field = bool(
+                    _DETAIL_FIELD_LABEL_START_PATTERN.match(next_line)
+                )
+                if not next_is_field or label_key in _DETAIL_GROUPING_LABELS:
+                    cleaned.append(f"{label}: {next_line}")
+                    index += 2
+                    continue
+            # Empty fields and structural labels without a value are omitted.
+            index += 1
+            continue
+
+        # A trailing empty field may share a paragraph with populated fields:
+        # "Medida: A4. Paquete: 20. Caja:". Remove only the empty suffix.
+        while line:
+            match = _EMPTY_DETAIL_FIELD_AT_END_PATTERN.search(line)
+            if match is None:
+                break
+            separator = (
+                match.group(0)[0]
+                if match.group(0) and match.group(0)[0] in ".;"
+                else ""
+            )
+            line = line[: match.start()].rstrip(" .;") + separator
+
+        if (
+            cleaned
+            and re.search(r"[x\u00d7*]\s*$", cleaned[-1])
+            and re.match(r"^\d", line)
+        ):
+            # A supplier may split the final dimension component into its own
+            # paragraph. Join only a numeric continuation after a trailing
+            # multiplication separator; unrelated prose/fields stay separate.
+            cleaned[-1] = f"{cleaned[-1].rstrip()} {line}"
+            index += 1
+            continue
+
+        if line:
+            cleaned.append(line)
+        index += 1
+
+    return "\n".join(cleaned).strip()
 
 
 def has_multiple_technical_detail_fields(value: object) -> bool:

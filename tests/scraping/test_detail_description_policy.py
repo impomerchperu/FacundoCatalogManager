@@ -1,4 +1,5 @@
 from models.scraping.detail_description_policy import (
+    clean_extracted_detail_text,
     has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,
@@ -270,6 +271,52 @@ def test_detail_policy_keeps_populated_detail_with_empty_shipping_labels():
     # A shipping label alone is still not usable Detail.
     assert not is_complete_detail("Peso bruto por caja:")
     assert not is_valid_detail_content("Peso bruto por caja:")
+
+
+
+
+
+def test_detail_cleanup_joins_bold_label_paragraphs_to_their_values():
+    source = (
+        "Medidas del producto:\n"
+        "410 \u00d7 208 \u00d7 275 mm\n"
+        "Material:\n"
+        "Cuerpo metálico con base antideslizante.\n"
+        "Descripción:\n"
+        "Enmicadora metálica de alta precisión."
+    )
+
+    assert clean_extracted_detail_text(source).splitlines() == [
+        "Medidas del producto: 410 \u00d7 208 \u00d7 275 mm",
+        "Material: Cuerpo metálico con base antideslizante.",
+        "Descripción: Enmicadora metálica de alta precisión.",
+    ]
+
+
+def test_detail_cleanup_omits_empty_intermediate_and_terminal_labels():
+    source = (
+        "Gramaje: 90 g.\n"
+        "Medida: A4.\n"
+        "Caja: \n"
+        "Paquete: 20 hojas.\n"
+        "Peso neto por caja: \n"
+        "Peso bruto por caja:"
+    )
+
+    assert clean_extracted_detail_text(source).splitlines() == [
+        "Gramaje: 90 g.",
+        "Medida: A4.",
+        "Paquete: 20 hojas.",
+    ]
+    assert clean_extracted_detail_text("Caja:") == ""
+
+
+def test_detail_cleanup_removes_empty_suffix_from_flattened_photo_paper_fields():
+    source = "Gramaje: 90 g. Medida: A4. Paquete: 20 hojas. Caja:"
+
+    assert clean_extracted_detail_text(source) == (
+        "Gramaje: 90 g. Medida: A4. Paquete: 20 hojas."
+    )
 
 
 def test_detail_policy_recognizes_laminator_and_printer_specific_labels():

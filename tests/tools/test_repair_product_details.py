@@ -379,7 +379,12 @@ def test_fb5016_empty_shipping_values_do_not_clear_the_category_detail():
         card_description = CategoryProductExtractor()._description(card)
         assert card_description
         assert "Material: Bambú y ABS" in card_description
-        assert "Peso bruto por caja:" in card_description
+        for empty_field in (
+            "Dimensiones Caja:",
+            "Peso neto por caja:",
+            "Peso bruto por caja:",
+        ):
+            assert empty_field not in card_description
         assert "Color:" not in card_description
 
         plan = _plan_category_card_detail(
@@ -396,7 +401,12 @@ def test_fb5016_empty_shipping_values_do_not_clear_the_category_detail():
         assert plan.status == "would_update"
         assert "Material: Bambú y ABS" in plan.new_description
         assert "Dimensiones: 9.8*6*2.5cm" in plan.new_description
-        assert "Peso bruto por caja:" in plan.new_description
+        for empty_field in (
+            "Dimensiones Caja:",
+            "Peso neto por caja:",
+            "Peso bruto por caja:",
+        ):
+            assert empty_field not in plan.new_description
         assert "Color:" not in plan.new_description
         assert "tarjeta de categoría" in plan.reason
         assert browser.requested_urls == []

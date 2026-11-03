@@ -92,7 +92,7 @@ def test_category_product_extractor_recognizes_sublimation_fields():
     assert "Material: Cerámica blanca" in product.description
 
 
-def test_category_product_extractor_preserves_empty_final_caja_field():
+def test_category_product_extractor_omits_empty_final_caja_field():
     html = """
     <article>
         <p class="brxe-a26f34">FB-7080</p>
@@ -103,7 +103,84 @@ def test_category_product_extractor_preserves_empty_final_caja_field():
 
     product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert product.description == "Medida: A4. Paquete: 20 Unidades. Caja:"
+    assert product.description == "Medida: A4. Paquete: 20 Unidades."
+
+
+
+
+
+def test_category_product_extractor_joins_bold_labels_split_across_paragraphs_for_reported_skus():
+    codes = (
+        "FB-5012",
+        "TY-P35AW",
+        "FB-3019",
+        "FD-2041",
+        "FD-2046",
+        "SB-2027", "SB-2028", "SB-2029", "SB-2030",
+        "SB-2031", "SB-2032", "SB-2033",
+        "KF-2034", "KF-2035", "KF-2036", "KF-2037",
+        "GP-2020", "GP-2021", "GP-2022", "GP-2023",
+        "GP-2024", "GP-2025", "GP-2026",
+        "MU-511",
+        "HL-9401A", "HL-9403",
+        "FB-1504", "SKB05X-1",
+    )
+    expected = [
+        "Medidas: Ancho: 10 cm. Largo: 12 cm.",
+        "Material: Plástico.",
+        "Descripción: Set de escritorio con accesorios.",
+        "Presentación: Individual en caja.",
+    ]
+
+    for code in codes:
+        html = f"""
+        <article>
+            <p class="brxe-a26f34">{code}</p>
+            <h2 class="brxe-f31760">Producto de prueba {code}</h2>
+            <div class="text-content">
+                <p><strong>Medidas:</strong></p>
+                <p>Ancho: 10 cm. Largo: 12 cm.</p>
+                <p><strong>Material:</strong> Plástico.</p>
+                <p><b>Descripción:</b></p>
+                <p>Set de escritorio con accesorios.</p>
+                <p><strong>Presentación:</strong></p>
+                <p>Individual en caja.</p>
+                <p><strong>Caja:</strong></p>
+            </div>
+        </article>
+        """
+
+        product = CategoryProductExtractor().extract(
+            BeautifulSoup(html, "lxml")
+        )
+
+        assert product.code == code
+        assert product.description.splitlines() == expected
+
+
+def test_photo_paper_card_omits_empty_box_label_like_other_categories():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-7047</p>
+        <h2 class="brxe-f31760">Papel Fotográfico Brillante</h2>
+        <div class="text-content">
+            <ul>
+                <li><strong>Gramaje:</strong> 90 g.</li>
+                <li><strong>Medida:</strong> A4.</li>
+                <li><strong>Paquete:</strong> 20 hojas.</li>
+                <li><strong>Caja:</strong></li>
+            </ul>
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.description.splitlines() == [
+        "Gramaje: 90 g.",
+        "Medida: A4.",
+        "Paquete: 20 hojas.",
+    ]
 
 
 def test_category_product_extractor_preserves_populated_caja_field():
@@ -503,12 +580,16 @@ def test_category_product_extractor_keeps_populated_fields_before_empty_shipping
         "Uso Recomendado: Medir distancias y longitudes",
         "Empaque Individual: Individual, caja diseño kraft",
         "Cantidad Por Caja: 100 Pza",
-        "Dimensiones Caja:",
         "Cubicaje por Caja: m³/CBM",
+    ):
+        assert field in product.description
+
+    for empty_field in (
+        "Dimensiones Caja:",
         "Peso neto por caja:",
         "Peso bruto por caja:",
     ):
-        assert field in product.description
+        assert empty_field not in product.description
 
 
 def test_category_product_extractor_ignores_text_nested_in_description_tab():

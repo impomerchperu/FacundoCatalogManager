@@ -5,6 +5,7 @@ from typing import ClassVar
 from bs4 import BeautifulSoup
 
 from models.scraping.detail_description_policy import (
+    clean_extracted_detail_text,
     has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,
@@ -433,9 +434,8 @@ class ProductExtractor:
         if self._is_excluded_detail_tab(element):
             return ""
 
-        text = normalize_detail_text(
-            self._detail_text_from_element(element),
-            preserve_boundaries=True,
+        text = clean_extracted_detail_text(
+            self._detail_text_from_element(element)
         )
         if (
             not text
@@ -564,38 +564,45 @@ class ProductExtractor:
             return detail
         return ""
 
-    def extract_authoritative_detail_text(
-        self,
-        soup,
-        *,
-        preserve_boundaries: bool = False,
-    ) -> tuple[bool, str]:
-        """Return whether the authoritative Detail field was found and its value."""
+    @staticmethod
+    def _is_detail_metadata_element(element) -> bool:
+        text = element.get_text(" ", strip=True)
+        return bool(
+            re.match(
+                r"^\s*(?:sku|categor[ií]as?)\s*:",
+                text,
+                re.IGNORECASE,
+            )
+        )
+
+    def _authoritative_detail_elements(self, soup) -> list:
         product_block = soup.select_one("#brxe-jhzpri")
         if product_block is not None and not self._is_excluded_detail_tab(product_block):
-            elements = soup.select(
-                "#brxe-jhzpri > ul > li, #brxe-jhzpri > p"
-            )
             elements = [
                 element
-                for element in elements
+                for element in product_block.select("li, p")
                 if not self._is_excluded_detail_tab(element)
+                and not self._is_detail_metadata_element(element)
+                and not (
+                    element.name == "p"
+                    and element.find_parent("li") is not None
+                )
+                and not (
+                    element.name == "li"
+                    and element.find_parent("li") is not None
+                )
             ]
+            if not elements:
+                heading_tags = {"h1", "h2", "h3", "h4", "h5", "h6"}
+                elements = [
+                    child
+                    for child in product_block.find_all(recursive=False)
+                    if getattr(child, "name", None) not in heading_tags
+                    and not self._is_excluded_detail_tab(child)
+                    and not self._is_detail_metadata_element(child)
+                ]
             if elements:
-                # The selected page field is authoritative as a whole. Do not
-                # discard individual paragraphs merely because a label is not
-                # in our technical-field vocabulary (e.g. Piezas, Forma,
-                # Micrones, or supplier-specific attributes).
-                field_text = " ␞ ".join(
-                    self._detail_text_from_element(element)
-                    for element in elements
-                )
-                return True, remove_incomplete_trailing_dimension_field(
-                    normalize_detail_text(
-                        field_text,
-                        preserve_boundaries=preserve_boundaries,
-                    )
-                )
+                return elements
 
         summaries = [
             element
@@ -604,18 +611,37 @@ class ProductExtractor:
             )
             if not self._is_excluded_detail_tab(element)
         ]
-        if summaries:
-            # Use the complete value of the first authoritative summary.
-            # Validation is applied to the field as a whole by the repair
-            # planner; per-fragment filtering silently lost valid attributes.
-            return True, remove_incomplete_trailing_dimension_field(
-                normalize_detail_text(
-                    self._detail_text_from_element(summaries[0]),
-                    preserve_boundaries=preserve_boundaries,
-                )
-            )
+        return summaries[:1]
 
-        return False, ""
+    def has_authoritative_detail_source_text(self, soup) -> bool:
+        """Whether the identified source field contains text, even if it is invalid."""
+        return any(
+            bool(element.get_text(" ", strip=True))
+            for element in self._authoritative_detail_elements(soup)
+        )
+
+    def extract_authoritative_detail_text(
+        self,
+        soup,
+        *,
+        preserve_boundaries: bool = False,
+    ) -> tuple[bool, str]:
+        """Return whether the authoritative Detail field was found and its value."""
+        elements = self._authoritative_detail_elements(soup)
+        if not elements:
+            return False, ""
+
+        # The selected page field is authoritative as a whole. Do not discard
+        # individual paragraphs merely because a label is not in our technical
+        # field vocabulary (e.g. Piezas, Forma, Micrones, or supplier fields).
+        field_text = " ␞ ".join(
+            self._detail_text_from_element(element)
+            for element in elements
+        )
+        detail = clean_extracted_detail_text(field_text)
+        if not preserve_boundaries:
+            detail = normalize_detail_text(detail)
+        return True, remove_incomplete_trailing_dimension_field(detail)
 
     def extract_detail_text(self, soup) -> str:
         """Use the identified Detail field before considering generic fallbacks."""

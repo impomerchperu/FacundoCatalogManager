@@ -3,7 +3,9 @@ import re
 from bs4 import BeautifulSoup
 
 from models.scraping.detail_description_policy import (
+    clean_extracted_detail_text,
     has_technical_detail,
+    is_detail_grouping_label,
     is_empty_detail_field_fragment,
     is_valid_detail_content,
     normalize_detail_text,
@@ -287,9 +289,8 @@ class CategoryProductExtractor:
         # Keep HTML block boundaries (e.g. separate <li>/<p> Detail fields).
         # Category cards are the authoritative source when complete, so flattening
         # these boundaries here would irreversibly damage the stored Detail text.
-        text = normalize_detail_text(
-            cls._detail_text_from_element(element),
-            preserve_boundaries=True,
+        text = clean_extracted_detail_text(
+            cls._detail_text_from_element(element)
         )
         if not text or cls._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text):
             return ""
@@ -320,22 +321,11 @@ class CategoryProductExtractor:
         return ""
 
     @classmethod
-    def _collect_description_candidates(
-        cls,
-        elements,
-        *,
-        include_empty_fields: bool = False,
-    ):
+    def _collect_description_candidates(cls, elements):
         candidates = []
         seen: set[str] = set()
         for element in elements:
             text = cls._description_candidate(element)
-            if not text and include_empty_fields:
-                raw_text = normalize_detail_text(
-                    cls._detail_text_from_element(element)
-                )
-                if is_empty_detail_field_fragment(raw_text):
-                    text = raw_text
             identity = text.casefold()
             if not text or identity in seen:
                 continue
@@ -357,7 +347,6 @@ class CategoryProductExtractor:
     @classmethod
     def _recover_authoritative_empty_field_candidates(
         cls,
-        soup,
         authoritative_elements,
         fallback_elements,
     ):
@@ -378,41 +367,27 @@ class CategoryProductExtractor:
         if len(valid_fallback) < 2:
             return []
 
-        empty_authoritative = [
-            element
-            for element, text in zip(
-                authoritative_elements,
-                authoritative_residue,
-                strict=True,
-            )
+        # Some card layouts put a grouping label in .text-content and its
+        # values in sibling Bricks blocks. Keep only recognized grouping labels
+        # when a populated fallback immediately supplies their subfields.
+        grouping_labels = [
+            normalize_detail_text(text).removesuffix(":").strip()
+            for text in authoritative_residue
             if is_empty_detail_field_fragment(text)
+            and is_detail_grouping_label(text)
         ]
-        combined = [*expanded_fallback, *empty_authoritative]
-        document_order = {
-            id(element): position
-            for position, element in enumerate(soup.descendants)
-            if getattr(element, "name", None)
-        }
-        combined.sort(
-            key=lambda element: document_order.get(id(element), 10**9)
-        )
-        return cls._collect_description_candidates(
-            combined,
-            include_empty_fields=True,
-        )
+        if grouping_labels and valid_fallback:
+            valid_fallback[0] = (
+                f"{grouping_labels[0]}: {valid_fallback[0]}"
+            )
+        return valid_fallback
 
     @classmethod
     def _recover_fallback_detail_candidates(cls, fallback_elements):
         expanded_fallback = cls._expand_detail_fallback_elements(
             fallback_elements
         )
-        valid_candidates = cls._collect_description_candidates(expanded_fallback)
-        if not valid_candidates:
-            return []
-        return cls._collect_description_candidates(
-            expanded_fallback,
-            include_empty_fields=True,
-        )
+        return cls._collect_description_candidates(expanded_fallback)
 
     @staticmethod
     def _join_description_candidates(candidates):
@@ -438,12 +413,6 @@ class CategoryProductExtractor:
         ]
         candidates = self._collect_description_candidates(authoritative_elements)
         if candidates:
-            # Keep recognized blank attributes when other authoritative Detail
-            # fields in the same card provide valid content.
-            candidates = self._collect_description_candidates(
-                authoritative_elements,
-                include_empty_fields=True,
-            )
             return self._join_description_candidates(candidates)
 
         fallback_selectors = (
@@ -455,7 +424,6 @@ class CategoryProductExtractor:
         fallback_elements = list(soup.select(", ".join(fallback_selectors)))
         if authoritative_elements:
             candidates = self._recover_authoritative_empty_field_candidates(
-                soup,
                 authoritative_elements,
                 fallback_elements,
             )

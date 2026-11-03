@@ -295,7 +295,11 @@ def _plan_single_product_detail_repair(
         authoritative_detail,
         preserve_boundaries=True,
     )
-    issue = _detail_issue(candidate) if candidate else ""
+    issue = (
+        "detalle_incompleto_o_truncado"
+        if not candidate and extractor.has_authoritative_detail_source_text(soup)
+        else (_detail_issue(candidate) if candidate else "")
+    )
     if issue:
         return DetailRepairPlan(
             code=code,

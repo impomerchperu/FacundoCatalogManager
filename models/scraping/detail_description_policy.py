@@ -519,7 +519,12 @@ def clean_extracted_detail_text(value: object) -> str:
             match = _EMPTY_DETAIL_FIELD_AT_END_PATTERN.search(line)
             if match is None:
                 break
-            line = line[: match.start()].rstrip(" .;")
+            separator = (
+                match.group(0)[0]
+                if match.group(0) and match.group(0)[0] in ".;"
+                else ""
+            )
+            line = line[: match.start()].rstrip(" .;") + separator
 
         if line:
             cleaned.append(line)

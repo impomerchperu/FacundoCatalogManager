@@ -236,7 +236,8 @@ def test_product_extractor_reads_nested_bold_paragraphs_inside_authoritative_det
           <p><strong>Marca:</strong></p>
           <p>Bright Office</p>
           <p><strong>Dimensiones del producto:</strong></p>
-          <p>410 \u00d7 208 \u00d7 275 mm</p>
+          <p>410 \u00d7 208 \u00d7</p>
+          <p>275 mm</p>
           <p><b>Material:</b> Cuerpo metálico con base antideslizante.</p>
         </div>
         <div class="detail-group">

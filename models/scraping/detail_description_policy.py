@@ -528,7 +528,7 @@ def clean_extracted_detail_text(value: object) -> str:
 
         if (
             cleaned
-            and re.search(r"[x×*]\s*$", cleaned[-1])
+            and re.search(r"[x\u00d7*]\s*$", cleaned[-1])
             and re.match(r"^\d", line)
         ):
             # A supplier may split the final dimension component into its own

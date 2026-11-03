@@ -470,6 +470,64 @@ def is_empty_detail_field_fragment(value: object) -> bool:
     return bool(text) and _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN.fullmatch(text) is not None
 
 
+_DETAIL_FIELD_LABEL_START_PATTERN = re.compile(
+    r"^\\s*(?:" + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern + r")",
+    re.IGNORECASE,
+)
+_EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
+    r"(?:^|[.;]\\s*)(?:"
+    + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern
+    + r")\\s*$",
+    re.IGNORECASE,
+)
+
+
+def clean_extracted_detail_text(value: object) -> str:
+    """Prepare extracted Detail for storage without empty labels or lost split values.
+
+    The raw normalizer intentionally keeps empty labels available to the repair
+    audit so it can distinguish an explicitly identified empty field from a
+    missing field. This output-only step removes labels with no value and joins
+    a label-only paragraph to its following value paragraph when the HTML splits
+    them (commonly around <strong>/<b> markup).
+    """
+    normalized = normalize_detail_text(value, preserve_boundaries=True)
+    lines = [line.strip() for line in normalized.splitlines()]
+    cleaned: list[str] = []
+    index = 0
+
+    while index < len(lines):
+        line = lines[index]
+        if not line:
+            index += 1
+            continue
+
+        if is_empty_detail_field_fragment(line):
+            next_line = lines[index + 1].strip() if index + 1 < len(lines) else ""
+            if next_line and not _DETAIL_FIELD_LABEL_START_PATTERN.match(next_line):
+                label = line.rstrip().removesuffix(":").strip()
+                cleaned.append(f"{label}: {next_line}")
+                index += 2
+                continue
+            # Empty fields and structural labels without a value are omitted.
+            index += 1
+            continue
+
+        # A trailing empty field may share a paragraph with populated fields:
+        # "Medida: A4. Paquete: 20. Caja:". Remove only the empty suffix.
+        while line:
+            match = _EMPTY_DETAIL_FIELD_AT_END_PATTERN.search(line)
+            if match is None:
+                break
+            line = line[: match.start()].rstrip(" .;")
+
+        if line:
+            cleaned.append(line)
+        index += 1
+
+    return "\\n".join(cleaned).strip()
+
+
 def has_multiple_technical_detail_fields(value: object) -> bool:
     """Require at least two labeled features for lower-priority fallbacks."""
     text = normalize_detail_text(value)

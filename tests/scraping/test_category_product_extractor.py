@@ -580,12 +580,16 @@ def test_category_product_extractor_keeps_populated_fields_before_empty_shipping
         "Uso Recomendado: Medir distancias y longitudes",
         "Empaque Individual: Individual, caja diseño kraft",
         "Cantidad Por Caja: 100 Pza",
-        "Dimensiones Caja:",
         "Cubicaje por Caja: m³/CBM",
+    ):
+        assert field in product.description
+
+    for empty_field in (
+        "Dimensiones Caja:",
         "Peso neto por caja:",
         "Peso bruto por caja:",
     ):
-        assert field in product.description
+        assert empty_field not in product.description
 
 
 def test_category_product_extractor_ignores_text_nested_in_description_tab():

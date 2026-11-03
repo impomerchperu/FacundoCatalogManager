@@ -482,6 +482,19 @@ _EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
 )
 
 
+_DETAIL_GROUPING_LABELS = frozenset({
+    "medidas",
+    "medida",
+    "dimensiones",
+    "dimensiones del producto",
+    "medidas del producto",
+    "medidas del estuche",
+    "medidas mochila",
+    "medidas de la caja máster",
+    "medidas de la caja master",
+})
+
+
 def clean_extracted_detail_text(value: object) -> str:
     """Prepare extracted Detail for storage without empty labels or lost split values.
 
@@ -504,11 +517,16 @@ def clean_extracted_detail_text(value: object) -> str:
 
         if is_empty_detail_field_fragment(line):
             next_line = lines[index + 1].strip() if index + 1 < len(lines) else ""
-            if next_line and not _DETAIL_FIELD_LABEL_START_PATTERN.match(next_line):
+            if next_line:
                 label = line.rstrip().removesuffix(":").strip()
-                cleaned.append(f"{label}: {next_line}")
-                index += 2
-                continue
+                label_key = normalize_detail_text(label).casefold()
+                next_is_field = bool(
+                    _DETAIL_FIELD_LABEL_START_PATTERN.match(next_line)
+                )
+                if not next_is_field or label_key in _DETAIL_GROUPING_LABELS:
+                    cleaned.append(f"{label}: {next_line}")
+                    index += 2
+                    continue
             # Empty fields and structural labels without a value are omitted.
             index += 1
             continue

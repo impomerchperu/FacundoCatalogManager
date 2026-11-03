@@ -278,11 +278,11 @@ def test_detail_policy_keeps_populated_detail_with_empty_shipping_labels():
 
 def test_detail_cleanup_joins_bold_label_paragraphs_to_their_values():
     source = (
-        "Medidas del producto:\\n"
-        "410 × 208 × 275 mm\\n"
-        "Material:\\n"
-        "Cuerpo metálico con base antideslizante.\\n"
-        "Descripción:\\n"
+        "Medidas del producto:\n"
+        "410 × 208 × 275 mm\n"
+        "Material:\n"
+        "Cuerpo metálico con base antideslizante.\n"
+        "Descripción:\n"
         "Enmicadora metálica de alta precisión."
     )
 
@@ -295,11 +295,11 @@ def test_detail_cleanup_joins_bold_label_paragraphs_to_their_values():
 
 def test_detail_cleanup_omits_empty_intermediate_and_terminal_labels():
     source = (
-        "Gramaje: 90 g.\\n"
-        "Medida: A4.\\n"
-        "Caja: \\n"
-        "Paquete: 20 hojas.\\n"
-        "Peso neto por caja: \\n"
+        "Gramaje: 90 g.\n"
+        "Medida: A4.\n"
+        "Caja: \n"
+        "Paquete: 20 hojas.\n"
+        "Peso neto por caja: \n"
         "Peso bruto por caja:"
     )
 

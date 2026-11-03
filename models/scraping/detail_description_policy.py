@@ -32,6 +32,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"\b(?:"
     r"medida y capacidad|"
     r"medida de impresi[oó]n|"
+    r"medidas\s+del\s+producto|"
     r"medidas\s+del\s+estuche|"
     r"medidas\s+de\s+la\s+caja\s+m[aá]ster|"
     r"medidas\s+(?:de\s+)?(?:estuche|mochila|cartera|cartuchera)|"
@@ -488,11 +489,18 @@ _DETAIL_GROUPING_LABELS = frozenset({
     "dimensiones",
     "dimensiones del producto",
     "medidas del producto",
+    "empaque individual",
     "medidas del estuche",
     "medidas mochila",
     "medidas de la caja máster",
     "medidas de la caja master",
 })
+
+
+def is_detail_grouping_label(value: object) -> bool:
+    """Whether an empty source label groups following Detail subfields."""
+    label = normalize_detail_text(value).removesuffix(":").strip().casefold()
+    return label in _DETAIL_GROUPING_LABELS
 
 
 def clean_extracted_detail_text(value: object) -> str:

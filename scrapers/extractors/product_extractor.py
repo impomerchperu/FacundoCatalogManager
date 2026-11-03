@@ -577,6 +577,11 @@ class ProductExtractor:
                 element
                 for element in product_block.select("li, p")
                 if not self._is_excluded_detail_tab(element)
+                and not re.match(
+                    r"^\s*(?:sku|categor[ií]as?)\s*:",
+                    element.get_text(" ", strip=True),
+                    re.IGNORECASE,
+                )
                 and not (
                     element.name == "p"
                     and element.find_parent("li") is not None
@@ -593,6 +598,11 @@ class ProductExtractor:
                     for child in product_block.find_all(recursive=False)
                     if getattr(child, "name", None) not in heading_tags
                     and not self._is_excluded_detail_tab(child)
+                    and not re.match(
+                        r"^\s*(?:sku|categor[ií]as?)\s*:",
+                        child.get_text(" ", strip=True),
+                        re.IGNORECASE,
+                    )
                 ]
             if elements:
                 # The selected page field is authoritative as a whole. Do not

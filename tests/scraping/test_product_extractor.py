@@ -236,12 +236,12 @@ def test_product_extractor_reads_nested_bold_paragraphs_inside_authoritative_det
           <p><strong>Marca:</strong></p>
           <p>Bright Office</p>
           <p><strong>Dimensiones del producto:</strong></p>
-          <p>410 × 208 × 275 mm</p>
+          <p>410 \u00d7 208 \u00d7 275 mm</p>
           <p><b>Material:</b> Cuerpo metálico con base antideslizante.</p>
         </div>
         <div class="detail-group">
           <p><strong>Voltaje y Frecuencia:</strong></p>
-          <p>AC 220–240V / 50–60Hz</p>
+          <p>AC 220\u2013240V / 50\u201360Hz</p>
         </div>
       </div>
       <div id="tab-description">
@@ -255,9 +255,9 @@ def test_product_extractor_reads_nested_bold_paragraphs_inside_authoritative_det
     assert result["code"] == "FB-1504"
     assert result["description"].splitlines() == [
         "Marca: Bright Office",
-        "Dimensiones del producto: 410 × 208 × 275 mm",
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7 275 mm",
         "Material: Cuerpo metálico con base antideslizante.",
-        "Voltaje y Frecuencia: AC 220–240V / 50–60Hz",
+        "Voltaje y Frecuencia: AC 220\u2013240V / 50\u201360Hz",
     ]
     assert "Texto comercial" not in result["description"]
 
@@ -272,7 +272,7 @@ def test_product_extractor_drops_only_truncated_final_dimension_without_inferenc
           <p><strong>Modelo:</strong> 230</p>
           <p><strong>Material:</strong> Cuerpo metálico con base antideslizante.</p>
           <p><strong>Dimensiones del producto:</strong></p>
-          <p>410 × 208 ×</p>
+          <p>410 \u00d7 208 \u00d7</p>
         </div>
       </div>
       <div id="tab-description">
@@ -299,7 +299,7 @@ def test_product_extractor_keeps_all_skb05x1_sublimation_fields_from_bold_list_i
       <div id="brxe-jhzpri">
         <div class="detail-group">
           <ul>
-            <li><strong>Medida y Capacidad:</strong> Diámetro: 8,5 cm – 11 onzas (aproximadamente 300 ml)</li>
+            <li><strong>Medida y Capacidad:</strong> Diámetro: 8,5 cm \u2013 11 onzas (aproximadamente 300 ml)</li>
             <li><strong>Medida de Impresión:</strong> 20 x 9,5 cm (máxima, utilizando una resistencia de 11 oz)</li>
             <li><strong>Calidad:</strong> AAA, alta calidad</li>
             <li><strong>Material:</strong> Cerámica pigmentada negra con lacado en polímero (apto para sublimación).</li>
@@ -313,7 +313,7 @@ def test_product_extractor_keeps_all_skb05x1_sublimation_fields_from_bold_list_i
 
     assert result["code"] == "SKB05X-1"
     assert result["description"].splitlines() == [
-        "Medida y Capacidad: Diámetro: 8,5 cm – 11 onzas (aproximadamente 300 ml)",
+        "Medida y Capacidad: Diámetro: 8,5 cm \u2013 11 onzas (aproximadamente 300 ml)",
         "Medida de Impresión: 20 x 9,5 cm (máxima, utilizando una resistencia de 11 oz)",
         "Calidad: AAA, alta calidad",
         "Material: Cerámica pigmentada negra con lacado en polímero (apto para sublimación).",

@@ -279,7 +279,7 @@ def test_detail_policy_keeps_populated_detail_with_empty_shipping_labels():
 def test_detail_cleanup_joins_bold_label_paragraphs_to_their_values():
     source = (
         "Medidas del producto:\n"
-        "410 × 208 × 275 mm\n"
+        "410 \u00d7 208 \u00d7 275 mm\n"
         "Material:\n"
         "Cuerpo metálico con base antideslizante.\n"
         "Descripción:\n"
@@ -287,7 +287,7 @@ def test_detail_cleanup_joins_bold_label_paragraphs_to_their_values():
     )
 
     assert clean_extracted_detail_text(source).splitlines() == [
-        "Medidas del producto: 410 × 208 × 275 mm",
+        "Medidas del producto: 410 \u00d7 208 \u00d7 275 mm",
         "Material: Cuerpo metálico con base antideslizante.",
         "Descripción: Enmicadora metálica de alta precisión.",
     ]

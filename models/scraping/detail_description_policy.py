@@ -471,13 +471,13 @@ def is_empty_detail_field_fragment(value: object) -> bool:
 
 
 _DETAIL_FIELD_LABEL_START_PATTERN = re.compile(
-    r"^\\s*(?:" + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern + r")",
+    r"^\s*(?:" + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern + r")",
     re.IGNORECASE,
 )
 _EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
-    r"(?:^|[.;]\\s*)(?:"
+    r"(?:^|[.;]\s*)(?:"
     + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern
-    + r")\\s*$",
+    + r")\s*$",
     re.IGNORECASE,
 )
 
@@ -530,7 +530,7 @@ def clean_extracted_detail_text(value: object) -> str:
             cleaned.append(line)
         index += 1
 
-    return "\\n".join(cleaned).strip()
+    return "\n".join(cleaned).strip()
 
 
 def has_multiple_technical_detail_fields(value: object) -> bool:

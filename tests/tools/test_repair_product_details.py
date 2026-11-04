@@ -1552,6 +1552,7 @@ def test_global_membership_apply_loads_and_passes_reviewed_preview(
     assert calls["database_closed"] is True
 
 
+
 def test_repair_strips_share_ui_before_validating_fb3019_detail():
     db, repository = _seed_catalog(
         code="FB-3019",
@@ -1561,7 +1562,7 @@ def test_repair_strips_share_ui_before_validating_fb3019_detail():
     <html><body>
       <p class="brxe-heading">FB-3019</p>
       <div id="brxe-jhzpri">
-        <p>
+        <div class="detail-group">
           <strong>Potencia:</strong> 1500 W.<br>
           <strong>Dimensiones:</strong> 54.8 × 40 × 36.5 cm.<br>
           <strong>Peso unitario:</strong> 20.3 kg.<br>
@@ -1571,9 +1572,9 @@ def test_repair_strips_share_ui_before_validating_fb3019_detail():
           <strong>Dimensiones de caja:</strong> 60 × 47.5 × 44 cm.<br>
           <strong>Cubicaje por caja:</strong> 0.1254 m³/CBM.<br>
           <strong>Peso neto por caja:</strong> 20.3 kg.<br>
-          <strong>Peso bruto por caja:</strong> 23.6 kg.<br>
-          COMPARTIR:
-        </p>
+          <strong>Peso bruto por caja:</strong> 23.6 kg.
+        </div>
+        <div id="brxe-miyybm">COMPARTIR:</div>
       </div>
     </body></html>
     """
@@ -1606,14 +1607,14 @@ def test_repair_drops_only_fb1504_truncated_dimension_after_share_ui():
     <html><body>
       <p class="brxe-heading">FB-1504</p>
       <div id="brxe-jhzpri">
-        <p>
+        <div class="detail-group">
           <strong>Marca:</strong> Bright Office.<br>
           <strong>Modelo:</strong> 230.<br>
           <strong>Material:</strong> Cuerpo metálico con base antideslizante.<br>
           <strong>Potencia:</strong> 420 W.<br>
-          <strong>Dimensiones del producto:</strong> 410 × 208 ×<br>
-          COMPARTIR:
-        </p>
+          <strong>Dimensiones del producto:</strong> 410 × 208 ×
+        </div>
+        <div id="brxe-miyybm">COMPARTIR:</div>
       </div>
       <div id="tab-description">
         Esta pestaña no debe completar la dimensión.

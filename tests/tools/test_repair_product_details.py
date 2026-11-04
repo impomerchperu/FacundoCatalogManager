@@ -1550,3 +1550,96 @@ def test_global_membership_apply_loads_and_passes_reviewed_preview(
     assert calls["approved_audit"] == approved_audit
     assert calls["browser_closed"] is True
     assert calls["database_closed"] is True
+
+
+def test_repair_strips_share_ui_before_validating_fb3019_detail():
+    db, repository = _seed_catalog(
+        code="FB-3019",
+        description="Detalle comercial antiguo",
+    )
+    html = """
+    <html><body>
+      <p class="brxe-heading">FB-3019</p>
+      <div id="brxe-jhzpri">
+        <p>
+          <strong>Potencia:</strong> 1500 W.<br>
+          <strong>Dimensiones:</strong> 54.8 × 40 × 36.5 cm.<br>
+          <strong>Peso unitario:</strong> 20.3 kg.<br>
+          <strong>Uso recomendado:</strong> Estampado en camisetas.<br>
+          <strong>Empaque individual:</strong> Esponja + caja de cartón.<br>
+          <strong>Cantidad por caja:</strong> 1 pza.<br>
+          <strong>Dimensiones de caja:</strong> 60 × 47.5 × 44 cm.<br>
+          <strong>Cubicaje por caja:</strong> 0.1254 m³/CBM.<br>
+          <strong>Peso neto por caja:</strong> 20.3 kg.<br>
+          <strong>Peso bruto por caja:</strong> 23.6 kg.<br>
+          COMPARTIR:
+        </p>
+      </div>
+    </body></html>
+    """
+    browser = StaticBrowser(html)
+
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-3019"],
+            browser=browser,
+        )
+
+        assert len(plans) == 1
+        assert plans[0].status == "would_update"
+        assert "Potencia: 1500 W." in plans[0].new_description
+        assert "Peso bruto por caja: 23.6 kg." in plans[0].new_description
+        assert "COMPARTIR" not in plans[0].new_description
+        assert browser.requested_urls == [PRODUCT_URL]
+    finally:
+        db.close()
+
+
+def test_repair_drops_only_fb1504_truncated_dimension_after_share_ui():
+    db, repository = _seed_catalog(
+        code="FB-1504",
+        description="Detalle comercial antiguo",
+    )
+    html = """
+    <html><body>
+      <p class="brxe-heading">FB-1504</p>
+      <div id="brxe-jhzpri">
+        <p>
+          <strong>Marca:</strong> Bright Office.<br>
+          <strong>Modelo:</strong> 230.<br>
+          <strong>Material:</strong> Cuerpo metálico con base antideslizante.<br>
+          <strong>Potencia:</strong> 420 W.<br>
+          <strong>Dimensiones del producto:</strong> 410 × 208 ×<br>
+          COMPARTIR:
+        </p>
+      </div>
+      <div id="tab-description">
+        Esta pestaña no debe completar la dimensión.
+      </div>
+    </body></html>
+    """
+    browser = StaticBrowser(html)
+
+    try:
+        plans = plan_product_detail_repairs(
+            db,
+            repository,
+            ["FB-1504"],
+            browser=browser,
+        )
+
+        assert len(plans) == 1
+        assert plans[0].status == "would_update"
+        assert "Marca: Bright Office." in plans[0].new_description
+        assert "Material: Cuerpo metálico con base antideslizante." in (
+            plans[0].new_description
+        )
+        assert "Potencia: 420 W." in plans[0].new_description
+        assert "Dimensiones del producto:" not in plans[0].new_description
+        assert "COMPARTIR" not in plans[0].new_description
+        assert "Esta pestaña" not in plans[0].new_description
+        assert browser.requested_urls == [PRODUCT_URL]
+    finally:
+        db.close()

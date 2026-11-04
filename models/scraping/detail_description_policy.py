@@ -10,6 +10,12 @@ from __future__ import annotations
 import re
 
 _WHITESPACE_PATTERN = re.compile(r"\s+")
+# The visible product summary can end with the social-sharing control inside the
+# same paragraph as Detail. It is interface chrome, never a product attribute.
+_TRAILING_DETAIL_UI_NOISE_PATTERN = re.compile(
+    r"(?:^|[\s\u241e])(?:compartir|share)\s*:\s*.*$",
+    re.IGNORECASE | re.DOTALL,
+)
 _DETAIL_BOUNDARY = "\u241e"
 _DESCRIPTION_FIELD_PATTERN = re.compile(
     r"(?<!\w)descripci[oó]n(?:\s+comercial)?\s*[:|\-]\s*",
@@ -513,6 +519,10 @@ def clean_extracted_detail_text(value: object) -> str:
     them (commonly around <strong>/<b> markup).
     """
     normalized = normalize_detail_text(value, preserve_boundaries=True)
+    # Some Bricks templates append the social-sharing label to the same
+    # paragraph as the last Detail field. Strip that UI suffix first so a
+    # genuinely truncated terminal dimension remains detectable below.
+    normalized = _TRAILING_DETAIL_UI_NOISE_PATTERN.sub("", normalized).rstrip()
     lines = [line.strip() for line in normalized.splitlines()]
     cleaned: list[str] = []
     index = 0

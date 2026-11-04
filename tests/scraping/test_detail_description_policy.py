@@ -293,6 +293,27 @@ def test_detail_cleanup_joins_bold_label_paragraphs_to_their_values():
     ]
 
 
+def test_detail_cleanup_strips_share_ui_before_removing_a_truncated_final_dimension():
+    source = (
+        "Marca: Bright Office\n"
+        "Material: Cuerpo metálico.\n"
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7\n"
+        "COMPARTIR:"
+    )
+
+    cleaned = clean_extracted_detail_text(source)
+
+    assert cleaned.splitlines() == [
+        "Marca: Bright Office",
+        "Material: Cuerpo metálico.",
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7",
+    ]
+    assert remove_incomplete_trailing_dimension_field(cleaned).splitlines() == [
+        "Marca: Bright Office",
+        "Material: Cuerpo metálico.",
+    ]
+
+
 def test_detail_cleanup_omits_empty_intermediate_and_terminal_labels():
     source = (
         "Gramaje: 90 g.\n"

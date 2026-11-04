@@ -183,6 +183,30 @@ def test_photo_paper_card_omits_empty_box_label_like_other_categories():
     ]
 
 
+def test_photo_paper_card_omits_empty_box_and_trailing_share_ui_from_bold_paragraphs():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-7030</p>
+        <h2 class="brxe-f31760">Papel Fotográfico A4</h2>
+        <div class="text-content">
+            <p><strong>Medida:</strong> A4</p>
+            <p><strong>Paquete:</strong> 20 Unidades</p>
+            <p><strong>Caja:</strong></p>
+            <p>COMPARTIR:</p>
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.description.splitlines() == [
+        "Medida: A4",
+        "Paquete: 20 Unidades",
+    ]
+    assert "Caja:" not in product.description
+    assert "COMPARTIR" not in product.description
+
+
 def test_category_product_extractor_preserves_populated_caja_field():
     html = """
     <article>

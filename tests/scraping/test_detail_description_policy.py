@@ -297,7 +297,7 @@ def test_detail_cleanup_strips_share_ui_before_removing_a_truncated_final_dimens
     source = (
         "Marca: Bright Office\\n"
         "Material: Cuerpo metálico.\\n"
-        "Dimensiones del producto: 410 × 208 ×\\n"
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7\\n"
         "COMPARTIR:"
     )
 
@@ -306,7 +306,7 @@ def test_detail_cleanup_strips_share_ui_before_removing_a_truncated_final_dimens
     assert cleaned.splitlines() == [
         "Marca: Bright Office",
         "Material: Cuerpo metálico.",
-        "Dimensiones del producto: 410 × 208 ×",
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7",
     ]
     assert remove_incomplete_trailing_dimension_field(cleaned).splitlines() == [
         "Marca: Bright Office",

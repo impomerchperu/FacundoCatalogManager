@@ -1564,12 +1564,12 @@ def test_repair_strips_share_ui_before_validating_fb3019_detail():
       <div id="brxe-jhzpri">
         <div class="detail-group">
           <strong>Potencia:</strong> 1500 W.<br>
-          <strong>Dimensiones:</strong> 54.8 × 40 × 36.5 cm.<br>
+          <strong>Dimensiones:</strong> 54.8 \u00d7 40 \u00d7 36.5 cm.<br>
           <strong>Peso unitario:</strong> 20.3 kg.<br>
           <strong>Uso recomendado:</strong> Estampado en camisetas.<br>
           <strong>Empaque individual:</strong> Esponja + caja de cartón.<br>
           <strong>Cantidad por caja:</strong> 1 pza.<br>
-          <strong>Dimensiones de caja:</strong> 60 × 47.5 × 44 cm.<br>
+          <strong>Dimensiones de caja:</strong> 60 \u00d7 47.5 \u00d7 44 cm.<br>
           <strong>Cubicaje por caja:</strong> 0.1254 m³/CBM.<br>
           <strong>Peso neto por caja:</strong> 20.3 kg.<br>
           <strong>Peso bruto por caja:</strong> 23.6 kg.
@@ -1612,7 +1612,7 @@ def test_repair_drops_only_fb1504_truncated_dimension_after_share_ui():
           <strong>Modelo:</strong> 230.<br>
           <strong>Material:</strong> Cuerpo metálico con base antideslizante.<br>
           <strong>Potencia:</strong> 420 W.<br>
-          <strong>Dimensiones del producto:</strong> 410 × 208 ×
+          <strong>Dimensiones del producto:</strong> 410 \u00d7 208 \u00d7
         </div>
         <div id="brxe-miyybm">COMPARTIR:</div>
       </div>

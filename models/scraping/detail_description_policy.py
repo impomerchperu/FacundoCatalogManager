@@ -13,7 +13,7 @@ _WHITESPACE_PATTERN = re.compile(r"\s+")
 # The visible product summary can end with the social-sharing control inside the
 # same paragraph as Detail. It is interface chrome, never a product attribute.
 _TRAILING_DETAIL_UI_NOISE_PATTERN = re.compile(
-    r"(?:^|[\\s\\u241e])(?:compartir|share)\\s*:\\s*.*$",
+    r"(?:^|[\s\u241e])(?:compartir|share)\s*:\s*.*$",
     re.IGNORECASE | re.DOTALL,
 )
 _DETAIL_BOUNDARY = "\u241e"

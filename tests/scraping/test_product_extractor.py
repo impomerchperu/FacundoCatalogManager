@@ -274,6 +274,7 @@ def test_product_extractor_drops_only_truncated_final_dimension_without_inferenc
           <p><strong>Material:</strong> Cuerpo metálico con base antideslizante.</p>
           <p><strong>Dimensiones del producto:</strong></p>
           <p>410 \u00d7 208 \u00d7</p>
+          <p>COMPARTIR:</p>
         </div>
       </div>
       <div id="tab-description">
@@ -291,6 +292,34 @@ def test_product_extractor_drops_only_truncated_final_dimension_without_inferenc
     ]
     assert "Dimensiones del producto" not in result["description"]
     assert "No utilizar esta pestaña" not in result["description"]
+    assert "COMPARTIR" not in result["description"]
+
+
+def test_product_extractor_reads_inline_bold_fields_from_hl9401a_and_hl9403_markup():
+    for code in ("HL-9401A", "HL-9403"):
+        html = f"""
+        <html><body>
+          <p class="brxe-heading">{code}</p>
+          <div id="brxe-jhzpri">
+            <h3>Set de escritorio</h3>
+            <p style="text-align: left">
+              • <strong>Medidas:</strong> Ancho: 8 cm. Largo: 9 cm. Espesor: 2 cm.<br>
+              • <strong>Descripción:</strong> Incluye engrapadora, tijera y dispensador.<br>
+              • <strong>Presentación:</strong> Individual en estuche plástico.<br>
+              • <strong>Color:</strong> Negro.
+            </p>
+          </div>
+        </body></html>
+        """
+        result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+        assert result["code"] == code
+        assert result["description"].splitlines() == [
+            "Medidas: Ancho: 8 cm. Largo: 9 cm. Espesor: 2 cm.",
+            "Descripción: Incluye engrapadora, tijera y dispensador.",
+            "Presentación: Individual en estuche plástico.",
+        ]
+        assert "Color:" not in result["description"]
 
 
 def test_product_extractor_keeps_all_skb05x1_sublimation_fields_from_bold_list_items():

@@ -2988,9 +2988,9 @@ def test_detail_table_keeps_unbolded_source_values_for_observed_codes():
             "FB-5012",
             (
                 "Medidas: Alt. de base: 4.50 cm Ancho: 5 cm. "
-                "Alt. Total: 13.50 cm. Aprox.\\n"
+                "Alt. Total: 13.50 cm. Aprox.\n"
                 "Descripción: Artículo de base acrílica de colores, en forma de "
-                "media luna; con clip sujetador de metal para los memos.\\n"
+                "media luna; con clip sujetador de metal para los memos.\n"
                 "Presentación: Individual, bolsa de plástico transparente."
             ),
             ("Alt. de base: 4.50 cm", "Ancho: 5 cm", "Alt. Total: 13.50 cm"),
@@ -2999,10 +2999,10 @@ def test_detail_table_keeps_unbolded_source_values_for_observed_codes():
         (
             "HL-9398",
             (
-                "Medidas: 16 cm x 10 cm (Aprox.) Espesor: 2,5 cm.\\n"
+                "Medidas: 16 cm x 10 cm (Aprox.) Espesor: 2,5 cm.\n"
                 "Descripción: Estuche de plástico traslucido, contiene: 1 Tijera, "
                 "2 Lapiceros, 3 Ganchitos, 1 Cinta Adhesiva, 1 Perforadora de un "
-                "hueco, 1 Engrapadora + repuestos.\\n"
+                "hueco, 1 Engrapadora + repuestos.\n"
                 "Presentación del producto: Individual, en bolsa de plástico "
                 "transparente."
             ),
@@ -3012,7 +3012,7 @@ def test_detail_table_keeps_unbolded_source_values_for_observed_codes():
         (
             "HL-9401A",
             (
-                "Medidas: Ancho: 8 cm. Largo: 9.0 cm. Espesor 7.9\\n"
+                "Medidas: Ancho: 8 cm. Largo: 9.0 cm. Espesor 7.9\n"
                 "Descripción: 1 engrapadora, grapas, 1 tijera con tapa, "
                 "1 dispensador con cinta adhesiva, 1 borrador, 1 regla de 12 cms., "
                 "1 lapicero con tinta negra, 1 lápiz de minas."
@@ -3023,11 +3023,11 @@ def test_detail_table_keeps_unbolded_source_values_for_observed_codes():
         (
             "HL-9403",
             (
-                "Medidas: Ancho: 10.4 cm. Largo: 11.0 cm. Espesor 2.9 cm. (Aprox.)\\n"
+                "Medidas: Ancho: 10.4 cm. Largo: 11.0 cm. Espesor 2.9 cm. (Aprox.)\n"
                 "Descripción: Estuche de plástico blanco traslúcido, contiene: "
                 "1 engrapadora, 1 tajador, 1 perforadora de 1 hueco, 1 saca grapas, "
                 "1 tijera, 1 dispensador con cinta adhesiva, 1 cinta adhesiva de "
-                "repuesto y grapas.\\n"
+                "repuesto y grapas.\n"
                 "Presentación del producto: Individual, en bolsa de plástico transparente."
             ),
             ("Ancho: 10.4 cm", "Largo: 11.0 cm", "Espesor 2.9 cm"),

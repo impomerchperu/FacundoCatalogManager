@@ -1051,6 +1051,42 @@ class ProductDetailDelegate(ProductCellDelegate):
         r"(?:(?<=^)|(?<=[.!?]\s))(?:\s*\d+\.\s*)?([A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}):"
     )
 
+    @staticmethod
+    def _is_nested_source_value_label(label: str, prefix: str) -> bool:
+        """Avoid bolding value fragments nested under a visible source label."""
+        normalized_label = " ".join(label.split()).casefold()
+        measure_parent = re.match(
+            r"^\\s*(?:medidas?|dimensiones(?:\\s+del\\s+producto)?|"
+            r"medidas?\\s+(?:del?\\s+)?(?:estuche|producto|mochila|cartera|"
+            r"cartuchera|caja))\\s*:",
+            prefix,
+            re.IGNORECASE,
+        )
+        if measure_parent and normalized_label in {
+            "alt",
+            "alt.",
+            "alt. de base",
+            "alt de base",
+            "alt. total",
+            "alt total",
+            "ancho",
+            "alto",
+            "altura",
+            "espesor",
+            "largo",
+            "total",
+            "diámetro",
+            "diametro",
+        }:
+            return True
+
+        description_parent = re.match(
+            r"^\\s*descripci[oó]n(?:\\s+comercial)?\\s*:",
+            prefix,
+            re.IGNORECASE,
+        )
+        return bool(description_parent and normalized_label == "contiene")
+
     @classmethod
     def _layout_text(
         cls,
@@ -1071,6 +1107,9 @@ class ProductDetailDelegate(ProductCellDelegate):
             formats: list[QTextLayout.FormatRange] = []
             for match in cls._BOLD_DETAIL_LABEL_PATTERN.finditer(paragraph):
                 label_key = " ".join(match.group(1).split()).casefold()
+                prefix = paragraph[: match.start(1)]
+                if cls._is_nested_source_value_label(label_key, prefix):
+                    continue
                 if label_key in {
                     "peso bruto / caja",
                     "peso neto / caja",

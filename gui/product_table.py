@@ -2841,8 +2841,11 @@ class ProductTable(QTableWidget):
                 selected.append(match)
                 continue
             if inside_description_value and alias == "contiene":
-                # Keep "contiene:" as ordinary prose inside the source Description.
-                continue
+                # A comma keeps "contiene:" inside the preceding Description
+                # sentence; after a full stop it can be a separate source field.
+                prefix = match.string[: match.start()].rstrip()
+                if prefix.endswith(","):
+                    continue
             inside_description_value = False
 
             if alias in {"medida", "medidas"} | cls.DETAIL_PARENT_MEASURE_LABELS:

@@ -334,7 +334,7 @@ def test_detail_cleanup_omits_empty_intermediate_and_terminal_labels():
 
 def test_detail_cleanup_separates_adjacent_empty_field_labels():
     source = (
-        "Material: Aluminio sublimable. Dimensiones: Peso Unitario: 117 G.\\n"
+        "Material: Aluminio sublimable. Dimensiones: Peso Unitario: 117 G.\n"
         "Uso Recomendado: Conservar la temperatura de bebidas frías o calientes."
     )
 

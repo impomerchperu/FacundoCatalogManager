@@ -2806,6 +2806,7 @@ class ProductTable(QTableWidget):
         """Ignore removable color variants and nested measure sublabels."""
         selected: list[re.Match[str]] = []
         inside_measure_value = False
+        inside_description_value = False
         for match in matches:
             alias = match.group(1).strip().casefold()
             if alias in {"área de impresión", "area de impresion"}:
@@ -2824,6 +2825,21 @@ class ProductTable(QTableWidget):
                         continue
             if alias == "colores disponibles":
                 continue
+            if alias in {
+                "descripción",
+                "descripcion",
+                "descripción comercial",
+                "descripcion comercial",
+            }:
+                inside_measure_value = False
+                inside_description_value = True
+                selected.append(match)
+                continue
+            if inside_description_value and alias == "contiene":
+                # Keep "contiene:" as ordinary prose inside the source Description.
+                continue
+            inside_description_value = False
+
             if alias in {"medida", "medidas"} | cls.DETAIL_PARENT_MEASURE_LABELS:
                 inside_measure_value = True
                 selected.append(match)

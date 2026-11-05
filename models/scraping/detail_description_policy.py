@@ -511,6 +511,10 @@ _DETAIL_GROUPING_FIELD_CHILD_LABELS = frozenset({
     "espesor",
     "diámetro",
     "capacidad",
+    "envase largo",
+    "toalla largo",
+    "interior",
+    "espacio libre",
 })
 
 

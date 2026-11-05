@@ -2982,7 +2982,7 @@ def test_detail_column_resize_recalculates_row_height_for_wrapped_content():
 
 
 
-def test_detail_table_keeps_unbolded_measure_and_description_values_for_observed_codes():
+def test_detail_table_keeps_unbolded_source_values_for_observed_codes():
     cases = (
         (
             "FB-5012",
@@ -3003,7 +3003,8 @@ def test_detail_table_keeps_unbolded_measure_and_description_values_for_observed
                 "Descripción: Estuche de plástico traslucido, contiene: 1 Tijera, "
                 "2 Lapiceros, 3 Ganchitos, 1 Cinta Adhesiva, 1 Perforadora de un "
                 "hueco, 1 Engrapadora + repuestos.\\n"
-                "Presentación del producto: Individual, en bolsa de plástico transparente."
+                "Presentación del producto: Individual, en bolsa de plástico "
+                "transparente."
             ),
             ("16 cm x 10 cm", "Espesor: 2,5 cm"),
             "contiene: 1 Tijera",
@@ -3047,7 +3048,9 @@ def test_detail_table_keeps_unbolded_measure_and_description_values_for_observed
                 line for line in lines if line.startswith("Descripción:")
             )
             assert description_value in description_line, (code, description_line)
-            assert not any(line.startswith("Contiene:") for line in lines), (code, lines)
+            assert not any(
+                line.startswith("Contiene:") for line in lines
+            ), (code, lines)
 
         for line in lines:
             layouts, _height = ProductDetailDelegate._layout_text(

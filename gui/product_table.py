@@ -1056,7 +1056,7 @@ class ProductDetailDelegate(ProductCellDelegate):
         """Avoid bolding value fragments nested under a visible source label."""
         normalized_label = " ".join(label.split()).casefold()
         measure_parent = re.match(
-            r"^\\s*(?:medidas?|dimensiones(?:\\s+del\\s+producto)?|"
+            r"^\s*(?:medidas?|dimensiones(?:\s+del\\s+producto)?|"
             r"medidas?\\s+(?:del?\\s+)?(?:estuche|producto|mochila|cartera|"
             r"cartuchera|caja))\\s*:",
             prefix,
@@ -1081,7 +1081,7 @@ class ProductDetailDelegate(ProductCellDelegate):
             return True
 
         description_parent = re.match(
-            r"^\\s*descripci[oó]n(?:\\s+comercial)?\\s*:",
+            r"^\s*descripci[oó]n(?:\s+comercial)?\s*:",
             prefix,
             re.IGNORECASE,
         )

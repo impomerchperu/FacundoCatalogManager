@@ -1056,9 +1056,9 @@ class ProductDetailDelegate(ProductCellDelegate):
         """Avoid bolding value fragments nested under a visible source label."""
         normalized_label = " ".join(label.split()).casefold()
         measure_parent = re.match(
-            r"^\s*(?:medidas?|dimensiones(?:\s+del\\s+producto)?|"
-            r"medidas?\\s+(?:del?\\s+)?(?:estuche|producto|mochila|cartera|"
-            r"cartuchera|caja))\\s*:",
+            r"^\s*(?:medidas?|dimensiones(?:\s+del\s+producto)?|"
+            r"medidas?\s+(?:del?\s+)?(?:estuche|producto|mochila|cartera|"
+            r"cartuchera|caja))\s*:",
             prefix,
             re.IGNORECASE,
         )
@@ -1492,6 +1492,11 @@ class ProductTable(QTableWidget):
         "alt",
         "altura",
         "esp",
+        "alt. de base",
+        "alt de base",
+        "alt. total",
+        "alt total",
+        "total",
         "interior",
         "espesor",
         "estuche",

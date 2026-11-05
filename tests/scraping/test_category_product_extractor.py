@@ -616,6 +616,34 @@ def test_category_product_extractor_keeps_populated_fields_before_empty_shipping
         assert empty_field not in product.description
 
 
+def test_category_product_extractor_separates_adjacent_bold_empty_fields():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-2029</p>
+        <h2 class="brxe-f31760">Azulejo sublimable</h2>
+        <div class="text-content">
+            <p><strong>Material:</strong> Arcilla.</p>
+            <p><strong>Dimensiones:</strong> 30*20cm.</p>
+            <p><strong>Uso Recomendado:</strong> Azulejo sublimable.</p>
+            <p><strong>Empaque Individual:</strong> <strong>Cantidad Por Caja:</strong> 24 Pza.</p>
+            <p><strong>Dimensiones Caja:</strong> 31*19*21cm.</p>
+            <p><strong>Cubicaje por Caja:</strong> 0.012369 m³/CBM.</p>
+        </div>
+    </article>
+    """
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.code == "FB-2029"
+    assert product.description.splitlines() == [
+        "Material: Arcilla.",
+        "Dimensiones: 30*20cm.",
+        "Uso Recomendado: Azulejo sublimable.",
+        "Cantidad Por Caja: 24 Pza.",
+        "Dimensiones Caja: 31*19*21cm.",
+        "Cubicaje por Caja: 0.012369 m³/CBM.",
+    ]
+    assert "Empaque Individual: Cantidad Por Caja:" not in product.description
+
 def test_category_product_extractor_ignores_text_nested_in_description_tab():
     html = """
     <article>

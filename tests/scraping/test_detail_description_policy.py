@@ -332,6 +332,21 @@ def test_detail_cleanup_omits_empty_intermediate_and_terminal_labels():
     assert clean_extracted_detail_text("Caja:") == ""
 
 
+def test_detail_cleanup_separates_adjacent_empty_field_labels():
+    source = (
+        "Material: Aluminio sublimable. Dimensiones: Peso Unitario: 117 G.\n"
+        "Uso Recomendado: Conservar la temperatura de bebidas frías o calientes."
+    )
+
+    assert clean_extracted_detail_text(source).splitlines() == [
+        "Material: Aluminio sublimable.",
+        "Peso Unitario: 117 G.",
+        "Uso Recomendado: Conservar la temperatura de bebidas frías o calientes.",
+    ]
+    assert clean_extracted_detail_text("Empaque Individual: Cantidad Por Caja: 24 Pza.") == (
+        "Cantidad Por Caja: 24 Pza."
+    )
+
 def test_detail_cleanup_removes_empty_suffix_from_flattened_photo_paper_fields():
     source = "Gramaje: 90 g. Medida: A4. Paquete: 20 hojas. Caja:"
 

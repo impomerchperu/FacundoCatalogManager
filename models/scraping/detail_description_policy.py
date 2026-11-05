@@ -8,6 +8,7 @@ Product-page tab panels are excluded by the extractor before this policy runs.
 from __future__ import annotations
 
 import re
+from itertools import pairwise
 
 _WHITESPACE_PATTERN = re.compile(r"\s+")
 # The visible product summary can end with the social-sharing control inside the
@@ -492,6 +493,7 @@ _EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
 _DETAIL_GROUPING_LABELS = frozenset({
     "medidas",
     "medida",
+    "medida y capacidad",
     "dimensiones",
     "dimensiones del producto",
     "medidas del producto",
@@ -501,12 +503,61 @@ _DETAIL_GROUPING_LABELS = frozenset({
     "medidas de la caja máster",
     "medidas de la caja master",
 })
+_DETAIL_GROUPING_FIELD_CHILD_LABELS = frozenset({
+    "alto",
+    "ancho",
+    "largo",
+    "altura",
+    "espesor",
+    "diámetro",
+    "capacidad",
+    "envase largo",
+    "toalla largo",
+    "interior",
+    "espacio libre",
+})
 
 
 def is_detail_grouping_label(value: object) -> bool:
     """Whether an empty source label groups following Detail subfields."""
     label = normalize_detail_text(value).removesuffix(":").strip().casefold()
     return label in _DETAIL_GROUPING_LABELS
+
+
+def _is_grouping_detail_child(parent_label: str, child_source: str) -> bool:
+    """Whether the next field is a valid subfield of the preceding grouping label."""
+    parent = normalize_detail_text(parent_label).removesuffix(":").strip().casefold()
+    if parent not in _DETAIL_GROUPING_LABELS:
+        return False
+    match = _DETAIL_FIELD_LABEL_START_PATTERN.match(child_source)
+    if match is None:
+        return False
+    child = normalize_detail_text(match.group()).removesuffix(":").strip().casefold()
+    return child in _DETAIL_GROUPING_FIELD_CHILD_LABELS
+
+
+def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
+    """Split a field label from the next label when the first value is empty."""
+    matches = list(_DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.finditer(value))
+    split_positions = []
+    for previous, current in pairwise(matches):
+        between = value[previous.end() : current.start()]
+        previous_label = normalize_detail_text(previous.group()).removesuffix(":").strip()
+        if (
+            all(char.isspace() or char in ".;" for char in between)
+            and not _is_grouping_detail_child(previous_label, current.group())
+        ):
+            split_positions.append(current.start())
+
+    for position in reversed(split_positions):
+        before = value[:position].rstrip()
+        while before.endswith((".", ";")):
+            before = before[:-1].rstrip()
+        after = value[position:].lstrip()
+        while after.startswith((".", ";")):
+            after = after[1:].lstrip()
+        value = before + "\n" + after
+    return value
 
 
 def clean_extracted_detail_text(value: object) -> str:
@@ -523,6 +574,7 @@ def clean_extracted_detail_text(value: object) -> str:
     # paragraph as the last Detail field. Strip that UI suffix first so a
     # genuinely truncated terminal dimension remains detectable below.
     normalized = _TRAILING_DETAIL_UI_NOISE_PATTERN.sub("", normalized).rstrip()
+    normalized = _separate_adjacent_empty_detail_field_labels(normalized)
     lines = [line.strip() for line in normalized.splitlines()]
     cleaned: list[str] = []
     index = 0
@@ -541,7 +593,7 @@ def clean_extracted_detail_text(value: object) -> str:
                 next_is_field = bool(
                     _DETAIL_FIELD_LABEL_START_PATTERN.match(next_line)
                 )
-                if not next_is_field or label_key in _DETAIL_GROUPING_LABELS:
+                if not next_is_field or _is_grouping_detail_child(label_key, next_line):
                     cleaned.append(f"{label}: {next_line}")
                     index += 2
                     continue

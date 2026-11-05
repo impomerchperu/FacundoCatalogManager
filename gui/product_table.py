@@ -1085,7 +1085,11 @@ class ProductDetailDelegate(ProductCellDelegate):
             prefix,
             re.IGNORECASE,
         )
-        return bool(description_parent and normalized_label == "contiene")
+        return bool(
+            description_parent
+            and normalized_label == "contiene"
+            and prefix.rstrip().endswith(",")
+        )
 
     @classmethod
     def _layout_text(

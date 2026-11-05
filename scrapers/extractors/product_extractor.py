@@ -2,7 +2,6 @@ import contextlib
 import re
 from typing import ClassVar
 
-from bs4 import BeautifulSoup
 
 from models.scraping.detail_description_policy import (
     clean_extracted_detail_text,

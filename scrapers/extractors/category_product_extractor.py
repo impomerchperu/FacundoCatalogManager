@@ -4,11 +4,13 @@ from bs4 import BeautifulSoup
 
 from models.scraping.detail_description_policy import (
     clean_extracted_detail_text,
+    extract_detail_text_from_element,
     has_technical_detail,
     is_detail_grouping_label,
     is_empty_detail_field_fragment,
     is_valid_detail_content,
     normalize_detail_text,
+    restore_literal_detail_colons,
 )
 from models.scraping.scraped_product import ScrapedProduct
 from scrapers.extractors.code_utils import normalize_code_token
@@ -254,32 +256,8 @@ class CategoryProductExtractor:
 
     @staticmethod
     def _detail_text_from_element(element) -> str:
-        """Preserva límites HTML para distinguir la descripción del resto."""
-        boundary = "__FACUNDO_DETAIL_BOUNDARY__"
-        markup = str(element)
-        markup = re.sub(
-            r"<br\b[^>]*>",
-            boundary,
-            markup,
-            flags=re.IGNORECASE,
-        )
-        markup = re.sub(
-            r"<(?:li|p|div|h[1-6])\b[^>]*>",
-            boundary,
-            markup,
-            flags=re.IGNORECASE,
-        )
-        markup = re.sub(
-            r"</(?:li|p|div|h[1-6])\s*>",
-            boundary,
-            markup,
-            flags=re.IGNORECASE,
-        )
-        text = BeautifulSoup(markup, "lxml").get_text(" ", strip=True)
-        # Ignore physical newlines used only to indent source HTML. Semantic
-        # boundaries are represented by the explicit marker inserted above.
-        text = re.sub(r"\s+", " ", text)
-        return text.replace(boundary, " ␞ ")
+        """Preserva texto literal y etiquetas reales del HTML fuente."""
+        return extract_detail_text_from_element(element)
 
     @classmethod
     def _description_candidate(cls, element) -> str:
@@ -290,7 +268,8 @@ class CategoryProductExtractor:
         # Category cards are the authoritative source when complete, so flattening
         # these boundaries here would irreversibly damage the stored Detail text.
         text = clean_extracted_detail_text(
-            cls._detail_text_from_element(element)
+            cls._detail_text_from_element(element),
+            restore_literal_colons=False,
         )
         if not text or cls._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text):
             return ""
@@ -310,14 +289,14 @@ class CategoryProductExtractor:
             # as HL-3000 remains valid because it is the actual field content.
             if not technical and len(text) < 35:
                 return ""
-            return text
+            return restore_literal_detail_colons(text)
 
         # Preserve a visibly truncated technical card value as the source of
         # truth if the individual page has no usable Detail. The collection
         # scraper can still request the page, but must not lose the card value
         # merely because the excerpt ends with an ellipsis.
         if technical and re.search(r"(?:\.{2,}|…)$", text):
-            return text
+            return restore_literal_detail_colons(text)
         return ""
 
     @classmethod

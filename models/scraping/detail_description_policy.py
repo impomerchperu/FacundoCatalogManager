@@ -8,6 +8,7 @@ Product-page tab panels are excluded by the extractor before this policy runs.
 from __future__ import annotations
 
 import re
+from itertools import pairwise
 
 _WHITESPACE_PATTERN = re.compile(r"\s+")
 # The visible product summary can end with the social-sharing control inside the
@@ -512,16 +513,22 @@ def is_detail_grouping_label(value: object) -> bool:
 def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
     """Split a field label from the next label when the first value is empty."""
     matches = list(_DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.finditer(value))
-    split_positions = [
-        current.start()
-        for previous, current in zip(matches, matches[1:])
-        if not value[previous.end() : current.start()].strip(" \\t\\r\\n.;")
-    ]
+    split_positions = []
+    for previous, current in pairwise(matches):
+        between = value[previous.end() : current.start()]
+        if all(char.isspace() or char in ".;" for char in between):
+            split_positions.append(current.start())
+
     for position in reversed(split_positions):
-        before = value[:position].rstrip(" \\t.;")
-        after = value[position:].lstrip(" \\t.;")
-        value = f"{before}\\n{after}"
+        before = value[:position].rstrip()
+        while before.endswith((".", ";")):
+            before = before[:-1].rstrip()
+        after = value[position:].lstrip()
+        while after.startswith((".", ";")):
+            after = after[1:].lstrip()
+        value = before + "\n" + after
     return value
+
 
 def clean_extracted_detail_text(value: object) -> str:
     """Prepare extracted Detail for storage without empty labels or lost split values.

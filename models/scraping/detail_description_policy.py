@@ -509,6 +509,20 @@ def is_detail_grouping_label(value: object) -> bool:
     return label in _DETAIL_GROUPING_LABELS
 
 
+def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
+    """Split a field label from the next label when the first value is empty."""
+    matches = list(_DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.finditer(value))
+    split_positions = [
+        current.start()
+        for previous, current in zip(matches, matches[1:])
+        if not value[previous.end() : current.start()].strip(" \\t\\r\\n.;")
+    ]
+    for position in reversed(split_positions):
+        before = value[:position].rstrip(" \\t.;")
+        after = value[position:].lstrip(" \\t.;")
+        value = f"{before}\\n{after}"
+    return value
+
 def clean_extracted_detail_text(value: object) -> str:
     """Prepare extracted Detail for storage without empty labels or lost split values.
 
@@ -523,6 +537,7 @@ def clean_extracted_detail_text(value: object) -> str:
     # paragraph as the last Detail field. Strip that UI suffix first so a
     # genuinely truncated terminal dimension remains detectable below.
     normalized = _TRAILING_DETAIL_UI_NOISE_PATTERN.sub("", normalized).rstrip()
+    normalized = _separate_adjacent_empty_detail_field_labels(normalized)
     lines = [line.strip() for line in normalized.splitlines()]
     cleaned: list[str] = []
     index = 0

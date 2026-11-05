@@ -164,6 +164,28 @@ def test_product_extractor_preserves_nonempty_fields_when_shipping_values_are_bl
     assert "Texto comercial ajeno" not in result["description"]
 
 
+def test_product_extractor_separates_adjacent_bold_empty_fields():
+    html = """
+    <html><body>
+      <p class="brxe-heading">FB-2006</p>
+      <div class="woocommerce-product-details__short-description">
+        <p><strong>Material:</strong> Aluminio sublimable.</p>
+        <p><strong>Dimensiones:</strong> <strong>Peso Unitario:</strong> 117 G.</p>
+        <p><strong>Uso Recomendado:</strong> Conservar la temperatura de bebidas frías o calientes.</p>
+        <p><strong>Empaque Individual:</strong> Bolsa de polietileno+Caja blanca.</p>
+      </div>
+    </body></html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["code"] == "FB-2006"
+    assert result["description"].splitlines() == [
+        "Material: Aluminio sublimable.",
+        "Peso Unitario: 117 G.",
+        "Uso Recomendado: Conservar la temperatura de bebidas frías o calientes.",
+        "Empaque Individual: Bolsa de polietileno+Caja blanca.",
+    ]
+
 def test_product_extractor_preserves_all_authoritative_fields_outside_color_field():
     html = """
     <html><body>

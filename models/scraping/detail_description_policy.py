@@ -10,7 +10,8 @@ from __future__ import annotations
 import re
 from itertools import pairwise
 
-from bs4 import BeautifulSoup, NavigableString
+from bs4 import BeautifulSoup
+from bs4.element import NavigableString
 
 _DETAIL_LITERAL_COLON_MARKER = "\uE001"
 _WHITESPACE_PATTERN = re.compile(r"\s+")

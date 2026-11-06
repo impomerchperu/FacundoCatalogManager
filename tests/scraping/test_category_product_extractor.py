@@ -636,7 +636,7 @@ def test_category_product_extractor_keeps_populated_fields_before_empty_shipping
         "Peso neto por caja:",
         "Peso bruto por caja:",
     ):
-        assert empty_field in product.description
+        assert empty_field not in product.description
 
 
 def test_category_product_extractor_separates_adjacent_bold_empty_fields():
@@ -661,7 +661,6 @@ def test_category_product_extractor_separates_adjacent_bold_empty_fields():
         "Material: Arcilla.",
         "Dimensiones: 30*20cm.",
         "Uso Recomendado: Azulejo sublimable.",
-        "Empaque Individual:",
         "Cantidad Por Caja: 24 Pza.",
         "Dimensiones Caja: 31*19*21cm.",
         "Cubicaje por Caja: 0.012369 m³/CBM.",

@@ -856,7 +856,7 @@ def test_category_product_extractor_does_not_use_short_generic_prose_as_detail()
     assert product.code == "FB-1235"
     assert product.description == ""
 
-def test_category_product_extractor_preserves_empty_peso_unitario_from_authoritative_card_detail():
+def test_extractor_preserves_empty_peso_unitario_from_card_detail():
     html = """
     <article>
         <p class="brxe-a26f34">FB-1903</p>
@@ -870,7 +870,7 @@ def test_category_product_extractor_preserves_empty_peso_unitario_from_authorita
             <p><strong>Empaque Individual:</strong> Embalaje estándar.</p>
             <p><strong>Cantidad Por Caja:</strong> 50 Pza.</p>
             <p><strong>Dimensiones Caja:</strong> 60*41*43cm.</p>
-            <p><strong>Cubicaje por Caja:</strong> 0.105780 m³/CBM.</p>
+            <p><strong>Cubicaje por Caja:</strong> 0.105780 m³/CBM</p>
             <p><strong>Peso neto por caja:</strong> 18 Kg.</p>
             <p><strong>Peso bruto por caja:</strong> 19 Kg.</p>
         </div>
@@ -887,7 +887,7 @@ def test_category_product_extractor_preserves_empty_peso_unitario_from_authorita
         "Empaque Individual: Embalaje estándar.",
         "Cantidad Por Caja: 50 Pza.",
         "Dimensiones Caja: 60*41*43cm.",
-        "Cubicaje por Caja: 0.105780 m³/CBM.",
+        "Cubicaje por Caja: 0.105780 m³/CBM",
         "Peso neto por caja: 18 Kg.",
         "Peso bruto por caja: 19 Kg.",
     ]

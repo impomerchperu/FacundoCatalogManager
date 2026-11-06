@@ -611,9 +611,9 @@ def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
             all(char.isspace() or char in ".;" for char in between)
             and not _is_grouping_detail_child(previous_label, current.group())
         ):
-            split_positions.append(current.start())
+            split_positions.extend((previous.start(), current.start()))
 
-    for position in reversed(split_positions):
+    for position in sorted(set(split_positions), reverse=True):
         before = value[:position].rstrip()
         while before.endswith((".", ";")):
             before = before[:-1].rstrip()

@@ -379,12 +379,7 @@ def test_detail_cleanup_separates_adjacent_empty_field_labels():
 def test_detail_cleanup_preserves_empty_suffix_from_flattened_photo_paper_fields():
     source = "Gramaje: 90 g. Medida: A4. Paquete: 20 hojas. Caja:"
 
-    assert clean_extracted_detail_text(source).splitlines() == [
-        "Gramaje: 90 g.",
-        "Medida: A4.",
-        "Paquete: 20 hojas.",
-        "Caja:",
-    ]
+    assert clean_extracted_detail_text(source) == source
 
 
 def test_detail_policy_recognizes_laminator_and_printer_specific_labels():

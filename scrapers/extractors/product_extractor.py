@@ -2,16 +2,16 @@ import contextlib
 import re
 from typing import ClassVar
 
-from bs4 import BeautifulSoup
-
 from models.scraping.detail_description_policy import (
     clean_extracted_detail_text,
+    extract_detail_text_from_element,
     has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,
     is_valid_detail_content,
     normalize_detail_text,
     remove_incomplete_trailing_dimension_field,
+    restore_literal_detail_colons,
 )
 from scrapers.extractors.code_utils import extract_code_from_soup, normalize_code
 from scrapers.extractors.price_extractor import PriceExtractor
@@ -394,36 +394,8 @@ class ProductExtractor:
 
     @staticmethod
     def _detail_text_from_element(element) -> str:
-        """Preserva límites HTML entre viñetas y saltos sin separar etiquetas y valores."""
-        boundary = "__FACUNDO_DETAIL_BOUNDARY__"
-        markup = str(element)
-        markup = re.sub(
-            r"<br\b[^>]*>",
-            boundary,
-            markup,
-            flags=re.IGNORECASE,
-        )
-        markup = re.sub(
-            r"<(?:li|p|div|h[1-6])\b[^>]*>",
-            boundary,
-            markup,
-            flags=re.IGNORECASE,
-        )
-        markup = re.sub(
-            r"</(?:li|p|div|h[1-6])\s*>",
-            boundary,
-            markup,
-            flags=re.IGNORECASE,
-        )
-        text = BeautifulSoup(markup, "lxml").get_text(" ", strip=True)
-        # Source indentation/newlines inside one text node are not field
-        # boundaries. Collapse whitespace per chunk while retaining markers
-        # inserted between structural HTML elements.
-        chunks = [
-            re.sub(r"\s+", " ", chunk).strip()
-            for chunk in text.split(boundary)
-        ]
-        return " ␞ ".join(chunks)
+        """Preserva texto literal y etiquetas reales del HTML fuente."""
+        return extract_detail_text_from_element(element)
 
     def _validated_detail_candidate(
         self,
@@ -435,7 +407,8 @@ class ProductExtractor:
             return ""
 
         text = clean_extracted_detail_text(
-            self._detail_text_from_element(element)
+            self._detail_text_from_element(element),
+            restore_literal_colons=False,
         )
         if (
             not text
@@ -450,7 +423,7 @@ class ProductExtractor:
             and len(text) < 35
         ):
             return ""
-        return text
+        return restore_literal_detail_colons(text)
 
     def _extract_labeled_detail_blocks(self, soup) -> str:
         """Combina campos etiquetados cuando el tema los separa entre bloques HTML."""
@@ -638,10 +611,14 @@ class ProductExtractor:
             self._detail_text_from_element(element)
             for element in elements
         )
-        detail = clean_extracted_detail_text(field_text)
+        detail = clean_extracted_detail_text(
+            field_text,
+            restore_literal_colons=False,
+        )
         if not preserve_boundaries:
             detail = normalize_detail_text(detail)
-        return True, remove_incomplete_trailing_dimension_field(detail)
+        detail = remove_incomplete_trailing_dimension_field(detail)
+        return True, restore_literal_detail_colons(detail)
 
     def extract_detail_text(self, soup) -> str:
         """Use the identified Detail field before considering generic fallbacks."""

@@ -1051,6 +1051,46 @@ class ProductDetailDelegate(ProductCellDelegate):
         r"(?:(?<=^)|(?<=[.!?]\s))(?:\s*\d+\.\s*)?([A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}):"
     )
 
+    @staticmethod
+    def _is_nested_source_value_label(label: str, prefix: str) -> bool:
+        """Avoid bolding value fragments nested under a visible source label."""
+        normalized_label = " ".join(label.split()).casefold()
+        measure_parent = re.match(
+            r"^\s*(?:medidas?|dimensiones(?:\s+del\s+producto)?|"
+            r"medidas?\s+(?:del?\s+)?(?:estuche|producto|mochila|cartera|"
+            r"cartuchera|caja))\s*:",
+            prefix,
+            re.IGNORECASE,
+        )
+        if measure_parent and normalized_label in {
+            "alt",
+            "alt.",
+            "alt. de base",
+            "alt de base",
+            "alt. total",
+            "alt total",
+            "ancho",
+            "alto",
+            "altura",
+            "espesor",
+            "largo",
+            "total",
+            "diámetro",
+            "diametro",
+        }:
+            return True
+
+        description_parent = re.match(
+            r"^\s*descripci[oó]n(?:\s+comercial)?\s*:",
+            prefix,
+            re.IGNORECASE,
+        )
+        return bool(
+            description_parent
+            and normalized_label == "contiene"
+            and prefix.rstrip().endswith(",")
+        )
+
     @classmethod
     def _layout_text(
         cls,
@@ -1071,6 +1111,9 @@ class ProductDetailDelegate(ProductCellDelegate):
             formats: list[QTextLayout.FormatRange] = []
             for match in cls._BOLD_DETAIL_LABEL_PATTERN.finditer(paragraph):
                 label_key = " ".join(match.group(1).split()).casefold()
+                prefix = paragraph[: match.start(1)]
+                if cls._is_nested_source_value_label(label_key, prefix):
+                    continue
                 if label_key in {
                     "peso bruto / caja",
                     "peso neto / caja",
@@ -1453,6 +1496,11 @@ class ProductTable(QTableWidget):
         "alt",
         "altura",
         "esp",
+        "alt. de base",
+        "alt de base",
+        "alt. total",
+        "alt total",
+        "total",
         "interior",
         "espesor",
         "estuche",
@@ -2767,6 +2815,7 @@ class ProductTable(QTableWidget):
         """Ignore removable color variants and nested measure sublabels."""
         selected: list[re.Match[str]] = []
         inside_measure_value = False
+        inside_description_value = False
         for match in matches:
             alias = match.group(1).strip().casefold()
             if alias in {"área de impresión", "area de impresion"}:
@@ -2785,6 +2834,24 @@ class ProductTable(QTableWidget):
                         continue
             if alias == "colores disponibles":
                 continue
+            if alias in {
+                "descripción",
+                "descripcion",
+                "descripción comercial",
+                "descripcion comercial",
+            }:
+                inside_measure_value = False
+                inside_description_value = True
+                selected.append(match)
+                continue
+            if inside_description_value and alias == "contiene":
+                # A comma keeps "contiene:" inside the preceding Description
+                # sentence; after a full stop it can be a separate source field.
+                prefix = match.string[: match.start()].rstrip()
+                if prefix.endswith(","):
+                    continue
+            inside_description_value = False
+
             if alias in {"medida", "medidas"} | cls.DETAIL_PARENT_MEASURE_LABELS:
                 inside_measure_value = True
                 selected.append(match)

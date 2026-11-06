@@ -10,11 +10,15 @@ from __future__ import annotations
 import re
 from itertools import pairwise
 
+from bs4 import BeautifulSoup
+from bs4.element import NavigableString
+
+_DETAIL_LITERAL_COLON_MARKER = "\uE001"
 _WHITESPACE_PATTERN = re.compile(r"\s+")
 # The visible product summary can end with the social-sharing control inside the
 # same paragraph as Detail. It is interface chrome, never a product attribute.
 _TRAILING_DETAIL_UI_NOISE_PATTERN = re.compile(
-    r"(?:^|[\s\u241e])(?:compartir|share)\s*:\s*.*$",
+    r"(?:^|[\s\u241e])(?:compartir|share)\s*(?::|\uE001)\s*.*$",
     re.IGNORECASE | re.DOTALL,
 )
 _DETAIL_BOUNDARY = "\u241e"
@@ -191,6 +195,75 @@ _INCOMPLETE_TRAILING_DIMENSION_PATTERN = re.compile(
     r"\s*[x\u00d7*]\s*$",
     re.IGNORECASE,
 )
+
+
+
+def extract_detail_text_from_element(element) -> str:
+    """Keep source emphasis so only bold labels are parsed as field names."""
+    boundary = "__FACUNDO_DETAIL_BOUNDARY__"
+    source = BeautifulSoup(str(element), "lxml")
+    bold_tags = source.find_all(["strong", "b"])
+
+    if bold_tags:
+        # Some templates place the colon just outside the emphasis element.
+        # Move that colon into the bold span before protecting all plain text.
+        for bold in bold_tags:
+            if bold.get_text("", strip=True).endswith(":"):
+                continue
+            sibling = bold.next_sibling
+            if isinstance(sibling, NavigableString):
+                colon = re.match(r"^\s*:", str(sibling))
+                if colon is not None:
+                    bold.append(":")
+                    remainder = str(sibling)[colon.end() :]
+                    if remainder:
+                        sibling.replace_with(NavigableString(remainder))
+                    else:
+                        sibling.extract()
+
+        # A colon outside <strong>/<b> is literal value text, not a label
+        # delimiter. Protect it while the shared label/empty-field policy runs.
+        for text_node in list(source.find_all(string=True)):
+            if text_node.find_parent(["strong", "b"]) is not None:
+                continue
+            original = str(text_node)
+            if ":" in original:
+                text_node.replace_with(
+                    NavigableString(
+                        original.replace(":", _DETAIL_LITERAL_COLON_MARKER)
+                    )
+                )
+
+    markup = str(source)
+    markup = re.sub(
+        r"<br\b[^>]*>",
+        boundary,
+        markup,
+        flags=re.IGNORECASE,
+    )
+    markup = re.sub(
+        r"<(?:li|p|div|h[1-6])\b[^>]*>",
+        boundary,
+        markup,
+        flags=re.IGNORECASE,
+    )
+    markup = re.sub(
+        r"</(?:li|p|div|h[1-6])\s*>",
+        boundary,
+        markup,
+        flags=re.IGNORECASE,
+    )
+    text = BeautifulSoup(markup, "lxml").get_text(" ", strip=True)
+    chunks = [
+        re.sub(r"\s+", " ", chunk).strip()
+        for chunk in text.split(boundary)
+    ]
+    return " ␞ ".join(chunk for chunk in chunks if chunk)
+
+
+def restore_literal_detail_colons(value: object) -> str:
+    """Restore colons that belonged to unbolded source text."""
+    return str(value or "").replace(_DETAIL_LITERAL_COLON_MARKER, ":")
 
 
 def remove_incomplete_trailing_dimension_field(value: object) -> str:
@@ -560,7 +633,11 @@ def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
     return value
 
 
-def clean_extracted_detail_text(value: object) -> str:
+def clean_extracted_detail_text(
+    value: object,
+    *,
+    restore_literal_colons: bool = True,
+) -> str:
     """Prepare extracted Detail for storage without empty labels or lost split values.
 
     The raw normalizer intentionally keeps empty labels available to the repair
@@ -630,7 +707,10 @@ def clean_extracted_detail_text(value: object) -> str:
             cleaned.append(line)
         index += 1
 
-    return "\n".join(cleaned).strip()
+    result = "\n".join(cleaned).strip()
+    if restore_literal_colons:
+        return restore_literal_detail_colons(result)
+    return result
 
 
 def has_multiple_technical_detail_fields(value: object) -> bool:

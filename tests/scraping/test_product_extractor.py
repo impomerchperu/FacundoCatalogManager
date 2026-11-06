@@ -317,6 +317,28 @@ def test_product_extractor_drops_only_truncated_final_dimension_without_inferenc
     assert "COMPARTIR" not in result["description"]
 
 
+
+def test_product_extractor_does_not_split_unbold_value_colons():
+    html = """
+    <html><body>
+      <p class="brxe-heading">HL-9403</p>
+      <div id="brxe-jhzpri">
+        <p><strong>Medidas</strong>: Ancho: 10.4 cm. Largo: 11.0 cm. Total: 21.4 cm.</p>
+        <p><strong>Descripción:</strong> Estuche que contiene: 1 engrapadora,
+        1 tajador, 1 perforadora y 1 saca grapas. Total: 4 accesorios.</p>
+        <p><strong>Presentación:</strong> Individual en bolsa plástica transparente.</p>
+      </div>
+    </body></html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["description"].splitlines() == [
+        "Medidas: Ancho: 10.4 cm. Largo: 11.0 cm. Total: 21.4 cm.",
+        "Descripción: Estuche que contiene: 1 engrapadora, 1 tajador, 1 perforadora y 1 saca grapas. Total: 4 accesorios.",
+        "Presentación: Individual en bolsa plástica transparente.",
+    ]
+
+
 def test_product_extractor_reads_inline_bold_fields_from_hl9401a_and_hl9403_markup():
     for code in ("HL-9401A", "HL-9403"):
         html = f"""

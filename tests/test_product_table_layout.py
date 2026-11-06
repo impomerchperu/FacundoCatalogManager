@@ -2979,3 +2979,92 @@ def test_detail_column_resize_recalculates_row_height_for_wrapped_content():
 
     assert narrow_height > wide_height
     table.close()
+
+
+
+def test_detail_table_keeps_unbolded_source_values_for_observed_codes():
+    cases = (
+        (
+            "FB-5012",
+            (
+                "Medidas: Alt. de base: 4.50 cm Ancho: 5 cm. "
+                "Alt. Total: 13.50 cm. Aprox.\n"
+                "Descripción: Artículo de base acrílica de colores, en forma de "
+                "media luna; con clip sujetador de metal para los memos.\n"
+                "Presentación: Individual, bolsa de plástico transparente."
+            ),
+            ("Alt. de base: 4.50 cm", "Ancho: 5 cm", "Alt. Total: 13.50 cm"),
+            None,
+        ),
+        (
+            "HL-9398",
+            (
+                "Medidas: 16 cm x 10 cm (Aprox.) Espesor: 2,5 cm.\n"
+                "Descripción: Estuche de plástico traslucido, contiene: 1 Tijera, "
+                "2 Lapiceros, 3 Ganchitos, 1 Cinta Adhesiva, 1 Perforadora de un "
+                "hueco, 1 Engrapadora + repuestos.\n"
+                "Presentación del producto: Individual, en bolsa de plástico "
+                "transparente."
+            ),
+            ("16 cm x 10 cm", "Espesor: 2,5 cm"),
+            "contiene: 1 Tijera",
+        ),
+        (
+            "HL-9401A",
+            (
+                "Medidas: Ancho: 8 cm. Largo: 9.0 cm. Espesor 7.9\n"
+                "Descripción: 1 engrapadora, grapas, 1 tijera con tapa, "
+                "1 dispensador con cinta adhesiva, 1 borrador, 1 regla de 12 cms., "
+                "1 lapicero con tinta negra, 1 lápiz de minas."
+            ),
+            ("Ancho: 8 cm", "Largo: 9.0 cm"),
+            None,
+        ),
+        (
+            "HL-9403",
+            (
+                "Medidas: Ancho: 10.4 cm. Largo: 11.0 cm. Espesor 2.9 cm. (Aprox.)\n"
+                "Descripción: Estuche de plástico blanco traslúcido, contiene: "
+                "1 engrapadora, 1 tajador, 1 perforadora de 1 hueco, 1 saca grapas, "
+                "1 tijera, 1 dispensador con cinta adhesiva, 1 cinta adhesiva de "
+                "repuesto y grapas.\n"
+                "Presentación del producto: Individual, en bolsa de plástico transparente."
+            ),
+            ("Ancho: 10.4 cm", "Largo: 11.0 cm", "Espesor 2.9 cm"),
+            "contiene: 1 engrapadora",
+        ),
+    )
+
+    for code, description, measure_values, description_value in cases:
+        product = Product(code=code, name="Producto de prueba", description=description)
+        lines = ProductTable._format_detail(product).splitlines()
+
+        measure_line = next(line for line in lines if line.startswith("Medidas:"))
+        for value in measure_values:
+            assert value in measure_line, (code, measure_line, value)
+
+        if description_value is not None:
+            description_line = next(
+                line for line in lines if line.startswith("Descripción:")
+            )
+            assert description_value in description_line, (code, description_line)
+            assert not any(
+                line.startswith("Contiene:") for line in lines
+            ), (code, lines)
+
+        for line in lines:
+            layouts, _height = ProductDetailDelegate._layout_text(
+                line,
+                _qapp().font(),
+                900,
+            )
+            formats = layouts[0][0].formats()
+            bold_text = [
+                line[item.start : item.start + item.length]
+                for item in formats
+            ]
+            assert not any(
+                label.casefold() in value.casefold()
+                for value in bold_text
+                for label in ("Largo:", "Total:", "Contiene:")
+            ), (code, line, bold_text)

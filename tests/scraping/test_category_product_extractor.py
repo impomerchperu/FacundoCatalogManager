@@ -636,7 +636,7 @@ def test_category_product_extractor_keeps_populated_fields_before_empty_shipping
         "Peso neto por caja:",
         "Peso bruto por caja:",
     ):
-        assert empty_field not in product.description
+        assert empty_field in product.description
 
 
 def test_category_product_extractor_separates_adjacent_bold_empty_fields():
@@ -661,6 +661,7 @@ def test_category_product_extractor_separates_adjacent_bold_empty_fields():
         "Material: Arcilla.",
         "Dimensiones: 30*20cm.",
         "Uso Recomendado: Azulejo sublimable.",
+        "Empaque Individual:",
         "Cantidad Por Caja: 24 Pza.",
         "Dimensiones Caja: 31*19*21cm.",
         "Cubicaje por Caja: 0.012369 m³/CBM.",
@@ -854,3 +855,41 @@ def test_category_product_extractor_does_not_use_short_generic_prose_as_detail()
 
     assert product.code == "FB-1235"
     assert product.description == ""
+
+def test_category_product_extractor_preserves_empty_peso_unitario_from_authoritative_card_detail():
+    html = """
+    <article>
+        <p class="brxe-a26f34">FB-1903</p>
+        <h2 class="brxe-f31760">Cortadora de papel A4</h2>
+        <div class="text-content">
+            <p><strong>Color:</strong> Blanco, Negro, Rosado.</p>
+            <p><strong>Material:</strong> Plástico.</p>
+            <p><strong>Dimensiones:</strong> 38*15*2cm.</p>
+            <p><strong>Peso Unitario:</strong></p>
+            <p><strong>Uso Recomendado:</strong> Cortar papeles.</p>
+            <p><strong>Empaque Individual:</strong> Embalaje estándar.</p>
+            <p><strong>Cantidad Por Caja:</strong> 50 Pza.</p>
+            <p><strong>Dimensiones Caja:</strong> 60*41*43cm.</p>
+            <p><strong>Cubicaje por Caja:</strong> 0.105780 m³/CBM.</p>
+            <p><strong>Peso neto por caja:</strong> 18 Kg.</p>
+            <p><strong>Peso bruto por caja:</strong> 19 Kg.</p>
+        </div>
+    </article>
+    """
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.code == "FB-1903"
+    assert product.description.splitlines() == [
+        "Material: Plástico.",
+        "Dimensiones: 38*15*2cm.",
+        "Peso Unitario:",
+        "Uso Recomendado: Cortar papeles.",
+        "Empaque Individual: Embalaje estándar.",
+        "Cantidad Por Caja: 50 Pza.",
+        "Dimensiones Caja: 60*41*43cm.",
+        "Cubicaje por Caja: 0.105780 m³/CBM.",
+        "Peso neto por caja: 18 Kg.",
+        "Peso bruto por caja: 19 Kg.",
+    ]
+    assert "Color:" not in product.description
+

@@ -314,7 +314,7 @@ def test_detail_cleanup_strips_share_ui_before_removing_a_truncated_final_dimens
     ]
 
 
-def test_detail_cleanup_omits_empty_intermediate_and_terminal_labels():
+def test_detail_cleanup_preserves_empty_intermediate_and_terminal_labels():
     source = (
         "Gramaje: 90 g.\n"
         "Medida: A4.\n"
@@ -327,9 +327,37 @@ def test_detail_cleanup_omits_empty_intermediate_and_terminal_labels():
     assert clean_extracted_detail_text(source).splitlines() == [
         "Gramaje: 90 g.",
         "Medida: A4.",
+        "Caja:",
         "Paquete: 20 hojas.",
+        "Peso neto por caja:",
+        "Peso bruto por caja:",
     ]
-    assert clean_extracted_detail_text("Caja:") == ""
+    assert clean_extracted_detail_text("Caja:") == "Caja:"
+
+
+def test_detail_cleanup_preserves_empty_peso_unitario_and_excludes_color():
+    source = (
+        "Color: Blanco, Negro, Rosado.\n"
+        "Material: Plástico.\n"
+        "Dimensiones: 38*15*2cm.\n"
+        "Peso Unitario:\n"
+        "Uso Recomendado: Cortar papeles.\n"
+        "Empaque Individual: Embalaje estándar."
+    )
+
+    cleaned = clean_extracted_detail_text(source, restore_literal_colons=False)
+
+    assert cleaned.splitlines() == [
+        "Material: Plástico.",
+        "Dimensiones: 38*15*2cm.",
+        "Peso Unitario:",
+        "Uso Recomendado: Cortar papeles.",
+        "Empaque Individual: Embalaje estándar.",
+    ]
+    assert is_complete_detail(cleaned)
+    assert is_valid_detail_content(cleaned)
+    assert not is_complete_detail("Peso Unitario:")
+    assert not is_valid_detail_content("Peso Unitario:")
 
 
 def test_detail_cleanup_separates_adjacent_empty_field_labels():
@@ -340,19 +368,23 @@ def test_detail_cleanup_separates_adjacent_empty_field_labels():
 
     assert clean_extracted_detail_text(source).splitlines() == [
         "Material: Aluminio sublimable.",
+        "Dimensiones:",
         "Peso Unitario: 117 G.",
         "Uso Recomendado: Conservar la temperatura de bebidas frías o calientes.",
     ]
     assert clean_extracted_detail_text("Empaque Individual: Cantidad Por Caja: 24 Pza.") == (
-        "Cantidad Por Caja: 24 Pza."
+        "Empaque Individual:\nCantidad Por Caja: 24 Pza."
     )
 
-def test_detail_cleanup_removes_empty_suffix_from_flattened_photo_paper_fields():
+def test_detail_cleanup_preserves_empty_suffix_from_flattened_photo_paper_fields():
     source = "Gramaje: 90 g. Medida: A4. Paquete: 20 hojas. Caja:"
 
-    assert clean_extracted_detail_text(source) == (
-        "Gramaje: 90 g. Medida: A4. Paquete: 20 hojas."
-    )
+    assert clean_extracted_detail_text(source).splitlines() == [
+        "Gramaje: 90 g.",
+        "Medida: A4.",
+        "Paquete: 20 hojas.",
+        "Caja:",
+    ]
 
 
 def test_detail_policy_recognizes_laminator_and_printer_specific_labels():

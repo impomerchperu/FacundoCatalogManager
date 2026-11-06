@@ -282,25 +282,14 @@ def remove_incomplete_trailing_dimension_field(value: object) -> str:
     return prefix if prefix else text
 
 
-# These source logistics labels may legitimately have no supplied value. Keep
-# the labels in the saved Detail, but omit a chain of empty terminal labels only
-# while validating completeness. Other terminal labels still signal truncation.
-_EMPTY_TRAILING_DETAIL_FIELD_PATTERN = re.compile(
-    r"(?:[.;]\s*)?\b(?:"
-    r"dimensiones\s+(?:de\s+)?(?:la\s+)?caja(?:\s+m[aá]ster)?|"
-    r"cubicaje(?:\s+por\s+caja)?|"
-    r"peso\s+(?:neto|bruto)(?:\s+(?:por\s+caja|/\s*caja))?|"
-    r"caja"
-    r")\s*:\s*$",
-    re.IGNORECASE,
-)
-
-
+# Empty labels from identified source fields remain in the stored Detail.
+# During validation only, ignore terminal empty labels so they neither make an
+# otherwise complete Detail look truncated nor qualify as Detail by themselves.
 def _strip_allowed_empty_trailing_detail_fields(value: object) -> str:
-    """Remove whitelisted empty terminal shipping labels for validation only."""
+    """Ignore terminal empty source-field labels during validation only."""
     text = str(value or "").rstrip()
     while text:
-        match = _EMPTY_TRAILING_DETAIL_FIELD_PATTERN.search(text)
+        match = _EMPTY_DETAIL_FIELD_AT_END_PATTERN.search(text)
         if match is None:
             break
         prefix = text[: match.start()].rstrip(" .;\t\r\n")
@@ -555,8 +544,10 @@ _DETAIL_FIELD_LABEL_START_PATTERN = re.compile(
     r"^\s*(?:" + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern + r")",
     re.IGNORECASE,
 )
+# A recognized empty field may follow another field with only whitespace,
+# punctuation, or a source line boundary between them.
 _EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
-    r"(?:^|[.;]\s*)(?:"
+    r"(?:^|[.;]\s*|\s+)(?:"
     + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern
     + r")\s*$",
     re.IGNORECASE,
@@ -638,13 +629,12 @@ def clean_extracted_detail_text(
     *,
     restore_literal_colons: bool = True,
 ) -> str:
-    """Prepare extracted Detail for storage without empty labels or lost split values.
+    """Prepare extracted Detail without losing genuine source labels.
 
-    The raw normalizer intentionally keeps empty labels available to the repair
-    audit so it can distinguish an explicitly identified empty field from a
-    missing field. This output-only step removes labels with no value and joins
-    a label-only paragraph to its following value paragraph when the HTML splits
-    them (commonly around <strong>/<b> markup).
+    Preserve identified empty labels in the stored text. Validation separately
+    ignores terminal empty labels, while this step joins a label-only paragraph
+    to its following value paragraph when the HTML splits them (commonly around
+    <strong>/<b> markup).
     """
     normalized = normalize_detail_text(value, preserve_boundaries=True)
     # Some Bricks templates append the social-sharing label to the same
@@ -674,22 +664,11 @@ def clean_extracted_detail_text(
                     cleaned.append(f"{label}: {next_line}")
                     index += 2
                     continue
-            # Empty fields and structural labels without a value are omitted.
+            # Keep a genuine empty source field as its own line, including when
+            # another labeled field follows or the empty field is terminal.
+            cleaned.append(line)
             index += 1
             continue
-
-        # A trailing empty field may share a paragraph with populated fields:
-        # "Medida: A4. Paquete: 20. Caja:". Remove only the empty suffix.
-        while line:
-            match = _EMPTY_DETAIL_FIELD_AT_END_PATTERN.search(line)
-            if match is None:
-                break
-            separator = (
-                match.group(0)[0]
-                if match.group(0) and match.group(0)[0] in ".;"
-                else ""
-            )
-            line = line[: match.start()].rstrip(" .;") + separator
 
         if (
             cleaned

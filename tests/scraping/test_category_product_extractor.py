@@ -855,6 +855,7 @@ def test_category_product_extractor_does_not_use_short_generic_prose_as_detail()
     assert product.code == "FB-1235"
     assert product.description == ""
 
+
 def test_extractor_preserves_empty_peso_unitario_from_card_detail():
     html = """
     <article>
@@ -864,6 +865,7 @@ def test_extractor_preserves_empty_peso_unitario_from_card_detail():
             <p><strong>Color:</strong> Blanco, Negro, Rosado.</p>
             <p><strong>Material:</strong> Plástico.</p>
             <p><strong>Dimensiones:</strong> 38*15*2cm.</p>
+            <!-- Genuine source label; the supplier has not provided its value. -->
             <p><strong>Peso Unitario:</strong></p>
             <p><strong>Uso Recomendado:</strong> Cortar papeles.</p>
             <p><strong>Empaque Individual:</strong> Embalaje estándar.</p>

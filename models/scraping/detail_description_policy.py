@@ -710,10 +710,10 @@ _DETAIL_HTML_STYLE_VALUES = {
 }
 
 
-def _detail_html_alignment(element: object) -> str:
+def _detail_html_alignment(element: Tag) -> str:
     """Find the nearest source paragraph alignment, including inherited wrappers."""
-    node = element
-    while node is not None and getattr(node, "attrs", None) is not None:
+    node: Tag | None = element
+    while node is not None:
         style = str(node.get("style", "") or "")
         for declaration in style.split(";"):
             name, separator, value = declaration.partition(":")
@@ -724,7 +724,8 @@ def _detail_html_alignment(element: object) -> str:
         alignment = str(node.get("align", "") or "").strip().casefold()
         if alignment in _DETAIL_HTML_STYLE_VALUES["text-align"]:
             return alignment
-        node = getattr(node, "parent", None)
+        parent = node.parent
+        node = parent if isinstance(parent, Tag) else None
     return ""
 
 
@@ -790,7 +791,7 @@ def _is_detail_html_ui_node(tag: Tag) -> bool:
     """Identify interface elements excluded from the source Detail field."""
     classes = {
         str(value).strip().casefold()
-        for value in (tag.get("class", []) or [])
+        for value in tag.get_attribute_list("class")
     }
     node_id = str(tag.get("id", "") or "").strip().casefold()
     return (

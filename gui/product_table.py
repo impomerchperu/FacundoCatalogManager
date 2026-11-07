@@ -1395,6 +1395,8 @@ class ProductTable(QTableWidget):
         "uso recomendado": "Uso Recomendado",
         "empaque individual": "Empaque Individual",
         "cantidad por caja": "Cantidad por Caja",
+        "dimensiones de caja": "Dimensiones de caja",
+        "dimensiones de la caja": "Dimensiones de la caja",
         "dimensiones caja": "Dimensiones Caja",
         "cubicaje por caja": "Cubicaje por Caja",
         "ancho de entrada": "Ancho de entrada",

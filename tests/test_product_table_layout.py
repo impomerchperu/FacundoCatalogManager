@@ -3236,7 +3236,7 @@ def test_fb1504_table_uses_verified_rich_detail_without_rewriting_source_paragra
         "Marca: Bright Office\n"
         "Modelo: 230\n"
         "Material: Cuerpo metálico con base antideslizante.\n"
-        "Dimensiones del producto: 410 × 208 × 275 mm"
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7 275 mm"
     )
     rich_html = (
         '<p style="text-align: left"><strong>Marca:</strong> Bright Office</p>'
@@ -3244,7 +3244,7 @@ def test_fb1504_table_uses_verified_rich_detail_without_rewriting_source_paragra
         '<p style="text-align: right"><strong>Material:</strong> '
         "Cuerpo metálico con base antideslizante.</p>"
         '<p style="text-align: left"><strong>Dimensiones del producto:</strong> '
-        "410 × 208 × 275 mm</p>"
+        "410 \u00d7 208 \u00d7 275 mm</p>"
     )
     table = ProductTable(_Controller())
     table.resize(1500, 700)

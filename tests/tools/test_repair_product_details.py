@@ -1613,16 +1613,16 @@ def test_repair_preserves_fb1504_full_detail_field_and_published_truncation():
           <li><strong>Modelo:</strong> 230</li>
           <li><strong>Material:</strong> Cuerpo metálico con base antideslizante y rodillos de alta precisión</li>
           <li><strong>Color:</strong> Blanco con detalles negros</li>
-          <li><strong>Voltaje y Frecuencia:</strong> AC 220–240V / 50–60Hz</li>
+          <li><strong>Voltaje y Frecuencia:</strong> AC 220\u2013240V / 50\u201360Hz</li>
           <li><strong>Potencia:</strong> 420W</li>
-          <li><strong>Tiempo de precalentamiento:</strong> 3–5 minutos</li>
-          <li style="text-align: center"><strong>Temperatura de trabajo:</strong> 80–180 °C</li>
+          <li><strong>Tiempo de precalentamiento:</strong> 3\u20135 minutos</li>
+          <li style="text-align: center"><strong>Temperatura de trabajo:</strong> 80\u2013180 °C</li>
           <li><strong>Sistema de calentamiento:</strong> Tubo de cuarzo (Quartz electric heating tube)</li>
           <li><strong>Cantidad de rodillos:</strong> 4</li>
           <li><strong>Ancho máximo de enmicado:</strong> 240 mm (tamaño A4)</li>
           <li><strong>Espesor máximo de lámina:</strong> 1 mm</li>
           <li><strong>Velocidad de laminado:</strong> 0.5 m/min</li>
-          <li><strong>Dimensiones del producto:</strong> 410 × 208 ×</li>
+          <li><strong>Dimensiones del producto:</strong> 410 \u00d7 208 \u00d7</li>
         </ul>
         <div id="brxe-miyybm">COMPARTIR:</div>
       </div>
@@ -1651,16 +1651,16 @@ def test_repair_preserves_fb1504_full_detail_field_and_published_truncation():
             "Marca: Bright Office",
             "Modelo: 230",
             "Material: Cuerpo metálico con base antideslizante y rodillos de alta precisión",
-            "Voltaje y Frecuencia: AC 220–240V / 50–60Hz",
+            "Voltaje y Frecuencia: AC 220\u2013240V / 50\u201360Hz",
             "Potencia: 420W",
-            "Tiempo de precalentamiento: 3–5 minutos",
-            "Temperatura de trabajo: 80–180 °C",
+            "Tiempo de precalentamiento: 3\u20135 minutos",
+            "Temperatura de trabajo: 80\u2013180 °C",
             "Sistema de calentamiento: Tubo de cuarzo (Quartz electric heating tube)",
             "Cantidad de rodillos: 4",
             "Ancho máximo de enmicado: 240 mm (tamaño A4)",
             "Espesor máximo de lámina: 1 mm",
             "Velocidad de laminado: 0.5 m/min",
-            "Dimensiones del producto: 410 × 208 ×",
+            "Dimensiones del producto: 410 \u00d7 208 \u00d7",
         ]
         assert "Color:" not in plan.new_description
         assert "COMPARTIR" not in plan.new_description

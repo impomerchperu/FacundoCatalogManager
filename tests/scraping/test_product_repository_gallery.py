@@ -1,5 +1,6 @@
 from database.db_manager import DBManager
 from models.product import Product
+from repositories.product_repository import ProductRepository
 
 
 def test_product_repository_round_trips_gallery_images(repository):

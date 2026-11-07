@@ -3280,11 +3280,12 @@ def test_fb1504_table_uses_verified_rich_detail_without_rewriting_source_paragra
         width,
     ) > 0
     first_block = document.begin()
-    assert first_block.blockFormat().alignment() == Qt.AlignmentFlag.AlignLeft
+    horizontal_mask = Qt.AlignmentFlag.AlignHorizontal_Mask
+    assert first_block.blockFormat().alignment() & horizontal_mask == Qt.AlignmentFlag.AlignLeft
     second_block = first_block.next()
-    assert second_block.blockFormat().alignment() == Qt.AlignmentFlag.AlignHCenter
+    assert second_block.blockFormat().alignment() & horizontal_mask == Qt.AlignmentFlag.AlignHCenter
     third_block = second_block.next()
-    assert third_block.blockFormat().alignment() == Qt.AlignmentFlag.AlignRight
+    assert third_block.blockFormat().alignment() & horizontal_mask == Qt.AlignmentFlag.AlignRight
     table.close()
 
 

@@ -660,14 +660,8 @@ def _plan_from_detail_candidate(
 ) -> DetailRepairPlan:
     """Build a plan from an accepted Detail field without writing the database."""
     old_description = str(product.description or "")
-    normalized_old = normalize_detail_text(
-        old_description,
-        preserve_boundaries=True,
-    )
-    normalized_candidate = normalize_detail_text(
-        candidate,
-        preserve_boundaries=True,
-    )
+    normalized_old = normalize_detail_text(old_description)
+    normalized_candidate = normalize_detail_text(candidate)
     preserved_candidate = normalize_detail_text(
         candidate,
         preserve_boundaries=True,

@@ -3121,7 +3121,7 @@ def test_detail_table_keeps_nested_measure_values_for_ty_p35aw_and_mu511():
     cases = (
         (
             "TY-P35AW",
-            "Medidas: Alto: 15.5 cm, Diámetro (Base): 10 cm (Aprox).",
+            "Medidas: Alto: 15.5 cm, Diámetro (Base): 10 cm (Aprox)",
             ("Alto:", "Diámetro (Base):"),
         ),
         (

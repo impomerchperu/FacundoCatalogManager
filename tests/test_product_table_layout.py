@@ -2681,13 +2681,13 @@ def test_detail_table_preserves_fb1504_published_truncated_dimension_source_text
         name="Enmicadora Metálica A4",
         description=(
             "Marca: Bright Office\n"
-            "Dimensiones del producto: 410 × 208 ×"
+            "Dimensiones del producto: 410 \u00d7 208 \u00d7"
         ),
     )
 
     assert ProductTable._format_detail(product).splitlines() == [
         "Marca: Bright Office",
-        "Dimensiones del producto: 410 × 208 ×",
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7",
     ]
 
 
@@ -3148,7 +3148,7 @@ def test_detail_table_keeps_nested_measure_values_for_ty_p35aw_and_mu511():
         ),
         (
             "SKB05X-1",
-            "Medida y Capacidad: Diámetro: 8,5 cm – 11 onzas (aproximadamente 300 ml)",
+            "Medida y Capacidad: Diámetro: 8,5 cm \u2013 11 onzas (aproximadamente 300 ml)",
             ("Diámetro:",),
         ),
     )

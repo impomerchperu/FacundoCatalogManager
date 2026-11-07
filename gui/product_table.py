@@ -1301,7 +1301,7 @@ class ProductTable(QTableWidget):
         "propiedades": "Propiedades",
         "micras": "Micras",
         "medidas del estuche": "Medidas del Estuche",
-        "medida y capacidad": "Medida y capacidad",
+        "medida y capacidad": "Medida y Capacidad",
         "medida de impresión": "Medida de impresión",
         "medida de impresion": "Medida de impresión",
         "calidad": "Calidad",

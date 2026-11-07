@@ -761,144 +761,178 @@ def _detail_source_text_key(value: object) -> str:
     return "\n".join(line for line in lines if line)
 
 
+def _detail_html_candidates(element: object) -> list[Tag]:
+    """Expand a selected Detail source element into its top-level paragraphs."""
+    parsed = BeautifulSoup(str(element), "lxml")
+    body = parsed.body
+    candidates = (
+        [child for child in body.contents if isinstance(child, Tag)]
+        if body is not None
+        else [child for child in parsed.contents if isinstance(child, Tag)]
+    )
+    structural_tags = ["li", "p", "h1", "h2", "h3", "h4", "h5", "h6"]
+    roots: list[Tag] = []
+    for candidate in candidates:
+        if candidate.name in structural_tags:
+            roots.append(candidate)
+            continue
+        blocks = candidate.find_all(structural_tags)
+        top_level = [
+            block
+            for block in blocks
+            if block.find_parent(structural_tags) is None
+        ]
+        roots.extend(top_level or [candidate])
+    return roots
+
+
+def _is_detail_html_ui_node(tag: Tag) -> bool:
+    """Identify interface elements excluded from the source Detail field."""
+    classes = {
+        str(value).strip().casefold()
+        for value in (tag.get("class", []) or [])
+    }
+    node_id = str(tag.get("id", "") or "").strip().casefold()
+    return (
+        tag.name in _DETAIL_HTML_REMOVED_TAGS
+        or node_id.startswith(("share", "social", "brxe-miyybm"))
+        or any("share" in item or "social" in item for item in classes)
+    )
+
+
+def _clean_detail_html_root(root: Tag, inherited_alignment: str) -> bool:
+    """Sanitize one candidate paragraph while retaining safe source formatting."""
+    for child in list(root.find_all(True)):
+        if _is_detail_html_ui_node(child):
+            child.decompose()
+            continue
+        if child.name not in _DETAIL_HTML_ALLOWED_TAGS:
+            child.unwrap()
+            continue
+        _sanitize_detail_html_tag(child)
+
+    if _is_detail_html_ui_node(root):
+        return False
+    if root.name not in _DETAIL_HTML_ALLOWED_TAGS:
+        return False
+
+    _sanitize_detail_html_tag(root)
+    style = str(root.get("style", "") or "")
+    if inherited_alignment and "text-align:" not in style:
+        root["style"] = (f"{style}; " if style else "") + f"text-align: {inherited_alignment}"
+
+    for text_node in list(root.find_all(string=True)):
+        cleaned = re.sub(r"[•▪●‣◦]+", " ", str(text_node))
+        cleaned = re.sub(
+            r"(?:^|[\s\u241e])(?:compartir|share)\s*(?::|\uE001).*$",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        )
+        if cleaned != str(text_node):
+            text_node.replace_with(NavigableString(cleaned))
+
+    raw_text = restore_literal_detail_colons(extract_detail_text_from_element(root))
+    if not raw_text.strip() or re.match(
+        r"^\s*(?:compartir|share)\s*:?\s*$",
+        raw_text,
+        re.IGNORECASE,
+    ):
+        return False
+
+    # Remove a standalone Color field only. Combined product attributes remain
+    # intact and the canonical-text check below decides whether HTML is usable.
+    color_label = _COLOR_FIELD_PATTERN.match(raw_text)
+    return not (
+        color_label is not None
+        and not re.search(
+            r"\s+[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:",
+            raw_text[color_label.end():],
+        )
+    )
+
+
+def _extract_detail_html_roots(elements) -> list[Tag]:
+    """Build sanitized top-level blocks and retain inherited paragraph alignment."""
+    roots: list[Tag] = []
+    for element in list(elements or []):
+        alignment = _detail_html_alignment(element)
+        for root in _detail_html_candidates(element):
+            if _clean_detail_html_root(root, alignment):
+                roots.append(root)
+    return roots
+
+
+def _merge_detail_html_empty_labels(roots: list[Tag]) -> list[Tag] | None:
+    """Join label-only paragraphs to their values without changing alignment."""
+    index = 0
+    while index < len(roots):
+        current = roots[index]
+        current_text = restore_literal_detail_colons(
+            extract_detail_text_from_element(current)
+        )
+        normalized_current = normalize_detail_text(current_text)
+        if not is_empty_detail_field_fragment(normalized_current):
+            index += 1
+            continue
+
+        label = normalized_current.removesuffix(":").strip()
+        next_index = index + 1
+        if next_index >= len(roots):
+            roots.pop(index)
+            continue
+
+        following = roots[next_index]
+        following_text = restore_literal_detail_colons(
+            extract_detail_text_from_element(following)
+        )
+        following_normalized = normalize_detail_text(following_text)
+        following_is_field = bool(
+            _DETAIL_FIELD_LABEL_START_PATTERN.match(following_normalized)
+        )
+        if (
+            following_is_field
+            and not _is_grouping_detail_child(label, following_normalized)
+        ):
+            roots.pop(index)
+            continue
+
+        current_alignment = _detail_html_alignment(current) or "left"
+        following_alignment = _detail_html_alignment(following) or "left"
+        if current_alignment != following_alignment:
+            # One HTML paragraph cannot faithfully represent two alignments.
+            return None
+
+        current.append(NavigableString(" "))
+        for child in list(following.contents):
+            current.append(child.extract())
+        following.decompose()
+        roots.pop(next_index)
+    return roots
+
+
 def extract_detail_html_from_elements(elements, expected_text: object) -> str:
     """Return safe rich markup only when it represents the exact saved Detail."""
     expected_key = _detail_source_text_key(expected_text)
     if not expected_key:
         return ""
 
-    roots: list[Tag] = []
-    for element in list(elements or []):
-        inherited_alignment = _detail_html_alignment(element)
-        parsed = BeautifulSoup(str(element), "lxml")
-        body = parsed.body
-        candidates = (
-            [child for child in body.contents if isinstance(child, Tag)]
-            if body is not None
-            else [child for child in parsed.contents if isinstance(child, Tag)]
-        )
-        expanded_candidates: list[Tag] = []
-        structural_tags = ["li", "p", "h1", "h2", "h3", "h4", "h5", "h6"]
-        for candidate in candidates:
-            if candidate.name in structural_tags:
-                expanded_candidates.append(candidate)
-                continue
-            blocks = candidate.find_all(structural_tags)
-            top_level_blocks = [
-                block
-                for block in blocks
-                if block.find_parent(structural_tags) is None
-            ]
-            if top_level_blocks:
-                expanded_candidates.extend(top_level_blocks)
-            else:
-                expanded_candidates.append(candidate)
-
-        for root in expanded_candidates:
-            for child in list(root.find_all(True)):
-                classes = {str(value).strip().casefold() for value in (child.get("class", []) or [])}
-                node_id = str(child.get("id", "") or "").strip().casefold()
-                if (
-                    child.name in _DETAIL_HTML_REMOVED_TAGS
-                    or node_id.startswith(("share", "social", "brxe-miyybm"))
-                    or any("share" in item or "social" in item for item in classes)
-                ):
-                    child.decompose()
-                    continue
-                if child.name not in _DETAIL_HTML_ALLOWED_TAGS:
-                    child.unwrap()
-                    continue
-                _sanitize_detail_html_tag(child)
-
-            root_classes = {str(value).strip().casefold() for value in (root.get("class", []) or [])}
-            root_id = str(root.get("id", "") or "").strip().casefold()
-            if (
-                root.name in _DETAIL_HTML_REMOVED_TAGS
-                or root_id.startswith(("share", "social", "brxe-miyybm"))
-                or any("share" in item or "social" in item for item in root_classes)
-            ):
-                continue
-            if root.name not in _DETAIL_HTML_ALLOWED_TAGS:
-                continue
-            _sanitize_detail_html_tag(root)
-            if inherited_alignment:
-                style = str(root.get("style", "") or "")
-                if "text-align:" not in style:
-                    root["style"] = (f"{style}; " if style else "") + f"text-align: {inherited_alignment}"
-
-            for text_node in list(root.find_all(string=True)):
-                cleaned = re.sub(r"[•▪●‣◦]+", " ", str(text_node))
-                cleaned = re.sub(
-                    r"(?:^|[\s\u241e])(?:compartir|share)\s*(?::|\uE001).*$",
-                    "",
-                    cleaned,
-                    flags=re.IGNORECASE,
-                )
-                if cleaned != str(text_node):
-                    text_node.replace_with(NavigableString(cleaned))
-            raw_text = restore_literal_detail_colons(extract_detail_text_from_element(root))
-            if not raw_text.strip() or re.match(
-                r"^\s*(?:compartir|share)\s*:?\s*$",
-                raw_text,
-                re.I,
-            ):
-                continue
-            # The existing Detail policy removes a standalone Color field.
-            # Drop only a block containing that field alone; do not discard
-            # neighboring attributes if a supplier combines several in one p.
-            color_label = _COLOR_FIELD_PATTERN.match(raw_text)
-            if color_label is not None and not re.search(
-                r"\s+[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:",
-                raw_text[color_label.end():],
-            ):
-                continue
-            roots.append(root)
-
-    # Merge bold label-only paragraphs with the immediately following value paragraph.
-    index = 0
-    while index < len(roots):
-        current = roots[index]
-        current_text = restore_literal_detail_colons(extract_detail_text_from_element(current))
-        normalized_current = normalize_detail_text(current_text)
-        if not is_empty_detail_field_fragment(normalized_current):
-            index += 1
-            continue
-        label = normalized_current.removesuffix(":").strip()
-        next_index = index + 1
-        if next_index >= len(roots):
-            roots.pop(index)
-            continue
-        following = roots[next_index]
-        following_text = restore_literal_detail_colons(extract_detail_text_from_element(following))
-        following_normalized = normalize_detail_text(following_text)
-        following_is_field = bool(_DETAIL_FIELD_LABEL_START_PATTERN.match(following_normalized))
-        if following_is_field and not _is_grouping_detail_child(label, following_normalized):
-            roots.pop(index)
-            continue
-        current_alignment = _detail_html_alignment(current) or "left"
-        following_alignment = _detail_html_alignment(following) or "left"
-        if current_alignment != following_alignment:
-            # The plain-text policy joins these source paragraphs, but a single
-            # HTML paragraph cannot represent two different source alignments.
-            # Fail closed to the plain renderer instead of silently changing one.
-            return ""
-        current.append(NavigableString(" "))
-        for child in list(following.contents):
-            current.append(child.extract())
-        following.decompose()
-        roots.pop(next_index)
+    roots = _extract_detail_html_roots(elements)
+    if not roots:
+        return ""
+    merged_roots = _merge_detail_html_empty_labels(roots)
+    if not merged_roots:
+        return ""
 
     raw_parts = [
         restore_literal_detail_colons(extract_detail_text_from_element(root))
-        for root in roots
+        for root in merged_roots
     ]
-    if _detail_source_text_key(" ␞ ".join(raw_parts)) != expected_key or not roots:
+    if _detail_source_text_key(" ␞ ".join(raw_parts)) != expected_key:
         return ""
-    if all(root.name == "li" for root in roots):
-        return "<ul>" + "".join(str(root) for root in roots) + "</ul>"
-    if all(root.name == "p" for root in roots):
-        return "".join(str(root) for root in roots)
-    return "".join(str(root) for root in roots)
+    if all(root.name == "li" for root in merged_roots):
+        return "<ul>" + "".join(str(root) for root in merged_roots) + "</ul>"
+    return "".join(str(root) for root in merged_roots)
 
 
 def detail_html_matches_text(fragment: object, expected_text: object) -> bool:

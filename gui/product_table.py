@@ -2814,6 +2814,21 @@ class ProductTable(QTableWidget):
 
         return lines
 
+    @staticmethod
+    def _is_nested_packaging_value_label(
+        match: re.Match[str],
+        *,
+        inside_packaging_value: bool,
+        packaging_value_start: int,
+    ) -> bool:
+        """Keep unpunctuated package and box sublabels inside Empaque values."""
+        if not inside_packaging_value:
+            return False
+        if match.group(1).strip().casefold() not in {"caja", "paquete"}:
+            return False
+        prefix = match.string[packaging_value_start : match.start()].rstrip()
+        return re.search(r"[.;|]\\s*$", prefix) is None
+
     @classmethod
     def _select_detail_field_matches(
         cls,
@@ -2850,12 +2865,12 @@ class ProductTable(QTableWidget):
                 packaging_value_start = match.end()
                 selected.append(match)
                 continue
-            if inside_packaging_value and alias in {"caja", "paquete"}:
-                packaging_prefix = match.string[
-                    packaging_value_start : match.start()
-                ].rstrip()
-                if not re.search(r"[.;|]\s*$", packaging_prefix):
-                    continue
+            if cls._is_nested_packaging_value_label(
+                match,
+                inside_packaging_value=inside_packaging_value,
+                packaging_value_start=packaging_value_start,
+            ):
+                continue
             inside_packaging_value = False
             if alias in {
                 "descripción",

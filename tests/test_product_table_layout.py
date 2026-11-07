@@ -3097,9 +3097,9 @@ def test_detail_table_keeps_fb3019_visible_product_fields_in_separate_paragraphs
     assert lines[2] == "Peso Unitario: 20.3 kg"
     assert lines[3] == "Uso Recomendado: Estampado en camisetas"
     assert lines[4] == "Empaque Individual: Esponja + caja de cartón"
-    assert lines[5] == "Cantidad por caja: 1 pza"
+    assert lines[5] == "Cantidad por Caja: 1 pza"
     assert lines[6] == "Dimensiones de caja: 60 \u00d7 47.5 \u00d7 44 cm"
-    assert lines[7] == "Cubicaje por caja: 0.1254 m\u00b3/CBM"
+    assert lines[7] == "Cubicaje por Caja: 0.1254 m\u00b3/CBM"
     assert lines[8] == "Peso neto por caja: 20.3 kg"
     assert lines[9] == "Peso bruto por caja: 23.6 kg"
 

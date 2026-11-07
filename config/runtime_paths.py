@@ -42,6 +42,10 @@ def get_data_dir(
     if frozen is None:
         frozen = is_frozen()
 
+    data_dir_override = os.environ.get("FCM_DATA_DIR")
+    if data_dir_override:
+        return Path(data_dir_override).expanduser()
+
     if not frozen:
         return PROJECT_ROOT
 

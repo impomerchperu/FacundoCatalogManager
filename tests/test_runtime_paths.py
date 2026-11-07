@@ -11,8 +11,14 @@ from config.runtime_paths import (
 )
 
 
-def test_non_frozen_data_dir_is_project_root():
+def test_non_frozen_data_dir_is_project_root(monkeypatch):
+    monkeypatch.delenv("FCM_DATA_DIR", raising=False)
     assert get_data_dir(frozen=False) == PROJECT_ROOT
+
+
+def test_data_dir_uses_isolated_environment_override(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("FCM_DATA_DIR", str(tmp_path))
+    assert get_data_dir(frozen=False) == tmp_path
 
 
 def test_frozen_data_dir_uses_local_app_data(tmp_path: Path):

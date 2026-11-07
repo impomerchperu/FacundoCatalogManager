@@ -2827,7 +2827,7 @@ class ProductTable(QTableWidget):
         if match.group(1).strip().casefold() not in {"caja", "paquete"}:
             return False
         prefix = match.string[packaging_value_start : match.start()].rstrip()
-        return re.search(r"[.;|]\\s*$", prefix) is None
+        return re.search(r"[.;|]\s*$", prefix) is None
 
     @classmethod
     def _select_detail_field_matches(

@@ -1056,7 +1056,8 @@ class ProductDetailDelegate(ProductCellDelegate):
         """Avoid bolding value fragments nested under a visible source label."""
         normalized_label = " ".join(label.split()).casefold()
         measure_parent = re.match(
-            r"^\s*(?:medidas?|dimensiones(?:\s+del\s+producto)?|"
+            r"^\s*(?:medidas?|medida\s+(?:y\s+)?capacidad|"
+            r"dimensiones(?:\s+del\s+producto)?|"
             r"medidas?\s+(?:del?\s+)?(?:estuche|producto|mochila|cartera|"
             r"cartuchera|caja))\s*:",
             prefix,
@@ -1300,7 +1301,7 @@ class ProductTable(QTableWidget):
         "propiedades": "Propiedades",
         "micras": "Micras",
         "medidas del estuche": "Medidas del Estuche",
-        "medida y capacidad": "Medida y capacidad",
+        "medida y capacidad": "Medida y Capacidad",
         "medida de impresión": "Medida de impresión",
         "medida de impresion": "Medida de impresión",
         "calidad": "Calidad",
@@ -1520,6 +1521,8 @@ class ProductTable(QTableWidget):
         "cartuchera",
     })
     DETAIL_PARENT_MEASURE_LABELS: ClassVar[frozenset[str]] = frozenset({
+        "medida y capacidad",
+        "medida capacidad",
         "medidas del estuche",
         "medidas estuche",
         "medidas de estuche",

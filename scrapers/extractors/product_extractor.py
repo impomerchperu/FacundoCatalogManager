@@ -10,7 +10,6 @@ from models.scraping.detail_description_policy import (
     is_complete_detail,
     is_valid_detail_content,
     normalize_detail_text,
-    remove_incomplete_trailing_dimension_field,
     restore_literal_detail_colons,
 )
 from scrapers.extractors.code_utils import extract_code_from_soup, normalize_code
@@ -617,7 +616,6 @@ class ProductExtractor:
         )
         if not preserve_boundaries:
             detail = normalize_detail_text(detail)
-        detail = remove_incomplete_trailing_dimension_field(detail)
         return True, restore_literal_detail_colons(detail)
 
     def extract_detail_text(self, soup) -> str:

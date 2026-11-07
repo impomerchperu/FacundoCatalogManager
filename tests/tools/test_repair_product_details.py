@@ -1001,13 +1001,15 @@ def test_targeted_detail_repair_rejects_incomplete_extracted_detail():
         db.close()
 
 
-def test_targeted_detail_repair_removes_incomplete_trailing_dimension_field():
+def test_targeted_detail_repair_preserves_published_incomplete_trailing_dimension():
     detail = (
         "Marca: Bright Office\n"
         "Modelo: 230\n"
         "Dimensiones del producto: 410 \u00d7 208 \u00d7"
     )
-    db, repository = _seed_catalog(description=detail)
+    db, repository = _seed_catalog(
+        description="Marca: Bright Office\nModelo: 230"
+    )
     html = """
     <html><body>
       <p class="brxe-heading">FB-1700</p>
@@ -1029,15 +1031,13 @@ def test_targeted_detail_repair_removes_incomplete_trailing_dimension_field():
             browser=browser,
         )
 
-        expected = "Marca: Bright Office\nModelo: 230"
         assert plans[0].status == "would_update"
-        assert plans[0].new_description == expected
-        assert "Dimensiones del producto" not in plans[0].new_description
+        assert plans[0].new_description == detail
         assert apply_detail_repairs(db, repository, plans) == 1
 
         stored = repository.get_by_code("FB-1700")
         assert stored is not None
-        assert stored.description == expected
+        assert stored.description == detail
     finally:
         db.close()
 
@@ -1598,7 +1598,7 @@ def test_repair_strips_share_ui_before_validating_fb3019_detail():
         db.close()
 
 
-def test_repair_drops_only_fb1504_truncated_dimension_after_share_ui():
+def test_repair_preserves_fb1504_published_dimension_after_share_ui():
     db, repository = _seed_catalog(
         code="FB-1504",
         description="Detalle comercial antiguo",
@@ -1638,7 +1638,9 @@ def test_repair_drops_only_fb1504_truncated_dimension_after_share_ui():
             plans[0].new_description
         )
         assert "Potencia: 420 W." in plans[0].new_description
-        assert "Dimensiones del producto:" not in plans[0].new_description
+        assert "Dimensiones del producto: 410 \u00d7 208 \u00d7" in (
+            plans[0].new_description
+        )
         assert "COMPARTIR" not in plans[0].new_description
         assert "Esta pestaña" not in plans[0].new_description
         assert browser.requested_urls == [PRODUCT_URL]

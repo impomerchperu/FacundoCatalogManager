@@ -888,43 +888,6 @@ def extract_detail_html_from_elements(elements, expected_text: object) -> str:
         following.decompose()
         roots.pop(next_index)
 
-    # Join generic numeric continuations when the previous paragraph ends with
-    # a multiplication separator. This is source-structure recovery, not a
-    # dimension-specific completion rule: no missing value is ever invented.
-    index = 1
-    while index < len(roots):
-        previous = roots[index - 1]
-        current = roots[index]
-        previous_text = restore_literal_detail_colons(
-            extract_detail_text_from_element(previous)
-        )
-        current_text = restore_literal_detail_colons(
-            extract_detail_text_from_element(current)
-        )
-        if (
-            re.search(r"[x\u00d7*]\s*$", previous_text)
-            and re.match(r"^\s*\d", current_text)
-        ):
-            previous_style = str(previous.get("style", "") or "")
-            current_style = str(current.get("style", "") or "")
-            previous_align = re.search(r"text-align:\s*([^;]+)", previous_style, re.I)
-            current_align = re.search(r"text-align:\s*([^;]+)", current_style, re.I)
-            if (
-                previous_align is not None
-                and current_align is not None
-                and previous_align.group(1).strip().casefold()
-                != current_align.group(1).strip().casefold()
-            ):
-                index += 1
-                continue
-            previous.append(NavigableString(" "))
-            for child in list(current.contents):
-                previous.append(child.extract())
-            current.decompose()
-            roots.pop(index)
-            continue
-        index += 1
-
     raw_parts = [
         restore_literal_detail_colons(extract_detail_text_from_element(root))
         for root in roots

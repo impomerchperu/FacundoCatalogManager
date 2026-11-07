@@ -841,12 +841,23 @@ class CatalogSyncService:
             getattr(product, "description", ""),
             preserve_boundaries=True,
         )
+        current_html = str(getattr(existing, "description_html", "") or "")
+        candidate_html = str(getattr(product, "description_html", "") or "")
         existing.description = current_description
         product.description = candidate_description
         if cls._description_is_complete(candidate_description):
             # A complete Detail from the current scrape can refresh an older
             # complete value as well as repair an incomplete one.
             existing.description = candidate_description
+            existing.description_html = (
+                candidate_html
+                if detail_html_matches_text(candidate_html, candidate_description)
+                else (
+                    current_html
+                    if detail_html_matches_text(current_html, candidate_description)
+                    else ""
+                )
+            )
         elif (
             not current_description
             and candidate_description
@@ -854,6 +865,17 @@ class CatalogSyncService:
         ):
             # Retain a technical excerpt only when no prior Detail exists.
             existing.description = candidate_description
+            existing.description_html = (
+                candidate_html
+                if detail_html_matches_text(candidate_html, candidate_description)
+                else ""
+            )
+        else:
+            existing.description_html = (
+                current_html
+                if detail_html_matches_text(current_html, current_description)
+                else ""
+            )
 
         price_fields = (
             "price",

@@ -912,6 +912,45 @@ def _merge_detail_html_empty_labels(roots: list[Tag]) -> list[Tag] | None:
     return roots
 
 
+def _detail_html_has_meaningful_style(tag: Tag) -> bool:
+    """Return whether sanitized inline styles change the default cell appearance."""
+    for declaration in str(tag.get("style", "") or "").split(";"):
+        name, separator, value = declaration.partition(":")
+        if not separator:
+            continue
+        key = name.strip().casefold()
+        normalized = value.strip().casefold()
+        if key == "text-align" and normalized not in {"left", "start"}:
+            return True
+        if key == "font-weight" and normalized not in {"normal", "400"}:
+            return True
+        if key == "font-style" and normalized not in {"normal"}:
+            return True
+        if key == "text-decoration" and normalized not in {"none"}:
+            return True
+    return False
+
+
+def _detail_html_has_meaningful_formatting(roots: list[Tag]) -> bool:
+    """Do not persist wrapper-only HTML when the plain table renderer is enough."""
+    formatting_tags = {
+        "b", "strong", "i", "em", "u", "s", "del", "mark",
+        "sub", "sup", "small", "ul", "ol",
+        "h1", "h2", "h3", "h4", "h5", "h6",
+    }
+    for root in roots:
+        if root.name in formatting_tags:
+            return True
+        if any(
+            tag.name in formatting_tags or _detail_html_has_meaningful_style(tag)
+            for tag in root.find_all(True)
+        ):
+            return True
+        if _detail_html_has_meaningful_style(root):
+            return True
+    return False
+
+
 def extract_detail_html_from_elements(elements, expected_text: object) -> str:
     """Return safe rich markup only when it represents the exact saved Detail."""
     expected_key = _detail_source_text_key(expected_text)
@@ -930,6 +969,8 @@ def extract_detail_html_from_elements(elements, expected_text: object) -> str:
         for root in merged_roots
     ]
     if _detail_source_text_key(" ␞ ".join(raw_parts)) != expected_key:
+        return ""
+    if not _detail_html_has_meaningful_formatting(merged_roots):
         return ""
     if all(root.name == "li" for root in merged_roots):
         return "<ul>" + "".join(str(root) for root in merged_roots) + "</ul>"

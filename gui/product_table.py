@@ -1077,6 +1077,10 @@ class ProductDetailDelegate(ProductCellDelegate):
             "total",
             "diámetro",
             "diametro",
+            "diámetro (base)",
+            "diametro (base)",
+            "estuche",
+            "tarjeta",
         }:
             return True
 
@@ -1391,6 +1395,8 @@ class ProductTable(QTableWidget):
         "uso recomendado": "Uso Recomendado",
         "empaque individual": "Empaque Individual",
         "cantidad por caja": "Cantidad por Caja",
+        "dimensiones de caja": "Dimensiones de caja",
+        "dimensiones de la caja": "Dimensiones de la caja",
         "dimensiones caja": "Dimensiones Caja",
         "cubicaje por caja": "Cubicaje por Caja",
         "ancho de entrada": "Ancho de entrada",
@@ -1490,6 +1496,9 @@ class ProductTable(QTableWidget):
         "toalla largo",
         "diámetro",
         "diametro",
+        "diámetro (base)",
+        "diametro (base)",
+        "tarjeta",
         "largo",
         "ancho",
         "alto",
@@ -2807,6 +2816,21 @@ class ProductTable(QTableWidget):
 
         return lines
 
+    @staticmethod
+    def _is_nested_packaging_value_label(
+        match: re.Match[str],
+        *,
+        inside_packaging_value: bool,
+        packaging_value_start: int,
+    ) -> bool:
+        """Keep unpunctuated package and box sublabels inside Empaque values."""
+        if not inside_packaging_value:
+            return False
+        if match.group(1).strip().casefold() not in {"caja", "paquete"}:
+            return False
+        prefix = match.string[packaging_value_start : match.start()].rstrip()
+        return re.search(r"[.;|]\s*$", prefix) is None
+
     @classmethod
     def _select_detail_field_matches(
         cls,
@@ -2816,6 +2840,8 @@ class ProductTable(QTableWidget):
         selected: list[re.Match[str]] = []
         inside_measure_value = False
         inside_description_value = False
+        inside_packaging_value = False
+        packaging_value_start = 0
         for match in matches:
             alias = match.group(1).strip().casefold()
             if alias in {"área de impresión", "area de impresion"}:
@@ -2834,6 +2860,20 @@ class ProductTable(QTableWidget):
                         continue
             if alias == "colores disponibles":
                 continue
+            if alias in {"empaque", "empaque individual"}:
+                inside_measure_value = False
+                inside_description_value = False
+                inside_packaging_value = True
+                packaging_value_start = match.end()
+                selected.append(match)
+                continue
+            if cls._is_nested_packaging_value_label(
+                match,
+                inside_packaging_value=inside_packaging_value,
+                packaging_value_start=packaging_value_start,
+            ):
+                continue
+            inside_packaging_value = False
             if alias in {
                 "descripción",
                 "descripcion",

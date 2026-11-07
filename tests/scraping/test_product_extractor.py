@@ -285,7 +285,7 @@ def test_product_extractor_reads_nested_bold_paragraphs_inside_authoritative_det
     assert "Texto comercial" not in result["description"]
 
 
-def test_product_extractor_drops_only_truncated_final_dimension_without_inference():
+def test_product_extractor_preserves_truncated_final_dimension_as_source_text():
     html = """
     <html><body>
       <p class="brxe-heading">FB-1504</p>
@@ -311,8 +311,9 @@ def test_product_extractor_drops_only_truncated_final_dimension_without_inferenc
         "Marca: Bright Office",
         "Modelo: 230",
         "Material: Cuerpo metálico con base antideslizante.",
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7",
     ]
-    assert "Dimensiones del producto" not in result["description"]
+    assert "Dimensiones del producto: 410 \u00d7 208 \u00d7" in result["description"]
     assert "No utilizar esta pestaña" not in result["description"]
     assert "COMPARTIR" not in result["description"]
 

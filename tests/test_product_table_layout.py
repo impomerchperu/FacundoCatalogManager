@@ -2675,6 +2675,23 @@ def test_detail_formatter_recognizes_printing_technique_for_mouse_pads():
         ], code
 
 
+def test_detail_table_preserves_fb1504_published_truncated_dimension_source_text():
+    product = Product(
+        code="FB-1504",
+        name="Enmicadora Metálica A4",
+        description=(
+            "Marca: Bright Office\n"
+            "Dimensiones del producto: 410 × 208 ×"
+        ),
+    )
+
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Marca: Bright Office",
+        "Dimensiones del producto: 410 × 208 ×",
+    ]
+
+
+
 def test_detail_delegate_bolds_labels_not_in_a_fixed_allowlist():
     text = (
         "Medida y capacidad: 10 ml. "
@@ -3128,6 +3145,11 @@ def test_detail_table_keeps_nested_measure_values_for_ty_p35aw_and_mu511():
             "MU-511",
             "Medidas: Estuche: 10.5 x 7 cm, Tarjeta: 8.5 x 5 cm",
             ("Estuche:", "Tarjeta:"),
+        ),
+        (
+            "SKB05X-1",
+            "Medida y Capacidad: Diámetro: 8,5 cm – 11 onzas (aproximadamente 300 ml)",
+            ("Diámetro:",),
         ),
     )
 

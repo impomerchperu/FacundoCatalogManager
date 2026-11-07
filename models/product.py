@@ -34,6 +34,7 @@ class Product:
     image_etag: str = ""
     image_last_modified: str = ""
     image_checked_at: str = ""
+    description_html: str = ""
 
     @property
     def id(self) -> int | None:
@@ -68,6 +69,7 @@ class Product:
         self.name = self.name.strip()
         self.category = str(self.category).strip()
         self.description = self.description.strip()
+        self.description_html = str(self.description_html or "").strip()
         self.color_stock = {
             str(color).strip(): max(int(stock), 0)
             for color, stock in self.color_stock.items()

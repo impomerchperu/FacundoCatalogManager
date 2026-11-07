@@ -11,6 +11,7 @@ class ProductHashService:
         "name",
         "category",
         "description",
+        "description_html",
         "price",
         "price_sample",
         "price_hundred",

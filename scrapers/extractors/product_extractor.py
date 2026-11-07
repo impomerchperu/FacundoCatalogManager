@@ -4,6 +4,7 @@ from typing import ClassVar
 
 from models.scraping.detail_description_policy import (
     clean_extracted_detail_text,
+    extract_detail_html_from_elements,
     extract_detail_text_from_element,
     has_multiple_technical_detail_fields,
     has_technical_detail,
@@ -195,13 +196,30 @@ class ProductExtractor:
             soup,
             base_url=url or self.BASE_URL,
         )
+        detail_field_found, authoritative_detail = (
+            self.extract_authoritative_detail_text(
+                soup,
+                preserve_boundaries=True,
+            )
+        )
+        description = (
+            authoritative_detail
+            if detail_field_found
+            else self._extract_detail_text_fallback(soup)
+        )
+        description_html = (
+            self.extract_authoritative_detail_html(soup, authoritative_detail)
+            if detail_field_found
+            else ""
+        )
         result = ScrapedProductFactory.create(
             source=self.SOURCE,
             url=url,
             code=code,
             name=self.extract_name(soup),
             category=category,
-            description=self.extract_detail_text(soup),
+            description=description,
+            description_html=description_html,
             stock=stock,
             price=self.extract_price(soup),
             price_sample=self.price_extractor.extract_sample(soup),
@@ -617,6 +635,17 @@ class ProductExtractor:
         if not preserve_boundaries:
             detail = normalize_detail_text(detail)
         return True, restore_literal_detail_colons(detail)
+
+    def extract_authoritative_detail_html(
+        self,
+        soup,
+        expected_text: str,
+    ) -> str:
+        """Preserve safe formatting only from the identified page Detail field."""
+        return extract_detail_html_from_elements(
+            self._authoritative_detail_elements(soup),
+            expected_text,
+        )
 
     def extract_detail_text(self, soup) -> str:
         """Use the identified Detail field before considering generic fallbacks."""

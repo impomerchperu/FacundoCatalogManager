@@ -24,13 +24,13 @@ class ProductRepository:
         query = """
         INSERT INTO products
         (
-            code, name, category, description, price,
+            code, name, category, description, description_html, price,
             price_sample, price_hundred, price_thousand, stock,
             color_stock, image_url, image_path,
             image_hash, image_etag, image_last_modified, image_checked_at,
             gallery_images, content_hash
         )
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """
         cursor = self.db.execute_query(
             query,
@@ -39,6 +39,7 @@ class ProductRepository:
                 product.name,
                 product.category,
                 product.description,
+                product.description_html,
                 product.price,
                 product.price_sample,
                 product.price_hundred,
@@ -67,7 +68,7 @@ class ProductRepository:
     def update(self, product: Product) -> Product:
         query = """
         UPDATE products SET
-            code=?, name=?, category=?, description=?, price=?,
+            code=?, name=?, category=?, description=?, description_html=?, price=?,
             price_sample=?, price_hundred=?, price_thousand=?, stock=?,
             color_stock=?, image_url=?, image_path=?,
             image_hash=?, image_etag=?, image_last_modified=?, image_checked_at=?,
@@ -81,6 +82,7 @@ class ProductRepository:
                 product.name,
                 product.category,
                 product.description,
+                product.description_html,
                 product.price,
                 product.price_sample,
                 product.price_hundred,
@@ -501,6 +503,7 @@ class ProductRepository:
             price=row["price"],
             category=row["category"],
             description=row["description"],
+            description_html=row["description_html"],
             price_sample=row["price_sample"],
             price_hundred=row["price_hundred"],
             price_thousand=row["price_thousand"],

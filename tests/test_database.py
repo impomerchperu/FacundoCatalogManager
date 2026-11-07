@@ -341,7 +341,7 @@ def test_database_migrates_v2_run_history_relationship_from_v1():
 
     db.close()
 
-def test_database_migrates_from_v2_to_v6_idempotently_and_preserves_product_data():
+def test_database_migrates_from_v2_to_v7_idempotently_and_preserves_product_data():
     db = DBManager(":memory:")
     db.execute_query(
         "INSERT INTO products (code, name, stock) VALUES (?, ?, ?)",
@@ -352,6 +352,7 @@ def test_database_migrates_from_v2_to_v6_idempotently_and_preserves_product_data
     # migration path. The existing product row must survive every ALTER TABLE.
     for column in (
         "gallery_images",
+        "description_html",
         "image_etag",
         "image_last_modified",
         "image_checked_at",
@@ -370,6 +371,7 @@ def test_database_migrates_from_v2_to_v6_idempotently_and_preserves_product_data
         "image_etag",
         "image_last_modified",
         "image_checked_at",
+        "description_html",
         "legacy_colors",
     } <= columns
 
@@ -385,7 +387,7 @@ def test_database_migrates_from_v2_to_v6_idempotently_and_preserves_product_data
     assert cache_index is not None
 
     stored = db.fetch_one(
-        "SELECT code, name, stock, gallery_images, image_etag "
+        "SELECT code, name, stock, gallery_images, image_etag, description_html "
         "FROM products WHERE code = ?",
         ("MIGRATION-001",),
     )
@@ -394,13 +396,14 @@ def test_database_migrates_from_v2_to_v6_idempotently_and_preserves_product_data
     assert stored["stock"] == 17
     assert stored["gallery_images"] == "[]"
     assert stored["image_etag"] == ""
+    assert stored["description_html"] == ""
 
     # Re-running migrations must not duplicate ledger records or mutate data.
     db._run_migrations()
     versions = db.fetch_all(
         "SELECT version FROM schema_migrations ORDER BY version"
     )
-    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4, 5, 6, 7]
     db.close()
 
 def test_database_migrates_legacy_download_changes_without_losing_history():

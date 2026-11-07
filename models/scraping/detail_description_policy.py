@@ -11,7 +11,7 @@ import re
 from itertools import pairwise
 
 from bs4 import BeautifulSoup
-from bs4.element import NavigableString
+from bs4.element import NavigableString, Tag
 
 _DETAIL_LITERAL_COLON_MARKER = "\uE001"
 _WHITESPACE_PATTERN = re.compile(r"\s+")
@@ -690,3 +690,301 @@ def has_multiple_technical_detail_fields(value: object) -> bool:
     """Require at least two labeled features for lower-priority fallbacks."""
     text = normalize_detail_text(value)
     return len(_DETAIL_FIELD_LABEL_PATTERN.findall(text)) >= 2
+
+
+_DETAIL_HTML_ALLOWED_TAGS = frozenset({
+    "b", "strong", "i", "em", "u", "s", "del", "mark", "span",
+    "sub", "sup", "small", "br", "p", "div", "ul", "ol", "li",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+})
+_DETAIL_HTML_REMOVED_TAGS = frozenset({
+    "script", "style", "noscript", "template", "button", "form",
+    "input", "select", "option", "textarea", "iframe", "svg", "canvas",
+    "img", "video", "audio",
+})
+_DETAIL_HTML_STYLE_VALUES = {
+    "text-align": frozenset({"left", "right", "center", "justify", "start", "end"}),
+    "font-weight": frozenset({"normal", "bold", "bolder", "lighter", "400", "500", "600", "700", "800", "900"}),
+    "font-style": frozenset({"normal", "italic", "oblique"}),
+    "text-decoration": frozenset({"none", "underline", "line-through", "overline"}),
+}
+
+
+def _detail_html_alignment(element: Tag) -> str:
+    """Find the nearest source paragraph alignment, including inherited wrappers."""
+    node: Tag | None = element
+    while node is not None:
+        style = str(node.get("style", "") or "")
+        for declaration in style.split(";"):
+            name, separator, value = declaration.partition(":")
+            if separator and name.strip().casefold() == "text-align":
+                alignment = value.strip().casefold()
+                if alignment in _DETAIL_HTML_STYLE_VALUES["text-align"]:
+                    return alignment
+        alignment = str(node.get("align", "") or "").strip().casefold()
+        if alignment in _DETAIL_HTML_STYLE_VALUES["text-align"]:
+            return alignment
+        parent = node.parent
+        node = parent if isinstance(parent, Tag) else None
+    return ""
+
+
+def _sanitize_detail_html_tag(tag: Tag) -> None:
+    """Keep only text semantics and safe inline/paragraph presentation attributes."""
+    styles: dict[str, str] = {}
+    for declaration in str(tag.get("style", "") or "").split(";"):
+        name, separator, value = declaration.partition(":")
+        key = name.strip().casefold()
+        normalized_value = value.strip().casefold()
+        if (
+            separator
+            and key in _DETAIL_HTML_STYLE_VALUES
+            and normalized_value in _DETAIL_HTML_STYLE_VALUES[key]
+        ):
+            styles[key] = normalized_value
+    alignment = str(tag.get("align", "") or "").strip().casefold()
+    if "text-align" not in styles and alignment in _DETAIL_HTML_STYLE_VALUES["text-align"]:
+        styles["text-align"] = alignment
+    tag.attrs.clear()
+    if styles:
+        tag["style"] = "; ".join(f"{name}: {value}" for name, value in styles.items())
+
+
+def _detail_source_text_key(value: object) -> str:
+    """Compare source text without applying exclusions or guessing missing values."""
+    text = restore_literal_detail_colons(value)
+    text = re.sub(r"[\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]", "", text)
+    text = re.sub(r"[•▪●‣◦]+", "\n", text).replace(_DETAIL_BOUNDARY, "\n")
+    lines = [
+        re.sub(r"\s+", " ", line).strip()
+        for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    ]
+    return "\n".join(line for line in lines if line)
+
+
+def _detail_html_candidates(element: object) -> list[Tag]:
+    """Expand a selected Detail source element into its top-level paragraphs."""
+    parsed = BeautifulSoup(str(element), "lxml")
+    body = parsed.body
+    candidates = (
+        [child for child in body.contents if isinstance(child, Tag)]
+        if body is not None
+        else [child for child in parsed.contents if isinstance(child, Tag)]
+    )
+    structural_tags = ["li", "p", "h1", "h2", "h3", "h4", "h5", "h6"]
+    roots: list[Tag] = []
+    for candidate in candidates:
+        if candidate.name in structural_tags:
+            roots.append(candidate)
+            continue
+        blocks = candidate.find_all(structural_tags)
+        top_level = [
+            block
+            for block in blocks
+            if block.find_parent(structural_tags) is None
+        ]
+        roots.extend(top_level or [candidate])
+    return roots
+
+
+def _is_detail_html_ui_node(tag: Tag) -> bool:
+    """Identify interface elements excluded from the source Detail field."""
+    classes = {
+        str(value).strip().casefold()
+        for value in tag.get_attribute_list("class")
+    }
+    node_id = str(tag.get("id", "") or "").strip().casefold()
+    return (
+        tag.name in _DETAIL_HTML_REMOVED_TAGS
+        or node_id.startswith(("share", "social", "brxe-miyybm"))
+        or any("share" in item or "social" in item for item in classes)
+    )
+
+
+def _clean_detail_html_root(root: Tag, inherited_alignment: str) -> bool:
+    """Sanitize one candidate paragraph while retaining safe source formatting."""
+    for child in list(root.find_all(True)):
+        if _is_detail_html_ui_node(child):
+            child.decompose()
+            continue
+        if child.name not in _DETAIL_HTML_ALLOWED_TAGS:
+            child.unwrap()
+            continue
+        _sanitize_detail_html_tag(child)
+
+    if _is_detail_html_ui_node(root):
+        return False
+    if root.name not in _DETAIL_HTML_ALLOWED_TAGS:
+        return False
+
+    _sanitize_detail_html_tag(root)
+    style = str(root.get("style", "") or "")
+    if inherited_alignment and "text-align:" not in style:
+        root["style"] = (f"{style}; " if style else "") + f"text-align: {inherited_alignment}"
+
+    for text_node in list(root.find_all(string=True)):
+        cleaned = re.sub(r"[•▪●‣◦]+", " ", str(text_node))
+        cleaned = re.sub(
+            r"(?:^|[\s\u241e])(?:compartir|share)\s*(?::|\uE001).*$",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        )
+        if cleaned != str(text_node):
+            text_node.replace_with(NavigableString(cleaned))
+
+    raw_text = restore_literal_detail_colons(extract_detail_text_from_element(root))
+    if not raw_text.strip() or re.match(
+        r"^\s*(?:compartir|share)\s*:?\s*$",
+        raw_text,
+        re.IGNORECASE,
+    ):
+        return False
+
+    # Remove a standalone Color field only. Combined product attributes remain
+    # intact and the canonical-text check below decides whether HTML is usable.
+    color_label = _COLOR_FIELD_PATTERN.match(raw_text)
+    return not (
+        color_label is not None
+        and not re.search(
+            r"\s+[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:",
+            raw_text[color_label.end():],
+        )
+    )
+
+
+def _extract_detail_html_roots(elements) -> list[Tag]:
+    """Build sanitized top-level blocks and retain inherited paragraph alignment."""
+    roots: list[Tag] = []
+    for element in list(elements or []):
+        alignment = _detail_html_alignment(element)
+        for root in _detail_html_candidates(element):
+            if _clean_detail_html_root(root, alignment):
+                roots.append(root)
+    return roots
+
+
+def _merge_detail_html_empty_labels(roots: list[Tag]) -> list[Tag] | None:
+    """Join label-only paragraphs to their values without changing alignment."""
+    index = 0
+    while index < len(roots):
+        current = roots[index]
+        current_text = restore_literal_detail_colons(
+            extract_detail_text_from_element(current)
+        )
+        normalized_current = normalize_detail_text(current_text)
+        if not is_empty_detail_field_fragment(normalized_current):
+            index += 1
+            continue
+
+        label = normalized_current.removesuffix(":").strip()
+        next_index = index + 1
+        if next_index >= len(roots):
+            roots.pop(index)
+            continue
+
+        following = roots[next_index]
+        following_text = restore_literal_detail_colons(
+            extract_detail_text_from_element(following)
+        )
+        following_normalized = normalize_detail_text(following_text)
+        following_is_field = bool(
+            _DETAIL_FIELD_LABEL_START_PATTERN.match(following_normalized)
+        )
+        if (
+            following_is_field
+            and not _is_grouping_detail_child(label, following_normalized)
+        ):
+            roots.pop(index)
+            continue
+
+        current_alignment = _detail_html_alignment(current) or "left"
+        following_alignment = _detail_html_alignment(following) or "left"
+        if current_alignment != following_alignment:
+            # One HTML paragraph cannot faithfully represent two alignments.
+            return None
+
+        current.append(NavigableString(" "))
+        for child in list(following.contents):
+            current.append(child.extract())
+        following.decompose()
+        roots.pop(next_index)
+    return roots
+
+
+def _detail_html_has_meaningful_style(tag: Tag) -> bool:
+    """Return whether sanitized inline styles change the default cell appearance."""
+    for declaration in str(tag.get("style", "") or "").split(";"):
+        name, separator, value = declaration.partition(":")
+        if not separator:
+            continue
+        key = name.strip().casefold()
+        normalized = value.strip().casefold()
+        if key == "text-align" and normalized not in {"left", "start"}:
+            return True
+        if key == "font-weight" and normalized not in {"normal", "400"}:
+            return True
+        if key == "font-style" and normalized not in {"normal"}:
+            return True
+        if key == "text-decoration" and normalized not in {"none"}:
+            return True
+    return False
+
+
+def _detail_html_has_meaningful_formatting(roots: list[Tag]) -> bool:
+    """Do not persist wrapper-only HTML when the plain table renderer is enough."""
+    formatting_tags = {
+        "b", "strong", "i", "em", "u", "s", "del", "mark",
+        "sub", "sup", "small", "ul", "ol",
+        "h1", "h2", "h3", "h4", "h5", "h6",
+    }
+    for root in roots:
+        if root.name in formatting_tags:
+            return True
+        if any(
+            tag.name in formatting_tags or _detail_html_has_meaningful_style(tag)
+            for tag in root.find_all(True)
+        ):
+            return True
+        if _detail_html_has_meaningful_style(root):
+            return True
+    return False
+
+
+def extract_detail_html_from_elements(elements, expected_text: object) -> str:
+    """Return safe rich markup only when it represents the exact saved Detail."""
+    expected_key = _detail_source_text_key(expected_text)
+    if not expected_key:
+        return ""
+
+    roots = _extract_detail_html_roots(elements)
+    if not roots:
+        return ""
+    merged_roots = _merge_detail_html_empty_labels(roots)
+    if not merged_roots:
+        return ""
+
+    raw_parts = [
+        restore_literal_detail_colons(extract_detail_text_from_element(root))
+        for root in merged_roots
+    ]
+    if _detail_source_text_key(" ␞ ".join(raw_parts)) != expected_key:
+        return ""
+    if not _detail_html_has_meaningful_formatting(merged_roots):
+        return ""
+    if all(root.name == "li" for root in merged_roots):
+        return "<ul>" + "".join(str(root) for root in merged_roots) + "</ul>"
+    return "".join(str(root) for root in merged_roots)
+
+
+def detail_html_matches_text(fragment: object, expected_text: object) -> bool:
+    """Check that a stored rich fragment cannot display text outside canonical Detail."""
+    markup = str(fragment or "").strip()
+    expected_key = _detail_source_text_key(expected_text)
+    if not markup or not expected_key:
+        return False
+    soup = BeautifulSoup(markup, "lxml")
+    for tag in list(soup.find_all(True)):
+        if tag.name not in _DETAIL_HTML_ALLOWED_TAGS:
+            tag.unwrap()
+    return _detail_source_text_key(extract_detail_text_from_element(soup)) == expected_key

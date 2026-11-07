@@ -30,6 +30,7 @@ from database.db_manager import DBManager
 from models.product import Product
 from models.scraping.category import Category
 from models.scraping.detail_description_policy import (
+    detail_html_matches_text,
     has_technical_detail,
     is_complete_detail,
     is_empty_detail_field_fragment,
@@ -67,6 +68,8 @@ class DetailRepairPlan:
     url: str = ""
     old_description: str = ""
     new_description: str = ""
+    old_description_html: str = ""
+    new_description_html: str = ""
     reason: str = ""
     product_id: int | None = None
 
@@ -242,6 +245,14 @@ def _plan_single_product_detail_repair(
                 preserve_boundaries=True,
             )
         )
+        authoritative_html = (
+            extractor.extract_authoritative_detail_html(
+                soup,
+                authoritative_detail,
+            )
+            if detail_field_found
+            else ""
+        )
         scraped = extractor.extract(
             soup,
             url=url,
@@ -308,15 +319,27 @@ def _plan_single_product_detail_repair(
             product_id=product.product_id,
             old_description=current_description,
             new_description=candidate,
+            old_description_html=str(product.description_html or ""),
+            new_description_html=authoritative_html,
             reason=f"El detalle extraído no pasó la validación: {issue}.",
         )
 
+    # When the page cannot provide a safely matching rich fragment, retain
+    # previously stored markup only if it still represents this exact text.
+    if not authoritative_html and detail_html_matches_text(
+        product.description_html,
+        candidate,
+    ):
+        authoritative_html = str(product.description_html or "")
     status = (
         "unchanged"
-        if normalize_detail_text(
-            current_description,
-            preserve_boundaries=True,
-        ) == candidate
+        if (
+            normalize_detail_text(
+                current_description,
+                preserve_boundaries=True,
+            ) == candidate
+            and str(product.description_html or "") == authoritative_html
+        )
         else "would_update"
     )
     return DetailRepairPlan(
@@ -326,6 +349,8 @@ def _plan_single_product_detail_repair(
         product_id=product.product_id,
         old_description=current_description,
         new_description=candidate,
+        old_description_html=str(product.description_html or ""),
+        new_description_html=authoritative_html,
         reason=(
             "Detalle obtenido del campo autorizado de la ficha individual "
             "después de validar el código del producto."
@@ -522,6 +547,8 @@ def _plans_from_audit_report(report: dict[str, object]) -> list[DetailRepairPlan
                 url=str(raw_item.get("url") or ""),
                 old_description=str(raw_item.get("old_description") or ""),
                 new_description=str(raw_item.get("new_description") or ""),
+                old_description_html=str(raw_item.get("old_description_html") or ""),
+                new_description_html=str(raw_item.get("new_description_html") or ""),
                 reason=str(raw_item.get("reason") or ""),
                 product_id=product_id,
             )
@@ -639,17 +666,27 @@ def _plan_from_detail_candidate(
         candidate,
         preserve_boundaries=True,
     )
+    candidate_html = (
+        str(product.description_html or "")
+        if detail_html_matches_text(product.description_html, preserved_candidate)
+        else ""
+    )
     return DetailRepairPlan(
         code=product.code,
         status=(
             "unchanged"
-            if normalized_old == normalized_candidate
+            if (
+                normalized_old == normalized_candidate
+                and str(product.description_html or "") == candidate_html
+            )
             else "would_update"
         ),
         url=url,
         product_id=product.product_id,
         old_description=old_description,
         new_description=preserved_candidate,
+        old_description_html=str(product.description_html or ""),
+        new_description_html=candidate_html,
         reason=reason,
     )
 
@@ -1295,6 +1332,7 @@ def _get_unchanged_product(
         current is None
         or current.product_id != plan.product_id
         or str(current.description or "") != plan.old_description
+        or str(current.description_html or "") != plan.old_description_html
     ):
         raise RuntimeError(
             f"{plan.code}: el producto cambió durante la reparación; "
@@ -1326,10 +1364,16 @@ def apply_detail_repairs(
         for plan in candidates:
             current = current_by_code[plan.code]
             current.description = plan.new_description
+            current.description_html = plan.new_description_html
             content_hash = hash_service.generate(current)
             db.execute_query(
-                "UPDATE products SET description=?, content_hash=? WHERE id=?",
-                (plan.new_description, content_hash, plan.product_id),
+                "UPDATE products SET description=?, description_html=?, content_hash=? WHERE id=?",
+                (
+                    plan.new_description,
+                    plan.new_description_html,
+                    content_hash,
+                    plan.product_id,
+                ),
             )
             plan.status = "updated"
         db.commit()

@@ -9,6 +9,7 @@ class ContentHash:
         "name",
         "category",
         "description",
+        "description_html",
         "stock",
         "price_sample",
         "price_hundred",

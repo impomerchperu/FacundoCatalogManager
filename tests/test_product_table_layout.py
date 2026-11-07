@@ -3228,3 +3228,86 @@ def test_detail_table_keeps_nested_caja_and_paquete_inside_empaque_for_observed_
         "Caja: 100 unidades",
     ]
 
+
+
+def test_fb1504_table_uses_verified_rich_detail_without_rewriting_source_paragraphs():
+    _qapp()
+    description = (
+        "Marca: Bright Office\n"
+        "Modelo: 230\n"
+        "Material: Cuerpo metálico con base antideslizante.\n"
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7 275 mm"
+    )
+    rich_html = (
+        '<p style="text-align: left"><strong>Marca:</strong> Bright Office</p>'
+        '<p style="text-align: center"><strong>Modelo:</strong> 230</p>'
+        '<p style="text-align: right"><strong>Material:</strong> '
+        "Cuerpo metálico con base antideslizante.</p>"
+        '<p style="text-align: left"><strong>Dimensiones del producto:</strong> '
+        "410 \u00d7 208 \u00d7 275 mm</p>"
+    )
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    product = Product(
+        code="FB-1504",
+        name="Enmicadora Metálica A4",
+        description=description,
+        description_html=rich_html,
+    )
+    table.load_products([product])
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert item.text() == description
+    assert item.data(ProductDetailDelegate.DETAIL_HTML_ROLE) == rich_html
+
+    width = max(
+        table.columnWidth(ProductTable.DETAIL_COLUMN)
+        - (2 * ProductDetailDelegate.HORIZONTAL_PADDING),
+        1,
+    )
+    document = ProductDetailDelegate._document_for_html(
+        rich_html,
+        table.font(),
+        width,
+    )
+    assert document.toPlainText().splitlines() == description.splitlines()
+    assert ProductDetailDelegate.rich_content_height(
+        rich_html,
+        table.font(),
+        width,
+    ) > 0
+    first_block = document.begin()
+    horizontal_mask = Qt.AlignmentFlag.AlignHorizontal_Mask
+    assert first_block.blockFormat().alignment() & horizontal_mask == Qt.AlignmentFlag.AlignLeft
+    second_block = first_block.next()
+    assert second_block.blockFormat().alignment() & horizontal_mask == Qt.AlignmentFlag.AlignHCenter
+    third_block = second_block.next()
+    assert third_block.blockFormat().alignment() & horizontal_mask == Qt.AlignmentFlag.AlignRight
+    table.close()
+
+
+def test_table_rejects_rich_detail_when_its_visible_text_differs_from_canonical_text():
+    _qapp()
+    product = Product(
+        code="FB-1504",
+        name="Enmicadora Metálica A4",
+        description="Marca: Bright Office",
+        description_html=(
+            "<p><strong>Marca:</strong> Bright Office</p>"
+            "<p>Texto adicional no autorizado</p>"
+        ),
+    )
+    table = ProductTable(_Controller())
+    table.resize(1500, 700)
+    table.show()
+    table.load_products([product])
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert item.data(ProductDetailDelegate.DETAIL_HTML_ROLE) in (None, "")
+    assert item.text() == ProductTable._format_detail(product)
+    table.close()

@@ -1077,6 +1077,10 @@ class ProductDetailDelegate(ProductCellDelegate):
             "total",
             "diámetro",
             "diametro",
+            "diámetro (base)",
+            "diametro (base)",
+            "estuche",
+            "tarjeta",
         }:
             return True
 
@@ -1490,6 +1494,9 @@ class ProductTable(QTableWidget):
         "toalla largo",
         "diámetro",
         "diametro",
+        "diámetro (base)",
+        "diametro (base)",
+        "tarjeta",
         "largo",
         "ancho",
         "alto",
@@ -2816,6 +2823,8 @@ class ProductTable(QTableWidget):
         selected: list[re.Match[str]] = []
         inside_measure_value = False
         inside_description_value = False
+        inside_packaging_value = False
+        packaging_value_start = 0
         for match in matches:
             alias = match.group(1).strip().casefold()
             if alias in {"área de impresión", "area de impresion"}:
@@ -2834,6 +2843,20 @@ class ProductTable(QTableWidget):
                         continue
             if alias == "colores disponibles":
                 continue
+            if alias in {"empaque", "empaque individual"}:
+                inside_measure_value = False
+                inside_description_value = False
+                inside_packaging_value = True
+                packaging_value_start = match.end()
+                selected.append(match)
+                continue
+            if inside_packaging_value and alias in {"caja", "paquete"}:
+                packaging_prefix = match.string[
+                    packaging_value_start : match.start()
+                ].rstrip()
+                if not re.search(r"[.;|]\s*$", packaging_prefix):
+                    continue
+            inside_packaging_value = False
             if alias in {
                 "descripción",
                 "descripcion",

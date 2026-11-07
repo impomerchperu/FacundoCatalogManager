@@ -64,28 +64,24 @@ def test_detail_policy_detects_clipped_words_and_ellipsis():
     assert not is_complete_detail("Material: ABS. Cantidad por caj...")
 
 
-def test_detail_policy_removes_only_incomplete_trailing_dimension_field():
-    incomplete = (
+def test_detail_policy_preserves_incomplete_trailing_dimension_as_source_text():
+    published = (
         "Marca: Bright Office. Modelo: 230.\n"
         "Dimensiones del producto: 410 \u00d7 208 \u00d7"
     )
-    cleaned = "Marca: Bright Office. Modelo: 230."
-    complete = (
-        "Marca: Bright Office. Modelo: 230. "
-        "Dimensiones del producto: 410 x 208 x 110 mm."
-    )
-    only_incomplete = "Dimensiones del producto: 410 x 208 x"
 
-    assert remove_incomplete_trailing_dimension_field(incomplete) == cleaned
-    assert remove_incomplete_trailing_dimension_field(complete) == complete
-    assert (
-        remove_incomplete_trailing_dimension_field(only_incomplete)
-        == only_incomplete
-    )
+    assert normalize_detail_text(published, preserve_boundaries=True).splitlines() == [
+        "Marca: Bright Office. Modelo: 230.",
+        "Dimensiones del producto: 410 \u00d7 208 \u00d7",
+    ]
+    assert remove_incomplete_trailing_dimension_field(published) == published
+    assert has_technical_detail(published)
+    assert is_complete_detail(published)
+    assert is_valid_detail_content(published)
 
 
-def test_detail_policy_rejects_incomplete_trailing_product_dimensions():
-    incomplete = (
+def test_detail_policy_accepts_published_incomplete_dimension_without_inventing_value():
+    published = (
         "Marca: Bright Office. Modelo: 230. "
         "Dimensiones del producto: 410 \u00d7 208 \u00d7"
     )
@@ -94,9 +90,9 @@ def test_detail_policy_rejects_incomplete_trailing_product_dimensions():
         "Dimensiones del producto: 410 x 208 x 110 mm."
     )
 
-    assert has_technical_detail(incomplete)
-    assert not is_complete_detail(incomplete)
-    assert not is_valid_detail_content(incomplete)
+    assert has_technical_detail(published)
+    assert is_complete_detail(published)
+    assert is_valid_detail_content(published)
     assert is_complete_detail(complete)
     assert is_valid_detail_content(complete)
     assert not is_complete_detail("Dimensiones del producto:")
@@ -293,7 +289,7 @@ def test_detail_cleanup_joins_bold_label_paragraphs_to_their_values():
     ]
 
 
-def test_detail_cleanup_strips_share_ui_before_removing_a_truncated_final_dimension():
+def test_detail_cleanup_strips_share_ui_while_preserving_published_final_dimension():
     source = (
         "Marca: Bright Office\n"
         "Material: Cuerpo metálico.\n"
@@ -307,10 +303,6 @@ def test_detail_cleanup_strips_share_ui_before_removing_a_truncated_final_dimens
         "Marca: Bright Office",
         "Material: Cuerpo metálico.",
         "Dimensiones del producto: 410 \u00d7 208 \u00d7",
-    ]
-    assert remove_incomplete_trailing_dimension_field(cleaned).splitlines() == [
-        "Marca: Bright Office",
-        "Material: Cuerpo metálico.",
     ]
 
 

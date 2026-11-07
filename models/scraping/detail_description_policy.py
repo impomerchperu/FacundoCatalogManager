@@ -182,19 +182,6 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
     r")\s*:?\s*$",
     re.IGNORECASE,
 )
-# Catch a dimension value cut off after its final multiplication separator, e.g.
-# "Dimensiones del producto: 410 x 208 x". A generic trailing-label check does
-# not detect this because the field already contains partial numeric content.
-_INCOMPLETE_TRAILING_DIMENSION_PATTERN = re.compile(
-    r"(?<!\w)(?:"
-    r"dimens(?:i[oó]n(?:es)?)?(?:\s+(?:de\s+)?caj(?:a)?|\s+del?\s+producto)?|"
-    r"medidas?(?:\s+del?\s+producto)?"
-    r")\s*:\s*"
-    r"\d+(?:[.,]\d+)?(?:\s*(?:mm|cm|m))?"
-    r"(?:\s*[x\u00d7*]\s*\d+(?:[.,]\d+)?(?:\s*(?:mm|cm|m))?)*"
-    r"\s*[x\u00d7*]\s*$",
-    re.IGNORECASE,
-)
 
 
 
@@ -267,19 +254,8 @@ def restore_literal_detail_colons(value: object) -> str:
 
 
 def remove_incomplete_trailing_dimension_field(value: object) -> str:
-    """Drop only a terminal, clearly truncated dimension field.
-
-    Preserve earlier source fields and never infer the missing dimension.
-    If the dimension is the only content, leave it unchanged so validation
-    can reject the otherwise empty detail.
-    """
-    text = str(value or "")
-    match = _INCOMPLETE_TRAILING_DIMENSION_PATTERN.search(text)
-    if match is None:
-        return text
-
-    prefix = text[: match.start()].rstrip()
-    return prefix if prefix else text
+    """Compatibility shim: retain every field exactly as published in Detail."""
+    return str(value or "")
 
 
 # These source logistics labels may legitimately have no supplied value. Keep
@@ -494,10 +470,7 @@ def is_complete_detail(value: object) -> bool:
         or validation_text.endswith((",", ";", ":"))
     ):
         return False
-    return (
-        _DESCRIPTION_TRUNCATION_PATTERN.search(validation_text) is None
-        and _INCOMPLETE_TRAILING_DIMENSION_PATTERN.search(validation_text) is None
-    )
+    return _DESCRIPTION_TRUNCATION_PATTERN.search(validation_text) is None
 
 
 def has_technical_detail(value: object) -> bool:
@@ -648,8 +621,8 @@ def clean_extracted_detail_text(
     """
     normalized = normalize_detail_text(value, preserve_boundaries=True)
     # Some Bricks templates append the social-sharing label to the same
-    # paragraph as the last Detail field. Strip that UI suffix first so a
-    # genuinely truncated terminal dimension remains detectable below.
+    # paragraph as the last Detail field. Strip that UI suffix while retaining
+    # the original source field, including any incomplete value the page shows.
     normalized = _TRAILING_DETAIL_UI_NOISE_PATTERN.sub("", normalized).rstrip()
     normalized = _separate_adjacent_empty_detail_field_labels(normalized)
     lines = [line.strip() for line in normalized.splitlines()]

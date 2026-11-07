@@ -6,7 +6,7 @@ from config.runtime_paths import DATABASE_PATH, SCHEMA_PATH
 class DBManager:
     """Gestiona SQLite con inicialización, migraciones y persistencia segura."""
 
-    SCHEMA_VERSION = 6
+    SCHEMA_VERSION = 7
 
     def __init__(self, db_path=None):
         if db_path is None:
@@ -99,6 +99,13 @@ class DBManager:
                 "Conserva nombres de color heredados sin inventar cantidades de stock.",
             )
 
+        if current_version < 7:
+            self._migrate_to_v7()
+            self._record_schema_migration(
+                7,
+                "Almacena formato enriquecido del campo Detalle sin alterar su texto.",
+            )
+
     def _migrate_to_v3(self) -> None:
         self._add_column_if_missing(
             "products",
@@ -110,6 +117,14 @@ class DBManager:
         """Preserva etiquetas antiguas de color sin inferir distribución de stock."""
         self._migrate_legacy_colors("products")
         self._migrate_legacy_colors("scraped_products")
+
+    def _migrate_to_v7(self) -> None:
+        """Add the optional rich-text fragment without changing historical Detail."""
+        self._add_column_if_missing(
+            "products",
+            "description_html",
+            "TEXT DEFAULT ''",
+        )
 
     def _migrate_legacy_colors(self, table_name: str) -> None:
         """Conserva el JSON original de colores antes de retirar la columna antigua."""

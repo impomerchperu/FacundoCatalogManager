@@ -39,3 +39,22 @@ def test_changed_product_generates_different_hash():
     hash2 = service.generate(product2)
 
     assert hash1 != hash2
+
+
+def test_detail_formatting_markup_participates_in_content_hash():
+    service = ProductHashService()
+    plain = ScrapedProduct(
+        code="FB-1504",
+        name="Enmicadora Metálica A4",
+        description="Marca: Bright Office",
+    )
+    formatted = ScrapedProduct(
+        code="FB-1504",
+        name="Enmicadora Metálica A4",
+        description="Marca: Bright Office",
+        description_html=(
+            '<p style="text-align: center"><strong>Marca:</strong> Bright Office</p>'
+        ),
+    )
+
+    assert service.generate(plain) != service.generate(formatted)

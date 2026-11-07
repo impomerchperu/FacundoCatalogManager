@@ -42,6 +42,7 @@ class ScrapedProduct:
     image_etag: str = ""
     image_last_modified: str = ""
     image_checked_at: str = ""
+    description_html: str = ""
 
     def __setattr__(self, name, value):
         object.__setattr__(self, name, value)

@@ -17,6 +17,7 @@ from PySide6.QtGui import (
     QPixmap,
     QPixmapCache,
     QTextCharFormat,
+    QTextDocument,
     QTextLayout,
     QTextOption,
 )
@@ -43,7 +44,10 @@ from controllers.product_controller import ProductController
 from gui.product_category_delegate import ProductCategoryDelegate
 from models.product import Product
 from models.product_image_gallery import normalize_product_gallery
-from models.scraping.detail_description_policy import normalize_detail_text
+from models.scraping.detail_description_policy import (
+    detail_html_matches_text,
+    normalize_detail_text,
+)
 from services.scraping.category_name_normalizer import (
     display_category_name,
     split_category_names,
@@ -1037,8 +1041,9 @@ class StockColorDelegate(ProductCellDelegate):
 
 
 class ProductDetailDelegate(ProductCellDelegate):
-    """Renderiza el detalle con interlineado compacto y ajuste de texto."""
+    """Renderiza texto histórico o el formato enriquecido conservado del origen."""
 
+    DETAIL_HTML_ROLE = int(Qt.ItemDataRole.UserRole) + 51
     HORIZONTAL_PADDING = 8
     VERTICAL_PADDING = 8
     LINE_SPACING_REDUCTION = 1
@@ -1178,6 +1183,33 @@ class ProductDetailDelegate(ProductCellDelegate):
         return height
 
     @classmethod
+    def _document_for_html(
+        cls,
+        markup: str,
+        font: QFont,
+        width: int,
+    ) -> QTextDocument:
+        document = QTextDocument()
+        document.setDefaultFont(font)
+        document.setDocumentMargin(0)
+        document.setDefaultStyleSheet(
+            "p { margin: 0 0 2px 0; padding: 0; } "
+            "div { margin: 0; padding: 0; } "
+            "ul, ol { margin-top: 0; margin-bottom: 2px; } "
+            "li { margin: 0; padding: 0; }"
+        )
+        document.setHtml(markup)
+        document.setTextWidth(max(width, 1))
+        return document
+
+    @classmethod
+    def rich_content_height(cls, markup: str, font: QFont, width: int) -> int:
+        if not markup:
+            return 0
+        document = cls._document_for_html(markup, font, width)
+        return max(round(document.size().height()), 1)
+
+    @classmethod
     def _vertical_text_offset(cls, rect_height: int, content_height: int) -> float:
         """Center short detail blocks and keep a safe inset for taller content."""
         return max(
@@ -1206,6 +1238,27 @@ class ProductDetailDelegate(ProductCellDelegate):
             styled_option.rect.width() - (2 * self.HORIZONTAL_PADDING),
             1,
         )
+        rich_html = str(index.data(self.DETAIL_HTML_ROLE) or "").strip()
+        if rich_html:
+            document = self._document_for_html(
+                rich_html,
+                styled_option.font,
+                text_width,
+            )
+            layout_height = max(round(document.size().height()), 1)
+            vertical_text_offset = self._vertical_text_offset(
+                styled_option.rect.height(),
+                layout_height,
+            )
+            painter.save()
+            painter.translate(
+                styled_option.rect.left() + self.HORIZONTAL_PADDING,
+                styled_option.rect.top() + vertical_text_offset,
+            )
+            document.drawContents(painter)
+            painter.restore()
+            return
+
         layouts, layout_height = self._layout_text(
             text,
             styled_option.font,
@@ -1233,6 +1286,14 @@ class ProductDetailDelegate(ProductCellDelegate):
             option.rect.width() - (2 * self.HORIZONTAL_PADDING),
             self.HORIZONTAL_PADDING,
         )
+        rich_html = str(index.data(self.DETAIL_HTML_ROLE) or "").strip()
+        if rich_html:
+            height = self.rich_content_height(rich_html, option.font, width)
+            base = super().sizeHint(option, index)
+            return QSize(
+                base.width(),
+                max(round(height) + 2 * self.VERTICAL_PADDING, base.height()),
+            )
         if width <= self.HORIZONTAL_PADDING:
             line_count = max(text.count("\n") + 1, 1)
             height = (
@@ -2220,10 +2281,22 @@ class ProductTable(QTableWidget):
         )
         self.setItem(row, self.CODE_COLUMN, item_code)
         self._set_text_item(row, self.NAME_COLUMN, product.name)
-        detail = self._format_detail(product)
+        rich_html = str(product.description_html or "").strip()
+        if rich_html and not detail_html_matches_text(rich_html, product.description):
+            rich_html = ""
+        detail = (
+            str(product.description or "")
+            if rich_html
+            else self._format_detail(product)
+        )
         self._set_text_item(row, self.DETAIL_COLUMN, detail)
         detail_item = self.item(row, self.DETAIL_COLUMN)
         if detail_item is not None:
+            if rich_html:
+                detail_item.setData(
+                    ProductDetailDelegate.DETAIL_HTML_ROLE,
+                    rich_html,
+                )
             detail_item.setTextAlignment(
                 Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
             )
@@ -3168,12 +3241,24 @@ class ProductTable(QTableWidget):
                 - (2 * ProductDetailDelegate.HORIZONTAL_PADDING),
                 1,
             )
-            detail_height = (
-                ProductDetailDelegate.content_height(
+            rich_html = str(
+                detail_item.data(ProductDetailDelegate.DETAIL_HTML_ROLE) or ""
+            )
+            detail_content_height = (
+                ProductDetailDelegate.rich_content_height(
+                    rich_html,
+                    self.font(),
+                    detail_width,
+                )
+                if rich_html
+                else ProductDetailDelegate.content_height(
                     detail_item.text(),
                     self.font(),
                     detail_width,
                 )
+            )
+            detail_height = (
+                detail_content_height
                 + (2 * ProductDetailDelegate.VERTICAL_PADDING)
                 + ProductDetailDelegate.GRIDLINE_ALLOWANCE
             )

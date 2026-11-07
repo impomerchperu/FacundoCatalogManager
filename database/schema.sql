@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS products (
     name TEXT NOT NULL,
     category TEXT,
     description TEXT,
+    description_html TEXT DEFAULT '',
     price REAL DEFAULT 0,
     price_sample REAL DEFAULT 0,
     price_hundred REAL DEFAULT 0,

@@ -1598,7 +1598,8 @@ def test_repair_strips_share_ui_before_validating_fb3019_detail():
         db.close()
 
 
-def test_repair_preserves_fb1504_published_dimension_after_share_ui():
+
+def test_repair_preserves_fb1504_full_detail_field_and_published_truncation():
     db, repository = _seed_catalog(
         code="FB-1504",
         description="Detalle comercial antiguo",
@@ -1607,17 +1608,29 @@ def test_repair_preserves_fb1504_published_dimension_after_share_ui():
     <html><body>
       <p class="brxe-heading">FB-1504</p>
       <div id="brxe-jhzpri">
-        <div class="detail-group">
-          <strong>Marca:</strong> Bright Office.<br>
-          <strong>Modelo:</strong> 230.<br>
-          <strong>Material:</strong> Cuerpo metálico con base antideslizante.<br>
-          <strong>Potencia:</strong> 420 W.<br>
-          <strong>Dimensiones del producto:</strong> 410 \u00d7 208 \u00d7
-        </div>
+        <ul>
+          <li style="text-align: left"><strong>Marca:</strong> Bright Office</li>
+          <li><strong>Modelo:</strong> 230</li>
+          <li><strong>Material:</strong> Cuerpo metálico con base antideslizante y rodillos de alta precisión</li>
+          <li><strong>Color:</strong> Blanco con detalles negros</li>
+          <li><strong>Voltaje y Frecuencia:</strong> AC 220–240V / 50–60Hz</li>
+          <li><strong>Potencia:</strong> 420W</li>
+          <li><strong>Tiempo de precalentamiento:</strong> 3–5 minutos</li>
+          <li style="text-align: center"><strong>Temperatura de trabajo:</strong> 80–180 °C</li>
+          <li><strong>Sistema de calentamiento:</strong> Tubo de cuarzo (Quartz electric heating tube)</li>
+          <li><strong>Cantidad de rodillos:</strong> 4</li>
+          <li><strong>Ancho máximo de enmicado:</strong> 240 mm (tamaño A4)</li>
+          <li><strong>Espesor máximo de lámina:</strong> 1 mm</li>
+          <li><strong>Velocidad de laminado:</strong> 0.5 m/min</li>
+          <li><strong>Dimensiones del producto:</strong> 410 × 208 ×</li>
+        </ul>
         <div id="brxe-miyybm">COMPARTIR:</div>
       </div>
       <div id="tab-description">
-        Esta pestaña no debe completar la dimensión.
+        Esta pestaña no forma parte del Detalle autorizado.
+      </div>
+      <div id="tab-additional_information">
+        Tampoco se debe extraer Información adicional.
       </div>
     </body></html>
     """
@@ -1632,17 +1645,40 @@ def test_repair_preserves_fb1504_published_dimension_after_share_ui():
         )
 
         assert len(plans) == 1
-        assert plans[0].status == "would_update"
-        assert "Marca: Bright Office." in plans[0].new_description
-        assert "Material: Cuerpo metálico con base antideslizante." in (
-            plans[0].new_description
-        )
-        assert "Potencia: 420 W." in plans[0].new_description
-        assert "Dimensiones del producto: 410 \u00d7 208 \u00d7" in (
-            plans[0].new_description
-        )
-        assert "COMPARTIR" not in plans[0].new_description
-        assert "Esta pestaña" not in plans[0].new_description
+        plan = plans[0]
+        assert plan.status == "would_update"
+        assert plan.new_description.splitlines() == [
+            "Marca: Bright Office",
+            "Modelo: 230",
+            "Material: Cuerpo metálico con base antideslizante y rodillos de alta precisión",
+            "Voltaje y Frecuencia: AC 220–240V / 50–60Hz",
+            "Potencia: 420W",
+            "Tiempo de precalentamiento: 3–5 minutos",
+            "Temperatura de trabajo: 80–180 °C",
+            "Sistema de calentamiento: Tubo de cuarzo (Quartz electric heating tube)",
+            "Cantidad de rodillos: 4",
+            "Ancho máximo de enmicado: 240 mm (tamaño A4)",
+            "Espesor máximo de lámina: 1 mm",
+            "Velocidad de laminado: 0.5 m/min",
+            "Dimensiones del producto: 410 × 208 ×",
+        ]
+        assert "Color:" not in plan.new_description
+        assert "COMPARTIR" not in plan.new_description
+        assert "Esta pestaña" not in plan.new_description
+        assert "Información adicional" not in plan.new_description
         assert browser.requested_urls == [PRODUCT_URL]
+        assert plan.new_description_html.startswith("<ul>")
+        assert "<strong>Marca:</strong>" in plan.new_description_html
+        assert "text-align: center" in plan.new_description_html
+        assert "Color:" not in plan.new_description_html
+        assert "COMPARTIR" not in plan.new_description_html
+        assert "Esta pestaña" not in plan.new_description_html
+
+        # This applies only to an isolated in-memory test database.
+        assert apply_detail_repairs(db, repository, plans) == 1
+        stored = repository.get_by_code("FB-1504")
+        assert stored is not None
+        assert stored.description == plan.new_description
+        assert stored.description_html == plan.new_description_html
     finally:
         db.close()

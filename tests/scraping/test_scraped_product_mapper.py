@@ -89,3 +89,21 @@ def test_scraped_product_mapper_recomputes_catalog_hash():
 
     assert product.content_hash == expected
     assert product.content_hash != scraped.content_hash
+
+
+def test_scraped_product_mapper_preserves_authoritative_detail_html():
+    source_html = (
+        '<p style="text-align: center"><strong>Marca:</strong> Bright Office</p>'
+    )
+    scraped = ScrapedProduct(
+        code="FB-1504",
+        name="Enmicadora Metálica A4",
+        description="Marca: Bright Office",
+        description_html=source_html,
+    )
+
+    product = ScrapedProductMapper().to_product(scraped)
+
+    assert product.description == scraped.description
+    assert product.description_html == source_html
+    assert product.content_hash == ProductHashService().generate(scraped)

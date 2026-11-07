@@ -28,6 +28,7 @@ class Product:
         self.url = url
 
         self.description = ""
+        self.description_html = ""
         self.price_sample = 0.0
         self.price_hundred = 0.0
         self.price_thousand = 0.0
@@ -1354,3 +1355,38 @@ def test_catalog_sync_repairs_truncated_fb4008_detail_with_complete_technical_so
         change["field"] == "description"
         for change in result.changes[0]["changes"]
     )
+
+
+def test_catalog_sync_keeps_only_rich_markup_matching_the_retained_detail():
+    repository = InMemoryCatalogRepository()
+    existing = Product("FB-1504", "Enmicadora A4", 220.5)
+    existing.category = "Enmicadoras / Laminadoras"
+    existing.description = (
+        "Marca: Bright Office\n"
+        "Material: Cuerpo metálico con base antideslizante\n"
+        "Potencia: 420W"
+    )
+    existing.description_html = (
+        '<p><strong>Marca:</strong> Bright Office</p>'
+        '<p><strong>Material:</strong> Cuerpo metálico con base antideslizante</p>'
+        '<p><strong>Potencia:</strong> 420W</p>'
+    )
+    repository.save(existing)
+
+    incoming = Product("FB-1504", "Enmicadora A4", 220.5)
+    incoming.category = "Enmicadoras / Laminadoras"
+    incoming.description = "Material: Cuerpo metálico…"
+    incoming.description_html = "<p>Markup de un texto truncado</p>"
+
+    service = CatalogSyncService(repository, ProductDiffService())
+    service.synchronize([incoming])
+
+    stored = repository.get("FB-1504")
+    assert stored is not None
+    assert stored.description == existing.description
+    assert stored.description.splitlines() == [
+        "Marca: Bright Office",
+        "Material: Cuerpo metálico con base antideslizante",
+        "Potencia: 420W",
+    ]
+    assert stored.description_html == existing.description_html

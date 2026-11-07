@@ -553,6 +553,7 @@ class ProductDialog(QDialog):
                 name=name,
                 category=category,
                 description=description,
+                description_html="",
                 price=self.price.value(),
                 price_sample=self.price_sample.value(),
                 price_hundred=self.price_hundred.value(),
@@ -570,6 +571,11 @@ class ProductDialog(QDialog):
                 name=name,
                 category=category,
                 description=description,
+                description_html=(
+                    self.product.description_html
+                    if description == self.product.description
+                    else ""
+                ),
                 price=self.price.value(),
                 price_sample=self.price_sample.value(),
                 price_hundred=self.price_hundred.value(),

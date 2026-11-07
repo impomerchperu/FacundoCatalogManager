@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 from config.runtime_paths import resolve_data_path
 from models.scraping.detail_description_policy import (
+    detail_html_matches_text,
     has_technical_detail,
     is_complete_detail,
     normalize_detail_text,
@@ -49,6 +50,7 @@ class CatalogSyncService:
         "name": "Nombre",
         "category": "Categoría",
         "description": "Detalle",
+        "description_html": "Formato de Detalle",
         "price": "Precio",
         "price_sample": "Precio muestra",
         "price_hundred": "Precio ciento",
@@ -113,7 +115,8 @@ class CatalogSyncService:
                 getattr(product, "category", "")
             )
             product.description = normalize_detail_text(
-                getattr(product, "description", "")
+                getattr(product, "description", ""),
+                preserve_boundaries=True,
             )
             prepared.append(product)
         consolidated = self.consolidate_products(prepared)
@@ -236,6 +239,7 @@ class CatalogSyncService:
                 description = getattr(product, "description", "")
                 if not self._description_is_complete(description):
                     product.description = ""
+                    product.description_html = ""
                 self._image_state_repaired = (
                     self._normalize_product_image_state(product)
                     or self._image_state_repaired
@@ -748,7 +752,8 @@ class CatalogSyncService:
                 getattr(product, "category", "")
             )
             product.description = normalize_detail_text(
-                getattr(product, "description", "")
+                getattr(product, "description", ""),
+                preserve_boundaries=True,
             )
             existing = consolidated.get(code.casefold())
             if existing is None:
@@ -829,10 +834,12 @@ class CatalogSyncService:
                 setattr(existing, field, candidate)
 
         current_description = normalize_detail_text(
-            getattr(existing, "description", "")
+            getattr(existing, "description", ""),
+            preserve_boundaries=True,
         )
         candidate_description = normalize_detail_text(
-            getattr(product, "description", "")
+            getattr(product, "description", ""),
+            preserve_boundaries=True,
         )
         existing.description = current_description
         product.description = candidate_description
@@ -869,18 +876,38 @@ class CatalogSyncService:
 
     @classmethod
     def _preserve_existing_description(cls, existing, product) -> None:
-        """Keep only complete technical Detail; never persist commercial prose."""
-        incoming = normalize_detail_text(getattr(product, "description", ""))
-        current = normalize_detail_text(cls._value(existing, "description"))
+        """Keep rich formatting only when it describes the chosen canonical Detail."""
+        incoming = normalize_detail_text(
+            getattr(product, "description", ""),
+            preserve_boundaries=True,
+        )
+        current = normalize_detail_text(
+            cls._value(existing, "description"),
+            preserve_boundaries=True,
+        )
+        incoming_html = str(getattr(product, "description_html", "") or "")
+        current_html = str(getattr(existing, "description_html", "") or "")
 
         if cls._description_is_complete(incoming):
             product.description = incoming
+            if not detail_html_matches_text(incoming_html, incoming):
+                product.description_html = (
+                    current_html
+                    if detail_html_matches_text(current_html, incoming)
+                    else ""
+                )
         elif cls._description_is_complete(current):
             # Do not replace useful stored Detail with a clipped or unrelated
-            # section returned by the product page.
+            # section returned by the product page. Keep only its matching format.
             product.description = current
+            product.description_html = (
+                current_html
+                if detail_html_matches_text(current_html, current)
+                else ""
+            )
         else:
             product.description = ""
+            product.description_html = ""
 
     @staticmethod
     def _preserve_existing_prices(existing, product) -> None:

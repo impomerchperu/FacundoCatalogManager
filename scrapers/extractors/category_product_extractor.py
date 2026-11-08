@@ -73,7 +73,7 @@ class CategoryProductExtractor:
             name=name,
             base_url=ProductImageExtractor.BASE_URL,
         )
-        description = self._description(card)
+        description = clean_extracted_detail_text(self._description(card))
         description_html = self._description_html(card, description)
         result = ScrapedProduct(
             source=self.SOURCE,

@@ -46,6 +46,7 @@ from models.product import Product
 from models.product_image_gallery import normalize_product_gallery
 from models.scraping.detail_description_policy import (
     detail_html_matches_text,
+    has_redundant_product_color_detail,
     normalize_detail_text,
 )
 from services.scraping.category_name_normalizer import (
@@ -1090,16 +1091,7 @@ class ProductDetailDelegate(ProductCellDelegate):
         }:
             return True
 
-        description_parent = re.match(
-            r"^\s*descripci[oó]n(?:\s+comercial)?\s*:",
-            prefix,
-            re.IGNORECASE,
-        )
-        return bool(
-            description_parent
-            and normalized_label == "contiene"
-            and prefix.rstrip().endswith(",")
-        )
+        return False
 
     @classmethod
     def _layout_text(
@@ -2282,6 +2274,8 @@ class ProductTable(QTableWidget):
         self.setItem(row, self.CODE_COLUMN, item_code)
         self._set_text_item(row, self.NAME_COLUMN, product.name)
         rich_html = str(product.description_html or "").strip()
+        if rich_html and has_redundant_product_color_detail(product.description):
+            rich_html = ""
         if rich_html and not detail_html_matches_text(rich_html, product.description):
             rich_html = ""
         detail = (
@@ -2735,6 +2729,10 @@ class ProductTable(QTableWidget):
         raw_description = raw_description.replace("\r\n", "\n").replace(
             "\r", "\n"
         )
+        raw_description = normalize_detail_text(
+            raw_description,
+            preserve_boundaries=True,
+        )
         source_segments = re.split(r"[\n\u241e•▪●‣◦]+", raw_description)
         if not any(segment.strip() for segment in source_segments):
             return ""
@@ -2915,7 +2913,6 @@ class ProductTable(QTableWidget):
         """Ignore removable color variants and nested measure sublabels."""
         selected: list[re.Match[str]] = []
         inside_measure_value = False
-        inside_description_value = False
         inside_packaging_value = False
         packaging_value_start = 0
         for match in matches:
@@ -2934,11 +2931,8 @@ class ProductTable(QTableWidget):
                     )
                     if has_parent_technique:
                         continue
-            if alias == "colores disponibles":
-                continue
             if alias in {"empaque", "empaque individual"}:
                 inside_measure_value = False
-                inside_description_value = False
                 inside_packaging_value = True
                 packaging_value_start = match.end()
                 selected.append(match)
@@ -2950,24 +2944,10 @@ class ProductTable(QTableWidget):
             ):
                 continue
             inside_packaging_value = False
-            if alias in {
-                "descripción",
-                "descripcion",
-                "descripción comercial",
-                "descripcion comercial",
-            }:
-                inside_measure_value = False
-                inside_description_value = True
-                selected.append(match)
+            if alias == "contiene" and match.group(1).strip()[:1].islower():
+                # The lower-case verb in a source Description sentence is not
+                # a separately labelled field; real field labels use "Contiene".
                 continue
-            if inside_description_value and alias == "contiene":
-                # A comma keeps "contiene:" inside the preceding Description
-                # sentence; after a full stop it can be a separate source field.
-                prefix = match.string[: match.start()].rstrip()
-                if prefix.endswith(","):
-                    continue
-            inside_description_value = False
-
             if alias in {"medida", "medidas"} | cls.DETAIL_PARENT_MEASURE_LABELS:
                 inside_measure_value = True
                 selected.append(match)

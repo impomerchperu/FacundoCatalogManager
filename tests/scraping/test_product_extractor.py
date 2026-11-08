@@ -749,6 +749,34 @@ def test_product_extractor_prefers_visible_summary_over_description_tab():
     )
 
 
+def test_product_extractor_removes_variant_color_fields_without_stock_map():
+    html = """
+    <html><body>
+      <p class="brxe-heading">FB-9998</p>
+      <div id="brxe-jhzpri">
+        <ul>
+          <li>Color: Azul.</li>
+          <li>Colores: Rojo, Negro.</li>
+          <li>Color disponible: Verde.</li>
+          <li>Colores disponibles: Amarillo y naranja.</li>
+          <li>Material: ABS.</li>
+          <li>Descripción: Disponible en varios colores.</li>
+          <li>Color de tinta: Líquida negra.</li>
+          <li>Color de impresión: Una cara.</li>
+        </ul>
+      </div>
+    </body></html>
+    """
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["color_stock"] == {}
+    assert result["description"].splitlines() == [
+        "Material: ABS.",
+        "Color de tinta: Líquida negra.",
+        "Color de impresión: Una cara.",
+    ]
+
+
 def test_product_extractor_ignores_color_only_and_generic_other_fields():
     html = """
     <html>

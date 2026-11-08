@@ -565,7 +565,7 @@ def test_category_product_extractor_does_not_split_unbold_value_colons():
 
     assert product.description.splitlines() == [
         "Medidas: Ancho: 8 cm. Largo: 9 cm. Total: 17 cm.",
-        "Descripción: Estuche que contiene: 1 engrapadora, 1 tijera y 1 dispensador. Total: 3 accesorios. Color: negro.",
+        "Descripción: Estuche que contiene: 1 engrapadora, 1 tijera y 1 dispensador. Total: 3 accesorios.",
         "Presentación: Individual en estuche plástico.",
     ]
 

@@ -1686,10 +1686,10 @@ def test_repair_preserves_fb1504_full_detail_field_and_published_truncation():
 
 def test_category_card_bold_markup_is_a_formatting_difference_without_text_change():
     detail = (
-        "Medidas: 7.5 x 7 cm. (Aprox.)\\n"
+        "Medidas: 7.5 x 7 cm. (Aprox.)\n"
         "Descripción: Pote de plástico traslúcido que contiene: "
         "1 Saca grapas, 1 Engrapadora, repuestos, 1 Cinta Adhesiva, "
-        "1 Perforadora de un hueco.\\n"
+        "1 Perforadora de un hueco.\n"
         "Presentación del Producto: Individual, en bolsa de plástico transparente."
     )
     db, repository = _seed_catalog(description=detail)

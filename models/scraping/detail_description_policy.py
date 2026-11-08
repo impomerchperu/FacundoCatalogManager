@@ -31,8 +31,8 @@ _DESCRIPTION_FIELD_PATTERN = re.compile(
 # remain valid because their labels continue after the word "Color".
 _COLOR_FIELD_PATTERN = re.compile(
     r"(?<!\w)(?:(?:disponible\s+en)\s+)?"
-    r"(?:colores?\s+disponibles?|colores?|tonos?|tonalidades?|"
-    r"variantes?\s+de\s+colores?)"
+    r"(?:color(?:es)?\s+disponibles?|color(?:es)?|tonos?|tonalidades?|"
+    r"variantes?\s+de\s+color(?:es)?)"
     r"(?!\s+(?:"
     r"(?:de|del)\s+(?!producto\b)\w+|"
     r"de\s+la\s+\w+|exterior\b"
@@ -43,8 +43,8 @@ _COLOR_FIELD_PATTERN = re.compile(
 
 _COLOR_FIELD_PREFIX_PATTERN = re.compile(
     r"^\s*(?:(?:disponible\s+en)\s+)?"
-    r"(?:colores?\s+disponibles?|colores?|tonos?|tonalidades?|"
-    r"variantes?\s+de\s+colores?)"
+    r"(?:color(?:es)?\s+disponibles?|color(?:es)?|tonos?|tonalidades?|"
+    r"variantes?\s+de\s+color(?:es)?)"
     r"(?!\s+(?:"
     r"(?:de|del)\s+(?!producto\b)\w+|"
     r"de\s+la\s+\w+|exterior\b"
@@ -66,7 +66,7 @@ _COLOR_AVAILABILITY_DESCRIPTION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN = re.compile(
-    r"(?:disponible\s+en\s+colores?|colores?\s+disponibles?)\s*$",
+    r"(?:disponible\s+en\s+color(?:es)?|color(?:es)?\s+disponibles?)\s*$",
     re.IGNORECASE,
 )
 _COLOR_SEPARATOR_PATTERN = re.compile(
@@ -722,7 +722,7 @@ def has_technical_detail(value: object) -> bool:
 _SUMMARY_NOISE_PATTERN = re.compile(
     r"^(?:"
     r"precio\b|sku\b|stock\b|categor[ií]as?\b|"
-    r"colores?\b|disponible\b|añadir al carrito\b|limpiar\b|"
+    r"color(?:es)?\b|disponible\b|añadir al carrito\b|limpiar\b|"
     r"compartir\b|informaci[oó]n adicional\b|reseñas?\b|"
     r"valoraciones\b|"
     r"este producto no está disponible\b|sin stock\b|agotado\b"

@@ -857,6 +857,56 @@ def test_category_product_extractor_does_not_use_short_generic_prose_as_detail()
     assert product.description == ""
 
 
+
+def test_category_product_extractor_repairs_only_missing_space_after_bold_field_labels():
+    html = """
+    <article>
+        <p class="brxe-a26f34">TEST-BOLD-SPACING</p>
+        <h2 class="brxe-f31760">Producto de prueba</h2>
+        <div class="text-content">
+            <ul>
+                <li><strong>Empaque Individual:</strong>Bolsa plástica transparente.</li>
+                <li><strong>Material:</strong><span>ABS</span>.</li>
+                <li><strong>Medidas</strong>:7.5 cm.</li>
+                <li><strong>Fecha: </strong>2026 \u2013 2027.</li>
+                <li><strong>Descripción:</strong> texto <em>con</em>catenado.</li>
+            </ul>
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(
+        BeautifulSoup(html, "lxml")
+    )
+
+    assert product.description.splitlines() == [
+        "Empaque Individual: Bolsa plástica transparente.",
+        "Material: ABS.",
+        "Medidas: 7.5 cm.",
+        "Fecha: 2026 \u2013 2027.",
+        "Descripción: texto concatenado.",
+    ]
+
+    rendered = BeautifulSoup(product.description_html, "lxml")
+    items = rendered.select("li")
+    assert len(items) == 5
+    assert items[0].get_text("", strip=False) == (
+        "Empaque Individual: Bolsa plástica transparente."
+    )
+    assert items[1].get_text("", strip=False) == "Material: ABS."
+    assert items[2].get_text("", strip=False) == "Medidas: 7.5 cm."
+    assert items[3].get_text("", strip=False) == "Fecha: 2026 \u2013 2027."
+    assert items[4].get_text("", strip=False) == "Descripción: texto concatenado."
+    assert "<strong>Empaque Individual:</strong> Bolsa" in product.description_html
+    assert "<strong>Material:</strong> <span>ABS</span>" in product.description_html
+    assert "<strong>Medidas</strong>: 7.5 cm." in product.description_html
+    assert "<strong>Fecha: </strong>2026 \u2013 2027." in product.description_html
+    assert "<em>con</em>catenado." in product.description_html
+    assert detail_html_matches_text(
+        product.description_html,
+        product.description,
+    )
+
 def test_category_product_extractor_preserves_source_strong_and_bold_labels_as_rich_html():
     html = """
     <article>

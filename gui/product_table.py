@@ -3420,6 +3420,10 @@ class ProductTable(QTableWidget):
                 minimum_widths,
                 available_width,
                 even_distribution=self._even_column_distribution,
+                emergency_protected_columns={
+                    self.IMAGE_COLUMN,
+                    self.DETAIL_COLUMN,
+                },
                 growable_columns=(
                     {
                         column
@@ -3482,8 +3486,9 @@ class ProductTable(QTableWidget):
         *,
         growable_columns: set[int],
         even_distribution: bool = False,
+        emergency_protected_columns: set[int],
     ) -> list[int]:
-        """Distribute surplus width proportionally across selected columns."""
+        """Allocate widths while preserving selected emergency minimums."""
         widths = [
             max(preferred, minimum)
             for preferred, minimum in zip(
@@ -3509,7 +3514,13 @@ class ProductTable(QTableWidget):
             )
             if deficit > 0:
                 emergency_floors = [
-                    1 if index in active else 0
+                    (
+                        minimum_widths[index]
+                        if index in emergency_protected_columns
+                        else 1
+                    )
+                    if index in active
+                    else 0
                     for index in range(len(widths))
                 ]
                 ProductTable._reduce_column_widths(

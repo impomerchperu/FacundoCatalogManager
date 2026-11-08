@@ -2,6 +2,7 @@ import re
 
 from models.scraping.detail_description_policy import (
     clean_extracted_detail_text,
+    extract_detail_html_from_elements,
     extract_detail_text_from_element,
     has_technical_detail,
     is_detail_grouping_label,
@@ -72,13 +73,16 @@ class CategoryProductExtractor:
             name=name,
             base_url=ProductImageExtractor.BASE_URL,
         )
+        description = self._description(card)
+        description_html = self._description_html(card, description)
         result = ScrapedProduct(
             source=self.SOURCE,
             url=url or self._url(card),
             code=code,
             name=name,
             category=category,
-            description=self._description(card),
+            description=description,
+            description_html=description_html,
             stock=total_stock,
             price=price_sample,
             price_sample=price_sample,
@@ -298,8 +302,9 @@ class CategoryProductExtractor:
         return ""
 
     @classmethod
-    def _collect_description_candidates(cls, elements):
-        candidates = []
+    def _collect_description_source_elements(cls, elements):
+        """Return only source blocks that contributed accepted Detail text."""
+        accepted = []
         seen: set[str] = set()
         for element in elements:
             text = cls._description_candidate(element)
@@ -307,8 +312,15 @@ class CategoryProductExtractor:
             if not text or identity in seen:
                 continue
             seen.add(identity)
-            candidates.append(text)
-        return candidates
+            accepted.append(element)
+        return accepted
+
+    @classmethod
+    def _collect_description_candidates(cls, elements):
+        return [
+            cls._description_candidate(element)
+            for element in cls._collect_description_source_elements(elements)
+        ]
 
     @classmethod
     def _expand_detail_fallback_elements(cls, elements):
@@ -378,6 +390,40 @@ class CategoryProductExtractor:
             else:
                 result = f"{previous.rstrip(' .;')}. {candidate.lstrip()}"
         return result
+
+    def _description_source_elements(self, soup):
+        """Select accepted card blocks so their original bold markup can survive."""
+        authoritative_elements = [
+            element
+            for element in soup.select(".text-content")
+            if not self._is_excluded_detail_block(element)
+        ]
+        authoritative_sources = self._collect_description_source_elements(
+            authoritative_elements
+        )
+        if authoritative_sources:
+            return authoritative_sources
+
+        fallback_selectors = (
+            ".brxe-text",
+            ".brxe-text-basic",
+            "ul li",
+            "ol li",
+        )
+        fallback_elements = list(soup.select(", ".join(fallback_selectors)))
+        expanded_fallback = self._expand_detail_fallback_elements(
+            fallback_elements
+        )
+        return self._collect_description_source_elements(expanded_fallback)
+
+    def _description_html(self, soup, expected_text):
+        """Keep only source <strong>/<b> markup that exactly matches Detalle."""
+        if not str(expected_text or "").strip():
+            return ""
+        return extract_detail_html_from_elements(
+            self._description_source_elements(soup),
+            expected_text,
+        )
 
     def _description(self, soup):
         # Only non-excluded .text-content blocks establish the authoritative

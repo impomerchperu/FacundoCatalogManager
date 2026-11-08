@@ -1682,3 +1682,62 @@ def test_repair_preserves_fb1504_full_detail_field_and_published_truncation():
         assert stored.description_html == plan.new_description_html
     finally:
         db.close()
+
+
+def test_category_card_bold_markup_is_a_formatting_difference_without_text_change():
+    detail = (
+        "Medidas: 7.5 x 7 cm. (Aprox.)\n"
+        "Descripción: Pote de plástico traslúcido que contiene: "
+        "1 Saca grapas, 1 Engrapadora, repuestos, 1 Cinta Adhesiva, "
+        "1 Perforadora de un hueco.\n"
+        "Presentación del Producto: Individual, en bolsa de plástico transparente."
+    )
+    db, repository = _seed_catalog(description=detail)
+    product = repository.get_by_code("FB-1700")
+    card = BeautifulSoup(
+        """
+        <article>
+          <div class="text-content">
+            <ul>
+              <li><strong>Medidas:</strong> 7.5 x 7 cm. (Aprox.)</li>
+              <li><b>Descripción:</b> Pote de plástico traslúcido que contiene:
+                1 Saca grapas, 1 Engrapadora, repuestos, 1 Cinta Adhesiva,
+                1 Perforadora de un hueco.</li>
+              <li><strong>Presentación del Producto:</strong>
+                Individual, en bolsa de plástico transparente.</li>
+            </ul>
+          </div>
+        </article>
+        """,
+        "lxml",
+    ).article
+    assert product is not None
+    assert card is not None
+    browser = StaticBrowser(
+        _product_html(detail="Material: PLÁSTICO. Dimensiones: 99 x 99 cm.")
+    )
+
+    try:
+        card_description = CategoryProductExtractor()._description(card)
+        assert card_description == detail
+
+        plan = _plan_category_card_detail(
+            db,
+            repository,
+            product,
+            card,
+            card_description,
+            source_url=PRODUCT_URL,
+            category_name="Artículos de Escritorio",
+            browser=browser,
+        )
+
+        assert plan.status == "would_update"
+        assert plan.old_description == plan.new_description == detail
+        assert plan.old_description_html == ""
+        assert "<strong>Medidas:</strong>" in plan.new_description_html
+        assert "<b>Descripción:</b>" in plan.new_description_html
+        assert "<strong>Presentación del Producto:</strong>" in plan.new_description_html
+        assert browser.requested_urls == []
+    finally:
+        db.close()

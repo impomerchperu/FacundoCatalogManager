@@ -57,9 +57,9 @@ def test_detail_policy_removes_color_lines_without_dropping_neighboring_fields()
         "Color de impresión: Una cara. Material: PVC."
     ) == "Color de impresión: Una cara. Material: PVC."
     assert normalize_detail_text(
-        "Material: ABS\\nColor Blanco\\nPresentación: Caja",
+        "Material: ABS\nColor Blanco\nPresentación: Caja",
         preserve_boundaries=True,
-    ) == "Material: ABS\\nPresentación: Caja"
+    ) == "Material: ABS\nPresentación: Caja"
     assert normalize_detail_text(
         "Color de superficie: Acabado mate. Color: Azul.",
     ) == "Color de superficie: Acabado mate."

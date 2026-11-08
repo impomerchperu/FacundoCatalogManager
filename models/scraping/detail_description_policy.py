@@ -304,8 +304,11 @@ def extract_detail_text_from_element(
                     else:
                         sibling.extract()
 
+        if ensure_field_label_spacing:
+            _ensure_detail_html_label_spacing(source)
+
         # A colon outside <strong>/<b> is literal value text, not a label
-        # delimiter. Protect it while the shared label/empty-field policy runs.
+        # delimiter. Protect it only after checking for a label/value boundary.
         for text_node in list(source.find_all(string=True)):
             if text_node.find_parent(["strong", "b"]) is not None:
                 continue
@@ -316,9 +319,6 @@ def extract_detail_text_from_element(
                         original.replace(":", _DETAIL_LITERAL_COLON_MARKER)
                     )
                 )
-
-    if ensure_field_label_spacing:
-        _ensure_detail_html_label_spacing(source)
 
     markup = str(source)
     markup = re.sub(
@@ -975,7 +975,10 @@ def _merge_detail_html_empty_labels(roots: list[Tag]) -> list[Tag] | None:
     while index < len(roots):
         current = roots[index]
         current_text = restore_literal_detail_colons(
-            extract_detail_text_from_element(current, ensure_field_label_spacing=False)
+            extract_detail_text_from_element(
+                current,
+                ensure_field_label_spacing=False,
+            )
         )
         normalized_current = normalize_detail_text(current_text)
         if not is_empty_detail_field_fragment(normalized_current):
@@ -990,7 +993,10 @@ def _merge_detail_html_empty_labels(roots: list[Tag]) -> list[Tag] | None:
 
         following = roots[next_index]
         following_text = restore_literal_detail_colons(
-            extract_detail_text_from_element(following, ensure_field_label_spacing=False)
+            extract_detail_text_from_element(
+                following,
+                ensure_field_label_spacing=False,
+            )
         )
         following_normalized = normalize_detail_text(following_text)
         following_is_field = bool(

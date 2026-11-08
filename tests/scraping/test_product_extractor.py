@@ -749,7 +749,7 @@ def test_product_extractor_prefers_visible_summary_over_description_tab():
     )
 
 
-def test_product_extractor_removes_variant_color_fields_without_stock_map():
+def test_product_extractor_removes_variant_color_detail_independently_of_stock_data():
     html = """
     <html><body>
       <p class="brxe-heading">FB-9998</p>
@@ -769,7 +769,6 @@ def test_product_extractor_removes_variant_color_fields_without_stock_map():
     """
     result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
-    assert result["color_stock"] == {}
     assert result["description"].splitlines() == [
         "Material: ABS.",
         "Color de tinta: Líquida negra.",

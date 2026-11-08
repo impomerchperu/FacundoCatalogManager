@@ -55,13 +55,13 @@ _COLOR_FIELD_PREFIX_PATTERN = re.compile(
 
 _COLOR_AVAILABILITY_DESCRIPTION_PATTERN = re.compile(
     r"(?:"
-    r"(?:(?:el|este)\s+)?producto\s+)?"
+    r"(?:(?:(?:el|este)\s+)?producto\s+)?"
     r"(?:está\s+)?disponible\s+en\s+"
     r"(?:(?:varios|varias|diferentes|distintos|"
     r"distintas|múltiples|diversos|diversas)\s+)?"
-    r"colores?"
-    r"|(?:consultar|consulte)\s+(?:la\s+)?disponibilidad(?:\s+de\s+colores?)?"
-    r"|colores?\s+disponibles?"
+    r"color(?:es)?"
+    r"|(?:consultar|consulte)\s+(?:la\s+)?disponibilidad(?:\s+de\s+color(?:es)?)?"
+    r"|color(?:es)?\s+disponibles?"
     r")",
     re.IGNORECASE,
 )

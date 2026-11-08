@@ -868,7 +868,7 @@ def test_category_product_extractor_repairs_only_missing_space_after_bold_field_
                 <li><strong>Empaque Individual:</strong>Bolsa plástica transparente.</li>
                 <li><strong>Material:</strong><span>ABS</span>.</li>
                 <li><strong>Medidas</strong>:7.5 cm.</li>
-                <li><strong>Fecha: </strong>2026 – 2027.</li>
+                <li><strong>Fecha: </strong>2026 \u2013 2027.</li>
                 <li><strong>Descripción:</strong> texto <em>con</em>catenado.</li>
             </ul>
         </div>
@@ -883,7 +883,7 @@ def test_category_product_extractor_repairs_only_missing_space_after_bold_field_
         "Empaque Individual: Bolsa plástica transparente.",
         "Material: ABS.",
         "Medidas: 7.5 cm.",
-        "Fecha: 2026 – 2027.",
+        "Fecha: 2026 \u2013 2027.",
         "Descripción: texto concatenado.",
     ]
 
@@ -895,12 +895,12 @@ def test_category_product_extractor_repairs_only_missing_space_after_bold_field_
     )
     assert items[1].get_text("", strip=False) == "Material: ABS."
     assert items[2].get_text("", strip=False) == "Medidas: 7.5 cm."
-    assert items[3].get_text("", strip=False) == "Fecha: 2026 – 2027."
+    assert items[3].get_text("", strip=False) == "Fecha: 2026 \u2013 2027."
     assert items[4].get_text("", strip=False) == "Descripción: texto concatenado."
     assert "<strong>Empaque Individual:</strong> Bolsa" in product.description_html
     assert "<strong>Material:</strong> <span>ABS</span>" in product.description_html
     assert "<strong>Medidas</strong>: 7.5 cm." in product.description_html
-    assert "<strong>Fecha: </strong>2026 – 2027." in product.description_html
+    assert "<strong>Fecha: </strong>2026 \u2013 2027." in product.description_html
     assert "<em>con</em>catenado." in product.description_html
     assert detail_html_matches_text(
         product.description_html,

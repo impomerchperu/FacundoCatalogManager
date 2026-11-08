@@ -104,6 +104,20 @@ def test_product_color_cleanup_removes_only_variant_color_and_generic_availabili
     ) == "Color de tinta: Negra"
 
 
+def test_similar_technical_color_attributes_remain_valid_detail_fields():
+    technical_fields = (
+        "Color de tinta: Negra.",
+        "Color de impresión: Una cara.",
+        "Color del cuerpo: Plástico blanco.",
+        "Color exterior: Blanco.",
+        "Color de la superficie: Acabado mate.",
+    )
+    for source in technical_fields:
+        assert normalize_detail_text(source) == source
+        assert has_technical_detail(source)
+        assert is_valid_detail_content(source)
+
+
 def test_product_color_cleanup_removes_only_generic_description_sentence():
     source = (
         "Descripción: Disponible en varios colores. "

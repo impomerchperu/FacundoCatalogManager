@@ -933,7 +933,12 @@ def _clean_detail_html_root(root: Tag, inherited_alignment: str) -> bool:
         if cleaned != str(text_node):
             text_node.replace_with(NavigableString(cleaned))
 
-    raw_text = restore_literal_detail_colons(extract_detail_text_from_element(root, ensure_field_label_spacing=False))
+    raw_text = restore_literal_detail_colons(
+        extract_detail_text_from_element(
+            root,
+            ensure_field_label_spacing=False,
+        )
+    )
     if not raw_text.strip() or re.match(
         r"^\s*(?:compartir|share)\s*:?\s*$",
         raw_text,
@@ -1065,7 +1070,12 @@ def extract_detail_html_from_elements(elements, expected_text: object) -> str:
         return ""
 
     raw_parts = [
-        restore_literal_detail_colons(extract_detail_text_from_element(root, ensure_field_label_spacing=False))
+        restore_literal_detail_colons(
+            extract_detail_text_from_element(
+                root,
+                ensure_field_label_spacing=False,
+            )
+        )
         for root in merged_roots
     ]
     if _detail_source_text_key(" ␞ ".join(raw_parts)) != expected_key:
@@ -1087,4 +1097,10 @@ def detail_html_matches_text(fragment: object, expected_text: object) -> bool:
     for tag in list(soup.find_all(True)):
         if tag.name not in _DETAIL_HTML_ALLOWED_TAGS:
             tag.unwrap()
-    return _detail_source_text_key(extract_detail_text_from_element(soup, ensure_field_label_spacing=False)) == expected_key
+    actual_key = _detail_source_text_key(
+        extract_detail_text_from_element(
+            soup,
+            ensure_field_label_spacing=False,
+        )
+    )
+    return actual_key == expected_key

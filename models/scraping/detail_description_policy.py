@@ -11,7 +11,7 @@ import re
 from itertools import pairwise
 
 from bs4 import BeautifulSoup
-from bs4.element import NavigableString, Tag
+from bs4.element import Comment, NavigableString, Tag
 
 _DETAIL_LITERAL_COLON_MARKER = "\uE001"
 _WHITESPACE_PATTERN = re.compile(r"\s+")
@@ -185,8 +185,104 @@ _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
 
 
 
-def extract_detail_text_from_element(element) -> str:
-    """Keep source emphasis so only bold labels are parsed as field names."""
+_DETAIL_HTML_BLOCK_TAGS = frozenset({
+    "br", "p", "div", "li", "ul", "ol",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+})
+
+
+def _first_detail_html_inline_text(node: Tag) -> NavigableString | None:
+    """Return the first visible text node before an inline/block boundary."""
+    for child in node.children:
+        if isinstance(child, Comment):
+            continue
+        if isinstance(child, NavigableString):
+            return child
+        if not isinstance(child, Tag):
+            continue
+        if child.name in _DETAIL_HTML_BLOCK_TAGS:
+            return None
+        nested = _first_detail_html_inline_text(child)
+        if nested is not None:
+            return nested
+    return None
+
+
+def _next_detail_html_inline_text(
+    node: Tag | NavigableString,
+) -> NavigableString | None:
+    """Find the next inline text node; existing whitespace/breaks end the search."""
+    sibling = node.next_sibling
+    while sibling is not None:
+        if isinstance(sibling, Comment):
+            sibling = sibling.next_sibling
+            continue
+        if isinstance(sibling, NavigableString):
+            # Whitespace-only text already separates the label from its value.
+            return sibling if str(sibling).strip() else None
+        if isinstance(sibling, Tag):
+            if sibling.name in _DETAIL_HTML_BLOCK_TAGS:
+                return None
+            nested = _first_detail_html_inline_text(sibling)
+            if nested is not None:
+                return nested
+        sibling = sibling.next_sibling
+    return None
+
+
+def _ensure_detail_html_label_spacing(root: Tag) -> None:
+    """Insert only a missing separator after a bold field label's colon."""
+    for bold in list(root.find_all(["strong", "b"])):
+        bold_text = bold.get_text("", strip=False)
+        following_node = _next_detail_html_inline_text(bold)
+        if following_node is None:
+            continue
+
+        following_text = str(following_node)
+        if not following_text:
+            continue
+
+        if bold_text.rstrip().endswith(":"):
+            # A trailing space inside the bold label is already visible in HTML.
+            if bold_text[-1].isspace():
+                continue
+            if following_text[0].isspace() or following_text.startswith(":"):
+                continue
+            bold.insert_after(NavigableString(" "))
+            continue
+
+        # Some source templates put the colon immediately after </strong>.
+        # Keep the colon in its original place and add a separator after it.
+        colon_prefix = re.match(r"^(\s*:)(?=\S)", following_text)
+        if colon_prefix is not None:
+            following_node.replace_with(
+                NavigableString(
+                    following_text[: colon_prefix.end()]
+                    + " "
+                    + following_text[colon_prefix.end() :]
+                )
+            )
+            continue
+
+        # The colon can itself be a separate text node before an inline value.
+        if following_text.rstrip().endswith(":") and not following_text[-1].isspace():
+            after_colon = _next_detail_html_inline_text(following_node)
+            if (
+                after_colon is not None
+                and str(after_colon)
+                and not str(after_colon)[0].isspace()
+            ):
+                following_node.replace_with(
+                    NavigableString(following_text + " ")
+                )
+
+
+def extract_detail_text_from_element(
+    element,
+    *,
+    ensure_field_label_spacing: bool = True,
+) -> str:
+    """Keep source emphasis and visible inline whitespace when parsing Detail."""
     boundary = "__FACUNDO_DETAIL_BOUNDARY__"
     source = BeautifulSoup(str(element), "lxml")
     bold_tags = source.find_all(["strong", "b"])
@@ -221,6 +317,9 @@ def extract_detail_text_from_element(element) -> str:
                     )
                 )
 
+    if ensure_field_label_spacing:
+        _ensure_detail_html_label_spacing(source)
+
     markup = str(source)
     markup = re.sub(
         r"<br\b[^>]*>",
@@ -240,7 +339,7 @@ def extract_detail_text_from_element(element) -> str:
         markup,
         flags=re.IGNORECASE,
     )
-    text = BeautifulSoup(markup, "lxml").get_text(" ", strip=True)
+    text = BeautifulSoup(markup, "lxml").get_text("", strip=False)
     chunks = [
         re.sub(r"\s+", " ", chunk).strip()
         for chunk in text.split(boundary)
@@ -818,6 +917,7 @@ def _clean_detail_html_root(root: Tag, inherited_alignment: str) -> bool:
         return False
 
     _sanitize_detail_html_tag(root)
+    _ensure_detail_html_label_spacing(root)
     style = str(root.get("style", "") or "")
     if inherited_alignment and "text-align:" not in style:
         root["style"] = (f"{style}; " if style else "") + f"text-align: {inherited_alignment}"
@@ -833,7 +933,7 @@ def _clean_detail_html_root(root: Tag, inherited_alignment: str) -> bool:
         if cleaned != str(text_node):
             text_node.replace_with(NavigableString(cleaned))
 
-    raw_text = restore_literal_detail_colons(extract_detail_text_from_element(root))
+    raw_text = restore_literal_detail_colons(extract_detail_text_from_element(root, ensure_field_label_spacing=False))
     if not raw_text.strip() or re.match(
         r"^\s*(?:compartir|share)\s*:?\s*$",
         raw_text,
@@ -870,7 +970,7 @@ def _merge_detail_html_empty_labels(roots: list[Tag]) -> list[Tag] | None:
     while index < len(roots):
         current = roots[index]
         current_text = restore_literal_detail_colons(
-            extract_detail_text_from_element(current)
+            extract_detail_text_from_element(current, ensure_field_label_spacing=False)
         )
         normalized_current = normalize_detail_text(current_text)
         if not is_empty_detail_field_fragment(normalized_current):
@@ -885,7 +985,7 @@ def _merge_detail_html_empty_labels(roots: list[Tag]) -> list[Tag] | None:
 
         following = roots[next_index]
         following_text = restore_literal_detail_colons(
-            extract_detail_text_from_element(following)
+            extract_detail_text_from_element(following, ensure_field_label_spacing=False)
         )
         following_normalized = normalize_detail_text(following_text)
         following_is_field = bool(
@@ -965,7 +1065,7 @@ def extract_detail_html_from_elements(elements, expected_text: object) -> str:
         return ""
 
     raw_parts = [
-        restore_literal_detail_colons(extract_detail_text_from_element(root))
+        restore_literal_detail_colons(extract_detail_text_from_element(root, ensure_field_label_spacing=False))
         for root in merged_roots
     ]
     if _detail_source_text_key(" ␞ ".join(raw_parts)) != expected_key:
@@ -987,4 +1087,4 @@ def detail_html_matches_text(fragment: object, expected_text: object) -> bool:
     for tag in list(soup.find_all(True)):
         if tag.name not in _DETAIL_HTML_ALLOWED_TAGS:
             tag.unwrap()
-    return _detail_source_text_key(extract_detail_text_from_element(soup)) == expected_key
+    return _detail_source_text_key(extract_detail_text_from_element(soup, ensure_field_label_spacing=False)) == expected_key

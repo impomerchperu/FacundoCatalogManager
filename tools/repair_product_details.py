@@ -5,8 +5,8 @@ Examples:
     python -m tools.repair_product_details --codes FB-1700 FB-6005 FB-6002 FB-1503
     python -m tools.repair_product_details --codes FB-1700 FB-6005 FB-6002 FB-1503 --apply
 
-The default mode is a preview. Applying changes updates only products.description and
-products.content_hash after validating the live page's product code and visible Detail content.
+The default mode is a preview. Applying changes updates only products.description,
+products.description_html, and products.content_hash after validating the live source Detail.
 """
 from __future__ import annotations
 
@@ -657,6 +657,7 @@ def _plan_from_detail_candidate(
     candidate: str,
     *,
     reason: str,
+    candidate_html: str = "",
 ) -> DetailRepairPlan:
     """Build a plan from an accepted Detail field without writing the database."""
     old_description = str(product.description or "")
@@ -666,11 +667,19 @@ def _plan_from_detail_candidate(
         candidate,
         preserve_boundaries=True,
     )
-    candidate_html = (
-        str(product.description_html or "")
-        if detail_html_matches_text(product.description_html, preserved_candidate)
-        else ""
-    )
+    candidate_html = str(candidate_html or "").strip()
+    if candidate_html and not detail_html_matches_text(
+        candidate_html,
+        preserved_candidate,
+    ):
+        candidate_html = ""
+    # A missing card fragment must not erase previously stored rich text when
+    # that fragment still represents the exact accepted canonical Detail.
+    if not candidate_html and detail_html_matches_text(
+        product.description_html,
+        preserved_candidate,
+    ):
+        candidate_html = str(product.description_html or "")
     return DetailRepairPlan(
         code=product.code,
         status=(
@@ -703,6 +712,7 @@ def _plan_category_card_detail(
     browser: Browser,
 ) -> DetailRepairPlan:
     """Use live category-card Detail first, supplementing only missing/incomplete values."""
+    card_extractor = CategoryProductExtractor()
     candidate = normalize_detail_text(
         card_description,
         preserve_boundaries=True,
@@ -713,18 +723,24 @@ def _plan_category_card_detail(
         # Re-extract from the raw card before interpreting it as authoritative
         # empty; otherwise _card_detail_field_is_identified may detect that
         # visible Detail exists while this planner still proposes clearing it.
-        extracted_card_detail = CategoryProductExtractor()._description(card)
+        extracted_card_detail = card_extractor._description(card)
         candidate = normalize_detail_text(
             extracted_card_detail,
             preserve_boundaries=True,
         )
     field_identified = _card_detail_field_is_identified(card, candidate)
+    candidate_html = (
+        card_extractor._description_html(card, candidate)
+        if candidate
+        else ""
+    )
 
     if field_identified and not candidate:
         return _plan_from_detail_candidate(
             product,
             source_url,
             "",
+            candidate_html="",
             reason=(
                 "El campo Detalle de la tarjeta está identificado y vacío; "
                 "se conserva vacío y no se sustituye con la página individual."
@@ -736,6 +752,7 @@ def _plan_category_card_detail(
             product,
             source_url,
             candidate,
+            candidate_html=candidate_html,
             reason="Detalle obtenido del campo autorizado de la tarjeta de categoría.",
         )
 
@@ -1346,7 +1363,7 @@ def apply_detail_repairs(
     repository: ProductRepository,
     plans: list[DetailRepairPlan],
 ) -> int:
-    """Commit only validated Detail text and the corresponding content hash."""
+    """Commit validated Detail text, matching source HTML, and the content hash."""
     candidates = [plan for plan in plans if plan.status == "would_update"]
     if not candidates:
         return 0

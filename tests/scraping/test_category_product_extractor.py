@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 
+from models.scraping.detail_description_policy import detail_html_matches_text
 from scrapers.extractors.category_product_extractor import (
     CategoryProductExtractor,
 )
@@ -854,3 +855,47 @@ def test_category_product_extractor_does_not_use_short_generic_prose_as_detail()
 
     assert product.code == "FB-1235"
     assert product.description == ""
+
+
+def test_category_product_extractor_preserves_source_strong_and_bold_labels_as_rich_html():
+    html = """
+    <article>
+        <p class="brxe-a26f34">HL-9400</p>
+        <h2 class="brxe-f31760">Set de Escritorio Pote</h2>
+        <div class="text-content">
+            <ul>
+                <li><strong>Medidas:</strong> 7.5 x 7 cm. (Aprox.)</li>
+                <li><b>Descripción:</b> Pote de plástico traslúcido que contiene:
+                    1 Saca grapas, 1 Engrapadora, repuestos, 1 Cinta Adhesiva,
+                    1 Perforadora de un hueco.</li>
+                <li><strong>Presentación del Producto:</strong>
+                    Individual, en bolsa de plástico transparente.</li>
+            </ul>
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(
+        BeautifulSoup(html, "lxml")
+    )
+
+    assert product.code == "HL-9400"
+    assert product.description.splitlines() == [
+        "Medidas: 7.5 x 7 cm. (Aprox.)",
+        (
+            "Descripción: Pote de plástico traslúcido que contiene: "
+            "1 Saca grapas, 1 Engrapadora, repuestos, 1 Cinta Adhesiva, "
+            "1 Perforadora de un hueco."
+        ),
+        (
+            "Presentación del Producto: Individual, en bolsa de plástico "
+            "transparente."
+        ),
+    ]
+    assert "<strong>Medidas:</strong>" in product.description_html
+    assert "<b>Descripción:</b>" in product.description_html
+    assert "<strong>Presentación del Producto:</strong>" in product.description_html
+    assert detail_html_matches_text(
+        product.description_html,
+        product.description,
+    )

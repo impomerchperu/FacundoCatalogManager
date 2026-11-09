@@ -762,9 +762,12 @@ def is_valid_detail_content(value: object) -> bool:
 
 
 def is_empty_detail_field_fragment(value: object) -> bool:
-    """Recognize a known Detail label whose value is empty, without validating it alone."""
+    """Recognize an empty known field or a supplier-defined standalone label."""
     text = normalize_detail_text(value)
-    return bool(text) and _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN.fullmatch(text) is not None
+    return bool(text) and (
+        _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN.fullmatch(text) is not None
+        or is_detail_grouping_label(text)
+    )
 
 
 _DETAIL_FIELD_LABEL_START_PATTERN = re.compile(
@@ -779,103 +782,40 @@ _EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
 )
 
 
-# Group headings describe a family of following Detail fields. Keep the
-# relationship semantic instead of maintaining a brittle allowlist of every
-# accepted parent/child pair. The small child vocabularies prevent unrelated
-# empty fields (e.g. Material -> Peso Unitario) from being joined accidentally.
-_MEASURE_GROUPING_PARENT_PATTERN = re.compile(
-    r"^(?:"
-    r"medidas?|medida y capacidad|medida capacidad|"
-    r"dimensiones?(?: del producto)?|"
-    r"medidas?\s+(?:(?:de|del|de la)\s+)?"
-    r"(?:producto|estuche|mochila|cartera|cartuchera|usb)|"
-    r"medidas? de la caja master"
-    r")$"
+# Do not enumerate parent/child label pairs. The supplier controls the vocabulary;
+# a standalone label followed by another labeled field is enough structural
+# evidence to preserve the sequence without guessing the heading's meaning.
+_DETAIL_GROUPING_LABEL_ONLY_PATTERN = re.compile(
+    r"^\\s*[^:\\n]{1,60}?\\s*:\\s*$"
 )
-_PACKAGING_GROUPING_PARENT_LABELS = frozenset({
-    "empaque",
-    "empaque individual",
-})
-_MEASURE_GROUPING_CHILD_LABELS = frozenset({
-    "alto",
-    "ancho",
-    "largo",
-    "altura",
-    "espesor",
-    "esp",
-    "diametro",
-    "diametro (base)",
-    "capacidad",
-    "envase largo",
-    "toalla largo",
-    "interior",
-    "espacio libre",
-    "dimension",
-    "dimensiones",
-    "medida",
-    "medidas",
-    "alt",
-    "alt de base",
-    "alt total",
-    "total",
-    "estuche",
-    "tarjeta",
-    "resaltador",
-    "usb",
-    "mochila",
-    "cartera",
-    "cartuchera",
-})
-_PACKAGING_GROUPING_CHILD_LABELS = frozenset({
-    "material",
-    "materiales",
-    "paquete",
-    "caja",
-})
+_DETAIL_GROUPING_CHILD_LABEL_PATTERN = re.compile(
+    r"^\\s*[^:\\n]{1,60}?\\s*:"
+)
 
 
 def _grouping_label_key(value: object) -> str:
-    """Normalize a field label for semantic grouping comparisons."""
-    label = normalize_detail_text(value).removesuffix(":").strip().casefold()
-    return "".join(
-        character
-        for character in unicodedata.normalize("NFD", label)
-        if not unicodedata.combining(character)
-    )
-
-
-def _detail_grouping_kind(value: object) -> str:
-    """Classify a recognized parent label without depending on one SKU spelling."""
-    label = _grouping_label_key(value)
-    if label in _PACKAGING_GROUPING_PARENT_LABELS:
-        return "packaging"
-    if _MEASURE_GROUPING_PARENT_PATTERN.fullmatch(label):
-        return "measure"
-    return ""
+    """Normalize a supplier label without restricting it to a known vocabulary."""
+    return normalize_detail_text(value).strip().removesuffix(":").strip().casefold()
 
 
 def is_detail_grouping_label(value: object) -> bool:
-    """Whether an empty source label can structurally group following fields."""
-    return bool(_detail_grouping_kind(value))
+    """Whether the source contains a standalone label that may head subfields."""
+    text = normalize_detail_text(value).strip()
+    if text and not text.endswith(":"):
+        text = f"{text}:"
+    return bool(text) and _DETAIL_GROUPING_LABEL_ONLY_PATTERN.fullmatch(text) is not None
 
 
 def is_grouping_detail_child(parent_label: object, child_label: object) -> bool:
-    """Whether a following field belongs under a measure or packaging heading."""
-    grouping_kind = _detail_grouping_kind(parent_label)
-    if not grouping_kind:
-        return False
+    """Recognize adjacent labeled source blocks without a parent/child allowlist.
 
-    child_source = str(child_label or "").strip()
-    match = _DETAIL_FIELD_LABEL_START_PATTERN.match(child_source)
-    child = _grouping_label_key(
-        match.group() if match is not None else child_source
-    )
-
-    if grouping_kind == "measure":
-        return child in _MEASURE_GROUPING_CHILD_LABELS
-    if grouping_kind == "packaging":
-        return child in _PACKAGING_GROUPING_CHILD_LABELS
-    return False
+    This deliberately does not assert that two labels have a domain-specific
+    relationship. It preserves the supplier's sequence instead of deleting a
+    possible heading because its child label is unfamiliar.
+    """
+    parent = _grouping_label_key(parent_label)
+    child = normalize_detail_text(child_label).strip()
+    return bool(parent and _DETAIL_GROUPING_CHILD_LABEL_PATTERN.match(child))
 
 
 def _separate_adjacent_empty_detail_field_labels(value: str) -> str:

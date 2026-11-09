@@ -1050,3 +1050,33 @@ def test_category_product_extractor_preserves_measure_and_packaging_heading_html
 
         for label in bold_labels:
             assert label in product.description_html, (code, label)
+
+
+def test_category_product_extractor_recovers_unknown_heading_from_sibling_bricks_blocks():
+    html = """
+    <article>
+        <p class="brxe-a26f34">ZX-7303</p>
+        <h2 class="brxe-f31760">Organizador modular</h2>
+        <div class="text-content">
+            <strong>Características ampliadas:</strong>
+        </div>
+        <div class="brxe-text-basic">
+            <p><strong>Durabilidad extendida:</strong> Resiste agua y desgaste frecuente.</p>
+            <p><strong>Compatibilidad operativa:</strong> Incluye accesorios para varios formatos.</p>
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.code == "ZX-7303"
+    assert product.description == (
+        "Características ampliadas: Durabilidad extendida: "
+        "Resiste agua y desgaste frecuente.\n"
+        "Compatibilidad operativa: Incluye accesorios para varios formatos."
+    )
+    assert product.description_html
+    assert "<strong>Características ampliadas:</strong>" in product.description_html
+    assert "<strong>Durabilidad extendida:</strong>" in product.description_html
+    assert "<strong>Compatibilidad operativa:</strong>" in product.description_html
+    assert detail_html_matches_text(product.description_html, product.description)

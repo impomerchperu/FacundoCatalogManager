@@ -24,6 +24,10 @@ from gui.product_table import (
     ProductTable,
     StockColorDelegate,
 )
+from models.scraping.detail_description_policy import (
+    is_detail_grouping_label,
+    is_grouping_detail_child,
+)
 from models.product import Product
 
 
@@ -3466,6 +3470,22 @@ def test_detail_table_preserves_semantic_measure_and_packaging_group_headings():
             name="Producto de prueba",
             description=description,
         )
+        if code == "R7512":
+            source = "Medidas: Dimensiones: 13 x 10.5 x 3 cm"
+            source_matches = list(
+                ProductTable.DETAIL_FIELD_LABEL_PATTERN.finditer(source)
+            )
+            selected_matches = ProductTable._select_detail_field_matches(
+                source_matches
+            )
+            assert [match.group(1) for match in source_matches] == [
+                "Medidas",
+                "Dimensiones",
+            ]
+            assert [match.group(1) for match in selected_matches] == ["Medidas"]
+            assert is_detail_grouping_label("Medidas")
+            assert is_grouping_detail_child("Medidas", "Dimensiones:")
+
         lines = ProductTable._format_detail(product).splitlines()
         assert lines == expected_lines, (code, lines)
 

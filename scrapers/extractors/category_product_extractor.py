@@ -4,6 +4,7 @@ from models.scraping.detail_description_policy import (
     clean_extracted_detail_text,
     extract_detail_html_from_elements,
     extract_detail_text_from_element,
+    extract_detail_text_from_elements,
     has_technical_detail,
     is_detail_grouping_label,
     is_empty_detail_field_fragment,
@@ -269,10 +270,15 @@ class CategoryProductExtractor:
         # Keep HTML block boundaries (e.g. separate <li>/<p> Detail fields).
         # Category cards are the authoritative source when complete, so flattening
         # these boundaries here would irreversibly damage the stored Detail text.
-        text = clean_extracted_detail_text(
-            cls._detail_text_from_element(element),
-            restore_literal_colons=False,
-        )
+        # Parse complete source blocks before flattening them. An isolated
+        # label block followed by another Detail block is preserved as a heading
+        # regardless of the supplier's label vocabulary.
+        text = extract_detail_text_from_elements([element])
+        if not text:
+            text = clean_extracted_detail_text(
+                cls._detail_text_from_element(element),
+                restore_literal_colons=False,
+            )
         if not text or cls._NON_DETAIL_SECTION_PREFIX_PATTERN.match(text):
             return ""
 

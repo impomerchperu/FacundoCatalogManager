@@ -1303,3 +1303,36 @@ def test_fb1504_preserves_all_authoritative_fields_and_published_truncation():
         scraped.description_html,
         scraped.description,
     )
+
+
+
+def test_product_extractor_preserves_unknown_heading_and_bold_subfields_on_product_page():
+    from models.scraping.detail_description_policy import detail_html_matches_text
+
+    html = """
+    <html><body>
+      <p class="brxe-heading">ZX-7304</p>
+      <div id="brxe-jhzpri">
+        <ul>
+          <li><strong>Características ampliadas:</strong></li>
+          <li><strong>Durabilidad extendida:</strong> Resiste agua y desgaste frecuente.</li>
+          <li><strong>Compatibilidad operativa:</strong> Incluye accesorios para varios formatos.</li>
+        </ul>
+      </div>
+      <div id="tab-description">Descripción comercial no autorizada.</div>
+    </body></html>
+    """
+
+    scraped = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert scraped.code == "ZX-7304"
+    assert scraped.description.splitlines() == [
+        "Características ampliadas: Durabilidad extendida: Resiste agua y desgaste frecuente.",
+        "Compatibilidad operativa: Incluye accesorios para varios formatos.",
+    ]
+    assert "Descripción comercial no autorizada" not in scraped.description
+    assert scraped.description_html
+    assert "<strong>Características ampliadas:</strong>" in scraped.description_html
+    assert "<strong>Durabilidad extendida:</strong>" in scraped.description_html
+    assert "<strong>Compatibilidad operativa:</strong>" in scraped.description_html
+    assert detail_html_matches_text(scraped.description_html, scraped.description)

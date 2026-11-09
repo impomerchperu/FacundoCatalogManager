@@ -1281,11 +1281,9 @@ def extract_detail_text_from_elements(elements) -> str:
         return ""
 
     raw_parts = [
-        restore_literal_detail_colons(
-            extract_detail_text_from_element(
-                root,
-                ensure_field_label_spacing=False,
-            )
+        extract_detail_text_from_element(
+            root,
+            ensure_field_label_spacing=False,
         )
         for root in merged_roots
     ]

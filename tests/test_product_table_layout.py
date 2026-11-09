@@ -3427,11 +3427,11 @@ def test_detail_table_preserves_semantic_measure_and_packaging_group_headings():
         (
             "GP-2024",
             (
-                "Medida: 19×25.5cm\n"
+                "Medida: 19x25.5cm\n"
                 "Empaque: Paquete: 50 unid/10 unid caja: 1/2 millar"
             ),
             [
-                "Medida: 19×25.5cm",
+                "Medida: 19x25.5cm",
                 "Empaque: Paquete: 50 unid/10 unid caja: 1/2 millar",
             ],
         ),

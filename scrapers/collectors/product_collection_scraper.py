@@ -494,7 +494,9 @@ class ProductCollectionScraper:
         try:
             # Match the card extractor's field identification. An empty wrapper
             # is not authoritative when another visible block contains Detail.
-            if CategoryProductExtractor()._description(card).strip():
+            if normalize_detail_text(
+                CategoryProductExtractor()._description(card),
+            ).strip():
                 return False
             elements = card.select(".text-content")
         except AttributeError:
@@ -644,7 +646,7 @@ class ProductCollectionScraper:
         category_name: str,
     ) -> Any:
         card_description = normalize_detail_text(
-            getattr(product, "description", "")
+            getattr(product, "description", ""),
         )
         if self.detail_extractor is None:
             return product
@@ -728,7 +730,7 @@ class ProductCollectionScraper:
         # complete. Use the individual page only to repair that same field when
         # the card text is truncated; unrelated page sections are never merged.
         detail_description = normalize_detail_text(
-            getattr(detailed_product, "description", "")
+            getattr(detailed_product, "description", ""),
         )
         card_detail_is_authoritatively_empty = (
             self._has_authoritative_empty_card_detail(card, product)

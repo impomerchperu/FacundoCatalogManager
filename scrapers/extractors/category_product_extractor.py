@@ -73,7 +73,7 @@ class CategoryProductExtractor:
             name=name,
             base_url=ProductImageExtractor.BASE_URL,
         )
-        description = self._description(card)
+        description = clean_extracted_detail_text(self._description(card))
         description_html = self._description_html(card, description)
         result = ScrapedProduct(
             source=self.SOURCE,
@@ -344,7 +344,11 @@ class CategoryProductExtractor:
             for element in authoritative_elements
         ]
         if any(
-            text and not is_empty_detail_field_fragment(text)
+            text
+            and not (
+                is_empty_detail_field_fragment(text)
+                or is_detail_grouping_label(text)
+            )
             for text in authoritative_residue
         ):
             return []
@@ -362,8 +366,7 @@ class CategoryProductExtractor:
         grouping_labels = [
             normalize_detail_text(text).removesuffix(":").strip()
             for text in authoritative_residue
-            if is_empty_detail_field_fragment(text)
-            and is_detail_grouping_label(text)
+            if is_detail_grouping_label(text)
         ]
         if grouping_labels and valid_fallback:
             valid_fallback[0] = (

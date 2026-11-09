@@ -26,19 +26,52 @@ _DESCRIPTION_FIELD_PATTERN = re.compile(
     r"(?<!\w)descripci[oó]n(?:\s+comercial)?\s*[:|\-]\s*",
     re.IGNORECASE,
 )
+# Product-variant color fields are redundant in Detail.
+# Specific technical labels such as "Color de tinta" and "Color de impresión"
+# remain valid because their labels continue after the word "Color".
 _COLOR_FIELD_PATTERN = re.compile(
     r"(?<!\w)(?:(?:disponible\s+en)\s+)?"
-    r"(?:colores\s+disponibles|colores|color)"
-    r"(?!\s+de\s+(?:impresión|tinta))"
+    r"(?:color(?:es)?\s+disponibles?|color(?:es)?|tonos?|tonalidades?|"
+    r"variantes?\s+de\s+color(?:es)?)"
+    r"(?!\s+(?:"
+    r"(?:de|del)\s+(?!producto\b)\w+|"
+    r"de\s+la\s+\w+|exterior\b"
+    r"))"
     r"(?:\s*[:|\-]\s*|\s+(?=\S))",
     re.IGNORECASE,
 )
 
 _COLOR_FIELD_PREFIX_PATTERN = re.compile(
-    r"^\s*col(?:or|ores)(?:\s+disponibles?)?(?:\s*[:|\-]\s*|\s+)",
+    r"^\s*(?:(?:disponible\s+en)\s+)?"
+    r"(?:color(?:es)?\s+disponibles?|color(?:es)?|tonos?|tonalidades?|"
+    r"variantes?\s+de\s+color(?:es)?)"
+    r"(?!\s+(?:"
+    r"(?:de|del)\s+(?!producto\b)\w+|"
+    r"de\s+la\s+\w+|exterior\b"
+    r"))"
+    r"(?:\s*[:|\-]\s*|\s+(?=\S))",
     re.IGNORECASE,
 )
-_COLOR_SEPARATOR_PATTERN = re.compile(r"[.;]\s*")
+
+_COLOR_AVAILABILITY_DESCRIPTION_PATTERN = re.compile(
+    r"(?:"
+    r"(?:(?:(?:el|este)\s+)?producto\s+)?"
+    r"(?:está\s+)?disponible\s+en\s+"
+    r"(?:(?:varios|varias|diferentes|distintos|"
+    r"distintas|múltiples|diversos|diversas)\s+)?"
+    r"color(?:es)?"
+    r"|(?:consultar|consulte)\s+(?:la\s+)?disponibilidad(?:\s+de\s+color(?:es)?)?"
+    r"|color(?:es)?\s+disponibles?"
+    r")",
+    re.IGNORECASE,
+)
+_COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN = re.compile(
+    r"(?:disponible\s+en\s+color(?:es)?|color(?:es)?\s+disponibles?)\s*$",
+    re.IGNORECASE,
+)
+_COLOR_SEPARATOR_PATTERN = re.compile(
+    r"[.;|\r\n" + re.escape(_DETAIL_BOUNDARY) + r"]\s*"
+)
 _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"\b(?:"
     r"medida y capacidad|"
@@ -61,9 +94,9 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"dimensiones\s+del\s+producto|"
     r"peso\s+neto\s+aproximado|"
     r"t[eé]cnica\s+de\s+aplicaci[oó]n|"
-    r"color\s+de\s+tinta|"
+    r"color(?:es)?\s+(?:de(?:\s+(?!producto\b)\w+){1,2}|"
+    r"del\s+(?!producto\b)\w+|exterior)|"
     r"fecha|forma|"
-    r"color\s+de\s+impresi[oó]n|"
     r"[aá]rea\s+de\s+trabajo|"
     r"empaque\s+por\s+caja|"
     r"n[uú]mero\s+de\s+rodillos|"
@@ -401,39 +434,30 @@ def _remove_marked_fields(
 ) -> str:
     """Remove excluded field values up to the next recognized Detail label."""
     for match in reversed(list(pattern.finditer(text))):
-        prefix = text[: match.start()].rstrip()
+        raw_prefix = text[: match.start()]
+        prefix = raw_prefix.rstrip()
+        prefix_has_boundary = raw_prefix.rstrip(" \t").endswith(
+            ("\n", _DETAIL_BOUNDARY)
+        )
         explicit_label = re.search(r"[:|\-]\s*$", match.group(0)) is not None
-        is_embedded_color_list = re.match(
-            r"^colores\s*[:|]\s*",
-            match.group(0),
-            re.IGNORECASE,
-        ) is not None
-
-        if prefix and prefix[-1] not in ".;|" + _DETAIL_BOUNDARY:
-            # "Resaltadores en 5 colores: ..." is descriptive prose, but a
-            # standalone "Colores:" field should still be removed.
-            if is_embedded_color_list:
-                continue
-
-            # Flattened WooCommerce cards sometimes place "Color: ..." inline
-            # without a period. Only strip embedded matches when the field
-            # label uses an explicit delimiter.
-            if not allow_embedded_label or not explicit_label:
-                continue
-
-        # "Colores anaranjado, Verde..." may be part of a labelled
-        # Description value, not a separate color-variant field. Preserve it
-        # when it has no explicit delimiter, even after a sentence boundary.
-        if not explicit_label:
-            preceding_labels = list(
-                _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.finditer(prefix)
+        availability_label = (
+            _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN.search(match.group(0))
+            is not None
+        )
+        if _is_description_color_enumeration(text, match):
+            continue
+        # Remove known availability labels when flattened into Description,
+        # but preserve unlabelled descriptive prose such as "5 colores".
+        if (
+            prefix
+            and prefix[-1] not in ".;|" + _DETAIL_BOUNDARY
+            and not prefix_has_boundary
+            and (
+                not allow_embedded_label
+                or (not explicit_label and not availability_label)
             )
-            if preceding_labels and re.match(
-                r"descripci[oó]n(?:\s+comercial)?\s*:",
-                preceding_labels[-1].group(0),
-                re.IGNORECASE,
-            ):
-                continue
+        ):
+            continue
 
         next_field = _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.search(
             text,
@@ -466,7 +490,9 @@ def _remove_marked_fields(
             )
             removed_region = text[match.start():boundary_end]
             has_source_boundary = (
-                "\n" in removed_region or _DETAIL_BOUNDARY in removed_region
+                prefix_has_boundary
+                or "\n" in removed_region
+                or _DETAIL_BOUNDARY in removed_region
             )
             if preserve_boundaries and has_source_boundary:
                 separator = "\n"
@@ -479,7 +505,7 @@ def _remove_marked_fields(
 
 
 def strip_leading_color_field(value: object) -> str:
-    """Remove a leading color field from a legacy Detail value."""
+    """Remove a leading product-variant color field from a legacy Detail value."""
     text = _WHITESPACE_PATTERN.sub(
         " ",
         re.sub(r"[•▪●‣◦]", " ", str(value or "")),
@@ -504,6 +530,117 @@ def strip_leading_color_field(value: object) -> str:
     if separator is not None:
         return text[separator.end() :].strip()
     return ""
+
+
+def _remove_color_availability_sentences_from_descriptions(
+    text: str,
+    *,
+    preserve_boundaries: bool,
+) -> str:
+    """Remove only generic color-availability sentences inside Description fields."""
+    description_matches = list(_DESCRIPTION_FIELD_PATTERN.finditer(text))
+    for match in reversed(description_matches):
+        next_field = _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.search(
+            text,
+            match.end(),
+        )
+        end = next_field.start() if next_field is not None else len(text)
+        value = text[match.end():end]
+        sentences = re.split(r"(?<=[.!?])\s+", value.strip())
+        nonempty_sentences = [sentence for sentence in sentences if sentence.strip()]
+        kept_sentences = [
+            sentence.strip()
+            for sentence in nonempty_sentences
+            if not _COLOR_AVAILABILITY_DESCRIPTION_PATTERN.fullmatch(
+                sentence.strip(" \t\r\n.,;:")
+            )
+        ]
+        if len(kept_sentences) == len(nonempty_sentences):
+            continue
+
+        suffix = text[end:]
+        removed_region = text[match.start():end]
+        has_source_boundary = (
+            "\n" in removed_region or _DETAIL_BOUNDARY in removed_region
+        )
+        if kept_sentences:
+            separator = (
+                "\n" if preserve_boundaries and has_source_boundary else " "
+            )
+            text = (
+                text[:match.end()]
+                + " "
+                + " ".join(kept_sentences)
+                + (separator if suffix else "")
+                + suffix
+            )
+        else:
+            prefix = text[:match.start()].rstrip(" \t.;" + _DETAIL_BOUNDARY)
+            suffix = suffix.lstrip(" \t.;" + _DETAIL_BOUNDARY)
+            if prefix and suffix:
+                separator = (
+                    "\n" if preserve_boundaries and has_source_boundary else " "
+                )
+                text = prefix + separator + suffix
+            else:
+                text = prefix or suffix
+    return text
+
+
+def _is_description_color_enumeration(
+    text: str,
+    match: re.Match[str],
+) -> bool:
+    """Keep color prose within Description, not explicit product-color fields."""
+    prefix = text[: match.start()]
+    if (
+        _DESCRIPTION_FIELD_PATTERN.search(prefix)
+        and re.search(r"\ben\s+\d+\s*$", prefix, re.IGNORECASE)
+    ):
+        return True
+
+    # Unlabelled color words inside Description are descriptive prose. An
+    # explicit "Color:"/"Colores:" label remains removable even in that field.
+    explicit_label = re.search(r"[:|\-]\s*$", match.group(0)) is not None
+    availability_label = (
+        _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN.search(match.group(0))
+        is not None
+    )
+    if explicit_label or availability_label:
+        return False
+    preceding_labels = list(
+        _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.finditer(prefix)
+    )
+    return bool(
+        preceding_labels
+        and re.match(
+            r"descripci[oó]n(?:\s+comercial)?\s*:",
+            preceding_labels[-1].group(0),
+            re.IGNORECASE,
+        )
+    )
+
+
+def has_redundant_product_color_detail(value: object) -> bool:
+    """Whether source Detail includes product-variant color data removed by policy."""
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    for match in _COLOR_FIELD_PATTERN.finditer(text):
+        if not _is_description_color_enumeration(text, match):
+            return True
+
+    for match in _DESCRIPTION_FIELD_PATTERN.finditer(text):
+        next_field = _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.search(
+            text,
+            match.end(),
+        )
+        end = next_field.start() if next_field is not None else len(text)
+        value_text = text[match.end():end]
+        for sentence in re.split(r"(?<=[.!?])\s+", value_text.strip()):
+            if _COLOR_AVAILABILITY_DESCRIPTION_PATTERN.fullmatch(
+                sentence.strip(" \t\r\n.,;:")
+            ):
+                return True
+    return False
 
 
 def normalize_detail_text(
@@ -547,6 +684,10 @@ def normalize_detail_text(
         allow_embedded_label=True,
         preserve_boundaries=preserve_boundaries,
     )
+    text = _remove_color_availability_sentences_from_descriptions(
+        text,
+        preserve_boundaries=preserve_boundaries,
+    )
     text = text.replace(_DETAIL_BOUNDARY, "\n" if preserve_boundaries else " ")
     text = re.sub(r"\s+:", ":", text)
     if preserve_boundaries:
@@ -586,7 +727,9 @@ def has_technical_detail(value: object) -> bool:
 _SUMMARY_NOISE_PATTERN = re.compile(
     r"^(?:"
     r"precio\b|sku\b|stock\b|categor[ií]as?\b|"
-    r"colores?\b|disponible\b|añadir al carrito\b|limpiar\b|"
+    r"color(?:es)?(?!\s+(?:de(?:\s+(?!producto\b)\w+){1,2}|"
+    r"del\s+(?!producto\b)\w+|exterior\b))\b|"
+    r"disponible\b|añadir al carrito\b|limpiar\b|"
     r"compartir\b|informaci[oó]n adicional\b|reseñas?\b|"
     r"valoraciones\b|"
     r"este producto no está disponible\b|sin stock\b|agotado\b"
@@ -678,6 +821,8 @@ def _is_grouping_detail_child(parent_label: str, child_source: str) -> bool:
     if match is None:
         return False
     child = normalize_detail_text(match.group()).removesuffix(":").strip().casefold()
+    if parent == "empaque individual" and child in {"material", "materiales"}:
+        return True
     return child in _DETAIL_GROUPING_FIELD_CHILD_LABELS
 
 
@@ -946,16 +1091,11 @@ def _clean_detail_html_root(root: Tag, inherited_alignment: str) -> bool:
     ):
         return False
 
-    # Remove a standalone Color field only. Combined product attributes remain
-    # intact and the canonical-text check below decides whether HTML is usable.
-    color_label = _COLOR_FIELD_PATTERN.match(raw_text)
-    return not (
-        color_label is not None
-        and not re.search(
-            r"\s+[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:",
-            raw_text[color_label.end():],
-        )
-    )
+    # Drop source blocks that contain variant colors removed from the canonical
+    # Detail. Separate <li>/<p> blocks are filtered independently; if a source
+    # paragraph mixes color and other fields, the caller safely falls back to
+    # the plain-text formatter instead of persisting mismatched HTML.
+    return not has_redundant_product_color_detail(raw_text)
 
 
 def _extract_detail_html_roots(elements) -> list[Tag]:

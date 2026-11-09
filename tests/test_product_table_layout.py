@@ -1315,6 +1315,40 @@ def test_detail_formats_attributes_without_color_line_or_trailing_periods():
     table.close()
 
 
+def test_detail_table_filters_product_color_and_stale_html_without_stock_map():
+    _qapp()
+    product = Product(
+        code="TEST-COLOR-STOCK-HTML",
+        name="Producto con colores",
+        description=(
+            "Color: Azul. "
+            "Descripción: Disponible en varios colores. "
+            "Color de tinta: Negro. Material: ABS."
+        ),
+        description_html=(
+            "<ul>"
+            "<li><strong>Color:</strong> Azul.</li>"
+            "<li><strong>Descripción:</strong> Disponible en varios colores.</li>"
+            "<li><strong>Color de tinta:</strong> Negro.</li>"
+            "<li><strong>Material:</strong> ABS.</li>"
+            "</ul>"
+        ),
+    )
+    table = ProductTable(_Controller())
+    table.load_products([product])
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert not item.data(ProductDetailDelegate.DETAIL_HTML_ROLE)
+    assert item.text().splitlines() == [
+        "Color de tinta: Negro",
+        "Material: ABS",
+    ]
+
+    table.close()
+
+
 def test_detail_removes_fields_that_repeat_product_row_data():
     _qapp()
     table = ProductTable(_Controller())
@@ -2998,6 +3032,69 @@ def test_detail_column_resize_recalculates_row_height_for_wrapped_content():
     table.close()
 
 
+def test_product_table_renders_authoritative_hl9400_html_with_embedded_contiene():
+    _qapp()
+    description = (
+        "Medidas: 7.5 x 7 cm. (Aprox.)\n"
+        "Descripción: Pote de plástico traslúcido que contiene: "
+        "1 Saca grapas, 1 Engrapadora, repuestos, 1 Cinta Adhesiva, "
+        "1 Perforadora de un hueco.\n"
+        "Presentación del Producto: Individual, en bolsa de plástico transparente."
+    )
+    description_html = (
+        "<ul>"
+        '<li style="text-align: left"><strong>Medidas: </strong>'
+        "7.5 x 7 cm. (Aprox.)</li>"
+        '<li style="text-align: left"><b>Descripción: </b>'
+        "Pote de plástico traslúcido que contiene: "
+        "1 Saca grapas, 1 Engrapadora, repuestos, 1 Cinta Adhesiva, "
+        "1 Perforadora de un hueco.</li>"
+        '<li style="text-align: left"><strong>Presentación del Producto: </strong>'
+        "Individual, en bolsa de plástico transparente.</li>"
+        "</ul>"
+    )
+    table = ProductTable(_Controller())
+    table.load_products(
+        [
+            Product(
+                code="HL-9400",
+                name="Set de Escritorio Pote",
+                description=description,
+                description_html=description_html,
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert item.text().splitlines() == description.splitlines()
+    rendered_html = item.data(ProductDetailDelegate.DETAIL_HTML_ROLE)
+    assert rendered_html == description_html
+
+    document = ProductDetailDelegate._document_for_html(
+        rendered_html,
+        table.font(),
+        700,
+    )
+    rendered_text = document.toPlainText().replace("\u2022 ", "")
+    assert "Pote de plástico traslúcido que contiene:" in rendered_text
+    assert not any(
+        line.strip().casefold().startswith("contiene:")
+        for line in rendered_text.splitlines()
+    )
+    measure_cursor = document.find("Medidas:")
+    description_cursor = document.find("Descripción:")
+    assert measure_cursor.hasSelection()
+    assert description_cursor.hasSelection()
+    assert measure_cursor.charFormat().fontWeight() >= 700
+    assert description_cursor.charFormat().fontWeight() >= 700
+    assert "<strong>Medidas:" in rendered_html
+    assert "<b>Descripción:" in rendered_html
+    assert "<strong>Presentación del Producto:" in rendered_html
+
+    table.close()
+
 
 def test_detail_table_keeps_unbolded_source_values_for_observed_codes():
     cases = (
@@ -3049,6 +3146,19 @@ def test_detail_table_keeps_unbolded_source_values_for_observed_codes():
             ),
             ("Ancho: 10.4 cm", "Largo: 11.0 cm", "Espesor 2.9 cm"),
             "contiene: 1 engrapadora",
+        ),
+        (
+            "HL-9400",
+            (
+                "Medidas: 7.5 x 7 cm. (Aprox.)\n"
+                "Descripción: Pote de plástico traslúcido que contiene: "
+                "1 Saca grapas, 1 Engrapadora, repuestos, 1 Cinta Adhesiva, "
+                "1 Perforadora de un hueco.\n"
+                "Presentación del Producto: Individual, en bolsa de plástico "
+                "transparente."
+            ),
+            ("7.5 x 7 cm.",),
+            "contiene: 1 Saca grapas",
         ),
     )
 

@@ -207,8 +207,9 @@ class ProductExtractor:
             if detail_field_found
             else self._extract_detail_text_fallback(soup)
         )
+        description = clean_extracted_detail_text(description)
         description_html = (
-            self.extract_authoritative_detail_html(soup, authoritative_detail)
+            self.extract_authoritative_detail_html(soup, description)
             if detail_field_found
             else ""
         )

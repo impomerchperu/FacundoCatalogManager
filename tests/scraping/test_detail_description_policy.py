@@ -33,9 +33,13 @@ def test_detail_policy_removes_color_line_and_preserves_technical_attributes():
 
 def test_detail_policy_removes_color_lines_without_dropping_neighboring_fields():
     color_values = (
-        "Colores Blanco",
+        "Color: Blanco.",
+        "Colores: Rojo y azul.",
         "Color Blanco.",
+        "Colores Blanco.",
+        "Color disponible: Amarillo.",
         "Colores disponibles: Amarillo, Blanco",
+        "Color del producto: Verde.",
     )
     for value in color_values:
         normalized = normalize_detail_text(value)
@@ -43,18 +47,101 @@ def test_detail_policy_removes_color_lines_without_dropping_neighboring_fields()
         assert not has_technical_detail(normalized)
         assert not is_complete_detail(normalized)
 
-    assert normalize_detail_text("Colores Blanco. Material: ABS.") == (
-        "Material: ABS."
-    )
     assert normalize_detail_text(
-        "Material: ABS. Colores disponibles: Azul, Rojo. Presentación: Caja."
+        "Colores: Blanco. Material: ABS.",
+    ) == "Material: ABS."
+    assert normalize_detail_text(
+        "Material: ABS. Colores disponibles: Azul, Rojo. Presentación: Caja.",
     ) == "Material: ABS. Presentación: Caja."
     assert normalize_detail_text(
         "Color de impresión: Una cara. Material: PVC."
     ) == "Color de impresión: Una cara. Material: PVC."
     assert normalize_detail_text(
-        "Color: Blanco. Descripción: Elegante. Contiene: Tapa."
+        "Material: ABS\nColor Blanco\nPresentación: Caja",
+        preserve_boundaries=True,
+    ) == "Material: ABS\nPresentación: Caja"
+    assert normalize_detail_text(
+        "Color de superficie: Acabado mate. Color: Azul.",
+    ) == "Color de superficie: Acabado mate."
+    assert normalize_detail_text(
+        "Color: Blanco. Descripción: Elegante. Contiene: Tapa.",
     ) == "Descripción: Elegante. Contiene: Tapa."
+
+
+def test_product_color_cleanup_removes_only_variant_color_and_generic_availability():
+    source = (
+        "Color: Azul. "
+        "Colores: Rojo, negro y blanco. "
+        "Color disponible: Verde. "
+        "Color del producto: Blanco. "
+        "Colores disponibles: Amarillo y naranja. "
+        "Colores de producto: Blanco y negro. "
+        "Descripción: Disponible en varios colores. "
+        "Color de tinta: Negro. "
+        "Colores de tinta: Azul y negro. "
+        "Color exterior: Blanco. "
+        "Color del cuerpo: Plástico blanco. "
+        "Color de impresión: Una cara. "
+        "Color de impresion: Dos caras. "
+        "Color de superficie: Acabado mate. "
+        "Descripción: Resaltadores en 5 colores: Fucsia, Naranja y Verde."
+    )
+    expected = (
+        "Color de tinta: Negro. "
+        "Colores de tinta: Azul y negro. "
+        "Color exterior: Blanco. "
+        "Color del cuerpo: Plástico blanco. "
+        "Color de impresión: Una cara. "
+        "Color de impresion: Dos caras. "
+        "Color de superficie: Acabado mate. "
+        "Descripción: Resaltadores en 5 colores: Fucsia, Naranja y Verde."
+    )
+
+    assert normalize_detail_text(source) == expected
+    assert normalize_detail_text(
+        "Color: Azul\nColor de tinta: Negra",
+        preserve_boundaries=True,
+    ) == "Color de tinta: Negra"
+
+
+def test_similar_technical_color_attributes_remain_valid_detail_fields():
+    technical_fields = (
+        "Color de tinta: Negra.",
+        "Color de impresión: Una cara.",
+        "Color del cuerpo: Plástico blanco.",
+        "Color exterior: Blanco.",
+        "Color de la superficie: Acabado mate.",
+    )
+    for source in technical_fields:
+        assert normalize_detail_text(source) == source
+        assert has_technical_detail(source)
+        assert is_valid_detail_content(source)
+
+
+def test_product_color_cleanup_removes_only_generic_description_sentence():
+    source = (
+        "Descripción: Disponible en varios colores. "
+        "Ideal para escritorio. Presentación: Individual."
+    )
+
+    assert normalize_detail_text(source) == (
+        "Descripción: Ideal para escritorio. Presentación: Individual."
+    )
+    assert normalize_detail_text(
+        "Descripción: Disponible en varios colores.",
+    ) == ""
+
+
+def test_product_color_cleanup_is_unconditional_without_stock_map():
+    source = (
+        "Color: Azul. Colores disponibles: Rojo y negro. "
+        "Descripción: Disponible en varios colores."
+    )
+
+    assert normalize_detail_text(source) == ""
+    assert strip_leading_color_field("Color: Azul. Material: ABS.") == (
+        "Material: ABS."
+    )
 
 
 def test_detail_policy_detects_clipped_words_and_ellipsis():
@@ -248,7 +335,10 @@ def test_detail_policy_keeps_populated_detail_with_empty_shipping_labels():
             "Peso bruto por caja:",
         )
     )
-    detail = normalize_detail_text(source, preserve_boundaries=True)
+    detail = normalize_detail_text(
+        source,
+        preserve_boundaries=True,
+    )
 
     assert "Color:" not in detail
     assert "Material: Bambú y ABS." in detail
@@ -398,11 +488,11 @@ def test_detail_policy_recognizes_laminator_and_printer_specific_labels():
 
 def test_detail_policy_removes_inline_color_labels_from_flattened_card_text():
     assert normalize_detail_text(
-        "Material: Poliuretano Color: Blanco. Presentación: Caja."
+        "Material: Poliuretano Color: Blanco. Presentación: Caja.",
     ) == "Material: Poliuretano. Presentación: Caja."
 
     assert normalize_detail_text(
-        "Material: PVC. Disponible en colores: Rojo, Azul. Presentación: Caja."
+        "Material: PVC. Disponible en colores: Rojo, Azul. Presentación: Caja.",
     ) == "Material: PVC. Presentación: Caja."
 
 

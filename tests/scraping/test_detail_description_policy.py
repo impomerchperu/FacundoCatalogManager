@@ -699,8 +699,8 @@ def test_detail_grouping_preserves_supplier_defined_headers_without_allowlists()
 
 def test_detail_cleanup_preserves_unknown_heading_and_its_subfields():
     source = (
-        "Características adicionales:\\n"
-        "Resistencia al agua: IPX4.\\n"
+        "Características adicionales:\n"
+        "Resistencia al agua: IPX4.\n"
         "Compatibilidad extendida: Windows, macOS y Linux."
     )
 
@@ -727,4 +727,3 @@ def test_detail_cleanup_preserves_measure_and_packaging_source_headings():
         "Medidas Estuche: Largo: 9 cm, Ancho: 4.5 cm, Alto: 2 cm (Aprox)",
         "Medidas: Dimensiones: 13 x 10.5 x 3 cm",
     ]
-

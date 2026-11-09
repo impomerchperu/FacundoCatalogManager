@@ -490,7 +490,7 @@ class CategoryProductExtractor:
             ):
                 # A recovered source heading defines a structural group; keep
                 # each sibling field on its own line, matching the source DOM.
-                return "\\n".join(candidates)
+                return "\n".join(candidates)
         else:
             candidates = self._recover_fallback_detail_candidates(
                 fallback_elements

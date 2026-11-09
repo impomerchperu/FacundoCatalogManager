@@ -8,6 +8,8 @@ from models.scraping.detail_description_policy import (
     has_technical_detail,
     is_detail_grouping_label,
     is_empty_detail_field_fragment,
+    is_empty_shipping_detail_placeholder,
+    is_standalone_detail_heading,
     is_valid_detail_content,
     normalize_detail_text,
     restore_literal_detail_colons,
@@ -339,6 +341,13 @@ class CategoryProductExtractor:
                 expanded.append(element)
         return expanded
 
+    @staticmethod
+    def _is_recoverable_detail_heading(value: object) -> bool:
+        text = normalize_detail_text(value)
+        return is_standalone_detail_heading(text) and not (
+            is_empty_shipping_detail_placeholder(text)
+        )
+
     @classmethod
     def _recover_authoritative_empty_field_candidates(
         cls,
@@ -353,7 +362,7 @@ class CategoryProductExtractor:
             text
             and not (
                 is_empty_detail_field_fragment(text)
-                or is_detail_grouping_label(text)
+                or cls._is_recoverable_detail_heading(text)
             )
             for text in authoritative_residue
         ):
@@ -366,13 +375,13 @@ class CategoryProductExtractor:
         if len(valid_fallback) < 2:
             return []
 
-        # Some card layouts put a grouping label in .text-content and its
-        # values in sibling Bricks blocks. Keep only recognized grouping labels
-        # when a populated fallback immediately supplies their subfields.
+        # A standalone label in the authoritative card may head subfields
+        # stored in sibling Bricks blocks. Preserve any supplier-defined label
+        # by its source shape, not by a measure/packaging vocabulary.
         grouping_labels = [
             normalize_detail_text(text).removesuffix(":").strip()
             for text in authoritative_residue
-            if is_detail_grouping_label(text)
+            if cls._is_recoverable_detail_heading(text)
         ]
         if grouping_labels and valid_fallback:
             valid_fallback[0] = (
@@ -423,7 +432,22 @@ class CategoryProductExtractor:
         expanded_fallback = self._expand_detail_fallback_elements(
             fallback_elements
         )
-        return self._collect_description_source_elements(expanded_fallback)
+        fallback_sources = self._collect_description_source_elements(
+            expanded_fallback
+        )
+        fallback_candidates = self._collect_description_candidates(
+            expanded_fallback
+        )
+        heading_sources = [
+            element
+            for element in authoritative_elements
+            if self._is_recoverable_detail_heading(
+                self._detail_text_from_element(element)
+            )
+        ]
+        if heading_sources and len(fallback_candidates) >= 2:
+            return heading_sources + fallback_sources
+        return fallback_sources
 
     def _description_html(self, soup, expected_text):
         """Keep only source <strong>/<b> markup that exactly matches Detalle."""

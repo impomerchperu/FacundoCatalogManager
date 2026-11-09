@@ -1336,3 +1336,38 @@ def test_product_extractor_preserves_unknown_heading_and_bold_subfields_on_produ
     assert "<strong>Durabilidad extendida:</strong>" in scraped.description_html
     assert "<strong>Compatibilidad operativa:</strong>" in scraped.description_html
     assert detail_html_matches_text(scraped.description_html, scraped.description)
+
+
+
+def test_product_extractor_preserves_nested_unknown_headings_and_skips_empty_shipping_placeholder():
+    from models.scraping.detail_description_policy import detail_html_matches_text
+
+    html = """
+    <html><body>
+      <p class="brxe-heading">ZX-7305</p>
+      <div id="brxe-jhzpri">
+        <ul>
+          <li><strong>Especificaciones técnicas:</strong></li>
+          <li><strong>Caja:</strong></li>
+          <li><strong>Dimensiones avanzadas:</strong></li>
+          <li><strong>Dimensión principal:</strong> 10 x 5 x 2 cm.</li>
+          <li><strong>Material:</strong> Aluminio anodizado.</li>
+        </ul>
+      </div>
+    </body></html>
+    """
+
+    scraped = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert scraped.code == "ZX-7305"
+    assert scraped.description.splitlines() == [
+        "Especificaciones técnicas: Dimensiones avanzadas: Dimensión principal: 10 x 5 x 2 cm.",
+        "Material: Aluminio anodizado.",
+    ]
+    assert "Caja:" not in scraped.description
+    assert scraped.description_html
+    assert "<strong>Especificaciones técnicas:</strong>" in scraped.description_html
+    assert "<strong>Dimensiones avanzadas:</strong>" in scraped.description_html
+    assert "<strong>Dimensión principal:</strong>" in scraped.description_html
+    assert "Caja:" not in scraped.description_html
+    assert detail_html_matches_text(scraped.description_html, scraped.description)

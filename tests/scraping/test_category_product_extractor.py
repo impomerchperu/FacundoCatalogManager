@@ -1009,15 +1009,19 @@ def test_category_product_extractor_preserves_measure_and_packaging_heading_html
             "Organizador resistente",
             """
             <li><strong>Especificaciones adicionales:</strong></li>
-            <li><strong>Resistencia:</strong> Al agua y al desgaste en uso frecuente.</li>
-            <li><strong>Contenido:</strong> Accesorios, cable y manual de instrucciones.</li>
+            <li><strong>Durabilidad extendida:</strong> Al agua y al desgaste en uso frecuente.</li>
+            <li><strong>Compatibilidad operativa:</strong> Accesorios, cable y manual de instrucciones.</li>
             """,
             (
-                "Especificaciones adicionales: Resistencia: Al agua y al desgaste "
-                "en uso frecuente.\n"
-                "Contenido: Accesorios, cable y manual de instrucciones."
+                "Especificaciones adicionales: Durabilidad extendida: Al agua y al "
+                "desgaste en uso frecuente.\n"
+                "Compatibilidad operativa: Accesorios, cable y manual de instrucciones."
             ),
-            ("Especificaciones adicionales:", "Resistencia:", "Contenido:"),
+            (
+                "Especificaciones adicionales:",
+                "Durabilidad extendida:",
+                "Compatibilidad operativa:",
+            ),
         ),
     )
 

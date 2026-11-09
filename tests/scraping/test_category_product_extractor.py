@@ -1014,7 +1014,7 @@ def test_category_product_extractor_preserves_measure_and_packaging_heading_html
             """,
             (
                 "Especificaciones adicionales: Resistencia: Al agua y al desgaste "
-                "en uso frecuente.\\n"
+                "en uso frecuente.\n"
                 "Contenido: Accesorios, cable y manual de instrucciones."
             ),
             ("Especificaciones adicionales:", "Resistencia:", "Contenido:"),
@@ -1046,4 +1046,3 @@ def test_category_product_extractor_preserves_measure_and_packaging_heading_html
 
         for label in bold_labels:
             assert label in product.description_html, (code, label)
-

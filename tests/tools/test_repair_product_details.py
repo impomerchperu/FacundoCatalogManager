@@ -1741,3 +1741,30 @@ def test_category_card_bold_markup_is_a_formatting_difference_without_text_chang
         assert browser.requested_urls == []
     finally:
         db.close()
+
+
+def test_detail_preview_opens_database_in_read_only_mode(monkeypatch):
+    db, repository = _seed_catalog()
+    captured: dict[str, bool] = {}
+
+    def database_factory(*, read_only: bool = False):
+        captured["read_only"] = read_only
+        return db
+
+    monkeypatch.setattr(repair_module, "DBManager", database_factory)
+    monkeypatch.setattr(
+        repair_module,
+        "ProductRepository",
+        lambda _database: repository,
+    )
+    monkeypatch.setattr(
+        repair_module.sys,
+        "argv",
+        ["repair_product_details", "--audit-incomplete"],
+    )
+
+    try:
+        assert repair_module.main() == 0
+        assert captured == {"read_only": True}
+    finally:
+        db.close()

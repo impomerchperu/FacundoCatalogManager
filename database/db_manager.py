@@ -1,4 +1,5 @@
 import sqlite3
+from pathlib import Path
 
 from config.runtime_paths import DATABASE_PATH, SCHEMA_PATH
 
@@ -8,10 +9,32 @@ class DBManager:
 
     SCHEMA_VERSION = 7
 
-    def __init__(self, db_path=None):
+    def __init__(self, db_path=None, *, read_only: bool = False):
+        self.read_only = bool(read_only)
         if db_path is None:
             db_path = DATABASE_PATH
-            DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            if not self.read_only:
+                DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+        if self.read_only:
+            database_path = Path(db_path).expanduser().resolve()
+            if not database_path.is_file():
+                raise FileNotFoundError(
+                    f"No existe la base SQLite que se quiere abrir en solo lectura: "
+                    f"{database_path}"
+                )
+            database_uri = f"{database_path.as_uri()}?mode=ro"
+            self.connection = sqlite3.connect(
+                database_uri,
+                uri=True,
+                timeout=30,
+            )
+            self.connection.row_factory = sqlite3.Row
+            self._transaction_active = False
+            self.connection.execute("PRAGMA query_only = ON")
+            self.connection.execute("PRAGMA foreign_keys = ON")
+            return
+
         self.connection = sqlite3.connect(db_path, timeout=30)
         self.connection.row_factory = sqlite3.Row
         self._transaction_active = False
@@ -452,7 +475,14 @@ class DBManager:
             f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"
         )
 
+    def _ensure_writable(self) -> None:
+        if self.read_only:
+            raise sqlite3.OperationalError(
+                "La conexión SQLite se abrió en modo de solo lectura."
+            )
+
     def begin(self):
+        self._ensure_writable()
         if self._transaction_active:
             raise RuntimeError("Ya existe una transacción activa.")
         self.connection.execute("BEGIN")
@@ -467,6 +497,7 @@ class DBManager:
         self._transaction_active = False
 
     def execute_query(self, query, params=()):
+        self._ensure_writable()
         cursor = self.connection.cursor()
         cursor.execute(query, params)
         if not self._transaction_active:
@@ -475,6 +506,7 @@ class DBManager:
 
     def execute_many(self, query, params_seq=()):
         """Ejecuta una sentencia parametrizada sobre múltiples filas."""
+        self._ensure_writable()
         cursor = self.connection.cursor()
         cursor.executemany(query, params_seq)
         if not self._transaction_active:

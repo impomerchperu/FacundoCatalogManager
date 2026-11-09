@@ -906,6 +906,7 @@ def clean_extracted_detail_text(
     value: object,
     *,
     restore_literal_colons: bool = True,
+    preserve_structural_groups: bool = False,
 ) -> str:
     """Prepare extracted Detail for storage without empty labels or lost split values.
 
@@ -920,7 +921,8 @@ def clean_extracted_detail_text(
     # paragraph as the last Detail field. Strip that UI suffix while retaining
     # the original source field, including any incomplete value the page shows.
     normalized = _TRAILING_DETAIL_UI_NOISE_PATTERN.sub("", normalized).rstrip()
-    normalized = _separate_adjacent_empty_detail_field_labels(normalized)
+    if not preserve_structural_groups:
+        normalized = _separate_adjacent_empty_detail_field_labels(normalized)
     lines = [line.strip() for line in normalized.splitlines()]
     cleaned: list[str] = []
     index = 0
@@ -1161,8 +1163,27 @@ def _extract_detail_html_roots(elements) -> list[Tag]:
     return roots
 
 
-def _merge_detail_html_empty_labels(roots: list[Tag]) -> list[Tag] | None:
-    """Join label-only paragraphs to their values without changing alignment."""
+_DETAIL_STANDALONE_HEADING_PATTERN = re.compile(r"^\\s*[^:\\n]{1,100}?\\s*:\\s*$")
+
+
+def _is_empty_shipping_placeholder(value: object) -> bool:
+    """Recognize only the supplier's known empty shipping placeholders."""
+    return _EMPTY_TRAILING_DETAIL_FIELD_PATTERN.fullmatch(
+        normalize_detail_text(value).strip()
+    ) is not None
+
+
+def _merge_detail_html_empty_labels(
+    roots: list[Tag],
+    *,
+    preserve_alignment: bool = True,
+) -> list[Tag] | None:
+    """Keep any standalone source heading with its following HTML block.
+
+    The DOM block boundary is the evidence that the label is a heading. Its
+    vocabulary is intentionally unrestricted; only known empty shipping
+    placeholders are discarded as catalog logistics noise.
+    """
     index = 0
     while index < len(roots):
         current = roots[index]
@@ -1172,48 +1193,95 @@ def _merge_detail_html_empty_labels(roots: list[Tag]) -> list[Tag] | None:
                 ensure_field_label_spacing=False,
             )
         )
-        normalized_current = normalize_detail_text(current_text)
-        if not is_empty_detail_field_fragment(normalized_current):
+        normalized_current = normalize_detail_text(current_text).strip()
+        if not _DETAIL_STANDALONE_HEADING_PATTERN.fullmatch(normalized_current):
             index += 1
             continue
 
-        label = normalized_current.removesuffix(":").strip()
+        if _is_empty_shipping_placeholder(normalized_current):
+            roots.pop(index)
+            continue
+
         next_index = index + 1
         if next_index >= len(roots):
             roots.pop(index)
             continue
 
-        following = roots[next_index]
-        following_text = restore_literal_detail_colons(
+        # Attach consecutive label-only blocks and then the first populated
+        # block. No parent/child label list is needed to retain the source tree.
+        while next_index < len(roots):
+            following = roots[next_index]
+            following_text = restore_literal_detail_colons(
+                extract_detail_text_from_element(
+                    following,
+                    ensure_field_label_spacing=False,
+                )
+            )
+            if preserve_alignment:
+                current_alignment = _detail_html_alignment(current) or "left"
+                following_alignment = _detail_html_alignment(following) or "left"
+                if current_alignment != following_alignment:
+                    # One HTML paragraph cannot faithfully represent two alignments.
+                    return None
+
+            current.append(NavigableString(" "))
+            for child in list(following.contents):
+                current.append(child.extract())
+            following.decompose()
+            roots.pop(next_index)
+
+            merged_text = restore_literal_detail_colons(
+                extract_detail_text_from_element(
+                    current,
+                    ensure_field_label_spacing=False,
+                )
+            )
+            if not _DETAIL_STANDALONE_HEADING_PATTERN.fullmatch(
+                normalize_detail_text(merged_text).strip()
+            ):
+                break
+
+        index += 1
+    return roots
+
+
+def extract_detail_text_from_elements(elements) -> str:
+    """Extract canonical text after preserving standalone labels from source DOM.
+
+    This path keeps the structural boundaries of the selected Detail elements,
+    merges an isolated heading with the following block, and then applies the
+    ordinary catalog exclusions and cleanup policy.
+    """
+    roots: list[Tag] = []
+    for element in list(elements or []):
+        for root in _detail_html_candidates(element):
+            for child in list(root.find_all(True)):
+                if _is_detail_html_ui_node(child):
+                    child.decompose()
+            if not _is_detail_html_ui_node(root):
+                roots.append(root)
+
+    merged_roots = _merge_detail_html_empty_labels(
+        roots,
+        preserve_alignment=False,
+    )
+    if not merged_roots:
+        return ""
+
+    raw_parts = [
+        restore_literal_detail_colons(
             extract_detail_text_from_element(
-                following,
+                root,
                 ensure_field_label_spacing=False,
             )
         )
-        following_normalized = normalize_detail_text(following_text)
-        following_is_field = bool(
-            _DETAIL_FIELD_LABEL_START_PATTERN.match(following_normalized)
-        )
-        if (
-            following_is_field
-            and not is_grouping_detail_child(label, following_normalized)
-        ):
-            roots.pop(index)
-            continue
-
-        current_alignment = _detail_html_alignment(current) or "left"
-        following_alignment = _detail_html_alignment(following) or "left"
-        if current_alignment != following_alignment:
-            # One HTML paragraph cannot faithfully represent two alignments.
-            return None
-
-        current.append(NavigableString(" "))
-        for child in list(following.contents):
-            current.append(child.extract())
-        following.decompose()
-        roots.pop(next_index)
-    return roots
-
+        for root in merged_roots
+    ]
+    return clean_extracted_detail_text(
+        "\\n".join(part for part in raw_parts if part.strip()),
+        restore_literal_colons=False,
+        preserve_structural_groups=True,
+    )
 
 def _detail_html_has_meaningful_style(tag: Tag) -> bool:
     """Return whether sanitized inline styles change the default cell appearance."""

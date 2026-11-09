@@ -411,7 +411,7 @@ def test_detail_cleanup_omits_empty_intermediate_and_terminal_labels():
     assert clean_extracted_detail_text(source).splitlines() == [
         "Gramaje: 90 g.",
         "Medida: A4.",
-        "Paquete: 20 hojas.",
+        "Caja: Paquete: 20 hojas.",
     ]
     assert clean_extracted_detail_text("Caja:") == ""
 
@@ -423,12 +423,11 @@ def test_detail_cleanup_separates_adjacent_empty_field_labels():
     )
 
     assert clean_extracted_detail_text(source).splitlines() == [
-        "Material: Aluminio sublimable.",
-        "Peso Unitario: 117 G.",
+        "Material: Aluminio sublimable. Dimensiones: Peso Unitario: 117 G.",
         "Uso Recomendado: Conservar la temperatura de bebidas frías o calientes.",
     ]
     assert clean_extracted_detail_text("Empaque Individual: Cantidad Por Caja: 24 Pza.") == (
-        "Cantidad Por Caja: 24 Pza."
+        "Empaque Individual: Cantidad Por Caja: 24 Pza."
     )
 
 def test_detail_cleanup_removes_empty_suffix_from_flattened_photo_paper_fields():
@@ -676,27 +675,42 @@ def test_detail_policy_removes_invisible_direction_marks_from_field_values():
         preserve_boundaries=True,
     ) == "Forma: Rectángulo"
 
-def test_detail_grouping_recognizes_semantic_measure_and_packaging_children():
+def test_detail_grouping_preserves_supplier_defined_headers_without_allowlists():
     assert is_detail_grouping_label("Medidas Estuche:")
-    assert is_detail_grouping_label("Medidas del Estuche:")
     assert is_detail_grouping_label("Empaque:")
-    assert is_detail_grouping_label("Empaque Individual:")
+    assert is_detail_grouping_label("Características adicionales:")
+    assert is_detail_grouping_label("Contenido técnico")
 
-    assert is_grouping_detail_child("Medidas Estuche:", "Largo: 9 cm")
-    assert is_grouping_detail_child("Medidas:", "Dimensiones: 13 x 10.5 cm")
-    assert is_grouping_detail_child("Empaque:", "Paquete: 50 unidades")
-    assert is_grouping_detail_child("Empaque:", "Caja: 1/2 millar")
-    assert is_grouping_detail_child("Empaque Individual:", "Material: Bolsa")
-
-    # Similar-looking but unrelated fields must not be joined to an empty heading.
-    assert not is_grouping_detail_child(
+    assert is_grouping_detail_child(
+        "Características adicionales:",
+        "Resistencia al agua: IPX4",
+    )
+    assert is_grouping_detail_child(
+        "Contenido técnico:",
+        "Compatibilidad extendida: Windows y macOS",
+    )
+    # The parser preserves source order rather than deciding from a list whether
+    # a child label is semantically related to its preceding heading.
+    assert is_grouping_detail_child(
         "Empaque Individual:",
         "Cantidad Por Caja: 24 Pza.",
     )
-    assert not is_grouping_detail_child("Material:", "Peso Unitario: 24 G.")
 
 
-def test_detail_cleanup_preserves_measure_and_packaging_group_headings():
+def test_detail_cleanup_preserves_unknown_heading_and_its_subfields():
+    source = (
+        "Características adicionales:\\n"
+        "Resistencia al agua: IPX4.\\n"
+        "Compatibilidad extendida: Windows, macOS y Linux."
+    )
+
+    assert clean_extracted_detail_text(source).splitlines() == [
+        "Características adicionales: Resistencia al agua: IPX4.",
+        "Compatibilidad extendida: Windows, macOS y Linux.",
+    ]
+
+
+def test_detail_cleanup_preserves_measure_and_packaging_source_headings():
     source = (
         "Medida: 19x25.5cm\n"
         "Empaque:\n"

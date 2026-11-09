@@ -1299,6 +1299,9 @@ def test_global_membership_audit_runs_without_local_detail_categories(monkeypatc
     calls = {}
 
     class FakeDatabase:
+        def __init__(self, *, read_only=False):
+            calls["database_read_only"] = read_only
+
         def close(self):
             calls["database_closed"] = True
 
@@ -1379,6 +1382,7 @@ def test_global_membership_audit_runs_without_local_detail_categories(monkeypatc
     assert calls["thread_sessions_enabled"] is True
     assert calls["browser_closed"] is True
     assert calls["database_closed"] is True
+    assert calls["database_read_only"] is True
 
 def test_global_membership_audit_rejects_independent_detail_audit_flags(capsys):
     with pytest.raises(SystemExit) as error:
@@ -1548,6 +1552,7 @@ def test_global_membership_apply_loads_and_passes_reviewed_preview(
     assert calls["apply_memberships"] is True
     assert calls["skip_detail"] is True
     assert calls["approved_audit"] == approved_audit
+    assert calls["database_read_only"] is False
     assert calls["browser_closed"] is True
     assert calls["database_closed"] is True
 

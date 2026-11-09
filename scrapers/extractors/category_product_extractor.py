@@ -6,7 +6,6 @@ from models.scraping.detail_description_policy import (
     extract_detail_text_from_element,
     extract_detail_text_from_elements,
     has_technical_detail,
-    is_detail_grouping_label,
     is_empty_detail_field_fragment,
     is_empty_shipping_detail_placeholder,
     is_standalone_detail_heading,

@@ -816,6 +816,8 @@ def _is_grouping_detail_child(parent_label: str, child_source: str) -> bool:
     if match is None:
         return False
     child = normalize_detail_text(match.group()).removesuffix(":").strip().casefold()
+    if parent == "empaque individual" and child in {"material", "materiales"}:
+        return True
     return child in _DETAIL_GROUPING_FIELD_CHILD_LABELS
 
 

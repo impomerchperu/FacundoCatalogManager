@@ -949,3 +949,86 @@ def test_category_product_extractor_preserves_source_strong_and_bold_labels_as_r
         product.description_html,
         product.description,
     )
+
+def test_category_product_extractor_preserves_measure_and_packaging_heading_html():
+    cases = (
+        (
+            "GP-2024",
+            "Sobre Manila",
+            """
+            <li><strong>Medida:</strong> 19×25.5cm</li>
+            <li><strong>Empaque:</strong></li>
+            <li><strong>Paquete:</strong> 50 unid/10 unid
+                <strong>Caja:</strong> 1/2 millar</li>
+            """,
+            (
+                "Medida: 19×25.5cm\n"
+                "Empaque: Paquete: 50 unid/10 unid Caja: 1/2 millar"
+            ),
+            ("Empaque:", "Paquete:", "Caja:"),
+        ),
+        (
+            "MU-0021",
+            "USB Llave 16 GB",
+            """
+            <li><strong>Medidas Estuche:</strong></li>
+            <li><strong>Largo:</strong> 9 cm, <strong>Ancho:</strong> 4.5 cm,
+                <strong>Alto:</strong> 2 cm (Aprox)</li>
+            <li><strong>Medidas USB:</strong> 5.5 cm x 2.5 cm</li>
+            <li><strong>Material:</strong> Metal y Plástico</li>
+            <li><strong>Presentación:</strong> Individual, Estuche Plástico
+                con bolsa transparente</li>
+            """,
+            (
+                "Medidas Estuche: Largo: 9 cm, Ancho: 4.5 cm, "
+                "Alto: 2 cm (Aprox)\n"
+                "Medidas USB: 5.5 cm x 2.5 cm\n"
+                "Material: Metal y Plástico\n"
+                "Presentación: Individual, Estuche Plástico con bolsa transparente"
+            ),
+            ("Medidas Estuche:", "Largo:", "Ancho:", "Alto:"),
+        ),
+        (
+            "R7512",
+            "Porta Taco Ecológico con Post-It",
+            """
+            <li><strong>Medidas:</strong></li>
+            <li><strong>Dimensiones:</strong> 13 x 10.5 x 3 cm</li>
+            <li><strong>Material:</strong> Cartón Reutilizable Ecológico</li>
+            <li><strong>Presentación:</strong> Individual, Bolsa Plástica</li>
+            """,
+            (
+                "Medidas: Dimensiones: 13 x 10.5 x 3 cm\n"
+                "Material: Cartón Reutilizable Ecológico\n"
+                "Presentación: Individual, Bolsa Plástica"
+            ),
+            ("Medidas:", "Dimensiones:"),
+        ),
+    )
+
+    for code, name, detail_markup, expected_text, bold_labels in cases:
+        html = f"""
+        <article>
+            <p class="brxe-a26f34">{code}</p>
+            <h2 class="brxe-f31760">{name}</h2>
+            <div class="text-content"><ul>{detail_markup}</ul></div>
+        </article>
+        """
+        product = CategoryProductExtractor().extract(
+            BeautifulSoup(html, "lxml")
+        )
+
+        assert product.code == code
+        assert product.description == expected_text, (
+            code,
+            product.description,
+        )
+        assert product.description_html, code
+        assert detail_html_matches_text(
+            product.description_html,
+            product.description,
+        ), code
+
+        for label in bold_labels:
+            assert label in product.description_html, (code, label)
+

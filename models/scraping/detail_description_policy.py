@@ -446,13 +446,18 @@ def _remove_marked_fields(
         )
         if _is_description_color_enumeration(text, match):
             continue
-        if prefix and prefix[-1] not in ".;|" + _DETAIL_BOUNDARY and not prefix_has_boundary:
-            # Remove known availability labels when flattened into Description,
-            # but preserve unlabelled descriptive prose such as "5 colores".
-            if not allow_embedded_label or (
-                not explicit_label and not availability_label
-            ):
-                continue
+        # Remove known availability labels when flattened into Description,
+        # but preserve unlabelled descriptive prose such as "5 colores".
+        if (
+            prefix
+            and prefix[-1] not in ".;|" + _DETAIL_BOUNDARY
+            and not prefix_has_boundary
+            and (
+                not allow_embedded_label
+                or (not explicit_label and not availability_label)
+            )
+        ):
+            continue
 
         next_field = _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.search(
             text,

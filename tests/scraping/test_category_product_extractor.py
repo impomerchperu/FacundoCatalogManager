@@ -1004,6 +1004,21 @@ def test_category_product_extractor_preserves_measure_and_packaging_heading_html
             ),
             ("Medidas:", "Dimensiones:"),
         ),
+        (
+            "ZX-7301",
+            "Organizador resistente",
+            """
+            <li><strong>Especificaciones adicionales:</strong></li>
+            <li><strong>Resistencia:</strong> Al agua y al desgaste en uso frecuente.</li>
+            <li><strong>Contenido:</strong> Accesorios, cable y manual de instrucciones.</li>
+            """,
+            (
+                "Especificaciones adicionales: Resistencia: Al agua y al desgaste "
+                "en uso frecuente.\\n"
+                "Contenido: Accesorios, cable y manual de instrucciones."
+            ),
+            ("Especificaciones adicionales:", "Resistencia:", "Contenido:"),
+        ),
     )
 
     for code, name, detail_markup, expected_text, bold_labels in cases:

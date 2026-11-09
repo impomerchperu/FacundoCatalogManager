@@ -3455,7 +3455,7 @@ def test_detail_table_preserves_supplier_defined_group_headings_without_allowlis
         (
             "R7512",
             (
-                "Medidas: Dimensiones: 13 x 10.5 x 3 cm\\n"
+                "Medidas: Dimensiones: 13 x 10.5 x 3 cm\n"
                 "Material: Cartón Reutilizable Ecológico"
             ),
             [
@@ -3466,8 +3466,8 @@ def test_detail_table_preserves_supplier_defined_group_headings_without_allowlis
         (
             "ZX-7301",
             (
-                "Especificaciones adicionales:\\n"
-                "Resistencia: Al agua y al desgaste en uso frecuente.\\n"
+                "Especificaciones adicionales:\n"
+                "Resistencia: Al agua y al desgaste en uso frecuente.\n"
                 "Contenido: Accesorios, cable y manual de instrucciones."
             ),
             [
@@ -3481,6 +3481,7 @@ def test_detail_table_preserves_supplier_defined_group_headings_without_allowlis
             "Contenido adicional: Accesorios incluidos: Cable, manual y adaptador.",
             ["Contenido adicional: Accesorios incluidos: Cable, manual y adaptador"],
         ),
+    )
 
     for code, description, expected_lines in cases:
         product = Product(
@@ -3535,4 +3536,3 @@ def test_detail_table_preserves_supplier_defined_group_headings_without_allowlis
         ]
         assert len(bold_text) == 1, (line, bold_text)
         assert bold_text[0].endswith(":"), (line, bold_text)
-

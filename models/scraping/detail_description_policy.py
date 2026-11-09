@@ -1211,12 +1211,6 @@ def _merge_detail_html_empty_labels(
         # block. No parent/child label list is needed to retain the source tree.
         while next_index < len(roots):
             following = roots[next_index]
-            following_text = restore_literal_detail_colons(
-                extract_detail_text_from_element(
-                    following,
-                    ensure_field_label_spacing=False,
-                )
-            )
             if preserve_alignment:
                 current_alignment = _detail_html_alignment(current) or "left"
                 following_alignment = _detail_html_alignment(following) or "left"
@@ -1261,6 +1255,24 @@ def extract_detail_text_from_elements(elements) -> str:
             if not _is_detail_html_ui_node(root):
                 roots.append(root)
 
+    has_structural_heading = any(
+        _DETAIL_STANDALONE_HEADING_PATTERN.fullmatch(
+            normalize_detail_text(
+                extract_detail_text_from_element(
+                    root,
+                    ensure_field_label_spacing=False,
+                )
+            ).strip()
+        )
+        and not _is_empty_shipping_placeholder(
+            extract_detail_text_from_element(
+                root,
+                ensure_field_label_spacing=False,
+            )
+        )
+        for index, root in enumerate(roots)
+        if index + 1 < len(roots)
+    )
     merged_roots = _merge_detail_html_empty_labels(
         roots,
         preserve_alignment=False,
@@ -1280,7 +1292,7 @@ def extract_detail_text_from_elements(elements) -> str:
     return clean_extracted_detail_text(
         "\n".join(part for part in raw_parts if part.strip()),
         restore_literal_colons=False,
-        preserve_structural_groups=True,
+        preserve_structural_groups=has_structural_heading,
     )
 
 def _detail_html_has_meaningful_style(tag: Tag) -> bool:

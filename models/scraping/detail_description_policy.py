@@ -310,6 +310,52 @@ def _ensure_detail_html_label_spacing(root: Tag) -> None:
                 )
 
 
+
+def _split_bold_label_before_nested_span_value(root: Tag) -> None:
+    """Keep a field label bold when its value is wrapped in a nested span."""
+    for bold in list(root.find_all(["strong", "b"])):
+        children = list(bold.contents)
+        inline_tags = [
+            child for child in children if isinstance(child, Tag)
+        ]
+        if len(inline_tags) != 1 or inline_tags[0].name != "span":
+            continue
+
+        value_tag = inline_tags[0]
+        value_index = children.index(value_tag)
+        prefix_nodes = children[:value_index]
+        suffix_nodes = children[value_index + 1 :]
+        if any(
+            not isinstance(node, NavigableString)
+            for node in (*prefix_nodes, *suffix_nodes)
+        ):
+            continue
+
+        label = "".join(str(node) for node in prefix_nodes)
+        if re.fullmatch(r"\s*[^:\r\n]{1,100}:\s*", label) is None:
+            continue
+        if not value_tag.get_text("", strip=False).strip():
+            continue
+
+        suffix = "".join(str(node) for node in suffix_nodes)
+        detached_value = value_tag.extract()
+        bold.clear()
+        bold.append(label.rstrip())
+
+        separator = NavigableString(" ")
+        bold.insert_after(separator)
+        separator.insert_after(detached_value)
+        if suffix:
+            detached_value.insert_after(NavigableString(suffix))
+
+
+def _unwrap_punctuation_only_detail_emphasis(root: Tag) -> None:
+    """Do not retain bold markup around a standalone punctuation fragment."""
+    for bold in list(root.find_all(["strong", "b"])):
+        text = bold.get_text("", strip=False)
+        if re.fullmatch(r"\s*[.,;!?…]+\s*", text):
+            bold.unwrap()
+
 def extract_detail_text_from_element(
     element,
     *,
@@ -1063,6 +1109,8 @@ def _clean_detail_html_root(root: Tag, inherited_alignment: str) -> bool:
 
     _sanitize_detail_html_tag(root)
     _ensure_detail_html_label_spacing(root)
+    _split_bold_label_before_nested_span_value(root)
+    _unwrap_punctuation_only_detail_emphasis(root)
     style = str(root.get("style", "") or "")
     if inherited_alignment and "text-align:" not in style:
         root["style"] = (f"{style}; " if style else "") + f"text-align: {inherited_alignment}"

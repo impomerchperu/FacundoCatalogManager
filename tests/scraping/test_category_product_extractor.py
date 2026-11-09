@@ -858,6 +858,50 @@ def test_category_product_extractor_does_not_use_short_generic_prose_as_detail()
 
 
 
+
+
+def test_category_product_extractor_keeps_only_date_label_bold_and_unbolds_standalone_punctuation():
+    html = """
+    <article>
+        <p class="brxe-a26f34">TEST-BOLD-VALUE-BOUNDARIES</p>
+        <h2 class="brxe-f31760">Producto de prueba</h2>
+        <div class="text-content">
+            <ul>
+                <li><strong>Fecha: <span style="color: red">2026 \u2013 2027</span></strong></li>
+                <li><strong>Medida: </strong>23.5x32cm<strong>.</strong></li>
+                <li><strong>Técnica de aplicación</strong>: Serigrafía</li>
+            </ul>
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(
+        BeautifulSoup(html, "lxml")
+    )
+
+    assert product.description.splitlines() == [
+        "Fecha: 2026 \u2013 2027",
+        "Medida: 23.5x32cm.",
+        "Técnica de aplicación: Serigrafía",
+    ]
+
+    assert (
+        "<strong>Fecha:</strong> <span>2026 \u2013 2027</span>"
+        in product.description_html
+    )
+    assert "<strong>Medida: </strong>23.5x32cm." in product.description_html
+    assert "<strong>.</strong>" not in product.description_html
+
+    # A source label whose colon is outside the emphasis remains unchanged.
+    assert (
+        "<strong>Técnica de aplicación</strong>: Serigrafía"
+        in product.description_html
+    )
+    assert detail_html_matches_text(
+        product.description_html,
+        product.description,
+    )
+
 def test_category_product_extractor_repairs_only_missing_space_after_bold_field_labels():
     html = """
     <article>

@@ -1069,29 +1069,30 @@ class ProductDetailDelegate(ProductCellDelegate):
             prefix,
             re.IGNORECASE,
         )
-        if measure_parent and normalized_label in {
-            "alt",
-            "alt.",
-            "alt. de base",
-            "alt de base",
-            "alt. total",
-            "alt total",
-            "ancho",
-            "alto",
-            "altura",
-            "espesor",
-            "largo",
-            "total",
-            "diámetro",
-            "diametro",
-            "diámetro (base)",
-            "diametro (base)",
-            "estuche",
-            "tarjeta",
-        }:
-            return True
-
-        return False
+        return bool(
+            measure_parent
+            and normalized_label
+            in {
+                "alt",
+                "alt.",
+                "alt. de base",
+                "alt de base",
+                "alt. total",
+                "alt total",
+                "ancho",
+                "alto",
+                "altura",
+                "espesor",
+                "largo",
+                "total",
+                "diámetro",
+                "diametro",
+                "diámetro (base)",
+                "diametro (base)",
+                "estuche",
+                "tarjeta",
+            }
+        )
 
     @classmethod
     def _layout_text(

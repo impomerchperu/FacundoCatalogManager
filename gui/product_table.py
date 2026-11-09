@@ -47,6 +47,8 @@ from models.product_image_gallery import normalize_product_gallery
 from models.scraping.detail_description_policy import (
     detail_html_matches_text,
     has_redundant_product_color_detail,
+    is_detail_grouping_label,
+    is_grouping_detail_child,
     normalize_detail_text,
 )
 from services.scraping.category_name_normalizer import (
@@ -2698,7 +2700,7 @@ class ProductTable(QTableWidget):
         if not any(segment.strip() for segment in source_segments):
             return ""
 
-        source_parts: list[str] = []
+        lines: list[str] = []
         for source_segment in source_segments:
             source_segment = re.sub(r"[ \t]+", " ", source_segment).strip()
             if not source_segment:
@@ -2740,26 +2742,9 @@ class ProductTable(QTableWidget):
                 )
                 segment = re.sub(r"[ \t]+", " ", segment).strip()
 
-            source_parts.extend(
-                part.strip()
-                for part in segment.splitlines()
-                if part.strip()
-            )
-
-        lines: list[str] = []
-        for index, part in enumerate(source_parts):
-            next_part = source_parts[index + 1] if index + 1 < len(source_parts) else ""
-            standalone_label = re.fullmatch(r"[^:\n]{1,60}\s*:", part)
-            next_labeled_value = re.match(
-                r"[^:\n]{1,60}\s*:\s*\S",
-                next_part,
-            ) is not None
-            if standalone_label is not None and next_labeled_value:
-                # Preserve any supplier-defined heading when another labeled
-                # source block follows; no known parent/child pair is required.
-                lines.append(part)
-                continue
-            lines.extend(cls._format_detail_segment(part, product))
+            for part in segment.splitlines():
+                if part.strip():
+                    lines.extend(cls._format_detail_segment(part, product))
 
         return cls._format_nested_estuche_resaltador_measurements(
             "\n".join(line for line in lines if line.strip()),
@@ -2873,18 +2858,13 @@ class ProductTable(QTableWidget):
         cls,
         matches: list[re.Match[str]],
     ) -> list[re.Match[str]]:
-        """Keep adjacent empty headings with the labeled content that follows."""
-        if not matches:
-            return []
-
-        # When the first label has no value before the next label, preserve the
-        # whole supplier-defined sequence instead of classifying its vocabulary.
-        if len(matches) > 1:
-            between = matches[0].string[matches[0].end() : matches[1].start()]
-            if not between.strip(" \t.;|"):
-                return [matches[0]]
-
+        """Keep nested labels under recognized measure and packaging headings."""
         selected: list[re.Match[str]] = []
+        inside_measure_value = False
+        measure_parent_label = ""
+        inside_packaging_value = False
+        packaging_value_start = 0
+
         for match in matches:
             alias = match.group(1).strip().casefold()
             if alias in {"área de impresión", "area de impresion"}:
@@ -2902,10 +2882,49 @@ class ProductTable(QTableWidget):
                     if has_parent_technique:
                         continue
 
+            if alias in {"empaque", "empaque individual"}:
+                inside_measure_value = False
+                measure_parent_label = ""
+                inside_packaging_value = True
+                packaging_value_start = match.end()
+                selected.append(match)
+                continue
+
+            if (
+                inside_packaging_value
+                and is_grouping_detail_child("empaque", match.group(1))
+            ):
+                prefix = match.string[packaging_value_start : match.start()].rstrip()
+                if re.search(r"[.;|]\s*$", prefix) is None:
+                    continue
+
+            inside_packaging_value = False
             if alias == "contiene" and match.group(1).strip()[:1].islower():
                 # The lower-case verb in a source Description sentence is not
                 # a separately labelled field; real field labels use "Contiene".
                 continue
+
+            # A field can itself be a grouping heading (e.g. "Dimensiones:")
+            # and still be a valid child of an active parent ("Medidas:").
+            # Resolve the active parent-child relationship before classifying
+            # the current field as a new grouping heading.
+            if (
+                inside_measure_value
+                and is_grouping_detail_child(measure_parent_label, match.group(1))
+            ):
+                continue
+
+            if is_detail_grouping_label(alias) and alias not in {
+                "empaque",
+                "empaque individual",
+            }:
+                inside_measure_value = True
+                measure_parent_label = alias
+                selected.append(match)
+                continue
+
+            inside_measure_value = False
+            measure_parent_label = ""
             selected.append(match)
 
         return selected

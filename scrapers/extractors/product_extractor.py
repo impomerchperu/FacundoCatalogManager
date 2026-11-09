@@ -6,6 +6,7 @@ from models.scraping.detail_description_policy import (
     clean_extracted_detail_text,
     extract_detail_html_from_elements,
     extract_detail_text_from_element,
+    extract_detail_text_from_elements,
     has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,
@@ -622,17 +623,21 @@ class ProductExtractor:
         if not elements:
             return False, ""
 
-        # The selected page field is authoritative as a whole. Do not discard
-        # individual paragraphs merely because a label is not in our technical
-        # field vocabulary (e.g. Piezas, Forma, Micrones, or supplier fields).
-        field_text = " ␞ ".join(
-            self._detail_text_from_element(element)
-            for element in elements
-        )
-        detail = clean_extracted_detail_text(
-            field_text,
-            restore_literal_colons=False,
-        )
+        # The selected page field is authoritative as a whole. Parse its
+        # original blocks before flattening so supplier-defined headings and
+        # their subfields survive without a parent/child label allowlist.
+        detail = extract_detail_text_from_elements(elements)
+        if not detail:
+            # Preserve the previous text-only path for source fragments that
+            # do not expose usable structural blocks.
+            field_text = " ␞ ".join(
+                self._detail_text_from_element(element)
+                for element in elements
+            )
+            detail = clean_extracted_detail_text(
+                field_text,
+                restore_literal_colons=False,
+            )
         if not preserve_boundaries:
             detail = normalize_detail_text(detail)
         return True, restore_literal_detail_colons(detail)

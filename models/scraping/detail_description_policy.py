@@ -1281,10 +1281,7 @@ def extract_detail_text_from_elements(elements) -> str:
         return ""
 
     raw_parts = [
-        extract_detail_text_from_element(
-            root,
-            ensure_field_label_spacing=False,
-        )
+        extract_detail_text_from_element(root)
         for root in merged_roots
     ]
     return clean_extracted_detail_text(

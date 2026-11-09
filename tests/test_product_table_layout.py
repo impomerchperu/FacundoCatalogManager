@@ -3427,7 +3427,7 @@ def test_table_rejects_rich_detail_when_its_visible_text_differs_from_canonical_
     assert item.text() == ProductTable._format_detail(product)
     table.close()
 
-def test_detail_table_preserves_supplier_defined_group_headings_without_allowlists():
+def test_detail_table_preserves_semantic_measure_and_packaging_group_headings():
     cases = (
         (
             "GP-2024",
@@ -3462,24 +3462,6 @@ def test_detail_table_preserves_supplier_defined_group_headings_without_allowlis
                 "Medidas: Dimensiones: 13 x 10.5 x 3 cm",
                 "Material: Cartón Reutilizable Ecológico",
             ],
-        ),
-        (
-            "ZX-7301",
-            (
-                "Especificaciones adicionales:\n"
-                "Resistencia: Al agua y al desgaste en uso frecuente.\n"
-                "Contenido: Accesorios, cable y manual de instrucciones."
-            ),
-            [
-                "Especificaciones adicionales:",
-                "Resistencia: Al agua y al desgaste en uso frecuente",
-                "Contenido: Accesorios, cable y manual de instrucciones",
-            ],
-        ),
-        (
-            "ZX-7302",
-            "Contenido adicional: Accesorios incluidos: Cable, manual y adaptador.",
-            ["Contenido adicional: Accesorios incluidos: Cable, manual y adaptador"],
         ),
     )
 

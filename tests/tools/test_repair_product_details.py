@@ -1470,6 +1470,9 @@ def test_global_membership_apply_loads_and_passes_reviewed_preview(
     )
 
     class FakeDatabase:
+        def __init__(self, *, read_only=False):
+            calls["database_read_only"] = read_only
+
         def close(self):
             calls["database_closed"] = True
 

@@ -8,6 +8,7 @@ Product-page tab panels are excluded by the extractor before this policy runs.
 from __future__ import annotations
 
 import re
+import unicodedata
 from itertools import pairwise
 
 from bs4 import BeautifulSoup
@@ -778,52 +779,101 @@ _EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
 )
 
 
-_DETAIL_GROUPING_LABELS = frozenset({
-    "medidas",
-    "medida",
-    "medida y capacidad",
-    "dimensiones",
-    "dimensiones del producto",
-    "medidas del producto",
+# Group headings describe a family of following Detail fields. Keep the
+# relationship semantic instead of maintaining a brittle allowlist of every
+# accepted parent/child pair. The small child vocabularies prevent unrelated
+# empty fields (e.g. Material -> Peso Unitario) from being joined accidentally.
+_MEASURE_GROUPING_PARENT_PATTERN = re.compile(
+    r"^(?:"
+    r"medidas?|medida y capacidad|medida capacidad|"
+    r"dimensiones?(?: del producto)?|"
+    r"medidas?\\s+(?:(?:de|del|de la)\\s+)?"
+    r"(?:producto|estuche|mochila|cartera|cartuchera|usb)|"
+    r"medidas? de la caja master"
+    r")$"
+)
+_PACKAGING_GROUPING_PARENT_LABELS = frozenset({
+    "empaque",
     "empaque individual",
-    "medidas del estuche",
-    "medidas mochila",
-    "medidas de la caja máster",
-    "medidas de la caja master",
 })
-_DETAIL_GROUPING_FIELD_CHILD_LABELS = frozenset({
+_MEASURE_GROUPING_CHILD_LABELS = frozenset({
     "alto",
     "ancho",
     "largo",
     "altura",
     "espesor",
-    "diámetro",
+    "diametro",
     "capacidad",
     "envase largo",
     "toalla largo",
     "interior",
     "espacio libre",
+    "dimension",
+    "dimensiones",
+    "medida",
+    "medidas",
+    "alt",
+    "alt de base",
+    "alt total",
+    "total",
+    "estuche",
+    "tarjeta",
+    "resaltador",
+    "usb",
+    "mochila",
+    "cartera",
+    "cartuchera",
+})
+_PACKAGING_GROUPING_CHILD_LABELS = frozenset({
+    "material",
+    "materiales",
+    "paquete",
+    "caja",
 })
 
 
-def is_detail_grouping_label(value: object) -> bool:
-    """Whether an empty source label groups following Detail subfields."""
+def _grouping_label_key(value: object) -> str:
+    """Normalize a field label for semantic grouping comparisons."""
     label = normalize_detail_text(value).removesuffix(":").strip().casefold()
-    return label in _DETAIL_GROUPING_LABELS
+    return "".join(
+        character
+        for character in unicodedata.normalize("NFD", label)
+        if not unicodedata.combining(character)
+    )
 
 
-def _is_grouping_detail_child(parent_label: str, child_source: str) -> bool:
-    """Whether the next field is a valid subfield of the preceding grouping label."""
-    parent = normalize_detail_text(parent_label).removesuffix(":").strip().casefold()
-    if parent not in _DETAIL_GROUPING_LABELS:
+def _detail_grouping_kind(value: object) -> str:
+    """Classify a recognized parent label without depending on one SKU spelling."""
+    label = _grouping_label_key(value)
+    if label in _PACKAGING_GROUPING_PARENT_LABELS:
+        return "packaging"
+    if _MEASURE_GROUPING_PARENT_PATTERN.fullmatch(label):
+        return "measure"
+    return ""
+
+
+def is_detail_grouping_label(value: object) -> bool:
+    """Whether an empty source label can structurally group following fields."""
+    return bool(_detail_grouping_kind(value))
+
+
+def is_grouping_detail_child(parent_label: object, child_label: object) -> bool:
+    """Whether a following field belongs under a measure or packaging heading."""
+    grouping_kind = _detail_grouping_kind(parent_label)
+    if not grouping_kind:
         return False
+
+    child_source = str(child_label or "").strip()
     match = _DETAIL_FIELD_LABEL_START_PATTERN.match(child_source)
-    if match is None:
-        return False
-    child = normalize_detail_text(match.group()).removesuffix(":").strip().casefold()
-    if parent == "empaque individual" and child in {"material", "materiales"}:
-        return True
-    return child in _DETAIL_GROUPING_FIELD_CHILD_LABELS
+    child = _grouping_label_key(
+        match.group() if match is not None else child_source
+    )
+
+    if grouping_kind == "measure":
+        return child in _MEASURE_GROUPING_CHILD_LABELS
+    if grouping_kind == "packaging":
+        return child in _PACKAGING_GROUPING_CHILD_LABELS
+    return False
 
 
 def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
@@ -835,7 +885,7 @@ def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
         previous_label = normalize_detail_text(previous.group()).removesuffix(":").strip()
         if (
             all(char.isspace() or char in ".;" for char in between)
-            and not _is_grouping_detail_child(previous_label, current.group())
+            and not is_grouping_detail_child(previous_label, current.group())
         ):
             split_positions.append(current.start())
 

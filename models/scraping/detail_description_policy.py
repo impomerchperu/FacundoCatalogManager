@@ -1222,6 +1222,21 @@ def _merge_detail_html_empty_labels(
         # block. No parent/child label list is needed to retain the source tree.
         while next_index < len(roots):
             following = roots[next_index]
+            following_text = restore_literal_detail_colons(
+                extract_detail_text_from_element(
+                    following,
+                    ensure_field_label_spacing=False,
+                )
+            )
+            normalized_following = normalize_detail_text(following_text).strip()
+            if _is_empty_shipping_placeholder(normalized_following):
+                following.decompose()
+                roots.pop(next_index)
+                continue
+            following_is_heading = _DETAIL_STANDALONE_HEADING_PATTERN.fullmatch(
+                normalized_following
+            ) is not None
+
             if preserve_alignment:
                 current_alignment = _detail_html_alignment(current) or "left"
                 following_alignment = _detail_html_alignment(following) or "left"
@@ -1235,15 +1250,9 @@ def _merge_detail_html_empty_labels(
             following.decompose()
             roots.pop(next_index)
 
-            merged_text = restore_literal_detail_colons(
-                extract_detail_text_from_element(
-                    current,
-                    ensure_field_label_spacing=False,
-                )
-            )
-            if not _DETAIL_STANDALONE_HEADING_PATTERN.fullmatch(
-                normalize_detail_text(merged_text).strip()
-            ):
+            # Continue through a chain of supplier-defined headings until the
+            # first populated block is attached; preserve every hierarchy level.
+            if not following_is_heading:
                 break
 
         index += 1

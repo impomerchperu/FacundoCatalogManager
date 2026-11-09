@@ -8,7 +8,6 @@ Product-page tab panels are excluded by the extractor before this policy runs.
 from __future__ import annotations
 
 import re
-import unicodedata
 from itertools import pairwise
 
 from bs4 import BeautifulSoup
@@ -786,10 +785,10 @@ _EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
 # a standalone label followed by another labeled field is enough structural
 # evidence to preserve the sequence without guessing the heading's meaning.
 _DETAIL_GROUPING_LABEL_ONLY_PATTERN = re.compile(
-    r"^\\s*[^:\\n]{1,60}?\\s*:\\s*$"
+    r"^\s*[^:\n]{1,60}?\s*:\s*$"
 )
 _DETAIL_GROUPING_CHILD_LABEL_PATTERN = re.compile(
-    r"^\\s*[^:\\n]{1,60}?\\s*:"
+    r"^\s*[^:\n]{1,60}?\s*:"
 )
 
 

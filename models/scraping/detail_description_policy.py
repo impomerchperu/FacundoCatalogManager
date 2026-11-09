@@ -1166,11 +1166,22 @@ def _extract_detail_html_roots(elements) -> list[Tag]:
 _DETAIL_STANDALONE_HEADING_PATTERN = re.compile(r"^\s*[^:\n]{1,100}?\s*:\s*$")
 
 
-def _is_empty_shipping_placeholder(value: object) -> bool:
-    """Recognize only the supplier's known empty shipping placeholders."""
+def is_standalone_detail_heading(value: object) -> bool:
+    """Recognize a supplier-defined heading by its standalone source shape."""
+    return _DETAIL_STANDALONE_HEADING_PATTERN.fullmatch(
+        normalize_detail_text(value).strip()
+    ) is not None
+
+
+def is_empty_shipping_detail_placeholder(value: object) -> bool:
+    """Recognize the known empty logistics labels that must stay excluded."""
     return _EMPTY_TRAILING_DETAIL_FIELD_PATTERN.fullmatch(
         normalize_detail_text(value).strip()
     ) is not None
+
+
+def _is_empty_shipping_placeholder(value: object) -> bool:
+    return is_empty_shipping_detail_placeholder(value)
 
 
 def _merge_detail_html_empty_labels(

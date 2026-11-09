@@ -2749,9 +2749,9 @@ class ProductTable(QTableWidget):
         lines: list[str] = []
         for index, part in enumerate(source_parts):
             next_part = source_parts[index + 1] if index + 1 < len(source_parts) else ""
-            standalone_label = re.fullmatch(r"[^:\\n]{1,60}\\s*:", part)
+            standalone_label = re.fullmatch(r"[^:\n]{1,60}\s*:", part)
             next_labeled_value = re.match(
-                r"[^:\\n]{1,60}\\s*:\\s*\\S",
+                r"[^:\n]{1,60}\s*:\s*\S",
                 next_part,
             ) is not None
             if standalone_label is not None and next_labeled_value:
@@ -2881,7 +2881,7 @@ class ProductTable(QTableWidget):
         # whole supplier-defined sequence instead of classifying its vocabulary.
         if len(matches) > 1:
             between = matches[0].string[matches[0].end() : matches[1].start()]
-            if not between.strip(" \\t.;|"):
+            if not between.strip(" \t.;|"):
                 return [matches[0]]
 
         selected: list[re.Match[str]] = []

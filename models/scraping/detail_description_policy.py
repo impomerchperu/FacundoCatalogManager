@@ -787,7 +787,7 @@ _MEASURE_GROUPING_PARENT_PATTERN = re.compile(
     r"^(?:"
     r"medidas?|medida y capacidad|medida capacidad|"
     r"dimensiones?(?: del producto)?|"
-    r"medidas?\\s+(?:(?:de|del|de la)\\s+)?"
+    r"medidas?\s+(?:(?:de|del|de la)\s+)?"
     r"(?:producto|estuche|mochila|cartera|cartuchera|usb)|"
     r"medidas? de la caja master"
     r")$"

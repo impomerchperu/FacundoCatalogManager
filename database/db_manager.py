@@ -23,7 +23,17 @@ class DBManager:
                     f"No existe la base SQLite que se quiere abrir en solo lectura: "
                     f"{database_path}"
                 )
-            database_uri = f"{database_path.as_uri()}?mode=ro"
+            wal_path = Path(f"{database_path}-wal")
+            shm_path = Path(f"{database_path}-shm")
+            if wal_path.exists() or shm_path.exists():
+                raise sqlite3.OperationalError(
+                    "La base tiene archivos auxiliares WAL/SHM. "
+                    "Cierra FCM y permite que SQLite termine el checkpoint "
+                    "antes de ejecutar una auditoría estrictamente de solo lectura."
+                )
+            database_uri = (
+                f"{database_path.as_uri()}?mode=ro&immutable=1"
+            )
             self.connection = sqlite3.connect(
                 database_uri,
                 uri=True,

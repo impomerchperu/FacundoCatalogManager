@@ -1590,13 +1590,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912
             )
         approved_membership_audit = raw_approved_audit
 
-    read_only_database = not (args.apply or args.apply_category_memberships)
-    db = DBManager(read_only=read_only_database)
-    print(
-        "SQLite: SOLO LECTURA (mode=ro, query_only=ON)"
-        if read_only_database
-        else "SQLite: ESCRITURA (autorizada explícitamente por --apply)"
-    )
+    db = DBManager()
     browser: Browser | None = None
     exit_code = 0
     try:

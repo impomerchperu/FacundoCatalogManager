@@ -3,7 +3,9 @@ from models.scraping.detail_description_policy import (
     has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,
+    is_detail_grouping_label,
     is_empty_detail_field_fragment,
+    is_grouping_detail_child,
     is_valid_detail_content,
     normalize_detail_text,
     remove_incomplete_trailing_dimension_field,
@@ -673,3 +675,42 @@ def test_detail_policy_removes_invisible_direction_marks_from_field_values():
         "Forma: \u200eRectángulo",
         preserve_boundaries=True,
     ) == "Forma: Rectángulo"
+
+def test_detail_grouping_recognizes_semantic_measure_and_packaging_children():
+    assert is_detail_grouping_label("Medidas Estuche:")
+    assert is_detail_grouping_label("Medidas del Estuche:")
+    assert is_detail_grouping_label("Empaque:")
+    assert is_detail_grouping_label("Empaque Individual:")
+
+    assert is_grouping_detail_child("Medidas Estuche:", "Largo: 9 cm")
+    assert is_grouping_detail_child("Medidas:", "Dimensiones: 13 x 10.5 cm")
+    assert is_grouping_detail_child("Empaque:", "Paquete: 50 unidades")
+    assert is_grouping_detail_child("Empaque:", "Caja: 1/2 millar")
+    assert is_grouping_detail_child("Empaque Individual:", "Material: Bolsa")
+
+    # Similar-looking but unrelated fields must not be joined to an empty heading.
+    assert not is_grouping_detail_child(
+        "Empaque Individual:",
+        "Cantidad Por Caja: 24 Pza.",
+    )
+    assert not is_grouping_detail_child("Material:", "Peso Unitario: 24 G.")
+
+
+def test_detail_cleanup_preserves_measure_and_packaging_group_headings():
+    source = (
+        "Medida: 19×25.5cm\n"
+        "Empaque:\n"
+        "Paquete: 50 unid/10 unid caja: 1/2 millar\n"
+        "Medidas Estuche:\n"
+        "Largo: 9 cm, Ancho: 4.5 cm, Alto: 2 cm (Aprox)\n"
+        "Medidas:\n"
+        "Dimensiones: 13 x 10.5 x 3 cm"
+    )
+
+    assert clean_extracted_detail_text(source).splitlines() == [
+        "Medida: 19×25.5cm",
+        "Empaque: Paquete: 50 unid/10 unid caja: 1/2 millar",
+        "Medidas Estuche: Largo: 9 cm, Ancho: 4.5 cm, Alto: 2 cm (Aprox)",
+        "Medidas: Dimensiones: 13 x 10.5 x 3 cm",
+    ]
+

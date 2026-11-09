@@ -937,7 +937,7 @@ def clean_extracted_detail_text(
                 next_is_field = bool(
                     _DETAIL_FIELD_LABEL_START_PATTERN.match(next_line)
                 )
-                if not next_is_field or _is_grouping_detail_child(label_key, next_line):
+                if not next_is_field or is_grouping_detail_child(label_key, next_line):
                     cleaned.append(f"{label}: {next_line}")
                     index += 2
                     continue
@@ -1194,7 +1194,7 @@ def _merge_detail_html_empty_labels(roots: list[Tag]) -> list[Tag] | None:
         )
         if (
             following_is_field
-            and not _is_grouping_detail_child(label, following_normalized)
+            and not is_grouping_detail_child(label, following_normalized)
         ):
             roots.pop(index)
             continue

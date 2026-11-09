@@ -2904,6 +2904,16 @@ class ProductTable(QTableWidget):
                 # a separately labelled field; real field labels use "Contiene".
                 continue
 
+            # A field can itself be a grouping heading (e.g. "Dimensiones:")
+            # and still be a valid child of an active parent ("Medidas:").
+            # Resolve the active parent-child relationship before classifying
+            # the current field as a new grouping heading.
+            if (
+                inside_measure_value
+                and is_grouping_detail_child(measure_parent_label, match.group(1))
+            ):
+                continue
+
             if is_detail_grouping_label(alias) and alias not in {
                 "empaque",
                 "empaque individual",
@@ -2911,12 +2921,6 @@ class ProductTable(QTableWidget):
                 inside_measure_value = True
                 measure_parent_label = alias
                 selected.append(match)
-                continue
-
-            if (
-                inside_measure_value
-                and is_grouping_detail_child(measure_parent_label, match.group(1))
-            ):
                 continue
 
             inside_measure_value = False

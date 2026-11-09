@@ -698,7 +698,7 @@ def test_detail_grouping_recognizes_semantic_measure_and_packaging_children():
 
 def test_detail_cleanup_preserves_measure_and_packaging_group_headings():
     source = (
-        "Medida: 19×25.5cm\n"
+        "Medida: 19x25.5cm\n"
         "Empaque:\n"
         "Paquete: 50 unid/10 unid caja: 1/2 millar\n"
         "Medidas Estuche:\n"
@@ -708,7 +708,7 @@ def test_detail_cleanup_preserves_measure_and_packaging_group_headings():
     )
 
     assert clean_extracted_detail_text(source).splitlines() == [
-        "Medida: 19×25.5cm",
+        "Medida: 19x25.5cm",
         "Empaque: Paquete: 50 unid/10 unid caja: 1/2 millar",
         "Medidas Estuche: Largo: 9 cm, Ancho: 4.5 cm, Alto: 2 cm (Aprox)",
         "Medidas: Dimensiones: 13 x 10.5 x 3 cm",

@@ -482,6 +482,15 @@ class CategoryProductExtractor:
                 authoritative_elements,
                 fallback_elements,
             )
+            if candidates and any(
+                self._is_recoverable_detail_heading(
+                    self._detail_text_from_element(element)
+                )
+                for element in authoritative_elements
+            ):
+                # A recovered source heading defines a structural group; keep
+                # each sibling field on its own line, matching the source DOM.
+                return "\\n".join(candidates)
         else:
             candidates = self._recover_fallback_detail_candidates(
                 fallback_elements

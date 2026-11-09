@@ -1163,7 +1163,7 @@ def _extract_detail_html_roots(elements) -> list[Tag]:
     return roots
 
 
-_DETAIL_STANDALONE_HEADING_PATTERN = re.compile(r"^\\s*[^:\\n]{1,100}?\\s*:\\s*$")
+_DETAIL_STANDALONE_HEADING_PATTERN = re.compile(r"^\s*[^:\n]{1,100}?\s*:\s*$")
 
 
 def _is_empty_shipping_placeholder(value: object) -> bool:
@@ -1278,7 +1278,7 @@ def extract_detail_text_from_elements(elements) -> str:
         for root in merged_roots
     ]
     return clean_extracted_detail_text(
-        "\\n".join(part for part in raw_parts if part.strip()),
+        "\n".join(part for part in raw_parts if part.strip()),
         restore_literal_colons=False,
         preserve_structural_groups=True,
     )

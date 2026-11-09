@@ -956,13 +956,13 @@ def test_category_product_extractor_preserves_measure_and_packaging_heading_html
             "GP-2024",
             "Sobre Manila",
             """
-            <li><strong>Medida:</strong> 19×25.5cm</li>
+            <li><strong>Medida:</strong> 19x25.5cm</li>
             <li><strong>Empaque:</strong></li>
             <li><strong>Paquete:</strong> 50 unid/10 unid
                 <strong>Caja:</strong> 1/2 millar</li>
             """,
             (
-                "Medida: 19×25.5cm\n"
+                "Medida: 19x25.5cm\n"
                 "Empaque: Paquete: 50 unid/10 unid Caja: 1/2 millar"
             ),
             ("Empaque:", "Paquete:", "Caja:"),

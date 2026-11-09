@@ -3421,3 +3421,70 @@ def test_table_rejects_rich_detail_when_its_visible_text_differs_from_canonical_
     assert item.data(ProductDetailDelegate.DETAIL_HTML_ROLE) in (None, "")
     assert item.text() == ProductTable._format_detail(product)
     table.close()
+
+def test_detail_table_preserves_semantic_measure_and_packaging_group_headings():
+    cases = (
+        (
+            "GP-2024",
+            (
+                "Medida: 19×25.5cm\n"
+                "Empaque: Paquete: 50 unid/10 unid caja: 1/2 millar"
+            ),
+            [
+                "Medida: 19×25.5cm",
+                "Empaque: Paquete: 50 unid/10 unid caja: 1/2 millar",
+            ],
+        ),
+        (
+            "MU-0021",
+            (
+                "Medidas Estuche: Largo: 9 cm, Ancho: 4.5 cm, "
+                "Alto: 2 cm (Aprox)\n"
+                "Medidas USB: 5.5 cm x 2.5 cm"
+            ),
+            [
+                "Medidas Estuche: Largo: 9 cm, Ancho: 4.5 cm, Alto: 2 cm (Aprox)",
+                "Medidas USB: 5.5 cm x 2.5 cm",
+            ],
+        ),
+        (
+            "R7512",
+            (
+                "Medidas: Dimensiones: 13 x 10.5 x 3 cm\n"
+                "Material: Cartón Reutilizable Ecológico"
+            ),
+            [
+                "Medidas: Dimensiones: 13 x 10.5 x 3 cm",
+                "Material: Cartón Reutilizable Ecológico",
+            ],
+        ),
+    )
+
+    for code, description, expected_lines in cases:
+        product = Product(
+            code=code,
+            name="Producto de prueba",
+            description=description,
+        )
+        lines = ProductTable._format_detail(product).splitlines()
+        assert lines == expected_lines, (code, lines)
+
+    # Group headings remain the emphasized field; nested labels are part
+    # of that value and are not promoted to independent table fields.
+    for line in (
+        "Empaque: Paquete: 50 unid/10 unid caja: 1/2 millar",
+        "Medidas Estuche: Largo: 9 cm, Ancho: 4.5 cm, Alto: 2 cm (Aprox)",
+        "Medidas: Dimensiones: 13 x 10.5 x 3 cm",
+    ):
+        layouts, _height = ProductDetailDelegate._layout_text(
+            line,
+            _qapp().font(),
+            900,
+        )
+        bold_text = [
+            line[item.start : item.start + item.length]
+            for item in layouts[0][0].formats()
+        ]
+        assert len(bold_text) == 1, (line, bold_text)
+        assert bold_text[0].endswith(":"), (line, bold_text)
+

@@ -28,6 +28,7 @@ from models.product import Product
 from models.scraping.detail_description_policy import (
     is_detail_grouping_label,
     is_grouping_detail_child,
+    normalize_detail_text,
 )
 
 
@@ -3472,6 +3473,16 @@ def test_detail_table_preserves_semantic_measure_and_packaging_group_headings():
         )
         if code == "R7512":
             source = "Medidas: Dimensiones: 13 x 10.5 x 3 cm"
+            normalized_source = normalize_detail_text(
+                description,
+                preserve_boundaries=True,
+            )
+            assert normalized_source.startswith("Medidas:"), normalized_source
+            direct_lines = ProductTable._format_detail_segment(
+                source,
+                product,
+            )
+            assert direct_lines[0].startswith("Medidas:"), direct_lines
             source_matches = list(
                 ProductTable.DETAIL_FIELD_LABEL_PATTERN.finditer(source)
             )

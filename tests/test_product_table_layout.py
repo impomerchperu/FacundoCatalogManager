@@ -24,11 +24,11 @@ from gui.product_table import (
     ProductTable,
     StockColorDelegate,
 )
+from models.product import Product
 from models.scraping.detail_description_policy import (
     is_detail_grouping_label,
     is_grouping_detail_child,
 )
-from models.product import Product
 
 
 def _qapp():

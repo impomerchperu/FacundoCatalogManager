@@ -861,6 +861,7 @@ _MEASURE_GROUPING_CHILD_LABELS = frozenset({
     "toalla largo",
     "interior",
     "espacio libre",
+    "total",
     "estuche",
     "resaltador",
     "tarjeta",

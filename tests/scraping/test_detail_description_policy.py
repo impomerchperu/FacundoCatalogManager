@@ -239,6 +239,25 @@ def test_detail_policy_preserves_nested_measure_prefixes_without_child_name_allo
         "Dimensiones:",
     )
     assert not is_grouping_detail_child("Medidas", "Material:")
+    for prefix in (
+        "Medida",
+        "Medidas",
+        "Dimensión",
+        "Dimensiones",
+        "Medidas de la caja máster",
+        "Medidas USB",
+    ):
+        assert is_detail_grouping_label(prefix), prefix
+    for child in (
+        "Alto",
+        "Ancho",
+        "Largo",
+        "Espesor",
+        "Diámetro",
+        "Envase Largo",
+        "Toalla Largo",
+    ):
+        assert is_grouping_detail_child("Medidas", child), child
 
     supplier_prefix = (
         "Medidas de la cartuchera:\n"

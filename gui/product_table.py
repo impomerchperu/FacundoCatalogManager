@@ -47,6 +47,8 @@ from models.product_image_gallery import normalize_product_gallery
 from models.scraping.detail_description_policy import (
     detail_html_matches_text,
     has_redundant_product_color_detail,
+    is_detail_grouping_label,
+    is_grouping_detail_child,
     normalize_detail_text,
 )
 from services.scraping.category_name_normalizer import (
@@ -1546,46 +1548,6 @@ class ProductTable(QTableWidget):
         + _DETAIL_FIELD_LABEL_ALIASES_PATTERN
         + r")\s*:)[A-ZÁÉÍÓÚÜÑ][\wÁÉÍÓÚÜÑáéíóúüñ ()/_-]{0,60}?))\s*:"
     )
-    DETAIL_NESTED_MEASURE_LABELS: ClassVar[frozenset[str]] = frozenset({
-        "envase largo",
-        "toalla largo",
-        "diámetro",
-        "diametro",
-        "diámetro (base)",
-        "diametro (base)",
-        "tarjeta",
-        "largo",
-        "ancho",
-        "alto",
-        "alt",
-        "altura",
-        "esp",
-        "alt. de base",
-        "alt de base",
-        "alt. total",
-        "alt total",
-        "total",
-        "interior",
-        "espesor",
-        "estuche",
-        "resaltador",
-        "usb",
-        "mochila",
-        "cartera",
-        "cartuchera",
-    })
-    DETAIL_PARENT_MEASURE_LABELS: ClassVar[frozenset[str]] = frozenset({
-        "medida y capacidad",
-        "medida capacidad",
-        "medidas del estuche",
-        "medidas estuche",
-        "medidas de estuche",
-        "medida del estuche",
-        "medidas mochila",
-        "medidas cartera",
-        "medidas cartuchera",
-        "medidas usb",
-    })
     CATEGORY_SOURCE_ROLE = int(Qt.ItemDataRole.UserRole) + 50
     PROGRESSIVE_RENDER_THRESHOLD = 50
     PROGRESSIVE_RENDER_BATCH_SIZE = 40
@@ -2911,9 +2873,10 @@ class ProductTable(QTableWidget):
         cls,
         matches: list[re.Match[str]],
     ) -> list[re.Match[str]]:
-        """Ignore removable color variants and nested measure sublabels."""
+        """Keep sublabels under semantic grouping prefixes without SKU rules."""
         selected: list[re.Match[str]] = []
         inside_measure_value = False
+        measure_parent_label = ""
         inside_packaging_value = False
         packaging_value_start = 0
         for match in matches:
@@ -2934,6 +2897,7 @@ class ProductTable(QTableWidget):
                         continue
             if alias in {"empaque", "empaque individual"}:
                 inside_measure_value = False
+                measure_parent_label = ""
                 inside_packaging_value = True
                 packaging_value_start = match.end()
                 selected.append(match)
@@ -2949,16 +2913,20 @@ class ProductTable(QTableWidget):
                 # The lower-case verb in a source Description sentence is not
                 # a separately labelled field; real field labels use "Contiene".
                 continue
-            if alias in {"medida", "medidas"} | cls.DETAIL_PARENT_MEASURE_LABELS:
-                inside_measure_value = True
-                selected.append(match)
-                continue
             if (
                 inside_measure_value
-                and alias in cls.DETAIL_NESTED_MEASURE_LABELS
+                and is_grouping_detail_child(measure_parent_label, match.group(1))
             ):
+                # A nested prefix such as "Dimensiones:" remains part of the
+                # value introduced by "Medidas:", regardless of the child name.
+                continue
+            if is_detail_grouping_label(alias):
+                inside_measure_value = True
+                measure_parent_label = alias
+                selected.append(match)
                 continue
             inside_measure_value = False
+            measure_parent_label = ""
             selected.append(match)
         return selected
 

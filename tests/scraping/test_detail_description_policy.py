@@ -256,6 +256,7 @@ def test_detail_policy_preserves_nested_measure_prefixes_without_child_name_allo
         "Diámetro",
         "Envase Largo",
         "Toalla Largo",
+        "Total",
     ):
         assert is_grouping_detail_child("Medidas", child), child
 

@@ -229,7 +229,7 @@ def test_detail_policy_preserves_nested_measure_prefixes_without_child_name_allo
     )
 
     assert cleaned.splitlines() == [
-        "Medidas: Dimensiones del compartimento: 13 x 10.5 x 3 cm",
+        "Medidas: Dimensiones: 13 x 10.5 x 3 cm",
         "Material: Cartón reutilizable ecológico",
     ]
     assert is_detail_grouping_label("Medidas de la cartuchera")

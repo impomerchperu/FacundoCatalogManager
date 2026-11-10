@@ -1543,6 +1543,7 @@ class ProductTable(QTableWidget):
     )
     # Prefix roots are recognized independently of the finite field alias
     # list, so a supplier suffix before the colon remains part of the label.
+    # Supplier-specific suffixes after these roots belong to the source label.
     _DETAIL_GROUPING_PREFIX_LABEL_PATTERN: ClassVar[str] = (
         r"(?:medidas?|dimensiones?)"
         r"(?:\s+[A-ZÁÉÍÓÚÜÑa-záéíóúüñ][\wÁÉÍÓÚÜÑáéíóúüñ-]{0,30}){0,5}"
@@ -1551,7 +1552,8 @@ class ProductTable(QTableWidget):
         r"(?<!\w)((?i:"
         + _DETAIL_GROUPING_PREFIX_LABEL_PATTERN
         + "|"
-        + _DETAIL_FIELD_LABEL_ALIASES_PATTERN        + r")|(?-i:(?![^:\n]{0,60}\b(?i:"
+        + _DETAIL_FIELD_LABEL_ALIASES_PATTERN
+        + r")|(?-i:(?![^:\n]{0,60}\b(?i:"
         + _DETAIL_FIELD_LABEL_ALIASES_PATTERN
         + r")\s*:)[A-ZÁÉÍÓÚÜÑ][\wÁÉÍÓÚÜÑáéíóúüñ ()/_-]{0,60}?))\s*:"
     )

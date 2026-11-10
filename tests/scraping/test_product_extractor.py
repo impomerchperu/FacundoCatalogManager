@@ -756,7 +756,7 @@ def test_product_extractor_preserves_nested_measure_prefix_and_dynamic_sublabel(
       <div id="brxe-jhzpri">
         <ul>
           <li><strong>Medidas:</strong></li>
-          <li><strong>Dimensiones:</strong> 13 x 10.5 x 3 cm</li>
+          <li><strong>Dimensiones del compartimento:</strong> 13 x 10.5 x 3 cm</li>
           <li><strong>Material:</strong> Cartón reutilizable ecológico</li>
         </ul>
       </div>

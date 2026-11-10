@@ -884,11 +884,9 @@ def is_grouping_detail_child(parent_label: object, child_source: object) -> bool
     if not parent_kind:
         return False
 
-    match = _DETAIL_FIELD_LABEL_START_PATTERN.match(str(child_source or "").strip())
-    if match is None:
-        return False
-
-    child = _grouping_label_key(match.group())
+    child_text = str(child_source or "").strip()
+    match = _DETAIL_FIELD_LABEL_START_PATTERN.match(child_text)
+    child = _grouping_label_key(match.group() if match is not None else child_text)
     # A nested prefix of the same semantic family is always a child. This
     # preserves forms such as "Medidas: Dimensiones: ..." without adding
     # "Dimensiones" to a separate child-label list.

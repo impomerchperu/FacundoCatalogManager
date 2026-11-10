@@ -824,20 +824,18 @@ _EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
 )
 
 
-_DETAIL_GROUPING_LABELS = frozenset({
-    "medidas",
-    "medida",
-    "medida y capacidad",
-    "dimensiones",
-    "dimensiones del producto",
-    "medidas del producto",
-    "empaque individual",
-    "medidas del estuche",
-    "medidas mochila",
-    "medidas de la caja máster",
-    "medidas de la caja master",
-})
-_DETAIL_GROUPING_FIELD_CHILD_LABELS = frozenset({
+# Grouping labels are semantic prefixes, not a per-product allowlist.
+# Any supplier suffix after these roots remains part of the same prefix:
+# "Medidas del producto", "Medidas de la cartuchera", "Dimensiones USB", etc.
+_MEASURE_GROUPING_PARENT_PATTERN = re.compile(
+    r"^(?:medidas?|dimensiones?)(?:\\s+.+)?$",
+    re.IGNORECASE,
+)
+_PACKAGING_GROUPING_PARENT_PATTERN = re.compile(
+    r"^empaque(?:\\s+.+)?$",
+    re.IGNORECASE,
+)
+_MEASURE_GROUPING_CHILD_LABELS = frozenset({
     "alto",
     "ancho",
     "largo",
@@ -850,26 +848,54 @@ _DETAIL_GROUPING_FIELD_CHILD_LABELS = frozenset({
     "interior",
     "espacio libre",
 })
+_PACKAGING_GROUPING_CHILD_LABELS = frozenset({
+    "material",
+    "materiales",
+    "paquete",
+    "caja",
+})
+
+
+def _grouping_label_key(value: object) -> str:
+    return normalize_detail_text(value).removesuffix(":").strip().casefold()
+
+
+def _detail_grouping_kind(value: object) -> str:
+    label = _grouping_label_key(value)
+    if _MEASURE_GROUPING_PARENT_PATTERN.fullmatch(label):
+        return "measure"
+    if _PACKAGING_GROUPING_PARENT_PATTERN.fullmatch(label):
+        return "packaging"
+    return ""
 
 
 def is_detail_grouping_label(value: object) -> bool:
-    """Whether an empty source label groups following Detail subfields."""
-    label = normalize_detail_text(value).removesuffix(":").strip().casefold()
-    return label in _DETAIL_GROUPING_LABELS
+    """Whether a source label is a semantic grouping prefix."""
+    return bool(_detail_grouping_kind(value))
 
 
-def _is_grouping_detail_child(parent_label: str, child_source: str) -> bool:
-    """Whether the next field is a valid subfield of the preceding grouping label."""
-    parent = normalize_detail_text(parent_label).removesuffix(":").strip().casefold()
-    if parent not in _DETAIL_GROUPING_LABELS:
+def is_grouping_detail_child(parent_label: object, child_source: object) -> bool:
+    """Recognize nested group prefixes without enumerating their label pairs."""
+    parent_kind = _detail_grouping_kind(parent_label)
+    if not parent_kind:
         return False
-    match = _DETAIL_FIELD_LABEL_START_PATTERN.match(child_source)
+
+    match = _DETAIL_FIELD_LABEL_START_PATTERN.match(str(child_source or "").strip())
     if match is None:
         return False
-    child = normalize_detail_text(match.group()).removesuffix(":").strip().casefold()
-    if parent == "empaque individual" and child in {"material", "materiales"}:
+
+    child = _grouping_label_key(match.group())
+    # A nested prefix of the same semantic family is always a child. This
+    # preserves forms such as "Medidas: Dimensiones: ..." without adding
+    # "Dimensiones" to a separate child-label list.
+    if _detail_grouping_kind(child) == parent_kind:
         return True
-    return child in _DETAIL_GROUPING_FIELD_CHILD_LABELS
+
+    if parent_kind == "measure":
+        return child in _MEASURE_GROUPING_CHILD_LABELS
+    if parent_kind == "packaging":
+        return child in _PACKAGING_GROUPING_CHILD_LABELS
+    return False
 
 
 def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
@@ -881,7 +907,7 @@ def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
         previous_label = normalize_detail_text(previous.group()).removesuffix(":").strip()
         if (
             all(char.isspace() or char in ".;" for char in between)
-            and not _is_grouping_detail_child(previous_label, current.group())
+            and not is_grouping_detail_child(previous_label, current.group())
         ):
             split_positions.append(current.start())
 
@@ -933,7 +959,7 @@ def clean_extracted_detail_text(
                 next_is_field = bool(
                     _DETAIL_FIELD_LABEL_START_PATTERN.match(next_line)
                 )
-                if not next_is_field or _is_grouping_detail_child(label_key, next_line):
+                if not next_is_field or is_grouping_detail_child(label_key, next_line):
                     cleaned.append(f"{label}: {next_line}")
                     index += 2
                     continue
@@ -1192,7 +1218,7 @@ def _merge_detail_html_empty_labels(roots: list[Tag]) -> list[Tag] | None:
         )
         if (
             following_is_field
-            and not _is_grouping_detail_child(label, following_normalized)
+            and not is_grouping_detail_child(label, following_normalized)
         ):
             roots.pop(index)
             continue

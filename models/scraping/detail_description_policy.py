@@ -174,11 +174,11 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
 )
 TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
 _DETAIL_GROUPING_SOURCE_LABEL_PATTERN = re.compile(
-    r"(?<!\\w)(?:medidas?|dimensiones?)(?:\\s+[^:\\n]{1,60})?\\s*:",
+    r"(?<!\w)(?:medidas?|dimensiones?)(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ][\wÁÉÍÓÚÜÑáéíóúüñ-]{0,30}){0,5}\s*:",
     re.IGNORECASE,
 )
 _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = re.compile(
-    r"(?<!\\w)descripci[oó]n(?:\\s+comercial)?\\s*:\\s*|"
+    r"(?<!\w)descripci[oó]n(?:\s+comercial)?\s*:\s*|"
     + _DETAIL_GROUPING_SOURCE_LABEL_PATTERN.pattern
     + "|"
     + _DETAIL_FIELD_LABEL_PATTERN.pattern,
@@ -195,7 +195,7 @@ _TECHNICAL_DETAIL_PATTERN = re.compile(
     _DETAIL_GROUPING_SOURCE_LABEL_PATTERN.pattern
     + "|"
     + _DETAIL_FIELD_LABEL_PATTERN.pattern
-    + r"|\\bcertificado\\s+sgs\\b",
+    + r"|\bcertificado\s+sgs\b",
     re.IGNORECASE,
 )
 _NON_TECHNICAL_SECTION_PREFIX_PATTERN = re.compile(

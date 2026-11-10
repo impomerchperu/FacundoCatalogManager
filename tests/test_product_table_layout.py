@@ -3293,7 +3293,7 @@ def test_detail_formatter_keeps_nested_measure_prefixes_without_child_name_allow
         (
             "R7512",
             (
-                "Medidas: Dimensiones: 13 x 10.5 x 3 cm\\n"
+                "Medidas: Dimensiones: 13 x 10.5 x 3 cm\n"
                 "Material: Cartón reutilizable ecológico"
             ),
             [

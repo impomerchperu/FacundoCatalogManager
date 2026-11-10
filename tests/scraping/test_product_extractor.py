@@ -749,6 +749,30 @@ def test_product_extractor_prefers_visible_summary_over_description_tab():
     )
 
 
+def test_product_extractor_preserves_nested_measure_prefix_and_dynamic_sublabel():
+    html = """
+    <html><body>
+      <p class="brxe-heading">R7512</p>
+      <div id="brxe-jhzpri">
+        <ul>
+          <li><strong>Medidas:</strong></li>
+          <li><strong>Dimensiones del compartimento:</strong> 13 x 10.5 x 3 cm</li>
+          <li><strong>Material:</strong> Cartón reutilizable ecológico</li>
+        </ul>
+      </div>
+      <div id="tab-description">No incorporar contenido comercial.</div>
+    </body></html>
+    """
+
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result["description"].splitlines() == [
+        "Medidas: Dimensiones del compartimento: 13 x 10.5 x 3 cm",
+        "Material: Cartón reutilizable ecológico",
+    ]
+    assert "No incorporar contenido comercial" not in result["description"]
+
+
 def test_product_extractor_removes_variant_color_detail_independently_of_stock_data():
     html = """
     <html><body>

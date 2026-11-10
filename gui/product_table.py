@@ -1545,7 +1545,7 @@ class ProductTable(QTableWidget):
     # list, so a supplier suffix before the colon remains part of the label.
     # Supplier-specific suffixes after these roots belong to the source label.
     _DETAIL_GROUPING_PREFIX_LABEL_PATTERN: ClassVar[str] = (
-        r"(?:medidas?|dimensiones?)"
+        r"(?:medidas?|dimensi[oó]n(?:es)?)"
         r"(?:\s+[A-ZÁÉÍÓÚÜÑa-záéíóúüñ][\wÁÉÍÓÚÜÑáéíóúüñ-]{0,30}){0,5}"
     )
     DETAIL_FIELD_LABEL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(

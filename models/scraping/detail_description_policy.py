@@ -828,7 +828,7 @@ _EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
 # Any supplier suffix after these roots remains part of the same prefix:
 # "Medidas del producto", "Medidas de la cartuchera", "Dimensiones USB", etc.
 _MEASURE_GROUPING_PARENT_PATTERN = re.compile(
-    r"^(?:medidas?|dimensiones?)(?:\s+.+)?$",
+    r"^(?:medidas?|dimensi[oó]n(?:es)?)(?:\s+.+)?$",
     re.IGNORECASE,
 )
 _PACKAGING_GROUPING_PARENT_PATTERN = re.compile(

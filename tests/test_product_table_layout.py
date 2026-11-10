@@ -3314,6 +3314,18 @@ def test_detail_formatter_keeps_nested_measure_prefixes_without_child_name_allow
             ],
             "Medidas de la cartuchera:",
         ),
+        (
+            "TEST-PREFIX-NESTED-02",
+            (
+                "Medidas de la cartuchera: "
+                "Dimensión del compartimento: 13 x 10.5 x 3 cm"
+            ),
+            [
+                "Medidas de la cartuchera: Dimensión del compartimento: "
+                "13 x 10.5 x 3 cm"
+            ],
+            "Medidas de la cartuchera:",
+        ),
     )
 
     legacy_measure_source = (

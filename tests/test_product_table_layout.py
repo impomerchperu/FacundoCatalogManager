@@ -3288,6 +3288,55 @@ def test_detail_table_keeps_nested_measure_values_for_ty_p35aw_and_mu511():
         ), (code, lines, bold_text)
 
 
+def test_detail_formatter_keeps_nested_measure_prefixes_without_child_name_allowlist():
+    cases = (
+        (
+            "R7512",
+            (
+                "Medidas: Dimensiones: 13 x 10.5 x 3 cm\\n"
+                "Material: Cartón reutilizable ecológico"
+            ),
+            [
+                "Medidas: Dimensiones: 13 x 10.5 x 3 cm",
+                "Material: Cartón reutilizable ecológico",
+            ],
+            "Medidas:",
+        ),
+        (
+            "TEST-PREFIX-NESTED-01",
+            (
+                "Medidas de la cartuchera: "
+                "Dimensiones del compartimento: 13 x 10.5 x 3 cm"
+            ),
+            [
+                "Medidas de la cartuchera: Dimensiones del compartimento: "
+                "13 x 10.5 x 3 cm"
+            ],
+            "Medidas de la cartuchera:",
+        ),
+    )
+
+    for code, description, expected_lines, expected_bold_prefix in cases:
+        product = Product(
+            code=code,
+            name="Producto de prueba",
+            description=description,
+        )
+        lines = ProductTable._format_detail(product).splitlines()
+        assert lines == expected_lines, (code, lines)
+
+        layouts, _height = ProductDetailDelegate._layout_text(
+            lines[0],
+            _qapp().font(),
+            900,
+        )
+        bold_text = [
+            lines[0][item.start : item.start + item.length]
+            for item in layouts[0][0].formats()
+        ]
+        assert bold_text == [expected_bold_prefix], (code, lines, bold_text)
+
+
 def test_detail_table_keeps_nested_caja_and_paquete_inside_empaque_for_observed_codes():
     cases = (
         ("FD-2041", "Medida: 23.5x32cm .", "Paquete 25 unid caja: 1/2 millar"),

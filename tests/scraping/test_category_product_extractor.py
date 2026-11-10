@@ -860,6 +860,32 @@ def test_category_product_extractor_does_not_use_short_generic_prose_as_detail()
 
 
 
+def test_category_product_extractor_preserves_nested_measure_prefix_and_dynamic_sublabel():
+    html = """
+    <article>
+        <p class="brxe-a26f34">R7512</p>
+        <h2 class="brxe-f31760">Producto con dimensiones anidadas</h2>
+        <div class="text-content">
+            <ul>
+                <li><strong>Medidas:</strong></li>
+                <li><strong>Dimensiones del compartimento:</strong> 13 x 10.5 x 3 cm</li>
+                <li><strong>Material:</strong> Cartón reutilizable ecológico</li>
+            </ul>
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert product.code == "R7512"
+    assert product.description.splitlines() == [
+        "Medidas: Dimensiones del compartimento: 13 x 10.5 x 3 cm",
+        "Material: Cartón reutilizable ecológico",
+    ]
+    assert product.description_html
+    assert detail_html_matches_text(product.description_html, product.description)
+
+
 def test_category_product_extractor_keeps_only_date_label_bold_and_unbolds_standalone_punctuation():
     html = """
     <article>

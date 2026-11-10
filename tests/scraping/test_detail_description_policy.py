@@ -219,7 +219,7 @@ def test_detail_policy_recognizes_product_dimensions_and_box_weight_labels():
 def test_detail_policy_preserves_nested_measure_prefixes_without_child_name_allowlist():
     source = (
         "Medidas:\n"
-        "Dimensiones del compartimento: 13 x 10.5 x 3 cm\n"
+        "Dimensiones: 13 x 10.5 x 3 cm\n"
         "Material: Cartón reutilizable ecológico"
     )
 
@@ -236,7 +236,7 @@ def test_detail_policy_preserves_nested_measure_prefixes_without_child_name_allo
     assert is_detail_grouping_label("Dimensiones del compartimento")
     assert is_grouping_detail_child(
         "Medidas",
-        "Dimensiones del compartimento:",
+        "Dimensiones:",
     )
     assert not is_grouping_detail_child("Medidas", "Material:")
 

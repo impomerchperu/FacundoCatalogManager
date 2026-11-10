@@ -241,10 +241,14 @@ def test_detail_policy_preserves_nested_measure_prefixes_without_child_name_allo
     assert not is_grouping_detail_child("Medidas", "Material:")
 
     supplier_prefix = (
-        "Medidas de la cartuchera:\\n"
+        "Medidas de la cartuchera:\n"
         "Dimensiones del compartimento: 13 x 10.5 x 3 cm"
     )
     assert is_empty_detail_field_fragment("Medidas de la cartuchera:")
+    assert is_grouping_detail_child(
+        "Medidas de la cartuchera",
+        "Dimensiones del compartimento:",
+    )
     assert clean_extracted_detail_text(
         supplier_prefix,
         restore_literal_colons=False,

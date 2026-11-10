@@ -3316,6 +3316,25 @@ def test_detail_formatter_keeps_nested_measure_prefixes_without_child_name_allow
         ),
     )
 
+    legacy_measure_source = (
+        "Medidas: Envase Largo: 16 cm, Diámetro: 6.5 cm, "
+        "Toalla Largo: 80 cm, Ancho: 30 cm"
+    )
+    legacy_matches = list(
+        ProductTable.DETAIL_FIELD_LABEL_PATTERN.finditer(legacy_measure_source)
+    )
+    legacy_selected = ProductTable._select_detail_field_matches(legacy_matches)
+    assert [match.group(1) for match in legacy_selected] == ["Medidas"]
+
+    mouse_pad_source = "Medida: 30 x 20 cm (espesor: 5 mm)"
+    mouse_pad_matches = list(
+        ProductTable.DETAIL_FIELD_LABEL_PATTERN.finditer(mouse_pad_source)
+    )
+    mouse_pad_selected = ProductTable._select_detail_field_matches(
+        mouse_pad_matches
+    )
+    assert [match.group(1) for match in mouse_pad_selected] == ["Medida"]
+
     for code, description, expected_lines, expected_bold_prefix in cases:
         product = Product(
             code=code,

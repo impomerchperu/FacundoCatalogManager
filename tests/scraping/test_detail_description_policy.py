@@ -3,11 +3,11 @@ from models.scraping.detail_description_policy import (
     has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,
+    is_detail_grouping_label,
     is_empty_detail_field_fragment,
+    is_grouping_detail_child,
     is_valid_detail_content,
     normalize_detail_text,
-    is_detail_grouping_label,
-    is_grouping_detail_child,
     remove_incomplete_trailing_dimension_field,
     strip_leading_color_field,
 )

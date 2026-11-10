@@ -6,6 +6,8 @@ from models.scraping.detail_description_policy import (
     is_empty_detail_field_fragment,
     is_valid_detail_content,
     normalize_detail_text,
+    is_detail_grouping_label,
+    is_grouping_detail_child,
     remove_incomplete_trailing_dimension_field,
     strip_leading_color_field,
 )
@@ -212,6 +214,31 @@ def test_detail_policy_recognizes_product_dimensions_and_box_weight_labels():
     assert is_complete_detail(source)
     assert is_valid_detail_content(source)
     assert has_multiple_technical_detail_fields(source)
+
+
+def test_detail_policy_preserves_nested_measure_prefixes_without_child_name_allowlist():
+    source = (
+        "Medidas:\\n"
+        "Dimensiones del compartimento: 13 x 10.5 x 3 cm\\n"
+        "Material: Cartón reutilizable ecológico"
+    )
+
+    cleaned = clean_extracted_detail_text(
+        source,
+        restore_literal_colons=False,
+    )
+
+    assert cleaned.splitlines() == [
+        "Medidas: Dimensiones del compartimento: 13 x 10.5 x 3 cm",
+        "Material: Cartón reutilizable ecológico",
+    ]
+    assert is_detail_grouping_label("Medidas de la cartuchera")
+    assert is_detail_grouping_label("Dimensiones del compartimento")
+    assert is_grouping_detail_child(
+        "Medidas",
+        "Dimensiones del compartimento:",
+    )
+    assert not is_grouping_detail_child("Medidas", "Material:")
 
 
 def test_detail_policy_normalizes_nonbreaking_space_indentation():

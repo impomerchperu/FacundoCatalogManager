@@ -131,7 +131,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"rango\s+de\s+espesor(?:\s+polaseal)?|"
     r"tiempo\s+de\s+calentamiento|"
     r"consumo\s+de\s+energ[ií]a|"
-    r"dimensi[oó]n(?:es)?(?:\s+[^:\n]{1,60})?|"
+    r"dimensi[oó]n(?:es)?(?:\s+(?:de\s+)?caja)?|"
     r"peso\s+bruto\s*/\s*caja|"
     r"peso\s+neto\s*/\s*caja|"
     r"peso\s+(?:unitario|neto|bruto)(?:\s+por(?:\s+caja)?)?|"
@@ -147,7 +147,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"t[eé]cnica\s+de\s+impresi[oó]n|"
     r"materiales|"
     r"material|"
-    r"medida(?:s)?(?:\s+[^:\n]{1,60})?|"
+    r"medida(?:s)?|"
     r"di[aá]metro|"
     r"velocidad|"
     r"voltaje\s+y\s+frecuencia|"
@@ -173,8 +173,14 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
+_DETAIL_GROUPING_SOURCE_LABEL_PATTERN = re.compile(
+    r"(?<!\\w)(?:medidas?|dimensiones?)(?:\\s+[^:\\n]{1,60})?\\s*:",
+    re.IGNORECASE,
+)
 _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = re.compile(
-    r"(?<!\w)descripci[oó]n(?:\s+comercial)?\s*:\s*|"
+    r"(?<!\\w)descripci[oó]n(?:\\s+comercial)?\\s*:\\s*|"
+    + _DETAIL_GROUPING_SOURCE_LABEL_PATTERN.pattern
+    + "|"
     + _DETAIL_FIELD_LABEL_PATTERN.pattern,
     re.IGNORECASE,
 )
@@ -186,7 +192,10 @@ _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN = re.compile(
 
 
 _TECHNICAL_DETAIL_PATTERN = re.compile(
-    _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\bcertificado\s+sgs\b",
+    _DETAIL_GROUPING_SOURCE_LABEL_PATTERN.pattern
+    + "|"
+    + _DETAIL_FIELD_LABEL_PATTERN.pattern
+    + r"|\\bcertificado\\s+sgs\\b",
     re.IGNORECASE,
 )
 _NON_TECHNICAL_SECTION_PREFIX_PATTERN = re.compile(

@@ -234,6 +234,7 @@ def test_detail_policy_preserves_nested_measure_prefixes_without_child_name_allo
     ]
     assert is_detail_grouping_label("Medidas de la cartuchera")
     assert is_detail_grouping_label("Dimensiones del compartimento")
+    assert is_detail_grouping_label("Dimensión del compartimento")
     assert is_grouping_detail_child(
         "Medidas",
         "Dimensiones:",

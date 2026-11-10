@@ -174,7 +174,7 @@ _DETAIL_FIELD_LABEL_PATTERN = re.compile(
 )
 TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
 _DETAIL_GROUPING_SOURCE_LABEL_PATTERN = re.compile(
-    r"(?<!\w)(?:medidas?|dimensiones?)(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ][\wÁÉÍÓÚÜÑáéíóúüñ-]{0,30}){0,5}\s*:",
+    r"(?<!\w)(?:medidas?|dimensi[oó]n(?:es)?)(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ][\wÁÉÍÓÚÜÑáéíóúüñ-]{0,30}){0,5}\s*:",
     re.IGNORECASE,
 )
 _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = re.compile(

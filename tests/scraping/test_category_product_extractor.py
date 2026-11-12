@@ -993,3 +993,38 @@ def test_category_product_extractor_preserves_source_strong_and_bold_labels_as_r
         product.description_html,
         product.description,
     )
+
+
+
+def test_category_product_extractor_preserves_source_list_alignment_and_description_colors():
+    html = """
+    <article>
+        <p class="brxe-a26f34">TEST-DETAIL-SOURCE-HTML</p>
+        <h2 class="brxe-f31760">Producto de prueba</h2>
+        <div class="text-content" style="text-align: center">
+            <ul>
+                <li><strong>Descripción:</strong> Diseñado en una variedad de colores para proyectos creativos.</li>
+                <li><strong>Material:</strong> Plástico resistente.</li>
+                <li><strong>Presentación:</strong> Individual.</li>
+            </ul>
+        </div>
+    </article>
+    """
+
+    product = CategoryProductExtractor().extract(
+        BeautifulSoup(html, "lxml")
+    )
+
+    assert product.description.splitlines() == [
+        "Descripción: Diseñado en una variedad de colores para proyectos creativos.",
+        "Material: Plástico resistente.",
+        "Presentación: Individual.",
+    ]
+    assert "<ul>" in product.description_html
+    assert product.description_html.count("<li") == 3
+    assert "text-align: center" in product.description_html
+    assert "<strong>Descripción:</strong>" in product.description_html
+    assert detail_html_matches_text(
+        product.description_html,
+        product.description,
+    )

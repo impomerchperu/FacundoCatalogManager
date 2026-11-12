@@ -13,6 +13,7 @@ from config.scraping_config import (
 )
 from models.scraping.category import Category
 from models.scraping.detail_description_policy import (
+    detail_html_matches_text,
     has_technical_detail,
     is_complete_detail,
     normalize_detail_text,
@@ -647,6 +648,7 @@ class ProductCollectionScraper:
     ) -> Any:
         card_description = normalize_detail_text(
             getattr(product, "description", ""),
+            preserve_boundaries=True,
         )
         if self.detail_extractor is None:
             return product
@@ -665,6 +667,28 @@ class ProductCollectionScraper:
             # A failed detail request must never replace category-card text.
             product.description = card_description
             return product
+
+        card_code = normalize_code(
+            getattr(product, "code", ""),
+            allow_alpha_only=True,
+        )
+        detail_code = normalize_code(
+            getattr(detailed_product, "code", ""),
+            allow_alpha_only=True,
+        )
+        if card_code and detail_code and detail_code != card_code:
+            # A URL discovered on a category card is not sufficient proof that
+            # the fetched page belongs to another SKU. Reject that page entirely.
+            product.description = card_description
+            self._record_detail_reason("skipped_code_mismatch")
+            return product
+
+        detail_identity_matches = bool(
+            card_code and detail_code and detail_code == card_code
+        )
+        if not card_code and detail_code:
+            # Preserve code recovery when the category card itself omitted SKU.
+            product.code = detail_code
 
         needs_image_repair = self._image_needs_detail(product)
         detail_candidates = list(
@@ -714,13 +738,6 @@ class ProductCollectionScraper:
             product.image_candidates = detail_gallery_candidates
 
         product.url = detail_url
-        detail_code = normalize_code(
-            getattr(detailed_product, "code", ""),
-            allow_alpha_only=True,
-        )
-        if detail_code:
-            product.code = detail_code
-
         current_name = str(getattr(product, "name", "") or "").strip()
         detail_name = str(getattr(detailed_product, "name", "") or "").strip()
         if not current_name and detail_name:
@@ -731,6 +748,7 @@ class ProductCollectionScraper:
         # the card text is truncated; unrelated page sections are never merged.
         detail_description = normalize_detail_text(
             getattr(detailed_product, "description", ""),
+            preserve_boundaries=True,
         )
         card_detail_is_authoritatively_empty = (
             self._has_authoritative_empty_card_detail(card, product)
@@ -745,8 +763,18 @@ class ProductCollectionScraper:
             not card_detail_is_authoritatively_empty
             and not card_description_is_complete
             and detail_description_is_complete
+            and detail_identity_matches
         ):
             product.description = detail_description
+            detail_html = str(
+                getattr(detailed_product, "description_html", "") or ""
+            )
+            product.description_html = (
+                detail_html
+                if detail_html
+                and detail_html_matches_text(detail_html, detail_description)
+                else ""
+            )
         else:
             product.description = card_description
 

@@ -34,6 +34,7 @@ from models.scraping.detail_description_policy import (
     has_technical_detail,
     is_complete_detail,
     is_empty_detail_field_fragment,
+    is_non_detail_section,
     is_valid_detail_content,
     normalize_detail_text,
 )
@@ -122,6 +123,8 @@ def _detail_issue(value: object) -> str:
     description = normalize_detail_text(value)
     if not description:
         return "detalle_vacío"
+    if is_non_detail_section(description):
+        return ""
     if has_technical_detail(description):
         if not is_complete_detail(description):
             return "detalle_incompleto_o_truncado"

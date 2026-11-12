@@ -3175,6 +3175,42 @@ def test_detail_formatter_discovers_unlisted_field_labels_from_source_syntax():
     ]
 
 
+def test_detail_formatter_infers_nested_labels_from_position_not_field_names():
+    _qapp()
+    nested = (
+        "Propiedad principal: Subcampo desconocido: 10 unidades. "
+        "Otro subcampo: 20 unidades."
+    )
+    layouts, _height = ProductDetailDelegate._layout_text(
+        nested,
+        _qapp().font(),
+        900,
+    )
+    bold_ranges = [
+        nested[item.start : item.start + item.length]
+        for item in layouts[0][0].formats()
+    ]
+    assert bold_ranges == ["Propiedad principal:"]
+
+    independent = (
+        "Descripción: Texto introductorio. "
+        "Característica adicional: Incluida."
+    )
+    layouts, _height = ProductDetailDelegate._layout_text(
+        independent,
+        _qapp().font(),
+        900,
+    )
+    bold_ranges = [
+        independent[item.start : item.start + item.length]
+        for item in layouts[0][0].formats()
+    ]
+    assert bold_ranges == [
+        "Descripción:",
+        "Característica adicional:",
+    ]
+
+
 def test_detail_table_keeps_unbolded_source_values_for_observed_codes():
     cases = (
         (

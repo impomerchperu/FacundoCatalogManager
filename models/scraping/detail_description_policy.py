@@ -23,6 +23,10 @@ _TRAILING_DETAIL_UI_NOISE_PATTERN = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _DETAIL_BOUNDARY = "\u241e"
+_DESCRIPTION_FIELD_PATTERN = re.compile(
+    r"(?<!\w)descripci[oó]n(?:\s+comercial)?\s*[:|\-]\s*",
+    re.IGNORECASE,
+)
 # Product-variant color fields are redundant in Detail.
 # Specific technical labels such as "Color de tinta" and "Color de impresión"
 # remain valid because their labels continue after the word "Color".
@@ -58,13 +62,7 @@ _COLOR_SEPARATOR_PATTERN = re.compile(
     r"[.;|\r\n" + re.escape(_DETAIL_BOUNDARY) + r"]\s*"
 )
 _DETAIL_FIELD_BOUNDARY_PATTERN = re.compile(
-    r"(?:^|(?<=[.;|/\n\u241e]))\s*[^:\r\n]{1,80}:\s*"
-)
-# A broad candidate is used only to detect a truly empty field immediately
-# followed by another source label. It is never used for color stripping or
-# general technical-detail classification.
-_POTENTIAL_SOURCE_LABEL_PATTERN = re.compile(
-    r"(?<!\w)[A-ZÁÉÍÓÚÜÑ][^:\r\n]{0,79}:\s*"
+    r"(?:^|(?<=[.;|\n\u241e]))\s*[^:\r\n]{1,80}:\s*"
 )
 TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_BOUNDARY_PATTERN
 _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = _DETAIL_FIELD_BOUNDARY_PATTERN
@@ -82,7 +80,6 @@ _NON_TECHNICAL_SECTION_PREFIX_PATTERN = re.compile(
     r"^\s*(?:descripci[oó]n\s+comercial|informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
     re.IGNORECASE,
 )
-# Detect ellipses and short incomplete final labels without enumerating names.
 _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
     r"\.{3,}|…|"
     r"(?:^|[.;]\s*)[A-ZÁÉÍÓÚÜÑ][^:\d\r\n]{0,24}"
@@ -313,13 +310,18 @@ def remove_incomplete_trailing_dimension_field(value: object) -> str:
 # the labels in the saved Detail, but omit a chain of empty terminal labels only
 # while validating completeness. Other terminal labels still signal truncation.
 _EMPTY_TRAILING_DETAIL_FIELD_PATTERN = re.compile(
-    r"(?:^|[.;]\s*)[^:\r\n]{1,80}:\s*$",
+    r"(?:[.;]\s*)?\b(?:"
+    r"dimensiones\s+(?:de\s+)?(?:la\s+)?caja(?:\s+m[aá]ster)?|"
+    r"cubicaje(?:\s+por\s+caja)?|"
+    r"peso\s+(?:neto|bruto)(?:\s+(?:por\s+caja|/\s*caja))?|"
+    r"caja"
+    r")\s*:\s*$",
     re.IGNORECASE,
 )
 
 
 def _strip_allowed_empty_trailing_detail_fields(value: object) -> str:
-    """Ignore any empty terminal field label for completeness checks only."""
+    """Remove whitelisted empty terminal shipping labels for validation only."""
     text = str(value or "").rstrip()
     while text:
         match = _EMPTY_TRAILING_DETAIL_FIELD_PATTERN.search(text)
@@ -331,7 +333,8 @@ def _strip_allowed_empty_trailing_detail_fields(value: object) -> str:
         text = prefix
     return text
 
-
+# This is catalog-wide commercial noise, not a product attribute. Strip it
+# consistently from every Detail value instead of special-casing one SKU.
 _PRICE_INCLUDES_IGV_PATTERN = re.compile(
     r"(?:\s*,\s*|\s+)?\bprecio\s+incluye\s+igv\b\.?",
     re.IGNORECASE,
@@ -449,8 +452,16 @@ def _is_description_color_enumeration(
     text: str,
     match: re.Match[str],
 ) -> bool:
-    """Keep descriptive color prose, but remove an explicit color field."""
+    """Keep color prose within Description, not explicit product-color fields."""
     prefix = text[: match.start()]
+    if (
+        _DESCRIPTION_FIELD_PATTERN.search(prefix)
+        and re.search(r"\ben\s+\d+\s*$", prefix, re.IGNORECASE)
+    ):
+        return True
+
+    # Unlabelled color words inside Description are descriptive prose. An
+    # explicit "Color:"/"Colores:" label remains removable even in that field.
     explicit_label = re.search(r"[:|\-]\s*$", match.group(0)) is not None
     availability_label = (
         _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN.search(match.group(0))
@@ -458,17 +469,16 @@ def _is_description_color_enumeration(
     )
     if explicit_label or availability_label:
         return False
-
-    preceding_labels = list(_DETAIL_FIELD_BOUNDARY_PATTERN.finditer(prefix))
-    if not preceding_labels:
-        return False
-
-    # A color word belongs to prose when the preceding field has visible value
-    # text; punctuation/boundaries mean that the next field is independent.
-    value_after_label = prefix[preceding_labels[-1].end() :]
-    return bool(value_after_label.strip()) and not re.search(
-        r"[.;|\u241e]\s*$",
-        value_after_label,
+    preceding_labels = list(
+        _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.finditer(prefix)
+    )
+    return bool(
+        preceding_labels
+        and re.match(
+            r"descripci[oó]n(?:\s+comercial)?\s*:",
+            preceding_labels[-1].group(0),
+            re.IGNORECASE,
+        )
     )
 
 
@@ -532,12 +542,12 @@ def normalize_detail_text(
         text = re.sub(r"[ \t]*\n[ \t]*", "\n", text)
         text = re.sub(r"\n{2,}", "\n", text)
         return text.strip(" \n;")
-    # Preserve an empty terminal "Caja:" field for future source updates.
+    # Preserve an explicitly empty terminal source field for future updates.
     return _WHITESPACE_PATTERN.sub(" ", text).strip(" ;")
 
 
 def is_complete_detail(value: object) -> bool:
-    """Whether Detail is complete, allowing an empty final Caja field."""
+    """Whether Detail is complete, allowing an explicitly empty final source field."""
     text = normalize_detail_text(value)
     # Validate without allowed blank logistics labels at the end. The original
     # text remains untouched, so those source labels are preserved in the catalog.
@@ -599,28 +609,48 @@ def is_valid_detail_content(value: object) -> bool:
 
 
 def is_empty_detail_field_fragment(value: object) -> bool:
-    """Recognize a known Detail label whose value is empty, without validating it alone."""
+    """Recognize an empty source field by its colon/value structure."""
     text = normalize_detail_text(value)
     return bool(text) and _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN.fullmatch(text) is not None
 
 
-_DETAIL_FIELD_LABEL_START_PATTERN = re.compile(
+_SOURCE_FIELD_START_PATTERN = re.compile(
+    r"^\s*(?:" + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern + r")",
+    re.IGNORECASE,
+)
+_EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
+    r"(?:^|[.;]\s*)(?:"
+    + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern
+    + r")\s*$",
+    re.IGNORECASE,
+)
+
+
+_SOURCE_FIELD_START_PATTERN = re.compile(
     r"^\s*[^:\r\n]{1,80}:\s*",
     re.IGNORECASE,
 )
-_EMPTY_DETAIL_FIELD_AT_END_PATTERN = _EMPTY_TRAILING_DETAIL_FIELD_PATTERN
+_EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
+    r"(?:^|[.;]\s*)[^:\r\n]{1,80}:\s*$",
+    re.IGNORECASE,
+)
+_POTENTIAL_SOURCE_LABEL_PATTERN = re.compile(
+    r"(?<!\w)([A-ZÁÉÍÓÚÜÑ][\wÁÉÍÓÚÜÑáéíóúüñ()/_-]{0,30}"
+    r"(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9()/_-]{1,30}){0,5}):\s*",
+    re.UNICODE,
+)
 
 
 def is_detail_grouping_label(value: object) -> bool:
-    """Recognize an empty structural heading without naming its vocabulary."""
+    """Treat an empty field heading as a possible group; its children decide."""
     return is_empty_detail_field_fragment(value)
 
 
 def _is_grouping_detail_child(parent_label: str, child_source: str) -> bool:
-    """Infer a group from an empty parent followed by multiple sibling fields."""
-    if not is_empty_detail_field_fragment(parent_label):
+    """A blank heading groups following content when it contains sibling fields."""
+    if not str(parent_label or "").strip():
         return False
-    return len(_POTENTIAL_SOURCE_LABEL_PATTERN.findall(str(child_source or ""))) >= 2
+    return len(_DETAIL_FIELD_BOUNDARY_PATTERN.findall(str(child_source or ""))) >= 2
 
 
 def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
@@ -632,10 +662,7 @@ def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
         previous_label = normalize_detail_text(previous.group()).removesuffix(":").strip()
         if (
             all(char.isspace() or char in ".;" for char in between)
-            and not _is_grouping_detail_child(
-                previous_label,
-                value[current.start() :],
-            )
+            and not _is_grouping_detail_child(previous_label, current.group())
         ):
             split_positions.append(current.start())
 
@@ -685,7 +712,7 @@ def clean_extracted_detail_text(
                 label = line.rstrip().removesuffix(":").strip()
                 label_key = normalize_detail_text(label).casefold()
                 next_is_field = bool(
-                    _DETAIL_FIELD_LABEL_START_PATTERN.match(next_line)
+                    _SOURCE_FIELD_START_PATTERN.match(next_line)
                 )
                 if not next_is_field or _is_grouping_detail_child(label_key, next_line):
                     cleaned.append(f"{label}: {next_line}")
@@ -1035,7 +1062,7 @@ def _merge_detail_html_empty_labels(roots: list[Tag]) -> list[Tag] | None:
         )
         following_normalized = normalize_detail_text(following_text)
         following_is_field = bool(
-            _DETAIL_FIELD_LABEL_START_PATTERN.match(following_normalized)
+            _SOURCE_FIELD_START_PATTERN.match(following_normalized)
         )
         if (
             following_is_field

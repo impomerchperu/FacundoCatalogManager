@@ -1059,6 +1059,7 @@ class ProductDetailDelegate(ProductCellDelegate):
         r"(?:(?<=^)|(?<=[.!?]\s))(?:\s*\d+\.\s*)?([A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}):"
     )
 
+
     @classmethod
     def _layout_text(
         cls,
@@ -1079,17 +1080,14 @@ class ProductDetailDelegate(ProductCellDelegate):
             formats: list[QTextLayout.FormatRange] = []
             for match in cls._BOLD_DETAIL_LABEL_PATTERN.finditer(paragraph):
                 prefix = paragraph[: match.start(1)]
-                # Determine nesting from the prefix shape, never from a label
-                # vocabulary: a child starts after a parent whose value itself
-                # begins with another label (or has not begun yet).
-                parent = re.match(r"^\s*[^:\n]{1,80}:\s*", prefix)
-                if parent is not None:
-                    parent_value_prefix = prefix[parent.end() :]
-                    if (
-                        not parent_value_prefix.strip()
-                        or re.match(r"^\s*[^:\n]{1,80}:\s*", parent_value_prefix)
-                    ):
-                        continue
+                parent = re.match(r"^s*[^:
+]{1,80}:s*", prefix)
+                if parent is not None and re.match(
+                    r"^s*[^:
+]{1,80}:s*",
+                    prefix[parent.end() :].lstrip(),
+                ):
+                    continue
                 # Do not invent bold field boundaries inside an explicitly
                 # slash-grouped source line.
                 if re.search(
@@ -2562,15 +2560,16 @@ class ProductTable(QTableWidget):
         if not segment:
             return []
 
-        # Colons inside a balanced parenthetical value are not field delimiters.
+        # A nested label in parentheses belongs to the value of the printing
+        # technique field, not to a separate field in the table. Protect its
+        # colon while detecting field boundaries, then restore it for display.
         protected_colon = "\ue001"
-        segment = re.sub(
-            r"(\([^()\n]*?):([^()\n]*?\))",
-            lambda match: (
-                f"{match.group(1)}{protected_colon}{match.group(2)}"
-            ),
-            segment,
-        )
+        if re.search(r"(?i)(?<!\w)t[eé]cnica\s+de\s+impresi[oó]n\s*:", segment):
+            segment = re.sub(
+                r"(?i)(área\s+de\s+impresi[oó]n\s+recomendada)\s*:",
+                lambda match: f"{match.group(1)}{protected_colon}",
+                segment,
+            )
 
         matches = list(cls.DETAIL_FIELD_LABEL_PATTERN.finditer(segment))
         if not matches:
@@ -2637,40 +2636,26 @@ class ProductTable(QTableWidget):
         cls,
         matches: list[re.Match[str]],
     ) -> list[re.Match[str]]:
-        """Separate peer fields while retaining syntactically nested subfields."""
+        """Separate peer fields only at source boundaries; retain nested groups."""
         selected: list[re.Match[str]] = []
         for match in matches:
             prefix = match.string[: match.start()]
-            # Only promote a candidate after a source separator, at the
-            # paragraph start, or immediately after a recognizable value unit.
-            # This avoids treating capitalized words in prose as new labels.
             has_boundary = not prefix.strip(" \t.;|")
             has_boundary = has_boundary or bool(re.search(r"[.;|]\s*$", prefix))
-            has_boundary = has_boundary or bool(
-                re.search(
-                    r"\b(?:mm|cm|km|m|kg|gr?|g|ml|l|oz|onzas?|pza|"
-                    r"unid|und|uds|cbm|m³|°c|°f)\s*$",
-                    prefix,
-                    re.IGNORECASE,
-                )
-            )
             if not has_boundary:
                 continue
-
-            # A colon inside parentheses belongs to the preceding value.
             if prefix.count("(") > prefix.count(")"):
                 continue
 
             parent = selected[-1] if selected else None
             if parent is not None:
                 parent_value_prefix = match.string[parent.end() : match.start()]
-                # A parent value that begins with a field label contains a
-                # nested group; retain those children inside the source block.
-                if cls.DETAIL_FIELD_LABEL_PATTERN.match(parent_value_prefix.lstrip()):
+                if re.match(
+                    r"^\s*[^:\n]{1,80}:\s*",
+                    parent_value_prefix.lstrip(),
+                ):
                     continue
 
-                # Ordinal child entries are structural even when the supplier
-                # omits punctuation between the numbered entries.
                 numbered_suffix = re.search(r"\b\d+\s*\.\s*$", prefix)
                 numbered_context = (
                     prefix.rstrip()[:-1] if numbered_suffix else ""
@@ -2727,7 +2712,7 @@ class ProductTable(QTableWidget):
         value: str,
         product: Product,
     ) -> str | None:
-        """Keep explicitly stored empty fields and skip duplicate source values."""
+        """Keep empty Caja visible while skipping other empty or duplicate fields."""
         if not value:
             return f"{label}:"
         if cls._detail_field_duplicates_row(label, value, product):

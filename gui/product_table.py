@@ -1063,11 +1063,11 @@ class ProductDetailDelegate(ProductCellDelegate):
     def _is_nested_source_value_label(label: str, prefix: str) -> bool:
         """Infer nested source labels from adjacent field delimiters, not names."""
         del label
-        parent = re.match(r"^\\s*[^:\\n]{1,60}:\\s*", prefix)
+        parent = re.match(r"^\s*[^:\n]{1,60}:\s*", prefix)
         if parent is None:
             return False
         parent_value = prefix[parent.end() :]
-        return re.match(r"^\\s*[^:\\n]{1,60}:\\s*", parent_value) is not None
+        return re.match(r"^\s*[^:\n]{1,60}:\s*", parent_value) is not None
 
     @classmethod
     def _layout_text(
@@ -2564,16 +2564,15 @@ class ProductTable(QTableWidget):
         if not segment:
             return []
 
-        # A nested label in parentheses belongs to the value of the printing
-        # technique field, not to a separate field in the table. Protect its
-        # colon while detecting field boundaries, then restore it for display.
+        # Colons inside a balanced parenthetical value are not field delimiters.
         protected_colon = "\ue001"
-        if re.search(r"(?i)(?<!\w)t[eé]cnica\s+de\s+impresi[oó]n\s*:", segment):
-            segment = re.sub(
-                r"(?i)(área\s+de\s+impresi[oó]n\s+recomendada)\s*:",
-                lambda match: f"{match.group(1)}{protected_colon}",
-                segment,
-            )
+        segment = re.sub(
+            r"(\([^()\n]*?):([^()\n]*?\))",
+            lambda match: (
+                f"{match.group(1)}{protected_colon}{match.group(2)}"
+            ),
+            segment,
+        )
 
         matches = list(cls.DETAIL_FIELD_LABEL_PATTERN.finditer(segment))
         if not matches:
@@ -2635,30 +2634,6 @@ class ProductTable(QTableWidget):
 
         return lines
 
-    @staticmethod
-    def _is_measurement_parent_label(label: str) -> bool:
-        """Recognize a measurement group semantically, not via known field names."""
-        return bool(
-            re.search(
-                r"\b(?:medid\w*|dimension\w*|tamañ\w*|tamano\w*|size)\b",
-                label,
-                re.IGNORECASE,
-            )
-        )
-
-    @staticmethod
-    def _looks_like_measurement_value(value: str) -> bool:
-        """Recognize dimensional subfields by length units, not weights or counts."""
-        return bool(
-            re.search(
-                r"\d+(?:[.,]\d+)?\s*(?:"
-                r"(?:[x\u00d7*]\s*)+\d+(?:[.,]\d+)?\s*)?"
-                r"(?:mm|cm|m\b|in\b|pulg(?:adas?)?)",
-                value[:160],
-                re.IGNORECASE,
-            )
-        )
-
     @classmethod
     def _select_detail_field_matches(
         cls,
@@ -2690,16 +2665,14 @@ class ProductTable(QTableWidget):
 
             parent = selected[-1] if selected else None
             if parent is not None:
-                parent_label = parent.group(1).strip()
                 parent_value_prefix = match.string[parent.end() : match.start()]
-                next_start = (
-                    matches[index + 1].start()
-                    if index + 1 < len(matches)
-                    else len(match.string)
-                )
-                candidate_value = match.string[match.end() : next_start]
+                # A parent value that begins with a field label contains a
+                # nested group; retain those children inside the source block.
+                if cls.DETAIL_FIELD_LABEL_PATTERN.match(parent_value_prefix):
+                    continue
 
-                # Measurement subfields are recognized by their physical values.
+                # Ordinal child entries are structural even when the supplier
+                # omits punctuation between the numbered entries.
                 numbered_suffix = re.search(r"\b\d+\s*\.\s*$", prefix)
                 numbered_context = (
                     prefix.rstrip()[:-1] if numbered_suffix else ""
@@ -2711,18 +2684,7 @@ class ProductTable(QTableWidget):
                         numbered_context,
                     )
                 )
-                if cls._is_measurement_parent_label(parent_label) and (
-                    cls._looks_like_measurement_value(candidate_value)
-                    or numbered_child
-                ):
-                    continue
-
-                # A quantity label without an intervening sentence/paragraph
-                # separator remains nested in the preceding packaging value.
-                if (
-                    re.search(r"\bempaque\b", parent_label, re.IGNORECASE)
-                    and not re.search(r"[.;|\n]", parent_value_prefix)
-                ):
+                if numbered_child:
                     continue
 
             selected.append(match)
@@ -2767,7 +2729,7 @@ class ProductTable(QTableWidget):
         value: str,
         product: Product,
     ) -> str | None:
-        """Keep empty Caja visible while skipping other empty or duplicate fields."""
+        """Keep explicitly stored empty fields and skip duplicate source values."""
         if not value:
             return f"{label}:"
         if cls._detail_field_duplicates_row(label, value, product):

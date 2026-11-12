@@ -2,6 +2,7 @@ import re
 
 from models.scraping.detail_description_policy import (
     clean_extracted_detail_text,
+    detail_html_matches_text,
     extract_detail_html_from_elements,
     extract_detail_text_from_element,
     has_technical_detail,
@@ -73,8 +74,7 @@ class CategoryProductExtractor:
             name=name,
             base_url=ProductImageExtractor.BASE_URL,
         )
-        description = clean_extracted_detail_text(self._description(card))
-        description_html = self._description_html(card, description)
+        description, description_html = self._description_content(card)
         result = ScrapedProduct(
             source=self.SOURCE,
             url=url or self._url(card),
@@ -302,8 +302,8 @@ class CategoryProductExtractor:
         return ""
 
     @classmethod
-    def _collect_description_source_elements(cls, elements):
-        """Return only source blocks that contributed accepted Detail text."""
+    def _collect_description_sources(cls, elements):
+        """Select each accepted Detail source block once, with its plain value."""
         accepted = []
         seen: set[str] = set()
         for element in elements:
@@ -312,18 +312,12 @@ class CategoryProductExtractor:
             if not text or identity in seen:
                 continue
             seen.add(identity)
-            accepted.append(element)
+            accepted.append((element, text))
         return accepted
 
     @classmethod
-    def _collect_description_candidates(cls, elements):
-        return [
-            cls._description_candidate(element)
-            for element in cls._collect_description_source_elements(elements)
-        ]
-
-    @classmethod
     def _expand_detail_fallback_elements(cls, elements):
+        """Expand containers into their separate source paragraphs/list items."""
         expanded = []
         for element in elements:
             child_blocks = element.select("p, li")
@@ -338,6 +332,8 @@ class CategoryProductExtractor:
         cls,
         authoritative_elements,
         fallback_elements,
+        *,
+        fallback_sources=None,
     ):
         authoritative_residue = [
             normalize_detail_text(cls._detail_text_from_element(element))
@@ -356,30 +352,20 @@ class CategoryProductExtractor:
         expanded_fallback = cls._expand_detail_fallback_elements(
             fallback_elements
         )
-        valid_fallback = cls._collect_description_candidates(expanded_fallback)
+        if fallback_sources is None:
+            fallback_sources = cls._collect_description_sources(expanded_fallback)
+        valid_fallback = [text for _, text in fallback_sources]
         if len(valid_fallback) < 2:
             return []
 
-        # Some card layouts put a grouping label in .text-content and its
-        # values in sibling Bricks blocks. Keep only recognized grouping labels
-        # when a populated fallback immediately supplies their subfields.
         grouping_labels = [
             normalize_detail_text(text).removesuffix(":").strip()
             for text in authoritative_residue
             if is_detail_grouping_label(text)
         ]
         if grouping_labels and valid_fallback:
-            valid_fallback[0] = (
-                f"{grouping_labels[0]}: {valid_fallback[0]}"
-            )
+            valid_fallback[0] = f"{grouping_labels[0]}: {valid_fallback[0]}"
         return valid_fallback
-
-    @classmethod
-    def _recover_fallback_detail_candidates(cls, fallback_elements):
-        expanded_fallback = cls._expand_detail_fallback_elements(
-            fallback_elements
-        )
-        return cls._collect_description_candidates(expanded_fallback)
 
     @staticmethod
     def _join_description_candidates(candidates):
@@ -394,18 +380,27 @@ class CategoryProductExtractor:
                 result = f"{previous.rstrip(' .;')}. {candidate.lstrip()}"
         return result
 
-    def _description_source_elements(self, soup):
-        """Select accepted card blocks so their original bold markup can survive."""
+    def _description_content(self, soup):
+        """Extract plain text and safe visual markup from the same source blocks."""
         authoritative_elements = [
             element
             for element in soup.select(".text-content")
             if not self._is_excluded_detail_block(element)
         ]
-        authoritative_sources = self._collect_description_source_elements(
+        authoritative_sources = self._collect_description_sources(
             authoritative_elements
         )
         if authoritative_sources:
-            return authoritative_sources
+            description = clean_extracted_detail_text(
+                self._join_description_candidates(
+                    [text for _, text in authoritative_sources]
+                )
+            )
+            description_html = extract_detail_html_from_elements(
+                [element for element, _ in authoritative_sources],
+                description,
+            )
+            return description, description_html
 
         fallback_selectors = (
             ".brxe-text",
@@ -417,47 +412,62 @@ class CategoryProductExtractor:
         expanded_fallback = self._expand_detail_fallback_elements(
             fallback_elements
         )
-        return self._collect_description_source_elements(expanded_fallback)
+        fallback_sources = self._collect_description_sources(expanded_fallback)
 
-    def _description_html(self, soup, expected_text):
-        """Keep only source <strong>/<b> markup that exactly matches Detalle."""
-        if not str(expected_text or "").strip():
-            return ""
-        return extract_detail_html_from_elements(
-            self._description_source_elements(soup),
-            expected_text,
-        )
-
-    def _description(self, soup):
-        # Only non-excluded .text-content blocks establish the authoritative
-        # Detail field. A text-content selector inside a tab panel must not
-        # suppress the visible Detail fields elsewhere in the category card.
-        authoritative_elements = [
-            element
-            for element in soup.select(".text-content")
-            if not self._is_excluded_detail_block(element)
-        ]
-        candidates = self._collect_description_candidates(authoritative_elements)
-        if candidates:
-            return self._join_description_candidates(candidates)
-
-        fallback_selectors = (
-            ".brxe-text",
-            ".brxe-text-basic",
-            "ul li",
-            "ol li",
-        )
-        fallback_elements = list(soup.select(", ".join(fallback_selectors)))
         if authoritative_elements:
             candidates = self._recover_authoritative_empty_field_candidates(
                 authoritative_elements,
                 fallback_elements,
+                fallback_sources=fallback_sources,
             )
+            grouping_elements = [
+                element
+                for element in authoritative_elements
+                if is_detail_grouping_label(
+                    normalize_detail_text(
+                        self._detail_text_from_element(element)
+                    )
+                )
+            ]
         else:
-            candidates = self._recover_fallback_detail_candidates(
-                fallback_elements
+            candidates = [text for _, text in fallback_sources]
+            grouping_elements = []
+
+        description = clean_extracted_detail_text(
+            self._join_description_candidates(candidates)
+        )
+        html_sources = grouping_elements + [
+            element for element, _ in fallback_sources
+        ]
+        description_html = (
+            extract_detail_html_from_elements(html_sources, description)
+            if description and html_sources
+            else ""
+        )
+        return description, description_html
+
+    def _description(self, soup):
+        """Compatibility wrapper; both outputs now share one selected source."""
+        return self._description_content(soup)[0]
+
+    def _description_html(self, soup, expected_text):
+        """Compatibility API for repair/audit tools; normal extraction is single-pass."""
+        description, markup = self._description_content(soup)
+        if (
+            not markup
+            or not detail_html_matches_text(markup, expected_text)
+            or normalize_detail_text(
+                description,
+                preserve_boundaries=True,
             )
-        return self._join_description_candidates(candidates)
+            != normalize_detail_text(
+                expected_text,
+                preserve_boundaries=True,
+            )
+        ):
+            return ""
+        return markup
+
 
     def _stock(self, soup):
         return sum(self._stock_values(soup))

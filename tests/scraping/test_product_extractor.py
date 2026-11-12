@@ -364,6 +364,20 @@ def test_product_extractor_reads_inline_bold_fields_from_hl9401a_and_hl9403_mark
             "Descripción: Incluye engrapadora, tijera y dispensador.",
             "Presentación: Individual en estuche plástico.",
         ]
+        rich_html = result["description_html"]
+        assert rich_html
+        rich_soup = BeautifulSoup(rich_html, "lxml")
+        rich_items = rich_soup.find_all("li")
+        assert len(rich_items) == 3
+        assert all(item.find(["strong", "b"]) for item in rich_items)
+        assert all(
+            "text-align: left" in str(item.get("style", ""))
+            for item in rich_items
+        )
+        assert not any(
+            item.get_text(" ", strip=True).casefold().startswith("color:")
+            for item in rich_items
+        )
         assert "Color:" not in result["description"]
 
 
@@ -771,6 +785,7 @@ def test_product_extractor_removes_variant_color_detail_independently_of_stock_d
 
     assert result["description"].splitlines() == [
         "Material: ABS.",
+        "Descripción: Disponible en varios colores.",
         "Color de tinta: Líquida negra.",
         "Color de impresión: Una cara.",
     ]
@@ -1302,4 +1317,39 @@ def test_fb1504_preserves_all_authoritative_fields_and_published_truncation():
     assert detail_html_matches_text(
         scraped.description_html,
         scraped.description,
+    )
+
+
+
+def test_product_extractor_preserves_authoritative_list_alignment_and_description_colors():
+    from models.scraping.detail_description_policy import detail_html_matches_text
+
+    html = """
+    <html><body>
+      <p class="brxe-heading">TEST-DETAIL-SOURCE-PAGE</p>
+      <div id="brxe-jhzpri" style="text-align: right">
+        <ul>
+          <li><strong>Descripción:</strong> Disponible en una variedad de colores para uso creativo.</li>
+          <li><strong>Material:</strong> Plástico.</li>
+          <li><strong>Presentación:</strong> Individual.</li>
+        </ul>
+      </div>
+      <div id="tab-description">Texto de pestaña que no corresponde al Detalle visible.</div>
+    </body></html>
+    """
+
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result.description.splitlines() == [
+        "Descripción: Disponible en una variedad de colores para uso creativo.",
+        "Material: Plástico.",
+        "Presentación: Individual.",
+    ]
+    assert "<ul>" in result.description_html
+    assert result.description_html.count("<li") == 3
+    assert "text-align: right" in result.description_html
+    assert "<strong>Descripción:</strong>" in result.description_html
+    assert detail_html_matches_text(
+        result.description_html,
+        result.description,
     )

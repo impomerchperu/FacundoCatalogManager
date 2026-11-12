@@ -68,7 +68,7 @@ def test_detail_policy_removes_color_lines_without_dropping_neighboring_fields()
     ) == "Descripción: Elegante. Contiene: Tapa."
 
 
-def test_product_color_cleanup_removes_only_variant_color_and_generic_availability():
+def test_product_color_cleanup_removes_variant_fields_but_preserves_description_color_prose():
     source = (
         "Color: Azul. "
         "Colores: Rojo, negro y blanco. "
@@ -87,6 +87,7 @@ def test_product_color_cleanup_removes_only_variant_color_and_generic_availabili
         "Descripción: Resaltadores en 5 colores: Fucsia, Naranja y Verde."
     )
     expected = (
+        "Descripción: Disponible en varios colores. "
         "Color de tinta: Negro. "
         "Colores de tinta: Azul y negro. "
         "Color exterior: Blanco. "
@@ -118,18 +119,16 @@ def test_similar_technical_color_attributes_remain_valid_detail_fields():
         assert is_valid_detail_content(source)
 
 
-def test_product_color_cleanup_removes_only_generic_description_sentence():
+def test_product_color_cleanup_preserves_color_availability_inside_description():
     source = (
         "Descripción: Disponible en varios colores. "
         "Ideal para escritorio. Presentación: Individual."
     )
 
-    assert normalize_detail_text(source) == (
-        "Descripción: Ideal para escritorio. Presentación: Individual."
-    )
+    assert normalize_detail_text(source) == source
     assert normalize_detail_text(
         "Descripción: Disponible en varios colores.",
-    ) == ""
+    ) == "Descripción: Disponible en varios colores."
 
 
 def test_product_color_cleanup_is_unconditional_without_stock_map():
@@ -138,7 +137,9 @@ def test_product_color_cleanup_is_unconditional_without_stock_map():
         "Descripción: Disponible en varios colores."
     )
 
-    assert normalize_detail_text(source) == ""
+    assert normalize_detail_text(source) == (
+        "Descripción: Disponible en varios colores."
+    )
     assert strip_leading_color_field("Color: Azul. Material: ABS.") == (
         "Material: ABS."
     )
@@ -673,3 +674,18 @@ def test_detail_policy_removes_invisible_direction_marks_from_field_values():
         "Forma: \u200eRectángulo",
         preserve_boundaries=True,
     ) == "Forma: Rectángulo"
+
+
+
+def test_description_color_availability_is_not_a_variant_color_field():
+    from models.scraping.detail_description_policy import (
+        has_redundant_product_color_detail,
+    )
+
+    assert not has_redundant_product_color_detail(
+        "Descripción: Diseñado en una variedad de colores y acabados."
+    )
+    assert not has_redundant_product_color_detail(
+        "Descripción: Disponible en varios colores."
+    )
+    assert has_redundant_product_color_detail("Colores disponibles: Rojo, Azul.")

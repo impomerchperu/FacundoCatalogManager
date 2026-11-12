@@ -8,10 +8,11 @@ Product-page tab panels are excluded by the extractor before this policy runs.
 from __future__ import annotations
 
 import re
+from copy import copy
 from itertools import pairwise
 
 from bs4 import BeautifulSoup
-from bs4.element import Comment, NavigableString, Tag
+from bs4.element import Comment, NavigableString, PageElement, Tag
 
 _DETAIL_LITERAL_COLON_MARKER = "\uE001"
 _WHITESPACE_PATTERN = re.compile(r"\s+")
@@ -53,18 +54,6 @@ _COLOR_FIELD_PREFIX_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-_COLOR_AVAILABILITY_DESCRIPTION_PATTERN = re.compile(
-    r"(?:"
-    r"(?:(?:(?:el|este)\s+)?producto\s+)?"
-    r"(?:está\s+)?disponible\s+en\s+"
-    r"(?:(?:varios|varias|diferentes|distintos|"
-    r"distintas|múltiples|diversos|diversas)\s+)?"
-    r"color(?:es)?"
-    r"|(?:consultar|consulte)\s+(?:la\s+)?disponibilidad(?:\s+de\s+color(?:es)?)?"
-    r"|color(?:es)?\s+disponibles?"
-    r")",
-    re.IGNORECASE,
-)
 _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN = re.compile(
     r"(?:disponible\s+en\s+color(?:es)?|color(?:es)?\s+disponibles?)\s*$",
     re.IGNORECASE,
@@ -578,61 +567,6 @@ def strip_leading_color_field(value: object) -> str:
     return ""
 
 
-def _remove_color_availability_sentences_from_descriptions(
-    text: str,
-    *,
-    preserve_boundaries: bool,
-) -> str:
-    """Remove only generic color-availability sentences inside Description fields."""
-    description_matches = list(_DESCRIPTION_FIELD_PATTERN.finditer(text))
-    for match in reversed(description_matches):
-        next_field = _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.search(
-            text,
-            match.end(),
-        )
-        end = next_field.start() if next_field is not None else len(text)
-        value = text[match.end():end]
-        sentences = re.split(r"(?<=[.!?])\s+", value.strip())
-        nonempty_sentences = [sentence for sentence in sentences if sentence.strip()]
-        kept_sentences = [
-            sentence.strip()
-            for sentence in nonempty_sentences
-            if not _COLOR_AVAILABILITY_DESCRIPTION_PATTERN.fullmatch(
-                sentence.strip(" \t\r\n.,;:")
-            )
-        ]
-        if len(kept_sentences) == len(nonempty_sentences):
-            continue
-
-        suffix = text[end:]
-        removed_region = text[match.start():end]
-        has_source_boundary = (
-            "\n" in removed_region or _DETAIL_BOUNDARY in removed_region
-        )
-        if kept_sentences:
-            separator = (
-                "\n" if preserve_boundaries and has_source_boundary else " "
-            )
-            text = (
-                text[:match.end()]
-                + " "
-                + " ".join(kept_sentences)
-                + (separator if suffix else "")
-                + suffix
-            )
-        else:
-            prefix = text[:match.start()].rstrip(" \t.;" + _DETAIL_BOUNDARY)
-            suffix = suffix.lstrip(" \t.;" + _DETAIL_BOUNDARY)
-            if prefix and suffix:
-                separator = (
-                    "\n" if preserve_boundaries and has_source_boundary else " "
-                )
-                text = prefix + separator + suffix
-            else:
-                text = prefix or suffix
-    return text
-
-
 def _is_description_color_enumeration(
     text: str,
     match: re.Match[str],
@@ -668,25 +602,16 @@ def _is_description_color_enumeration(
 
 
 def has_redundant_product_color_detail(value: object) -> bool:
-    """Whether source Detail includes product-variant color data removed by policy."""
-    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
-    for match in _COLOR_FIELD_PATTERN.finditer(text):
-        if not _is_description_color_enumeration(text, match):
-            return True
+    """Whether Detail contains an explicit product-variant color field.
 
-    for match in _DESCRIPTION_FIELD_PATTERN.finditer(text):
-        next_field = _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.search(
-            text,
-            match.end(),
-        )
-        end = next_field.start() if next_field is not None else len(text)
-        value_text = text[match.end():end]
-        for sentence in re.split(r"(?<=[.!?])\s+", value_text.strip()):
-            if _COLOR_AVAILABILITY_DESCRIPTION_PATTERN.fullmatch(
-                sentence.strip(" \t\r\n.,;:")
-            ):
-                return True
-    return False
+    Color language inside a product Description is descriptive content, not a
+    variant selector. Only standalone generic color fields are excluded.
+    """
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    return any(
+        not _is_description_color_enumeration(text, match)
+        for match in _COLOR_FIELD_PATTERN.finditer(text)
+    )
 
 
 def normalize_detail_text(
@@ -728,10 +653,6 @@ def normalize_detail_text(
         text,
         _COLOR_FIELD_PATTERN,
         allow_embedded_label=True,
-        preserve_boundaries=preserve_boundaries,
-    )
-    text = _remove_color_availability_sentences_from_descriptions(
-        text,
         preserve_boundaries=preserve_boundaries,
     )
     text = text.replace(_DETAIL_BOUNDARY, "\n" if preserve_boundaries else " ")
@@ -1146,14 +1067,107 @@ def _clean_detail_html_root(root: Tag, inherited_alignment: str) -> bool:
     return not has_redundant_product_color_detail(raw_text)
 
 
+def _append_detail_html_child(
+    fragments: list[list[PageElement]],
+    child: PageElement,
+    *,
+    split_bullets: bool,
+) -> None:
+    """Append one source node, expanding nested line breaks and bullet markers."""
+    if isinstance(child, Tag) and child.name == "br":
+        if fragments[-1]:
+            fragments.append([])
+        return
+
+    if isinstance(child, Tag):
+        nested_fragments = _split_detail_html_children(
+            child.contents,
+            split_bullets=split_bullets,
+        )
+        for nested_index, nested_content in enumerate(nested_fragments):
+            if nested_index and fragments[-1]:
+                fragments.append([])
+            if not nested_content:
+                continue
+            cloned = copy(child)
+            cloned.clear()
+            for nested_child in nested_content:
+                cloned.append(nested_child)
+            fragments[-1].append(cloned)
+        return
+
+    if split_bullets and isinstance(child, NavigableString):
+        for piece in re.split(r"([•▪●‣◦])", str(child)):
+            if not piece:
+                continue
+            if re.fullmatch(r"[•▪●‣◦]", piece):
+                if fragments[-1]:
+                    fragments.append([])
+                continue
+            fragments[-1].append(NavigableString(piece))
+        return
+
+    fragments[-1].append(copy(child))
+
+
+def _split_detail_html_children(
+    children: list[PageElement],
+    *,
+    split_bullets: bool,
+) -> list[list[PageElement]]:
+    """Split a source block at visual line breaks without flattening inline markup."""
+    fragments: list[list[PageElement]] = [[]]
+    for child in children:
+        _append_detail_html_child(
+            fragments,
+            child,
+            split_bullets=split_bullets,
+        )
+    return fragments
+
+def _split_detail_html_source_block(root: Tag) -> list[Tag]:
+    """Keep each source line independently filterable while preserving its tags."""
+    has_breaks = root.find("br") is not None
+    has_bullets = any(
+        re.search(r"[•▪●‣◦]", str(text_node))
+        for text_node in root.find_all(string=True)
+    )
+    if not has_breaks and not has_bullets:
+        return [root]
+
+    fragments = _split_detail_html_children(
+        root.contents,
+        split_bullets=has_bullets,
+    )
+    meaningful_fragments = [
+        fragment
+        for fragment in fragments
+        if "".join(str(node) for node in fragment).strip()
+    ]
+    if len(meaningful_fragments) <= 1:
+        return [root]
+
+    result: list[Tag] = []
+    for fragment in meaningful_fragments:
+        cloned = copy(root)
+        cloned.clear()
+        if has_bullets:
+            cloned.name = "li"
+        for child in fragment:
+            cloned.append(child)
+        result.append(cloned)
+    return result
+
+
 def _extract_detail_html_roots(elements) -> list[Tag]:
-    """Build sanitized top-level blocks and retain inherited paragraph alignment."""
+    """Build sanitized source blocks and filter variant-color lines individually."""
     roots: list[Tag] = []
     for element in list(elements or []):
         alignment = _detail_html_alignment(element)
-        for root in _detail_html_candidates(element):
-            if _clean_detail_html_root(root, alignment):
-                roots.append(root)
+        for source_root in _detail_html_candidates(element):
+            for root in _split_detail_html_source_block(source_root):
+                if _clean_detail_html_root(root, alignment):
+                    roots.append(root)
     return roots
 
 
@@ -1279,6 +1293,46 @@ def extract_detail_html_from_elements(elements, expected_text: object) -> str:
     if all(root.name == "li" for root in merged_roots):
         return "<ul>" + "".join(str(root) for root in merged_roots) + "</ul>"
     return "".join(str(root) for root in merged_roots)
+
+
+def detail_html_block_alignments(markup: object) -> list[str]:
+    """Return visible source-block alignments in their rendered document order."""
+    soup = BeautifulSoup(str(markup or ""), "lxml")
+    structural_names = ["p", "li", "h1", "h2", "h3", "h4", "h5", "h6"]
+    source_blocks = [
+        tag
+        for tag in soup.find_all(structural_names)
+        if tag.find_parent(structural_names) is None
+    ]
+    if not source_blocks:
+        source_blocks = [
+            tag
+            for tag in soup.find_all("div")
+            if tag.find_parent("div") is None
+        ]
+
+    alignments: list[str] = []
+    for block in source_blocks:
+        node: Tag | None = block
+        alignment = ""
+        while node is not None:
+            for declaration in str(node.get("style", "") or "").split(";"):
+                name, separator, value = declaration.partition(":")
+                if separator and name.strip().casefold() == "text-align":
+                    candidate = value.strip().casefold()
+                    if candidate in {"left", "right", "center", "justify"}:
+                        alignment = candidate
+                        break
+            if alignment:
+                break
+            candidate = str(node.get("align", "") or "").strip().casefold()
+            if candidate in {"left", "right", "center", "justify"}:
+                alignment = candidate
+                break
+            parent = node.parent
+            node = parent if isinstance(parent, Tag) else None
+        alignments.append(alignment)
+    return alignments
 
 
 def detail_html_matches_text(fragment: object, expected_text: object) -> bool:

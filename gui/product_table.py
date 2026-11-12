@@ -17,6 +17,7 @@ from PySide6.QtGui import (
     QPixmap,
     QPixmapCache,
     QTextCharFormat,
+    QTextCursor,
     QTextDocument,
     QTextLayout,
     QTextOption,
@@ -45,6 +46,7 @@ from gui.product_category_delegate import ProductCategoryDelegate
 from models.product import Product
 from models.product_image_gallery import normalize_product_gallery
 from models.scraping.detail_description_policy import (
+    detail_html_block_alignments,
     detail_html_matches_text,
     has_redundant_product_color_detail,
     normalize_detail_text,
@@ -1059,39 +1061,16 @@ class ProductDetailDelegate(ProductCellDelegate):
 
     @staticmethod
     def _is_nested_source_value_label(label: str, prefix: str) -> bool:
-        """Avoid bolding value fragments nested under a visible source label."""
-        normalized_label = " ".join(label.split()).casefold()
-        measure_parent = re.match(
-            r"^\s*(?:medidas?|medida\s+(?:y\s+)?capacidad|"
-            r"dimensiones(?:\s+del\s+producto)?|"
-            r"medidas?\s+(?:del?\s+)?(?:estuche|producto|mochila|cartera|"
-            r"cartuchera|caja))\s*:",
-            prefix,
-            re.IGNORECASE,
-        )
+        """Detect nested labels from their parent field instead of their names."""
+        del label
+        parent = re.match(r"^\s*([^:\n]{1,60})\s*:", prefix)
         return bool(
-            measure_parent
-            and normalized_label
-            in {
-                "alt",
-                "alt.",
-                "alt. de base",
-                "alt de base",
-                "alt. total",
-                "alt total",
-                "ancho",
-                "alto",
-                "altura",
-                "espesor",
-                "largo",
-                "total",
-                "diámetro",
-                "diametro",
-                "diámetro (base)",
-                "diametro (base)",
-                "estuche",
-                "tarjeta",
-            }
+            parent
+            and re.search(
+                r"\b(?:medid\w*|dimension\w*|tamañ\w*|tamano\w*|size)\b",
+                parent.group(1),
+                re.IGNORECASE,
+            )
         )
 
     @classmethod
@@ -1117,11 +1096,12 @@ class ProductDetailDelegate(ProductCellDelegate):
                 prefix = paragraph[: match.start(1)]
                 if cls._is_nested_source_value_label(label_key, prefix):
                     continue
-                if label_key in {
-                    "peso bruto / caja",
-                    "peso neto / caja",
-                    "medidas de la caja máster",
-                }:
+                # Do not invent bold field boundaries inside an explicitly
+                # slash-grouped source line.
+                if re.search(
+                    r"\s+/\s+[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:",
+                    paragraph,
+                ):
                     continue
                 char_format = QTextCharFormat()
                 char_format.setFontWeight(QFont.Weight.Bold)
@@ -1191,7 +1171,27 @@ class ProductDetailDelegate(ProductCellDelegate):
             "ul, ol { margin-top: 0; margin-bottom: 2px; } "
             "li { margin: 0; padding: 0; }"
         )
+        source_alignments = detail_html_block_alignments(markup)
         document.setHtml(markup)
+
+        qt_alignments = {
+            "left": Qt.AlignmentFlag.AlignLeft,
+            "right": Qt.AlignmentFlag.AlignRight,
+            "center": Qt.AlignmentFlag.AlignCenter,
+            "justify": Qt.AlignmentFlag.AlignJustify,
+        }
+        block = document.begin()
+        for alignment in source_alignments:
+            if not block.isValid():
+                break
+            target_alignment = qt_alignments.get(alignment)
+            if target_alignment is not None:
+                cursor = QTextCursor(block)
+                block_format = block.blockFormat()
+                block_format.setAlignment(target_alignment)
+                cursor.setBlockFormat(block_format)
+            block = block.next()
+
         document.setTextWidth(max(width, 1))
         return document
 
@@ -1334,258 +1334,11 @@ class ProductTable(QTableWidget):
     IMAGE_SIZE = 144
     DEFAULT_PRICE_COLUMN_WIDTH = 110
     FIXED_PRICE_COLUMN_WIDTH = 88
-    DETAIL_FIELD_LABELS: ClassVar[dict[str, str]] = {
-        "descripción comercial": "Descripción",
-        "descripcion comercial": "Descripción",
-        "descripción": "Descripción",
-        "descripcion": "Descripción",
-        "interfaz": "Interfaz",
-        "técnica de impresión": "Técnica de impresión",
-        "medidas de la caja máster": "Medidas de la caja máster",
-        "medidas de la caja master": "Medidas de la caja máster",
-        "peso bruto / caja": "Peso bruto / caja",
-        "peso neto / caja": "Peso neto / caja",
-        "tecnica de impresion": "Técnica de impresión",
-        "superficie de impresión": "Superficie de impresión",
-        "superficie de impresion": "Superficie de impresión",
-        "dimensión": "Dimensión",
-        "dimension": "Dimensión",
-        "características": "Características",
-        "caracteristicas": "Características",
-        "propiedades": "Propiedades",
-        "micras": "Micras",
-        "medidas del estuche": "Medidas del Estuche",
-        "medida y capacidad": "Medida y Capacidad",
-        "medida de impresión": "Medida de impresión",
-        "medida de impresion": "Medida de impresión",
-        "calidad": "Calidad",
-        "paquete": "Paquete",
-        "caja": "Caja",
-        "medidas de estuche": "Medidas de Estuche",
-        "presentación del estuche": "Presentación del Estuche",
-        "uso ideal": "Uso ideal",
-        "fecha": "Fecha",
-        "forma": "Forma",
-        "técnica de aplicación": "Técnica de aplicación",
-        "tecnica de aplicacion": "Técnica de aplicación",
-        "tipo de corte": "Tipo de corte",
-        "capacidad de corte": "Capacidad de corte",
-        "tamaño de corte máximo": "Tamaño de corte máximo",
-        "tamano de corte maximo": "Tamaño de corte máximo",
-        "dimensiones del producto": "Dimensiones del producto",
-        "peso neto aproximado": "Peso neto aproximado",
-        "tipo de encuadernado": "Tipo de encuadernado",
-        "capacidad de encuadernado": "Capacidad de encuadernado",
-        "tipo de encuadernación": "Tipo de encuadernación",
-        "tipo de encuadernacion": "Tipo de encuadernación",
-        "capacidad de encuadernación": "Capacidad de encuadernación",
-        "capacidad de encuadernacion": "Capacidad de encuadernación",
-        "presentacion del estuche": "Presentación del Estuche",
-        "número de rodillos": "Número de rodillos",
-        "numero de rodillos": "Número de rodillos",
-        "velocidad de laminación": "Velocidad de laminación",
-        "velocidad de laminacion": "Velocidad de laminación",
-        "rollos por caja": "Rollos por caja",
-        "impresiones por rollo": "Impresiones por rollo",
-        "válido para impresoras": "Válido para impresoras",
-        "valido para impresoras": "Válido para impresoras",
-        "opciones de acabado": "Opciones de acabado",
-        "soporta": "Soporta",
-        "cortadora con 3 tipos de corte": "Cortadora con 3 tipos de corte",
-        "levantamiento de materiales": "Levantamiento de materiales",
-        "proyectos de manualidades": "Proyectos de manualidades",
-        "aplicaciones de vinilo": "Aplicaciones de vinilo",
-        "trabajo en scrapbooking": "Trabajo en scrapbooking",
-        "calidad superior": "Calidad Superior",
-        "compatibilidad confiable": "Compatibilidad Confiable",
-        "procedencia coreana": "Procedencia Coreana",
-        "facilidad de uso": "Facilidad de Uso",
-        "espesor máximo del material": "Espesor máximo del material",
-        "area máxima de corte": "Área máxima de corte",
-        "área máxima de corte": "Área máxima de corte",
-        "area de corte": "Área de corte",
-        "área de corte": "Área de corte",
-        "ancho de corte": "Ancho de Corte",
-        "longitud de corte": "Longitud de Corte",
-        "fuerza de corte": "Fuerza de Corte",
-        "velocidad de corte": "Velocidad de Corte",
-        "sistema de motor": "Sistema de Motor",
-        "tipo de luz": "Tipo de luz",
-        "espacio libre": "Espacio Libre",
-        "contiene": "Contiene",
-        "codigo": "Código",
-        "código": "Código",
-        "producto": "Producto",
-        "nombre": "Nombre",
-        "categoria": "Categoría",
-        "categoría": "Categoría",
-        "stock": "Stock",
-        "existencia": "Stock",
-        "precio": "Precio",
-        "precio muestra": "Precio muestra",
-        "precio por muestra": "Precio muestra",
-        "precio ciento": "Precio ciento",
-        "precio por ciento": "Precio ciento",
-        "precio millar": "Precio millar",
-        "precio por millar": "Precio millar",
-        "colores disponibles": "Colores disponibles",
-        "voltaje y frecuencia": "Voltaje y Frecuencia",
-        "tiempo de precalentamiento": "Tiempo de precalentamiento",
-        "temperatura de trabajo": "Temperatura de trabajo",
-        "sistema de calentamiento": "Sistema de calentamiento",
-        "medidas mochila": "Medidas mochila",
-        "medidas cartera": "Medidas cartera",
-        "envase largo": "Envase Largo",
-        "toalla largo": "Toalla Largo",
-        "medidas cartuchera": "Medidas cartuchera",
-        "tamaño cinta": "Tamaño de cinta",
-        "tamano cinta": "Tamaño de cinta",
-        "forro": "Forro",
-        "medidas": "Medidas",
-        "interior": "Interior",
-        "espesor": "Espesor",
-        "potencia": "Potencia",
-        "dimensiones": "Dimensiones",
-        "peso unitario": "Peso Unitario",
-        "uso recomendado": "Uso Recomendado",
-        "empaque individual": "Empaque Individual",
-        "cantidad por caja": "Cantidad por Caja",
-        "dimensiones de caja": "Dimensiones de caja",
-        "dimensiones de la caja": "Dimensiones de la caja",
-        "dimensiones caja": "Dimensiones Caja",
-        "cubicaje por caja": "Cubicaje por Caja",
-        "ancho de entrada": "Ancho de entrada",
-        "espesor máximo de laminación": "Espesor máximo de laminación",
-        "espesor maximo de laminacion": "Espesor máximo de laminación",
-        "peso neto por caja": "Peso neto por caja",
-        "peso bruto por caja": "Peso bruto por caja",
-        "voltaje": "Voltaje",
-        "materiales": "Materiales",
-        "material": "Material",
-        "modelo": "Modelo",
-        "capacidad": "Capacidad",
-        "tipo": "Tipo",
-        "tamaño de impresión (cm)": "Tamaño de impresión (cm)",
-        "tamano de impresion (cm)": "Tamaño de impresión (cm)",
-        "tamaño impresión (cm)": "Tamaño impresión (cm)",
-        "tamano impresion (cm)": "Tamaño impresión (cm)",
-        "tamaño de impresión": "Tamaño de impresión",
-        "area de impresion": "Área de impresión",
-        "área de impresión": "Área de impresión",
-        "tamaño": "Tamaño",
-        "gramaje": "Gramaje",
-        "resolucion": "Resolución",
-        "resolución": "Resolución",
-        "velocidad": "Velocidad",
-        "temperatura": "Temperatura",
-        "presion": "Presión",
-        "presión": "Presión",
-        "ancho": "Ancho",
-        "largo": "Largo",
-        "altura": "Altura",
-        "alto": "Alto",
-        "peso": "Peso",
-        "frecuencia": "Frecuencia",
-        "formato": "Formato",
-        "presentacion": "Presentación",
-        "presentación": "Presentación",
-        "marca": "Marca",
-        "compatibilidad": "Compatibilidad",
-        "acceso": "Acceso",
-        "conectividad": "Conectividad",
-        "contenido": "Contenido",
-        "incluye": "Incluye",
-        "presentación del producto": "Presentación del producto",
-        "empaque": "Empaque",
-        "medida": "Medida",
-        "alimentacion": "Alimentación",
-        "alimentación": "Alimentación",
-        "tiempo": "Tiempo",
-        "diametro": "Diámetro",
-        "diámetro": "Diámetro",
-        "acabado": "Acabado",
-        "funcion": "Función",
-        "función": "Función",
-        "funciones adicionales": "Funciones adicionales",
-        "funciones": "Funciones",
-        "rango de espesor polaseal": "Rango de espesor Polaseal",
-        "rango de espesor": "Rango de espesor",
-        "tiempo de calentamiento": "Tiempo de calentamiento",
-        "consumo de energía": "Consumo de energía",
-        "consumo de energia": "Consumo de energía",
-        "uso": "Uso",
-        "aplicacion": "Aplicación",
-        "aplicación": "Aplicación",
-        "area de trabajo": "Área de trabajo",
-        "área de trabajo": "Área de trabajo",
-        "color de tinta": "Color de tinta",
-        "color de impresion": "Color de impresión",
-        "color de impresión": "Color de impresión",
-
-        "cubicaje": "Cubicaje",
-        "resistencia": "Resistencia",
-        "empaque por caja": "Empaque por caja",
-        "unidades por caja": "Unidades por caja",
-        "cantidad": "Cantidad",
-        "unidad": "Unidad",
-        "peso neto": "Peso neto",
-        "peso bruto": "Peso bruto",
-    }
-    # Prefer known aliases, but also recognize source-specific labels such as
-    # "Modos:", "Acabado:", "Material de la hoja:" without SKU-specific rules.
-    # Known aliases are case-insensitive; the generic fallback requires an
-    # uppercase initial to avoid splitting ordinary lowercase prose at colons.
-    _DETAIL_FIELD_LABEL_ALIASES_PATTERN: ClassVar[str] = "|".join(
-        re.escape(label)
-        for label in sorted(DETAIL_FIELD_LABELS, key=len, reverse=True)
-    )
+    # Detecta campos por la sintaxis visible, sin catálogo de nombres.
     DETAIL_FIELD_LABEL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"(?<!\w)((?i:"
-        + _DETAIL_FIELD_LABEL_ALIASES_PATTERN
-        + r")|(?-i:(?![^:\n]{0,60}\b(?i:"
-        + _DETAIL_FIELD_LABEL_ALIASES_PATTERN
-        + r")\s*:)[A-ZÁÉÍÓÚÜÑ][\wÁÉÍÓÚÜÑáéíóúüñ ()/_-]{0,60}?))\s*:"
+        r"(?<!\w)((?:[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ][\wÁÉÍÓÚÜÑáéíóúüñ ()/_-]{0,60}?"
+        r"|[A-ZÁÉÍÓÚÜÑ]{2,}))(?=\s*:)\s*:"
     )
-    DETAIL_NESTED_MEASURE_LABELS: ClassVar[frozenset[str]] = frozenset({
-        "envase largo",
-        "toalla largo",
-        "diámetro",
-        "diametro",
-        "diámetro (base)",
-        "diametro (base)",
-        "tarjeta",
-        "largo",
-        "ancho",
-        "alto",
-        "alt",
-        "altura",
-        "esp",
-        "alt. de base",
-        "alt de base",
-        "alt. total",
-        "alt total",
-        "total",
-        "interior",
-        "espesor",
-        "estuche",
-        "resaltador",
-        "usb",
-        "mochila",
-        "cartera",
-        "cartuchera",
-    })
-    DETAIL_PARENT_MEASURE_LABELS: ClassVar[frozenset[str]] = frozenset({
-        "medida y capacidad",
-        "medida capacidad",
-        "medidas del estuche",
-        "medidas estuche",
-        "medidas de estuche",
-        "medida del estuche",
-        "medidas mochila",
-        "medidas cartera",
-        "medidas cartuchera",
-        "medidas usb",
-    })
     CATEGORY_SOURCE_ROLE = int(Qt.ItemDataRole.UserRole) + 50
     PROGRESSIVE_RENDER_THRESHOLD = 50
     PROGRESSIVE_RENDER_BATCH_SIZE = 40
@@ -2279,6 +2032,9 @@ class ProductTable(QTableWidget):
             rich_html = ""
         if rich_html and not detail_html_matches_text(rich_html, product.description):
             rich_html = ""
+        # Prefer source HTML as the visual authority: Qt then reproduces source
+        # paragraphs, list markers, alignment and emphasis without re-inferring them.
+        # The text formatter remains only for legacy rows without matching HTML.
         detail = (
             str(product.description or "")
             if rich_html
@@ -2747,15 +2503,7 @@ class ProductTable(QTableWidget):
             if cls._has_explicit_source_grouping(source_segment):
                 # Keep an unlisted leading field label. Rows containing a
                 # removable color field still pass through the shared policy.
-                source_labels = list(
-                    cls.DETAIL_FIELD_LABEL_PATTERN.finditer(source_segment)
-                )
-                has_color_field = any(
-                    match.group(1).strip().casefold()
-                    in {"color", "colores", "colores disponibles"}
-                    for match in source_labels
-                )
-                if has_color_field:
+                if has_redundant_product_color_detail(source_segment):
                     segment = normalize_detail_text(
                         source_segment,
                         preserve_boundaries=True,
@@ -2784,7 +2532,7 @@ class ProductTable(QTableWidget):
                 if part.strip():
                     lines.extend(cls._format_detail_segment(part, product))
 
-        return cls._format_nested_estuche_resaltador_measurements(
+        return cls._format_numbered_source_subfields(
             "\n".join(line for line in lines if line.strip()),
         )
 
@@ -2867,7 +2615,7 @@ class ProductTable(QTableWidget):
                 else len(segment)
             )
             alias = match.group(1).strip().casefold()
-            label = cls.DETAIL_FIELD_LABELS.get(alias) or match.group(1).strip()
+            label = match.group(1).strip()
             if index == 0 and combined_label_prefix:
                 label = f"{combined_label_prefix}{label}"
             value = segment[match.end() : next_start]
@@ -2892,116 +2640,127 @@ class ProductTable(QTableWidget):
         return lines
 
     @staticmethod
-    def _is_nested_packaging_value_label(
-        match: re.Match[str],
-        *,
-        inside_packaging_value: bool,
-        packaging_value_start: int,
-    ) -> bool:
-        """Keep unpunctuated package and box sublabels inside Empaque values."""
-        if not inside_packaging_value:
-            return False
-        if match.group(1).strip().casefold() not in {"caja", "paquete"}:
-            return False
-        prefix = match.string[packaging_value_start : match.start()].rstrip()
-        return re.search(r"[.;|]\s*$", prefix) is None
+    def _is_measurement_parent_label(label: str) -> bool:
+        """Recognize a measurement group semantically, not via known field names."""
+        return bool(
+            re.search(
+                r"\b(?:medid\w*|dimension\w*|tamañ\w*|tamano\w*|size)\b",
+                label,
+                re.IGNORECASE,
+            )
+        )
+
+    @staticmethod
+    def _looks_like_measurement_value(value: str) -> bool:
+        """Recognize dimensional subfields by length units, not weights or counts."""
+        return bool(
+            re.search(
+                r"\d+(?:[.,]\d+)?\s*(?:"
+                r"(?:[x\u00d7*]\s*)+\d+(?:[.,]\d+)?\s*)?"
+                r"(?:mm|cm|m\b|in\b|pulg(?:adas?)?)",
+                value[:160],
+                re.IGNORECASE,
+            )
+        )
 
     @classmethod
     def _select_detail_field_matches(
         cls,
         matches: list[re.Match[str]],
     ) -> list[re.Match[str]]:
-        """Ignore removable color variants and nested measure sublabels."""
+        """Separate peer fields while retaining syntactically nested subfields."""
         selected: list[re.Match[str]] = []
-        inside_measure_value = False
-        inside_packaging_value = False
-        packaging_value_start = 0
-        for match in matches:
-            alias = match.group(1).strip().casefold()
-            if alias in {"área de impresión", "area de impresion"}:
-                prefix = match.string[: match.start()]
-                open_parenthesis = prefix.rfind("(")
-                close_parenthesis = prefix.rfind(")")
-                if open_parenthesis > close_parenthesis:
-                    has_parent_technique = any(
-                        previous.start() > close_parenthesis
-                        and previous.start() < match.start()
-                        and previous.group(1).strip().casefold()
-                        in {"técnica de impresión", "tecnica de impresion"}
-                        for previous in matches
+        for index, match in enumerate(matches):
+            prefix = match.string[: match.start()]
+            # Only promote a candidate after a source separator, at the
+            # paragraph start, or immediately after a recognizable value unit.
+            # This avoids treating capitalized words in prose as new labels.
+            has_boundary = not prefix.strip(" \t.;|")
+            has_boundary = has_boundary or bool(re.search(r"[.;|]\s*$", prefix))
+            has_boundary = has_boundary or bool(
+                re.search(
+                    r"\b(?:mm|cm|km|m|kg|gr?|g|ml|l|oz|onzas?|pza|"
+                    r"unid|und|uds|cbm|m³|°c|°f)\s*$",
+                    prefix,
+                    re.IGNORECASE,
+                )
+            )
+            if not has_boundary:
+                continue
+
+            # A colon inside parentheses belongs to the preceding value.
+            if prefix.count("(") > prefix.count(")"):
+                continue
+
+            parent = selected[-1] if selected else None
+            if parent is not None:
+                parent_label = parent.group(1).strip()
+                parent_value_prefix = match.string[parent.end() : match.start()]
+                next_start = (
+                    matches[index + 1].start()
+                    if index + 1 < len(matches)
+                    else len(match.string)
+                )
+                candidate_value = match.string[match.end() : next_start]
+
+                # Measurement subfields are recognized by their physical values.
+                numbered_suffix = re.search(r"\b\d+\s*\.\s*$", prefix)
+                numbered_context = (
+                    prefix.rstrip()[:-1] if numbered_suffix else ""
+                )
+                numbered_child = bool(
+                    numbered_suffix
+                    and not re.search(
+                        r"\d+(?:[.,]\d+)?\s*[x\u00d7*]\s*\d+(?:[.,]\d+)?\s*$",
+                        numbered_context,
                     )
-                    if has_parent_technique:
-                        continue
-            if alias in {"empaque", "empaque individual"}:
-                inside_measure_value = False
-                inside_packaging_value = True
-                packaging_value_start = match.end()
-                selected.append(match)
-                continue
-            if cls._is_nested_packaging_value_label(
-                match,
-                inside_packaging_value=inside_packaging_value,
-                packaging_value_start=packaging_value_start,
-            ):
-                continue
-            inside_packaging_value = False
-            if alias == "contiene" and match.group(1).strip()[:1].islower():
-                # The lower-case verb in a source Description sentence is not
-                # a separately labelled field; real field labels use "Contiene".
-                continue
-            if alias in {"medida", "medidas"} | cls.DETAIL_PARENT_MEASURE_LABELS:
-                inside_measure_value = True
-                selected.append(match)
-                continue
-            if (
-                inside_measure_value
-                and alias in cls.DETAIL_NESTED_MEASURE_LABELS
-            ):
-                continue
-            inside_measure_value = False
+                )
+                if cls._is_measurement_parent_label(parent_label) and (
+                    cls._looks_like_measurement_value(candidate_value)
+                    or numbered_child
+                ):
+                    continue
+
+                # A quantity label without an intervening sentence/paragraph
+                # separator remains nested in the preceding packaging value.
+                if (
+                    re.search(r"\bempaque\b", parent_label, re.IGNORECASE)
+                    and not re.search(r"[.;|\n]", parent_value_prefix)
+                ):
+                    continue
+
             selected.append(match)
         return selected
 
     @staticmethod
-    def _format_nested_estuche_resaltador_measurements(text: str) -> str:
-        """Split numbered estuche/resaltador measurements independent of SKU."""
+    def _format_numbered_source_subfields(text: str) -> str:
+        """Split later numbered subfields without knowing their label names."""
         formatted_lines: list[str] = []
-        for line in text.splitlines():
-            separator = re.search(
-                r"\s+(?=2\s*\.\s*Resaltador\s*:)",
-                line,
-                re.IGNORECASE,
+        numbered_label = re.compile(
+            r"\s+(?=\d+\s*\.\s*[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:)"
+        )
+        for original_line in text.splitlines():
+            line = re.sub(
+                r"(?<!\w)(\d+)\s*\.\s*(?=[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:)",
+                r"\1. ",
+                original_line,
             )
-            if separator is None:
+            markers = list(numbered_label.finditer(line))
+            # The first ordinal begins the parent value; only later ordinals
+            # introduce a sibling sub-block in the same paragraph.
+            starts = [match.start() for match in markers[1:]]
+            if not starts:
                 formatted_lines.append(line)
                 continue
-
-            estuche_source = line[: separator.start()].rstrip()
-            resaltador_source = line[separator.start():].strip()
-            if not re.search(
-                r"\b1\s*\.\s*Estuche\s*:",
-                estuche_source,
-                re.IGNORECASE,
-            ):
-                formatted_lines.append(line)
-                continue
-
-            estuche = re.sub(
-                r"\b1\s*\.\s*Estuche\s*:",
-                "1. Estuche:",
-                estuche_source,
-                flags=re.IGNORECASE,
-            )
-            resaltador = re.sub(
-                r"^2\s*\.\s*Resaltador\s*:",
-                "2. Resaltador:",
-                resaltador_source,
-                flags=re.IGNORECASE,
-            )
-            if estuche:
-                formatted_lines.append(estuche)
-            if resaltador:
-                formatted_lines.append(resaltador)
+            previous = 0
+            for split_at in starts:
+                part = line[previous:split_at].strip()
+                if part:
+                    formatted_lines.append(part)
+                previous = split_at
+            tail = line[previous:].strip()
+            if tail:
+                formatted_lines.append(tail)
         return "\n".join(formatted_lines)
 
     @classmethod
@@ -3014,7 +2773,7 @@ class ProductTable(QTableWidget):
     ) -> str | None:
         """Keep empty Caja visible while skipping other empty or duplicate fields."""
         if not value:
-            return f"{label}:" if alias == "caja" else None
+            return f"{label}:"
         if cls._detail_field_duplicates_row(label, value, product):
             return None
         return f"{label}: {value}".rstrip(" .")

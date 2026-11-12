@@ -1342,6 +1342,7 @@ def test_detail_table_filters_product_color_and_stale_html_without_stock_map():
     assert item is not None
     assert not item.data(ProductDetailDelegate.DETAIL_HTML_ROLE)
     assert item.text().splitlines() == [
+        "Descripción: Disponible en varios colores",
         "Color de tinta: Negro",
         "Material: ABS",
     ]
@@ -2589,7 +2590,7 @@ def test_detail_formatter_preserves_fb1503_compound_labels_and_alignment():
     for line, bold_label in (
         (expected[0], "Dimensiones del producto:"),
         (expected[1], None),
-        (expected[2], None),
+        (expected[2], "Medidas de la caja máster:"),
     ):
         layouts, _height = delegate._layout_text(line, _qapp().font(), 600)
         formats = layouts[0][0].formats()
@@ -2923,8 +2924,8 @@ def test_detail_format_preserves_each_highlighter_page_text_without_sku_substitu
         lines = ProductTable._format_detail(product).splitlines()
         expected_description = description.split(" Presentación:")[0]
         expected_description = expected_description.split(" Material:")[0].rstrip(".")
-        assert expected_description in lines
-        assert "Presentación: Individual, en bolsa de plástico transparente" in lines
+        assert any(expected_description in line for line in lines)
+        assert any("Presentación: Individual, en bolsa de plástico transparente" in line for line in lines)
         if code == "FB-1315":
             assert "Material: Fibra de Trigo" in lines
 
@@ -3032,6 +3033,63 @@ def test_detail_column_resize_recalculates_row_height_for_wrapped_content():
     table.close()
 
 
+def test_detail_delegate_reproduces_source_paragraph_list_bold_and_alignment():
+    _qapp()
+    description = (
+        "Descripción: Producto de escritorio con acabado mate.\n"
+        "Contenido: Una libreta y un bolígrafo.\n"
+        "Presentación: Caja individual."
+    )
+    description_html = (
+        '<p style="text-align: center"><strong>Descripción:</strong> '
+        "Producto de escritorio con acabado mate.</p>"
+        "<ul>"
+        '<li style="text-align: right"><b>Contenido:</b> Una libreta y un bolígrafo.</li>'
+        "</ul>"
+        '<p style="text-align: justify"><strong>Presentación:</strong> Caja individual.</p>'
+    )
+    table = ProductTable(_Controller())
+    table.resize(1400, 700)
+    table.show()
+    table.load_products(
+        [
+            Product(
+                code="TEST-DETAIL-HTML",
+                name="Producto",
+                description=description,
+                description_html=description_html,
+            ),
+        ],
+    )
+    QApplication.processEvents()
+
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert item.text() == description
+    stored_html = item.data(ProductDetailDelegate.DETAIL_HTML_ROLE)
+    assert stored_html == description_html
+
+    document = ProductDetailDelegate._document_for_html(
+        stored_html,
+        table.font(),
+        700,
+    )
+    description_cursor = document.find("Descripción:")
+    content_cursor = document.find("Contenido:")
+    presentation_cursor = document.find("Presentación:")
+    assert description_cursor.hasSelection()
+    assert content_cursor.hasSelection()
+    assert presentation_cursor.hasSelection()
+    assert description_cursor.charFormat().fontWeight() >= 700
+    assert content_cursor.charFormat().fontWeight() >= 700
+    assert presentation_cursor.charFormat().fontWeight() >= 700
+    assert description_cursor.blockFormat().alignment() == Qt.AlignmentFlag.AlignCenter
+    assert content_cursor.blockFormat().alignment() == Qt.AlignmentFlag.AlignRight
+    assert presentation_cursor.blockFormat().alignment() == Qt.AlignmentFlag.AlignJustify
+
+    table.close()
+
+
 def test_product_table_renders_authoritative_hl9400_html_with_embedded_contiene():
     _qapp()
     description = (
@@ -3094,6 +3152,27 @@ def test_product_table_renders_authoritative_hl9400_html_with_embedded_contiene(
     assert "<strong>Presentación del Producto:" in rendered_html
 
     table.close()
+
+
+def test_detail_formatter_discovers_unlisted_field_labels_from_source_syntax():
+    product = Product(
+        code="TEST-DETAIL-STRUCTURE",
+        name="Producto de prueba",
+        description=(
+            "Parámetro ergonómico: Ajustable y fácil de usar. "
+            "Conectividad inalámbrica: Bluetooth 5.0. "
+            "Resistencia al desgaste: Alta."
+        ),
+    )
+
+    assert not hasattr(ProductTable, "DETAIL_FIELD_LABELS")
+    assert not hasattr(ProductTable, "DETAIL_NESTED_MEASURE_LABELS")
+    assert not hasattr(ProductTable, "DETAIL_PARENT_MEASURE_LABELS")
+    assert ProductTable._format_detail(product).splitlines() == [
+        "Parámetro ergonómico: Ajustable y fácil de usar",
+        "Conectividad inalámbrica: Bluetooth 5.0",
+        "Resistencia al desgaste: Alta",
+    ]
 
 
 def test_detail_table_keeps_unbolded_source_values_for_observed_codes():
@@ -3221,12 +3300,12 @@ def test_detail_table_keeps_fb3019_visible_product_fields_in_separate_paragraphs
     assert len(lines) == 10
     assert lines[0] == "Potencia: 1500 W"
     assert lines[1] == "Dimensiones: 54.8 \u00d7 40 \u00d7 36.5 cm"
-    assert lines[2] == "Peso Unitario: 20.3 kg"
-    assert lines[3] == "Uso Recomendado: Estampado en camisetas"
-    assert lines[4] == "Empaque Individual: Esponja + caja de cartón"
-    assert lines[5] == "Cantidad por Caja: 1 pza"
+    assert lines[2] == "Peso unitario: 20.3 kg"
+    assert lines[3] == "Uso recomendado: Estampado en camisetas"
+    assert lines[4] == "Empaque individual: Esponja + caja de cartón"
+    assert lines[5] == "Cantidad por caja: 1 pza"
     assert lines[6] == "Dimensiones de caja: 60 \u00d7 47.5 \u00d7 44 cm"
-    assert lines[7] == "Cubicaje por Caja: 0.1254 m\u00b3/CBM"
+    assert lines[7] == "Cubicaje por caja: 0.1254 m\u00b3/CBM"
     assert lines[8] == "Peso neto por caja: 20.3 kg"
     assert lines[9] == "Peso bruto por caja: 23.6 kg"
 

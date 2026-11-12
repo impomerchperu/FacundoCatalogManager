@@ -196,23 +196,16 @@ class ProductExtractor:
             soup,
             base_url=url or self.BASE_URL,
         )
-        detail_field_found, authoritative_detail = (
-            self.extract_authoritative_detail_text(
+        detail_field_found, description, description_html = (
+            self.extract_authoritative_detail_content(
                 soup,
                 preserve_boundaries=True,
             )
         )
-        description = (
-            authoritative_detail
-            if detail_field_found
-            else self._extract_detail_text_fallback(soup)
-        )
-        description = clean_extracted_detail_text(description)
-        description_html = (
-            self.extract_authoritative_detail_html(soup, description)
-            if detail_field_found
-            else ""
-        )
+        if not detail_field_found:
+            description = clean_extracted_detail_text(
+                self._extract_detail_text_fallback(soup)
+            )
         result = ScrapedProductFactory.create(
             source=self.SOURCE,
             url=url,
@@ -611,22 +604,15 @@ class ProductExtractor:
             for element in self._authoritative_detail_elements(soup)
         )
 
-    def extract_authoritative_detail_text(
-        self,
-        soup,
+    @staticmethod
+    def _authoritative_detail_text_from_elements(
+        elements,
         *,
-        preserve_boundaries: bool = False,
-    ) -> tuple[bool, str]:
-        """Return whether the authoritative Detail field was found and its value."""
-        elements = self._authoritative_detail_elements(soup)
-        if not elements:
-            return False, ""
-
-        # The selected page field is authoritative as a whole. Do not discard
-        # individual paragraphs merely because a label is not in our technical
-        # field vocabulary (e.g. Piezas, Forma, Micrones, or supplier fields).
+        preserve_boundaries: bool,
+    ) -> str:
+        """Build canonical text from the already selected authoritative field."""
         field_text = " ␞ ".join(
-            self._detail_text_from_element(element)
+            ProductExtractor._detail_text_from_element(element)
             for element in elements
         )
         detail = clean_extracted_detail_text(
@@ -635,7 +621,40 @@ class ProductExtractor:
         )
         if not preserve_boundaries:
             detail = normalize_detail_text(detail)
-        return True, restore_literal_detail_colons(detail)
+        return restore_literal_detail_colons(detail)
+
+    def extract_authoritative_detail_content(
+        self,
+        soup,
+        *,
+        preserve_boundaries: bool = False,
+    ) -> tuple[bool, str, str]:
+        """Return text and safe visual markup from one authoritative field selection."""
+        elements = self._authoritative_detail_elements(soup)
+        if not elements:
+            return False, "", ""
+        detail = self._authoritative_detail_text_from_elements(
+            elements,
+            preserve_boundaries=preserve_boundaries,
+        )
+        markup = extract_detail_html_from_elements(elements, detail)
+        return True, detail, markup
+
+    def extract_authoritative_detail_text(
+        self,
+        soup,
+        *,
+        preserve_boundaries: bool = False,
+    ) -> tuple[bool, str]:
+        """Compatibility wrapper for callers that need only the plain value."""
+        elements = self._authoritative_detail_elements(soup)
+        if not elements:
+            return False, ""
+        detail = self._authoritative_detail_text_from_elements(
+            elements,
+            preserve_boundaries=preserve_boundaries,
+        )
+        return True, detail
 
     def extract_authoritative_detail_html(
         self,

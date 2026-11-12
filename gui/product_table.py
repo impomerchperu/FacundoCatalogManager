@@ -1080,11 +1080,9 @@ class ProductDetailDelegate(ProductCellDelegate):
             formats: list[QTextLayout.FormatRange] = []
             for match in cls._BOLD_DETAIL_LABEL_PATTERN.finditer(paragraph):
                 prefix = paragraph[: match.start(1)]
-                parent = re.match(r"^s*[^:
-]{1,80}:s*", prefix)
+                parent = re.match(r"^\s*[^:\n]{1,80}:\s*", prefix)
                 if parent is not None and re.match(
-                    r"^s*[^:
-]{1,80}:s*",
+                    r"^\s*[^:\n]{1,80}:\s*",
                     prefix[parent.end() :].lstrip(),
                 ):
                     continue

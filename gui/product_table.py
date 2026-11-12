@@ -1059,16 +1059,6 @@ class ProductDetailDelegate(ProductCellDelegate):
         r"(?:(?<=^)|(?<=[.!?]\s))(?:\s*\d+\.\s*)?([A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}):"
     )
 
-    @staticmethod
-    def _is_nested_source_value_label(label: str, prefix: str) -> bool:
-        """Infer nested source labels from adjacent field delimiters, not names."""
-        del label
-        parent = re.match(r"^\s*[^:\n]{1,60}:\s*", prefix)
-        if parent is None:
-            return False
-        parent_value = prefix[parent.end() :]
-        return re.match(r"^\s*[^:\n]{1,60}:\s*", parent_value) is not None
-
     @classmethod
     def _layout_text(
         cls,
@@ -1088,10 +1078,18 @@ class ProductDetailDelegate(ProductCellDelegate):
             layout = QTextLayout(paragraph, font)
             formats: list[QTextLayout.FormatRange] = []
             for match in cls._BOLD_DETAIL_LABEL_PATTERN.finditer(paragraph):
-                label_key = " ".join(match.group(1).split()).casefold()
                 prefix = paragraph[: match.start(1)]
-                if cls._is_nested_source_value_label(label_key, prefix):
-                    continue
+                # Determine nesting from the prefix shape, never from a label
+                # vocabulary: a child starts after a parent whose value itself
+                # begins with another label (or has not begun yet).
+                parent = re.match(r"^\s*[^:\n]{1,80}:\s*", prefix)
+                if parent is not None:
+                    parent_value_prefix = prefix[parent.end() :]
+                    if (
+                        not parent_value_prefix.strip()
+                        or re.match(r"^\s*[^:\n]{1,80}:\s*", parent_value_prefix)
+                    ):
+                        continue
                 # Do not invent bold field boundaries inside an explicitly
                 # slash-grouped source line.
                 if re.search(

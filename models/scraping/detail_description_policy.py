@@ -59,6 +59,7 @@ _COLOR_SEPARATOR_PATTERN = re.compile(
 )
 _DETAIL_FIELD_LABEL_PATTERN = re.compile(
     r"(?:^|(?<=[.;|\n\u241e]))\s*[^:\r\n]{1,80}:\s*"
+    r"|(?<!\w)[A-ZÁÉÍÓÚÜÑ][^:\r\n]{0,79}:\s*"
 )
 TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
 _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
@@ -73,7 +74,7 @@ _TECHNICAL_DETAIL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _NON_TECHNICAL_SECTION_PREFIX_PATTERN = re.compile(
-    r"^\s*(?:informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
+    r"^\s*(?:descripci[oó]n\s+comercial|informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
     re.IGNORECASE,
 )
 # Detect ellipses and short incomplete final labels without enumerating names.

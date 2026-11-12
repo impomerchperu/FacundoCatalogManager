@@ -11,6 +11,16 @@ from models.scraping.detail_description_policy import (
     strip_leading_color_field,
 )
 
+FB_4047_DETAIL = (
+    "Material: Poliuretano. Dimensiones: 55*55*100mm. "
+    "Peso Unitario: 24 G. Uso Recomendado: Antiestrés, Promocional. "
+    "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
+    "Dimensiones Caja: 60*33*32cm. Cubicaje por Caja: 0.0634 m³/CBM "
+    "Peso neto por caja: 7.5 Kg. Peso bruto por caja: 8.5 Kg. "
+    "Leer Menos Certificado SGS"
+)
+
+
 def test_detail_policy_recognizes_arbitrary_field_syntax_and_structural_groups():
     custom_fields = (
         "Parámetro ergonómico: Ajustable y fácil de usar. "
@@ -26,7 +36,7 @@ def test_detail_policy_recognizes_arbitrary_field_syntax_and_structural_groups()
     assert not is_detail_grouping_label("Bloque de atributos: valor")
 
     assert clean_extracted_detail_text(
-        "Bloque estructural:\\n"
+        "Bloque estructural:\n"
         "Primer subcampo: uno. Segundo subcampo: dos."
     ) == "Bloque estructural: Primer subcampo: uno. Segundo subcampo: dos."
 
@@ -40,15 +50,6 @@ def test_detail_policy_ignores_any_empty_terminal_field_without_name_whitelists(
     assert is_complete_detail(detail)
     assert is_valid_detail_content(detail)
 
-
-FB_4047_DETAIL = (
-    "Material: Poliuretano. Dimensiones: 55*55*100mm. "
-    "Peso Unitario: 24 G. Uso Recomendado: Antiestrés, Promocional. "
-    "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
-    "Dimensiones Caja: 60*33*32cm. Cubicaje por Caja: 0.0634 m³/CBM "
-    "Peso neto por caja: 7.5 Kg. Peso bruto por caja: 8.5 Kg. "
-    "Leer Menos Certificado SGS"
-)
 
 
 def test_detail_policy_removes_color_line_and_preserves_technical_attributes():

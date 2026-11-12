@@ -11,6 +11,7 @@ from models.scraping.detail_description_policy import (
     strip_leading_color_field,
 )
 
+
 def test_detail_policy_recognizes_structural_groups_without_label_vocabulary():
     assert is_detail_grouping_label("Bloque estructural:")
     assert not is_detail_grouping_label("Bloque estructural: contenido")

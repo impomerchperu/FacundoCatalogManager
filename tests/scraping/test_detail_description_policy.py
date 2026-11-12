@@ -41,7 +41,7 @@ def test_detail_policy_recognizes_arbitrary_field_syntax_and_structural_groups()
     ) == "Bloque estructural: Primer subcampo: uno. Segundo subcampo: dos."
 
     assert clean_extracted_detail_text(
-        "Campo vacío:\\nCampo independiente: valor."
+        "Campo vacío:\nCampo independiente: valor."
     ) == "Campo independiente: valor."
 
 

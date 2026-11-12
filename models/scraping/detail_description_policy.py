@@ -23,10 +23,6 @@ _TRAILING_DETAIL_UI_NOISE_PATTERN = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _DETAIL_BOUNDARY = "\u241e"
-_DESCRIPTION_FIELD_PATTERN = re.compile(
-    r"(?<!\w)descripci[oó]n(?:\s+comercial)?\s*[:|\-]\s*",
-    re.IGNORECASE,
-)
 # Product-variant color fields are redundant in Detail.
 # Specific technical labels such as "Color de tinta" and "Color de impresión"
 # remain valid because their labels continue after the word "Color".
@@ -62,150 +58,31 @@ _COLOR_SEPARATOR_PATTERN = re.compile(
     r"[.;|\r\n" + re.escape(_DETAIL_BOUNDARY) + r"]\s*"
 )
 _DETAIL_FIELD_LABEL_PATTERN = re.compile(
-    r"\b(?:"
-    r"medida y capacidad|"
-    r"medida de impresi[oó]n|"
-    r"medidas\s+del\s+producto|"
-    r"medidas\s+del\s+estuche|"
-    r"medidas\s+de\s+la\s+caja\s+m[aá]ster|"
-    r"medidas\s+(?:de\s+)?(?:estuche|mochila|cartera|cartuchera)|"
-    r"presentaci[oó]n\s+del\s+estuche|"
-    r"envase\s+largo|"
-    r"toalla\s+largo|"
-    r"tama[ñn]o\s+cinta|"
-    r"tipo\s+de\s+encuadernaci[oó]n|"
-    r"tipo\s+de\s+encuadernado|"
-    r"capacidad\s+de\s+encuadernaci[oó]n|"
-    r"capacidad\s+de\s+encuadernado|"
-    r"tipo\s+de\s+corte|"
-    r"capacidad\s+de\s+corte|"
-    r"tama[ñn]o\s+de\s+corte\s+m[aá]ximo|"
-    r"dimensiones\s+del\s+producto|"
-    r"peso\s+neto\s+aproximado|"
-    r"t[eé]cnica\s+de\s+aplicaci[oó]n|"
-    r"color(?:es)?\s+(?:de(?:\s+(?!producto\b)\w+){1,2}|"
-    r"del\s+(?!producto\b)\w+|exterior)|"
-    r"fecha|forma|"
-    r"[aá]rea\s+de\s+trabajo|"
-    r"empaque\s+por\s+caja|"
-    r"n[uú]mero\s+de\s+rodillos|"
-    r"velocidad\s+de\s+laminaci[oó]n|"
-    r"espesor\s+m[aá]ximo\s+de\s+laminaci[oó]n|"
-    r"rollos\s+por\s+caja|"
-    r"impresiones\s+por\s+rollo|"
-    r"v[aá]lido\s+para\s+impresoras|"
-    r"opciones\s+de\s+acabado|"
-    r"ancho\s+de\s+entrada|"
-    r"cortadora(?:\s+con\s+\d+\s+tipos?\s+de\s+corte)?|"
-    r"soporta|"
-    r"levantamiento\s+de\s+materiales|"
-    r"proyectos\s+de\s+manualidades|"
-    r"aplicaciones\s+de\s+vinilo|"
-    r"trabajo\s+en\s+scrapbooking|"
-    r"calidad\s+superior|"
-    r"calidad|"
-    r"acceso|"
-    r"conectividad|"
-    r"compatibilidad\s+confiable|"
-    r"procedencia\s+coreana|"
-    r"facilidad\s+de\s+uso|"
-    r"espesor\s+m[aá]ximo\s+del\s+material|"
-    r"[aá]rea\s+m[aá]xima\s+de\s+corte|"
-    r"[aá]rea\s+de\s+corte|"
-    r"ancho\s+de\s+corte|"
-    r"longitud\s+de\s+corte|"
-    r"fuerza\s+de\s+corte|"
-    r"velocidad\s+de\s+corte|"
-    r"sistema\s+de\s+motor|"
-    r"tipo\s+de\s+luz|"
-    r"interior|"
-    r"espacio\s+libre|"
-    r"interfaz|"
-    r"funciones\s+adicionales|"
-    r"rango\s+de\s+espesor(?:\s+polaseal)?|"
-    r"tiempo\s+de\s+calentamiento|"
-    r"consumo\s+de\s+energ[ií]a|"
-    r"dimensi[oó]n(?:es)?(?:\s+(?:de\s+)?caja)?|"
-    r"peso\s+bruto\s*/\s*caja|"
-    r"peso\s+neto\s*/\s*caja|"
-    r"peso\s+(?:unitario|neto|bruto)(?:\s+por(?:\s+caja)?)?|"
-    r"uso\s+ideal|"
-    r"uso(?:\s+recomendado)?|"
-    r"empaque\s+individual|"
-    r"cantidad\s+por\s+caja|"
-    r"cubicaje(?:\s+por\s+caja)?|"
-    r"presentaci[oó]n(?:\s+del\s+producto)?|"
-    r"gramaje|"
-    r"capacidad|"
-    r"(?:superficie|[aá]rea)\s+de\s+impresi[oó]n|"
-    r"t[eé]cnica\s+de\s+impresi[oó]n|"
-    r"materiales|"
-    r"material|"
-    r"medida(?:s)?|"
-    r"di[aá]metro|"
-    r"velocidad|"
-    r"voltaje\s+y\s+frecuencia|"
-    r"voltaje|"
-    r"potencia|"
-    r"funci[oó]n(?:es)?|"
-    r"temperatura|"
-    r"presi[oó]n|"
-    r"frecuencia|"
-    r"resoluci[oó]n|"
-    r"tama[ñn]o(?:\s+(?:de\s+)?impresi[oó]n)?(?:\s*\([^)]*\))?|"
-    r"ancho|largo|alto|altura|peso|"
-    r"modelo|tipo|formato|marca|"
-    r"compatibilidad|contenido|incluye|contiene|accesorios|empaque|"
-    r"paquete|caja|forro|"
-    r"alimentaci[oó]n|tiempo|espesor|acabado|"
-    r"aplicaci[oó]n|resistencia|"
-    r"unidades\s+por\s+caja|cantidad|unidad|"
-    r"caracter[ií]sticas|"
-    r"propiedades|"
-    r"micras"
-    r")\s*:",
-    re.IGNORECASE,
+    r"(?:^|(?<=[.;|\\n\\u241e]))\\s*[^:\\r\\n]{1,80}:\\s*"
+    r"|(?<!\\w)[A-ZÁÉÍÓÚÜÑ][^:\\r\\n]{0,79}:\\s*"
 )
 TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
-_DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = re.compile(
-    r"(?<!\w)descripci[oó]n(?:\s+comercial)?\s*:\s*|"
-    + _DETAIL_FIELD_LABEL_PATTERN.pattern,
-    re.IGNORECASE,
-)
+_DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
 
 _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN = re.compile(
-    r"^\s*(?:" + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern + r")\s*$",
+    r"^\\s*[^:\\r\\n]{1,80}:\\s*$",
     re.IGNORECASE,
 )
 
-
 _TECHNICAL_DETAIL_PATTERN = re.compile(
-    _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\bcertificado\s+sgs\b",
+    _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\\bcertificado\\s+sgs\\b",
     re.IGNORECASE,
 )
 _NON_TECHNICAL_SECTION_PREFIX_PATTERN = re.compile(
-    r"^\s*(?:informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
+    r"^\\s*(?:informaci[oó]n adicional|reseñas?|valoraciones)\\s*[:\\-]",
     re.IGNORECASE,
 )
-# Detect visible ellipses and field labels cut off at the end of a card summary.
+# Detect ellipses and short incomplete final labels without enumerating names.
 _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
-    r"\.{3,}|…|"
-    r"(?<!\w)(?:"
-    r"peso\s+(?:br(?:u(?:t(?:o)?)?)?|net(?:o)?)(?:\s+por(?:\s+caj(?:a)?)?)?|"
-    r"dimens(?:i[oó]n(?:es)?)?(?:\s+(?:de\s+)?caj(?:a)?|\s+del?\s+producto)?|"
-    r"cantidad\s+por\s+caj(?:a)?|"
-    r"cubicaje(?:\s+por\s+caj(?:a)?)?|"
-    r"funci[oó]n(?:es)?(?:\s+adicionales?)?|"
-    r"rango\s+de\s+espesor(?:\s+polaseal)?|"
-    r"velocidad|tiempo\s+de\s+calentamiento|"
-    r"consumo\s+de\s+energ[ií]a|voltaje|"
-    r"material|medidas?|peso\s+unitario|"
-    r"uso\s+recomendado|empaque\s+individual"
-    r")\s*:?\s*$",
-    re.IGNORECASE,
+    r"\\.{3,}|…|"
+    r"(?:^|[.;]\\s*)[A-ZÁÉÍÓÚÜÑ][^:\\d\\r\\n]{0,24}"
+    r"(?:\\s+[a-záéíóúüñ]{1,5}){0,3}\\s*$"
 )
-
-
 
 _DETAIL_HTML_BLOCK_TAGS = frozenset({
     "br", "p", "div", "li", "ul", "ol",
@@ -429,31 +306,25 @@ def remove_incomplete_trailing_dimension_field(value: object) -> str:
 # the labels in the saved Detail, but omit a chain of empty terminal labels only
 # while validating completeness. Other terminal labels still signal truncation.
 _EMPTY_TRAILING_DETAIL_FIELD_PATTERN = re.compile(
-    r"(?:[.;]\s*)?\b(?:"
-    r"dimensiones\s+(?:de\s+)?(?:la\s+)?caja(?:\s+m[aá]ster)?|"
-    r"cubicaje(?:\s+por\s+caja)?|"
-    r"peso\s+(?:neto|bruto)(?:\s+(?:por\s+caja|/\s*caja))?|"
-    r"caja"
-    r")\s*:\s*$",
+    r"(?:^|[.;]\\s*)[^:\\r\\n]{1,80}:\\s*$",
     re.IGNORECASE,
 )
 
 
 def _strip_allowed_empty_trailing_detail_fields(value: object) -> str:
-    """Remove whitelisted empty terminal shipping labels for validation only."""
+    """Ignore any empty terminal field label for completeness checks only."""
     text = str(value or "").rstrip()
     while text:
         match = _EMPTY_TRAILING_DETAIL_FIELD_PATTERN.search(text)
         if match is None:
             break
-        prefix = text[: match.start()].rstrip(" .;\t\r\n")
+        prefix = text[: match.start()].rstrip(" .;\\t\\r\\n")
         if not prefix:
             return ""
         text = prefix
     return text
 
-# This is catalog-wide commercial noise, not a product attribute. Strip it
-# consistently from every Detail value instead of special-casing one SKU.
+
 _PRICE_INCLUDES_IGV_PATTERN = re.compile(
     r"(?:\s*,\s*|\s+)?\bprecio\s+incluye\s+igv\b\.?",
     re.IGNORECASE,
@@ -571,33 +442,26 @@ def _is_description_color_enumeration(
     text: str,
     match: re.Match[str],
 ) -> bool:
-    """Keep color prose within Description, not explicit product-color fields."""
+    """Keep descriptive color prose, but remove an explicit color field."""
     prefix = text[: match.start()]
-    if (
-        _DESCRIPTION_FIELD_PATTERN.search(prefix)
-        and re.search(r"\ben\s+\d+\s*$", prefix, re.IGNORECASE)
-    ):
-        return True
-
-    # Unlabelled color words inside Description are descriptive prose. An
-    # explicit "Color:"/"Colores:" label remains removable even in that field.
-    explicit_label = re.search(r"[:|\-]\s*$", match.group(0)) is not None
+    explicit_label = re.search(r"[:|\\-]\\s*$", match.group(0)) is not None
     availability_label = (
         _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN.search(match.group(0))
         is not None
     )
     if explicit_label or availability_label:
         return False
-    preceding_labels = list(
-        _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.finditer(prefix)
-    )
-    return bool(
-        preceding_labels
-        and re.match(
-            r"descripci[oó]n(?:\s+comercial)?\s*:",
-            preceding_labels[-1].group(0),
-            re.IGNORECASE,
-        )
+
+    preceding_labels = list(_DETAIL_FIELD_LABEL_PATTERN.finditer(prefix))
+    if not preceding_labels:
+        return False
+
+    # A color word belongs to prose when the preceding field has visible value
+    # text; punctuation/boundaries mean that the next field is independent.
+    value_after_label = prefix[preceding_labels[-1].end() :]
+    return bool(value_after_label.strip()) and not re.search(
+        r"[.;|\\u241e]\\s*$",
+        value_after_label,
     )
 
 
@@ -734,63 +598,22 @@ def is_empty_detail_field_fragment(value: object) -> bool:
 
 
 _DETAIL_FIELD_LABEL_START_PATTERN = re.compile(
-    r"^\s*(?:" + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern + r")",
+    r"^\\s*" + _DETAIL_FIELD_LABEL_PATTERN.pattern,
     re.IGNORECASE,
 )
-_EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
-    r"(?:^|[.;]\s*)(?:"
-    + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern
-    + r")\s*$",
-    re.IGNORECASE,
-)
-
-
-_DETAIL_GROUPING_LABELS = frozenset({
-    "medidas",
-    "medida",
-    "medida y capacidad",
-    "dimensiones",
-    "dimensiones del producto",
-    "medidas del producto",
-    "empaque individual",
-    "medidas del estuche",
-    "medidas mochila",
-    "medidas de la caja máster",
-    "medidas de la caja master",
-})
-_DETAIL_GROUPING_FIELD_CHILD_LABELS = frozenset({
-    "alto",
-    "ancho",
-    "largo",
-    "altura",
-    "espesor",
-    "diámetro",
-    "capacidad",
-    "envase largo",
-    "toalla largo",
-    "interior",
-    "espacio libre",
-})
+_EMPTY_DETAIL_FIELD_AT_END_PATTERN = _EMPTY_TRAILING_DETAIL_FIELD_PATTERN
 
 
 def is_detail_grouping_label(value: object) -> bool:
-    """Whether an empty source label groups following Detail subfields."""
-    label = normalize_detail_text(value).removesuffix(":").strip().casefold()
-    return label in _DETAIL_GROUPING_LABELS
+    """Recognize an empty structural heading without naming its vocabulary."""
+    return is_empty_detail_field_fragment(value)
 
 
 def _is_grouping_detail_child(parent_label: str, child_source: str) -> bool:
-    """Whether the next field is a valid subfield of the preceding grouping label."""
-    parent = normalize_detail_text(parent_label).removesuffix(":").strip().casefold()
-    if parent not in _DETAIL_GROUPING_LABELS:
+    """Infer a group from an empty parent followed by multiple sibling fields."""
+    if not is_empty_detail_field_fragment(parent_label):
         return False
-    match = _DETAIL_FIELD_LABEL_START_PATTERN.match(child_source)
-    if match is None:
-        return False
-    child = normalize_detail_text(match.group()).removesuffix(":").strip().casefold()
-    if parent == "empaque individual" and child in {"material", "materiales"}:
-        return True
-    return child in _DETAIL_GROUPING_FIELD_CHILD_LABELS
+    return len(_DETAIL_FIELD_LABEL_PATTERN.findall(str(child_source or ""))) >= 2
 
 
 def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
@@ -802,7 +625,10 @@ def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
         previous_label = normalize_detail_text(previous.group()).removesuffix(":").strip()
         if (
             all(char.isspace() or char in ".;" for char in between)
-            and not _is_grouping_detail_child(previous_label, current.group())
+            and not _is_grouping_detail_child(
+                previous_label,
+                value[current.start() :],
+            )
         ):
             split_positions.append(current.start())
 

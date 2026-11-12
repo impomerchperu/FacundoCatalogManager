@@ -2641,7 +2641,7 @@ class ProductTable(QTableWidget):
     ) -> list[re.Match[str]]:
         """Separate peer fields while retaining syntactically nested subfields."""
         selected: list[re.Match[str]] = []
-        for index, match in enumerate(matches):
+        for match in matches:
             prefix = match.string[: match.start()]
             # Only promote a candidate after a source separator, at the
             # paragraph start, or immediately after a recognizable value unit.

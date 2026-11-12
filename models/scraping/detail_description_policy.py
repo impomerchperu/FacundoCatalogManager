@@ -58,31 +58,33 @@ _COLOR_SEPARATOR_PATTERN = re.compile(
     r"[.;|\r\n" + re.escape(_DETAIL_BOUNDARY) + r"]\s*"
 )
 _DETAIL_FIELD_LABEL_PATTERN = re.compile(
-    r"(?:^|(?<=[.;|\\n\\u241e]))\\s*[^:\\r\\n]{1,80}:\\s*"
-    r"|(?<!\\w)[A-ZÁÉÍÓÚÜÑ][^:\\r\\n]{0,79}:\\s*"
+    r"(?:^|(?<=[.;|\n\u241e]))\s*[^:\r\n]{1,80}:\s*"
+    r"|(?<!\w)[A-ZÁÉÍÓÚÜÑ][^:\r\n]{0,79}:\s*"
 )
 TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
 _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
 
 _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN = re.compile(
-    r"^\\s*[^:\\r\\n]{1,80}:\\s*$",
+    r"^\s*[^:\r\n]{1,80}:\s*$",
     re.IGNORECASE,
 )
 
 _TECHNICAL_DETAIL_PATTERN = re.compile(
-    _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\\bcertificado\\s+sgs\\b",
+    _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\bcertificado\s+sgs\b",
     re.IGNORECASE,
 )
 _NON_TECHNICAL_SECTION_PREFIX_PATTERN = re.compile(
-    r"^\\s*(?:informaci[oó]n adicional|reseñas?|valoraciones)\\s*[:\\-]",
+    r"^\s*(?:informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
     re.IGNORECASE,
 )
 # Detect ellipses and short incomplete final labels without enumerating names.
 _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
-    r"\\.{3,}|…|"
-    r"(?:^|[.;]\\s*)[A-ZÁÉÍÓÚÜÑ][^:\\d\\r\\n]{0,24}"
-    r"(?:\\s+[a-záéíóúüñ]{1,5}){0,3}\\s*$"
+    r"\.{3,}|…|"
+    r"(?:^|[.;]\s*)[A-ZÁÉÍÓÚÜÑ][^:\d\r\n]{0,24}"
+    r"(?:\s+[a-záéíóúñ]{1,5}){0,3}\s*$"
 )
+
+
 
 _DETAIL_HTML_BLOCK_TAGS = frozenset({
     "br", "p", "div", "li", "ul", "ol",
@@ -306,7 +308,7 @@ def remove_incomplete_trailing_dimension_field(value: object) -> str:
 # the labels in the saved Detail, but omit a chain of empty terminal labels only
 # while validating completeness. Other terminal labels still signal truncation.
 _EMPTY_TRAILING_DETAIL_FIELD_PATTERN = re.compile(
-    r"(?:^|[.;]\\s*)[^:\\r\\n]{1,80}:\\s*$",
+    r"(?:^|[.;]\s*)[^:\r\n]{1,80}:\s*$",
     re.IGNORECASE,
 )
 
@@ -318,7 +320,7 @@ def _strip_allowed_empty_trailing_detail_fields(value: object) -> str:
         match = _EMPTY_TRAILING_DETAIL_FIELD_PATTERN.search(text)
         if match is None:
             break
-        prefix = text[: match.start()].rstrip(" .;\\t\\r\\n")
+        prefix = text[: match.start()].rstrip(" .;\t\r\n")
         if not prefix:
             return ""
         text = prefix
@@ -444,7 +446,7 @@ def _is_description_color_enumeration(
 ) -> bool:
     """Keep descriptive color prose, but remove an explicit color field."""
     prefix = text[: match.start()]
-    explicit_label = re.search(r"[:|\\-]\\s*$", match.group(0)) is not None
+    explicit_label = re.search(r"[:|\-]\s*$", match.group(0)) is not None
     availability_label = (
         _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN.search(match.group(0))
         is not None
@@ -460,7 +462,7 @@ def _is_description_color_enumeration(
     # text; punctuation/boundaries mean that the next field is independent.
     value_after_label = prefix[preceding_labels[-1].end() :]
     return bool(value_after_label.strip()) and not re.search(
-        r"[.;|\\u241e]\\s*$",
+        r"[.;|\u241e]\s*$",
         value_after_label,
     )
 
@@ -598,7 +600,7 @@ def is_empty_detail_field_fragment(value: object) -> bool:
 
 
 _DETAIL_FIELD_LABEL_START_PATTERN = re.compile(
-    r"^\\s*" + _DETAIL_FIELD_LABEL_PATTERN.pattern,
+    r"^\s*[^:\r\n]{1,80}:\s*",
     re.IGNORECASE,
 )
 _EMPTY_DETAIL_FIELD_AT_END_PATTERN = _EMPTY_TRAILING_DETAIL_FIELD_PATTERN

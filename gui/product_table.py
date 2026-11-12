@@ -2666,7 +2666,7 @@ class ProductTable(QTableWidget):
                 parent_value_prefix = match.string[parent.end() : match.start()]
                 # A parent value that begins with a field label contains a
                 # nested group; retain those children inside the source block.
-                if cls.DETAIL_FIELD_LABEL_PATTERN.match(parent_value_prefix):
+                if cls.DETAIL_FIELD_LABEL_PATTERN.match(parent_value_prefix.lstrip()):
                     continue
 
                 # Ordinal child entries are structural even when the supplier

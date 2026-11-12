@@ -57,12 +57,17 @@ _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN = re.compile(
 _COLOR_SEPARATOR_PATTERN = re.compile(
     r"[.;|\r\n" + re.escape(_DETAIL_BOUNDARY) + r"]\s*"
 )
-_DETAIL_FIELD_LABEL_PATTERN = re.compile(
-    r"(?:^|(?<=[.;|\n\u241e]))\s*[^:\r\n]{1,80}:\s*"
-    r"|(?<!\w)[A-ZÁÉÍÓÚÜÑ][^:\r\n]{0,79}:\s*"
+_DETAIL_FIELD_BOUNDARY_PATTERN = re.compile(
+    r"(?:^|(?<=[.;|/\n\u241e]))\s*[^:\r\n]{1,80}:\s*"
 )
-TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
-_DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
+# A broad candidate is used only to detect a truly empty field immediately
+# followed by another source label. It is never used for color stripping or
+# general technical-detail classification.
+_POTENTIAL_SOURCE_LABEL_PATTERN = re.compile(
+    r"(?<!\w)[A-ZÁÉÍÓÚÜÑ][^:\r\n]{0,79}:\s*"
+)
+TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_BOUNDARY_PATTERN
+_DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = _DETAIL_FIELD_BOUNDARY_PATTERN
 
 _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN = re.compile(
     r"^\s*[^:\r\n]{1,80}:\s*$",
@@ -70,7 +75,7 @@ _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN = re.compile(
 )
 
 _TECHNICAL_DETAIL_PATTERN = re.compile(
-    _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\bcertificado\s+sgs\b",
+    _DETAIL_FIELD_BOUNDARY_PATTERN.pattern + r"|\bcertificado\s+sgs\b",
     re.IGNORECASE,
 )
 _NON_TECHNICAL_SECTION_PREFIX_PATTERN = re.compile(
@@ -424,7 +429,7 @@ def strip_leading_color_field(value: object) -> str:
 
     value_start = prefix.end()
     separator = _COLOR_SEPARATOR_PATTERN.search(text, value_start)
-    next_detail_field = _DETAIL_FIELD_LABEL_PATTERN.search(text, value_start)
+    next_detail_field = _DETAIL_FIELD_BOUNDARY_PATTERN.search(text, value_start)
 
     if next_detail_field is not None:
         if separator is None:
@@ -454,7 +459,7 @@ def _is_description_color_enumeration(
     if explicit_label or availability_label:
         return False
 
-    preceding_labels = list(_DETAIL_FIELD_LABEL_PATTERN.finditer(prefix))
+    preceding_labels = list(_DETAIL_FIELD_BOUNDARY_PATTERN.finditer(prefix))
     if not preceding_labels:
         return False
 
@@ -615,12 +620,12 @@ def _is_grouping_detail_child(parent_label: str, child_source: str) -> bool:
     """Infer a group from an empty parent followed by multiple sibling fields."""
     if not is_empty_detail_field_fragment(parent_label):
         return False
-    return len(_DETAIL_FIELD_LABEL_PATTERN.findall(str(child_source or ""))) >= 2
+    return len(_POTENTIAL_SOURCE_LABEL_PATTERN.findall(str(child_source or ""))) >= 2
 
 
 def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
     """Split a field label from the next label when the first value is empty."""
-    matches = list(_DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.finditer(value))
+    matches = list(_POTENTIAL_SOURCE_LABEL_PATTERN.finditer(value))
     split_positions = []
     for previous, current in pairwise(matches):
         between = value[previous.end() : current.start()]
@@ -728,7 +733,7 @@ def clean_extracted_detail_text(
 def has_multiple_technical_detail_fields(value: object) -> bool:
     """Require at least two labeled features for lower-priority fallbacks."""
     text = normalize_detail_text(value)
-    return len(_DETAIL_FIELD_LABEL_PATTERN.findall(text)) >= 2
+    return len(_DETAIL_FIELD_BOUNDARY_PATTERN.findall(text)) >= 2
 
 
 _DETAIL_HTML_ALLOWED_TAGS = frozenset({

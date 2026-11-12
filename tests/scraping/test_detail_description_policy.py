@@ -3,12 +3,43 @@ from models.scraping.detail_description_policy import (
     has_multiple_technical_detail_fields,
     has_technical_detail,
     is_complete_detail,
+    is_detail_grouping_label,
     is_empty_detail_field_fragment,
     is_valid_detail_content,
     normalize_detail_text,
     remove_incomplete_trailing_dimension_field,
     strip_leading_color_field,
 )
+
+def test_detail_policy_recognizes_arbitrary_field_syntax_and_structural_groups():
+    custom_fields = (
+        "Parámetro ergonómico: Ajustable y fácil de usar. "
+        "Conectividad inalámbrica: Bluetooth 5.0."
+    )
+    assert has_technical_detail(custom_fields)
+    assert has_multiple_technical_detail_fields(custom_fields)
+    assert is_complete_detail(custom_fields)
+    assert is_valid_detail_content(custom_fields)
+
+    assert is_empty_detail_field_fragment("Bloque de atributos:")
+    assert is_detail_grouping_label("Bloque de atributos:")
+    assert not is_detail_grouping_label("Bloque de atributos: valor")
+
+    assert clean_extracted_detail_text(
+        "Bloque estructural:\\n"
+        "Primer subcampo: uno. Segundo subcampo: dos."
+    ) == "Bloque estructural: Primer subcampo: uno. Segundo subcampo: dos."
+
+    assert clean_extracted_detail_text(
+        "Campo vacío:\\nCampo independiente: valor."
+    ) == "Campo independiente: valor."
+
+
+def test_detail_policy_ignores_any_empty_terminal_field_without_name_whitelists():
+    detail = "Parámetro: valor. Campo logístico personalizado:"
+    assert is_complete_detail(detail)
+    assert is_valid_detail_content(detail)
+
 
 FB_4047_DETAIL = (
     "Material: Poliuretano. Dimensiones: 55*55*100mm. "

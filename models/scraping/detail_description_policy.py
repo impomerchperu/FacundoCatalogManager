@@ -62,7 +62,7 @@ _COLOR_SEPARATOR_PATTERN = re.compile(
     r"[.;|\r\n" + re.escape(_DETAIL_BOUNDARY) + r"]\s*"
 )
 _DETAIL_FIELD_BOUNDARY_PATTERN = re.compile(
-    r"(?:^|(?<=[.;|\n\u241e]))\s*[^:\r\n]{1,80}:\s*"
+    r"(?:^|(?<=[.;|/\n\u241e]))\s*[^:\r\n]{1,80}:\s*"
 )
 TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_BOUNDARY_PATTERN
 _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = _DETAIL_FIELD_BOUNDARY_PATTERN

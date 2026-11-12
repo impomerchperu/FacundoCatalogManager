@@ -2629,46 +2629,88 @@ class ProductTable(QTableWidget):
 
         return lines
 
+    @staticmethod
+    def _is_dimensional_value_shape(value: str) -> bool:
+        """Recognize a measurement from its value/unit shape, not its label."""
+        return bool(
+            re.search(
+                r"\d+(?:[.,]\d+)?\s*(?:(?:[x\u00d7*]\s*)+\d+(?:[.,]\d+)?\s*)?"
+                r"(?:mm|cm|m\b|in\b|pulg(?:adas?)?)",
+                value[:180],
+                re.IGNORECASE,
+            )
+        )
+
     @classmethod
     def _select_detail_field_matches(
         cls,
         matches: list[re.Match[str]],
     ) -> list[re.Match[str]]:
-        """Separate peer fields only at source boundaries; retain nested groups."""
+        """Separate peer fields by boundaries while preserving nested value groups."""
         selected: list[re.Match[str]] = []
-        for match in matches:
+        nested_parent: re.Match[str] | None = None
+
+        for index, match in enumerate(matches):
             prefix = match.string[: match.start()]
             has_boundary = not prefix.strip(" \t.;|")
             has_boundary = has_boundary or bool(re.search(r"[.;|]\s*$", prefix))
-            if not has_boundary:
-                continue
-            if prefix.count("(") > prefix.count(")"):
+            # A new field may follow a complete physical measurement value
+            # even when the supplier omitted sentence punctuation.
+            has_boundary = has_boundary or bool(
+                re.search(
+                    r"\b(?:mm|cm|km|m|kg|gr?|g|ml|l|oz|onzas?|cbm|m³|°c|°f|"
+                    r"w|watts?|v|volts?|hz|ppp|ppm)\s*$",
+                    prefix,
+                    re.IGNORECASE,
+                )
+            )
+            if not has_boundary or prefix.count("(") > prefix.count(")"):
                 continue
 
             parent = selected[-1] if selected else None
             if parent is not None:
-                parent_value_prefix = match.string[parent.end() : match.start()]
-                if re.match(
-                    r"^\s*[^:\n]{1,80}:\s*",
-                    parent_value_prefix.lstrip(),
+                parent_gap = match.string[parent.end() : match.start()]
+                # A parent label with no value, optionally followed by an
+                # ordinal marker, starts a nested group.
+                if not parent_gap.strip() or re.fullmatch(
+                    r"\s*\d+\s*\.\s*",
+                    parent_gap,
                 ):
+                    nested_parent = parent
                     continue
 
-                numbered_suffix = re.search(r"\b\d+\s*\.\s*$", prefix)
-                numbered_context = (
-                    prefix.rstrip()[:-1] if numbered_suffix else ""
+            numbered_suffix = re.search(r"\b\d+\s*\.\s*$", prefix)
+            numbered_context = prefix.rstrip()[:-1] if numbered_suffix else ""
+            numbered_child = bool(
+                numbered_suffix
+                and not re.search(
+                    r"\d+(?:[.,]\d+)?\s*[x\u00d7*]\s*\d+(?:[.,]\d+)?\s*$",
+                    numbered_context,
                 )
-                numbered_child = bool(
-                    numbered_suffix
-                    and not re.search(
-                        r"\d+(?:[.,]\d+)?\s*[x\u00d7*]\s*\d+(?:[.,]\d+)?\s*$",
-                        numbered_context,
-                    )
-                )
+            )
+
+            if nested_parent is not None:
+                # Numbered siblings begin another visible sub-block. Keep
+                # their source ordinal so the formatter can split them later.
                 if numbered_child:
+                    selected.append(match)
+                    nested_parent = match
                     continue
 
+                next_start = (
+                    matches[index + 1].start()
+                    if index + 1 < len(matches)
+                    else len(match.string)
+                )
+                candidate_value = match.string[match.end() : next_start]
+                if cls._is_dimensional_value_shape(candidate_value):
+                    continue
+                nested_parent = None
+
+            if numbered_child and parent is not None:
+                continue
             selected.append(match)
+
         return selected
 
     @staticmethod

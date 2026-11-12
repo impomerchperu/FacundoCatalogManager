@@ -2646,71 +2646,96 @@ class ProductTable(QTableWidget):
         cls,
         matches: list[re.Match[str]],
     ) -> list[re.Match[str]]:
-        """Separate peer fields by boundaries while preserving nested value groups."""
+        """Separate peer fields only at source boundaries; retain nested groups."""
         selected: list[re.Match[str]] = []
-        nested_parent: re.Match[str] | None = None
-
-        for index, match in enumerate(matches):
+        for match in matches:
             prefix = match.string[: match.start()]
             has_boundary = not prefix.strip(" \t.;|")
             has_boundary = has_boundary or bool(re.search(r"[.;|]\s*$", prefix))
-            # A new field may follow a complete physical measurement value
-            # even when the supplier omitted sentence punctuation.
-            has_boundary = has_boundary or bool(
-                re.search(
-                    r"\b(?:mm|cm|km|m|kg|gr?|g|ml|l|oz|onzas?|cbm|m³|°c|°f|"
-                    r"w|watts?|v|volts?|hz|ppp|ppm)\s*$",
+            complete_measurement_group = (
+                len(cls.DETAIL_FIELD_LABEL_PATTERN.findall(prefix)) >= 4
+                and re.search(
+                    r"\b(?:mm|cm|m|kg|g|ml|l|w|v|hz)[ \t.]*$",
                     prefix,
                     re.IGNORECASE,
                 )
             )
-            if not has_boundary or prefix.count("(") > prefix.count(")"):
+            if (
+                not has_boundary
+                and not complete_measurement_group
+                and not re.search(r"\b[A-Z]{2,}\s+$", prefix)
+            ):
+                continue
+            if prefix.count("(") > prefix.count(")"):
                 continue
 
             parent = selected[-1] if selected else None
             if parent is not None:
-                parent_gap = match.string[parent.end() : match.start()]
-                # A parent label with no value, optionally followed by an
-                # ordinal marker, starts a nested group.
-                if not parent_gap.strip() or re.fullmatch(
-                    r"\s*\d+\s*\.\s*",
-                    parent_gap,
-                ):
-                    nested_parent = parent
+                parent_value_prefix = match.string[parent.end() : match.start()]
+                latest_source_segment = re.split(
+                    r"[.;|\n]\s*",
+                    parent_value_prefix,
+                )[-1]
+                nested_source_label = re.match(
+                    r"^\s*[^:\n]{1,80}:\s*",
+                    latest_source_segment.lstrip(),
+                )
+                completed_nested_group = (
+                    len(cls.DETAIL_FIELD_LABEL_PATTERN.findall(parent_value_prefix))
+                    >= 1
+                    and re.search(
+                        r"\b(?:mm|cm|m|kg|g|ml|l|w|v|hz)[ \t.]*$",
+                        parent_value_prefix.rstrip(),
+                        re.IGNORECASE,
+                    )
+                )
+                following_value_is_measurement = re.match(
+                    r"\s*\d+(?:[.,]\d+)?\s*"
+                    r"(?:mm|cm|m|kg|g|ml|l|w|v|hz)\b",
+                    match.string[match.end() :],
+                    re.IGNORECASE,
+                )
+                abbreviated_measurement_child = bool(
+                    cls.DETAIL_FIELD_LABEL_PATTERN.search(parent_value_prefix)
+                    and re.search(r"\b[A-Z][a-z]{0,2}\.\s*$", prefix)
+                )
+                continues_measurement_group = bool(
+                    following_value_is_measurement
+                    and (completed_nested_group or abbreviated_measurement_child)
+                )
+                if continues_measurement_group:
+                    continue
+                if nested_source_label and not completed_nested_group:
                     continue
 
-            numbered_suffix = re.search(r"\b\d+\s*\.\s*$", prefix)
-            numbered_context = prefix.rstrip()[:-1] if numbered_suffix else ""
-            numbered_child = bool(
-                numbered_suffix
-                and not re.search(
-                    r"\d+(?:[.,]\d+)?\s*[x\u00d7*]\s*\d+(?:[.,]\d+)?\s*$",
-                    numbered_context,
+                numbered_suffix = re.search(r"\b\d+\s*\.\s*$", prefix)
+                numbered_pattern = re.compile(
+                    r"(?<![\w-])\d+\s*\.\s*"
+                    r"[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:\s*"
                 )
-            )
-
-            if nested_parent is not None:
-                # Numbered siblings begin another visible sub-block. Keep
-                # their source ordinal so the formatter can split them later.
+                group_source = match.string[parent.start() :]
+                numbered_items = list(numbered_pattern.finditer(group_source))
+                nested_numbered_items = 0
+                for item_index, item in enumerate(numbered_items):
+                    content_end = (
+                        numbered_items[item_index + 1].start()
+                        if item_index + 1 < len(numbered_items)
+                        else len(group_source)
+                    )
+                    item_content = group_source[item.end() : content_end]
+                    if re.search(
+                        r"[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:\s*",
+                        item_content,
+                    ):
+                        nested_numbered_items += 1
+                numbered_child = bool(
+                    numbered_suffix
+                    and nested_numbered_items > 1
+                )
                 if numbered_child:
-                    selected.append(match)
-                    nested_parent = match
                     continue
 
-                next_start = (
-                    matches[index + 1].start()
-                    if index + 1 < len(matches)
-                    else len(match.string)
-                )
-                candidate_value = match.string[match.end() : next_start]
-                if cls._is_dimensional_value_shape(candidate_value):
-                    continue
-                nested_parent = None
-
-            if numbered_child and parent is not None:
-                continue
             selected.append(match)
-
         return selected
 
     @staticmethod

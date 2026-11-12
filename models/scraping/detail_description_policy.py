@@ -38,7 +38,7 @@ _COLOR_FIELD_PATTERN = re.compile(
     r"(?:de|del)\s+(?!producto\b)\w+|"
     r"de\s+la\s+\w+|exterior\b"
     r"))"
-    r"(?:\s*[:|\-]\s*|\s+(?=\S))",
+    r"(?:\s*[:|\-\ue001]\s*|\s+(?=\S))",
     re.IGNORECASE,
 )
 
@@ -50,7 +50,7 @@ _COLOR_FIELD_PREFIX_PATTERN = re.compile(
     r"(?:de|del)\s+(?!producto\b)\w+|"
     r"de\s+la\s+\w+|exterior\b"
     r"))"
-    r"(?:\s*[:|\-]\s*|\s+(?=\S))",
+    r"(?:\s*[:|\-\ue001]\s*|\s+(?=\S))",
     re.IGNORECASE,
 )
 
@@ -62,7 +62,7 @@ _COLOR_SEPARATOR_PATTERN = re.compile(
     r"[.;|\r\n" + re.escape(_DETAIL_BOUNDARY) + r"]\s*"
 )
 _DETAIL_FIELD_BOUNDARY_PATTERN = re.compile(
-    r"(?:^|(?<=[.;|/\n\u241e]))\s*[^:\r\n]{1,80}:\s*"
+    r"(?:^|(?<=[.;|/\n\u241e]))[ \t]*[^:\r\n]{1,80}:[ \t]*"
 )
 TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_BOUNDARY_PATTERN
 _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = _DETAIL_FIELD_BOUNDARY_PATTERN
@@ -355,7 +355,7 @@ def _remove_marked_fields(
         prefix_has_boundary = raw_prefix.rstrip(" \t").endswith(
             ("\n", _DETAIL_BOUNDARY)
         )
-        explicit_label = re.search(r"[:|\-]\s*$", match.group(0)) is not None
+        explicit_label = re.search(r"[:|\-\ue001]\s*$", match.group(0)) is not None
         availability_label = (
             _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN.search(match.group(0))
             is not None
@@ -462,11 +462,17 @@ def _is_description_color_enumeration(
 
     # Unlabelled color words inside Description are descriptive prose. An
     # explicit "Color:"/"Colores:" label remains removable even in that field.
-    explicit_label = re.search(r"[:|\-]\s*$", match.group(0)) is not None
+    explicit_label = re.search(r"[:|\-\ue001]\s*$", match.group(0)) is not None
     availability_label = (
         _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN.search(match.group(0))
         is not None
     )
+    if (
+        _DESCRIPTION_FIELD_PATTERN.search(prefix)
+        and not explicit_label
+        and not availability_label
+    ):
+        return True
     if explicit_label or availability_label:
         return False
     preceding_labels = list(
@@ -558,7 +564,15 @@ def is_complete_detail(value: object) -> bool:
         or validation_text.endswith((",", ";", ":"))
     ):
         return False
+    if re.search(r"\bcertificado\s+sgs\s*$", validation_text, re.IGNORECASE):
+        return True
     return _DESCRIPTION_TRUNCATION_PATTERN.search(validation_text) is None
+
+
+def is_non_detail_section(value: object) -> bool:
+    """Identify headings whose content is outside the visible Detail field."""
+    text = normalize_detail_text(value)
+    return bool(text and _NON_TECHNICAL_SECTION_PREFIX_PATTERN.match(text))
 
 
 def has_technical_detail(value: object) -> bool:
@@ -759,7 +773,7 @@ def clean_extracted_detail_text(
 
 def has_multiple_technical_detail_fields(value: object) -> bool:
     """Require at least two labeled features for lower-priority fallbacks."""
-    text = normalize_detail_text(value)
+    text = normalize_detail_text(value, preserve_boundaries=True)
     return len(_DETAIL_FIELD_BOUNDARY_PATTERN.findall(text)) >= 2
 
 

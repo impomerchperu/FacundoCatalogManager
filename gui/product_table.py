@@ -1061,17 +1061,13 @@ class ProductDetailDelegate(ProductCellDelegate):
 
     @staticmethod
     def _is_nested_source_value_label(label: str, prefix: str) -> bool:
-        """Detect nested labels from their parent field instead of their names."""
+        """Infer nested source labels from adjacent field delimiters, not names."""
         del label
-        parent = re.match(r"^\s*([^:\n]{1,60})\s*:", prefix)
-        return bool(
-            parent
-            and re.search(
-                r"\b(?:medid\w*|dimension\w*|tamañ\w*|tamano\w*|size)\b",
-                parent.group(1),
-                re.IGNORECASE,
-            )
-        )
+        parent = re.match(r"^\\s*[^:\\n]{1,60}:\\s*", prefix)
+        if parent is None:
+            return False
+        parent_value = prefix[parent.end() :]
+        return re.match(r"^\\s*[^:\\n]{1,60}:\\s*", parent_value) is not None
 
     @classmethod
     def _layout_text(

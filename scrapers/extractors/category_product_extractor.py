@@ -10,7 +10,6 @@ from models.scraping.detail_description_policy import (
     is_empty_detail_field_fragment,
     is_valid_detail_content,
     normalize_detail_text,
-    restore_literal_detail_colons,
 )
 from models.scraping.scraped_product import ScrapedProduct
 from scrapers.extractors.code_utils import normalize_code_token
@@ -291,14 +290,14 @@ class CategoryProductExtractor:
             # as HL-3000 remains valid because it is the actual field content.
             if not technical and len(text) < 35:
                 return ""
-            return restore_literal_detail_colons(text)
+            return text
 
         # Preserve a visibly truncated technical card value as the source of
         # truth if the individual page has no usable Detail. The collection
         # scraper can still request the page, but must not lose the card value
         # merely because the excerpt ends with an ellipsis.
         if technical and re.search(r"(?:\.{2,}|…)$", text):
-            return restore_literal_detail_colons(text)
+            return text
         return ""
 
     @classmethod

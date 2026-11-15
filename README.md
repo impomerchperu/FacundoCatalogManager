@@ -1,6 +1,6 @@
 # Facundo Catalog Manager
 
-**Referencia canónica de `main` (26/10/2026):** PR #30 se integró mediante squash en `085d6a50a7730e0546775d75ff2d105997edb619`. Quality CI #3885 pasó (Ruff, Pyright y Pytest: 1032 aprobadas, 11 deseleccionadas). El último inventario de catálogo registrado, del 25/10/2026 antes de la promoción, fue `522 / 518 / 4 / 24`; no se ha ejecutado un FULL live posterior a la promoción. El runtime de código actual usa categorías/detalle/HTTP `12 / 24 / 28`. No mezclar bases ni snapshots: cada FULL debe validarse contra los conteos publicados por esa ejecución. En FB-4047 está verificado el recurso histórico con SHA-256 fijado, pero cuando el servidor devuelve la plantilla de acceso no se afirma que la galería live actual se haya certificado.
+**Estado verificado de `main` (15/11/2026):** PR #62 se integró en `314d2ace10ce5adf10cc7240275cfd9577f267eb`. Quality CI #4135 pasó Ruff, Pyright y Pytest (`1129 passed`, `11 deselected`); `live-catalog` se omitió. Una actualización FULL ejecutada desde `app.py` quedó registrada como historial `254`: 24 categorías, 521 apariciones, 518 productos únicos, 3 productos en varias categorías, cobertura completa y 0 errores; actualizó 295 productos y dejó 223 sin cambios. La sincronización guardó 44 colores publicados en `stock_color_palette.json`. Estos conteos describen esa corrida; el criterio de cobertura compara cada ejecución con los totales que publica el sitio en ese momento.
 
 Aplicación de escritorio en Python + PySide6 para mantener el catálogo de Importaciones Facundo, ejecutar sincronizaciones FULL y exportar la información a Excel, PDF y CSV.
 
@@ -21,11 +21,11 @@ La aplicación publica el nombre y la versión mediante los metadatos estándar 
 
 ## Scraping FULL
 
-Una ejecución FULL válida debe cubrir las 24 categorías y alcanzar los totales publicados por las propias categorías en esa ejecución. El inventario auditado el 25/10/2026 antes de la promoción registró 522 apariciones, 518 productos únicos, 4 productos multi-categoría y 522 relaciones (`522/518/4/24`). El snapshot anterior de `main` de 523/519/4 y la referencia histórica 534/530/4 son evidencia histórica, no objetivos que deban forzarse mezclando bases. El siguiente FULL del código consolidado debe compararse con el inventario que publique el sitio durante esa ejecución.
+Una ejecución FULL válida debe cubrir las categorías descubiertas y alcanzar los totales publicados por esas categorías durante la ejecución. La corrida más reciente registrada en la BD original fue `521 / 518 / 3 / 24` (apariciones / únicos / multi-categoría / categorías), sin brechas. Las cifras anteriores `522/518/4` y `523/519/4` son snapshots históricos, no objetivos fijos. No mezclar bases ni forzar conteos históricos: valida cada FULL contra las métricas de esa misma corrida.
 
 Una ejecución válida debe mantener `coverage_complete=1`, `coverage_gap=0` y cero errores invalidantes. Una ejecución incompleta o inconsistente no debe utilizarse para hacer un prune destructivo del catálogo persistido. La reconciliación de bootstrap selecciona la ejecución FULL exitosa más reciente que además sea consistente con sus métricas y sus ocurrencias reales.
 
-La configuración actual de código en `main` es:
+La configuración de concurrencia consolidada en `main` es:
 
 - Categorías: `12` workers.
 - Detalle: `24` workers.
@@ -34,13 +34,13 @@ La configuración actual de código en `main` es:
 - JetSmartFilters page workers: `2`.
 - Sincronización de imágenes: `16` workers.
 
-El valor de 24 workers de detalle se seleccionó tras benchmarks controlados en el sitio real. Los ensayos de categorías no demostraron una mejora reproducible al bajar de 12 a 8 workers; por eso se conserva `12 / 24 / 28`. La cobertura histórica de catálogo no se considera una validación FULL del código posterior a la promoción.
+El valor de 24 workers de detalle se seleccionó tras benchmarks controlados en el sitio real. Los ensayos de categorías no demostraron una mejora reproducible al bajar de 12 a 8 workers; por eso se conserva `12 / 24 / 28`. La corrida FULL del 15/11 completó la recolección en 525 segundos y la limpieza de imágenes en 4 segundos.
 
 ## Stock por color
 
 La sincronización conserva el stock por color cuando el sitio publica una asociación demostrable entre color y cantidad. El catálogo persiste esos datos en `products.color_stock` y la columna **Stock** los muestra como `color → cantidad`.
 
-La validación previa de stock por color confirmó `523/523` apariciones con `color_stock`, `24/24` categorías y `0` inconsistencias en ese inventario histórico. La auditoría del 25/10 registró después `522/518/4/24`. No se ha ejecutado un FULL live con el código consolidado en `main`; las invariantes de stock por color siguen cubiertas por las pruebas automatizadas y deben comprobarse en el próximo FULL controlado.
+La validación histórica confirmó `523/523` apariciones con `color_stock` y 0 inconsistencias. La corrida FULL del 15/11 cubrió la extracción actual (`521/518/3/24`) y capturó una vez por ejecución 44 tonos y sus códigos CSS publicados. La auditoría de todas las asociaciones producto-color-stock continúa separada de la comprobación de cobertura general.
 
 No se distribuye artificialmente un stock total entre colores cuando el sitio no publica cantidades asociables de forma inequívoca.
 ## Historial
@@ -51,13 +51,13 @@ El detalle de cambios se ordena por código de producto. La UI permite consultar
 
 ## Validación
 
-Validación de calidad del `main` consolidado (`085d6a50`, Quality CI #3885, 26/10/2026):
+Validación de calidad de la PR #62 antes de integrarse (`Quality CI #4135`, 15/11/2026):
 
 - Ruff: éxito.
 - Pyright: `0 errors, 0 warnings, 0 informations`.
-- Pytest: `1032 passed, 11 deselected`.
+- Pytest: `1129 passed, 11 deselected`.
 - El trabajo `live-fb4047-gallery` se ejecuta como comprobación de recuperación si el detalle está restringido; su informe distingue `recovery_asset_verified=true` de `current_gallery_verified=false`.
-- El trabajo `live-catalog` fue omitido; esto no equivale a una prueba FULL contra el sitio después de la promoción.
+- `live-catalog` se omitió en CI; la corrida FULL desde la aplicación se verificó por separado en la BD original y quedó en el historial `254`.
 
 
 Comprobaciones estáticas:
@@ -100,9 +100,7 @@ El workflow de GitHub Actions ejecuta Ruff, Pyright y Pytest automáticamente. L
 
 ## Estado validado de la rama
 
-El baseline documentado de `main` cubre scraping, persistencia y bootstrap con snapshot `523 / 519 / 4`, cobertura completa e historial persistente bajo `8 / 24 / 28`. La candidata `feat/product-table-layout` tiene auditoría live completa `522 / 518 / 4 / 24`; el benchmark aconseja conservar `12 / 24 / 28` en la rama candidata. La PR #30 permanece en borrador y no se ha fusionado, por lo que estos resultados no deben presentarse como el estado ya desplegado de `main`.
-
-La referencia funcional es móvil: cada FULL completo, consistente y sin errores sustituye la referencia anterior con los conteos publicados por el sitio. Las invariantes de cobertura deben preservarse en toda optimización posterior.
+`main` incluye la extracción de Detalle desde una única fuente visual. La última corrida FULL registrada verificó cobertura completa, conteos consistentes e historial aplicado. La referencia funcional es móvil: cada FULL completo y consistente sustituye la anterior con los conteos publicados por el sitio. Las invariantes de cobertura deben preservarse en toda optimización posterior.
 
 
 ## Distribución Windows
@@ -121,7 +119,7 @@ Para generar también el instalador:
 .\scripts\build_windows.ps1
 ```
 
-La release publicada validada es `0.1.1`; la versión en preparación para la siguiente release es `0.2.0`. El instalador usa el icono de aplicación de `resources/facundo.ico`, lo incorpora al ejecutable PyInstaller y mantiene el acceso directo del menú Inicio. Durante la instalación puede crearse también un acceso directo en el Escritorio. El ejecutable, el instalador y los artefactos de build no se incorporan al repositorio. Antes de PyInstaller, `tools/prepare_windows_seed.py` valida la base `523 / 519 / 4`, comprueba las imágenes referenciadas y crea una copia SQLite consistente para el bundle.
+La release publicada validada es `0.1.1`; la versión en preparación para la siguiente release es `0.2.0`. El instalador usa el icono de aplicación de `resources/facundo.ico`, lo incorpora al ejecutable PyInstaller y mantiene el acceso directo del menú Inicio. Durante la instalación puede crearse también un acceso directo en el Escritorio. El ejecutable, el instalador y los artefactos de build no se incorporan al repositorio. Antes de PyInstaller, `tools/prepare_windows_seed.py` comprueba que la última corrida FULL exitosa concuerde con la cobertura, relaciones y productos de la BD, valida las imágenes referenciadas y crea una copia SQLite consistente para el bundle.
 
 El checklist de validación está en `docs/FCM_WINDOWS_RELEASE.md`. La release formal publicada es `v0.1.1`; la candidata `0.2.0` aún requiere Build Windows, validación del instalador y publicación formal.
 

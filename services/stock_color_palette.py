@@ -13,7 +13,7 @@ from config.runtime_paths import resolve_data_path
 # Indicator values seen in the site's inline CSS on its 24 category pages
 # come from `.variaciones-producto[title]` `background-color` declarations.
 # Names absent from those swatches retain the curated fallback below.
-STOCK_COLOR_STYLES: dict[str, tuple[str, str]] = {
+FALLBACK_STOCK_COLOR_STYLES: dict[str, tuple[str, str]] = {
     "amarillo": ("#fff7d6", "#ffff00"),
     "amarillo fluorescente": ("#f5ffd1", "#efff00"),
     "amarillo flurecente": ("#f5ffd1", "#efff00"),
@@ -85,6 +85,9 @@ STOCK_COLOR_STYLES: dict[str, tuple[str, str]] = {
     "verde petróleo": ("#e0f2ee", "#006b5f"),
     "yellow": ("#fff5b8", "#f2d21b"),
 }
+STOCK_COLOR_STYLES: dict[str, tuple[str, str]] = (
+    FALLBACK_STOCK_COLOR_STYLES.copy()
+)
 
 _HEX_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{3,8}$")
 _PALETTE_PATH = resolve_data_path("stock_color_palette.json")

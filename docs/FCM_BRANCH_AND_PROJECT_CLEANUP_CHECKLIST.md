@@ -1,22 +1,22 @@
 # FCM — Checklist maestro de auditoría, limpieza y consolidación
 
-**Fecha de actualización:** 2026-10-26
+**Fecha de actualización:** 2026-11-15
 **Rama predeterminada y canónica:** `main`
-**Integración consolidada:** PR #30, squash merge `085d6a50a7730e0546775d75ff2d105997edb619`
-**Rama de integración temporal:** `feat/product-table-layout` (el árbol es idéntico a `main`; queda pendiente eliminar la referencia tras sincronizar la copia local).
+**Integración consolidada:** PR #62, merge `314d2ace10ce5adf10cc7240275cfd9577f267eb`
 **Propósito:** conservar una sola ruta estable en `main`, retirar ramas ya sustituidas sin perder historial útil ni capacidad de recuperación.
 
-## Estado posterior a la promoción — 2026-10-26
+## Estado posterior a la integración — 2026-11-15
 
-- [x] PR #30 fue fusionada mediante squash en `main`: `085d6a50a7730e0546775d75ff2d105997edb619`.
-- [x] El árbol del commit de `main` coincide exactamente con el árbol de la candidata validada `feat/product-table-layout` (`409604fb50f4b522ed56316d843ed31749f18be2)); no se perdió código funcional en el squash.
-- [x] Quality CI #3885 en el HEAD de `main`: Ruff y Pyright correctos; Pytest `1032 passed, 11 deselected`.
-- [x] El auditor live de FB-4047 reconoce la recuperación segura: categoría resuelta por código, recurso histórico descargado y SHA-256 exacto. `recovery_asset_verified=true`, `current_gallery_verified=false`; la galería actual no se presenta como verificada cuando el endpoint entrega la plantilla de acceso. La prueba live no escribió en SQLite.
-- [x] PR #20, #23, #24, #28 y #29 permanecen cerradas como sustituidas; no hay que reabrirlas ni fusionarlas por separado. #25–#27 se integraron antes en la candidata y ya están incluidas en el árbol de `main`.
-- [ ] Retirar las ramas de trabajo redundantes una vez sincronizada y validada la copia Windows. Conservar `archive/recovery-catalog-202609` mientras siga pendiente la auditoría de recuperación histórica.
-- [ ] Ejecutar en Windows el smoke test de GUI/exportadores y una actualización focalizada de galería de FB-4047; auditar las referencias persistidas y el hash después de la sincronización. No se ha ejecutado una sincronización FULL ni se ha modificado la base de datos local.
+- [x] PR #62 se integró en `main` mediante el commit `314d2ace10ce5adf10cc7240275cfd9577f267eb`.
+- [x] Quality CI #4135 pasó Ruff, Pyright y Pytest (`1129 passed`, `11 deselected`); el job `live-catalog` se omitió.
+- [x] FULL iniciado desde `app.py` y aplicado en la BD original: historial `254`, 24 categorías, 521 apariciones, 518 productos únicos, 3 multi-categoría, brecha 0, errores 0; 295 productos actualizados y 223 sin cambios.
+- [x] Comparación antes/después de la corrida: 518 productos mantienen imagen principal, URL y galerías; no hubo pérdidas ni modificaciones en los registros de medios.
+- [x] La sincronización de colores guardó 44 swatches publicados en `stock_color_palette.json`.
+- [x] El preparador de semillas de Windows ya valida dinámicamente la última ejecución FULL, sus ocurrencias, productos, categorías, relaciones e imágenes; se elimina la dependencia de `523/519/4`.
+- [x] Las 6 pruebas del preparador pasan con un fixture representativo de la corrida actual `521/518/3/24`; Ruff y las 1154 pruebas de la suite pasan.
+- [ ] El build completo del bundle/instalador Windows sigue pendiente y queda separado de esta auditoría.
 
-> Este estado posterior a la promoción es la referencia actual. Las secciones del checklist fechadas el 25/10 son el plan previo a la fusión y se conservan como historial de decisiones; no deben interpretarse como indicación de que la PR #30 siga abierta.
+> Las secciones que siguen registran auditorías y planes anteriores a la integración de la PR #62. Sus estados pendientes y métricas se conservan como historial, no como el estado actual de `main`.
 
 
 

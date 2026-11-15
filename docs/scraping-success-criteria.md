@@ -1,7 +1,11 @@
 # Criterios de éxito del scraping FULL
 
-Fecha de validación del último checkpoint maestro: 2026-09-26  
-Branch oficial: `main`
+Fecha de actualización: 2026-11-15
+Branch oficial: `main` (`314d2ace10ce5adf10cc7240275cfd9577f267eb`)
+
+## Última ejecución FULL aplicada
+
+La actualización iniciada desde `app.py` quedó registrada como historial `254` y run normalizado `95`: 24 categorías, 521 apariciones esperadas y encontradas, 518 códigos únicos, 3 productos multi-categoría, brecha 0 y errores 0. La aplicación clasificó 518 productos: 295 actualizados, 223 sin cambios y ninguno nuevo. Estos valores describen esa ejecución; los conteos vigentes se vuelven a leer del sitio en cada FULL.
 
 ## Objetivo
 
@@ -9,19 +13,19 @@ Una ejecución FULL del catálogo debe ser correcta, completa y segura para sinc
 
 ## Criterio funcional autorizado
 
-Una ejecución FULL válida cubre las 24 categorías y alcanza simultáneamente los totales publicados por las propias categorías en esa ejecución. La referencia histórica es móvil y se actualiza al último FULL completo, consistente y sin errores que haya sido verificado.
+Una ejecución FULL válida cubre las categorías descubiertas y alcanza simultáneamente los totales publicados por las propias categorías en esa ejecución. La referencia histórica es móvil y se actualiza al último FULL completo, consistente y sin errores que haya sido verificado.
 
 La prueba real debe tratar una variación de inventario (altas/bajas/movimientos de productos) como deriva del sitio y comprobar en su lugar que cada categoría se extrae sin gaps respecto de su `expected_count`, que el total encontrado coincide con ese total vigente y que la persistencia mantiene las mismas cantidades observadas.
 
-- `523` apariciones observadas en la última referencia operativa.
-- `519` productos únicos observados en la última referencia operativa.
-- `4` productos presentes en múltiples categorías.
-- `523` relaciones producto-categoría.
+- `521` apariciones observadas en la ejecución aplicada más reciente.
+- `518` productos únicos observados en esa ejecución.
+- `3` productos presentes en múltiples categorías.
+- Las relaciones persistidas deben coincidir con las ocurrencias de esa misma ejecución.
 - `coverage_complete=1`.
 - `coverage_gap=0`.
 - `error_count=0`.
 
-Estos números constituyen la referencia operativa actualmente verificada. Cuando un FULL posterior termina completo, consistente y sin errores, sus totales pasan a ser la nueva referencia.
+Estos números describen la última ejecución verificada y son una referencia móvil. Cuando un FULL posterior termina completo, consistente y sin errores, sus totales pasan a ser la nueva referencia.
 
 Los pisos históricos menores, como `529/525`, no sustituyen la cobertura completa.
 
@@ -53,11 +57,11 @@ Los contadores HTTP, reintentos y tiempos agregados son métricas de diagnóstic
 
 ## Rendimiento
 
-La configuración de producción validada es:
+La configuración de producción en `main` es:
 El número de workers internos de paginación JSF también está centralizado en `ScrapingConfig`; el valor productivo actual permanece en `2`.
 
 
-- categoría: `8` workers;
+- categoría: `12` workers;
 - detalle: `24` workers;
 - HTTP: `28` workers;
 - JetSmartFilters HTTP: `8` concurrentes.
@@ -90,7 +94,7 @@ data/images puede conservar archivos legacy de ejecuciones anteriores y resource
 - [x] El almacenamiento futuro queda protegido por limpieza automática posterior a un FULL completo.
 ## Deriva del inventario vivo
 
-La validación real más reciente estableció `523` apariciones esperadas. El criterio de cobertura se basa en la consistencia interna de la ejecución actual y esta referencia se reemplazará automáticamente a nivel de documentación de ingeniería cuando un FULL posterior, completo y sin errores, establezca nuevos totales verificados.
+La validación real más reciente estableció `521` apariciones esperadas. El criterio de cobertura se basa en la consistencia interna de cada ejecución; esta referencia se reemplaza cuando un FULL posterior, completo y sin errores, establece nuevos totales verificados.
 
 ## Resultado del benchmark SQLite
 
@@ -103,7 +107,7 @@ Se ejecutó un benchmark aislado sobre SQLite temporal con 530 productos, WAL, `
 - No se modificó `database/catalog.db`.
 - No se modifica el alcance transaccional ni la configuración SQLite por este resultado.
 
-## Estado de ingeniería validado
+## Estado de ingeniería validado (2026-09-26 — histórico)
 
 El estado actual de `main` fue validado localmente el 2026-09-26 y Quality CI volvió a quedar en `success` sobre el HEAD de release/documentación.
 
@@ -116,7 +120,7 @@ El estado actual de `main` fue validado localmente el 2026-09-26 y Quality CI vo
 - FULL/E2E de producción validado: `24 / 523 / 519 / 4`, DB `519 / 523`, configuración `8 / 24 / 28`, `333` solicitudes HTTP, `0` retries y `0` errores terminales; última corrida `121.48s`.
 - La release formal `v0.1.1` está publicada y el tag apunta a `4238a9f`.
 
-## Benchmark de rendimiento actual
+## Benchmark de rendimiento de referencia (2026-09 — histórico)
 
 La última referencia de benchmark de concurrencia utilizada para decidir el cambio de runtime comparó `8 / 16 / 28` contra `8 / 24 / 28`; la configuración productiva resultante es `8 / 24 / 28`:
 
@@ -187,8 +191,8 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 
 - [x] FULL real de 24 categorías.
 - [x] Cobertura completa contra `expected_count` vigente de cada categoría.
-- [x] Referencia operativa actual: 523 apariciones / 519 productos únicos / 4 multi-categoría / 523 relaciones.
-- [x] Referencia viva verificada: `523 / 519 / 4`; se reemplaza cuando un FULL posterior, completo, consistente y sin errores queda verificado.
+- [x] Referencia operativa de esa auditoría histórica: 523 apariciones / 519 productos únicos / 4 multi-categoría / 523 relaciones.
+- [x] Referencia viva de esa fecha: `523 / 519 / 4`; se reemplaza cuando un FULL posterior, completo, consistente y sin errores queda verificado.
 - [x] cobertura completa.
 - [x] `coverage_gap=0`.
 - [x] 0 errores invalidantes.
@@ -242,9 +246,9 @@ Esta semántica está cubierta por pruebas y no afecta cobertura ni persistencia
 - [x] indicador de versión actualmente aplicada.
 - [x] filtros de catálogo y stock.
 
-## Estado posterior a release
+## Estado posterior a release (2026-09 — histórico)
 
-No existen pendientes técnicos bloqueantes en el baseline validado. La configuración productiva queda establecida en `8 / 24 / 28` + JSF `2` + category-page `1`; el cambio de concurrencia quedó cerrado con E2E post-cambio repetido.
+No existen pendientes técnicos bloqueantes en ese baseline. En el código actual la concurrencia es categorías/detalle/HTTP `12 / 24 / 28`, JSF `8 / 2` y páginas de categoría `1`; los detalles de la decisión del baseline `8 / 24 / 28` quedan arriba como evidencia histórica.
 
 Cualquier optimización futura de red, scraping, persistencia o concurrencia se tratará como un cambio nuevo: benchmark controlado, validación de cobertura/persistencia y actualización del checkpoint antes de considerarlo parte del baseline.
 
@@ -256,4 +260,4 @@ Cualquier optimización futura de red, scraping, persistencia o concurrencia se 
 - [x] fábricas de compatibilidad auditadas como delegados finos; se conservan por posible consumo externo.
 - [x] validación E2E real de producción con 24 workers de detalle;
 
-Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes de cobertura del inventario vivo. La referencia operativa actual es `24 / 523 / 519 / 4` bajo `8 / 24 / 28`; esta referencia debe actualizarse después de cada FULL completo, consistente y sin errores verificado.
+Estos puntos no invalidan el estado funcional validado. Cualquier cambio futuro sobre scraping, persistencia o concurrencia debe volver a comprobar las invariantes de cobertura del inventario vivo. La referencia de la última corrida es `24 / 521 / 518 / 3` bajo `12 / 24 / 28`; esta referencia debe actualizarse después de cada FULL completo, consistente y sin errores verificado.

@@ -1,21 +1,35 @@
 import html
 import re
 import unicodedata
+from collections import OrderedDict
+from functools import lru_cache
 from typing import ClassVar
 
-from PySide6.QtCore import QEvent, QPointF, QRect, QSize, Qt, QTimer
+from PySide6.QtCore import (
+    QEvent,
+    QObject,
+    QPointF,
+    QRect,
+    QRunnable,
+    QSize,
+    Qt,
+    QThreadPool,
+    QTimer,
+    Signal,
+    Slot,
+)
 from PySide6.QtGui import (
     QColor,
     QFont,
     QFontMetrics,
     QFontMetricsF,
     QHelpEvent,
+    QImage,
     QImageReader,
     QPainter,
     QPalette,
     QPen,
     QPixmap,
-    QPixmapCache,
     QTextCharFormat,
     QTextCursor,
     QTextDocument,
@@ -47,6 +61,7 @@ from models.product import Product
 from models.product_image_gallery import normalize_product_gallery
 from models.scraping.detail_description_policy import (
     detail_html_block_alignments,
+    detail_html_bold_ranges,
     detail_html_matches_text,
     has_redundant_product_color_detail,
     normalize_detail_text,
@@ -54,6 +69,12 @@ from models.scraping.detail_description_policy import (
 from services.scraping.category_name_normalizer import (
     display_category_name,
     split_category_names,
+)
+from services.stock_color_palette import (
+    STOCK_COLOR_STYLES as _STOCK_COLOR_STYLES,
+)
+from services.stock_color_palette import (
+    known_stock_color_style,
 )
 
 
@@ -113,6 +134,98 @@ class ProductCellDelegate(QStyledItemDelegate):
             painter,
             widget,
         )
+
+
+class _ScaledImageSignals(QObject):
+    ready = Signal(str, int, int, QImage)
+
+
+class _ScaledImageTask(QRunnable):
+    def __init__(self, path: str, size: QSize) -> None:
+        super().__init__()
+        self.path = path
+        self.size = QSize(size)
+        self.signals = _ScaledImageSignals()
+
+    @Slot()
+    def run(self) -> None:
+        reader = QImageReader(self.path)
+        source_size = reader.size()
+        if source_size.width() > 0 and source_size.height() > 0:
+            reader.setScaledSize(
+                source_size.scaled(
+                    self.size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                ),
+            )
+        image = reader.read()
+        if not image.isNull() and (
+            image.width() > self.size.width()
+            or image.height() > self.size.height()
+        ):
+            image = image.scaled(
+                self.size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        self.signals.ready.emit(
+            self.path,
+            self.size.width(),
+            self.size.height(),
+            image,
+        )
+
+
+class ProductCodeDelegate(ProductCellDelegate):
+    """Render product codes with breaks at hyphens inside the narrow column."""
+
+    HORIZONTAL_PADDING = 4
+    VERTICAL_PADDING = 4
+
+    @classmethod
+    def _wrapped_code(cls, text: str) -> str:
+        return text.replace("-", "-\u200b")
+
+    @classmethod
+    def _wrapped_height(cls, text: str, font: QFont, width: int) -> int:
+        metrics = QFontMetrics(font)
+        return max(
+            metrics.boundingRect(
+                QRect(0, 0, max(width, 1), 1000),
+                Qt.TextFlag.TextWordWrap,
+                cls._wrapped_code(text),
+            ).height(),
+            metrics.height(),
+        )
+
+    def paint(self, painter: QPainter, option, index) -> None:
+        self.paint_item_background(painter, option, index)
+        text = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+        content = option.rect.adjusted(
+            self.HORIZONTAL_PADDING,
+            self.VERTICAL_PADDING,
+            -self.HORIZONTAL_PADDING,
+            -self.VERTICAL_PADDING,
+        )
+        painter.save()
+        painter.setFont(option.font)
+        painter.setPen(option.palette.color(QPalette.ColorRole.Text))
+        painter.drawText(
+            content,
+            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+            self._wrapped_code(text),
+        )
+        painter.restore()
+
+    def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
+        width = option.rect.width() or 72
+        text = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+        height = self._wrapped_height(
+            text,
+            option.font,
+            max(width - (2 * self.HORIZONTAL_PADDING), 1),
+        )
+        return QSize(width, height + (2 * self.VERTICAL_PADDING))
 
 
 class PriceDelegate(ProductCellDelegate):
@@ -486,6 +599,14 @@ class ProductImageDelegate(ProductCellDelegate):
     ACTIVE_INDEX_ROLE = int(Qt.ItemDataRole.UserRole) + 4
     THUMBNAIL_START_ROLE = int(Qt.ItemDataRole.UserRole) + 5
     _image_size_cache: ClassVar[dict[str, QSize]] = {}
+    _scaled_pixmap_cache: ClassVar[
+        OrderedDict[tuple[str, int, int], QPixmap]
+    ] = OrderedDict()
+    SCALED_PIXMAP_CACHE_LIMIT = 4096
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._pending_scaled_keys: set[tuple[str, int, int]] = set()
 
     @classmethod
     def main_image_size(
@@ -505,12 +626,8 @@ class ProductImageDelegate(ProductCellDelegate):
         if cached is not None:
             return QSize(cached)
 
-        cached_pixmap = QPixmap()
-        if QPixmapCache.find(f"fcm-product-image:{resolved}", cached_pixmap):
-            source_size = cached_pixmap.size()
-        else:
-            # Read image metadata only; row sizing should not decode all catalog images.
-            source_size = QImageReader(resolved).size()
+        # Read metadata only; row sizing must not decode full catalog images.
+        source_size = QImageReader(resolved).size()
         if source_size.width() <= 0 or source_size.height() <= 0:
             return QSize(display_width, display_width)
 
@@ -701,17 +818,17 @@ class ProductImageDelegate(ProductCellDelegate):
     ) -> QRect:
         if rect.width() <= 0 or rect.height() <= 0 or not image_path:
             return QRect()
-        pixmap = self._load_pixmap(str(resolve_data_path(image_path)))
-        if pixmap.isNull():
-            return QRect()
-        image_rect = self.fitted_image_rect(pixmap.size(), rect)
+        resolved_path = str(resolve_data_path(image_path))
+        source_size = self.main_image_size(resolved_path)
+        image_rect = self.fitted_image_rect(source_size, rect)
         if image_rect.isEmpty():
             return QRect()
-        scaled = pixmap.scaled(
+        scaled = self._load_scaled_pixmap(
+            resolved_path,
             image_rect.size(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
         )
+        if scaled.isNull():
+            return QRect()
         image_rect = QRect(
             rect.left() + (rect.width() - scaled.width()) // 2,
             rect.top() + (rect.height() - scaled.height()) // 2,
@@ -733,17 +850,7 @@ class ProductImageDelegate(ProductCellDelegate):
         content_rect = cls.cell_content_rect(rect)
         preview_width = cls.MAIN_IMAGE_WIDTH
         resolved = str(resolve_data_path(image_path)) if image_path else ""
-        pixmap = cls._load_pixmap(resolved) if resolved else QPixmap()
-        if pixmap.isNull() or pixmap.width() <= 0:
-            preview_size = QSize(preview_width, preview_width)
-        else:
-            preview_size = QSize(
-                preview_width,
-                max(
-                    round(pixmap.height() * preview_width / pixmap.width()),
-                    1,
-                ),
-            )
+        preview_size = cls.main_image_size(resolved, preview_width)
         group_height = preview_size.height()
         if has_thumbnails:
             group_height += cls.THUMBNAIL_GAP + cls.THUMBNAIL_STRIP_HEIGHT
@@ -802,13 +909,11 @@ class ProductImageDelegate(ProductCellDelegate):
             painter.fillRect(tile_rect, QColor("#ffffff"))
             inner = tile_rect
             if path and inner.width() > 0 and inner.height() > 0:
-                thumb = self._load_pixmap(str(resolve_data_path(path)))
+                thumb = self._load_scaled_pixmap(
+                    str(resolve_data_path(path)),
+                    inner.size(),
+                )
                 if not thumb.isNull():
-                    thumb = thumb.scaled(
-                        inner.size(),
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation,
-                    )
                     thumb_x = inner.left() + (inner.width() - thumb.width()) // 2
                     thumb_y = inner.top() + (inner.height() - thumb.height()) // 2
                     painter.drawPixmap(thumb_x, thumb_y, thumb)
@@ -866,17 +971,40 @@ class ProductImageDelegate(ProductCellDelegate):
             painter.drawRect(option.rect.adjusted(0, 0, -1, -1))
             painter.restore()
 
-    @staticmethod
-    def _load_pixmap(image_path: str) -> QPixmap:
-        """Load images lazily and cache decoded pixmaps in Qt."""
-        cache_key = f"fcm-product-image:{image_path}"
-        pixmap = QPixmap()
-        if QPixmapCache.find(cache_key, pixmap):
-            return pixmap
-        pixmap.load(image_path)
-        if not pixmap.isNull():
-            QPixmapCache.insert(cache_key, pixmap)
-        return pixmap
+    def _load_scaled_pixmap(self, image_path: str, size: QSize) -> QPixmap:
+        """Return cached previews or decode them off the UI thread."""
+        if not image_path or size.width() <= 0 or size.height() <= 0:
+            return QPixmap()
+        key = (image_path, size.width(), size.height())
+        cached = self._scaled_pixmap_cache.get(key)
+        if cached is not None:
+            self._scaled_pixmap_cache.move_to_end(key)
+            return cached
+        if key not in self._pending_scaled_keys:
+            self._pending_scaled_keys.add(key)
+            task = _ScaledImageTask(image_path, size)
+            task.signals.ready.connect(self._scaled_pixmap_ready)
+            QThreadPool.globalInstance().start(task)
+        return QPixmap()
+
+    @Slot(str, int, int, QImage)
+    def _scaled_pixmap_ready(
+        self,
+        image_path: str,
+        width: int,
+        height: int,
+        image: QImage,
+    ) -> None:
+        key = (image_path, width, height)
+        self._pending_scaled_keys.discard(key)
+        if not image.isNull():
+            self._scaled_pixmap_cache[key] = QPixmap.fromImage(image)
+            self._scaled_pixmap_cache.move_to_end(key)
+            while len(self._scaled_pixmap_cache) > self.SCALED_PIXMAP_CACHE_LIMIT:
+                self._scaled_pixmap_cache.popitem(last=False)
+        parent = self.parent()
+        if isinstance(parent, QTableWidget):
+            parent.viewport().update()
 
     def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
         del option, index
@@ -1047,26 +1175,38 @@ class ProductDetailDelegate(ProductCellDelegate):
     """Renderiza texto histórico o el formato enriquecido conservado del origen."""
 
     DETAIL_HTML_ROLE = int(Qt.ItemDataRole.UserRole) + 51
+    SOURCE_BOLD_RANGES_ROLE = int(Qt.ItemDataRole.UserRole) + 52
     HORIZONTAL_PADDING = 8
     VERTICAL_PADDING = 8
     LINE_SPACING_REDUCTION = 1
     PARAGRAPH_SPACING_REDUCTION = 2
     GRIDLINE_ALLOWANCE = 1
-    # Bold labels at the start of a line or sentence. A colon inside a value
-    # such as "(área de impresión recomendada: ...)" is not another label.
-    # Numbered labels like "1. Estuche:" are also supported.
-    _BOLD_DETAIL_LABEL_PATTERN = re.compile(
-        r"(?:(?<=^)|(?<=[.!?]\s))(?:\s*\d+\.\s*)?([A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}):"
-    )
-
-
     @classmethod
     def _layout_text(
         cls,
         text: str,
         font: QFont,
         width: int,
+        source_bold_ranges: tuple[tuple[int, int], ...] = (),
     ) -> tuple[list[tuple[QTextLayout, float]], int]:
+        return cls._cached_layout_text(
+            text,
+            font.toString(),
+            width,
+            source_bold_ranges,
+        )
+
+    @classmethod
+    @lru_cache(maxsize=2048)
+    def _cached_layout_text(
+        cls,
+        text: str,
+        serialized_font: str,
+        width: int,
+        source_bold_ranges: tuple[tuple[int, int], ...],
+    ) -> tuple[list[tuple[QTextLayout, float]], int]:
+        font = QFont()
+        font.fromString(serialized_font)
         metrics = QFontMetricsF(font)
         line_height = max(
             metrics.height() - cls.LINE_SPACING_REDUCTION,
@@ -1075,29 +1215,21 @@ class ProductDetailDelegate(ProductCellDelegate):
         layouts: list[tuple[QTextLayout, float]] = []
         total_height = 0.0
         paragraphs = text.splitlines() or [text]
+        paragraph_start = 0
         for paragraph_index, paragraph in enumerate(paragraphs):
             layout = QTextLayout(paragraph, font)
             formats: list[QTextLayout.FormatRange] = []
-            for match in cls._BOLD_DETAIL_LABEL_PATTERN.finditer(paragraph):
-                prefix = paragraph[: match.start(1)]
-                parent = re.match(r"^\s*[^:\n]{1,80}:\s*", prefix)
-                if parent is not None and re.match(
-                    r"^\s*[^:\n]{1,80}:\s*",
-                    prefix[parent.end() :].lstrip(),
-                ):
-                    continue
-                # Do not invent bold field boundaries inside an explicitly
-                # slash-grouped source line.
-                if re.search(
-                    r"\s+/\s+[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:",
-                    paragraph,
-                ):
+            paragraph_end = paragraph_start + len(paragraph)
+            for source_start, source_end in source_bold_ranges:
+                start = max(source_start, paragraph_start)
+                end = min(source_end, paragraph_end)
+                if start >= end:
                     continue
                 char_format = QTextCharFormat()
                 char_format.setFontWeight(QFont.Weight.Bold)
                 format_range = QTextLayout.FormatRange()
-                format_range.start = match.start(1)
-                format_range.length = match.end() - match.start(1)
+                format_range.start = start - paragraph_start
+                format_range.length = end - start
                 format_range.format = char_format
                 formats.append(format_range)
             layout.setFormats(formats)
@@ -1129,6 +1261,7 @@ class ProductDetailDelegate(ProductCellDelegate):
                 else line_height
             )
             layouts.append((layout, total_height))
+            paragraph_start = paragraph_end + 1
             if paragraph_index < len(paragraphs) - 1:
                 total_height += max(
                     paragraph_height - cls.PARAGRAPH_SPACING_REDUCTION,
@@ -1139,19 +1272,42 @@ class ProductDetailDelegate(ProductCellDelegate):
         return layouts, round(total_height)
 
     @classmethod
-    def content_height(cls, text: str, font: QFont, width: int) -> int:
+    def content_height(
+        cls,
+        text: str,
+        font: QFont,
+        width: int,
+        source_bold_ranges: tuple[tuple[int, int], ...] = (),
+    ) -> int:
         if not text:
             return 0
-        _, height = cls._layout_text(text, font, width)
+        _, height = cls._layout_text(text, font, width, source_bold_ranges)
         return height
 
     @classmethod
-    def _document_for_html(
+    def _source_bold_ranges(cls, index) -> tuple[tuple[int, int], ...]:
+        value = index.data(cls.SOURCE_BOLD_RANGES_ROLE)
+        if not isinstance(value, (list, tuple)):
+            return ()
+        ranges = []
+        for item in value:
+            if not isinstance(item, (list, tuple)) or len(item) != 2:
+                continue
+            start, end = item
+            if isinstance(start, int) and isinstance(end, int) and 0 <= start < end:
+                ranges.append((start, end))
+        return tuple(ranges)
+
+    @classmethod
+    @lru_cache(maxsize=2048)
+    def _cached_document_for_html(
         cls,
         markup: str,
-        font: QFont,
+        serialized_font: str,
         width: int,
     ) -> QTextDocument:
+        font = QFont()
+        font.fromString(serialized_font)
         document = QTextDocument()
         document.setDefaultFont(font)
         document.setDocumentMargin(0)
@@ -1184,6 +1340,19 @@ class ProductDetailDelegate(ProductCellDelegate):
 
         document.setTextWidth(max(width, 1))
         return document
+
+    @classmethod
+    def _document_for_html(
+        cls,
+        markup: str,
+        font: QFont,
+        width: int,
+    ) -> QTextDocument:
+        return cls._cached_document_for_html(
+            markup,
+            font.toString(),
+            width,
+        )
 
     @classmethod
     def rich_content_height(cls, markup: str, font: QFont, width: int) -> int:
@@ -1246,6 +1415,7 @@ class ProductDetailDelegate(ProductCellDelegate):
             text,
             styled_option.font,
             text_width,
+            self._source_bold_ranges(index),
         )
         vertical_text_offset = self._vertical_text_offset(
             styled_option.rect.height(),
@@ -1284,7 +1454,12 @@ class ProductDetailDelegate(ProductCellDelegate):
                 - self.LINE_SPACING_REDUCTION
             ) * line_count
         else:
-            height = self.content_height(text, option.font, width)
+            height = self.content_height(
+                text,
+                option.font,
+                width,
+                self._source_bold_ranges(index),
+            )
         base = super().sizeHint(option, index)
         return QSize(
             base.width(),
@@ -1343,73 +1518,7 @@ class ProductTable(QTableWidget):
     PRICE_HUNDRED_COLUMN = 7
     PRICE_THOUSAND_COLUMN = 8
 
-    STOCK_COLOR_STYLES: ClassVar[dict[str, tuple[str, str]]] = {
-        "amarillo": ("#fff7d6", "#f2c94c"),
-        "amarillo fluorescente": ("#f5ffd1", "#efff00"),
-        "amarillo flurecente": ("#f5ffd1", "#efff00"),
-        "amarillo neon": ("#f5ffd1", "#efff00"),
-        "amarillo neón": ("#f5ffd1", "#efff00"),
-        "azul": ("#e7f1ff", "#2f80ed"),
-        "azul claro": ("#e3f1ff", "#6eb6ff"),
-        "azul marino": ("#e1e8f7", "#123b6d"),
-        "azul oscuro": ("#dfe7ff", "#1d3f91"),
-        "azulino": ("#e3ebff", "#4f64d8"),
-        "azulino full": ("#e0e6ff", "#3046ff"),
-        "azul full": ("#e0e6ff", "#0057ff"),
-        "azul rey": ("#e1eaff", "#1747e5"),
-        "azul electrico": ("#e0f0ff", "#0077ff"),
-        "azul eléctrico": ("#e0f0ff", "#0077ff"),
-        "azul petroleo": ("#e0f2f3", "#006b73"),
-        "azul petróleo": ("#e0f2f3", "#006b73"),
-        "bamboo": ("#f3ead6", "#c8aa6e"),
-        "black": ("#ececec", "#1a1a1a"),
-        "blanco": ("#f6f8fa", "#ffffff"),
-        "brillante": ("#eef4fa", "#c8d2dc"),
-        "celeste": ("#e7f7ff", "#43a5e8"),
-        "champagne": ("#fff3df", "#e7cfa1"),
-        "crema": ("#fff9e8", "#f4e7c3"),
-        "cyan": ("#ddfbff", "#00a9c7"),
-        "dorado": ("#fff4cc", "#d4af37"),
-        "fucsia": ("#ffe1f1", "#ff1493"),
-        "fuchsia": ("#ffe1f1", "#ff1493"),
-        "gris": ("#f0f3f6", "#8d98a5"),
-        "gris gun": ("#e9edf1", "#606a75"),
-        "gun": ("#e9edf1", "#606a75"),
-        "kraft": ("#f2e5d5", "#b9895e"),
-        "lila": ("#f0e7ff", "#c8a2c8"),
-        "lila pastel": ("#f3edff", "#bfa7db"),
-        "magenta": ("#ffe0f5", "#d600a9"),
-        "manila": ("#fff4d0", "#e3c66b"),
-        "marron": ("#f3e8dd", "#795548"),
-        "marrón": ("#f3e8dd", "#795548"),
-        "mate": ("#e8eaed", "#6b7280"),
-        "morado": ("#f1e9ff", "#9b51e0"),
-        "naranja": ("#fff0df", "#f2994a"),
-        "naranja full": ("#ffe9d2", "#ff7a00"),
-        "natural": ("#f3eadc", "#cdb892"),
-        "negro": ("#edf0f3", "#343a40"),
-        "negro full": ("#e6e7e9", "#111111"),
-        "pavonado": ("#e4e8ec", "#56616d"),
-        "plateado": ("#f1f3f5", "#a7afb8"),
-        "plata": ("#f1f3f5", "#a7afb8"),
-        "silver": ("#f1f3f5", "#a7afb8"),
-        "rojo": ("#ffe8e8", "#eb5757"),
-        "rojo full": ("#ffdddd", "#ff1f1f"),
-        "rosado": ("#ffeaf4", "#e66aa8"),
-        "verde": ("#e7f6ea", "#4caf50"),
-        "verde claro": ("#eaf8e9", "#5cbd69"),
-        "verde oscuro": ("#e6f4ee", "#2f9e72"),
-        "verde oscuro full": ("#dff2e7", "#006b3c"),
-        "verde botella": ("#e1f0e7", "#176b45"),
-        "verde militar": ("#e9f0dc", "#66743a"),
-        "verde agua": ("#def8f3", "#4bbfae"),
-        "menta": ("#e0f8ed", "#4fba8a"),
-        "verde limon": ("#efffd9", "#a8d500"),
-        "verde limón": ("#efffd9", "#a8d500"),
-        "verde petroleo": ("#e0f2ee", "#006b5f"),
-        "verde petróleo": ("#e0f2ee", "#006b5f"),
-        "yellow": ("#fff5b8", "#f2d21b"),
-    }
+    STOCK_COLOR_STYLES: ClassVar[dict[str, tuple[str, str]]] = _STOCK_COLOR_STYLES
     MIN_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
         IMAGE_COLUMN: ProductImageDelegate.DEFAULT_SIZE,
         CODE_COLUMN: 72,
@@ -1542,6 +1651,10 @@ class ProductTable(QTableWidget):
 
     def _setup_header(self) -> None:
         self.setItemDelegate(ProductCellDelegate(self))
+        self.setItemDelegateForColumn(
+            self.CODE_COLUMN,
+            ProductCodeDelegate(self),
+        )
         header = ProductHeader(self)
         self.setHorizontalHeader(header)
         self.setItemDelegateForColumn(
@@ -2018,26 +2131,29 @@ class ProductTable(QTableWidget):
         self.setItem(row, self.CODE_COLUMN, item_code)
         self._set_text_item(row, self.NAME_COLUMN, product.name)
         rich_html = str(product.description_html or "").strip()
-        if rich_html and has_redundant_product_color_detail(product.description):
+        source_html_is_valid = bool(
+            rich_html
+            and detail_html_matches_text(rich_html, product.description)
+        )
+        if not source_html_is_valid:
             rich_html = ""
-        if rich_html and not detail_html_matches_text(rich_html, product.description):
-            rich_html = ""
-        # Prefer source HTML as the visual authority: Qt then reproduces source
-        # paragraphs, list markers, alignment and emphasis without re-inferring them.
-        # The text formatter remains only for legacy rows without matching HTML.
+        # Keep table details in the established plain-text style. Rendering the
+        # stored HTML directly adds browser list markers and indentation that
+        # were not present in the catalog's previous table presentation.
         detail = (
-            str(product.description or "")
-            if rich_html
-            else self._format_detail(product)
+            self._format_detail(product)
+            if not rich_html or has_redundant_product_color_detail(product.description)
+            else str(product.description or "")
         )
         self._set_text_item(row, self.DETAIL_COLUMN, detail)
         detail_item = self.item(row, self.DETAIL_COLUMN)
         if detail_item is not None:
-            if rich_html:
-                detail_item.setData(
-                    ProductDetailDelegate.DETAIL_HTML_ROLE,
-                    rich_html,
-                )
+            detail_item.setData(
+                ProductDetailDelegate.SOURCE_BOLD_RANGES_ROLE,
+                detail_html_bold_ranges(rich_html, detail)
+                if rich_html and source_html_is_valid
+                else [],
+            )
             detail_item.setTextAlignment(
                 Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
             )
@@ -2380,6 +2496,12 @@ class ProductTable(QTableWidget):
                 continue
             gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
             if not isinstance(gallery, list) or not gallery:
+                continue
+            active_index = ProductImageDelegate._active_index(
+                gallery,
+                item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE),
+            )
+            if active_index == 0:
                 continue
             item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, 0)
             item.setData(ProductImageDelegate.THUMBNAIL_START_ROLE, 0)
@@ -2881,7 +3003,9 @@ class ProductTable(QTableWidget):
     def _stock_color_style(cls, color: str) -> tuple[str, str]:
         """Devuelve fondo e indicador para el color comercial recibido."""
         normalized = " ".join(color.strip().casefold().split())
-        style = cls.STOCK_COLOR_STYLES.get(normalized)
+        style = known_stock_color_style(normalized)
+        if style is None:
+            style = cls.STOCK_COLOR_STYLES.get(normalized)
         if style is not None:
             return style
 
@@ -2933,6 +3057,18 @@ class ProductTable(QTableWidget):
         """Fit the row to its tallest cell content without extra vertical gaps."""
 
         content_height = 0
+        code_item = self.item(row, self.CODE_COLUMN)
+        if code_item is not None:
+            code_height = ProductCodeDelegate._wrapped_height(
+                code_item.text(),
+                self.font(),
+                max(
+                    self.columnWidth(self.CODE_COLUMN)
+                    - (2 * ProductCodeDelegate.HORIZONTAL_PADDING),
+                    1,
+                ),
+            ) + (2 * ProductCodeDelegate.VERTICAL_PADDING)
+            content_height = max(content_height, code_height)
         image_item = self.item(row, self.IMAGE_COLUMN)
         if image_item is not None:
             gallery = image_item.data(ProductImageDelegate.GALLERY_ROLE)
@@ -3001,6 +3137,9 @@ class ProductTable(QTableWidget):
                     detail_item.text(),
                     self.font(),
                     detail_width,
+                    ProductDetailDelegate._source_bold_ranges(
+                        self.model().index(row, self.DETAIL_COLUMN),
+                    ),
                 )
             )
             detail_height = (

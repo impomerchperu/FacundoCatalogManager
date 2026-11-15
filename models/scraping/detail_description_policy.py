@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from copy import copy
+from html import escape
 from itertools import pairwise
 
 from bs4 import BeautifulSoup
@@ -452,40 +453,27 @@ def _is_description_color_enumeration(
     text: str,
     match: re.Match[str],
 ) -> bool:
-    """Keep color prose within Description, not explicit product-color fields."""
+    """Keep descriptive color words; only explicit color labels are fields."""
     prefix = text[: match.start()]
-    if (
-        _DESCRIPTION_FIELD_PATTERN.search(prefix)
-        and re.search(r"\ben\s+\d+\s*$", prefix, re.IGNORECASE)
-    ):
+    in_description = _DESCRIPTION_FIELD_PATTERN.search(prefix) is not None
+    if in_description and re.search(r"\ben\s+\d+\s*$", prefix, re.IGNORECASE):
         return True
 
-    # Unlabelled color words inside Description are descriptive prose. An
-    # explicit "Color:"/"Colores:" label remains removable even in that field.
     explicit_label = re.search(r"[:|\-\ue001]\s*$", match.group(0)) is not None
     availability_label = (
         _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN.search(match.group(0))
         is not None
     )
-    if (
-        _DESCRIPTION_FIELD_PATTERN.search(prefix)
-        and not explicit_label
-        and not availability_label
-    ):
+    if in_description and not explicit_label and not availability_label:
         return True
     if explicit_label or availability_label:
         return False
-    preceding_labels = list(
-        _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.finditer(prefix)
-    )
-    return bool(
-        preceding_labels
-        and re.match(
-            r"descripci[oó]n(?:\s+comercial)?\s*:",
-            preceding_labels[-1].group(0),
-            re.IGNORECASE,
-        )
-    )
+
+    # An unpunctuated color phrase is a product-color field only when it begins
+    # a source segment. Words such as "color negro" inside another field value
+    # remain descriptive content.
+    segment = re.split(r"[.;|/\n" + re.escape(_DETAIL_BOUNDARY) + r"]", prefix)[-1]
+    return bool(segment.strip())
 
 
 def has_redundant_product_color_detail(value: object) -> bool:
@@ -1161,12 +1149,57 @@ def extract_detail_html_from_elements(elements, expected_text: object) -> str:
         for root in merged_roots
     ]
     if _detail_source_text_key(" ␞ ".join(raw_parts)) != expected_key:
-        return ""
+        # Canonical cleanup can change punctuation or omit an empty source
+        # field even though its remaining bold labels still match the saved
+        # Detail. Keep only those source-encoded bold spans and rebuild them
+        # around the canonical text so downstream validation stays exact.
+        source_markup = "".join(str(root) for root in merged_roots)
+        bold_ranges = detail_html_bold_ranges(source_markup, expected_text)
+        if not bold_ranges:
+            return ""
+        return _canonical_detail_html_with_bold_ranges(
+            str(expected_text),
+            bold_ranges,
+        )
     if not _detail_html_has_meaningful_formatting(merged_roots):
         return ""
     if all(root.name == "li" for root in merged_roots):
         return "<ul>" + "".join(str(root) for root in merged_roots) + "</ul>"
     return "".join(str(root) for root in merged_roots)
+
+
+def _canonical_detail_html_with_bold_ranges(
+    text: str,
+    ranges: list[tuple[int, int]],
+) -> str:
+    """Encode mapped source emphasis without changing canonical Detail text."""
+    normalized: list[tuple[int, int]] = []
+    for start, end in sorted(ranges):
+        if start < 0 or start >= end or end > len(text):
+            continue
+        if normalized and start <= normalized[-1][1]:
+            normalized[-1] = (normalized[-1][0], max(normalized[-1][1], end))
+        else:
+            normalized.append((start, end))
+
+    paragraphs: list[str] = []
+    paragraph_start = 0
+    for paragraph in text.splitlines() or [text]:
+        paragraph_end = paragraph_start + len(paragraph)
+        cursor = paragraph_start
+        pieces: list[str] = []
+        for start, end in normalized:
+            span_start = max(start, paragraph_start)
+            span_end = min(end, paragraph_end)
+            if span_start >= span_end:
+                continue
+            pieces.append(escape(text[cursor:span_start]))
+            pieces.append(f"<strong>{escape(text[span_start:span_end])}</strong>")
+            cursor = span_end
+        pieces.append(escape(text[cursor:paragraph_end]))
+        paragraphs.append("<p>" + "".join(pieces) + "</p>")
+        paragraph_start = paragraph_end + 1
+    return "".join(paragraphs)
 
 
 def detail_html_block_alignments(markup: object) -> list[str]:
@@ -1226,3 +1259,52 @@ def detail_html_matches_text(fragment: object, expected_text: object) -> bool:
         )
     )
     return actual_key == expected_key
+
+
+def detail_html_bold_ranges(
+    fragment: object,
+    expected_text: object,
+) -> list[tuple[int, int]]:
+    """Map only source-encoded bold spans onto the canonical plain text."""
+    markup = str(fragment or "").strip()
+    expected = str(expected_text or "")
+    if not markup or not expected:
+        return []
+
+    soup = BeautifulSoup(markup, "lxml")
+    ranges: list[tuple[int, int]] = []
+    search_from = 0
+    for tag in soup.find_all(True):
+        is_semantic_bold = tag.name in {"b", "strong"}
+        has_bold_style = False
+        for declaration in str(tag.get("style", "") or "").split(";"):
+            name, separator, value = declaration.partition(":")
+            if (
+                separator
+                and name.strip().casefold() == "font-weight"
+                and value.strip().casefold()
+                in {"bold", "bolder", "600", "700", "800", "900"}
+            ):
+                has_bold_style = True
+                break
+        if not is_semantic_bold and not has_bold_style:
+            continue
+
+        source_text = " ".join(tag.get_text("", strip=False).split())
+        parts = source_text.split()
+        if not parts:
+            continue
+        pattern = re.compile(r"\s+".join(re.escape(part) for part in parts), re.IGNORECASE)
+        match = pattern.search(expected, search_from) or pattern.search(expected)
+        if match is None:
+            continue
+        ranges.append((match.start(), match.end()))
+        search_from = match.end()
+
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(ranges):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged

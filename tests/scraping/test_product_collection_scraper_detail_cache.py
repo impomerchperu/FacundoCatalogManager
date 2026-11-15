@@ -610,7 +610,7 @@ def test_color_only_card_detail_does_not_fall_back_to_description_tab():
     assert result[0].description == ""
 
 
-def test_empty_identified_card_detail_stays_empty_when_page_has_detail():
+def test_empty_identified_card_detail_is_filled_from_matching_product_page():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(
         category_scraper,
@@ -674,7 +674,9 @@ def test_empty_identified_card_detail_stays_empty_when_page_has_detail():
     assert category_scraper.detail_requests == [
         "https://example.com/producto/producto-detalle-vacio/"
     ]
-    assert result[0].description == ""
+    assert result[0].description == (
+        "Material: PLÁSTICO. Dimensiones: 99 x 99 cm."
+    )
 
 
 def test_bare_colores_text_triggers_technical_detail_repair():

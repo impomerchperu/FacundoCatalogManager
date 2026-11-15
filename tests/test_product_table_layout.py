@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from gui.product_table import (
     PriceDelegate,
     ProductCellDelegate,
+    ProductCodeDelegate,
     ProductDetailDelegate,
     ProductImageDelegate,
     ProductNameCategoryDelegate,
@@ -25,6 +26,7 @@ from gui.product_table import (
     StockColorDelegate,
 )
 from models.product import Product
+from services.stock_color_palette import STOCK_COLOR_STYLES
 
 
 def _qapp():
@@ -813,6 +815,32 @@ def test_text_column_padding_width_is_funded_by_code_column():
     table.close()
 
 
+def test_long_product_code_wraps_within_the_code_cell():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1800, 700)
+    table.show()
+    table.load_products([
+        Product(
+            code="PM810KB-17OZ",
+            name="Producto",
+            category="Cocina",
+        ),
+    ])
+    QApplication.processEvents()
+
+    index = table.model().index(0, ProductTable.CODE_COLUMN)
+    option = QStyleOptionViewItem()
+    option.font = table.font()
+    option.rect = QRect(0, 0, 72, 120)
+    delegate = table.itemDelegateForColumn(ProductTable.CODE_COLUMN)
+    assert isinstance(delegate, ProductCodeDelegate)
+    hint = delegate.sizeHint(option, index)
+
+    assert hint.height() >= 2 * QFontMetrics(option.font).height()
+    table.close()
+
+
 def test_product_table_reduces_flexible_columns_for_narrow_available_width():
     _qapp()
     table = ProductTable(_Controller())
@@ -945,49 +973,49 @@ def test_product_table_stock_color_rows_keep_reduced_horizontal_inset():
     background, indicator = ProductTable._stock_color_style("Verde Oscuro")
 
     assert background == "#e6f4ee"
-    assert indicator == "#2f9e72"
+    assert indicator == "#007c0c"
 
 
 def test_product_table_stock_color_catalog_covers_all_site_variants():
     expected = {
-        "Amarillo": "#f2c94c",
+        "Amarillo": "#ffff00",
         "Amarillo Flurecente": "#efff00",
-        "Azul": "#2f80ed",
-        "Azul Claro": "#6eb6ff",
+        "Azul": "#1400f4",
+        "Azul Claro": "#1e73be",
         "Azul Marino": "#123b6d",
-        "Azul Oscuro": "#1d3f91",
+        "Azul Oscuro": "#1a2fad",
         "Azulino": "#4f64d8",
         "Azulino Full": "#3046ff",
-        "Bamboo": "#c8aa6e",
+        "Bamboo": "#ddc690",
         "Black": "#1a1a1a",
         "Blanco": "#ffffff",
-        "Brillante": "#c8d2dc",
-        "Celeste": "#43a5e8",
+        "Brillante": "#2d2d2d",
+        "Celeste": "#00bfff",
         "Champagne": "#e7cfa1",
-        "Crema": "#f4e7c3",
+        "Crema": "#ffe0ab",
         "Cyan": "#00a9c7",
-        "Dorado": "#d4af37",
-        "Fucsia": "#ff1493",
-        "Gris": "#8d98a5",
-        "Kraft": "#b9895e",
-        "Lila": "#c8a2c8",
+        "Dorado": "#efb810",
+        "Fucsia": "#ee038c",
+        "Gris": "#808080",
+        "Kraft": "#dd9933",
+        "Lila": "#ddb6e3",
         "Magenta": "#d600a9",
-        "Manila": "#e3c66b",
-        "Marron": "#795548",
-        "Mate": "#6b7280",
+        "Manila": "#ffb442",
+        "Marron": "#804000",
+        "Mate": "#0a0a0a",
         "Morado": "#9b51e0",
-        "Naranja": "#f2994a",
-        "Natural": "#cdb892",
-        "Negro": "#343a40",
+        "Naranja": "#ff4f14",
+        "Natural": "#ffecce",
+        "Negro": "#0a0a0a",
         "Negro Full": "#111111",
-        "Pavonado": "#56616d",
-        "Plateado": "#a7afb8",
+        "Pavonado": "#e3e4e5",
+        "Plateado": "#bebebe",
         "Rojo": "#eb5757",
         "Rojo Full": "#ff1f1f",
         "Rosado": "#e66aa8",
-        "Verde": "#4caf50",
-        "Verde Claro": "#5cbd69",
-        "Verde Oscuro": "#2f9e72",
+        "Verde": "#008000",
+        "Verde Claro": "#4bed4b",
+        "Verde Oscuro": "#007c0c",
         "Verde Oscuro Full": "#006b3c",
         "Verde Petroleo": "#006b5f",
         "Yellow": "#f2d21b",
@@ -1017,6 +1045,60 @@ def test_product_table_stock_color_variants_normalize_common_aliases():
             reference,
         )
         assert alias_indicator == reference_indicator
+
+
+def test_product_table_stock_color_catalog_covers_material_and_finish_names():
+    expected = {
+        "Transparente": "#e5e5e5",
+        "Acero inoxidable": "#dddddd",
+        "Trigo": "#ffecce",
+        "pavonado": "#e3e4e5",
+        "oro": "#efb810",
+        "satinado": "#ffffff",
+    }
+
+    for name, indicator in expected.items():
+        _background, actual = ProductTable._stock_color_style(name)
+        assert actual == indicator
+
+
+def test_stock_color_palette_matches_published_site_swatches():
+    published_indicators = {
+        "Amarillo": "#ffff00",
+        "Azul": "#1400f4",
+        "Azul Claro": "#1e73be",
+        "Blanco": "#ffffff",
+        "Manila": "#ffb442",
+        "Oro": "#efb810",
+        "Pavonado": "#e3e4e5",
+        "Plateado": "#bebebe",
+        "Satinado": "#ffffff",
+        "Transparente": "#e5e5e5",
+        "Trigo": "#ffecce",
+        "Verde Oscuro": "#007c0c",
+    }
+
+    for name, indicator in published_indicators.items():
+        key = name.casefold()
+        assert STOCK_COLOR_STYLES[key][1] == indicator
+        assert ProductTable._stock_color_style(name)[1] == indicator
+
+
+def test_product_table_uses_colors_learned_during_scraping(monkeypatch):
+    monkeypatch.setitem(
+        STOCK_COLOR_STYLES,
+        "runtime published color",
+        ("#f8fafc", "#123abc"),
+    )
+
+    assert ProductTable.STOCK_COLOR_STYLES["runtime published color"] == (
+        "#f8fafc",
+        "#123abc",
+    )
+    assert ProductTable._stock_color_style("Runtime Published Color") == (
+        "#f8fafc",
+        "#123abc",
+    )
 
 
 def test_product_table_stock_color_variants_keep_magenta_and_fucsia_distinct():
@@ -1374,6 +1456,41 @@ def test_detail_removes_fields_that_repeat_product_row_data():
     assert item.text() == "Potencia: 500W"
 
     table.close()
+
+
+def test_description_color_word_does_not_drop_encoded_bold_from_table():
+    product = Product(
+        code="MU-651",
+        name="USB modelo Leather 8 GB",
+        description=(
+            "Medidas: Largo: 11.5 cm, USB: 8.5 x 3.1 cm\n"
+            "Material: Cuero y Metal\n"
+            "Presentación: Individual, Estuche Individual, en caja metálica "
+            "con eva troquelada color negro"
+        ),
+        description_html=(
+            "<ul>"
+            "<li><strong>Medidas:</strong> Largo: 11.5 cm, USB: 8.5 x 3.1 cm</li>"
+            "<li><strong>Material:</strong> Cuero y Metal</li>"
+            "<li><strong>Presentación:</strong> Individual, Estuche Individual, "
+            "en caja metálica con eva troquelada color negro</li>"
+            "</ul>"
+        ),
+    )
+    table = ProductTable(_Controller())
+    table.load_products([product])
+
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert "color negro" in item.text()
+    ranges = ProductDetailDelegate._source_bold_ranges(
+        table.model().index(0, ProductTable.DETAIL_COLUMN),
+    )
+    assert [item.text()[start:end] for start, end in ranges] == [
+        "Medidas:",
+        "Material:",
+        "Presentación:",
+    ]
 
 
 def test_detail_table_preserves_summary_description_and_removes_only_color():
@@ -2175,6 +2292,26 @@ def test_changing_selected_row_resets_temporary_primary_images(tmp_path: Path):
     table.close()
 
 
+def test_normal_row_navigation_skips_unneeded_row_height_recalculation():
+    _qapp()
+    table = ProductTable(_Controller())
+    table.resize(1600, 700)
+    table.show()
+    table.load_products([
+        Product(code="FB-1904", name="Uno", description="Detalle"),
+        Product(code="FB-1905", name="Dos", description="Detalle"),
+    ])
+    QApplication.processEvents()
+    height_adjustments = []
+    table._set_row_height = lambda row: height_adjustments.append(row)
+
+    table.setCurrentCell(0, ProductTable.CODE_COLUMN)
+    table.setCurrentCell(1, ProductTable.CODE_COLUMN)
+
+    assert height_adjustments == []
+    table.close()
+
+
 def test_visible_columns_share_extra_width_when_the_table_grows():
     _qapp()
     table = ProductTable(_Controller())
@@ -2314,7 +2451,7 @@ def test_detail_format_preserves_fb1503_box_weights_on_source_line():
     ]
 
 
-def test_detail_bold_format_covers_only_mousepad_field_label():
+def test_detail_colon_labels_are_not_bold_without_source_markup():
     areas = ("31 x 21 cm", "21 x 21 cm", "20.5 x 24.5 cm", "21 x 21 cm")
     label = "Técnica de impresión:"
     for area in areas:
@@ -2327,11 +2464,7 @@ def test_detail_bold_format_covers_only_mousepad_field_label():
             _qapp().font(),
             600,
         )
-        formats = layouts[0][0].formats()
-        assert len(formats) == 1
-        assert formats[0].start == 0
-        assert formats[0].length == len(label)
-        assert paragraph[formats[0].start : formats[0].start + formats[0].length] == label
+        assert layouts[0][0].formats() == []
 
 
 def test_imp_cz01_detail_format_preserves_combined_usb_and_modes_label():
@@ -2361,27 +2494,9 @@ def test_imp_cz01_detail_format_preserves_combined_usb_and_modes_label():
 
     delegate = ProductDetailDelegate()
     font = _qapp().font()
-    bold_labels = {
-        "Rápida:": "Rápida: Desde 16.3s por impresión",
-        "USB 2.0 | Modos:": "USB 2.0 | Modos: Alta velocidad / calidad",
-        "Capacidad:": "Capacidad: Hasta 150 hojas por rollo",
-        "Acabado:": "Acabado: Brillante / Mate",
-        "Compacta:": "Compacta: 208x240x198mm | 5.8kg",
-    }
     for line in expected:
         layouts, _height = delegate._layout_text(line, font, 600)
-        formats = layouts[0][0].formats()
-        expected_label = next(
-            (label for label, value in bold_labels.items() if value == line),
-            None,
-        )
-        if expected_label is None:
-            assert formats == []
-            continue
-        assert len(formats) == 1
-        assert formats[0].start == 0
-        assert formats[0].length == len(expected_label)
-        assert line[: formats[0].length] == expected_label
+        assert layouts[0][0].formats() == []
 
     table = ProductTable(_Controller())
     table.resize(1700, 700)
@@ -2587,19 +2702,67 @@ def test_detail_formatter_preserves_fb1503_compound_labels_and_alignment():
     assert ProductTable._format_detail(product).splitlines() == expected
 
     delegate = ProductDetailDelegate()
-    for line, bold_label in (
+    for line, _bold_label in (
         (expected[0], "Dimensiones del producto:"),
         (expected[1], None),
         (expected[2], "Medidas de la caja máster:"),
     ):
         layouts, _height = delegate._layout_text(line, _qapp().font(), 600)
-        formats = layouts[0][0].formats()
-        if bold_label is None:
-            assert formats == []
-        else:
-            assert len(formats) == 1
-            assert formats[0].start == 0
-            assert formats[0].length == len(bold_label)
+        assert layouts[0][0].formats() == []
+
+
+def test_detail_parent_label_stays_bold_before_slash_grouped_measure_values():
+    line = "Medidas: Ancho: 20 cm. / Alto: 5 cm."
+    layouts, _height = ProductDetailDelegate._layout_text(
+        line,
+        _qapp().font(),
+        600,
+    )
+    assert layouts[0][0].formats() == []
+
+
+def test_fb5023_source_labels_are_bold_only_when_html_encodes_them():
+    lines = (
+        "Medidas: Ancho: 20 cm. / Alto: 5 cm.",
+        "Descripción: Regla de plástico de 20 cm. con calculadora a pilas.",
+        "Presentación: Individual, en caja de cartón blanco",
+    )
+    product = Product(
+        code="FB-5023",
+        name="Regla con calculadora",
+        description="\n".join(lines),
+        description_html=(
+            "<p><strong>Medidas:</strong> Ancho: 20 cm. / Alto: 5 cm.</p>"
+            "<p><strong>Descripción:</strong> Regla de plástico de 20 cm. "
+            "con calculadora a pilas.</p>"
+            "<p><strong>Presentación:</strong> Individual, en caja de "
+            "cartón blanco</p>"
+        ),
+    )
+    table = ProductTable(_Controller())
+    table.load_products([product])
+    item = table.item(0, ProductTable.DETAIL_COLUMN)
+    assert item is not None
+    assert item.text().splitlines() == list(lines)
+    ranges = ProductDetailDelegate._source_bold_ranges(
+        table.model().index(0, ProductTable.DETAIL_COLUMN),
+    )
+    assert [item.text()[start:end] for start, end in ranges] == [
+        "Medidas:",
+        "Descripción:",
+        "Presentación:",
+    ]
+    layouts, _height = ProductDetailDelegate._layout_text(
+        item.text(),
+        table.font(),
+        600,
+        ranges,
+    )
+    assert [
+        item.text().splitlines()[index][fmt.start : fmt.start + fmt.length]
+        for index, (layout, _top) in enumerate(layouts)
+        for fmt in layout.formats()
+    ] == ["Medidas:", "Descripción:", "Presentación:"]
 
 
 def test_fb1503_detail_cell_is_vertically_centered_and_row_height_fits():
@@ -2727,7 +2890,7 @@ def test_detail_table_preserves_fb1504_published_truncated_dimension_source_text
 
 
 
-def test_detail_delegate_bolds_labels_not_in_a_fixed_allowlist():
+def test_detail_delegate_does_not_infer_bold_from_colons():
     text = (
         "Medida y capacidad: 10 ml. "
         "Composición: Algodón. "
@@ -2735,17 +2898,12 @@ def test_detail_delegate_bolds_labels_not_in_a_fixed_allowlist():
         "Tamaño del paquete: 5 unidades."
     )
 
-    labels = [
-        match.group(0)
-        for match in ProductDetailDelegate._BOLD_DETAIL_LABEL_PATTERN.finditer(text)
-    ]
-
-    assert labels == [
-        "Medida y capacidad:",
-        "Composición:",
-        "Características especiales:",
-        "Tamaño del paquete:",
-    ]
+    layouts, _height = ProductDetailDelegate._layout_text(
+        text,
+        _qapp().font(),
+        600,
+    )
+    assert all(layout.formats() == [] for layout, _top in layouts)
 
 
 
@@ -3033,7 +3191,7 @@ def test_detail_column_resize_recalculates_row_height_for_wrapped_content():
     table.close()
 
 
-def test_detail_delegate_reproduces_source_paragraph_list_bold_and_alignment():
+def test_table_keeps_plain_style_and_html_layout_supports_source_alignment():
     _qapp()
     description = (
         "Descripción: Producto de escritorio con acabado mate.\n"
@@ -3066,11 +3224,10 @@ def test_detail_delegate_reproduces_source_paragraph_list_bold_and_alignment():
     item = table.item(0, ProductTable.DETAIL_COLUMN)
     assert item is not None
     assert item.text() == description
-    stored_html = item.data(ProductDetailDelegate.DETAIL_HTML_ROLE)
-    assert stored_html == description_html
+    assert item.data(ProductDetailDelegate.DETAIL_HTML_ROLE) in (None, "")
 
     document = ProductDetailDelegate._document_for_html(
-        stored_html,
+        description_html,
         table.font(),
         700,
     )
@@ -3088,6 +3245,48 @@ def test_detail_delegate_reproduces_source_paragraph_list_bold_and_alignment():
     assert presentation_cursor.blockFormat().alignment() == Qt.AlignmentFlag.AlignJustify
 
     table.close()
+
+
+def test_detail_delegate_reuses_cached_source_html_document_for_same_layout():
+    _qapp()
+    markup = (
+        '<ul><li><strong>Material:</strong> PVC multicapa de alta resistencia'
+        "</li><li><strong>Uso:</strong> Ideal para trabajos de precisión</li></ul>"
+    )
+    font = QApplication.font()
+
+    first = ProductDetailDelegate._document_for_html(markup, font, 260)
+    second = ProductDetailDelegate._document_for_html(markup, font, 260)
+    resized = ProductDetailDelegate._document_for_html(markup, font, 261)
+
+    assert first is second
+    assert resized is not first
+
+
+def test_detail_delegate_reuses_cached_text_layout_for_same_content_and_width():
+    _qapp()
+    text = "Material: PVC de alta resistencia\nUso: Manualidades y oficina"
+    font = QApplication.font()
+
+    first_layouts, first_height = ProductDetailDelegate._layout_text(
+        text,
+        font,
+        260,
+    )
+    second_layouts, second_height = ProductDetailDelegate._layout_text(
+        text,
+        font,
+        260,
+    )
+    resized_layouts, _resized_height = ProductDetailDelegate._layout_text(
+        text,
+        font,
+        261,
+    )
+
+    assert first_layouts is second_layouts
+    assert first_height == second_height
+    assert resized_layouts is not first_layouts
 
 
 def test_product_table_renders_authoritative_hl9400_html_with_embedded_contiene():
@@ -3127,29 +3326,8 @@ def test_product_table_renders_authoritative_hl9400_html_with_embedded_contiene(
     item = table.item(0, ProductTable.DETAIL_COLUMN)
     assert item is not None
     assert item.text().splitlines() == description.splitlines()
-    rendered_html = item.data(ProductDetailDelegate.DETAIL_HTML_ROLE)
-    assert rendered_html == description_html
-
-    document = ProductDetailDelegate._document_for_html(
-        rendered_html,
-        table.font(),
-        700,
-    )
-    rendered_text = document.toPlainText().replace("\u2022 ", "")
-    assert "Pote de plástico traslúcido que contiene:" in rendered_text
-    assert not any(
-        line.strip().casefold().startswith("contiene:")
-        for line in rendered_text.splitlines()
-    )
-    measure_cursor = document.find("Medidas:")
-    description_cursor = document.find("Descripción:")
-    assert measure_cursor.hasSelection()
-    assert description_cursor.hasSelection()
-    assert measure_cursor.charFormat().fontWeight() >= 700
-    assert description_cursor.charFormat().fontWeight() >= 700
-    assert "<strong>Medidas:" in rendered_html
-    assert "<b>Descripción:" in rendered_html
-    assert "<strong>Presentación del Producto:" in rendered_html
+    assert item.data(ProductDetailDelegate.DETAIL_HTML_ROLE) in (None, "")
+    assert "•" not in item.text()
 
     table.close()
 
@@ -3321,12 +3499,7 @@ def test_detail_table_keeps_fb3019_visible_product_fields_in_separate_paragraphs
             _qapp().font(),
             900,
         )
-        bold_text = [
-            line[item.start : item.start + item.length]
-            for item in layouts[0][0].formats()
-        ]
-        assert len(bold_text) == 1, (line, bold_text)
-        assert bold_text[0].endswith(":"), (line, bold_text)
+        assert layouts[0][0].formats() == [], line
 
 
 def test_detail_table_keeps_nested_measure_values_for_ty_p35aw_and_mu511():
@@ -3425,7 +3598,7 @@ def test_detail_table_keeps_nested_caja_and_paquete_inside_empaque_for_observed_
 
 
 
-def test_fb1504_table_uses_verified_rich_detail_without_rewriting_source_paragraphs():
+def test_fb1504_table_keeps_established_plain_detail_presentation():
     _qapp()
     description = (
         "Marca: Bright Office\n"
@@ -3456,31 +3629,8 @@ def test_fb1504_table_uses_verified_rich_detail_without_rewriting_source_paragra
     item = table.item(0, ProductTable.DETAIL_COLUMN)
     assert item is not None
     assert item.text() == description
-    assert item.data(ProductDetailDelegate.DETAIL_HTML_ROLE) == rich_html
-
-    width = max(
-        table.columnWidth(ProductTable.DETAIL_COLUMN)
-        - (2 * ProductDetailDelegate.HORIZONTAL_PADDING),
-        1,
-    )
-    document = ProductDetailDelegate._document_for_html(
-        rich_html,
-        table.font(),
-        width,
-    )
-    assert document.toPlainText().splitlines() == description.splitlines()
-    assert ProductDetailDelegate.rich_content_height(
-        rich_html,
-        table.font(),
-        width,
-    ) > 0
-    first_block = document.begin()
-    horizontal_mask = Qt.AlignmentFlag.AlignHorizontal_Mask
-    assert first_block.blockFormat().alignment() & horizontal_mask == Qt.AlignmentFlag.AlignLeft
-    second_block = first_block.next()
-    assert second_block.blockFormat().alignment() & horizontal_mask == Qt.AlignmentFlag.AlignHCenter
-    third_block = second_block.next()
-    assert third_block.blockFormat().alignment() & horizontal_mask == Qt.AlignmentFlag.AlignRight
+    assert item.data(ProductDetailDelegate.DETAIL_HTML_ROLE) in (None, "")
+    assert "•" not in item.text()
     table.close()
 
 

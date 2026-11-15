@@ -111,6 +111,13 @@ class ScrapingRunner:
             len(categories),
         )
         self._prepare_run(full_catalog)
+        begin_scraping_run = getattr(
+            self.scraping_service,
+            "begin_scraping_run",
+            None,
+        )
+        if callable(begin_scraping_run):
+            begin_scraping_run()
 
         try:
             return self._execute_categories(categories, progress_callback)
@@ -118,6 +125,30 @@ class ScrapingRunner:
             self._log_run_error(categories, error)
             raise
         finally:
+            finish_scraping_run = getattr(
+                self.scraping_service,
+                "finish_scraping_run",
+                None,
+            )
+            if callable(finish_scraping_run):
+                try:
+                    observed_value = finish_scraping_run()
+                    observed_colors = (
+                        observed_value if isinstance(observed_value, int) else 0
+                    )
+                except Exception as error:  # noqa: BLE001
+                    observed_colors = 0
+                    _log_timing(
+                        "SCRAPING TIMING | stage=color_palette_save_error "
+                        "| error_type=%s | error=%s",
+                        type(error).__name__,
+                        str(error),
+                    )
+                _log_timing(
+                    "SCRAPING TIMING | stage=color_palette_sync "
+                    "| observed_colors=%d",
+                    observed_colors,
+                )
             _log_timing(
                 "SCRAPING TIMING | stage=run_total | categories=%d "
                 "| seconds=%.3f",

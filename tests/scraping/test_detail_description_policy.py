@@ -704,4 +704,7 @@ def test_description_color_availability_is_not_a_variant_color_field():
     assert not has_redundant_product_color_detail(
         "Descripción: Disponible en varios colores."
     )
+    assert not has_redundant_product_color_detail(
+        "Presentación: Caja metálica con eva troquelada color negro."
+    )
     assert has_redundant_product_color_detail("Colores disponibles: Rojo, Azul.")

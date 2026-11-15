@@ -67,3 +67,15 @@ class CategoryProductScrapingService:
         close_scraper = getattr(self.scraper, "close", None)
         if callable(close_scraper):
             close_scraper()
+
+    def begin_scraping_run(self) -> None:
+        begin_run = getattr(self.scraper, "begin_scraping_run", None)
+        if callable(begin_run):
+            begin_run()
+
+    def finish_scraping_run(self) -> int:
+        finish_run = getattr(self.scraper, "finish_scraping_run", None)
+        if callable(finish_run):
+            count = finish_run()
+            return count if isinstance(count, int) else 0
+        return 0

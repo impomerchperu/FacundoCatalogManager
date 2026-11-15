@@ -1290,6 +1290,7 @@ def test_fb1504_preserves_all_authoritative_fields_and_published_truncation():
     scraped = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
 
     assert scraped.code == "FB-1504"
+    assert scraped.description_is_authoritative
     assert scraped.description.splitlines() == [
         "Marca: Bright Office",
         "Modelo: 230",
@@ -1353,3 +1354,38 @@ def test_product_extractor_preserves_authoritative_list_alignment_and_descriptio
         result.description_html,
         result.description,
     )
+
+
+def test_product_extractor_preserves_source_bold_labels_after_detail_cleanup():
+    from models.scraping.detail_description_policy import (
+        detail_html_bold_ranges,
+        detail_html_matches_text,
+    )
+
+    html = """
+    <html><body>
+      <p class="brxe-heading">TEST-BOLD-CLEANUP</p>
+      <div id="brxe-jhzpri"><ul>
+        <li><strong>Material:</strong> Metal..</li>
+        <li><strong>Dimensiones:</strong> 1 x 2 cm.</li>
+        <li><strong>Peso Unitario:</strong></li>
+        <li><strong>Uso Recomendado:</strong> Promocional.</li>
+      </ul></div>
+    </body></html>
+    """
+
+    result = ProductExtractor().extract(BeautifulSoup(html, "lxml"))
+
+    assert result.description.splitlines() == [
+        "Material: Metal.",
+        "Dimensiones: 1 x 2 cm.",
+        "Uso Recomendado: Promocional.",
+    ]
+    assert detail_html_matches_text(result.description_html, result.description)
+    ranges = detail_html_bold_ranges(result.description_html, result.description)
+    assert [result.description[start:end] for start, end in ranges] == [
+        "Material:",
+        "Dimensiones:",
+        "Uso Recomendado:",
+    ]
+    assert "Peso Unitario:" not in result.description_html

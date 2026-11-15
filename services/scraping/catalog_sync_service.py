@@ -9,6 +9,7 @@ from models.scraping.detail_description_policy import (
     detail_html_matches_text,
     has_technical_detail,
     is_complete_detail,
+    is_valid_detail_content,
     normalize_detail_text,
 )
 from models.scraping.sync_result import SyncResult
@@ -236,9 +237,22 @@ class CatalogSyncService:
                 self._normalize_code(product.code).casefold()
             )
             if existing is None:
-                description = getattr(product, "description", "")
-                if not self._description_is_complete(description):
+                description = normalize_detail_text(
+                    getattr(product, "description", ""),
+                    preserve_boundaries=True,
+                )
+                product.description = description
+                if not self._description_is_acceptable(
+                    description,
+                    authoritative=bool(
+                        getattr(product, "description_is_authoritative", False)
+                    ),
+                ):
                     product.description = ""
+                    product.description_html = ""
+                elif not detail_html_matches_text(
+                    getattr(product, "description_html", ""), description
+                ):
                     product.description_html = ""
                 self._image_state_repaired = (
                     self._normalize_product_image_state(product)
@@ -845,10 +859,18 @@ class CatalogSyncService:
         candidate_html = str(getattr(product, "description_html", "") or "")
         existing.description = current_description
         product.description = candidate_description
-        if cls._description_is_complete(candidate_description):
-            # A complete Detail from the current scrape can refresh an older
-            # complete value as well as repair an incomplete one.
+        if cls._description_is_acceptable(
+            candidate_description,
+            authoritative=bool(
+                getattr(product, "description_is_authoritative", False)
+            ),
+        ):
+            # Valid content from the selected source field can refresh an older
+            # value, including published prose without label/value fields.
             existing.description = candidate_description
+            existing.description_is_authoritative = bool(
+                getattr(product, "description_is_authoritative", False)
+            )
             existing.description_html = (
                 candidate_html
                 if detail_html_matches_text(candidate_html, candidate_description)
@@ -893,7 +915,14 @@ class CatalogSyncService:
                 setattr(existing, field, candidate)
 
     @classmethod
-    def _description_is_complete(cls, value: object) -> bool:
+    def _description_is_acceptable(
+        cls,
+        value: object,
+        *,
+        authoritative: bool = False,
+    ) -> bool:
+        if authoritative:
+            return is_valid_detail_content(value)
         return has_technical_detail(value) and is_complete_detail(value)
 
     @classmethod
@@ -910,7 +939,12 @@ class CatalogSyncService:
         incoming_html = str(getattr(product, "description_html", "") or "")
         current_html = str(getattr(existing, "description_html", "") or "")
 
-        if cls._description_is_complete(incoming):
+        if cls._description_is_acceptable(
+            incoming,
+            authoritative=bool(
+                getattr(product, "description_is_authoritative", False)
+            ),
+        ):
             product.description = incoming
             if not detail_html_matches_text(incoming_html, incoming):
                 product.description_html = (
@@ -918,7 +952,7 @@ class CatalogSyncService:
                     if detail_html_matches_text(current_html, incoming)
                     else ""
                 )
-        elif cls._description_is_complete(current):
+        elif cls._description_is_acceptable(current):
             # Do not replace useful stored Detail with a clipped or unrelated
             # section returned by the product page. Keep only its matching format.
             product.description = current

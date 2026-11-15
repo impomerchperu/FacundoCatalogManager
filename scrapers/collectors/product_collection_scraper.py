@@ -16,9 +16,9 @@ from models.scraping.detail_description_policy import (
     detail_html_matches_text,
     has_technical_detail,
     is_complete_detail,
+    is_valid_detail_content,
     normalize_detail_text,
 )
-from scrapers.extractors.category_product_extractor import CategoryProductExtractor
 from scrapers.extractors.code_utils import normalize_code
 from scrapers.extractors.price_extractor import PriceExtractor
 from scrapers.extractors.product_image_extractor import ProductImageExtractor
@@ -57,11 +57,13 @@ class ProductCollectionScraper:
         detail_extractor: Any = None,
         max_workers: int = SCRAPING_MAX_WORKERS,
         category_page_workers: int = SCRAPING_CATEGORY_PAGE_WORKERS,
+        color_palette_sync: Any = None,
     ):
         self.category_scraper = category_scraper
         self.card_extractor = card_extractor
         self.product_extractor = product_extractor
         self.detail_extractor = detail_extractor
+        self.color_palette_sync = color_palette_sync
         self.max_workers = max(1, max_workers)
         self.category_page_workers = max(1, int(category_page_workers))
         self._detail_cache: dict[str, Future[Any]] = {}
@@ -97,6 +99,18 @@ class ProductCollectionScraper:
             close_category_scraper()
 
         self._closed = True
+
+    def begin_scraping_run(self) -> None:
+        begin_run = getattr(self.color_palette_sync, "begin_run", None)
+        if callable(begin_run):
+            begin_run()
+
+    def finish_scraping_run(self) -> int:
+        finish_run = getattr(self.color_palette_sync, "finish_run", None)
+        if callable(finish_run):
+            count = finish_run()
+            return count if isinstance(count, int) else 0
+        return 0
 
     def scrape_category(self, category: Any) -> list[Any]:
         """Extrae todos los productos de una categoría."""
@@ -152,6 +166,13 @@ class ProductCollectionScraper:
                 if callable(parser)
                 else BeautifulSoup(html, "html.parser")
             )
+            observe_category_page = getattr(
+                self.color_palette_sync,
+                "observe_category_page",
+                None,
+            )
+            if callable(observe_category_page):
+                observe_category_page(soup)
             cards = self._extract_cards(soup)
             page_seen_before = len(seen)
             for card in cards:
@@ -477,35 +498,24 @@ class ProductCollectionScraper:
         return isinstance(href, str) and bool(href.strip())
 
     @classmethod
-    def _description_is_complete(cls, value: str) -> bool:
-        return has_technical_detail(value) and is_complete_detail(value)
+    def _description_is_complete(
+        cls,
+        value: str,
+        *,
+        authoritative: bool = False,
+    ) -> bool:
+        return (
+            authoritative and is_valid_detail_content(value)
+        ) or (has_technical_detail(value) and is_complete_detail(value))
 
     @classmethod
     def _description_needs_detail(cls, product: Any) -> bool:
         """Detecta fragmentos de texto, sin usar la longitud como criterio."""
         return not cls._description_is_complete(
-            str(getattr(product, "description", "") or "")
-        )
-
-    @classmethod
-    def _has_authoritative_empty_card_detail(cls, card: Any, product: Any) -> bool:
-        """Identify an empty card Detail so another page field cannot replace it."""
-        if str(getattr(product, "description", "") or "").strip():
-            return False
-        try:
-            # Match the card extractor's field identification. An empty wrapper
-            # is not authoritative when another visible block contains Detail.
-            if normalize_detail_text(
-                CategoryProductExtractor()._description(card),
-            ).strip():
-                return False
-            elements = card.select(".text-content")
-        except AttributeError:
-            return False
-        return any(
-            not CategoryProductExtractor._is_excluded_detail_block(element)
-            and not element.get_text(" ", strip=True)
-            for element in elements
+            str(getattr(product, "description", "") or ""),
+            authoritative=bool(
+                getattr(product, "description_is_authoritative", False)
+            ),
         )
 
     @classmethod
@@ -518,11 +528,6 @@ class ProductCollectionScraper:
         missing: list[str] = []
         for field in cls._REQUIRED_DETAIL_FIELDS:
             if field == "description":
-                if (
-                    card is not None
-                    and cls._has_authoritative_empty_card_detail(card, product)
-                ):
-                    continue
                 if cls._description_needs_detail(product):
                     missing.append(field)
             elif not str(getattr(product, field, "")).strip():
@@ -750,22 +755,27 @@ class ProductCollectionScraper:
             getattr(detailed_product, "description", ""),
             preserve_boundaries=True,
         )
-        card_detail_is_authoritatively_empty = (
-            self._has_authoritative_empty_card_detail(card, product)
-        )
         card_description_is_complete = self._description_is_complete(
-            card_description
+            card_description,
+            authoritative=bool(
+                getattr(product, "description_is_authoritative", False)
+            ),
         )
         detail_description_is_complete = self._description_is_complete(
-            detail_description
+            detail_description,
+            authoritative=bool(
+                getattr(detailed_product, "description_is_authoritative", False)
+            ),
         )
         if (
-            not card_detail_is_authoritatively_empty
-            and not card_description_is_complete
+            not card_description_is_complete
             and detail_description_is_complete
             and detail_identity_matches
         ):
             product.description = detail_description
+            product.description_is_authoritative = bool(
+                getattr(detailed_product, "description_is_authoritative", False)
+            )
             detail_html = str(
                 getattr(detailed_product, "description_html", "") or ""
             )
@@ -777,6 +787,9 @@ class ProductCollectionScraper:
             )
         else:
             product.description = card_description
+            product.description_is_authoritative = bool(
+                getattr(product, "description_is_authoritative", False)
+            )
 
         detail_image = str(
             getattr(detailed_product, "image_url", "") or ""

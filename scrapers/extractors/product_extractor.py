@@ -214,6 +214,7 @@ class ProductExtractor:
             category=category,
             description=description,
             description_html=description_html,
+            description_is_authoritative=detail_field_found,
             stock=stock,
             price=self.extract_price(soup),
             price_sample=self.price_extractor.extract_sample(soup),

@@ -43,6 +43,7 @@ class ScrapedProduct:
     image_last_modified: str = ""
     image_checked_at: str = ""
     description_html: str = ""
+    description_is_authoritative: bool = False
 
     def __setattr__(self, name, value):
         object.__setattr__(self, name, value)

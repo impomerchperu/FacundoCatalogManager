@@ -46,6 +46,7 @@ from services.scraping.scraped_product_persistence_service import (
 from services.scraping.scraping_config import ScrapingConfig
 from services.scraping.scraping_result_writer import ScrapingResultWriter
 from services.scraping.scraping_runner import ScrapingRunner
+from services.stock_color_palette import StockColorPaletteSyncService
 from tools.clean_unused_images import clean_unused_images
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -177,6 +178,9 @@ class ScrapingFactory:
             CategoryProductExtractor(),
             ProductExtractor(),
             max_workers=config.detail_workers,
+            color_palette_sync=StockColorPaletteSyncService(
+                DATA_DIR / "stock_color_palette.json",
+            ),
         )
         product_scraping_service = CategoryProductScrapingService(
             collection_scraper,

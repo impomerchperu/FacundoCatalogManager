@@ -35,6 +35,7 @@ class Product:
     image_last_modified: str = ""
     image_checked_at: str = ""
     description_html: str = ""
+    description_is_authoritative: bool = False
 
     @property
     def id(self) -> int | None:

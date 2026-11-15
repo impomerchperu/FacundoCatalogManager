@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import os
 import shutil
 import uuid
 from pathlib import Path
 
 from config.runtime_paths import resolve_data_path, to_data_relative_path
+from scrapers.images.atomic_publish import publish_file_without_overwrite
 from scrapers.images.image_hash import ImageHash
 from scrapers.images.image_paths import IMAGE_EXTENSIONS, IMAGE_PRODUCTS_DIR
 from scrapers.images.image_validation import (
@@ -176,7 +176,7 @@ def store_image_in_product_group(  # noqa: PLR0912
             try:
                 # Atomic, no-overwrite publication. This path is on the same
                 # volume as the temporary and is never replaced if it exists.
-                os.link(temporary, target)
+                publish_file_without_overwrite(temporary, target)
                 break
             except FileExistsError:
                 existing = _find_matching_image(

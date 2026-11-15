@@ -39,6 +39,26 @@ def test_scraping_runner_marks_directed_mode():
     assert service._scraping_mode == "directed"
 
 
+def test_scraping_runner_wraps_category_sync_with_palette_capture_hooks():
+    events = []
+
+    class FakeScrapingService:
+        def begin_scraping_run(self):
+            events.append("begin")
+
+        def sync_categories(self, categories, progress_callback=None):
+            events.append("scrape")
+            return []
+
+        def finish_scraping_run(self):
+            events.append("finish")
+            return 2
+
+    ScrapingRunner(FakeScrapingService()).run(["cat1"])
+
+    assert events == ["begin", "scrape", "finish"]
+
+
 def test_scraping_runner_marks_full_mode_for_run_all():
     class FakeScrapingService:
         def sync_categories(self, categories, progress_callback=None):

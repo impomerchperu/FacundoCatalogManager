@@ -21,7 +21,6 @@ class SharedProductCategoryScraper:
             return """
             <html>
                 <h1>Producto compartido</h1>
-                <p class="brxe-heading">FB-9999</p>
                 <div>Colores: Rojo</div>
             </html>
             """
@@ -611,7 +610,7 @@ def test_color_only_card_detail_does_not_fall_back_to_description_tab():
     assert result[0].description == ""
 
 
-def test_empty_identified_card_detail_stays_empty_when_page_has_detail():
+def test_empty_identified_card_detail_is_filled_from_matching_product_page():
     category_scraper = SharedProductCategoryScraper()
     scraper = ProductCollectionScraper(
         category_scraper,
@@ -675,7 +674,9 @@ def test_empty_identified_card_detail_stays_empty_when_page_has_detail():
     assert category_scraper.detail_requests == [
         "https://example.com/producto/producto-detalle-vacio/"
     ]
-    assert result[0].description == ""
+    assert result[0].description == (
+        "Material: PLÁSTICO. Dimensiones: 99 x 99 cm."
+    )
 
 
 def test_bare_colores_text_triggers_technical_detail_repair():
@@ -833,13 +834,18 @@ def test_fb4008_truncated_card_uses_full_woocommerce_short_description():
 
     assert len(result) == 1
     assert result[0].code == "FB-4008"
-    assert result[0].description == (
-        "Material: Poliuretano. Dimensiones: 75*63*48mm. "
-        "Peso Unitario: 23.5 G. Uso Recomendado: Antiestrés, Promocional. "
-        "Empaque Individual: Bolsa de polietileno. Cantidad Por Caja: 250 Pza. "
-        "Dimensiones Caja: 50*42*42cm. Cubicaje por Caja: 0.0882 m³/CBM. "
-        "Peso neto por caja: 5.5 Kg. Peso bruto por caja: 6.25 Kg."
-    )
+    assert result[0].description.splitlines() == [
+        "Material: Poliuretano.",
+        "Dimensiones: 75*63*48mm.",
+        "Peso Unitario: 23.5 G.",
+        "Uso Recomendado: Antiestrés, Promocional.",
+        "Empaque Individual: Bolsa de polietileno.",
+        "Cantidad Por Caja: 250 Pza.",
+        "Dimensiones Caja: 50*42*42cm.",
+        "Cubicaje por Caja: 0.0882 m³/CBM.",
+        "Peso neto por caja: 5.5 Kg.",
+        "Peso bruto por caja: 6.25 Kg.",
+    ]
     assert "Color: Blanco" not in result[0].description
     assert "Descripción comercial" not in result[0].description
     assert "Información adicional" not in result[0].description
@@ -933,3 +939,61 @@ def test_detail_failure_keeps_category_card_detail_as_the_source():
     assert result[0].description == (
         "Material: ABS. Peso neto por caja: 5.5 Kg. Peso bruto por..."
     )
+
+
+
+def test_detail_page_with_mismatched_sku_cannot_replace_card_detail_or_product_data():
+    category_scraper = SharedProductCategoryScraper()
+    scraper = ProductCollectionScraper(
+        category_scraper,
+        card_extractor=lambda soup: [soup.select_one("article")],
+        product_extractor=CategoryProductExtractor(),
+        detail_extractor=ProductExtractor(),
+    )
+    category_scraper.html_override = """
+    <html>
+        <article>
+            <a href="/producto/ficha-equivocada/">
+                <img src="https://example.com/card-image.jpg">
+                <h2 class="brxe-f31760">Producto de tarjeta</h2>
+            </a>
+            <p class="brxe-a26f34">FB-9001</p>
+            <div class="text-content">
+                Material: ABS. Peso neto por caja: 5.5 Kg. Peso bruto por...
+            </div>
+        </article>
+    </html>
+    """
+    category_scraper.detail_html_override = """
+    <html>
+        <h1>Otro producto</h1>
+        <p class="brxe-heading">FB-9002</p>
+        <div id="brxe-jhzpri">
+            <ul>
+                <li><strong>Material:</strong> Metal.</li>
+                <li><strong>Presentación:</strong> Caja.</li>
+            </ul>
+        </div>
+        <img class="woocommerce-product-gallery"
+             src="https://example.com/wrong-product-image.jpg">
+        <h3>Precio Muestra</h3><h4>S/ 99.00</h4>
+        Stock Disponible 999
+    </html>
+    """
+
+    result = scraper.scrape_category(
+        Category(name="Promocionales", url="https://example.com/promocionales/")
+    )
+
+    assert len(result) == 1
+    assert result[0].code == "FB-9001"
+    assert result[0].name == "Producto de tarjeta"
+    assert result[0].description == (
+        "Material: ABS. Peso neto por caja: 5.5 Kg. Peso bruto por..."
+    )
+    assert result[0].image_url == "https://example.com/card-image.jpg"
+    assert result[0].price == 0
+    assert result[0].stock == 0
+    assert scraper.get_detail_metrics()["detail_reason_counts"].get(
+        "skipped_code_mismatch"
+    ) == 1

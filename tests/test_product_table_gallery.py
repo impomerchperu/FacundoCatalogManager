@@ -1,9 +1,14 @@
 from pathlib import Path
 
+from PySide6.QtCore import QSize
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QApplication
 
-from gui.product_table import ProductImageDelegate, ProductTable
+from gui.product_table import (
+    ProductImageDelegate,
+    ProductTable,
+    _ScaledImageTask,
+)
 from models.product import Product
 
 
@@ -63,6 +68,47 @@ def test_product_table_gallery_preserves_multiple_images():
         "https://site.test/one.png",
         "https://site.test/two.png",
     ]
+
+
+def test_scaled_gallery_images_are_reused_for_the_same_size(tmp_path: Path):
+    _qapp()
+    image_path = str(tmp_path / "cached-product-image.png")
+    first_key = (image_path, 60, 50)
+    resized_key = (image_path, 80, 50)
+    image = QPixmap(1200, 900)
+    small = image.scaled(60, 50)
+    resized = image.scaled(80, 50)
+    ProductImageDelegate._scaled_pixmap_cache[first_key] = small
+    ProductImageDelegate._scaled_pixmap_cache[resized_key] = resized
+
+    delegate = ProductImageDelegate()
+    first = delegate._load_scaled_pixmap(image_path, QSize(60, 50))
+    second = delegate._load_scaled_pixmap(image_path, QSize(60, 50))
+    larger = delegate._load_scaled_pixmap(image_path, QSize(80, 50))
+
+    assert not first.isNull()
+    assert first.cacheKey() == second.cacheKey()
+    assert larger.cacheKey() != first.cacheKey()
+    ProductImageDelegate._scaled_pixmap_cache.pop(first_key, None)
+    ProductImageDelegate._scaled_pixmap_cache.pop(resized_key, None)
+
+
+def test_scaled_image_task_decodes_within_requested_size(tmp_path: Path):
+    _qapp()
+    image_path = tmp_path / "large-product-image.png"
+    image = QPixmap(1200, 900)
+    assert image.save(str(image_path))
+    results = []
+    task = _ScaledImageTask(str(image_path), QSize(60, 50))
+    task.signals.ready.connect(lambda *args: results.append(args))
+
+    task.run()
+
+    assert len(results) == 1
+    decoded = results[0][-1]
+    assert not decoded.isNull()
+    assert decoded.width() <= 60
+    assert decoded.height() <= 50
 
 
 def test_product_table_deduplicates_primary_referenced_by_legacy_gallery():

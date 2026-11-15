@@ -5,7 +5,6 @@ import copy
 import hashlib
 import json
 import logging
-import os
 import re
 import shutil
 import uuid
@@ -20,6 +19,7 @@ from config.runtime_paths import DATA_DIR, resolve_data_path, to_data_relative_p
 from models.product import Product
 from models.product_image_gallery import normalize_product_gallery
 from repositories.product_repository import ProductRepository
+from scrapers.images.atomic_publish import publish_file_without_overwrite
 from scrapers.images.image_downloader import ImageDownloader
 from scrapers.images.image_paths import (
     IMAGE_GALLERY_DIR,
@@ -2244,7 +2244,7 @@ class ImageReviewService:
 
             for _attempt in range(8):
                 try:
-                    os.link(temporary, destination)
+                    publish_file_without_overwrite(temporary, destination)
                 except FileExistsError:
                     if cls._image_matches(destination, image_hash, extension):
                         return destination
@@ -2380,7 +2380,7 @@ class ImageReviewService:
             raise ValueError("La imagen temporal no pasó la verificación.")
 
         try:
-            os.link(temporary, destination)
+            publish_file_without_overwrite(temporary, destination)
         except FileExistsError as error:
             raise RuntimeError("Ya existe el archivo temporal de revisión.") from error
         finally:

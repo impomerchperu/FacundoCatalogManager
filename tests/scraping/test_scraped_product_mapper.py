@@ -100,10 +100,12 @@ def test_scraped_product_mapper_preserves_authoritative_detail_html():
         name="Enmicadora Metálica A4",
         description="Marca: Bright Office",
         description_html=source_html,
+        description_is_authoritative=True,
     )
 
     product = ScrapedProductMapper().to_product(scraped)
 
     assert product.description == scraped.description
     assert product.description_html == source_html
+    assert product.description_is_authoritative
     assert product.content_hash == ProductHashService().generate(scraped)

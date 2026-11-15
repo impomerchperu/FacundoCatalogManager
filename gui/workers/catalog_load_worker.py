@@ -26,6 +26,7 @@ class CatalogLoadWorker(QObject):
             price=row["price"],
             category=row["category"],
             description=row["description"],
+            description_html=row["description_html"],
             price_sample=row["price_sample"],
             price_hundred=row["price_hundred"],
             price_thousand=row["price_thousand"],

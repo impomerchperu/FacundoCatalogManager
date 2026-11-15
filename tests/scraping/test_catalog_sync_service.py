@@ -54,6 +54,99 @@ def test_catalog_sync_creates_new_product():
     assert result.counts_are_consistent
 
 
+def test_catalog_sync_keeps_published_prose_from_selected_detail_source():
+    repository = InMemoryCatalogRepository()
+    incoming = Product("P001-PROSE", "Producto con descripción", 10)
+    incoming.description = (
+        "Compatible con equipos de oficina y hogar; ofrece una alternativa "
+        "práctica para organizar tus trabajos diarios."
+    )
+    incoming.description_is_authoritative = True
+    incoming.description_html = (
+        "<p><em>Compatible con equipos de oficina y hogar; ofrece una "
+        "alternativa práctica para organizar tus trabajos diarios.</em></p>"
+    )
+
+    result = CatalogSyncService(repository, ProductDiffService()).synchronize(
+        [incoming]
+    )
+
+    stored = repository.get("P001-PROSE")
+    assert result.created == 1
+    assert stored is not None
+    assert stored.description == incoming.description
+    assert stored.description_html == incoming.description_html
+
+
+def test_catalog_sync_replaces_old_detail_with_valid_published_prose():
+    repository = InMemoryCatalogRepository()
+    existing = Product("P002-PROSE", "Producto", 10)
+    existing.description = "Material: ABS. Medida: 10 cm."
+    repository.save(existing)
+
+    incoming = Product("P002-PROSE", "Producto", 10)
+    incoming.description = (
+        "Compatible con equipos de oficina y hogar; ofrece una alternativa "
+        "práctica para organizar tus trabajos diarios."
+    )
+    incoming.description_is_authoritative = True
+    incoming.description_html = (
+        "<p><em>Compatible con equipos de oficina y hogar; ofrece una "
+        "alternativa práctica para organizar tus trabajos diarios.</em></p>"
+    )
+
+    result = CatalogSyncService(repository, ProductDiffService()).synchronize(
+        [incoming]
+    )
+
+    stored = repository.get("P002-PROSE")
+    assert result.updated == 1
+    assert stored is not None
+    assert stored.description == incoming.description
+    assert stored.description_html == incoming.description_html
+
+
+def test_catalog_sync_persists_source_bold_when_only_markup_changes():
+    repository = InMemoryCatalogRepository()
+    existing = Product("P002-BOLD", "Producto", 10)
+    existing.description = "Material: Metal.\nMedidas: 10 cm."
+    repository.save(existing)
+
+    incoming = Product("P002-BOLD", "Producto", 10)
+    incoming.description = existing.description
+    incoming.description_is_authoritative = True
+    incoming.description_html = (
+        "<p><strong>Material:</strong> Metal.</p>"
+        "<p><strong>Medidas:</strong> 10 cm.</p>"
+    )
+
+    result = CatalogSyncService(repository, ProductDiffService()).synchronize(
+        [incoming]
+    )
+
+    stored = repository.get("P002-BOLD")
+    assert result.updated == 1
+    assert stored is not None
+    assert stored.description == existing.description
+    assert stored.description_html == incoming.description_html
+
+
+def test_catalog_sync_consolidation_keeps_authoritative_detail_provenance():
+    first = Product("P003-PROSE", "Producto", 10, category="Categoría A")
+    second = Product("P003-PROSE", "Producto", 10, category="Categoría B")
+    second.description = (
+        "Compatible con equipos de oficina y hogar; ofrece una alternativa "
+        "práctica para organizar tus trabajos diarios."
+    )
+    second.description_is_authoritative = True
+
+    consolidated = CatalogSyncService.consolidate_products([first, second])
+
+    assert len(consolidated) == 1
+    assert consolidated[0].description == second.description
+    assert consolidated[0].description_is_authoritative
+
+
 def test_catalog_sync_updates_product():
     repository = InMemoryCatalogRepository()
     repository.save(Product("P001", "Producto A", 10))

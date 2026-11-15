@@ -66,6 +66,18 @@ class CategoryProductSyncService:
         if callable(close_scraper_service):
             close_scraper_service()
 
+    def begin_scraping_run(self) -> None:
+        begin_run = getattr(self.scraper_service, "begin_scraping_run", None)
+        if callable(begin_run):
+            begin_run()
+
+    def finish_scraping_run(self) -> int:
+        finish_run = getattr(self.scraper_service, "finish_scraping_run", None)
+        if callable(finish_run):
+            count = finish_run()
+            return count if isinstance(count, int) else 0
+        return 0
+
     def reset_sync_result(self):
         self.last_sync_result = SyncResult()
 

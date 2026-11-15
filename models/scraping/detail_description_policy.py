@@ -8,10 +8,12 @@ Product-page tab panels are excluded by the extractor before this policy runs.
 from __future__ import annotations
 
 import re
+from copy import copy
+from html import escape
 from itertools import pairwise
 
 from bs4 import BeautifulSoup
-from bs4.element import Comment, NavigableString, Tag
+from bs4.element import Comment, NavigableString, PageElement, Tag
 
 _DETAIL_LITERAL_COLON_MARKER = "\uE001"
 _WHITESPACE_PATTERN = re.compile(r"\s+")
@@ -37,7 +39,7 @@ _COLOR_FIELD_PATTERN = re.compile(
     r"(?:de|del)\s+(?!producto\b)\w+|"
     r"de\s+la\s+\w+|exterior\b"
     r"))"
-    r"(?:\s*[:|\-]\s*|\s+(?=\S))",
+    r"(?:\s*[:|\-\ue001]\s*|\s+(?=\S))",
     re.IGNORECASE,
 )
 
@@ -49,22 +51,10 @@ _COLOR_FIELD_PREFIX_PATTERN = re.compile(
     r"(?:de|del)\s+(?!producto\b)\w+|"
     r"de\s+la\s+\w+|exterior\b"
     r"))"
-    r"(?:\s*[:|\-]\s*|\s+(?=\S))",
+    r"(?:\s*[:|\-\ue001]\s*|\s+(?=\S))",
     re.IGNORECASE,
 )
 
-_COLOR_AVAILABILITY_DESCRIPTION_PATTERN = re.compile(
-    r"(?:"
-    r"(?:(?:(?:el|este)\s+)?producto\s+)?"
-    r"(?:está\s+)?disponible\s+en\s+"
-    r"(?:(?:varios|varias|diferentes|distintos|"
-    r"distintas|múltiples|diversos|diversas)\s+)?"
-    r"color(?:es)?"
-    r"|(?:consultar|consulte)\s+(?:la\s+)?disponibilidad(?:\s+de\s+color(?:es)?)?"
-    r"|color(?:es)?\s+disponibles?"
-    r")",
-    re.IGNORECASE,
-)
 _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN = re.compile(
     r"(?:disponible\s+en\s+color(?:es)?|color(?:es)?\s+disponibles?)\s*$",
     re.IGNORECASE,
@@ -72,148 +62,29 @@ _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN = re.compile(
 _COLOR_SEPARATOR_PATTERN = re.compile(
     r"[.;|\r\n" + re.escape(_DETAIL_BOUNDARY) + r"]\s*"
 )
-_DETAIL_FIELD_LABEL_PATTERN = re.compile(
-    r"\b(?:"
-    r"medida y capacidad|"
-    r"medida de impresi[oó]n|"
-    r"medidas\s+del\s+producto|"
-    r"medidas\s+del\s+estuche|"
-    r"medidas\s+de\s+la\s+caja\s+m[aá]ster|"
-    r"medidas\s+(?:de\s+)?(?:estuche|mochila|cartera|cartuchera)|"
-    r"presentaci[oó]n\s+del\s+estuche|"
-    r"envase\s+largo|"
-    r"toalla\s+largo|"
-    r"tama[ñn]o\s+cinta|"
-    r"tipo\s+de\s+encuadernaci[oó]n|"
-    r"tipo\s+de\s+encuadernado|"
-    r"capacidad\s+de\s+encuadernaci[oó]n|"
-    r"capacidad\s+de\s+encuadernado|"
-    r"tipo\s+de\s+corte|"
-    r"capacidad\s+de\s+corte|"
-    r"tama[ñn]o\s+de\s+corte\s+m[aá]ximo|"
-    r"dimensiones\s+del\s+producto|"
-    r"peso\s+neto\s+aproximado|"
-    r"t[eé]cnica\s+de\s+aplicaci[oó]n|"
-    r"color(?:es)?\s+(?:de(?:\s+(?!producto\b)\w+){1,2}|"
-    r"del\s+(?!producto\b)\w+|exterior)|"
-    r"fecha|forma|"
-    r"[aá]rea\s+de\s+trabajo|"
-    r"empaque\s+por\s+caja|"
-    r"n[uú]mero\s+de\s+rodillos|"
-    r"velocidad\s+de\s+laminaci[oó]n|"
-    r"espesor\s+m[aá]ximo\s+de\s+laminaci[oó]n|"
-    r"rollos\s+por\s+caja|"
-    r"impresiones\s+por\s+rollo|"
-    r"v[aá]lido\s+para\s+impresoras|"
-    r"opciones\s+de\s+acabado|"
-    r"ancho\s+de\s+entrada|"
-    r"cortadora(?:\s+con\s+\d+\s+tipos?\s+de\s+corte)?|"
-    r"soporta|"
-    r"levantamiento\s+de\s+materiales|"
-    r"proyectos\s+de\s+manualidades|"
-    r"aplicaciones\s+de\s+vinilo|"
-    r"trabajo\s+en\s+scrapbooking|"
-    r"calidad\s+superior|"
-    r"calidad|"
-    r"acceso|"
-    r"conectividad|"
-    r"compatibilidad\s+confiable|"
-    r"procedencia\s+coreana|"
-    r"facilidad\s+de\s+uso|"
-    r"espesor\s+m[aá]ximo\s+del\s+material|"
-    r"[aá]rea\s+m[aá]xima\s+de\s+corte|"
-    r"[aá]rea\s+de\s+corte|"
-    r"ancho\s+de\s+corte|"
-    r"longitud\s+de\s+corte|"
-    r"fuerza\s+de\s+corte|"
-    r"velocidad\s+de\s+corte|"
-    r"sistema\s+de\s+motor|"
-    r"tipo\s+de\s+luz|"
-    r"interior|"
-    r"espacio\s+libre|"
-    r"interfaz|"
-    r"funciones\s+adicionales|"
-    r"rango\s+de\s+espesor(?:\s+polaseal)?|"
-    r"tiempo\s+de\s+calentamiento|"
-    r"consumo\s+de\s+energ[ií]a|"
-    r"dimensi[oó]n(?:es)?(?:\s+(?:de\s+)?caja)?|"
-    r"peso\s+bruto\s*/\s*caja|"
-    r"peso\s+neto\s*/\s*caja|"
-    r"peso\s+(?:unitario|neto|bruto)(?:\s+por(?:\s+caja)?)?|"
-    r"uso\s+ideal|"
-    r"uso(?:\s+recomendado)?|"
-    r"empaque\s+individual|"
-    r"cantidad\s+por\s+caja|"
-    r"cubicaje(?:\s+por\s+caja)?|"
-    r"presentaci[oó]n(?:\s+del\s+producto)?|"
-    r"gramaje|"
-    r"capacidad|"
-    r"(?:superficie|[aá]rea)\s+de\s+impresi[oó]n|"
-    r"t[eé]cnica\s+de\s+impresi[oó]n|"
-    r"materiales|"
-    r"material|"
-    r"medida(?:s)?|"
-    r"di[aá]metro|"
-    r"velocidad|"
-    r"voltaje\s+y\s+frecuencia|"
-    r"voltaje|"
-    r"potencia|"
-    r"funci[oó]n(?:es)?|"
-    r"temperatura|"
-    r"presi[oó]n|"
-    r"frecuencia|"
-    r"resoluci[oó]n|"
-    r"tama[ñn]o(?:\s+(?:de\s+)?impresi[oó]n)?(?:\s*\([^)]*\))?|"
-    r"ancho|largo|alto|altura|peso|"
-    r"modelo|tipo|formato|marca|"
-    r"compatibilidad|contenido|incluye|contiene|accesorios|empaque|"
-    r"paquete|caja|forro|"
-    r"alimentaci[oó]n|tiempo|espesor|acabado|"
-    r"aplicaci[oó]n|resistencia|"
-    r"unidades\s+por\s+caja|cantidad|unidad|"
-    r"caracter[ií]sticas|"
-    r"propiedades|"
-    r"micras"
-    r")\s*:",
-    re.IGNORECASE,
+_DETAIL_FIELD_BOUNDARY_PATTERN = re.compile(
+    r"(?:^|(?<=[.;|/\n\u241e]))[ \t]*[^:\r\n]{1,80}:[ \t]*"
 )
-TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_LABEL_PATTERN
-_DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = re.compile(
-    r"(?<!\w)descripci[oó]n(?:\s+comercial)?\s*:\s*|"
-    + _DETAIL_FIELD_LABEL_PATTERN.pattern,
-    re.IGNORECASE,
-)
+TECHNICAL_DETAIL_FIELD_PATTERN = _DETAIL_FIELD_BOUNDARY_PATTERN
+_DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN = _DETAIL_FIELD_BOUNDARY_PATTERN
 
 _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN = re.compile(
-    r"^\s*(?:" + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern + r")\s*$",
+    r"^\s*[^:\r\n]{1,80}:\s*$",
     re.IGNORECASE,
 )
 
-
 _TECHNICAL_DETAIL_PATTERN = re.compile(
-    _DETAIL_FIELD_LABEL_PATTERN.pattern + r"|\bcertificado\s+sgs\b",
+    _DETAIL_FIELD_BOUNDARY_PATTERN.pattern + r"|\bcertificado\s+sgs\b",
     re.IGNORECASE,
 )
 _NON_TECHNICAL_SECTION_PREFIX_PATTERN = re.compile(
-    r"^\s*(?:informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
+    r"^\s*(?:descripci[oó]n\s+comercial|informaci[oó]n adicional|reseñas?|valoraciones)\s*[:\-]",
     re.IGNORECASE,
 )
-# Detect visible ellipses and field labels cut off at the end of a card summary.
 _DESCRIPTION_TRUNCATION_PATTERN = re.compile(
     r"\.{3,}|…|"
-    r"(?<!\w)(?:"
-    r"peso\s+(?:br(?:u(?:t(?:o)?)?)?|net(?:o)?)(?:\s+por(?:\s+caj(?:a)?)?)?|"
-    r"dimens(?:i[oó]n(?:es)?)?(?:\s+(?:de\s+)?caj(?:a)?|\s+del?\s+producto)?|"
-    r"cantidad\s+por\s+caj(?:a)?|"
-    r"cubicaje(?:\s+por\s+caj(?:a)?)?|"
-    r"funci[oó]n(?:es)?(?:\s+adicionales?)?|"
-    r"rango\s+de\s+espesor(?:\s+polaseal)?|"
-    r"velocidad|tiempo\s+de\s+calentamiento|"
-    r"consumo\s+de\s+energ[ií]a|voltaje|"
-    r"material|medidas?|peso\s+unitario|"
-    r"uso\s+recomendado|empaque\s+individual"
-    r")\s*:?\s*$",
-    re.IGNORECASE,
+    r"(?:^|[.;]\s*)[A-ZÁÉÍÓÚÜÑ][^:\d\r\n]{0,24}"
+    r"(?:\s+[a-záéíóúñ]{1,5}){0,3}\s*$"
 )
 
 
@@ -485,7 +356,7 @@ def _remove_marked_fields(
         prefix_has_boundary = raw_prefix.rstrip(" \t").endswith(
             ("\n", _DETAIL_BOUNDARY)
         )
-        explicit_label = re.search(r"[:|\-]\s*$", match.group(0)) is not None
+        explicit_label = re.search(r"[:|\-\ue001]\s*$", match.group(0)) is not None
         availability_label = (
             _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN.search(match.group(0))
             is not None
@@ -562,7 +433,7 @@ def strip_leading_color_field(value: object) -> str:
 
     value_start = prefix.end()
     separator = _COLOR_SEPARATOR_PATTERN.search(text, value_start)
-    next_detail_field = _DETAIL_FIELD_LABEL_PATTERN.search(text, value_start)
+    next_detail_field = _DETAIL_FIELD_BOUNDARY_PATTERN.search(text, value_start)
 
     if next_detail_field is not None:
         if separator is None:
@@ -578,115 +449,44 @@ def strip_leading_color_field(value: object) -> str:
     return ""
 
 
-def _remove_color_availability_sentences_from_descriptions(
-    text: str,
-    *,
-    preserve_boundaries: bool,
-) -> str:
-    """Remove only generic color-availability sentences inside Description fields."""
-    description_matches = list(_DESCRIPTION_FIELD_PATTERN.finditer(text))
-    for match in reversed(description_matches):
-        next_field = _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.search(
-            text,
-            match.end(),
-        )
-        end = next_field.start() if next_field is not None else len(text)
-        value = text[match.end():end]
-        sentences = re.split(r"(?<=[.!?])\s+", value.strip())
-        nonempty_sentences = [sentence for sentence in sentences if sentence.strip()]
-        kept_sentences = [
-            sentence.strip()
-            for sentence in nonempty_sentences
-            if not _COLOR_AVAILABILITY_DESCRIPTION_PATTERN.fullmatch(
-                sentence.strip(" \t\r\n.,;:")
-            )
-        ]
-        if len(kept_sentences) == len(nonempty_sentences):
-            continue
-
-        suffix = text[end:]
-        removed_region = text[match.start():end]
-        has_source_boundary = (
-            "\n" in removed_region or _DETAIL_BOUNDARY in removed_region
-        )
-        if kept_sentences:
-            separator = (
-                "\n" if preserve_boundaries and has_source_boundary else " "
-            )
-            text = (
-                text[:match.end()]
-                + " "
-                + " ".join(kept_sentences)
-                + (separator if suffix else "")
-                + suffix
-            )
-        else:
-            prefix = text[:match.start()].rstrip(" \t.;" + _DETAIL_BOUNDARY)
-            suffix = suffix.lstrip(" \t.;" + _DETAIL_BOUNDARY)
-            if prefix and suffix:
-                separator = (
-                    "\n" if preserve_boundaries and has_source_boundary else " "
-                )
-                text = prefix + separator + suffix
-            else:
-                text = prefix or suffix
-    return text
-
-
 def _is_description_color_enumeration(
     text: str,
     match: re.Match[str],
 ) -> bool:
-    """Keep color prose within Description, not explicit product-color fields."""
+    """Keep descriptive color words; only explicit color labels are fields."""
     prefix = text[: match.start()]
-    if (
-        _DESCRIPTION_FIELD_PATTERN.search(prefix)
-        and re.search(r"\ben\s+\d+\s*$", prefix, re.IGNORECASE)
-    ):
+    in_description = _DESCRIPTION_FIELD_PATTERN.search(prefix) is not None
+    if in_description and re.search(r"\ben\s+\d+\s*$", prefix, re.IGNORECASE):
         return True
 
-    # Unlabelled color words inside Description are descriptive prose. An
-    # explicit "Color:"/"Colores:" label remains removable even in that field.
-    explicit_label = re.search(r"[:|\-]\s*$", match.group(0)) is not None
+    explicit_label = re.search(r"[:|\-\ue001]\s*$", match.group(0)) is not None
     availability_label = (
         _COLOR_AVAILABILITY_FIELD_PREFIX_PATTERN.search(match.group(0))
         is not None
     )
+    if in_description and not explicit_label and not availability_label:
+        return True
     if explicit_label or availability_label:
         return False
-    preceding_labels = list(
-        _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.finditer(prefix)
-    )
-    return bool(
-        preceding_labels
-        and re.match(
-            r"descripci[oó]n(?:\s+comercial)?\s*:",
-            preceding_labels[-1].group(0),
-            re.IGNORECASE,
-        )
-    )
+
+    # An unpunctuated color phrase is a product-color field only when it begins
+    # a source segment. Words such as "color negro" inside another field value
+    # remain descriptive content.
+    segment = re.split(r"[.;|/\n" + re.escape(_DETAIL_BOUNDARY) + r"]", prefix)[-1]
+    return bool(segment.strip())
 
 
 def has_redundant_product_color_detail(value: object) -> bool:
-    """Whether source Detail includes product-variant color data removed by policy."""
-    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
-    for match in _COLOR_FIELD_PATTERN.finditer(text):
-        if not _is_description_color_enumeration(text, match):
-            return True
+    """Whether Detail contains an explicit product-variant color field.
 
-    for match in _DESCRIPTION_FIELD_PATTERN.finditer(text):
-        next_field = _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.search(
-            text,
-            match.end(),
-        )
-        end = next_field.start() if next_field is not None else len(text)
-        value_text = text[match.end():end]
-        for sentence in re.split(r"(?<=[.!?])\s+", value_text.strip()):
-            if _COLOR_AVAILABILITY_DESCRIPTION_PATTERN.fullmatch(
-                sentence.strip(" \t\r\n.,;:")
-            ):
-                return True
-    return False
+    Color language inside a product Description is descriptive content, not a
+    variant selector. Only standalone generic color fields are excluded.
+    """
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    return any(
+        not _is_description_color_enumeration(text, match)
+        for match in _COLOR_FIELD_PATTERN.finditer(text)
+    )
 
 
 def normalize_detail_text(
@@ -730,22 +530,18 @@ def normalize_detail_text(
         allow_embedded_label=True,
         preserve_boundaries=preserve_boundaries,
     )
-    text = _remove_color_availability_sentences_from_descriptions(
-        text,
-        preserve_boundaries=preserve_boundaries,
-    )
     text = text.replace(_DETAIL_BOUNDARY, "\n" if preserve_boundaries else " ")
     text = re.sub(r"\s+:", ":", text)
     if preserve_boundaries:
         text = re.sub(r"[ \t]*\n[ \t]*", "\n", text)
         text = re.sub(r"\n{2,}", "\n", text)
         return text.strip(" \n;")
-    # Preserve an empty terminal "Caja:" field for future source updates.
+    # Preserve an explicitly empty terminal source field for future updates.
     return _WHITESPACE_PATTERN.sub(" ", text).strip(" ;")
 
 
 def is_complete_detail(value: object) -> bool:
-    """Whether Detail is complete, allowing an empty final Caja field."""
+    """Whether Detail is complete, allowing an explicitly empty final source field."""
     text = normalize_detail_text(value)
     # Validate without allowed blank logistics labels at the end. The original
     # text remains untouched, so those source labels are preserved in the catalog.
@@ -756,7 +552,15 @@ def is_complete_detail(value: object) -> bool:
         or validation_text.endswith((",", ";", ":"))
     ):
         return False
+    if re.search(r"\bcertificado\s+sgs\s*$", validation_text, re.IGNORECASE):
+        return True
     return _DESCRIPTION_TRUNCATION_PATTERN.search(validation_text) is None
+
+
+def is_non_detail_section(value: object) -> bool:
+    """Identify headings whose content is outside the visible Detail field."""
+    text = normalize_detail_text(value)
+    return bool(text and _NON_TECHNICAL_SECTION_PREFIX_PATTERN.match(text))
 
 
 def has_technical_detail(value: object) -> bool:
@@ -807,12 +611,12 @@ def is_valid_detail_content(value: object) -> bool:
 
 
 def is_empty_detail_field_fragment(value: object) -> bool:
-    """Recognize a known Detail label whose value is empty, without validating it alone."""
+    """Recognize an empty source field by its colon/value structure."""
     text = normalize_detail_text(value)
     return bool(text) and _EMPTY_DETAIL_FIELD_FRAGMENT_PATTERN.fullmatch(text) is not None
 
 
-_DETAIL_FIELD_LABEL_START_PATTERN = re.compile(
+_SOURCE_FIELD_START_PATTERN = re.compile(
     r"^\s*(?:" + _DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.pattern + r")",
     re.IGNORECASE,
 )
@@ -824,57 +628,36 @@ _EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
 )
 
 
-_DETAIL_GROUPING_LABELS = frozenset({
-    "medidas",
-    "medida",
-    "medida y capacidad",
-    "dimensiones",
-    "dimensiones del producto",
-    "medidas del producto",
-    "empaque individual",
-    "medidas del estuche",
-    "medidas mochila",
-    "medidas de la caja máster",
-    "medidas de la caja master",
-})
-_DETAIL_GROUPING_FIELD_CHILD_LABELS = frozenset({
-    "alto",
-    "ancho",
-    "largo",
-    "altura",
-    "espesor",
-    "diámetro",
-    "capacidad",
-    "envase largo",
-    "toalla largo",
-    "interior",
-    "espacio libre",
-})
+_SOURCE_FIELD_START_PATTERN = re.compile(
+    r"^\s*[^:\r\n]{1,80}:\s*",
+    re.IGNORECASE,
+)
+_EMPTY_DETAIL_FIELD_AT_END_PATTERN = re.compile(
+    r"(?:^|[.;]\s*)[^:\r\n]{1,80}:\s*$",
+    re.IGNORECASE,
+)
+_POTENTIAL_SOURCE_LABEL_PATTERN = re.compile(
+    r"(?<!\w)([A-ZÁÉÍÓÚÜÑ][\wÁÉÍÓÚÜÑáéíóúüñ()/_-]{0,30}"
+    r"(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9()/_-]{1,30}){0,5}):\s*",
+    re.UNICODE,
+)
 
 
 def is_detail_grouping_label(value: object) -> bool:
-    """Whether an empty source label groups following Detail subfields."""
-    label = normalize_detail_text(value).removesuffix(":").strip().casefold()
-    return label in _DETAIL_GROUPING_LABELS
+    """Treat an empty field heading as a possible group; its children decide."""
+    return is_empty_detail_field_fragment(value)
 
 
 def _is_grouping_detail_child(parent_label: str, child_source: str) -> bool:
-    """Whether the next field is a valid subfield of the preceding grouping label."""
-    parent = normalize_detail_text(parent_label).removesuffix(":").strip().casefold()
-    if parent not in _DETAIL_GROUPING_LABELS:
+    """A blank heading groups following content when it contains sibling fields."""
+    if not str(parent_label or "").strip():
         return False
-    match = _DETAIL_FIELD_LABEL_START_PATTERN.match(child_source)
-    if match is None:
-        return False
-    child = normalize_detail_text(match.group()).removesuffix(":").strip().casefold()
-    if parent == "empaque individual" and child in {"material", "materiales"}:
-        return True
-    return child in _DETAIL_GROUPING_FIELD_CHILD_LABELS
+    return len(_DETAIL_FIELD_BOUNDARY_PATTERN.findall(str(child_source or ""))) >= 2
 
 
 def _separate_adjacent_empty_detail_field_labels(value: str) -> str:
     """Split a field label from the next label when the first value is empty."""
-    matches = list(_DETAIL_FIELD_OR_DESCRIPTION_LABEL_PATTERN.finditer(value))
+    matches = list(_POTENTIAL_SOURCE_LABEL_PATTERN.finditer(value))
     split_positions = []
     for previous, current in pairwise(matches):
         between = value[previous.end() : current.start()]
@@ -931,7 +714,7 @@ def clean_extracted_detail_text(
                 label = line.rstrip().removesuffix(":").strip()
                 label_key = normalize_detail_text(label).casefold()
                 next_is_field = bool(
-                    _DETAIL_FIELD_LABEL_START_PATTERN.match(next_line)
+                    _SOURCE_FIELD_START_PATTERN.match(next_line)
                 )
                 if not next_is_field or _is_grouping_detail_child(label_key, next_line):
                     cleaned.append(f"{label}: {next_line}")
@@ -978,8 +761,8 @@ def clean_extracted_detail_text(
 
 def has_multiple_technical_detail_fields(value: object) -> bool:
     """Require at least two labeled features for lower-priority fallbacks."""
-    text = normalize_detail_text(value)
-    return len(_DETAIL_FIELD_LABEL_PATTERN.findall(text)) >= 2
+    text = normalize_detail_text(value, preserve_boundaries=True)
+    return len(_DETAIL_FIELD_BOUNDARY_PATTERN.findall(text)) >= 2
 
 
 _DETAIL_HTML_ALLOWED_TAGS = frozenset({
@@ -1146,14 +929,107 @@ def _clean_detail_html_root(root: Tag, inherited_alignment: str) -> bool:
     return not has_redundant_product_color_detail(raw_text)
 
 
+def _append_detail_html_child(
+    fragments: list[list[PageElement]],
+    child: PageElement,
+    *,
+    split_bullets: bool,
+) -> None:
+    """Append one source node, expanding nested line breaks and bullet markers."""
+    if isinstance(child, Tag) and child.name == "br":
+        if fragments[-1]:
+            fragments.append([])
+        return
+
+    if isinstance(child, Tag):
+        nested_fragments = _split_detail_html_children(
+            child.contents,
+            split_bullets=split_bullets,
+        )
+        for nested_index, nested_content in enumerate(nested_fragments):
+            if nested_index and fragments[-1]:
+                fragments.append([])
+            if not nested_content:
+                continue
+            cloned = copy(child)
+            cloned.clear()
+            for nested_child in nested_content:
+                cloned.append(nested_child)
+            fragments[-1].append(cloned)
+        return
+
+    if split_bullets and isinstance(child, NavigableString):
+        for piece in re.split(r"([•▪●‣◦])", str(child)):
+            if not piece:
+                continue
+            if re.fullmatch(r"[•▪●‣◦]", piece):
+                if fragments[-1]:
+                    fragments.append([])
+                continue
+            fragments[-1].append(NavigableString(piece))
+        return
+
+    fragments[-1].append(copy(child))
+
+
+def _split_detail_html_children(
+    children: list[PageElement],
+    *,
+    split_bullets: bool,
+) -> list[list[PageElement]]:
+    """Split a source block at visual line breaks without flattening inline markup."""
+    fragments: list[list[PageElement]] = [[]]
+    for child in children:
+        _append_detail_html_child(
+            fragments,
+            child,
+            split_bullets=split_bullets,
+        )
+    return fragments
+
+def _split_detail_html_source_block(root: Tag) -> list[Tag]:
+    """Keep each source line independently filterable while preserving its tags."""
+    has_breaks = root.find("br") is not None
+    has_bullets = any(
+        re.search(r"[•▪●‣◦]", str(text_node))
+        for text_node in root.find_all(string=True)
+    )
+    if not has_breaks and not has_bullets:
+        return [root]
+
+    fragments = _split_detail_html_children(
+        root.contents,
+        split_bullets=has_bullets,
+    )
+    meaningful_fragments = [
+        fragment
+        for fragment in fragments
+        if "".join(str(node) for node in fragment).strip()
+    ]
+    if len(meaningful_fragments) <= 1:
+        return [root]
+
+    result: list[Tag] = []
+    for fragment in meaningful_fragments:
+        cloned = copy(root)
+        cloned.clear()
+        if has_bullets:
+            cloned.name = "li"
+        for child in fragment:
+            cloned.append(child)
+        result.append(cloned)
+    return result
+
+
 def _extract_detail_html_roots(elements) -> list[Tag]:
-    """Build sanitized top-level blocks and retain inherited paragraph alignment."""
+    """Build sanitized source blocks and filter variant-color lines individually."""
     roots: list[Tag] = []
     for element in list(elements or []):
         alignment = _detail_html_alignment(element)
-        for root in _detail_html_candidates(element):
-            if _clean_detail_html_root(root, alignment):
-                roots.append(root)
+        for source_root in _detail_html_candidates(element):
+            for root in _split_detail_html_source_block(source_root):
+                if _clean_detail_html_root(root, alignment):
+                    roots.append(root)
     return roots
 
 
@@ -1188,7 +1064,7 @@ def _merge_detail_html_empty_labels(roots: list[Tag]) -> list[Tag] | None:
         )
         following_normalized = normalize_detail_text(following_text)
         following_is_field = bool(
-            _DETAIL_FIELD_LABEL_START_PATTERN.match(following_normalized)
+            _SOURCE_FIELD_START_PATTERN.match(following_normalized)
         )
         if (
             following_is_field
@@ -1273,12 +1149,97 @@ def extract_detail_html_from_elements(elements, expected_text: object) -> str:
         for root in merged_roots
     ]
     if _detail_source_text_key(" ␞ ".join(raw_parts)) != expected_key:
-        return ""
+        # Canonical cleanup can change punctuation or omit an empty source
+        # field even though its remaining bold labels still match the saved
+        # Detail. Keep only those source-encoded bold spans and rebuild them
+        # around the canonical text so downstream validation stays exact.
+        source_markup = "".join(str(root) for root in merged_roots)
+        bold_ranges = detail_html_bold_ranges(source_markup, expected_text)
+        if not bold_ranges:
+            return ""
+        return _canonical_detail_html_with_bold_ranges(
+            str(expected_text),
+            bold_ranges,
+        )
     if not _detail_html_has_meaningful_formatting(merged_roots):
         return ""
     if all(root.name == "li" for root in merged_roots):
         return "<ul>" + "".join(str(root) for root in merged_roots) + "</ul>"
     return "".join(str(root) for root in merged_roots)
+
+
+def _canonical_detail_html_with_bold_ranges(
+    text: str,
+    ranges: list[tuple[int, int]],
+) -> str:
+    """Encode mapped source emphasis without changing canonical Detail text."""
+    normalized: list[tuple[int, int]] = []
+    for start, end in sorted(ranges):
+        if start < 0 or start >= end or end > len(text):
+            continue
+        if normalized and start <= normalized[-1][1]:
+            normalized[-1] = (normalized[-1][0], max(normalized[-1][1], end))
+        else:
+            normalized.append((start, end))
+
+    paragraphs: list[str] = []
+    paragraph_start = 0
+    for paragraph in text.splitlines() or [text]:
+        paragraph_end = paragraph_start + len(paragraph)
+        cursor = paragraph_start
+        pieces: list[str] = []
+        for start, end in normalized:
+            span_start = max(start, paragraph_start)
+            span_end = min(end, paragraph_end)
+            if span_start >= span_end:
+                continue
+            pieces.append(escape(text[cursor:span_start]))
+            pieces.append(f"<strong>{escape(text[span_start:span_end])}</strong>")
+            cursor = span_end
+        pieces.append(escape(text[cursor:paragraph_end]))
+        paragraphs.append("<p>" + "".join(pieces) + "</p>")
+        paragraph_start = paragraph_end + 1
+    return "".join(paragraphs)
+
+
+def detail_html_block_alignments(markup: object) -> list[str]:
+    """Return visible source-block alignments in their rendered document order."""
+    soup = BeautifulSoup(str(markup or ""), "lxml")
+    structural_names = ["p", "li", "h1", "h2", "h3", "h4", "h5", "h6"]
+    source_blocks = [
+        tag
+        for tag in soup.find_all(structural_names)
+        if tag.find_parent(structural_names) is None
+    ]
+    if not source_blocks:
+        source_blocks = [
+            tag
+            for tag in soup.find_all("div")
+            if tag.find_parent("div") is None
+        ]
+
+    alignments: list[str] = []
+    for block in source_blocks:
+        node: Tag | None = block
+        alignment = ""
+        while node is not None:
+            for declaration in str(node.get("style", "") or "").split(";"):
+                name, separator, value = declaration.partition(":")
+                if separator and name.strip().casefold() == "text-align":
+                    candidate = value.strip().casefold()
+                    if candidate in {"left", "right", "center", "justify"}:
+                        alignment = candidate
+                        break
+            if alignment:
+                break
+            candidate = str(node.get("align", "") or "").strip().casefold()
+            if candidate in {"left", "right", "center", "justify"}:
+                alignment = candidate
+                break
+            parent = node.parent
+            node = parent if isinstance(parent, Tag) else None
+        alignments.append(alignment)
+    return alignments
 
 
 def detail_html_matches_text(fragment: object, expected_text: object) -> bool:
@@ -1298,3 +1259,52 @@ def detail_html_matches_text(fragment: object, expected_text: object) -> bool:
         )
     )
     return actual_key == expected_key
+
+
+def detail_html_bold_ranges(
+    fragment: object,
+    expected_text: object,
+) -> list[tuple[int, int]]:
+    """Map only source-encoded bold spans onto the canonical plain text."""
+    markup = str(fragment or "").strip()
+    expected = str(expected_text or "")
+    if not markup or not expected:
+        return []
+
+    soup = BeautifulSoup(markup, "lxml")
+    ranges: list[tuple[int, int]] = []
+    search_from = 0
+    for tag in soup.find_all(True):
+        is_semantic_bold = tag.name in {"b", "strong"}
+        has_bold_style = False
+        for declaration in str(tag.get("style", "") or "").split(";"):
+            name, separator, value = declaration.partition(":")
+            if (
+                separator
+                and name.strip().casefold() == "font-weight"
+                and value.strip().casefold()
+                in {"bold", "bolder", "600", "700", "800", "900"}
+            ):
+                has_bold_style = True
+                break
+        if not is_semantic_bold and not has_bold_style:
+            continue
+
+        source_text = " ".join(tag.get_text("", strip=False).split())
+        parts = source_text.split()
+        if not parts:
+            continue
+        pattern = re.compile(r"\s+".join(re.escape(part) for part in parts), re.IGNORECASE)
+        match = pattern.search(expected, search_from) or pattern.search(expected)
+        if match is None:
+            continue
+        ranges.append((match.start(), match.end()))
+        search_from = match.end()
+
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(ranges):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged

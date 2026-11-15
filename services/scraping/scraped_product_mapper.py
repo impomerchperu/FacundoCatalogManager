@@ -21,6 +21,9 @@ class ScrapedProductMapper:
             category=scraped_product.category,
             description=scraped_product.description,
             description_html=scraped_product.description_html,
+            description_is_authoritative=(
+                scraped_product.description_is_authoritative
+            ),
             price=self._resolve_price(scraped_product),
             price_sample=scraped_product.price_sample,
             price_hundred=scraped_product.price_hundred,

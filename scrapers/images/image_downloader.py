@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
-import os
 import time
 from collections.abc import Iterable
 from datetime import datetime, timezone
@@ -15,6 +14,7 @@ from uuid import uuid4
 import requests
 
 from config.runtime_paths import resolve_data_path, to_data_relative_path
+from scrapers.images.atomic_publish import publish_file_without_overwrite
 from scrapers.images.image_hash import ImageHash
 from scrapers.images.image_paths import (
     IMAGE_EXTENSIONS,
@@ -286,9 +286,9 @@ class ImageDownloader:
         """Atomically publish verified bytes without replacing an existing path."""
         for _attempt in range(8):
             try:
-                # Same-directory hard link is atomic and fails rather than
-                # replacing a path that another worker might already reference.
-                os.link(temporary, target)
+                # Publish atomically without replacing a path another worker
+                # might already reference.
+                publish_file_without_overwrite(temporary, target)
             except FileExistsError:
                 try:
                     verified = cls.verify_image_file(target)

@@ -1,22 +1,37 @@
 import html
 import re
 import unicodedata
+from collections import OrderedDict
+from functools import lru_cache
 from typing import ClassVar
 
-from PySide6.QtCore import QEvent, QPointF, QRect, QSize, Qt, QTimer
+from PySide6.QtCore import (
+    QEvent,
+    QObject,
+    QPointF,
+    QRect,
+    QRunnable,
+    QSize,
+    Qt,
+    QThreadPool,
+    QTimer,
+    Signal,
+    Slot,
+)
 from PySide6.QtGui import (
     QColor,
     QFont,
     QFontMetrics,
     QFontMetricsF,
     QHelpEvent,
+    QImage,
     QImageReader,
     QPainter,
     QPalette,
     QPen,
     QPixmap,
-    QPixmapCache,
     QTextCharFormat,
+    QTextCursor,
     QTextDocument,
     QTextLayout,
     QTextOption,
@@ -45,6 +60,8 @@ from gui.product_category_delegate import ProductCategoryDelegate
 from models.product import Product
 from models.product_image_gallery import normalize_product_gallery
 from models.scraping.detail_description_policy import (
+    detail_html_block_alignments,
+    detail_html_bold_ranges,
     detail_html_matches_text,
     has_redundant_product_color_detail,
     normalize_detail_text,
@@ -52,6 +69,12 @@ from models.scraping.detail_description_policy import (
 from services.scraping.category_name_normalizer import (
     display_category_name,
     split_category_names,
+)
+from services.stock_color_palette import (
+    STOCK_COLOR_STYLES as _STOCK_COLOR_STYLES,
+)
+from services.stock_color_palette import (
+    known_stock_color_style,
 )
 
 
@@ -111,6 +134,98 @@ class ProductCellDelegate(QStyledItemDelegate):
             painter,
             widget,
         )
+
+
+class _ScaledImageSignals(QObject):
+    ready = Signal(str, int, int, QImage)
+
+
+class _ScaledImageTask(QRunnable):
+    def __init__(self, path: str, size: QSize) -> None:
+        super().__init__()
+        self.path = path
+        self.size = QSize(size)
+        self.signals = _ScaledImageSignals()
+
+    @Slot()
+    def run(self) -> None:
+        reader = QImageReader(self.path)
+        source_size = reader.size()
+        if source_size.width() > 0 and source_size.height() > 0:
+            reader.setScaledSize(
+                source_size.scaled(
+                    self.size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                ),
+            )
+        image = reader.read()
+        if not image.isNull() and (
+            image.width() > self.size.width()
+            or image.height() > self.size.height()
+        ):
+            image = image.scaled(
+                self.size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        self.signals.ready.emit(
+            self.path,
+            self.size.width(),
+            self.size.height(),
+            image,
+        )
+
+
+class ProductCodeDelegate(ProductCellDelegate):
+    """Render product codes with breaks at hyphens inside the narrow column."""
+
+    HORIZONTAL_PADDING = 4
+    VERTICAL_PADDING = 4
+
+    @classmethod
+    def _wrapped_code(cls, text: str) -> str:
+        return text.replace("-", "-\u200b")
+
+    @classmethod
+    def _wrapped_height(cls, text: str, font: QFont, width: int) -> int:
+        metrics = QFontMetrics(font)
+        return max(
+            metrics.boundingRect(
+                QRect(0, 0, max(width, 1), 1000),
+                Qt.TextFlag.TextWordWrap,
+                cls._wrapped_code(text),
+            ).height(),
+            metrics.height(),
+        )
+
+    def paint(self, painter: QPainter, option, index) -> None:
+        self.paint_item_background(painter, option, index)
+        text = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+        content = option.rect.adjusted(
+            self.HORIZONTAL_PADDING,
+            self.VERTICAL_PADDING,
+            -self.HORIZONTAL_PADDING,
+            -self.VERTICAL_PADDING,
+        )
+        painter.save()
+        painter.setFont(option.font)
+        painter.setPen(option.palette.color(QPalette.ColorRole.Text))
+        painter.drawText(
+            content,
+            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+            self._wrapped_code(text),
+        )
+        painter.restore()
+
+    def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
+        width = option.rect.width() or 72
+        text = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+        height = self._wrapped_height(
+            text,
+            option.font,
+            max(width - (2 * self.HORIZONTAL_PADDING), 1),
+        )
+        return QSize(width, height + (2 * self.VERTICAL_PADDING))
 
 
 class PriceDelegate(ProductCellDelegate):
@@ -484,6 +599,14 @@ class ProductImageDelegate(ProductCellDelegate):
     ACTIVE_INDEX_ROLE = int(Qt.ItemDataRole.UserRole) + 4
     THUMBNAIL_START_ROLE = int(Qt.ItemDataRole.UserRole) + 5
     _image_size_cache: ClassVar[dict[str, QSize]] = {}
+    _scaled_pixmap_cache: ClassVar[
+        OrderedDict[tuple[str, int, int], QPixmap]
+    ] = OrderedDict()
+    SCALED_PIXMAP_CACHE_LIMIT = 4096
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._pending_scaled_keys: set[tuple[str, int, int]] = set()
 
     @classmethod
     def main_image_size(
@@ -503,12 +626,8 @@ class ProductImageDelegate(ProductCellDelegate):
         if cached is not None:
             return QSize(cached)
 
-        cached_pixmap = QPixmap()
-        if QPixmapCache.find(f"fcm-product-image:{resolved}", cached_pixmap):
-            source_size = cached_pixmap.size()
-        else:
-            # Read image metadata only; row sizing should not decode all catalog images.
-            source_size = QImageReader(resolved).size()
+        # Read metadata only; row sizing must not decode full catalog images.
+        source_size = QImageReader(resolved).size()
         if source_size.width() <= 0 or source_size.height() <= 0:
             return QSize(display_width, display_width)
 
@@ -699,17 +818,17 @@ class ProductImageDelegate(ProductCellDelegate):
     ) -> QRect:
         if rect.width() <= 0 or rect.height() <= 0 or not image_path:
             return QRect()
-        pixmap = self._load_pixmap(str(resolve_data_path(image_path)))
-        if pixmap.isNull():
-            return QRect()
-        image_rect = self.fitted_image_rect(pixmap.size(), rect)
+        resolved_path = str(resolve_data_path(image_path))
+        source_size = self.main_image_size(resolved_path)
+        image_rect = self.fitted_image_rect(source_size, rect)
         if image_rect.isEmpty():
             return QRect()
-        scaled = pixmap.scaled(
+        scaled = self._load_scaled_pixmap(
+            resolved_path,
             image_rect.size(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
         )
+        if scaled.isNull():
+            return QRect()
         image_rect = QRect(
             rect.left() + (rect.width() - scaled.width()) // 2,
             rect.top() + (rect.height() - scaled.height()) // 2,
@@ -731,17 +850,7 @@ class ProductImageDelegate(ProductCellDelegate):
         content_rect = cls.cell_content_rect(rect)
         preview_width = cls.MAIN_IMAGE_WIDTH
         resolved = str(resolve_data_path(image_path)) if image_path else ""
-        pixmap = cls._load_pixmap(resolved) if resolved else QPixmap()
-        if pixmap.isNull() or pixmap.width() <= 0:
-            preview_size = QSize(preview_width, preview_width)
-        else:
-            preview_size = QSize(
-                preview_width,
-                max(
-                    round(pixmap.height() * preview_width / pixmap.width()),
-                    1,
-                ),
-            )
+        preview_size = cls.main_image_size(resolved, preview_width)
         group_height = preview_size.height()
         if has_thumbnails:
             group_height += cls.THUMBNAIL_GAP + cls.THUMBNAIL_STRIP_HEIGHT
@@ -800,13 +909,11 @@ class ProductImageDelegate(ProductCellDelegate):
             painter.fillRect(tile_rect, QColor("#ffffff"))
             inner = tile_rect
             if path and inner.width() > 0 and inner.height() > 0:
-                thumb = self._load_pixmap(str(resolve_data_path(path)))
+                thumb = self._load_scaled_pixmap(
+                    str(resolve_data_path(path)),
+                    inner.size(),
+                )
                 if not thumb.isNull():
-                    thumb = thumb.scaled(
-                        inner.size(),
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation,
-                    )
                     thumb_x = inner.left() + (inner.width() - thumb.width()) // 2
                     thumb_y = inner.top() + (inner.height() - thumb.height()) // 2
                     painter.drawPixmap(thumb_x, thumb_y, thumb)
@@ -864,17 +971,40 @@ class ProductImageDelegate(ProductCellDelegate):
             painter.drawRect(option.rect.adjusted(0, 0, -1, -1))
             painter.restore()
 
-    @staticmethod
-    def _load_pixmap(image_path: str) -> QPixmap:
-        """Load images lazily and cache decoded pixmaps in Qt."""
-        cache_key = f"fcm-product-image:{image_path}"
-        pixmap = QPixmap()
-        if QPixmapCache.find(cache_key, pixmap):
-            return pixmap
-        pixmap.load(image_path)
-        if not pixmap.isNull():
-            QPixmapCache.insert(cache_key, pixmap)
-        return pixmap
+    def _load_scaled_pixmap(self, image_path: str, size: QSize) -> QPixmap:
+        """Return cached previews or decode them off the UI thread."""
+        if not image_path or size.width() <= 0 or size.height() <= 0:
+            return QPixmap()
+        key = (image_path, size.width(), size.height())
+        cached = self._scaled_pixmap_cache.get(key)
+        if cached is not None:
+            self._scaled_pixmap_cache.move_to_end(key)
+            return cached
+        if key not in self._pending_scaled_keys:
+            self._pending_scaled_keys.add(key)
+            task = _ScaledImageTask(image_path, size)
+            task.signals.ready.connect(self._scaled_pixmap_ready)
+            QThreadPool.globalInstance().start(task)
+        return QPixmap()
+
+    @Slot(str, int, int, QImage)
+    def _scaled_pixmap_ready(
+        self,
+        image_path: str,
+        width: int,
+        height: int,
+        image: QImage,
+    ) -> None:
+        key = (image_path, width, height)
+        self._pending_scaled_keys.discard(key)
+        if not image.isNull():
+            self._scaled_pixmap_cache[key] = QPixmap.fromImage(image)
+            self._scaled_pixmap_cache.move_to_end(key)
+            while len(self._scaled_pixmap_cache) > self.SCALED_PIXMAP_CACHE_LIMIT:
+                self._scaled_pixmap_cache.popitem(last=False)
+        parent = self.parent()
+        if isinstance(parent, QTableWidget):
+            parent.viewport().update()
 
     def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
         del option, index
@@ -1045,62 +1175,38 @@ class ProductDetailDelegate(ProductCellDelegate):
     """Renderiza texto histórico o el formato enriquecido conservado del origen."""
 
     DETAIL_HTML_ROLE = int(Qt.ItemDataRole.UserRole) + 51
+    SOURCE_BOLD_RANGES_ROLE = int(Qt.ItemDataRole.UserRole) + 52
     HORIZONTAL_PADDING = 8
     VERTICAL_PADDING = 8
     LINE_SPACING_REDUCTION = 1
     PARAGRAPH_SPACING_REDUCTION = 2
     GRIDLINE_ALLOWANCE = 1
-    # Bold labels at the start of a line or sentence. A colon inside a value
-    # such as "(área de impresión recomendada: ...)" is not another label.
-    # Numbered labels like "1. Estuche:" are also supported.
-    _BOLD_DETAIL_LABEL_PATTERN = re.compile(
-        r"(?:(?<=^)|(?<=[.!?]\s))(?:\s*\d+\.\s*)?([A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}):"
-    )
-
-    @staticmethod
-    def _is_nested_source_value_label(label: str, prefix: str) -> bool:
-        """Avoid bolding value fragments nested under a visible source label."""
-        normalized_label = " ".join(label.split()).casefold()
-        measure_parent = re.match(
-            r"^\s*(?:medidas?|medida\s+(?:y\s+)?capacidad|"
-            r"dimensiones(?:\s+del\s+producto)?|"
-            r"medidas?\s+(?:del?\s+)?(?:estuche|producto|mochila|cartera|"
-            r"cartuchera|caja))\s*:",
-            prefix,
-            re.IGNORECASE,
-        )
-        return bool(
-            measure_parent
-            and normalized_label
-            in {
-                "alt",
-                "alt.",
-                "alt. de base",
-                "alt de base",
-                "alt. total",
-                "alt total",
-                "ancho",
-                "alto",
-                "altura",
-                "espesor",
-                "largo",
-                "total",
-                "diámetro",
-                "diametro",
-                "diámetro (base)",
-                "diametro (base)",
-                "estuche",
-                "tarjeta",
-            }
-        )
-
     @classmethod
     def _layout_text(
         cls,
         text: str,
         font: QFont,
         width: int,
+        source_bold_ranges: tuple[tuple[int, int], ...] = (),
     ) -> tuple[list[tuple[QTextLayout, float]], int]:
+        return cls._cached_layout_text(
+            text,
+            font.toString(),
+            width,
+            source_bold_ranges,
+        )
+
+    @classmethod
+    @lru_cache(maxsize=2048)
+    def _cached_layout_text(
+        cls,
+        text: str,
+        serialized_font: str,
+        width: int,
+        source_bold_ranges: tuple[tuple[int, int], ...],
+    ) -> tuple[list[tuple[QTextLayout, float]], int]:
+        font = QFont()
+        font.fromString(serialized_font)
         metrics = QFontMetricsF(font)
         line_height = max(
             metrics.height() - cls.LINE_SPACING_REDUCTION,
@@ -1109,25 +1215,21 @@ class ProductDetailDelegate(ProductCellDelegate):
         layouts: list[tuple[QTextLayout, float]] = []
         total_height = 0.0
         paragraphs = text.splitlines() or [text]
+        paragraph_start = 0
         for paragraph_index, paragraph in enumerate(paragraphs):
             layout = QTextLayout(paragraph, font)
             formats: list[QTextLayout.FormatRange] = []
-            for match in cls._BOLD_DETAIL_LABEL_PATTERN.finditer(paragraph):
-                label_key = " ".join(match.group(1).split()).casefold()
-                prefix = paragraph[: match.start(1)]
-                if cls._is_nested_source_value_label(label_key, prefix):
-                    continue
-                if label_key in {
-                    "peso bruto / caja",
-                    "peso neto / caja",
-                    "medidas de la caja máster",
-                }:
+            paragraph_end = paragraph_start + len(paragraph)
+            for source_start, source_end in source_bold_ranges:
+                start = max(source_start, paragraph_start)
+                end = min(source_end, paragraph_end)
+                if start >= end:
                     continue
                 char_format = QTextCharFormat()
                 char_format.setFontWeight(QFont.Weight.Bold)
                 format_range = QTextLayout.FormatRange()
-                format_range.start = match.start(1)
-                format_range.length = match.end() - match.start(1)
+                format_range.start = start - paragraph_start
+                format_range.length = end - start
                 format_range.format = char_format
                 formats.append(format_range)
             layout.setFormats(formats)
@@ -1159,6 +1261,7 @@ class ProductDetailDelegate(ProductCellDelegate):
                 else line_height
             )
             layouts.append((layout, total_height))
+            paragraph_start = paragraph_end + 1
             if paragraph_index < len(paragraphs) - 1:
                 total_height += max(
                     paragraph_height - cls.PARAGRAPH_SPACING_REDUCTION,
@@ -1169,19 +1272,42 @@ class ProductDetailDelegate(ProductCellDelegate):
         return layouts, round(total_height)
 
     @classmethod
-    def content_height(cls, text: str, font: QFont, width: int) -> int:
+    def content_height(
+        cls,
+        text: str,
+        font: QFont,
+        width: int,
+        source_bold_ranges: tuple[tuple[int, int], ...] = (),
+    ) -> int:
         if not text:
             return 0
-        _, height = cls._layout_text(text, font, width)
+        _, height = cls._layout_text(text, font, width, source_bold_ranges)
         return height
 
     @classmethod
-    def _document_for_html(
+    def _source_bold_ranges(cls, index) -> tuple[tuple[int, int], ...]:
+        value = index.data(cls.SOURCE_BOLD_RANGES_ROLE)
+        if not isinstance(value, (list, tuple)):
+            return ()
+        ranges = []
+        for item in value:
+            if not isinstance(item, (list, tuple)) or len(item) != 2:
+                continue
+            start, end = item
+            if isinstance(start, int) and isinstance(end, int) and 0 <= start < end:
+                ranges.append((start, end))
+        return tuple(ranges)
+
+    @classmethod
+    @lru_cache(maxsize=2048)
+    def _cached_document_for_html(
         cls,
         markup: str,
-        font: QFont,
+        serialized_font: str,
         width: int,
     ) -> QTextDocument:
+        font = QFont()
+        font.fromString(serialized_font)
         document = QTextDocument()
         document.setDefaultFont(font)
         document.setDocumentMargin(0)
@@ -1191,9 +1317,42 @@ class ProductDetailDelegate(ProductCellDelegate):
             "ul, ol { margin-top: 0; margin-bottom: 2px; } "
             "li { margin: 0; padding: 0; }"
         )
+        source_alignments = detail_html_block_alignments(markup)
         document.setHtml(markup)
+
+        qt_alignments = {
+            "left": Qt.AlignmentFlag.AlignLeft,
+            "right": Qt.AlignmentFlag.AlignRight,
+            "center": Qt.AlignmentFlag.AlignCenter,
+            "justify": Qt.AlignmentFlag.AlignJustify,
+        }
+        block = document.begin()
+        for alignment in source_alignments:
+            if not block.isValid():
+                break
+            target_alignment = qt_alignments.get(alignment)
+            if target_alignment is not None:
+                cursor = QTextCursor(block)
+                block_format = block.blockFormat()
+                block_format.setAlignment(target_alignment)
+                cursor.setBlockFormat(block_format)
+            block = block.next()
+
         document.setTextWidth(max(width, 1))
         return document
+
+    @classmethod
+    def _document_for_html(
+        cls,
+        markup: str,
+        font: QFont,
+        width: int,
+    ) -> QTextDocument:
+        return cls._cached_document_for_html(
+            markup,
+            font.toString(),
+            width,
+        )
 
     @classmethod
     def rich_content_height(cls, markup: str, font: QFont, width: int) -> int:
@@ -1256,6 +1415,7 @@ class ProductDetailDelegate(ProductCellDelegate):
             text,
             styled_option.font,
             text_width,
+            self._source_bold_ranges(index),
         )
         vertical_text_offset = self._vertical_text_offset(
             styled_option.rect.height(),
@@ -1294,7 +1454,12 @@ class ProductDetailDelegate(ProductCellDelegate):
                 - self.LINE_SPACING_REDUCTION
             ) * line_count
         else:
-            height = self.content_height(text, option.font, width)
+            height = self.content_height(
+                text,
+                option.font,
+                width,
+                self._source_bold_ranges(index),
+            )
         base = super().sizeHint(option, index)
         return QSize(
             base.width(),
@@ -1334,258 +1499,11 @@ class ProductTable(QTableWidget):
     IMAGE_SIZE = 144
     DEFAULT_PRICE_COLUMN_WIDTH = 110
     FIXED_PRICE_COLUMN_WIDTH = 88
-    DETAIL_FIELD_LABELS: ClassVar[dict[str, str]] = {
-        "descripción comercial": "Descripción",
-        "descripcion comercial": "Descripción",
-        "descripción": "Descripción",
-        "descripcion": "Descripción",
-        "interfaz": "Interfaz",
-        "técnica de impresión": "Técnica de impresión",
-        "medidas de la caja máster": "Medidas de la caja máster",
-        "medidas de la caja master": "Medidas de la caja máster",
-        "peso bruto / caja": "Peso bruto / caja",
-        "peso neto / caja": "Peso neto / caja",
-        "tecnica de impresion": "Técnica de impresión",
-        "superficie de impresión": "Superficie de impresión",
-        "superficie de impresion": "Superficie de impresión",
-        "dimensión": "Dimensión",
-        "dimension": "Dimensión",
-        "características": "Características",
-        "caracteristicas": "Características",
-        "propiedades": "Propiedades",
-        "micras": "Micras",
-        "medidas del estuche": "Medidas del Estuche",
-        "medida y capacidad": "Medida y Capacidad",
-        "medida de impresión": "Medida de impresión",
-        "medida de impresion": "Medida de impresión",
-        "calidad": "Calidad",
-        "paquete": "Paquete",
-        "caja": "Caja",
-        "medidas de estuche": "Medidas de Estuche",
-        "presentación del estuche": "Presentación del Estuche",
-        "uso ideal": "Uso ideal",
-        "fecha": "Fecha",
-        "forma": "Forma",
-        "técnica de aplicación": "Técnica de aplicación",
-        "tecnica de aplicacion": "Técnica de aplicación",
-        "tipo de corte": "Tipo de corte",
-        "capacidad de corte": "Capacidad de corte",
-        "tamaño de corte máximo": "Tamaño de corte máximo",
-        "tamano de corte maximo": "Tamaño de corte máximo",
-        "dimensiones del producto": "Dimensiones del producto",
-        "peso neto aproximado": "Peso neto aproximado",
-        "tipo de encuadernado": "Tipo de encuadernado",
-        "capacidad de encuadernado": "Capacidad de encuadernado",
-        "tipo de encuadernación": "Tipo de encuadernación",
-        "tipo de encuadernacion": "Tipo de encuadernación",
-        "capacidad de encuadernación": "Capacidad de encuadernación",
-        "capacidad de encuadernacion": "Capacidad de encuadernación",
-        "presentacion del estuche": "Presentación del Estuche",
-        "número de rodillos": "Número de rodillos",
-        "numero de rodillos": "Número de rodillos",
-        "velocidad de laminación": "Velocidad de laminación",
-        "velocidad de laminacion": "Velocidad de laminación",
-        "rollos por caja": "Rollos por caja",
-        "impresiones por rollo": "Impresiones por rollo",
-        "válido para impresoras": "Válido para impresoras",
-        "valido para impresoras": "Válido para impresoras",
-        "opciones de acabado": "Opciones de acabado",
-        "soporta": "Soporta",
-        "cortadora con 3 tipos de corte": "Cortadora con 3 tipos de corte",
-        "levantamiento de materiales": "Levantamiento de materiales",
-        "proyectos de manualidades": "Proyectos de manualidades",
-        "aplicaciones de vinilo": "Aplicaciones de vinilo",
-        "trabajo en scrapbooking": "Trabajo en scrapbooking",
-        "calidad superior": "Calidad Superior",
-        "compatibilidad confiable": "Compatibilidad Confiable",
-        "procedencia coreana": "Procedencia Coreana",
-        "facilidad de uso": "Facilidad de Uso",
-        "espesor máximo del material": "Espesor máximo del material",
-        "area máxima de corte": "Área máxima de corte",
-        "área máxima de corte": "Área máxima de corte",
-        "area de corte": "Área de corte",
-        "área de corte": "Área de corte",
-        "ancho de corte": "Ancho de Corte",
-        "longitud de corte": "Longitud de Corte",
-        "fuerza de corte": "Fuerza de Corte",
-        "velocidad de corte": "Velocidad de Corte",
-        "sistema de motor": "Sistema de Motor",
-        "tipo de luz": "Tipo de luz",
-        "espacio libre": "Espacio Libre",
-        "contiene": "Contiene",
-        "codigo": "Código",
-        "código": "Código",
-        "producto": "Producto",
-        "nombre": "Nombre",
-        "categoria": "Categoría",
-        "categoría": "Categoría",
-        "stock": "Stock",
-        "existencia": "Stock",
-        "precio": "Precio",
-        "precio muestra": "Precio muestra",
-        "precio por muestra": "Precio muestra",
-        "precio ciento": "Precio ciento",
-        "precio por ciento": "Precio ciento",
-        "precio millar": "Precio millar",
-        "precio por millar": "Precio millar",
-        "colores disponibles": "Colores disponibles",
-        "voltaje y frecuencia": "Voltaje y Frecuencia",
-        "tiempo de precalentamiento": "Tiempo de precalentamiento",
-        "temperatura de trabajo": "Temperatura de trabajo",
-        "sistema de calentamiento": "Sistema de calentamiento",
-        "medidas mochila": "Medidas mochila",
-        "medidas cartera": "Medidas cartera",
-        "envase largo": "Envase Largo",
-        "toalla largo": "Toalla Largo",
-        "medidas cartuchera": "Medidas cartuchera",
-        "tamaño cinta": "Tamaño de cinta",
-        "tamano cinta": "Tamaño de cinta",
-        "forro": "Forro",
-        "medidas": "Medidas",
-        "interior": "Interior",
-        "espesor": "Espesor",
-        "potencia": "Potencia",
-        "dimensiones": "Dimensiones",
-        "peso unitario": "Peso Unitario",
-        "uso recomendado": "Uso Recomendado",
-        "empaque individual": "Empaque Individual",
-        "cantidad por caja": "Cantidad por Caja",
-        "dimensiones de caja": "Dimensiones de caja",
-        "dimensiones de la caja": "Dimensiones de la caja",
-        "dimensiones caja": "Dimensiones Caja",
-        "cubicaje por caja": "Cubicaje por Caja",
-        "ancho de entrada": "Ancho de entrada",
-        "espesor máximo de laminación": "Espesor máximo de laminación",
-        "espesor maximo de laminacion": "Espesor máximo de laminación",
-        "peso neto por caja": "Peso neto por caja",
-        "peso bruto por caja": "Peso bruto por caja",
-        "voltaje": "Voltaje",
-        "materiales": "Materiales",
-        "material": "Material",
-        "modelo": "Modelo",
-        "capacidad": "Capacidad",
-        "tipo": "Tipo",
-        "tamaño de impresión (cm)": "Tamaño de impresión (cm)",
-        "tamano de impresion (cm)": "Tamaño de impresión (cm)",
-        "tamaño impresión (cm)": "Tamaño impresión (cm)",
-        "tamano impresion (cm)": "Tamaño impresión (cm)",
-        "tamaño de impresión": "Tamaño de impresión",
-        "area de impresion": "Área de impresión",
-        "área de impresión": "Área de impresión",
-        "tamaño": "Tamaño",
-        "gramaje": "Gramaje",
-        "resolucion": "Resolución",
-        "resolución": "Resolución",
-        "velocidad": "Velocidad",
-        "temperatura": "Temperatura",
-        "presion": "Presión",
-        "presión": "Presión",
-        "ancho": "Ancho",
-        "largo": "Largo",
-        "altura": "Altura",
-        "alto": "Alto",
-        "peso": "Peso",
-        "frecuencia": "Frecuencia",
-        "formato": "Formato",
-        "presentacion": "Presentación",
-        "presentación": "Presentación",
-        "marca": "Marca",
-        "compatibilidad": "Compatibilidad",
-        "acceso": "Acceso",
-        "conectividad": "Conectividad",
-        "contenido": "Contenido",
-        "incluye": "Incluye",
-        "presentación del producto": "Presentación del producto",
-        "empaque": "Empaque",
-        "medida": "Medida",
-        "alimentacion": "Alimentación",
-        "alimentación": "Alimentación",
-        "tiempo": "Tiempo",
-        "diametro": "Diámetro",
-        "diámetro": "Diámetro",
-        "acabado": "Acabado",
-        "funcion": "Función",
-        "función": "Función",
-        "funciones adicionales": "Funciones adicionales",
-        "funciones": "Funciones",
-        "rango de espesor polaseal": "Rango de espesor Polaseal",
-        "rango de espesor": "Rango de espesor",
-        "tiempo de calentamiento": "Tiempo de calentamiento",
-        "consumo de energía": "Consumo de energía",
-        "consumo de energia": "Consumo de energía",
-        "uso": "Uso",
-        "aplicacion": "Aplicación",
-        "aplicación": "Aplicación",
-        "area de trabajo": "Área de trabajo",
-        "área de trabajo": "Área de trabajo",
-        "color de tinta": "Color de tinta",
-        "color de impresion": "Color de impresión",
-        "color de impresión": "Color de impresión",
-
-        "cubicaje": "Cubicaje",
-        "resistencia": "Resistencia",
-        "empaque por caja": "Empaque por caja",
-        "unidades por caja": "Unidades por caja",
-        "cantidad": "Cantidad",
-        "unidad": "Unidad",
-        "peso neto": "Peso neto",
-        "peso bruto": "Peso bruto",
-    }
-    # Prefer known aliases, but also recognize source-specific labels such as
-    # "Modos:", "Acabado:", "Material de la hoja:" without SKU-specific rules.
-    # Known aliases are case-insensitive; the generic fallback requires an
-    # uppercase initial to avoid splitting ordinary lowercase prose at colons.
-    _DETAIL_FIELD_LABEL_ALIASES_PATTERN: ClassVar[str] = "|".join(
-        re.escape(label)
-        for label in sorted(DETAIL_FIELD_LABELS, key=len, reverse=True)
-    )
+    # Detecta campos por la sintaxis visible, sin catálogo de nombres.
     DETAIL_FIELD_LABEL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"(?<!\w)((?i:"
-        + _DETAIL_FIELD_LABEL_ALIASES_PATTERN
-        + r")|(?-i:(?![^:\n]{0,60}\b(?i:"
-        + _DETAIL_FIELD_LABEL_ALIASES_PATTERN
-        + r")\s*:)[A-ZÁÉÍÓÚÜÑ][\wÁÉÍÓÚÜÑáéíóúüñ ()/_-]{0,60}?))\s*:"
+        r"(?<!\w)((?:[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ][\wÁÉÍÓÚÜÑáéíóúüñ ()/_-]{0,60}?"
+        r"|[A-ZÁÉÍÓÚÜÑ]{2,}))(?=\s*:)\s*:"
     )
-    DETAIL_NESTED_MEASURE_LABELS: ClassVar[frozenset[str]] = frozenset({
-        "envase largo",
-        "toalla largo",
-        "diámetro",
-        "diametro",
-        "diámetro (base)",
-        "diametro (base)",
-        "tarjeta",
-        "largo",
-        "ancho",
-        "alto",
-        "alt",
-        "altura",
-        "esp",
-        "alt. de base",
-        "alt de base",
-        "alt. total",
-        "alt total",
-        "total",
-        "interior",
-        "espesor",
-        "estuche",
-        "resaltador",
-        "usb",
-        "mochila",
-        "cartera",
-        "cartuchera",
-    })
-    DETAIL_PARENT_MEASURE_LABELS: ClassVar[frozenset[str]] = frozenset({
-        "medida y capacidad",
-        "medida capacidad",
-        "medidas del estuche",
-        "medidas estuche",
-        "medidas de estuche",
-        "medida del estuche",
-        "medidas mochila",
-        "medidas cartera",
-        "medidas cartuchera",
-        "medidas usb",
-    })
     CATEGORY_SOURCE_ROLE = int(Qt.ItemDataRole.UserRole) + 50
     PROGRESSIVE_RENDER_THRESHOLD = 50
     PROGRESSIVE_RENDER_BATCH_SIZE = 40
@@ -1600,73 +1518,7 @@ class ProductTable(QTableWidget):
     PRICE_HUNDRED_COLUMN = 7
     PRICE_THOUSAND_COLUMN = 8
 
-    STOCK_COLOR_STYLES: ClassVar[dict[str, tuple[str, str]]] = {
-        "amarillo": ("#fff7d6", "#f2c94c"),
-        "amarillo fluorescente": ("#f5ffd1", "#efff00"),
-        "amarillo flurecente": ("#f5ffd1", "#efff00"),
-        "amarillo neon": ("#f5ffd1", "#efff00"),
-        "amarillo neón": ("#f5ffd1", "#efff00"),
-        "azul": ("#e7f1ff", "#2f80ed"),
-        "azul claro": ("#e3f1ff", "#6eb6ff"),
-        "azul marino": ("#e1e8f7", "#123b6d"),
-        "azul oscuro": ("#dfe7ff", "#1d3f91"),
-        "azulino": ("#e3ebff", "#4f64d8"),
-        "azulino full": ("#e0e6ff", "#3046ff"),
-        "azul full": ("#e0e6ff", "#0057ff"),
-        "azul rey": ("#e1eaff", "#1747e5"),
-        "azul electrico": ("#e0f0ff", "#0077ff"),
-        "azul eléctrico": ("#e0f0ff", "#0077ff"),
-        "azul petroleo": ("#e0f2f3", "#006b73"),
-        "azul petróleo": ("#e0f2f3", "#006b73"),
-        "bamboo": ("#f3ead6", "#c8aa6e"),
-        "black": ("#ececec", "#1a1a1a"),
-        "blanco": ("#f6f8fa", "#ffffff"),
-        "brillante": ("#eef4fa", "#c8d2dc"),
-        "celeste": ("#e7f7ff", "#43a5e8"),
-        "champagne": ("#fff3df", "#e7cfa1"),
-        "crema": ("#fff9e8", "#f4e7c3"),
-        "cyan": ("#ddfbff", "#00a9c7"),
-        "dorado": ("#fff4cc", "#d4af37"),
-        "fucsia": ("#ffe1f1", "#ff1493"),
-        "fuchsia": ("#ffe1f1", "#ff1493"),
-        "gris": ("#f0f3f6", "#8d98a5"),
-        "gris gun": ("#e9edf1", "#606a75"),
-        "gun": ("#e9edf1", "#606a75"),
-        "kraft": ("#f2e5d5", "#b9895e"),
-        "lila": ("#f0e7ff", "#c8a2c8"),
-        "lila pastel": ("#f3edff", "#bfa7db"),
-        "magenta": ("#ffe0f5", "#d600a9"),
-        "manila": ("#fff4d0", "#e3c66b"),
-        "marron": ("#f3e8dd", "#795548"),
-        "marrón": ("#f3e8dd", "#795548"),
-        "mate": ("#e8eaed", "#6b7280"),
-        "morado": ("#f1e9ff", "#9b51e0"),
-        "naranja": ("#fff0df", "#f2994a"),
-        "naranja full": ("#ffe9d2", "#ff7a00"),
-        "natural": ("#f3eadc", "#cdb892"),
-        "negro": ("#edf0f3", "#343a40"),
-        "negro full": ("#e6e7e9", "#111111"),
-        "pavonado": ("#e4e8ec", "#56616d"),
-        "plateado": ("#f1f3f5", "#a7afb8"),
-        "plata": ("#f1f3f5", "#a7afb8"),
-        "silver": ("#f1f3f5", "#a7afb8"),
-        "rojo": ("#ffe8e8", "#eb5757"),
-        "rojo full": ("#ffdddd", "#ff1f1f"),
-        "rosado": ("#ffeaf4", "#e66aa8"),
-        "verde": ("#e7f6ea", "#4caf50"),
-        "verde claro": ("#eaf8e9", "#5cbd69"),
-        "verde oscuro": ("#e6f4ee", "#2f9e72"),
-        "verde oscuro full": ("#dff2e7", "#006b3c"),
-        "verde botella": ("#e1f0e7", "#176b45"),
-        "verde militar": ("#e9f0dc", "#66743a"),
-        "verde agua": ("#def8f3", "#4bbfae"),
-        "menta": ("#e0f8ed", "#4fba8a"),
-        "verde limon": ("#efffd9", "#a8d500"),
-        "verde limón": ("#efffd9", "#a8d500"),
-        "verde petroleo": ("#e0f2ee", "#006b5f"),
-        "verde petróleo": ("#e0f2ee", "#006b5f"),
-        "yellow": ("#fff5b8", "#f2d21b"),
-    }
+    STOCK_COLOR_STYLES: ClassVar[dict[str, tuple[str, str]]] = _STOCK_COLOR_STYLES
     MIN_COLUMN_WIDTHS: ClassVar[dict[int, int]] = {
         IMAGE_COLUMN: ProductImageDelegate.DEFAULT_SIZE,
         CODE_COLUMN: 72,
@@ -1799,6 +1651,10 @@ class ProductTable(QTableWidget):
 
     def _setup_header(self) -> None:
         self.setItemDelegate(ProductCellDelegate(self))
+        self.setItemDelegateForColumn(
+            self.CODE_COLUMN,
+            ProductCodeDelegate(self),
+        )
         header = ProductHeader(self)
         self.setHorizontalHeader(header)
         self.setItemDelegateForColumn(
@@ -2275,23 +2131,29 @@ class ProductTable(QTableWidget):
         self.setItem(row, self.CODE_COLUMN, item_code)
         self._set_text_item(row, self.NAME_COLUMN, product.name)
         rich_html = str(product.description_html or "").strip()
-        if rich_html and has_redundant_product_color_detail(product.description):
+        source_html_is_valid = bool(
+            rich_html
+            and detail_html_matches_text(rich_html, product.description)
+        )
+        if not source_html_is_valid:
             rich_html = ""
-        if rich_html and not detail_html_matches_text(rich_html, product.description):
-            rich_html = ""
+        # Keep table details in the established plain-text style. Rendering the
+        # stored HTML directly adds browser list markers and indentation that
+        # were not present in the catalog's previous table presentation.
         detail = (
-            str(product.description or "")
-            if rich_html
-            else self._format_detail(product)
+            self._format_detail(product)
+            if not rich_html or has_redundant_product_color_detail(product.description)
+            else str(product.description or "")
         )
         self._set_text_item(row, self.DETAIL_COLUMN, detail)
         detail_item = self.item(row, self.DETAIL_COLUMN)
         if detail_item is not None:
-            if rich_html:
-                detail_item.setData(
-                    ProductDetailDelegate.DETAIL_HTML_ROLE,
-                    rich_html,
-                )
+            detail_item.setData(
+                ProductDetailDelegate.SOURCE_BOLD_RANGES_ROLE,
+                detail_html_bold_ranges(rich_html, detail)
+                if rich_html and source_html_is_valid
+                else [],
+            )
             detail_item.setTextAlignment(
                 Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
             )
@@ -2635,6 +2497,12 @@ class ProductTable(QTableWidget):
             gallery = item.data(ProductImageDelegate.GALLERY_ROLE)
             if not isinstance(gallery, list) or not gallery:
                 continue
+            active_index = ProductImageDelegate._active_index(
+                gallery,
+                item.data(ProductImageDelegate.ACTIVE_INDEX_ROLE),
+            )
+            if active_index == 0:
+                continue
             item.setData(ProductImageDelegate.ACTIVE_INDEX_ROLE, 0)
             item.setData(ProductImageDelegate.THUMBNAIL_START_ROLE, 0)
             self._set_image_item_path(item, gallery, 0)
@@ -2747,15 +2615,7 @@ class ProductTable(QTableWidget):
             if cls._has_explicit_source_grouping(source_segment):
                 # Keep an unlisted leading field label. Rows containing a
                 # removable color field still pass through the shared policy.
-                source_labels = list(
-                    cls.DETAIL_FIELD_LABEL_PATTERN.finditer(source_segment)
-                )
-                has_color_field = any(
-                    match.group(1).strip().casefold()
-                    in {"color", "colores", "colores disponibles"}
-                    for match in source_labels
-                )
-                if has_color_field:
+                if has_redundant_product_color_detail(source_segment):
                     segment = normalize_detail_text(
                         source_segment,
                         preserve_boundaries=True,
@@ -2784,7 +2644,7 @@ class ProductTable(QTableWidget):
                 if part.strip():
                     lines.extend(cls._format_detail_segment(part, product))
 
-        return cls._format_nested_estuche_resaltador_measurements(
+        return cls._format_numbered_source_subfields(
             "\n".join(line for line in lines if line.strip()),
         )
 
@@ -2867,7 +2727,7 @@ class ProductTable(QTableWidget):
                 else len(segment)
             )
             alias = match.group(1).strip().casefold()
-            label = cls.DETAIL_FIELD_LABELS.get(alias) or match.group(1).strip()
+            label = match.group(1).strip()
             if index == 0 and combined_label_prefix:
                 label = f"{combined_label_prefix}{label}"
             value = segment[match.end() : next_start]
@@ -2892,116 +2752,143 @@ class ProductTable(QTableWidget):
         return lines
 
     @staticmethod
-    def _is_nested_packaging_value_label(
-        match: re.Match[str],
-        *,
-        inside_packaging_value: bool,
-        packaging_value_start: int,
-    ) -> bool:
-        """Keep unpunctuated package and box sublabels inside Empaque values."""
-        if not inside_packaging_value:
-            return False
-        if match.group(1).strip().casefold() not in {"caja", "paquete"}:
-            return False
-        prefix = match.string[packaging_value_start : match.start()].rstrip()
-        return re.search(r"[.;|]\s*$", prefix) is None
+    def _is_dimensional_value_shape(value: str) -> bool:
+        """Recognize a measurement from its value/unit shape, not its label."""
+        return bool(
+            re.search(
+                r"\d+(?:[.,]\d+)?\s*(?:(?:[x\u00d7*]\s*)+\d+(?:[.,]\d+)?\s*)?"
+                r"(?:mm|cm|m\b|in\b|pulg(?:adas?)?)",
+                value[:180],
+                re.IGNORECASE,
+            )
+        )
 
     @classmethod
     def _select_detail_field_matches(
         cls,
         matches: list[re.Match[str]],
     ) -> list[re.Match[str]]:
-        """Ignore removable color variants and nested measure sublabels."""
+        """Separate peer fields only at source boundaries; retain nested groups."""
         selected: list[re.Match[str]] = []
-        inside_measure_value = False
-        inside_packaging_value = False
-        packaging_value_start = 0
         for match in matches:
-            alias = match.group(1).strip().casefold()
-            if alias in {"área de impresión", "area de impresion"}:
-                prefix = match.string[: match.start()]
-                open_parenthesis = prefix.rfind("(")
-                close_parenthesis = prefix.rfind(")")
-                if open_parenthesis > close_parenthesis:
-                    has_parent_technique = any(
-                        previous.start() > close_parenthesis
-                        and previous.start() < match.start()
-                        and previous.group(1).strip().casefold()
-                        in {"técnica de impresión", "tecnica de impresion"}
-                        for previous in matches
-                    )
-                    if has_parent_technique:
-                        continue
-            if alias in {"empaque", "empaque individual"}:
-                inside_measure_value = False
-                inside_packaging_value = True
-                packaging_value_start = match.end()
-                selected.append(match)
-                continue
-            if cls._is_nested_packaging_value_label(
-                match,
-                inside_packaging_value=inside_packaging_value,
-                packaging_value_start=packaging_value_start,
-            ):
-                continue
-            inside_packaging_value = False
-            if alias == "contiene" and match.group(1).strip()[:1].islower():
-                # The lower-case verb in a source Description sentence is not
-                # a separately labelled field; real field labels use "Contiene".
-                continue
-            if alias in {"medida", "medidas"} | cls.DETAIL_PARENT_MEASURE_LABELS:
-                inside_measure_value = True
-                selected.append(match)
-                continue
+            prefix = match.string[: match.start()]
+            has_boundary = not prefix.strip(" \t.;|")
+            has_boundary = has_boundary or bool(re.search(r"[.;|]\s*$", prefix))
+            complete_measurement_group = (
+                len(cls.DETAIL_FIELD_LABEL_PATTERN.findall(prefix)) >= 4
+                and re.search(
+                    r"\b(?:mm|cm|m|kg|g|ml|l|w|v|hz)[ \t.]*$",
+                    prefix,
+                    re.IGNORECASE,
+                )
+            )
             if (
-                inside_measure_value
-                and alias in cls.DETAIL_NESTED_MEASURE_LABELS
+                not has_boundary
+                and not complete_measurement_group
+                and not re.search(r"\b[A-Z]{2,}\s+$", prefix)
             ):
                 continue
-            inside_measure_value = False
+            if prefix.count("(") > prefix.count(")"):
+                continue
+
+            parent = selected[-1] if selected else None
+            if parent is not None:
+                parent_value_prefix = match.string[parent.end() : match.start()]
+                latest_source_segment = re.split(
+                    r"[.;|\n]\s*",
+                    parent_value_prefix,
+                )[-1]
+                nested_source_label = re.match(
+                    r"^\s*[^:\n]{1,80}:\s*",
+                    latest_source_segment.lstrip(),
+                )
+                completed_nested_group = (
+                    len(cls.DETAIL_FIELD_LABEL_PATTERN.findall(parent_value_prefix))
+                    >= 1
+                    and re.search(
+                        r"\b(?:mm|cm|m|kg|g|ml|l|w|v|hz)[ \t.]*$",
+                        parent_value_prefix.rstrip(),
+                        re.IGNORECASE,
+                    )
+                )
+                following_value_is_measurement = re.match(
+                    r"\s*\d+(?:[.,]\d+)?\s*"
+                    r"(?:mm|cm|m|kg|g|ml|l|w|v|hz)\b",
+                    match.string[match.end() :],
+                    re.IGNORECASE,
+                )
+                abbreviated_measurement_child = bool(
+                    cls.DETAIL_FIELD_LABEL_PATTERN.search(parent_value_prefix)
+                    and re.search(r"\b[A-Z][a-z]{0,2}\.\s*$", prefix)
+                )
+                continues_measurement_group = bool(
+                    following_value_is_measurement
+                    and (completed_nested_group or abbreviated_measurement_child)
+                )
+                if continues_measurement_group:
+                    continue
+                if nested_source_label and not completed_nested_group:
+                    continue
+
+                numbered_suffix = re.search(r"\b\d+\s*\.\s*$", prefix)
+                numbered_pattern = re.compile(
+                    r"(?<![\w-])\d+\s*\.\s*"
+                    r"[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:\s*"
+                )
+                group_source = match.string[parent.start() :]
+                numbered_items = list(numbered_pattern.finditer(group_source))
+                nested_numbered_items = 0
+                for item_index, item in enumerate(numbered_items):
+                    content_end = (
+                        numbered_items[item_index + 1].start()
+                        if item_index + 1 < len(numbered_items)
+                        else len(group_source)
+                    )
+                    item_content = group_source[item.end() : content_end]
+                    if re.search(
+                        r"[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:\s*",
+                        item_content,
+                    ):
+                        nested_numbered_items += 1
+                numbered_child = bool(
+                    numbered_suffix
+                    and nested_numbered_items > 1
+                )
+                if numbered_child:
+                    continue
+
             selected.append(match)
         return selected
 
     @staticmethod
-    def _format_nested_estuche_resaltador_measurements(text: str) -> str:
-        """Split numbered estuche/resaltador measurements independent of SKU."""
+    def _format_numbered_source_subfields(text: str) -> str:
+        """Split later numbered subfields without knowing their label names."""
         formatted_lines: list[str] = []
-        for line in text.splitlines():
-            separator = re.search(
-                r"\s+(?=2\s*\.\s*Resaltador\s*:)",
-                line,
-                re.IGNORECASE,
+        numbered_label = re.compile(
+            r"\s+(?=\d+\s*\.\s*[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:)"
+        )
+        for original_line in text.splitlines():
+            line = re.sub(
+                r"(?<!\w)(\d+)\s*\.\s*(?=[A-ZÁÉÍÓÚÜÑ][^:\n]{0,60}:)",
+                r"\1. ",
+                original_line,
             )
-            if separator is None:
+            markers = list(numbered_label.finditer(line))
+            # The first ordinal begins the parent value; only later ordinals
+            # introduce a sibling sub-block in the same paragraph.
+            starts = [match.start() for match in markers[1:]]
+            if not starts:
                 formatted_lines.append(line)
                 continue
-
-            estuche_source = line[: separator.start()].rstrip()
-            resaltador_source = line[separator.start():].strip()
-            if not re.search(
-                r"\b1\s*\.\s*Estuche\s*:",
-                estuche_source,
-                re.IGNORECASE,
-            ):
-                formatted_lines.append(line)
-                continue
-
-            estuche = re.sub(
-                r"\b1\s*\.\s*Estuche\s*:",
-                "1. Estuche:",
-                estuche_source,
-                flags=re.IGNORECASE,
-            )
-            resaltador = re.sub(
-                r"^2\s*\.\s*Resaltador\s*:",
-                "2. Resaltador:",
-                resaltador_source,
-                flags=re.IGNORECASE,
-            )
-            if estuche:
-                formatted_lines.append(estuche)
-            if resaltador:
-                formatted_lines.append(resaltador)
+            previous = 0
+            for split_at in starts:
+                part = line[previous:split_at].strip()
+                if part:
+                    formatted_lines.append(part)
+                previous = split_at
+            tail = line[previous:].strip()
+            if tail:
+                formatted_lines.append(tail)
         return "\n".join(formatted_lines)
 
     @classmethod
@@ -3014,7 +2901,7 @@ class ProductTable(QTableWidget):
     ) -> str | None:
         """Keep empty Caja visible while skipping other empty or duplicate fields."""
         if not value:
-            return f"{label}:" if alias == "caja" else None
+            return f"{label}:"
         if cls._detail_field_duplicates_row(label, value, product):
             return None
         return f"{label}: {value}".rstrip(" .")
@@ -3116,7 +3003,9 @@ class ProductTable(QTableWidget):
     def _stock_color_style(cls, color: str) -> tuple[str, str]:
         """Devuelve fondo e indicador para el color comercial recibido."""
         normalized = " ".join(color.strip().casefold().split())
-        style = cls.STOCK_COLOR_STYLES.get(normalized)
+        style = known_stock_color_style(normalized)
+        if style is None:
+            style = cls.STOCK_COLOR_STYLES.get(normalized)
         if style is not None:
             return style
 
@@ -3168,6 +3057,18 @@ class ProductTable(QTableWidget):
         """Fit the row to its tallest cell content without extra vertical gaps."""
 
         content_height = 0
+        code_item = self.item(row, self.CODE_COLUMN)
+        if code_item is not None:
+            code_height = ProductCodeDelegate._wrapped_height(
+                code_item.text(),
+                self.font(),
+                max(
+                    self.columnWidth(self.CODE_COLUMN)
+                    - (2 * ProductCodeDelegate.HORIZONTAL_PADDING),
+                    1,
+                ),
+            ) + (2 * ProductCodeDelegate.VERTICAL_PADDING)
+            content_height = max(content_height, code_height)
         image_item = self.item(row, self.IMAGE_COLUMN)
         if image_item is not None:
             gallery = image_item.data(ProductImageDelegate.GALLERY_ROLE)
@@ -3236,6 +3137,9 @@ class ProductTable(QTableWidget):
                     detail_item.text(),
                     self.font(),
                     detail_width,
+                    ProductDetailDelegate._source_bold_ranges(
+                        self.model().index(row, self.DETAIL_COLUMN),
+                    ),
                 )
             )
             detail_height = (

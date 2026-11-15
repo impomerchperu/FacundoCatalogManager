@@ -1,3 +1,5 @@
+import json
+
 from models.scraping.category import Category
 from scrapers.collectors.product_collection_scraper import (
     ProductCollectionScraper,
@@ -6,6 +8,7 @@ from scrapers.extractors.category_product_extractor import (
     CategoryProductExtractor,
 )
 from scrapers.extractors.product_extractor import ProductExtractor
+from services.stock_color_palette import StockColorPaletteSyncService
 
 
 class FakeCategoryScraper:
@@ -59,6 +62,37 @@ def test_collection_scraper_preserves_total_stock_when_detail_has_only_color_nam
     assert len(products) == 1
     assert products[0].color_stock == {}
     assert products[0].stock == 14588
+
+
+def test_collection_scraper_records_published_swatch_css_from_fetched_page(tmp_path):
+    class CategoryScraper:
+        def get_category_pages(self, url, expected_count=0):
+            del expected_count
+            return [url]
+
+        def get_html(self, url):
+            return """
+            <div class="variaciones-producto tooltip-ui" title="Trigo"
+                 style="background-color: #FFECCE"></div>
+            """
+
+    palette_path = tmp_path / "stock_color_palette.json"
+    palette_sync = StockColorPaletteSyncService(palette_path)
+    scraper = ProductCollectionScraper(
+        CategoryScraper(),
+        card_extractor=lambda _soup: [],
+        product_extractor=CategoryProductExtractor(),
+        color_palette_sync=palette_sync,
+    )
+    scraper.begin_scraping_run()
+
+    assert scraper.collect_category(
+        Category(name="Test", url="https://example.test/category/"),
+    ) == []
+    assert scraper.finish_scraping_run() == 1
+    assert json.loads(palette_path.read_text(encoding="utf-8")) == {
+        "Trigo": "#ffecce",
+    }
 
 
 class FakeSpanishColorCategoryScraper:

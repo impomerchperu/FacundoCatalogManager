@@ -26,11 +26,26 @@ from gui.product_table import (
     StockColorDelegate,
 )
 from models.product import Product
-from services.stock_color_palette import STOCK_COLOR_STYLES
+from services.stock_color_palette import (
+    FALLBACK_STOCK_COLOR_STYLES,
+    STOCK_COLOR_STYLES,
+)
 
 
 def _qapp():
     return QApplication.instance() or QApplication([])
+
+
+def _use_fallback_stock_colors(monkeypatch):
+    monkeypatch.setattr(
+        "gui.product_table.known_stock_color_style",
+        lambda _color: None,
+    )
+    monkeypatch.setattr(
+        ProductTable,
+        "STOCK_COLOR_STYLES",
+        FALLBACK_STOCK_COLOR_STYLES,
+    )
 
 
 class _Controller:
@@ -976,7 +991,9 @@ def test_product_table_stock_color_rows_keep_reduced_horizontal_inset():
     assert indicator == "#007c0c"
 
 
-def test_product_table_stock_color_catalog_covers_all_site_variants():
+def test_product_table_stock_color_catalog_covers_all_site_variants(monkeypatch):
+    _use_fallback_stock_colors(monkeypatch)
+
     expected = {
         "Amarillo": "#ffff00",
         "Amarillo Flurecente": "#efff00",
@@ -1027,7 +1044,9 @@ def test_product_table_stock_color_catalog_covers_all_site_variants():
         assert actual == indicator
 
 
-def test_product_table_stock_color_variants_normalize_common_aliases():
+def test_product_table_stock_color_variants_normalize_common_aliases(monkeypatch):
+    _use_fallback_stock_colors(monkeypatch)
+
     expected_aliases = {
         "amarillo fluorescente": "amarillo flurecente",
         "amarillo neon": "amarillo fluorescente",
@@ -1047,7 +1066,11 @@ def test_product_table_stock_color_variants_normalize_common_aliases():
         assert alias_indicator == reference_indicator
 
 
-def test_product_table_stock_color_catalog_covers_material_and_finish_names():
+def test_product_table_stock_color_catalog_covers_material_and_finish_names(
+    monkeypatch,
+):
+    _use_fallback_stock_colors(monkeypatch)
+
     expected = {
         "Transparente": "#e5e5e5",
         "Acero inoxidable": "#dddddd",

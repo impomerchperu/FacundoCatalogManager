@@ -189,3 +189,7 @@ tests/__pycache__/
 # instaladores generados
 installer/
 release/
+
+# Evidencia local de revision; la app y las auditorias la conservan en disco.
+/image_review_observed/
+/reports/detail-repair/

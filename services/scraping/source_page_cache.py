@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
@@ -154,12 +154,29 @@ class PersistentSourcePageRepository:
             status_code=int(getattr(response, "status_code", 200) or 200),
         )
 
-    def save_entry(self, entry: CachedSourcePage) -> None:
-        """Persist an entry in a short transaction owned by this repository."""
-        compressed = zlib.compress(entry.html.encode("utf-8"), level=6)
+    def save_entries(self, entries: Iterable[CachedSourcePage]) -> None:
+        """Persist entries together in one short SQLite transaction."""
+        rows = [
+            (
+                entry.normalized_url,
+                entry.original_url,
+                entry.effective_url,
+                sqlite3.Binary(zlib.compress(entry.html.encode("utf-8"), level=6)),
+                entry.content_sha256,
+                entry.etag,
+                entry.last_modified,
+                entry.fetched_at,
+                entry.checked_at,
+                entry.status_code,
+            )
+            for entry in entries
+        ]
+        if not rows:
+            return
+
         connection = self._connect()
         try:
-            connection.execute(
+            connection.executemany(
                 """
                 INSERT INTO source_page_cache (
                     normalized_url, original_url, effective_url, html_zlib,
@@ -177,22 +194,15 @@ class PersistentSourcePageRepository:
                     checked_at=excluded.checked_at,
                     status_code=excluded.status_code
                 """,
-                (
-                    entry.normalized_url,
-                    entry.original_url,
-                    entry.effective_url,
-                    sqlite3.Binary(compressed),
-                    entry.content_sha256,
-                    entry.etag,
-                    entry.last_modified,
-                    entry.fetched_at,
-                    entry.checked_at,
-                    entry.status_code,
-                ),
+                rows,
             )
             connection.commit()
         finally:
             connection.close()
+
+    def save_entry(self, entry: CachedSourcePage) -> None:
+        """Persist one entry through the same transaction path as a batch."""
+        self.save_entries((entry,))
 
     def store(self, url: str, html: str, response: Any) -> CachedSourcePage:
         entry = self.make_entry(url, html, response)
@@ -270,17 +280,15 @@ class PersistentSourcePageCache:
         with self._pending_lock:
             pending = list(self._pending_entries.values())
             self._pending_entries.clear()
-        for index, entry in enumerate(pending):
-            try:
-                self.repository.save_entry(entry)
-            except Exception:
-                with self._pending_lock:
-                    for remaining in pending[index:]:
-                        self._pending_entries.setdefault(
-                            remaining.normalized_url,
-                            remaining,
-                        )
-                raise
+        if not pending:
+            return 0
+        try:
+            self.repository.save_entries(pending)
+        except Exception:
+            with self._pending_lock:
+                for entry in pending:
+                    self._pending_entries.setdefault(entry.normalized_url, entry)
+            raise
         return len(pending)
 
     @staticmethod

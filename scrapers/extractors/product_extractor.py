@@ -1084,6 +1084,15 @@ class ProductExtractor:
             base_url=base_url or self.BASE_URL,
         )
 
+    def extract_gallery_candidates(self, soup, *, base_url=""):
+        """Extract image candidates without running unrelated product extractors."""
+        return ProductImageExtractor.extract_candidates(
+            soup,
+            code=self.extract_code(soup),
+            name=self.extract_name(soup),
+            base_url=base_url or self.BASE_URL,
+        )
+
     def _normalize_image_url(self, url):
         return ProductImageExtractor._normalize_url(
             url,

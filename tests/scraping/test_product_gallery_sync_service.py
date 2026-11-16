@@ -135,6 +135,155 @@ def test_product_gallery_sync_downloads_new_gallery_images(
     )
 
 
+def test_gallery_sync_does_not_rescan_canonical_sibling_images(
+    monkeypatch,
+    tmp_path,
+):
+    import scrapers.images.product_image_storage as storage_module
+    import services.scraping.product_gallery_sync_service as module
+
+    monkeypatch.setattr(
+        module,
+        "resolve_data_path",
+        lambda value: (
+            Path(value)
+            if Path(value).is_absolute()
+            else tmp_path / value
+        ),
+    )
+    monkeypatch.setattr(module, "IMAGE_PRODUCTS_DIR", Path("data/images/products"))
+
+    def fail_if_scanned(*args, **kwargs):
+        raise AssertionError("Canonical gallery paths must not rescan siblings.")
+
+    monkeypatch.setattr(
+        storage_module,
+        "_find_matching_image",
+        fail_if_scanned,
+    )
+
+    def fail_if_rehashed(*args, **kwargs):
+        raise AssertionError("A verified gallery image must reuse its SHA-256.")
+
+    monkeypatch.setattr(module.ImageDownloader, "hash_file", fail_if_rehashed)
+
+    code = "FB-8111"
+    primary_url = "https://site.test/fb-8111-main.webp"
+    side_url = "https://site.test/fb-8111-side.webp"
+    product_dir = tmp_path / "data" / "images" / "products" / code
+    product_dir.mkdir(parents=True)
+    primary_path = product_dir / f"{code}-01.webp"
+    side_path = product_dir / f"{code}-02.webp"
+    primary_path.write_bytes(image_bytes("WEBP", (20, 30, 40)))
+    side_path.write_bytes(image_bytes("WEBP", (50, 60, 70)))
+
+    existing = Product(
+        code=code,
+        name="Producto con galería",
+        image_url=primary_url,
+        image_path=f"data/images/products/{code}/{code}-01.webp",
+        gallery_images=[
+            {
+                "url": primary_url,
+                "image_path": f"data/images/products/{code}/{code}-01.webp",
+                "image_hash": "primary-hash",
+                "position": 1,
+            },
+            {
+                "url": side_url,
+                "image_path": f"data/images/products/{code}/{code}-02.webp",
+                "image_hash": "side-hash",
+                "position": 2,
+            },
+        ],
+    )
+    product = ScrapedProduct(
+        code=code,
+        name="Producto con galería",
+        url=f"https://site.test/producto/{code.casefold()}/",
+        image_url=primary_url,
+        image_path=f"data/images/products/{code}/{code}-01.webp",
+    )
+    product.image_candidates = [
+        {**_candidate(primary_url, 1), "gallery_container": True},
+        {**_candidate(side_url, 2), "gallery_container": True},
+    ]
+    product.image_candidates_source = "detail"
+
+    service = ProductGallerySyncService(
+        browser=object(),
+        product_extractor=object(),
+        image_downloader=object(),
+        review_service=FakeReviewService(FakeRepository([existing])),
+        refresh_existing=True,
+    )
+
+    synced = service.sync_products([product])[0]
+
+    assert [image["url"] for image in synced.gallery_images] == [
+        primary_url,
+        side_url,
+    ]
+    assert Path(synced.gallery_images[0]["image_path"]).name == primary_path.name
+    assert Path(synced.gallery_images[1]["image_path"]).name == side_path.name
+    assert all(image.get("image_hash") for image in synced.gallery_images)
+
+    fallback_product = ScrapedProduct(
+        code=code,
+        name="Producto con galería",
+        image_url=primary_url,
+    )
+    normalized_gallery = service._canonicalize_existing_gallery(
+        fallback_product,
+        existing.gallery_images,
+        primary_path,
+        tmp_path / "data" / "images" / "products",
+    )
+    assert [image["url"] for image in normalized_gallery] == [
+        primary_url,
+        side_url,
+    ]
+    assert all(image.get("image_hash") for image in normalized_gallery)
+
+
+def test_gallery_sync_uses_image_only_extraction_for_regular_detail_pages():
+    candidate = {
+        **_candidate("https://site.test/uploads/FB-8120-main.webp", 1),
+        "gallery_container": True,
+    }
+
+    class Browser:
+        def get(self, url):
+            assert url == "https://site.test/producto/fb-8120/"
+            return "<html><body>cached product page</body></html>"
+
+    class Extractor:
+        def extract_gallery_candidates(self, soup, *, base_url):
+            assert base_url == "https://site.test/producto/fb-8120/"
+            assert soup.get_text(strip=True) == "cached product page"
+            return [candidate]
+
+        def extract(self, *args, **kwargs):
+            raise AssertionError(
+                "Gallery refresh should not run unrelated product extraction."
+            )
+
+    product = ScrapedProduct(
+        code="FB-8120",
+        name="Producto FB-8120",
+        url="https://site.test/producto/fb-8120/",
+        image_url="https://site.test/uploads/FB-8120-main.webp",
+    )
+    service = ProductGallerySyncService(
+        browser=Browser(),
+        product_extractor=Extractor(),
+        image_downloader=object(),
+        refresh_existing=True,
+    )
+
+    assert service._candidate_source(product, None) == [candidate]
+
+
 def test_primary_image_is_reused_and_all_gallery_files_share_product_folder(
     monkeypatch,
     tmp_path,

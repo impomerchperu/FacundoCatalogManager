@@ -33,8 +33,12 @@ La configuración de concurrencia consolidada en `main` es:
 - JetSmartFilters HTTP: `8` de concurrencia.
 - JetSmartFilters page workers: `2`.
 - Sincronización de imágenes: `16` workers.
+- Páginas de galería: `12` workers; en 16 fichas reales, 12 promedió 5,88 s frente a 7,46 s con 8 y 6,09 s con 16, con los 16 códigos y 17 candidatos de galería conservados, sin errores ni reintentos.
+- Archivos de galería ya canónicos: se omite el escaneo repetido de imágenes hermanas; en 64 productos/112 referencias, a 12 workers bajó de 3,90 s a 0,81 s y conservó todos los hashes.
+- Extracción de imágenes desde páginas de detalle: en 518 páginas cacheadas, el extractor específico mantuvo los mismos candidatos que el extractor completo (0 diferencias) y bajó ese componente de 28,15 s a 1,35 s.
+- Validación de imágenes durante una corrida: reutiliza verificaciones por archivo sin conservar resultados entre corridas. En la BD local, 518 productos y 1.050 archivos válidos, la normalización de catálogo bajó de 26,04 s a 2,10 s; no cambió productos en memoria ni archivos.
 
-El valor de 24 workers de detalle se seleccionó tras benchmarks controlados en el sitio real. Los ensayos de categorías no demostraron una mejora reproducible al bajar de 12 a 8 workers; por eso se conserva `12 / 24 / 28`. La corrida FULL del 15/11 completó la recolección en 525 segundos y la limpieza de imágenes en 4 segundos.
+El valor de 24 workers de detalle se seleccionó tras benchmarks controlados en el sitio real. Los ensayos de categorías no demostraron una mejora reproducible al bajar de 12 a 8 workers; por eso se conserva `12 / 24 / 28`. La corrida FULL previa al último conjunto de optimizaciones, historial `256`, tardó 168,82 s. Con el diff actual, la FULL `257` terminó en 118,68 s: **50,14 s menos (29,7 %)**, con 24 categorías, 521 apariciones, 518 productos únicos, cobertura completa, cero errores y 518 productos sin cambios. `gallery_sync` bajó de 54,88 s a 13,43 s y `catalog_sync` de 26,63 s a 2,68 s. El mayor trabajo pendiente es la latencia variable del sitio: en #257 hubo 35 solicitudes HTTP, 14 duraron al menos 10 s y la más lenta tardó 21,17 s; no se aumenta la concurrencia de categorías sin un benchmark controlado que demuestre una mejora estable.
 
 ## Stock por color
 

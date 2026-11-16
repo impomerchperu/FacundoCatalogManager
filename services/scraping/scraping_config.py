@@ -50,8 +50,9 @@ class ScrapingConfig:
 
     image_workers: int = SCRAPING_IMAGE_WORKERS
 
-    # Gallery work is bounded separately so image review stays responsive.
-    gallery_workers: int = 4
+    # On a 16-page live sample, 12 workers averaged 5.88s vs 7.46s at 8 and
+    # 6.09s at 16, with 16/16 codes, unchanged gallery candidates, and no errors.
+    gallery_workers: int = 12
 
     gallery_max_candidates: int = 6
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from re import IGNORECASE
@@ -62,6 +64,26 @@ def _url_family(url: str) -> tuple[tuple[str, str, str] | None, bool]:
         stem.casefold(),
     )
     return family, has_variant_suffix
+
+
+def urls_requiring_visual_fingerprint(urls: Iterable[str]) -> set[str]:
+    """Select URLs that can participate in a CMS-generated size comparison."""
+    urls_by_family: dict[
+        tuple[str, str, str],
+        list[tuple[str, bool]],
+    ] = defaultdict(list)
+    for raw_url in urls:
+        url = str(raw_url or "").strip()
+        family, has_variant_suffix = _url_family(url)
+        if family is not None:
+            urls_by_family[family].append((url.casefold(), has_variant_suffix))
+
+    return {
+        url
+        for family_urls in urls_by_family.values()
+        if len(family_urls) > 1 and any(has_variant for _, has_variant in family_urls)
+        for url, _ in family_urls
+    }
 
 
 def build_visual_fingerprint(

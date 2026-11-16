@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw
 from scrapers.images.visual_duplicate_detector import (
     build_visual_fingerprint,
     is_generated_resolution_duplicate,
+    urls_requiring_visual_fingerprint,
 )
 
 
@@ -116,3 +117,15 @@ def test_missing_or_unreadable_image_fails_open(tmp_path: Path):
 
     assert missing is None
     assert not is_generated_resolution_duplicate(missing, None)
+
+
+def test_only_fingerprints_url_families_with_possible_generated_variants():
+    primary = "https://site.test/uploads/product.webp"
+    scaled = "https://site.test/uploads/product-scaled.webp"
+    unrelated = "https://site.test/uploads/other.webp"
+
+    assert urls_requiring_visual_fingerprint([primary, scaled, unrelated]) == {
+        primary.casefold(),
+        scaled.casefold(),
+    }
+    assert urls_requiring_visual_fingerprint([primary, unrelated]) == set()

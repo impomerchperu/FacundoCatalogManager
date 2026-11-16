@@ -3,6 +3,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from models.scraping.scraping_history import ScrapingHistory
+from scrapers.images.image_validation import (
+    begin_image_verification_cache,
+    clear_image_verification_cache,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -86,6 +90,7 @@ class ScrapingSession:
         db = getattr(self.history_repository, "db", None)
         transaction_started = False
         try:
+            begin_image_verification_cache()
             self._begin_image_review_batch()
             if db is not None:
                 db.begin()
@@ -136,7 +141,10 @@ class ScrapingSession:
                     f"No se pudo registrar el historial del error: {history_error}"
                 )
         finally:
-            self._flush_source_page_cache()
+            try:
+                self._flush_source_page_cache()
+            finally:
+                clear_image_verification_cache()
         return self.result
 
     def _flush_source_page_cache(self) -> None:

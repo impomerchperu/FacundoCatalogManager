@@ -20,6 +20,7 @@ from scrapers.images.visual_duplicate_detector import (
     VisualImageFingerprint,
     build_visual_fingerprint,
     is_generated_resolution_duplicate,
+    urls_requiring_visual_fingerprint,
 )
 
 
@@ -184,6 +185,11 @@ class ProductGallerySyncService:
             )
             return product
 
+        visual_fingerprint_urls = urls_requiring_visual_fingerprint(
+            str(candidate.get("url", "") or "")
+            for candidate in normalized
+        )
+
         existing_by_url = {
             str(item.get("url", "") or "").strip().casefold(): item
             for item in existing_gallery
@@ -217,8 +223,10 @@ class ProductGallerySyncService:
                     url,
                 )
                 path = None
+                image_hash = ""
                 if is_primary and primary_path is not None and primary_path.is_file():
                     path = primary_path
+                    image_hash = str(getattr(product, "image_hash", "") or "")
                 elif isinstance(existing_item, dict) and not recovery_hash:
                     raw_path = str(
                         existing_item.get(
@@ -230,11 +238,12 @@ class ProductGallerySyncService:
                     if raw_path:
                         candidate_path = resolve_data_path(raw_path)
                         if candidate_path.is_file():
-                            stored_path, _ = store_image_in_product_group(
+                            stored_path, image_hash = store_image_in_product_group(
                                 product.code,
                                 candidate_path,
                                 len(gallery_images) + 1,
                                 root=products_root,
+                                deduplicate_in_group=False,
                             )
                             if stored_path:
                                 path = resolve_data_path(stored_path)
@@ -259,9 +268,10 @@ class ProductGallerySyncService:
                                 # was visually approved. Preserve the prior gallery.
                                 gallery_complete = False
                                 continue
-                            staged_fingerprint = build_visual_fingerprint(
-                                downloaded_path,
-                                url,
+                            staged_fingerprint = (
+                                build_visual_fingerprint(downloaded_path, url)
+                                if key in visual_fingerprint_urls
+                                else None
                             )
                             duplicate_index = next(
                                 (
@@ -287,7 +297,7 @@ class ProductGallerySyncService:
                                     # removed by the finally block below.
                                     continue
 
-                            stored_path, _ = store_image_in_product_group(
+                            stored_path, image_hash = store_image_in_product_group(
                                 product.code,
                                 downloaded_path,
                                 len(gallery_images) + 1,
@@ -307,7 +317,11 @@ class ProductGallerySyncService:
                     gallery_complete = False
                     continue
 
-                image_hash = ImageDownloader.hash_file(path)
+                # Every path above was verified by the canonical storage helper
+                # or by primary-image canonicalization. Reuse its digest instead
+                # of reading the same image bytes a second time.
+                if not image_hash:
+                    image_hash = ImageDownloader.hash_file(path)
                 if image_hash and image_hash in seen_hashes:
                     continue
 
@@ -325,7 +339,11 @@ class ProductGallerySyncService:
                         else str(candidate.get("source", "woocommerce-gallery") or "woocommerce-gallery")
                     ),
                 }
-                fingerprint = build_visual_fingerprint(path, url)
+                fingerprint = (
+                    build_visual_fingerprint(path, url)
+                    if key in visual_fingerprint_urls
+                    else None
+                )
                 duplicate_index = next(
                     (
                         index
@@ -490,6 +508,7 @@ class ProductGallerySyncService:
                 source,
                 1,
                 root=products_root,
+                deduplicate_in_group=False,
             )
             if stored_path:
                 product.image_path = stored_path
@@ -517,7 +536,6 @@ class ProductGallerySyncService:
                 {
                     "url": primary_url,
                     "image_path": str(primary_path),
-                    "image_hash": ImageDownloader.hash_file(primary_path),
                     "position": 1,
                     "source": "primary",
                 },
@@ -535,6 +553,7 @@ class ProductGallerySyncService:
                 path,
                 len(results) + 1,
                 root=products_root,
+                deduplicate_in_group=False,
             )
             if not stored_path:
                 continue
@@ -721,14 +740,25 @@ class ProductGallerySyncService:
                 return [] if existing_gallery else candidate_gallery
 
             soup = BeautifulSoup(html, "lxml")
-            detailed = self.product_extractor.extract(
-                soup,
-                url=detail_url,
-                category=str(getattr(product, "category", "") or ""),
+            gallery_extractor = getattr(
+                self.product_extractor,
+                "extract_gallery_candidates",
+                None,
             )
-            page_candidates = list(
-                getattr(detailed, "image_candidates", []) or []
-            )
+            if callable(gallery_extractor) and not force_live_revalidation:
+                page_candidates = cast(
+                    list[Any],
+                    gallery_extractor(soup, base_url=detail_url) or [],
+                )
+            else:
+                detailed = self.product_extractor.extract(
+                    soup,
+                    url=detail_url,
+                    category=str(getattr(product, "category", "") or ""),
+                )
+                page_candidates = list(
+                    getattr(detailed, "image_candidates", []) or []
+                )
             page_gallery = [
                 candidate
                 for candidate in page_candidates

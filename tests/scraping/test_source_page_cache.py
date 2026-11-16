@@ -191,6 +191,93 @@ def test_deferred_cache_writes_do_not_conflict_with_catalog_transaction(tmp_path
             catalog_connection.rollback()
         catalog_connection.close()
 
+
+def test_deferred_cache_flush_persists_all_pages_in_one_batch(tmp_path, monkeypatch):
+    repository = PersistentSourcePageRepository(tmp_path / "catalog.db")
+    cache = PersistentSourcePageCache(repository, defer_writes=True)
+    urls = [
+        "https://example.test/producto/first/",
+        "https://example.test/producto/second/",
+        "https://example.test/producto/third/",
+    ]
+
+    for index, url in enumerate(urls):
+        html = f"<html>producto {index}</html>"
+        assert cache.get_html(
+            url,
+            lambda headers, html=html, url=url: FakeResponse(html, url=url),
+        ) == html
+
+    original_save_entries = repository.save_entries
+    batch_sizes = []
+
+    def track_batch(entries):
+        entries = list(entries)
+        batch_sizes.append(len(entries))
+        original_save_entries(entries)
+
+    monkeypatch.setattr(repository, "save_entries", track_batch)
+
+    assert cache.flush_pending() == len(urls)
+    assert batch_sizes == [len(urls)]
+    assert [repository.get(url).html for url in urls] == [
+        "<html>producto 0</html>",
+        "<html>producto 1</html>",
+        "<html>producto 2</html>",
+    ]
+
+
+def test_deferred_cache_flush_requeues_batch_after_write_failure(tmp_path):
+    import sqlite3
+
+    repository = PersistentSourcePageRepository(tmp_path / "catalog.db")
+    cache = PersistentSourcePageCache(repository, defer_writes=True)
+    urls = [
+        "https://example.test/producto/first/",
+        "https://example.test/producto/second/",
+    ]
+
+    for index, url in enumerate(urls):
+        html = f"<html>producto {index}</html>"
+        cache.get_html(
+            url,
+            lambda headers, html=html, url=url: FakeResponse(html, url=url),
+        )
+
+    connection = repository._connect()
+    try:
+        connection.execute(
+            """
+            CREATE TRIGGER reject_second_source_page
+            BEFORE INSERT ON source_page_cache
+            WHEN NEW.normalized_url LIKE '%/second/'
+            BEGIN
+                SELECT RAISE(ABORT, 'fallo temporal de persistencia');
+            END
+            """
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with pytest.raises(sqlite3.IntegrityError, match="fallo temporal"):
+        cache.flush_pending()
+
+    # The insert before the trigger was part of the same transaction and rolled
+    # back; both entries remain queued for a safe retry.
+    assert all(repository.get(url) is None for url in urls)
+
+    connection = repository._connect()
+    try:
+        connection.execute("DROP TRIGGER reject_second_source_page")
+        connection.commit()
+    finally:
+        connection.close()
+
+    assert cache.flush_pending() == len(urls)
+    assert all(repository.get(url) is not None for url in urls)
+
+
 def test_forced_revalidation_does_not_use_stale_html_after_request_failure(tmp_path):
     repository = PersistentSourcePageRepository(tmp_path / "catalog.db")
     cache = PersistentSourcePageCache(repository, ttl_seconds=3600)

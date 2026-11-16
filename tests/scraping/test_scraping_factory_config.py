@@ -80,6 +80,7 @@ def test_factory_passes_configured_image_folder_to_downloader(monkeypatch):
     class FakeImageSyncAdapter:
         def __init__(self, image_sync=None, **kwargs):
             captured["image_sync"] = image_sync
+            captured["adapter"] = self
 
     monkeypatch.setattr(factory_module, "DBManager", FakeDB)
     monkeypatch.setattr(factory_module, "Browser", FakeBrowser)
@@ -92,6 +93,7 @@ def test_factory_passes_configured_image_folder_to_downloader(monkeypatch):
         images_folder="data/custom-images",
         request_timeout=7,
         max_retries=4,
+        gallery_workers=9,
     )
 
     factory_module.ScrapingFactory.create_runner(config)
@@ -99,3 +101,4 @@ def test_factory_passes_configured_image_folder_to_downloader(monkeypatch):
     assert captured["output_dir"].as_posix() == "data/custom-images/products"
     assert captured["request_timeout"] == 7
     assert captured["max_retries"] == 4
+    assert captured["adapter"].gallery_sync.max_workers == 9

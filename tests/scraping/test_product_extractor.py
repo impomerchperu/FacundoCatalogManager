@@ -36,6 +36,38 @@ def test_product_extractor():
     assert result["description"] == "Material: ABS. Dimensiones: 10 x 5 cm."
 
 
+def test_extract_gallery_candidates_matches_full_detail_extraction():
+    html = """
+    <html>
+        <h1>Producto de prueba</h1>
+        <p class="brxe-heading">FB-9021</p>
+        <div class="woocommerce-product-gallery">
+            <a href="https://site.test/uploads/FB-9021-main.webp">
+                <img src="https://site.test/uploads/FB-9021-main.webp"
+                     alt="Producto principal">
+            </a>
+            <a href="https://site.test/uploads/FB-9021-side.webp">
+                <img src="https://site.test/uploads/FB-9021-side.webp"
+                     alt="Vista lateral">
+            </a>
+        </div>
+        <div class="woocommerce-product-details__short-description">
+            Material: ABS. Medida: 10 cm.
+        </div>
+    </html>
+    """
+    url = "https://site.test/producto/producto-de-prueba/"
+    extractor = ProductExtractor()
+
+    full = extractor.extract(BeautifulSoup(html, "lxml"), url=url)
+    gallery_only = extractor.extract_gallery_candidates(
+        BeautifulSoup(html, "lxml"),
+        base_url=url,
+    )
+
+    assert gallery_only == full.image_candidates
+
+
 def test_product_extractor_reads_fb4008_technical_summary_without_color_line():
     html = """
     <html>
